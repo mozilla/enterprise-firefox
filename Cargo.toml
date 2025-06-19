@@ -96,13 +96,6 @@ opt-level = 1
 [profile.release.build-override]
 opt-level = 1
 
-# optimizing glsl more makes a big difference in swgl build times
-[profile.dev.package.glsl]
-opt-level = 2
-
-[profile.release.package.glsl]
-opt-level = 2
-
 [patch.crates-io]
 # The build system doesn't want those to be used, but they are pulled anyways (because
 # dependencies can't be disabled based on features), but remain unused. We ensure they
