@@ -15,6 +15,7 @@
 #include "mozilla/FilePreferences.h"
 #include "mozilla/ChaosMode.h"
 #include "mozilla/CmdLineAndEnvUtils.h"
+#include "mozilla/GeckoArgs.h"
 #include "mozilla/IOInterposer.h"
 #include "mozilla/ipc/UtilityProcessChild.h"
 #include "mozilla/Likely.h"
@@ -44,6 +45,10 @@
 #include "mozilla/widget/TextRecognition.h"
 #include "BaseProfiler.h"
 #include "mozJSModuleLoader.h"
+
+#if defined(MOZ_WIDGET_FELT)
+#  include "mozilla/toolkit/library/felt_ffi.h"
+#endif
 
 #include "nsAppRunner.h"
 #include "mozilla/XREAppData.h"
@@ -5654,6 +5659,19 @@ nsresult XREMain::XRE_mainRun() {
       workingDir = nullptr;
     }
 
+#if defined(MOZ_WIDGET_FELT)
+    {
+      // Should we display the Felt UI?
+      auto feltUI = geckoargs::sFeltUI.IsPresent(gArgc, gArgv);
+      if (feltUI) {
+        // Ask for a dummy chrome so BrowserGlue.sys.mjs or
+        // BrowserContentHandler.sys.mjs do not attempt to open a window
+        gArgv[gArgc++] = strdup("--chrome");
+        gArgv[gArgc++] = strdup("chrome://extensions/content/dummy.xhtml");
+      }
+    }
+#endif
+
     cmdLine = new nsCommandLine();
 
     rv = cmdLine->Init(gArgc, gArgv, workingDir,
@@ -5889,6 +5907,22 @@ nsresult XREMain::XRE_mainRun() {
   }
 #endif
 
+#if defined(MOZ_WIDGET_FELT)
+  if (XRE_IsParentProcess()) {
+    // Should we display the Felt UI?
+    auto feltUI = geckoargs::sFeltUI.IsPresent(gArgc, gArgv);
+
+    // FELT IPC channel remainder
+    Maybe<const char*> felt = geckoargs::sFelt.Get(gArgc, gArgv, CheckArgFlag::None);
+
+    MOZ_RELEASE_ASSERT(!(feltUI && felt.isSome()),
+                       "Cannot have both -feltUI and -felt CLI args");
+    if (felt.isSome()) {
+      firefox_connect_to_felt(*felt);
+    }
+  }
+#endif
+
   {
     rv = appStartup->Run();
     if (NS_FAILED(rv)) {
@@ -6108,6 +6142,18 @@ int XREMain::XRE_main(int argc, char* argv[], const BootstrapConfig& aConfig) {
     }
     return NS_OK;
   });
+
+#if defined(MOZ_WIDGET_FELT)
+  // FELT IPC channel
+  Maybe<const char*> felt =
+      geckoargs::sFelt.Get(gArgc, gArgv, CheckArgFlag::None);
+  if (XRE_IsParentProcess()) {
+    if (felt.isSome()) {
+      // Deal with env_logger and all. Too early for CookieService
+      felt_init();
+    }
+  }
+#endif
 
   // startup
   result = XRE_mainStartup(&exit);
