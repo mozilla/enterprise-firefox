@@ -776,6 +776,23 @@ CookieService::AddForAddOn(const nsACString& aHost, const nsACString& aPath,
   return NS_OK;
 }
 
+NS_IMETHODIMP
+CookieService::AddNativeForFelt(
+    const nsACString& aHost, const nsACString& aPath, const nsACString& aName,
+    const nsACString& aValue, bool aIsSecure, bool aIsHttpOnly, bool aIsSession,
+    int64_t aExpiry, int32_t aSameSite, nsICookie::schemeType aSchemeMap,
+    bool aIsPartitioned) {
+  OriginAttributes attrs;
+
+  nsCOMPtr<nsICookieValidation> validation;
+  nsresult rv = AddInternal(nullptr, aHost, aPath, aName, aValue, aIsSecure,
+                            aIsHttpOnly, aIsSession, aExpiry, &attrs, aSameSite,
+                            aSchemeMap, aIsPartitioned, /* from-http: */
+                            true, nullptr, /* reject when invalid: */ true,
+                            getter_AddRefs(validation));
+  return rv;
+}
+
 NS_IMETHODIMP_(nsresult)
 CookieService::AddNative(nsIURI* aCookieURI, const nsACString& aHost,
                          const nsACString& aPath, const nsACString& aName,
