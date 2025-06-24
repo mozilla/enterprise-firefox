@@ -262,6 +262,11 @@ static CommandLineArg<UniqueFileHandle> sSignalPipe{"-signalPipe",
                                                     "signalpipe"};
 #endif
 
+#if defined(MOZ_WIDGET_FELT)
+static CommandLineArg<const char*> sFelt{"-felt", "felt"};
+static CommandLineArg<bool> sFeltUI{"-feltui", "feltui"};
+#endif
+
 #if defined(__GNUC__)
 #  pragma GCC diagnostic pop
 #endif
