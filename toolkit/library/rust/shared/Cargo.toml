@@ -42,6 +42,7 @@ bitsdownload = { path = "../../../components/bitsdownload", optional = true }
 storage = { path = "../../../../storage/rust" }
 bookmark_sync = { path = "../../../components/places/bookmark_sync", optional = true }
 buildid_reader_ffi = { path = "../../buildid_reader/ffi" }
+felt_ffi = { path = "../../felt/ffi", optional = true }
 chardetng_c = "0.1.1"
 audio_thread_priority = { version = "0.34", default-features = false }
 mdns_service = { path="../../../../dom/media/webrtc/transport/mdns_service", optional = true }
@@ -157,6 +158,7 @@ for_xul = [
     # `libmozsqlite` that we distribute.
     "rusqlite/in_gecko"
 ]
+felt = ["felt_ffi"]
 
 [lib]
 path = "lib.rs"
