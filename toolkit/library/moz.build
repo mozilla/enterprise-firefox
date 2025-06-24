@@ -143,6 +143,9 @@ DIRS += [
     "buildid_reader",
 ]
 
+if CONFIG["MOZ_WIDGET_FELT"]:
+    DIRS += ["felt"]
+
 TEST_DIRS += ["gtest"]
 
 # js needs to come after xul for now, because it is an archive and its content
@@ -392,6 +395,11 @@ if CONFIG["OS_ARCH"] == "WINNT":
         OS_LIBS += [
             "oleacc",
             "uiautomationcore",
+        ]
+
+    if CONFIG["MOZ_WIDGET_FELT"]:
+        OS_LIBS += [
+            "mincore",
         ]
 
     # Prevent winapi-rs from statically linking

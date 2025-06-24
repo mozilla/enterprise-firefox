@@ -1,0 +1,49 @@
+/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*-
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+#include "nsISupports.idl"
+#include "nsICookie.idl"
+
+[scriptable, uuid(53c53451-3b93-440c-b27b-9759ccb29da6)]
+interface nsIFelt : nsISupports {
+  [must_use]
+  void setConsoleAddr(in ACString addr);
+
+  [must_use]
+  ACString oneShotIpcServer();
+
+  [must_use]
+  ACString binPath();
+
+  [must_use]
+  boolean isFeltUI();
+
+  [must_use]
+  void setPrefsForFelt();
+
+  [must_use]
+  ACString getPrefs();
+
+  [must_use]
+  ACString getPolicies();
+
+  [must_use]
+  void ipcChannel();
+
+  [must_use]
+  void sendBoolPreference(in ACString name, in boolean value);
+
+  [must_use]
+  void sendStringPreference(in ACString name, in ACString value);
+
+  [must_use]
+  void sendCookies(in Array<nsICookie> cookies);
+
+  [must_use]
+  void sendReady();
+
+  [must_use]
+  void sendRestartForced();
+};

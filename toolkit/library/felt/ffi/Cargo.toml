@@ -1,0 +1,14 @@
+[package]
+name = "felt_ffi"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+path = "lib.rs"
+
+[dependencies]
+felt = { path = ".." }
+log = "0.4"
+env_logger = { version = "0.10", default-features = false }
+xpcom = { path = "../../../../xpcom/rust/xpcom" }
+nserror = { path = "../../../../xpcom/rust/nserror" }
