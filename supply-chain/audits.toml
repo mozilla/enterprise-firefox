@@ -1382,6 +1382,11 @@ here.
 """
 
 [[audits.cookie]]
+who = "Alexandre Lissy <lissyx+mozillians@lissyx.dyndns.org>"
+criteria = "safe-to-deploy"
+version = "0.16.2"
+
+[[audits.cookie]]
 who = "Mike Hommey <mh+mozilla@glandium.org>"
 criteria = "safe-to-run"
 delta = "0.16.0 -> 0.16.2"

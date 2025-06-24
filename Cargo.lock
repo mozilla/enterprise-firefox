@@ -1986,6 +1986,36 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e8c02a5121d4ea3eb16a80748c74f5549a5665e4c21333c6098f283870fbdea6"
 
 [[package]]
+name = "felt"
+version = "0.1.0"
+dependencies = [
+ "cookie",
+ "cstr",
+ "ipc-channel",
+ "log",
+ "minreq",
+ "moz_task",
+ "nserror",
+ "nsstring",
+ "serde",
+ "serde_json",
+ "thin-vec",
+ "time",
+ "xpcom",
+]
+
+[[package]]
+name = "felt_ffi"
+version = "0.1.0"
+dependencies = [
+ "env_logger",
+ "felt",
+ "log",
+ "nserror",
+ "xpcom",
+]
+
+[[package]]
 name = "ffi-support"
 version = "0.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2582,6 +2612,7 @@ dependencies = [
  "dom_fragmentdirectives",
  "encoding_glue",
  "etagere",
+ "felt_ffi",
  "fluent",
  "fluent-fallback",
  "fluent-ffi",
