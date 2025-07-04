@@ -57,6 +57,13 @@ export var AppConstants = Object.freeze({
   false,
 #endif
 
+  MOZ_WIDGET_FELT:
+#ifdef MOZ_WIDGET_FELT
+  true,
+#else
+  false,
+#endif
+
   MOZ_WMF_CDM: @MOZ_WMF_CDM_BOOL@,
 
   XP_UNIX:

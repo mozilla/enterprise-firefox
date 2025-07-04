@@ -20,6 +20,22 @@ imply_option("MOZ_DEVTOOLS", "all")
 imply_option("BROWSER_CHROME_URL", "chrome://browser/content/browser.xhtml")
 
 option(
+    "--enable-felt",
+    default=False,
+    help="Felt support",
+)
+
+
+@depends("--enable-felt")
+def enable_felt(value):
+    if value:
+        return True
+
+
+set_config("MOZ_WIDGET_FELT", enable_felt)
+set_define("MOZ_WIDGET_FELT", enable_felt)
+
+option(
     "--disable-browser-newtab-as-addon",
     default=True,
     help="Disable bundling newtab as a built-in addon",
