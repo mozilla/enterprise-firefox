@@ -1,0 +1,23 @@
+{
+  "manifest_version": 2,
+  "name": "FELT",
+  "version": "1.0.0",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "felt@mozilla.org"
+    }
+  },
+  "background": {
+    "scripts": ["background.js"]
+  },
+  "experiment_apis": {
+    "felt": {
+      "schema": "schema.json",
+      "parent": {
+        "scopes": ["addon_parent"],
+        "script": "api.js",
+        "events": ["startup"]
+      }
+    }
+  }
+}
