@@ -10,6 +10,7 @@
 #include "mozilla/UniquePtr.h"
 #include "mozilla/UniquePtrExtensions.h"
 #include "mozilla/WidgetUtils.h"
+#include "mozilla/GeckoArgs.h"
 #include "nsProfileLock.h"
 
 #include <stdio.h>
@@ -1548,6 +1549,36 @@ nsresult nsToolkitProfileService::SelectStartupProfile(
     NS_IF_ADDREF(*aProfile = profile);
     return NS_OK;
   }
+
+#if defined(MOZ_WIDGET_FELT)
+  auto feltUI = geckoargs::sFeltUI.IsPresent(gArgc, gArgv);
+  if (feltUI) {
+    nsCOMPtr<nsIFile> file;
+    MOZ_TRY(
+        GetSpecialSystemDirectory(OS_TemporaryDirectory, getter_AddRefs(file)));
+    MOZ_TRY(file->AppendNative("felt"_ns));
+
+    bool exists = false;
+    MOZ_TRY(file->Exists(&exists));
+
+    if (!exists) {
+      // Create a unique profile directory.  This can fail if there are too many
+      // (thousands) of existing directories, which is unlikely to happen.
+      MOZ_TRY(file->CreateUnique(nsIFile::DIRECTORY_TYPE, 0700));
+    }
+
+    nsCOMPtr<nsIFile> localDir = file;
+    file.forget(aRootDir);
+    localDir.forget(aLocalDir);
+    // Background tasks never use profiles known to the profile service.
+    *aProfile = nullptr;
+
+    // consume -profile
+    Unused << geckoargs::sProfile.Get(gArgc, gArgv);
+
+    return NS_OK;
+  }
+#endif
 
   // Check the -profile command line argument. It accepts a single argument that
   // gives the path to use for the profile.
