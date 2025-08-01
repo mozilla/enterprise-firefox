@@ -16,6 +16,7 @@ EXPORTS += [
 EXPORTS.mozilla += [
     "!GeckoProcessTypes.h",
     "!Services.h",
+    "CryptoIOInterposer.h",
     "FileLocation.h",
     "IOInterposer.h",
     "LateWriteChecks.h",
@@ -31,6 +32,8 @@ if CONFIG["OS_ARCH"] == "WINNT":
         "perfprobe.h",
     ]
     SOURCES += [
+        "CryptoIOInterposerBase.cpp",
+        "CryptoIOInterposerWin.cpp",
         "perfprobe.cpp",
         "PoisonIOInterposerBase.cpp",
         "PoisonIOInterposerWin.cpp",

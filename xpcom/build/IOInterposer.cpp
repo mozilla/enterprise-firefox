@@ -22,6 +22,7 @@
 #endif  // !defined(XP_WIN)
 #include "nsXULAppAPI.h"
 #include "PoisonIOInterposer.h"
+#include "CryptoIOInterposer.h"
 #include "prenv.h"
 
 namespace {
@@ -409,6 +410,10 @@ bool IOInterposer::Init() {
   // elsewhere when such a condition applies.
   if (!PR_GetEnv("MOZ_DISABLE_POISON_IO_INTERPOSER")) {
     InitPoisonIOInterposer();
+  }
+
+  if (PR_GetEnv("MOZ_ENABLE_PROFILE_ENCRYPTION")) {
+    InitCryptoIOInterposer();
   }
 
   // We don't hook NSPR on Windows because PoisonIOInterposer captures a

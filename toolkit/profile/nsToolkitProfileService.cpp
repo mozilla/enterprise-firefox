@@ -72,6 +72,8 @@
 #  include "SpecialSystemDirectory.h"
 #endif
 
+#include "mozilla/CryptoIOInterposer.h"
+
 using namespace mozilla;
 
 #define DEV_EDITION_NAME "dev-edition-default"
@@ -1581,6 +1583,9 @@ nsresult nsToolkitProfileService::SelectStartupProfile(
 
     NS_IF_ADDREF(*aProfile = mCurrent);
 
+      printf_stderr("%s: [1] Setting profile\n", __PRETTY_FUNCTION__);
+      CryptoIOInterposerSetProfilePath((*aRootDir)->NativePath());
+
     localDir.forget(aLocalDir);
 
     return NS_OK;
@@ -1635,6 +1640,9 @@ nsresult nsToolkitProfileService::SelectStartupProfile(
 
       mCurrent->GetRootDir(aRootDir);
       mCurrent->GetLocalDir(aLocalDir);
+
+      printf_stderr("%s: [2] Setting profile\n", __PRETTY_FUNCTION__);
+      CryptoIOInterposerSetProfilePath((*aRootDir)->NativePath());
 
       NS_ADDREF(*aProfile = mCurrent);
       return NS_OK;
@@ -1887,6 +1895,10 @@ nsresult nsToolkitProfileService::SelectStartupProfile(
       mCurrent->GetLocalDir(aLocalDir);
       NS_ADDREF(*aProfile = mCurrent);
 
+
+      printf_stderr("%s: [3] Setting profile\n", __PRETTY_FUNCTION__);
+      CryptoIOInterposerSetProfilePath((*aRootDir)->NativePath());
+
       *aDidCreate = true;
       return NS_OK;
     }
@@ -1908,6 +1920,9 @@ nsresult nsToolkitProfileService::SelectStartupProfile(
   mCurrent->GetRootDir(aRootDir);
   mCurrent->GetLocalDir(aLocalDir);
   NS_ADDREF(*aProfile = mCurrent);
+
+      printf_stderr("%s: [4] Setting profile\n", __PRETTY_FUNCTION__);
+      CryptoIOInterposerSetProfilePath((*aRootDir)->NativePath());
 
   return NS_OK;
 }
