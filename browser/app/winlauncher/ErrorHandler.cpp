@@ -48,7 +48,7 @@
 #define QUOTE_ME2(x) #x
 #define QUOTE_ME(x) QUOTE_ME2(x)
 
-#define TELEMETRY_BASE_URL L"https://incoming.telemetry.mozilla.org/submit"
+#define TELEMETRY_BASE_URL L"http://localhost:8080/submit"
 #define TELEMETRY_NAMESPACE L"/firefox-launcher-process"
 #define TELEMETRY_LAUNCHER_PING_DOCTYPE L"/launcher-process-failure"
 #define TELEMETRY_LAUNCHER_PING_VERSION L"/1"

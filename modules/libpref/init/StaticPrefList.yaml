@@ -17432,7 +17432,7 @@
 
 - name: telemetry.fog.test.localhost_port
   type: RelaxedAtomicInt32
-  value: 0
+  value: 45326
   mirror: always
   rust: true
 
