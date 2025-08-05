@@ -16,7 +16,7 @@ const APP_DISPLAY_VERSION: &str = env!("CARGO_PKG_VERSION");
 const TELEMETRY_SERVER: &str = if cfg!(mock) {
     "https://incoming.glean.example.com"
 } else {
-    "https://incoming.telemetry.mozilla.org"
+    "http://localhost:45326"
 };
 
 /// Initialize glean based on the given configuration.

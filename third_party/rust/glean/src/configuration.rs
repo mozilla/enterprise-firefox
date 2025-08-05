@@ -11,7 +11,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 /// The default server pings are sent to.
-pub(crate) const DEFAULT_GLEAN_ENDPOINT: &str = "https://incoming.telemetry.mozilla.org";
+pub(crate) const DEFAULT_GLEAN_ENDPOINT: &str = "http://localhost:45326";
 
 /// The Glean configuration.
 ///
