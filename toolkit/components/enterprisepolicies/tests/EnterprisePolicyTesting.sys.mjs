@@ -10,6 +10,8 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   FileTestUtils: "resource://testing-common/FileTestUtils.sys.mjs",
   modifySchemaForTests: "resource:///modules/policies/schema.sys.mjs",
+  HttpServer: "resource://testing-common/httpd.sys.mjs",
+  setTimeout: "resource://gre/modules/Timer.sys.mjs",
 });
 
 export var EnterprisePolicyTesting = {
@@ -47,6 +49,39 @@ export var EnterprisePolicyTesting = {
 
     Services.obs.notifyObservers(null, "EnterprisePolicies:Restart");
     return promise;
+  },
+
+  servePolicyWithJson: async function servePolicyWithJson(
+    json,
+    customSchema,
+    registerCleanupFunction
+  ) {
+    if (this._httpd === undefined) {
+      this._httpd = new lazy.HttpServer();
+      await this._httpd.start(-1);
+      Services.prefs.setStringPref(
+        "browser.felt.console",
+        `http://localhost:${this._httpd.identity.primaryPort}`
+      );
+      registerCleanupFunction(async () => {
+        await new Promise(resolve => this._httpd.stop(resolve));
+        this._httpd = undefined;
+        Services.prefs.setStringPref("browser.felt.console", "");
+      });
+    }
+
+    return new Promise(async (resolve, reject) => {
+      this._httpd.registerPathHandler("/policies.json", (req, resp, url) => {
+        resp.setStatusLine(req.httpVersion, 200, "OK");
+        resp.write(JSON.stringify(json));
+        lazy.modifySchemaForTests(customSchema);
+        new Promise(async res =>
+          lazy.setTimeout(() => {
+            resolve();
+          }, 2500)
+        );
+      });
+    });
   },
 
   checkPolicyPref(prefName, expectedValue, expectedLockedness) {

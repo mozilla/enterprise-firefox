@@ -13,6 +13,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WindowsGPOParser: "resource://gre/modules/policies/WindowsGPOParser.sys.mjs",
   macOSPoliciesParser:
     "resource://gre/modules/policies/macOSPoliciesParser.sys.mjs",
+  clearInterval: "resource://gre/modules/Timer.sys.mjs",
+  setInterval: "resource://gre/modules/Timer.sys.mjs",
 });
 
 // This is the file that will be searched for in the
@@ -75,6 +77,7 @@ export function EnterprisePoliciesManager() {
   Services.obs.addObserver(this, "final-ui-startup", true);
   Services.obs.addObserver(this, "sessionstore-windows-restored", true);
   Services.obs.addObserver(this, "EnterprisePolicies:Restart", true);
+  Services.obs.addObserver(this, "EnterprisePolicies:Activate", true);
   Services.obs.addObserver(this, "distribution-customization-complete", true);
 }
 
@@ -85,44 +88,39 @@ EnterprisePoliciesManager.prototype = {
     "nsIEnterprisePolicies",
   ]),
 
-  _initialize() {
+  _cleanupPolicies() {
     if (Services.prefs.getBoolPref(PREF_POLICIES_APPLIED, false)) {
       if ("_cleanup" in lazy.Policies) {
         let policyImpl = lazy.Policies._cleanup;
-
-        for (let timing of Object.keys(this._callbacks)) {
-          let policyCallback = policyImpl[timing];
-          if (policyCallback) {
-            this._schedulePolicyCallback(
-              timing,
-              policyCallback.bind(
-                policyImpl,
-                this /* the EnterprisePoliciesManager */
-              )
-            );
-          }
-        }
+        this._maybeCallbackPolicy(policyImpl);
       }
       Services.prefs.clearUserPref(PREF_POLICIES_APPLIED);
     }
+  },
 
-    let provider = this._chooseProvider();
+  _initialize() {
+    this._cleanupPolicies();
 
+    const changesHandler = provider => {
+      if (!provider.hasPolicies) {
+        this.status = Ci.nsIEnterprisePolicies.INACTIVE;
+        Services.prefs.setBoolPref(PREF_POLICIES_APPLIED, false);
+        return;
+      }
+
+      this.status = Ci.nsIEnterprisePolicies.ACTIVE;
+      this._parsedPolicies = {};
+      this._activatePolicies(provider.policies);
+      Services.prefs.setBoolPref(PREF_POLICIES_APPLIED, true);
+    };
+
+    this.status = Ci.nsIEnterprisePolicies.INACTIVE;
+    Services.prefs.setBoolPref(PREF_POLICIES_APPLIED, false);
+
+    let provider = this._chooseProvider(changesHandler);
     if (provider.failed) {
       this.status = Ci.nsIEnterprisePolicies.FAILED;
-      return;
     }
-
-    if (!provider.hasPolicies) {
-      this.status = Ci.nsIEnterprisePolicies.INACTIVE;
-      return;
-    }
-
-    this.status = Ci.nsIEnterprisePolicies.ACTIVE;
-    this._parsedPolicies = {};
-    this._activatePolicies(provider.policies);
-
-    Services.prefs.setBoolPref(PREF_POLICIES_APPLIED, true);
   },
 
   _reportEnterpriseTelemetry() {
@@ -130,24 +128,36 @@ EnterprisePoliciesManager.prototype = {
     Glean.policies.isEnterprise.set(this.isEnterprise);
   },
 
-  _chooseProvider() {
+  _chooseProvider(handler) {
     let platformProvider = null;
     if (AppConstants.platform == "win" && AppConstants.MOZ_SYSTEM_POLICIES) {
       platformProvider = new WindowsGPOPoliciesProvider();
+      platformProvider.onPoliciesChanges(handler);
     } else if (
       AppConstants.platform == "macosx" &&
       AppConstants.MOZ_SYSTEM_POLICIES
     ) {
       platformProvider = new macOSPoliciesProvider();
+      platformProvider.onPoliciesChanges(handler);
     }
+
     let jsonProvider = new JSONPoliciesProvider();
+    jsonProvider.onPoliciesChanges(handler);
+    let remoteProvider = new RemotePoliciesProvider();
+    remoteProvider.onPoliciesChanges(handler);
     if (platformProvider && platformProvider.hasPolicies) {
       if (jsonProvider.hasPolicies) {
-        return new CombinedProvider(platformProvider, jsonProvider);
+        return new CombinedProvider(
+          new CombinedProvider(remoteProvider, platformProvider),
+          jsonProvider
+        );
       }
-      return platformProvider;
+      return new CombinedProvider(remoteProvider, platformProvider);
     }
-    return jsonProvider;
+    if (jsonProvider.hasPolicies) {
+      return new CombinedProvider(remoteProvider, jsonProvider);
+    }
+    return remoteProvider;
   },
 
   _activatePolicies(unparsedPolicies) {
@@ -191,19 +201,22 @@ EnterprisePoliciesManager.prototype = {
       }
 
       this._parsedPolicies[policyName] = parsedParameters;
+      this._maybeCallbackPolicy(policyImpl, parsedParameters);
+    }
+  },
 
-      for (let timing of Object.keys(this._callbacks)) {
-        let policyCallback = policyImpl[timing];
-        if (policyCallback) {
-          this._schedulePolicyCallback(
-            timing,
-            policyCallback.bind(
-              policyImpl,
-              this /* the EnterprisePoliciesManager */,
-              parsedParameters
-            )
-          );
-        }
+  _maybeCallbackPolicy(policyImpl, parsedParameters = undefined) {
+    for (let timing of Object.keys(this._callbacks)) {
+      let policyCallback = policyImpl[timing];
+      if (policyCallback) {
+        this._schedulePolicyCallback(
+          timing,
+          policyCallback.bind(
+            policyImpl,
+            this /* the EnterprisePoliciesManager */,
+            parsedParameters
+          )
+        );
       }
     }
   },
@@ -274,7 +287,7 @@ EnterprisePoliciesManager.prototype = {
   },
 
   // nsIObserver implementation
-  observe: function BG_observe(subject, topic) {
+  observe: function BG_observe(subject, topic, data) {
     switch (topic) {
       case "policies-startup":
         // Before the first set of policy callbacks runs, we must
@@ -298,6 +311,19 @@ EnterprisePoliciesManager.prototype = {
 
       case "EnterprisePolicies:Restart":
         this._restart().then(null, console.error);
+        break;
+
+      case "EnterprisePolicies:Activate":
+        const parsed = JSON.parse(data);
+        this._parsedPolicies = {};
+        this._activatePolicies(parsed.policies);
+        let callbacksToRun = Object.keys(parsed.policies).flatMap(name => {
+          return Object.keys(lazy.Policies[name]).flatMap(cb => {
+            return cb;
+          });
+        });
+        // Run everything maybe
+        callbacksToRun.map(cb => this._runPoliciesCallbacks(cb));
         break;
 
       case "distribution-customization-complete":
@@ -486,6 +512,9 @@ let ExtensionPolicies = null;
 let ExtensionSettings = null;
 let InstallSources = null;
 
+// TODO: Those providers should likely inherit from a class to share some
+// common parts.
+
 /*
  * JSON PROVIDER OF POLICIES
  *
@@ -496,8 +525,20 @@ let InstallSources = null;
 
 class JSONPoliciesProvider {
   constructor() {
+    this._changesHandlers = [];
     this._policies = null;
     this._readData();
+  }
+
+  onPoliciesChanges(handler) {
+    this._changesHandlers.push(handler);
+    if (this.hasPolicies) {
+      this.triggerOnPoliciesChanges();
+    }
+  }
+
+  triggerOnPoliciesChanges() {
+    this._changesHandlers.forEach(callback => callback(this));
   }
 
   get hasPolicies() {
@@ -606,8 +647,125 @@ class JSONPoliciesProvider {
   }
 }
 
+/*
+ * Remote PROVIDER OF POLICIES
+ *
+ * This is a platform-agnostic provider which waits for
+ * policies being sent from a remote server.
+ *
+ * Uses JSON like JSONPoliciesProvider
+ */
+
+class RemotePoliciesProvider {
+  constructor() {
+    this._changesHandlers = [];
+    this._policies = null;
+    this._socket = null;
+    this._hasRemoteConnection = false;
+    this._poller = null;
+    this._startXPCOM();
+    if (this._feltXPCOM.isFeltUI()) {
+      console.debug(`RemotePoliciesProvider: Running from FELT so disabling`);
+      return;
+    }
+    this._startPolling(2000);
+  }
+
+  _startXPCOM() {
+    this._feltXPCOM = Cc["@mozilla.org/toolkit/library/felt;1"].getService(
+      Ci.nsIFelt
+    );
+
+    try {
+      const consoleAddr = Services.prefs.getStringPref("browser.felt.console");
+      this._feltXPCOM.setConsoleAddr(consoleAddr);
+    } catch {
+      Services.prefs.addObserver("browser.felt.console", this);
+    }
+  }
+
+  onPoliciesChanges(handler) {
+    this._changesHandlers.push(handler);
+    if (this.hasPolicies) {
+      this.triggerOnPoliciesChanges();
+    }
+  }
+
+  triggerOnPoliciesChanges() {
+    this._changesHandlers.forEach(callback => callback(this));
+  }
+
+  observe(aSubject, aTopic, aData) {
+    switch (aTopic) {
+      case "nsPref:changed":
+        const consoleAddr = Services.prefs.getStringPref(
+          "browser.felt.console"
+        );
+        this._feltXpcom.setConsoleAddr(consoleAddr);
+        this._startPolling(2000);
+        break;
+
+      case "xpcom-shutdown":
+        this._hasRemoteConnection = false;
+        lazy.clearInterval(this._poller);
+        break;
+    }
+  }
+
+  get hasRemoteConnection() {
+    return this._hasRemoteConnection;
+  }
+
+  get hasPolicies() {
+    return this._policies !== null && !isEmptyObject(this._policies);
+  }
+
+  get policies() {
+    return this._policies;
+  }
+
+  get failed() {
+    return this._failed;
+  }
+
+  _startPolling(interval) {
+    Services.obs.addObserver(this, "xpcom-shutdown");
+    this._poller = lazy.setInterval(() => {
+      this._connectConsoleHttp();
+    }, interval);
+  }
+
+  _ingestPolicies(payload) {
+    if ("policies" in payload) {
+      this._policies = payload.policies;
+      this.triggerOnPoliciesChanges();
+      Services.obs.notifyObservers(
+        null,
+        "EnterprisePolicies:Activate",
+        JSON.stringify(payload)
+      );
+    } else {
+      // TODO, this is haha. meh. Maybe restart should be done by activate.
+      Services.obs.notifyObservers(null, "EnterprisePolicies:Restart");
+    }
+  }
+
+  async _connectConsoleHttp() {
+    try {
+      const response = this._feltXPCOM.getPolicies();
+      this._hasRemoteConnection = true;
+      this._ingestPolicies(JSON.parse(response));
+    } catch (error) {
+      console.error(error.message);
+      this._hasRemoteConnection = false;
+      lazy.clearInterval(this._poller);
+    }
+  }
+}
+
 class WindowsGPOPoliciesProvider {
   constructor() {
+    this._changesHandlers = [];
     this._policies = null;
 
     let wrk = Cc["@mozilla.org/windows-registry-key;1"].createInstance(
@@ -621,6 +779,17 @@ class WindowsGPOPoliciesProvider {
     if (!Cu.isInAutomation && !isXpcshell) {
       this._readData(wrk, wrk.ROOT_KEY_LOCAL_MACHINE);
     }
+  }
+
+  onPoliciesChanges(handler) {
+    this._changesHandlers.push(handler);
+    if (this.hasPolicies) {
+      this.triggerOnPoliciesChanges();
+    }
+  }
+
+  triggerOnPoliciesChanges() {
+    this._changesHandlers.forEach(callback => callback(this.hasPolicies));
   }
 
   get hasPolicies() {
@@ -666,6 +835,7 @@ class WindowsGPOPoliciesProvider {
 
 class macOSPoliciesProvider {
   constructor() {
+    this._changesHandlers = [];
     this._policies = null;
     let prefReader = Cc["@mozilla.org/mac-preferences-reader;1"].createInstance(
       Ci.nsIMacPreferencesReader
@@ -674,6 +844,17 @@ class macOSPoliciesProvider {
       return;
     }
     this._policies = lazy.macOSPoliciesParser.readPolicies(prefReader);
+  }
+
+  onPoliciesChanges(handler) {
+    this._changesHandlers.push(handler);
+    if (this.hasPolicies) {
+      this.triggerOnPoliciesChanges();
+    }
+  }
+
+  triggerOnPoliciesChanges() {
+    this._changesHandlers.forEach(callback => callback(this.hasPolicies));
   }
 
   get hasPolicies() {
@@ -691,12 +872,27 @@ class macOSPoliciesProvider {
 
 class CombinedProvider {
   constructor(primaryProvider, secondaryProvider) {
-    // Combine policies with primaryProvider taking precedence.
+    this._readyProviders = 0;
+    this._primary = primaryProvider;
+    this._secondary = secondaryProvider;
+    this._primary.onPoliciesChanges(this.providerPoliciesChanged.bind(this));
+    this._secondary.onPoliciesChanges(this.providerPoliciesChanged.bind(this));
+  }
+
+  providerPoliciesChanged() {
+    this._readyProviders++;
+    if (this._readyProviders === 2) {
+      this.combine();
+    }
+  }
+
+  combine() {
+    // Combine policies with primary taking precedence.
     // We only do this for top level policies.
-    this._policies = primaryProvider._policies;
-    for (let policyName of Object.keys(secondaryProvider.policies)) {
+    this._policies = this._primary._policies;
+    for (let policyName of Object.keys(this._secondary.policies)) {
       if (!(policyName in this._policies)) {
-        this._policies[policyName] = secondaryProvider.policies[policyName];
+        this._policies[policyName] = this._secondary.policies[policyName];
       }
     }
   }

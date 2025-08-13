@@ -1,8 +1,14 @@
 [DEFAULT]
 head = "head.js"
 support-files = ["config_broken_json.json"]
+prefs = [
+  "browser.felt.console=",
+  "browser.policies.testUseHttp=false",
+]
 
 ["browser_policies_basic_tests.js"]
+
+["browser_policies_basiclive_tests.js"]
 
 ["browser_policies_broken_json.js"]
 
