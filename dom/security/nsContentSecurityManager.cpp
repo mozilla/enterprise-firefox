@@ -539,6 +539,9 @@ static nsresult DoContentSecurityChecks(nsIChannel* aChannel,
       if (shouldLoad == nsIContentPolicy::REJECT_POLICY) {
         return NS_ERROR_BLOCKED_BY_POLICY;
       }
+      if (shouldLoad == nsIContentPolicy::REJECT_RESTARTFORCED) {
+        return NS_ERROR_RESTART_FORCED;
+      }
     }
     return NS_ERROR_CONTENT_BLOCKED;
   }

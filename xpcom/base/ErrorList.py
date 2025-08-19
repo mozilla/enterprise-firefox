@@ -984,6 +984,7 @@ with modules["CONTENT"]:
     # Error code for when the content process had a different buildID than the
     # parent
     errors["NS_ERROR_BUILDID_MISMATCH"] = FAILURE(17)
+    errors["NS_ERROR_RESTART_FORCED"] = FAILURE(18)
 
     errors["NS_PROPTABLE_PROP_OVERWRITTEN"] = SUCCESS(11)
     # Error codes for FindBroadcaster in XULBroadcastManager.cpp

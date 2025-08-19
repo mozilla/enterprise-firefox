@@ -3565,6 +3565,16 @@ nsDocShell::DisplayLoadError(nsresult aError, nsIURI* aURI,
     if (messageStr.IsEmpty()) {
       messageStr.AssignLiteral(u" ");
     }
+  } else if (NS_ERROR_RESTART_FORCED == aError) {
+    errorPage.AssignLiteral("restartforced");
+    error = "restartForced";
+
+    // DisplayLoadError requires a non-empty messageStr to proceed and call
+    // LoadErrorPage. If the page doesn't have a title, we will use a blank
+    // space which will be trimmed and thus treated as empty by the front-end.
+    if (messageStr.IsEmpty()) {
+      messageStr.AssignLiteral(u" ");
+    }
   } else {
     // Errors requiring simple formatting
     switch (aError) {
@@ -6319,6 +6329,7 @@ nsresult nsDocShell::FilterStatusForErrorPage(
        aStatus == NS_ERROR_PROXY_TOO_MANY_REQUESTS ||
        aStatus == NS_ERROR_MALFORMED_URI ||
        aStatus == NS_ERROR_BLOCKED_BY_POLICY ||
+       aStatus == NS_ERROR_RESTART_FORCED ||
        aStatus == NS_ERROR_DOM_COOP_FAILED ||
        aStatus == NS_ERROR_DOM_COEP_FAILED ||
        aStatus == NS_ERROR_DOM_INVALID_HEADER_VALUE) &&
@@ -8535,6 +8546,9 @@ nsresult nsDocShell::PerformRetargeting(nsDocShellLoadState* aLoadState) {
         }
         if (shouldLoad == nsIContentPolicy::REJECT_POLICY) {
           return NS_ERROR_BLOCKED_BY_POLICY;
+        }
+        if (shouldLoad == nsIContentPolicy::REJECT_RESTARTFORCED) {
+          return NS_ERROR_RESTART_FORCED;
         }
       }
 
