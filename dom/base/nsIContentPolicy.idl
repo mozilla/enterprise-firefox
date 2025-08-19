@@ -523,6 +523,11 @@ interface nsIContentPolicy : nsISupports
   const short REJECT_POLICY = -5;
 
   /**
+   * Returned from shouldLoad or shouldProcess if restart is forced 
+   */
+  const short REJECT_RESTARTFORCED = -6;
+
+  /**
    * Returned from shouldLoad or shouldProcess if the load or process request
    * is not rejected.
    */
