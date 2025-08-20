@@ -3890,6 +3890,11 @@ who = "Mike Hommey <mh+mozilla@glandium.org>"
 criteria = "safe-to-deploy"
 delta = "0.5.3 -> 0.6.2"
 
+[[audits.minreq]]
+who = "Alexandre Lissy <lissyx+mozillians@lissyx.dyndns.org>"
+criteria = "safe-to-deploy"
+version = "2.14.0"
+
 [[audits.mio]]
 who = "Bobby Holley <bobbyholley@gmail.com>"
 criteria = "safe-to-run"
