@@ -1,0 +1,8 @@
+{
+    "prefs": [
+        ["browser.felt.sso_url", "https://sso.mozilla.com"],
+        ["browser.felt.matches", "https://sso.mozilla.com/dashboard"],
+        ["browser.felt.redirect_after_sso", "https://www.mozilla.org"],
+        ["browser.felt.enabled", "true"]
+    ]
+}
