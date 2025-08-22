@@ -30,7 +30,6 @@ if CONFIG["OS_ARCH"] == "WINNT":
     ]
 
 EXTRA_JS_MODULES += [
-    "DownloadCore.sys.mjs",
     "DownloadIntegration.sys.mjs",
     "DownloadLegacy.sys.mjs",
     "DownloadList.sys.mjs",
@@ -38,6 +37,10 @@ EXTRA_JS_MODULES += [
     "Downloads.sys.mjs",
     "DownloadStore.sys.mjs",
     "DownloadUIHelper.sys.mjs",
+]
+
+EXTRA_PP_JS_MODULES += [
+    "DownloadCore.sys.mjs",
 ]
 
 XPCOM_MANIFESTS += [

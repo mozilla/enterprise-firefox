@@ -645,6 +645,18 @@ Download.prototype = {
   async _succeed() {
     await lazy.DownloadIntegration.downloadDone(this);
 
+#ifdef MOZ_ENTERPRISE
+    // Record security telemetry if enabled for enterprise environments
+    if (
+      Services.prefs.getBoolPref(
+        "browser.download.enterprise.telemetry.enabled",
+        false
+      )
+    ) {
+      this._recordSecurityTelemetry();
+    }
+#endif
+
     this._deferSucceeded.resolve();
 
     if (this.launchWhenSucceeded) {
@@ -686,6 +698,51 @@ Download.prototype = {
       );
     }
   },
+
+#ifdef MOZ_ENTERPRISE
+  /**
+   * Records security telemetry for completed downloads when MOZ_ENTERPRISE is enabled.
+   * Collects filename, extension, MIME type, file size, source domain, and private browsing status.
+   */
+  _recordSecurityTelemetry() {
+    try {
+      // Extract filename from path
+      const pathParts = this.target.path.split(/[/\\]/);
+      const filename = pathParts[pathParts.length - 1] || "";
+
+      // Extract file extension
+      const lastDotIndex = filename.lastIndexOf(".");
+      const fileExtension =
+        lastDotIndex > 0
+          ? filename.substring(lastDotIndex + 1).toLowerCase()
+          : "";
+
+      // Extract domain from source URL
+      let sourceDomain = "";
+      try {
+        if (this.source.url) {
+          const url = new URL(this.source.url);
+          sourceDomain = url.hostname || "";
+        }
+      } catch (ex) {
+        // Invalid URL, leave domain empty
+      }
+
+      // Record the telemetry event
+      Glean.downloads.securityDownloadCompleted.record({
+        filename,
+        file_extension: fileExtension,
+        mime_type: this.contentType || "",
+        file_size: String(this.target.size || 0),
+        source_url_domain: sourceDomain,
+        is_private: this.source.isPrivate || false,
+      });
+    } catch (ex) {
+      // Silently fail if telemetry recording encounters any issues
+      console.warn("Failed to record download security telemetry:", ex);
+    }
+  },
+#endif
 
   /**
    * When a request to unblock the download is received, contains a promise
