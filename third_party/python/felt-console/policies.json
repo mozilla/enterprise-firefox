@@ -1,0 +1,6 @@
+{
+    "policies": {
+        "BlockAboutConfig": true,
+        "DisableFirefoxScreenshots": true
+    }
+}
