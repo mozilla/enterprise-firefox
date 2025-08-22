@@ -1,0 +1,6 @@
+{
+    "prefs": [
+        ["browser.sessionstore.restore_on_demand", "false"],
+        ["browser.sessionstore.resume_from_crash", "false"]
+    ]
+}
