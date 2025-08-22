@@ -900,7 +900,7 @@ DownloadsDataCtor.prototype = {
       download.error?.becauseBlockedByReputationCheck ||
       download.error?.becauseBlockedByContentAnalysis
     ) {
-      this._notifyDownloadEvent("error");
+      this._notifyDownloadEvent("error", { download });
     }
   },
 
@@ -927,7 +927,7 @@ DownloadsDataCtor.prototype = {
         download.succeeded ||
         (download.error && download.error.becauseBlocked)
       ) {
-        this._notifyDownloadEvent("finish");
+        this._notifyDownloadEvent("finish", { download });
       }
     }
 
@@ -996,10 +996,25 @@ DownloadsDataCtor.prototype = {
    *        true (default) - open the downloads panel.
    *        false - only show an indicator notification.
    */
-  _notifyDownloadEvent(aType, { openDownloadsListOnStart = true } = {}) {
+  _notifyDownloadEvent(aType, { openDownloadsListOnStart = true, download = null } = {}) {
     DownloadsCommon.log(
       "Attempting to notify that a new download has started or finished."
     );
+
+    // If this is a finished download, record enterprise telemetry if available
+    if (aType === "finish" && download && download.succeeded) {
+      try {
+        if (
+          typeof DownloadsTelemetry !== "undefined" &&
+          DownloadsTelemetry &&
+          typeof DownloadsTelemetry.recordFileDownloaded === "function"
+        ) {
+          DownloadsTelemetry.recordFileDownloaded(download);
+        }
+      } catch (e) {
+        ChromeUtils.reportError(e);
+      }
+    }
 
     // Show the panel in the most recent browser window, if present.
     let browserWin = lazy.BrowserWindowTracker.getTopWindow({
@@ -1066,6 +1081,13 @@ ChromeUtils.defineLazyGetter(lazy, "PrivateDownloadsData", function () {
 
 ChromeUtils.defineLazyGetter(lazy, "DownloadsData", function () {
   return new DownloadsDataCtor();
+});
+
+// Telemetry helper for downloads. Lazy import so we don't require Glean in
+// contexts where it's not available.
+ChromeUtils.defineESModuleGetters(this, {
+  DownloadsTelemetry:
+    "resource:///browser/components/downloads/DownloadsTelemetry.sys.mjs",
 });
 
 // DownloadsViewPrototype

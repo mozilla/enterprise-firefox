@@ -1634,6 +1634,19 @@
       "type": "boolean"
     },
 
+    "DownloadTelemetry": {
+      "type": "object",
+      "properties": {
+        "Enabled": {
+          "type": "boolean"
+        },
+        "UrlLogging": {
+          "type": "string",
+          "enum": ["full", "domain", "none"]
+        }
+      }
+    },
+
     "SupportMenu": {
       "type": "object",
       "properties": {

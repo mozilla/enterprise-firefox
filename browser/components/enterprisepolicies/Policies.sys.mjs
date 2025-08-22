@@ -2879,6 +2879,23 @@ export var Policies = {
     },
   },
 
+  DownloadTelemetry: {
+    onBeforeAddons(manager, param) {
+      if (param && typeof param === "object") {
+        // Enable/disable download telemetry
+        if (typeof param.Enabled === "boolean") {
+          setAndLockPref("browser.download.enterprise.telemetry.enabled", param.Enabled);
+        }
+        
+        // Set URL logging level 
+        if (typeof param.UrlLogging === "string" && 
+            ["full", "domain", "none"].includes(param.UrlLogging)) {
+          setAndLockPref("browser.download.enterprise.telemetry.urlLogging", param.UrlLogging);
+        }
+      }
+    },
+  },
+
   SupportMenu: {
     onProfileAfterChange(manager, param) {
       manager.setSupportMenu(param);

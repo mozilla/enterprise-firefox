@@ -15,6 +15,7 @@ MOZ_SRC_FILES += [
     "DownloadsCommon.sys.mjs",
     "DownloadSpamProtection.sys.mjs",
     "DownloadsTaskbar.sys.mjs",
+    "DownloadsTelemetry.sys.mjs",
     "DownloadsViewableInternally.sys.mjs",
     "DownloadsViewUI.sys.mjs",
 ]
@@ -23,6 +24,10 @@ toolkit = CONFIG["MOZ_WIDGET_TOOLKIT"]
 
 if toolkit == "cocoa":
     MOZ_SRC_FILES += ["DownloadsMacFinderProgress.sys.mjs"]
+
+# Include enterprise-only telemetry implementation when building with MOZ_ENTERPRISE
+if CONFIG.get("MOZ_ENTERPRISE"):
+    MOZ_SRC_FILES += ["DownloadsTelemetry.enterprise.sys.mjs"]
 
 with Files("**"):
     BUG_COMPONENT = ("Firefox", "Downloads Panel")
