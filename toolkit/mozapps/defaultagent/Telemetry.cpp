@@ -31,15 +31,31 @@
 #include "mozilla/WinHeaderOnlyUtils.h"
 #include "nsStringFwd.h"
 
-#define TELEMETRY_BASE_URL "http://localhost:8080/submit"
+#define TELEMETRY_BASE_URL_DEFAULT "https://incoming.telemetry.mozilla.org/submit"
 #define TELEMETRY_NAMESPACE "default-browser-agent"
 #define TELEMETRY_PING_VERSION "1"
 #define TELEMETRY_PING_DOCTYPE "default-browser"
 
+// Get the telemetry base URL, checking environment variable first, then falling back to default.
+static std::string GetTelemetryBaseUrl() {
+  char* envVar = nullptr;
+  if (_dupenv_s(&envVar, nullptr, "TELEMETRY_ENDPOINT") == 0 && envVar != nullptr) {
+    std::string result(envVar);
+    free(envVar);
+    // Ensure it ends with "/submit" if it doesn't already
+    if (result.length() >= 7 && result.substr(result.length() - 7) == "/submit") {
+      return result;
+    } else {
+      return result + "/submit";
+    }
+  }
+  return TELEMETRY_BASE_URL_DEFAULT;
+}
+
 // This is almost the complete URL, just needs a UUID appended.
-#define TELEMETRY_PING_URL                                              \
-  TELEMETRY_BASE_URL "/" TELEMETRY_NAMESPACE "/" TELEMETRY_PING_DOCTYPE \
-                     "/" TELEMETRY_PING_VERSION "/"
+static std::string GetTelemetryPingUrl() {
+  return GetTelemetryBaseUrl() + "/" TELEMETRY_NAMESPACE "/" TELEMETRY_PING_DOCTYPE "/" TELEMETRY_PING_VERSION "/";
+}
 
 // We only want to send one ping per day. However, this is slightly less than 24
 // hours so that we have a little bit of wiggle room on our task, which is also
@@ -216,8 +232,8 @@ static mozilla::WindowsError SendDesktopTelemetryPing(
   }
   std::wstring pingsenderPath = pingsenderPathResult.unwrap();
 
-  std::wstring url(L"" TELEMETRY_PING_URL);
-  url.append(uuid);
+  std::string urlStr = GetTelemetryPingUrl() + std::string(Utf16ToUtf8(uuid).get());
+  std::wstring url = Utf8ToUtf16(urlStr.c_str());
 
   const wchar_t* pingsenderArgs[] = {pingsenderPath.c_str(), url.c_str(),
                                      pingFilePath.c_str()};
