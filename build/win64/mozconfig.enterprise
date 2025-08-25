@@ -1,0 +1,3 @@
+. "$topsrcdir/build/mozconfig.common.enterprise"
+
+ac_add_options --target=x86_64-pc-windows-msvc

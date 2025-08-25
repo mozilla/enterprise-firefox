@@ -1,0 +1,5 @@
+. "$topsrcdir/build/mozconfig.common.enterprise"
+
+ac_add_options --target=aarch64-apple-darwin
+export CFLAGS="$CFLAGS -mcpu=apple-m1"
+export CXXFLAGS="$CXXFLAGS -mcpu=apple-m1"

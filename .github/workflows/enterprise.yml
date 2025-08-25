@@ -1,0 +1,271 @@
+name: Builds
+
+on:
+  push:
+    branches:
+      - 'enterprise-**'
+  pull_request:
+    types: [opened, reopened]
+
+jobs:
+  package-tests:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          sparse-checkout: |
+            testing/enterprise/
+          sparse-checkout-cone-mode: false
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: enterprise-tests
+          path: testing/enterprise/
+          compression-level: 0
+
+  linux-build-vm:
+    runs-on: ubuntu-24.04
+    environment: Credentials
+    outputs:
+      instance_name: ${{ steps.create_vm.outputs.instance_name }}
+
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          sparse-checkout: |
+            .github/actions/
+          sparse-checkout-cone-mode: false
+
+      - id: create_vm
+        uses: ./.github/actions/create-vm
+        with:
+          instance_kind: "linux-build"
+          extra_labels: "build,LinuxNative"
+          gcp_credentials: "${{ secrets.GCP_CREDENTIALS }}"
+          github_runner_token: "${{ secrets.GH_RUNNER_TOKEN }}"
+
+  linux-build-vm-clean:
+    runs-on: ubuntu-24.04
+    environment: Credentials
+    needs: [ linux-build-vm, linux-build-opt ]
+    if: "always()"
+
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          sparse-checkout: |
+            .github/actions/
+          sparse-checkout-cone-mode: false
+
+      - id: delete_vm
+        uses: ./.github/actions/delete-vm
+        with:
+          instance_name: ${{ needs.linux-build-vm.outputs.instance_name }}
+          gcp_credentials: "${{ secrets.GCP_CREDENTIALS }}"
+          github_runner_token: "${{ secrets.GH_RUNNER_TOKEN }}"
+
+  linux-build-opt:
+    runs-on: [ self-hosted, LinuxNative, X64 ]
+    needs: linux-build-vm
+    env:
+      MOZCONFIG: ${{ github.workspace }}/build/unix/mozconfig.enterprise
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: "check mozconfig"
+        run: |
+          ls -hal $MOZCONFIG
+          cat $MOZCONFIG
+
+      - name: setup
+        run: |
+          rustup default stable
+
+      - name: build
+        run: ./mach build
+
+      - name: package
+        run: ./mach package
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: firefox-linux-amd64
+          path: obj-*/dist/firefox-*.tar*
+          compression-level: 0
+
+  windows-build-vm:
+    runs-on: ubuntu-24.04
+    environment: Credentials
+    outputs:
+      instance_name: ${{ steps.create_vm.outputs.instance_name }}
+
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          sparse-checkout: |
+            .github/actions/
+          sparse-checkout-cone-mode: false
+
+      - id: create_vm
+        uses: ./.github/actions/create-vm
+        with:
+          instance_kind: "windows-build"
+          extra_labels: "build,WinCross"
+          gcp_credentials: "${{ secrets.GCP_CREDENTIALS }}"
+          github_runner_token: "${{ secrets.GH_RUNNER_TOKEN }}"
+
+  windows-build-vm-clean:
+    runs-on: ubuntu-24.04
+    environment: Credentials
+    needs: [ windows-build-vm, windows-build-opt ]
+    if: "always()"
+
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          sparse-checkout: |
+            .github/actions/
+          sparse-checkout-cone-mode: false
+
+      - id: delete_vm
+        uses: ./.github/actions/delete-vm
+        with:
+          instance_name: ${{ needs.windows-build-vm.outputs.instance_name }}
+          gcp_credentials: "${{ secrets.GCP_CREDENTIALS }}"
+          github_runner_token: "${{ secrets.GH_RUNNER_TOKEN }}"
+
+  windows-build-opt:
+    runs-on: [ self-hosted, WinCross, X64 ]
+    needs: windows-build-vm
+    env:
+      MOZCONFIG: ${{ github.workspace }}/build/win64/mozconfig.enterprise
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@v5
+
+      - name: "check mozconfig"
+        run: |
+          ls -hal $MOZCONFIG
+          cat $MOZCONFIG
+
+      - name: setup
+        run: |
+          rustup default stable
+          rustup target add x86_64-pc-windows-msvc
+
+      - name: build
+        run: |
+          ./mach build
+
+      - name: package
+        run: ./mach package
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: firefox-windows-amd64
+          path: obj-*/dist/firefox-*.en-US.win64.zip
+          compression-level: 0
+
+  macOS-build-vm:
+    runs-on: ubuntu-24.04
+    environment: Credentials
+    outputs:
+      instance_name: ${{ steps.create_vm.outputs.instance_name }}
+
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          sparse-checkout: |
+            .github/actions/
+          sparse-checkout-cone-mode: false
+
+      - id: create_vm
+        uses: ./.github/actions/create-vm
+        with:
+          instance_kind: "macos-build"
+          extra_labels: "build,MacCross,ARM64"
+          gcp_credentials: "${{ secrets.GCP_CREDENTIALS }}"
+          github_runner_token: "${{ secrets.GH_RUNNER_TOKEN }}"
+
+  macOS-build-vm-clean:
+    runs-on: ubuntu-24.04
+    environment: Credentials
+    needs: [ macOS-build-vm, macOS-build-opt ]
+    if: "always()"
+
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          sparse-checkout: |
+            .github/actions/
+          sparse-checkout-cone-mode: false
+
+      - id: delete_vm
+        uses: ./.github/actions/delete-vm
+        with:
+          instance_name: ${{ needs.macOS-build-vm.outputs.instance_name }}
+          gcp_credentials: "${{ secrets.GCP_CREDENTIALS }}"
+          github_runner_token: "${{ secrets.GH_RUNNER_TOKEN }}"
+
+  macOS-build-opt:
+    runs-on: [ self-hosted, MacCross, ARM64 ]
+    needs: macos-build-vm
+    env:
+      MOZCONFIG: ${{ github.workspace }}/build/macosx/mozconfig.enterprise
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@v5
+
+      - name: "check mozconfig"
+        run: |
+          ls -hal $MOZCONFIG
+          cat $MOZCONFIG
+
+      - name: setup
+        run: |
+          rustup default stable
+          rustup target add aarch64-apple-darwin
+
+      - name: build
+        run: |
+          export PATH=$HOME/.cargo/bin:$PATH
+          ./mach build
+
+      - name: package
+        run: |
+          export PATH=$HOME/.cargo/bin:$PATH
+          ./mach package
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: firefox-macOS-aarch64
+          path: obj-*/dist/firefox-*.dmg*
+          compression-level: 0
