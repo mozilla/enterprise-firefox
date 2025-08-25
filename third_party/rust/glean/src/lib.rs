@@ -31,7 +31,7 @@
 use std::collections::HashMap;
 use std::path::Path;
 
-use configuration::get_glean_endpoint;
+use configuration::default_glean_endpoint;
 pub use configuration::{Builder as ConfigurationBuilder, Configuration};
 pub use core_metrics::ClientInfoMetrics;
 pub use glean_core::{
@@ -103,7 +103,7 @@ fn initialize_internal(cfg: Configuration, client_info: ClientInfoMetrics) -> Op
     // Initialize the ping uploader.
     let upload_manager = net::UploadManager::new(
         cfg.server_endpoint
-            .unwrap_or_else(|| get_glean_endpoint()),
+            .unwrap_or_else(|| default_glean_endpoint()),
         cfg.uploader
             .unwrap_or_else(|| Box::new(net::HttpUploader) as Box<dyn net::PingUploader>),
     );

@@ -36,25 +36,16 @@
 #define TELEMETRY_PING_VERSION "1"
 #define TELEMETRY_PING_DOCTYPE "default-browser"
 
-// Get the telemetry base URL, checking environment variable first, then falling back to default.
+// Resolve the base URL for telemetry pings. If the environment variable
+// `TELEMETRY_ENDPOINT` is set at runtime, prefer its value. Otherwise fall
+// back to the historical default.
 static std::string GetTelemetryBaseUrl() {
-  char* envVar = nullptr;
-  if (_dupenv_s(&envVar, nullptr, "TELEMETRY_ENDPOINT") == 0 && envVar != nullptr) {
-    std::string result(envVar);
-    free(envVar);
-    // Ensure it ends with "/submit" if it doesn't already
-    if (result.length() >= 7 && result.substr(result.length() - 7) == "/submit") {
-      return result;
-    } else {
-      return result + "/submit";
+  if (const char* env = PR_GetEnv("TELEMETRY_ENDPOINT")) {
+    if (*env) {
+      return std::string(env);
     }
   }
-  return TELEMETRY_BASE_URL_DEFAULT;
-}
-
-// This is almost the complete URL, just needs a UUID appended.
-static std::string GetTelemetryPingUrl() {
-  return GetTelemetryBaseUrl() + "/" TELEMETRY_NAMESPACE "/" TELEMETRY_PING_DOCTYPE "/" TELEMETRY_PING_VERSION "/";
+  return std::string(TELEMETRY_BASE_URL_DEFAULT);
 }
 
 // We only want to send one ping per day. However, this is slightly less than 24
@@ -232,8 +223,25 @@ static mozilla::WindowsError SendDesktopTelemetryPing(
   }
   std::wstring pingsenderPath = pingsenderPathResult.unwrap();
 
-  std::string urlStr = GetTelemetryPingUrl() + std::string(Utf16ToUtf8(uuid).get());
-  std::wstring url = Utf8ToUtf16(urlStr.c_str());
+  // Construct the full ping URL from the resolved base URL and the
+  // telemetry namespace/ping info. Convert UTF-8 -> UTF-16 for CreateProcessW.
+  std::string base = GetTelemetryBaseUrl();
+  Utf16ToUtf8Result narrowUuidResult = Utf16ToUtf8(uuid.c_str());
+  if (narrowUuidResult.isErr()) {
+    return narrowUuidResult.unwrapErr();
+  }
+  std::string narrowUuid = narrowUuidResult.unwrap();
+
+  std::string pingUrl = base + "/" + std::string(TELEMETRY_NAMESPACE) + "/" +
+                        std::string(TELEMETRY_PING_DOCTYPE) + "/" +
+                        std::string(TELEMETRY_PING_VERSION) + "/" +
+                        narrowUuid;
+
+  Utf8ToUtf16Result wideUrlResult = Utf8ToUtf16(pingUrl.c_str());
+  if (wideUrlResult.isErr()) {
+    return wideUrlResult.unwrapErr();
+  }
+  std::wstring url = wideUrlResult.unwrap();
 
   const wchar_t* pingsenderArgs[] = {pingsenderPath.c_str(), url.c_str(),
                                      pingFilePath.c_str()};

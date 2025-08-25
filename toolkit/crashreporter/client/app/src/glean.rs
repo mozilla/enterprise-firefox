@@ -13,19 +13,12 @@ const APP_ID: &str = if cfg!(mock) {
     "firefox.crashreporter"
 };
 const APP_DISPLAY_VERSION: &str = env!("CARGO_PKG_VERSION");
-const TELEMETRY_SERVER: &str = if cfg!(mock) {
-    "https://incoming.glean.example.com"
-} else {
-    "https://incoming.telemetry.mozilla.org"
-};
-
-/// Get the telemetry server URL, checking environment variable first, then falling back to default.
-fn get_telemetry_server() -> String {
+fn telemetry_server() -> String {
     if cfg!(mock) {
-        TELEMETRY_SERVER.to_string()
+        "https://incoming.glean.example.com".to_string()
     } else {
         std::env::var("TELEMETRY_ENDPOINT")
-            .unwrap_or_else(|_| TELEMETRY_SERVER.to_string())
+            .unwrap_or_else(|_| "https://incoming.telemetry.mozilla.org".to_string())
     }
 }
 
@@ -45,7 +38,7 @@ pub fn init(cfg: &Config) {
 
 fn config(cfg: &Config) -> Configuration {
     ConfigurationBuilder::new(true, glean_data_dir(cfg), APP_ID)
-        .with_server_endpoint(get_telemetry_server())
+        .with_server_endpoint(telemetry_server())
         .with_use_core_mps(false)
         .with_internal_pings(false)
         .with_uploader(uploader::Uploader::new())
