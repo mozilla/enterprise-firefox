@@ -1005,11 +1005,11 @@ DownloadsDataCtor.prototype = {
     if (aType === "finish" && download && download.succeeded) {
       try {
         if (
-          typeof DownloadsTelemetry !== "undefined" &&
-          DownloadsTelemetry &&
-          typeof DownloadsTelemetry.recordFileDownloaded === "function"
+          typeof lazy.DownloadsTelemetry !== "undefined" &&
+          lazy.DownloadsTelemetry &&
+          typeof lazy.DownloadsTelemetry.recordFileDownloaded === "function"
         ) {
-          DownloadsTelemetry.recordFileDownloaded(download);
+          lazy.DownloadsTelemetry.recordFileDownloaded(download);
         }
       } catch (e) {
         ChromeUtils.reportError(e);
@@ -1085,7 +1085,7 @@ ChromeUtils.defineLazyGetter(lazy, "DownloadsData", function () {
 
 // Telemetry helper for downloads. Lazy import so we don't require Glean in
 // contexts where it's not available.
-ChromeUtils.defineESModuleGetters(this, {
+ChromeUtils.defineESModuleGetters(lazy, {
   DownloadsTelemetry:
     "resource:///browser/components/downloads/DownloadsTelemetry.sys.mjs",
 });
