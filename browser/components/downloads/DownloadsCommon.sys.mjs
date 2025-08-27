@@ -1026,7 +1026,12 @@ DownloadsDataCtor.prototype = {
         }
       } catch (e) {
         console.error(`[DownloadsCommon] Error recording download telemetry:`, e);
-        ChromeUtils.reportError(e);
+        try {
+          ChromeUtils.reportError(e);
+        } catch (reportEx) {
+          // ChromeUtils.reportError may not be available in all contexts
+          console.error(`[DownloadsCommon] Could not report error:`, reportEx);
+        }
       }
     } else {
       console.log(`[DownloadsCommon] Skipping telemetry recording - aType: ${aType}, succeeded: ${download?.succeeded}`);
@@ -1103,7 +1108,7 @@ ChromeUtils.defineLazyGetter(lazy, "DownloadsData", function () {
 // contexts where it's not available.
 ChromeUtils.defineESModuleGetters(lazy, {
   DownloadsTelemetry:
-    "resource:///browser/components/downloads/DownloadsTelemetry.sys.mjs",
+    "moz-src:///browser/components/downloads/DownloadsTelemetry.sys.mjs",
 });
 
 // DownloadsViewPrototype

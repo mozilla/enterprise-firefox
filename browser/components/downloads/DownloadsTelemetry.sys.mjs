@@ -17,7 +17,7 @@ try {
   // Attempt to import enterprise implementation (only available in MOZ_ENTERPRISE builds)
   console.log("[DownloadsTelemetry] Attempting to load enterprise implementation...");
   const { DownloadsTelemetryEnterprise } = ChromeUtils.importESModule(
-    "resource:///browser/components/downloads/DownloadsTelemetry.enterprise.sys.mjs"
+    "moz-src:///browser/components/downloads/DownloadsTelemetry.enterprise.sys.mjs"
   );
   DownloadsTelemetryImpl = DownloadsTelemetryEnterprise;
   console.log("[DownloadsTelemetry] Successfully loaded enterprise implementation");

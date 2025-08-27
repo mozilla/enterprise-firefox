@@ -25,8 +25,8 @@ toolkit = CONFIG["MOZ_WIDGET_TOOLKIT"]
 if toolkit == "cocoa":
     MOZ_SRC_FILES += ["DownloadsMacFinderProgress.sys.mjs"]
 
-# Include enterprise-only telemetry implementation when building with MOZ_ENTERPRISE
-if CONFIG.get("MOZ_ENTERPRISE"):
+
+if CONFIG["MOZ_ENTERPRISE"]:
     MOZ_SRC_FILES += ["DownloadsTelemetry.enterprise.sys.mjs"]
 
 with Files("**"):

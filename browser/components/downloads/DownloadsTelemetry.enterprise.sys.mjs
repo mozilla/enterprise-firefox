@@ -54,9 +54,7 @@ XPCOMUtils.defineLazyServiceGetter(
   "nsIMIMEService"
 );
 
-ChromeUtils.defineESModuleGetters(lazy, {
-  PathUtils: "resource://gre/modules/PathUtils.sys.mjs",
-});
+// PathUtils will be imported lazily when needed
 
 export const DownloadsTelemetryEnterprise = {
   /**
@@ -67,7 +65,7 @@ export const DownloadsTelemetryEnterprise = {
   _isEnabled() {
     return Services.prefs.getBoolPref(
       "browser.download.enterprise.telemetry.enabled",
-      false
+      true
     );
   },
 
@@ -153,9 +151,19 @@ export const DownloadsTelemetryEnterprise = {
       console.log("[DownloadsTelemetryEnterprise] Processing download for telemetry");
       
       // Extract filename from target path
-      let filename = download.target?.path
-        ? lazy.PathUtils.filename(download.target.path)
-        : null;
+      let filename = null;
+      if (download.target?.path) {
+        try {
+          const { PathUtils } = ChromeUtils.importESModule("resource://gre/modules/PathUtils.sys.mjs");
+          filename = PathUtils.filename(download.target.path);
+        } catch (ex) {
+          console.log(`[DownloadsTelemetryEnterprise] PathUtils not available, extracting filename manually: ${ex.message}`);
+          // Fallback: extract filename manually
+          const path = download.target.path;
+          const lastSlash = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'));
+          filename = lastSlash >= 0 ? path.substring(lastSlash + 1) : path;
+        }
+      }
       console.log(`[DownloadsTelemetryEnterprise] Filename: ${filename}`);
 
       // Extract file extension
@@ -212,7 +220,12 @@ export const DownloadsTelemetryEnterprise = {
     } catch (ex) {
       // Silently fail - telemetry errors should not break downloads
       console.error(`[DownloadsTelemetryEnterprise] Download telemetry recording failed:`, ex);
-      ChromeUtils.reportError(`Download telemetry recording failed: ${ex}`);
+      try {
+        ChromeUtils.reportError(`Download telemetry recording failed: ${ex}`);
+      } catch (reportEx) {
+        // ChromeUtils.reportError may not be available in all contexts
+        console.error(`[DownloadsTelemetryEnterprise] Could not report error:`, reportEx);
+      }
     }
   },
 };
