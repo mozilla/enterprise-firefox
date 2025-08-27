@@ -65,6 +65,11 @@ function updatePrefsAndDefines() {
     "about-glean-moz-official",
     { "moz-official-define-value": AppConstants.MOZILLA_OFFICIAL }
   );
+  document.l10n.setAttributes(
+    document.querySelector("[data-l10n-id='about-glean-moz-telemetry-reporting']"),
+    "about-glean-moz-telemetry-reporting",
+    { "moz-telemetry-reporting-define-value": AppConstants.MOZ_TELEMETRY_REPORTING }
+  );
 
   // Knowing what we know, and copying logic from viaduct_uploader.rs,
   // (which is documented in Preferences and Defines),
@@ -73,7 +78,7 @@ function updatePrefsAndDefines() {
   let uploadL10nId = "about-glean-upload-enabled";
   if (!upload) {
     uploadL10nId = "about-glean-upload-disabled";
-  } else if (port < 0 || (port == 0 && !AppConstants.MOZILLA_OFFICIAL)) {
+  } else if (port < 0 || (port == 0 && !AppConstants.MOZ_TELEMETRY_REPORTING)) {
     uploadL10nId = "about-glean-upload-fake-enabled";
     // This message has a link to the Glean Debug Ping Viewer in it.
     // We must add the anchor element now so that Fluent can match it.

@@ -27,6 +27,7 @@ namespace PingSender {
 bool IsValidDestination(std::string aHost) {
   static const std::string kValidDestinations[] = {
       "localhost",
+      "127.0.0.1",
       "incoming.telemetry.mozilla.org",
   };
   for (auto destination : kValidDestinations) {

@@ -43,6 +43,8 @@ pub extern "C" fn fog_init(
 ) -> nsresult {
     let upload_enabled = static_prefs::pref!("datareporting.healthreport.uploadEnabled");
     let recording_enabled = static_prefs::pref!("telemetry.fog.test.localhost_port") < 0;
+    log::info!("FOG Init: upload_enabled={}, recording_enabled={}, disable_upload_feature={}", 
+               upload_enabled, recording_enabled, cfg!(feature = "disable_upload"));
     let uploader = Some(Box::new(ViaductUploader) as Box<dyn glean::net::PingUploader>);
 
     fog_init_internal(

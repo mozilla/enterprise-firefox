@@ -44,12 +44,21 @@ impl PingUploader for ViaductUploader {
             .iter()
             .any(|(name, _)| name == "X-Debug-ID");
         let localhost_port = static_prefs::pref!("telemetry.fog.test.localhost_port");
+        let disable_upload_enabled = cfg!(feature = "disable_upload");
+
+        eprintln!("FOG Upload decision: localhost_port={}, debug_tagged={}, disable_upload_feature={}",
+                  localhost_port, debug_tagged, disable_upload_enabled);
+
         if localhost_port < 0
-            || (localhost_port == 0 && !debug_tagged && cfg!(feature = "disable_upload"))
+            || (localhost_port == 0 && !debug_tagged && disable_upload_enabled)
         {
             log::info!("FOG Ping uploader faking success");
+            eprintln!("FOG Ping uploader faking success (reason: localhost_port={}, disable_upload={})",
+                      localhost_port, disable_upload_enabled);
             return UploadResult::http_status(200);
         }
+
+        eprintln!("FOG Ping uploader proceeding with real upload to: {}", upload_request.url);
 
         // Localhost-destined pings are sent without OHTTP,
         // even if configured to use OHTTP.
@@ -95,6 +104,7 @@ fn viaduct_upload(upload_request: PingUploadRequest) -> Result<UploadResult, Via
     let parsed_url = Url::parse(&upload_request.url)?;
 
     log::info!("FOG viaduct uploader uploading to {:?}", parsed_url);
+    eprintln!("FOG viaduct uploader: Starting upload to {:?}", parsed_url);
 
     let mut req = Request::post(parsed_url.clone()).body(upload_request.body);
     for (header_key, header_value) in &upload_request.headers {
@@ -102,12 +112,25 @@ fn viaduct_upload(upload_request: PingUploadRequest) -> Result<UploadResult, Via
     }
 
     log::trace!("FOG viaduct uploader sending ping to {:?}", parsed_url);
-    let res = req.send()?;
-    Ok(UploadResult::http_status(res.status as i32))
+    eprintln!("FOG viaduct uploader: About to send HTTP request to {:?}", parsed_url);
+    let res = req.send();
+    eprintln!("FOG viaduct uploader: HTTP request result = {:?}", res);
+
+    match res {
+        Ok(response) => {
+            eprintln!("FOG viaduct uploader: SUCCESS - HTTP status {}", response.status);
+            Ok(UploadResult::http_status(response.status as i32))
+        },
+        Err(e) => {
+            eprintln!("FOG viaduct uploader: ERROR - {:?}", e);
+            Err(ViaductUploaderError::Viaduct(e))
+        }
+    }
 }
 
 fn should_ohttp_upload(upload_request: &PingUploadRequest) -> bool {
-    !upload_request.body_has_info_sections
+    // Disabled OHTTP uploads for local testing
+    false
 }
 
 fn ohttp_upload(upload_request: PingUploadRequest) -> Result<UploadResult, ViaductUploaderError> {
