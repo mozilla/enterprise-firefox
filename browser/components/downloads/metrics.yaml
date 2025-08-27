@@ -28,6 +28,7 @@ downloads:
     expires: never
     telemetry_mirror: DOWNLOADS_PANEL_SHOWN
 
+#ifdef MOZ_ENTERPRISE
   file_downloaded:
     type: event
     description: >
@@ -64,3 +65,4 @@ downloads:
           The download source URL. Collection level configurable via enterprise 
           policy DownloadTelemetryUrlLogging: "full" (default), "domain", or "none".
         type: string
+#endif
