@@ -15,15 +15,19 @@ let DownloadsTelemetryImpl;
 
 try {
   // Attempt to import enterprise implementation (only available in MOZ_ENTERPRISE builds)
+  console.log("[DownloadsTelemetry] Attempting to load enterprise implementation...");
   const { DownloadsTelemetryEnterprise } = ChromeUtils.importESModule(
     "resource:///browser/components/downloads/DownloadsTelemetry.enterprise.sys.mjs"
   );
   DownloadsTelemetryImpl = DownloadsTelemetryEnterprise;
+  console.log("[DownloadsTelemetry] Successfully loaded enterprise implementation");
 } catch (ex) {
+  console.log("[DownloadsTelemetry] Enterprise implementation not available, using no-op shim. Error:", ex.message);
   // Enterprise implementation not available, use no-op shim
   DownloadsTelemetryImpl = {
-    recordFileDownloaded: () => {
-      // No-op: Enterprise telemetry not enabled in this build
+    recordFileDownloaded: (download) => {
+      console.log("[DownloadsTelemetry] No-op recordFileDownloaded called - Enterprise telemetry not enabled in this build");
+      console.log("[DownloadsTelemetry] Download details would be:", download?.target?.path, download?.source?.url);
     },
   };
 }

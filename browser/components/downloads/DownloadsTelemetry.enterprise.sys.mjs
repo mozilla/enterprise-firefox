@@ -127,16 +127,36 @@ export const DownloadsTelemetryEnterprise = {
    * @param {object} download - The Download object containing download information
    */
   recordFileDownloaded(download) {
+    console.log("[DownloadsTelemetryEnterprise] recordFileDownloaded called");
+    
+    // DEBUG: Force enable telemetry for debugging purposes
+    console.log("[DownloadsTelemetryEnterprise] DEBUG: Force enabling telemetry for debugging");
+    try {
+      Services.prefs.setBoolPref("browser.download.enterprise.telemetry.enabled", true);
+      Services.prefs.setCharPref("browser.download.enterprise.telemetry.urlLogging", "full");
+      console.log("[DownloadsTelemetryEnterprise] DEBUG: Telemetry preferences set");
+    } catch (e) {
+      console.error("[DownloadsTelemetryEnterprise] DEBUG: Failed to set prefs:", e);
+    }
+    
     // Check if telemetry is enabled via enterprise policy
-    if (!this._isEnabled()) {
+    const isEnabled = this._isEnabled();
+    console.log(`[DownloadsTelemetryEnterprise] Telemetry enabled: ${isEnabled}`);
+    console.log(`[DownloadsTelemetryEnterprise] Checking pref: browser.download.enterprise.telemetry.enabled = ${Services.prefs.getBoolPref("browser.download.enterprise.telemetry.enabled", false)}`);
+    
+    if (!isEnabled) {
+      console.log("[DownloadsTelemetryEnterprise] Telemetry disabled, not recording");
       return;
     }
 
     try {
+      console.log("[DownloadsTelemetryEnterprise] Processing download for telemetry");
+      
       // Extract filename from target path
       let filename = download.target?.path
         ? lazy.PathUtils.filename(download.target.path)
         : null;
+      console.log(`[DownloadsTelemetryEnterprise] Filename: ${filename}`);
 
       // Extract file extension
       let extension = null;
@@ -146,6 +166,7 @@ export const DownloadsTelemetryEnterprise = {
           extension = filename.substring(lastDotIndex + 1).toLowerCase();
         }
       }
+      console.log(`[DownloadsTelemetryEnterprise] Extension: ${extension}`);
 
       // Get MIME type with fallback to extension-based detection
       let mimeType = download.contentType || null;
@@ -154,28 +175,43 @@ export const DownloadsTelemetryEnterprise = {
           mimeType = lazy.gMIMEService.getTypeFromExtension(extension);
         } catch (ex) {
           // MIME service failed, leave null
+          console.log(`[DownloadsTelemetryEnterprise] MIME service failed: ${ex.message}`);
         }
       }
+      console.log(`[DownloadsTelemetryEnterprise] MIME type: ${mimeType}`);
 
       // Process source URL based on enterprise policy configuration
       let sourceUrl = this._processSourceUrl(download.source?.url);
+      const urlPolicy = this._getUrlLoggingPolicy();
+      console.log(`[DownloadsTelemetryEnterprise] URL policy: ${urlPolicy}, processed URL: ${sourceUrl}`);
 
       // Get file size
       let sizeBytes = download.target?.size;
       if (typeof sizeBytes !== "number" || sizeBytes < 0) {
         sizeBytes = null;
       }
+      console.log(`[DownloadsTelemetryEnterprise] File size: ${sizeBytes}`);
 
-      // Record the Glean event
-      Glean.downloads.fileDownloaded.record({
+      const telemetryData = {
         filename: filename || "",
         extension: extension || "",
         mime_type: mimeType || "",
         size_bytes: sizeBytes,
         source_url: sourceUrl || "",
-      });
+      };
+
+      console.log(`[DownloadsTelemetryEnterprise] Recording Glean event with data:`, telemetryData);
+      
+      // Record the Glean event
+      console.log(`[DownloadsTelemetryEnterprise] Glean object available: ${typeof Glean !== 'undefined'}`);
+      console.log(`[DownloadsTelemetryEnterprise] Glean.downloads available: ${typeof Glean?.downloads !== 'undefined'}`);
+      console.log(`[DownloadsTelemetryEnterprise] Glean.downloads.fileDownloaded available: ${typeof Glean?.downloads?.fileDownloaded !== 'undefined'}`);
+      
+      Glean.downloads.fileDownloaded.record(telemetryData);
+      console.log(`[DownloadsTelemetryEnterprise] Glean event recorded successfully`);
     } catch (ex) {
       // Silently fail - telemetry errors should not break downloads
+      console.error(`[DownloadsTelemetryEnterprise] Download telemetry recording failed:`, ex);
       ChromeUtils.reportError(`Download telemetry recording failed: ${ex}`);
     }
   },

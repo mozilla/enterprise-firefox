@@ -1001,19 +1001,35 @@ DownloadsDataCtor.prototype = {
       "Attempting to notify that a new download has started or finished."
     );
 
+    // DEBUG: Enhanced logging for download telemetry debugging
+    console.log(`[DownloadsCommon] _notifyDownloadEvent called with aType: ${aType}, download: ${download ? 'present' : 'null'}, succeeded: ${download?.succeeded}`);
+
     // If this is a finished download, record enterprise telemetry if available
     if (aType === "finish" && download && download.succeeded) {
+      console.log(`[DownloadsCommon] Download finished successfully, attempting to record telemetry`);
+      console.log(`[DownloadsCommon] Download details - target: ${download.target?.path}, source: ${download.source?.url}, contentType: ${download.contentType}, size: ${download.target?.size}`);
+      
       try {
+        console.log(`[DownloadsCommon] DownloadsTelemetry type: ${typeof lazy.DownloadsTelemetry}, exists: ${lazy.DownloadsTelemetry ? 'yes' : 'no'}`);
+        console.log(`[DownloadsCommon] recordFileDownloaded type: ${typeof lazy.DownloadsTelemetry?.recordFileDownloaded}`);
+        
         if (
           typeof lazy.DownloadsTelemetry !== "undefined" &&
           lazy.DownloadsTelemetry &&
           typeof lazy.DownloadsTelemetry.recordFileDownloaded === "function"
         ) {
+          console.log(`[DownloadsCommon] Calling DownloadsTelemetry.recordFileDownloaded`);
           lazy.DownloadsTelemetry.recordFileDownloaded(download);
+          console.log(`[DownloadsCommon] DownloadsTelemetry.recordFileDownloaded completed`);
+        } else {
+          console.log(`[DownloadsCommon] DownloadsTelemetry not available or not a function`);
         }
       } catch (e) {
+        console.error(`[DownloadsCommon] Error recording download telemetry:`, e);
         ChromeUtils.reportError(e);
       }
+    } else {
+      console.log(`[DownloadsCommon] Skipping telemetry recording - aType: ${aType}, succeeded: ${download?.succeeded}`);
     }
 
     // Show the panel in the most recent browser window, if present.
