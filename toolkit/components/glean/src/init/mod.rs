@@ -156,14 +156,14 @@ fn build_configuration(
     };
     log::debug!("Client Info: {:#?}", client_info);
 
-    // Check for localhost test configuration first
-    let localhost_port = static_prefs::pref!("telemetry.fog.test.localhost_port");
-    let server = if localhost_port > 0 {
-        format!("http://localhost:{}", localhost_port)
+    // Check environment variable for telemetry endpoint override first
+    let server = if let Ok(telemetry_endpoint) = std::env::var("TELEMETRY_ENDPOINT") {
+        telemetry_endpoint
     } else {
-        // Check environment variable for telemetry endpoint override
-        if let Ok(telemetry_endpoint) = std::env::var("TELEMETRY_ENDPOINT") {
-            telemetry_endpoint
+        // Check for localhost test configuration
+        let localhost_port = static_prefs::pref!("telemetry.fog.test.localhost_port");
+        if localhost_port > 0 {
+            format!("http://localhost:{}", localhost_port)
         } else {
             // Use default endpoints
             if app_id_override == "thunderbird.desktop" {
