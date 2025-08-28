@@ -6239,13 +6239,29 @@ int XREMain::XRE_main(int argc, char* argv[], const BootstrapConfig& aConfig) {
   }
 #endif
 
-  mozilla::AppShutdown::MaybeDoRestart();
+#if defined(MOZ_WIDGET_FELT)
+  // Do not restart when running as Felt client (i.e. Enterprise browser)
+  bool skipRestart = false;
+  if (XRE_IsParentProcess()) {
+    Maybe<const char*> felt = geckoargs::sFelt.Get(gArgc, gArgv, CheckArgFlag::None);
+    if (felt.isSome()) {
+      skipRestart = true;
+    }
+  }
+
+  if (!skipRestart) {
+#endif
+    mozilla::AppShutdown::MaybeDoRestart();
+#if defined(MOZ_WIDGET_FELT)
+  }
+#endif
 
   XRE_DeinitCommandLine();
 
   if (NS_FAILED(rv)) {
     return 1;
   }
+
   return mozilla::AppShutdown::GetExitCode();
 }
 
