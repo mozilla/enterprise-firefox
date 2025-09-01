@@ -1167,6 +1167,7 @@ option(
 )
 
 set_define("MOZ_TELEMETRY_REPORTING", True, when="MOZ_TELEMETRY_REPORTING")
+set_config("MOZ_TELEMETRY_REPORTING", True, when="MOZ_TELEMETRY_REPORTING")
 
 
 @depends("MOZ_TELEMETRY_REPORTING", milestone.is_nightly)
