@@ -1,0 +1,25 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+---
+$schema: moz://mozilla.org/schemas/glean/pings/2-0-0
+
+enterprise:
+  description: |
+    A ping containing enterprise-specific telemetry data for security
+    monitoring and policy compliance. This includes file downloads and
+    other enterprise security events. Data in this ping may contain
+    Category 3/4 information and is separated from general telemetry
+    for enhanced privacy and policy control.
+  include_client_id: false
+  send_if_empty: false
+  metadata:
+    include_info_sections: false
+  bugs:
+    - https://bugzilla.mozilla.org/show_bug.cgi?id=TBD
+  data_reviews:
+    - https://bugzilla.mozilla.org/show_bug.cgi?id=TBD
+  notification_emails:
+    - security-telemetry@mozilla.org
+    - enterprise-telemetry@mozilla.org
