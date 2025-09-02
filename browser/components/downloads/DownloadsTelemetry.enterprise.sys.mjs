@@ -174,23 +174,7 @@ export const DownloadsTelemetryEnterprise = {
       // Extract filename from target path
       let filename = null;
       if (download.target?.path) {
-        try {
-          const { PathUtils: PathUtilsModule } = ChromeUtils.importESModule(
-            "resource://gre/modules/PathUtils.sys.mjs"
-          );
-          filename = PathUtilsModule.filename(download.target.path);
-        } catch (ex) {
-          console.log(
-            `[DownloadsTelemetryEnterprise] PathUtils not available, extracting filename manually: ${ex.message}`
-          );
-          // Fallback: extract filename manually
-          const path = download.target.path;
-          const lastSlash = Math.max(
-            path.lastIndexOf("/"),
-            path.lastIndexOf("\\")
-          );
-          filename = lastSlash >= 0 ? path.substring(lastSlash + 1) : path;
-        }
+        filename = PathUtils.filename(download.target.path);
       }
       console.log(`[DownloadsTelemetryEnterprise] Filename: ${filename}`);
 
