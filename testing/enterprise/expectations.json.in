@@ -1,0 +1,8 @@
+{
+    "test_about_support": {
+        "version_box": "#RUNTIME_VERSION#"
+    },
+    "test_about_buildconfig": {
+        "official": "--with-branding=browser/branding/official"
+    }
+}
