@@ -495,11 +495,11 @@ jobs:
 
       - name: "run tests"
         run: |
-          RUNTIME_VERSION=$(${{ steps.attach.outputs.runtime_path }} --version | awk '{ print $3 }')
+          RUNTIME_VERSION=$("${{ steps.attach.outputs.runtime_path }}" --version | awk '{ print $3 }')
           sed -e "s/#RUNTIME_VERSION#/${RUNTIME_VERSION}/g" < expectations.json.in > expectations.json
           mkdir -p ./profiles/
           . venv_tests/bin/activate
-          python3 test_firefox_start.py expectations.json ${{ steps.attach.outputs.runtime_path }} $PWD/geckodriver $PWD/profiles/
+          python3 test_firefox_start.py expectations.json "${{ steps.attach.outputs.runtime_path }}" $PWD/geckodriver $PWD/profiles/
 
       - name: "detach"
         if: "always()"
