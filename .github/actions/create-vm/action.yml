@@ -105,7 +105,7 @@ runs:
           RUNNER_STATUS=$(curl -sS --request GET \
           --url  https://api.github.com/repos/$GITHUB_REPOSITORY/actions/runners?name=${{ steps.instance_name.outputs.name }} \
           --header 'Authorization: Bearer ${{ inputs.github_runner_token }}' \
-          --header 'Accept: application/vnd.github+json' | grep "status" | cut -d':' -f2 | cut -d'"' -f2)
+          --header 'Accept: application/vnd.github+json' | grep "status" | cut -d':' -f2 | cut -d'"' -f2 || true)
           echo "RUNNER: ${RUNNER_STATUS}"
           if [ "$RUNNER_STATUS" = "online" ]; then
             exit 0;
