@@ -31,9 +31,15 @@ function load_sso_url() {
     )
   );
 
+  console.debug("Load SSO Page: ", SOURCE_URI);
   browser.fixupAndLoadURIString(SOURCE_URI, {
     triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
   });
+
+  document.querySelector(".felt-login__form").classList.add("is-hidden");
+  document
+    .querySelector(".felt-login__sso")
+    .classList.remove("is-hidden");
 }
 
 async function init() {
@@ -44,12 +50,37 @@ async function init() {
   if (!Services.prefs.getBoolPref(enabled_pref, false)) {
     Services.prefs.addObserver(enabled_pref, () => {
       if (Services.prefs.getBoolPref(enabled_pref, false)) {
-        load_sso_url();
+        listenFormEmailSubmission();
       }
     });
   } else {
-    load_sso_url();
+    listenFormEmailSubmission();
   }
+}
+
+function listenFormEmailSubmission() {
+  const signInBtn = document.getElementById("felt-login__form-sign-in-btn");
+  const emailInput = document.getElementById("felt-login__form-email")
+
+  function handleSubmit() {
+    load_sso_url()
+  }
+
+  emailInput.addEventListener("input", () => {
+    signInBtn.disabled = emailInput.value.trim() === "";
+  });
+
+  // <moz-button> does not trigger the native "submit" event on <form>
+  // so we manually handle submission on button click and when Enter is pressed
+  signInBtn.addEventListener("click", () => {
+    handleSubmit();
+  });
+  emailInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !signInBtn.disabled) {
+      e.preventDefault();
+      handleSubmit();
+    }
+  });
 }
 
 window.addEventListener(

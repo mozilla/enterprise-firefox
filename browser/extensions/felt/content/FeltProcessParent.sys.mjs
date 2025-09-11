@@ -9,6 +9,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   AppConstants: "resource://gre/modules/AppConstants.sys.mjs",
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
   setInterval: "resource://gre/modules/Timer.sys.mjs",
+  FeltCommon: "chrome://felt/content/FeltCommon.sys.mjs",
 });
 
 console.debug(`FeltExtension: FeltParentProcess.sys.mjs`);
@@ -40,6 +41,8 @@ export class FeltProcessParent extends JSProcessActorParent {
         }
       },
     };
+
+    this._logger = lazy.FeltCommon.defineLogGetter("FeltParent");
 
     Services.cpmm.addMessageListener("FeltParent:RestartFirefox", this);
     Services.obs.addObserver(this.restartObserver, "felt-firefox-restarting");

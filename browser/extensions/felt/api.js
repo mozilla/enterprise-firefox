@@ -250,10 +250,12 @@ this.felt = class extends ExtensionAPI {
   }
 
   showWindow() {
-    let flags = "chrome,centerscreen,titlebar";
+
+    // Height and width are for now set to fit the sso.mozilla.com without the need to resize the window
+    let flags = "chrome,centerscreen,titlebar,resizable,width=727,height=772";
     this._win = Services.ww.openWindow(
       null,
-      "chrome://felt/content/feltui.xhtml",
+      "chrome://felt/content/felt.xhtml",
       "_blank",
       flags,
       null
@@ -278,6 +280,6 @@ this.felt = class extends ExtensionAPI {
     this.chromeHandle.destruct();
     this.chromeHandle = null;
 
-    ChromeUtils.unregisterWindowActor("FELT");
+    ChromeUtils.unregisterWindowActor("Felt");
   }
 };

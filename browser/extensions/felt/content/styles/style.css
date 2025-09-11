@@ -1,0 +1,106 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+@import url("chrome://global/skin/global.css");
+@import url("chrome://global/skin/design-system/text-and-typography.css");
+@import url("chrome://global/skin/design-system/tokens-brand.css");
+
+body {
+  margin: 0;
+  display: flex;
+  min-height: 100vh;
+}
+
+.felt {
+  display: flex;
+  flex: 1 0 0;
+  overflow: hidden;
+}
+
+.felt-logo {
+  display: flex;
+  background: var(--color-blue-80, #0041a4);
+  overflow: hidden;
+}
+
+.felt-logo__container {
+  display: flex;
+  align-self: flex-end;
+  height: 398px;
+  width: 398px;
+  margin: 22px -111px -48px 23px;
+  background-image: url("chrome://felt/content/assets/enterprise-fox.svg");
+  background-repeat: no-repeat;
+}
+
+.felt-login {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  flex: 1 0 0;
+  align-self: stretch;
+  background-color: #ffffff;
+}
+
+.felt-login__form {
+  display: flex;
+  width: 267px;
+  flex-direction: column;
+  align-items: center;
+  gap: 32px;
+  margin: 30px;
+}
+
+.felt-login__form > h1 {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+  align-self: stretch;
+  color: #000;
+  font-size: x-large;
+}
+
+.felt-login__form-elements {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+  align-self: stretch;
+}
+
+moz-input-text::part(label) {
+  font-size: medium;
+}
+
+.fill-width {
+  width: 100%;
+}
+
+.felt-login__sso {
+  display: flex;
+  /* Sizes fitting sso.mozilla.com into <browser> not leaving too much empty space around */
+  height: 100%;
+  width: 400px;
+  /* Balance out the white space on the bottom of sso.mozilla.com without overlaying the version <span> */
+  padding: 50px 0;
+}
+
+.felt-login__sso > browser {
+  height: 100%;
+  width: 100%;
+  flex: 1 1 auto;
+}
+
+.felt-version {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  font-size: small;
+}
+
+.is-hidden {
+  display: none !important;
+}
