@@ -1,4 +1,5 @@
 {
+  "test_felt_00_chrome_on_email_submit": {},
   "test_felt_0_load_sso": {
     "elements": [
       ["#login", "login"],
