@@ -434,69 +434,34 @@ class FeltTests(EnterpriseTestsBase):
 
         # Tried it as well with .using_context,
         # AttributeError: 'WebDriver' object has no attribute 'using_context'
-        # with self._driver.using_context(self._driver.CONTEXT_CHROME):
+        self._driver.set_context("chrome")
+        self._logger.info("Submitting email in chrome context ...")
+        email = self.get_elem("#felt-login__form-email")
+        self._logger.info(f"Submitting email in chrome context: {email}")
 
-        self._logger.info("Submitting email in chrome context")
-        result = self._driver.execute_script(
+        # <moz-input-text> fails with 'unreachable by keyboard' in Selenium
+        # because shadowroot does not delegate focus???
+        # cf https://searchfox.org/firefox-main/rev/938e8f38c6765875e998d5c2965ad5864f5a5ee2/dom/base/nsFocusManager.cpp#5649
+        self._driver.execute_script(
             """
-            const input = document.getElementById('felt-login__form-email');
-            if (!input) return "NO_EMAIL_INPUT";
+            arguments[0].value = arguments[1];
+            arguments[0].dispatchEvent(new Event('input', { bubbles: true }));
+            """, email, "random@mozilla.com")
 
-            const btn = document.getElementById('felt-login__form-sign-in-btn');
-            if (!btn) return "NO_SIGN_IN_BUTTON";
+        self._logger.info("Submitting email by clicking")
+        btn = self.get_elem("#felt-login__form-sign-in-btn")
+        btn.click()
 
-            input.value = "test@mozilla.com";
-            input.dispatchEvent(new Event('input', { bubbles: true }));
+        self._logger.info("Email submitted and SSO browser displayed")
+        sso_content_ready = self.get_elem(".felt-login__sso")
+        assert sso_content_ready, "The SSO content is displayed"
+        self._logger.info(f"Email submitted and SSO browser displayed correctly: {sso_content_ready}")
 
-            // click the sign-in button
-            btn.click();
-            return "OK";
-
-        """
-        )
-
-        assert result == "OK", f"Could not submit email form: {result}"
-
-        def try_switching_to_sso_content(_):
-            browser = self._driver.execute_script(
-                """
-                const sso_content = document.querySelector('.felt-login__sso');
-                if (!sso_content || sso_content.classList.contains('is-hidden')) return null;
-
-                const browser =  sso_content.querySelector('browser');
-                if (!browser) return null;
-
-                const bc = browser.browsingContext || (browser.frameLoader && browser.frameLoader.browsingContext);
-                if (!browser.isRemoteBrowser || !bc || bc.discarded) return null;
-
-                return browser;
-            """
-            )
-
-            self._logger.info(browser)
-
-            if not browser:
-                return False
-            try:
-                self._driver.switch_to.frame(browser)
-                self._driver.set_context("content")
-            # except NoSuchFrameException:
-            #     return False
-            except Exception as err:
-                self._logger.info(err)
-
-            self._logger.info("Context is set to content")
-            return self._driver.execute_script(
-                "return document.readyState !== 'loading'"
-            )
-
-        self._logger.info("Switching to sso content once it completed loading")
-        self._longwait.until(try_switching_to_sso_content)
+        self._driver.set_context("content")
 
         return True
 
     def test_felt_0_load_sso(self, exp):
-
         self._logger.info("Checking SSO page")
         for element in exp["elements"]:
             elem = self.get_elem(element[0])
