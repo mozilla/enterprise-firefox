@@ -15,7 +15,10 @@ from multiprocessing import Process, Value
 
 import requests
 from base_test import EnterpriseTestsBase
-from selenium.common.exceptions import WebDriverException
+from selenium.common.exceptions import (
+    NoSuchWindowException,
+    WebDriverException,
+)
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 
@@ -295,6 +298,7 @@ class FeltTests(EnterpriseTestsBase):
         )
         self.set_bool_pref("browser.felt.is_testing", True)
 
+        # self.switch_to_felt_chrome_context()
         self.set_felt_window()
 
     def teardown(self):
@@ -352,6 +356,8 @@ class FeltTests(EnterpriseTestsBase):
 
     def set_felt_window(self):
         self._logger.info(f"Searching FELT in {self._driver.window_handles}")
+        # self._driver.window_handles is returning content windows.
+        # We could use chrome_window_handles but "AttributeError: 'WebDriver' object has no attribute 'chrome_window_handles'"
         for win in self._driver.window_handles:
             self._logger.info(f"Testing for FELT at {win}")
             self._driver.switch_to.window(win)
@@ -359,6 +365,48 @@ class FeltTests(EnterpriseTestsBase):
             if self._driver.current_url == "chrome://felt/content/feltui.xhtml":
                 self._logger.info(f"Found FELT at {win}")
                 return
+
+    def switch_to_felt_chrome_context(
+        self, name="felt", path="chrome://felt/content/felt.xhtml"
+    ):
+
+        self._logger.info("Checking FELT pref")
+        assert self.get_felt_enabled_pref() is True, "pref should be enabled"
+
+        self._logger.info(f"Waiting for chrome window {path}.")
+        self._driver.set_context("chrome")
+        self._longwait.until(
+            lambda d: self._driver.execute_script(
+                """
+            let e = Services.wm.getEnumerator(null);
+            while (e.hasMoreElements()) {
+                let w = e.getNext();
+                if (w.document?.documentURI === arguments[1]) {
+                    if (!w.name) w.name = arguments[0];
+                    return true;
+                }
+            }
+            return false;
+        """,
+                name,
+                path,
+            )
+        )
+
+        self._logger.info(f"Switching to chrome context of window {name}")
+        self._longwait.until(lambda d: self.switch_window_by_name(name))
+
+        ok = self._driver.execute_script(
+            "return window.document?.documentURI === arguments[0];", path
+        )
+        assert ok, f"Expected chrome window {path}, got a different window"
+
+    def switch_window_by_name(self, name):
+        try:
+            self._driver.switch_to.window(name)
+            return True
+        except NoSuchWindowException:
+            return False
 
     def get_elem(self, e):
         # Windows is slower?
@@ -382,9 +430,72 @@ class FeltTests(EnterpriseTestsBase):
                 EC.visibility_of_element_located((By.CSS_SELECTOR, e))
             )
 
+    def test_felt_00_chrome_on_email_submit(self, exp):
+
+        # Tried it as well with .using_context,
+        # AttributeError: 'WebDriver' object has no attribute 'using_context'
+        # with self._driver.using_context(self._driver.CONTEXT_CHROME):
+
+        self._logger.info("Submitting email in chrome context")
+        result = self._driver.execute_script(
+            """
+            const input = document.getElementById('felt-login__form-email');
+            if (!input) return "NO_EMAIL_INPUT";
+
+            const btn = document.getElementById('felt-login__form-sign-in-btn');
+            if (!btn) return "NO_SIGN_IN_BUTTON";
+
+            input.value = "test@mozilla.com";
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+
+            // click the sign-in button
+            btn.click();
+            return "OK";
+
+        """
+        )
+
+        assert result == "OK", f"Could not submit email form: {result}"
+
+        def try_switching_to_sso_content(_):
+            browser = self._driver.execute_script(
+                """
+                const sso_content = document.querySelector('.felt-login__sso');
+                if (!sso_content || sso_content.classList.contains('is-hidden')) return null;
+
+                const browser =  sso_content.querySelector('browser');
+                if (!browser) return null;
+
+                const bc = browser.browsingContext || (browser.frameLoader && browser.frameLoader.browsingContext);
+                if (!browser.isRemoteBrowser || !bc || bc.discarded) return null;
+
+                return browser;
+            """
+            )
+
+            self._logger.info(browser)
+
+            if not browser:
+                return False
+            try:
+                self._driver.switch_to.frame(browser)
+                self._driver.set_context("content")
+            # except NoSuchFrameException:
+            #     return False
+            except Exception as err:
+                self._logger.info(err)
+
+            self._logger.info("Context is set to content")
+            return self._driver.execute_script(
+                "return document.readyState !== 'loading'"
+            )
+
+        self._logger.info("Switching to sso content once it completed loading")
+        self._longwait.until(try_switching_to_sso_content)
+
+        return True
+
     def test_felt_0_load_sso(self, exp):
-        self._logger.info("Checking FELT pref")
-        assert self.get_felt_enabled_pref() == True, "pref should be enabled"
 
         self._logger.info("Checking SSO page")
         for element in exp["elements"]:

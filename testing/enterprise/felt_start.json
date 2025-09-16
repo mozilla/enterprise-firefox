@@ -1,0 +1,17 @@
+{
+  "test_felt_00_chrome_on_email_submit": {},
+  "test_felt_0_load_sso": {
+    "elements": [
+      ["#login", "login"],
+      ["#password", "password"]
+    ]
+  },
+  "test_felt_1_dashboard": {},
+  "test_felt_2_redirect_after_sso": {},
+  "test_felt_3_firefox_started": {},
+  "test_felt_4_about_config_allowed_in_felt": {},
+  "test_felt_5_about_config_blocked_in_browser": {},
+  "test_felt_6_change_about_config_policy": {},
+  "test_felt_7_about_config_allowed_in_browser": {},
+  "test_felt_8_quit_browser": {}
+}

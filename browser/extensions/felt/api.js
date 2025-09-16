@@ -250,7 +250,6 @@ this.felt = class extends ExtensionAPI {
   }
 
   showWindow() {
-
     // Height and width are for now set to fit the sso.mozilla.com without the need to resize the window
     let flags = "chrome,centerscreen,titlebar,resizable,width=727,height=772";
     this._win = Services.ww.openWindow(
@@ -260,6 +259,9 @@ this.felt = class extends ExtensionAPI {
       flags,
       null
     );
+
+    // for selenium to directly target the window
+    this._win.name = "felt";
 
     Services.ww.registerNotification(this.windowObserver);
 
