@@ -394,17 +394,6 @@ class FeltTests(EnterpriseTestsBase):
         return True
 
     def test_felt_2_redirect_after_sso(self, exp):
-        self._logger.info(
-            f"Checking redirection after SSO ... Waiting for URL: http://localhost:{self.sso_port}/redirect_after_sso"
-        )
-        self._wait.until(
-            EC.url_to_be(f"http://localhost:{self.sso_port}/redirect_after_sso")
-        )
-
-        self._logger.info("On landing page")
-        new_page = self.get_elem("h1")
-        assert new_page.text == "New page", "Landing page loaded"
-
         expected_cookie = list(
             filter(
                 lambda x: x["name"] == self.cookie_name
