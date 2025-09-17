@@ -793,6 +793,16 @@ CookieService::AddNativeForFelt(
                             getter_AddRefs(validation));
   return rv;
 }
+#else
+NS_IMETHODIMP
+CookieService::AddNativeForFelt(
+    const nsACString& aHost, const nsACString& aPath, const nsACString& aName,
+    const nsACString& aValue, bool aIsSecure, bool aIsHttpOnly, bool aIsSession,
+    int64_t aExpiry, int32_t aSameSite, nsICookie::schemeType aSchemeMap,
+    bool aIsPartitioned) {
+  MOZ_ASSERT_UNREACHABLE("AddNativeForFelt is not expected to be called");
+  return NS_ERROR_FAILURE;
+}
 #endif // defined(MOZ_WIDGET_FELT)
 
 NS_IMETHODIMP_(nsresult)
