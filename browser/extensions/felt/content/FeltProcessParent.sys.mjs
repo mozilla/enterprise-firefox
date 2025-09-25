@@ -146,7 +146,6 @@ export class FeltProcessParent extends JSProcessActorParent {
         Services.prefs.getStringPref("browser.felt.profile_path");
       } catch {
         const firefoxCreateProfileArgs = [
-          "-no-remote",
           "-createprofile",
           "enterprise-profile",
         ];
@@ -187,7 +186,7 @@ export class FeltProcessParent extends JSProcessActorParent {
         ];
       }
 
-      const firefoxRunArgs = ["-no-remote", "-felt", socket].concat(
+      const firefoxRunArgs = ["-felt", socket].concat(
         this.getProfileArgs().concat(extraRunArgs)
       );
 

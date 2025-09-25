@@ -6147,8 +6147,14 @@ int XREMain::XRE_main(int argc, char* argv[], const BootstrapConfig& aConfig) {
     if (feltUI.isSome() && *feltUI) {
       PR_SetEnv("MOZ_FELT_UI=1");
     }
+
+#if defined(MOZ_HAS_REMOTE)
+    if (PR_GetEnv("MOZ_FELT_UI")) {
+      mDisableRemoteClient = true;
+    }
+#endif // defined(MOZ_HAS_REMOTE)
   }
-#endif
+#endif // defined(MOZ_WIDGET_FELT)
 
   // startup
   result = XRE_mainStartup(&exit);
