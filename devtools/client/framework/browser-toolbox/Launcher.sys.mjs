@@ -318,6 +318,8 @@ export class BrowserToolboxLauncher extends EventEmitter {
       MOZ_DISABLE_SAFE_MODE_KEY: "1",
       MOZ_BROWSER_TOOLBOX_PORT: String(this.#port),
       MOZ_HEADLESS: null,
+      // Do not show Felt UI
+      MOZ_FELT_UI: null,
       // Never enable Marionette for the new process.
       MOZ_MARIONETTE: null,
       // Don't inherit debug settings from the process launching us.  This can
