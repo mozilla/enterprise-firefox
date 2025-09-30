@@ -1588,8 +1588,7 @@ export const LoginHelper = {
   },
 
   /**
-   * Shows the Primary Password prompt if enabled, or the
-   * OS auth dialog otherwise.
+   * Shows OS auth dialog if enabled.
    * @param {Element} browser
    *        The <browser> that the prompt should be shown on
    * @param OSReauthEnabled Boolean indicating if OS reauth should be tried
@@ -1641,8 +1640,10 @@ export const LoginHelper = {
         telemetryEvent,
       };
     }
-    // Use the OS auth dialog if there is no primary password
-    if (!token.hasPassword && OSReauthEnabled) {
+
+    // Use only OS auth dialog if primary password is already unlocked
+    // or no PrP is used.
+    if ((!token.hasPassword || token.isLoggedIn()) && OSReauthEnabled) {
       let result;
       try {
         isAuthorized = await this.verifyUserOSAuth(
@@ -1675,9 +1676,8 @@ export const LoginHelper = {
         telemetryEvent,
       };
     }
-    // We'll attempt to re-auth via Primary Password, force a log-out
-    token.checkPassword("");
 
+    // We may need to unlock the internal softoken with the PrP.
     // If a primary password prompt is already open, just exit early and return false.
     // The user can re-trigger it after responding to the already open dialog.
     if (Services.logins.uiBusy) {
@@ -1688,10 +1688,9 @@ export const LoginHelper = {
       };
     }
 
-    // So there's a primary password. But since checkPassword didn't succeed, we're logged out (per nsIPK11Token.idl).
     try {
-      // Relogin and ask for the primary password.
-      token.login(true); // 'true' means always prompt for token password. User will be prompted until
+      // Login and ask for the primary password if the token is locked.
+      token.login();
       // clicking 'Cancel' or entering the correct password.
     } catch (e) {
       // An exception will be thrown if the user cancels the login prompt dialog.
