@@ -6,9 +6,7 @@
 
 /* globals ExtensionAPI, Services, XPCOMUtils */
 
-
 this.felt = class extends ExtensionAPI {
-
   FELT_PROCESS_ACTOR = "FeltProcess";
   FELT_WINDOW_ACTOR = "FeltWindow";
 
@@ -28,8 +26,10 @@ this.felt = class extends ExtensionAPI {
     ]);
   }
   registerActors() {
-    const { ConsoleClient } = ChromeUtils.importESModule("chrome://felt/content/ConsoleClient.sys.mjs")
-    const matches = [ConsoleClient.ssoCallbackUri]
+    const { ConsoleClient } = ChromeUtils.importESModule(
+      "chrome://felt/content/ConsoleClient.sys.mjs"
+    );
+    const matches = [ConsoleClient.ssoCallbackUri];
     ChromeUtils.registerWindowActor(this.FELT_WINDOW_ACTOR, {
       child: {
         esModuleURI: "chrome://felt/content/FeltWindowChild.sys.mjs",
@@ -40,20 +40,16 @@ this.felt = class extends ExtensionAPI {
       },
       allFrames: true,
       matches,
-    })
+    });
 
     ChromeUtils.registerProcessActor(this.FELT_PROCESS_ACTOR, {
       parent: {
         esModuleURI: "chrome://felt/content/FeltProcessParent.sys.mjs",
       },
-    })
+    });
   }
 
   onStartup() {
-    this.feltXPCOM = Cc["@mozilla.org/toolkit/library/felt;1"].getService(
-      Ci.nsIFelt
-    );
-
     // In tests if we close too early we lose the browser context
     if (Services.prefs.getBoolPref("browser.felt.is_testing", false)) {
       this.windowCloseMessage = "FeltParent:FirefoxStarted";
@@ -61,7 +57,7 @@ this.felt = class extends ExtensionAPI {
       this.windowCloseMessage = "FeltParent:FirefoxStarting";
     }
 
-    if (this.feltXPCOM.isFeltUI()) {
+    if (Services.felt.isFeltUI()) {
       this.registerChrome();
       this.registerActors();
       this.showWindow();
@@ -75,7 +71,6 @@ this.felt = class extends ExtensionAPI {
   receiveMessage(message) {
     console.debug(`FeltExtension: ${message.name} handling ...`);
     switch (message.name) {
-
       case "FeltParent:FirefoxNormalExit":
         Services.ppmm.removeMessageListener(
           "FeltParent:FirefoxNormalExit",
@@ -94,13 +89,14 @@ this.felt = class extends ExtensionAPI {
         // TODO: What should we do, restart Firefox?
         break;
 
-      case this.windowCloseMessage:
+      case this.windowCloseMessage: {
         Services.startup.enterLastWindowClosingSurvivalArea();
         Services.ww.unregisterNotification(this.windowObserver);
         this._win.close();
-        const success = this.feltXPCOM.makeBackgroundProcess();
+        const success = Services.felt.makeBackgroundProcess();
         console.debug(`FeltExtension: makeBackgroundProcess? ${success}`);
         break;
+      }
 
       default:
         console.debug(`FeltExtension: ${message.name} NOT HANDLED`);
@@ -123,7 +119,6 @@ this.felt = class extends ExtensionAPI {
   }
 
   showWindow() {
-
     // Height and width are for now set to fit the sso.mozilla.com without the need to resize the window
     let flags = "chrome,centerscreen,titlebar,resizable,width=727,height=744";
     this._win = Services.ww.openWindow(

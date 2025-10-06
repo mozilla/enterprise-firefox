@@ -23,7 +23,7 @@ function connectToConsole(email) {
   let oa = E10SUtils.predictOriginAttributes({ browser });
   browser.setAttribute("maychangeremoteness", "true");
 
-  const SOURCE_URI = lazy.ConsoleClient.ssoUri + `&email=${email}`
+  const SOURCE_URI = lazy.ConsoleClient.ssoUri + `&email=${email}`;
 
   browser.setAttribute(
     "remoteType",
@@ -43,17 +43,15 @@ function connectToConsole(email) {
   });
 
   document.querySelector(".felt-login__email-pane").classList.add("is-hidden");
-  document
-    .querySelector(".felt-login__sso")
-    .classList.remove("is-hidden");
+  document.querySelector(".felt-login__sso").classList.remove("is-hidden");
 
-  const ssoBrowsingContext = document.querySelector("browser")
-  ssoBrowsingContext.focus()
+  const ssoBrowsingContext = document.querySelector("browser");
+  ssoBrowsingContext.focus();
 }
 
 function listenFormEmailSubmission() {
   const signInBtn = document.getElementById("felt-form__sign-in-btn");
-  const emailInput = document.getElementById("felt-form__email")
+  const emailInput = document.getElementById("felt-form__email");
 
   emailInput.addEventListener("input", () => {
     signInBtn.disabled = emailInput.value.trim() === "";
@@ -62,12 +60,12 @@ function listenFormEmailSubmission() {
   // <moz-button> does not trigger the native "submit" event on <form>
   // so we manually handle submission on button click and when Enter is pressed
   signInBtn.addEventListener("click", () => {
-    connectToConsole(emailInput.value)
+    connectToConsole(emailInput.value);
   });
-  emailInput.addEventListener("keydown", (e) => {
+  emailInput.addEventListener("keydown", e => {
     if (e.key === "Enter" && !signInBtn.disabled) {
       e.preventDefault();
-      connectToConsole(emailInput.value)
+      connectToConsole(emailInput.value);
     }
   });
 }

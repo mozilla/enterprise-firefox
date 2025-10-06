@@ -3,46 +3,77 @@
    - License, v. 2.0. If a copy of the MPL was not distributed with this
    - file, You can obtain one at https://mozilla.org/MPL/2.0/. -->
 
-<html xmlns="http://www.w3.org/1999/xhtml" role="document" class="system-font-size" id="felt-window"
-  windowtype="navigator:browser">
+<html
+  xmlns="http://www.w3.org/1999/xhtml"
+  role="document"
+  class="system-font-size"
+  id="felt-window"
+  windowtype="navigator:browser"
+>
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src chrome:" />
+    <link rel="stylesheet" href="chrome://felt/content/styles/felt.css" />
+    <link rel="localization" href="preview/felt.ftl" />
+    <script
+      type="application/javascript"
+      src="chrome://global/content/customElements.js"
+    ></script>
+    <script
+      type="application/javascript"
+      src="chrome://felt/content/window.js"
+    ></script>
+  </head>
 
-<head>
-  <meta charset="utf-8" />
-  <meta http-equiv="Content-Security-Policy" content="default-src chrome:" />
-  <link rel="stylesheet" href="chrome://felt/content/styles/felt.css" />
-  <link rel="localization" href="preview/felt.ftl" />
-  <script type="application/javascript" src="chrome://global/content/customElements.js"></script>
-  <script type="application/javascript" src="chrome://felt/content/window.js"></script>
-</head>
-
-<body>
-  <div class="felt">
-    <div class="felt-logo">
-      <div class="felt-logo__container"></div>
-    </div>
-    <div class="felt-login">
-      <div class="felt-login__email-pane">
-        <div class="felt-login__wordmark"></div>
-        <form class="felt-form">
-          <h1 class="felt-form__title" data-l10n-id="felt-sso-title"></h1>
-          <div class="felt-form__elements">
-            <moz-input-text id="felt-form__email" data-l10n-id="felt-sso-input-email"
-              class="fill-width"></moz-input-text>
-            <moz-button id="felt-form__sign-in-btn" data-l10n-id="felt-sso-continue-btn" type="primary"
-              class="fill-width" disabled="true"></moz-button>
-          </div>
-        </form>
+  <body>
+    <div class="felt">
+      <div class="felt-logo">
+        <div class="felt-logo__container"></div>
       </div>
-      <span class="felt-powered-by text-deemphasized" data-l10n-id="felt-powered-by">
-      </span>
+      <div class="felt-login">
+        <div class="felt-login__email-pane">
+          <div class="felt-login__wordmark"></div>
+          <form class="felt-form">
+            <h1 class="felt-form__title" data-l10n-id="felt-sso-title"></h1>
+            <div class="felt-form__elements">
+              <moz-input-text
+                id="felt-form__email"
+                data-l10n-id="felt-sso-input-email"
+                class="fill-width"
+              ></moz-input-text>
+              <moz-button
+                id="felt-form__sign-in-btn"
+                data-l10n-id="felt-sso-continue-btn"
+                type="primary"
+                class="fill-width"
+                disabled="true"
+              ></moz-button>
+            </div>
+          </form>
+        </div>
+        <span
+          class="felt-powered-by text-deemphasized"
+          data-l10n-id="felt-powered-by"
+        >
+        </span>
 
-      <div class="felt-login__sso is-hidden">
-        <browser xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul" id="browser" type="content"
-          disablehistory="true" disableglobalhistory="true" remote="true" maychangeremoteness="true"></browser>
+        <div class="felt-login__sso is-hidden">
+          <browser
+            xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
+            id="browser"
+            type="content"
+            disablehistory="true"
+            disableglobalhistory="true"
+            remote="true"
+            maychangeremoteness="true"
+          ></browser>
+        </div>
       </div>
+      <span
+        class="felt-version text-deemphasized"
+        data-l10n-id="felt-version"
+        data-l10n-args='{"version": "1.0"}'
+      ></span>
     </div>
-    <span class="felt-version text-deemphasized" data-l10n-id="felt-version" data-l10n-args='{"version": "1.0"}'></span>
-  </div>
-</body>
-
+  </body>
 </html>

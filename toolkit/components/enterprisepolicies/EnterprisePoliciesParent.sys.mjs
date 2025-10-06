@@ -222,14 +222,12 @@ EnterprisePoliciesManager.prototype = {
     for (let timing of Object.keys(this._callbacks)) {
       let policyCallback = policyImpl[timing];
       if (policyCallback) {
-        this._schedulePolicyCallback(
-          timing,
-          [ policyCallback,
-            policyImpl,
-            this /* the EnterprisePoliciesManager */,
-            parsedParameters
-          ]
-        );
+        this._schedulePolicyCallback(timing, [
+          policyCallback,
+          policyImpl,
+          this /* the EnterprisePoliciesManager */,
+          parsedParameters,
+        ]);
       }
     }
   },
@@ -269,8 +267,14 @@ EnterprisePoliciesManager.prototype = {
     // And we manually check for pre-existence of all. The parsedParameters
     // may differ at the object level so we force the comparison with
     // JSON.stringify()
-    const exists = this._callbacks[timing].filter(e => e[0] == callback[0] && e[1] == callback[1] && e[2] == callback[2] && JSON.stringify(e[3]) == JSON.stringify(callback[3]));
-    if (exists.length > 0) {
+    const exists = this._callbacks[timing].filter(
+      e =>
+        e[0] == callback[0] &&
+        e[1] == callback[1] &&
+        e[2] == callback[2] &&
+        JSON.stringify(e[3]) == JSON.stringify(callback[3])
+    );
+    if (exists.length) {
       return;
     }
     this._callbacks[timing].push(callback);
@@ -279,7 +283,8 @@ EnterprisePoliciesManager.prototype = {
   _runPoliciesCallbacks(timing) {
     let callbacks = this._callbacks[timing];
     while (callbacks.length) {
-      let [ policyCallback, policyImpl, self, parsedParameters ] = callbacks.shift();
+      let [policyCallback, policyImpl, self, parsedParameters] =
+        callbacks.shift();
       const callback = policyCallback.bind(policyImpl, self, parsedParameters);
       try {
         callback();
@@ -321,12 +326,11 @@ EnterprisePoliciesManager.prototype = {
 
   // nsIObserver implementation
   observe: function BG_observe(subject, topic, data) {
-
     const policiesCallbackMapping = {
-      "onBeforeAddons": "policies-startup",
-      "onProfileAfterChange": "profile-after-change",
-      "onBeforeUIStartup": "final-ui-startup",
-      "onAllWindowsRestored": "sessionstore-windows-restored",
+      onBeforeAddons: "policies-startup",
+      onProfileAfterChange: "profile-after-change",
+      onBeforeUIStartup: "final-ui-startup",
+      onAllWindowsRestored: "sessionstore-windows-restored",
     };
 
     this.observersReceived.push(topic);
@@ -356,21 +360,26 @@ EnterprisePoliciesManager.prototype = {
         this._restart().then(null, console.error);
         break;
 
-      case "EnterprisePolicies:Activate":
+      case "EnterprisePolicies:Activate": {
         const parsed = JSON.parse(data);
         this._parsedPolicies = {};
         this._activatePolicies(parsed.policies);
 
-        const callbacksToRun = Object.keys(parsed.policies).flatMap(name => {
-          return Object.keys(lazy.Policies[name]).flatMap(cb => {
-            return cb;
-          });
-        }).filter(cbName => this.observersReceived.includes(policiesCallbackMapping[cbName]));
+        const callbacksToRun = Object.keys(parsed.policies)
+          .flatMap(name => {
+            return Object.keys(lazy.Policies[name]).flatMap(cb => {
+              return cb;
+            });
+          })
+          .filter(cbName =>
+            this.observersReceived.includes(policiesCallbackMapping[cbName])
+          );
 
         // Only run callbacks that are ready right now. The rest is handled by
         // this._activatePolicies()
         callbacksToRun.map(cb => this._runPoliciesCallbacks(cb));
         break;
+      }
 
       case "distribution-customization-complete":
         this._reportEnterpriseTelemetry();
@@ -737,29 +746,38 @@ class RemotePoliciesProvider {
 
   observe(aSubject, aTopic, aData) {
     switch (aTopic) {
-      case "nsPref:changed": {
-          if (aData.includes("browser.policies")) {
+      case "nsPref:changed":
+        if (aData.includes("browser.policies")) {
           console.debug(`RemotePoliciesProvider: nsPref:changed: ${aData}`);
           switch (aData) {
             case "browser.policies.server":
-              this._serverAddr = Services.prefs.getStringPref("browser.policies.server", "");
+              this._serverAddr = Services.prefs.getStringPref(
+                "browser.policies.server",
+                ""
+              );
               break;
 
-            case "browser.policies.live_polling_freq":
+            case "browser.policies.live_polling_freq": {
               const p = this._pollingFrequency;
-              this._pollingFrequency = Services.prefs.getIntPref("browser.policies.live_polling_freq", 60000);
+              this._pollingFrequency = Services.prefs.getIntPref(
+                "browser.policies.live_polling_freq",
+                60000
+              );
               if (p != this._pollingFrequency) {
                 this._stopPolling();
               }
               break;
+            }
 
             case "browser.policies.access_token":
-              this._accessToken = Services.prefs.getStringPref("browser.policies.access_token", "");
+              this._accessToken = Services.prefs.getStringPref(
+                "browser.policies.access_token",
+                ""
+              );
               break;
           }
 
           this._maybeStartPolling();
-          }
         }
         break;
 
@@ -792,7 +810,11 @@ class RemotePoliciesProvider {
   }
 
   _maybeStartPolling() {
-    if (this._serverAddr != "" && this._accessToken != "" && this._poller == null) {
+    if (
+      this._serverAddr != "" &&
+      this._accessToken != "" &&
+      this._poller == null
+    ) {
       this._startPolling();
     } else {
       this._stopPolling();
@@ -806,7 +828,9 @@ class RemotePoliciesProvider {
         this._ingestPolicies(jsonResponse);
       })
       .catch(error => {
-        console.debug(`RemotePoliciesProvider: performPolling(): ${this._pollingFrequency}: error ${error}`);
+        console.debug(
+          `RemotePoliciesProvider: performPolling(): ${this._pollingFrequency}: error ${error}`
+        );
         this._hasRemoteConnection = false;
       });
   }
@@ -814,7 +838,10 @@ class RemotePoliciesProvider {
   _startPolling() {
     Services.obs.addObserver(this, "xpcom-shutdown");
     this._performPolling();
-    this._poller = lazy.setInterval(this._performPolling.bind(this), this._pollingFrequency);
+    this._poller = lazy.setInterval(
+      this._performPolling.bind(this),
+      this._pollingFrequency
+    );
   }
 
   _ingestPolicies(payload) {
@@ -836,23 +863,21 @@ class RemotePoliciesProvider {
   }
 
   async _connectConsoleHttp() {
-    return new Promise(async (resolve, reject) => {
-      try {
-        const serverAddr = Services.prefs.getStringPref(
-          "browser.policies.server"
-        );
-        const bearer = `Bearer ${this._accessToken}`;
-        const response = await fetch(`${serverAddr}/api/browser/policies`, {
-          headers: {
-            "Authorization": bearer
-          }
-        });
-        resolve(await response.json());
-      } catch (error) {
-        console.error(error.message);
-        reject(error);
-      }
-    });
+    try {
+      const serverAddr = Services.prefs.getStringPref(
+        "browser.policies.server"
+      );
+      const bearer = `Bearer ${this._accessToken}`;
+      const response = await fetch(`${serverAddr}/api/browser/policies`, {
+        headers: {
+          Authorization: bearer,
+        },
+      });
+      return await response.json();
+    } catch (error) {
+      console.error(error.message);
+      throw error;
+    }
   }
 }
 

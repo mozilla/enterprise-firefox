@@ -58,5 +58,6 @@
   "nsIWindowWatcher": "ww",
   "nsIXULAppInfo": "appinfo",
   "nsIXULRuntime": "appinfo",
-  "nsIXULStore": "xulStore"
+  "nsIXULStore": "xulStore",
+  "nsIFelt": "felt"
 }
