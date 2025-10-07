@@ -458,6 +458,9 @@ class Connection final : public mozIStorageConnection,
 
   nsresult synchronousClose();
 
+  int sqliteOpen(const char* aFilename, sqlite3** ppDbn, int aFlags,
+                 const char* aVfs);
+
   /**
    * Stores the flags we passed to sqlite3_open_v2.
    */

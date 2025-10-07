@@ -34,6 +34,10 @@
 #include "mozIStorageService.h"
 #include "prtime.h"
 
+#if defined(MOZ_ENTERPRISE)
+#  include "mozilla/browser/extensions/felt/felt.h"
+#endif
+
 #include "nsXULAppAPI.h"
 
 // Time between corrupt database backups.
@@ -334,11 +338,29 @@ nsresult SetupDurability(nsCOMPtr<mozIStorageConnection>& aDBConn,
 
 nsresult AttachDatabase(nsCOMPtr<mozIStorageConnection>& aDBConn,
                         const nsACString& aPath, const nsACString& aName) {
+  nsCString path = nsCString(aPath);
+
+  if (is_felt_browser()) {
+    const char* key_ptr = get_profile_key();
+    if (!key_ptr) {
+      return NS_ERROR_FAILURE;
+    }
+
+    const char* key = strdup(key_ptr);
+    free_profile_key(key_ptr);
+
+    path = nsPrintfCString("file:%s?key=%s", nsCString(aPath).get(), key);
+  }
+
   nsCOMPtr<mozIStorageStatement> stmt;
   nsresult rv = aDBConn->CreateStatement("ATTACH DATABASE :path AS "_ns + aName,
                                          getter_AddRefs(stmt));
+  NS_WARNING(nsPrintfCString("%s: ATTACH DATABASE %s as %s",
+                             __PRETTY_FUNCTION__, nsCString(path).get(),
+                             nsCString(aName).get())
+                 .get());
   NS_ENSURE_SUCCESS(rv, rv);
-  rv = stmt->BindUTF8StringByName("path"_ns, aPath);
+  rv = stmt->BindUTF8StringByName("path"_ns, path);
   NS_ENSURE_SUCCESS(rv, rv);
   rv = stmt->Execute();
   NS_ENSURE_SUCCESS(rv, rv);

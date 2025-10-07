@@ -54,6 +54,11 @@
 #include "nsStringFwd.h"
 #include "nsURLHelper.h"
 
+#if defined(MOZ_ENTERPRISE)
+#  include "nsNSSComponent.h"
+#  include "mozilla/browser/extensions/felt/felt.h"
+#endif
+
 #define MIN_AVAILABLE_BYTES_PER_CHUNKED_GROWTH 524288000  // 500 MiB
 
 // Maximum size of the pages cache per connection.
@@ -1037,8 +1042,10 @@ nsresult Connection::initialize(const nsACString& aStorageKey,
       mName.IsEmpty() ? nsAutoCString(":memory:"_ns)
                       : "file:"_ns + mName + "?mode=memory&cache=shared"_ns;
 
-  int srv = ::sqlite3_open_v2(path.get(), &mDBConn, mFlags,
-                              basevfs::GetVFSName(true));
+  NS_WARNING(nsPrintfCString("%s: aName=%s", __PRETTY_FUNCTION__,
+                             nsCString(aName).get())
+                 .get());
+  int srv = sqliteOpen(path.get(), &mDBConn, mFlags, basevfs::GetVFSName(true));
   if (srv != SQLITE_OK) {
     ::sqlite3_close(mDBConn);
     mDBConn = nullptr;
@@ -1064,6 +1071,68 @@ nsresult Connection::initialize(const nsACString& aStorageKey,
   return NS_OK;
 }
 
+// favicons.sqlite fails on ATTACH command, but it should be encrypted
+const char* doNotEncrypt[] = {"favicons.sqlite", nullptr};
+
+int Connection::sqliteOpen(const char* aFilename, sqlite3** ppDbn, int aFlags,
+                           const char* aVfs) {
+  auto isNotToEncrypt = [](const char* filename, const char* skipList[]) {
+    for (size_t i = 0; skipList[i] != nullptr; i++) {
+      const char* pos = strstr(filename, skipList[i]);
+      if (!pos) {
+        return false;
+      }
+      if (strcmp(skipList[i], pos) == 0) {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  if (!is_felt_browser() || strstr(aFilename, "key=") ||
+      (strstr(aFilename, "file:") == aFilename &&
+       strstr(aFilename, "mode=memory")) ||
+      isNotToEncrypt(aFilename, doNotEncrypt)) {
+    return ::sqlite3_open_v2(aFilename, ppDbn, aFlags, aVfs);
+  }
+
+  const char* key_ptr = get_profile_key();
+  if (!key_ptr) {
+    ::sqlite3_close(*ppDbn);
+    *ppDbn = nullptr;
+    return SQLITE_AUTH;
+  }
+
+  const char* key = strdup(key_ptr);
+  free_profile_key(key_ptr);
+
+  // TODO: How do we handle exclusive access with obfsvfs?
+  const char* const vfs = key ? obfsvfs::GetVFSName() : aVfs;
+
+  // TODO: Properly build a nsIURI?
+  const char* maybeFileProto = "file://";
+  NS_WARNING(nsPrintfCString("%s: aFilename=%s", __PRETTY_FUNCTION__, aFilename)
+                 .get());
+  if (strstr(aFilename, "file://") == aFilename) {
+    NS_WARNING(nsPrintfCString("%s: aFilename=%s HAS file:// SKIPPING ONE",
+                               __PRETTY_FUNCTION__, aFilename)
+                   .get());
+    maybeFileProto = "";
+  }
+  NS_WARNING(nsPrintfCString("%s: aFilename=%s maybeFileProto=%s",
+                             __PRETTY_FUNCTION__, aFilename, maybeFileProto)
+                 .get());
+
+  nsCString dbSpec =
+      nsPrintfCString("%s%s?key=%s", maybeFileProto, aFilename, key);
+  NS_WARNING(nsPrintfCString("%s: dbSpec=%s => sqlite3_open_v2",
+                             __PRETTY_FUNCTION__, dbSpec.get())
+                 .get());
+
+  EnsureNSSInitializedChromeOrContent();
+  return ::sqlite3_open_v2(dbSpec.get(), ppDbn, mFlags | SQLITE_OPEN_URI, vfs);
+}
+
 nsresult Connection::initialize(nsIFile* aDatabaseFile) {
   NS_ASSERTION(aDatabaseFile, "Passed null file!");
   NS_ASSERTION(!connectionReady(),
@@ -1078,22 +1147,28 @@ nsresult Connection::initialize(nsIFile* aDatabaseFile) {
   nsresult rv = aDatabaseFile->GetPath(path);
   NS_ENSURE_SUCCESS(rv, rv);
 
+  NS_WARNING(nsPrintfCString("%s: path=%s", __PRETTY_FUNCTION__,
+                             NS_ConvertUTF16toUTF8(path).get())
+                 .get());
+
+  /// COOKIES HERE.
+
   bool exclusive =
       StaticPrefs::storage_sqlite_exclusiveLock_enabled() && !mOpenNotExclusive;
   int srv;
   if (mIgnoreLockingMode) {
     exclusive = false;
-    srv = ::sqlite3_open_v2(NS_ConvertUTF16toUTF8(path).get(), &mDBConn, mFlags,
-                            "readonly-immutable-nolock");
+    srv = sqliteOpen(NS_ConvertUTF16toUTF8(path).get(), &mDBConn, mFlags,
+                     "readonly-immutable-nolock");
   } else {
-    srv = ::sqlite3_open_v2(NS_ConvertUTF16toUTF8(path).get(), &mDBConn, mFlags,
-                            basevfs::GetVFSName(exclusive));
+    srv = sqliteOpen(NS_ConvertUTF16toUTF8(path).get(), &mDBConn, mFlags,
+                     basevfs::GetVFSName(exclusive));
     if (exclusive && (srv == SQLITE_LOCKED || srv == SQLITE_BUSY)) {
       ::sqlite3_close(mDBConn);
       // Retry without trying to get an exclusive lock.
       exclusive = false;
-      srv = ::sqlite3_open_v2(NS_ConvertUTF16toUTF8(path).get(), &mDBConn,
-                              mFlags, basevfs::GetVFSName(false));
+      srv = sqliteOpen(NS_ConvertUTF16toUTF8(path).get(), &mDBConn, mFlags,
+                       basevfs::GetVFSName(false));
     }
   }
   if (srv != SQLITE_OK) {
@@ -1111,8 +1186,8 @@ nsresult Connection::initialize(nsIFile* aDatabaseFile) {
     // some cases it may successfully open the database and then lock on the
     // first query execution. When initializeInternal fails it closes the
     // connection, so we can try to restart it in non-exclusive mode.
-    srv = ::sqlite3_open_v2(NS_ConvertUTF16toUTF8(path).get(), &mDBConn, mFlags,
-                            basevfs::GetVFSName(false));
+    srv = sqliteOpen(NS_ConvertUTF16toUTF8(path).get(), &mDBConn, mFlags,
+                     basevfs::GetVFSName(false));
     if (srv == SQLITE_OK) {
       rv = initializeInternal();
     } else {
@@ -1148,7 +1223,12 @@ nsresult Connection::initialize(nsIFileURL* aFileURL) {
   // If there is a key specified, we need to use the obfuscating VFS.
   nsAutoCString query;
   rv = aFileURL->GetQuery(query);
+  PathString path = databaseFile->NativePath();
   NS_ENSURE_SUCCESS(rv, rv);
+
+  NS_WARNING(nsPrintfCString("%s: path=%s spec=%s", __PRETTY_FUNCTION__,
+                             path.get(), nsCString(spec).get())
+                 .get());
 
   bool hasKey = false;
   bool hasDirectoryLockId = false;
@@ -1175,7 +1255,7 @@ nsresult Connection::initialize(nsIFileURL* aFileURL) {
                           : hasDirectoryLockId ? quotavfs::GetVFSName()
                                                : basevfs::GetVFSName(exclusive);
 
-  int srv = ::sqlite3_open_v2(spec.get(), &mDBConn, mFlags, vfs);
+  int srv = sqliteOpen(spec.get(), &mDBConn, mFlags, vfs);
   if (srv != SQLITE_OK) {
     ::sqlite3_close(mDBConn);
     mDBConn = nullptr;
