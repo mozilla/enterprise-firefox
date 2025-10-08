@@ -3,28 +3,21 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-import datetime
-import json
 import os
-import shutil
 import sys
 import time
-import uuid
-import psutil
-from multiprocessing import Value
 
 import portpicker
-import requests
+import psutil
 from felt_tests import FeltTests
-from selenium.common.exceptions import WebDriverException, NoSuchWindowException
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.remote.command import Command
+from selenium.common.exceptions import NoSuchWindowException, WebDriverException
 
 
 class BrowserRestartIsQuit(FeltTests):
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs, test_prefs=[["browser.felt.disable_restart", True]])
+        super().__init__(
+            *args, **kwargs, test_prefs=[["browser.felt.disable_restart", True]]
+        )
 
     def test_felt_3_restart_is_quit(self, exp):
         self._logger.info("Connecting to browser")
@@ -34,20 +27,24 @@ class BrowserRestartIsQuit(FeltTests):
 
         process = psutil.Process(pid=self._browser_pid)
         self._logger.info(f"PID {self._browser_pid}: {process.name()}")
-        assert os.path.basename(process.name()).startswith("firefox"), "Process is Firefox"
+        assert os.path.basename(process.name()).startswith(
+            "firefox"
+        ), "Process is Firefox"
 
         try:
             self._logger.info("Issuing restart, expecting quit being done")
             self._child_driver.set_context("chrome")
             self._child_driver.execute_script(
-                    "Services.startup.quit(Ci.nsIAppStartup.eRestart | Ci.nsIAppStartup.eAttemptQuit);"
+                "Services.startup.quit(Ci.nsIAppStartup.eRestart | Ci.nsIAppStartup.eAttemptQuit);"
             )
         except WebDriverException:
-            self._logger.info(f"Received expected WebDriverException")
+            self._logger.info("Received expected WebDriverException")
         except NoSuchWindowException:
-            self._logger.info(f"Received expected NoSuchWindowException")
+            self._logger.info("Received expected NoSuchWindowException")
         finally:
-            self._logger.info(f"Issued restart, expecting quit underway, checking PID {self._browser_pid}")
+            self._logger.info(
+                f"Issued restart, expecting quit underway, checking PID {self._browser_pid}"
+            )
             self._manually_closed_child = True
 
         return True
@@ -66,8 +63,12 @@ class BrowserRestartIsQuit(FeltTests):
         else:
             try:
                 process = psutil.Process(pid=self._browser_pid)
-                self._logger.info(f"Found PID {self._browser_pid}: EXE:{process.exe()} :: NAME:{process.name()} :: CMDLINE:{process.cmdline()}")
-                assert os.path.basename(process.name()) != "firefox", "Process is not Firefox"
+                self._logger.info(
+                    f"Found PID {self._browser_pid}: EXE:{process.exe()} :: NAME:{process.name()} :: CMDLINE:{process.cmdline()}"
+                )
+                assert (
+                    os.path.basename(process.name()) != "firefox"
+                ), "Process is not Firefox"
                 return True
             except psutil.ZombieProcess:
                 self._logger.info(f"Zombie found as {self._browser_pid}")

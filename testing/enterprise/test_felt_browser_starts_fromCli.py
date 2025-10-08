@@ -3,21 +3,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-import datetime
-import json
-import os
-import shutil
 import sys
-import time
-import uuid
-from multiprocessing import Value
 
 import portpicker
-import requests
 from felt_tests import FeltTests
-from selenium.common.exceptions import WebDriverException
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support import expected_conditions as EC
 
 
 class FeltStartsBrowserCli(FeltTests):
@@ -52,5 +41,5 @@ if __name__ == "__main__":
         profile_root=sys.argv[3],
         console=port_console,
         sso_server=port_sso_serv,
-        cli_args=["-feltUI"], 
+        cli_args=["-feltUI"],
     )

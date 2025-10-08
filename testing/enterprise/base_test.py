@@ -4,12 +4,10 @@
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 
-import base64
-import io
 import json
 import os
-import subprocess
 import shutil
+import subprocess
 import sys
 import tempfile
 import time
@@ -18,11 +16,8 @@ import traceback
 from mozlog import formatters, handlers, structuredlog
 from selenium import webdriver
 from selenium.common.exceptions import TimeoutException, WebDriverException
-from selenium.webdriver.common.by import By
 from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.firefox.service import Service
-from selenium.webdriver.remote.webdriver import WebDriver
-from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
@@ -30,7 +25,17 @@ from selenium.webdriver.support.ui import WebDriverWait
 class EnterpriseTestsBase:
     _INSTANCE = None
 
-    def __init__(self, exp, firefox, geckodriver, profile_root, extra_cli_args=[], extra_env=[], extra_prefs=None, dont_maximize=False):
+    def __init__(
+        self,
+        exp,
+        firefox,
+        geckodriver,
+        profile_root,
+        extra_cli_args=[],
+        extra_env=[],
+        extra_prefs=None,
+        dont_maximize=False,
+    ):
         self._EXE_PATH = rf"{geckodriver}"
         self._BIN_PATH = rf"{firefox}"
 
@@ -159,7 +164,9 @@ class EnterpriseTestsBase:
                         f"screenshot_{m.lower()}_{test_status.lower()}_parent_childBrowser.png"
                     )
                 except Exception:
-                    self._logger.info("Failed to switch to parent frame for screenshot.")
+                    self._logger.info(
+                        "Failed to switch to parent frame for screenshot."
+                    )
 
                 self._logger.test_end(m, status=test_status, message=test_message)
                 traceback.print_exc()
@@ -191,11 +198,13 @@ class EnterpriseTestsBase:
             self._logger.info(f"Saving screenshot FAILED due to {ex}")
 
     def save_screenshot_child(self, name):
+        final_name = self.get_screenshot_destination(name)
         if not hasattr(self, "_child_driver"):
-            self._logger.info(f"No child browser to save screenshot '{name}' to '{final_name}'")
+            self._logger.info(
+                f"No child browser to save screenshot '{name}' to '{final_name}'"
+            )
             return
 
-        final_name = self.get_screenshot_destination(name)
         self._logger.info(f"Saving child browser screenshot '{name}' to '{final_name}'")
         try:
             self._child_driver.save_screenshot(final_name)
@@ -234,7 +243,9 @@ class EnterpriseTestsBase:
         return "--allow-system-access" in geckodriver_output
 
     def get_marionette_port(self, max_try=100):
-        marionette_port_file = os.path.join(self._child_profile_path, "MarionetteActivePort")
+        marionette_port_file = os.path.join(
+            self._child_profile_path, "MarionetteActivePort"
+        )
 
         found_marionette_port = False
         tries = 0
@@ -254,7 +265,12 @@ class EnterpriseTestsBase:
         assert marionette_port > 0, "Valid marionette port"
         self._logger.info(f"Marionette PORT: {marionette_port}")
 
-        driver_service_args = ["--allow-system-access", "--connect-existing", "--marionette-port", str(marionette_port)]
+        driver_service_args = [
+            "--allow-system-access",
+            "--connect-existing",
+            "--marionette-port",
+            str(marionette_port),
+        ]
         driver_service = Service(
             executable_path=self._EXE_PATH,
             log_output="geckodriver_child.log",

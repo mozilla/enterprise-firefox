@@ -3,21 +3,13 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-import datetime
-import json
-import os
-import shutil
 import sys
 import time
-import uuid
-from multiprocessing import Value
 
 import portpicker
 import requests
 from felt_tests import FeltTests
 from selenium.common.exceptions import WebDriverException
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support import expected_conditions as EC
 
 
 class BrowserAboutConfigBlocked(FeltTests):
@@ -50,9 +42,14 @@ class BrowserAboutConfigBlocked(FeltTests):
         while max_try < 20:
             max_try += 1
             try:
-                r = requests.get(f"{url}", headers={"Authorization": f"Bearer {self.policy_access_token.value}"})
+                r = requests.get(
+                    f"{url}",
+                    headers={
+                        "Authorization": f"Bearer {self.policy_access_token.value}"
+                    },
+                )
                 j = r.json()
-                if j["policies"]["BlockAboutConfig"] == False:
+                if not j["policies"]["BlockAboutConfig"]:
                     self._logger.info(f"Policy update propagated at {url}!")
                     break
                 self._logger.info(f"Policy update not yet propagated at {url}")

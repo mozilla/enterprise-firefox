@@ -9,15 +9,14 @@ import os
 import shutil
 import sys
 import time
-import uuid
-from http.server import BaseHTTPRequestHandler, HTTPServer
 import urllib.parse
-from multiprocessing import Process, Value, Manager
+import uuid
 from ctypes import c_wchar_p  # c_wchar_p
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from multiprocessing import Manager, Process, Value
 
 import requests
 from base_test import EnterpriseTestsBase
-from selenium.common.exceptions import WebDriverException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 
@@ -81,9 +80,7 @@ class SsoHttpHandler(LocalHttpRequestHandler):
                 "Set-Cookie",
                 f"{self.server.cookie_name}={self.server.cookie_value}; Domain=localhost; Path=/; Expires={cookie_expiry}; SameSite=Strict",
             )
-            self.send_header(
-                "Location", location
-            )
+            self.send_header("Location", location)
             self.send_header("Content-Length", "0")
             self.end_headers()
             return
@@ -189,7 +186,7 @@ def serve(
     cookie_name=None,
     cookie_value=None,
     policy_block_about_config=None,
-    policy_access_token=None
+    policy_access_token=None,
 ):
     httpd = HTTPServer(("", port), classname)
     httpd.sso_port = sso_port
@@ -202,13 +199,28 @@ def serve(
         httpd.policy_block_about_config = policy_block_about_config
     if policy_access_token:
         httpd.policy_access_token = policy_access_token
-    print(f"Serving localhost:{port} SSO={sso_port} CONSOLE={console_port} with {classname}")
+    print(
+        f"Serving localhost:{port} SSO={sso_port} CONSOLE={console_port} with {classname}"
+    )
     httpd.serve_forever()
-    print(f"Stopped serving localhost:{port} SSO={sso_port} CONSOLE={console_port} with {classname}")
+    print(
+        f"Stopped serving localhost:{port} SSO={sso_port} CONSOLE={console_port} with {classname}"
+    )
 
 
 class FeltTests(EnterpriseTestsBase):
-    def __init__(self, json, firefox, geckodriver, profile_root, console, sso_server, test_prefs=[], cli_args=[], env_vars={}):
+    def __init__(
+        self,
+        json,
+        firefox,
+        geckodriver,
+        profile_root,
+        console,
+        sso_server,
+        test_prefs=[],
+        cli_args=[],
+        env_vars={},
+    ):
         self._manually_closed_child = False
         self.console_port = console
         self.sso_port = sso_server
@@ -250,10 +262,10 @@ class FeltTests(EnterpriseTestsBase):
             # Bug? matcher https://searchfox.org/firefox-main/source/toolkit/components/extensions/MatchPattern.cpp#370-384
             # ends up with mDomain=localhost:8000 and aDomain=localhost
             ["browser.felt.matches", "http://localhost/sso/callback?*"],
-            ["browser.felt.is_testing", True]
+            ["browser.felt.is_testing", True],
         ] + test_prefs
 
-        super(__class__, self).__init__(
+        super().__init__(
             json,
             firefox,
             geckodriver,
@@ -378,14 +390,17 @@ class FeltTests(EnterpriseTestsBase):
         email = self.get_elem("#felt-form__email")
         self._logger.info(f"Submitting email in chrome context: {email}")
 
-        # <moz-input-text> fails with 'unreachable by keyboard' in Selenium
-        # because shadowroot does not delegate focus???
-        # cf https://searchfox.org/firefox-main/rev/938e8f38c6765875e998d5c2965ad5864f5a5ee2/dom/base/nsFocusManager.cpp#5649
+        # <moz-input-text> fails with 'unreachable by keyboard' in Selenium
+        # because shadowroot does not delegate focus???
+        # cf https://searchfox.org/firefox-main/rev/938e8f38c6765875e998d5c2965ad5864f5a5ee2/dom/base/nsFocusManager.cpp#5649
         self._driver.execute_script(
             """
             arguments[0].value = arguments[1];
             arguments[0].dispatchEvent(new Event('input', { bubbles: true }));
-            """, email, "random@mozilla.com")
+            """,
+            email,
+            "random@mozilla.com",
+        )
 
         self._logger.info("Submitting email by clicking")
         btn = self.get_elem("#felt-form__sign-in-btn")
@@ -394,7 +409,9 @@ class FeltTests(EnterpriseTestsBase):
         self._logger.info("Email submitted and SSO browser displayed")
         sso_content_ready = self.get_elem(".felt-login__sso")
         assert sso_content_ready, "The SSO content is displayed"
-        self._logger.info(f"Email submitted and SSO browser displayed correctly: {sso_content_ready}")
+        self._logger.info(
+            f"Email submitted and SSO browser displayed correctly: {sso_content_ready}"
+        )
 
         self._driver.set_context("content")
 

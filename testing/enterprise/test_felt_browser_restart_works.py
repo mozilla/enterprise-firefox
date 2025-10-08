@@ -3,23 +3,14 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-import datetime
-import json
 import os
-import shutil
 import sys
 import time
-import uuid
-import psutil
-from multiprocessing import Value
 
 import portpicker
-import requests
+import psutil
 from felt_tests import FeltTests
-from selenium.common.exceptions import WebDriverException, NoSuchWindowException
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.remote.command import Command
+from selenium.common.exceptions import NoSuchWindowException, WebDriverException
 
 
 class BrowserRestartWorks(FeltTests):
@@ -36,14 +27,16 @@ class BrowserRestartWorks(FeltTests):
             self._logger.info("Issuing restart, expecting restart being done by felt")
             self._child_driver.set_context("chrome")
             self._child_driver.execute_script(
-                    "Services.startup.quit(Ci.nsIAppStartup.eRestart | Ci.nsIAppStartup.eAttemptQuit);"
+                "Services.startup.quit(Ci.nsIAppStartup.eRestart | Ci.nsIAppStartup.eAttemptQuit);"
             )
         except WebDriverException:
-            self._logger.info(f"Received expected WebDriverException")
+            self._logger.info("Received expected WebDriverException")
         except NoSuchWindowException:
-            self._logger.info(f"Received expected NoSuchWindowException")
+            self._logger.info("Received expected NoSuchWindowException")
         finally:
-            self._logger.info(f"Issued restart, expecting quit underway, checking PID {self._browser_pid}")
+            self._logger.info(
+                f"Issued restart, expecting quit underway, checking PID {self._browser_pid}"
+            )
             self._manually_closed_child = True
 
         return True
@@ -61,8 +54,12 @@ class BrowserRestartWorks(FeltTests):
         else:
             try:
                 process = psutil.Process(pid=self._browser_pid)
-                self._logger.info(f"Found PID {self._browser_pid}: EXE:{process.exe()} :: NAME:{process.name()} :: CMDLINE:{process.cmdline()}")
-                assert os.path.basename(process.name()) != "firefox", "Process is not Firefox"
+                self._logger.info(
+                    f"Found PID {self._browser_pid}: EXE:{process.exe()} :: NAME:{process.name()} :: CMDLINE:{process.cmdline()}"
+                )
+                assert (
+                    os.path.basename(process.name()) != "firefox"
+                ), "Process is not Firefox"
             except psutil.ZombieProcess:
                 self._logger.info(f"Zombie found as {self._browser_pid}")
                 return True
@@ -72,13 +69,17 @@ class BrowserRestartWorks(FeltTests):
         new_browser_pid = self._child_driver.capabilities["moz:processID"]
         self._logger.info(f"Connected to new brower with PID {new_browser_pid}")
 
-        self._logger.info(f"Checking PID changes from {self._browser_pid} to {new_browser_pid}")
-        assert new_browser_pid != self._browser_pid, f"PID changed from {self._browser_pid} to {new_browser_pid}"
+        self._logger.info(
+            f"Checking PID changes from {self._browser_pid} to {new_browser_pid}"
+        )
+        assert (
+            new_browser_pid != self._browser_pid
+        ), f"PID changed from {self._browser_pid} to {new_browser_pid}"
 
         self._logger.info(f"Closing new browser with PID {new_browser_pid}")
         self._child_driver.set_context("chrome")
         self._child_driver.execute_script(
-                "Services.startup.quit(Ci.nsIAppStartup.eForceQuit);"
+            "Services.startup.quit(Ci.nsIAppStartup.eForceQuit);"
         )
 
         return True
