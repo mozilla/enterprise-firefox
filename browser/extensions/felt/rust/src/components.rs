@@ -106,7 +106,7 @@ impl FeltXPCOM {
         self.send(FeltMessage::RestartForced)
     }
 
-    fn IpcChannel(&self) -> nserror::nsresult {
+    fn IpcChannel(&self, profile_key: *const nsACString) -> nserror::nsresult {
         let felt_server = match self.one_shot_server.take() {
             Some(f) => f,
             None => {
@@ -154,6 +154,10 @@ impl FeltXPCOM {
                     "FeltXPCOM:tx.send(FeltMessage::VersionValidated({})) OK",
                     versions_match
                 );
+
+                let key_s = unsafe { (*profile_key).to_string() };
+                let _ = tx.send(FeltMessage::ProfileKey(key_s));
+
                 self.tx.replace(Some(tx));
                 self.rx.replace(Some(rx));
             }

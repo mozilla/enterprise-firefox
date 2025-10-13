@@ -24,7 +24,7 @@ interface nsIFelt : nsISupports {
   boolean isFeltBrowser();
 
   [must_use]
-  void ipcChannel();
+  void ipcChannel(in ACString profileKey);
 
   [must_use]
   void sendBoolPreference(in ACString name, in boolean value);

@@ -263,7 +263,9 @@ export class FeltProcessParent extends JSProcessActorParent {
         console.error(err instanceof Error ? err : err.message);
       });
 
-    Services.felt.ipcChannel();
+    Services.felt.ipcChannel(
+      "d9cd8155764c3543f10fad8a480d743137466f8d55213c8eaefcd12f06d43a80"
+    );
   }
 
   receiveMessage(message) {

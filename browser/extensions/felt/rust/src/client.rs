@@ -8,7 +8,7 @@ use nserror::{nsresult, NS_ERROR_FAILURE, NS_OK};
 use nsstring::nsString;
 use std::cell::RefCell;
 use std::ffi::{c_char, CStr, CString};
-use std::sync::{atomic::AtomicBool, atomic::Ordering, Arc};
+use std::sync::{atomic::AtomicBool, atomic::Ordering, Arc, Mutex};
 use std::time::Duration;
 use xpcom::interfaces::{nsIObserver, nsIObserverService, nsISupports};
 use xpcom::RefPtr;
@@ -17,6 +17,8 @@ use log::trace;
 
 use crate::message::{FeltMessage, FELT_IPC_VERSION};
 use crate::utils;
+
+pub static FELT_CLIENT: Mutex<Option<FeltClientThread>> = Mutex::new(None);
 
 #[derive(Default)]
 pub struct FeltIpcClient {
@@ -93,25 +95,44 @@ impl FeltIpcClient {
             match rx.recv() {
                 Ok(FeltMessage::VersionValidated(true)) => {
                     trace!("FeltIpcClient::report_version() VALIDATED");
-                    true
                 }
                 Ok(FeltMessage::VersionValidated(false)) => {
                     trace!("FeltIpcClient::report_version() REJRECTED");
-                    false
+                    return false;
                 }
                 Ok(_) => {
                     trace!("FeltIpcClient::report_version() UNEXPECTED MSG");
-                    false
+                    return false;
                 }
                 Err(err) => {
                     trace!("FeltIpcClient::report_version() RX ERROR: {}", err);
-                    false
+                    return false;
+                }
+            }
+
+            match rx.recv() {
+                Ok(FeltMessage::ProfileKey(key)) => {
+                    trace!("FeltClientThread::felt_client::ipc_loop(): ProfileKey: {}", key);
+                    let mut state = crate::PROFILE_KEY.lock().expect("Could not lock mutex");
+                    let key_c = CString::new(key).expect("Could not build CString");
+                    trace!("FeltClientThread::felt_client::ipc_loop(): ProfileKey: Some({:?}) => {:?}", key_c, key_c.as_ptr());
+                    *state = Some(key_c);
+                }
+                Ok(_) => {
+                    trace!("FeltIpcClient::report_version() UNEXPECTED MSG");
+                    return false;
+                }
+                Err(err) => {
+                    trace!("FeltIpcClient::report_version() RX ERROR: {}", err);
+                    return false;
                 }
             }
         } else {
             trace!("FeltIpcClient::report_version() RX MISSING?");
-            false
+            return false;
         }
+
+        true
     }
 }
 

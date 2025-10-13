@@ -16,6 +16,7 @@ pub enum FeltMessage {
     StartupReady,
     RestartForced,
     Restarting,
+    ProfileKey(String), // Should this be part of earlier messages?? ClientChannel?
 }
 
-pub const FELT_IPC_VERSION: u32 = 1;
+pub const FELT_IPC_VERSION: u32 = 2;

@@ -4,7 +4,7 @@
 
 use log::trace;
 use std::os::raw::c_char;
-use std::{ffi::CStr, sync::atomic::AtomicBool};
+use std::{ffi::CStr, ffi::CString, sync::atomic::AtomicBool};
 
 use std::env;
 use std::sync::{atomic::Ordering, Mutex};
@@ -70,7 +70,36 @@ pub extern "C" fn is_felt_browser() -> bool {
     IS_FELT_BROWSER.load(Ordering::Relaxed)
 }
 
-pub static FELT_CLIENT: Mutex<Option<client::FeltClientThread>> = Mutex::new(None);
+pub static PROFILE_KEY: Mutex<Option<CString>> = Mutex::new(None);
+
+#[no_mangle]
+pub extern "C" fn get_profile_key() -> *const c_char {
+    trace!("get_profile_key()");
+    let guard = PROFILE_KEY.lock().expect("Could not get lock");
+    let data = guard.clone();
+    match data {
+        Some(key) => {
+            // need matching CString::from_raw() on ptr to avoid leaking
+            // cf free_profile_key()
+            let ptr = key.clone().into_raw();
+            trace!("get_profile_key(): Some({:?}) => {:?}", key, ptr);
+            ptr
+        }
+        None => {
+            trace!("get_profile_key(): None!");
+            std::ptr::null()
+        }
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn free_profile_key(ptr: *mut c_char) {
+    trace!("free_profile_key(): {:?}", ptr);
+    // retake pointer to free memory
+    unsafe {
+        let _ = CString::from_raw(ptr);
+    }
+}
 
 #[no_mangle]
 pub extern "C" fn firefox_connect_to_felt(server_name: *const c_char) -> () {
@@ -79,7 +108,7 @@ pub extern "C" fn firefox_connect_to_felt(server_name: *const c_char) -> () {
     trace!("firefox_connect_to_felt({})", server_socket);
     match client::FeltClientThread::new(server_socket) {
         Ok(client) => {
-            let mut state = FELT_CLIENT.lock().expect("Could not lock mutex");
+            let mut state = client::FELT_CLIENT.lock().expect("Could not lock mutex");
             trace!("firefox_connect_to_felt(): connected, storing client");
             *state = Some(client);
         }
@@ -92,7 +121,7 @@ pub extern "C" fn firefox_connect_to_felt(server_name: *const c_char) -> () {
 
 #[no_mangle]
 pub extern "C" fn firefox_felt_connection_start_thread() -> () {
-    let guard = FELT_CLIENT.lock().expect("Could not get lock");
+    let guard = client::FELT_CLIENT.lock().expect("Could not get lock");
     match &*guard {
         Some(client) => {
             trace!("firefox_connect_to_felt(): connected, starting thread");
@@ -107,7 +136,7 @@ pub extern "C" fn firefox_felt_connection_start_thread() -> () {
 
 #[no_mangle]
 pub extern "C" fn firefox_felt_is_startup_complete() -> bool {
-    let guard = FELT_CLIENT.lock().expect("Could not get lock");
+    let guard = client::FELT_CLIENT.lock().expect("Could not get lock");
     match &*guard {
         Some(client) => client.is_startup_complete(),
         None => {
