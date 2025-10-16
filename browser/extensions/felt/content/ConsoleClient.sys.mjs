@@ -14,6 +14,12 @@ const PREFS = {
   SSO_CALLBACK: "browser.felt.matches",
 };
 
+const ENVIRONMENT = {
+  CONSOLE_ADDRESS_OVERRIDE: "MOZ_FELT_CONSOLE_URL",
+};
+
+const DEFAULT_CONSOLE_ADDRESS = "https://console.enterfox.eu";
+
 const isTesting = () => {
   return Services.prefs.getBoolPref(PREFS.IS_TESTING_ENVIRONMENT, false);
 };
@@ -77,9 +83,17 @@ export const ConsoleClient = {
   },
 
   get consoleAddr() {
-    return isTesting()
-      ? Services.prefs.getStringPref(PREFS.CONSOLE_ADDRESS, "")
-      : "https://console.enterfox.eu";
+    if (isTesting()) {
+      return Services.prefs.getStringPref(PREFS.CONSOLE_ADDRESS, "");
+    }
+
+    const envOverride = Services.env.get(ENVIRONMENT.CONSOLE_ADDRESS_OVERRIDE);
+    if (envOverride && envOverride.trim()) {
+      console.debug("ConsoleClient: Using console URL from environment variable");
+      return envOverride.trim();
+    }
+
+    return DEFAULT_CONSOLE_ADDRESS;
   },
 
   get ENDPOINTS() {
