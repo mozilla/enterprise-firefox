@@ -70,7 +70,7 @@ class SnapTestsBase:
         driver_service = Service(
             executable_path=self._EXE_PATH,
             log_output=os.path.join(
-                os.environ.get("ARTIFACT_DIR", ""), "geckodriver.log"
+                os.environ.get("ARTIFACT_DIR", ""), "geckodriver_felt.log"
             ),
             service_args=driver_service_args,
         )

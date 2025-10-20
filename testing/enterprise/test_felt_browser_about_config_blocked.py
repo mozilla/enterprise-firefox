@@ -17,7 +17,7 @@ class BrowserAboutConfigBlocked(FeltTests):
         super().__init__(*args, **kwargs)
 
     def test_felt_3_about_config_blocked_in_browser(self, exp):
-        self.connect_child_browser()
+        self.connect_launched_firefox_enterprise()
         self._logger.info(
             f"Value of BlockAboutConfig policy: {self.policy_block_about_config.value}"
         )

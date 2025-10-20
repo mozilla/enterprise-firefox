@@ -228,7 +228,8 @@ jobs:
         with:
           name: linux-tests-results
           path: |
-            geckodriver.log
+            geckodriver_felt.log
+            geckodriver_firefox.log
             screenshot_*.png
           compression-level: 0
         if: "always()"
@@ -449,8 +450,9 @@ jobs:
         with:
           name: windows-tests-results
           path: |
+            geckodriver_felt.log
+            geckodriver_firefox.log
             screenshot_*.png
-            geckodriver.log
           compression-level: 0
         if: "always()"
 
@@ -652,7 +654,8 @@ jobs:
         with:
           name: macOS-tests-results
           path: |
-            geckodriver.log
+            geckodriver_felt.log
+            geckodriver_firefox.log
             screenshot_*.png
           compression-level: 0
         if: "always()"

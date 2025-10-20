@@ -19,7 +19,7 @@ class BrowserRestartWorks(FeltTests):
 
     def test_felt_3_perform_restart(self, exp):
         self._logger.info("Connecting to browser")
-        self.connect_child_browser()
+        self.connect_launched_firefox_enterprise()
         self._browser_pid = self._child_driver.capabilities["moz:processID"]
         self._logger.info(f"Connected to {self._browser_pid}")
 
@@ -67,7 +67,7 @@ class BrowserRestartWorks(FeltTests):
                 return True
 
         self._logger.info("Connecting to new browser")
-        self.connect_child_browser()
+        self.connect_launched_firefox_enterprise()
         new_browser_pid = self._child_driver.capabilities["moz:processID"]
         self._logger.info(f"Connected to new brower with PID {new_browser_pid}")
 

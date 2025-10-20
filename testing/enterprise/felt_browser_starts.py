@@ -12,7 +12,7 @@ class FeltStartsBrowser(FeltTests):
         super().__init__(*args, **kwargs)
 
     def test_felt_3_browser_started(self, exp):
-        self.connect_child_browser()
+        self.connect_launched_firefox_enterprise()
         self.open_tab_child(f"http://localhost:{self.sso_port}/sso_page")
 
         expected_cookie = list(

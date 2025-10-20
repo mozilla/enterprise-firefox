@@ -21,7 +21,7 @@ class BrowserRestartIsQuit(FeltTests):
 
     def test_felt_3_restart_is_quit(self, exp):
         self._logger.info("Connecting to browser")
-        self.connect_child_browser()
+        self.connect_launched_firefox_enterprise()
         self._browser_pid = self._child_driver.capabilities["moz:processID"]
         self._logger.info(f"Connected to {self._browser_pid}")
 

@@ -48,7 +48,7 @@ class EnterpriseTestsBase:
         driver_service = Service(
             executable_path=self._EXE_PATH,
             log_output=os.path.join(
-                os.environ.get("ARTIFACT_DIR", ""), "geckodriver.log"
+                os.environ.get("ARTIFACT_DIR", ""), "geckodriver_felt.log"
             ),
             service_args=driver_service_args,
         )
@@ -149,19 +149,19 @@ class EnterpriseTestsBase:
 
                 test_message = repr(ex)
                 self.save_screenshot(
-                    f"screenshot_{m.lower()}_{test_status.lower()}.png"
+                    f"screenshot_{m.lower()}_{test_status.lower()}_felt.png"
                 )
                 self.save_screenshot_child(
-                    f"screenshot_{m.lower()}_{test_status.lower()}_childBrowser.png"
+                    f"screenshot_{m.lower()}_{test_status.lower()}_firefox.png"
                 )
                 try:
                     self._driver.switch_to.parent_frame()
                     self.save_screenshot(
-                        f"screenshot_{m.lower()}_{test_status.lower()}_parent.png"
+                        f"screenshot_{m.lower()}_{test_status.lower()}_felt_parent.png"
                     )
                     self._child_driver.switch_to.parent_frame()
                     self.save_screenshot_child(
-                        f"screenshot_{m.lower()}_{test_status.lower()}_parent_childBrowser.png"
+                        f"screenshot_{m.lower()}_{test_status.lower()}_firefox_parent.png"
                     )
                 except Exception:
                     self._logger.info(
@@ -260,7 +260,7 @@ class EnterpriseTestsBase:
 
         return (marionette_port, marionette_port_file)
 
-    def connect_child_browser(self):
+    def connect_launched_firefox_enterprise(self):
         (marionette_port, marionette_port_file) = self.get_marionette_port()
         assert marionette_port > 0, "Valid marionette port"
         self._logger.info(f"Marionette PORT: {marionette_port}")
@@ -273,7 +273,7 @@ class EnterpriseTestsBase:
         ]
         driver_service = Service(
             executable_path=self._EXE_PATH,
-            log_output="geckodriver_child.log",
+            log_output="geckodriver_firefox.log",
             service_args=driver_service_args,
         )
 
