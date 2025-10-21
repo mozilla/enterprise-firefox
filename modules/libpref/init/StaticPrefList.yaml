@@ -18224,6 +18224,12 @@
   value: false
   mirror: always
 
+# Enable sqlite database encryption
+- name: security.storage.encryption.sqlite.enabled
+  type: bool
+  value: true
+  mirror: once
+
 - name: security.tls13.aes_128_gcm_sha256
   type: RelaxedAtomicBool
   value: true

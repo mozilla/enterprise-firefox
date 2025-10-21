@@ -77,6 +77,8 @@
 #include "mozilla/LateWriteChecks.h"
 
 #include "mozilla/scache/StartupCache.h"
+#include "mozilla/security/KeyStorage.h"
+#include "mozilla/security/Persist.h"
 
 #include "base/at_exit.h"
 #include "base/command_line.h"
@@ -714,6 +716,8 @@ nsresult ShutdownXPCOM(nsIServiceManager* aServMgr) {
 
   // Release shared memory which might be borrowed by the JS engine.
   xpc::SelfHostedShmem::Shutdown();
+
+  mozilla::storage::key::Shutdown();
 
   // After all threads have been joined and the component manager has been shut
   // down, any remaining objects that could be holding NSS resources (should)

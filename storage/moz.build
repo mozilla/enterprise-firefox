@@ -76,6 +76,7 @@ UNIFIED_SOURCES += [
     "QuotaVFS.cpp",
     "ReadOnlyNoLockVFS.cpp",
     "StorageBaseStatementInternal.cpp",
+    "StorageProfileObserver.cpp",
     "VacuumManager.cpp",
     "Variant.cpp",
 ]

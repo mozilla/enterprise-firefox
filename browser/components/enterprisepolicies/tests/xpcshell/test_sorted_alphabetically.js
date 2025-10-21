@@ -3,6 +3,8 @@
 
 "use strict";
 
+do_get_profile();
+
 function checkArrayIsSorted(array, msg) {
   let sorted = true;
   let sortedArray = array.slice().sort(function (a, b) {

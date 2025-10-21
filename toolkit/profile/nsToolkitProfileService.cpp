@@ -7,6 +7,7 @@
 #include "mozilla/Preferences.h"
 #include "mozilla/HelperMacros.h"
 #include "mozilla/ScopeExit.h"
+#include "mozilla/security/Persist.h"
 #include "mozilla/Services.h"
 #include "mozilla/UniquePtr.h"
 #include "mozilla/UniquePtrExtensions.h"
@@ -1619,6 +1620,10 @@ nsresult nsToolkitProfileService::SelectStartupProfile(
         mCurrent->GetRootDir(aRootDir);
         mCurrent->GetLocalDir(aLocalDir);
 
+        nsAutoString path;
+        (*aRootDir)->GetPath(path);
+        storage::key::SetCurrentProfilePath(path);
+
         return NS_OK;
       }
     }
@@ -1637,6 +1642,11 @@ nsresult nsToolkitProfileService::SelectStartupProfile(
     lf.forget(aRootDir);
     localDir.forget(aLocalDir);
     NS_IF_ADDREF(*aProfile = profile);
+
+    nsAutoString path;
+    (*aRootDir)->GetPath(path);
+    storage::key::SetCurrentProfilePath(path);
+
     return NS_OK;
   }
 
@@ -1671,6 +1681,10 @@ nsresult nsToolkitProfileService::SelectStartupProfile(
     NS_ENSURE_SUCCESS(rv, rv);
 
     NS_IF_ADDREF(*aProfile = mCurrent);
+
+    nsAutoString path;
+    (*aRootDir)->GetPath(path);
+    storage::key::SetCurrentProfilePath(path);
 
     localDir.forget(aLocalDir);
 
@@ -1726,6 +1740,10 @@ nsresult nsToolkitProfileService::SelectStartupProfile(
 
       mCurrent->GetRootDir(aRootDir);
       mCurrent->GetLocalDir(aLocalDir);
+
+      nsAutoString path;
+      (*aRootDir)->GetPath(path);
+      storage::key::SetCurrentProfilePath(path);
 
       NS_ADDREF(*aProfile = mCurrent);
       return NS_OK;
@@ -1842,6 +1860,10 @@ nsresult nsToolkitProfileService::SelectStartupProfile(
     file.forget(aRootDir);
     localDir.forget(aLocalDir);
 
+    nsAutoString path;
+    (*aRootDir)->GetPath(path);
+    storage::key::SetCurrentProfilePath(path);
+
     // Background tasks never use profiles known to the profile service.
     *aProfile = nullptr;
 
@@ -1938,6 +1960,11 @@ nsresult nsToolkitProfileService::SelectStartupProfile(
             rootDir.forget(aRootDir);
             profile->GetLocalDir(aLocalDir);
             profile.forget(aProfile);
+
+            nsAutoString path;
+            (*aRootDir)->GetPath(path);
+            storage::key::SetCurrentProfilePath(path);
+
             return NS_OK;
           }
 
@@ -1978,6 +2005,10 @@ nsresult nsToolkitProfileService::SelectStartupProfile(
       mCurrent->GetLocalDir(aLocalDir);
       NS_ADDREF(*aProfile = mCurrent);
 
+      nsAutoString path;
+      (*aRootDir)->GetPath(path);
+      storage::key::SetCurrentProfilePath(path);
+
       *aDidCreate = true;
       return NS_OK;
     }
@@ -1999,6 +2030,10 @@ nsresult nsToolkitProfileService::SelectStartupProfile(
   mCurrent->GetRootDir(aRootDir);
   mCurrent->GetLocalDir(aLocalDir);
   NS_ADDREF(*aProfile = mCurrent);
+
+  nsAutoString path;
+  (*aRootDir)->GetPath(path);
+  storage::key::SetCurrentProfilePath(path);
 
   return NS_OK;
 }

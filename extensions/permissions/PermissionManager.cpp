@@ -36,6 +36,7 @@
 #include "mozIStorageConnection.h"
 #include "mozIStorageStatement.h"
 #include "mozStorageCID.h"
+#include "ScopedNSSTypes.h"
 
 #include "nsAppDirectoryServiceDefs.h"
 #include "nsComponentManagerUtils.h"
@@ -865,6 +866,9 @@ nsresult PermissionManager::Init() {
   }
 
   AddIdleDailyMaintenanceJob();
+
+  MOZ_RELEASE_ASSERT(EnsureNSSInitializedChromeOrContent(),
+                     "Could not initialize NSS.");
 
   MOZ_ASSERT(!mThread);
   NS_ENSURE_SUCCESS(NS_NewNamedThread("Permission", getter_AddRefs(mThread)),

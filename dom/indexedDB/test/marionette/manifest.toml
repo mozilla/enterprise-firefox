@@ -1,5 +1,6 @@
 [DEFAULT]
 subsuite = "integration"
 tags = "inc-origin-init os_integration"
+prefs = ["security.storage.encryption.sqlite.enabled=false"]
 
 ["test_IDB_encryption_PBM.py"]
