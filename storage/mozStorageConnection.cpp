@@ -6,7 +6,10 @@
 
 #include "BaseVFS.h"
 #include "ErrorList.h"
+#include "mozilla/security/KeyStorage.h"
+#include "ScopedNSSTypes.h"
 #include "nsError.h"
+#include "nsLocalFile.h"
 #include "nsThreadUtils.h"
 #include "nsIFile.h"
 #include "nsIFileURL.h"
@@ -1127,6 +1130,71 @@ nsresult Connection::initialize(nsIFile* aDatabaseFile) {
   return NS_OK;
 }
 
+nsresult Connection::initializeSecure(nsIFile* aDatabaseFile) {
+  NS_ASSERTION(aDatabaseFile, "Passed null file!");
+  NS_ASSERTION(!connectionReady(),
+               "Initialize called on already opened database!");
+  AUTO_PROFILER_LABEL("Connection::initialize", OTHER);
+
+  MOZ_RELEASE_ASSERT(EnsureNSSInitializedChromeOrContent(),
+                     "Could not initialize NSS.");
+
+  nsresult rv;
+
+  if (!mPrefBranch) {
+    nsCOMPtr<nsIPrefService> prefs =
+        do_GetService(NS_PREFSERVICE_CONTRACTID, &rv);
+    if (NS_FAILED(rv)) return rv;
+
+    rv = prefs->GetBranch(nullptr, getter_AddRefs(mPrefBranch));
+    if (NS_FAILED(rv)) return rv;
+  }
+
+  bool encryptionEnabled;
+  rv = mPrefBranch->GetBoolPref("security.storage.keystore.enabled",
+                                &encryptionEnabled);
+  if (NS_FAILED(rv) || !encryptionEnabled) {
+    return initialize(aDatabaseFile);
+  }
+
+  nsAutoCString telemetryFilename;
+  rv = aDatabaseFile->GetNativeLeafName(telemetryFilename);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  nsCString aDBKey;
+  key::GetKeyForFile(aDatabaseFile, aDBKey);
+
+  // Do not set mFileURL here since this is database does not have an associated
+  // URL.
+  mDatabaseFile = aDatabaseFile;
+
+  nsCString telName;
+  aDatabaseFile->GetNativeLeafName(telName);
+
+  nsAutoString dbPath;
+  aDatabaseFile->GetPath(dbPath);
+
+  nsAutoCString dbSpec =
+      "file:"_ns + NS_ConvertUTF16toUTF8(dbPath) + "?key="_ns + aDBKey;
+
+  int srv = ::sqlite3_open_v2(dbSpec.get(), &mDBConn, mFlags | SQLITE_OPEN_URI,
+                              obfsvfs::GetVFSName());
+  if (srv != SQLITE_OK) {
+    ::sqlite3_close(mDBConn);
+    mDBConn = nullptr;
+    rv = convertResultCode(srv);
+    RecordOpenStatus(rv);
+    return rv;
+  }
+
+  rv = initializeInternal();
+
+  RecordOpenStatus(rv);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  return NS_OK;
+}
+
 nsresult Connection::initialize(nsIFileURL* aFileURL) {
   NS_ASSERTION(aFileURL, "Passed null file URL!");
   NS_ASSERTION(!connectionReady(),
@@ -1272,7 +1340,7 @@ nsresult Connection::initializeInternal() {
 nsresult Connection::initializeOnAsyncThread(nsIFile* aStorageFile) {
   MOZ_ASSERT(!IsOnCurrentSerialEventTarget(eventTargetOpenedOn));
   nsresult rv = aStorageFile
-                    ? initialize(aStorageFile)
+                    ? initializeSecure(aStorageFile)
                     : initialize(kMozStorageMemoryStorageKey, VoidCString());
   if (NS_FAILED(rv)) {
     // Shutdown the async thread, since initialization failed.
@@ -1949,7 +2017,7 @@ nsresult Connection::initializeClone(Connection* aClone, bool aReadOnly) {
   } else if (mFileURL) {
     rv = aClone->initialize(mFileURL);
   } else {
-    rv = aClone->initialize(mDatabaseFile);
+    rv = aClone->initializeSecure(mDatabaseFile);
   }
   if (NS_FAILED(rv)) {
     return rv;
@@ -1978,6 +2046,23 @@ nsresult Connection::initializeClone(Connection* aClone, bool aReadOnly) {
           rv = aClone->CreateStatement("ATTACH DATABASE :path AS "_ns + name,
                                        getter_AddRefs(attachStmt));
           NS_ENSURE_SUCCESS(rv, rv);
+          if (!mPrefBranch) {
+            nsCOMPtr<nsIPrefService> prefs =
+                do_GetService(NS_PREFSERVICE_CONTRACTID, &rv);
+            NS_ENSURE_SUCCESS(rv, rv);
+
+            rv = prefs->GetBranch(nullptr, getter_AddRefs(mPrefBranch));
+            NS_ENSURE_SUCCESS(rv, rv);
+          }
+
+          bool encryptionEnabled;
+          rv = mPrefBranch->GetBoolPref("security.storage.keystore.enabled",
+                                        &encryptionEnabled);
+          if (NS_SUCCEEDED(rv) && encryptionEnabled) {
+            nsCString aDBKey;
+            key::GetKeyForPath(path.get(), aDBKey);
+            path = nsPrintfCString("file:%s?key=%s", path.get(), aDBKey.get());
+          }
           rv = attachStmt->BindUTF8StringByName("path"_ns, path);
           NS_ENSURE_SUCCESS(rv, rv);
           rv = attachStmt->Execute();
@@ -2586,6 +2671,50 @@ Connection::CreateTable(const char* aTableName, const char* aTableSchema) {
   int srv = executeSql(mDBConn, buf.get());
 
   return convertResultCode(srv);
+}
+
+NS_IMETHODIMP
+Connection::AttachDatabase(const char* aPath, const char* aName,
+                           mozIStorageStatementCallback* aCallback,
+                           mozIStoragePendingStatement** _handle) {
+  nsresult rv;
+  nsCString path;
+
+  if (!mPrefBranch) {
+    nsCOMPtr<nsIPrefService> prefs =
+        do_GetService(NS_PREFSERVICE_CONTRACTID, &rv);
+    NS_ENSURE_SUCCESS(rv, rv);
+
+    rv = prefs->GetBranch(nullptr, getter_AddRefs(mPrefBranch));
+    NS_ENSURE_SUCCESS(rv, rv);
+  }
+
+  bool encryptionEnabled;
+  rv = mPrefBranch->GetBoolPref("security.storage.keystore.enabled",
+                                &encryptionEnabled);
+  if (NS_SUCCEEDED(rv) && encryptionEnabled) {
+    nsCString aDBKey;
+    key::GetKeyForPath(aPath, aDBKey);
+    path = nsPrintfCString("file:%s?key=%s", aPath, aDBKey.get());
+  } else {
+    path = aPath;
+  }
+
+  nsCOMPtr<mozIStorageAsyncStatement> stmt;
+  rv = CreateAsyncStatement("ATTACH DATABASE :path AS "_ns + nsCString(aName),
+                            getter_AddRefs(stmt));
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  rv = stmt->BindUTF8StringByName("path"_ns, path);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  nsCOMPtr<mozIStoragePendingStatement> pendingStatement;
+  rv = stmt->ExecuteAsync(aCallback, getter_AddRefs(pendingStatement));
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  pendingStatement.forget(_handle);
+
+  return NS_OK;
 }
 
 NS_IMETHODIMP

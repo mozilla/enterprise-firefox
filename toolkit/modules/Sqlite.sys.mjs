@@ -1218,6 +1218,10 @@ ConnectionData.prototype = Object.freeze({
       );
     });
   },
+
+  attachDatabase(path, name) {
+    return this._dbConn.attachDatabase(path, name);
+  },
 });
 
 /**
@@ -2058,6 +2062,10 @@ OpenedConnection.prototype = {
       pagesPerStep,
       stepDelayMs
     );
+  },
+
+  attachDatabase(path, name) {
+    return this._connectionData.attachDatabase(path, name);
   },
 };
 // This is frozen after the prototype has been assigned to allow TypeScript

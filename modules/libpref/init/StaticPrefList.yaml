@@ -17637,6 +17637,12 @@
   value: true
   mirror: always
 
+# Enable keystore file for enterprise storage encryption.
+- name: security.storage.keystore.enabled
+  type: bool
+  value: false
+  mirror: always
+
 - name: security.ssl3.ecdhe_ecdsa_aes_128_gcm_sha256
   type: RelaxedAtomicBool
   value: true

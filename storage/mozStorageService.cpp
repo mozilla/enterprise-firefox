@@ -645,7 +645,7 @@ Service::OpenUnsharedDatabase(nsIFile* aDatabaseFile, uint32_t aConnectionFlags,
   NS_ENSURE_SUCCESS(rv, rv);
   RefPtr<Connection> msc = new Connection(this, flags, Connection::SYNCHRONOUS,
                                           telemetryFilename, interruptible);
-  rv = msc->initialize(aDatabaseFile);
+  rv = msc->initializeSecure(aDatabaseFile);
   NS_ENSURE_SUCCESS(rv, rv);
 
   msc.forget(_connection);

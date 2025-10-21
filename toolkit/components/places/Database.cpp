@@ -7,12 +7,14 @@
 #include "mozilla/SpinEventLoopUntil.h"
 #include "mozilla/StaticPrefs_places.h"
 #include "mozilla/glean/PlacesMetrics.h"
+#include "mozilla/security/KeyStorage.h"
 
 #include "Database.h"
 
 #include "nsIInterfaceRequestorUtils.h"
 #include "nsIFile.h"
 
+#include "nsLocalFile.h"
 #include "nsNavBookmarks.h"
 #include "nsNavHistory.h"
 #include "nsPlacesTables.h"
@@ -21,6 +23,7 @@
 #include "nsPlacesMacros.h"
 #include "nsVariant.h"
 #include "SQLFunctions.h"
+#include "ScopedNSSTypes.h"
 #include "Helpers.h"
 #include "nsFaviconService.h"
 
@@ -334,12 +337,40 @@ nsresult SetupDurability(nsCOMPtr<mozIStorageConnection>& aDBConn,
 
 nsresult AttachDatabase(nsCOMPtr<mozIStorageConnection>& aDBConn,
                         const nsACString& aPath, const nsACString& aName) {
+  const char *aPathBuf, *aNameBuf;
+  aPath.GetData(&aPathBuf);
+  aName.GetData(&aNameBuf);
+
+  nsresult rv;
+  nsCString path;
+  nsCOMPtr<nsIPrefBranch> mPrefBranch;
+
+  nsCOMPtr<nsIPrefService> prefs =
+      do_GetService(NS_PREFSERVICE_CONTRACTID, &rv);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  rv = prefs->GetBranch(nullptr, getter_AddRefs(mPrefBranch));
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  bool encryptionEnabled;
+  rv = mPrefBranch->GetBoolPref("security.storage.keystore.enabled",
+                                &encryptionEnabled);
+  if (NS_SUCCEEDED(rv) && encryptionEnabled) {
+    nsCString aDBKey;
+    storage::key::GetKeyForPath(aPathBuf, aDBKey);
+    path = nsPrintfCString("file:%s?key=%s", aPathBuf, aDBKey.get());
+  } else {
+    path = aPath;
+  }
+
   nsCOMPtr<mozIStorageStatement> stmt;
-  nsresult rv = aDBConn->CreateStatement("ATTACH DATABASE :path AS "_ns + aName,
-                                         getter_AddRefs(stmt));
+  rv = aDBConn->CreateStatement("ATTACH DATABASE :path AS "_ns + aName,
+                                getter_AddRefs(stmt));
   NS_ENSURE_SUCCESS(rv, rv);
-  rv = stmt->BindUTF8StringByName("path"_ns, aPath);
+
+  rv = stmt->BindUTF8StringByName("path"_ns, path);
   NS_ENSURE_SUCCESS(rv, rv);
+
   rv = stmt->Execute();
   NS_ENSURE_SUCCESS(rv, rv);
 

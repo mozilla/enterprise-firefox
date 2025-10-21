@@ -10,6 +10,7 @@
 #include "nsCOMPtr.h"
 #include "mozilla/Atomics.h"
 #include "mozilla/Mutex.h"
+#include "nsIPrefBranch.h"
 #include "nsProxyRelease.h"
 #include "nsThreadUtils.h"
 #include "nsIInterfaceRequestor.h"
@@ -101,6 +102,15 @@ class Connection final : public mozIStorageConnection,
    *        does not exist.
    */
   nsresult initialize(nsIFile* aDatabaseFile);
+
+  /**
+   * Creates the connection to the encrypted database.
+   *
+   * @param aDatabaseFile
+   *        The nsIFile of the location of the database to open, or create if it
+   *        does not exist.
+   */
+  nsresult initializeSecure(nsIFile* aDatabaseFile);
 
   /**
    * Creates the connection to the database.
@@ -522,6 +532,8 @@ class Connection final : public mozIStorageConnection,
    */
   nsTHashSet<nsCString> mLoadedExtensions
       MOZ_GUARDED_BY(sharedAsyncExecutionMutex);
+
+  nsCOMPtr<nsIPrefBranch> mPrefBranch;
 };
 
 /**
