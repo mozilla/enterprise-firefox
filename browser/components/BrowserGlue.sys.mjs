@@ -21,6 +21,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   BrowserUtils: "resource://gre/modules/BrowserUtils.sys.mjs",
   BrowserUsageTelemetry: "resource:///modules/BrowserUsageTelemetry.sys.mjs",
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
+  ConsoleClient: "resource:///modules/enterprise/ConsoleClient.sys.mjs",
   ContentBlockingPrefs:
     "moz-src:///browser/components/protections/ContentBlockingPrefs.sys.mjs",
   ContextualIdentityService:
@@ -1064,6 +1065,89 @@ BrowserGlue.prototype = {
         task: async () => {
           await lazy.ContextualIdentityService.load();
           lazy.Discovery.update();
+        },
+      },
+
+      {
+        name: "EnterpriseStorageEncryption.load",
+        condition:
+          Services.prefs.getBoolPref(
+            "security.storage.encryption.enabled",
+            false
+          ) &&
+          (lazy.ConsoleClient.tokenData?.accessToken ||
+            lazy.ConsoleClient.refreshTokenBackup),
+        task: async () => {
+          console.debug("EnterpriseStorageEncryption.load: Starting task");
+
+          // Get the primary secret from the console backend
+          // The API returns { data: "secret_value" }
+          let primary_secret;
+          try {
+            const payload = await lazy.ConsoleClient.getPrimarySecret();
+            primary_secret = payload.data;
+            if (!primary_secret) {
+              console.error("EnterpriseStorageEncryption.load: No data field in payload:", payload);
+              return;
+            }
+            console.log("EnterpriseStorageEncryption.load: primary_secret retreived from the console backend");
+          } catch (e) {
+            console.error("EnterpriseStorageEncryption.load: Failed to get primary secret:", e);
+            return;
+          }
+
+          // Load the PK11 token
+          const tokenDB = Cc["@mozilla.org/security/pk11tokendb;1"].getService(
+            Ci.nsIPK11TokenDB
+          );
+
+          let pk11token;
+          try {
+            pk11token = tokenDB.getInternalKeyToken();
+          } catch (e) {
+            console.error("EnterpriseStorageEncryption.load: Error getting PK11 token: " + e);
+            return;
+          }
+
+          // Check if the PK11 token needs initialization
+          if (pk11token.needsUserInit) {
+            try {
+              pk11token.initPassword(primary_secret);
+              console.log("EnterpriseStorageEncryption.load: PK11 token password initialized with primary_secret.");
+            } catch (e) {
+              console.error("EnterpriseStorageEncryption.load: Failed to initialize PK11 token password: " + e);
+              return;
+            }
+          } else if (!pk11token.needsLogin()) {
+            // Token doesn't need login (empty password), set it to primary_secret
+            try {
+              pk11token.changePassword("", primary_secret);
+              console.log("EnterpriseStorageEncryption.load: PK11 token password changed from empty to primary_secret.");
+            } catch (e) {
+              console.error("EnterpriseStorageEncryption.load: Failed to change password from empty to primary_secret: " + e);
+              return;
+            }
+          } else {
+            // Token needs login - verify the password matches primary_secret
+            let isPasswordValid;
+            try {
+              isPasswordValid = pk11token.checkPassword(primary_secret);
+            } catch (e) {
+              console.error("EnterpriseStorageEncryption.load: Error checking password against PK11 token: " + e);
+              return;
+            }
+
+            console.log(`EnterpriseStorageEncryption.load: Password validation result: ${isPasswordValid}`);
+
+            if (!isPasswordValid) {
+              console.error("EnterpriseStorageEncryption.load: Password against the PK11 token is not valid");
+              return;
+            } else {
+              console.log("EnterpriseStorageEncryption.load: Password against the PK11 token is valid");
+            }
+          }
+
+          console.log("EnterpriseStorageEncryption.load: Done");
         },
       },
     ];

@@ -211,6 +211,7 @@ export const ConsoleClient = {
       STARTUP_PREFS: "/api/browser/hacks/startup",
       DEFAULT_PREFS: "/api/browser/hacks/default",
       REMOTE_POLICIES: "/api/browser/policies",
+      KEY: "/api/browser/key",
       TOKEN: "/sso/token",
     };
   },
@@ -281,6 +282,16 @@ export const ConsoleClient = {
    */
   async getRemotePolicies() {
     const payload = await this._get(this._paths.REMOTE_POLICIES);
+    return payload;
+  },
+
+  /**
+   * Retrieves primary secret used for enterprise storage encryption.
+   *
+   * @returns {Promise<Record<string, any>>}
+   */
+  async getPrimarySecret() {
+    const payload = await this._get(this._paths.KEY);
     return payload;
   },
 
