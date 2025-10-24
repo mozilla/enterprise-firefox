@@ -100,6 +100,7 @@ export const ConsoleClient = {
       STARTUP_PREFS: `${this.consoleAddr}/api/browser/hacks/startup`,
       DEFAULT_PREFS: `${this.consoleAddr}/api/browser/hacks/default`,
       REMOTE_POLICIES: `${this.consoleAddr}/api/browser/policies`,
+      KEY: `${this.consoleAddr}/api/browser/key`,
     };
   },
 
@@ -114,9 +115,25 @@ export const ConsoleClient = {
   async fetch(url) {
     console.debug("ConsoleClient: fetch");
 
+    // Get the access token from preferences
+    let accessToken;
+    try {
+      accessToken = Services.prefs.getStringPref("browser.policies.access_token", "");
+    } catch (e) {
+      console.error("ConsoleClient.fetch: Failed to get access_token from prefs", e);
+    }
+
+    const headers = {};
+    if (accessToken) {
+      headers["Authorization"] = `Bearer ${accessToken}`;
+      console.debug("ConsoleClient: fetch with Authorization header");
+    } else {
+      console.warn("ConsoleClient: fetch without access_token");
+    }
+
     let res;
     try {
-      res = await fetch(url);
+      res = await fetch(url, { headers });
     } catch (e) {
       console.error(`ConsoleClient.fetch: Request failed for ${url}`, e);
       throw e;
@@ -142,6 +159,13 @@ export const ConsoleClient = {
       console.error(err, e);
       throw err;
     }
+  },
+
+  // Gets the primary secret from the console backend
+  async getPrimarySecret() {
+    console.debug("ConsoleClient: getPrimarySecret")
+    const payload = await this.fetch(this.ENDPOINTS.KEY);
+    return payload;
   },
 
   // prefs that needs to be read at startup, i.e., written to profile's

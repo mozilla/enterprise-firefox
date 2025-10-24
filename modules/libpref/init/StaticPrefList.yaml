@@ -17529,6 +17529,12 @@
   value: true
   mirror: always
 
+# Enable storage encryption functionality.
+- name: security.storage.encryption.enabled
+  type: bool
+  value: false
+  mirror: always
+
 - name: security.tls13.aes_128_gcm_sha256
   type: RelaxedAtomicBool
   value: true
