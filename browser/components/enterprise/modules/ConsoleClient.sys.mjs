@@ -133,7 +133,7 @@ export const ConsoleClient = {
   _refreshPromise: null,
 
   get refreshTokenBackup() {
-    return Services.prefs.getStringPref(PREFS.REFRESH_TOKEN, "");
+    return Services.felt.getRefreshToken();
   },
 
   get tokenData() {
@@ -359,6 +359,7 @@ export const ConsoleClient = {
    */
   ensureTokenData(tokenData) {
     const { access_token, refresh_token, expires_in, token_type } = tokenData;
+    Services.felt.setTokens(access_token, refresh_token);
     this.tokenData = new ConsoleTokenData(
       access_token,
       refresh_token,
@@ -372,7 +373,7 @@ export const ConsoleClient = {
    * only exists in Firefox, not in Felt.
    */
   clearTokenData() {
-    Services.prefs.clearUserPref(PREFS.REFRESH_TOKEN);
+    Services.felt.setRefreshToken("");
   },
 
   uninit() {

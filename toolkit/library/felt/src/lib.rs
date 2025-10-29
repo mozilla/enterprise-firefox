@@ -14,22 +14,34 @@ use nserror::{NS_ERROR_FAILURE, NS_OK, nsresult};
 use nsstring::{nsACString, nsCString, nsString};
 use std::cell::RefCell;
 use std::env;
+use std::ffi::{CStr, CString, c_char};
 use std::sync::{Arc, atomic::AtomicBool, atomic::Ordering};
-use std::ffi::{c_char, CStr, CString};
-use thin_vec::ThinVec;
-use xpcom::interfaces::{nsICookie, nsIContentPolicy, nsISupports, nsIObserver, nsIObserverService, nsIURI, nsILoadInfo, nsICategoryManager};
-use xpcom::RefPtr;
+use std::sync::{LazyLock, RwLock};
 use std::time::Duration;
+use thin_vec::ThinVec;
+use xpcom::RefPtr;
+use xpcom::interfaces::{
+    nsICategoryManager, nsIContentPolicy, nsICookie, nsILoadInfo, nsIObserver, nsIObserverService,
+    nsISupports, nsIURI,
+};
 
 use log::trace;
 
 mod utils;
 
 mod message;
-use crate::message::{FeltMessage, FELT_IPC_VERSION};
+use crate::message::{FELT_IPC_VERSION, FeltMessage};
+
+#[derive(Default)]
+pub struct Tokens {
+    access_token: String,
+    refresh_token: String,
+}
 
 pub static IS_FELT_UI: AtomicBool = AtomicBool::new(false);
 pub static IS_FELT_BROWSER: AtomicBool = AtomicBool::new(false);
+pub static REFRESH_TOKEN: LazyLock<Arc<RwLock<Tokens>>> =
+    LazyLock::new(|| Arc::new(RwLock::new(Default::default())));
 
 #[derive(Default)]
 pub struct FeltIpcClient {
@@ -134,9 +146,11 @@ pub struct FeltClientThread {
 }
 
 impl FeltClientThread {
-
     pub fn new(felt_server_name: String) -> Result<Self, ()> {
-        trace!("FeltClientThread::new(): connecting to {}", felt_server_name.clone());
+        trace!(
+            "FeltClientThread::new(): connecting to {}",
+            felt_server_name.clone()
+        );
         let felt_client = FeltIpcClient::new(felt_server_name);
         if felt_client.report_version() {
             Ok(Self {
@@ -177,7 +191,7 @@ impl FeltClientThread {
                     Ok("xpcom-shutdown-threads") => {
                         trace!("FeltClientThread::start_thread::observe() xpcom-shutdown-threads");
                         self.thread_stop.store(true, Ordering::Relaxed);
-                    },
+                    }
                     Ok("quit-application") => {
                         trace!("FeltClientThread::start_thread::observe() quit-application");
                         // notification is sent from https://searchfox.org/firefox-main/rev/856a307913c2b73765b4e88d32cf15ed05549cae/toolkit/components/startup/nsAppStartup.cpp#494
@@ -190,54 +204,70 @@ impl FeltClientThread {
                             }
                             data_len
                         };
-                        trace!("FeltClientThread::start_thread::observe() quit-application: len={}", len);
+                        trace!(
+                            "FeltClientThread::start_thread::observe() quit-application: len={}",
+                            len
+                        );
                         let text = unsafe { std::slice::from_raw_parts(data, len) };
                         let obsData = nsString::from(text).to_string();
-                        trace!("FeltClientThread::start_thread::observe() quit-application: data={}", obsData);
+                        trace!(
+                            "FeltClientThread::start_thread::observe() quit-application: data={}",
+                            obsData
+                        );
                         match obsData.trim() {
                             "restart" => {
-                                trace!("FeltClientThread::start_thread::observe() quit-application: restart");
+                                trace!(
+                                    "FeltClientThread::start_thread::observe() quit-application: restart"
+                                );
                                 self.notify_restart.store(true, Ordering::Relaxed);
-                            },
+                            }
                             _ => {
-                                trace!("FeltClientThread::start_thread::observe() quit-application: something else? Ignore");
-                            },
+                                trace!(
+                                    "FeltClientThread::start_thread::observe() quit-application: something else? Ignore"
+                                );
+                            }
                         }
-                    },
+                    }
                     Ok(topic) => {
                         trace!("FeltClientThread::start_thread::observe() topic: {}", topic);
-                    },
+                    }
                     Err(err) => {
                         trace!("FeltClientThread::start_thread::observe() err: {}", err);
-                    },
+                    }
                 }
                 NS_OK
             }
         }
 
         trace!("FeltClientThread::start_thread(): get observer service");
-        let obssvc: RefPtr<nsIObserverService> =
-            xpcom::components::Observer::service().unwrap();
+        let obssvc: RefPtr<nsIObserverService> = xpcom::components::Observer::service().unwrap();
 
         let xpcom_shutdown = CString::new("xpcom-shutdown-threads").unwrap();
         let quit_application = CString::new("quit-application").unwrap();
 
         let thread_stop = Arc::new(AtomicBool::new(false));
         let notify_restart = Arc::new(AtomicBool::new(false));
-        let observer = Observer::allocate(InitObserver { thread_stop: thread_stop.clone(), notify_restart: notify_restart.clone() });
-        let mut rv = unsafe { obssvc.AddObserver(
-            observer.coerce::<nsIObserver>(),
-            xpcom_shutdown.as_ptr(),
-            false,
-        ) };
+        let observer = Observer::allocate(InitObserver {
+            thread_stop: thread_stop.clone(),
+            notify_restart: notify_restart.clone(),
+        });
+        let mut rv = unsafe {
+            obssvc.AddObserver(
+                observer.coerce::<nsIObserver>(),
+                xpcom_shutdown.as_ptr(),
+                false,
+            )
+        };
         assert!(rv.succeeded());
         trace!("FeltClientThread::start_thread(): added observers");
 
-        rv = unsafe { obssvc.AddObserver(
-            observer.coerce::<nsIObserver>(),
-            quit_application.as_ptr(),
-            false,
-        ) };
+        rv = unsafe {
+            obssvc.AddObserver(
+                observer.coerce::<nsIObserver>(),
+                quit_application.as_ptr(),
+                false,
+            )
+        };
         assert!(rv.succeeded());
 
         let barrier = self.startup_ready.clone();
@@ -266,8 +296,17 @@ impl FeltClientThread {
                                 utils::inject_bool_pref(name, value);
                             },
                             Ok(FeltMessage::StringPreference((name, value))) => {
-                                trace!("FeltClientThread::felt_client::ipc_loop(): StringPreference({}, {})", name, value);
-                                utils::inject_string_pref(name, value);
+                                if name == "enterprise.console.refresh_token" {
+                                    if let Ok(mut token) = REFRESH_TOKEN.write() {
+                                        *token = Tokens { access_token: String::new(), refresh_token: value };
+                                        trace!("FeltClientThread::felt_client::ipc_loop(): RefreshToken({})", token.refresh_token);
+                                    } else {
+                                        trace!("FeltClientThread::felt_client::ipc_loop(): ERROR setting RefreshToken({})", value);
+                                    }
+                                } else {
+                                    trace!("FeltClientThread::felt_client::ipc_loop(): StringPreference({}, {})", name, value);
+                                    utils::inject_string_pref(name, value);
+                                }
                             },
                             Ok(FeltMessage::IntPreference((name, value))) => {
                                 trace!("FeltClientThread::felt_client::ipc_loop(): IntPreference({}, {})", name, value);
@@ -383,7 +422,11 @@ impl FeltXPCOM {
         self.send(FeltMessage::BoolPreference((name_s, value)))
     }
 
-    fn SendStringPreference(&self, name: *const nsACString, value: *const nsACString) -> nserror::nsresult {
+    fn SendStringPreference(
+        &self,
+        name: *const nsACString,
+        value: *const nsACString,
+    ) -> nserror::nsresult {
         let name_s = unsafe { (*name).to_string() };
         let value_s = unsafe { (*value).to_string() };
         trace!("FeltXPCOM::SendStringPreference: {}", name_s);
@@ -508,28 +551,30 @@ impl FeltXPCOM {
 
     fn BinPath(&self, bin: *mut nsACString) -> nserror::nsresult {
         match env::current_exe() {
-            Ok(exe_path) =>  {
-                match exe_path.to_str() {
-                    Some(path) => {
-                        unsafe { (*bin).assign(path); }
-                        NS_OK
-                    },
-                    None => {
-                        trace!("FeltXPCOM: BinPath: to_str() failure");
-                        NS_ERROR_FAILURE
-                    },
+            Ok(exe_path) => match exe_path.to_str() {
+                Some(path) => {
+                    unsafe {
+                        (*bin).assign(path);
+                    }
+                    NS_OK
+                }
+                None => {
+                    trace!("FeltXPCOM: BinPath: to_str() failure");
+                    NS_ERROR_FAILURE
                 }
             },
             Err(err) => {
                 trace!("FeltXPCOM: BinPath: err={}", err);
                 NS_ERROR_FAILURE
-            },
+            }
         }
     }
 
     fn MakeBackgroundProcess(&self, success: *mut bool) -> nserror::nsresult {
         trace!("FeltXPCOM: MakeBackgroundProcess");
-        unsafe { *success = false; }
+        unsafe {
+            *success = false;
+        }
         #[cfg(target_os = "macos")]
         {
             #[repr(C)]
@@ -542,16 +587,24 @@ impl FeltXPCOM {
             let kProcessTransformToBackgroundApplication = 2;
             let kCurrentProcess = 2;
 
-            unsafe extern "C-unwind" { fn TransformProcessType(
-                psn: *const ProcessSerialNumber,
-                transform_state: ProcessApplicationTransformState,
-            ) -> u32; }
+            unsafe extern "C-unwind" {
+                fn TransformProcessType(
+                    psn: *const ProcessSerialNumber,
+                    transform_state: ProcessApplicationTransformState,
+                ) -> u32;
+            }
 
-            let psn = ProcessSerialNumber { highLongOfPSN: 0, lowLongOfPSN: kCurrentProcess };
-            let rv = unsafe { TransformProcessType(&psn, kProcessTransformToBackgroundApplication) };
+            let psn = ProcessSerialNumber {
+                highLongOfPSN: 0,
+                lowLongOfPSN: kCurrentProcess,
+            };
+            let rv =
+                unsafe { TransformProcessType(&psn, kProcessTransformToBackgroundApplication) };
             trace!("FeltXPCOM: MakeBackgroundProcess: rv={:?}", rv);
 
-            unsafe { *success = rv == 0; }
+            unsafe {
+                *success = rv == 0;
+            }
         }
 
         trace!("FeltXPCOM: MakeBackgroundProcess: {}", unsafe { *success });
@@ -560,14 +613,18 @@ impl FeltXPCOM {
 
     fn IsFeltUI(&self, is_felt_ui: *mut bool) -> nserror::nsresult {
         trace!("FeltXPCOM: IsFeltUI");
-        unsafe { *is_felt_ui = self.is_felt_ui; }
+        unsafe {
+            *is_felt_ui = self.is_felt_ui;
+        }
         trace!("FeltXPCOM: IsFeltUI: {}", self.is_felt_ui);
         NS_OK
     }
 
     fn IsFeltBrowser(&self, is_felt_browser: *mut bool) -> nserror::nsresult {
         trace!("FeltXPCOM: IsFeltBrowser");
-        unsafe { *is_felt_browser = self.is_felt_browser; }
+        unsafe {
+            *is_felt_browser = self.is_felt_browser;
+        }
         trace!("FeltXPCOM: IsFeltBrowser: {}", self.is_felt_browser);
         NS_OK
     }
@@ -589,8 +646,62 @@ impl FeltXPCOM {
             NS_ERROR_FAILURE
         }
     }
-}
 
+    fn SetTokens(
+        &self,
+        access_token: *const nsACString,
+        refresh_token: *const nsACString,
+    ) -> nserror::nsresult {
+        let access_token = unsafe { (*access_token).to_string() };
+        let refresh_token = unsafe { (*refresh_token).to_string() };
+        match REFRESH_TOKEN.write() {
+            Ok(mut t) => {
+                *t = Tokens {
+                    access_token,
+                    refresh_token,
+                };
+                NS_OK
+            }
+            Err(_) => NS_ERROR_FAILURE,
+        }
+    }
+
+    fn GetRefreshToken(&self, refresh_token: *mut nsACString) -> nserror::nsresult {
+        match REFRESH_TOKEN.read() {
+            Ok(t) => unsafe {
+                (*refresh_token).assign(t.refresh_token.as_str());
+                NS_OK
+            },
+            Err(_) => NS_ERROR_FAILURE,
+        }
+    }
+
+    fn GetAccessToken(&self, access_token: *mut nsACString) -> nserror::nsresult {
+        match REFRESH_TOKEN.read() {
+            Ok(t) => unsafe {
+                (*access_token).assign(t.access_token.as_str());
+                NS_OK
+            },
+            Err(_) => NS_ERROR_FAILURE,
+        }
+    }
+
+    fn GetTokens(&self, tokens: *mut ThinVec<nsCString>) -> nserror::nsresult {
+        match REFRESH_TOKEN.read() {
+            Ok(t) => unsafe {
+                let tokens = &mut *tokens;
+                let mut access_token = nsCString::new();
+                (*access_token).assign(t.access_token.as_str());
+                let mut refresh_token = nsCString::new();
+                (*refresh_token).assign(t.refresh_token.as_str());
+                tokens.push(access_token);
+                tokens.push(refresh_token);
+                NS_OK
+            },
+            Err(_) => NS_ERROR_FAILURE,
+        }
+    }
+}
 
 #[xpcom(implement(nsIFeltRestartForced, nsIObserver), atomic)]
 pub struct FeltRestartForced {
@@ -600,22 +711,16 @@ pub struct FeltRestartForced {
 #[allow(non_snake_case)]
 impl FeltRestartForced {
     pub fn new() -> RefPtr<FeltRestartForced> {
-        let obssvc: RefPtr<nsIObserverService> =
-            xpcom::components::Observer::service().unwrap();
+        let obssvc: RefPtr<nsIObserverService> = xpcom::components::Observer::service().unwrap();
 
         let restart_forced_control = Arc::new(AtomicBool::new(false));
-        let xpcom = FeltRestartForced::allocate(
-            InitFeltRestartForced {
-                restart_forced: restart_forced_control.clone()
-            }
-        );
+        let xpcom = FeltRestartForced::allocate(InitFeltRestartForced {
+            restart_forced: restart_forced_control.clone(),
+        });
 
         let topic = CString::new("felt-restart-forced").unwrap();
-        let rv = unsafe { obssvc.AddObserver(
-            xpcom.coerce::<nsIObserver>(),
-            topic.as_ptr(),
-            false,
-        ) };
+        let rv =
+            unsafe { obssvc.AddObserver(xpcom.coerce::<nsIObserver>(), topic.as_ptr(), false) };
         assert!(rv.succeeded());
 
         trace!("FeltRestartForced:new() register with nsICategoryManager");
@@ -623,12 +728,26 @@ impl FeltRestartForced {
             xpcom::components::CategoryManager::service().unwrap();
 
         unsafe {
-            let mut category = nsCString::new(); (*category).assign("felt-restart-forced");
-            let mut contractID = nsCString::new(); (*contractID).assign("@mozilla-org/felt-restart-forced;1");
+            let mut category = nsCString::new();
+            (*category).assign("felt-restart-forced");
+            let mut contractID = nsCString::new();
+            (*contractID).assign("@mozilla-org/felt-restart-forced;1");
             let mut retval = nsCString::new();
-            trace!("FeltRestartForced:new() register with nsICategoryManager: call in unsafe block");
-            let rv = catMan.AddCategoryEntry(&*category, &*contractID, &*contractID, false, true, &mut *retval);
-            trace!("FeltRestartForced:new() register with nsICategoryManager: rv={}", rv);
+            trace!(
+                "FeltRestartForced:new() register with nsICategoryManager: call in unsafe block"
+            );
+            let rv = catMan.AddCategoryEntry(
+                &*category,
+                &*contractID,
+                &*contractID,
+                false,
+                true,
+                &mut *retval,
+            );
+            trace!(
+                "FeltRestartForced:new() register with nsICategoryManager: rv={}",
+                rv
+            );
         }
 
         xpcom
@@ -647,35 +766,51 @@ impl FeltRestartForced {
             Ok("felt-restart-forced") => {
                 trace!("FeltRestartForced::observe() felt-restart-forced");
                 self.restart_forced.store(true, Ordering::Relaxed);
-            },
+            }
             Ok(topic) => {
                 trace!("FeltRestartForced::observe() topic: {}", topic);
-            },
+            }
             Err(err) => {
                 trace!("FeltRestartForced::observe() err: {}", err);
-            },
+            }
         }
         NS_OK
     }
 
     // nsIContentPolicy
 
-    fn ShouldLoad(&self, aContentLocation: *const nsIURI, _aLoadInfo: *const nsILoadInfo, retval: *mut i16) -> ::nserror::nsresult {
+    fn ShouldLoad(
+        &self,
+        aContentLocation: *const nsIURI,
+        _aLoadInfo: *const nsILoadInfo,
+        retval: *mut i16,
+    ) -> ::nserror::nsresult {
         trace!("FeltRestartForced: ShouldLoad");
-        unsafe { *retval = self.is_restart_forced(aContentLocation); }
+        unsafe {
+            *retval = self.is_restart_forced(aContentLocation);
+        }
         NS_OK
     }
 
-    fn ShouldProcess(&self, aContentLocation: *const nsIURI, _aLoadInfo: *const nsILoadInfo, retval: *mut i16) -> ::nserror::nsresult {
+    fn ShouldProcess(
+        &self,
+        aContentLocation: *const nsIURI,
+        _aLoadInfo: *const nsILoadInfo,
+        retval: *mut i16,
+    ) -> ::nserror::nsresult {
         trace!("FeltXPCOM: ShouldProcess");
-        unsafe { *retval = self.is_restart_forced(aContentLocation); }
+        unsafe {
+            *retval = self.is_restart_forced(aContentLocation);
+        }
         NS_OK
     }
 
     fn is_scheme(aContentLocation: *const nsIURI, scheme: &str) -> bool {
         let schemeStr = CString::new(scheme).unwrap();
         let mut isScheme = false;
-        unsafe { (*aContentLocation).SchemeIs(schemeStr.as_ptr(), &mut isScheme); }
+        unsafe {
+            (*aContentLocation).SchemeIs(schemeStr.as_ptr(), &mut isScheme);
+        }
         isScheme
     }
 
