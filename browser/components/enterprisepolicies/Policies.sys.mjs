@@ -1361,6 +1361,12 @@ export var Policies = {
     },
   },
 
+  EnterpriseStorageEncryption: {
+    onBeforeUIStartup(manager, param) {
+      setAndLockPref("security.storage.encryption.enabled", param);
+    },
+  },
+
   ExemptDomainFileTypePairsFromFileTypeDownloadWarnings: {
     // This policy is handled directly in EnterprisePoliciesParent.sys.mjs
     // and requires no validation (It's done by the schema).
