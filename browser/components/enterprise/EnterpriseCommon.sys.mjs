@@ -2,7 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/* global pref */
+const IS_TESTING_ENVIRONMENT = "enterprise.is_testing";
 
-// This file contains felt-specific prefs.
-pref("enterprise.console.address", "https://console.enterfox.eu");
+export const isTesting = () => {
+  return Services.prefs.getBoolPref(IS_TESTING_ENVIRONMENT, false);
+};
+
+export const EnterpriseCommon = {};

@@ -6,8 +6,9 @@ const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
   Subprocess: "resource://gre/modules/Subprocess.sys.mjs",
-  ConsoleClient: "chrome://felt/content/ConsoleClient.sys.mjs",
-  isTesting: "chrome://felt/content/ConsoleClient.sys.mjs",
+  ConsoleClient: "resource:///modules/enterprise/ConsoleClient.sys.mjs",
+  PREFS: "resource:///modules/enterprise/ConsoleClient.sys.mjs",
+  isTesting: "resource:///modules/enterprise/EnterpriseCommon.sys.mjs",
   FeltCommon: "chrome://felt/content/FeltCommon.sys.mjs",
 });
 
@@ -90,29 +91,28 @@ export class FeltProcessParent extends JSProcessActorParent {
     return sanitized;
   }
 
-  async startFirefox(accessToken = null, ssoCollectedCookies = []) {
+  sendPrefsToFirefox() {
+    Services.felt.sendStringPreference(
+      lazy.PREFS.CONSOLE_ADDRESS,
+      lazy.ConsoleClient.consoleBaseURI
+    );
+    Services.felt.sendStringPreference(
+      lazy.PREFS.REFRESH_TOKEN,
+      lazy.ConsoleClient.tokenData.refreshToken
+    );
+    Services.felt.sendBoolPreference(
+      "browser.policies.live_polling.enabled",
+      true
+    );
+  }
+
+  async startFirefox(ssoCollectedCookies = []) {
     this.restartReported = false;
     Services.cpmm.sendAsyncMessage("FeltParent:FirefoxStarting", {});
     this.firefox = this.startFirefoxProcess();
     this.firefox
       .then(async () => {
-        const consoleAddr = lazy.ConsoleClient.consoleAddr;
-        Services.felt.sendStringPreference(
-          "enterprise.console.address",
-          consoleAddr
-        );
-        Services.felt.sendStringPreference(
-          "browser.policies.server",
-          consoleAddr
-        );
-
-        if (accessToken) {
-          Services.felt.sendStringPreference(
-            "browser.policies.access_token",
-            accessToken
-          );
-        }
-
+        this.sendPrefsToFirefox();
         const { prefs } = await lazy.ConsoleClient.getDefaultPrefs();
         prefs.forEach(pref => {
           const name = pref[0];
@@ -137,18 +137,12 @@ export class FeltProcessParent extends JSProcessActorParent {
 
         Services.felt.sendCookies(ssoCollectedCookies);
         Services.felt.sendReady();
-        Services.cpmm.sendAsyncMessage("FeltParent:FirefoxStarted", {});
       })
       .then(() => {
         console.debug(
           `firefox: waiting on proc PID ${this.proc.pid}`,
           this.proc
         );
-        // console.debug(`Starting 30s timeout to show about:restartforeced`);
-        // lazy.setTimeout(() => {
-        //   console.debug(`Triggered 30s timeout to show about:restartforeced`);
-        //   Services.felt.sendRestartForced();
-        // }, 30 * 1000);
 
         this.proc.exitPromise.then(ev => {
           console.debug(`firefox exit: ev`, JSON.stringify(ev));
@@ -190,7 +184,7 @@ export class FeltProcessParent extends JSProcessActorParent {
 
       let foundProfile = null;
       for (let profile of profileService.profiles) {
-        if (profile.name === lazy.ConsoleClient.ENTERPRISE_PROFILE) {
+        if (profile.name === lazy.FeltCommon.ENTERPRISE_PROFILE) {
           foundProfile = profile;
           break;
         }
@@ -198,11 +192,11 @@ export class FeltProcessParent extends JSProcessActorParent {
 
       if (!foundProfile) {
         console.debug(
-          `FeltExtension: creating new ${lazy.ConsoleClient.ENTERPRISE_PROFILE} profile`
+          `FeltExtension: creating new ${lazy.FeltCommon.ENTERPRISE_PROFILE} profile`
         );
         foundProfile = profileService.createProfile(
           null,
-          lazy.ConsoleClient.ENTERPRISE_PROFILE
+          lazy.FeltCommon.ENTERPRISE_PROFILE
         );
 
         await profileService.asyncFlush();
@@ -255,13 +249,12 @@ export class FeltProcessParent extends JSProcessActorParent {
       environment: env, */
     };
 
-    this.proc = await lazy.Subprocess.call(firefoxRun)
-      .then(proc => {
-        return proc;
-      })
-      .catch(err => {
-        console.error(err instanceof Error ? err : err.message);
-      });
+    try {
+      this.proc = await lazy.Subprocess.call(firefoxRun);
+    } catch (e) {
+      console.error("Failed to launch Firefox: ", e.message);
+      throw e;
+    }
 
     Services.felt.ipcChannel();
   }
@@ -273,6 +266,8 @@ export class FeltProcessParent extends JSProcessActorParent {
     switch (message.name) {
       case "FeltChild:StartFirefox":
         {
+          lazy.ConsoleClient.ensureTokenData(message.data);
+
           const ssoCollectedCookies = this.getAllCookies();
           console.debug(`Collected cookies: ${ssoCollectedCookies.length}`);
           // When a restart was reported we assume cookies were stored properly on the
@@ -281,10 +276,7 @@ export class FeltProcessParent extends JSProcessActorParent {
             throw new Error("Not enough cookies!!");
           }
 
-          this.startFirefox(
-            message.data?.access_token ?? null,
-            ssoCollectedCookies
-          );
+          this.startFirefox(ssoCollectedCookies);
         }
         break;
 

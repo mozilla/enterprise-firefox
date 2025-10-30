@@ -8,10 +8,6 @@
 
 const lazy = {};
 
-ChromeUtils.defineESModuleGetters(lazy, {
-  isTesting: "chrome://felt/content/ConsoleClient.sys.mjs",
-});
-
 this.felt = class extends ExtensionAPI {
   FELT_PROCESS_ACTOR = "FeltProcess";
   FELT_WINDOW_ACTOR = "FeltWindow";
@@ -33,9 +29,9 @@ this.felt = class extends ExtensionAPI {
   }
   registerActors() {
     const { ConsoleClient } = ChromeUtils.importESModule(
-      "chrome://felt/content/ConsoleClient.sys.mjs"
+      "resource:///modules/enterprise/ConsoleClient.sys.mjs"
     );
-    const matches = [ConsoleClient.ssoCallbackUri];
+    const matches = [ConsoleClient.ssoCallbackUriMatchPattern];
     ChromeUtils.registerWindowActor(this.FELT_WINDOW_ACTOR, {
       child: {
         esModuleURI: "chrome://felt/content/FeltWindowChild.sys.mjs",
@@ -58,20 +54,11 @@ this.felt = class extends ExtensionAPI {
   onStartup() {
     if (Services.felt.isFeltUI()) {
       this.registerChrome();
-
-      // In tests if we close too early we lose the browser context
-      if (lazy.isTesting()) {
-        this.windowCloseMessage = "FeltParent:FirefoxStarted";
-      } else {
-        this.windowCloseMessage = "FeltParent:FirefoxStarting";
-      }
-
       this.registerActors();
       this.showWindow();
       Services.ppmm.addMessageListener("FeltParent:FirefoxNormalExit", this);
       Services.ppmm.addMessageListener("FeltParent:FirefoxAbnormalExit", this);
       Services.ppmm.addMessageListener("FeltParent:FirefoxStarting", this);
-      Services.ppmm.addMessageListener("FeltParent:FirefoxStarted", this);
     }
   }
 
@@ -96,7 +83,7 @@ this.felt = class extends ExtensionAPI {
         // TODO: What should we do, restart Firefox?
         break;
 
-      case this.windowCloseMessage: {
+      case "FeltParent:FirefoxStarting": {
         Services.startup.enterLastWindowClosingSurvivalArea();
         Services.ww.unregisterNotification(this.windowObserver);
         this._win.close();

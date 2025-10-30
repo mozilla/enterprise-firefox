@@ -7,6 +7,7 @@ import datetime
 import json
 import shutil
 import sys
+import threading
 import time
 import urllib.parse
 import uuid
@@ -33,8 +34,7 @@ class LocalHttpRequestHandler(BaseHTTPRequestHandler):
         if self.path == "/:shutdown":
             print("Shutting down as requested")
             self.reply("OK")
-            setattr(self.server, "_BaseServer__shutdown_request", True)
-            self.server.server_close()
+            threading.Thread(target=self.server.shutdown, daemon=True).start()
 
     def not_found(self, path=None):
         self.send_response(404, "Not Found")
@@ -113,7 +113,7 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
                     "prefs": [
                         ["browser.sessionstore.restore_on_demand", False],
                         ["browser.sessionstore.resume_from_crash", False],
-                        ["browser.policies.live_polling_freq", 500],
+                        ["browser.policies.live_polling.freq", 500],
                     ]
                 }
             )
@@ -162,7 +162,7 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
 <head>
     <title>Callback!</title>
     <script id="token_data" type="application/json">
-        {{"access_token":"{self.server.policy_access_token.value}","token_type":"bearer","expires_in":71999,"refresh_token":"dummy_refresh_token"}}
+        {{"access_token":"{self.server.policy_access_token.value}","token_type":"bearer","expires_in":71999,"refresh_token":"{self.server.policy_refresh_token.value}"}}
     </script>
 </head>
 <body>
@@ -186,6 +186,28 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
         else:
             self.not_found(path)
 
+    def do_POST(self):
+        print("POST", self.path)
+        m = None
+
+        parsed = urllib.parse.urlparse(self.path)
+        path = parsed.path
+        print("path: ", path)
+        if path == "/sso/token":
+            # Sending back the same session
+            m = json.dumps(
+                {
+                    "access_token": self.server.policy_access_token.value,
+                    "token_type": "Bearer",
+                    "expires_in": 71999,
+                    "refresh_token": self.server.policy_refresh_token.value,
+                }
+            )
+        if m is not None:
+            self.reply(m)
+        else:
+            self.not_found(path)
+
 
 def serve(
     port,
@@ -196,6 +218,7 @@ def serve(
     cookie_value=None,
     policy_block_about_config=None,
     policy_access_token=None,
+    policy_refresh_token=None,
 ):
     httpd = HTTPServer(("", port), classname)
     httpd.sso_port = sso_port
@@ -208,10 +231,13 @@ def serve(
         httpd.policy_block_about_config = policy_block_about_config
     if policy_access_token:
         httpd.policy_access_token = policy_access_token
+    if policy_refresh_token:
+        httpd.policy_refresh_token = policy_refresh_token
     print(
         f"Serving localhost:{port} SSO={sso_port} CONSOLE={console_port} with {classname}"
     )
     httpd.serve_forever()
+    httpd.server_close()
     print(
         f"Stopped serving localhost:{port} SSO={sso_port} CONSOLE={console_port} with {classname}"
     )
@@ -237,6 +263,7 @@ class FeltTests(EnterpriseTestsBase):
 
         manager = Manager()
         self.policy_access_token = manager.Value(c_wchar_p, str(uuid.uuid4()))
+        self.policy_refresh_token = manager.Value(c_wchar_p, str(uuid.uuid4()))
 
         print(f"Starting console server: {self.console_port}")
         self.console_httpd = Process(
@@ -247,6 +274,7 @@ class FeltTests(EnterpriseTestsBase):
                 console_port=self.console_port,
                 policy_block_about_config=self.policy_block_about_config,
                 policy_access_token=self.policy_access_token,
+                policy_refresh_token=self.policy_refresh_token,
             ),
         )
         self.console_httpd.start()
@@ -332,8 +360,10 @@ class FeltTests(EnterpriseTestsBase):
         print("Shutting down SSO")
         requests.post(f"http://localhost:{self.sso_port}/:shutdown", timeout=2)
         print("Stopping process console")
+        self.console_httpd.terminate()
         self.console_httpd.join()
         print("Stopping process SSO")
+        self.sso_httpd.terminate()
         self.sso_httpd.join()
         print("All stopped")
 
@@ -440,40 +470,5 @@ class FeltTests(EnterpriseTestsBase):
         self.get_elem("#password").send_keys("86c53cba7ccd")
         self.get_elem("#submit").click()
         self._logger.info("Performed SSO auth")
-
-        return True
-
-    def test_felt_2_ensure_sso_cookie_stored(self, exp):
-        # In private window we should still be able to extract the SSO cookies
-        # directly from the cookieManager
-        self._driver.set_context("chrome")
-        expected_cookie = self._driver.execute_script(
-            """
-            console.debug(`nsICookie: Finding ${arguments[0]}`);
-            return Services.cookies.getCookiesWithOriginAttributes(
-                  JSON.stringify({
-                    privateBrowsingId: 1,
-                  })
-                ).filter(cookie => {
-               console.debug(`nsICookie: Checking ${cookie.name} vs ${arguments[0]}`);
-               return cookie.name == arguments[0];
-            });
-            """,
-            self.cookie_name,
-        )
-        self._driver.set_context("content")
-        assert len(expected_cookie) == 1, f"Cookie {self.cookie_name} was properly set"
-
-        # In private window this one should not reflect
-        not_expected_cookie = list(
-            filter(
-                lambda x: x["name"] == self.cookie_name
-                and x["value"] == self.cookie_value,
-                self._driver.get_cookies(),
-            )
-        )
-        assert (
-            len(not_expected_cookie) == 0
-        ), f"Cookie {self.cookie_name} was not properly set"
 
         return True

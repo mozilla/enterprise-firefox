@@ -15,6 +15,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "resource://gre/modules/policies/macOSPoliciesParser.sys.mjs",
   clearInterval: "resource://gre/modules/Timer.sys.mjs",
   setInterval: "resource://gre/modules/Timer.sys.mjs",
+  ConsoleClient: "resource:///modules/enterprise/ConsoleClient.sys.mjs",
 });
 
 // This is the file that will be searched for in the
@@ -702,35 +703,42 @@ class JSONPoliciesProvider {
 /*
  * Remote PROVIDER OF POLICIES
  *
- * This is a platform-agnostic provider which waits for
- * policies being sent from a remote server.
+ * This is a platform-agnostic provider which
+ * polls policies from a remote server.
  *
  * Uses JSON like JSONPoliciesProvider
  */
 
 class RemotePoliciesProvider {
+  POLLING_FREQUENCY_PREF = "browser.policies.live_polling.freq";
+  POLLING_FREQUENCY_FALLBACK = 60_000;
+  POLLING_ENABLED_PREF = "browser.policies.live_polling.enabled";
+
   constructor() {
     this._changesHandlers = [];
     this._policies = null;
     this._socket = null;
     this._hasRemoteConnection = false;
-    Services.prefs.addObserver("browser.policies.server", this);
-    Services.prefs.addObserver("browser.policies.live_polling_freq", this);
-    Services.prefs.addObserver("browser.policies.access_token", this);
     this._poller = null;
     this._pollingFrequency = Services.prefs.getIntPref(
-      "browser.policies.live_polling_freq",
-      60000
+      this.POLLING_FREQUENCY_PREF,
+      this.POLLING_FREQUENCY_FALLBACK
     );
-    this._serverAddr = Services.prefs.getStringPref(
-      "browser.policies.server",
-      ""
+    this._isPollingEnabled = Services.prefs.getBoolPref(
+      this.POLLING_ENABLED_PREF,
+      false
     );
-    this._accessToken = Services.prefs.getStringPref(
-      "browser.policies.access_token",
-      ""
-    );
-    this._maybeStartPolling();
+    Services.prefs.addObserver(this.POLLING_FREQUENCY_PREF, this);
+    Services.prefs.addObserver(this.POLLING_ENABLED_PREF, this);
+    Services.obs.addObserver(this, "xpcom-shutdown");
+
+    this.init();
+  }
+
+  init() {
+    if (this._isPollingEnabled) {
+      this._startPolling();
+    }
   }
 
   onPoliciesChanges(handler) {
@@ -747,41 +755,39 @@ class RemotePoliciesProvider {
   observe(aSubject, aTopic, aData) {
     switch (aTopic) {
       case "nsPref:changed":
-        if (aData.includes("browser.policies")) {
-          switch (aData) {
-            case "browser.policies.server":
-              this._serverAddr = Services.prefs.getStringPref(
-                "browser.policies.server",
-                ""
-              );
-              break;
-
-            case "browser.policies.live_polling_freq": {
-              const p = this._pollingFrequency;
-              this._pollingFrequency = Services.prefs.getIntPref(
-                "browser.policies.live_polling_freq",
-                60000
-              );
-              if (p != this._pollingFrequency) {
-                this._stopPolling();
-              }
-              break;
-            }
-
-            case "browser.policies.access_token":
-              this._accessToken = Services.prefs.getStringPref(
-                "browser.policies.access_token",
-                ""
-              );
-              break;
+        if (aData === this.POLLING_FREQUENCY_PREF) {
+          const p = this._pollingFrequency;
+          this._pollingFrequency = Services.prefs.getIntPref(
+            this.POLLING_FREQUENCY_PREF,
+            this.POLLING_FREQUENCY_FALLBACK
+          );
+          if (p === this._pollingFrequency) {
+            // Nothing changed
+            return;
           }
-
-          this._maybeStartPolling();
+          this._restartPolling();
+        } else if (aData === this.POLLING_ENABLED_PREF) {
+          const p = this._isPollingEnabled;
+          this._isPollingEnabled = Services.prefs.getBoolPref(
+            this.POLLING_ENABLED_PREF,
+            false
+          );
+          if (p === this._isPollingEnabled) {
+            return;
+          }
+          if (this._isPollingEnabled) {
+            this._startPolling();
+          } else {
+            this._stopPolling();
+          }
         }
         break;
-
       case "xpcom-shutdown":
-        this._stopPolling();
+        if (this._poller) {
+          this._stopPolling();
+        }
+        Services.prefs.removeObserver(this.POLLING_FREQUENCY_PREF, this);
+        Services.prefs.removeObserver(this.POLLING_ENABLED_PREF, this);
         break;
     }
   }
@@ -802,40 +808,40 @@ class RemotePoliciesProvider {
     return this._failed;
   }
 
+  _restartPolling() {
+    if (this._poller) {
+      this._stopPolling();
+    }
+    this._startPolling();
+  }
+
   _stopPolling() {
+    if (!this._poller) {
+      return;
+    }
     this._hasRemoteConnection = false;
     lazy.clearInterval(this._poller);
     this._poller = null;
   }
 
-  _maybeStartPolling() {
-    if (
-      this._serverAddr != "" &&
-      this._accessToken != "" &&
-      this._poller == null
-    ) {
-      this._startPolling();
-    } else {
-      this._stopPolling();
-    }
-  }
-
   _performPolling() {
-    this._connectConsoleHttp()
+    lazy.ConsoleClient.getRemotePolicies()
       .then(jsonResponse => {
         this._hasRemoteConnection = true;
         this._ingestPolicies(jsonResponse);
       })
       .catch(error => {
         console.warn(
-          `RemotePoliciesProvider: performPolling(): ${this._pollingFrequency}: error ${error}`
+          `RemotePoliciesProvider performPolling() with frequency ${this._pollingFrequency} caused error ${error}`
         );
         this._hasRemoteConnection = false;
       });
   }
 
   _startPolling() {
-    Services.obs.addObserver(this, "xpcom-shutdown");
+    if (!this._isPollingEnabled) {
+      return;
+    }
     this._performPolling();
     this._poller = lazy.setInterval(
       this._performPolling.bind(this),
@@ -858,24 +864,6 @@ class RemotePoliciesProvider {
       // Make sure that handler is triggered even when payload is empty as
       // in "_cleanup"
       this.triggerOnPoliciesChanges();
-    }
-  }
-
-  async _connectConsoleHttp() {
-    try {
-      const serverAddr = Services.prefs.getStringPref(
-        "browser.policies.server"
-      );
-      const bearer = `Bearer ${this._accessToken}`;
-      const response = await fetch(`${serverAddr}/api/browser/policies`, {
-        headers: {
-          Authorization: bearer,
-        },
-      });
-      return await response.json();
-    } catch (error) {
-      console.error(error.message);
-      throw error;
     }
   }
 }

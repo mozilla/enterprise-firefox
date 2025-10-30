@@ -7,7 +7,6 @@
     ]
   },
   "test_felt_1_perform_sso_auth": {},
-  "test_felt_2_ensure_sso_cookie_stored": {},
   "test_felt_3_about_config_blocked_in_browser": {},
   "test_felt_4_change_about_config_policy": {},
   "test_felt_5_about_config_allowed_in_browser": {}

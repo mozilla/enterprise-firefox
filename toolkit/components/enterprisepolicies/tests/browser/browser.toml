@@ -4,7 +4,7 @@ support-files = ["config_broken_json.json"]
 prefs = [
   "enterprise.console.address=",
   "browser.policies.testUseHttp=false",
-  "browser.policies.live_polling_freq=500",
+  "browser.policies.live_polling.freq=500",
 ]
 
 ["browser_policies_basic_tests.js"]

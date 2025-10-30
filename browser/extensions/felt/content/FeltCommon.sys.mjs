@@ -4,4 +4,5 @@
 
 export const FeltCommon = {
   PRIVATE_BROWSING_ID: 1,
+  ENTERPRISE_PROFILE: "enterprise-profile",
 };

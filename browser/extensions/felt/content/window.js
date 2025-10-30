@@ -11,7 +11,7 @@ const { E10SUtils } = ChromeUtils.importESModule(
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
-  ConsoleClient: "chrome://felt/content/ConsoleClient.sys.mjs",
+  ConsoleClient: "resource:///modules/enterprise/ConsoleClient.sys.mjs",
   FeltCommon: "chrome://felt/content/FeltCommon.sys.mjs",
 });
 
@@ -24,7 +24,7 @@ function connectToConsole(email) {
   let oa = E10SUtils.predictOriginAttributes({ browser });
   browser.setAttribute("maychangeremoteness", "true");
 
-  const SOURCE_URI = lazy.ConsoleClient.ssoUri + `&email=${email}`;
+  const SOURCE_URI = lazy.ConsoleClient.constructSsoLoginURI(email);
 
   browser.setAttribute(
     "remoteType",
@@ -39,12 +39,12 @@ function connectToConsole(email) {
   );
 
   console.debug("Load SSO Page: ", SOURCE_URI);
-  const uri = Services.io.newURI(SOURCE_URI);
+  const ssoLoginURI = Services.io.newURI(SOURCE_URI);
   console.debug(
     `FeltExtension: creating contentPrincipal with privateBrowsingId=${lazy.FeltCommon.PRIVATE_BROWSING_ID}`
   );
   const contentPrincipal =
-    Services.scriptSecurityManager.createContentPrincipal(uri, {
+    Services.scriptSecurityManager.createContentPrincipal(ssoLoginURI, {
       privateBrowsingId: lazy.FeltCommon.PRIVATE_BROWSING_ID,
     });
   console.debug(

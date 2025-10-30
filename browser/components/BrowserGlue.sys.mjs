@@ -21,6 +21,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   BrowserUtils: "resource://gre/modules/BrowserUtils.sys.mjs",
   BrowserUsageTelemetry: "resource:///modules/BrowserUsageTelemetry.sys.mjs",
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
+  ConsoleClient: "resource:///modules/enterprise/ConsoleClient.sys.mjs",
   ContentBlockingPrefs:
     "moz-src:///browser/components/protections/ContentBlockingPrefs.sys.mjs",
   ContextualIdentityService:
@@ -376,6 +377,10 @@ BrowserGlue.prototype = {
     }
 
     lazy.ContentBlockingPrefs.uninit();
+
+    if (AppConstants.MOZ_ENTERPRISE) {
+      lazy.ConsoleClient.uninit();
+    }
   },
 
   // runs on startup, before the first command line handler is invoked
