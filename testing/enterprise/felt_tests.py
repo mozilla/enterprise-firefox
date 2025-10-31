@@ -7,7 +7,6 @@ import datetime
 import json
 import shutil
 import sys
-import threading
 import time
 import urllib.parse
 import uuid
@@ -34,7 +33,8 @@ class LocalHttpRequestHandler(BaseHTTPRequestHandler):
         if self.path == "/:shutdown":
             print("Shutting down as requested")
             self.reply("OK")
-            threading.Thread(target=self.server.shutdown, daemon=True).start()
+            setattr(self.server, "_BaseServer__shutdown_request", True)
+            self.server.server_close()
 
     def not_found(self, path=None):
         self.send_response(404, "Not Found")
@@ -187,6 +187,8 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
             self.not_found(path)
 
     def do_POST(self):
+        super().do_POST()
+
         print("POST", self.path)
         m = None
 
@@ -237,7 +239,6 @@ def serve(
         f"Serving localhost:{port} SSO={sso_port} CONSOLE={console_port} with {classname}"
     )
     httpd.serve_forever()
-    httpd.server_close()
     print(
         f"Stopped serving localhost:{port} SSO={sso_port} CONSOLE={console_port} with {classname}"
     )
@@ -360,10 +361,8 @@ class FeltTests(EnterpriseTestsBase):
         print("Shutting down SSO")
         requests.post(f"http://localhost:{self.sso_port}/:shutdown", timeout=2)
         print("Stopping process console")
-        self.console_httpd.terminate()
         self.console_httpd.join()
         print("Stopping process SSO")
-        self.sso_httpd.terminate()
         self.sso_httpd.join()
         print("All stopped")
 
