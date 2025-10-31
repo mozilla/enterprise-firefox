@@ -106,7 +106,7 @@ export class FeltProcessParent extends JSProcessActorParent {
     );
     Services.felt.sendIntPreference(
       "browser.policies.live_polling.frequency",
-      60_000
+      lazy.FeltCommon.POLICY_POLLING_FREQUENCY
     );
   }
 
