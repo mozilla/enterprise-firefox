@@ -447,10 +447,19 @@ export const ConsoleClient = {
   },
 
   /**
-   * Tears down the client by clearing tokens and resetting internal state.
+   * Register shutdown observer to clean up the client.
    */
-  uninit() {
-    this.clearTokenData();
-    this._refreshPromise = null;
+  init() {
+    Services.obs.addObserver(this, "xpcom-shutdown");
+  },
+
+  observe(_, topic) {
+    switch (topic) {
+      case "xpcom-shutdown": {
+        this.clearTokenData();
+        this._refreshPromise = null;
+        Services.obs.removeObserver(this, "xpcom-shutdown");
+      }
+    }
   },
 };
