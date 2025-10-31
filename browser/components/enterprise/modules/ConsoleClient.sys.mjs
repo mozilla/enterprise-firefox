@@ -451,6 +451,7 @@ export const ConsoleClient = {
    */
   init() {
     Services.obs.addObserver(this, "xpcom-shutdown");
+    return this;
   },
 
   observe(_, topic) {
@@ -462,4 +463,4 @@ export const ConsoleClient = {
       }
     }
   },
-};
+}.init();

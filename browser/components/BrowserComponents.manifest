@@ -39,9 +39,6 @@ category browser-window-unload moz-src:///browser/components/tabbrowser/NewTabPa
 # App startup consumers
 
 category browser-first-window-ready resource:///modules/AboutNewTab.sys.mjs AboutNewTab.init
-#ifdef MOZ_ENTERPRISE
-category browser-first-window-ready resource:///modules/enterprise/ConsoleClient.sys.mjs ConsoleClient.init
-#endif
 category browser-first-window-ready resource:///modules/ContentCrashHandlers.sys.mjs TabCrashHandler.init
 category browser-first-window-ready resource:///modules/ProcessHangMonitor.sys.mjs ProcessHangMonitor.init
 category browser-first-window-ready resource://gre/modules/PageThumbs.sys.mjs PageThumbs.init
