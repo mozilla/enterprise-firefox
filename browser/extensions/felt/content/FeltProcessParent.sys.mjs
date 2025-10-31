@@ -104,6 +104,10 @@ export class FeltProcessParent extends JSProcessActorParent {
       "browser.policies.live_polling.enabled",
       true
     );
+    Services.felt.sendIntPreference(
+      "browser.policies.live_polling.frequency",
+      60_000
+    );
   }
 
   async startFirefox(ssoCollectedCookies = []) {

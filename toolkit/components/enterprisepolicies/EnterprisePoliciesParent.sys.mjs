@@ -710,7 +710,7 @@ class JSONPoliciesProvider {
  */
 
 class RemotePoliciesProvider {
-  POLLING_FREQUENCY_PREF = "browser.policies.live_polling.freq";
+  POLLING_FREQUENCY_PREF = "browser.policies.live_polling.frequency";
   POLLING_FREQUENCY_FALLBACK = 60_000;
   POLLING_ENABLED_PREF = "browser.policies.live_polling.enabled";
 
@@ -765,7 +765,8 @@ class RemotePoliciesProvider {
             // Nothing changed
             return;
           }
-          this._restartPolling();
+          this._stopPolling();
+          this._startPolling();
         } else if (aData === this.POLLING_ENABLED_PREF) {
           const p = this._isPollingEnabled;
           this._isPollingEnabled = Services.prefs.getBoolPref(
@@ -806,13 +807,6 @@ class RemotePoliciesProvider {
 
   get failed() {
     return this._failed;
-  }
-
-  _restartPolling() {
-    if (this._poller) {
-      this._stopPolling();
-    }
-    this._startPolling();
   }
 
   _stopPolling() {

@@ -12,7 +12,7 @@
     "prefs": [
       ["browser.sessionstore.restore_on_demand", false, "Bool"],
       ["browser.sessionstore.resume_from_crash", false, "Bool"],
-      ["browser.policies.live_polling.freq", 500, "Int"],
+      ["browser.policies.live_polling.frequency", 500, "Int"],
       ["devtools.browsertoolbox.scope", "everything", "String"],
       ["enterprise.console.test_float", 1.5, "Float"],
       ["enterprise.console.test_bool", true, "Bool"]

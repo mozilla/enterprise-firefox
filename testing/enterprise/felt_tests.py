@@ -113,7 +113,7 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
                     "prefs": [
                         ["browser.sessionstore.restore_on_demand", False],
                         ["browser.sessionstore.resume_from_crash", False],
-                        ["browser.policies.live_polling.freq", 500],
+                        ["browser.policies.live_polling.frequency", 500],
                     ]
                 }
             )
