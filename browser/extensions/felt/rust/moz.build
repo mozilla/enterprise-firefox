@@ -8,6 +8,11 @@ EXPORTS.mozilla.browser.extensions.felt += [
     "felt.h",
 ]
 
+if CONFIG["OS_ARCH"] == "WINNT":
+    OS_LIBS += [
+         "mincore",
+    ]
+
 XPIDL_SOURCES += [
     "nsIFelt.idl",
     "nsIFeltRestartForced.idl",

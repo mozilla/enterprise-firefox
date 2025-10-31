@@ -377,11 +377,6 @@ if CONFIG["OS_ARCH"] == "WINNT":
             "uiautomationcore",
         ]
 
-    if CONFIG["MOZ_ENTERPRISE"]:
-        OS_LIBS += [
-            "mincore",
-        ]
-
     # Prevent winapi-rs from statically linking
     LIBRARY_DEFINES["WINAPI_NO_BUNDLED_LIBRARIES"] = True
 

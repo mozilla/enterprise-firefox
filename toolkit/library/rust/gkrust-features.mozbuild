@@ -85,6 +85,8 @@ if CONFIG["MOZ_ICU4X"]:
 if CONFIG["USE_LIBZ_RS"]:
     gkrust_features += ["libz-rs-sys"]
 
+# Required for felt = ["dep:felt"] in
+# https://github.com/mozilla/enterprise-firefox/blob/45747a0a6aaef68b689e835baced62e7d30dcd7c/toolkit/library/rust/shared/Cargo.toml#L165
 if CONFIG["MOZ_ENTERPRISE"]:
     gkrust_features += ["felt"]
 
