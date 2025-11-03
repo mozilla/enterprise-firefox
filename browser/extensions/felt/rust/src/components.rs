@@ -12,6 +12,7 @@ use std::ffi::{c_char, CStr, CString};
 use std::sync::{atomic::AtomicBool, atomic::Ordering, Arc};
 use std::time::Duration;
 use thin_vec::ThinVec;
+use time::UtcDateTime;
 use xpcom::interfaces::{
     nsICategoryManager, nsIContentPolicy, nsICookie, nsILoadInfo, nsIObserver, nsIObserverService,
     nsISupports, nsIURI,
@@ -21,6 +22,7 @@ use xpcom::RefPtr;
 use log::trace;
 
 use crate::message::{FeltMessage, FELT_IPC_VERSION};
+use crate::utils::{Tokens, TOKENS, TOKEN_EXPIRY_SKEW};
 
 #[xpcom(implement(nsIFelt), atomic)]
 pub struct FeltXPCOM {
@@ -104,6 +106,81 @@ impl FeltXPCOM {
 
     fn SendRestartForced(&self) -> nserror::nsresult {
         self.send(FeltMessage::RestartForced)
+    }
+
+    fn SendTokens(
+        &self,
+        access_token: *const nsACString,
+        refresh_token: *const nsACString,
+        expires_at: u64,
+    ) -> nserror::nsresult {
+        let access_token = unsafe { (*access_token).to_string() };
+        let refresh_token = unsafe { (*refresh_token).to_string() };
+        trace!(
+            "FeltXPCOM::SendTokens ({} {} {})",
+            access_token,
+            refresh_token,
+            expires_at
+        );
+        self.send(FeltMessage::Tokens(Tokens {
+            access_token,
+            refresh_token,
+            expires_at,
+        }))
+    }
+
+    fn SetTokens(
+        &self,
+        access_token: *const nsACString,
+        refresh_token: *const nsACString,
+        expires_at: u64,
+    ) -> nserror::nsresult {
+        let access_token = unsafe { (*access_token).to_string() };
+        let refresh_token = unsafe { (*refresh_token).to_string() };
+        match TOKENS.write() {
+            Ok(mut t) => {
+                *t = Tokens {
+                    access_token,
+                    refresh_token,
+                    expires_at,
+                };
+                NS_OK
+            }
+            Err(_) => NS_ERROR_FAILURE,
+        }
+    }
+
+    fn GetRefreshToken(&self, refresh_token: *mut nsACString) -> nserror::nsresult {
+        match TOKENS.read() {
+            Ok(t) => unsafe {
+                (*refresh_token).assign(t.refresh_token.as_str());
+                NS_OK
+            },
+            Err(_) => NS_ERROR_FAILURE,
+        }
+    }
+
+    fn GetAccessToken(&self, access_token: *mut nsACString) -> nserror::nsresult {
+        match TOKENS.read() {
+            Ok(t) => unsafe {
+                (*access_token).assign(t.access_token.as_str());
+                NS_OK
+            },
+            Err(_) => NS_ERROR_FAILURE,
+        }
+    }
+
+    fn TokensNeedRefresh(&self, need_refresh: *mut bool) -> nserror::nsresult {
+        match TOKENS.read() {
+            Ok(t) => {
+                unsafe {
+                    *need_refresh = t.expires_at.saturating_add(TOKEN_EXPIRY_SKEW)
+                        < u64::try_from(UtcDateTime::now().unix_timestamp()).unwrap_or_default();
+                };
+                NS_OK
+            }
+            Err(_) => NS_ERROR_FAILURE,
+        }
     }
 
     fn IpcChannel(&self) -> nserror::nsresult {

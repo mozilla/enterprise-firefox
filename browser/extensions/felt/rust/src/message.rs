@@ -4,6 +4,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::utils::Tokens;
+
 #[derive(Debug, Serialize, Deserialize)]
 pub enum FeltMessage {
     VersionProbe(u32),
@@ -14,6 +16,7 @@ pub enum FeltMessage {
     StringPreference((String, String)),
     IntPreference((String, i32)),
     StartupReady,
+    Tokens(Tokens),
     RestartForced,
     Restarting,
 }

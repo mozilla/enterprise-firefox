@@ -5,12 +5,26 @@
 use cookie;
 use nserror::NS_OK;
 use nsstring::nsCString;
+use serde::{Deserialize, Serialize};
+use std::sync::{Arc, LazyLock, RwLock};
 use std::{ffi::CString, future::Future};
 use time::OffsetDateTime;
 use xpcom::interfaces::{nsICookie, nsICookieManager, nsIObserverService, nsIPrefBranch};
 use xpcom::RefPtr;
 
 use log::trace;
+
+#[derive(Default, Debug, Serialize, Deserialize)]
+pub struct Tokens {
+    pub access_token: String,
+    pub refresh_token: String,
+    pub expires_at: u64,
+}
+
+pub static TOKEN_EXPIRY_SKEW: u64 = 5 * 60;
+
+pub static TOKENS: LazyLock<Arc<RwLock<Tokens>>> =
+    LazyLock::new(|| Arc::new(RwLock::new(Default::default())));
 
 pub fn inject_one_cookie(raw_cookie: String) {
     trace!("inject_one_cookie() raw_cookie:{:?}", raw_cookie.clone());

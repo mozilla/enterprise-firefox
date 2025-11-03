@@ -16,7 +16,7 @@ use xpcom::RefPtr;
 use log::trace;
 
 use crate::message::{FeltMessage, FELT_IPC_VERSION};
-use crate::utils;
+use crate::utils::{self, TOKENS};
 
 #[derive(Default)]
 pub struct FeltIpcClient {
@@ -320,6 +320,14 @@ impl FeltClientThread {
                                 trace!("FeltClientThread::felt_client::ipc_loop(): RestartForced");
                                 utils::notify_observers("felt-restart-forced".to_string());
                             },
+                            Ok(FeltMessage::Tokens(new_tokens)) => {
+                                if let Ok(mut tokens) = TOKENS.write() {
+                                    *tokens = new_tokens;
+                                    trace!("FeltClientThread::felt_client::ipc_loop(): RefreshToken({})", tokens.refresh_token);
+                                } else {
+                                    trace!("FeltClientThread::felt_client::ipc_loop(): ERROR setting RefreshToken({})", new_tokens.refresh_token);
+                                }
+                            }
                             Ok(msg) => {
                                 trace!("FeltClientThread::felt_client::ipc_loop(): UNEXPECTED MSG {:?}", msg);
                             },

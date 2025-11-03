@@ -80,31 +80,16 @@ class InvalidAuthError extends Error {
  */
 class ConsoleTokenData {
   /**
-   * Seconds of skew subtracted from expiry to proactively refresh early.
-   *
-   * @type {number}
-   */
-  TOKEN_EXPIRY_SKEW = 5 * 60;
-
-  /**
    * @param {string} accessToken - Short-lived access token.
    * @param {string} refreshToken - Long-lived refresh token.
-   * @param {number} expiresInSec - Access token lifetime (in seconds) from issuance.
+   * @param {number} expiresAtSec - Access token expiration epoch (in seconds).
    * @param {string} [tokenType="Bearer"] - Token type
-   * @param {number} [issuedAtSec=Math.floor(ChromeUtils.now()/1000)] - Monotonic issued-at time in seconds
    */
-  constructor(
-    accessToken,
-    refreshToken,
-    expiresInSec,
-    tokenType = "Bearer",
-    issuedAtSec = Math.floor(ChromeUtils.now() / 1000)
-  ) {
+  constructor(accessToken, refreshToken, expiresAtSec, tokenType = "Bearer") {
     this._accessToken = accessToken;
     this._refreshToken = refreshToken;
-    this._expiresInSec = expiresInSec;
-    this._tokenType = tokenType;
-    this._issuedAtSec = issuedAtSec;
+    this._expiresAtSec = expiresAtSec;
+    this.tokenType = tokenType;
   }
 
   get accessToken() {
@@ -123,12 +108,12 @@ class ConsoleTokenData {
     this._refreshToken = value;
   }
 
-  get expiresInSec() {
-    return this._expiresInSec;
+  get expiresAtSec() {
+    return this._expiresAtSec;
   }
 
-  set expiresInSec(value) {
-    this._expiresInSec = value;
+  set expiresAtSec(value) {
+    this._expiresAtSec = value;
   }
 
   get tokenType() {
@@ -146,22 +131,6 @@ class ConsoleTokenData {
   set issuedAtSec(value) {
     this._issuedAtSec = value;
   }
-
-  get expiresAtSec() {
-    return this._issuedAtSec + this._expiresInSec;
-  }
-
-  /**
-   * Whether the access token is expired or will expire soon.
-   *
-   * @returns {boolean}
-   */
-  isExpiringSoon() {
-    return (
-      Math.floor(ChromeUtils.now() / 1000) + this.TOKEN_EXPIRY_SKEW >=
-      (this.expiresAtSec ?? 0)
-    );
-  }
 }
 
 /**
@@ -177,7 +146,7 @@ export const ConsoleClient = {
    * @returns {string}
    */
   get refreshTokenBackup() {
-    return Services.prefs.getStringPref(PREFS.REFRESH_TOKEN, "");
+    return Services.felt.getRefreshToken();
   },
 
   /**
@@ -357,7 +326,7 @@ export const ConsoleClient = {
    */
   async _ensureValidSession() {
     const td = this.tokenData;
-    if (!td?.accessToken || td.isExpiringSoon()) {
+    if (!td?.accessToken || Services.felt.tokensNeedRefresh()) {
       await this._refreshSession();
     }
     if (!this.tokenData?.accessToken) {
@@ -439,11 +408,6 @@ export const ConsoleClient = {
 
       const t = await res.json();
       this.ensureTokenData(t);
-
-      Services.prefs.setStringPref(
-        PREFS.REFRESH_TOKEN,
-        this.tokenData.refreshToken
-      );
     })().finally(() => {
       this._refreshPromise = null;
     });
@@ -501,10 +465,14 @@ export const ConsoleClient = {
    */
   ensureTokenData(tokenData) {
     const { access_token, refresh_token, expires_in, token_type } = tokenData;
+    const expiresAtSec = Math.floor(Date.now() / 1000) + expires_in;
+
+    Services.felt.setTokens(access_token, refresh_token, expiresAtSec);
+
     this.tokenData = new ConsoleTokenData(
       access_token,
       refresh_token,
-      expires_in,
+      expiresAtSec,
       token_type
     );
   },
@@ -514,7 +482,7 @@ export const ConsoleClient = {
    */
   clearTokenData() {
     this.tokenData = null;
-    Services.prefs.clearUserPref(PREFS.REFRESH_TOKEN);
+    Services.felt.setTokens("", "", 0);
   },
 
   /**
