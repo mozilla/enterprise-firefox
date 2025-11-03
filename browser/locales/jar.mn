@@ -20,7 +20,10 @@
   preview/termsOfUse.ftl                           (../locales-preview/termsOfUse.ftl)
   preview/ipProtection.ftl                         (../locales-preview/ipProtection.ftl)
   preview/privacyPreferences.ftl                   (../locales-preview/privacyPreferences.ftl)
+#ifdef MOZ_ENTERPRISE
   preview/felt.ftl                                 (../extensions/felt/content/locales/felt.ftl)
+  preview/enterpriseBadge.ftl                      (../components/enterprise/content/enterpriseBadge.ftl)
+#endif
 
 @AB_CD@.jar:
 % locale browser @AB_CD@ %locale/browser/

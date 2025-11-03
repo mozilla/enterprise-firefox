@@ -1,0 +1,10 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+browser.jar:
+  content/browser/enterprise/enterprise-badge.css           (content/enterprise-badge.css)
+  content/browser/enterprise/enterprise-badge.inc.xhtml     (content/enterprise-badge.inc.xhtml)
+  content/browser/enterprise/enterpriseBadge.ftl            (content/enterpriseBadge.ftl)
+  content/browser/enterprise/enterprise-badge.js            (content/enterprise-badge.js)
+  content/browser/enterprise/mozilla-badge.svg              (content/icons/mozilla-badge.svg)

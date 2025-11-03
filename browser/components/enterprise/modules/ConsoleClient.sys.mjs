@@ -212,6 +212,7 @@ export const ConsoleClient = {
       DEFAULT_PREFS: "/api/browser/hacks/default",
       REMOTE_POLICIES: "/api/browser/policies",
       TOKEN: "/sso/token",
+      WHOAMI: "api/browser/whoami",
     };
   },
 
@@ -281,6 +282,16 @@ export const ConsoleClient = {
    */
   async getRemotePolicies() {
     const payload = await this._get(this._paths.REMOTE_POLICIES);
+    return payload;
+  },
+
+  /**
+   * Fetches user information from the current session.
+   *
+   * @returns {Promise<object>}
+   */
+  async getLoggedInUserInfo() {
+    const payload = await this._get(this._paths.WHOAMI);
     return payload;
   },
 

@@ -11,3 +11,5 @@ EXTRA_JS_MODULES.enterprise += [
     "EnterpriseCommon.sys.mjs",
     "modules/ConsoleClient.sys.mjs",
 ]
+
+JAR_MANIFESTS += ["jar.mn"]
