@@ -1677,6 +1677,27 @@ export const LoginHelper = {
       };
     }
 
+    // If enterprise storage management is enabled but the token is still locked,
+    // bail out without prompting so callers can retry after the enterprise secret
+    // (which the user does not know) becomes available.
+    if (
+      !token.isLoggedIn() &&
+      Services.prefs.getBoolPref("security.storage.encryption.enabled", false) &&
+      Services.prefs.getStringPref("browser.policies.access_token", "")
+    ) {
+      console.warn(
+        "LoginHelper.requestReauth: Enterprise-managed primary password is locked and OS auth is unavailable; deferring reauth."
+      );
+      telemetryEvent = {
+        name: "reauthenticateMasterPassword",
+        value: "fail",
+      };
+      return {
+        isAuthorized: false,
+        telemetryEvent,
+      };
+    }
+
     // We may need to unlock the internal softoken with the PrP.
     // If a primary password prompt is already open, just exit early and return false.
     // The user can re-trigger it after responding to the already open dialog.
