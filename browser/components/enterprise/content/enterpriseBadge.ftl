@@ -3,5 +3,5 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 enterprise-toolbar-button =
-    .label = -brand-short-name
-    .tooltiptext = -brand-short-name
+    .label = { -brand-short-name }
+    .tooltiptext = { -brand-short-name }
