@@ -2,19 +2,16 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-<script src="chrome://browser/content/enterprise/enterprise-badge.js "></script>
-<html:link rel="stylesheet" href="chrome://browser/content/enterprise/enterprise-badge.css"/>
+<script src="chrome://browser/content/enterprise/enterprise-badge.js"></script>
+<html:link rel="stylesheet" href="chrome://browser/content/enterprise/enterprise-badge.css" />
 <html:link rel="localization" href="preview/enterpriseBadge.ftl" />
 
-<toolbarbutton id="enterprise-toolbar-button"
-                class="toolbarbutton-1 chromeclass-toolbar-additional"
-                delegatesanchor="true"
-                data-l10n-id="enterprise-toolbar-button"
-                >
-                <hbox align="center">
-                    <div class="enterprise-badge">
-                        <image id="company__logo" />
-                        <image id="company__user" />
-                    </div>
-                </hbox>
+<toolbarbutton id="enterprise-badge-toolbar-button" class="toolbarbutton-1 chromeclass-toolbar-additional"
+    delegatesanchor="true" data-l10n-id="enterprise-toolbar-button">
+    <hbox align="center">
+        <div class="enterprise-badge">
+            <image class="badge__company__logo" />
+            <image class="badge__user__icon" />
+        </div>
+    </hbox>
 </toolbarbutton>

@@ -62,7 +62,7 @@ const EnterpriseBadge = {
   },
 
   onUpdateUserContent() {
-    document.getElementById("company__user").style["list-style-image"] =
+    document.querySelector(".badge__user__icon").style["list-style-image"] =
       `url(${this._signedInUser.pictureURL})`;
 
     // Also hide fx account toolbar button
