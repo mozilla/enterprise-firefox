@@ -1071,6 +1071,7 @@ BrowserGlue.prototype = {
       {
         name: "EnterpriseStorageEncryption.load",
         condition:
+          AppConstants.MOZ_ENTERPRISE && 
           Services.prefs.getBoolPref(
             "security.storage.encryption.enabled",
             false

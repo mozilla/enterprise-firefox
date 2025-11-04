@@ -1641,9 +1641,9 @@ export const LoginHelper = {
       };
     }
 
-    // Use only OS auth dialog if primary password is already unlocked
-    // or no PrP is used.
-    if ((!token.hasPassword || token.isLoggedIn()) && OSReauthEnabled) {
+    // Use only OS auth dialog if primary password is already 
+    // unlocked (enterprise-spcific) or no PrP is used.
+    if ((!token.hasPassword || (AppConstants.MOZ_ENTERPRISE && token.isLoggedIn())) && OSReauthEnabled) {
       let result;
       try {
         isAuthorized = await this.verifyUserOSAuth(
@@ -1681,6 +1681,7 @@ export const LoginHelper = {
     // bail out without prompting so callers can retry after the enterprise secret
     // (which the user does not know) becomes available.
     if (
+      AppConstants.MOZ_ENTERPRISE &&
       !token.isLoggedIn() &&
       Services.prefs.getBoolPref("security.storage.encryption.enabled", false)
     ) {
@@ -1710,7 +1711,8 @@ export const LoginHelper = {
 
     try {
       // Login and ask for the primary password if the token is locked.
-      token.login();
+      const isAlwaysPrompt = AppConstants.MOZ_ENTERPRISE ? false : true;
+      token.login(isAlwaysPrompt);
       // clicking 'Cancel' or entering the correct password.
     } catch (e) {
       // An exception will be thrown if the user cancels the login prompt dialog.
