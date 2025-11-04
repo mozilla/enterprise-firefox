@@ -1074,9 +1074,7 @@ BrowserGlue.prototype = {
           Services.prefs.getBoolPref(
             "security.storage.encryption.enabled",
             false
-          ) &&
-          (lazy.ConsoleClient.tokenData?.accessToken ||
-            lazy.ConsoleClient.refreshTokenBackup),
+          ),
         task: async () => {
           console.debug("EnterpriseStorageEncryption.load: Starting task");
 

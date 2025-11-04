@@ -1682,8 +1682,7 @@ export const LoginHelper = {
     // (which the user does not know) becomes available.
     if (
       !token.isLoggedIn() &&
-      Services.prefs.getBoolPref("security.storage.encryption.enabled", false) &&
-      Services.prefs.getStringPref("browser.policies.access_token", "")
+      Services.prefs.getBoolPref("security.storage.encryption.enabled", false)
     ) {
       console.warn(
         "LoginHelper.requestReauth: Enterprise-managed primary password is locked and OS auth is unavailable; deferring reauth."
