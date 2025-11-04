@@ -108,6 +108,10 @@ export class FeltProcessParent extends JSProcessActorParent {
       "browser.policies.live_polling.frequency",
       lazy.FeltCommon.POLICY_POLLING_FREQUENCY
     );
+    Services.felt.sendBoolPreference(
+      "security.storage.encryption.enabled",
+      true
+    );
   }
 
   async startFirefox(ssoCollectedCookies = []) {
