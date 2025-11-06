@@ -38,6 +38,7 @@ struct NavigationIsolationOptions {
   uint64_t mSpecificGroupId = 0;
   bool mShouldCrossOriginIsolate = false;
   bool mTryUseBFCache = false;
+  bool mDisableJit = false;
   RefPtr<SessionHistoryEntry> mActiveSessionHistoryEntry;
 };
 

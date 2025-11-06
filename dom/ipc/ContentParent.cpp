@@ -637,8 +637,10 @@ void ContentParent_NotifyUpdatedDictionaries() {
 // PreallocateProcess is called by the PreallocatedProcessManager.
 // ContentParent then takes this process back within GetNewOrUsedBrowserProcess.
 /*static*/ UniqueContentParentKeepAlive ContentParent::MakePreallocProcess() {
-  RefPtr<ContentParent> process = new ContentParent(PREALLOC_REMOTE_TYPE);
-  if (NS_WARN_IF(!process->BeginSubprocessLaunch(PROCESS_PRIORITY_PREALLOC))) {
+  RefPtr<ContentParent> process =
+      new ContentParent(PREALLOC_REMOTE_TYPE, false);
+  if (NS_WARN_IF(
+          !process->BeginSubprocessLaunch(PROCESS_PRIORITY_PREALLOC, false))) {
     process->LaunchSubprocessReject();
     return nullptr;
   }
@@ -809,7 +811,7 @@ void ContentParent::ReleaseCachedProcesses() {
 /*static*/
 already_AddRefed<ContentParent> ContentParent::MinTabSelect(
     const nsTArray<ContentParent*>& aContentParents, int32_t aMaxContentParents,
-    uint64_t aBrowserId) {
+    uint64_t aBrowserId, bool aJitDisabled) {
   uint32_t maxSelectable =
       std::min(static_cast<uint32_t>(aContentParents.Length()),
                static_cast<uint32_t>(aMaxContentParents));
@@ -819,7 +821,7 @@ already_AddRefed<ContentParent> ContentParent::MinTabSelect(
   for (uint32_t i = 0; i < maxSelectable; i++) {
     ContentParent* p = aContentParents[i];
     MOZ_DIAGNOSTIC_ASSERT(!p->IsDead());
-    if (p->IsShuttingDown()) {
+    if (p->IsShuttingDown() || aJitDisabled != p->mJitDisabled) {
       continue;
     }
 
@@ -878,7 +880,7 @@ ContentParent::CreateRemoteTypeIsolationPrincipal(
 UniqueContentParentKeepAlive ContentParent::GetUsedBrowserProcess(
     const nsACString& aRemoteType, nsTArray<ContentParent*>& aContentParents,
     uint32_t aMaxContentParents, bool aPreferUsed, ProcessPriority aPriority,
-    uint64_t aBrowserId) {
+    uint64_t aBrowserId, bool aJitDisabled) {
 #ifdef MOZ_DIAGNOSTIC_ASSERT_ENABLED
   AutoRestore ar(sInProcessSelector);
   sInProcessSelector = true;
@@ -896,8 +898,8 @@ UniqueContentParentKeepAlive ContentParent::GetUsedBrowserProcess(
   // has been disabled.
   RefPtr<ContentParent> selected;
   if (!StaticPrefs::dom_ipc_disableContentProcessReuse() &&
-      (selected =
-           MinTabSelect(aContentParents, aMaxContentParents, aBrowserId))) {
+      (selected = MinTabSelect(aContentParents, aMaxContentParents, aBrowserId,
+                               aJitDisabled))) {
     if (profiler_thread_is_being_profiled_for_markers()) {
       nsPrintfCString marker("Reused process %u",
                              (unsigned int)selected->ChildID());
@@ -914,7 +916,7 @@ UniqueContentParentKeepAlive ContentParent::GetUsedBrowserProcess(
   // Try to take a preallocated process except for certain remote types.
   // Note: this process may not have finished launching yet
   UniqueContentParentKeepAlive preallocated;
-  if (aRemoteType != FILE_REMOTE_TYPE &&
+  if (!aJitDisabled && aRemoteType != FILE_REMOTE_TYPE &&
       aRemoteType != PRIVILEGEDABOUT_REMOTE_TYPE &&
       aRemoteType != EXTENSION_REMOTE_TYPE &&  // Bug 1638119
       (preallocated = PreallocatedProcessManager::Take(aRemoteType))) {
@@ -979,7 +981,8 @@ UniqueContentParentKeepAlive ContentParent::GetUsedBrowserProcess(
 /*static*/
 UniqueContentParentKeepAlive ContentParent::GetNewOrUsedLaunchingBrowserProcess(
     const nsACString& aRemoteType, BrowsingContextGroup* aGroup,
-    ProcessPriority aPriority, bool aPreferUsed, uint64_t aBrowserId) {
+    ProcessPriority aPriority, bool aPreferUsed, bool aDisableJit,
+    uint64_t aBrowserId) {
   MOZ_LOG(ContentParent::GetLog(), LogLevel::Debug,
           ("GetNewOrUsedProcess for type %s",
            PromiseFlatCString(aRemoteType).get()));
@@ -1007,13 +1010,13 @@ UniqueContentParentKeepAlive ContentParent::GetNewOrUsedLaunchingBrowserProcess(
 
   nsTArray<ContentParent*>& contentParents = GetOrCreatePool(aRemoteType);
 
-  if (!contentParent) {
+  if (!contentParent && !aDisableJit) {
     // No host process. Let's try to re-use an existing process.
     uint32_t maxContentParents = GetMaxProcessCount(aRemoteType);
 
     contentParent =
         GetUsedBrowserProcess(aRemoteType, contentParents, maxContentParents,
-                              aPreferUsed, aPriority, aBrowserId);
+                              aPreferUsed, aPriority, aBrowserId, aDisableJit);
     MOZ_DIAGNOSTIC_ASSERT_IF(contentParent, !contentParent->IsShuttingDown());
   }
 
@@ -1024,8 +1027,8 @@ UniqueContentParentKeepAlive ContentParent::GetNewOrUsedLaunchingBrowserProcess(
             ("Launching new process immediately for type %s",
              PromiseFlatCString(aRemoteType).get()));
 
-    RefPtr<ContentParent> newCp = new ContentParent(aRemoteType);
-    if (NS_WARN_IF(!newCp->BeginSubprocessLaunch(aPriority))) {
+    RefPtr<ContentParent> newCp = new ContentParent(aRemoteType, aDisableJit);
+    if (NS_WARN_IF(!newCp->BeginSubprocessLaunch(aPriority, aDisableJit))) {
       // Launch aborted because of shutdown. Bailout.
       newCp->LaunchSubprocessReject();
       return nullptr;
@@ -1059,14 +1062,16 @@ UniqueContentParentKeepAlive ContentParent::GetNewOrUsedLaunchingBrowserProcess(
 /*static*/
 RefPtr<ContentParent::LaunchPromise>
 ContentParent::GetNewOrUsedBrowserProcessAsync(const nsACString& aRemoteType,
+
                                                BrowsingContextGroup* aGroup,
                                                ProcessPriority aPriority,
                                                bool aPreferUsed,
+                                               bool aDisableJit,
                                                uint64_t aBrowserId) {
   // Obtain a `ContentParent` launched asynchronously.
   UniqueContentParentKeepAlive contentParent =
       GetNewOrUsedLaunchingBrowserProcess(aRemoteType, aGroup, aPriority,
-                                          aPreferUsed, aBrowserId);
+                                          aPreferUsed, aDisableJit, aBrowserId);
   if (!contentParent) {
     // In case of launch error, stop here.
     return LaunchPromise::CreateAndReject(NS_ERROR_ILLEGAL_DURING_SHUTDOWN,
@@ -1078,10 +1083,11 @@ ContentParent::GetNewOrUsedBrowserProcessAsync(const nsACString& aRemoteType,
 /*static*/
 UniqueContentParentKeepAlive ContentParent::GetNewOrUsedBrowserProcess(
     const nsACString& aRemoteType, BrowsingContextGroup* aGroup,
-    ProcessPriority aPriority, bool aPreferUsed, uint64_t aBrowserId) {
+    ProcessPriority aPriority, bool aPreferUsed, bool aDisableJit,
+    uint64_t aBrowserId) {
   UniqueContentParentKeepAlive contentParent =
       GetNewOrUsedLaunchingBrowserProcess(aRemoteType, aGroup, aPriority,
-                                          aPreferUsed, aBrowserId);
+                                          aPreferUsed, aDisableJit, aBrowserId);
   if (!contentParent || !contentParent->WaitForLaunchSync(aPriority)) {
     // In case of launch error, stop here.
     return nullptr;
@@ -1360,6 +1366,7 @@ already_AddRefed<RemoteBrowser> ContentParent::CreateBrowser(
     constructorSender = GetNewOrUsedBrowserProcess(
         remoteType, aBrowsingContext->Group(), PROCESS_PRIORITY_FOREGROUND,
         /* aPreferUsed */ false,
+        /* aDisableJit */ false,
         /* aBrowserId */ aBrowsingContext->BrowserId());
     if (!constructorSender) {
       return nullptr;
@@ -2102,7 +2109,7 @@ void ContentParent::MaybeBeginShutDown(bool aImmediate,
   // Don't bother waiting, even if `aImmediate` is not true, if the process
   // can no longer be re-used (e.g. because it is dead, or we're in shutdown).
   bool immediate =
-      aImmediate || IsDead() ||
+      aImmediate || IsDead() || mJitDisabled ||
       AppShutdown::IsInOrBeyond(ShutdownPhase::AppShutdownConfirmed) ||
       StaticPrefs::dom_ipc_processReuse_unusedGraceMs() == 0;
 
@@ -2376,7 +2383,8 @@ void ContentParent::AppendSandboxParams(std::vector<std::string>& aArgs) {
 }
 #endif  // XP_MACOSX && MOZ_SANDBOX
 
-bool ContentParent::BeginSubprocessLaunch(ProcessPriority aPriority) {
+bool ContentParent::BeginSubprocessLaunch(ProcessPriority aPriority,
+                                          bool aDisableJit) {
   AUTO_PROFILER_LABEL("ContentParent::LaunchSubprocess", OTHER);
 
   // Ensure we will not rush through our shutdown phases while launching.
@@ -2422,6 +2430,7 @@ bool ContentParent::BeginSubprocessLaunch(ProcessPriority aPriority) {
   Preferences::AddStrongObserver(this, "");
 
   geckoargs::sSafeMode.Put(gSafeMode, extraArgs);
+  geckoargs::sDisableJit.Put(aDisableJit, extraArgs);
 
 #if defined(XP_MACOSX) && defined(MOZ_SANDBOX)
   if (IsContentSandboxEnabled()) {
@@ -2563,13 +2572,14 @@ static bool IsFileContent(const nsACString& aRemoteType) {
   return aRemoteType == FILE_REMOTE_TYPE;
 }
 
-ContentParent::ContentParent(const nsACString& aRemoteType)
+ContentParent::ContentParent(const nsACString& aRemoteType, bool aJitDisabled)
     : mSubprocess(new GeckoChildProcessHost(GeckoProcessType_Content,
                                             IsFileContent(aRemoteType))),
       mLaunchTS(TimeStamp::Now()),
       mLaunchYieldTS(mLaunchTS),
       mIsAPreallocBlocker(false),
       mRemoteType(aRemoteType),
+      mJitDisabled(aJitDisabled),
       mChildID(mSubprocess->GetChildID()),
       mGeolocationWatchID(-1),
       mThreadsafeHandle(

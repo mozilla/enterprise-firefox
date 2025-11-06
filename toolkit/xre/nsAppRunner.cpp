@@ -545,6 +545,7 @@ static bool RequestedHeadlessMode() {
 }
 
 bool gSafeMode = false;
+bool gDisableJit = false;
 bool gFxREmbedded = false;
 
 enum E10sStatus {

@@ -2020,6 +2020,16 @@ export var Policies = {
     },
   },
 
+  Isolation: {
+    onBeforeUIStartup(manager, params) {
+      for (let param of params) {
+        if (param.DisableJit) {
+          addAllowDenyPermissions("jit", null, param.Origins);
+        }
+      }
+    },
+  },
+
   LegacyProfiles: {
     // Handled in nsToolkitProfileService.cpp (Windows only)
   },

@@ -186,7 +186,7 @@ class ContentParent final : public PContentParent,
    */
   static already_AddRefed<ContentParent> MinTabSelect(
       const nsTArray<ContentParent*>& aContentParents,
-      int32_t maxContentParents, uint64_t aBrowserId);
+      int32_t maxContentParents, uint64_t aBrowserId, bool aJitDisabled);
 
   /**
    * Get or create a content process which can be used for hosting web content
@@ -216,7 +216,8 @@ class ContentParent final : public PContentParent,
       const nsACString& aRemoteType, BrowsingContextGroup* aGroup = nullptr,
       hal::ProcessPriority aPriority =
           hal::ProcessPriority::PROCESS_PRIORITY_FOREGROUND,
-      bool aPreferUsed = false, uint64_t aBrowserId = 0);
+      bool aPreferUsed = false, bool aDisableJit = false,
+      uint64_t aBrowserId = 0);
 
   /**
    * Like |GetNewOrUsedLaunchingBrowserProcess|, but returns a promise which
@@ -226,7 +227,8 @@ class ContentParent final : public PContentParent,
       const nsACString& aRemoteType, BrowsingContextGroup* aGroup = nullptr,
       hal::ProcessPriority aPriority =
           hal::ProcessPriority::PROCESS_PRIORITY_FOREGROUND,
-      bool aPreferUsed = false, uint64_t aBrowserId = 0);
+      bool aPreferUsed = false, bool aDisableJit = false,
+      uint64_t aBrowserId = 0);
 
   /**
    * Like |GetNewOrUsedLaunchingBrowserProcess|, but blocks the main thread
@@ -236,7 +238,8 @@ class ContentParent final : public PContentParent,
       const nsACString& aRemoteType, BrowsingContextGroup* aGroup = nullptr,
       hal::ProcessPriority aPriority =
           hal::ProcessPriority::PROCESS_PRIORITY_FOREGROUND,
-      bool aPreferUsed = false, uint64_t aBrowserId = 0);
+      bool aPreferUsed = false, bool aDisableJit = false,
+      uint64_t aBrowserId = 0);
 
   /**
    * Create an nsITransferable with the specified data flavor types.
@@ -791,12 +794,12 @@ class ContentParent final : public PContentParent,
       const OriginAttributes& aOriginAttributes, bool aUserActivation,
       bool aTextDirectiveUserActivation);
 
-  explicit ContentParent(const nsACString& aRemoteType);
+  explicit ContentParent(const nsACString& aRemoteType, bool aJitDisabled);
 
   // Common implementation of LaunchSubprocess{Sync,Async}.
   // Return `true` in case of success, `false` if launch was
   // aborted because of shutdown.
-  bool BeginSubprocessLaunch(ProcessPriority aPriority);
+  bool BeginSubprocessLaunch(ProcessPriority aPriority, bool aDisableJit);
   void LaunchSubprocessReject();
   bool LaunchSubprocessResolve(bool aIsSync, ProcessPriority aPriority);
 
@@ -1472,7 +1475,7 @@ class ContentParent final : public PContentParent,
   static UniqueContentParentKeepAlive GetUsedBrowserProcess(
       const nsACString& aRemoteType, nsTArray<ContentParent*>& aContentParents,
       uint32_t aMaxContentParents, bool aPreferUsed, ProcessPriority aPriority,
-      uint64_t aBrowserId);
+      uint64_t aBrowserId, bool aJitDisabled);
 
   void AddToPool(nsTArray<ContentParent*>&);
   void RemoveFromPool(nsTArray<ContentParent*>&);
@@ -1503,6 +1506,7 @@ class ContentParent final : public PContentParent,
   nsCString mRemoteType;
   nsCString mProfile;
   nsCOMPtr<nsIPrincipal> mRemoteTypeIsolationPrincipal;
+  bool mJitDisabled;
 
   ContentParentId mChildID;
   int32_t mGeolocationWatchID;

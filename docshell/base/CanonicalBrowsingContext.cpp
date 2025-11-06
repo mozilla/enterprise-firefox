@@ -2599,6 +2599,7 @@ CanonicalBrowsingContext::ChangeRemoteness(
           /* aGroup = */ finalGroup,
           /* aPriority = */ hal::PROCESS_PRIORITY_FOREGROUND,
           /* aPreferUsed = */ preferUsed,
+          /* aDisableJit = */ aOptions.mDisableJit,
           /* aBrowserId */ BrowserId());
   if (!change->mContentParentKeepAlive) {
     change->Cancel(NS_ERROR_FAILURE);

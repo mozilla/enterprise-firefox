@@ -920,6 +920,19 @@ Result<NavigationIsolationOptions, nsresult> IsolationOptionsForNavigation(
           WITH_COOP_COEP_REMOTE_TYPE "="_ns + siteOriginNoSuffix + originSuffix;
       break;
   }
+
+  nsCOMPtr<nsIPrincipal> topPrincipal = resultPrincipal;
+  // If this is a subframe then use the principal of the top window.
+  if (aParentWindow) {
+    topPrincipal = aTopBC->GetCurrentWindowGlobal()->DocumentPrincipal();
+  }
+
+  RefPtr<PermissionManager> perms = PermissionManager::GetInstance();
+  uint32_t permission = nsIPermissionManager::UNKNOWN_ACTION;
+  perms->TestPermissionFromPrincipal(topPrincipal, "jit"_ns, &permission);
+
+  options.mDisableJit = permission == nsIPermissionManager::DENY_ACTION;
+
   return options;
 }
 

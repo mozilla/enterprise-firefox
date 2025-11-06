@@ -493,7 +493,9 @@ RemoteWorkerManager::LaunchNewContentProcess(const RemoteWorkerData& aData) {
                            /* aRemoteType = */ remoteType,
                            /* aGroup */ nullptr,
                            hal::ProcessPriority::PROCESS_PRIORITY_FOREGROUND,
-                           /* aPreferUsed */ true);
+                           /* aPreferUsed */ true,
+                           // XXX TODO ENTERPRISE
+                           /* aDisableJit = */ false);
                      })
       ->Then(
           GetMainThreadSerialEventTarget(), __func__,

@@ -108,6 +108,11 @@ void ContentProcess::InfallibleInit(int aArgc, char* aArgv[]) {
     gSafeMode = *safeMode;
   }
 
+  Maybe<bool> disableJit = geckoargs::sDisableJit.Get(aArgc, aArgv);
+  if (disableJit.isSome()) {
+    gDisableJit = *disableJit;
+  }
+
   Maybe<bool> isForBrowerParam = geckoargs::sIsForBrowser.Get(aArgc, aArgv);
   Maybe<bool> notForBrowserParam = geckoargs::sNotForBrowser.Get(aArgc, aArgv);
   if (isForBrowerParam.isSome()) {

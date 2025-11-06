@@ -187,6 +187,7 @@
 #include "mozilla/dom/PCycleCollectWithLogsChild.h"
 #include "mozilla/dom/PerformanceStorage.h"
 #include "nsAnonymousTemporaryFile.h"
+#include "nsAppRunner.h"
 #include "nsCategoryManagerUtils.h"
 #include "nsChromeRegistryContent.h"
 #include "nsClipboardProxy.h"

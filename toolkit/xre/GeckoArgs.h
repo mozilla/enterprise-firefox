@@ -223,6 +223,7 @@ static CommandLineArg<uint64_t> sSandboxingKind{"-sandboxingKind",
                                                 "sandboxingkind"};
 
 static CommandLineArg<bool> sSafeMode{"-safeMode", "safemode"};
+static CommandLineArg<bool> sDisableJit{"-disableJit", "disablejit"};
 
 static CommandLineArg<bool> sIsForBrowser{"-isForBrowser", "isforbrowser"};
 static CommandLineArg<bool> sNotForBrowser{"-notForBrowser", "notforbrowser"};

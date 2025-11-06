@@ -78,6 +78,7 @@
 #include "nsIXULRuntime.h"
 #include "nsJSPrincipals.h"
 #include "ExpandedPrincipal.h"
+#include "nsAppRunner.h"
 
 #if defined(XP_LINUX) && !defined(ANDROID)
 // For getrlimit and min/max.
@@ -887,10 +888,11 @@ static void LoadStartupJSPrefs(XPCJSContext* xpccx) {
   //       perf gain and is our simplest JIT so we make a tradeoff.
   JS_SetGlobalJitCompilerOption(
       cx, JSJITCOMPILER_BASELINE_INTERPRETER_ENABLE,
-      StaticPrefs::javascript_options_blinterp_DoNotUseDirectly());
+      !gDisableJit &&
+          StaticPrefs::javascript_options_blinterp_DoNotUseDirectly());
 
   // Disable most JITs in Safe-Mode.
-  if (safeMode) {
+  if (gDisableJit || safeMode) {
     JS_SetGlobalJitCompilerOption(cx, JSJITCOMPILER_BASELINE_ENABLE, false);
     JS_SetGlobalJitCompilerOption(cx, JSJITCOMPILER_ION_ENABLE, false);
     JS_SetGlobalJitCompilerOption(

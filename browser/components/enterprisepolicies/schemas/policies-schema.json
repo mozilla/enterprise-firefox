@@ -1009,6 +1009,26 @@
       }
     },
 
+    "Isolation": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "Origins": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "origin"
+            }
+          },
+          "DisableJit": {
+            "type": "boolean"
+          }
+        },
+        "required": ["Origins"]
+      }
+    },
+
     "LegacyProfiles": {
       "type": "boolean"
     },
