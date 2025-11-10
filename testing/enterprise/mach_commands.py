@@ -27,6 +27,16 @@ def get_test_parser():
         nargs="*",
         help="Tests files to run. If none, will run all.",
     )
+    parser.add_argument(
+        "--firefox-bin",
+        default=None,
+        help="Firefox binary to use. Defaults to objdir one.",
+    )
+    parser.add_argument(
+        "--geckodriver-bin",
+        default=None,
+        help="GeckoDriver binary to use. Defaults to objdir one.",
+    )
     parser.add_argument("--debugger", default=None, help="Name of debugger to use.")
     parser.add_argument(
         "--debugger-args",
@@ -43,7 +53,15 @@ def get_test_parser():
     description="Running enterprise-tests against local build",
     parser=get_test_parser,
 )
-def run_tests(command_context, what, debugger, debugger_args, **kwargs):
+def run_tests(
+    command_context,
+    what,
+    firefox_bin,
+    geckodriver_bin,
+    debugger,
+    debugger_args,
+    **kwargs,
+):
     srcdir = os.path.realpath(command_context.topsrcdir)
     objdir = os.path.realpath(command_context.topobjdir)
 
@@ -52,25 +70,27 @@ def run_tests(command_context, what, debugger, debugger_args, **kwargs):
         extension = ".exe"
 
     enterprise_tests_dir = os.path.join(srcdir, "testing", "enterprise")
-    firefox_bin = os.path.join(objdir, "dist", "bin", f"firefox{extension}")
-    if sys.platform == "darwin":
-        import glob
+    if not firefox_bin:
+        firefox_bin = os.path.join(objdir, "dist", "bin", f"firefox{extension}")
+        if sys.platform == "darwin":
+            import glob
 
-        firefox_bin = glob.glob(
-            os.path.join(objdir, "dist", "*.app", "Contents", "MacOS", "firefox")
-        )[0]
+            firefox_bin = glob.glob(
+                os.path.join(objdir, "dist", "*.app", "Contents", "MacOS", "firefox")
+            )[0]
+    assert firefox_bin is not None
 
-    geckodriver_bin = None
-    for build in ["debug", "release"]:
-        test_path = os.path.join(
-            objdir,
-            command_context.substs.get("RUST_TARGET"),
-            build,
-            f"geckodriver{extension}",
-        )
-        if os.path.isfile(test_path):
-            geckodriver_bin = test_path
-            break
+    if not geckodriver_bin:
+        for build in ["debug", "release"]:
+            test_path = os.path.join(
+                objdir,
+                command_context.substs.get("RUST_TARGET"),
+                build,
+                f"geckodriver{extension}",
+            )
+            if os.path.isfile(test_path):
+                geckodriver_bin = test_path
+                break
     assert geckodriver_bin is not None
 
     profiles_path = os.path.join(objdir, "tmp", "profiles-tests")

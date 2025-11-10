@@ -61,9 +61,30 @@ if __name__ == "test_firefox_start":
     this = os.path.dirname(os.path.abspath(__file__))
 
     app_ini = configparser.ConfigParser()
-    app_ini.read(
-        os.path.join(os.environ.get("TOPOBJDIR"), "dist", "bin", "application.ini")
-    )
+    if "MOZ_FETCHES_DIR" in os.environ:
+        root = os.path.join(
+            os.environ.get("MOZ_FETCHES_DIR"), "firefox", "application.ini"
+        )
+        if sys.platform == "darwin":
+            app_dir = list(
+                filter(
+                    lambda x: x.endswith(".app"),
+                    os.listdir(os.environ.get("MOZ_FETCHES_DIR")),
+                )
+            )
+            assert len(app_dir) == 1
+            root = os.path.join(
+                os.environ.get("MOZ_FETCHES_DIR"),
+                app_dir[0],
+                "Contents",
+                "Resources",
+                "application.ini",
+            )
+        app_ini.read(root)
+    else:
+        app_ini.read(
+            os.path.join(os.environ.get("TOPOBJDIR"), "dist", "bin", "application.ini")
+        )
     version = app_ini.get("App", "Version")
 
     json_in = os.path.join(this, "firefox_start.json.in")

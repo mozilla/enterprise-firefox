@@ -116,7 +116,7 @@ PER_PROJECT_PARAMETERS = {
         "target_tasks_method": "default",
     },
     "enterprise-firefox": {
-        "target_tasks_method": "enterprise_firefox_tasks",
+        "target_tasks_method": "enterprise_firefox_with_tests_tasks",
         "release_type": "nightly-enterprise",
     },
     # the default parameters are used for projects that do not match above.

@@ -1,0 +1,162 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+---
+loader: taskgraph.loader.transform:loader
+
+only-for-build-platforms:
+    - linux64-enterprise/opt
+    - linux64-enterprise/debug
+    - macosx64-enterprise/opt
+    - macosx64-enterprise/debug
+    - win64-enterprise/opt
+    - win64-enterprise/debug
+
+transforms:
+    - taskgraph.transforms.from_deps
+    - gecko_taskgraph.transforms.enterprise_test:transforms
+    - gecko_taskgraph.transforms.job:transforms
+    - gecko_taskgraph.transforms.task:transforms
+
+kind-dependencies:
+    - build
+    - fetch
+    - toolchain
+
+task-defaults:
+    run-on-projects: ["enterprise-firefox"]
+    run-on-repo-type: ["git"]
+    always-target: true
+    from-deps:
+        group-by: single-with-filters
+    attributes:
+        retrigger: true
+    treeherder:
+        kind: test
+        tier: 2
+    run:
+        using: run-task
+        cwd: '{checkout}'
+        checkout: true
+        command:
+            by-test-platform:
+                win.*: >-
+                    ./mach enterprise-tests --firefox-bin=$MOZ_FETCHES_DIR/firefox/firefox.exe --geckodriver-bin=$MOZ_FETCHES_DIR/geckodriver.exe testing/enterprise/{enterprise_test_file}
+
+                macosx.*: >-
+                    echo -e "[install]\nno-index = false\ndisable-pip-version-check = false\nfind-links = https://pypi.python.org/simple/\ntrusted-host = pypi.python.org" > ./pip-simple.conf &&
+                    export PIP_CONFIG_FILE="$PWD/pip-simple.conf" &&
+                    DMG_FILE=$MOZ_FETCHES_DIR/target.dmg && MOUNT_DIR=$(hdiutil attach "$DMG_FILE" | grep "/Volumes" | sed -e "s/.*\/Volumes/\/Volumes/g") &&
+                    APP_PATH="$(dirname "$(dirname "$(dirname "$(find /Volumes/ -type f -name "firefox")")")")" && APP_NAME=$(basename "$APP_PATH") &&
+                    cp -a "$APP_PATH" $MOZ_FETCHES_DIR &&
+                    hdiutil unmount -force -whole "$MOUNT_DIR" &&
+                    RUNTIME_PATH=$(find "$MOZ_FETCHES_DIR/$APP_NAME" -type f -name "firefox") &&
+                    ./mach enterprise-tests --firefox-bin="$RUNTIME_PATH" --geckodriver-bin=$MOZ_FETCHES_DIR/geckodriver testing/enterprise/{enterprise_test_file}
+
+                linux.*: >-
+                    source /builds/worker/scripts/xvfb.sh &&
+                    start_xvfb '1600x1200x24' 0 &&
+                    ./mach enterprise-tests --firefox-bin=$MOZ_FETCHES_DIR/firefox/firefox --geckodriver-bin=$MOZ_FETCHES_DIR/geckodriver testing/enterprise/{enterprise_test_file}
+
+    use-python: "3.11"
+    fetches:
+        build:
+            by-test-platform:
+                win.*:
+                    - target.zip
+                macosx.*:
+                    - target.dmg
+                linux.*:
+                    - target.tar.xz
+        toolchain:
+            by-test-platform:
+                win.*:
+                    - win64-geckodriver
+                macosx.*:
+                    - macosx64-geckodriver
+                linux.*:
+                    - linux64-geckodriver
+    test-platforms:
+        - linux64-enterprise
+        - macosx64-enterprise
+        - win64-enterprise
+    worker-type:
+        by-test-platform:
+            win.*: win11-64-24h2-source
+            macosx.*: t-osx-1500-m4
+            linux.*: t-linux-docker-amd
+    worker:
+        max-run-time: 900
+        env:
+            by-test-platform:
+                win.*:
+                    ARTIFACT_DIR: artifacts
+
+                macosx.*:
+                    ARTIFACT_DIR: ../../artifacts
+
+                linux.*:
+                    ARTIFACT_DIR: /builds/worker/artifacts
+        artifacts:
+            by-test-platform:
+                win.*:
+                    - name: public/build
+                      type: directory
+                      path: build/src/artifacts/
+                macosx.*:
+                    - name: public/build
+                      type: directory
+                      path: artifacts/
+                linux.*:
+                    - name: public/build
+                      type: directory
+                      path: /builds/worker/artifacts/
+
+tasks:
+    firefox-start:
+        description: Testing normal Firefox starts
+        attributes:
+            enterprise_test_file: test_firefox_start.py
+            enterprise_test_slug: fxStart
+
+    felt-browser-cli:
+        description: Testing start of FELT and browser using CLI
+        attributes:
+            enterprise_test_file: test_felt_browser_starts_fromCli.py
+            enterprise_test_slug: feltCli
+
+    felt-browser-env:
+        description: Testing start of FELT and browser using env
+        attributes:
+            enterprise_test_file: test_felt_browser_starts_fromEnv.py
+            enterprise_test_slug: feltEnv
+
+    felt-browser-restart-works:
+        description: Testing that browser restart is handled by FELT
+        attributes:
+            enterprise_test_file: test_felt_browser_restart_works.py
+            enterprise_test_slug: feltRestart
+
+    felt-browser-restart-quit:
+        description: Testing that browser restart is a quit for Enterprise build
+        attributes:
+            enterprise_test_file: test_felt_browser_restart_is_quit.py
+            enterprise_test_slug: feltQuit
+
+    felt-browser-aboutConfig-blocked:
+        description: Testing that about:config policy is applied correctly
+        attributes:
+            enterprise_test_file: test_felt_browser_about_config_blocked.py
+            enterprise_test_slug: feltAboutConfig
+
+    felt-device-posture:
+        description: Testing FELT device posture behavior
+        attributes:
+            enterprise_test_file: test_felt_device_posture.py
+            enterprise_test_slug: feltDevicePosture
+
+    felt-browser-signout:
+        description: Testing signout from browser and FELT takes over
+        attributes:
+            enterprise_test_file: test_felt_browser_signout.py
+            enterprise_test_slug: feltSignout

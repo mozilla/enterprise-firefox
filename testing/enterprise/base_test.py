@@ -45,11 +45,16 @@ class EnterpriseTestsBase:
         if self.need_allow_system_access():
             driver_service_args += ["--allow-system-access"]
 
+        artifact_dir = os.environ.get("ARTIFACT_DIR", "")
+        if artifact_dir != "":
+            os.makedirs(artifact_dir, exist_ok=True)
+
+        self._driver_log = os.path.join(artifact_dir, "geckodriver.log")
+        self._child_driver_log = os.path.join(artifact_dir, "geckodriver_child.log")
+
         driver_service = Service(
             executable_path=self._EXE_PATH,
-            log_output=os.path.join(
-                os.environ.get("ARTIFACT_DIR", ""), "geckodriver.log"
-            ),
+            log_output=self._driver_log,
             service_args=driver_service_args,
         )
 
@@ -188,8 +193,8 @@ class EnterpriseTestsBase:
         sys.exit(ec)
 
     def check_for_crashes(self, exit_code):
-        for log_file in ["geckodriver.log", "geckodriver_child.log"]:
-            if log_file != "geckodriver.log" and not os.path.isfile(log_file):
+        for log_file in [self._driver_log, self._child_driver_log]:
+            if "geckodriver.log" not in log_file and not os.path.isfile(log_file):
                 # Only geckodriver.log is really required others can be missing
                 continue
 
@@ -291,7 +296,7 @@ class EnterpriseTestsBase:
         ]
         driver_service = Service(
             executable_path=self._EXE_PATH,
-            log_output="geckodriver_child.log",
+            log_output=self._child_driver_log,
             service_args=driver_service_args,
         )
 

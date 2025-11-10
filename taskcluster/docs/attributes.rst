@@ -582,3 +582,11 @@ dxc-crash-symbols
 =================
 
 Indicates that the job produces crash symbols for `dxcompiler.dll`.
+
+enterprise_test_file
+====================
+Cosmetic helper.
+
+enterprise_test_slug
+====================
+Cosmetic helper.

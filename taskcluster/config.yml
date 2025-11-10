@@ -195,6 +195,8 @@ treeherder:
         'Attr-L10n': 'Build Attribution'
         'android-l10n': 'Import strings from android-l10n repo'
         'updt-tst': 'Test updates to release from older firefox versions'
+        'Tent': 'Enterprise specific selenium tests'
+        'TentChaos': 'Enterprise specific selenium tests (MOZ_CHAOSMODE)'
 
         # The below symbols are from firefox-android (fenix/focus/android-components)
         'buildconfig': 'Make sure the content of .buildconfig.yml matches what gradle knows about its projects'
