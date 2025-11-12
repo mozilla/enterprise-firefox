@@ -86,6 +86,7 @@ import org.mozilla.fenix.components.usecases.FenixBrowserUseCases
 import org.mozilla.fenix.ext.nav
 import org.mozilla.fenix.ext.settings
 import org.mozilla.fenix.helpers.FenixGleanTestRule
+import org.mozilla.fenix.home.toolbar.BrowserToolbarMiddleware.Companion.mapShortcutToAction
 import org.mozilla.fenix.home.toolbar.BrowserToolbarMiddleware.HomeToolbarAction
 import org.mozilla.fenix.home.toolbar.DisplayActions.FakeClicked
 import org.mozilla.fenix.home.toolbar.DisplayActions.MenuClicked
@@ -96,6 +97,7 @@ import org.mozilla.fenix.home.toolbar.TabCounterInteractions.TabCounterClicked
 import org.mozilla.fenix.home.toolbar.TabCounterInteractions.TabCounterLongClicked
 import org.mozilla.fenix.search.fixtures.assertSearchSelectorEquals
 import org.mozilla.fenix.search.fixtures.buildExpectedSearchSelector
+import org.mozilla.fenix.settings.ShortcutType
 import org.mozilla.fenix.tabstray.Page
 import org.robolectric.Shadows.shadowOf
 import mozilla.components.ui.icons.R as iconsR
@@ -123,6 +125,8 @@ class BrowserToolbarMiddlewareTest {
         every { testContext.settings().shouldUseExpandedToolbar } returns false
         every { testContext.settings().isTabStripEnabled } returns false
         every { testContext.settings().tabManagerEnhancementsEnabled } returns false
+        every { testContext.settings().shouldShowToolbarCustomization } returns false
+        every { testContext.settings().toolbarExpandedShortcutKey } returns ShortcutType.BOOKMARK
 
         fragment = spyk(Fragment()).apply {
             every { context } returns mockContext
@@ -812,6 +816,84 @@ class BrowserToolbarMiddlewareTest {
         assertEquals(expectedMenuButton(false), menuButton)
     }
 
+    @Test
+    fun `GIVEN expanded toolbar use translate shortcut WHEN initializing toolbar THEN show DISABLED Translate in navigation actions`() = runTest {
+        every { testContext.settings().shouldShowToolbarCustomization } returns true
+        every { testContext.settings().shouldUseExpandedToolbar } returns true
+        every { testContext.settings().toolbarExpandedShortcutKey } returns ShortcutType.TRANSLATE
+
+        val middleware = BrowserToolbarMiddleware(
+            appStore,
+            browserStore,
+            mockk(),
+            mockk(),
+        )
+        val toolbarStore = buildStore(middleware)
+
+        val translateButton = toolbarStore.state.displayState.navigationActions.first() as ActionButtonRes
+        assertEquals(expectedTranslateButton, translateButton)
+    }
+
+    @Test
+    fun `GIVEN expanded toolbar use homepage shortcut WHEN initializing toolbar THEN show DISABLED Homepage in navigation actions`() = runTest {
+        every { testContext.settings().shouldShowToolbarCustomization } returns true
+        every { testContext.settings().shouldUseExpandedToolbar } returns true
+        every { testContext.settings().toolbarExpandedShortcutKey } returns ShortcutType.HOMEPAGE
+
+        val middleware = BrowserToolbarMiddleware(
+            appStore,
+            browserStore,
+            mockk(),
+            mockk(),
+        )
+        val toolbarStore = buildStore(middleware)
+
+        val homepageButton = toolbarStore.state.displayState.navigationActions.first() as ActionButtonRes
+        assertEquals(expectedHomepageButton, homepageButton)
+    }
+
+    @Test
+    fun `GIVEN expanded toolbar use back shortcut WHEN initializing toolbar THEN show DISABLED Back in navigation actions`() = runTest {
+        every { testContext.settings().shouldShowToolbarCustomization } returns true
+        every { testContext.settings().shouldUseExpandedToolbar } returns true
+        every { testContext.settings().toolbarExpandedShortcutKey } returns ShortcutType.BACK
+
+        val middleware = BrowserToolbarMiddleware(
+            appStore,
+            browserStore,
+            mockk(),
+            mockk(),
+        )
+        val toolbarStore = buildStore(middleware)
+
+        val backButton = toolbarStore.state.displayState.navigationActions.first() as ActionButtonRes
+        assertEquals(expectedBackButton, backButton)
+    }
+
+    @Test
+    fun `mapShortcutToAction maps keys to actions and falls back to fake bookmark action`() {
+        assertEquals(
+            HomeToolbarAction.FakeBookmark,
+            mapShortcutToAction(key = ShortcutType.BOOKMARK),
+        )
+        assertEquals(
+            HomeToolbarAction.FakeTranslate,
+            mapShortcutToAction(key = ShortcutType.TRANSLATE),
+        )
+        assertEquals(
+            HomeToolbarAction.FakeHomepage,
+            mapShortcutToAction(key = ShortcutType.HOMEPAGE),
+        )
+        assertEquals(
+            HomeToolbarAction.FakeBack,
+            mapShortcutToAction(key = ShortcutType.BACK),
+        )
+        assertEquals(
+            HomeToolbarAction.FakeBookmark,
+            mapShortcutToAction(key = "does_not_exist"),
+        )
+    }
+
     private fun buildStore(
         middleware: BrowserToolbarMiddleware,
         context: Context = testContext,
@@ -936,6 +1018,27 @@ class BrowserToolbarMiddlewareTest {
         drawableResId = iconsR.drawable.mozac_ic_plus_24,
         contentDescription = R.string.home_screen_shortcut_open_new_tab_2,
         onClick = AddNewTab(source),
+    )
+
+    private val expectedTranslateButton = ActionButtonRes(
+        drawableResId = iconsR.drawable.mozac_ic_translate_24,
+        contentDescription = R.string.browser_toolbar_translate,
+        state = ActionButton.State.DISABLED,
+        onClick = FakeClicked,
+    )
+
+    private val expectedHomepageButton = ActionButtonRes(
+        drawableResId = iconsR.drawable.mozac_ic_home_24,
+        contentDescription = R.string.browser_menu_homepage,
+        state = ActionButton.State.DISABLED,
+        onClick = FakeClicked,
+    )
+
+    private val expectedBackButton = ActionButtonRes(
+        drawableResId = iconsR.drawable.mozac_ic_back_24,
+        contentDescription = R.string.browser_menu_back,
+        state = ActionButton.State.DISABLED,
+        onClick = FakeClicked,
     )
 
     private class FakeLifecycleOwner(initialState: Lifecycle.State) : LifecycleOwner {

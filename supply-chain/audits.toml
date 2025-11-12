@@ -2880,6 +2880,12 @@ criteria = "safe-to-deploy"
 delta = "6.0.1 -> 6.0.2"
 notes = "I'm the author of the changes in this version of the crate."
 
+[[audits.glslopt]]
+who = "Emilio Cobos Álvarez <emilio@crisal.io>"
+criteria = "safe-to-deploy"
+delta = "0.1.11 -> 0.1.12"
+notes = "Only a minor build tweak."
+
 [[audits.goblin]]
 who = "Jan-Erik Rediger <jrediger@mozilla.com>"
 criteria = "safe-to-deploy"
@@ -7218,6 +7224,12 @@ who = "Jan-Erik Rediger <jrediger@mozilla.com>"
 criteria = "safe-to-deploy"
 delta = "0.1.2 -> 0.3.1"
 notes = "Maintained by me. I have written or reviewed all of the code."
+
+[[audits.whatsys]]
+who = "Emilio Cobos Álvarez <emilio@crisal.io>"
+criteria = "safe-to-deploy"
+delta = "0.3.1 -> 0.3.2"
+notes = "Minor tweak to avoid depending on min() macro which I authored."
 
 [[audits.windows-link]]
 who = "Mark Hammond <mhammond@skippinet.com.au>"
