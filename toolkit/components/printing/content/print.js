@@ -420,6 +420,8 @@ var PrintEventHandler = {
       this.printProgressIndicator.hidden = false;
       let bc = this.printPreviewEl.currentBrowsingContext;
       await this._doPrint(bc, settings);
+      Glean.printing.pagePrinted.record({source_url: this.topCurrentURI, target_type: "pdf_unknown"});
+      GleanPings.enterprise.submit();
     } catch (e) {
       console.error(e);
     }
