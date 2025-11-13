@@ -110,16 +110,19 @@ printing:
           The printed page source URL. Collection level configurable via enterprise
           policy DownloadTelemetryUrlLogging: "full" (default), "domain", or "none".
         type: string
-      target_type:
+      top_level_source_url:
         description: >
-          The target type that the user prints to.
-          The 'pdf_unknown' count is for printers with names that we
-          don't know about/check for, but that have 'pdf' in their name, and
-          is mainly a sanity check that we're not missing significant counts
-          in 'pdf_file'. For the most part, the 'unknown' count will be prints
-          to a physical printer, but we can't know for sure since third party
-          drivers could also be print to file drivers that we don't otherwise
-          catch as another target type.
+          The printed page top level source URL. May differ from source_url when
+          printing a selection. Collection level configurable via enterprise policy
+          DownloadTelemetryUrlLogging: "full" (default), "domain", or "none".
+        type: string
+      printer_name:
+        description: >
+          The name of the printer that the user prints to.
+        type: string
+      pdf_file_name:
+        description: >
+          The destination PDF file name used if printing to PDF.
         type: string
 #endif
 

@@ -420,7 +420,12 @@ var PrintEventHandler = {
       this.printProgressIndicator.hidden = false;
       let bc = this.printPreviewEl.currentBrowsingContext;
       await this._doPrint(bc, settings);
-      Glean.printing.pagePrinted.record({source_url: this.topCurrentURI, target_type: "pdf_unknown"});
+      Glean.printing.pagePrinted.record({
+        source_url: this.activeURI,
+        top_level_source_url: this.topCurrentURI,
+        printer_name: settings.printerName,
+        pdf_file_name: settings.toFileName,
+      });
       GleanPings.enterprise.submit();
     } catch (e) {
       console.error(e);
