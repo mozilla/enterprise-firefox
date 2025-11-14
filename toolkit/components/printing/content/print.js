@@ -421,13 +421,7 @@ var PrintEventHandler = {
       let bc = this.printPreviewEl.currentBrowsingContext;
       await this._doPrint(bc, settings);
 #ifdef MOZ_ENTERPRISE
-      Glean.printing.pagePrinted.record({
-        source_url: this.activeURI,
-        top_level_source_url: this.topCurrentURI,
-        printer_name: settings.printerName,
-        pdf_file_name: settings.toFileName,
-      });
-      GleanPings.enterprise.submit();
+      this._recordPagePrinted(settings);
 #endif
     } catch (e) {
       console.error(e);
@@ -454,6 +448,56 @@ var PrintEventHandler = {
   _doPrint(aBrowsingContext, aSettings) {
     return aBrowsingContext.print(aSettings);
   },
+
+#ifdef MOZ_ENTERPRISE
+  _recordPagePrinted(aSettings) {
+    const isEnabled = Services.prefs.getBoolPref(
+      "print.enterprise.telemetry.printPage.enabled",
+      true
+    );
+    if (!isEnabled) {
+      return;
+    }
+
+    const sourceUrl = this._processSourceUrl(this.activeURI);
+    const topSourceUrl = this._processSourceUrl(this.topCurrentURI);
+    Glean.printing.pagePrinted.record({
+      source_url: sourceUrl,
+      top_level_source_url: topSourceUrl,
+      printer_name: aSettings.printerName,
+      pdf_file_name: aSettings.toFileName,
+    });
+    GleanPings.enterprise.submit();
+  },
+
+  _processSourceUrl(sourceUrl) {
+    if (!sourceUrl) {
+      return null;
+    }
+
+    const policy = Services.prefs.getCharPref(
+      "print.enterprise.telemetry.printPage.urlLogging",
+      "full"
+    );
+
+    switch (policy) {
+      case "none":
+        return null;
+
+      case "domain":
+        try {
+          const url = new URL(sourceUrl);
+          return url.hostname || null;
+        } catch (ex) {
+          return null;
+        }
+
+      case "full":
+      default:
+        return sourceUrl;
+    }
+  },
+#endif
 
   cancelPrint() {
     Glean.printing.previewCancelledTm.add(1);

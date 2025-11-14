@@ -1419,6 +1419,19 @@
       "type": "boolean"
     },
 
+    "PrintPageTelemetry": {
+      "type": "object",
+      "properties": {
+        "Enabled": {
+          "type": "boolean"
+        },
+        "UrlLogging": {
+          "type": "string",
+          "enum": ["full", "domain", "none"]
+        }
+      }
+    },
+
     "PrivateBrowsingModeAvailability": {
       "type": "number",
       "enum": [0, 1, 2]

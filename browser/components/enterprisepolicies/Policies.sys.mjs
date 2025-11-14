@@ -2373,6 +2373,31 @@ export var Policies = {
     },
   },
 
+  PrintPageTelemetry: {
+    onBeforeAddons(manager, param) {
+      if (param && typeof param === "object") {
+        // Enable/disable print page telemetry
+        if (typeof param.Enabled === "boolean") {
+          setAndLockPref(
+            "print.enterprise.telemetry.printPage.enabled",
+            param.Enabled
+          );
+        }
+
+        // Set URL logging level
+        if (
+          typeof param.UrlLogging === "string" &&
+          ["full", "domain", "none"].includes(param.UrlLogging)
+        ) {
+          setAndLockPref(
+            "print.enterprise.telemetry.printPage.urlLogging",
+            param.UrlLogging
+          );
+        }
+      }
+    },
+  },
+
   PrivateBrowsingModeAvailability: {
     onBeforeAddons(manager, param) {
       switch (param) {
@@ -2884,13 +2909,21 @@ export var Policies = {
       if (param && typeof param === "object") {
         // Enable/disable download telemetry
         if (typeof param.Enabled === "boolean") {
-          setAndLockPref("browser.download.enterprise.telemetry.enabled", param.Enabled);
+          setAndLockPref(
+            "browser.download.enterprise.telemetry.enabled",
+            param.Enabled
+          );
         }
-        
-        // Set URL logging level 
-        if (typeof param.UrlLogging === "string" && 
-            ["full", "domain", "none"].includes(param.UrlLogging)) {
-          setAndLockPref("browser.download.enterprise.telemetry.urlLogging", param.UrlLogging);
+
+        // Set URL logging level
+        if (
+          typeof param.UrlLogging === "string" &&
+          ["full", "domain", "none"].includes(param.UrlLogging)
+        ) {
+          setAndLockPref(
+            "browser.download.enterprise.telemetry.urlLogging",
+            param.UrlLogging
+          );
         }
       }
     },
