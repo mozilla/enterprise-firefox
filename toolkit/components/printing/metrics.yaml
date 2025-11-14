@@ -107,14 +107,25 @@ printing:
     extra_keys:
       source_url:
         description: >
-          The printed page source URL. Collection level configurable via enterprise
-          policy DownloadTelemetryUrlLogging: "full" (default), "domain", or "none".
+          The printed page source URL. Collection level configurable via
+          enterprise policy DownloadTelemetryUrlLogging: "full" (default),
+          "domain", or "none".
+        type: string
+      content_title:
+        description: >
+          The title of the printed content.
         type: string
       top_level_source_url:
         description: >
-          The printed page top level source URL. May differ from source_url when
-          printing a selection. Collection level configurable via enterprise policy
-          DownloadTelemetryUrlLogging: "full" (default), "domain", or "none".
+          The printed page top level source URL. May differ from
+          source_url when printing a selection. Collection level
+          configurable via enterprise policy DownloadTelemetryUrlLogging:
+          "full" (default), "domain", or "none".
+        type: string
+      top_level_content_title:
+        description: >
+          The top level title of the printed content of the printed page.
+          May differ from content_title when printing a selection.
         type: string
       printer_name:
         description: >

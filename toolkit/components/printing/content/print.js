@@ -463,7 +463,9 @@ var PrintEventHandler = {
     const topSourceUrl = this._processSourceUrl(this.topCurrentURI);
     Glean.printing.pagePrinted.record({
       source_url: sourceUrl,
+      content_title: this.activeTitle,
       top_level_source_url: topSourceUrl,
+      top_level_content_title: this.topContentTitle,
       printer_name: aSettings.printerName,
       pdf_file_name: aSettings.toFileName,
     });
