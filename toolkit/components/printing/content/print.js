@@ -420,6 +420,7 @@ var PrintEventHandler = {
       this.printProgressIndicator.hidden = false;
       let bc = this.printPreviewEl.currentBrowsingContext;
       await this._doPrint(bc, settings);
+#ifdef MOZ_ENTERPRISE
       Glean.printing.pagePrinted.record({
         source_url: this.activeURI,
         top_level_source_url: this.topCurrentURI,
@@ -427,6 +428,7 @@ var PrintEventHandler = {
         pdf_file_name: settings.toFileName,
       });
       GleanPings.enterprise.submit();
+#endif
     } catch (e) {
       console.error(e);
     }

@@ -7,7 +7,7 @@ toolkit.jar:
    content/global/printPageSetup.js                 (content/printPageSetup.js)
    content/global/printPageSetup.xhtml              (content/printPageSetup.xhtml)
 #endif
-   content/global/print.js                          (content/print.js)
+*  content/global/print.js                          (content/print.js)
    content/global/print.html                        (content/print.html)
    content/global/print.css                         (content/print.css)
    content/global/printPagination.css               (content/printPagination.css)
