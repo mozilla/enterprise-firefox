@@ -602,7 +602,7 @@ Section "-Application" APP_IDX
         ${LogMsg} "Renamed existing shortcut to $SMPROGRAMS\${BrandShortName}.lnk"
       ${EndIf}
     ${Else}
-      CreateShortCut "$SMPROGRAMS\${BrandShortName}.lnk" "$INSTDIR\${FileMainEXE}"
+      CreateShortCut "$SMPROGRAMS\${BrandShortName}.lnk" "$INSTDIR\${FileMainEXE}" "-feltUI"
       ${If} ${FileExists} "$SMPROGRAMS\${BrandShortName}.lnk"
         ShellLink::SetShortCutDescription "$SMPROGRAMS\${BrandShortName}.lnk" "$(BRIEF_APP_DESC)"
         ShellLink::SetShortCutWorkingDirectory "$SMPROGRAMS\${BrandShortName}.lnk" \
@@ -653,7 +653,7 @@ Section "-Application" APP_IDX
         ${LogMsg} "Renamed existing shortcut to $DESKTOP\${BrandShortName}.lnk"
       ${EndIf}
     ${Else}
-      CreateShortCut "$DESKTOP\${BrandShortName}.lnk" "$INSTDIR\${FileMainEXE}"
+      CreateShortCut "$DESKTOP\${BrandShortName}.lnk" "$INSTDIR\${FileMainEXE}" "-feltUI"
       ${If} ${FileExists} "$DESKTOP\${BrandShortName}.lnk"
         ShellLink::SetShortCutDescription "$DESKTOP\${BrandShortName}.lnk" "$(BRIEF_APP_DESC)"
         ShellLink::SetShortCutWorkingDirectory "$DESKTOP\${BrandShortName}.lnk" \

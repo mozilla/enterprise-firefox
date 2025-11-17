@@ -449,7 +449,7 @@ FunctionEnd
 Function CreateDesktopShortcuts
   SetShellVarContext all  ; Set $DESKTOP to All Users
   ${Unless} ${FileExists} "$DESKTOP\${BrandShortName}.lnk"
-    CreateShortCut "$DESKTOP\${BrandShortName}.lnk" "$INSTDIR\${FileMainEXE}"
+    CreateShortCut "$DESKTOP\${BrandShortName}.lnk" "$INSTDIR\${FileMainEXE}" "-feltUI"
     ${If} ${FileExists} "$DESKTOP\${BrandShortName}.lnk"
       ShellLink::SetShortCutWorkingDirectory "$DESKTOP\${BrandShortName}.lnk" "$INSTDIR"
       ${If} "$AppUserModelID" != ""
@@ -458,7 +458,7 @@ Function CreateDesktopShortcuts
     ${Else}
       SetShellVarContext current  ; Set $DESKTOP to the current user's desktop
       ${Unless} ${FileExists} "$DESKTOP\${BrandShortName}.lnk"
-        CreateShortCut "$DESKTOP\${BrandShortName}.lnk" "$INSTDIR\${FileMainEXE}"
+        CreateShortCut "$DESKTOP\${BrandShortName}.lnk" "$INSTDIR\${FileMainEXE}" "-feltUI"
         ${If} ${FileExists} "$DESKTOP\${BrandShortName}.lnk"
           ShellLink::SetShortCutWorkingDirectory "$DESKTOP\${BrandShortName}.lnk" \
                                                  "$INSTDIR"
@@ -492,7 +492,7 @@ FunctionEnd
 
   SetShellVarContext all  ; Set $SMPROGRAMS to All Users
   ${Unless} ${FileExists} "$SMPROGRAMS\${BrandShortName}.lnk"
-    CreateShortCut "$SMPROGRAMS\${BrandShortName}.lnk" "$INSTDIR\${FileMainEXE}"
+    CreateShortCut "$SMPROGRAMS\${BrandShortName}.lnk" "$INSTDIR\${FileMainEXE}" "-feltUI"
     ${If} ${FileExists} "$SMPROGRAMS\${BrandShortName}.lnk"
       ShellLink::SetShortCutWorkingDirectory "$SMPROGRAMS\${BrandShortName}.lnk" \
                                              "$INSTDIR"
@@ -503,7 +503,7 @@ FunctionEnd
       SetShellVarContext current  ; Set $SMPROGRAMS to the current user's Start
                                   ; Menu Programs directory
       ${Unless} ${FileExists} "$SMPROGRAMS\${BrandShortName}.lnk"
-        CreateShortCut "$SMPROGRAMS\${BrandShortName}.lnk" "$INSTDIR\${FileMainEXE}"
+        CreateShortCut "$SMPROGRAMS\${BrandShortName}.lnk" "$INSTDIR\${FileMainEXE}" "-feltUI"
         ${If} ${FileExists} "$SMPROGRAMS\${BrandShortName}.lnk"
           ShellLink::SetShortCutWorkingDirectory "$SMPROGRAMS\${BrandShortName}.lnk" \
                                                  "$INSTDIR"
@@ -1605,7 +1605,7 @@ FunctionEnd
           SetShellVarContext current ; Set SHCTX to the current user
           ${Unless} ${FileExists} "$SMPROGRAMS\$1"
             StrCpy $8 "true"
-            CreateShortCut "$SMPROGRAMS\$1" "$INSTDIR\${FileMainEXE}"
+            CreateShortCut "$SMPROGRAMS\$1" "$INSTDIR\${FileMainEXE}" "-feltUI"
             ${If} ${FileExists} "$SMPROGRAMS\$1"
               ShellLink::SetShortCutWorkingDirectory "$SMPROGRAMS\$1" \
                                                      "$INSTDIR"
