@@ -65,13 +65,16 @@ EXTRA_PP_COMPONENTS += [
 
 EXTRA_JS_MODULES += [
     "AbuseReporter.sys.mjs",
-    "AddonManager.sys.mjs",
     "amContentHandler.sys.mjs",
     "amManager.sys.mjs",
     "amWebAPI.sys.mjs",
     "Blocklist.sys.mjs",
     "ColorwayThemeMigration.sys.mjs",
     "LightweightThemeManager.sys.mjs",
+]
+
+EXTRA_PP_JS_MODULES += [
+    "AddonManager.sys.mjs",
 ]
 
 JAR_MANIFESTS += ["jar.mn"]

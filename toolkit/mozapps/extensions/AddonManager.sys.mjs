@@ -5821,6 +5821,9 @@ AMTelemetry = {
         step: extra.step,
       })
     );
+#ifdef MOZ_ENTERPRISE
+    GleanPings.enterprise.submit();
+#endif
   },
 
   /**

@@ -293,6 +293,11 @@ addons_manager:
           download_started, download_completed, download_failed
         type: string
     expires: 154
+#ifdef MOZ_ENTERPRISE
+    send_in_pings:
+      - enterprise
+      - default
+#endif
 
   update: *install_update_event
 
