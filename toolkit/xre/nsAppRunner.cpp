@@ -4059,15 +4059,34 @@ int XREMain::XRE_mainInit(bool* aExitFlag) {
   BackgroundTasks::Init(backgroundTask);
 #endif
 
+#if defined(MOZ_ENTERPRISE)
+  bool allowHeadlessMode = true;
+#  ifdef MOZ_BACKGROUNDTASKS
+  allowHeadlessMode =
+      BackgroundTasks::IsBackgroundTaskMode() || EnvHasValue("MOZ_AUTOMATION");
+#  else
+  allowHeadlessMode = EnvHasValue("MOZ_AUTOMATION");
+#  endif
+#endif
+
 #ifndef ANDROID
-  if (PR_GetEnv("MOZ_RUN_GTEST")
+  bool mustEnableHeadless = PR_GetEnv("MOZ_RUN_GTEST")
 #  ifdef FUZZING
-      || PR_GetEnv("FUZZER")
+                            || PR_GetEnv("FUZZER")
 #  endif
 #  ifdef MOZ_BACKGROUNDTASKS
-      || BackgroundTasks::IsBackgroundTaskMode()
+                            || BackgroundTasks::IsBackgroundTaskMode()
 #  endif
-  ) {
+      ;
+  if (mustEnableHeadless) {
+#  if defined(MOZ_ENTERPRISE)
+    if (!allowHeadlessMode) {
+      Output(true,
+             "Error: Headless mode is only supported when Firefox runs in "
+             "automation.\n");
+      return 1;
+    }
+#  endif
     // Enable headless mode and assert that it worked, since gfxPlatform
     // uses a static bool set after the first call to `IsHeadless`.
     // Note: Android gtests seem to require an Activity and fail to start
@@ -4098,9 +4117,28 @@ int XREMain::XRE_mainInit(bool* aExitFlag) {
         "*** You are running in chaos test mode. See ChaosMode.h. ***\n");
   }
 
-  if (CheckArg("headless") || CheckArgExists("screenshot")) {
+  bool requestedHeadless = CheckArg("headless") || CheckArgExists("screenshot");
+#if defined(MOZ_ENTERPRISE)
+  if (requestedHeadless && !allowHeadlessMode) {
+    Output(true,
+           "Error: Headless mode is only supported when Firefox runs in "
+           "automation.\n");
+    return 1;
+  }
+#endif
+
+  if (requestedHeadless) {
     PR_SetEnv("MOZ_HEADLESS=1");
   }
+
+#if defined(MOZ_ENTERPRISE)
+  if (PR_GetEnv("MOZ_HEADLESS") && !allowHeadlessMode) {
+    Output(true,
+           "Error: Headless mode is only supported when Firefox runs in "
+           "automation.\n");
+    return 1;
+  }
+#endif
 
   if (gfxPlatform::IsHeadless()) {
 #if defined(XP_WIN) || defined(MOZ_WIDGET_GTK) || defined(XP_MACOSX)
@@ -4438,6 +4476,14 @@ int XREMain::XRE_mainInit(bool* aExitFlag) {
     const char* tmpBackgroundTaskName = nullptr;
     (void)CheckArg("backgroundtask", &tmpBackgroundTaskName,
                    CheckArgFlag::RemoveArg);
+  }
+#endif
+
+#if defined(MOZ_ENTERPRISE)
+  if (safeModeRequested.value()) {
+    Output(true,
+           "Error: Safe Mode is disabled in Firefox Enterprise builds.\n");
+    return 1;
   }
 #endif
 
@@ -5985,30 +6031,59 @@ int XREMain::XRE_main(int argc, char* argv[], const BootstrapConfig& aConfig) {
 
 #if defined(MOZ_ENTERPRISE)
   if (XRE_IsParentProcess()) {
-    Maybe<bool> feltUI =
-        geckoargs::sFeltUI.Get(gArgc, gArgv, CheckArgFlag::None);
+    // Initialize Felt state up-front so we can decide whether to continue.
+    felt_init();
 
     // FELT IPC channel
     Maybe<const char*> felt =
         geckoargs::sFelt.Get(gArgc, gArgv, CheckArgFlag::None);
     const char* mozFeltEnv = PR_GetEnv("MOZ_FELT_UI");
-    if (felt.isSome() || (feltUI.isSome() && *feltUI) ||
-        (mozFeltEnv && strcmp(mozFeltEnv, "1") == 0)) {
-      // Deal with env_logger and all. Too early for CookieService
-      felt_init();
+    if (mozFeltEnv) {
+      PR_SetEnv("MOZ_FELT_UI=");
+    }
 
-      // Remove, we dont need it anymore
-      (void)geckoargs::sFelt.Get(gArgc, gArgv);
-      (void)geckoargs::sFeltUI.Get(gArgc, gArgv);
+    // Remove Felt-specific flags from the command line.
+    (void)geckoargs::sFelt.Get(gArgc, gArgv);
+    (void)geckoargs::sFeltUI.Get(gArgc, gArgv);
 
-      if (PR_GetEnv("MOZ_FELT_UI")) {
-        PR_SetEnv("MOZ_FELT_UI=");
-      }
+#  ifdef MOZ_BACKGROUNDTASKS
+    // Check for --backgroundtask argument directly to avoid triggering
+    // BackgroundTasks initialization before Init() is called in XRE_mainInit.
+    const char* tmpBackgroundTaskName = nullptr;
+    bool allowStandaloneLaunch =
+        (ARG_FOUND == CheckArg("backgroundtask", &tmpBackgroundTaskName,
+                               CheckArgFlag::None));
+#  else
+    bool allowStandaloneLaunch = false;
+#  endif
+
+    // Allow standalone launch for automated testing and development
+    allowStandaloneLaunch =
+        allowStandaloneLaunch || EnvHasValue("MOZ_AUTOMATION") ||
+        PR_GetEnv("MOZ_RUN_GTEST") || CheckArg("headless") ||
+        CheckArgExists("screenshot") || CheckArg("marionette") ||
+        CheckArg("remote-debugging-port");
+
+    if (!allowStandaloneLaunch && !is_felt_ui() && !is_felt_browser()) {
+      Output(true,
+             "Error: Firefox for Enterprise must be launched from Felt.\n");
+      return 1;
     }
 
     NS_WARNING("Checking for FELT");
-    if (felt.isSome() && is_felt_browser()) {
-      firefox_connect_to_felt(*felt);
+    if (is_felt_browser()) {
+      // Felt browser mode requires a valid Felt socket for SSO enforcement
+      if (!felt.isSome()) {
+        Output(true,
+               "Error: Felt browser mode requires a Felt socket connection.\n");
+        return 1;
+      }
+      if (!firefox_connect_to_felt(*felt)) {
+        Output(
+            true,
+            "Error: Failed to connect to Felt. SSO authentication required.\n");
+        return 1;
+      }
     }
   }
 #endif
