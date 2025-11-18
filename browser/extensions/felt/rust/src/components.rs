@@ -108,25 +108,26 @@ impl FeltXPCOM {
         self.send(FeltMessage::RestartForced)
     }
 
-    fn SendTokens(
-        &self,
-        access_token: *const nsACString,
-        refresh_token: *const nsACString,
-        expires_at: u64,
-    ) -> nserror::nsresult {
-        let access_token = unsafe { (*access_token).to_string() };
-        let refresh_token = unsafe { (*refresh_token).to_string() };
-        trace!(
-            "FeltXPCOM::SendTokens ({} {} {})",
-            access_token,
-            refresh_token,
-            expires_at
-        );
-        self.send(FeltMessage::Tokens(Tokens {
-            access_token,
-            refresh_token,
-            expires_at,
-        }))
+    fn SendTokens(&self) -> nserror::nsresult {
+        match TOKENS.read() {
+            Ok(tokens) => {
+                trace!(
+                    "FeltXPCOM::SendTokens ({} {} {})",
+                    tokens.access_token,
+                    tokens.refresh_token,
+                    tokens.expires_at
+                );
+                self.send(FeltMessage::Tokens((
+                    tokens.access_token.clone(),
+                    tokens.refresh_token.clone(),
+                    tokens.expires_at,
+                )))
+            }
+            Err(_) => {
+                trace!("FeltXPCOM::SendTokens failed: couldn't acquire lock",);
+                NS_ERROR_FAILURE
+            }
+        }
     }
 
     fn SetTokens(
@@ -160,25 +161,16 @@ impl FeltXPCOM {
         }
     }
 
-    fn GetAccessToken(&self, access_token: *mut nsACString) -> nserror::nsresult {
+    fn GetAccessTokenIfValid(&self, access_token: *mut nsACString) -> nserror::nsresult {
         match TOKENS.read() {
             Ok(t) => unsafe {
-                (*access_token).assign(t.access_token.as_str());
+                (*access_token).assign(if token_needs_refresh(&t) {
+                    ""
+                } else {
+                    t.access_token.as_str()
+                });
                 NS_OK
             },
-            Err(_) => NS_ERROR_FAILURE,
-        }
-    }
-
-    fn TokensNeedRefresh(&self, need_refresh: *mut bool) -> nserror::nsresult {
-        match TOKENS.read() {
-            Ok(t) => {
-                unsafe {
-                    *need_refresh = t.expires_at.saturating_add(TOKEN_EXPIRY_SKEW)
-                        < u64::try_from(UtcDateTime::now().unix_timestamp()).unwrap_or_default();
-                };
-                NS_OK
-            }
             Err(_) => NS_ERROR_FAILURE,
         }
     }
@@ -506,4 +498,9 @@ impl FeltRestartForced {
             nsIContentPolicy::ACCEPT
         }
     }
+}
+
+fn token_needs_refresh(tokens: &Tokens) -> bool {
+    tokens.expires_at.saturating_add(TOKEN_EXPIRY_SKEW)
+        < u64::try_from(UtcDateTime::now().unix_timestamp()).unwrap_or_default()
 }

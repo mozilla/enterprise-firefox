@@ -16,7 +16,7 @@ pub enum FeltMessage {
     StringPreference((String, String)),
     IntPreference((String, i32)),
     StartupReady,
-    Tokens(Tokens),
+    Tokens((String, String, u64)),
     RestartForced,
     Restarting,
 }

@@ -45,16 +45,13 @@ interface nsIFelt : nsISupports {
   void sendRestartForced();
 
   [must_use]
-  void sendTokens(in ACString access_token, in ACString refresh_token, in unsigned long long expires_at);
+  void sendTokens();
 
   [must_use]
   ACString getRefreshToken();
 
   [must_use]
-  ACString getAccessToken();
-
-  [must_use]
-  boolean tokensNeedRefresh();
+  ACString getAccessTokenIfValid();
 
   [must_use]
   void setTokens(in ACString access_token, in ACString refresh_token, in unsigned long long expires_at);

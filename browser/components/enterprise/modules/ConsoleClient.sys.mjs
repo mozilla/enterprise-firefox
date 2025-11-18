@@ -17,8 +17,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
  */
 export const PREFS = {
   CONSOLE_ADDRESS: "enterprise.console.address",
-  // Temporary pref to share refresh token between Felt and Firefox
-  REFRESH_TOKEN: "enterprise.console.refresh_token",
 };
 
 /**
@@ -75,92 +73,11 @@ class InvalidAuthError extends Error {
 }
 
 /**
- * Structured token data associated with the console session.
- * Encapsulates expiry/refresh logic and provides helpers for access token validity.
- */
-class ConsoleTokenData {
-  /**
-   * @param {string} accessToken - Short-lived access token.
-   * @param {string} refreshToken - Long-lived refresh token.
-   * @param {number} expiresAtSec - Access token expiration epoch (in seconds).
-   * @param {string} [tokenType="Bearer"] - Token type
-   */
-  constructor(accessToken, refreshToken, expiresAtSec, tokenType = "Bearer") {
-    this._accessToken = accessToken;
-    this._refreshToken = refreshToken;
-    this._expiresAtSec = expiresAtSec;
-    this.tokenType = tokenType;
-  }
-
-  get accessToken() {
-    return this._accessToken;
-  }
-
-  set accessToken(value) {
-    this._accessToken = value;
-  }
-
-  get refreshToken() {
-    return this._refreshToken;
-  }
-
-  set refreshToken(value) {
-    this._refreshToken = value;
-  }
-
-  get expiresAtSec() {
-    return this._expiresAtSec;
-  }
-
-  set expiresAtSec(value) {
-    this._expiresAtSec = value;
-  }
-
-  get tokenType() {
-    return this._tokenType;
-  }
-
-  set tokenType(value) {
-    this._tokenType = value;
-  }
-
-  get issuedAtSec() {
-    return this._issuedAtSec;
-  }
-
-  set issuedAtSec(value) {
-    this._issuedAtSec = value;
-  }
-}
-
-/**
  * Client for interacting with the Enterprise Console API.
  * Manages token state and provides helper methods for common endpoints.
  */
 export const ConsoleClient = {
   _refreshPromise: null,
-
-  /**
-   * Returns the refresh token (if any), that Felt stored in the prefs.
-   *
-   * @returns {string}
-   */
-  get refreshTokenBackup() {
-    return Services.felt.getRefreshToken();
-  },
-
-  /**
-   * In-memory token data for the active session.
-   *
-   * @returns {ConsoleTokenData|undefined}
-   */
-  get tokenData() {
-    return this._tokenData;
-  },
-
-  set tokenData(data) {
-    this._tokenData = data;
-  },
 
   /**
    * Base URL of the remote enterprise console
@@ -297,11 +214,9 @@ export const ConsoleClient = {
    * @returns {Promise<any>} Parsed JSON response body.
    */
   async _get(path, { _didRefresh = false } = {}) {
-    await this._ensureValidSession();
-
     const headers = new Headers({});
-    const { tokenType, accessToken } = this.tokenData;
-    headers.set("Authorization", `${tokenType} ${accessToken}`);
+    const accessToken = await this.getAccessToken();
+    headers.set("Authorization", `Bearer ${accessToken}`);
 
     const url = this.constructURI(path);
     const res = await fetch(url, { headers });
@@ -322,20 +237,22 @@ export const ConsoleClient = {
   /**
    * Ensures a non-expired access token is available, refreshing if it's expiring soon.
    *
-   * @returns {Promise<void>}
+   * @returns {Promise<string>}
    */
-  async _ensureValidSession() {
-    const td = this.tokenData;
-    if (!td?.accessToken || Services.felt.tokensNeedRefresh()) {
+  async getAccessToken() {
+    let accessToken = Services.felt.getAccessTokenIfValid();
+    if (!accessToken) {
       await this._refreshSession();
+      accessToken = Services.felt.getAccessTokenIfValid();
     }
-    if (!this.tokenData?.accessToken) {
+    if (!accessToken) {
       // We're not handling reauthentication just yet.
       throw new InvalidAuthError(
         "Unhandled reauthentication",
         "UNHANDLED_REAUTHENTICATION"
       );
     }
+    return accessToken;
   },
 
   /**
@@ -352,8 +269,7 @@ export const ConsoleClient = {
     }
 
     this._refreshPromise = (async () => {
-      let refreshToken =
-        this.tokenData?.refreshToken || this.refreshTokenBackup;
+      let refreshToken = Services.felt.getRefreshToken();
       if (!refreshToken) {
         const e = new ReauthRequiredError(
           "No refresh token available",
@@ -464,17 +380,10 @@ export const ConsoleClient = {
    * @param {object} tokenData - Token payload from the console.
    */
   ensureTokenData(tokenData) {
-    const { access_token, refresh_token, expires_in, token_type } = tokenData;
+    const { access_token, refresh_token, expires_in } = tokenData;
     const expiresAtSec = Math.floor(Date.now() / 1000) + expires_in;
 
     Services.felt.setTokens(access_token, refresh_token, expiresAtSec);
-
-    this.tokenData = new ConsoleTokenData(
-      access_token,
-      refresh_token,
-      expiresAtSec,
-      token_type
-    );
   },
 
   /**
