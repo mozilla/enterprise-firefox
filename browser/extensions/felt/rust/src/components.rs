@@ -134,10 +134,13 @@ impl FeltXPCOM {
         &self,
         access_token: *const nsACString,
         refresh_token: *const nsACString,
-        expires_at: u64,
+        expires_in: i64,
     ) -> nserror::nsresult {
         let access_token = unsafe { (*access_token).to_string() };
         let refresh_token = unsafe { (*refresh_token).to_string() };
+        let expires_at = UtcDateTime::now()
+            .unix_timestamp()
+            .saturating_add(expires_in);
         match TOKENS.write() {
             Ok(mut t) => {
                 *t = Tokens {
@@ -501,6 +504,5 @@ impl FeltRestartForced {
 }
 
 fn token_needs_refresh(tokens: &Tokens) -> bool {
-    tokens.expires_at.saturating_add(TOKEN_EXPIRY_SKEW)
-        < u64::try_from(UtcDateTime::now().unix_timestamp()).unwrap_or_default()
+    tokens.expires_at.saturating_add(TOKEN_EXPIRY_SKEW) < UtcDateTime::now().unix_timestamp()
 }

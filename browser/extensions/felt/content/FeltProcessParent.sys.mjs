@@ -267,7 +267,12 @@ export class FeltProcessParent extends JSProcessActorParent {
     switch (message.name) {
       case "FeltChild:StartFirefox":
         {
-          lazy.ConsoleClient.ensureTokenData(message.data);
+          const {
+            access_token = "",
+            refresh_token = "",
+            expires_in = 0,
+          } = message.data;
+          Services.felt.setTokens(access_token, refresh_token, expires_in);
 
           const ssoCollectedCookies = this.getAllCookies();
           console.debug(`Collected cookies: ${ssoCollectedCookies.length}`);

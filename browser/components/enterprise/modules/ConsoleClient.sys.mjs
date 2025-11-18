@@ -323,7 +323,8 @@ export const ConsoleClient = {
       }
 
       const t = await res.json();
-      this.ensureTokenData(t);
+      const { access_token, refresh_token, expires_in } = t;
+      Services.felt.setTokens(access_token, refresh_token, expires_in);
     })().finally(() => {
       this._refreshPromise = null;
     });
@@ -371,19 +372,6 @@ export const ConsoleClient = {
   promptForReauthentication() {
     this.clearTokenData();
     // TODO: Handle Re-authentication
-  },
-
-  /**
-   * Populates in-memory token state upon initial authentication
-   * against the enterprise console or refresh.
-   *
-   * @param {object} tokenData - Token payload from the console.
-   */
-  ensureTokenData(tokenData) {
-    const { access_token, refresh_token, expires_in } = tokenData;
-    const expiresAtSec = Math.floor(Date.now() / 1000) + expires_in;
-
-    Services.felt.setTokens(access_token, refresh_token, expiresAtSec);
   },
 
   /**

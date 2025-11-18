@@ -18,10 +18,10 @@ use log::trace;
 pub struct Tokens {
     pub access_token: String,
     pub refresh_token: String,
-    pub expires_at: u64,
+    pub expires_at: i64,
 }
 
-pub static TOKEN_EXPIRY_SKEW: u64 = 5 * 60;
+pub static TOKEN_EXPIRY_SKEW: i64 = 5 * 60;
 
 pub static TOKENS: LazyLock<Arc<RwLock<Tokens>>> =
     LazyLock::new(|| Arc::new(RwLock::new(Default::default())));
@@ -180,7 +180,8 @@ pub fn notify_observers(name: String) {
     do_main_thread("felt_notify_observers", async move {
         let obssvc: RefPtr<nsIObserverService> = xpcom::components::Observer::service().unwrap();
         let topic = CString::new(name).expect("Topic name contained a null byte");
-        let rv = unsafe { obssvc.NotifyObservers(std::ptr::null(), topic.as_ptr(), std::ptr::null()) };
+        let rv =
+            unsafe { obssvc.NotifyObservers(std::ptr::null(), topic.as_ptr(), std::ptr::null()) };
         assert!(rv.succeeded());
     });
 }
