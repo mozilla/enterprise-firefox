@@ -107,3 +107,4 @@ browser/chrome/browser/content/newtab/data/content/assets/glyph-webextension-16.
 
 # Bug 1998760 - Fix duplicated felt localization
 browser/chrome/browser/builtin-addons/felt/content/locales/felt.ftl
+

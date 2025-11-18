@@ -831,4 +831,9 @@
   </panelview>
 
 #include ../../components/reportbrokensite/content/reportBrokenSitePanel.inc.xhtml
+
+#ifdef MOZ_ENTERPRISE
+#include ../../components/enterprise/content/enterprise-panel.inc.xhtml
+#endif
+
 </html:template>

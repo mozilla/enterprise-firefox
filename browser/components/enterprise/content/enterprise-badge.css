@@ -1,0 +1,37 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+.enterprise-badge {
+  --button-background-color: #fff;
+
+  height: var(--size-item-large);
+  max-width: 120px;
+  padding: 5px;
+  gap: var(--space-small);
+  flex-shrink: 0;
+
+  border-radius: var(--border-radius-small);
+  border: 1px solid var(--border-color-card);
+  background: var(--button-background-color);
+
+  &:hover {
+    background: var(--button-background-color-hover);
+  }
+
+  &:active {
+    background: var(--button-background-color-active);
+  }
+}
+
+#enterprise-company-logo {
+  height: var(--icon-size-medium);
+  max-width: 75px;
+  list-style-image: url(chrome://browser/content/enterprise/badge-logo.svg);
+}
+
+#enterprise-user-icon {
+  width: var(--icon-size-medium);
+  height: var(--icon-size-medium);
+  border-radius: var(--border-radius-circle);
+}

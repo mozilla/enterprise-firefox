@@ -25,6 +25,9 @@ category browser-before-ui-startup resource:///modules/ipprotection/IPProtection
 category browser-window-domcontentloaded-before-tabbrowser resource:///modules/BrowserDOMWindow.sys.mjs BrowserDOMWindow.setupInWindow
 category browser-window-domcontentloaded resource:///modules/BrowserWindowTracker.sys.mjs BrowserWindowTracker.track
 category browser-window-domcontentloaded moz-src:///browser/components/customizableui/CustomizableUI.sys.mjs CustomizableUI.handleNewBrowserWindow
+#ifdef MOZ_ENTERPRISE
+category browser-window-domcontentloaded resource:///modules/enterprise/EnterpriseHandler.sys.mjs EnterpriseHandler.init
+#endif
 
 category browser-window-delayed-startup moz-src:///browser/components/contentanalysis/content/ContentAnalysis.sys.mjs ContentAnalysis.initialize
 category browser-window-delayed-startup resource:///modules/HomePage.sys.mjs HomePage.delayedStartup

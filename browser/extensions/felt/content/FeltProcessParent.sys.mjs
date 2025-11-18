@@ -14,6 +14,28 @@ ChromeUtils.defineESModuleGetters(lazy, {
 
 console.debug(`FeltExtension: FeltParentProcess.sys.mjs`);
 
+// Import the shared pending URLs queue from BrowserContentHandler
+// This queue is shared between BrowserContentHandler (which fills it early during command-line
+// processing) and FeltProcessParent (which forwards URLs after Firefox is ready)
+import { gFeltPendingURLs } from "resource:///modules/BrowserContentHandler.sys.mjs";
+
+export function queueURL(url) {
+  // If Firefox AND extension are both ready, forward immediately
+  if (
+    gFeltProcessParentInstance?.firefoxReady &&
+    gFeltProcessParentInstance?.extensionReady
+  ) {
+    gFeltProcessParentInstance.sendURLToFirefox(url);
+    // Ensure Felt launcher stays hidden when forwarding to running Firefox
+    Services.felt.makeBackgroundProcess();
+  } else {
+    // Queue at module level until ready
+    gFeltPendingURLs.push(url);
+  }
+}
+
+let gFeltProcessParentInstance = null;
+
 /**
  * Manages the SSO login and launching Firefox
  */
@@ -23,6 +45,14 @@ export class FeltProcessParent extends JSProcessActorParent {
       `FeltExtension: FeltParentProcess.sys.mjs: FeltProcessParent`
     );
     super();
+
+    // Store instance globally
+    gFeltProcessParentInstance = this;
+
+    // Track Firefox ready state (URLs remain in gFeltPendingURLs until ready)
+    this.firefoxReady = false;
+    // Track extension ready state (extension must register its observer)
+    this.extensionReady = false;
 
     this.restartObserver = {
       observe(aSubject, aTopic) {
@@ -45,6 +75,13 @@ export class FeltProcessParent extends JSProcessActorParent {
             }
             break;
           }
+          case "felt-extension-ready": {
+            if (gFeltProcessParentInstance) {
+              gFeltProcessParentInstance.extensionReady = true;
+              gFeltProcessParentInstance.forwardPendingURLs();
+            }
+            break;
+          }
           default:
             console.debug(`FeltExtension: ParentProcess: Unhandled ${aTopic}`);
             break;
@@ -54,6 +91,7 @@ export class FeltProcessParent extends JSProcessActorParent {
 
     Services.cpmm.addMessageListener("FeltParent:RestartFirefox", this);
     Services.obs.addObserver(this.restartObserver, "felt-firefox-restarting");
+    Services.obs.addObserver(this.restartObserver, "felt-extension-ready");
   }
 
   sanitizePrefs(prefs) {
@@ -108,6 +146,8 @@ export class FeltProcessParent extends JSProcessActorParent {
 
   async startFirefox(ssoCollectedCookies = []) {
     this.restartReported = false;
+    this.firefoxReady = false;
+    this.extensionReady = false;
     Services.cpmm.sendAsyncMessage("FeltParent:FirefoxStarting", {});
     this.firefox = this.startFirefoxProcess();
     this.firefox
@@ -138,6 +178,10 @@ export class FeltProcessParent extends JSProcessActorParent {
 
         Services.felt.sendCookies(ssoCollectedCookies);
         Services.felt.sendReady();
+        this.firefoxReady = true;
+
+        // Try to forward pending URLs now (will only forward if extension is also ready)
+        this.forwardPendingURLs();
       })
       .then(() => {
         console.debug(
@@ -258,6 +302,60 @@ export class FeltProcessParent extends JSProcessActorParent {
     }
 
     Services.felt.ipcChannel();
+  }
+
+  /**
+   * Send a URL to Firefox via IPC (Firefox must be ready)
+   *
+   * @param {string} url
+   */
+  sendURLToFirefox(url) {
+    if (!this.firefoxReady || !Services.felt) {
+      console.error(`FeltExtension: Cannot send URL, Firefox not ready`);
+      return;
+    }
+
+    try {
+      Services.felt.openURL(url);
+    } catch (err) {
+      console.error(`FeltExtension: Failed to forward URL: ${err}`);
+    }
+  }
+
+  /**
+   * Forward all pending URLs to Firefox
+   */
+  forwardPendingURLs() {
+    if (gFeltPendingURLs.length === 0) {
+      return;
+    }
+
+    // Wait for both Firefox (prefs/cookies) AND extension (observer) to be ready
+    if (!this.firefoxReady || !this.extensionReady) {
+      console.debug(
+        `FeltExtension: Not ready to forward URLs (firefoxReady=${this.firefoxReady}, extensionReady=${this.extensionReady})`
+      );
+      return;
+    }
+
+    if (!Services.felt) {
+      console.error(
+        `FeltExtension: Services.felt not available, cannot forward URLs`
+      );
+      return;
+    }
+
+    // Forward all URLs directly via IPC (both Firefox and extension are ready)
+    for (const url of gFeltPendingURLs) {
+      try {
+        Services.felt.openURL(url);
+      } catch (err) {
+        console.error(`FeltExtension: Failed to forward URL ${url}: ${err}`);
+      }
+    }
+
+    // Clear the queue
+    gFeltPendingURLs.length = 0;
   }
 
   receiveMessage(message) {

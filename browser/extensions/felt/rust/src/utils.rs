@@ -186,6 +186,29 @@ pub fn notify_observers(name: String) {
     });
 }
 
+pub fn open_url_in_firefox(url: String) {
+    trace!("open_url_in_firefox() url: {}", url);
+    do_main_thread("felt_open_url", async move {
+        let obssvc: RefPtr<nsIObserverService> = xpcom::components::Observer::service().unwrap();
+        let topic = CString::new("felt-open-url").unwrap();
+        let url_data = nsstring::nsString::from(&url);
+
+        let rv = unsafe {
+            obssvc.NotifyObservers(
+                std::ptr::null(),
+                topic.as_ptr(),
+                url_data.as_ptr(),
+            )
+        };
+
+        if rv.succeeded() {
+            trace!("open_url_in_firefox() successfully sent observer notification for URL: {}", url);
+        } else {
+            trace!("open_url_in_firefox() NotifyObservers failed: {:?}", rv);
+        }
+    });
+}
+
 pub fn do_main_thread<F>(name: &'static str, future: F)
 where
     F: Future + Send + 'static,
@@ -198,7 +221,7 @@ where
 }
 
 #[allow(non_snake_case)]
-pub fn nsICookie_to_Cookie(cookie: &RefPtr<nsICookie>) -> cookie::Cookie {
+pub fn nsICookie_to_Cookie(cookie: &RefPtr<nsICookie>) -> cookie::Cookie<'_> {
     let mut name = nsCString::new();
     unsafe {
         cookie.GetName(&mut *name);

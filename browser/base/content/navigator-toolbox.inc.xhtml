@@ -434,6 +434,10 @@
         </box>
       </toolbarbutton>
 
+#ifdef MOZ_ENTERPRISE
+#include ../../components/enterprise/content/enterprise-badge.inc.xhtml
+#endif
+
       <toolbarbutton id="fxa-toolbar-menu-button" class="toolbarbutton-1 chromeclass-toolbar-additional subviewbutton-nav"
                      badged="true"
                      delegatesanchor="true"

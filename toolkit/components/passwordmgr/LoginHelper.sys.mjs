@@ -10,6 +10,7 @@
  * of nsILoginManager and nsILoginManagerStorage.
  */
 
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
 import { Logic } from "resource://gre/modules/LoginManager.shared.sys.mjs";
 import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
@@ -1599,9 +1600,15 @@ export const LoginHelper = {
     return false;
   },
 
+  isEnterpriseManagedPrimaryPassword() {
+    return (
+      AppConstants.MOZ_ENTERPRISE &&
+      Services.prefs.getBoolPref("security.storage.encryption.enabled", false)
+    );
+  },
+
   /**
-   * Shows the Primary Password prompt if enabled, or the
-   * OS auth dialog otherwise.
+   * Shows OS auth dialog if enabled.
    *
    * @param {Element} browser
    *        The <browser> that the prompt should be shown on
@@ -1654,8 +1661,10 @@ export const LoginHelper = {
         telemetryEvent,
       };
     }
-    // Use the OS auth dialog if there is no primary password
-    if (!token.hasPassword && OSReauthEnabled) {
+
+    // Use only OS auth dialog if primary password is already unlocked
+    // or no PrP is used.
+    if ((!token.hasPassword || token.isLoggedIn()) && OSReauthEnabled) {
       let result;
       try {
         isAuthorized = await this.verifyUserOSAuth(
@@ -1688,9 +1697,26 @@ export const LoginHelper = {
         telemetryEvent,
       };
     }
-    // We'll attempt to re-auth via Primary Password, force a log-out
-    token.checkPassword("");
 
+    const isEnterpriseManagedPrimaryPassword =
+      this.isEnterpriseManagedPrimaryPassword();
+    // If enterprise storage management is enabled but the token is still locked,
+    // bail out without prompting so callers can retry after the enterprise secret
+    // (which the user does not know) becomes available.
+    if (enterpriseManagedPrimaryPassword && !token.isLoggedIn()) {
+      console.warn(
+        "LoginHelper.requestReauth: Enterprise-managed primary password is locked and OS auth is unavailable; deferring reauth."
+      );
+      telemetryEvent = {
+        name: "reauthenticateMasterPassword",
+        value: "fail",
+      };
+      return {
+        isAuthorized: false,
+        telemetryEvent,
+      };
+    }
+    // We may need to unlock the internal softoken with the PrP.
     // If a primary password prompt is already open, just exit early and return false.
     // The user can re-trigger it after responding to the already open dialog.
     if (Services.logins.uiBusy) {
@@ -1701,10 +1727,15 @@ export const LoginHelper = {
       };
     }
 
-    // So there's a primary password. But since checkPassword didn't succeed, we're logged out (per nsIPK11Token.idl).
     try {
-      // Relogin and ask for the primary password.
-      token.login(true); // 'true' means always prompt for token password. User will be prompted until
+      if (enterpriseManagedPrimaryPassword) {
+        // Enterprise builds rely on the backend-provided secret rather than forcing a logout.
+        token.login();
+      } else {
+        // Force a logout and prompt even if the token had been unlocked earlier.
+        token.checkPassword("");
+        token.login(true);
+      }
       // clicking 'Cancel' or entering the correct password.
     } catch (e) {
       // An exception will be thrown if the user cancels the login prompt dialog.

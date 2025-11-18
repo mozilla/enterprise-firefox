@@ -17,8 +17,10 @@ pub enum FeltMessage {
     IntPreference((String, i32)),
     StartupReady,
     Tokens((String, String, i64)),
+    ExtensionReady,
+    OpenURL(String),
     RestartForced,
     Restarting,
 }
 
-pub const FELT_IPC_VERSION: u32 = 1;
+pub const FELT_IPC_VERSION: u32 = 2;

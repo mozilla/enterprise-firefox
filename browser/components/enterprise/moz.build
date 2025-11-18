@@ -9,5 +9,8 @@ with Files("**"):
 
 EXTRA_JS_MODULES.enterprise += [
     "EnterpriseCommon.sys.mjs",
+    "EnterpriseHandler.sys.mjs",
     "modules/ConsoleClient.sys.mjs",
 ]
+
+JAR_MANIFESTS += ["jar.mn"]

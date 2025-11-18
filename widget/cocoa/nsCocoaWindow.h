@@ -423,8 +423,7 @@ class nsCocoaWindow final : public nsIWidget {
   nsresult SetTitle(const nsAString& aTitle) override;
 
   void Invalidate(const LayoutDeviceIntRect& aRect) override;
-  nsresult DispatchEvent(mozilla::WidgetGUIEvent* aEvent,
-                         nsEventStatus& aStatus) override;
+  nsEventStatus DispatchEvent(mozilla::WidgetGUIEvent* aEvent) override;
   void CaptureRollupEvents(bool aDoCapture) override;
   [[nodiscard]] nsresult GetAttention(int32_t aCycleCount) override;
   bool HasPendingInputEvent() override;
@@ -489,10 +488,6 @@ class nsCocoaWindow final : public nsIWidget {
   void CocoaWindowDidResize();
   void CocoaSendToplevelActivateEvents();
   void CocoaSendToplevelDeactivateEvents();
-
-  nsIWidgetListener* GetPaintListener() const {
-    return mAttachedWidgetListener ? mAttachedWidgetListener : mWidgetListener;
-  }
 
   enum class TransitionType {
     Windowed,

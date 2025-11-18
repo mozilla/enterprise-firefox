@@ -1429,7 +1429,6 @@ void nsCocoaWindow::DispatchAPZWheelInputEvent(InputData& aEvent) {
     return;
   }
 
-  nsEventStatus status;
   switch (aEvent.mInputType) {
     case PANGESTURE_INPUT: {
       if (MayStartSwipeForNonAPZ(aEvent.AsPanGestureInput())) {
@@ -1447,7 +1446,7 @@ void nsCocoaWindow::DispatchAPZWheelInputEvent(InputData& aEvent) {
       return;
   }
   if (event.mMessage == eWheel && (event.mDeltaX != 0 || event.mDeltaY != 0)) {
-    DispatchEvent(&event, status);
+    DispatchEvent(&event);
   }
 }
 
@@ -2409,8 +2408,7 @@ NSEvent* gLastDragMouseDownEvent = nil;  // [strong]
   if (event.mMessage == eMouseExitFromWidget) {
     event.mExitFrom = Some(aExitFrom);
   }
-  nsEventStatus status;  // ignored
-  mGeckoChild->DispatchEvent(&event, status);
+  mGeckoChild->DispatchEvent(&event);
 }
 
 - (void)handleMouseMoved:(NSEvent*)theEvent {
@@ -6500,29 +6498,17 @@ bool nsCocoaWindow::DragEvent(unsigned int aMessage,
 }
 
 // Invokes callback and ProcessEvent methods on Event Listener object
-nsresult nsCocoaWindow::DispatchEvent(WidgetGUIEvent* event,
-                                      nsEventStatus& aStatus) {
+nsEventStatus nsCocoaWindow::DispatchEvent(WidgetGUIEvent* event) {
   RefPtr kungFuDeathGrip{this};
-  aStatus = nsEventStatus_eIgnore;
-
   if (event->mFlags.mIsSynthesizedForTests) {
     if (WidgetKeyboardEvent* keyEvent = event->AsKeyboardEvent()) {
       nsresult rv = mTextInputHandler->AttachNativeKeyEvent(*keyEvent);
-      NS_ENSURE_SUCCESS(rv, rv);
+      if (NS_FAILED(rv)) {
+        return nsEventStatus_eIgnore;
+      }
     }
   }
-
-  // Top level windows can have a view attached which requires events be sent
-  // to the underlying base window and the view. Added when we combined the
-  // base chrome window with the main content child for custom titlebar
-  // rendering.
-  if (mAttachedWidgetListener) {
-    aStatus = mAttachedWidgetListener->HandleEvent(event, mUseAttachedEvents);
-  } else if (mWidgetListener) {
-    aStatus = mWidgetListener->HandleEvent(event, mUseAttachedEvents);
-  }
-
-  return NS_OK;
+  return nsIWidget::DispatchEvent(event);
 }
 
 // aFullScreen should be the window's mInFullScreenMode. We don't have access to

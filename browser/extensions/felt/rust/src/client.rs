@@ -79,6 +79,17 @@ impl FeltIpcClient {
         }
     }
 
+    pub fn send_extension_ready(&self) {
+        trace!("FeltIpcClient::send_extension_ready()");
+        let msg = FeltMessage::ExtensionReady;
+        if let Some(tx) = &self.tx {
+            match tx.send(msg) {
+                Ok(()) => trace!("FeltIpcClient::send_extension_ready() SENT"),
+                Err(err) => trace!("FeltIpcClient::send_extension_ready() TX ERROR: {}", err),
+            }
+        }
+    }
+
     pub fn report_version(&self) -> bool {
         trace!("FeltIpcClient::report_version()");
         let msg = FeltMessage::VersionProbe(FELT_IPC_VERSION);
@@ -262,19 +273,34 @@ impl FeltClientThread {
         let profile_ready_internal = profile_ready.clone();
         let thread_stop_internal = thread_stop.clone();
         let notify_restart_internal = notify_restart.clone();
-        let mut felt_client = self.ipc_client.take();
+
+        // Clone the tx: one for the background thread to signal existing,
+        // one for us to immediately notify Felt is ready (to receive URLs etc),
+        // this works because ipc-channel::ipc::IpcSender is Send + Sync.
+        // Take the rx, only needed in the receive thread (and it's not Sync).
+        let mut client = self.ipc_client.borrow_mut();
+        let tx_for_thread = client.tx.clone();
+        let rx_for_thread = client.rx.take();
+        drop(client);
+
+        // Reconstruct a client instance for the thread to send stuff
+        let thread_client = FeltIpcClient {
+            tx: tx_for_thread,
+            rx: rx_for_thread,
+        };
+
         trace!("FeltClientThread::start_thread(): started thread: build runnable");
         let _ = moz_task::RunnableBuilder::new("felt_client::ipc_loop", move || {
             trace!("FeltClientThread::start_thread(): felt_client thread runnable");
                 trace!("FeltClientThread::start_thread(): felt_client version OK");
-                if let Some(rx) = felt_client.rx.take() {
+                if let Some(rx) = thread_client.rx.as_ref() {
                     let mut pending_cookies: Vec<String> = Vec::new();
 
                     loop {
                         if notify_restart_internal.load(Ordering::Relaxed) {
                             notify_restart_internal.store(false, Ordering::Relaxed);
                             trace!("FeltClientThread::felt_client::ipc_loop(): restart notification required!");
-                            felt_client.notify_restart();
+                            thread_client.notify_restart();
                         }
 
                         if pending_cookies.len() > 0 && profile_ready_internal.load(Ordering::Relaxed) {
@@ -328,6 +354,10 @@ impl FeltClientThread {
                                     trace!("FeltClientThread::felt_client::ipc_loop(): ERROR setting RefreshToken({})", refresh_token);
                                 }
                             }
+                            Ok(FeltMessage::OpenURL(url)) => {
+                                trace!("FeltClientThread::felt_client::ipc_loop(): OpenURL({})", url);
+                                utils::open_url_in_firefox(url);
+                            },
                             Ok(msg) => {
                                 trace!("FeltClientThread::felt_client::ipc_loop(): UNEXPECTED MSG {:?}", msg);
                             },
@@ -362,5 +392,11 @@ impl FeltClientThread {
     pub fn is_startup_complete(&self) -> bool {
         // Wait for the thread to start up.
         self.startup_ready.load(Ordering::Acquire)
+    }
+
+    pub fn send_extension_ready(&self) {
+        trace!("FeltClientThread::send_extension_ready()");
+        let client = self.ipc_client.borrow();
+        client.send_extension_ready();
     }
 }

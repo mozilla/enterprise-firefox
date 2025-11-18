@@ -4502,12 +4502,17 @@ var gPrivacyPane = {
   _initMasterPasswordUI() {
     var noMP = !LoginHelper.isPrimaryPasswordSet();
 
+    // Check if enterprise storage encryption is managing the primary password
+    const isEnterpriseManagedPrimaryPassword =
+      LoginHelper.isEnterpriseManagedPrimaryPassword();
+
     var button = document.getElementById("changeMasterPassword");
-    button.disabled = noMP;
+    button.disabled = noMP || isEnterpriseManagedPrimaryPassword;
 
     var checkbox = document.getElementById("useMasterPassword");
-    checkbox.checked = !noMP;
+    checkbox.checked = !noMP || isEnterpriseManagedPrimaryPassword;
     checkbox.disabled =
+      isEnterpriseManagedPrimaryPassword ||
       (noMP && !Services.policies.isAllowed("createMasterPassword")) ||
       (!noMP && !Services.policies.isAllowed("removeMasterPassword"));
   },
@@ -4518,6 +4523,12 @@ var gPrivacyPane = {
    * one is set.
    */
   async updateMasterPasswordButton() {
+    // If enterprise storage encryption is active, prevent any changes
+    if (LoginHelper.isEnterpriseManagedPrimaryPassword()) {
+      this._initMasterPasswordUI();
+      return;
+    }
+
     var checkbox = document.getElementById("useMasterPassword");
     var button = document.getElementById("changeMasterPassword");
     button.disabled = !checkbox.checked;
@@ -4542,6 +4553,12 @@ var gPrivacyPane = {
    * UI is automatically updated.
    */
   async _removeMasterPassword() {
+    // If enterprise storage encryption is active, prevent any changes
+    if (LoginHelper.isEnterpriseManagedPrimaryPassword()) {
+      this._initMasterPasswordUI();
+      return;
+    }
+
     var secmodDB = Cc["@mozilla.org/security/pkcs11moduledb;1"].getService(
       Ci.nsIPKCS11ModuleDB
     );
@@ -4561,6 +4578,12 @@ var gPrivacyPane = {
    * Displays a dialog in which the primary password may be changed.
    */
   async changeMasterPassword() {
+    // If enterprise storage encryption is active, prevent any changes
+    if (LoginHelper.isEnterpriseManagedPrimaryPassword()) {
+      this._initMasterPasswordUI();
+      return;
+    }
+
     // Require OS authentication before the user can set a Primary Password.
     // OS reauthenticate functionality is not available on Linux yet (bug 1527745)
     if (!LoginHelper.isPrimaryPasswordSet() && LoginHelper.getOSAuthEnabled()) {

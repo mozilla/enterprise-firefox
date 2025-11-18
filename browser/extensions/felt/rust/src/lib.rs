@@ -117,6 +117,21 @@ pub extern "C" fn firefox_felt_is_startup_complete() -> bool {
     }
 }
 
+#[no_mangle]
+pub extern "C" fn firefox_felt_send_extension_ready() -> () {
+    trace!("firefox_felt_send_extension_ready()");
+    let guard = FELT_CLIENT.lock().expect("Could not get lock");
+    match &*guard {
+        Some(client) => {
+            trace!("firefox_felt_send_extension_ready(): sending message");
+            client.send_extension_ready();
+        }
+        None => {
+            trace!("firefox_felt_send_extension_ready(): missing client");
+        }
+    }
+}
+
 #[unsafe(no_mangle)]
 pub extern "C" fn felt_constructor(
     iid: *const xpcom::nsIID,

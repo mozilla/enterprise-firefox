@@ -21,6 +21,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   BrowserUtils: "resource://gre/modules/BrowserUtils.sys.mjs",
   BrowserUsageTelemetry: "resource:///modules/BrowserUsageTelemetry.sys.mjs",
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
+  ConsoleClient: "resource:///modules/enterprise/ConsoleClient.sys.mjs",
   ContentBlockingPrefs:
     "moz-src:///browser/components/protections/ContentBlockingPrefs.sys.mjs",
   ContextualIdentityService:
@@ -1064,6 +1065,93 @@ BrowserGlue.prototype = {
         task: async () => {
           await lazy.ContextualIdentityService.load();
           lazy.Discovery.update();
+        },
+      },
+
+      {
+        name: "EnterpriseStorageEncryption.load",
+        condition:
+          AppConstants.MOZ_ENTERPRISE &&
+          Services.prefs.getBoolPref(
+            "security.storage.encryption.enabled",
+            false
+          ),
+        task: async () => {
+          // Get the primary secret from the console backend
+          // The API returns { data: "secret_value" }
+          let primarySecret;
+          try {
+            const payload = await lazy.ConsoleClient.getPrimarySecret();
+            primarySecret = payload.data;
+            if (!primarySecret) {
+              console.error(
+                "EnterpriseStorageEncryption.load: No data field in payload:",
+                payload
+              );
+              return;
+            }
+          } catch (e) {
+            console.error(
+              "EnterpriseStorageEncryption.load: Failed to get primary secret:",
+              e
+            );
+            return;
+          }
+
+          // Load the PK11 token
+          const tokenDB = Cc["@mozilla.org/security/pk11tokendb;1"].getService(
+            Ci.nsIPK11TokenDB
+          );
+
+          let pk11token;
+          try {
+            pk11token = tokenDB.getInternalKeyToken();
+          } catch (e) {
+            console.error(
+              "EnterpriseStorageEncryption.load: Error getting PK11 token: " + e
+            );
+            return;
+          }
+
+          // Check if the PK11 token needs initialization
+          if (pk11token.needsUserInit) {
+            try {
+              pk11token.initPassword(primarySecret);
+            } catch (e) {
+              console.error(
+                "EnterpriseStorageEncryption.load: Failed to initialize PK11 token password: " +
+                  e
+              );
+            }
+          } else if (!pk11token.needsLogin()) {
+            // Token doesn't need login (empty password), set it to primarySecret
+            try {
+              pk11token.changePassword("", primarySecret);
+            } catch (e) {
+              console.error(
+                "EnterpriseStorageEncryption.load: Failed to change password from empty to primarySecret: " +
+                  e
+              );
+            }
+          } else {
+            // Token needs login - verify the password matches primarySecret
+            let isPasswordValid;
+            try {
+              isPasswordValid = pk11token.checkPassword(primarySecret);
+            } catch (e) {
+              console.error(
+                "EnterpriseStorageEncryption.load: Error checking password against PK11 token: " +
+                  e
+              );
+              return;
+            }
+
+            if (!isPasswordValid) {
+              console.error(
+                "EnterpriseStorageEncryption.load: Password against the PK11 token is not valid"
+              );
+            }
+          }
         },
       },
     ];

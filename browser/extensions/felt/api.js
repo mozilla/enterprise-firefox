@@ -8,6 +8,10 @@
 
 const lazy = {};
 
+ChromeUtils.defineESModuleGetters(lazy, {
+  BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
+});
+
 this.felt = class extends ExtensionAPI {
   FELT_PROCESS_ACTOR = "FeltProcess";
   FELT_WINDOW_ACTOR = "FeltWindow";
@@ -51,6 +55,58 @@ this.felt = class extends ExtensionAPI {
     });
   }
 
+  urlObserver = {
+    _sessionStoreRestored: false,
+
+    observe(aSubject, aTopic, aData) {
+      if (aTopic === "felt-open-url" && aData) {
+        this._handleFeltExternalUrl(aData);
+      }
+    },
+
+    async _handleFeltExternalUrl(url) {
+      let win = lazy.BrowserWindowTracker.getTopWindow({
+        private: false,
+      });
+
+      // If no window and sessionstore hasn't restored yet, wait for it
+      if (!win && !this._sessionStoreRestored) {
+        const self = this;
+        await new Promise(resolve => {
+          const observer = {
+            observe(subject, topic) {
+              if (topic === "sessionstore-windows-restored") {
+                Services.obs.removeObserver(
+                  observer,
+                  "sessionstore-windows-restored"
+                );
+                self._sessionStoreRestored = true;
+                resolve();
+              }
+            },
+          };
+          Services.obs.addObserver(observer, "sessionstore-windows-restored");
+        });
+
+        // Try again after startup completes
+        win = lazy.BrowserWindowTracker.getTopWindow({
+          private: false,
+        });
+      }
+
+      if (!win) {
+        console.error("FeltExtension: No browser window available to open URL");
+        return;
+      }
+
+      try {
+        win.openTrustedLinkIn(url, "tab");
+      } catch (err) {
+        console.error("FeltExtension: Failed to open forwarded URL", url, err);
+      }
+    },
+  };
+
   onStartup() {
     if (Services.felt.isFeltUI()) {
       this.registerChrome();
@@ -59,6 +115,15 @@ this.felt = class extends ExtensionAPI {
       Services.ppmm.addMessageListener("FeltParent:FirefoxNormalExit", this);
       Services.ppmm.addMessageListener("FeltParent:FirefoxAbnormalExit", this);
       Services.ppmm.addMessageListener("FeltParent:FirefoxStarting", this);
+    } else if (Services.felt.isFeltBrowser()) {
+      // In the real Firefox, register observer to handle URLs
+      Services.obs.addObserver(this.urlObserver, "felt-open-url");
+      // Notify that extension is ready to receive URLs
+      try {
+        Services.felt.sendExtensionReady();
+      } catch (e) {
+        console.error("FeltExtension: Failed to send extension ready:", e);
+      }
     }
   }
 
@@ -138,12 +203,20 @@ this.felt = class extends ExtensionAPI {
       return;
     }
 
+    if (Services.felt.isFeltBrowser()) {
+      Services.obs.removeObserver(this.urlObserver, "felt-open-url");
+    }
+
     Services.ppmm.removeMessageListener("FeltChild:Loaded", this);
 
-    this.chromeHandle.destruct();
-    this.chromeHandle = null;
+    if (this.chromeHandle) {
+      this.chromeHandle.destruct();
+      this.chromeHandle = null;
+    }
 
-    ChromeUtils.unregisterWindowActor(this.FELT_WINDOW_ACTOR);
-    ChromeUtils.unregisterProcessActor(this.FELT_PROCESS_ACTOR);
+    if (Services.felt.isFeltUI()) {
+      ChromeUtils.unregisterWindowActor(this.FELT_WINDOW_ACTOR);
+      ChromeUtils.unregisterProcessActor(this.FELT_PROCESS_ACTOR);
+    }
   }
 };

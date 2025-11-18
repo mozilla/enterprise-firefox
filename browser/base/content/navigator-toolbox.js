@@ -109,7 +109,8 @@ document.addEventListener(
         #downloads-button,
         #fxa-toolbar-menu-button,
         #unified-extensions-button,
-        #library-button
+        #library-button,
+        #enterprise-badge-toolbar-button
         `);
       if (!element) {
         return;
@@ -142,6 +143,10 @@ document.addEventListener(
 
         case "library-button":
           PanelUI.showSubView("appMenu-libraryView", element, event);
+          break;
+
+        case "enterprise-badge-toolbar-button":
+          EnterpriseHandler.openPanel(element, event);
           break;
 
         default:

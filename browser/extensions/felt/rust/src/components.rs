@@ -178,6 +178,24 @@ impl FeltXPCOM {
         }
     }
 
+    fn SendExtensionReady(&self) -> nserror::nsresult {
+        trace!("FeltXPCOM::SendExtensionReady");
+        if self.is_felt_browser {
+            trace!("FeltXPCOM::SendExtensionReady: calling firefox_felt_send_extension_ready");
+            crate::firefox_felt_send_extension_ready();
+            NS_OK
+        } else {
+            trace!("FeltXPCOM::SendExtensionReady: not in browser, ignoring");
+            NS_OK
+        }
+    }
+
+    fn OpenURL(&self, url: *const nsACString) -> nserror::nsresult {
+        let url_s = unsafe { (*url).to_string() };
+        trace!("FeltXPCOM::OpenURL: {}", url_s);
+        self.send(FeltMessage::OpenURL(url_s))
+    }
+
     fn IpcChannel(&self) -> nserror::nsresult {
         let felt_server = match self.one_shot_server.take() {
             Some(f) => f,
@@ -252,6 +270,10 @@ impl FeltXPCOM {
                             Ok(FeltMessage::Restarting) => {
                                 trace!("FeltServerThread::felt_server::ipc_loop(): Restarting");
                                 crate::utils::notify_observers("felt-firefox-restarting".to_string());
+                            },
+                            Ok(FeltMessage::ExtensionReady) => {
+                                trace!("FeltServerThread::felt_server::ipc_loop(): ExtensionReady");
+                                crate::utils::notify_observers("felt-extension-ready".to_string());
                             },
                             Ok(msg) => {
                                 trace!("FeltServerThread::felt_server::ipc_loop(): UNEXPECTED MSG {:?}", msg);
