@@ -60,7 +60,7 @@ class BrowserRestartWorks(FeltTests):
                 self._logger.info(
                     f"Found PID {self._browser_pid}: EXE:{process_exe} :: NAME:{process_name} :: CMDLINE:{process_cmdline} :: BASENAME:'{process_basename}'"
                 )
-                assert process_basename != "firefox", "Process is not Firefox"
+                assert process_basename == "firefox", "Process is Firefox"
             except psutil.ZombieProcess:
                 self._logger.info(f"Zombie found as {self._browser_pid}")
                 return True
