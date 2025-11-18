@@ -213,9 +213,9 @@ export const ConsoleClient = {
    */
   async getLoggedInUserInfo() {
     const payload = await this._get(this._paths.WHOAMI);
-        return payload;
+    return payload;
   },
-  
+
   /**
    * Retrieves primary secret used for enterprise storage encryption.
    *
