@@ -10,5 +10,8 @@ with Files("**"):
 EXTRA_JS_MODULES.policies += [
     "BookmarksPolicies.sys.mjs",
     "ProxyPolicies.sys.mjs",
+]
+
+EXTRA_PP_JS_MODULES.policies += [
     "WebsiteFilter.sys.mjs",
 ]

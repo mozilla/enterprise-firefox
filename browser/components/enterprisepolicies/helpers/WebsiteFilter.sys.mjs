@@ -124,6 +124,12 @@ export let WebsiteFilter = {
       contentType == Ci.nsIContentPolicy.TYPE_SUBDOCUMENT
     ) {
       if (!this.isAllowed(url)) {
+#ifdef MOZ_ENTERPRISE
+        Glean.contentPolicy.blocklistDomainBrowsed.record({
+          url,
+        });
+        GleanPings.enterprise.submit();
+#endif MOZ_ENTERPRISE
         return Ci.nsIContentPolicy.REJECT_POLICY;
       }
     }
