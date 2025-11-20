@@ -15,7 +15,7 @@ enterprise:
   include_client_id: false
   send_if_empty: false
   metadata:
-    include_info_sections: false
+    include_info_sections: true
   bugs:
     - https://bugzilla.mozilla.org/show_bug.cgi?id=TBD
   data_reviews:
