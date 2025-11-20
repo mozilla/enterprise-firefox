@@ -10,4 +10,3 @@
 % locale branding @AB_CD@ %locale/branding/
 # Enterprise branding only exists in en-US
   locale/branding/brand.properties (en-US/brand.properties)
-  
