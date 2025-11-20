@@ -17,6 +17,7 @@ use log::trace;
 
 use crate::message::{FeltMessage, FELT_IPC_VERSION};
 use crate::utils::{self, Tokens, TOKENS};
+use crate::CONSOLE_URL;
 
 #[derive(Default)]
 pub struct FeltIpcClient {
@@ -328,6 +329,9 @@ impl FeltClientThread {
                                 utils::inject_bool_pref(name, value);
                             },
                             Ok(FeltMessage::StringPreference((name, value))) => {
+                                if name == "enterprise.console.address" {
+                                    utils::set_console_url(value.clone());
+                                }
                                 trace!("FeltClientThread::felt_client::ipc_loop(): StringPreference({}, {})", name, value);
                                 utils::inject_string_pref(name, value);
                             },

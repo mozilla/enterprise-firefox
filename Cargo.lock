@@ -2214,6 +2214,7 @@ version = "0.1.0"
 dependencies = [
  "bhttp",
  "cstr",
+ "felt",
  "firefox-on-glean",
  "glean",
  "log",

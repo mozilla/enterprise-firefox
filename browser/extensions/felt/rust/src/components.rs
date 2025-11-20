@@ -22,7 +22,7 @@ use xpcom::RefPtr;
 use log::trace;
 
 use crate::message::{FeltMessage, FELT_IPC_VERSION};
-use crate::utils::{Tokens, TOKENS, TOKEN_EXPIRY_SKEW};
+use crate::utils::{Tokens, CONSOLE_URL, TOKENS, TOKEN_EXPIRY_SKEW};
 
 #[xpcom(implement(nsIFelt), atomic)]
 pub struct FeltXPCOM {
@@ -194,6 +194,18 @@ impl FeltXPCOM {
         let url_s = unsafe { (*url).to_string() };
         trace!("FeltXPCOM::OpenURL: {}", url_s);
         self.send(FeltMessage::OpenURL(url_s))
+    }
+
+    fn GetConsoleUrl(&self, console_url: *mut nsACString) -> nserror::nsresult {
+        if let Some(url) = CONSOLE_URL.get() {
+            unsafe {
+                (*console_url).assign(url.as_str());
+            }
+            NS_OK
+        } else {
+            trace!("FeltXPCOM::GetConsoleUrl called before initialized");
+            NS_ERROR_FAILURE
+        }
     }
 
     // Firefox to FELT to notify of logout

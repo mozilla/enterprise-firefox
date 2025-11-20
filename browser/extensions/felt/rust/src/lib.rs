@@ -22,6 +22,8 @@ mod utils;
 
 use env_logger;
 
+pub use utils::{CONSOLE_URL, TOKENS};
+
 static IS_FELT_UI: AtomicBool = AtomicBool::new(false);
 static IS_FELT_BROWSER: AtomicBool = AtomicBool::new(false);
 
