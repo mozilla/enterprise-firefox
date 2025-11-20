@@ -63,5 +63,8 @@ interface nsIFelt : nsISupports {
   void openURL(in ACString url);
 
   [must_use]
+  ACString getConsoleUrl();
+
+  [must_use]
   void performSignout();
 };

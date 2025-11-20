@@ -62,12 +62,13 @@ impl PingUploader for ViaductUploader {
 
         // Localhost-destined pings are sent without OHTTP,
         // even if configured to use OHTTP.
-        let result =
-            if localhost_port == 0 && requires_ohttp && should_ohttp_upload(&upload_request) {
-                ohttp_upload(upload_request)
-            } else {
-                viaduct_upload(upload_request)
-            };
+        let result = if felt::is_felt_browser() {
+            enterprise_viaduct_upload(upload_request)
+        } else if localhost_port == 0 && requires_ohttp && should_ohttp_upload(&upload_request) {
+            ohttp_upload(upload_request)
+        } else {
+            viaduct_upload(upload_request)
+        };
 
         log::trace!(
             "FOG Ping Uploader completed uploading (Result {:?})",
@@ -91,6 +92,12 @@ impl PingUploader for ViaductUploader {
                 | OhttpRequestError(_)
                 | OhttpResponseError(_) => UploadResult::recoverable_failure(),
             },
+            Err(
+                ViaductUploaderError::EnterpriseErrorAccessToken
+                | ViaductUploaderError::EnterpriseInvalidUrl
+                | ViaductUploaderError::EnterpriseNoAccessToken
+                | ViaductUploaderError::EnterpriseUrlNotSet,
+            ) => UploadResult::recoverable_failure(),
             Err(
                 ViaductUploaderError::Bhttp(_)
                 | ViaductUploaderError::Ohttp(_)
@@ -126,6 +133,56 @@ fn viaduct_upload(upload_request: PingUploadRequest) -> Result<UploadResult, Via
             Err(ViaductUploaderError::Viaduct(e))
         }
     }
+}
+
+fn enterprise_viaduct_upload(
+    upload_request: PingUploadRequest,
+) -> Result<UploadResult, ViaductUploaderError> {
+    let console_url = felt::CONSOLE_URL
+        .get()
+        .ok_or(ViaductUploaderError::EnterpriseUrlNotSet)?;
+    let mut parsed_console_url = Url::parse(console_url)?;
+
+    let parsed_url = Url::parse(&upload_request.url)?;
+    parsed_console_url.set_path(&format!(
+        "{}/api/browser/telemetry/{}",
+        parsed_console_url
+            .path()
+            .strip_prefix('/')
+            .unwrap_or(parsed_console_url.path()),
+        parsed_url
+            .path()
+            .strip_prefix('/')
+            .unwrap_or(parsed_url.path())
+    ));
+
+    log::info!(
+        "FOG enterprise viaduct uploader uploading to {:?}",
+        parsed_console_url
+    );
+
+    let mut req = Request::post(parsed_console_url.clone()).body(upload_request.body);
+    for (header_key, header_value) in &upload_request.headers {
+        req = req.header(header_key.to_owned(), header_value)?;
+    }
+    let bearer = {
+        let t = felt::TOKENS
+            .read()
+            .map_err(|_| ViaductUploaderError::EnterpriseErrorAccessToken)?;
+        if !t.access_token.is_empty() {
+            format!("Bearer {}", &t.access_token)
+        } else {
+            return Err(ViaductUploaderError::EnterpriseNoAccessToken);
+        }
+    };
+    req = req.header("Authorization", bearer)?;
+
+    log::trace!(
+        "FOG enterprise viaduct uploader sending ping to {:?}",
+        parsed_console_url
+    );
+    let res = req.send()?;
+    Ok(UploadResult::http_status(res.status as i32))
 }
 
 fn should_ohttp_upload(upload_request: &PingUploadRequest) -> bool {
@@ -222,6 +279,18 @@ enum ViaductUploaderError {
 
     #[error("viaduct::ViaductError {0}")]
     Viaduct(#[from] viaduct::ViaductError),
+
+    #[error("enterprise::Error Unable to receive access_token")]
+    EnterpriseErrorAccessToken,
+
+    #[error("enterprise::Error No access token")]
+    EnterpriseNoAccessToken,
+
+    #[error("enterprise::Error Invalid console url")]
+    EnterpriseInvalidUrl,
+
+    #[error("enterprise::Error Console url not set")]
+    EnterpriseUrlNotSet,
 
     #[error("Fatal upload error")]
     Fatal,

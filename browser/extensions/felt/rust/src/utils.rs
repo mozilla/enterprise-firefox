@@ -6,7 +6,7 @@ use cookie;
 use nserror::NS_OK;
 use nsstring::nsCString;
 use serde::{Deserialize, Serialize};
-use std::sync::{Arc, LazyLock, RwLock};
+use std::sync::{Arc, LazyLock, OnceLock, RwLock};
 use std::{ffi::CString, future::Future};
 use time::OffsetDateTime;
 use xpcom::interfaces::{nsICookie, nsICookieManager, nsIObserverService, nsIPrefBranch};
@@ -25,6 +25,7 @@ pub static TOKEN_EXPIRY_SKEW: i64 = 5 * 60;
 
 pub static TOKENS: LazyLock<Arc<RwLock<Tokens>>> =
     LazyLock::new(|| Arc::new(RwLock::new(Default::default())));
+pub static CONSOLE_URL: OnceLock<Arc<String>> = OnceLock::new();
 
 pub fn inject_one_cookie(raw_cookie: String) {
     trace!("inject_one_cookie() raw_cookie:{:?}", raw_cookie.clone());
@@ -293,4 +294,23 @@ pub fn nsICookie_to_Cookie(cookie: &RefPtr<nsICookie>) -> cookie::Cookie<'_> {
     rv.set_secure(is_secure);
 
     rv
+}
+
+pub fn set_console_url(console_url: String) {
+    let console_url = Arc::new(console_url);
+    match CONSOLE_URL.set(console_url.clone()) {
+        Ok(()) => {
+            trace!(
+                "set_console_url: console_url set to {}",
+                CONSOLE_URL.get().as_deref().map_or("<unset>", |v| v)
+            );
+        }
+        Err(e) => {
+            trace!(
+                "set_console_url: failed to set console_url to {} (current url: {})",
+                console_url,
+                CONSOLE_URL.get().as_deref().map_or("<unset>", |v| v)
+            );
+        }
+    }
 }
