@@ -79,7 +79,6 @@ input {
   --newtab-textbox-focus-color: var(--newtab-primary-action-background);
   --newtab-textbox-focus-boxshadow: 0 0 0 1px var(--newtab-primary-action-background), 0 0 0 4px rgba(var(--newtab-primary-action-background), 0.3);
   --newtab-button-secondary-color: inherit;
-  --font-size-xsmall: 0.734rem;
 }
 :root[lwt-newtab-brighttext] {
   color-scheme: dark;
@@ -2210,7 +2209,7 @@ main section {
   color: var(--newtab-text-primary-color);
   width: 118px;
   display: block;
-  border: 1px solid var(--newtab-border-color);
+  border: 1px solid var(--border-color);
   border-radius: var(--border-radius-small);
   appearance: none;
   padding-block: var(--space-small);
@@ -2935,7 +2934,6 @@ main section {
   flex-wrap: nowrap;
   align-items: stretch;
   border-radius: var(--border-radius-medium);
-  overflow: hidden;
 }
 .weatherCard:hover ~ .weatherSponsorText, .weatherCard:focus-within ~ .weatherSponsorText {
   visibility: visible;
@@ -2945,9 +2943,6 @@ main section {
 }
 .weatherCard:has(.staticWeatherInfo):hover ~ .weatherSponsorText {
   visibility: hidden;
-}
-.weatherCard:focus-within {
-  overflow: visible;
 }
 .weatherCard:hover {
   box-shadow: var(--box-shadow-card);

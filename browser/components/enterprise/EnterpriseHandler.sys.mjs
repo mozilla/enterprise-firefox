@@ -2,6 +2,12 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+const lazy = {};
+
+ChromeUtils.defineESModuleGetters(lazy, {
+  ConsoleClient: "resource:///modules/enterprise/ConsoleClient.sys.mjs",
+});
+
 export const EnterpriseHandler = {
   /**
    * @typedef {object} User
@@ -19,12 +25,9 @@ export const EnterpriseHandler = {
   },
 
   async initUser() {
-    const { ConsoleClient } = ChromeUtils.importESModule(
-      "resource:///modules/enterprise/ConsoleClient.sys.mjs"
-    );
     try {
       const { name, email, picture } =
-        await ConsoleClient.getLoggedInUserInfo();
+        await lazy.ConsoleClient.getLoggedInUserInfo();
       this._signedInUser = { name, email, pictureUrl: picture };
     } catch (e) {
       console.warn(
@@ -82,5 +85,9 @@ export const EnterpriseHandler = {
   },
 
   // TODO: Open signout dialog
-  onSignOut() {},
+  onSignOut() {
+    lazy.ConsoleClient.signout().catch(e =>
+      console.error(`Unable to signout the user: ${e}`)
+    );
+  },
 };

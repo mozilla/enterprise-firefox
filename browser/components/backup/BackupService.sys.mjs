@@ -816,12 +816,12 @@ export class BackupService extends EventTarget {
      * restored.
      */
     restoreID: null,
+    /** Utilized by the spotlight to persist information between screens */
+    embeddedComponentPersistentData: {},
     recoveryErrorCode: ERRORS.NONE,
     backupErrorCode: lazy.backupErrorCode,
     archiveEnabledStatus: this.archiveEnabledStatus.enabled,
     restoreEnabledStatus: this.restoreEnabledStatus.enabled,
-    /** Utilized by the spotlight to persist information between screens */
-    embeddedComponentPersistentData: {},
   };
 
   /**

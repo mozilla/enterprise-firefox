@@ -25,35 +25,46 @@ use env_logger;
 static IS_FELT_UI: AtomicBool = AtomicBool::new(false);
 static IS_FELT_BROWSER: AtomicBool = AtomicBool::new(false);
 
+fn normalize_arg(arg: String) -> String {
+    let mut normalized = arg;
+    normalized.retain(|c| c != '-' && c != '/');
+    normalized.to_lowercase()
+}
+
+fn arg_matches(target: &str) -> bool {
+    env::args()
+        .into_iter()
+        .any(|arg| normalize_arg(arg) == target)
+}
+
+fn has_env(target: &str) -> bool {
+    match env::var(target) {
+        Ok(v) => v == "1",
+        Err(_) => false,
+    }
+}
+
 #[no_mangle]
 pub extern "C" fn felt_init() {
     trace!("felt_init()");
     env_logger::init();
 
-    let found_felt_ui_env = match env::var("MOZ_FELT_UI") {
-        Ok(v) => v == "1",
-        Err(_) => false,
-    };
+    let found_felt_ui_env = has_env("MOZ_FELT_UI");
+    let bypass_env = has_env("MOZ_BYPASS_FELT");
 
-    let found_felt_ui_arg = env::args()
-        .into_iter()
-        .any(|arg| arg.replace("-", "").replace("/", "").to_lowercase() == "feltui");
+    let felt_ui_requested = arg_matches("feltui") || found_felt_ui_env;
+    let is_felt_browser = arg_matches("felt");
 
-    let is_felt_ui = found_felt_ui_arg || found_felt_ui_env;
+    if is_felt_browser && felt_ui_requested {
+        panic!("Cannot have both -feltUI and -felt args");
+    }
+
+    let is_felt_ui = !is_felt_browser && !bypass_env;
     trace!("felt_init(): is_felt_ui={}", is_felt_ui);
     IS_FELT_UI.store(is_felt_ui, Ordering::Relaxed);
 
-    let is_felt_browser = env::args()
-        .into_iter()
-        .any(|arg| arg.replace("-", "").replace("/", "").to_lowercase() == "felt");
-
     trace!("felt_init(): is_felt_browser={}", is_felt_browser);
     IS_FELT_BROWSER.store(is_felt_browser, Ordering::Relaxed);
-
-    assert!(
-        !(is_felt_browser && is_felt_ui),
-        "Cannot have both -feltUI and -felt args"
-    );
 
     trace!("felt_init() done");
 }
@@ -73,7 +84,7 @@ pub extern "C" fn is_felt_browser() -> bool {
 pub static FELT_CLIENT: Mutex<Option<client::FeltClientThread>> = Mutex::new(None);
 
 #[no_mangle]
-pub extern "C" fn firefox_connect_to_felt(server_name: *const c_char) -> () {
+pub extern "C" fn firefox_connect_to_felt(server_name: *const c_char) -> bool {
     let srv_name = unsafe { CStr::from_ptr(server_name) };
     let server_socket = String::from_utf8_lossy(srv_name.to_bytes()).to_string();
     trace!("firefox_connect_to_felt({})", server_socket);
@@ -82,12 +93,14 @@ pub extern "C" fn firefox_connect_to_felt(server_name: *const c_char) -> () {
             let mut state = FELT_CLIENT.lock().expect("Could not lock mutex");
             trace!("firefox_connect_to_felt(): connected, storing client");
             *state = Some(client);
+            trace!("firefox_connect_to_felt() done: success");
+            true
         }
         Err(()) => {
             trace!("firefox_connect_to_felt(): error");
+            false
         }
     }
-    trace!("firefox_connect_to_felt() done");
 }
 
 #[no_mangle]
@@ -111,8 +124,8 @@ pub extern "C" fn firefox_felt_is_startup_complete() -> bool {
     match &*guard {
         Some(client) => client.is_startup_complete(),
         None => {
-            trace!("firefox_felt_is_startup_complete(): missing client");
-            true
+            trace!("firefox_felt_is_startup_complete(): missing client, blocking startup");
+            false
         }
     }
 }

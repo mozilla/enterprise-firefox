@@ -12,12 +12,18 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.compose.content
 import androidx.navigation.fragment.findNavController
 import mozilla.components.support.base.feature.UserInteractionHandler
-import org.mozilla.fenix.GleanMetrics.AppIconSelection
 import org.mozilla.fenix.R
+import org.mozilla.fenix.components.StoreProvider
+import org.mozilla.fenix.ext.components
 import org.mozilla.fenix.ext.showToolbar
+import org.mozilla.fenix.iconpicker.AppIconMiddleware
 import org.mozilla.fenix.iconpicker.AppIconRepository
+import org.mozilla.fenix.iconpicker.AppIconState
+import org.mozilla.fenix.iconpicker.AppIconStore
+import org.mozilla.fenix.iconpicker.AppIconUpdater
 import org.mozilla.fenix.iconpicker.DefaultAppIconRepository
 import org.mozilla.fenix.iconpicker.DefaultPackageManagerWrapper
+import org.mozilla.fenix.iconpicker.SystemAction
 import org.mozilla.fenix.theme.FirefoxTheme
 import org.mozilla.fenix.utils.ShortcutManagerWrapperDefault
 import org.mozilla.fenix.utils.ShortcutsUpdaterDefault
@@ -42,38 +48,38 @@ class AppIconSelectionFragment : Fragment(), UserInteractionHandler {
     ) = content {
         FirefoxTheme {
             AppIconSelection(
-                currentAppIcon = appIconRepository.selectedAppIcon,
-                groupedIconOptions = appIconRepository.groupedAppIcons,
-                onAppIconSelected = { selectedAppIcon ->
-                    val currentAliasSuffix = appIconRepository.selectedAppIcon.aliasSuffix
-
-                    AppIconSelection.appIconSelectionConfirmed.record(
-                        extra = AppIconSelection.AppIconSelectionConfirmedExtra(
-                            oldIcon = currentAliasSuffix,
-                            newIcon = selectedAppIcon.aliasSuffix,
+                store = StoreProvider.get(this) {
+                    AppIconStore(
+                        initialState = AppIconState(
+                            currentAppIcon = appIconRepository.selectedAppIcon,
+                            groupedIconOptions = appIconRepository.groupedAppIcons,
+                        ),
+                        middleware = listOf(
+                            AppIconMiddleware(
+                                updateAppIcon = updateAppIcon(),
+                            ),
                         ),
                     )
-
-                    updateAppIcon(
-                        currentAliasSuffix = currentAliasSuffix,
-                        newAliasSuffix = selectedAppIcon.aliasSuffix,
+                }.also {
+                    it.dispatch(
+                        SystemAction.EnvironmentRehydrated(
+                            appIconUpdater = updateAppIcon(),
+                        ),
                     )
                 },
             )
         }
     }
 
-    private fun updateAppIcon(
-        currentAliasSuffix: String,
-        newAliasSuffix: String,
-    ) {
+    private fun updateAppIcon(): AppIconUpdater = AppIconUpdater { newIcon, currentIcon ->
         with(requireContext()) {
             changeAppLauncherIcon(
                 packageManager = packageManager,
                 shortcutManager = ShortcutManagerWrapperDefault(this),
                 shortcutInfo = ShortcutsUpdaterDefault(this),
-                appAlias = ComponentName(this, "$packageName.$currentAliasSuffix"),
-                newAppAlias = ComponentName(this, "$packageName.$newAliasSuffix"),
+                appAlias = ComponentName(this, "$packageName.${currentIcon.aliasSuffix}"),
+                newAppAlias = ComponentName(this, "$packageName.${newIcon.aliasSuffix}"),
+                crashReporter = components.analytics.crashReporter,
             )
         }
     }

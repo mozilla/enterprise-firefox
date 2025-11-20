@@ -5,6 +5,7 @@
 
 import datetime
 import json
+import random
 import shutil
 import sys
 import time
@@ -82,7 +83,7 @@ class SsoHttpHandler(LocalHttpRequestHandler):
             self.send_response(302, "Found")
             self.send_header(
                 "Set-Cookie",
-                f"{self.server.cookie_name}={self.server.cookie_value}; Domain=localhost; Path=/; Expires={cookie_expiry}; SameSite=Strict",
+                f"{self.server.cookie_name.value}={self.server.cookie_value.value}; Domain=localhost; Path=/; Expires={cookie_expiry}; SameSite=Strict",
             )
             self.send_header("Location", location)
             self.send_header("Content-Length", "0")
@@ -96,6 +97,21 @@ class SsoHttpHandler(LocalHttpRequestHandler):
 
 
 class ConsoleHttpHandler(LocalHttpRequestHandler):
+    def check_auth(self):
+        auth = self.headers.get("Authorization")
+        if not auth:
+            self.reply("", 401, "Authorization required")
+            return
+
+        bearer = auth.split(" ")
+        if len(bearer) != 2 or bearer[0].lower() != "bearer":
+            self.reply("", 401, "Authorization required")
+            return
+
+        if bearer[1] != self.server.policy_access_token.value:
+            self.reply("", 401, "Authorization required")
+            return
+
     def do_GET(self):
         print("GET", self.path)
         m = None
@@ -123,6 +139,7 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
             self.send_header("Content-Length", "0")
             self.end_headers()
             return
+
         elif path == "/api/browser/hacks/default":
             # Browser prefs that can be applied live
             m = json.dumps(
@@ -148,20 +165,7 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
             )
 
         elif path == "/api/browser/policies":
-            auth = self.headers.get("Authorization")
-            if not auth:
-                self.reply("", 401, "Authorization required")
-                return
-
-            bearer = auth.split(" ")
-            if len(bearer) != 2 or bearer[0].lower() != "bearer":
-                self.reply("", 401, "Authorization required")
-                return
-
-            if bearer[1] != self.server.policy_access_token.value:
-                self.reply("", 401, "Authorization required")
-                return
-
+            self.check_auth()
             if hasattr(self.server, "policy_block_about_config"):
                 with self.server.policy_block_about_config.get_lock():
                     policy_value = (
@@ -175,6 +179,23 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
                     m = json.dumps({"policies": policy_content})
             else:
                 m = json.dumps({"policies": {}})
+
+        elif path == "/api/browser/whoami":
+            self.check_auth()
+
+            m = json.dumps(
+                {
+                    "id": str(uuid.uuid4()),
+                    "email": "nobody@mozilla.org",
+                    "name": "moz user",
+                    "picture": "https://s.gravatar.com/avatar/something",
+                    "is_active": True,
+                    "last_login_at": "2025-11-14T14:27:23.575030Z",
+                    "created_at": "2025-10-31T15:11:50.735175Z",
+                    "updated_at": "2025-11-14T14:27:23.602803Z",
+                    "policy_roles_id": None,
+                }
+            )
 
         elif path == "/sso/callback":
             policy_access_token = self.server.policy_access_token.value
@@ -256,6 +277,10 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
             self.server.device_posture_token = str(uuid.uuid4())
             m = json.dumps({"posture": self.server.device_posture_token})
 
+        elif path == "/sso/logout":
+            self.check_auth()
+            m = json.dumps(None)
+
         if m is not None:
             self.reply(m)
         else:
@@ -309,15 +334,13 @@ class FeltTests(EnterpriseTestsBase):
         firefox,
         geckodriver,
         profile_root,
-        console,
-        sso_server,
         test_prefs=[],
         cli_args=[],
         env_vars={},
     ):
         self._manually_closed_child = False
-        self.console_port = console
-        self.sso_port = sso_server
+        self.console_port = random.randrange(10000, 14999)
+        self.sso_port = random.randrange(15000, 20000)
         self.policy_block_about_config = Value("B", 1)
         """
         TODO: Behavior is not yet clearly defined
@@ -344,8 +367,8 @@ class FeltTests(EnterpriseTestsBase):
         )
         self.console_httpd.start()
 
-        self.cookie_name = str(uuid.uuid1()).split("-")[0]
-        self.cookie_value = str(uuid.uuid4()).split("-")[4]
+        self.cookie_name = manager.Value(c_wchar_p, str(uuid.uuid1()).split("-")[0])
+        self.cookie_value = manager.Value(c_wchar_p, str(uuid.uuid4()).split("-")[4])
         print(f"Starting SSO server: {self.sso_port}")
         self.sso_httpd = Process(
             target=serve,

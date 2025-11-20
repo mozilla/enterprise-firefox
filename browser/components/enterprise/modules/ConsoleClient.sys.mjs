@@ -99,6 +99,7 @@ export const ConsoleClient = {
   get _paths() {
     return {
       SSO: "/sso/login",
+      SIGNOUT: "/sso/logout",
       SSO_CALLBACK: "/sso/callback",
       STARTUP_PREFS: "/api/browser/hacks/startup",
       DEFAULT_PREFS: "/api/browser/hacks/default",
@@ -106,7 +107,7 @@ export const ConsoleClient = {
       KEY: "/api/browser/key",
       TOKEN: "/sso/token",
       DEVICE_POSTURE: "/sso/device_posture",
-      WHOAMI: "api/browser/whoami",
+      WHOAMI: "/api/browser/whoami",
     };
   },
 
@@ -132,8 +133,9 @@ export const ConsoleClient = {
   constructSsoLoginURI(email, devicePostureToken) {
     const url = this.consoleBaseURI;
     url.pathname = this._paths.SSO;
-    url.search = `target=browser&email=${email}&devicePostureToken=${devicePostureToken}`;
-
+    url.searchParams.set("target", "browser");
+    url.searchParams.set("email", email);
+    url.searchParams.set("devicePostureToken", devicePostureToken);
     // Consumer expects uri as nsIURI
     const uri = Services.io.newURI(url.href);
     return uri;
@@ -231,17 +233,18 @@ export const ConsoleClient = {
    * a registered console endpoint. If we get a 401 or 403 refresh and retry once.
    *
    * @param {string} path - Console API to request
+   * @param {string} method - Console API method to use, GET or POST
    * @param {{_didRefresh?: boolean}} [options]
    * @throws {InvalidAuthError|Error}
    * @returns {Promise<any>} Parsed JSON response body.
    */
-  async _get(path, { _didRefresh = false } = {}) {
+  async _get(path, method = "GET", { _didRefresh = false } = {}) {
     const headers = new Headers({});
     const accessToken = await this.getAccessToken();
     headers.set("Authorization", `Bearer ${accessToken}`);
 
     const url = this.constructURI(path);
-    const res = await fetch(url, { headers });
+    const res = await fetch(url, { method, headers });
 
     if (res.ok) {
       return await res.json();
@@ -249,11 +252,22 @@ export const ConsoleClient = {
 
     if ((res.status === 403 || res.status === 401) && !_didRefresh) {
       await this._refreshSession();
-      return this._get(path, { _didRefresh: true });
+      return this._get(path, method, { _didRefresh: true });
     }
 
     const text = await res.text().catch(() => "");
     throw new Error(`Fetch failed (${res.status}): ${text}`);
+  },
+
+  /**
+   * Sends a POST request with the same session validity check as GET above.
+   *
+   * @param {string} path - Console API to request
+   * @throws {InvalidAuthError|Error}
+   * @returns {Promise<any>} Parsed JSON response body.
+   */
+  async _post(path) {
+    return this._get(path, "POST");
   },
 
   /**
@@ -402,6 +416,44 @@ export const ConsoleClient = {
   clearTokenData() {
     this.tokenData = null;
     Services.felt.setTokens("", "", 0);
+  },
+
+  /**
+   * Perform signout against the console and share the information down to
+   * XPCOM to make FELT aware.
+   *
+   * This is expected to be executed from the browser side.
+   */
+  async signout() {
+    if (!Services.felt.isFeltBrowser()) {
+      throw new Error(
+        "Performing signout from something else than browser is wrong"
+      );
+    }
+
+    // TODO: Assert or force-enable session restore?
+
+    const res = await this._post(this._paths.SIGNOUT);
+    // Server should maybe return better JSON?
+    if (res == null) {
+      // After successful server-side logout clear local state and notify FELT.
+      this.clearTokenData();
+
+      // Make sure we signal early enough to the system that FELT should take
+      // over. Relevant at least for macOS dock icon. Not having this would
+      // at least intermittently result in missing dock icon for FELT after
+      // signout.
+      Services.felt.makeBackgroundProcess(true);
+
+      // Notify FELT that we are logging out so the shutdown is a normal one
+      // that should not be followed by restarting the process.
+      Services.felt.performSignout();
+
+      Services.startup.quit(Ci.nsIAppStartup.eForceQuit);
+      return;
+    }
+
+    throw new Error(`Post failed: (${res})`);
   },
 
   /**

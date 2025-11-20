@@ -51,14 +51,6 @@ notes = "This is a crate Henri wrote which is also published. We should probably
 audit-as-crates-io = true
 notes = "This is upstream plus a warning fix from bug 1823866."
 
-[policy.cssparser]
-audit-as-crates-io = true
-notes = "This is a pinned version of the upstream code. This can be removed when new version gets published."
-
-[policy.cssparser-macros]
-audit-as-crates-io = true
-notes = "This is a pinned version of the upstream code. This can be removed when new version gets published."
-
 [policy.firefox-on-glean]
 audit-as-crates-io = false
 notes = "The crates.io version of this is just a placeholder to allow public crates to depend on firefox-on-glean."
@@ -96,6 +88,10 @@ notes = "Patched version of upstream"
 audit-as-crates-io = true
 notes = "Patched version of upstream"
 
+[policy."ipc-channel:0.20.2@git:f2b5aed36a60f07589579d31aaace2f90d2e5e9e"]
+audit-as-crates-io = true
+notes = "Patched version to build with gecko deps"
+
 [policy.l10nregistry]
 dependency-criteria = { fluent-testing = "safe-to-run", tokio = "safe-to-run" }
 notes = "This crate has two testing-only dependencies which are specified as regular-but-optional rather than a dev-dependencies, because they need to be available to both benchmarks and integration tests."
@@ -115,6 +111,9 @@ notes = "This was originally servo code which Bobby Holley put on crates.io some
 [policy.marionette]
 audit-as-crates-io = false
 notes = "This is a first-party crate which is also published to crates.io. We certify audits for this crate as part of the documented release process, but that step happens after the version bump lands on central so we don't enforce it here."
+
+[policy.memtest]
+audit-as-crates-io = true
 
 [policy.midir]
 audit-as-crates-io = true

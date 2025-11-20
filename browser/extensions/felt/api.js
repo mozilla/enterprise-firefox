@@ -113,6 +113,7 @@ this.felt = class extends ExtensionAPI {
       this.registerActors();
       this.showWindow();
       Services.ppmm.addMessageListener("FeltParent:FirefoxNormalExit", this);
+      Services.ppmm.addMessageListener("FeltParent:FirefoxLogoutExit", this);
       Services.ppmm.addMessageListener("FeltParent:FirefoxAbnormalExit", this);
       Services.ppmm.addMessageListener("FeltParent:FirefoxStarting", this);
     } else if (Services.felt.isFeltBrowser()) {
@@ -148,11 +149,18 @@ this.felt = class extends ExtensionAPI {
         // TODO: What should we do, restart Firefox?
         break;
 
+      case "FeltParent:FirefoxLogoutExit": {
+        const success = Services.felt.makeBackgroundProcess(false);
+        console.debug(`FeltExtension: makeBackgroundProcess? ${success}`);
+        this.showWindow();
+        break;
+      }
+
       case "FeltParent:FirefoxStarting": {
         Services.startup.enterLastWindowClosingSurvivalArea();
         Services.ww.unregisterNotification(this.windowObserver);
         this._win.close();
-        const success = Services.felt.makeBackgroundProcess();
+        const success = Services.felt.makeBackgroundProcess(true);
         console.debug(`FeltExtension: makeBackgroundProcess? ${success}`);
         break;
       }

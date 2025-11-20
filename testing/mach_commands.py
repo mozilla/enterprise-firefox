@@ -413,17 +413,20 @@ def test(command_context, what, extra_args, **log_args):
                 repo.get_patch_for_uncommitted_changes(),
             ]
         )
+        if not patch.strip():
+            print("No local changes detected; no tests to run.")
+            return 1
 
         print(
             f"Querying BugBug for test recommendations... (based on changes after {base_commit[:8]})"
         )
         schedules = patch_schedules(base_commit, patch, selection_mode)
-
         if not schedules:
-            print(
-                "BugBug did not recommend any tests for your changes. Consider specifying tests by path or suite name."
-            )
-            return 0
+            print("BugBug did not recommend any tests for your changes.")
+
+        if not schedules and not what:
+            print("Consider specifying tests by path or suite name.")
+            return 1
 
         test_paths = sorted(schedules.keys())
         print(f"BugBug recommended {len(test_paths)} test group(s):")

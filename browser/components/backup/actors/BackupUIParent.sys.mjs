@@ -270,12 +270,12 @@ export class BackupUIParent extends JSWindowActorParent {
           e
         );
       }
-    } else if (message.name == "ErrorBarDismissed") {
-      Services.prefs.setIntPref(BACKUP_ERROR_CODE_PREF_NAME, lazy.ERRORS.NONE);
     } else if (message.name == "SetEmbeddedComponentPersistentData") {
       this.#bs.setEmbeddedComponentPersistentData(message.data);
     } else if (message.name == "FlushEmbeddedComponentPersistentData") {
       this.#bs.setEmbeddedComponentPersistentData({});
+    } else if (message.name == "ErrorBarDismissed") {
+      Services.prefs.setIntPref(BACKUP_ERROR_CODE_PREF_NAME, lazy.ERRORS.NONE);
     }
 
     return null;

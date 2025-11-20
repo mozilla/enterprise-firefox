@@ -10,6 +10,7 @@ import android.content.res.Resources
 import android.content.res.XmlResourceParser
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.mozilla.fenix.R
 import java.io.IOException
 
 /**
@@ -19,7 +20,6 @@ import java.io.IOException
  */
 class DefaultFenixSettingsIndexer(private val context: Context) : SettingsIndexer {
     private val settings: MutableList<SettingsSearchItem> = mutableListOf()
-    private val breadcrumbs: MutableList<String> = mutableListOf()
 
     /**
      * Index all settings.
@@ -28,9 +28,7 @@ class DefaultFenixSettingsIndexer(private val context: Context) : SettingsIndexe
         settings.clear()
 
         for (preferenceFileInformation in preferenceFileInformationList) {
-            breadcrumbs.clear()
             val settingFileParser = getXmlParserForFile(preferenceFileInformation.xmlResourceId)
-            breadcrumbs.add(context.getString(preferenceFileInformation.topBreadcrumbResourceId))
             if (settingFileParser != null) {
                 parseXmlFile(settingFileParser, preferenceFileInformation)
             }
@@ -50,8 +48,7 @@ class DefaultFenixSettingsIndexer(private val context: Context) : SettingsIndexe
 
         return withContext(Dispatchers.Default) {
             settings.distinctBy { it.preferenceKey }.filter { item ->
-                item.title.contains(trimmedQuery, ignoreCase = true) ||
-                        item.summary.contains(trimmedQuery, ignoreCase = true)
+                item.title.contains(trimmedQuery, ignoreCase = true)
             }
         }
     }
@@ -83,7 +80,6 @@ class DefaultFenixSettingsIndexer(private val context: Context) : SettingsIndexe
                     XmlResourceParser.START_TAG -> {
                         when (parser.name) {
                             PREFERENCE_CATEGORY_TAG -> {
-                                addCategoryToBreadcrumbs(parser)
                                 categoryItem = createCategoryItem(
                                     parser,
                                     preferenceFileInformation,
@@ -130,9 +126,6 @@ class DefaultFenixSettingsIndexer(private val context: Context) : SettingsIndexe
                             PREFERENCE_CATEGORY_TAG -> {
                                 categoryItem = null
                                 categoryItemAdded = false
-                                if (breadcrumbs.isNotEmpty()) {
-                                    breadcrumbs.removeLastOrNull()
-                                }
                             }
                         }
                     }
@@ -143,24 +136,6 @@ class DefaultFenixSettingsIndexer(private val context: Context) : SettingsIndexe
             println("Error: I/O exception while parsing ${e.message}")
         } finally {
             parser.close()
-        }
-    }
-
-    private fun addCategoryToBreadcrumbs(
-        parser: XmlResourceParser,
-    ) {
-        for (i in 0 until parser.attributeCount) {
-            val attributeName = parser.getAttributeName(i)
-            val attributeValue = parser.getAttributeValue(i)
-
-            when (attributeName) {
-                TITLE_ATTRIBUTE_NAME -> {
-                    val categoryName = getStringResource(attributeValue.substring(1))
-                    if (categoryName.isNotBlank()) {
-                        breadcrumbs.add(categoryName)
-                    }
-                }
-            }
         }
     }
 
@@ -201,13 +176,15 @@ class DefaultFenixSettingsIndexer(private val context: Context) : SettingsIndexe
             }
         }
 
+        val categoryHeader = context.getString(preferenceFileInformation.categoryHeaderResourceId)
+
         if (key == null || title == null) return null
 
         return SettingsSearchItem(
             preferenceKey = key,
             title = title,
             summary = summary,
-            breadcrumbs = breadcrumbs.toList(),
+            categoryHeader = categoryHeader,
             preferenceFileInformation = preferenceFileInformation,
         )
     }
@@ -245,11 +222,13 @@ class DefaultFenixSettingsIndexer(private val context: Context) : SettingsIndexe
             }
         }
 
+        val categoryHeader = context.getString(preferenceFileInformation.categoryHeaderResourceId)
+
         return SettingsSearchItem(
             preferenceKey = key ?: "",
             title = title ?: "",
             summary = summary,
-            breadcrumbs = breadcrumbs.toList(),
+            categoryHeader = categoryHeader,
             preferenceFileInformation = preferenceFileInformation,
         )
     }
@@ -284,10 +263,15 @@ class DefaultFenixSettingsIndexer(private val context: Context) : SettingsIndexe
             val resourceId = context.resources.getIdentifier(
                 resourceName, "string", context.packageName,
             )
-            if (resourceId != 0) {
-                context.getString(resourceId)
+            if (resourceId == 0) {
+                return ""
+            }
+
+            if (stringsWithRequiredFormatting.contains(resourceId)) {
+                val appName = context.getString(R.string.app_name)
+                context.getString(resourceId, appName)
             } else {
-                ""
+                context.getString(resourceId)
             }
         } catch (e: Resources.NotFoundException) {
             ""
@@ -333,6 +317,17 @@ class DefaultFenixSettingsIndexer(private val context: Context) : SettingsIndexe
             PreferenceFileInformation.TabsPreferences,
             PreferenceFileInformation.TrackingProtectionPreferences,
             PreferenceFileInformation.SaveLoginsPreferences,
+        )
+
+        /**
+         * List of strings that require format args.
+         *
+         * All of them require the app name.
+         */
+        val stringsWithRequiredFormatting = listOf(
+            R.string.preferences_downloads_settings_clean_up_files_title,
+            R.string.preferences_show_nonsponsored_suggestions,
+            R.string.preferences_about,
         )
     }
 }

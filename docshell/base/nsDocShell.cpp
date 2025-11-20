@@ -5030,17 +5030,15 @@ nsresult nsDocShell::SetCurScrollPosEx(int32_t aCurHorizontalPos,
   return NS_OK;
 }
 
-void nsDocShell::RestoreScrollPosFromActiveSHE() {
+void nsDocShell::RestoreScrollPositionFromTargetSessionHistoryInfo(
+    SessionHistoryInfo* aTarget) {
+  MOZ_DIAGNOSTIC_ASSERT(mozilla::SessionHistoryInParent());
   nscoord bx = 0;
   nscoord by = 0;
-  if ((mozilla::SessionHistoryInParent() ? !!mActiveEntry : !!mOSHE)) {
-    if (mozilla::SessionHistoryInParent()) {
-      mActiveEntry->GetScrollPosition(&bx, &by);
-    } else {
-      mOSHE->GetScrollPosition(&bx, &by);
-    }
-    SetCurScrollPosEx(bx, by);
+  if (aTarget) {
+    aTarget->GetScrollPosition(&bx, &by);
   }
+  SetCurScrollPosEx(bx, by);
 }
 
 void nsDocShell::SetScrollbarPreference(mozilla::ScrollbarPreference aPref) {
@@ -9448,8 +9446,15 @@ static void MaybeConvertToReplaceLoad(nsDocShellLoadState* aLoadState,
                                                            *aExtantDocument))
                     ? "needs completely loaded document"
                     : "navigation must be a replace");
-    aLoadState->SetLoadType(MaybeAddLoadFlags(
-        aLoadState->LoadType(), nsIWebNavigation::LOAD_FLAGS_REPLACE_HISTORY));
+    // There is no replace variant for LOAD_LINK, so we convert it to
+    // LOAD_NORMAL_REPLACE just like in nsDocShell::OnNewURI.
+    if (aLoadState->LoadType() == LOAD_LINK) {
+      aLoadState->SetLoadType(LOAD_NORMAL_REPLACE);
+    } else {
+      aLoadState->SetLoadType(
+          MaybeAddLoadFlags(aLoadState->LoadType(),
+                            nsIWebNavigation::LOAD_FLAGS_REPLACE_HISTORY));
+    }
     aLoadState->SetHistoryBehavior(NavigationHistoryBehavior::Replace);
   } else {
     aLoadState->SetHistoryBehavior(NavigationHistoryBehavior::Push);

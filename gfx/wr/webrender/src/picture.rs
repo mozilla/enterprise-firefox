@@ -116,7 +116,6 @@ use crate::intern::ItemUid;
 use crate::internal_types::{FastHashMap, FastHashSet, PlaneSplitter, FilterGraphOp, FilterGraphNode, Filter, FrameId};
 use crate::internal_types::{PlaneSplitterIndex, PlaneSplitAnchor, TextureSource};
 use crate::frame_builder::{FrameBuildingContext, FrameBuildingState, PictureState, PictureContext};
-use crate::gpu_cache::{GpuCache, GpuCacheAddress, GpuCacheHandle};
 use crate::gpu_types::{UvRectKind, ZBufferId, BlurEdgeMode};
 use peek_poke::{PeekPoke, poke_into_vec, peek_from_slice, ensure_red_zone};
 use plane_split::{Clipper, Polygon};
@@ -128,7 +127,7 @@ use crate::render_task_graph::RenderTaskId;
 use crate::render_target::RenderTargetKind;
 use crate::render_task::{BlurTask, RenderTask, RenderTaskLocation, BlurTaskCache};
 use crate::render_task::{StaticRenderTaskSurface, RenderTaskKind};
-use crate::renderer::BlendMode;
+use crate::renderer::{BlendMode, GpuBufferAddress};
 use crate::resource_cache::{ResourceCache, ImageGeneration, ImageRequest};
 use crate::space::SpaceMapper;
 use crate::scene::SceneProperties;
@@ -2194,7 +2193,7 @@ impl TileCacheInstance {
                 &map_local_to_picture,
                 &pic_to_vis_mapper,
                 frame_context.spatial_tree,
-                frame_state.gpu_cache,
+                &mut frame_state.frame_gpu_data.f32,
                 frame_state.resource_cache,
                 frame_context.global_device_pixel_scale,
                 &surface.culling_rect,
@@ -2726,7 +2725,7 @@ impl TileCacheInstance {
         api_keys: &[ImageKey; 3],
         resource_cache: &mut ResourceCache,
         composite_state: &mut CompositeState,
-        gpu_cache: &mut GpuCache,
+        gpu_buffer: &mut GpuBufferBuilderF,
         image_rendering: ImageRendering,
         color_depth: ColorDepth,
         color_space: YuvRangedColorSpace,
@@ -2741,7 +2740,7 @@ impl TileCacheInstance {
                         rendering: image_rendering,
                         tile: None,
                     },
-                    gpu_cache,
+                    gpu_buffer,
                 );
             }
         }
@@ -2782,7 +2781,7 @@ impl TileCacheInstance {
         api_key: ImageKey,
         resource_cache: &mut ResourceCache,
         composite_state: &mut CompositeState,
-        gpu_cache: &mut GpuCache,
+        gpu_buffer: &mut GpuBufferBuilderF,
         image_rendering: ImageRendering,
         is_opaque: bool,
         surface_kind: CompositorSurfaceKind,
@@ -2801,7 +2800,7 @@ impl TileCacheInstance {
                 rendering: image_rendering,
                 tile: None,
             },
-            gpu_cache,
+            gpu_buffer,
         );
 
         self.setup_compositor_surfaces_impl(
@@ -3147,7 +3146,7 @@ impl TileCacheInstance {
         color_bindings: &ColorBindingStorage,
         surface_stack: &[(PictureIndex, SurfaceIndex)],
         composite_state: &mut CompositeState,
-        gpu_cache: &mut GpuCache,
+        gpu_buffer: &mut GpuBufferBuilderF,
         scratch: &mut PrimitiveScratchBuffer,
         is_root_tile_cache: bool,
         surfaces: &mut [SurfaceInfo],
@@ -3391,7 +3390,7 @@ impl TileCacheInstance {
                             image_data.key,
                             resource_cache,
                             composite_state,
-                            gpu_cache,
+                            gpu_buffer,
                             image_data.image_rendering,
                             is_opaque,
                             kind,
@@ -3509,7 +3508,7 @@ impl TileCacheInstance {
                             &prim_data.kind.yuv_key,
                             resource_cache,
                             composite_state,
-                            gpu_cache,
+                            gpu_buffer,
                             prim_data.kind.image_rendering,
                             prim_data.kind.color_depth,
                             prim_data.kind.color_space.with_range(prim_data.kind.color_range),
@@ -4957,7 +4956,7 @@ pub enum Picture3DContext<C> {
 #[cfg_attr(feature = "capture", derive(Serialize))]
 pub struct OrderedPictureChild {
     pub anchor: PlaneSplitAnchor,
-    pub gpu_address: GpuCacheAddress,
+    pub gpu_address: GpuBufferAddress,
 }
 
 bitflags! {
@@ -5218,7 +5217,7 @@ pub struct PicturePrimitive {
     // Optional cache handles for storing extra data
     // in the GPU cache, depending on the type of
     // picture.
-    pub extra_gpu_data_handles: SmallVec<[GpuCacheHandle; 1]>,
+    pub extra_gpu_data: SmallVec<[GpuBufferAddress; 1]>,
 
     /// The spatial node index of this picture when it is
     /// composited into the parent picture.
@@ -5332,7 +5331,7 @@ impl PicturePrimitive {
             composite_mode,
             raster_config: None,
             context_3d,
-            extra_gpu_data_handles: SmallVec::new(),
+            extra_gpu_data: SmallVec::new(),
             is_backface_visible: prim_flags.contains(PrimitiveFlags::IS_BACKFACE_VISIBLE),
             spatial_node_index,
             prev_local_rect: LayoutRect::zero(),
@@ -5510,7 +5509,7 @@ impl PicturePrimitive {
                         if let Some(TileSurface::Texture { descriptor, .. }) = tile.surface.as_ref() {
                             if let SurfaceTextureDescriptor::TextureCache { handle: Some(handle), .. } = descriptor {
                                 frame_state.resource_cache
-                                    .picture_textures.request(handle, frame_state.gpu_cache);
+                                    .picture_textures.request(handle, &mut frame_state.frame_gpu_data.f32);
                             }
                         }
 
@@ -5546,7 +5545,7 @@ impl PicturePrimitive {
                                         // TODO(gw): Consider switching to manual eviction policy?
                                         frame_state.resource_cache
                                             .picture_textures
-                                            .request(handle.as_ref().unwrap(), frame_state.gpu_cache);
+                                            .request(handle.as_ref().unwrap(), &mut frame_state.frame_gpu_data.f32);
                                     } else {
                                         // If the texture was evicted on a previous frame, we need to assume
                                         // that the entire tile rect is dirty.
@@ -5603,7 +5602,7 @@ impl PicturePrimitive {
                                         frame_state.resource_cache.picture_textures.update(
                                             tile_cache.current_tile_size,
                                             handle,
-                                            frame_state.gpu_cache,
+                                            &mut frame_state.frame_gpu_data.f32,
                                             &mut frame_state.resource_cache.texture_cache.next_id,
                                             &mut frame_state.resource_cache.texture_cache.pending_updates,
                                         );
@@ -6028,14 +6027,6 @@ impl PicturePrimitive {
                 //           use of the conservative picture rect for segmenting (which should
                 //           be done during scene building).
                 if local_rect != self.prev_local_rect {
-                    match raster_config.composite_mode {
-                        PictureCompositeMode::Filter(Filter::DropShadows(..)) => {
-                            for handle in &self.extra_gpu_data_handles {
-                                frame_state.gpu_cache.invalidate(handle);
-                            }
-                        }
-                        _ => {}
-                    }
                     // Invalidate any segments built for this picture, since the local
                     // rect has changed.
                     self.segments_are_valid = false;
@@ -6139,7 +6130,7 @@ impl PicturePrimitive {
                             &self.snapshot,
                             &surface_rects,
                             false,
-                            &mut|rg_builder, _, _| {
+                            &mut|rg_builder, _| {
                                 RenderTask::new_blur(
                                     blur_std_deviation,
                                     picture_task_id,
@@ -6188,7 +6179,7 @@ impl PicturePrimitive {
 
                         let mut blur_tasks = BlurTaskCache::default();
 
-                        self.extra_gpu_data_handles.resize(shadows.len(), GpuCacheHandle::new());
+                        self.extra_gpu_data.resize(shadows.len(), GpuBufferAddress::INVALID);
 
                         let mut blur_render_task_id = picture_task_id;
                         for shadow in shadows {
@@ -6316,7 +6307,7 @@ impl PicturePrimitive {
                             &self.snapshot,
                             &surface_rects,
                             is_opaque,
-                            &mut|rg_builder, _, _| {
+                            &mut|rg_builder, _| {
                                 rg_builder.add().init(
                                     RenderTask::new_dynamic(
                                         task_size,
@@ -6355,7 +6346,7 @@ impl PicturePrimitive {
                             &self.snapshot,
                             &surface_rects,
                             is_opaque,
-                            &mut|rg_builder, _, _| {
+                            &mut|rg_builder, _| {
                                 rg_builder.add().init(
                                     RenderTask::new_dynamic(
                                         surface_rects.task_size,
@@ -6394,7 +6385,7 @@ impl PicturePrimitive {
                             &self.snapshot,
                             &surface_rects,
                             is_opaque,
-                            &mut|rg_builder, _, _| {
+                            &mut|rg_builder, _| {
                                 rg_builder.add().init(
                                     RenderTask::new_dynamic(
                                         surface_rects.task_size,
@@ -6434,7 +6425,7 @@ impl PicturePrimitive {
                             &self.snapshot,
                             &surface_rects,
                             is_opaque,
-                            &mut|rg_builder, _, _| {
+                            &mut|rg_builder, _| {
                                 rg_builder.add().init(
                                     RenderTask::new_dynamic(
                                         surface_rects.task_size,
@@ -6479,7 +6470,7 @@ impl PicturePrimitive {
                             &self.snapshot,
                             &surface_rects,
                             is_opaque,
-                            &mut|rg_builder, _, _| {
+                            &mut|rg_builder, _| {
                                 rg_builder.add().init(
                                     RenderTask::new_dynamic(
                                         surface_rects.task_size,
@@ -6538,7 +6529,7 @@ impl PicturePrimitive {
                             &self.snapshot,
                             &surface_rects,
                             is_opaque,
-                            &mut|rg_builder, _, _| {
+                            &mut|rg_builder, _| {
                                 RenderTask::new_svg_filter(
                                     primitives,
                                     filter_datas,
@@ -6613,11 +6604,11 @@ impl PicturePrimitive {
                             &self.snapshot,
                             &surface_rects,
                             false,
-                            &mut|rg_builder, _, gpu_cache| {
+                            &mut|rg_builder, gpu_buffer| {
                                 RenderTask::new_svg_filter_graph(
                                     filters,
                                     rg_builder,
-                                    gpu_cache,
+                                    gpu_buffer,
                                     data_stores,
                                     surface_rects.uv_rect_kind,
                                     picture_task_id,
@@ -6778,7 +6769,7 @@ impl PicturePrimitive {
             PicturePrimitive::resolve_split_planes(
                 splitter,
                 list,
-                &mut frame_state.gpu_cache,
+                &mut frame_state.frame_gpu_data.f32,
                 &frame_context.spatial_tree,
             );
 
@@ -6887,7 +6878,7 @@ impl PicturePrimitive {
     fn resolve_split_planes(
         splitter: &mut PlaneSplitter,
         ordered: &mut Vec<OrderedPictureChild>,
-        gpu_cache: &mut GpuCache,
+        gpu_buffer: &mut GpuBufferBuilderF,
         spatial_tree: &SpatialTree,
     ) {
         ordered.clear();
@@ -6923,12 +6914,11 @@ impl PicturePrimitive {
             let p1 = local_points[1].unwrap();
             let p2 = local_points[2].unwrap();
             let p3 = local_points[3].unwrap();
-            let gpu_blocks = [
-                [p0.x, p0.y, p1.x, p1.y].into(),
-                [p2.x, p2.y, p3.x, p3.y].into(),
-            ];
-            let gpu_handle = gpu_cache.push_per_frame_blocks(&gpu_blocks);
-            let gpu_address = gpu_cache.get_address(&gpu_handle);
+
+            let mut writer = gpu_buffer.write_blocks(2);
+            writer.push_one([p0.x, p0.y, p1.x, p1.y]);
+            writer.push_one([p2.x, p2.y, p3.x, p3.y]);
+            let gpu_address = writer.finish();
 
             ordered.push(OrderedPictureChild {
                 anchor: poly.anchor,
@@ -7252,7 +7242,7 @@ impl PicturePrimitive {
             }
         };
 
-        // TODO(gw): Almost all of the Picture types below use extra_gpu_cache_data
+        // TODO(gw): Almost all of the Picture types below use extra_gpu_data
         //           to store the same type of data. The exception is the filter
         //           with a ColorMatrix, which stores the color matrix here. It's
         //           probably worth tidying this code up to be a bit more consistent.
@@ -7263,67 +7253,68 @@ impl PicturePrimitive {
             PictureCompositeMode::TileCache { .. } => {}
             PictureCompositeMode::Filter(Filter::Blur { .. }) => {}
             PictureCompositeMode::Filter(Filter::DropShadows(ref shadows)) => {
-                self.extra_gpu_data_handles.resize(shadows.len(), GpuCacheHandle::new());
-                for (shadow, extra_handle) in shadows.iter().zip(self.extra_gpu_data_handles.iter_mut()) {
-                    if let Some(mut request) = frame_state.gpu_cache.request(extra_handle) {
-                        let surface = &frame_state.surfaces[raster_config.surface_index.0];
-                        let prim_rect = surface.clipped_local_rect.cast_unit();
+                self.extra_gpu_data.resize(shadows.len(), GpuBufferAddress::INVALID);
+                for (shadow, extra_handle) in shadows.iter().zip(self.extra_gpu_data.iter_mut()) {
+                    let mut writer = frame_state.frame_gpu_data.f32.write_blocks(5);
+                    let surface = &frame_state.surfaces[raster_config.surface_index.0];
+                    let prim_rect = surface.clipped_local_rect.cast_unit();
 
-                        // Basic brush primitive header is (see end of prepare_prim_for_render_inner in prim_store.rs)
-                        //  [brush specific data]
-                        //  [segment_rect, segment data]
-                        let (blur_inflation_x, blur_inflation_y) = surface.clamp_blur_radius(
-                            shadow.blur_radius,
-                            shadow.blur_radius,
-                        );
+                    // Basic brush primitive header is (see end of prepare_prim_for_render_inner in prim_store.rs)
+                    //  [brush specific data]
+                    //  [segment_rect, segment data]
+                    let (blur_inflation_x, blur_inflation_y) = surface.clamp_blur_radius(
+                        shadow.blur_radius,
+                        shadow.blur_radius,
+                    );
 
-                        let shadow_rect = prim_rect.inflate(
-                            blur_inflation_x * BLUR_SAMPLE_SCALE,
-                            blur_inflation_y * BLUR_SAMPLE_SCALE,
-                        ).translate(shadow.offset);
+                    let shadow_rect = prim_rect.inflate(
+                        blur_inflation_x * BLUR_SAMPLE_SCALE,
+                        blur_inflation_y * BLUR_SAMPLE_SCALE,
+                    ).translate(shadow.offset);
 
-                        // ImageBrush colors
-                        request.push(shadow.color.premultiplied());
-                        request.push(PremultipliedColorF::WHITE);
-                        request.push([
-                            shadow_rect.width(),
-                            shadow_rect.height(),
-                            0.0,
-                            0.0,
-                        ]);
+                    // ImageBrush colors
+                    writer.push_one(shadow.color.premultiplied());
+                    writer.push_one(PremultipliedColorF::WHITE);
+                    writer.push_one([
+                        shadow_rect.width(),
+                        shadow_rect.height(),
+                        0.0,
+                        0.0,
+                    ]);
 
-                        // segment rect / extra data
-                        request.push(shadow_rect);
-                        request.push([0.0, 0.0, 0.0, 0.0]);
-                    }
+                    // segment rect / extra data
+                    writer.push_one(shadow_rect);
+                    writer.push_one([0.0, 0.0, 0.0, 0.0]);
+
+                    *extra_handle = writer.finish();
                 }
             }
             PictureCompositeMode::Filter(ref filter) => {
                 match *filter {
                     Filter::ColorMatrix(ref m) => {
-                        if self.extra_gpu_data_handles.is_empty() {
-                            self.extra_gpu_data_handles.push(GpuCacheHandle::new());
+                        if self.extra_gpu_data.is_empty() {
+                            self.extra_gpu_data.push(GpuBufferAddress::INVALID);
                         }
-                        if let Some(mut request) = frame_state.gpu_cache.request(&mut self.extra_gpu_data_handles[0]) {
-                            for i in 0..5 {
-                                request.push([m[i*4], m[i*4+1], m[i*4+2], m[i*4+3]]);
-                            }
+                        let mut writer = frame_state.frame_gpu_data.f32.write_blocks(5);
+                        for i in 0..5 {
+                            writer.push_one([m[i*4], m[i*4+1], m[i*4+2], m[i*4+3]]);
                         }
+                        self.extra_gpu_data[0] = writer.finish();
                     }
                     Filter::Flood(ref color) => {
-                        if self.extra_gpu_data_handles.is_empty() {
-                            self.extra_gpu_data_handles.push(GpuCacheHandle::new());
+                        if self.extra_gpu_data.is_empty() {
+                            self.extra_gpu_data.push(GpuBufferAddress::INVALID);
                         }
-                        if let Some(mut request) = frame_state.gpu_cache.request(&mut self.extra_gpu_data_handles[0]) {
-                            request.push(color.to_array());
-                        }
+                        let mut writer = frame_state.frame_gpu_data.f32.write_blocks(1);
+                        writer.push_one(color.to_array());
+                        self.extra_gpu_data[0] = writer.finish();
                     }
                     _ => {}
                 }
             }
             PictureCompositeMode::ComponentTransferFilter(handle) => {
                 let filter_data = &mut data_stores.filter_data[handle];
-                filter_data.update(&mut frame_state.gpu_cache);
+                filter_data.write_gpu_blocks(&mut frame_state.frame_gpu_data.f32);
             }
             PictureCompositeMode::MixBlend(..) |
             PictureCompositeMode::Blit(_) |
@@ -7335,7 +7326,7 @@ impl PicturePrimitive {
                     match op {
                         FilterGraphOp::SVGFEComponentTransferInterned { handle, creates_pixels: _ } => {
                             let filter_data = &mut data_stores.filter_data[*handle];
-                            filter_data.update(&mut frame_state.gpu_cache);
+                            filter_data.write_gpu_blocks(&mut frame_state.frame_gpu_data.f32);
                         }
                         _ => {}
                     }
@@ -8622,7 +8613,7 @@ fn request_render_task(
     snapshot: &Option<SnapshotInfo>,
     surface_rects: &SurfaceAllocInfo,
     is_opaque: bool,
-    f: &mut dyn FnMut(&mut RenderTaskGraphBuilder, &mut GpuBufferBuilderF, &mut GpuCache) -> RenderTaskId,
+    f: &mut dyn FnMut(&mut RenderTaskGraphBuilder, &mut GpuBufferBuilderF) -> RenderTaskId,
 ) -> RenderTaskId {
 
     let task_id = match snapshot {
@@ -8636,7 +8627,6 @@ fn request_render_task(
                 surface_rects.task_size,
                 frame_state.rg_builder,
                 &mut frame_state.frame_gpu_data.f32,
-                frame_state.gpu_cache,
                 is_opaque,
                 &adjustment,
                 f
@@ -8659,7 +8649,6 @@ fn request_render_task(
             f(
                 frame_state.rg_builder,
                 &mut frame_state.frame_gpu_data.f32,
-                frame_state.gpu_cache
             )
         }
     };

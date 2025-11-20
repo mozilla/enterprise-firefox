@@ -39,12 +39,12 @@ class ScriptHashKey : public PLDHashEntryHdr {
 
   explicit ScriptHashKey(const ScriptHashKey& aKey)
       : PLDHashEntryHdr(),
+        mURI(aKey.mURI),
+        mPartitionPrincipal(aKey.mPartitionPrincipal),
+        mLoaderPrincipal(aKey.mLoaderPrincipal),
         mKind(aKey.mKind),
         mCORSMode(aKey.mCORSMode),
-        mIsLinkRelPreload(aKey.mIsLinkRelPreload),
-        mURI(aKey.mURI),
-        mLoaderPrincipal(aKey.mLoaderPrincipal),
-        mPartitionPrincipal(aKey.mPartitionPrincipal),
+        mReferrerPolicy(aKey.mReferrerPolicy),
         mSRIMetadata(aKey.mSRIMetadata),
         mNonce(aKey.mNonce),
         mHintCharset(aKey.mHintCharset) {
@@ -55,12 +55,12 @@ class ScriptHashKey : public PLDHashEntryHdr {
 
   ScriptHashKey(ScriptHashKey&& aKey)
       : PLDHashEntryHdr(),
+        mURI(std::move(aKey.mURI)),
+        mPartitionPrincipal(std::move(aKey.mPartitionPrincipal)),
+        mLoaderPrincipal(std::move(aKey.mLoaderPrincipal)),
         mKind(std::move(aKey.mKind)),
         mCORSMode(std::move(aKey.mCORSMode)),
-        mIsLinkRelPreload(std::move(aKey.mIsLinkRelPreload)),
-        mURI(std::move(aKey.mURI)),
-        mLoaderPrincipal(std::move(aKey.mLoaderPrincipal)),
-        mPartitionPrincipal(std::move(aKey.mPartitionPrincipal)),
+        mReferrerPolicy(std::move(aKey.mReferrerPolicy)),
         mSRIMetadata(std::move(aKey.mSRIMetadata)),
         mNonce(std::move(aKey.mNonce)),
         mHintCharset(std::move(aKey.mHintCharset)) {
@@ -72,6 +72,7 @@ class ScriptHashKey : public PLDHashEntryHdr {
                 const JS::loader::LoadedScript* aLoadedScript);
   ScriptHashKey(ScriptLoader* aLoader,
                 const JS::loader::ScriptLoadRequest* aRequest,
+                mozilla::dom::ReferrerPolicy aReferrerPolicy,
                 const JS::loader::ScriptFetchOptions* aFetchOptions,
                 const nsCOMPtr<nsIURI> aURI);
   explicit ScriptHashKey(const ScriptLoadData& aLoadData);
@@ -100,26 +101,32 @@ class ScriptHashKey : public PLDHashEntryHdr {
   enum { ALLOW_MEMMOVE = true };
 
  protected:
+  // Order the fields from the most important one as much as possible, while
+  // packing them, in order to use the same order between the definition and
+  // the KeyEquals implementation.
+
+  // The script's URI.  This should distinguish the cache entry in most case.
+  const nsCOMPtr<nsIURI> mURI;
+
+  // If single content process has multiple principals, mPartitionPrincipal
+  // should distinguish them.
+  const nsCOMPtr<nsIPrincipal> mPartitionPrincipal;
+
+  // NOTE: mLoaderPrincipal is only for SharedSubResourceCache logic,
+  //       and not part of KeyEquals.
+  const nsCOMPtr<nsIPrincipal> mLoaderPrincipal;
+
+  // Other fields should be unique per each script in general.
   const JS::loader::ScriptKind mKind;
   const CORSMode mCORSMode;
-  const bool mIsLinkRelPreload;
+  const mozilla::dom::ReferrerPolicy mReferrerPolicy;
 
-  const nsCOMPtr<nsIURI> mURI;
-  const nsCOMPtr<nsIPrincipal> mLoaderPrincipal;
-  const nsCOMPtr<nsIPrincipal> mPartitionPrincipal;
   const SRIMetadata mSRIMetadata;
   const nsString mNonce;
 
   // charset attribute for classic script.
   // module always use UTF-8.
   nsString mHintCharset;
-
-  // TODO: Reflect URL classifier data source.
-  // mozilla::dom::ContentType
-  //   maybe implicit
-  // top-level document's host
-  //   maybe part of principal?
-  //   what if it's inside frame in different host?
 };
 
 class ScriptLoadData final
@@ -201,6 +208,8 @@ class SharedScriptCache final
   void EncodeAndCompress();
   void SaveToDiskCache();
 
+  void InvalidateInProcess();
+
   // This has to be static because it's also called for loaders that don't have
   // a sheet cache (loaders that are not owned by a document).
   static void LoadCompleted(SharedScriptCache*, ScriptLoadData&);
@@ -210,6 +219,8 @@ class SharedScriptCache final
                     const Maybe<nsCString>& aSchemelessSite = Nothing(),
                     const Maybe<OriginAttributesPattern>& aPattern = Nothing(),
                     const Maybe<nsCString>& aURL = Nothing());
+
+  static void Invalidate();
 
   static void PrepareForLastCC();
 

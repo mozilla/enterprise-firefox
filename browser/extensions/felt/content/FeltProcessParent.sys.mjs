@@ -27,7 +27,7 @@ export function queueURL(url) {
   ) {
     gFeltProcessParentInstance.sendURLToFirefox(url);
     // Ensure Felt launcher stays hidden when forwarding to running Firefox
-    Services.felt.makeBackgroundProcess();
+    Services.felt.makeBackgroundProcess(true);
   } else {
     // Queue at module level until ready
     gFeltPendingURLs.push(url);
@@ -63,15 +63,45 @@ export class FeltProcessParent extends JSProcessActorParent {
               "enterprise.disable_restart",
               false
             );
-            if (!restartDisabled) {
-              Services.ppmm.broadcastAsyncMessage(
-                "FeltParent:RestartFirefox",
-                {}
-              );
-            } else {
+            console.debug(
+              `FeltExtension: ParentProcess: restart notification, restartDisabled=${restartDisabled}`
+            );
+            // Kill Firefox directly instead of broadcasting to receiveMessage()
+            // since gFeltProcessParentInstance is accessible here
+            if (gFeltProcessParentInstance?.proc) {
+              gFeltProcessParentInstance.restartReported = true;
+              gFeltProcessParentInstance.firefox = null;
               console.debug(
-                `FeltExtension: ParentProcess: restart is disabled`
+                `FeltExtension: ParentProcess: Killing Firefox PID=${gFeltProcessParentInstance.proc.pid}`
               );
+              gFeltProcessParentInstance.proc
+                .kill()
+                .then(() => {
+                  console.debug(
+                    `FeltExtension: ParentProcess: Killed Firefox, restartDisabled=${restartDisabled}`
+                  );
+                  if (!restartDisabled) {
+                    console.debug(
+                      `FeltExtension: ParentProcess: Starting new Firefox`
+                    );
+                    gFeltProcessParentInstance.startFirefox();
+                  } else {
+                    console.debug(
+                      `FeltExtension: ParentProcess: Restart disabled, sending normal exit to restore FELT UI`
+                    );
+                    Services.cpmm.sendAsyncMessage(
+                      "FeltParent:FirefoxNormalExit",
+                      {}
+                    );
+                  }
+                })
+                .catch(err => {
+                  console.debug(
+                    `FeltExtension: ParentProcess: Kill failed: ${err}`
+                  );
+                });
+            } else {
+              console.debug(`FeltExtension: ParentProcess: No proc to kill!`);
             }
             break;
           }
@@ -82,6 +112,10 @@ export class FeltProcessParent extends JSProcessActorParent {
             }
             break;
           }
+          case "felt-firefox-logout":
+            gFeltProcessParentInstance.logoutFirefox();
+            break;
+
           default:
             console.debug(`FeltExtension: ParentProcess: Unhandled ${aTopic}`);
             break;
@@ -89,9 +123,9 @@ export class FeltProcessParent extends JSProcessActorParent {
       },
     };
 
-    Services.cpmm.addMessageListener("FeltParent:RestartFirefox", this);
     Services.obs.addObserver(this.restartObserver, "felt-firefox-restarting");
     Services.obs.addObserver(this.restartObserver, "felt-extension-ready");
+    Services.obs.addObserver(this.restartObserver, "felt-firefox-logout");
   }
 
   sanitizePrefs(prefs) {
@@ -146,6 +180,7 @@ export class FeltProcessParent extends JSProcessActorParent {
 
   async startFirefox(ssoCollectedCookies = []) {
     this.restartReported = false;
+    this.logoutReported = false;
     this.firefoxReady = false;
     this.extensionReady = false;
     Services.cpmm.sendAsyncMessage("FeltParent:FirefoxStarting", {});
@@ -192,10 +227,9 @@ export class FeltProcessParent extends JSProcessActorParent {
         this.proc.exitPromise.then(ev => {
           console.debug(`firefox exit: ev`, JSON.stringify(ev));
           console.debug(
-            `firefox exit: exitCode`,
-            JSON.stringify(this.proc.exitCode)
+            `firefox exit: PID:${this.proc.pid} exitCode:${JSON.stringify(this.proc.exitCode)}`
           );
-          if (!this.restartReported) {
+          if (!this.restartReported && !this.logoutReported) {
             if (this.proc.exitCode === 0) {
               Services.cpmm.sendAsyncMessage(
                 "FeltParent:FirefoxNormalExit",
@@ -358,6 +392,31 @@ export class FeltProcessParent extends JSProcessActorParent {
     gFeltPendingURLs.length = 0;
   }
 
+  /**
+   * Perform all the logout operations on FELT side
+   */
+  logoutFirefox() {
+    if (!Services.felt.isFeltUI()) {
+      throw new Error("Logout handling should only happen on FELT side.");
+    }
+
+    console.debug(
+      `FeltExtension: Logout, waiting on ${gFeltProcessParentInstance.proc.pid}`
+    );
+    gFeltProcessParentInstance.logoutReported = true;
+    lazy.ConsoleClient.clearTokenData();
+
+    // Ensure that things are cleared
+    const ssoCollectedCookies = gFeltProcessParentInstance.getAllCookies();
+    if (ssoCollectedCookies.length) {
+      throw new Error("Too many cookies!!");
+    }
+
+    gFeltProcessParentInstance.proc.exitPromise.then(_ => {
+      Services.cpmm.sendAsyncMessage("FeltParent:FirefoxLogoutExit", {});
+    });
+  }
+
   receiveMessage(message) {
     console.debug(
       `FeltExtension: ParentProcess: Received message ${message.name} => ${message.data}`
@@ -382,25 +441,6 @@ export class FeltProcessParent extends JSProcessActorParent {
 
           this.startFirefox(ssoCollectedCookies);
         }
-        break;
-
-      case "FeltParent:RestartFirefox":
-        this.restartReported = true;
-        this.firefox = null;
-        console.debug(`FeltExtension: ParentProcess: Killing firefox`);
-        this.proc
-          .kill()
-          .then(() => {
-            console.debug(
-              `FeltExtension: ParentProcess: Killed, starting new firefox`
-            );
-            this.startFirefox();
-          })
-          .catch(err => {
-            console.debug(
-              `FeltExtension: ParentProcess: Killed failed: ${err}`
-            );
-          });
         break;
 
       default:

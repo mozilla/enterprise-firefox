@@ -15,7 +15,7 @@ interface nsIFelt : nsISupports {
   ACString binPath();
 
   [must_use]
-  boolean makeBackgroundProcess();
+  boolean makeBackgroundProcess(in boolean background);
 
   [must_use]
   boolean isFeltUI();
@@ -61,4 +61,7 @@ interface nsIFelt : nsISupports {
 
   [must_use]
   void openURL(in ACString url);
+
+  [must_use]
+  void performSignout();
 };

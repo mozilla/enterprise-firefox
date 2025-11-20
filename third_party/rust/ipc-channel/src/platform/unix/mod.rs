@@ -10,54 +10,51 @@
 use crate::ipc::{self, IpcMessage};
 use bincode;
 use fnv::FnvHasher;
-use lazy_static::lazy_static;
-use libc::{self, MAP_FAILED, MAP_SHARED, PROT_READ, PROT_WRITE, SOCK_SEQPACKET, SOL_SOCKET};
+use libc::{
+    self, cmsghdr, linger, CMSG_DATA, CMSG_LEN, CMSG_SPACE, MAP_FAILED, MAP_SHARED, PROT_READ,
+    PROT_WRITE, SOCK_SEQPACKET, SOL_SOCKET,
+};
 use libc::{c_char, c_int, c_void, getsockopt, SO_LINGER, S_IFMT, S_IFSOCK};
-use libc::{iovec, mode_t, msghdr, off_t, recvmsg, sendmsg};
+use libc::{iovec, msghdr, off_t, recvmsg, sendmsg};
 use libc::{sa_family_t, setsockopt, size_t, sockaddr, sockaddr_un, socketpair, socklen_t};
 use libc::{EAGAIN, EWOULDBLOCK};
 use mio::unix::SourceFd;
 use mio::{Events, Interest, Poll, Token};
-#[cfg(all(feature = "memfd", target_os = "linux"))]
-use sc::syscall;
 use std::cell::Cell;
 use std::cmp;
 use std::collections::HashMap;
 use std::convert::TryInto;
 use std::error::Error as StdError;
-use std::ffi::CString;
+use std::ffi::{c_uint, CString};
 use std::fmt::{self, Debug, Formatter};
 use std::hash::BuildHasherDefault;
 use std::io;
-use std::marker::PhantomData;
 use std::mem;
 use std::ops::{Deref, RangeFrom};
 use std::os::fd::RawFd;
 use std::ptr;
 use std::slice;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 use std::thread;
 use std::time::{Duration, UNIX_EPOCH};
 use tempfile::{Builder, TempDir};
 
 const MAX_FDS_IN_CMSG: u32 = 64;
 
-const SCM_RIGHTS: c_int = 0x01;
-
 // The value Linux returns for SO_SNDBUF
 // is not the size we are actually allowed to use...
 // Empirically, we have to deduct 32 bytes from that.
 const RESERVED_SIZE: usize = 32;
 
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "illumos"))]
 const SOCK_FLAGS: c_int = libc::SOCK_CLOEXEC;
-#[cfg(not(target_os = "linux"))]
+#[cfg(not(any(target_os = "linux", target_os = "illumos")))]
 const SOCK_FLAGS: c_int = 0;
 
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "illumos"))]
 const RECVMSG_FLAGS: c_int = libc::MSG_CMSG_CLOEXEC;
-#[cfg(not(target_os = "linux"))]
+#[cfg(not(any(target_os = "linux", target_os = "illumos")))]
 const RECVMSG_FLAGS: c_int = 0;
 
 #[cfg(target_env = "gnu")]
@@ -81,18 +78,14 @@ unsafe fn new_sockaddr_un(path: *const c_char) -> (sockaddr_un, usize) {
     (sockaddr, mem::size_of::<sockaddr_un>())
 }
 
-lazy_static! {
-    static ref SYSTEM_SENDBUF_SIZE: usize = {
-        let (tx, _) = channel().expect("Failed to obtain a socket for checking maximum send size");
-        tx.get_system_sendbuf_size()
-            .expect("Failed to obtain maximum send size for socket")
-    };
-}
+static SYSTEM_SENDBUF_SIZE: LazyLock<usize> = LazyLock::new(|| {
+    let (tx, _) = channel().expect("Failed to obtain a socket for checking maximum send size");
+    tx.get_system_sendbuf_size()
+        .expect("Failed to obtain maximum send size for socket")
+});
 
 // The pid of the current process which is used to create unique IDs
-lazy_static! {
-    static ref PID: c_int = unsafe { libc::getpid() };
-}
+static PID: LazyLock<u32> = LazyLock::new(std::process::id);
 
 // A global count used to create unique IDs
 static SHM_COUNT: AtomicUsize = AtomicUsize::new(0);
@@ -131,9 +124,15 @@ pub struct OsIpcReceiver {
 impl Drop for OsIpcReceiver {
     fn drop(&mut self) {
         unsafe {
-            if self.fd.get() >= 0 {
-                let result = libc::close(self.fd.get());
-                assert!(thread::panicking() || result == 0);
+            let fd = self.fd.get();
+            if fd >= 0 {
+                let result = libc::close(fd);
+                assert!(
+                    thread::panicking() || result == 0,
+                    "closed receiver (fd: {}): {}",
+                    fd,
+                    UnixError::last(),
+                );
             }
         }
     }
@@ -185,18 +184,12 @@ impl Drop for SharedFileDescriptor {
 #[derive(PartialEq, Debug, Clone)]
 pub struct OsIpcSender {
     fd: Arc<SharedFileDescriptor>,
-    // Make sure this is `!Sync`, to match `mpsc::Sender`; and to discourage sharing references.
-    //
-    // (Rather, senders should just be cloned, as they are shared internally anyway --
-    // another layer of sharing only adds unnecessary overhead...)
-    nosync_marker: PhantomData<Cell<()>>,
 }
 
 impl OsIpcSender {
     fn from_fd(fd: c_int) -> OsIpcSender {
         OsIpcSender {
             fd: Arc::new(SharedFileDescriptor(fd)),
-            nosync_marker: PhantomData,
         }
     }
 
@@ -281,15 +274,16 @@ impl OsIpcSender {
             len: usize,
         ) -> Result<(), UnixError> {
             let result = unsafe {
-                let cmsg_length = mem::size_of_val(fds);
+                let cmsg_length = mem::size_of_val(fds) as c_uint;
                 let (cmsg_buffer, cmsg_space) = if cmsg_length > 0 {
-                    let cmsg_buffer = libc::malloc(CMSG_SPACE(cmsg_length)) as *mut cmsghdr;
+                    let cmsg_buffer =
+                        libc::malloc(CMSG_SPACE(cmsg_length) as usize) as *mut cmsghdr;
                     if cmsg_buffer.is_null() {
                         return Err(UnixError::last());
                     }
                     (*cmsg_buffer).cmsg_len = CMSG_LEN(cmsg_length) as MsgControlLen;
                     (*cmsg_buffer).cmsg_level = libc::SOL_SOCKET;
-                    (*cmsg_buffer).cmsg_type = SCM_RIGHTS;
+                    (*cmsg_buffer).cmsg_type = libc::SCM_RIGHTS;
 
                     ptr::copy_nonoverlapping(
                         fds.as_ptr(),
@@ -538,11 +532,10 @@ impl OsIpcReceiverSet {
             assert!(event.is_readable());
 
             let event_token = event.token();
-            let poll_entry = self
+            let poll_entry = *self
                 .pollfds
                 .get(&event_token)
-                .expect("Got event for unknown token.")
-                .clone();
+                .expect("Got event for unknown token.");
             loop {
                 match recv(poll_entry.fd, BlockingMode::Nonblocking) {
                     Ok(ipc_message) => {
@@ -589,10 +582,7 @@ impl OsIpcSelectionResult {
         match self {
             OsIpcSelectionResult::DataReceived(id, ipc_message) => (id, ipc_message),
             OsIpcSelectionResult::ChannelClosed(id) => {
-                panic!(
-                    "OsIpcSelectionResult::unwrap(): receiver ID {} was closed!",
-                    id
-                )
+                panic!("OsIpcSelectionResult::unwrap(): receiver ID {id} was closed!")
             },
         }
     }
@@ -716,7 +706,33 @@ fn make_socket_lingering(sockfd: c_int) -> Result<(), UnixError> {
         )
     };
     if err < 0 {
-        return Err(UnixError::last());
+        let error = UnixError::last();
+        if let UnixError::Errno(libc::EINVAL) = error {
+            // If the other side of the connection is already closed, POSIX.1-2024 (and earlier
+            // versions) require that setsockopt return EINVAL [1]. This is a bit unfortunate
+            // because SO_LINGER for a closed socket is logically a no-op, which is why some OSes
+            // like Linux don't follow this part of the spec. But other OSes like illumos do return
+            // EINVAL here.
+            //
+            // SO_LINGER is widely understood and EINVAL should not occur for any other reason, so
+            // accept those errors.
+            //
+            // Another option would be to call make_socket_lingering on the initial socket created
+            // by libc::socket, but whether accept inherits a particular option is
+            // implementation-defined [2]. This means that special-casing EINVAL is the most
+            // portable thing to do.
+            //
+            // [1] https://pubs.opengroup.org/onlinepubs/9799919799/functions/setsockopt.html:
+            //     "[EINVAL] The specified option is invalid at the specified socket level or the
+            //     socket has been shut down."
+            //
+            // [2] https://pubs.opengroup.org/onlinepubs/9799919799/functions/accept.html: "It is
+            //     implementation-defined which socket options, if any, on the accepted socket will
+            //     have a default value determined by a value previously customized by setsockopt()
+            //     on socket, rather than the default value used for other new sockets."
+        } else {
+            return Err(error);
+        }
     }
     Ok(())
 }
@@ -752,7 +768,9 @@ impl BackingStore {
     pub unsafe fn map_file(&self, length: Option<size_t>) -> (*mut u8, size_t) {
         let length = length.unwrap_or_else(|| {
             let mut st = mem::MaybeUninit::uninit();
-            assert!(libc::fstat(self.fd, st.as_mut_ptr()) == 0);
+            if libc::fstat(self.fd, st.as_mut_ptr()) != 0 {
+                panic!("error stating fd {}: {}", self.fd, UnixError::last());
+            }
             st.assume_init().st_size as size_t
         });
         if length == 0 {
@@ -830,6 +848,18 @@ impl Deref for OsIpcSharedMemory {
     #[inline]
     fn deref(&self) -> &[u8] {
         unsafe { slice::from_raw_parts(self.ptr, self.length) }
+    }
+}
+
+impl OsIpcSharedMemory {
+    /// # Safety
+    ///
+    /// This is safe if there is only one reader/writer on the data.
+    /// User can achieve this by not cloning [`IpcSharedMemory`]
+    /// and serializing/deserializing only once.
+    #[inline]
+    pub unsafe fn deref_mut(&mut self) -> &mut [u8] {
+        unsafe { slice::from_raw_parts_mut(self.ptr, self.length) }
     }
 }
 
@@ -991,7 +1021,10 @@ fn recv(fd: c_int, blocking_mode: BlockingMode) -> Result<IpcMessage, UnixError>
         let channel_length = if cmsg_length == 0 {
             0
         } else {
-            (cmsg.cmsg_len() - CMSG_ALIGN(mem::size_of::<cmsghdr>())) / mem::size_of::<c_int>()
+            // The control header is followed by an array of FDs. The size of the control header is
+            // determined by CMSG_SPACE. (On Linux this would the same as CMSG_ALIGN, but that isn't
+            // exposed by libc. CMSG_SPACE(0) is the portable version of that.)
+            (cmsg.cmsg_len() - CMSG_SPACE(0) as size_t) / mem::size_of::<c_int>()
         };
         for index in 0..channel_length {
             let fd = *cmsg_fds.add(index);
@@ -1076,29 +1109,11 @@ fn new_msghdr(iovec: &mut [iovec], cmsg_buffer: *mut cmsghdr, cmsg_space: MsgCon
     msghdr
 }
 
-#[cfg(not(all(target_os = "linux", feature = "memfd")))]
 fn create_shmem(name: CString, length: usize) -> c_int {
     unsafe {
-        // NB: the FreeBSD man page for shm_unlink states that it requires
-        // write permissions, but testing shows that read-write is required.
-        let fd = libc::shm_open(
-            name.as_ptr(),
-            libc::O_CREAT | libc::O_RDWR | libc::O_EXCL,
-            0o600,
-        );
+        let fd = libc::syscall(libc::SYS_memfd_create, name.as_ptr(), libc::MFD_CLOEXEC).try_into().unwrap();
         assert!(fd >= 0);
-        assert!(libc::shm_unlink(name.as_ptr()) == 0);
-        assert!(libc::ftruncate(fd, length as off_t) == 0);
-        fd
-    }
-}
-
-#[cfg(all(feature = "memfd", target_os = "linux"))]
-fn create_shmem(name: CString, length: usize) -> c_int {
-    unsafe {
-        let fd = memfd_create(name.as_ptr(), libc::MFD_CLOEXEC as usize);
-        assert!(fd >= 0);
-        assert!(libc::ftruncate(fd, length as off_t) == 0);
+        assert_eq!(libc::ftruncate(fd, length as off_t), 0);
         fd
     }
 }
@@ -1120,8 +1135,8 @@ impl Drop for UnixCmsg {
 
 impl UnixCmsg {
     unsafe fn new(iovec: &mut [iovec]) -> Result<UnixCmsg, UnixError> {
-        let cmsg_length = CMSG_SPACE(MAX_FDS_IN_CMSG as usize * mem::size_of::<c_int>());
-        let cmsg_buffer = libc::malloc(cmsg_length) as *mut cmsghdr;
+        let cmsg_length = CMSG_SPACE(MAX_FDS_IN_CMSG * (mem::size_of::<c_int>() as c_uint));
+        let cmsg_buffer = libc::malloc(cmsg_length as usize) as *mut cmsghdr;
         if cmsg_buffer.is_null() {
             return Err(UnixError::last());
         }
@@ -1139,17 +1154,7 @@ impl UnixCmsg {
                 }
             },
             BlockingMode::Timeout(duration) => {
-                #[cfg(target_os = "linux")]
-                const POLLRDHUP: libc::c_short = libc::POLLRDHUP;
-
-                // It's rather unfortunate that Rust's libc doesn't know that
-                // FreeBSD has POLLRDHUP, but in the mean time we can add
-                // the value ourselves.
-                // https://cgit.freebsd.org/src/tree/sys/sys/poll.h#n72
-                #[cfg(target_os = "freebsd")]
-                const POLLRDHUP: libc::c_short = 0x4000;
-
-                let events = libc::POLLIN | libc::POLLPRI | POLLRDHUP;
+                let events = libc::POLLIN | libc::POLLPRI | libc::POLLRDHUP;
 
                 let mut fd = [libc::pollfd {
                     fd,
@@ -1198,64 +1203,6 @@ fn is_socket(fd: c_int) -> bool {
         if libc::fstat(fd, st.as_mut_ptr()) != 0 {
             return false;
         }
-        S_ISSOCK(st.assume_init().st_mode as mode_t)
+        (st.assume_init().st_mode & S_IFMT) == S_IFSOCK
     }
-}
-
-// FFI stuff follows:
-
-#[cfg(all(feature = "memfd", target_os = "linux"))]
-unsafe fn memfd_create(name: *const c_char, flags: usize) -> c_int {
-    syscall!(MEMFD_CREATE, name, flags) as c_int
-}
-
-#[allow(non_snake_case)]
-fn CMSG_LEN(length: size_t) -> size_t {
-    CMSG_ALIGN(mem::size_of::<cmsghdr>()) + length
-}
-
-#[allow(non_snake_case)]
-unsafe fn CMSG_DATA(cmsg: *mut cmsghdr) -> *mut c_void {
-    (cmsg as *mut libc::c_uchar).add(CMSG_ALIGN(mem::size_of::<cmsghdr>())) as *mut c_void
-}
-
-#[allow(non_snake_case)]
-fn CMSG_ALIGN(length: size_t) -> size_t {
-    (length + mem::size_of::<size_t>() - 1) & !(mem::size_of::<size_t>() - 1)
-}
-
-#[allow(non_snake_case)]
-fn CMSG_SPACE(length: size_t) -> size_t {
-    CMSG_ALIGN(length) + CMSG_ALIGN(mem::size_of::<cmsghdr>())
-}
-
-#[allow(non_snake_case)]
-fn S_ISSOCK(mode: mode_t) -> bool {
-    (mode & S_IFMT) == S_IFSOCK
-}
-
-#[cfg(target_env = "gnu")]
-#[repr(C)]
-struct cmsghdr {
-    cmsg_len: MsgControlLen,
-    cmsg_level: c_int,
-    cmsg_type: c_int,
-}
-
-#[cfg(not(target_env = "gnu"))]
-#[repr(C)]
-struct cmsghdr {
-    #[cfg(target_endian = "big")]
-    __pad1: c_int,
-    cmsg_len: MsgControlLen,
-    #[cfg(target_endian = "little")]
-    __pad1: c_int,
-    cmsg_level: c_int,
-    cmsg_type: c_int,
-}
-
-#[repr(C)]
-struct linger {
-    l_onoff: c_int,
-    l_linger: c_int,
 }

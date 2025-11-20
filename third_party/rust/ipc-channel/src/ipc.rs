@@ -13,7 +13,7 @@ use crate::platform::{
 };
 
 use bincode;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{de::Error, Deserialize, Deserializer, Serialize, Serializer};
 use std::cell::RefCell;
 use std::cmp::min;
 use std::error::Error as StdError;
@@ -26,16 +26,13 @@ use std::time::Duration;
 
 thread_local! {
     static OS_IPC_CHANNELS_FOR_DESERIALIZATION: RefCell<Vec<OsOpaqueIpcChannel>> =
-        const { RefCell::new(Vec::new()) }
-}
-thread_local! {
+        const { RefCell::new(Vec::new()) };
+
     static OS_IPC_SHARED_MEMORY_REGIONS_FOR_DESERIALIZATION:
-        RefCell<Vec<Option<OsIpcSharedMemory>>> = const { RefCell::new(Vec::new()) }
-}
-thread_local! {
-    static OS_IPC_CHANNELS_FOR_SERIALIZATION: RefCell<Vec<OsIpcChannel>> = const { RefCell::new(Vec::new()) }
-}
-thread_local! {
+        RefCell<Vec<Option<OsIpcSharedMemory>>> = const { RefCell::new(Vec::new()) };
+
+    static OS_IPC_CHANNELS_FOR_SERIALIZATION: RefCell<Vec<OsIpcChannel>> = const { RefCell::new(Vec::new()) };
+
     static OS_IPC_SHARED_MEMORY_REGIONS_FOR_SERIALIZATION: RefCell<Vec<OsIpcSharedMemory>> =
         const { RefCell::new(Vec::new()) }
 }
@@ -50,8 +47,8 @@ pub enum IpcError {
 impl fmt::Display for IpcError {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            IpcError::Bincode(ref err) => write!(fmt, "bincode error: {}", err),
-            IpcError::Io(ref err) => write!(fmt, "io error: {}", err),
+            IpcError::Bincode(ref err) => write!(fmt, "bincode error: {err}"),
+            IpcError::Io(ref err) => write!(fmt, "io error: {err}"),
             IpcError::Disconnected => write!(fmt, "disconnected"),
         }
     }
@@ -76,7 +73,7 @@ pub enum TryRecvError {
 impl fmt::Display for TryRecvError {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            TryRecvError::IpcError(ref err) => write!(fmt, "ipc error: {}", err),
+            TryRecvError::IpcError(ref err) => write!(fmt, "ipc error: {err}"),
             TryRecvError::Empty => write!(fmt, "empty"),
         }
     }
@@ -353,6 +350,10 @@ where
 {
     /// Create an [IpcSender] connected to a previously defined [IpcOneShotServer].
     ///
+    /// This function should not be called more than once per [IpcOneShotServer],
+    /// otherwise the behaviour is unpredictable.
+    /// See [issue 378](https://github.com/servo/ipc-channel/issues/378) for details.
+    ///
     /// [IpcSender]: struct.IpcSender.html
     /// [IpcOneShotServer]: struct.IpcOneShotServer.html
     pub fn connect(name: String) -> Result<IpcSender<T>, io::Error> {
@@ -545,6 +546,24 @@ impl Deref for IpcSharedMemory {
     }
 }
 
+impl IpcSharedMemory {
+    /// Returns a mutable reference to the deref of this [`IpcSharedMemory`].
+    ///
+    /// # Safety
+    ///
+    /// This is safe if there is only one reader/writer on the data.
+    /// User can achieve this by not cloning [`IpcSharedMemory`]
+    /// and serializing/deserializing only once.
+    #[inline]
+    pub unsafe fn deref_mut(&mut self) -> &mut [u8] {
+        if let Some(os_shared_memory) = &mut self.os_shared_memory {
+            os_shared_memory.deref_mut()
+        } else {
+            &mut []
+        }
+    }
+}
+
 impl<'de> Deserialize<'de> for IpcSharedMemory {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -557,13 +576,15 @@ impl<'de> Deserialize<'de> for IpcSharedMemory {
 
         let os_shared_memory = OS_IPC_SHARED_MEMORY_REGIONS_FOR_DESERIALIZATION.with(
             |os_ipc_shared_memory_regions_for_deserialization| {
-                // FIXME(pcwalton): This could panic if the data was corrupt and the index was out
-                // of bounds. We should return an `Err` result instead.
-                os_ipc_shared_memory_regions_for_deserialization.borrow_mut()[index]
-                    .take()
-                    .unwrap()
+                let mut regions =  os_ipc_shared_memory_regions_for_deserialization.borrow_mut();
+                let Some(region) = regions.get_mut(index) else {
+                    return Err(format!("Cannot consume shared memory region at index {index}, there are only {} regions available", regions.len()));
+                };
+
+                region.take().ok_or_else(|| format!("Shared memory region {index} has already been consumed"))
             },
-        );
+        ).map_err(D::Error::custom)?;
+
         Ok(IpcSharedMemory {
             os_shared_memory: Some(os_shared_memory),
         })
@@ -652,7 +673,7 @@ impl IpcSelectionResult {
         match self {
             IpcSelectionResult::MessageReceived(id, message) => (id, message),
             IpcSelectionResult::ChannelClosed(id) => {
-                panic!("IpcSelectionResult::unwrap(): channel {} closed", id)
+                panic!("IpcSelectionResult::unwrap(): channel {id} closed")
             },
         }
     }
@@ -811,7 +832,8 @@ impl Serialize for OpaqueIpcReceiver {
     }
 }
 
-/// A server associated with a given name.
+/// A server associated with a given name. The server is "one-shot" because
+/// it accepts only one connect request from a client.
 ///
 /// # Examples
 ///

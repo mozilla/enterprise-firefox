@@ -3452,6 +3452,14 @@
   mirror: always
 #endif
 
+# This controls whether JS IPC messages are sent from child to parent using
+# the typeable JSIPCValue encoding, or simply sent using structured cloning.
+# This being true is necessary to type check messages.
+- name: dom.jsipc.send_typed
+  type: bool
+  value: false
+  mirror: always
+
 # Support for input type=month, type=week. By default, disabled.
 - name: dom.forms.datetime.others
   type: bool
@@ -7705,7 +7713,7 @@
 - name: gfx.webrender.layer-compositor
   type: bool
 #if defined(XP_WIN)
-  value: @IS_NIGHTLY_BUILD@
+  value: true
 #else
   value: false
 #endif
@@ -10163,17 +10171,6 @@
   mirror: always
   rust: true
 
-# Enable the new multi-pass grid track sizing algorithm.
-# This features implements two aspects from the CSS Grid Level 2 spec:
-# 1. Percent-valued row track size re-resolution:
-#    https://drafts.csswg.org/css-grid-2/#track-sizes
-# 2. Multi-pass grid sizing algorithm:
-#    https://drafts.csswg.org/css-grid-2/#algo-grid-sizing
-- name: layout.css.grid-multi-pass-track-sizing.enabled
-  type: bool
-  value: true
-  mirror: always
-
 # Is support for :heading and :heading() pseudo classes enabled?
 - name: layout.css.heading-selector.enabled
   type: RelaxedAtomicBool
@@ -12273,6 +12270,36 @@
 - name: media.video.dropped_frame_stats.enabled
   type: bool
   value: true
+  mirror: always
+
+# The target number of decoded video frames to maintain in
+# MediaDecoderStateMachine's mVideoQueue for hardware video decoding. Hardware
+# decoding is fast, so a small queue size is used to lower frame latency.
+- name: media.video-queue.hw-accel-size
+  type: RelaxedAtomicInt32
+  value: 3
+  mirror: always
+
+# The target number of decoded video frames to maintain in
+# MediaDecoderStateMachine's mVideoQueue for software video decoding. Software
+# decoding is slower, so a larger queue is used to lower chances of
+# dropping late frames.
+- name: media.video-queue.default-size
+  type: RelaxedAtomicInt32
+  value: 10
+  mirror: always
+
+# The maximum number of queued frames to send to the compositor.
+- name: media.video-queue.send-to-compositor-size
+  type: RelaxedAtomicInt32
+#ifdef ANDROID
+# On Android, it needs to be throttled because SurfaceTexture contains only one
+# (the most recent) image data. See bug 1299068.
+  value: 1
+#else
+# Send all of them.
+  value: 9999
+#endif
   mirror: always
 
 # Opus
@@ -14729,7 +14756,7 @@
 # If true, retry TRR for recoverable errors once.
 - name: network.trr.retry_on_recoverable_errors
   type: RelaxedAtomicBool
-  value: true
+  value: false
   mirror: always
 
 # If true, don't fallback to native DNS upon network errors.
@@ -15439,6 +15466,13 @@
   value: 30
   mirror: always
 
+# Whether to enable Packetization Layer Path MTU Discovery.
+- name: network.http.http3.pmtud
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+  rust: true
+
 # When true, a http request will be upgraded to https when HTTPS RR is
 # available.
 - name: network.dns.upgrade_with_https_rr
@@ -15801,7 +15835,7 @@
 # to a fallback domain that hosts the same content.
 - name: network.essential_domains_fallback
   type: RelaxedAtomicBool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # Enable HTTP Compression Dictionary support

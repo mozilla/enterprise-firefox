@@ -196,6 +196,22 @@ impl FeltXPCOM {
         self.send(FeltMessage::OpenURL(url_s))
     }
 
+    // Firefox to FELT to notify of logout
+    fn PerformSignout(&self) -> nserror::nsresult {
+        trace!("FeltXPCOM::PerformSignout");
+        let guard = crate::FELT_CLIENT.lock().expect("Could not get lock");
+        match &*guard {
+            Some(client) => {
+                trace!("firefox_felt_send_extension_ready(): sending message");
+                client.notify_signout();
+            }
+            None => {
+                trace!("firefox_felt_send_extension_ready(): missing client");
+            }
+        }
+        NS_OK
+    }
+
     fn IpcChannel(&self) -> nserror::nsresult {
         let felt_server = match self.one_shot_server.take() {
             Some(f) => f,
@@ -275,6 +291,10 @@ impl FeltXPCOM {
                                 trace!("FeltServerThread::felt_server::ipc_loop(): ExtensionReady");
                                 crate::utils::notify_observers("felt-extension-ready".to_string());
                             },
+                            Ok(FeltMessage::LogoutShutdown) => {
+                                trace!("FeltServerThread::felt_server::ipc_loop(): Shutdown for logout");
+                                crate::utils::notify_observers("felt-firefox-logout".to_string());
+                            },
                             Ok(msg) => {
                                 trace!("FeltServerThread::felt_server::ipc_loop(): UNEXPECTED MSG {:?}", msg);
                             },
@@ -324,7 +344,8 @@ impl FeltXPCOM {
         }
     }
 
-    fn MakeBackgroundProcess(&self, success: *mut bool) -> nserror::nsresult {
+    #[allow(unused_variables)]
+    fn MakeBackgroundProcess(&self, background: bool, success: *mut bool) -> nserror::nsresult {
         trace!("FeltXPCOM: MakeBackgroundProcess");
         unsafe {
             *success = false;
@@ -338,6 +359,7 @@ impl FeltXPCOM {
             }
 
             type ProcessApplicationTransformState = u32;
+            let kProcessTransformToForegroundApplication = 1;
             let kProcessTransformToBackgroundApplication = 2;
             let kCurrentProcess = 2;
 
@@ -352,8 +374,16 @@ impl FeltXPCOM {
                 highLongOfPSN: 0,
                 lowLongOfPSN: kCurrentProcess,
             };
-            let rv =
-                unsafe { TransformProcessType(&psn, kProcessTransformToBackgroundApplication) };
+            let rv = unsafe {
+                TransformProcessType(
+                    &psn,
+                    if background {
+                        kProcessTransformToBackgroundApplication
+                    } else {
+                        kProcessTransformToForegroundApplication
+                    },
+                )
+            };
             trace!("FeltXPCOM: MakeBackgroundProcess: rv={:?}", rv);
 
             unsafe {

@@ -41,6 +41,7 @@ using namespace js::jit;
 class MOZ_RAII WarpCacheIRTranspiler : public WarpBuilderShared {
   WarpBuilder* builder_;
   BytecodeLocation loc_;
+  const WarpCacheIRBase* cacheIRSnapshot_;
   const CacheIRStubInfo* stubInfo_;
   const uint8_t* stubData_;
 
@@ -326,11 +327,13 @@ class MOZ_RAII WarpCacheIRTranspiler : public WarpBuilderShared {
 
  public:
   WarpCacheIRTranspiler(WarpBuilder* builder, BytecodeLocation loc,
-                        CallInfo* callInfo, const WarpCacheIR* cacheIRSnapshot)
+                        CallInfo* callInfo,
+                        const WarpCacheIRBase* cacheIRSnapshot)
       : WarpBuilderShared(builder->snapshot(), builder->mirGen(),
                           builder->currentBlock()),
         builder_(builder),
         loc_(loc),
+        cacheIRSnapshot_(cacheIRSnapshot),
         stubInfo_(cacheIRSnapshot->stubInfo()),
         stubData_(cacheIRSnapshot->stubData()),
         callInfo_(callInfo) {}
@@ -509,11 +512,17 @@ bool WarpCacheIRTranspiler::emitGuardObjectFuseProperty(
 bool WarpCacheIRTranspiler::emitGuardMultipleShapes(ObjOperandId objId,
                                                     uint32_t shapesOffset) {
   MDefinition* def = getOperand(objId);
-  MInstruction* shapeList = objectStubField(shapesOffset);
 
-  auto* ins = MGuardMultipleShapes::New(alloc(), def, shapeList);
-  if (builder_->info().inlineScriptTree()->hasSharedICScript()) {
-    ins->setBailoutKind(BailoutKind::MonomorphicInlinedStubFolding);
+  // Use MGuardShapeList if we snapshotted the list of shapes on the main
+  // thread.
+  MInstruction* ins;
+  if (cacheIRSnapshot_->is<WarpCacheIRWithShapeList>()) {
+    auto* shapes = cacheIRSnapshot_->as<WarpCacheIRWithShapeList>()->shapes();
+    ins = MGuardShapeList::New(alloc(), def, shapes);
+  } else {
+    MInstruction* shapeList = objectStubField(shapesOffset);
+    ins = MGuardMultipleShapes::New(alloc(), def, shapeList);
+    ins->setBailoutKind(BailoutKind::StubFoldingGuardMultipleShapes);
   }
   add(ins);
 
@@ -7236,7 +7245,7 @@ static void MaybeSetImplicitlyUsed(uint32_t numInstructionIdsBefore,
 }
 
 bool jit::TranspileCacheIRToMIR(WarpBuilder* builder, BytecodeLocation loc,
-                                const WarpCacheIR* cacheIRSnapshot,
+                                const WarpCacheIRBase* cacheIRSnapshot,
                                 std::initializer_list<MDefinition*> inputs,
                                 CallInfo* maybeCallInfo) {
   uint32_t numInstructionIdsBefore =

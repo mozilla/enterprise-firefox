@@ -34,9 +34,7 @@ class TimeStampTests;
 class BaseTimeDurationPlatformUtils {
  public:
   static MFBT_API double ToSeconds(int64_t aTicks);
-  static MFBT_API double ToSecondsSigDigits(int64_t aTicks);
   static MFBT_API int64_t TicksFromMilliseconds(double aMilliseconds);
-  static MFBT_API int64_t ResolutionInTicks();
 };
 
 /**
@@ -72,6 +70,8 @@ class BaseTimeDuration {
     return *this;
   }
 
+  // ToSeconds returns the (fractional) number of seconds of the duration
+  // with the maximum representable precision.
   double ToSeconds() const {
     if (mValue == INT64_MAX) {
       return PositiveInfinity<double>();
@@ -81,19 +81,11 @@ class BaseTimeDuration {
     }
     return BaseTimeDurationPlatformUtils::ToSeconds(mValue);
   }
-  // Return a duration value that includes digits of time we think to
-  // be significant.  This method should be used when displaying a
-  // time to humans.
-  double ToSecondsSigDigits() const {
-    if (mValue == INT64_MAX) {
-      return PositiveInfinity<double>();
-    }
-    if (mValue == INT64_MIN) {
-      return NegativeInfinity<double>();
-    }
-    return BaseTimeDurationPlatformUtils::ToSecondsSigDigits(mValue);
-  }
+  // ToMilliseconds returns the (fractional) number of milliseconds of the
+  // duration with the maximum representable precision.
   double ToMilliseconds() const { return ToSeconds() * 1000.0; }
+  // ToMicroseconds returns the (fractional) number of microseconds of the
+  // duration with the maximum representable precision.
   double ToMicroseconds() const { return ToMilliseconds() * 1000.0; }
 
   // Using a double here is safe enough; with 53 bits we can represent
@@ -158,10 +150,6 @@ class BaseTimeDuration {
                               const BaseTimeDuration& aB) {
     return FromTicks(std::min(aA.mValue, aB.mValue));
   }
-
-#if defined(DEBUG)
-  int64_t GetValue() const { return mValue; }
-#endif
 
  private:
   // Block double multiplier (slower, imprecise if long duration) - Bug 853398.
@@ -235,14 +223,6 @@ class BaseTimeDuration {
   friend std::ostream& operator<<(std::ostream& aStream,
                                   const BaseTimeDuration& aDuration) {
     return aStream << aDuration.ToMilliseconds() << " ms";
-  }
-
-  // Return a best guess at the system's current timing resolution,
-  // which might be variable.  BaseTimeDurations below this order of
-  // magnitude are meaningless, and those at the same order of
-  // magnitude or just above are suspect.
-  static BaseTimeDuration Resolution() {
-    return FromTicks(BaseTimeDurationPlatformUtils::ResolutionInTicks());
   }
 
   // We could define additional operators here:

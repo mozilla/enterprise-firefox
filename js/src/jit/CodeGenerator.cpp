@@ -19,6 +19,7 @@
 #include "mozilla/ScopeExit.h"
 #include "mozilla/SIMD.h"
 
+#include <algorithm>
 #include <cmath>
 #include <limits>
 #include <type_traits>
@@ -2825,7 +2826,7 @@ void CreateDependentString::generateFallback(MacroAssembler& masm) {
 
     masm.PushRegsInMask(regsToSave);
 
-    using Fn = void* (*)(JSContext* cx);
+    using Fn = void* (*)(JSContext * cx);
     masm.setupUnalignedABICall(string_);
     masm.loadJSContext(string_);
     masm.passABIArg(string_);
@@ -4497,6 +4498,44 @@ void CodeGenerator::visitGuardMultipleShapes(LGuardMultipleShapes* guard) {
   masm.loadPtr(Address(shapeList, NativeObject::offsetOfElements()), temp);
   masm.branchTestObjShapeList(Assembler::NotEqual, obj, temp, temp2, temp3,
                               spectre, &bail);
+  bailoutFrom(&bail, guard->snapshot());
+}
+
+void CodeGenerator::visitGuardShapeList(LGuardShapeList* guard) {
+  Register obj = ToRegister(guard->object());
+  Register temp = ToRegister(guard->temp0());
+  Register spectre = ToTempRegisterOrInvalid(guard->temp1());
+
+  Label done, bail;
+  masm.loadObjShapeUnsafe(obj, temp);
+
+  // Count the number of branches to emit.
+  const auto& shapes = guard->mir()->shapeList()->shapes();
+  size_t branchesLeft = std::count_if(shapes.begin(), shapes.end(),
+                                      [](Shape* s) { return s != nullptr; });
+  MOZ_RELEASE_ASSERT(branchesLeft > 0);
+
+  for (Shape* shape : shapes) {
+    if (!shape) {
+      continue;
+    }
+    if (branchesLeft > 1) {
+      masm.branchPtr(Assembler::Equal, temp, ImmGCPtr(shape), &done);
+      if (spectre != InvalidReg) {
+        masm.spectreMovePtr(Assembler::Equal, spectre, obj);
+      }
+    } else {
+      // This is the last branch so invert the condition and jump to |bail|.
+      masm.branchPtr(Assembler::NotEqual, temp, ImmGCPtr(shape), &bail);
+      if (spectre != InvalidReg) {
+        masm.spectreMovePtr(Assembler::NotEqual, spectre, obj);
+      }
+    }
+    branchesLeft--;
+  }
+  MOZ_ASSERT(branchesLeft == 0);
+
+  masm.bind(&done);
   bailoutFrom(&bail, guard->snapshot());
 }
 
@@ -7918,7 +7957,7 @@ void CodeGenerator::visitUnreachableResultT(LUnreachableResultT* lir) {
 
 void CodeGenerator::visitCheckOverRecursed(LCheckOverRecursed* lir) {
   // If we don't push anything on the stack, skip the check.
-  if (omitOverRecursedCheck()) {
+  if (omitOverRecursedStackCheck()) {
     return;
   }
 
@@ -9371,8 +9410,9 @@ void CodeGenerator::visitCreateArgumentsObject(LCreateArgumentsObject* lir) {
     masm.moveStackPtrTo(temp0);
     masm.addPtr(Imm32(masm.framePushed()), temp0);
 
-    using Fn = ArgumentsObject* (*)(JSContext* cx, jit::JitFrameLayout* frame,
-                                    JSObject* scopeChain, ArgumentsObject* obj);
+    using Fn =
+        ArgumentsObject* (*)(JSContext * cx, jit::JitFrameLayout * frame,
+                             JSObject * scopeChain, ArgumentsObject * obj);
     masm.setupAlignedABICall();
     masm.loadJSContext(cxTemp);
     masm.passABIArg(cxTemp);
@@ -14048,7 +14088,7 @@ void CodeGenerator::visitSubstr(LSubstr* lir) {
   // newGCFatInlineString. To squeeze out even more performance those failures
   // can be handled by allocate in ool code and returning to jit code to fill
   // in all data.
-  using Fn = JSString* (*)(JSContext* cx, HandleString str, int32_t begin,
+  using Fn = JSString* (*)(JSContext * cx, HandleString str, int32_t begin,
                            int32_t len);
   OutOfLineCode* ool = oolCallVM<Fn, SubstringKernel>(
       lir, ArgList(string, begin, length), StoreRegisterTo(output));
@@ -14387,7 +14427,7 @@ void JitRuntime::generateLazyLinkStub(MacroAssembler& masm) {
   masm.enterFakeExitFrame(temp0, temp2, ExitFrameType::LazyLink);
   masm.moveStackPtrTo(temp1);
 
-  using Fn = uint8_t* (*)(JSContext* cx, LazyLinkExitFrameLayout* frame);
+  using Fn = uint8_t* (*)(JSContext * cx, LazyLinkExitFrameLayout * frame);
   masm.setupUnalignedABICall(temp2);
   masm.passABIArg(temp0);
   masm.passABIArg(temp1);
@@ -17099,29 +17139,52 @@ bool CodeGenerator::generateWasm(wasm::CallIndirectId callIndirectId,
     return decoder->fail(decoder->beginOffset(), "stack frame is too large");
   }
 
-  if (omitOverRecursedCheck()) {
+  if (omitOverRecursedStackCheck()) {
     masm.reserveStack(frameSize());
+
+    // If we don't need to check the stack for recursion, we definitely don't
+    // need to check for interrupts.
+    MOZ_ASSERT(omitOverRecursedInterruptCheck());
   } else {
-    std::pair<CodeOffset, uint32_t> pair =
-        masm.wasmReserveStackChecked(frameSize(), entryTrapSiteDesc);
-    CodeOffset trapInsnOffset = pair.first;
-    size_t nBytesReservedBeforeTrap = pair.second;
+    auto* ool = new (alloc())
+        LambdaOutOfLineCode([this, entryTrapSiteDesc](OutOfLineCode& ool) {
+          masm.wasmTrap(wasm::Trap::StackOverflow, entryTrapSiteDesc);
+          return true;
+        });
+    addOutOfLineCode(ool, (const BytecodeSite*)nullptr);
+    masm.wasmReserveStackChecked(frameSize(), ool->entry());
 
-    wasm::StackMap* functionEntryStackMap = nullptr;
-    if (!CreateStackMapForFunctionEntryTrap(
-            argTypes, trapExitLayout, trapExitLayoutNumWords,
-            nBytesReservedBeforeTrap, nInboundStackArgBytes, *stackMaps,
-            &functionEntryStackMap)) {
-      return false;
-    }
+    if (!omitOverRecursedInterruptCheck()) {
+      wasm::StackMap* functionEntryStackMap = nullptr;
+      if (!CreateStackMapForFunctionEntryTrap(
+              argTypes, trapExitLayout, trapExitLayoutNumWords, frameSize(),
+              nInboundStackArgBytes, *stackMaps, &functionEntryStackMap)) {
+        return false;
+      }
 
-    // In debug builds, we'll always have a stack map, even if there are no
-    // refs to track.
-    MOZ_ASSERT(functionEntryStackMap);
+      // In debug builds, we'll always have a stack map, even if there are no
+      // refs to track.
+      MOZ_ASSERT(functionEntryStackMap);
 
-    if (functionEntryStackMap &&
-        !stackMaps->finalize(trapInsnOffset.offset(), functionEntryStackMap)) {
-      return false;
+      auto* ool = new (alloc()) LambdaOutOfLineCode(
+          [this, stackMaps, functionEntryStackMap](OutOfLineCode& ool) {
+            masm.wasmTrap(wasm::Trap::CheckInterrupt, wasm::TrapSiteDesc());
+            CodeOffset trapInsnOffset = CodeOffset(masm.currentOffset());
+
+            if (functionEntryStackMap &&
+                !stackMaps->add(trapInsnOffset.offset(),
+                                functionEntryStackMap)) {
+              return false;
+            }
+            masm.jump(ool.rejoin());
+            return true;
+          });
+
+      addOutOfLineCode(ool, (const BytecodeSite*)nullptr);
+      masm.branch32(Assembler::NotEqual,
+                    Address(InstanceReg, wasm::Instance::offsetOfInterrupt()),
+                    Imm32(0), ool->entry());
+      masm.bind(ool->rejoin());
     }
   }
 
@@ -21477,7 +21540,7 @@ void CodeGenerator::visitGenerator(LGenerator* lir) {
   pushArg(ImmGCPtr(current->mir()->info().script()));
   pushArg(callee);
 
-  using Fn = JSObject* (*)(JSContext* cx, HandleFunction, HandleScript,
+  using Fn = JSObject* (*)(JSContext * cx, HandleFunction, HandleScript,
                            HandleObject, HandleObject);
   callVM<Fn, CreateGenerator>(lir);
 }
@@ -21515,9 +21578,9 @@ void CodeGenerator::visitAsyncAwait(LAsyncAwait* lir) {
   pushArg(value);
   pushArg(generator);
 
-  using Fn =
-      JSObject* (*)(JSContext* cx, Handle<AsyncFunctionGeneratorObject*> genObj,
-                    HandleValue value);
+  using Fn = JSObject* (*)(JSContext * cx,
+                           Handle<AsyncFunctionGeneratorObject*> genObj,
+                           HandleValue value);
   callVM<Fn, js::AsyncFunctionAwait>(lir);
 }
 
@@ -22711,7 +22774,7 @@ void CodeGenerator::visitWasmAnyRefFromJSValue(LWasmAnyRefFromJSValue* lir) {
   Register output = ToRegister(lir->output());
   FloatRegister tempFloat = ToFloatRegister(lir->temp0());
 
-  using Fn = JSObject* (*)(JSContext* cx, HandleValue value);
+  using Fn = JSObject* (*)(JSContext * cx, HandleValue value);
   OutOfLineCode* oolBoxValue = oolCallVM<Fn, wasm::AnyRef::boxValue>(
       lir, ArgList(input), StoreRegisterTo(output));
   masm.convertValueToWasmAnyRef(input, output, tempFloat, oolBoxValue->entry());

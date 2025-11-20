@@ -46,7 +46,7 @@ const PREF_PREFIX = "devtools.performance.recording.";
 //
 // IMPORTANT NOTE: Please keep the existing profiler presets in sync with their
 // Fenix counterparts and consider adding any new presets to Fenix:
-// https://github.com/mozilla-mobile/firefox-android/blob/1d177e7e78d027e8ab32cedf0fc68316787d7454/fenix/app/src/main/java/org/mozilla/fenix/perf/ProfilerUtils.kt
+// https://searchfox.org/firefox-main/rev/d87eb30d610a3032111f9ee47441b53927de63d3/mobile/android/fenix/app/src/main/java/org/mozilla/fenix/perf/ProfilerUtils.kt
 
 /** @type {Presets} */
 export const presets = {
@@ -293,6 +293,25 @@ export const presets = {
       },
     },
   },
+  "web-compat": {
+    entries: 128 * 1024 * 1024,
+    interval: 1,
+    features: ["screenshots", "js", "stackwalk", "nostacksampling", "tracing"],
+    threads: ["GeckoMain", "DOM Worker"],
+    mozLogs: "console: 5, PageMessages: 5",
+    duration: 0,
+    profilerViewMode: "active-tab",
+    l10nIds: {
+      popup: {
+        label: "profiler-popup-presets-web-compat-label",
+        description: "profiler-popup-presets-web-compat-description",
+      },
+      devtools: {
+        label: "perftools-presets-web-compat-label",
+        description: "perftools-presets-web-compat-description",
+      },
+    },
+  },
 };
 
 /**
@@ -521,6 +540,7 @@ export function getRecordingSettingsFromPreset(
       supportedFeatures.includes(feature)
     ),
     threads: preset.threads,
+    mozLogs: preset.mozLogs,
     objdirs,
     duration: preset.duration,
   };

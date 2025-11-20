@@ -810,6 +810,9 @@ home-prefs-support-firefox-header =
 home-prefs-mission-message = Our sponsors support our mission to build a better web
 home-prefs-mission-message-learn-more-link = Find out how
 
+home-prefs-mission-message2 =
+    .message = Our sponsors support our mission to build a better web.
+
 home-prefs-manage-topics-link = Manage topics
 home-prefs-choose-wallpaper-link = Choose a wallpaper
 
@@ -1106,10 +1109,17 @@ privacy-header = Browser Privacy
 pane-privacy-passwords-header = Passwords
     .searchkeywords = logins
 
+forms-passwords-header =
+    .label = Passwords
+    .aria-label = Passwords
+
 # Checkbox to control whether UI is shown to users to save or fill logins/passwords.
 forms-ask-to-save-passwords =
     .label = Ask to save passwords
     .accesskey = A
+forms-manage-password-exceptions =
+    .label = Manage password exceptions
+    .accesskey = M
 forms-exceptions =
     .label = Exceptions…
     .accesskey = x
@@ -1129,12 +1139,32 @@ relay-integration-learn-more-link = Learn more
 forms-fill-usernames-and-passwords =
     .label = Fill usernames and passwords automatically
     .accesskey = F
+forms-fill-usernames-and-passwords-2 =
+    .label = Save and autofill usernames and passwords
+    .accesskey = f
 forms-saved-passwords =
     .label = Saved passwords
     .accesskey = d
+forms-saved-passwords-2 =
+    .label = Manage saved passwords
+    .accesskey = d
+forms-saved-passwords-searchkeywords = Logins for the following sites are stored on your computer
+
+# Header for additional protections when managing password settings.
+forms-additional-protections-header =
+    .label = Additional protections
 forms-primary-pw-use =
-    .label = Use a Primary Password
+    .label = Use a primary password
     .accesskey = U
+forms-primary-pw-set =
+    .label = Set primary password
+forms-primary-pw-on =
+    .label = Primary password is ON
+forms-primary-pw-change-2 =
+    .label = Change primary password
+# Label for button to disable primary password.
+forms-primary-pw-turn-off =
+    .label = Turn it off
 # This operation requires the user to authenticate with the operating system (device sign-in)
 forms-os-reauth =
     .label = Require device sign in to fill and manage passwords
@@ -1189,6 +1219,8 @@ autofill-payment-methods-header =
 autofill-payment-methods-checkbox-message-2 =
     .label = Save and autofill payment info
     .accesskey = p
+autofill-payment-methods-manage-payments-title =
+    .heading = Manage payment methods
 autofill-payment-methods-manage-payments-button =
     .label = Manage payment methods
     .accesskey = m
@@ -1197,6 +1229,13 @@ autofill-reauth-payment-methods-checkbox-2 =
     .label = Require device sign in to autofill and manage payments methods
     .accesskey = o
 
+autofill-payment-methods-add-button = Add new payment method
+payments-list-header =
+  .label = Payment methods
+payments-list-item-label = <strong>Payment methods</strong>
+payments-remove-payment-prompt-title = Remove this payment method?
+payments-remove-payment-prompt-confirm-button = Remove
+payments-remove-payment-prompt-cancel-button = Cancel
 autofill-addresses-title = Addresses and more
 autofill-addresses-header =
     .aria-label = Addresses and more
@@ -1206,6 +1245,15 @@ autofill-addresses-checkbox-message =
 autofill-addresses-manage-addresses-button =
     .label = Manage addresses and more
     .accesskey = M
+
+# These values are displayed for each credit card record listed on the Manage Payment methods
+# settings page.
+# Variables:
+#   $cardNumber (string) - The obscured credit card number (for example: 2423 *********)
+#   $expDate (string) - The obscured expiry date of the credit card (for example: XX/2027)
+payment-moz-box-item =
+  .label = { $cardNumber }
+  .description = { $expDate }
 
 ## Privacy Section - History
 

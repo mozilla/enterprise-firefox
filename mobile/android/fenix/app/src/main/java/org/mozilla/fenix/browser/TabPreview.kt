@@ -514,13 +514,6 @@ class TabPreview @JvmOverloads constructor(
     }
 
     private suspend fun buildComposableToolbarBrowserEndActions(tab: TabSessionState?): List<Action> {
-        val isBookmarked = tab?.content?.url?.let { url ->
-            context.components.core.bookmarksStorage
-                .getBookmarksWithUrl(url)
-                .getOrDefault(emptyList())
-                .isNotEmpty()
-        } ?: false
-
         val settings = context.settings()
         val isWideWindow = context.isWideWindow()
         val isTallWindow = context.isTallWindow()
@@ -528,11 +521,8 @@ class TabPreview @JvmOverloads constructor(
         val shouldUseExpandedToolbar = settings.shouldUseExpandedToolbar
 
         val useCustomPrimary = settings.shouldShowToolbarCustomization
-        val primarySlotAction = mapShortcutToAction(
-            settings.toolbarSimpleShortcutKey,
-            ToolbarAction.NewTab,
-            isBookmarked,
-        ).takeIf { useCustomPrimary } ?: ToolbarAction.NewTab
+        val primarySlotAction = ShortcutType.fromValue(settings.toolbarSimpleShortcutKey)
+            ?.toToolbarAction(tab).takeIf { useCustomPrimary } ?: ToolbarAction.NewTab
 
         return listOf(
             ToolbarActionConfig(primarySlotAction) {
@@ -556,22 +546,14 @@ class TabPreview @JvmOverloads constructor(
     }
 
     private suspend fun buildNavigationActions(tab: TabSessionState): List<Action> {
-        val isBookmarked = context.components.core.bookmarksStorage
-            .getBookmarksWithUrl(tab.content.url)
-            .getOrDefault(listOf())
-            .isNotEmpty()
-
         val settings = context.settings()
         val isWideWindow = context.isWideWindow()
         val isTallWindow = context.isTallWindow()
         val shouldUseExpandedToolbar = settings.shouldUseExpandedToolbar
 
         val useCustomPrimary = settings.shouldShowToolbarCustomization
-        val primarySlotAction = mapShortcutToAction(
-            settings.toolbarExpandedShortcutKey,
-            getBookmarkAction(isBookmarked),
-            isBookmarked,
-        ).takeIf { useCustomPrimary } ?: getBookmarkAction(isBookmarked)
+        val primarySlotAction = ShortcutType.fromValue(settings.toolbarExpandedShortcutKey)
+            ?.toToolbarAction(tab).takeIf { useCustomPrimary } ?: getBookmarkAction(tab)
 
         return listOf(
             ToolbarActionConfig(primarySlotAction) { shouldUseExpandedToolbar && isTallWindow && !isWideWindow },
@@ -616,25 +598,23 @@ class TabPreview @JvmOverloads constructor(
         false -> old()
     }
 
-    companion object {
-        private fun getBookmarkAction(isBookmarked: Boolean): ToolbarAction =
-            when (isBookmarked) {
-                true -> ToolbarAction.EditBookmark
-                false -> ToolbarAction.Bookmark
-            }
+    private suspend fun getBookmarkAction(tab: TabSessionState?): ToolbarAction {
+        val isBookmarked = tab?.content?.url?.let { url ->
+            context.components.core.bookmarksStorage
+                .getBookmarksWithUrl(url)
+                .getOrDefault(emptyList())
+                .isNotEmpty()
+        } ?: return ToolbarAction.Bookmark
 
-        private fun mapShortcutToAction(
-            key: String,
-            default: ToolbarAction,
-            isBookmarked: Boolean = false,
-        ): ToolbarAction = when (key) {
-            ShortcutType.NEW_TAB -> ToolbarAction.NewTab
-            ShortcutType.SHARE -> ToolbarAction.Share
-            ShortcutType.BOOKMARK -> getBookmarkAction(isBookmarked)
-            ShortcutType.TRANSLATE -> ToolbarAction.Translate
-            ShortcutType.HOMEPAGE -> ToolbarAction.Homepage
-            ShortcutType.BACK -> ToolbarAction.Back
-            else -> default
-        }
+        return if (isBookmarked) ToolbarAction.EditBookmark else ToolbarAction.Bookmark
+    }
+
+    private suspend fun ShortcutType.toToolbarAction(tab: TabSessionState?) = when (this) {
+        ShortcutType.NEW_TAB -> ToolbarAction.NewTab
+        ShortcutType.SHARE -> ToolbarAction.Share
+        ShortcutType.BOOKMARK -> getBookmarkAction(tab)
+        ShortcutType.TRANSLATE -> ToolbarAction.Translate
+        ShortcutType.HOMEPAGE -> ToolbarAction.Homepage
+        ShortcutType.BACK -> ToolbarAction.Back
     }
 }

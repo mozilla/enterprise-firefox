@@ -8,27 +8,26 @@
 // except according to those terms.
 
 //! Routers allow converting IPC channels to crossbeam channels.
-//! The [RouterProxy](crate::router::RouterProxy) provides various methods to register
+//! The [RouterProxy] provides various methods to register
 //! `IpcReceiver<T>`s. The router will then either call the appropriate callback or route the
 //! message to a crossbeam `Sender<T>` or `Receiver<T>`. You should use the global `ROUTER` to
 //! access the `RouterProxy` methods (via `ROUTER`'s `Deref` for `RouterProxy`.
 
-use lazy_static::lazy_static;
 use std::collections::HashMap;
-use std::sync::Mutex;
-use std::thread;
+use std::sync::{LazyLock, Mutex};
+use std::thread::{self, JoinHandle};
 
-use crate::ipc::OpaqueIpcReceiver;
-use crate::ipc::{self, IpcMessage, IpcReceiver, IpcReceiverSet, IpcSelectionResult, IpcSender};
 use crossbeam_channel::{self, Receiver, Sender};
 use serde::{Deserialize, Serialize};
 
-lazy_static! {
-    /// Global object wrapping a `RouterProxy`.
-    /// Add routes ([add_route](RouterProxy::add_route)), or convert IpcReceiver<T>
-    /// to crossbeam channels (e.g. [route_ipc_receiver_to_new_crossbeam_receiver](RouterProxy::route_ipc_receiver_to_new_crossbeam_receiver))
-    pub static ref ROUTER: RouterProxy = RouterProxy::new();
-}
+use crate::ipc::{
+    self, IpcMessage, IpcReceiver, IpcReceiverSet, IpcSelectionResult, IpcSender, OpaqueIpcReceiver,
+};
+
+/// Global object wrapping a `RouterProxy`.
+/// Add routes ([add_route](RouterProxy::add_route)), or convert IpcReceiver<T>
+/// to crossbeam channels (e.g. [route_ipc_receiver_to_new_crossbeam_receiver](RouterProxy::route_ipc_receiver_to_new_crossbeam_receiver))
+pub static ROUTER: LazyLock<RouterProxy> = LazyLock::new(RouterProxy::new);
 
 /// A `RouterProxy` provides methods for talking to the router. Calling
 /// [new](RouterProxy::new) automatically spins up a router thread which
@@ -47,12 +46,16 @@ impl RouterProxy {
         // Router proxy takes both sending ends.
         let (msg_sender, msg_receiver) = crossbeam_channel::unbounded();
         let (wakeup_sender, wakeup_receiver) = ipc::channel().unwrap();
-        thread::spawn(move || Router::new(msg_receiver, wakeup_receiver).run());
+        let handle = thread::Builder::new()
+            .name("router-proxy".to_string())
+            .spawn(move || Router::new(msg_receiver, wakeup_receiver).run())
+            .expect("Failed to spawn router proxy thread");
         RouterProxy {
             comm: Mutex::new(RouterProxyComm {
                 msg_sender,
                 wakeup_sender,
                 shutdown: false,
+                handle: Some(handle),
             }),
         }
     }
@@ -117,6 +120,11 @@ impl RouterProxy {
                 ack_receiver.recv().unwrap();
             })
             .unwrap();
+        comm.handle
+            .take()
+            .expect("Should have a join handle at shutdown")
+            .join()
+            .expect("Failed to join on the router proxy thread");
     }
 
     /// A convenience function to route an `IpcReceiver<T>` to an existing `Sender<T>`.
@@ -152,6 +160,7 @@ struct RouterProxyComm {
     msg_sender: Sender<RouterMsg>,
     wakeup_sender: IpcSender<()>,
     shutdown: bool,
+    handle: Option<JoinHandle<()>>,
 }
 
 /// Router runs in its own thread listening for events. Adds events to its IpcReceiverSet
@@ -211,7 +220,7 @@ impl Router {
                                 sender
                                     .send(())
                                     .expect("Failed to send comfirmation of shutdown.");
-                                break;
+                                return;
                             },
                         }
                     },

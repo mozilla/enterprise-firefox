@@ -9,20 +9,21 @@
 
 use crate::ipc::{self, IpcMessage};
 use bincode;
-use lazy_static::lazy_static;
 use serde;
 
 use std::{
-    cell::{Cell, RefCell},
+    cell::RefCell,
     cmp::PartialEq,
     convert::TryInto,
     env,
     ffi::CString,
     fmt, io,
-    marker::{PhantomData, Send, Sync},
+    marker::{Send, Sync},
     mem,
     ops::{Deref, DerefMut, RangeFrom},
-    ptr, slice, thread,
+    ptr, slice,
+    sync::LazyLock,
+    thread,
     time::Duration,
 };
 use uuid::Uuid;
@@ -37,7 +38,8 @@ use windows::{
         },
         Storage::FileSystem::{
             CreateFileA, ReadFile, WriteFile, FILE_ATTRIBUTE_NORMAL, FILE_FLAG_OVERLAPPED,
-            FILE_GENERIC_WRITE, FILE_SHARE_MODE, OPEN_EXISTING, PIPE_ACCESS_INBOUND,
+            FILE_GENERIC_READ, FILE_GENERIC_WRITE, FILE_SHARE_MODE, OPEN_EXISTING,
+            PIPE_ACCESS_DUPLEX,
         },
         System::{
             Memory::{
@@ -49,8 +51,8 @@ use windows::{
                 PIPE_READMODE_BYTE, PIPE_REJECT_REMOTE_CLIENTS, PIPE_TYPE_BYTE,
             },
             Threading::{
-                CreateEventA, GetCurrentProcess, GetCurrentProcessId, OpenProcess, ResetEvent,
-                INFINITE, PROCESS_DUP_HANDLE,
+                CreateEventA, GetCurrentProcess, OpenProcess, ResetEvent, INFINITE,
+                PROCESS_DUP_HANDLE,
             },
             IO::{
                 CancelIoEx, CreateIoCompletionPort, GetOverlappedResult, GetOverlappedResultEx,
@@ -61,12 +63,15 @@ use windows::{
 };
 
 mod aliased_cell;
+
 use self::aliased_cell::AliasedCell;
 
-lazy_static! {
-    static ref CURRENT_PROCESS_ID: u32 = unsafe { GetCurrentProcessId() };
-    static ref CURRENT_PROCESS_HANDLE: WinHandle = WinHandle::new(unsafe { GetCurrentProcess() });
-}
+#[cfg(test)]
+mod tests;
+
+static CURRENT_PROCESS_ID: LazyLock<u32> = LazyLock::new(std::process::id);
+static CURRENT_PROCESS_HANDLE: LazyLock<WinHandle> =
+    LazyLock::new(|| WinHandle::new(unsafe { GetCurrentProcess() }));
 
 // Added to overcome build error where Box<OVERLAPPED> was used and
 // struct had a trait of #[derive(Debug)].  Adding NoDebug<> overrode the Debug() trait.
@@ -92,9 +97,8 @@ impl<T> fmt::Debug for NoDebug<T> {
     }
 }
 
-lazy_static! {
-    static ref DEBUG_TRACE_ENABLED: bool = env::var_os("IPC_CHANNEL_WIN_DEBUG_TRACE").is_some();
-}
+static DEBUG_TRACE_ENABLED: LazyLock<bool> =
+    LazyLock::new(|| env::var_os("IPC_CHANNEL_WIN_DEBUG_TRACE").is_some());
 
 /// Debug macro to better track what's going on in case of errors.
 macro_rules! win32_trace {
@@ -126,6 +130,34 @@ pub fn channel() -> Result<(OsIpcSender, OsIpcReceiver), WinError> {
     Ok((sender, receiver))
 }
 
+/// Unify the creation of sender and receiver duplex pipes to allow for either to be spawned first.
+/// Requires the use of a duplex and therefore lets both sides read and write.
+unsafe fn create_duplex(pipe_name: &CString) -> Result<HANDLE, WinError> {
+    CreateFileA(
+        PCSTR::from_raw(pipe_name.as_ptr() as *const u8),
+        FILE_GENERIC_WRITE.0 | FILE_GENERIC_READ.0,
+        FILE_SHARE_MODE(0),
+        None, // lpSecurityAttributes
+        OPEN_EXISTING,
+        FILE_ATTRIBUTE_NORMAL,
+        None,
+    )
+    .or_else(|_| {
+        CreateNamedPipeA(
+            PCSTR::from_raw(pipe_name.as_ptr() as *const u8),
+            PIPE_ACCESS_DUPLEX | FILE_FLAG_OVERLAPPED,
+            PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_REJECT_REMOTE_CLIENTS,
+            // 1 max instance of this pipe
+            1,
+            // out/in buffer sizes
+            0,
+            PIPE_BUFFER_SIZE as u32,
+            0, // default timeout for WaitNamedPipe (0 == 50ms as default)
+            None,
+        )
+    })
+}
+
 struct MessageHeader {
     data_len: u32,
     oob_len: u32,
@@ -144,7 +176,7 @@ struct Message<'data> {
 }
 
 impl<'data> Message<'data> {
-    fn from_bytes(bytes: &'data [u8]) -> Option<Message> {
+    fn from_bytes(bytes: &'data [u8]) -> Option<Message<'data>> {
         if bytes.len() < mem::size_of::<MessageHeader>() {
             return None;
         }
@@ -174,14 +206,11 @@ impl<'data> Message<'data> {
 
     fn oob_data(&self) -> Option<OutOfBandMessage> {
         if self.oob_len > 0 {
-            let oob = bincode::deserialize::<OutOfBandMessage>(self.oob_bytes())
+            let mut oob = bincode::deserialize::<OutOfBandMessage>(self.oob_bytes())
                 .expect("Failed to deserialize OOB data");
-            if oob.target_process_id != *CURRENT_PROCESS_ID {
-                panic!("Windows IPC channel received handles intended for pid {}, but this is pid {}. \
-                       This likely happened because a receiver was transferred while it had outstanding data \
-                       that contained a channel or shared memory in its pipe. \
-                       This isn't supported in the Windows implementation.",
-                       oob.target_process_id, *CURRENT_PROCESS_ID);
+            if let Err(e) = oob.recover_handles() {
+                win32_trace!("Failed to recover handles: {:?}", e);
+                return None;
             }
             Some(oob)
         } else {
@@ -202,18 +231,7 @@ impl<'data> Message<'data> {
 /// in another channel's buffer when that channel got transferred to another
 /// process.  On Windows, we duplicate handles on the sender side to a specific
 /// receiver.  If the wrong receiver gets it, those handles are not valid.
-///
-/// TODO(vlad): We could attempt to recover from the above situation by
-/// duplicating from the intended target process to ourselves (the receiver).
-/// That would only work if the intended process a) still exists; b) can be
-/// opened by the receiver with handle dup privileges.  Another approach
-/// could be to use a separate dedicated process intended purely for handle
-/// passing, though that process would need to be global to any processes
-/// amongst which you want to share channels or connect one-shot servers to.
-/// There may be a system process that we could use for this purpose, but
-/// I haven't found one -- and in the system process case, we'd need to ensure
-/// that we don't leak the handles (e.g. dup a handle to the system process,
-/// and then everything dies -- we don't want those resources to be leaked).
+/// These handles are recovered by the `recover_handles` method.
 #[derive(Debug)]
 struct OutOfBandMessage {
     target_process_id: u32,
@@ -236,6 +254,70 @@ impl OutOfBandMessage {
         !self.channel_handles.is_empty()
             || !self.shmem_handles.is_empty()
             || self.big_data_receiver_handle.is_some()
+    }
+
+    /// Recover handles that are no longer valid in the current process via duplication.
+    /// Duplicates the handle from the target process to the current process.
+    fn recover_handles(&mut self) -> Result<(), WinError> {
+        // get current process id and target process.
+        let current_process = unsafe { GetCurrentProcess() };
+        let target_process =
+            unsafe { OpenProcess(PROCESS_DUP_HANDLE, false, self.target_process_id)? };
+
+        // Duplicate channel handles.
+        for handle in &mut self.channel_handles {
+            let mut new_handle = INVALID_HANDLE_VALUE;
+            unsafe {
+                DuplicateHandle(
+                    target_process,
+                    HANDLE(*handle as _),
+                    current_process,
+                    &mut new_handle,
+                    0,
+                    false,
+                    DUPLICATE_SAME_ACCESS,
+                )?;
+            }
+            *handle = new_handle.0 as isize;
+        }
+
+        // Duplicate any shmem handles.
+        for (handle, _) in &mut self.shmem_handles {
+            let mut new_handle = INVALID_HANDLE_VALUE;
+            unsafe {
+                DuplicateHandle(
+                    target_process,
+                    HANDLE(*handle as _),
+                    current_process,
+                    &mut new_handle,
+                    0,
+                    false,
+                    DUPLICATE_SAME_ACCESS,
+                )?;
+            }
+            *handle = new_handle.0 as isize;
+        }
+
+        // Duplicate any big data receivers.
+        if let Some((handle, _)) = &mut self.big_data_receiver_handle {
+            let mut new_handle = INVALID_HANDLE_VALUE;
+            unsafe {
+                DuplicateHandle(
+                    target_process,
+                    HANDLE(*handle as _),
+                    current_process,
+                    &mut new_handle,
+                    0,
+                    false,
+                    DUPLICATE_SAME_ACCESS,
+                )?;
+            }
+            *handle = new_handle.0 as isize;
+        }
+
+        // Close process handle.
+        unsafe { CloseHandle(target_process)? };
+        Ok(())
     }
 }
 
@@ -932,7 +1014,7 @@ impl MessageReader {
             let completion_key = self.handle.as_raw().0;
             CreateIoCompletionPort(
                 self.handle.as_raw(),
-                iocp.as_raw(),
+                Some(iocp.as_raw()),
                 completion_key as usize,
                 0,
             )?;
@@ -1024,7 +1106,7 @@ fn write_buf(handle: &WinHandle, bytes: &[u8], atomic: AtomicMode) -> Result<(),
                     sz,
                     written,
                     total,
-                    WinError::from_win32()
+                    WinError::from_thread()
                 );
             },
         }
@@ -1071,18 +1153,7 @@ impl OsIpcReceiver {
     fn new_named(pipe_name: &CString) -> Result<OsIpcReceiver, WinError> {
         unsafe {
             // create the pipe server
-            let handle = CreateNamedPipeA(
-                PCSTR::from_raw(pipe_name.as_ptr() as *const u8),
-                PIPE_ACCESS_INBOUND | FILE_FLAG_OVERLAPPED,
-                PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_REJECT_REMOTE_CLIENTS,
-                // 1 max instance of this pipe
-                1,
-                // out/in buffer sizes
-                0,
-                PIPE_BUFFER_SIZE as u32,
-                0, // default timeout for WaitNamedPipe (0 == 50ms as default)
-                None,
-            )?;
+            let handle = create_duplex(pipe_name)?;
 
             Ok(OsIpcReceiver {
                 reader: RefCell::new(MessageReader::new(WinHandle::new(handle))),
@@ -1220,11 +1291,6 @@ impl OsIpcReceiver {
 #[derive(Debug, PartialEq)]
 pub struct OsIpcSender {
     handle: WinHandle,
-    // Make sure this is `!Sync`, to match `mpsc::Sender`; and to discourage sharing references.
-    //
-    // (Rather, senders should just be cloned, as they are shared internally anyway --
-    // another layer of sharing only adds unnecessary overhead...)
-    nosync_marker: PhantomData<Cell<()>>,
 }
 
 impl Clone for OsIpcSender {
@@ -1244,24 +1310,13 @@ impl OsIpcSender {
     }
 
     fn from_handle(handle: WinHandle) -> OsIpcSender {
-        OsIpcSender {
-            handle,
-            nosync_marker: PhantomData,
-        }
+        OsIpcSender { handle }
     }
 
     /// Connect to a pipe server.
     fn connect_named(pipe_name: &CString) -> Result<OsIpcSender, WinError> {
         unsafe {
-            let handle = CreateFileA(
-                PCSTR::from_raw(pipe_name.as_ptr() as *const u8),
-                FILE_GENERIC_WRITE.0,
-                FILE_SHARE_MODE(0),
-                None, // lpSecurityAttributes
-                OPEN_EXISTING,
-                FILE_ATTRIBUTE_NORMAL,
-                None,
-            )?;
+            let handle = create_duplex(pipe_name)?;
 
             win32_trace!("[c {:?}] connect_to_server success", handle);
 
@@ -1766,13 +1821,23 @@ impl Deref for OsIpcSharedMemory {
 }
 
 impl OsIpcSharedMemory {
+    /// # Safety
+    ///
+    /// This is safe if there is only one reader/writer on the data.
+    /// User can achieve this by not cloning [`IpcSharedMemory`]
+    /// and serializing/deserializing only once.
+    #[inline]
+    pub unsafe fn deref_mut(&mut self) -> &mut [u8] {
+        assert!(!self.view_handle.Value.is_null() && self.handle.is_valid());
+        unsafe { slice::from_raw_parts_mut(self.view_handle.Value as _, self.length) }
+    }
+}
+
+impl OsIpcSharedMemory {
     fn new(length: usize) -> Result<OsIpcSharedMemory, WinError> {
         unsafe {
             assert!(length < u32::MAX as usize);
-            let (lhigh, llow) = (
-                length.checked_shr(32).unwrap_or(0) as u32,
-                (length & 0xffffffff) as u32,
-            );
+            let (lhigh, llow) = (length.checked_shr(32).unwrap_or(0) as u32, length as u32);
             let handle = CreateFileMappingA(
                 INVALID_HANDLE_VALUE,
                 None,
@@ -1796,7 +1861,7 @@ impl OsIpcSharedMemory {
         unsafe {
             let address = MapViewOfFile(handle.as_raw(), FILE_MAP_ALL_ACCESS, 0, 0, 0);
             if address.Value.is_null() {
-                return Err(WinError::from_win32());
+                return Err(WinError::from_thread());
             }
 
             Ok(OsIpcSharedMemory {

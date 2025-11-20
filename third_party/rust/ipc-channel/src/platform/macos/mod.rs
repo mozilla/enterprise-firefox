@@ -15,7 +15,6 @@ use self::mach_sys::{mach_port_right_t, mach_port_t, mach_task_self_, vm_inherit
 use crate::ipc::{self, IpcMessage};
 
 use bincode;
-use lazy_static::lazy_static;
 use libc::{self, c_char, c_uint, c_void, size_t};
 use rand::{self, Rng};
 use std::cell::Cell;
@@ -24,7 +23,6 @@ use std::error::Error as StdError;
 use std::ffi::CString;
 use std::fmt::{self, Debug, Formatter};
 use std::io;
-use std::marker::PhantomData;
 use std::mem;
 use std::ops::Deref;
 use std::ptr;
@@ -352,9 +350,7 @@ enum SendData<'a> {
     OutOfLine(Option<OsIpcSharedMemory>),
 }
 
-lazy_static! {
-    static ref MAX_INLINE_SIZE: RwLock<usize> = RwLock::new(usize::MAX);
-}
+static MAX_INLINE_SIZE: RwLock<usize> = RwLock::new(usize::MAX);
 
 impl<'a> From<&'a [u8]> for SendData<'a> {
     fn from(data: &'a [u8]) -> SendData<'a> {
@@ -395,12 +391,6 @@ impl<'a> SendData<'a> {
 #[derive(PartialEq, Debug)]
 pub struct OsIpcSender {
     port: mach_port_t,
-    // Make sure this is `!Sync`, to match `crossbeam_channel::Sender`; and to discourage sharing
-    // references.
-    //
-    // (Rather, senders should just be cloned, as they are shared internally anyway --
-    // another layer of sharing only adds unnecessary overhead...)
-    nosync_marker: PhantomData<Cell<()>>,
 }
 
 impl Drop for OsIpcSender {
@@ -422,19 +412,13 @@ impl Clone for OsIpcSender {
                 Err(error) => panic!("mach_port_mod_refs(1, {}) failed: {:?}", cloned_port, error),
             }
         }
-        OsIpcSender {
-            port: cloned_port,
-            nosync_marker: PhantomData,
-        }
+        OsIpcSender { port: cloned_port }
     }
 }
 
 impl OsIpcSender {
     fn from_name(port: mach_port_t) -> OsIpcSender {
-        OsIpcSender {
-            port,
-            nosync_marker: PhantomData,
-        }
+        OsIpcSender { port }
     }
 
     pub fn connect(name: String) -> Result<OsIpcSender, MachError> {
@@ -600,7 +584,6 @@ impl OsOpaqueIpcChannel {
     pub fn to_sender(&mut self) -> OsIpcSender {
         OsIpcSender {
             port: mem::replace(&mut self.port, MACH_PORT_NULL),
-            nosync_marker: PhantomData,
         }
     }
 
@@ -611,7 +594,7 @@ impl OsOpaqueIpcChannel {
 
 pub struct OsIpcReceiverSet {
     port: mach_port_t,
-    ports: Vec<mach_port_t>,
+    ports: Vec<OsIpcReceiver>,
 }
 
 impl OsIpcReceiverSet {
@@ -624,22 +607,28 @@ impl OsIpcReceiverSet {
     }
 
     pub fn add(&mut self, receiver: OsIpcReceiver) -> Result<u64, MachError> {
-        mach_port_move_member(receiver.extract_port(), self.port)?;
-        let receiver_port = receiver.consume_port();
-        self.ports.push(receiver_port);
+        let receiver_port = receiver.extract_port();
+        mach_port_move_member(receiver_port, self.port)?;
+        self.ports.push(receiver);
         Ok(receiver_port as u64)
     }
 
     pub fn select(&mut self) -> Result<Vec<OsIpcSelectionResult>, MachError> {
-        select(self.port, BlockingMode::Blocking).map(|result| vec![result])
+        let result = select(self.port, BlockingMode::Blocking);
+        if let Ok(OsIpcSelectionResult::ChannelClosed(mach_port)) = result {
+            let index = self
+                .ports
+                .iter()
+                .position(|port| port.extract_port() as u64 == mach_port)
+                .expect("Port must be present for error to occur");
+            let _ = self.ports.swap_remove(index);
+        }
+        result.map(|result| vec![result])
     }
 }
 
 impl Drop for OsIpcReceiverSet {
     fn drop(&mut self) {
-        for port in &self.ports {
-            mach_port_mod_release(*port, MACH_PORT_RIGHT_RECEIVE).unwrap();
-        }
         mach_port_mod_release(self.port, MACH_PORT_RIGHT_PORT_SET).unwrap();
     }
 }
@@ -894,6 +883,21 @@ impl Deref for OsIpcSharedMemory {
             panic!("attempted to access a consumed `OsIpcSharedMemory`")
         }
         unsafe { slice::from_raw_parts(self.ptr, self.length) }
+    }
+}
+
+impl OsIpcSharedMemory {
+    /// # Safety
+    ///
+    /// This is safe if there is only one reader/writer on the data.
+    /// User can achieve this by not cloning [`IpcSharedMemory`]
+    /// and serializing/deserializing only once.
+    #[inline]
+    pub unsafe fn deref_mut(&mut self) -> &mut [u8] {
+        if self.ptr.is_null() && self.length > 0 {
+            panic!("attempted to access a consumed `OsIpcSharedMemory`")
+        }
+        unsafe { slice::from_raw_parts_mut(self.ptr, self.length) }
     }
 }
 

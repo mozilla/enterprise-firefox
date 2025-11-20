@@ -797,6 +797,11 @@ JSObject* InternalJobQueue::copyJobs(JSContext* cx) {
         if (task) {
           // All any test cares about is the global of the job so let's do it.
           RootedObject global(cx, JS::GetExecutionGlobalFromJSMicroTask(task));
+          if (!global) {
+            JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr,
+                                      JSMSG_DEAD_OBJECT);
+            return false;
+          }
           if (!cx->compartment()->wrap(cx, &global)) {
             return false;
           }
@@ -836,11 +841,6 @@ JS_PUBLIC_API JSObject* js::GetJobsInInternalJobQueue(JSContext* cx) {
   return cx->internalJobQueue->copyJobs(cx);
 }
 #endif
-
-JS_PUBLIC_API bool js::EnqueueJob(JSContext* cx, JS::HandleObject job) {
-  MOZ_ASSERT(cx->jobQueue);
-  return cx->jobQueue->enqueuePromiseJob(cx, nullptr, job, nullptr, nullptr);
-}
 
 JS_PUBLIC_API void js::StopDrainingJobQueue(JSContext* cx) {
   MOZ_ASSERT(cx->internalJobQueue.ref());
@@ -924,7 +924,9 @@ void InternalJobQueue::runJobs(JSContext* cx) {
           JS::JobQueueIsEmpty(cx);
         }
 
-        MOZ_ASSERT(JS::GetExecutionGlobalFromJSMicroTask(job) != nullptr);
+        if (!JS::GetExecutionGlobalFromJSMicroTask(job)) {
+          continue;
+        }
         AutoRealm ar(cx, JS::GetExecutionGlobalFromJSMicroTask(job));
         {
           if (!JS::RunJSMicroTask(cx, job)) {
@@ -1313,16 +1315,6 @@ JSContext::JSContext(JSRuntime* runtime, const JS::ContextOptions& options)
   }
 }
 
-#ifdef ENABLE_WASM_JSPI
-bool js::IsSuspendableStackActive(JSContext* cx) {
-  return cx->wasm().suspendableStackLimit != JS::NativeStackLimitMin;
-}
-
-JS::NativeStackLimit js::GetSuspendableStackLimit(JSContext* cx) {
-  return cx->wasm().suspendableStackLimit;
-}
-#endif
-
 JSContext::~JSContext() {
 #ifdef DEBUG
   // Clear the initialized_ first, so that ProtectedData checks will allow us to
@@ -1628,7 +1620,10 @@ void JSContext::resetJitStackLimit() {
   jitStackLimitNoInterrupt = jitStackLimit;
 }
 
-void JSContext::initJitStackLimit() { resetJitStackLimit(); }
+void JSContext::initJitStackLimit() {
+  resetJitStackLimit();
+  wasm_.initStackLimit(this);
+}
 
 JSScript* JSContext::currentScript(jsbytecode** ppc,
                                    AllowCrossRealm allowCrossRealm) {

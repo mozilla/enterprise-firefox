@@ -10,7 +10,7 @@ xpcom = { path = "../../../../xpcom/rust/xpcom" }
 nserror = { path = "../../../../xpcom/rust/nserror" }
 cookie = "0.16"
 cstr = "0.2"
-ipc-channel = "0.19"
+ipc-channel = "0.20.2"
 moz_task = { path = "../../../../xpcom/rust/moz_task" }
 nsstring = { path = "../../../../xpcom/rust/nsstring" }
 serde = { version = "1.0.219", features = ["derive"] }

@@ -12,8 +12,6 @@ import {
 // eslint-disable-next-line import/no-unassigned-import
 import "chrome://browser/content/ipprotection/ipprotection-header.mjs";
 // eslint-disable-next-line import/no-unassigned-import
-import "chrome://browser/content/ipprotection/ipprotection-flag.mjs";
-// eslint-disable-next-line import/no-unassigned-import
 import "chrome://browser/content/ipprotection/ipprotection-message-bar.mjs";
 // eslint-disable-next-line import/no-unassigned-import
 import "chrome://browser/content/ipprotection/ipprotection-signedout.mjs";
@@ -49,7 +47,7 @@ export default class IPProtectionContentElement extends MozLitElement {
 
     this.keyListener = this.#keyListener.bind(this);
     this.messageBarListener = this.#messageBarListener.bind(this);
-    this.toggleListener = this.#toggleEventListener.bind(this);
+    this.statusCardListener = this.#statusCardListener.bind(this);
     this._showMessageBar = false;
     this._messageDismissed = false;
   }
@@ -60,11 +58,15 @@ export default class IPProtectionContentElement extends MozLitElement {
     this.addEventListener("keydown", this.keyListener, { capture: true });
     this.addEventListener(
       "ipprotection-status-card:user-toggled-on",
-      this.#toggleEventListener
+      this.#statusCardListener
     );
     this.addEventListener(
       "ipprotection-status-card:user-toggled-off",
-      this.#toggleEventListener
+      this.#statusCardListener
+    );
+    this.addEventListener(
+      "ipprotection-site-settings-control:click",
+      this.#statusCardListener
     );
     this.addEventListener(
       "ipprotection-message-bar:user-dismissed",
@@ -78,11 +80,15 @@ export default class IPProtectionContentElement extends MozLitElement {
     this.removeEventListener("keydown", this.keyListener, { capture: true });
     this.removeEventListener(
       "ipprotection-status-card:user-toggled-on",
-      this.#toggleEventListener
+      this.#statusCardListener
     );
     this.removeEventListener(
       "ipprotection-status-card:user-toggled-off",
-      this.#toggleEventListener
+      this.#statusCardListener
+    );
+    this.removeEventListener(
+      "ipprotection-site-settings-control:click",
+      this.#statusCardListener
     );
     this.removeEventListener(
       "ipprotection-message-bar:user-dismissed",
@@ -162,7 +168,7 @@ export default class IPProtectionContentElement extends MozLitElement {
     }
   }
 
-  #toggleEventListener(event) {
+  #statusCardListener(event) {
     if (event.type === "ipprotection-status-card:user-toggled-on") {
       this.dispatchEvent(
         new CustomEvent("IPProtection:UserEnable", { bubbles: true })
@@ -170,6 +176,10 @@ export default class IPProtectionContentElement extends MozLitElement {
     } else if (event.type === "ipprotection-status-card:user-toggled-off") {
       this.dispatchEvent(
         new CustomEvent("IPProtection:UserDisable", { bubbles: true })
+      );
+    } else if (event.type === "ipprotection-site-settings-control:click") {
+      this.dispatchEvent(
+        new CustomEvent("IPProtection:UserShowSiteSettings", { bubbles: true })
       );
     }
   }
@@ -226,23 +236,16 @@ export default class IPProtectionContentElement extends MozLitElement {
     `;
   }
 
-  descriptionTemplate() {
-    return this.state.location
-      ? html`
-          <ipprotection-flag
-            .location=${this.state.location}
-          ></ipprotection-flag>
-        `
-      : null;
-  }
-
   statusCardTemplate() {
+    // TODO: Pass site information to status-card to conditionally
+    // render the site settings control. (Bug 1997412)
     return html`
       <ipprotection-status-card
         .protectionEnabled=${this.canEnableConnection}
         .canShowTime=${this.canShowConnectionTime}
         .enabledSince=${this.state.protectionEnabledSince}
         .location=${this.state.location}
+        .siteData=${ifDefined(this.state.siteData)}
       ></ipprotection-status-card>
     `;
   }

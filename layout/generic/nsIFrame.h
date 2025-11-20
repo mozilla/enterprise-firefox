@@ -590,9 +590,9 @@ static void ReleaseValue(T* aPropertyValue) {
     return nsQueryFrame::class##_id;                                           \
   }
 
-#define NS_IMPL_FRAMEARENA_HELPERS(class)                              \
-  void* class ::operator new(size_t sz, mozilla::PresShell * aShell) { \
-    return aShell->AllocateFrame(nsQueryFrame::class##_id, sz);        \
+#define NS_IMPL_FRAMEARENA_HELPERS(class)                             \
+  void* class ::operator new(size_t sz, mozilla::PresShell* aShell) { \
+    return aShell->AllocateFrame(nsQueryFrame::class##_id, sz);       \
   }
 
 #define NS_DECL_ABSTRACT_FRAME(class)                                         \
@@ -4720,10 +4720,12 @@ class nsIFrame : public nsQueryFrame {
   inline bool IsLegacyWebkitBox() const;
 
   /**
-   * Return true if this frame has masonry layout in aAxis.
+   * Return true if this frame has masonry layout in aAxis (in the writing
+   * mode aWM).
    * @note only valid to call on nsGridContainerFrames
    */
-  inline bool IsMasonry(mozilla::LogicalAxis aAxis) const;
+  inline bool IsMasonry(mozilla::WritingMode aWM,
+                        mozilla::LogicalAxis aAxis) const;
 
   /**
    * @return true if this frame is used as a table caption.

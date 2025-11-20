@@ -4,6 +4,7 @@
 
 package org.mozilla.fenix.settings.logins.ui
 
+import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -45,6 +46,7 @@ import mozilla.components.compose.base.annotation.FlexibleWindowLightDarkPreview
 import mozilla.components.compose.base.button.IconButton
 import mozilla.components.compose.base.menu.DropdownMenu
 import mozilla.components.compose.base.menu.MenuItem
+import mozilla.components.compose.base.snackbar.Snackbar
 import mozilla.components.compose.base.snackbar.displaySnackbar
 import mozilla.components.compose.base.textfield.TextField
 import mozilla.components.compose.base.textfield.TextFieldColors
@@ -82,7 +84,9 @@ internal fun LoginDetailsScreen(store: LoginsStore) {
             SnackbarHost(
                 hostState = snackbarHostState,
                 modifier = Modifier.imePadding(),
-            )
+            ) {
+                Snackbar(snackbarData = it)
+            }
         },
     ) { paddingValues ->
         Column(
@@ -279,11 +283,13 @@ private fun LoginDetailsUsername(
                     .size(48.dp),
                 onClick = {
                     store.dispatch(DetailLoginAction.CopyUsernameClicked(username))
-                    showTextCopiedSnackbar(
-                        message = usernameSnackbarText,
-                        coroutineScope = coroutineScope,
-                        snackbarHostState = snackbarHostState,
-                    )
+                    if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.S_V2) {
+                        showTextCopiedSnackbar(
+                            message = usernameSnackbarText,
+                            coroutineScope = coroutineScope,
+                            snackbarHostState = snackbarHostState,
+                        )
+                    }
                 },
                 contentDescription = stringResource(R.string.saved_login_copy_username),
             ) {
@@ -336,11 +342,13 @@ private fun LoginDetailsPassword(
                     .size(48.dp),
                 onClick = {
                     store.dispatch(DetailLoginAction.CopyPasswordClicked(password))
-                    showTextCopiedSnackbar(
-                        message = passwordSnackbarText,
-                        coroutineScope = coroutineScope,
-                        snackbarHostState = snackbarHostState,
-                    )
+                    if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.S_V2) {
+                        showTextCopiedSnackbar(
+                            message = passwordSnackbarText,
+                            coroutineScope = coroutineScope,
+                            snackbarHostState = snackbarHostState,
+                        )
+                    }
                 },
                 contentDescription = stringResource(R.string.saved_logins_copy_password),
             ) {

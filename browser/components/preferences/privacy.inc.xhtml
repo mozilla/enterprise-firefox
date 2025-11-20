@@ -426,7 +426,7 @@
 </groupbox>
 
 <!-- Passwords -->
-<groupbox id="passwordsGroup" orient="vertical" data-category="panePrivacy" data-subcategory="logins" hidden="true">
+<groupbox data-srd-groupid="passwords" id="passwordsGroup" orient="vertical" data-category="panePrivacy" data-subcategory="logins" hidden="true">
   <label><html:h2 data-l10n-id="pane-privacy-passwords-header" data-l10n-attrs="searchkeywords"/></label>
 
   <vbox id="passwordSettings">
@@ -555,14 +555,16 @@
   <label id="fips-desc" hidden="true" data-l10n-id="forms-master-pw-fips-desc"></label>
 </groupbox>
 
+<html:setting-group groupid="passwords" hidden="true" data-category="panePrivacy" />
+
 <!-- The form autofill section is inserted in to this box
      after the form autofill extension has initialized. -->
 <groupbox id="formAutofillGroupBox"
           data-category="panePrivacy"
           data-subcategory="form-autofill" hidden="true">
-  <label><html:h2 data-l10n-id="autofill-payment-methods-title" class="section-heading"/></label>
+  <label><html:h2 data-l10n-id="autofill-payment-methods-title" class="subsection-heading"/></label>
   <html:setting-group data-subcategory="credit-card-autofill" groupid="payments"/>
-  <label><html:h2 data-l10n-id="autofill-addresses-title" class="section-heading"/></label>
+  <label><html:h2 data-l10n-id="autofill-addresses-title" class="subsection-heading"/></label>
   <html:setting-group data-subcategory="address-autofill" groupid="addresses"/>
 </groupbox>
 

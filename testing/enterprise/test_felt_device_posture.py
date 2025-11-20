@@ -6,7 +6,6 @@
 import sys
 import time
 
-import portpicker
 import requests
 from felt_tests import FeltTests
 
@@ -60,14 +59,10 @@ class FeltDevicePosture(FeltTests):
 
 
 if __name__ == "__main__":
-    port_console = portpicker.pick_unused_port()
-    port_sso_serv = portpicker.pick_unused_port()
     FeltDevicePosture(
         "felt_device_posture.json",
         firefox=sys.argv[1],
         geckodriver=sys.argv[2],
         profile_root=sys.argv[3],
-        console=port_console,
-        sso_server=port_sso_serv,
         cli_args=["-feltUI"],
     )

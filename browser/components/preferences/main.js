@@ -2,10 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/** @import MozButton from "chrome://global/content/elements/moz-button.mjs"; */
-/** @import { SettingGroup } from "./widgets/setting-group/setting-group.mjs" */
-/** @import { PreferencesSettingsConfig } from "chrome://global/content/preferences/Preferences.mjs" */
-
 /* import-globals-from extensionControlled.js */
 /* import-globals-from preferences.js */
 /* import-globals-from /toolkit/mozapps/preferences/fontbuilder.js */
@@ -22,6 +18,8 @@ ChromeUtils.defineESModuleGetters(this, {
   TranslationsParent: "resource://gre/actors/TranslationsParent.sys.mjs",
   WindowsLaunchOnLogin: "resource://gre/modules/WindowsLaunchOnLogin.sys.mjs",
   NimbusFeatures: "resource://nimbus/ExperimentAPI.sys.mjs",
+  FormAutofillPreferences:
+    "resource://autofill/FormAutofillPreferences.sys.mjs",
 });
 
 // Constants & Enumeration Values
@@ -228,104 +226,122 @@ Preferences.addSetting({
   pref: "browser.privatebrowsing.autostart",
 });
 
-Preferences.addSetting({
-  id: "launchOnLoginApproved",
-  _getLaunchOnLoginApprovedCachedValue: true,
-  get() {
-    return this._getLaunchOnLoginApprovedCachedValue;
-  },
-  // Check for a launch on login registry key
-  // This accounts for if a user manually changes it in the registry
-  // Disabling in Task Manager works outside of just deleting the registry key
-  // in HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run
-  // but it is not possible to change it back to enabled as the disabled value is just a random
-  // hexadecimal number
-  async setup() {
-    if (AppConstants.platform !== "win") {
-      /**
-       * WindowsLaunchOnLogin isnt available if not on windows
-       * but this setup function still fires, so must prevent
-       * WindowsLaunchOnLogin.getLaunchOnLoginApproved
-       * below from executing unnecessarily.
-       */
-      return;
-    }
-    this._getLaunchOnLoginApprovedCachedValue =
-      await WindowsLaunchOnLogin.getLaunchOnLoginApproved();
-  },
-});
+Preferences.addSetting(
+  /** @type {{ _getLaunchOnLoginApprovedCachedValue: boolean } & SettingConfig} */ ({
+    id: "launchOnLoginApproved",
+    _getLaunchOnLoginApprovedCachedValue: true,
+    get() {
+      return this._getLaunchOnLoginApprovedCachedValue;
+    },
+    // Check for a launch on login registry key
+    // This accounts for if a user manually changes it in the registry
+    // Disabling in Task Manager works outside of just deleting the registry key
+    // in HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run
+    // but it is not possible to change it back to enabled as the disabled value is just a random
+    // hexadecimal number
+    setup() {
+      if (AppConstants.platform !== "win") {
+        /**
+         * WindowsLaunchOnLogin isnt available if not on windows
+         * but this setup function still fires, so must prevent
+         * WindowsLaunchOnLogin.getLaunchOnLoginApproved
+         * below from executing unnecessarily.
+         */
+        return;
+      }
+      // @ts-ignore bug 1996860
+      WindowsLaunchOnLogin.getLaunchOnLoginApproved().then(val => {
+        this._getLaunchOnLoginApprovedCachedValue = val;
+      });
+    },
+  })
+);
 
 Preferences.addSetting({
   id: "windowsLaunchOnLoginEnabled",
   pref: "browser.startup.windowsLaunchOnLogin.enabled",
 });
 
-Preferences.addSetting({
-  id: "windowsLaunchOnLogin",
-  deps: ["launchOnLoginApproved", "windowsLaunchOnLoginEnabled"],
-  _getLaunchOnLoginEnabledValue: false,
-  get startWithLastProfile() {
-    return Cc["@mozilla.org/toolkit/profile-service;1"].getService(
-      Ci.nsIToolkitProfileService
-    ).startWithLastProfile;
-  },
-  get() {
-    return this._getLaunchOnLoginEnabledValue;
-  },
-  async setup(emitChange) {
-    if (AppConstants.platform !== "win") {
-      /**
-       * WindowsLaunchOnLogin isnt available if not on windows
-       * but this setup function still fires, so must prevent
-       * WindowsLaunchOnLogin.getLaunchOnLoginEnabled
-       * below from executing unnecessarily.
-       */
-      return;
-    }
+Preferences.addSetting(
+  /** @type {{_getLaunchOnLoginEnabledValue: boolean, startWithLastProfile: boolean} & SettingConfig} */ ({
+    id: "windowsLaunchOnLogin",
+    deps: ["launchOnLoginApproved", "windowsLaunchOnLoginEnabled"],
+    _getLaunchOnLoginEnabledValue: false,
+    get startWithLastProfile() {
+      return Cc["@mozilla.org/toolkit/profile-service;1"].getService(
+        Ci.nsIToolkitProfileService
+      ).startWithLastProfile;
+    },
+    get() {
+      return this._getLaunchOnLoginEnabledValue;
+    },
+    setup(emitChange) {
+      if (AppConstants.platform !== "win") {
+        /**
+         * WindowsLaunchOnLogin isnt available if not on windows
+         * but this setup function still fires, so must prevent
+         * WindowsLaunchOnLogin.getLaunchOnLoginEnabled
+         * below from executing unnecessarily.
+         */
+        return;
+      }
 
-    let getLaunchOnLoginEnabledValue;
-    if (!this.startWithLastProfile) {
-      getLaunchOnLoginEnabledValue = false;
-    } else {
-      getLaunchOnLoginEnabledValue =
-        await WindowsLaunchOnLogin.getLaunchOnLoginEnabled();
-    }
-    if (getLaunchOnLoginEnabledValue !== this._getLaunchOnLoginEnabledValue) {
-      this._getLaunchOnLoginEnabledValue = getLaunchOnLoginEnabledValue;
-      emitChange();
-    }
-  },
-  visible: ({ windowsLaunchOnLoginEnabled }) => {
-    let isVisible =
-      AppConstants.platform === "win" && windowsLaunchOnLoginEnabled.value;
-    if (isVisible) {
-      NimbusFeatures.windowsLaunchOnLogin.recordExposureEvent({
-        once: true,
-      });
-    }
-    return isVisible;
-  },
-  disabled({ launchOnLoginApproved }) {
-    return !this.startWithLastProfile || !launchOnLoginApproved.value;
-  },
-  onUserChange(checked) {
-    if (checked) {
-      // windowsLaunchOnLogin has been checked: create registry key or shortcut
-      // The shortcut is created with the same AUMID as Firefox itself. However,
-      // this is not set during browser tests and the fallback of checking the
-      // registry fails. As such we pass an arbitrary AUMID for the purpose
-      // of testing.
-      WindowsLaunchOnLogin.createLaunchOnLogin();
-      Services.prefs.setBoolPref(
-        "browser.startup.windowsLaunchOnLogin.disableLaunchOnLoginPrompt",
-        true
-      );
-    } else {
-      // windowsLaunchOnLogin has been unchecked: delete registry key and shortcut
-      WindowsLaunchOnLogin.removeLaunchOnLogin();
-    }
-  },
-});
+      /** @type {boolean} */
+      let getLaunchOnLoginEnabledValue;
+      let maybeEmitChange = () => {
+        if (
+          getLaunchOnLoginEnabledValue !== this._getLaunchOnLoginEnabledValue
+        ) {
+          this._getLaunchOnLoginEnabledValue = getLaunchOnLoginEnabledValue;
+          emitChange();
+        }
+      };
+      if (!this.startWithLastProfile) {
+        getLaunchOnLoginEnabledValue = false;
+        maybeEmitChange();
+      } else {
+        // @ts-ignore bug 1996860
+        WindowsLaunchOnLogin.getLaunchOnLoginEnabled().then(val => {
+          getLaunchOnLoginEnabledValue = val;
+          maybeEmitChange();
+        });
+      }
+    },
+    visible: ({ windowsLaunchOnLoginEnabled }) => {
+      let isVisible =
+        AppConstants.platform === "win" && windowsLaunchOnLoginEnabled.value;
+      if (isVisible) {
+        // @ts-ignore bug 1996860
+        NimbusFeatures.windowsLaunchOnLogin.recordExposureEvent({
+          once: true,
+        });
+      }
+      return isVisible;
+    },
+    disabled({ launchOnLoginApproved }) {
+      return !this.startWithLastProfile || !launchOnLoginApproved.value;
+    },
+    onUserChange(checked) {
+      if (checked) {
+        // windowsLaunchOnLogin has been checked: create registry key or shortcut
+        // The shortcut is created with the same AUMID as Firefox itself. However,
+        // this is not set during browser tests and the fallback of checking the
+        // registry fails. As such we pass an arbitrary AUMID for the purpose
+        // of testing.
+        // @ts-ignore bug 1996860
+        WindowsLaunchOnLogin.createLaunchOnLogin();
+        Services.prefs.setBoolPref(
+          "browser.startup.windowsLaunchOnLogin.disableLaunchOnLoginPrompt",
+          true
+        );
+      } else {
+        // windowsLaunchOnLogin has been unchecked: delete registry key and shortcut
+        // @ts-ignore bug 1996860
+        WindowsLaunchOnLogin.removeLaunchOnLogin();
+      }
+    },
+  })
+);
 
 Preferences.addSetting({
   id: "windowsLaunchOnLoginDisabledProfileBox",
@@ -393,6 +409,7 @@ Preferences.addSetting({
     if (checked) {
       // We need to restore the blank homepage setting in our other pref
       if (startupPref.value === gMainPane.STARTUP_PREF_BLANK) {
+        // @ts-ignore bug 1996860
         HomePage.safeSet("about:blank");
       }
       newValue = gMainPane.STARTUP_PREF_RESTORE_SESSION;
@@ -431,51 +448,56 @@ Preferences.addSetting({
   id: "useCursorNavigation",
   pref: "accessibility.browsewithcaret",
 });
-Preferences.addSetting({
-  id: "useFullKeyboardNavigation",
-  pref: "accessibility.tabfocus",
-  visible: () => AppConstants.platform == "macosx",
-  /**
-   * Returns true if any full keyboard nav is enabled and false otherwise, caching
-   * the current value to enable proper pref restoration if the checkbox is
-   * never changed.
-   *
-   * accessibility.tabfocus
-   * - an integer controlling the focusability of:
-   *     1  text controls
-   *     2  form elements
-   *     4  links
-   *     7  all of the above
-   */
-  get(prefVal) {
-    this._storedFullKeyboardNavigation = prefVal;
-    return prefVal == 7;
-  },
-  /**
-   * Returns the value of the full keyboard nav preference represented by UI,
-   * preserving the preference's "hidden" value if the preference is
-   * unchanged and represents a value not strictly allowed in UI.
-   */
-  set(checked) {
-    if (checked) {
-      return 7;
-    }
-    if (this._storedFullKeyboardNavigation != 7) {
-      // 1/2/4 values set via about:config should persist
-      return this._storedFullKeyboardNavigation;
-    }
-    // When the checkbox is unchecked, default to just text controls.
-    return 1;
-  },
-});
+Preferences.addSetting(
+  /** @type {{ _storedFullKeyboardNavigation: number } & SettingConfig} */ ({
+    _storedFullKeyboardNavigation: -1,
+    id: "useFullKeyboardNavigation",
+    pref: "accessibility.tabfocus",
+    visible: () => AppConstants.platform == "macosx",
+    /**
+     * Returns true if any full keyboard nav is enabled and false otherwise, caching
+     * the current value to enable proper pref restoration if the checkbox is
+     * never changed.
+     *
+     * accessibility.tabfocus
+     * - an integer controlling the focusability of:
+     *     1  text controls
+     *     2  form elements
+     *     4  links
+     *     7  all of the above
+     */
+    get(prefVal) {
+      this._storedFullKeyboardNavigation = prefVal;
+      return prefVal == 7;
+    },
+    /**
+     * Returns the value of the full keyboard nav preference represented by UI,
+     * preserving the preference's "hidden" value if the preference is
+     * unchanged and represents a value not strictly allowed in UI.
+     */
+    set(checked) {
+      if (checked) {
+        return 7;
+      }
+      if (this._storedFullKeyboardNavigation != 7) {
+        // 1/2/4 values set via about:config should persist
+        return this._storedFullKeyboardNavigation;
+      }
+      // When the checkbox is unchecked, default to just text controls.
+      return 1;
+    },
+  })
+);
 Preferences.addSetting({
   id: "linkPreviewEnabled",
   pref: "browser.ml.linkPreview.enabled",
+  // @ts-ignore bug 1996860
   visible: () => LinkPreview.canShowPreferences,
 });
 Preferences.addSetting({
   id: "linkPreviewKeyPoints",
   pref: "browser.ml.linkPreview.optin",
+  // @ts-ignore bug 1996860
   visible: () => LinkPreview.canShowKeyPoints,
 });
 Preferences.addSetting({
@@ -514,6 +536,23 @@ Preferences.addSetting({
     AppConstants.MOZ_WIDGET_GTK,
 });
 Preferences.addSetting({
+  id: "playDRMContent",
+  pref: "media.eme.enabled",
+  visible: () => {
+    if (!Services.prefs.getBoolPref("browser.eme.ui.enabled", false)) {
+      return false;
+    }
+    if (AppConstants.platform == "win") {
+      try {
+        return parseFloat(Services.sysinfo.get("version")) >= 6;
+      } catch (ex) {
+        return false;
+      }
+    }
+    return true;
+  },
+});
+Preferences.addSetting({
   id: "cfrRecommendations",
   pref: "browser.newtabpage.activity-stream.asrouter.userprefs.cfr.addons",
 });
@@ -532,38 +571,46 @@ Preferences.addSetting({
   },
 });
 
-Preferences.addSetting({
-  id: "web-appearance-chooser",
-  themeNames: ["dark", "light", "auto"],
-  pref: "layout.css.prefers-color-scheme.content-override",
-  setup(emitChange) {
-    Services.obs.addObserver(emitChange, "look-and-feel-changed");
-    return () =>
-      Services.obs.removeObserver(emitChange, "look-and-feel-changed");
-  },
-  get(val, _, setting) {
-    return this.themeNames[val] || this.themeNames[setting.pref.defaultValue];
-  },
-  set(val) {
-    return this.themeNames.indexOf(val);
-  },
-  getControlConfig(config) {
-    // Set the auto theme image to the light/dark that matches.
-    let systemThemeIndex = Services.appinfo.contentThemeDerivedColorSchemeIsDark
-      ? 2
-      : 1;
-    config.options[0].controlAttrs = {
-      ...config.options[0].controlAttrs,
-      imagesrc: config.options[systemThemeIndex].controlAttrs.imagesrc,
-    };
-    return config;
-  },
-});
+Preferences.addSetting(
+  /** @type {{ themeNames: string[] } & SettingConfig}} */ ({
+    id: "web-appearance-chooser",
+    themeNames: ["dark", "light", "auto"],
+    pref: "layout.css.prefers-color-scheme.content-override",
+    setup(emitChange) {
+      Services.obs.addObserver(emitChange, "look-and-feel-changed");
+      return () =>
+        Services.obs.removeObserver(emitChange, "look-and-feel-changed");
+    },
+    get(val, _, setting) {
+      return (
+        this.themeNames[val] ||
+        this.themeNames[/** @type {number} */ (setting.pref.defaultValue)]
+      );
+    },
+    /** @param {string} val */
+    set(val) {
+      return this.themeNames.indexOf(val);
+    },
+    getControlConfig(config) {
+      // Set the auto theme image to the light/dark that matches.
+      let systemThemeIndex = Services.appinfo
+        .contentThemeDerivedColorSchemeIsDark
+        ? 2
+        : 1;
+      config.options[0].controlAttrs = {
+        ...config.options[0].controlAttrs,
+        imagesrc: config.options[systemThemeIndex].controlAttrs.imagesrc,
+      };
+      return config;
+    },
+  })
+);
 
 Preferences.addSetting({
   id: "web-appearance-manage-themes-link",
   onUserClick: e => {
     e.preventDefault();
+    // @ts-ignore topChromeWindow global
     window.browsingContext.topChromeWindow.BrowserAddonUI.openAddonsMgr(
       "addons://list/theme"
     );
@@ -893,7 +940,11 @@ const DefaultBrowserHelper = {
    * @type {typeof import('../shell/ShellService.sys.mjs').ShellService | undefined}
    */
   get shellSvc() {
-    return AppConstants.HAVE_SHELL_SERVICE && getShellService();
+    return (
+      AppConstants.HAVE_SHELL_SERVICE &&
+      // @ts-ignore from utilityOverlay.js
+      getShellService()
+    );
   },
 
   /**
@@ -1017,7 +1068,7 @@ Preferences.addSetting({
    * browser is already the default browser.
    */
   visible: () => DefaultBrowserHelper.canCheck,
-  disabled: (deps, setting) =>
+  disabled: (_, setting) =>
     !DefaultBrowserHelper.canCheck ||
     setting.locked ||
     DefaultBrowserHelper.isBrowserDefault,
@@ -1095,10 +1146,70 @@ Preferences.addSetting({
   },
 });
 
-/**
- * @type {Record<string, PreferencesSettingsConfig>} SettingConfig
- */
-let SETTINGS_CONFIG = {
+Preferences.addSetting({
+  id: "payment-item",
+  async onUserClick(e) {
+    const action = e.target.getAttribute("action");
+    const guid = e.target.getAttribute("guid");
+    if (action === "remove") {
+      let [title, confirm, cancel] = await document.l10n.formatValues([
+        { id: "payments-remove-payment-prompt-title" },
+        { id: "payments-remove-payment-prompt-confirm-button" },
+        { id: "payments-remove-payment-prompt-cancel-button" },
+      ]);
+      FormAutofillPreferences.prototype.openRemovePaymentDialog(
+        guid,
+        window.browsingContext.topChromeWindow.browsingContext,
+        title,
+        confirm,
+        cancel
+      );
+    } else if (action === "edit") {
+      FormAutofillPreferences.prototype.openEditCreditCardDialog(guid, window);
+    }
+  },
+});
+
+Preferences.addSetting({
+  id: "add-payment-button",
+  onUserClick: ({ target }) => {
+    target.ownerGlobal.gSubDialog.open(
+      "chrome://formautofill/content/editCreditCard.xhtml"
+    );
+  },
+});
+
+Preferences.addSetting({
+  id: "payments-list-header",
+});
+
+Preferences.addSetting(
+  class extends Preferences.AsyncSetting {
+    static id = "payments-list";
+
+    async getPaymentMethods() {
+      await FormAutofillPreferences.prototype.initializePaymentsStorage();
+      return FormAutofillPreferences.prototype.makePaymentsListItems();
+    }
+
+    async getControlConfig() {
+      return {
+        items: await this.getPaymentMethods(),
+      };
+    }
+
+    setup() {
+      Services.obs.addObserver(this.emitChange, "formautofill-storage-changed");
+      return () =>
+        Services.obs.removeObserver(
+          this.emitChange,
+          "formautofill-storage-changed"
+        );
+    }
+  }
+);
+
+SettingGroupManager.registerGroups({
   containers: {
     // This section is marked as in progress for testing purposes
     inProgress: true,
@@ -1250,6 +1361,38 @@ let SETTINGS_CONFIG = {
         control: "moz-toggle",
       },
       {
+        id: "supportFirefox",
+        l10nId: "home-prefs-support-firefox-header",
+        control: "moz-toggle",
+        items: [
+          {
+            id: "sponsoredShortcuts",
+            l10nId: "home-prefs-shortcuts-by-option-sponsored",
+          },
+          {
+            id: "sponsoredStories",
+            l10nId: "home-prefs-recommended-by-option-sponsored-stories",
+          },
+          {
+            id: "supportFirefoxPromo",
+            l10nId: "home-prefs-mission-message2",
+            control: "moz-promo",
+            options: [
+              {
+                control: "a",
+                l10nId: "home-prefs-mission-message-learn-more-link",
+                controlAttrs: {
+                  is: "moz-support-link",
+                  slot: "support-link",
+                  "support-page": "sponsor-privacy",
+                  "utm-content": "inproduct",
+                },
+              },
+            ],
+          },
+        ],
+      },
+      {
         id: "recentActivity",
         l10nId: "home-prefs-recent-activity-header",
         control: "moz-toggle",
@@ -1395,6 +1538,16 @@ let SETTINGS_CONFIG = {
       {
         id: "deletePrivate",
         l10nId: "download-private-browsing-delete",
+      },
+    ],
+  },
+  drm: {
+    subcategory: "drm",
+    items: [
+      {
+        id: "playDRMContent",
+        l10nId: "play-drm-content",
+        supportPage: "drm-content",
       },
     ],
   },
@@ -1782,6 +1935,111 @@ let SETTINGS_CONFIG = {
       },
     ],
   },
+  passwords: {
+    inProgress: true,
+    id: "passwordsGroup",
+    l10nId: "forms-passwords-header",
+    headingLevel: 2,
+    items: [
+      {
+        id: "savePasswords",
+        l10nId: "forms-ask-to-save-passwords",
+        items: [
+          {
+            id: "managePasswordExceptions",
+            l10nId: "forms-manage-password-exceptions",
+            control: "moz-box-button",
+            controlAttrs: {
+              "search-l10n-ids":
+                "permissions-address,permissions-exceptions-saved-passwords-window.title,permissions-exceptions-saved-passwords-desc,",
+            },
+          },
+          {
+            id: "fillUsernameAndPasswords",
+            l10nId: "forms-fill-usernames-and-passwords-2",
+            controlAttrs: {
+              "search-l10n-ids": "forms-saved-passwords-searchkeywords",
+            },
+          },
+          {
+            id: "suggestStrongPasswords",
+            l10nId: "forms-suggest-passwords",
+            supportPage: "how-generate-secure-password-firefox",
+          },
+        ],
+      },
+      {
+        id: "requireOSAuthForPasswords",
+        l10nId: "forms-os-reauth",
+      },
+      {
+        id: "manageSavedPasswords",
+        l10nId: "forms-saved-passwords-2",
+        control: "moz-box-button",
+      },
+      {
+        id: "additionalProtectionsGroup",
+        l10nId: "forms-additional-protections-header",
+        control: "moz-fieldset",
+        controlAttrs: {
+          headingLevel: 2,
+        },
+        items: [
+          {
+            id: "primaryPasswordNotSet",
+            control: "moz-box-group",
+            items: [
+              {
+                id: "usePrimaryPassword",
+                l10nId: "forms-primary-pw-use",
+                control: "moz-box-item",
+                supportPage: "primary-password-stored-logins",
+              },
+              {
+                id: "addPrimaryPassword",
+                l10nId: "forms-primary-pw-set",
+                control: "moz-box-button",
+              },
+            ],
+          },
+          {
+            id: "primaryPasswordSet",
+            control: "moz-box-group",
+            items: [
+              {
+                id: "statusPrimaryPassword",
+                l10nId: "forms-primary-pw-on",
+                control: "moz-box-item",
+                controlAttrs: {
+                  iconsrc: "chrome://global/skin/icons/check-filled.svg",
+                },
+                options: [
+                  {
+                    id: "turnOffPrimaryPassword",
+                    l10nId: "forms-primary-pw-turn-off",
+                    control: "moz-button",
+                    controlAttrs: {
+                      slot: "actions",
+                    },
+                  },
+                ],
+              },
+              {
+                id: "changePrimaryPassword",
+                l10nId: "forms-primary-pw-change-2",
+                control: "moz-box-button",
+              },
+            ],
+          },
+          {
+            id: "breachAlerts",
+            l10nId: "forms-breach-alerts",
+            supportPage: "lockwise-alerts",
+          },
+        ],
+      },
+    ],
+  },
   history: {
     items: [
       {
@@ -2073,7 +2331,25 @@ let SETTINGS_CONFIG = {
       },
     ],
   },
-};
+  managePayments: {
+    items: [
+      {
+        id: "add-payment-button",
+        control: "moz-button",
+        l10nId: "autofill-payment-methods-add-button",
+      },
+      {
+        id: "payments-list",
+        control: "moz-box-group",
+        l10nId: "payments-list-header",
+        controlAttrs: {
+          hasHeader: true,
+          type: "list",
+        },
+      },
+    ],
+  },
+});
 
 /**
  * @param {string} id - ID of {@link SettingGroup} custom element.
@@ -2081,7 +2357,7 @@ let SETTINGS_CONFIG = {
 function initSettingGroup(id) {
   /** @type {SettingGroup} */
   let group = document.querySelector(`setting-group[groupid=${id}]`);
-  const config = SETTINGS_CONFIG[id];
+  const config = SettingGroupManager.get(id);
   if (group && config) {
     if (config.inProgress && !srdSectionEnabled(id)) {
       group.remove();
@@ -2191,6 +2467,7 @@ var gMainPane = {
     // Initialize settings groups from the config object.
     initSettingGroup("appearance");
     initSettingGroup("downloads");
+    initSettingGroup("drm");
     initSettingGroup("browsing");
     initSettingGroup("zoom");
     initSettingGroup("performance");
@@ -2355,19 +2632,6 @@ var gMainPane = {
       fxtranslationRow.hidden = false;
     }
 
-    let emeUIEnabled = Services.prefs.getBoolPref("browser.eme.ui.enabled");
-    // Force-disable/hide on WinXP:
-    if (navigator.platform.toLowerCase().startsWith("win")) {
-      emeUIEnabled =
-        emeUIEnabled && parseFloat(Services.sysinfo.get("version")) >= 6;
-    }
-    if (!emeUIEnabled) {
-      // Don't want to rely on .hidden for the toplevel groupbox because
-      // of the pane hiding/showing code potentially interfering:
-      document
-        .getElementById("drmGroup")
-        .setAttribute("style", "display: none !important");
-    }
     // Initialize the Firefox Updates section.
     let version = AppConstants.MOZ_APP_VERSION_DISPLAY;
 
@@ -2799,7 +3063,7 @@ var gMainPane = {
        * The fully initialized state.
        *
        * @param {Object} supportedLanguages
-       * @param {Array<{ langTag: string, displayName: string}} languageList
+       * @param {Array<{ langTag: string, displayName: string}>} languageList
        * @param {Map<string, DownloadPhase>} downloadPhases
        */
       constructor(supportedLanguages, languageList, downloadPhases) {
@@ -2835,8 +3099,8 @@ var gMainPane = {
       /**
        * Determine the download phase of each language file.
        *
-       * @param {Array<{ langTag: string, displayName: string}} languageList.
-       * @returns {Map<string, DownloadPhase>} Map the language tag to whether it is downloaded.
+       * @param {Array<{ langTag: string, displayName: string}>} languageList
+       * @returns {Promise<Map<string, DownloadPhase>>} Map the language tag to whether it is downloaded.
        */
       static async createDownloadPhases(languageList) {
         const downloadPhases = new Map();
@@ -3109,7 +3373,7 @@ var gMainPane = {
           case "loading":
             downloadButton.hidden = false;
             deleteButton.hidden = true;
-            downloadButton.setAttribute("disabled", true);
+            downloadButton.setAttribute("disabled", "true");
             break;
         }
       }
@@ -3533,7 +3797,7 @@ var gMainPane = {
    * The search mode is only available from the menu to change the primary browser
    * language.
    *
-   * @param {{ search: boolean }}
+   * @param {{ search: boolean }} search
    */
   showBrowserLanguagesSubDialog({ search }) {
     // Record the telemetry event with an id to associate related actions.

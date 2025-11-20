@@ -515,6 +515,13 @@ class WritingMode {
   }
 
   /**
+   * Convert aAxis in current writing mode to the axis in aToMode.
+   */
+  LogicalAxis ConvertAxisTo(LogicalAxis aAxis, WritingMode aToMode) const {
+    return IsOrthogonalTo(aToMode) ? GetOrthogonalAxis(aAxis) : aAxis;
+  }
+
+  /**
    * Returns true if this WritingMode's aLogicalAxis has the same physical
    * start side as the parallel axis of WritingMode |aOther|.
    *
@@ -525,14 +532,17 @@ class WritingMode {
    */
   bool ParallelAxisStartsOnSameSide(LogicalAxis aLogicalAxis,
                                     const WritingMode& aOther) const {
+    if (MOZ_LIKELY(*this == aOther)) {
+      // Dedicated short circuit for the common case.
+      return true;
+    }
+
     mozilla::Side myStartSide =
         this->PhysicalSide(MakeLogicalSide(aLogicalAxis, LogicalEdge::Start));
 
     // Figure out which of aOther's axes is parallel to |this| WritingMode's
     // aLogicalAxis, and get its physical start side as well.
-    LogicalAxis otherWMAxis = aOther.IsOrthogonalTo(*this)
-                                  ? GetOrthogonalAxis(aLogicalAxis)
-                                  : aLogicalAxis;
+    const LogicalAxis otherWMAxis = ConvertAxisTo(aLogicalAxis, aOther);
     mozilla::Side otherWMStartSide =
         aOther.PhysicalSide(MakeLogicalSide(otherWMAxis, LogicalEdge::Start));
 
@@ -2324,9 +2334,20 @@ inline AnchorResolvedMargin nsStyleMargin::GetMargin(
 }
 
 inline mozilla::StyleAlignFlags nsStylePosition::UsedSelfAlignment(
-    mozilla::LogicalAxis aAxis, const mozilla::ComputedStyle* aParent) const {
-  return aAxis == mozilla::LogicalAxis::Block ? UsedAlignSelf(aParent)._0
-                                              : UsedJustifySelf(aParent)._0;
+    LogicalAxis aAlignContainerAxis,
+    const ComputedStyle* aAlignContainerStyle) const {
+  return aAlignContainerAxis == LogicalAxis::Block
+             ? UsedAlignSelf(aAlignContainerStyle)._0
+             : UsedJustifySelf(aAlignContainerStyle)._0;
+}
+
+inline mozilla::StyleAlignFlags nsStylePosition::UsedSelfAlignment(
+    WritingMode aAlignSubjectWM, LogicalAxis aAlignSubjectAxis,
+    WritingMode aAlignContainerWM,
+    const ComputedStyle* aAlignContainerStyle) const {
+  const auto alignContainerAxis =
+      aAlignSubjectWM.ConvertAxisTo(aAlignSubjectAxis, aAlignContainerWM);
+  return UsedSelfAlignment(alignContainerAxis, aAlignContainerStyle);
 }
 
 inline mozilla::StyleContentDistribution nsStylePosition::UsedContentAlignment(

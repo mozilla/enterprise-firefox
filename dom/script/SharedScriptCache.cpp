@@ -24,15 +24,16 @@ namespace mozilla::dom {
 
 ScriptHashKey::ScriptHashKey(
     ScriptLoader* aLoader, const JS::loader::ScriptLoadRequest* aRequest,
+    mozilla::dom::ReferrerPolicy aReferrerPolicy,
     const JS::loader::ScriptFetchOptions* aFetchOptions,
     const nsCOMPtr<nsIURI> aURI)
     : PLDHashEntryHdr(),
+      mURI(aURI),
+      mPartitionPrincipal(aLoader->PartitionedPrincipal()),
+      mLoaderPrincipal(aLoader->LoaderPrincipal()),
       mKind(aRequest->mKind),
       mCORSMode(aFetchOptions->mCORSMode),
-      mIsLinkRelPreload(aRequest->GetScriptLoadContext()->IsPreload()),
-      mURI(aURI),
-      mLoaderPrincipal(aLoader->LoaderPrincipal()),
-      mPartitionPrincipal(aLoader->PartitionedPrincipal()),
+      mReferrerPolicy(aReferrerPolicy),
       mSRIMetadata(aRequest->mIntegrity),
       mNonce(aFetchOptions->mNonce) {
   if (mKind == JS::loader::ScriptKind::eClassic) {
@@ -47,17 +48,14 @@ ScriptHashKey::ScriptHashKey(
 ScriptHashKey::ScriptHashKey(ScriptLoader* aLoader,
                              const JS::loader::ScriptLoadRequest* aRequest,
                              const JS::loader::LoadedScript* aLoadedScript)
-    : ScriptHashKey(aLoader, aRequest, aLoadedScript->GetFetchOptions(),
-                    aLoadedScript->GetURI()) {}
+    : ScriptHashKey(aLoader, aRequest, aLoadedScript->ReferrerPolicy(),
+                    aLoadedScript->GetFetchOptions(), aLoadedScript->GetURI()) {
+}
 
 ScriptHashKey::ScriptHashKey(const ScriptLoadData& aLoadData)
     : ScriptHashKey(aLoadData.CacheKey()) {}
 
 bool ScriptHashKey::KeyEquals(const ScriptHashKey& aKey) const {
-  if (mKind != aKey.mKind) {
-    return false;
-  }
-
   {
     bool eq;
     if (NS_FAILED(mURI->Equals(aKey.mURI, &eq)) || !eq) {
@@ -69,7 +67,23 @@ bool ScriptHashKey::KeyEquals(const ScriptHashKey& aKey) const {
     return false;
   }
 
+  // NOTE: mLoaderPrincipal is only for the SharedSubResourceCache logic,
+  //       not for comparison here.
+
+  if (mKind != aKey.mKind) {
+    return false;
+  }
+
   if (mCORSMode != aKey.mCORSMode) {
+    return false;
+  }
+
+  if (mReferrerPolicy != aKey.mReferrerPolicy) {
+    return false;
+  }
+
+  if (!mSRIMetadata.CanTrustBeDelegatedTo(aKey.mSRIMetadata) ||
+      !aKey.mSRIMetadata.CanTrustBeDelegatedTo(mSRIMetadata)) {
     return false;
   }
 
@@ -82,11 +96,6 @@ bool ScriptHashKey::KeyEquals(const ScriptHashKey& aKey) const {
     if (mHintCharset != aKey.mHintCharset) {
       return false;
     }
-  }
-
-  if (!mSRIMetadata.CanTrustBeDelegatedTo(aKey.mSRIMetadata) ||
-      !aKey.mSRIMetadata.CanTrustBeDelegatedTo(mSRIMetadata)) {
-    return false;
   }
 
   return true;
@@ -139,6 +148,7 @@ SharedScriptCache::CollectReports(nsIHandleReportCallback* aHandleReport,
   return NS_OK;
 }
 
+/* static */
 void SharedScriptCache::Clear(const Maybe<bool>& aChrome,
                               const Maybe<nsCOMPtr<nsIPrincipal>>& aPrincipal,
                               const Maybe<nsCString>& aSchemelessSite,
@@ -156,6 +166,31 @@ void SharedScriptCache::Clear(const Maybe<bool>& aChrome,
   if (sSingleton) {
     sSingleton->ClearInProcess(aChrome, aPrincipal, aSchemelessSite, aPattern,
                                aURL);
+  }
+}
+
+/* static */
+void SharedScriptCache::Invalidate() {
+  using ContentParent = dom::ContentParent;
+
+  if (XRE_IsParentProcess()) {
+    for (auto* cp : ContentParent::AllProcesses(ContentParent::eLive)) {
+      (void)cp->SendInvalidateScriptCache();
+    }
+  }
+
+  if (sSingleton) {
+    sSingleton->InvalidateInProcess();
+  }
+}
+
+void SharedScriptCache::InvalidateInProcess() {
+  for (auto iter = mComplete.Iter(); !iter.Done(); iter.Next()) {
+    if (!iter.Data().mResource->HasCacheEntryId()) {
+      iter.Remove();
+    } else {
+      iter.Data().mResource->SetDirty();
+    }
   }
 }
 

@@ -7,7 +7,6 @@ import os
 import sys
 import time
 
-import portpicker
 import psutil
 from felt_tests import FeltTests
 from selenium.common.exceptions import NoSuchWindowException, WebDriverException
@@ -88,14 +87,10 @@ class BrowserRestartWorks(FeltTests):
 
 
 if __name__ == "__main__":
-    port_console = portpicker.pick_unused_port()
-    port_sso_serv = portpicker.pick_unused_port()
     BrowserRestartWorks(
         "felt_browser_restart_works.json",
         firefox=sys.argv[1],
         geckodriver=sys.argv[2],
         profile_root=sys.argv[3],
-        console=port_console,
-        sso_server=port_sso_serv,
         env_vars={"MOZ_FELT_UI": "1"},
     )

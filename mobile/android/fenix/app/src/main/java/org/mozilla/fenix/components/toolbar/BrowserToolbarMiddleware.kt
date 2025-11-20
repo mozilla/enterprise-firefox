@@ -687,18 +687,9 @@ class BrowserToolbarMiddleware(
     )
 
     private suspend fun updateEndBrowserActions(context: MiddlewareContext<BrowserToolbarState, BrowserToolbarAction>) {
-        val url = browserStore.state.selectedTab?.content?.url
-        val isBookmarked = if (url != null) {
-            withContext(ioDispatcher) {
-                bookmarksStorage.getBookmarksWithUrl(url).getOrDefault(listOf()).isNotEmpty()
-            }
-        } else {
-            false
-        }
-
         context.dispatch(
             BrowserActionsEndUpdated(
-                buildEndBrowserActions(isBookmarked),
+                buildEndBrowserActions(),
             ),
         )
     }
@@ -747,8 +738,9 @@ class BrowserToolbarMiddleware(
     private fun buildEndPageActions(): List<Action> {
         val isWideScreen = environment?.fragment?.isWideWindow() == true
         val tabStripEnabled = settings.isTabStripEnabled
-        val translateShortcutEnabled = settings.toolbarSimpleShortcutKey == ShortcutType.TRANSLATE
-        val shareShortcutEnabled = settings.toolbarSimpleShortcutKey == ShortcutType.SHARE
+        val simpleShortcut = ShortcutType.fromValue(settings.toolbarSimpleShortcutKey)
+        val translateShortcutEnabled = simpleShortcut == ShortcutType.TRANSLATE
+        val shareShortcutEnabled = simpleShortcut == ShortcutType.SHARE
 
         return listOf(
             ToolbarActionConfig(ToolbarAction.ReaderMode) {
@@ -769,17 +761,14 @@ class BrowserToolbarMiddleware(
         }
     }
 
-    private fun buildEndBrowserActions(isBookmarked: Boolean): List<Action> {
+    private suspend fun buildEndBrowserActions(): List<Action> {
         val isWideWindow = environment?.fragment?.isWideWindow() == true
         val isTallWindow = environment?.fragment?.isTallWindow() == true
         val tabStripEnabled = settings.isTabStripEnabled
         val shouldUseExpandedToolbar = settings.shouldUseExpandedToolbar
         val useCustomPrimary = settings.shouldShowToolbarCustomization
-        val primarySlotAction = mapShortcutToAction(
-            settings.toolbarSimpleShortcutKey,
-            ToolbarAction.NewTab,
-            isBookmarked,
-        ).takeIf { useCustomPrimary } ?: ToolbarAction.NewTab
+        val primarySlotAction = ShortcutType.fromValue(settings.toolbarSimpleShortcutKey)
+            ?.toToolbarAction().takeIf { useCustomPrimary } ?: ToolbarAction.NewTab
 
         val configs = listOf(
             ToolbarActionConfig(primarySlotAction) {
@@ -813,17 +802,14 @@ class BrowserToolbarMiddleware(
      *   - The navigation bar is hidden. (even If user enabled it)
      *   - The toolbar redesign customization option is also hidden.
      */
-    private fun buildNavigationActions(isBookmarked: Boolean): List<Action> {
+    private suspend fun buildNavigationActions(): List<Action> {
         val environment = environment ?: return emptyList()
         val isWideWindow = environment.fragment.isWideWindow()
         val isTallWindow = environment.fragment.isTallWindow()
         val shouldUseExpandedToolbar = settings.shouldUseExpandedToolbar
         val useCustomPrimary = settings.shouldShowToolbarCustomization
-        val primarySlotAction = mapShortcutToAction(
-            settings.toolbarExpandedShortcutKey,
-            getBookmarkAction(isBookmarked),
-            isBookmarked,
-        ).takeIf { useCustomPrimary } ?: getBookmarkAction(isBookmarked)
+        val primarySlotAction = ShortcutType.fromValue(settings.toolbarExpandedShortcutKey)
+            ?.toToolbarAction().takeIf { useCustomPrimary } ?: getBookmarkAction()
 
         return listOf(
             ToolbarActionConfig(primarySlotAction) { shouldUseExpandedToolbar && isTallWindow && !isWideWindow },
@@ -839,18 +825,9 @@ class BrowserToolbarMiddleware(
     }
 
     private suspend fun updateNavigationActions(context: MiddlewareContext<BrowserToolbarState, BrowserToolbarAction>) {
-        val url = browserStore.state.selectedTab?.content?.url
-        val isBookmarked = if (url != null) {
-            withContext(ioDispatcher) {
-                bookmarksStorage.getBookmarksWithUrl(url).getOrDefault(listOf()).isNotEmpty()
-            }
-        } else {
-            false
-        }
-
         context.dispatch(
             NavigationActionsUpdated(
-                buildNavigationActions(isBookmarked),
+                buildNavigationActions(),
             ),
         )
     }
@@ -1026,10 +1003,10 @@ class BrowserToolbarMiddleware(
             distinctUntilChangedBy { it.pageTranslationStatus }
             .collect {
                 updateEndPageActions(context)
-                if (settings.toolbarSimpleShortcutKey == ShortcutType.TRANSLATE) {
+                if (ShortcutType.fromValue(settings.toolbarSimpleShortcutKey) == ShortcutType.TRANSLATE) {
                     updateEndBrowserActions(context)
                 }
-                if (settings.toolbarExpandedShortcutKey == ShortcutType.TRANSLATE) {
+                if (ShortcutType.fromValue(settings.toolbarExpandedShortcutKey) == ShortcutType.TRANSLATE) {
                     updateNavigationActions(context)
                 }
             }
@@ -1044,9 +1021,13 @@ class BrowserToolbarMiddleware(
                     it.selectedTab?.content?.canGoForward,
                 )
             }.collect {
-                updateEndBrowserActions(context)
-                updateNavigationActions(context)
                 updateStartBrowserActions(context)
+                if (ShortcutType.fromValue(settings.toolbarSimpleShortcutKey) == ShortcutType.BACK) {
+                    updateEndBrowserActions(context)
+                }
+                if (ShortcutType.fromValue(settings.toolbarExpandedShortcutKey) == ShortcutType.BACK) {
+                    updateNavigationActions(context)
+                }
             }
         }
     }
@@ -1075,8 +1056,12 @@ class BrowserToolbarMiddleware(
                 it.snackbarState is SnackbarState.BookmarkAdded ||
                         it.snackbarState is SnackbarState.BookmarkDeleted
             }.collect { isBookmarked ->
-                updateEndBrowserActions(context)
-                updateNavigationActions(context)
+                if (ShortcutType.fromValue(settings.toolbarSimpleShortcutKey) == ShortcutType.BOOKMARK) {
+                    updateEndBrowserActions(context)
+                }
+                if (ShortcutType.fromValue(settings.toolbarExpandedShortcutKey) == ShortcutType.BOOKMARK) {
+                    updateNavigationActions(context)
+                }
             }
         }
     }
@@ -1321,28 +1306,21 @@ class BrowserToolbarMiddleware(
         Source.NavigationBar -> MetricsUtils.BookmarkAction.Source.BROWSER_NAVBAR
     }
 
-    companion object {
-        @VisibleForTesting
-        internal fun getBookmarkAction(isBookmarked: Boolean): ToolbarAction =
-            when (isBookmarked) {
-                true -> ToolbarAction.EditBookmark
-                false -> ToolbarAction.Bookmark
-            }
-
-        @VisibleForTesting
-        @JvmStatic
-        internal fun mapShortcutToAction(
-            key: String,
-            default: ToolbarAction,
-            isBookmarked: Boolean = false,
-        ): ToolbarAction = when (key) {
-            ShortcutType.NEW_TAB -> ToolbarAction.NewTab
-            ShortcutType.SHARE -> ToolbarAction.Share
-            ShortcutType.BOOKMARK -> getBookmarkAction(isBookmarked)
-            ShortcutType.TRANSLATE -> ToolbarAction.Translate
-            ShortcutType.HOMEPAGE -> ToolbarAction.Homepage
-            ShortcutType.BACK -> ToolbarAction.Back
-            else -> default
+    private suspend fun getBookmarkAction(): ToolbarAction {
+        val url = browserStore.state.selectedTab?.content?.url ?: return ToolbarAction.Bookmark
+        val isBookmarked = withContext(ioDispatcher) {
+            bookmarksStorage.getBookmarksWithUrl(url).getOrDefault(emptyList()).isNotEmpty()
         }
+        return if (isBookmarked) ToolbarAction.EditBookmark else ToolbarAction.Bookmark
+    }
+
+    @VisibleForTesting
+    internal suspend fun ShortcutType.toToolbarAction() = when (this) {
+        ShortcutType.NEW_TAB -> ToolbarAction.NewTab
+        ShortcutType.SHARE -> ToolbarAction.Share
+        ShortcutType.BOOKMARK -> getBookmarkAction()
+        ShortcutType.TRANSLATE -> ToolbarAction.Translate
+        ShortcutType.HOMEPAGE -> ToolbarAction.Homepage
+        ShortcutType.BACK -> ToolbarAction.Back
     }
 }

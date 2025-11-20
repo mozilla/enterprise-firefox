@@ -7,16 +7,16 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#[cfg(not(any(feature = "force-inprocess", target_os = "android", target_os = "ios")))]
-use crate::ipc::IpcReceiver;
-use crate::ipc::{self, IpcReceiverSet, IpcSender, IpcSharedMemory};
-use crate::router::{RouterProxy, ROUTER};
-use crossbeam_channel::{self, Sender};
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::cell::RefCell;
 #[cfg(not(any(feature = "force-inprocess", target_os = "android", target_os = "ios")))]
 use std::env;
-use std::iter;
+#[cfg(not(any(
+    feature = "force-inprocess",
+    target_os = "android",
+    target_os = "ios",
+    target_os = "windows",
+)))]
+use std::io::Error;
 #[cfg(not(any(feature = "force-inprocess", target_os = "android", target_os = "ios",)))]
 use std::process::{self, Command, Stdio};
 #[cfg(not(any(
@@ -27,7 +27,11 @@ use std::process::{self, Command, Stdio};
 )))]
 use std::ptr;
 use std::rc::Rc;
-use std::thread;
+use std::time::{Duration, Instant};
+use std::{iter, thread};
+
+use crossbeam_channel::{self, Sender};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 #[cfg(not(any(
     feature = "force-inprocess",
@@ -36,15 +40,10 @@ use std::thread;
     target_os = "windows"
 )))]
 use crate::ipc::IpcOneShotServer;
-
-#[cfg(not(any(
-    feature = "force-inprocess",
-    target_os = "android",
-    target_os = "ios",
-    target_os = "windows",
-)))]
-use std::io::Error;
-use std::time::{Duration, Instant};
+#[cfg(not(any(feature = "force-inprocess", target_os = "android", target_os = "ios")))]
+use crate::ipc::IpcReceiver;
+use crate::ipc::{self, IpcReceiverSet, IpcSender, IpcSharedMemory};
+use crate::router::{RouterProxy, ROUTER};
 
 #[cfg(not(any(
     feature = "force-inprocess",
@@ -93,7 +92,7 @@ impl Wait for libc::pid_t {
 #[cfg(not(any(feature = "force-inprocess", target_os = "android", target_os = "ios")))]
 pub fn get_channel_name_arg(which: &str) -> Option<String> {
     for arg in env::args() {
-        let arg_str = &*format!("channel_name-{}:", which);
+        let arg_str = &*format!("channel_name-{which}:");
         if let Some(arg) = arg.strip_prefix(arg_str) {
             return Some(arg.to_owned());
         }
@@ -110,7 +109,7 @@ pub fn spawn_server(test_name: &str, server_args: &[(&str, &str)]) -> process::C
         .args(
             server_args
                 .iter()
-                .map(|(name, val)| format!("channel_name-{}:{}", name, val)),
+                .map(|(name, val)| format!("channel_name-{name}:{val}")),
         )
         .stdin(Stdio::null())
         .stdout(Stdio::null())
@@ -131,7 +130,7 @@ fn simple() {
     drop(tx);
     match rx.recv().unwrap_err() {
         ipc::IpcError::Disconnected => (),
-        e => panic!("expected disconnected error, got {:?}", e),
+        e => panic!("expected disconnected error, got {e:?}"),
     }
 }
 
@@ -288,7 +287,7 @@ fn router_simple_global() {
     // Try the same, with a strongly typed route
     let message: usize = 42;
     let (tx, rx) = ipc::channel().unwrap();
-    tx.send(message.clone()).unwrap();
+    tx.send(message).unwrap();
 
     let (callback_fired_sender, callback_fired_receiver) = crossbeam_channel::unbounded::<usize>();
     ROUTER.add_typed_route(
@@ -322,6 +321,28 @@ fn router_simple_global() {
 
     // Shutdown the router, again(should be a no-op).
     ROUTER.shutdown();
+}
+
+#[cfg_attr(not(feature = "enable-slow-tests"), ignore)]
+#[test]
+fn router_flood() {
+    let router = RouterProxy::new();
+    for _ in 0..1_000_000 {
+        let person = ("Patrick Walton".to_owned(), 29);
+        let (tx, rx) = ipc::channel().unwrap();
+        let _ = tx.send(person.clone());
+
+        let (tx2, rx2) = ipc::channel().unwrap();
+        router.add_typed_route(rx, Box::new(move |msg| drop(tx2.send(msg.unwrap()))));
+        let received_person = rx2.recv().unwrap();
+        assert_eq!(received_person, person);
+    }
+}
+
+#[test]
+fn router_shutdown() {
+    let router = RouterProxy::new();
+    router.shutdown();
 }
 
 #[test]
@@ -432,7 +453,7 @@ fn router_drops_callbacks_on_cloned_sender_shutdown() {
 #[test]
 fn router_big_data() {
     let person = ("Patrick Walton".to_owned(), 29);
-    let people: Vec<_> = iter::repeat(person).take(64 * 1024).collect();
+    let people: Vec<_> = std::iter::repeat_n(person, 64 * 1024).collect();
     let (tx, rx) = ipc::channel().unwrap();
     let people_for_subthread = people.clone();
     let thread = thread::spawn(move || {
@@ -534,19 +555,19 @@ fn try_recv() {
     let (tx, rx) = ipc::channel().unwrap();
     match rx.try_recv() {
         Err(ipc::TryRecvError::Empty) => (),
-        v => panic!("Expected empty channel err: {:?}", v),
+        v => panic!("Expected empty channel err: {v:?}"),
     }
     tx.send(person.clone()).unwrap();
     let received_person = rx.try_recv().unwrap();
     assert_eq!(person, received_person);
     match rx.try_recv() {
         Err(ipc::TryRecvError::Empty) => (),
-        v => panic!("Expected empty channel err: {:?}", v),
+        v => panic!("Expected empty channel err: {v:?}"),
     }
     drop(tx);
     match rx.try_recv() {
         Err(ipc::TryRecvError::IpcError(ipc::IpcError::Disconnected)) => (),
-        v => panic!("Expected disconnected err: {:?}", v),
+        v => panic!("Expected disconnected err: {v:?}"),
     }
 }
 
@@ -560,7 +581,7 @@ fn try_recv_timeout() {
         Err(ipc::TryRecvError::Empty) => {
             assert!(start_recv.elapsed() >= Duration::from_millis(500))
         },
-        v => panic!("Expected empty channel err: {:?}", v),
+        v => panic!("Expected empty channel err: {v:?}"),
     }
     tx.send(person.clone()).unwrap();
     let start_recv = Instant::now();
@@ -572,12 +593,12 @@ fn try_recv_timeout() {
         Err(ipc::TryRecvError::Empty) => {
             assert!(start_recv.elapsed() >= Duration::from_millis(500))
         },
-        v => panic!("Expected empty channel err: {:?}", v),
+        v => panic!("Expected empty channel err: {v:?}"),
     }
     drop(tx);
     match rx.try_recv_timeout(timeout) {
         Err(ipc::TryRecvError::IpcError(ipc::IpcError::Disconnected)) => (),
-        v => panic!("Expected disconnected err: {:?}", v),
+        v => panic!("Expected disconnected err: {v:?}"),
     }
 }
 
@@ -635,7 +656,7 @@ fn test_so_linger() {
     let val = match receiver.recv() {
         Ok(val) => val,
         Err(e) => {
-            panic!("err: `{:?}`", e);
+            panic!("err: `{e:?}`");
         },
     };
     assert_eq!(val, 42);
@@ -689,6 +710,13 @@ fn test_reentrant() {
 }
 
 #[test]
+fn clone_sender_after_receiver_dropped() {
+    let (tx, rx) = ipc::channel::<u32>().unwrap();
+    drop(rx);
+    let _tx2 = tx.clone();
+}
+
+#[test]
 fn transfer_closed_sender() {
     let (main_tx, main_rx) = ipc::channel().unwrap();
     let (transfer_tx, _) = ipc::channel::<()>().unwrap();
@@ -699,10 +727,10 @@ fn transfer_closed_sender() {
 #[cfg(feature = "async")]
 #[test]
 fn test_receiver_stream() {
-    use futures::task::Context;
-    use futures::task::Poll;
-    use futures::Stream;
     use std::pin::Pin;
+
+    use futures_core::task::{Context, Poll};
+    use futures_core::Stream;
     let (tx, rx) = ipc::channel().unwrap();
     let (waker, count) = futures_test::task::new_count_waker();
     let mut ctx = Context::from_waker(&waker);
@@ -721,4 +749,21 @@ fn test_receiver_stream() {
         Poll::Ready(Some(Ok(5))) => (),
         _ => panic!("Stream should have 5"),
     };
+}
+
+mod sync_test {
+    use crate::ipc::{IpcReceiver, IpcSender};
+    use static_assertions::{assert_impl_all, assert_not_impl_any};
+
+    #[test]
+    fn ipc_receiver_not_sync() {
+        // A single-consumer queue is not Sync.
+        assert_not_impl_any!(IpcReceiver<usize> : Sync);
+    }
+
+    #[test]
+    fn ipc_sender_is_sync() {
+        // A multi-producer queue must be Sync.
+        assert_impl_all!(IpcSender<usize> : Sync);
+    }
 }

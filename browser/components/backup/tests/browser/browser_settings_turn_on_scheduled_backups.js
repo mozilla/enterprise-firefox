@@ -604,7 +604,6 @@ add_task(async function test_embedded_component_persistent_data_filepicker() {
     await filePickerShownPromise;
     await stateUpdatePromise;
     await turnOnScheduledBackups.updateComplete;
-
     Assert.equal(
       settings.backupServiceState.embeddedComponentPersistentData.path,
       mockCustomParentDir,

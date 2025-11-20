@@ -22,6 +22,9 @@ jobs:
       - name: "generate requirements.txt"
         run: |
           grep "^pypi:" python/sites/enterprise-tests.txt | sed -e "s/^pypi://g" > testing/enterprise/requirements.txt
+          echo "mozfile==3.0.0" >> testing/enterprise/requirements.txt
+          echo "mozlog==8.0.0" >> testing/enterprise/requirements.txt
+          echo "mozterm==1.0.0" >> testing/enterprise/requirements.txt
 
       - uses: actions/upload-artifact@v4
         with:
@@ -237,6 +240,16 @@ jobs:
           . venv_tests/bin/activate
           MOZ_LOG=console:5 python3 test_felt_browser_about_config_blocked.py ${{ steps.unpack.outputs.runtime_path }} $PWD/geckodriver $PWD/profiles/
 
+      - name: "test device posture"
+        run: |
+          . venv_tests/bin/activate
+          MOZ_LOG=console:5 python3 test_felt_device_posture.py ${{ steps.unpack.outputs.runtime_path }} $PWD/geckodriver $PWD/profiles/
+
+      - name: "test browser signout"
+        run: |
+          . venv_tests/bin/activate
+          MOZ_LOG=console:5 python3 test_felt_browser_signout.py ${{ steps.unpack.outputs.runtime_path }} $PWD/geckodriver $PWD/profiles/
+
       - name: "test browser restart is a quit"
         run: |
           . venv_tests/bin/activate
@@ -246,11 +259,6 @@ jobs:
         run: |
           . venv_tests/bin/activate
           MOZ_LOG=console:5 python3 test_felt_browser_restart_works.py ${{ steps.unpack.outputs.runtime_path }} $PWD/geckodriver $PWD/profiles/
-
-      - name: "test device posture"
-        run: |
-          . venv_tests/bin/activate
-          MOZ_LOG=console:5 python3 test_felt_device_posture.py ${{ steps.unpack.outputs.runtime_path }} $PWD/geckodriver $PWD/profiles/
 
       - uses: actions/upload-artifact@v4
         with:
@@ -482,6 +490,18 @@ jobs:
           $Env:MOZ_LOG="console:5"
           python3 test_felt_browser_about_config_blocked.py "${{ steps.unpack.outputs.firefox_path }}" "${{ steps.unpack.outputs.geckodriver_path }}" "${{ steps.unpack.outputs.profiles_path }}"
 
+      - name: "test device posture"
+        run: |
+          . venv_tests\Scripts\activate
+          $Env:MOZ_LOG="console:5"
+          python3 test_felt_device_posture.py "${{ steps.unpack.outputs.firefox_path }}" "${{ steps.unpack.outputs.geckodriver_path }}" "${{ steps.unpack.outputs.profiles_path }}"
+
+      - name: "test browser signout"
+        run: |
+          . venv_tests\Scripts\activate
+          $Env:MOZ_LOG="console:5"
+          python3 test_felt_browser_signout.py "${{ steps.unpack.outputs.firefox_path }}" "${{ steps.unpack.outputs.geckodriver_path }}" "${{ steps.unpack.outputs.profiles_path }}"
+
       - name: "test browser restart is a quit"
         run: |
           . venv_tests\Scripts\activate
@@ -493,12 +513,6 @@ jobs:
           . venv_tests\Scripts\activate
           $Env:MOZ_LOG="console:5"
           python3 test_felt_browser_restart_works.py "${{ steps.unpack.outputs.firefox_path }}" "${{ steps.unpack.outputs.geckodriver_path }}" "${{ steps.unpack.outputs.profiles_path }}"
-
-      - name: "test device posture"
-        run: |
-          . venv_tests\Scripts\activate
-          $Env:MOZ_LOG="console:5"
-          python3 test_felt_device_posture.py "${{ steps.unpack.outputs.firefox_path }}" "${{ steps.unpack.outputs.geckodriver_path }}" "${{ steps.unpack.outputs.profiles_path }}"
 
       - uses: actions/upload-artifact@v4
         with:
@@ -735,6 +749,16 @@ jobs:
           . venv_tests/bin/activate
           MOZ_LOG=console:5 python3 test_felt_browser_about_config_blocked.py "${{ steps.attach.outputs.runtime_path }}" $PWD/geckodriver $PWD/profiles/
 
+      - name: "test device posture"
+        run: |
+          . venv_tests/bin/activate
+          MOZ_LOG=console:5 python3 test_felt_device_posture.py "${{ steps.attach.outputs.runtime_path }}" $PWD/geckodriver $PWD/profiles/
+
+      - name: "test browser signout"
+        run: |
+          . venv_tests/bin/activate
+          MOZ_LOG=console:5 python3 test_felt_browser_signout.py "${{ steps.attach.outputs.runtime_path }}" $PWD/geckodriver $PWD/profiles/
+
       - name: "test browser restart is a quit"
         run: |
           . venv_tests/bin/activate
@@ -744,11 +768,6 @@ jobs:
         run: |
           . venv_tests/bin/activate
           MOZ_LOG=console:5 python3 test_felt_browser_restart_works.py "${{ steps.attach.outputs.runtime_path }}" $PWD/geckodriver $PWD/profiles/
-
-      - name: "test device posture"
-        run: |
-          . venv_tests/bin/activate
-          MOZ_LOG=console:5 python3 test_felt_device_posture.py "${{ steps.attach.outputs.runtime_path }}" $PWD/geckodriver $PWD/profiles/
 
       - uses: actions/upload-artifact@v4
         with:
@@ -762,7 +781,7 @@ jobs:
       - name: "detach"
         if: "always()"
         run: |
-          pkill -f "${{ steps.attach.outputs.runtime_path }}"
+          pkill -f "${{ steps.attach.outputs.runtime_path }}" || echo "Already dead"
           hdiutil unmount -force -whole ${{ steps.attach.outputs.mount_dir }}
           rm -fr ./obj-aarch64-apple-darwin/
 

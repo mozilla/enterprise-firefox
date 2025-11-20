@@ -20,6 +20,7 @@
 #include "jit/Linker.h"
 #include "jit/MoveEmitter.h"
 #include "jit/RegExpStubConstants.h"
+#include "jit/ShapeList.h"
 #include "jit/SharedICHelpers.h"
 #include "jit/VMFunctions.h"
 #include "js/experimental/JitInfo.h"  // JSJitInfo
@@ -1399,7 +1400,7 @@ void BaselineCacheIRCompiler::emitAtomizeString(Register str, Register temp,
     LiveRegisterSet save = liveVolatileRegs();
     masm.PushRegsInMask(save);
 
-    using Fn = JSAtom* (*)(JSContext* cx, JSString* str);
+    using Fn = JSAtom* (*)(JSContext * cx, JSString * str);
     masm.setupUnalignedABICall(temp);
     masm.loadJSContext(temp);
     masm.passABIArg(temp);
@@ -2035,84 +2036,6 @@ static void ResetEnteredCounts(const ICEntry* icEntry) {
   }
 }
 
-static const uint32_t MaxFoldedShapes = 16;
-
-const JSClass ShapeListObject::class_ = {
-    "JIT ShapeList",
-    0,
-    &classOps_,
-};
-
-const JSClassOps ShapeListObject::classOps_ = {
-    nullptr,                 // addProperty
-    nullptr,                 // delProperty
-    nullptr,                 // enumerate
-    nullptr,                 // newEnumerate
-    nullptr,                 // resolve
-    nullptr,                 // mayResolve
-    nullptr,                 // finalize
-    nullptr,                 // call
-    nullptr,                 // construct
-    ShapeListObject::trace,  // trace
-};
-
-/* static */ ShapeListObject* ShapeListObject::create(JSContext* cx) {
-  NativeObject* obj = NewTenuredObjectWithGivenProto(cx, &class_, nullptr);
-  if (!obj) {
-    return nullptr;
-  }
-
-  // Register this object so the GC can sweep its weak pointers.
-  if (!cx->zone()->registerObjectWithWeakPointers(obj)) {
-    ReportOutOfMemory(cx);
-    return nullptr;
-  }
-
-  return &obj->as<ShapeListObject>();
-}
-
-Shape* ShapeListObject::get(uint32_t index) {
-  Value value = ListObject::get(index);
-  return static_cast<Shape*>(value.toPrivate());
-}
-
-void ShapeListObject::trace(JSTracer* trc, JSObject* obj) {
-  if (trc->traceWeakEdges()) {
-    obj->as<ShapeListObject>().traceWeak(trc);
-  }
-}
-
-bool ShapeListObject::traceWeak(JSTracer* trc) {
-  uint32_t length = getDenseInitializedLength();
-  if (length == 0) {
-    return false;  // Object may be uninitialized.
-  }
-
-  const HeapSlot* src = elements_;
-  const HeapSlot* end = src + length;
-  HeapSlot* dst = elements_;
-  while (src != end) {
-    Shape* shape = static_cast<Shape*>(src->toPrivate());
-    MOZ_ASSERT(shape->is<Shape>());
-    if (TraceManuallyBarrieredWeakEdge(trc, &shape, "ShapeListObject shape")) {
-      dst->unbarrieredSet(PrivateValue(shape));
-      dst++;
-    }
-    src++;
-  }
-
-  MOZ_ASSERT(dst <= end);
-  uint32_t newLength = dst - elements_;
-  setDenseInitializedLength(newLength);
-
-  if (length != newLength) {
-    JitSpew(JitSpew_StubFolding, "Cleared %u/%u shapes from %p",
-            length - newLength, length, this);
-  }
-
-  return length != 0;
-}
-
 bool js::jit::TryFoldingStubs(JSContext* cx, ICFallbackStub* fallback,
                               JSScript* script, ICScript* icScript) {
   ICEntry* icEntry = icScript->icEntryForStub(fallback);
@@ -2377,9 +2300,10 @@ static bool AddToFoldedStub(JSContext* cx, const CacheIRWriter& writer,
         // The assert verifies this property by checking the first element has
         // the same realm (and since everything in the list has the same realm,
         // checking the first element suffices)
+        Realm* shapesRealm = foldedShapes->realm();
         MOZ_ASSERT_IF(!foldedShapes->isEmpty(),
-                      foldedShapes->get(0)->realm() == foldedShapes->realm());
-        if (foldedShapes->realm() != shape->realm()) {
+                      foldedShapes->getUnbarriered(0)->realm() == shapesRealm);
+        if (shapesRealm != shape->realm()) {
           return false;
         }
 
@@ -2415,7 +2339,7 @@ static bool AddToFoldedStub(JSContext* cx, const CacheIRWriter& writer,
 
   // Limit the maximum number of shapes we will add before giving up.
   // If we give up, transition the stub.
-  if (foldedShapes->length() == MaxFoldedShapes) {
+  if (foldedShapes->length() == ShapeListObject::MaxLength) {
     MOZ_ASSERT(fallback->state().mode() != ICState::Mode::Generic);
     fallback->state().forceTransition();
     fallback->discardStubs(cx->zone(), icEntry);
@@ -2635,17 +2559,28 @@ ICAttachResult js::jit::AttachBaselineCacheIRStub(
             outerScript->lineno(), outerScript->column().oneOriginValue());
 
     // Instead of adding a new stub, we have added a new case to an existing
-    // folded stub. We do not have to invalidate Warp, because the
-    // ShapeListObject that stores the cases is shared between baseline and
-    // Warp. Reset the entered count for the fallback stub so that we can still
-    // transpile, and reset the bailout counter if we have already been
-    // transpiled.
+    // folded stub. For invalidating Warp code, there are two cases to consider:
+    //
+    // (1) If we used MGuardShapeList, we need to invalidate Warp code because
+    //     it bakes in the old shape list.
+    //
+    // (2) If we used MGuardMultipleShapes, we do not need to invalidate Warp,
+    //     because the ShapeListObject that stores the cases is shared between
+    //     Baseline and Warp.
+    //
+    // If we have stub folding bailout data stored in the JitZone for this
+    // script, this must be case (2). In this case we reset the bailout counter
+    // if we have already been transpiled.
+    //
+    // In both cases we reset the entered count for the fallback stub so that we
+    // can still transpile.
     stub->resetEnteredCount();
     JSScript* owningScript = nullptr;
+    bool hadGuardMultipleShapesBailout = false;
     if (cx->zone()->jitZone()->hasStubFoldingBailoutData(outerScript)) {
-      owningScript = cx->zone()->jitZone()->stubFoldingBailoutParent();
-      JitSpew(JitSpew_StubFolding,
-              "Found stub folding bailout parent: %s:%u:%u",
+      owningScript = cx->zone()->jitZone()->stubFoldingBailoutOuter();
+      hadGuardMultipleShapesBailout = true;
+      JitSpew(JitSpew_StubFolding, "Found stub folding bailout outer: %s:%u:%u",
               owningScript->filename(), owningScript->lineno(),
               owningScript->column().oneOriginValue());
     } else {
@@ -2654,14 +2589,15 @@ ICAttachResult js::jit::AttachBaselineCacheIRStub(
                          : outerScript;
     }
     cx->zone()->jitZone()->clearStubFoldingBailoutData();
-    if (stub->usedByTranspiler()) {
+    if (stub->usedByTranspiler() && hadGuardMultipleShapesBailout) {
       if (owningScript->hasIonScript()) {
         owningScript->ionScript()->resetNumFixableBailouts();
       } else if (owningScript->hasJitScript()) {
         owningScript->jitScript()->clearFailedICHash();
       }
     } else {
-      // Update the last IC counter if this is not a bailout from Ion.
+      // Update the last IC counter if this is not a GuardMultipleShapes bailout
+      // from Ion.
       owningScript->updateLastICStubCounter();
     }
     return ICAttachResult::Attached;

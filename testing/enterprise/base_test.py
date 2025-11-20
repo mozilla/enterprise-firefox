@@ -66,7 +66,7 @@ class EnterpriseTestsBase:
             options.add_argument("--headless")
         if "MOZ_AUTOMATION" in os.environ.keys():
             os.environ["MOZ_LOG_FILE"] = os.path.join(
-                os.environ.get("ARTIFACT_DIR"), "gecko.log"
+                os.environ.get("ARTIFACT_DIR", ""), "gecko.log"
             )
 
         profile_path = self.get_profile_path(name="enterprise-tests")
@@ -88,7 +88,9 @@ class EnterpriseTestsBase:
         for arg in extra_cli_args:
             options.add_argument(arg)
 
+        os.environ.update({"MOZ_AUTOMATION": "1"})
         os.environ.update(extra_env)
+
         self._driver = webdriver.Firefox(service=driver_service, options=options)
 
         test_filter = "test_{}".format(os.environ.get("TEST_FILTER", ""))

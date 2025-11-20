@@ -921,6 +921,9 @@ bool Navigation::FireTraverseNavigateEvent(
   // in #fire-a-traverse-navigate-event have been moved to after step 25 in
   // #inner-navigate-event-firing-algorithm in our implementation.
 
+  // Work around for https://github.com/whatwg/html/issues/11802
+  InnerInformAboutAbortingNavigation(aCx);
+
   // Step 5
   RefPtr<NavigationHistoryEntry> destinationNHE =
       FindNavigationHistoryEntry(aDestinationSessionHistoryInfo);
@@ -1016,6 +1019,7 @@ bool Navigation::FireDownloadRequestNavigateEvent(
   // in #fire-a-download-request-navigate-event have been moved to after step
   // 25 in #inner-navigate-event-firing-algorithm in our implementation.
 
+  // Work around for https://github.com/whatwg/html/issues/11802
   InnerInformAboutAbortingNavigation(aCx);
 
   // Step 3 to step 7
@@ -1278,6 +1282,17 @@ struct NavigationWaitForAllScope final : public nsISupports,
 
     // 9. If event's interception state is not "none":
     if (mEvent->InterceptionState() != NavigateEvent::InterceptionState::None) {
+      // The copy of the active session history info might be stale at this
+      // point, so make sure to update that. This is not a spec step, but a side
+      // effect of SHIP owning the session history entries making Navigation API
+      // keep copies for its purposes. Should navigation get aborted at this
+      // point, all we've done is eagerly stored scroll positions.
+      if (RefPtr current = mNavigation->GetCurrentEntry()) {
+        nsPoint scrollPos = docShell->GetCurScrollPos();
+        current->SessionHistoryInfo()->SetScrollPosition(scrollPos.x,
+                                                         scrollPos.y);
+      }
+
       // 5. Set event's interception state to "committed".
       // See https://github.com/whatwg/html/issues/11830 for this change.
       mEvent->SetInterceptionState(NavigateEvent::InterceptionState::Committed);

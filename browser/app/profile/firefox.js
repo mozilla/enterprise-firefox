@@ -895,12 +895,6 @@ pref("browser.search.totalSearches", 0);
 // Feature gate for visual search.
 pref("browser.search.visualSearch.featureGate", true);
 
-// Feature gate for ohttp based suggestions.
-pref("browser.search.suggest.ohttp.featureGate", false);
-
-// User preference to enable/disable ohttp based suggestions.
-pref("browser.search.suggest.ohttp.enabled", true);
-
 // Spin the cursor while the page is loading
 pref("browser.spin_cursor_while_busy", false);
 
@@ -1818,9 +1812,6 @@ pref("browser.topsites.useRemoteSetting", true);
 pref("browser.topsites.contile.enabled", true);
 pref("browser.topsites.contile.endpoint", "https://contile.services.mozilla.com/v1/tiles");
 
-// Whether to enable the Share-of-Voice feature for Sponsored Topsites via Contile.
-pref("browser.topsites.contile.sov.enabled", true);
-
 // The base URL for the Quick Suggest anonymizing proxy. To make a request to
 // the proxy, include a campaign ID in the path.
 pref("browser.partnerlink.attributionURL", "https://topsites.services.mozilla.com/cid/");
@@ -1971,7 +1962,6 @@ pref("browser.newtabpage.activity-stream.discoverystream.placements.tiles.counts
 pref("browser.newtabpage.activity-stream.discoverystream.placements.contextualBanners", "");
 pref("browser.newtabpage.activity-stream.discoverystream.placements.contextualBanners.counts", "");
 
-pref("browser.newtabpage.activity-stream.discoverystream.spoc-topsites-positions", "2");
 // This is a 0-based index, for consistency with the other position CSVs,
 // but Contile positions are a 1-based index, so we end up adding 1 to these before using them.
 pref("browser.newtabpage.activity-stream.discoverystream.contile-topsites-positions", "0,1,2");
@@ -1982,9 +1972,6 @@ pref("browser.newtabpage.activity-stream.discoverystream.spocs-endpoint-query", 
 // Changes the spoc content.
 pref("browser.newtabpage.activity-stream.discoverystream.spocAdTypes", "");
 pref("browser.newtabpage.activity-stream.discoverystream.spocZoneIds", "");
-pref("browser.newtabpage.activity-stream.discoverystream.spocTopsitesAdTypes", "");
-pref("browser.newtabpage.activity-stream.discoverystream.spocTopsitesZoneIds", "");
-pref("browser.newtabpage.activity-stream.discoverystream.spocTopsitesPlacement.enabled", true);
 pref("browser.newtabpage.activity-stream.discoverystream.spocSiteId", "");
 pref("browser.newtabpage.activity-stream.discoverystream.ctaButtonSponsors", "");
 pref("browser.newtabpage.activity-stream.discoverystream.ctaButtonVariant", "");
@@ -2252,6 +2239,9 @@ pref("browser.ml.smartAssist.enabled", false);
 pref("browser.ml.smartAssist.endpoint", "");
 pref("browser.ml.smartAssist.model", "");
 pref("browser.ml.smartAssist.overrideNewTab", false);
+
+// AI Window Feature
+pref("browser.aiwindow.enabled", false);
 
 // Block insecure active content on https pages
 pref("security.mixed_content.block_active_content", true);
@@ -3507,7 +3497,7 @@ pref("toolkit.contentRelevancy.log", false);
 
 // The number of days after which to rotate the context ID. 0 means to disable
 // rotation altogether.
-pref("browser.contextual-services.contextId.rotation-in-days", 7);
+pref("browser.contextual-services.contextId.rotation-in-days", 3);
 pref("browser.contextual-services.contextId.rust-component.enabled", true);
 
 // Pref to enable the IP protection feature

@@ -19,6 +19,7 @@ pub enum FeltMessage {
     OpenURL(String),
     RestartForced,
     Restarting,
+    LogoutShutdown,
 }
 
 pub const FELT_IPC_VERSION: u32 = 2;

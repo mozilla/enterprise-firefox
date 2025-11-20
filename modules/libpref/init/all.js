@@ -356,14 +356,6 @@ pref("media.recorder.audio_node.enabled", false);
 // to keep up under load. Useful for tests but beware of memory consumption!
 pref("media.recorder.video.frame_drops", true);
 
-// The default number of decoded video frames that are enqueued in
-// MediaDecoderReader's mVideoQueue.
-pref("media.video-queue.default-size", 10);
-
-// The maximum number of queued frames to send to the compositor.
-// By default, send all of them.
-pref("media.video-queue.send-to-compositor-size", 9999);
-
 pref("media.cubeb.output_voice_routing", true);
 
 // Force cubeb to use the mock context, which exposes only fake devices.
@@ -542,9 +534,14 @@ pref("toolkit.tabbox.switchByScrolling", false);
 
 // Telemetry settings.
 // Server to submit telemetry pings to.
+#ifdef MOZ_ENTERPRISE
+pref("toolkit.telemetry.server", "", locked);
+pref("toolkit.telemetry.server_owner", "N/A", locked);
+#else
 pref("toolkit.telemetry.server", "https://incoming.telemetry.mozilla.org");
 // Telemetry server owner. Please change if you set toolkit.telemetry.server to a different server
 pref("toolkit.telemetry.server_owner", "Mozilla");
+#endif
 // Determines whether full SQL strings are returned when they might contain sensitive info
 // i.e. dynamically constructed SQL strings or SQL executed by addons against addon DBs
 pref("toolkit.telemetry.debugSlowSql", false);
@@ -3419,11 +3416,7 @@ pref("browser.safebrowsing.provider.google4.dataSharingURL", "https://safebrowsi
 pref("browser.safebrowsing.provider.google4.dataSharing.enabled", false);
 
 // Google Safe Browsing V5 prefs.
-#ifdef NIGHTLY_BUILD
 pref("browser.safebrowsing.provider.google5.enabled", true);
-#else
-pref("browser.safebrowsing.provider.google5.enabled", false);
-#endif
 pref("browser.safebrowsing.provider.google5.lists", "goog-badbinurl-proto,goog-downloadwhite-proto,goog-phish-proto,googpub-phish-proto,goog-malware-proto,goog-unwanted-proto,goog-harmful-proto");
 pref("browser.safebrowsing.provider.google5.updateURL", "https://safebrowsing.googleapis.com/v5/hashLists:batchGet?key=%GOOGLE_SAFEBROWSING_API_KEY%");
 pref("browser.safebrowsing.provider.google5.gethashURL", "https://safebrowsing.googleapis.com/v5/hashes:search?key=%GOOGLE_SAFEBROWSING_API_KEY%");
@@ -3470,7 +3463,6 @@ pref("browser.search.log", false);
 pref("browser.search.update", true);
 pref("browser.search.suggest.enabled", true);
 pref("browser.search.suggest.enabled.private", false);
-pref("browser.search.suggest.ohttp.enabled", false);
 pref("browser.search.separatePrivateDefault", true);
 pref("browser.search.separatePrivateDefault.ui.enabled", false);
 pref("browser.search.removeEngineInfobar.enabled", true);

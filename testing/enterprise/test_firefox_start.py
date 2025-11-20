@@ -14,7 +14,13 @@ from selenium.webdriver.support import expected_conditions as EC
 
 class EnterpriseTests(EnterpriseTestsBase):
     def __init__(self, firefox, geckodriver, profile_root):
-        super().__init__("firefox_start.json", firefox, geckodriver, profile_root)
+        super().__init__(
+            "firefox_start.json",
+            firefox,
+            geckodriver,
+            profile_root,
+            extra_env={"MOZ_BYPASS_FELT": "1"},
+        )
 
     def setup(self):
         pass

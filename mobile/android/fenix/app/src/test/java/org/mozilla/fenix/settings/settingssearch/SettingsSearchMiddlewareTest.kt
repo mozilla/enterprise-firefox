@@ -175,21 +175,21 @@ val testList = listOf(
         title = "Search Engine",
         summary = "Set your preferred search engine for browsing.",
         preferenceKey = "search_engine_main",
-        breadcrumbs = listOf("Search", "Default Search Engine"),
+        categoryHeader = "General",
         preferenceFileInformation = PreferenceFileInformation.SearchSettingsPreferences,
     ),
     SettingsSearchItem(
         title = "Advanced Settings",
         summary = "", // Empty or blank summary
         preferenceKey = "advanced_stuff",
-        breadcrumbs = listOf("Developer", "Experiments"),
+        categoryHeader = "Advanced",
         preferenceFileInformation = PreferenceFileInformation.GeneralPreferences,
     ),
     SettingsSearchItem(
         title = "Do not collect usage data",
         summary = "", // Empty or blank summary
         preferenceKey = "do_not_collect_data",
-        breadcrumbs = listOf("Privacy", "Usage Data"),
+        categoryHeader = "Privacy",
         preferenceFileInformation = PreferenceFileInformation.GeneralPreferences,
     ),
 )

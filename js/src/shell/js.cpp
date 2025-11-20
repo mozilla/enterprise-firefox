@@ -1418,20 +1418,6 @@ static bool MaybeRunShellTasks(JSContext* cx) {
   return ranTasks;
 }
 
-static bool EnqueueJob(JSContext* cx, unsigned argc, Value* vp) {
-  CallArgs args = CallArgsFromVp(argc, vp);
-
-  if (!IsFunctionObject(args.get(0))) {
-    JS_ReportErrorASCII(cx, "EnqueueJob's first argument must be a function");
-    return false;
-  }
-
-  args.rval().setUndefined();
-
-  RootedObject job(cx, &args[0].toObject());
-  return js::EnqueueJob(cx, job);
-}
-
 static void RunShellJobs(JSContext* cx) {
   ShellContext* sc = GetShellContext(cx);
   if (sc->quitting) {
@@ -1492,6 +1478,11 @@ static bool GlobalOfFirstJobInQueue(JSContext* cx, unsigned argc, Value* vp) {
     JS::JSMicroTask* job = JS::ToUnwrappedJSMicroTask(genericJob);
     MOZ_ASSERT(job);
     RootedObject global(cx, JS::GetExecutionGlobalFromJSMicroTask(job));
+    if (!global) {
+      JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr,
+                                JSMSG_DEAD_OBJECT);
+      return false;
+    }
     MOZ_ASSERT(global);
     if (!cx->compartment()->wrap(cx, &global)) {
       return false;
@@ -10529,10 +10520,6 @@ JS_FN_HELP("createUserArrayBuffer", CreateUserArrayBuffer, 1, 0,
 "  Return an int32 value which corresponds to the offset of the latest stack\n"
 "  pointer, such that one can take the differences of 2 to estimate a frame-size."),
 
-    JS_FN_HELP("enqueueJob", EnqueueJob, 1, 0,
-"enqueueJob(fn)",
-"  Enqueue 'fn' on the shell's job queue."),
-
     JS_FN_HELP("globalOfFirstJobInQueue", GlobalOfFirstJobInQueue, 0, 0,
 "globalOfFirstJobInQueue()",
 "  Returns the global of the first item in the job queue. Throws an exception\n"
@@ -12976,7 +12963,7 @@ bool InitOptionParser(OptionParser& op) {
           "Don't compile very large scripts (default: on, off to disable)") ||
       !op.addIntOption('\0', "ion-warmup-threshold", "COUNT",
                        "Wait for COUNT calls or iterations before compiling "
-                       "at the normal optimization level (default: 1000)",
+                       "at the normal optimization level (default: 1500)",
                        -1) ||
       !op.addStringOption(
           '\0', "ion-regalloc", "[mode]",
