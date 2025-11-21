@@ -3,24 +3,29 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #aboutDialogContainer {
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-background-color-tokens */
   background-color: #131e39;
-  color: #fff;
+  color: white;
   color-scheme: dark;
 }
 
 #rightBox {
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-space-tokens */
   margin-inline: 30px;
-  padding-top: 64px;
 }
 
 #bottomBox {
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-background-color-tokens */
   background-color: #0e162b;
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-space-tokens */
   padding: 15px 10px 15px;
 }
 
 #trademark {
   font-size: xx-small;
   text-align: center;
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-text-color-tokens */
   color: #999999;
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-space-tokens */
   margin-block: 10px;
 }
