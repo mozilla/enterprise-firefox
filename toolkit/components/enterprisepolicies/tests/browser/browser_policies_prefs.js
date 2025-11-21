@@ -16,7 +16,10 @@ ChromeUtils.defineESModuleGetters(lazy, {
 add_setup(async function test_set_http_server_usage() {
   lazy.PoliciesPrefTracker.stop();
 
-  Services.prefs.setBoolPref("browser.policies.testUseHttp", true);
+  await SpecialPowers.pushPrefEnv({
+    set: [["browser.policies.testUseHttp", true]],
+  });
+
   await EnterprisePolicyTesting.servePolicyWithJson(
     {},
     {},

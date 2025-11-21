@@ -621,12 +621,13 @@ jobs:
           path: obj-*/dist/firefox-*.unsigned.dmg*
           compression-level: 0
 
-      - name: signature
+      - name: "signature and repackage"
         run: |
           export PATH=$HOME/.cargo/bin:$PATH
           echo -n "$(uuidgen)" > firefoxEnterprise_pass.p12
           DMG_FILE=$(find obj-*/dist/ -type f -name "*.mac.dmg")
           DMG_SIGNED=$(echo "$DMG_FILE" | sed -e "s/.dmg$/.signed.dmg/g")
+          PKG_SIGNED=$(echo "$DMG_FILE" | sed -e "s/.dmg$/.signed.pkg/g")
           HFSPLUS_FILE="$(basename $DMG_FILE .dmg).hfsplus"
           OBJDIR=$(find obj-* -maxdepth 0 -type d)
           rcodesign generate-self-signed-certificate --person-name FirefoxEnterprise --p12-file firefoxEnterprise.p12 --p12-password "$(cat firefoxEnterprise_pass.p12)"
@@ -639,14 +640,21 @@ jobs:
           ./mach macos-sign -v -c nightly -e developer -r -f firefoxEnterprise.p12 -p firefoxEnterprise_pass.p12 -a "${APP_FILE}"
           APP_FILENAME="$(basename "$APP_FILE")"
           tar -Jcf $OBJDIR/dist/nightly_signed.tar.gz -C $OBJDIR/dist/hfs/ .background .DS_Store .VolumeIcon.icns "$APP_FILENAME"
-          ./mach repackage dmg -i $OBJDIR/dist/nightly_signed.tar.gz -o $DMG_SIGNED
+          ./mach repackage dmg -i $PWD/$OBJDIR/dist/nightly_signed.tar.gz -o $PWD/$DMG_SIGNED
+          ./mach repackage pkg -i $PWD/$OBJDIR/dist/nightly_signed.tar.gz -o $PWD/$PKG_SIGNED
           rm $OBJDIR/dist/nightly_signed.tar.gz
           rm -fr $OBJDIR/dist/hfs/
 
       - uses: actions/upload-artifact@v4
         with:
-          name: firefox-macOS-signed-aarch64
+          name: firefox-macOS-signed-aarch64_dmg
           path: obj-*/dist/firefox-*.signed.dmg*
+          compression-level: 0
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: firefox-macOS-signed-aarch64_pkg
+          path: obj-*/dist/firefox-*.signed.pkg*
           compression-level: 0
 
       - name: "package gcp-eu"
@@ -656,12 +664,13 @@ jobs:
           echo 'pref("enterprise.console.address", "https://console-gcp-eu.enterfox.eu");' > obj-*/dist/bin/browser/defaults/preferences/firefox-enterprise.js
           ./mach package
 
-      - name: "signature gcp-eu"
+      - name: "signature and repackage for gcp-eu"
         run: |
           export PATH=$HOME/.cargo/bin:$PATH
           echo -n "$(uuidgen)" > firefoxEnterprise_pass.p12
           DMG_FILE=$(find obj-*/dist/ -type f -name "*.mac.dmg")
           DMG_SIGNED=$(echo "$DMG_FILE" | sed -e "s/.dmg$/.signed.dmg/g")
+          PKG_SIGNED=$(echo "$DMG_FILE" | sed -e "s/.dmg$/.signed.pkg/g")
           HFSPLUS_FILE="$(basename $DMG_FILE .dmg).hfsplus"
           OBJDIR=$(find obj-* -maxdepth 0 -type d)
           rcodesign generate-self-signed-certificate --person-name FirefoxEnterprise --p12-file firefoxEnterprise.p12 --p12-password "$(cat firefoxEnterprise_pass.p12)"
@@ -674,14 +683,21 @@ jobs:
           ./mach macos-sign -v -c nightly -e developer -r -f firefoxEnterprise.p12 -p firefoxEnterprise_pass.p12 -a "${APP_FILE}"
           APP_FILENAME="$(basename "$APP_FILE")"
           tar -Jcf $OBJDIR/dist/nightly_signed.tar.gz -C $OBJDIR/dist/hfs/ .background .DS_Store .VolumeIcon.icns "$APP_FILENAME"
-          ./mach repackage dmg -i $OBJDIR/dist/nightly_signed.tar.gz -o $DMG_SIGNED
+          ./mach repackage dmg -i $PWD/$OBJDIR/dist/nightly_signed.tar.gz -o $PWD/$DMG_SIGNED
+          ./mach repackage pkg -i $PWD/$OBJDIR/dist/nightly_signed.tar.gz -o $PWD/$PKG_SIGNED
           rm $OBJDIR/dist/nightly_signed.tar.gz
           rm -fr $OBJDIR/dist/hfs/
 
       - uses: actions/upload-artifact@v4
         with:
-          name: firefox-macOS-signed-aarch64-gcpEU
+          name: firefox-macOS-signed-aarch64-gcpEU_dmg
           path: obj-*/dist/firefox-*.signed.dmg*
+          compression-level: 0
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: firefox-macOS-signed-aarch64-gcpEU_pkg
+          path: obj-*/dist/firefox-*.signed.pkg*
           compression-level: 0
 
   macOS-test:
@@ -698,7 +714,7 @@ jobs:
       - name: "download firefox build"
         uses: actions/download-artifact@v5
         with:
-          name: firefox-macOS-signed-aarch64
+          name: firefox-macOS-signed-aarch64_dmg
 
       - name: "download enterprise tests"
         uses: actions/download-artifact@v5

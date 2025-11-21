@@ -137,8 +137,7 @@ export class UrlbarInput extends HTMLElement {
                       data-l10n-id="urlbar-placeholder"/>
         </moz-input-box>
         <moz-urlbar-slot name="revert-button"> </moz-urlbar-slot>
-        <image id="urlbar-go-button"
-               class="urlbar-icon urlbar-go-button"
+        <image class="urlbar-icon urlbar-go-button"
                role="button"
                data-l10n-id="urlbar-go-button"/>
         <moz-urlbar-slot name="page-actions" hidden=""> </moz-urlbar-slot>
@@ -4640,29 +4639,35 @@ export class UrlbarInput extends HTMLElement {
   }
 
   _on_click(event) {
-    if (
-      event.target == this.inputField ||
-      event.target == this._inputContainer
-    ) {
-      this._maybeSelectAll();
-      this.#maybeUntrimUrl();
-    }
+    switch (event.target) {
+      case this.inputField:
+      case this._inputContainer:
+        this._maybeSelectAll();
+        this.#maybeUntrimUrl();
+        break;
 
-    if (event.target == this._searchModeIndicatorClose && event.button != 2) {
-      this.searchMode = null;
-      if (this.view.oneOffSearchButtons) {
-        this.view.oneOffSearchButtons.selectedButton = null;
-      }
-      if (this.view.isOpen) {
-        this.startQuery({
-          event,
-        });
-      }
-    }
+      case this._searchModeIndicatorClose:
+        if (event.button != 2) {
+          this.searchMode = null;
+          if (this.view.oneOffSearchButtons) {
+            this.view.oneOffSearchButtons.selectedButton = null;
+          }
+          if (this.view.isOpen) {
+            this.startQuery({
+              event,
+            });
+          }
+        }
+        break;
 
-    if (event.target == this._revertButton) {
-      this.handleRevert();
-      this.select();
+      case this._revertButton:
+        this.handleRevert();
+        this.select();
+        break;
+
+      case this.goButton:
+        this.handleCommand(event);
+        break;
     }
   }
 
@@ -5040,6 +5045,13 @@ export class UrlbarInput extends HTMLElement {
       this._setValue(value, { valueIsTyped: true });
       this.userTypedValue = value;
 
+      // Since we prevent the default paste event, we have to ensure the
+      // pageproxystate is updated. The paste event replaces the actual current
+      // page's URL with user-typed content, so we should set pageproxystate to
+      // invalid.
+      if (this.getAttribute("pageproxystate") == "valid") {
+        this.setPageProxyState("invalid");
+      }
       this.toggleAttribute("usertyping", this._untrimmedValue);
 
       // Fix up cursor/selection:

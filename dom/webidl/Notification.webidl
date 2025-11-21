@@ -41,16 +41,16 @@ interface Notification : EventTarget {
   readonly attribute NotificationDirection dir;
 
   [Pure]
-  readonly attribute DOMString? lang;
+  readonly attribute DOMString lang;
 
   [Pure]
-  readonly attribute DOMString? body;
+  readonly attribute DOMString body;
 
   [Constant]
-  readonly attribute DOMString? tag;
+  readonly attribute DOMString tag;
 
   [Pure]
-  readonly attribute DOMString? icon;
+  readonly attribute UTF8String icon;
 
   [Constant, Pref="dom.webnotifications.requireinteraction.enabled"]
   readonly attribute boolean requireInteraction;
@@ -79,7 +79,7 @@ dictionary NotificationOptions {
   DOMString lang = "";
   DOMString body = "";
   DOMString tag = "";
-  DOMString icon = "";
+  UTF8String icon = "";
   boolean requireInteraction = false;
   boolean silent = false;
   VibratePattern vibrate;

@@ -59,6 +59,7 @@
 #include "mozilla/EMEUtils.h"
 #include "mozilla/EventDispatcher.h"
 #include "mozilla/MathAlgorithms.h"
+#include "mozilla/MediaFragmentURIParser.h"
 #include "mozilla/Preferences.h"
 #include "mozilla/PresShell.h"
 #include "mozilla/SVGObserverUtils.h"
@@ -123,7 +124,6 @@
 #include "nsITimer.h"
 #include "nsJSUtils.h"
 #include "nsLayoutUtils.h"
-#include "nsMediaFragmentURIParser.h"
 #include "nsMimeTypes.h"
 #include "nsNetUtil.h"
 #include "nsNodeInfoManager.h"
@@ -161,7 +161,6 @@ extern mozilla::LazyLogModule gAutoplayPermissionLog;
 #define LOG_EVENT(type, msg) MOZ_LOG(gMediaElementEventsLog, type, msg)
 
 using namespace mozilla::layers;
-using mozilla::net::nsMediaFragmentURIParser;
 using namespace mozilla::dom::HTMLMediaElement_Binding;
 
 namespace mozilla::dom {
@@ -2647,7 +2646,9 @@ void HTMLMediaElement::QueueLoadFromSourceTask() {
 
 void HTMLMediaElement::QueueSelectResourceTask() {
   // Don't allow multiple async select resource calls to be queued.
-  if (mHaveQueuedSelectResource) return;
+  if (mHaveQueuedSelectResource) {
+    return;
+  }
   mHaveQueuedSelectResource = true;
   ChangeNetworkState(NETWORK_NO_SOURCE);
   RefPtr<Runnable> r = NewRunnableMethod<JSCallingLocation>(
@@ -3287,7 +3288,9 @@ MediaResult HTMLMediaElement::LoadResource(
     // TODO: remove the cast by storing ChannelMediaDecoder in the URI table.
     nsresult rv = InitializeDecoderAsClone(
         static_cast<ChannelMediaDecoder*>(other->mDecoder.get()));
-    if (NS_SUCCEEDED(rv)) return rv;
+    if (NS_SUCCEEDED(rv)) {
+      return rv;
+    }
   }
 
   LOG(LogLevel::Debug, ("%p LoadResource", this));
@@ -3337,7 +3340,9 @@ nsresult HTMLMediaElement::LoadWithChannel(nsIChannel* aChannel,
   *aListener = nullptr;
 
   // Make sure we don't reenter during synchronous abort events.
-  if (mIsRunningLoadMethod) return NS_OK;
+  if (mIsRunningLoadMethod) {
+    return NS_OK;
+  }
   mIsRunningLoadMethod = true;
   AbortExistingLoads();
   mIsRunningLoadMethod = false;
@@ -3650,7 +3655,9 @@ void HTMLMediaElement::SetVolume(double aVolume, ErrorResult& aRv) {
     return;
   }
 
-  if (aVolume == mVolume) return;
+  if (aVolume == mVolume) {
+    return;
+  }
 
   mVolume = aVolume;
 
@@ -4729,7 +4736,9 @@ HTMLMediaElement::~HTMLMediaElement() {
 
 void HTMLMediaElement::StopSuspendingAfterFirstFrame() {
   mAllowSuspendAfterFirstFrame = false;
-  if (!mSuspendedAfterFirstFrame) return;
+  if (!mSuspendedAfterFirstFrame) {
+    return;
+  }
   mSuspendedAfterFirstFrame = false;
   if (mDecoder) {
     mDecoder->Resume();
@@ -5419,7 +5428,9 @@ nsresult HTMLMediaElement::InitializeDecoderAsClone(
       HasAttr(nsGkAtoms::loop), aOriginal->ContainerType());
 
   RefPtr<ChannelMediaDecoder> decoder = aOriginal->Clone(decoderInit);
-  if (!decoder) return NS_ERROR_FAILURE;
+  if (!decoder) {
+    return NS_ERROR_FAILURE;
+  }
 
   LOG(LogLevel::Debug,
       ("%p Cloned decoder %p from %p", this, decoder.get(), aOriginal));
@@ -5833,7 +5844,7 @@ void HTMLMediaElement::ProcessMediaFragmentURI() {
     mFragmentStart = mFragmentEnd = -1.0;
     return;
   }
-  nsMediaFragmentURIParser parser(mLoadingSrc);
+  MediaFragmentURIParser parser(mLoadingSrc);
 
   if (mDecoder && parser.HasEndTime()) {
     mFragmentEnd = parser.GetEndTime();
@@ -6686,7 +6697,9 @@ VideoFrameContainer* HTMLMediaElement::GetVideoFrameContainer() {
     return nullptr;
   }
 
-  if (mVideoFrameContainer) return mVideoFrameContainer;
+  if (mVideoFrameContainer) {
+    return mVideoFrameContainer;
+  }
 
   // Only video frames need an image container.
   if (!IsVideo()) {
@@ -7112,7 +7125,9 @@ HTMLSourceElement* HTMLMediaElement::GetNextSource() {
 }
 
 void HTMLMediaElement::ChangeDelayLoadStatus(bool aDelay) {
-  if (mDelayingLoadEvent == aDelay) return;
+  if (mDelayingLoadEvent == aDelay) {
+    return;
+  }
 
   mDelayingLoadEvent = aDelay;
 

@@ -5,10 +5,12 @@
 
 add_setup(async function test_set_http_server_usage() {
   await SpecialPowers.pushPrefEnv({
-    set: [["browser.policies.live_polling_freq", 250]],
+    set: [
+      ["browser.policies.live_polling_freq", 250],
+      ["browser.policies.testUseHttp", true],
+    ],
   });
 
-  Services.prefs.setBoolPref("browser.policies.testUseHttp", true);
   await EnterprisePolicyTesting.servePolicyWithJson(
     {},
     {},

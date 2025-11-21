@@ -10,9 +10,11 @@ from felt_tests import FeltTests
 from selenium.common.exceptions import (
     JavascriptException,
     NoSuchWindowException,
+    UnexpectedAlertPresentException,
     WebDriverException,
 )
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import WebDriverWait
 
 
 class BrowserSignout(FeltTests):
@@ -57,7 +59,12 @@ class BrowserSignout(FeltTests):
         return private_cookies
 
     def test_felt_3_browser_ui_state_when_user_is_logged_in(self, exp):
-        self.connect_child_browser()
+        self.connect_child_browser(
+            capabilities={
+                # Do not auto-handle prompts.
+                "unhandledPromptBehavior": "ignore"
+            }
+        )
 
         whoami = self.felt_whoami()
         assert whoami["id"], "Expected user to exist"
@@ -84,8 +91,6 @@ class BrowserSignout(FeltTests):
 
         self._logger.info("Checking user email address updated in enterprise panel")
         email = self.get_elem_child(".panelUI-enterprise__email")
-
-        self._logger.info(email)
         assert (
             email.get_property("textContent") == whoami["email"]
         ), "User email not correctly set"
@@ -98,8 +103,32 @@ class BrowserSignout(FeltTests):
         self.open_tab_child("about:newtab")
 
         self._child_driver.set_context("chrome")
+
+        self._logger.info("Clicking enterprise badge to open enterprise panel")
         self.get_elem_child("#enterprise-badge-toolbar-button").click()
-        self.get_elem_child(".panelUI-enterprise__sign-out-btn").click()
+
+        # Making sure we get to handle the Signout dialog
+        assert (
+            self._child_driver.capabilities.get("unhandledPromptBehavior") == "ignore"
+        ), "Driver should not auto-handle prompt"
+
+        try:
+            # This will cause an UnexpectedAlertPresentException, which is our expected signout dialog
+            self._logger.info("Clicking signout button in enterprise panel")
+            self.get_elem_child(".panelUI-enterprise__sign-out-btn").click()
+        except UnexpectedAlertPresentException:
+            # Do nothing, signout dialog ("alert") is expected
+            pass
+
+        self._logger.info("Waiting for the signout dialog to open")
+        WebDriverWait(self._child_driver, 5).until(EC.alert_is_present())
+
+        self._logger.info(
+            "Signing out the user by clicking the Signout button in the dialog"
+        )
+        # This target the primary action, which is clicking the Signout button
+        self._child_driver.switch_to.alert.accept()
+
         self._child_driver.set_context("content")
 
         # This is not true but it will make sure the harness does not try to

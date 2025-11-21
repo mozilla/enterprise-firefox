@@ -403,10 +403,12 @@
   value: true
   mirror: always
 
+#ifdef XP_MACOSX
 - name: apz.mac.enable_double_tap_zoom_touchpad_gesture
   type: RelaxedAtomicBool
   value: true
   mirror: always
+#endif
 
 - name: apz.allow_immediate_handoff
   type: RelaxedAtomicBool
@@ -433,6 +435,7 @@
   value: false
   mirror: always
 
+#ifdef ANDROID
 - name: apz.android.chrome_fling_physics.friction
   type: AtomicFloat
   value: 0.015f
@@ -447,6 +450,7 @@
   type: AtomicFloat
   value: 0.1f
   mirror: always
+#endif
 
 - name: apz.autoscroll.enabled
   type: RelaxedAtomicBool
@@ -872,6 +876,7 @@
   value: 100
   mirror: always
 
+#ifdef XP_WIN
 - name: apz.windows.force_disable_direct_manipulation
   type: RelaxedAtomicBool
   value: false
@@ -881,6 +886,7 @@
   type: RelaxedAtomicBool
   value: true
   mirror: always
+#endif
 
 - name: apz.x_skate_highmem_adjust
   type: AtomicFloat
@@ -5769,12 +5775,6 @@
 #endif
   mirror: always
 
-# Always treat icon URLs as UTF8 instead of document charset
-- name: dom.webnotifications.icon_encoding_utf8.enabled
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-
 # Forcing all notification requests do storage cleanup.
 - name: dom.webnotifications.testing.force_storage_cleanup.enabled
   type: bool
@@ -9024,21 +9024,14 @@
   mirror: always
   set_spidermonkey_pref: startup
 
-  # Experimental support for Iterator Chunking in JavaScript.
+ # Experimental support for Iterator Chunking in JavaScript.
 - name: javascript.options.experimental.iterator_chunking
   type: bool
   value: false
   mirror: always
   set_spidermonkey_pref: startup
 
- #endif  // NIGHTLY_BUILD
-
-  # Capture stack traces for OOM
-- name: javascript.options.experimental.capture_oom_stack_trace
-  type: bool
-  value: @IS_NIGHTLY_BUILD@
-  mirror: always
-  set_spidermonkey_pref: startup
+#endif  // NIGHTLY_BUILD
 
 # Whether to Baseline-compile self-hosted functions the first time they are
 # used and cache the result.
@@ -9410,9 +9403,11 @@
   do_not_use_directly: true
 
 # Use the JS microtask queue for Promise jobs and other microtasks.
+# DO NOT TURN THIS ON BY DEFAULT WITHOUT THE BUGS BLOCKING
+# BUG 1990841 being fixed (especially Bug 1990842).
 - name: javascript.options.use_js_microtask_queue
   type: RelaxedAtomicBool
-  value: true
+  value: false
   # Changing this mid process will break invariants and crash, however
   # making this mirror: once, and set_spidermonkey_pref: startup is
   # broken: See Bug 1989094
@@ -19025,11 +19020,6 @@
   value: false
   mirror: always
 
-- name: widget.window-transforms.disabled
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
-
 # When looking for a recent window (for example, when a link is clicked
 # on from an external application), whether to prefer windows on the
 # current virtual desktop (aka workspace). For now this only applies on Windows.
@@ -19061,6 +19051,11 @@
   mirror: always
 
 - name: widget.macos.titlebar-blend-mode.behind-window
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+- name: widget.macos.window-transforms.disabled
   type: RelaxedAtomicBool
   value: false
   mirror: always

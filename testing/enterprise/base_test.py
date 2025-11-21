@@ -278,7 +278,7 @@ class EnterpriseTestsBase:
 
         return (marionette_port, marionette_port_file)
 
-    def connect_child_browser(self):
+    def connect_child_browser(self, capabilities=None):
         (marionette_port, marionette_port_file) = self.get_marionette_port()
         assert marionette_port > 0, "Valid marionette port"
         self._logger.info(f"Marionette PORT: {marionette_port}")
@@ -297,6 +297,9 @@ class EnterpriseTestsBase:
 
         options = Options()
         options.log.level = "trace"
+        if capabilities:
+            for k, v in capabilities.items():
+                options.set_capability(k, v)
 
         new_marionette_port = 0
         with open(marionette_port_file) as infile:

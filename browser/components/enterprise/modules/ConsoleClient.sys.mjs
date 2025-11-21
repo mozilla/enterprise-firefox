@@ -267,6 +267,8 @@ export const ConsoleClient = {
    * @returns {Promise<any>} Parsed JSON response body.
    */
   async _post(path) {
+    // TODO: Bug 2001078 - ConsoleClient shouldn't use the
+    // _get function to initiate POST requests
     return this._get(path, "POST");
   },
 
@@ -423,7 +425,7 @@ export const ConsoleClient = {
    *
    * This is expected to be executed from the browser side.
    */
-  async signout() {
+  async signoutUser() {
     if (!Services.felt.isFeltBrowser()) {
       throw new Error(
         "Performing signout from something else than browser is wrong"
@@ -447,8 +449,6 @@ export const ConsoleClient = {
       // Notify FELT that we are logging out so the shutdown is a normal one
       // that should not be followed by restarting the process.
       Services.felt.performSignout();
-
-      Services.startup.quit(Ci.nsIAppStartup.eForceQuit);
       return;
     }
 
