@@ -1,6 +1,7 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
+#![allow(clippy::not_unsafe_ptr_arg_deref)]
 
 use log::trace;
 use std::os::raw::c_char;
@@ -19,8 +20,6 @@ mod client;
 mod components;
 mod message;
 mod utils;
-
-use env_logger;
 
 static IS_FELT_UI: AtomicBool = AtomicBool::new(false);
 static IS_FELT_BROWSER: AtomicBool = AtomicBool::new(false);
@@ -104,7 +103,7 @@ pub extern "C" fn firefox_connect_to_felt(server_name: *const c_char) -> bool {
 }
 
 #[no_mangle]
-pub extern "C" fn firefox_felt_connection_start_thread() -> () {
+pub extern "C" fn firefox_felt_connection_start_thread() {
     let guard = FELT_CLIENT.lock().expect("Could not get lock");
     match &*guard {
         Some(client) => {
@@ -131,7 +130,7 @@ pub extern "C" fn firefox_felt_is_startup_complete() -> bool {
 }
 
 #[no_mangle]
-pub extern "C" fn firefox_felt_send_extension_ready() -> () {
+pub extern "C" fn firefox_felt_send_extension_ready() {
     trace!("firefox_felt_send_extension_ready()");
     let guard = FELT_CLIENT.lock().expect("Could not get lock");
     match &*guard {

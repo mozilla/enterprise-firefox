@@ -2,8 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-use ipc_channel;
-
 use nserror::{nsresult, NS_ERROR_FAILURE, NS_OK};
 use nsstring::nsString;
 use std::cell::RefCell;
@@ -189,7 +187,7 @@ impl FeltClientThread {
                         let len = unsafe {
                             let mut data_len = 0;
                             let mut ptr: *const u16 = data;
-                            while ptr != std::ptr::null() && *ptr != 0x0000 {
+                            while !ptr.is_null() && *ptr != 0x0000 {
                                 ptr = ptr.wrapping_offset(1);
                                 data_len += 1;
                             }
@@ -306,7 +304,7 @@ impl FeltClientThread {
 
                     loop {
 
-                        if pending_cookies.len() > 0 && profile_ready_internal.load(Ordering::Relaxed) {
+                        if !pending_cookies.is_empty() && profile_ready_internal.load(Ordering::Relaxed) {
                             trace!("FeltClientThread::felt_client::ipc_loop(): Profile ready! Start cookies injection!");
                             while let Some(one_cookie) = pending_cookies.pop() {
                                 utils::inject_one_cookie(one_cookie);

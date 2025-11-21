@@ -2,7 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-use cookie;
 use nserror::NS_OK;
 use nsstring::nsCString;
 use serde::{Deserialize, Serialize};
@@ -193,16 +192,14 @@ pub fn open_url_in_firefox(url: String) {
         let topic = CString::new("felt-open-url").unwrap();
         let url_data = nsstring::nsString::from(&url);
 
-        let rv = unsafe {
-            obssvc.NotifyObservers(
-                std::ptr::null(),
-                topic.as_ptr(),
-                url_data.as_ptr(),
-            )
-        };
+        let rv =
+            unsafe { obssvc.NotifyObservers(std::ptr::null(), topic.as_ptr(), url_data.as_ptr()) };
 
         if rv.succeeded() {
-            trace!("open_url_in_firefox() successfully sent observer notification for URL: {}", url);
+            trace!(
+                "open_url_in_firefox() successfully sent observer notification for URL: {}",
+                url
+            );
         } else {
             trace!("open_url_in_firefox() NotifyObservers failed: {:?}", rv);
         }
