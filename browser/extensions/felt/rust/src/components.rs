@@ -1,9 +1,6 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
-
-use ipc_channel;
-
 use nserror::{nsresult, NS_ERROR_FAILURE, NS_OK};
 use nsstring::{nsACString, nsCString};
 use std::cell::RefCell;
@@ -63,7 +60,7 @@ impl FeltXPCOM {
         let mut rv = NS_ERROR_FAILURE;
         let cookies = unsafe { &*cookies };
         trace!("FeltXPCOM:SendCookies processing {}", cookies.len());
-        if cookies.len() == 0 {
+        if cookies.is_empty() {
             return NS_OK;
         }
 
