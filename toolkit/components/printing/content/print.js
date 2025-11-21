@@ -459,17 +459,27 @@ var PrintEventHandler = {
       return;
     }
 
-    const sourceUrl = this._processSourceUrl(this.activeURI);
-    const topSourceUrl = this._processSourceUrl(this.topCurrentURI);
-    Glean.printing.pagePrinted.record({
-      source_url: sourceUrl,
-      content_title: this.activeTitle,
-      top_level_source_url: topSourceUrl,
-      top_level_content_title: this.topContentTitle,
-      printer_name: aSettings.printerName,
-      pdf_file_name: aSettings.toFileName,
-    });
-    GleanPings.enterprise.submit();
+    try {
+      const sourceUrl = this._processSourceUrl(this.activeURI);
+      const topSourceUrl = this._processSourceUrl(this.topCurrentURI);
+      Glean.printing.pagePrinted.record({
+        source_url: sourceUrl,
+        content_title: this.activeTitle,
+        top_level_source_url: topSourceUrl,
+        top_level_content_title: this.topContentTitle,
+        printer_name: aSettings.printerName,
+        pdf_file_name: aSettings.toFileName,
+      });
+      GleanPings.enterprise.submit();
+    } catch (ex) {
+      // Silently fail - telemetry errors should not break printing
+      try {
+        ChromeUtils.reportError(`Printing telemetry recording failed: ${ex}`);
+      } catch (reportEx) {
+        // ChromeUtils.reportError may not be available in all contexts
+        console.error(`[PrintEventHandler] Could not report error:`, reportEx);
+      }
+    }
   },
 
   _processSourceUrl(sourceUrl) {
