@@ -8643,10 +8643,6 @@ nsHttpChannel::GetEssentialDomainCategory(nsCString& domain) {
   if (domain == "incoming.telemetry.mozilla.com"_ns) {
     return EssentialDomainCategory::Telemetry;
   }
-  if (domain == "127.0.0.1"_ns || domain == "localhost"_ns ||
-      StringEndsWith(domain, ".localhost"_ns)) {
-    return EssentialDomainCategory::Telemetry;
-  }
   return EssentialDomainCategory::Other;
 }
 

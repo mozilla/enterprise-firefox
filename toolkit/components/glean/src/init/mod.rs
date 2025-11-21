@@ -43,8 +43,6 @@ pub extern "C" fn fog_init(
 ) -> nsresult {
     let upload_enabled = static_prefs::pref!("datareporting.healthreport.uploadEnabled");
     let recording_enabled = static_prefs::pref!("telemetry.fog.test.localhost_port") < 0;
-    log::info!("FOG Init: upload_enabled={}, recording_enabled={}, disable_upload_feature={}", 
-               upload_enabled, recording_enabled, cfg!(feature = "disable_upload"));
     let uploader = Some(Box::new(ViaductUploader) as Box<dyn glean::net::PingUploader>);
 
     fog_init_internal(
@@ -156,21 +154,14 @@ fn build_configuration(
     };
     log::debug!("Client Info: {:#?}", client_info);
 
-    // Check environment variable for telemetry endpoint override first
-    let server = if let Ok(telemetry_endpoint) = std::env::var("TELEMETRY_ENDPOINT") {
-        telemetry_endpoint
+    let localhost_port = static_prefs::pref!("telemetry.fog.test.localhost_port");
+    let server = if localhost_port > 0 {
+        format!("http://localhost:{}", localhost_port)
     } else {
-        // Check for localhost test configuration
-        let localhost_port = static_prefs::pref!("telemetry.fog.test.localhost_port");
-        if localhost_port > 0 {
-            format!("http://localhost:{}", localhost_port)
+        if app_id_override == "thunderbird.desktop" {
+            String::from("https://incoming.thunderbird.net")
         } else {
-            // Use default endpoints
-            if app_id_override == "thunderbird.desktop" {
-                String::from("https://incoming.thunderbird.net")
-            } else {
-                String::from("https://incoming.telemetry.mozilla.org")
-            }
+            String::from("https://incoming.telemetry.mozilla.org")
         }
     };
 

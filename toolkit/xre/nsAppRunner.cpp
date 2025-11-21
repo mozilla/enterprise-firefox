@@ -3385,17 +3385,6 @@ static ReturnAbortOnError CheckDowngrade(nsIFile* aProfileDir,
       if (NS_SUCCEEDED(rv)) {
         nsCOMPtr<nsIPrefBranch> prefBranch = do_QueryInterface(prefSvc);
 
-        // If an environment override for telemetry endpoint is present, apply
-        // it as a user pref so the rest of the startup code reads the
-        // overridden value. This allows `TELEMETRY_ENDPOINT` to control the
-        // `toolkit.telemetry.server` preference at runtime.
-        if (const char* telemetryEnv = PR_GetEnv("TELEMETRY_ENDPOINT")) {
-          if (*telemetryEnv && prefBranch) {
-            nsCString telemetryEndpoint(telemetryEnv);
-            prefBranch->SetCharPref("toolkit.telemetry.server", telemetryEndpoint);
-          }
-        }
-
         rv = prefBranch->PrefHasUserValue("services.sync.username", &hasSync);
         NS_ENSURE_SUCCESS(rv, rv);
       }
