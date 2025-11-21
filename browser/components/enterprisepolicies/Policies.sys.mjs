@@ -401,6 +401,31 @@ export var Policies = {
     },
   },
 
+  BlocklistDomainBrowsedTelemetry: {
+    onBeforeAddons(manager, param) {
+      if (param && typeof param === "object") {
+        // Enable/disable blocklist domain browsed telemetry
+        if (typeof param.Enabled === "boolean") {
+          setAndLockPref(
+            "browser.policies.enterprise.telemetry.blocklistDomainBrowsed.enabled",
+            param.Enabled
+          );
+        }
+
+        // Set URL logging level
+        if (
+          typeof param.UrlLogging === "string" &&
+          ["full", "domain", "none"].includes(param.UrlLogging)
+        ) {
+          setAndLockPref(
+            "browser.policies.enterprise.telemetry.blocklistDomainBrowsed.urlLogging",
+            param.UrlLogging
+          );
+        }
+      }
+    },
+  },
+
   Bookmarks: {
     onAllWindowsRestored(manager, param) {
       lazy.BookmarksPolicies.processBookmarks(param);

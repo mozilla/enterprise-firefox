@@ -125,11 +125,8 @@ export let WebsiteFilter = {
     ) {
       if (!this.isAllowed(url)) {
 #ifdef MOZ_ENTERPRISE
-        Glean.contentPolicy.blocklistDomainBrowsed.record({
-          url,
-        });
-        GleanPings.enterprise.submit();
-#endif MOZ_ENTERPRISE
+        this._recordBlocklistDomainBrowsed(url);
+#endif
         return Ci.nsIContentPolicy.REJECT_POLICY;
       }
     }
@@ -181,4 +178,48 @@ export let WebsiteFilter = {
     }
     return true;
   },
+#ifdef MOZ_ENTERPRISE
+  _recordBlocklistDomainBrowsed(url) {
+    const isEnabled = Services.prefs.getBoolPref(
+      "browser.policies.enterprise.telemetry.blocklistDomainBrowsed.enabled",
+      true
+    );
+    if (!isEnabled) {
+      return;
+    }
+
+    const processedUrl = this._processTelemetryUrl(url);
+    Glean.contentPolicy.blocklistDomainBrowsed.record({
+      url: processedUrl,
+    });
+    GleanPings.enterprise.submit();
+  },
+  _processTelemetryUrl(sourceUrl) {
+    if (!sourceUrl) {
+      return null;
+    }
+
+    const policy = Services.prefs.getCharPref(
+      "browser.policies.enterprise.telemetry.blocklistDomainBrowsed.urlLogging",
+      "full"
+    );
+
+    switch (policy) {
+      case "none":
+        return null;
+
+      case "domain":
+        try {
+          const url = new URL(sourceUrl);
+          return url.hostname || null;
+        } catch (ex) {
+          return null;
+        }
+
+      case "full":
+      default:
+        return sourceUrl;
+    }
+  },
+#endif
 };
