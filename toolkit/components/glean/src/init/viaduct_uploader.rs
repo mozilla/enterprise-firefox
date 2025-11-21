@@ -85,14 +85,14 @@ impl PingUploader for ViaductUploader {
             },
             Err(
                 ViaductUploaderError::EnterpriseErrorAccessToken
-                | ViaductUploaderError::EnterpriseInvalidUrl
                 | ViaductUploaderError::EnterpriseNoAccessToken
                 | ViaductUploaderError::EnterpriseUrlNotSet,
             ) => UploadResult::recoverable_failure(),
             Err(
                 ViaductUploaderError::Bhttp(_)
                 | ViaductUploaderError::Ohttp(_)
-                | ViaductUploaderError::Fatal,
+                | ViaductUploaderError::Fatal
+                | ViaductUploaderError::EnterpriseInvalidUrl(_),
             ) => UploadResult::unrecoverable_failure(),
         }
     }
@@ -119,7 +119,8 @@ fn enterprise_viaduct_upload(
     let console_url = felt::CONSOLE_URL
         .get()
         .ok_or(ViaductUploaderError::EnterpriseUrlNotSet)?;
-    let mut parsed_console_url = Url::parse(console_url)?;
+    let mut parsed_console_url =
+        Url::parse(console_url).map_err(ViaductUploaderError::EnterpriseInvalidUrl)?;
 
     let parsed_url = Url::parse(&upload_request.url)?;
     parsed_console_url.set_path(&format!(
@@ -169,7 +170,7 @@ fn should_ohttp_upload(upload_request: &PingUploadRequest) -> bool {
 
 fn ohttp_upload(upload_request: PingUploadRequest) -> Result<UploadResult, ViaductUploaderError> {
     static CELL: OnceCell<Vec<u8>> = once_cell::sync::OnceCell::new();
-    let config = CELL.get_or_try_init(|| get_config())?;
+    let config = CELL.get_or_try_init(get_config)?;
 
     let binary_request = bhttp_encode(upload_request)?;
 
@@ -263,8 +264,8 @@ enum ViaductUploaderError {
     #[error("enterprise::Error No access token")]
     EnterpriseNoAccessToken,
 
-    #[error("enterprise::Error Invalid console url")]
-    EnterpriseInvalidUrl,
+    #[error("enterprise::Error Invalid console url {0}")]
+    EnterpriseInvalidUrl(url::ParseError),
 
     #[error("enterprise::Error Console url not set")]
     EnterpriseUrlNotSet,
