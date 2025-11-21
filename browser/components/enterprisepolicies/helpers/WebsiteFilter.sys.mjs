@@ -188,11 +188,30 @@ export let WebsiteFilter = {
       return;
     }
 
-    const processedUrl = this._processTelemetryUrl(url);
-    Glean.contentPolicy.blocklistDomainBrowsed.record({
-      url: processedUrl,
-    });
-    GleanPings.enterprise.submit();
+    try {
+      const processedUrl = this._processTelemetryUrl(url);
+      Glean.contentPolicy.blocklistDomainBrowsed.record({
+        url: processedUrl,
+      });
+      GleanPings.enterprise.submit();
+    } catch (ex) {
+      // Silently fail - telemetry errors should not break website filtering
+      console.error(
+        `[WebsiteFilter] Blocked domain browsed telemetry recording failed:`,
+        ex
+      );
+      try {
+        ChromeUtils.reportError(
+          `Blocked domain browsed telemetry recording failed: ${ex}`
+        );
+      } catch (reportEx) {
+        // ChromeUtils.reportError may not be available in all contexts
+        console.error(
+          `[DownloadsTelemetryEnterprise] Could not report error:`,
+          reportEx
+        );
+      }
+    }
   },
   _processTelemetryUrl(sourceUrl) {
     if (!sourceUrl) {
