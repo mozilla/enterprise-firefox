@@ -145,6 +145,9 @@ fn modify_for_enterprise(
             .strip_prefix('/')
             .unwrap_or(parsed_url.path())
     ));
+    parsed_console_url.set_query(parsed_url.query());
+    parsed_console_url.set_fragment(parsed_url.fragment());
+
     let bearer = {
         let t = felt::TOKENS
             .read()
