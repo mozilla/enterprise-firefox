@@ -15,7 +15,6 @@ prefs = [
   "browser.newtabpage.activity-stream.feeds.system.topstories=true",
   "browser.newtabpage.activity-stream.feeds.section.topstories=true",
   "browser.newtabpage.activity-stream.feeds.system.topstories=true",
-  "browser.newtabpage.activity-stream.telemetry.structuredIngestion=false",
   "browser.newtabpage.activity-stream.discoverystream.endpoints=https://example.com",
   "browser.newtabpage.activity-stream.discoverystream.sections.region-content-config=",
   "dom.ipc.processPrelaunch.delayMs=0",
