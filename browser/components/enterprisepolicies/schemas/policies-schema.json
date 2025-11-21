@@ -179,6 +179,19 @@
       }
     },
 
+    "BlocklistDomainBrowsedTelemetry": {
+      "type": "object",
+      "properties": {
+        "Enabled": {
+          "type": "boolean"
+        },
+        "UrlLogging": {
+          "type": "string",
+          "enum": ["full", "domain", "none"]
+        }
+      }
+    },
+
     "CaptivePortal": {
       "type": "boolean"
     },
