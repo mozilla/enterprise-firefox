@@ -17,7 +17,6 @@ use log::trace;
 
 use crate::message::{FeltMessage, FELT_IPC_VERSION};
 use crate::utils::{self, Tokens, TOKENS};
-use crate::CONSOLE_URL;
 
 #[derive(Default)]
 pub struct FeltIpcClient {

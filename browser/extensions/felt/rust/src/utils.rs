@@ -194,16 +194,14 @@ pub fn open_url_in_firefox(url: String) {
         let topic = CString::new("felt-open-url").unwrap();
         let url_data = nsstring::nsString::from(&url);
 
-        let rv = unsafe {
-            obssvc.NotifyObservers(
-                std::ptr::null(),
-                topic.as_ptr(),
-                url_data.as_ptr(),
-            )
-        };
+        let rv =
+            unsafe { obssvc.NotifyObservers(std::ptr::null(), topic.as_ptr(), url_data.as_ptr()) };
 
         if rv.succeeded() {
-            trace!("open_url_in_firefox() successfully sent observer notification for URL: {}", url);
+            trace!(
+                "open_url_in_firefox() successfully sent observer notification for URL: {}",
+                url
+            );
         } else {
             trace!("open_url_in_firefox() NotifyObservers failed: {:?}", rv);
         }
@@ -298,18 +296,18 @@ pub fn nsICookie_to_Cookie(cookie: &RefPtr<nsICookie>) -> cookie::Cookie<'_> {
 
 pub fn set_console_url(console_url: String) {
     let console_url = Arc::new(console_url);
-    match CONSOLE_URL.set(console_url.clone()) {
+    match CONSOLE_URL.set(console_url) {
         Ok(()) => {
             trace!(
                 "set_console_url: console_url set to {}",
-                CONSOLE_URL.get().as_deref().map_or("<unset>", |v| v)
+                CONSOLE_URL.get().map_or("<unset>", |v| v)
             );
         }
-        Err(e) => {
+        Err(console_url) => {
             trace!(
                 "set_console_url: failed to set console_url to {} (current url: {})",
                 console_url,
-                CONSOLE_URL.get().as_deref().map_or("<unset>", |v| v)
+                CONSOLE_URL.get().map_or("<unset>", |v| v)
             );
         }
     }
