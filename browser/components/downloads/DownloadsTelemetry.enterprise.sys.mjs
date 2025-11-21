@@ -127,29 +127,6 @@ export const DownloadsTelemetryEnterprise = {
   recordFileDownloaded(download) {
     console.log("[DownloadsTelemetryEnterprise] recordFileDownloaded called");
 
-    // DEBUG: Force enable telemetry for debugging purposes
-    console.log(
-      "[DownloadsTelemetryEnterprise] DEBUG: Force enabling telemetry for debugging"
-    );
-    try {
-      Services.prefs.setBoolPref(
-        "browser.download.enterprise.telemetry.enabled",
-        true
-      );
-      Services.prefs.setCharPref(
-        "browser.download.enterprise.telemetry.urlLogging",
-        "full"
-      );
-      console.log(
-        "[DownloadsTelemetryEnterprise] DEBUG: Telemetry preferences set"
-      );
-    } catch (e) {
-      console.error(
-        "[DownloadsTelemetryEnterprise] DEBUG: Failed to set prefs:",
-        e
-      );
-    }
-
     // Check if telemetry is enabled via enterprise policy
     const isEnabled = this._isEnabled();
     console.log(
