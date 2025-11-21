@@ -38,6 +38,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   NetUtil: "resource://gre/modules/NetUtil.sys.mjs",
   PlacesUtils: "resource://gre/modules/PlacesUtils.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
+  DownloadsTelemetry:
+    "moz-src:///browser/components/downloads/DownloadsTelemetry.sys.mjs",
 });
 
 XPCOMUtils.defineLazyServiceGetters(lazy, {
@@ -996,36 +998,33 @@ DownloadsDataCtor.prototype = {
    *        true (default) - open the downloads panel.
    *        false - only show an indicator notification.
    */
-  _notifyDownloadEvent(aType, { openDownloadsListOnStart = true, download = null } = {}) {
+  _notifyDownloadEvent(
+    aType,
+    { openDownloadsListOnStart = true, download = null } = {}
+  ) {
     DownloadsCommon.log(
       "Attempting to notify that a new download has started or finished."
     );
 
-    // DEBUG: Enhanced logging for download telemetry debugging
-    console.log(`[DownloadsCommon] _notifyDownloadEvent called with aType: ${aType}, download: ${download ? 'present' : 'null'}, succeeded: ${download?.succeeded}`);
-
     // If this is a finished download, record enterprise telemetry if available
     if (aType === "finish" && download && download.succeeded) {
-      console.log(`[DownloadsCommon] Download finished successfully, attempting to record telemetry`);
-      console.log(`[DownloadsCommon] Download details - target: ${download.target?.path}, source: ${download.source?.url}, contentType: ${download.contentType}, size: ${download.target?.size}`);
-      
       try {
-        console.log(`[DownloadsCommon] DownloadsTelemetry type: ${typeof lazy.DownloadsTelemetry}, exists: ${lazy.DownloadsTelemetry ? 'yes' : 'no'}`);
-        console.log(`[DownloadsCommon] recordFileDownloaded type: ${typeof lazy.DownloadsTelemetry?.recordFileDownloaded}`);
-        
         if (
           typeof lazy.DownloadsTelemetry !== "undefined" &&
           lazy.DownloadsTelemetry &&
           typeof lazy.DownloadsTelemetry.recordFileDownloaded === "function"
         ) {
-          console.log(`[DownloadsCommon] Calling DownloadsTelemetry.recordFileDownloaded`);
           lazy.DownloadsTelemetry.recordFileDownloaded(download);
-          console.log(`[DownloadsCommon] DownloadsTelemetry.recordFileDownloaded completed`);
         } else {
-          console.log(`[DownloadsCommon] DownloadsTelemetry not available or not a function`);
+          console.warn(
+            `[DownloadsCommon] DownloadsTelemetry not available or not a function`
+          );
         }
       } catch (e) {
-        console.error(`[DownloadsCommon] Error recording download telemetry:`, e);
+        console.error(
+          `[DownloadsCommon] Error recording download telemetry:`,
+          e
+        );
         try {
           ChromeUtils.reportError(e);
         } catch (reportEx) {
@@ -1033,8 +1032,6 @@ DownloadsDataCtor.prototype = {
           console.error(`[DownloadsCommon] Could not report error:`, reportEx);
         }
       }
-    } else {
-      console.log(`[DownloadsCommon] Skipping telemetry recording - aType: ${aType}, succeeded: ${download?.succeeded}`);
     }
 
     // Show the panel in the most recent browser window, if present.
@@ -1102,13 +1099,6 @@ ChromeUtils.defineLazyGetter(lazy, "PrivateDownloadsData", function () {
 
 ChromeUtils.defineLazyGetter(lazy, "DownloadsData", function () {
   return new DownloadsDataCtor();
-});
-
-// Telemetry helper for downloads. Lazy import so we don't require Glean in
-// contexts where it's not available.
-ChromeUtils.defineESModuleGetters(lazy, {
-  DownloadsTelemetry:
-    "moz-src:///browser/components/downloads/DownloadsTelemetry.sys.mjs",
 });
 
 // DownloadsViewPrototype

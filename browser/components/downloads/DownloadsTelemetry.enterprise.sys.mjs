@@ -125,35 +125,18 @@ export const DownloadsTelemetryEnterprise = {
    * @param {object} download - The Download object containing download information
    */
   recordFileDownloaded(download) {
-    console.log("[DownloadsTelemetryEnterprise] recordFileDownloaded called");
-
     // Check if telemetry is enabled via enterprise policy
     const isEnabled = this._isEnabled();
-    console.log(
-      `[DownloadsTelemetryEnterprise] Telemetry enabled: ${isEnabled}`
-    );
-    console.log(
-      `[DownloadsTelemetryEnterprise] Checking pref: browser.download.enterprise.telemetry.enabled = ${Services.prefs.getBoolPref("browser.download.enterprise.telemetry.enabled", false)}`
-    );
-
     if (!isEnabled) {
-      console.log(
-        "[DownloadsTelemetryEnterprise] Telemetry disabled, not recording"
-      );
       return;
     }
 
     try {
-      console.log(
-        "[DownloadsTelemetryEnterprise] Processing download for telemetry"
-      );
-
       // Extract filename from target path
       let filename = null;
       if (download.target?.path) {
         filename = PathUtils.filename(download.target.path);
       }
-      console.log(`[DownloadsTelemetryEnterprise] Filename: ${filename}`);
 
       // Extract file extension
       let extension = null;
@@ -163,7 +146,6 @@ export const DownloadsTelemetryEnterprise = {
           extension = filename.substring(lastDotIndex + 1).toLowerCase();
         }
       }
-      console.log(`[DownloadsTelemetryEnterprise] Extension: ${extension}`);
 
       // Get MIME type with fallback to extension-based detection
       let mimeType = download.contentType || null;
@@ -172,26 +154,20 @@ export const DownloadsTelemetryEnterprise = {
           mimeType = lazy.gMIMEService.getTypeFromExtension(extension);
         } catch (ex) {
           // MIME service failed, leave null
-          console.log(
+          console.warn(
             `[DownloadsTelemetryEnterprise] MIME service failed: ${ex.message}`
           );
         }
       }
-      console.log(`[DownloadsTelemetryEnterprise] MIME type: ${mimeType}`);
 
       // Process source URL based on enterprise policy configuration
       let sourceUrl = this._processSourceUrl(download.source?.url);
-      const urlPolicy = this._getUrlLoggingPolicy();
-      console.log(
-        `[DownloadsTelemetryEnterprise] URL policy: ${urlPolicy}, processed URL: ${sourceUrl}`
-      );
 
       // Get file size
       let sizeBytes = download.target?.size;
       if (typeof sizeBytes !== "number" || sizeBytes < 0) {
         sizeBytes = null;
       }
-      console.log(`[DownloadsTelemetryEnterprise] File size: ${sizeBytes}`);
 
       const telemetryData = {
         filename: filename || "",
@@ -201,30 +177,11 @@ export const DownloadsTelemetryEnterprise = {
         source_url: sourceUrl || "",
       };
 
-      console.log(
-        `[DownloadsTelemetryEnterprise] Recording Glean event with data:`,
-        telemetryData
-      );
-
       // Record the Glean event
-      console.log(
-        `[DownloadsTelemetryEnterprise] Glean object available: ${typeof Glean !== "undefined"}`
-      );
-      console.log(
-        `[DownloadsTelemetryEnterprise] Glean.downloads available: ${typeof Glean?.downloads !== "undefined"}`
-      );
-      console.log(
-        `[DownloadsTelemetryEnterprise] Glean.downloads.fileDownloaded available: ${typeof Glean?.downloads?.fileDownloaded !== "undefined"}`
-      );
-
       Glean.downloads.fileDownloaded.record(telemetryData);
-      console.log(
-        `[DownloadsTelemetryEnterprise] Glean event recorded successfully`
-      );
 
       // Submit the enterprise ping
       GleanPings.enterprise.submit();
-      console.log(`[DownloadsTelemetryEnterprise] Enterprise ping submitted`);
     } catch (ex) {
       // Silently fail - telemetry errors should not break downloads
       console.error(
