@@ -37,7 +37,7 @@ body {
   height: 602px;
   justify-content: center;
   align-items: center;
-  background-image: url("chrome://felt/content/assets/icon-fullColor.svg");
+  background-image: url("chrome://felt/content/assets/enterprise-icon-cropped.svg");
   background-repeat: no-repeat;
   background-size: contain;
   background-position: center;
@@ -62,7 +62,7 @@ body {
 }
 
 .felt-login__wordmark {
-  background-image: url("chrome://felt/content/assets/firefox-for-enterprise-wordmark.svg");
+  background-image: url("chrome://felt/content/assets/enterprise-wordmark.svg");
   background-repeat: no-repeat;
   width: 265px;
   height: 117px;
