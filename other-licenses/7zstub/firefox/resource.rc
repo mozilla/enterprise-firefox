@@ -38,7 +38,11 @@ END
 1 RT_MANIFEST "7zSD.win32.manifest"
 #endif
 
+#ifdef MOZ_ENTERPRISE
+IDI_ICON ICON "setup-enterprise.ico"
+#else
 IDI_ICON ICON "setup.ico"
+#endif
 
 STRINGTABLE
 BEGIN
