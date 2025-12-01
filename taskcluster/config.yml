@@ -472,7 +472,7 @@ release-promotion:
 
 scriptworker:
     # See additional configuration in taskcluster/gecko_taskgraph/util/scriptworker.py
-    scope-prefix: 'project:releng'
+    scope-prefix: 'project:enterprise:releng'
 
 partner-urls:
     release-partner-repack:
