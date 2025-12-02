@@ -644,15 +644,15 @@ workers:
             provisioner: scriptworker-prov-v1
             implementation: iscript
             os: macosx
-            worker-type: dep-gecko-signing-mac14m2
+            worker-type: 'dep-{trust-domain}-signing-mac14m2'
         mac-signing:
             provisioner: scriptworker-prov-v1
             implementation: iscript
             os: macosx
             worker-type:
                 by-release-level:
-                    production: gecko-signing-mac14m2
-                    staging: dep-gecko-signing-mac14m2
+                    production: '{trust-domain}-signing-mac14m2'
+                    staging: 'dep-{trust-domain}-signing-mac14m2'
         push-apk:
             provisioner: scriptworker-k8s
             implementation: scriptworker-pushapk
