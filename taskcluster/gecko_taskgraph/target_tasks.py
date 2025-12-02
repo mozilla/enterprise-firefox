@@ -490,9 +490,6 @@ def target_tasks_enterprise_firefox_with_tests(
         if task.kind == "build" and "all" in task.attributes.get("run_on_projects"):
             return False
 
-        if task.kind in ("upload-symbols",):
-            return False
-
         if task.kind == "enterprise-test":
             return True
 

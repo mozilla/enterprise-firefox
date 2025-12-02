@@ -27,10 +27,6 @@ not-for-build-platforms:
     - win64-geckodriver/opt
     - win64-aarch64-geckodriver/opt
 
-task-defaults:
-    # Scopes aren't setup for enterprise yet
-    run-on-projects: []
-
 tasks:
     upload-symbols:
         description: Upload Symbols
