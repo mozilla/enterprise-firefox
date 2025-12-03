@@ -161,6 +161,12 @@ tasks:
             enterprise_test_file: test_felt_browser_signout.py
             enterprise_test_slug: feltSignout
 
+    felt-browser-sync:
+        description: Testing Sync when using Browser
+        attributes:
+            enterprise_test_file: test_felt_browser_sync.py
+            enterprise_test_slug: feltSync
+
     felt-browser-safemode:
         description: Testing passing safe mode from FELT to Browser
         attributes:

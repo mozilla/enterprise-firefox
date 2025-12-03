@@ -294,6 +294,7 @@ export default [
 
   // Files with MOZ_ENTERPRISE preprocessor directives
   "browser/components/enterprisepolicies/helpers/WebsiteFilter.sys.mjs",
+  "services/fxaccounts/FxAccounts.sys.mjs",
   "toolkit/components/downloads/DownloadCore.sys.mjs",
   "toolkit/components/printing/content/print.js",
   "toolkit/mozapps/extensions/AddonManager.sys.mjs",

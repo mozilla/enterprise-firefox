@@ -257,6 +257,10 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
         elif path == "/sso/get_device_posture":
             m = json.dumps(self.server.device_posture_payload)
 
+        # TODO: Update to match real implementation ?
+        elif path == "/api/browser/account":
+            m = json.dumps({"email": "nobody@mozilla.org"})
+
         elif path.startswith("/downloads/"):
             filename = os.path.join(os.path.dirname(__file__), os.path.basename(path))
             if os.path.isfile(filename):
@@ -530,6 +534,9 @@ class FeltTests(EnterpriseTestsBase):
 
     def find_elem_by_id(self, e):
         return self._driver.find_element(By.ID, e)
+
+    def find_elem_child(self, e):
+        return self._child_driver.find_element(By.CSS_SELECTOR, e)
 
     def get_elem_child(self, e):
         # Windows is slower?

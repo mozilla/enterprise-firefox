@@ -5,6 +5,7 @@
 import { CryptoUtils } from "moz-src:///services/crypto/modules/utils.sys.mjs";
 import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
+import { EnterpriseStorageManager } from "resource://gre/modules/EnterpriseAccountsStorage.sys.mjs";
 import { FxAccountsStorageManager } from "resource://gre/modules/FxAccountsStorage.sys.mjs";
 
 import {
@@ -566,6 +567,7 @@ export class FxAccounts {
    *        in pathological cases (eg, file-system errors, etc)
    */
   getSignedInUser(addnFields = []) {
+    const fakeError = new Error("LOL");
     // Note we don't return the session token, but use it to see if we
     // should fetch the profile. Ditto scopedKeys re verified.
     const ACCT_DATA_FIELDS = [
@@ -928,7 +930,14 @@ FxAccountsInternal.prototype = {
 
   // A hook-point for tests who may want a mocked AccountState or mocked storage.
   newAccountState(credentials) {
-    let storage = new FxAccountsStorageManager();
+    let storage = 
+#ifdef MOZ_ENTERPRISE
+      new EnterpriseStorageManager()
+#else
+      new FxAccountsStorageManager()
+#endif
+    ;
+
     storage.initialize(credentials);
     return new AccountState(storage);
   },

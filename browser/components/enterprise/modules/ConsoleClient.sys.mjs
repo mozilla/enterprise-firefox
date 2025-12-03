@@ -109,6 +109,11 @@ export const ConsoleClient = {
       DEVICE_POSTURE: "/sso/device_posture",
       WHOAMI: "/api/browser/whoami",
       LEARN_MORE: "/downloads/firefox.html",
+      SYNC_ACCOUNT: "/api/browser/account",
+      SYNC_TOKEN: "/1.0/sync/1.5",
+      FXACCOUNTS_OAUTH: "/api/fxa/api/v1",
+      FXACCOUNTS_PROFILE: "/api/fxa/profile/v1",
+      FXACCOUNTS_AUTH: "/api/fxa/api/v1",
     };
   },
 
@@ -154,6 +159,46 @@ export const ConsoleClient = {
   },
 
   /**
+   * Get the FxAccounts OAuth endpoint of the console
+   *
+   * returns {string} URI of the endpoint
+   */
+  get fxAccountsOAuth() {
+    return this.constructURI(this._paths.FXACCOUNTS_OAUTH);
+  },
+
+  /**
+   * Get the FxAccounts Profile endpoint of the console
+   *
+   * returns {string} URI of the endpoint
+   */
+  get fxAccountsProfile() {
+    return this.constructURI(this._paths.FXACCOUNTS_PROFILE);
+  },
+
+  /**
+   * Get the FxAccounts Auth endpoint of the console
+   *
+   * returns {string} URI of the endpoint
+   */
+  get fxAccountsAuth() {
+    return this.constructURI(this._paths.FXACCOUNTS_AUTH);
+  },
+
+  /**
+   * Get the Sync Token Server URI endpoint
+   *
+   * return {string} URI of the token server and endpoint
+   */
+  get syncTokenServer() {
+    const tokenServer = new URL(
+      "https://ent-dev-tokenserver.sync.nonprod.webservices.mozgcp.net"
+    );
+    tokenServer.pathname = this._paths.SYNC_TOKEN;
+    return tokenServer.href;
+  },
+
+  /**
    * SSO callback uri that we match to create Felt actors on
    *
    * @returns {string}
@@ -191,6 +236,16 @@ export const ConsoleClient = {
    */
   async getRemotePolicies() {
     const payload = await this._get(this._paths.REMOTE_POLICIES);
+    return payload;
+  },
+
+  /**
+   * Fetch the Sync account data from console.
+   *
+   * @returns {Promise<...>}
+   */
+  async getSyncAccountData() {
+    const payload = await this._get(this._paths.SYNC_ACCOUNT);
     return payload;
   },
 

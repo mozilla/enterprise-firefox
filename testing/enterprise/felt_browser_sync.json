@@ -1,0 +1,14 @@
+{
+  "test_felt_00_chrome_on_email_submit": {},
+  "test_felt_0_load_sso": {
+    "elements": [
+      ["#login", "login"],
+      ["#password", "password"]
+    ]
+  },
+  "test_felt_1_perform_sso_auth": {},
+  "test_felt_2_browser_sync_app_menu_hidden": {},
+  "test_felt_3_fxaccount_prefs_values": {},
+  "test_felt_4_browser_sync_preferences_has_sync": {},
+  "test_felt_5_browser_sync_preferences_choose": {}
+}

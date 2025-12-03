@@ -110,6 +110,7 @@ this.felt = class extends ExtensionAPI {
 
   async onStartup() {
     if (Services.felt.isFeltUI()) {
+      Services.prefs.setBoolPref("identity.fxaccounts.enabled", false);
       this.registerChrome();
       this.registerActors();
       await lazy.FeltStorage.init();

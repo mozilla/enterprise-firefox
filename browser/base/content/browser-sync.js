@@ -528,6 +528,23 @@ var gSync = {
     return true;
   },
 
+  shouldHideSyncInEnterprise() {
+    const hide = Services.felt.isFeltBrowser();
+    if (hide) {
+      const appMenuStatus = PanelMultiView.getViewNode(
+        document,
+        "appMenu-fxa-status2"
+      );
+      const appMenuSeparator = PanelMultiView.getViewNode(
+        document,
+        "appMenu-fxa-separator"
+      );
+      appMenuStatus.style.setProperty("visibility", "collapse");
+      appMenuSeparator.style.setProperty("visibility", "collapse");
+    }
+    return hide;
+  },
+
   getSendTabTargets() {
     const targets = [];
     const state = UIState.get();
@@ -635,6 +652,8 @@ var gSync = {
     ]);
     appMenuHeaderDescription.value = headerDesc;
     appMenuHeaderText.textContent = headerText;
+
+    this.shouldHideSyncInEnterprise();
 
     for (let topic of this._obs) {
       Services.obs.addObserver(this, topic, true);
@@ -1361,6 +1380,8 @@ var gSync = {
     // around in the DOM.
     menuHeaderTitleEl.removeAttribute("data-l10n-id");
     menuHeaderDescriptionEl.removeAttribute("data-l10n-id");
+
+    this.shouldHideSyncInEnterprise();
   },
 
   updateAvatarURL(mainWindowEl, avatarURL, avatarIsDefault) {
@@ -1523,6 +1544,8 @@ var gSync = {
       this.fluentStrings.formatValueSync("appmenu-account-header")
     );
     appMenuStatus.removeAttribute("tooltiptext");
+
+    this.shouldHideSyncInEnterprise();
   },
 
   updateState(state) {

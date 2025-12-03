@@ -15,7 +15,7 @@ XPCSHELL_TESTS_MANIFESTS += ["tests/xpcshell/xpcshell.toml"]
 
 EXTRA_JS_MODULES += [
     "Credentials.sys.mjs",
-    "FxAccounts.sys.mjs",
+    "EnterpriseAccountsStorage.sys.mjs",
     "FxAccountsClient.sys.mjs",
     "FxAccountsCommands.sys.mjs",
     "FxAccountsCommon.sys.mjs",
@@ -31,6 +31,10 @@ EXTRA_JS_MODULES += [
     "FxAccountsStorage.sys.mjs",
     "FxAccountsTelemetry.sys.mjs",
     "FxAccountsWebChannel.sys.mjs",
+]
+
+EXTRA_PP_JS_MODULES += [
+    "FxAccounts.sys.mjs",
 ]
 
 XPCOM_MANIFESTS += [
