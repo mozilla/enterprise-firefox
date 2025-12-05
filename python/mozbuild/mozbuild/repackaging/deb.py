@@ -117,7 +117,13 @@ def repackage_deb(
             exclude_file_names=["package-prefs.js"],
         )
 
-        app_name = application_ini_data["name"]
+        # TODO: Is it correct our enterprise builds reports
+        # firefoxenterprise as app_name but is packaged under "firefox/" ???
+        app_name = (
+            application_ini_data["name"]
+            if os.path.exists(mozpath.join(source_dir, application_ini_data["name"]))
+            else product
+        )
         with open(
             mozpath.join(source_dir, app_name.lower(), "is-packaged-app"), "w"
         ) as f:

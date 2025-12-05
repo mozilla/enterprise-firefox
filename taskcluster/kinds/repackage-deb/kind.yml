@@ -16,9 +16,6 @@ kind-dependencies:
     - build-signing
     - toolchain
 
-task-defaults:
-    run-on-repo-type: [hg]
-
 only-for-build-platforms:
     - linux64-shippable/opt
     - linux64-devedition/opt
@@ -26,12 +23,13 @@ only-for-build-platforms:
     - linux64-aarch64-devedition/opt
     - linux64/opt
     - linux64-aarch64/opt
+    - linux64-enterprise/opt
 
 tasks:
     repackage-deb:
         from-deps:
             group-by: single-with-filters
-        shipping-phase: promote
+        # TODO: Enterprise        shipping-phase: promote
         worker-type: b-linux
         worker:
             docker-image:
