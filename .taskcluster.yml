@@ -363,7 +363,7 @@ tasks:
                       else: ${ref}
               in:
                   $if: >
-                    tasks_for == "github-push" && shortRef in ["enterprise-main", "enterprise-try"]
+                    tasks_for == "github-push"
                   then:
                       $let:
                           level:
