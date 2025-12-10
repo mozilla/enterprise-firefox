@@ -38,6 +38,8 @@
 #include "../../base/IPv6Utils.h"
 #include "../LinkServiceCommon.h"
 #include "../NetworkLinkServiceDefines.h"
+#include "nsNetworkInterface.h"
+#include "nsPrintfCString.h"
 
 #import <Cocoa/Cocoa.h>
 #import <netinet/in.h>
@@ -377,7 +379,11 @@ static bool parseHashKey(struct rt_msghdr* rtm,
 // It detects the IP of the default gateways in the routing table, then the MAC
 // address of that IP in the ARP table before it hashes that string (to avoid
 // information leakage).
-bool nsNetworkLinkService::RoutingTable(nsTArray<nsCString>& aHash) {
+template <typename T>
+bool nsNetworkLinkService::RoutingTable(T& aTarget,
+                                        bool (*rtmParser)(struct rt_msghdr* rtm,
+                                                          T& strings,
+                                                          bool skipDstCheck)) {
   size_t needed;
   int mib[6];
   struct rt_msghdr* rtm;
@@ -412,7 +418,7 @@ bool nsNetworkLinkService::RoutingTable(nsTArray<nsCString>& aHash) {
       break;
     }
 
-    if (parseHashKey(rtm, aHash, false)) {
+    if (rtmParser(rtm, aTarget, false)) {
       rv = true;
     }
   }
@@ -477,7 +483,7 @@ bool nsNetworkLinkService::RoutingFromKernel(nsTArray<nsCString>& aHash) {
 // Figure out the current IPv4 "network identification" string.
 bool nsNetworkLinkService::IPv4NetworkId(SHA1Sum* aSHA1) {
   nsTArray<nsCString> hash;
-  if (!RoutingTable(hash)) {
+  if (!RoutingTable(hash, parseHashKey)) {
     NS_WARNING("IPv4NetworkId: No default gateways");
   }
 
@@ -987,6 +993,197 @@ void nsNetworkLinkService::NotifyObservers(const char* aTopic,
         aData ? NS_ConvertASCIItoUTF16(aData).get() : nullptr);
   }
 }
+
+#if defined(MOZ_ENTERPRISE)
+static bool getRoutes(
+    struct rt_msghdr* rtm,
+    nsTHashMap<nsCString, nsTArray<std::pair<int, nsCString>>>& ifNameAndIp,
+    bool skipDstCheck) {
+  struct sockaddr* sa;
+  if ((rtm->rtm_addrs & (RTA_DST | RTA_GATEWAY)) != (RTA_DST | RTA_GATEWAY)) {
+    return false;
+  }
+
+  sa = reinterpret_cast<struct sockaddr*>(rtm + 1);
+
+  struct sockaddr* destination =
+      reinterpret_cast<struct sockaddr*>((char*)sa + RTAX_DST * SA_SIZE(sa));
+  if (!destination) {
+    return false;
+  }
+
+  if (destination->sa_family != AF_INET && destination->sa_family != AF_INET6) {
+    return false;
+  }
+
+  const char* final_ip = nullptr;
+  if (destination->sa_family == AF_INET) {
+    char ip[INET_ADDRSTRLEN];
+    struct sockaddr_in* sockin =
+        reinterpret_cast<struct sockaddr_in*>(destination);
+    inet_ntop(AF_INET, &sockin->sin_addr.s_addr, ip, sizeof(ip) - 1);
+
+    struct sockaddr* gateway = reinterpret_cast<struct sockaddr*>(
+        (char*)sa + RTAX_GATEWAY * SA_SIZE(sa));
+    if (!gateway) {
+      return false;
+    }
+
+    sockin = reinterpret_cast<struct sockaddr_in*>(gateway);
+    inet_ntop(AF_INET, &sockin->sin_addr.s_addr, ip, sizeof(ip) - 1);
+
+    final_ip = ip;
+  } else if (destination->sa_family == AF_INET6) {
+    char ip[INET6_ADDRSTRLEN];
+    struct sockaddr_in6* sockin =
+        reinterpret_cast<struct sockaddr_in6*>(destination);
+    inet_ntop(AF_INET6, &sockin->sin6_addr.s6_addr, ip, sizeof(ip) - 1);
+
+    struct sockaddr* gateway = reinterpret_cast<struct sockaddr*>(
+        (char*)sa + RTAX_GATEWAY * SA_SIZE(sa));
+    if (!gateway) {
+      return false;
+    }
+
+    sockin = reinterpret_cast<struct sockaddr_in6*>(gateway);
+    inet_ntop(AF_INET6, &sockin->sin6_addr.s6_addr, ip, sizeof(ip) - 1);
+    final_ip = ip;
+  }
+
+  char buf[IFNAMSIZ] = {0};
+  char* if_name = if_indextoname(rtm->rtm_index, buf);
+  if (!if_name) {
+    LOG(("getRoutes: AF_INET if_indextoname failed"));
+    return false;
+  }
+
+  nsCString ifName = nsCString(if_name);
+  nsCString ipAddr = nsCString(final_ip);
+  std::pair<int, nsCString> ipAddrPair =
+      std::make_pair(destination->sa_family, ipAddr);
+
+  auto& ifNameEntry = ifNameAndIp.LookupOrInsert(ifName);
+  LOG(("getRoutes: ifNameEntry for %s", ifName.get()));
+  if (!ifNameEntry.Contains(ipAddrPair)) {
+    LOG(("getRoutes: ifNameEntry for %s does not contain %s, adding",
+         ifName.get(), ipAddr.get()));
+    ifNameEntry.AppendElement(ipAddrPair);
+  }
+
+  return true;
+}
+
+NS_IMETHODIMP
+nsNetworkLinkService::GetNetworkInterfaces(
+    nsTArray<RefPtr<nsINetworkInterface>>& aNetworkInterfaces) {
+  struct ifaddrs* ifap;
+  if (getifaddrs(&ifap) < 0) {
+    return NS_ERROR_FAILURE;
+  }
+
+  std::vector<const char*> ifNames;
+  struct ifaddrs* ifa;
+  for (ifa = ifap; ifa; ifa = ifa->ifa_next) {
+    if (ifa->ifa_addr == NULL) {
+      continue;
+    }
+
+    if (std::find(ifNames.begin(), ifNames.end(), ifa->ifa_name) ==
+        ifNames.end()) {
+      ifNames.emplace_back(ifa->ifa_name);
+    }
+  }
+
+  nsTHashMap<nsCString, nsTArray<std::pair<int, nsCString>>> routes;
+  if (!RoutingTable(routes, getRoutes)) {
+    NS_WARNING("NetworkInterfaces: no routing table");
+  }
+
+  for (auto ifName : ifNames) {
+    NetworkInterface intf(ifName);
+
+    const auto& routingEntry = routes.Lookup(intf.mName);
+    if (routingEntry) {
+      for (const auto& ipAddrPair : *routingEntry) {
+        if (ipAddrPair.first == AF_INET) {
+          intf.mGwv4.AppendElement(std::move(ipAddrPair.second));
+        } else if (ipAddrPair.first == AF_INET6) {
+          intf.mGwv6.AppendElement(std::move(ipAddrPair.second));
+        }
+      }
+    } else {
+      NS_WARNING(
+          nsPrintfCString("NetworkInterfaces: no routing entry for %s", ifName)
+              .get());
+    }
+
+    for (ifa = ifap; ifa; ifa = ifa->ifa_next) {
+      if (ifa->ifa_addr == NULL) {
+        continue;
+      }
+
+      if (strcmp(ifName, ifa->ifa_name) != 0) {
+        continue;
+      }
+
+      if (AF_INET6 == ifa->ifa_addr->sa_family) {
+        struct in6_addr* sin_addr =
+            &((struct sockaddr_in6*)ifa->ifa_addr)->sin6_addr;
+        nsCString addrStr;
+        char addr[INET6_ADDRSTRLEN];
+        addr[0] = 0;
+        inet_ntop(AF_INET6, sin_addr, addr, INET6_ADDRSTRLEN);
+        addrStr.Assign(addr);
+
+        LOG(("%s: ifName=%s ADD IPV4 %s", __PRETTY_FUNCTION__, ifName,
+             addrStr.get()));
+        intf.mIpv4.AppendElement(std::move(addrStr));
+      }
+
+      if (AF_INET == ifa->ifa_addr->sa_family) {
+        struct in_addr* sin_addr =
+            &((struct sockaddr_in*)ifa->ifa_addr)->sin_addr;
+        nsCString addrStr;
+        char addr[INET_ADDRSTRLEN];
+        addr[0] = 0;
+        inet_ntop(AF_INET, sin_addr, addr, INET_ADDRSTRLEN);
+        addrStr.Assign(addr);
+
+        LOG(("%s: ifName=%s ADD IPV6 %s", __PRETTY_FUNCTION__, ifName,
+             addrStr.get()));
+        intf.mIpv6.AppendElement(std::move(addrStr));
+      }
+
+      if (AF_LINK == ifa->ifa_addr->sa_family) {
+        struct sockaddr_dl* link = (struct sockaddr_dl*)ifa->ifa_addr;
+        if (link) {
+          uint8_t mac_addr[link->sdl_alen];
+          memcpy(mac_addr, link->sdl_data + link->sdl_nlen, link->sdl_alen);
+          nsCString macAddr = nsPrintfCString(
+              "%02x:%02x:%02x:%02x:%02x:%02x", mac_addr[0], mac_addr[1],
+              mac_addr[2], mac_addr[3], mac_addr[4], mac_addr[5]);
+
+          LOG(("%s: ifName=%s ADD MAC %s", __PRETTY_FUNCTION__, ifName,
+               macAddr.get()));
+          intf.mMAC = std::move(macAddr);
+        }
+      }
+    }
+
+    LOG(("%s: ifName=%s APPEND", __PRETTY_FUNCTION__, ifName));
+    aNetworkInterfaces.AppendElement(MakeRefPtr<nsNetworkInterface>(&intf));
+  }
+
+  freeifaddrs(ifap);
+  return NS_OK;
+}
+#else
+NS_IMETHODIMP
+nsNetworkLinkService::GetNetworkInterfaces(
+    nsTArray<nsINetworkInterface>& aNetworkInterfaces) {
+  return NS_ERROR_NOT_IMPLEMENTED;
+}
+#endif
 
 /* static */
 void nsNetworkLinkService::ReachabilityChanged(SCNetworkReachabilityRef target,

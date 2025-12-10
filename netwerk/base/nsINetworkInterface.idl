@@ -1,0 +1,28 @@
+/* vim: et ts=4 sw=4 tw=80
+ */
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+#include "nsISupports.idl"
+interface nsINetAddr;
+
+/**
+ * nsINetworkInterface
+ *
+ * This interface represents network interface informations
+ *  - interface name
+ *  - interface IP addresses
+ *  - interface MAC
+ *  - interface gateways
+ */
+[scriptable, uuid(1e3b9710-9118-4bc4-af4e-5cc166d64750)]
+interface nsINetworkInterface : nsISupports
+{
+    readonly attribute ACString name;
+    readonly attribute ACString mac;
+    readonly attribute Array<ACString> gwv4;
+    readonly attribute Array<ACString> gwv6;
+    readonly attribute Array<ACString> ipv4;
+    readonly attribute Array<ACString> ipv6;
+};

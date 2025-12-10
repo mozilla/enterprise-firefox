@@ -7,6 +7,7 @@
 
 #include "nsISupports.idl"
 interface nsINetAddr;
+interface nsINetworkInterface;
 
 %{ C++
 #include "nsTArrayForwardDeclare.h"
@@ -21,7 +22,7 @@ native NetAddr(mozilla::net::NetAddr);
 /**
  * Network link status monitoring service.
  */
-[scriptable, uuid(103e5293-77b3-4b70-af59-6e9e4a1f994a)]
+[scriptable, uuid(8ae30927-9dc9-49bd-ad82-7956861a93ce)]
 interface nsINetworkLinkService : nsISupports
 {
   /* Link type constants */
@@ -87,6 +88,8 @@ interface nsINetworkLinkService : nsISupports
    * indicate that we should only use DNS, not TRR.
    */
   readonly attribute unsigned long platformDNSIndications;
+
+  readonly attribute Array<nsINetworkInterface> networkInterfaces;
 
   %{C++
     static bool HasNonLocalIPv6Address();
