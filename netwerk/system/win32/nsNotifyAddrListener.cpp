@@ -502,6 +502,20 @@ nsNotifyAddrListener::CheckAdaptersAddresses(void) {
            NS_ConvertUTF16toUTF8(adapter->FriendlyName).get(),
            adapter->IfType));
 
+      intf.mName = NS_ConvertUTF16toUTF8(adapter->FriendlyName);
+      LOG(("CheckAdaptersAddresses: intf=%s", intf.mName.get()));
+
+      uint8_t macAddress[6] = {0, 0, 0, 0, 0, 0};
+      memcpy(&macAddress, adapter->PhysicalAddress,
+             adapter->PhysicalAddressLength);
+      nsCString macAddr = nsPrintfCString(
+          "%02x:%02x:%02x:%02x:%02x:%02x", macAddress[0], macAddress[1],
+          macAddress[2], macAddress[3], macAddress[4], macAddress[5]);
+
+      intf.mMAC = std::move(macAddr);
+      LOG(("CheckAdaptersAddresses: intf=%s mac=%s", intf.mName.get(),
+           intf.mMAC.get()));
+
       if (adapter->IfType == IF_TYPE_PPP ||
           adapter->IfType == IF_TYPE_PROP_VIRTUAL ||
           nsDependentString(adapter->FriendlyName).Find(u"VPN") != kNotFound ||

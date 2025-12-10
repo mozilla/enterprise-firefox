@@ -43,6 +43,21 @@ class FeltDevicePosture(FeltTests):
         assert (
             device_posture["build"]["applicationName"] == "FirefoxEnterprise"
         ), "Device posture reports proper applicationName"
+
+        assert (
+            len(device_posture["network"]) >= 1
+        ), "Device posture reports at least one network interface"
+        device_posture_network = device_posture["network"][0]
+
+        assert (
+            len(device_posture_network["ipv4"]) >= 1
+        ), "Device posture reports network interfaces (IPv4)"
+        assert (
+            len(device_posture_network["ipv6"]) >= 1
+        ), "Device posture reports network interfaces (IPv6)"
+        assert (
+            len(device_posture_network["mac"]) == 17
+        ), "Device posture reports MAC address"
         return True
 
     def test_felt_3_access(self, exp):

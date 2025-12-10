@@ -423,15 +423,17 @@ export const ConsoleClient = {
    * @returns {DevicePosture} devicePosture
    */
   _collectDevicePosture() {
+    Cc["@mozilla.org/network/network-link-service;1"]
+      .createInstance()
+      .QueryInterface(Ci.nsINetworkLinkService);
+    const networkInterfaces = Cc["@mozilla.org/network/network-link-service;1"]
+      .getService()
+      .QueryInterface(Ci.nsINetworkLinkService).networkInterfaces;
     const devicePosturePayload = {
       os: lazy.TelemetryEnvironment.currentEnvironment.system.os,
       security: lazy.TelemetryEnvironment.currentEnvironment.system.sec,
       build: lazy.TelemetryEnvironment.currentEnvironment.build,
-      // TODO: Client posture IP addr is P2, to be filled later.
-      network: {
-        ipv4: null,
-        ipv6: null,
-      },
+      network: networkInterfaces,
     };
     return devicePosturePayload;
   },
