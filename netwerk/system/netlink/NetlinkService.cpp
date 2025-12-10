@@ -265,6 +265,11 @@ class NetlinkLink {
   uint32_t GetIndex() const { return mIface.ifi_index; }
   uint32_t GetFlags() const { return mIface.ifi_flags; }
   uint16_t GetType() const { return mIface.ifi_type; }
+  void GetMacAsString(nsACString& _retval) {
+    _retval.Append(nsPrintfCString("%02x:%02x:%02x:%02x:%02x:%02x", mMAC[0],
+                                   mMAC[1], mMAC[2], mMAC[3], mMAC[4],
+                                   mMAC[5]));
+  }
 
   bool Init(struct nlmsghdr* aNlh) {
     struct ifinfomsg* iface;
@@ -274,17 +279,40 @@ class NetlinkLink {
     iface = (ifinfomsg*)NLMSG_DATA(aNlh);
     len = aNlh->nlmsg_len - NLMSG_LENGTH(sizeof(*iface));
 
+    bool shouldStop = false;
     bool hasName = false;
+#if defined(MOZ_ENTERPRISE)
+    bool hasMAC = false;
+#endif
     for (attr = IFLA_RTA(iface); RTA_OK(attr, len);
          attr = RTA_NEXT(attr, len)) {
       if (attr->rta_type == IFLA_IFNAME) {
         mName.Assign((char*)RTA_DATA(attr));
         hasName = true;
+      }
+#if defined(MOZ_ENTERPRISE)
+      if (attr->rta_type == IFLA_ADDRESS) {
+        memcpy(mMAC, RTA_DATA(attr), ETH_ALEN);
+        hasMAC = true;
+      }
+#endif
+
+      shouldStop = hasName
+#if defined(MOZ_ENTERPRISE)
+                   && hasMAC
+#endif
+          ;
+
+      if (shouldStop) {
         break;
       }
     }
 
-    if (!hasName) {
+    if (!hasName
+#if defined(MOZ_ENTERPRISE)
+        || !hasMAC
+#endif
+    ) {
       return false;
     }
 
@@ -294,6 +322,9 @@ class NetlinkLink {
 
  private:
   nsCString mName;
+#if defined(MOZ_ENTERPRISE)
+  uint8_t mMAC[ETH_ALEN]{};
+#endif
   struct ifinfomsg mIface{};
 };
 
@@ -1907,6 +1938,62 @@ nsresult NetlinkService::GetResolvers(nsTArray<NetAddr>& aResolvers) {
   return NS_ERROR_NOT_IMPLEMENTED;
 #endif
 }
+
+#if defined(MOZ_ENTERPRISE)
+nsresult NetlinkService::GetNetworkInterfaces(
+    nsTArray<NetworkInterface>& aNetworkInterfaces) {
+  nsTArray<NetworkInterface> networkInterfaces;
+  for (const auto& linkInfo : mLinks.Values()) {
+    if (linkInfo->mIsUp) {
+      nsAutoCString linkName;
+      linkInfo->mLink->GetName(linkName);
+
+      NetworkInterface intf;
+      intf.mName = linkName;
+      linkInfo->mLink->GetMacAsString(intf.mMAC);
+
+      for (uint32_t i = 0; i < linkInfo->mAddresses.Length(); ++i) {
+        const in_common_addr* addrPtr = linkInfo->mAddresses[i]->GetAddrPtr();
+        if (addrPtr) {
+          nsAutoCString addrStr;
+          GetAddrStr(addrPtr, linkInfo->mAddresses[i]->Family(), addrStr);
+          if (linkInfo->mAddresses[i]->Family() == AF_INET) {
+            intf.mIpv4.AppendElement(std::move(addrStr));
+          } else if (linkInfo->mAddresses[i]->Family() == AF_INET6) {
+            intf.mIpv6.AppendElement(std::move(addrStr));
+          }
+        }
+      }
+
+      for (uint32_t i = 0; i < linkInfo->mDefaultRoutes.Length(); ++i) {
+        const in_common_addr* gwAddrPtr =
+            linkInfo->mDefaultRoutes[i]->GetGWAddrPtr();
+        if (gwAddrPtr) {
+          nsAutoCString gwStr;
+          GetAddrStr(linkInfo->mDefaultRoutes[i]->GetGWAddrPtr(),
+                     linkInfo->mDefaultRoutes[i]->Family(), gwStr);
+          if (linkInfo->mDefaultRoutes[i]->Family() == AF_INET) {
+            intf.mGwv4.AppendElement(std::move(gwStr));
+          } else if (linkInfo->mAddresses[i]->Family() == AF_INET6) {
+            intf.mGwv6.AppendElement(std::move(gwStr));
+          }
+        }
+      }
+
+      networkInterfaces.AppendElement(intf);
+    }
+  }
+
+  aNetworkInterfaces = std::move(networkInterfaces);
+  return NS_OK;
+}
+#else
+nsresult NetlinkService::GetNetworkInterfaces(
+    nsTArray<nsINetworkInterface>& aNetworkInterfaces) {
+  NS_WARNING("Firefox Enterprise only");
+  return NS_ERROR_NOT_IMPLEMENTED;
+}
+#endif
 
 void NetlinkService::GetIsLinkUp(bool* aIsUp) {
   MutexAutoLock lock(mMutex);

@@ -67,7 +67,10 @@ class nsNetworkLinkService : public nsINetworkLinkService,
   void DNSConfigChanged(uint32_t aDelayMs);
   void GetDnsSuffixListInternal();
   bool RoutingFromKernel(nsTArray<nsCString>& aHash);
-  bool RoutingTable(nsTArray<nsCString>& aHash);
+  template <typename T>
+  bool RoutingTable(T& aTarget,
+                    bool (*rtmParser)(struct rt_msghdr* rtm, T& strings,
+                                      bool skipDstCheck));
 
   mozilla::Mutex mMutex MOZ_UNANNOTATED;
   nsCString mNetworkId;
