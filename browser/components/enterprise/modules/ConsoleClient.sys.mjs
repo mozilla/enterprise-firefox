@@ -245,18 +245,25 @@ export const ConsoleClient = {
    * a registered console endpoint. If we get a 401 or 403 refresh and retry once.
    *
    * @param {string} path - Console API to request
-   * @param {string} method - Console API method to use, GET or POST
-   * @param {{_didRefresh?: boolean}} [options]
+   * @param {"GET"|"POST"} method - Console API method to use
+   * @param {{ _didRefresh?: boolean, jsonBody?: object }} [options]
    * @throws {InvalidAuthError|Error}
    * @returns {Promise<any>} Parsed JSON response body.
    */
-  async _get(path, method = "GET", { _didRefresh = false } = {}) {
+  async _fetch(path, method, { _didRefresh = false, jsonBody = null } = {}) {
     const headers = new Headers({});
     const accessToken = await this.getAccessToken();
     headers.set("Authorization", `Bearer ${accessToken}`);
+    if (jsonBody !== null) {
+      headers.set("Content-Type", "application/json");
+    }
 
     const url = this.constructURI(path);
-    const res = await fetch(url, { method, headers });
+    const res = await fetch(url, {
+      method,
+      headers,
+      body: jsonBody === null ? undefined : JSON.stringify(jsonBody),
+    });
 
     if (res.ok) {
       return await res.json();
@@ -264,7 +271,7 @@ export const ConsoleClient = {
 
     if ((res.status === 403 || res.status === 401) && !_didRefresh) {
       await this._refreshSession();
-      return this._get(path, method, { _didRefresh: true });
+      return this._fetch(path, method, { _didRefresh: true, jsonBody });
     }
 
     const text = await res.text().catch(() => "");
@@ -272,16 +279,30 @@ export const ConsoleClient = {
   },
 
   /**
-   * Sends a POST request with the same session validity check as GET above.
+   * Initiates a GET request against a registered console endpoint.
    *
    * @param {string} path - Console API to request
+   *
    * @throws {InvalidAuthError|Error}
-   * @returns {Promise<any>} Parsed JSON response body.
+   *
+   * @returns {Promise<any>} Promise which resolves to a parsed JSON response body.
    */
-  async _post(path) {
-    // TODO: Bug 2001078 - ConsoleClient shouldn't use the
-    // _get function to initiate POST requests
-    return this._get(path, "POST");
+  async _get(path) {
+    return this._fetch(path, "GET");
+  },
+
+  /**
+   * Initiates a POST request again a registered console endpoint.
+   *
+   * @param {string} path - Console API to request
+   * @param {object} jsonBody - JSON body
+   *
+   * @throws {InvalidAuthError|Error}
+   *
+   * @returns {Promise<any>} Promise which resolves to a parsed JSON response body.
+   */
+  async _post(path, jsonBody) {
+    return this._fetch(path, "POST", { jsonBody });
   },
 
   /**
@@ -339,8 +360,8 @@ export const ConsoleClient = {
             Accept: "application/json",
           },
           body: JSON.stringify({
-            grant_type: "refresh_token",
-            refresh_token: refreshToken,
+          grant_type: "refresh_token",
+          refresh_token: refreshToken,
           }),
         });
       } catch (cause) {
