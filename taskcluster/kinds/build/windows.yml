@@ -484,7 +484,7 @@ win64-enterprise-shippable/opt:
         enable-build-signing: true
         enable-full-crashsymbols: true
     shipping-phase: build
-    shipping-product: firefox
+    shipping-product: enterprise
     treeherder:
         platform: windows2012-64-enterprise/opt
         symbol: Bent

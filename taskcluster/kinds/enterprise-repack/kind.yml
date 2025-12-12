@@ -30,7 +30,7 @@ task-defaults:
             in-tree: "partner-repack"
         chain-of-trust: true
         max-run-time: 7200
-    shipping-product: firefox
+    shipping-product: enterprise
     shipping-phase: build
     run:
         using: mozharness

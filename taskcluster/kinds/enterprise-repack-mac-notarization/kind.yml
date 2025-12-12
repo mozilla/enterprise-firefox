@@ -24,6 +24,6 @@ tasks:
         from-deps:
             group-by: partner-repack-ids
             copy-attributes: true
-        shipping-product: firefox
+        shipping-product: enterprise
         # TODO: shipping-phase: promote
         copy-repack-ids: true

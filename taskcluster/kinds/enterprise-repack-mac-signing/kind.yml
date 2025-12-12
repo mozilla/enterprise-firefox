@@ -23,6 +23,6 @@ tasks:
     enterprise-repack-mac-signing:
         from-deps:
             group-by: partner-repack-ids
-        shipping-product: firefox
+        shipping-product: enterprise
         # TODO: shipping-phase: promote
         repacks-per-chunk: 5

@@ -19,6 +19,8 @@ def add_indexes(config, jobs):
             job_name = f"{build_platform}-{repackage_type}"
             if job.get("shipping-product", "").startswith("thunderbird"):
                 product = job.get("index", {}).get("product", "thunderbird")
+            elif job.get("shipping-product", "").startswith("enterprise"):
+                product = job.get("index", {}).get("product", "enterprise")
             else:
                 product = job.get("index", {}).get("product", "firefox")
             index_type = "generic"

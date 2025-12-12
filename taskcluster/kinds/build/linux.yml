@@ -61,7 +61,7 @@ linux64-enterprise-shippable/opt:
         enable-build-signing: true
         enable-full-crashsymbols: true
     shipping-phase: build
-    shipping-product: firefox
+    shipping-product: enterprise
     treeherder:
         platform: linux64-enterprise/opt
         symbol: Bent
