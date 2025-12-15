@@ -69,8 +69,7 @@ class InvalidAuthError extends Error {
 }
 
 /**
- * Client for interacting with the Enterprise Console API.
- * Manages token state and provides helper methods for common endpoints.
+ * Client taking care of the communication with the enterprise console.
  */
 export const ConsoleClient = {
   _refreshPromise: null,
