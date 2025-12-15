@@ -468,7 +468,7 @@ def get_partner_url_config(parameters, graph_config):
     partner_url_config = deepcopy(graph_config["partner-urls"])
     substitutions = {
         "release-product": parameters["release_product"],
-        "release-level": release_level(parameters["project"]),
+        "release-level": release_level(parameters),
         "release-type": parameters["release_type"],
     }
     resolve_keyed_by(
@@ -554,7 +554,7 @@ def apply_partner_priority(config, jobs):
         config.kind.startswith(
             ("release-partner-repack", "release-partner-attribution")
         )
-        and release_level(config.params["project"]) == "production"
+        and release_level(config.params) == "production"
     ):
         priority = "medium"
     for job in jobs:
