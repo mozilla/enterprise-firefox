@@ -9,10 +9,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
 });
 
 /**
- * ConsoleClient takes care of all communication with the remote enterprise console.
- */
-
-/**
  * Preferences used to integrate the a remote enterprise console
  */
 export const PREFS = {
@@ -251,6 +247,12 @@ export const ConsoleClient = {
    * @returns {Promise<any>} Parsed JSON response body.
    */
   async _fetch(path, method, { _didRefresh = false, jsonBody = null } = {}) {
+    if (method !== "GET" && method !== "POST") {
+      throw new TypeError(
+        `Invalid method: ${method}. Expected "GET" or "POST".`
+      );
+    }
+
     const headers = new Headers({});
     const accessToken = await this.getAccessToken();
     headers.set("Authorization", `Bearer ${accessToken}`);
@@ -292,7 +294,7 @@ export const ConsoleClient = {
   },
 
   /**
-   * Initiates a POST request again a registered console endpoint.
+   * Initiates a POST request against a registered console endpoint.
    *
    * @param {string} path - Console API to request
    * @param {object} jsonBody - JSON body
@@ -301,7 +303,7 @@ export const ConsoleClient = {
    *
    * @returns {Promise<any>} Promise which resolves to a parsed JSON response body.
    */
-  async _post(path, jsonBody) {
+  async _post(path, jsonBody = null) {
     return this._fetch(path, "POST", { jsonBody });
   },
 
@@ -360,8 +362,8 @@ export const ConsoleClient = {
             Accept: "application/json",
           },
           body: JSON.stringify({
-          grant_type: "refresh_token",
-          refresh_token: refreshToken,
+            grant_type: "refresh_token",
+            refresh_token: refreshToken,
           }),
         });
       } catch (cause) {
