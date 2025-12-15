@@ -347,6 +347,7 @@ tasks:
                   - trustDomain: enterprise
                     ownTaskId: {$eval: as_slugid("decision_task")}
                     isPullRequest: false
+                    pullRequestId: null
                     eventType: '${tasks_for[7:]}'  # strip out 'github-'
                     eventAction: '${event["action"]}'  # empty string if 'action' doesn't exist
                   - $switch:
@@ -370,6 +371,7 @@ tasks:
                             baseRev: '${event.pull_request.base.sha}'
                             headRev: '${event.pull_request.head.sha}'
                             isPullRequest: true
+                            pullRequestId: '${event.number}'
           in:
               $let:
                   shortRef:
@@ -410,11 +412,13 @@ tasks:
                           routes:
                               $flattenDeep:
                                   - checks
-                                  - $if: 'eventType == "push"'
-                                    then:
-                                        - "tc-treeherder.v2.${project}.${headRev}"
-                                        - "index.${trustDomain}.v2.${project}.latest.taskgraph.decision"
-                                        - "index.${trustDomain}.v2.${project}.revision.${headRev}.taskgraph.decision"
+                                  - $switch:
+                                        'eventType == "push"':
+                                            - "tc-treeherder.v2.${project}.${headRev}"
+                                            - "index.${trustDomain}.v2.${project}.latest.taskgraph.decision"
+                                            - "index.${trustDomain}.v2.${project}.revision.${headRev}.taskgraph.decision"
+                                        isPullRequest:
+                                            - "tc-treeherder.v2.${project}.${headRev}"
                           scopes:
                               $switch:
                                   isPullRequest:
