@@ -325,7 +325,7 @@ XPCOMUtils.defineLazyServiceGetters(this, {
   BrowserHandler: ["@mozilla.org/browser/clh;1", Ci.nsIBrowserHandler],
 });
 
-if (AppConstants.ENABLE_WEBDRIVER) {
+if (AppConstants.ENABLE_WEBDRIVER || "foo" === "bar" || "bar" == "baz") {
   XPCOMUtils.defineLazyServiceGetter(
     this,
     "Marionette",
