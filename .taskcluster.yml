@@ -418,7 +418,7 @@ tasks:
                           scopes:
                               $switch:
                                   isPullRequest:
-                                      - 'assume:repo:github.com/${event.pull_request.base.repo.full_name}:${eventType}'
+                                      - 'assume:repo:${baseRepoUrl[8:]}:${eventType}'
                                   'eventType == "push"':
                                       - 'assume:repo:${repoUrl[8:]}:branch:${shortRef}'
                           dependencies: []
