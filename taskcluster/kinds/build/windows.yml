@@ -531,6 +531,61 @@ win64-enterprise-shippable/opt:
         fetch:
             - upx-3.95-win
 
+win64-aarch64-enterprise-shippable/opt:
+    description: "AArch64 Win64 Enterprise Shippable"
+    index:
+        product: firefox
+        job-name: win64-aarch64-enterprise-opt
+        type: shippable
+    attributes:
+        shippable: true
+        enable-full-crashsymbols: true
+    shipping-phase: build
+    shipping-product: firefox
+    treeherder:
+        platform: windows2012-aarch64-enterprise-shippable/opt
+        symbol: Bent
+        tier: 1
+    run-on-projects: ["enterprise-firefox"]
+    run-on-repo-type: ["git"]
+    worker-type: b-linux-docker-xlarge-amd
+    worker:
+        max-run-time: 10800
+        env:
+            PERFHERDER_EXTRA_OPTIONS: enterprise
+            MOZ_AUTOMATION_PACKAGE_TESTS: "1"
+    run:
+        actions: [get-secrets, build]
+        options: [append-env-variables-from-configs]
+        script: mozharness/scripts/fx_desktop_build.py
+        secrets: true
+        config:
+            - builds/releng_base_firefox.py
+            - builds/releng_base_linux_64_builds.py
+        extra-config:
+            stage_platform: win64-aarch64
+            mozconfig_platform: win64-aarch64
+            max_build_output_timeout: 3600
+    fetches:
+        toolchain:
+            - linux64-clang
+            - linux64-rust-cross
+            - linux64-rust-size
+            - linux64-nasm
+            - linux64-node
+            - linux64-cbindgen
+            - linux64-dump_syms
+            - linux64-wine
+            - linux64-winchecksec
+            - nsis
+            - sysroot-x86_64-linux-gnu
+            - sysroot-wasm32-wasi
+            - vs
+            - dxc-aarch64-pc-windows-msvc
+            - winappsdk-aarch64-pc-windows-msvc
+        fetch:
+            - upx-3.95-win
+
 win64-plain/opt:
     description: "Win64 Opt Plain"
     index:

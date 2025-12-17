@@ -358,6 +358,7 @@ def repackage_msix(
         "aurora",
         "nightly",
         "unofficial",
+        "firefoxenterprise",
     ):
         raise Exception(f"channel is unrecognized: {channel}")
 

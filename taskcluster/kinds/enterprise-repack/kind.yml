@@ -53,6 +53,7 @@ only-for-build-platforms:
     - linux64-aarch64-enterprise-shippable/opt
     - macosx64-enterprise-shippable/opt
     - win64-enterprise-shippable/opt
+    - win64-aarch64-enterprise-shippable/opt
 
 tasks:
     linux64-enterprise-shippable:
@@ -89,5 +90,14 @@ tasks:
         attributes:
             shippable: true
             build_platform: win64-enterprise-shippable
+            build_type: opt
+            artifact_prefix: public
+    win64-aarch64-enterprise-shippable:
+        treeherder:
+            symbol: Rpk-Ent
+            platform: windows2012-aarch64-enterprise/opt
+        attributes:
+            shippable: true
+            build_platform: win64-aarch64-enterprise-shippable
             build_type: opt
             artifact_prefix: public

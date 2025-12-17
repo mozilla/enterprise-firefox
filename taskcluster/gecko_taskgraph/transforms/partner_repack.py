@@ -120,7 +120,11 @@ def add_command_arguments(config, tasks):
                     task["attributes"]["build_platform"],
                 ),
             )
-        platform = task["attributes"]["build_platform"].partition("-shippable")[0]
+        platform = (
+            task["attributes"]["build_platform"]
+            .partition("-shippable")[0]
+            .partition("-enterprise")[0]
+        )
         task["run"]["options"] = [
             "version={}".format(release_config["version"]),
             "build-number={}".format(release_config["build_number"]),

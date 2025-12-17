@@ -529,11 +529,17 @@ def make_job_description(config, jobs):
         if not dep_th_platform and "enterprise-repack-repackage" in dep_job.kind:
             build_platform = attributes.get("build_platform")
             if "linux64" in build_platform:
-                dep_th_platform = "linux64-enterprise/opt"
+                if "aarch64" in build_platform:
+                    dep_th_platform = "linux64-aarch64-enterprise/opt"
+                else:
+                    dep_th_platform = "linux64-enterprise/opt"
             elif "macosx64" in build_platform:
                 dep_th_platform = "osx-cross-enterprise/opt"
             elif "win64" in build_platform:
-                dep_th_platform = "windows2012-64-enterprise/opt"
+                if "aarch64" in build_platform:
+                    dep_th_platform = "windows2012-aarch64-enterprise/opt"
+                else:
+                    dep_th_platform = "windows2012-64-enterprise/opt"
             else:
                 raise ValueError(f"Unsupported {build_platform}")
 
@@ -567,10 +573,14 @@ def make_job_description(config, jobs):
         elif config.kind == "repackage-msix":
             assert not locale
 
-            # Like "MSIXs(Bs)".
-            treeherder["symbol"] = "MSIX({})".format(
-                dep_job.task.get("extra", {}).get("treeherder", {}).get("symbol", "B")
-            )
+            if "enterprise-repack" in dep_job.label:
+                repack_id = dep_job.task.get("extra").get("repack_id")
+                treeherder["symbol"] = f"MSIX-Ent({repack_id})"
+            else:
+                # Like "MSIXs(Bs)".
+                treeherder["symbol"] = "MSIX({})".format(
+                    dep_job.task.get("extra", {}).get("treeherder", {}).get("symbol", "B")
+                )
 
         elif config.kind == "repackage-shippable-l10n-msix":
             assert not locale

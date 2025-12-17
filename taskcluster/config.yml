@@ -199,7 +199,9 @@ treeherder:
         'Rpk-Ent': 'Enterprise repacks'
         'Rpk': 'Classic repacks'
         'MSI-Ent': "MSI Enterprise repacks"
+        'MSIX-Ent': "MSIX Enterprise repacks"
         'MSIs-Ent': "MSI signed Enterprise repacks"
+        'MSIXs-Ent': "MSIX signed Enterprise repacks"
         'BMS-Ent': "Mac signing for Enterprise repacks"
         'BMN-Ent': "Mac notarization for Enterprise repacks"
 

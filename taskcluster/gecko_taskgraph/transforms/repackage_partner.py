@@ -243,11 +243,17 @@ def make_job_description(config, jobs):
                 .replace("shippable", "")
             )
             if "linux64" in platform:
-                th_platform = "linux64-enterprise/opt"
+                if "aarch64" in platform:
+                    th_platform = "linux64-aarch64-enterprise/opt"
+                else:
+                    th_platform = "linux64-enterprise/opt"
             elif "macosx64" in platform:
                 th_platform = "osx-cross-enterprise/opt"
             elif "win64" in platform:
-                th_platform = "windows2012-64-enterprise/opt"
+                if "aarch64" in platform:
+                    th_platform = "windows2012-aarch64-enterprise/opt"
+                else:
+                    th_platform = "windows2012-64-enterprise/opt"
             else:
                 raise ValueError(f"Unsupported {platform}")
 

@@ -3062,7 +3062,7 @@ def repackage_msi(
 @CommandArgument(
     "--channel",
     type=str,
-    choices=["official", "beta", "esr", "aurora", "nightly", "unofficial"],
+    choices=["official", "beta", "esr", "aurora", "nightly", "unofficial", "FirefoxEnterprise"],
     help="Release channel.",
 )
 @CommandArgument(
@@ -3168,6 +3168,7 @@ def repackage_msix(
         "beta": "beta",
         "aurora": "aurora",
         "nightly": "nightly",
+        "FirefoxEnterprise": "firefoxenterprise",
     }
 
     if not input:
