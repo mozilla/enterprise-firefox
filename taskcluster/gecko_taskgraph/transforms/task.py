@@ -2696,3 +2696,18 @@ def check_run_task_caches(config, tasks):
             )
 
         yield task
+
+@transforms.add
+def add_github_checks(config, tasks):
+    """
+    For git repositories, add checks route to all tasks.
+
+    This will be replaced by a configurable option in the future.
+    """
+    if config.params["repository_type"] != "git":
+        for task in tasks:
+            yield task
+
+    for task in tasks:
+        task["task"]["routes"].append("checks")
+        yield task
