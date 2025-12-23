@@ -41,6 +41,8 @@ policy-BlockAboutProfiles = Block access to the about:profiles page.
 
 policy-BlockAboutSupport = Block access to the about:support page.
 
+policy-BlocklistDomainBrowsedTelemetry = Enable security logging/telemetry when Firefox Enterprise blocks a visit to a blocklisted domain.
+
 policy-Bookmarks = Create bookmarks in the Bookmarks toolbar, Bookmarks menu, or a specified folder inside them.
 
 policy-CaptivePortal = Enable or disable captive portal support.
@@ -115,6 +117,8 @@ policy-DNSOverHTTPS = Configure DNS over HTTPS.
 policy-DontCheckDefaultBrowser = Disable check for default browser on startup.
 
 policy-DownloadDirectory = Set and lock the download directory.
+
+policy-DownloadTelemetry = Enable and configure security logging/telemetry when a download is triggered.
 
 # “lock” means that the user won’t be able to change this setting
 policy-EnableTrackingProtection = Enable or disable Content Blocking and optionally lock it.
@@ -210,6 +214,8 @@ policy-PictureInPicture = Enable or disable Picture-in-Picture.
 policy-PopupBlocking2 = Allow certain websites to display popups and be redirected by third-party frames.
 
 policy-Preferences = Set and lock the value for a subset of preferences.
+
+policy-PrintPageTelemetry = Enable and configure security logging/telemetry when a page is printed.
 
 policy-PrivateBrowsingModeAvailability = Set availability of private browsing mode.
 
