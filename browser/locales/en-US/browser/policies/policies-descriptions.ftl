@@ -41,7 +41,7 @@ policy-BlockAboutProfiles = Block access to the about:profiles page.
 
 policy-BlockAboutSupport = Block access to the about:support page.
 
-policy-BlocklistDomainBrowsedTelemetry = Enable security logging/telemetry when Firefox Enterprise blocks a visit to a blocklisted domain.
+policy-BlocklistDomainBrowsedTelemetry = Enable and configure security logging/telemetry when { -brand-short-name } blocks a visit to a blocklisted domain.
 
 policy-Bookmarks = Create bookmarks in the Bookmarks toolbar, Bookmarks menu, or a specified folder inside them.
 
