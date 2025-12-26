@@ -3,11 +3,30 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+function queueFeltDockAction(isPrivate) {
+  const FELT_OPEN_DISPOSITION_NEW_WINDOW = 1;
+  const FELT_OPEN_DISPOSITION_NEW_PRIVATE_WINDOW = 2;
+  let payload = {
+    url: "",
+    disposition: isPrivate
+      ? FELT_OPEN_DISPOSITION_NEW_PRIVATE_WINDOW
+      : FELT_OPEN_DISPOSITION_NEW_WINDOW,
+  };
+  const { queueFeltURL } = ChromeUtils.importESModule(
+    "resource:///modules/BrowserContentHandler.sys.mjs"
+  );
+  queueFeltURL(payload);
+}
+
 var NonBrowserWindow = {
   delayedStartupTimeoutId: null,
   MAC_HIDDEN_WINDOW: "chrome://browser/content/hiddenWindowMac.xhtml",
 
   openBrowserWindowFromDockMenu(options = {}) {
+    if (Services.felt.isFeltUI()) {
+      queueFeltDockAction(options.private);
+      return null;
+    }
     let existingWindow = BrowserWindowTracker.getTopWindow();
     options.openerWindow = existingWindow || window;
     let win = OpenBrowserWindow(options);

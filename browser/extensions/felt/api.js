@@ -7,10 +7,14 @@
 /* globals ExtensionAPI, Services, XPCOMUtils */
 
 const lazy = {};
+const FELT_OPEN_DISPOSITION_DEFAULT = 0;
+const FELT_OPEN_DISPOSITION_NEW_WINDOW = 1;
+const FELT_OPEN_DISPOSITION_NEW_PRIVATE_WINDOW = 2;
 
 ChromeUtils.defineESModuleGetters(lazy, {
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
   FeltStorage: "resource:///modules/FeltStorage.sys.mjs",
+  PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
 });
 
 this.felt = class extends ExtensionAPI {
@@ -80,7 +84,17 @@ this.felt = class extends ExtensionAPI {
       }
     },
 
-    async _handleFeltExternalUrl(url) {
+    async _handleFeltExternalUrl(data) {
+      let { url, disposition } = this._parseOpenURLData(data);
+      if (
+        disposition === FELT_OPEN_DISPOSITION_NEW_WINDOW ||
+        disposition === FELT_OPEN_DISPOSITION_NEW_PRIVATE_WINDOW
+      ) {
+        let wantsPrivate =
+          disposition === FELT_OPEN_DISPOSITION_NEW_PRIVATE_WINDOW;
+        this._openFeltWindow(url, wantsPrivate);
+        return;
+      }
       let win = lazy.BrowserWindowTracker.getTopWindow({
         private: false,
       });
@@ -119,6 +133,37 @@ this.felt = class extends ExtensionAPI {
         win.openTrustedLinkIn(url, "tab");
       } catch (err) {
         console.error("FeltExtension: Failed to open forwarded URL", url, err);
+      }
+    },
+
+    _parseOpenURLData(data) {
+      let parsed = JSON.parse(data);
+      return {
+        url: parsed.url ?? "",
+        disposition: parsed.disposition ?? FELT_OPEN_DISPOSITION_DEFAULT,
+      };
+    },
+
+    _openFeltWindow(url, wantsPrivate) {
+      if (wantsPrivate && !lazy.PrivateBrowsingUtils.enabled) {
+        wantsPrivate = false;
+        url = "about:privatebrowsing";
+      }
+
+      try {
+        let args = null;
+        if (url) {
+          args = Cc["@mozilla.org/supports-string;1"].createInstance(
+            Ci.nsISupportsString
+          );
+          args.data = url;
+        }
+        lazy.BrowserWindowTracker.openWindow({
+          private: wantsPrivate,
+          args,
+        });
+      } catch (err) {
+        console.error("FeltExtension: Failed to open forwarded window", err);
       }
     },
   };

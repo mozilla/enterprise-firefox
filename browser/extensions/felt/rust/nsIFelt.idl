@@ -63,7 +63,7 @@ interface nsIFelt : nsISupports {
   void sendExtensionReady();
 
   [must_use]
-  void openURL(in ACString url);
+  void openURL(in ACString url, in long disposition);
 
   [must_use]
   ACString getConsoleUrl();

@@ -448,6 +448,7 @@ nsBrowserContentHandler.prototype = {
 
   /* nsICommandLineHandler */
   handle: function bch_handle(cmdLine) {
+    const isFeltUI = Services.felt.isFeltUI();
     if (
       cmdLine.handleFlag("kiosk", false) ||
       cmdLine.handleFlagWithParam("kiosk-monitor", false)
@@ -469,7 +470,14 @@ nsBrowserContentHandler.prototype = {
       Services.prefs.lockPref("browser.gesture.pinch.out.shift");
     }
     if (cmdLine.handleFlag("browser", false)) {
-      openBrowserWindow(cmdLine, lazy.gSystemPrincipal);
+      if (isFeltUI) {
+        queueFeltURL({
+          url: "",
+          disposition: FELT_OPEN_DISPOSITION_NEW_WINDOW,
+        });
+      } else {
+        openBrowserWindow(cmdLine, lazy.gSystemPrincipal);
+      }
       cmdLine.preventDefault = true;
     }
 
@@ -480,7 +488,14 @@ nsBrowserContentHandler.prototype = {
         if (!shouldLoadURI(uri)) {
           continue;
         }
-        openBrowserWindow(cmdLine, principal, uri.spec);
+        if (isFeltUI) {
+          queueFeltURL({
+            url: uri.spec,
+            disposition: FELT_OPEN_DISPOSITION_NEW_WINDOW,
+          });
+        } else {
+          openBrowserWindow(cmdLine, principal, uri.spec);
+        }
         cmdLine.preventDefault = true;
       }
     } catch (e) {
@@ -564,26 +579,36 @@ nsBrowserContentHandler.prototype = {
         false
       );
       if (privateWindowParam) {
-        let forcePrivate = true;
-        let resolvedInfo;
-        if (!lazy.PrivateBrowsingUtils.enabled) {
-          // Load about:privatebrowsing in a normal tab, which will display an error indicating
-          // access to private browsing has been disabled.
-          forcePrivate = false;
-          resolvedInfo = {
-            uri: Services.io.newURI("about:privatebrowsing"),
-            principal: lazy.gSystemPrincipal,
-          };
+        if (isFeltUI) {
+          let resolvedInfo = resolveURIInternal(cmdLine, privateWindowParam);
+          if (shouldLoadURI(resolvedInfo.uri)) {
+            queueFeltURL({
+              url: resolvedInfo.uri.spec,
+              disposition: FELT_OPEN_DISPOSITION_NEW_PRIVATE_WINDOW,
+            });
+          }
         } else {
-          resolvedInfo = resolveURIInternal(cmdLine, privateWindowParam);
+          let forcePrivate = true;
+          let resolvedInfo;
+          if (!lazy.PrivateBrowsingUtils.enabled) {
+            // Load about:privatebrowsing in a normal tab, which will display an error indicating
+            // access to private browsing has been disabled.
+            forcePrivate = false;
+            resolvedInfo = {
+              uri: Services.io.newURI("about:privatebrowsing"),
+              principal: lazy.gSystemPrincipal,
+            };
+          } else {
+            resolvedInfo = resolveURIInternal(cmdLine, privateWindowParam);
+          }
+          handURIToExistingBrowser(
+            resolvedInfo.uri,
+            Ci.nsIBrowserDOMWindow.OPEN_NEWTAB,
+            cmdLine,
+            forcePrivate,
+            resolvedInfo.principal
+          );
         }
-        handURIToExistingBrowser(
-          resolvedInfo.uri,
-          Ci.nsIBrowserDOMWindow.OPEN_NEWTAB,
-          cmdLine,
-          forcePrivate,
-          resolvedInfo.principal
-        );
         cmdLine.preventDefault = true;
       }
     } catch (e) {
@@ -592,13 +617,20 @@ nsBrowserContentHandler.prototype = {
       }
       // NS_ERROR_INVALID_ARG is thrown when flag exists, but has no param.
       if (cmdLine.handleFlag("private-window", false)) {
-        openBrowserWindow(
-          cmdLine,
-          lazy.gSystemPrincipal,
-          "about:privatebrowsing",
-          null,
-          lazy.PrivateBrowsingUtils.enabled
-        );
+        if (isFeltUI) {
+          queueFeltURL({
+            url: "",
+            disposition: FELT_OPEN_DISPOSITION_NEW_PRIVATE_WINDOW,
+          });
+        } else {
+          openBrowserWindow(
+            cmdLine,
+            lazy.gSystemPrincipal,
+            "about:privatebrowsing",
+            null,
+            lazy.PrivateBrowsingUtils.enabled
+          );
+        }
         cmdLine.preventDefault = true;
       }
     }
@@ -1211,9 +1243,23 @@ nsBrowserContentHandler.prototype = {
 var gBrowserContentHandler = new nsBrowserContentHandler();
 
 // Module-level queue for Felt external link handling
-// URLs are stored here when they arrive via command line (before Felt extension loads)
+// URL requests are stored here when they arrive via command line (before Felt extension loads)
 // FeltProcessParent imports this module and manages forwarding from this queue
 export let gFeltPendingURLs = [];
+const FELT_OPEN_DISPOSITION_DEFAULT = 0;
+const FELT_OPEN_DISPOSITION_NEW_WINDOW = 1;
+const FELT_OPEN_DISPOSITION_NEW_PRIVATE_WINDOW = 2;
+
+export function queueFeltURL(payload) {
+  try {
+    const { queueURL } = ChromeUtils.importESModule(
+      "chrome://felt/content/FeltProcessParent.sys.mjs"
+    );
+    queueURL(payload);
+  } catch (err) {
+    gFeltPendingURLs.push(payload);
+  }
+}
 
 function handURIToExistingBrowser(
   uri,
@@ -1498,6 +1544,7 @@ nsDefaultCommandLineHandler.prototype = {
 
   /* nsICommandLineHandler */
   handle: function dch_handle(cmdLine) {
+    const isFeltUI = Services.felt.isFeltUI();
     var urilist = [];
     var principalList = [];
 
@@ -1595,7 +1642,7 @@ nsDefaultCommandLineHandler.prototype = {
 
     // Make sure that when FeltUI is requested, we do not try to open another
     // window. Instead, forward any URLs to be opened in the real Firefox.
-    if (Services.felt && Services.felt.isFeltUI()) {
+    if (isFeltUI) {
       console.debug(`Felt: Found FeltUI in BrowserContentHandler.`);
       cmdLine.preventDefault = true;
 
@@ -1633,20 +1680,11 @@ nsDefaultCommandLineHandler.prototype = {
       if (urilist.length) {
         const urlSpecs = urilist.filter(shouldLoadURI).map(u => u.spec);
         if (urlSpecs.length) {
-          // Try to import FeltProcessParent and call queueURL()
-          // This will work if the extension has loaded (chrome:// URLs registered)
-          // If not, URLs stay in gFeltPendingURLs for later retrieval
-          try {
-            const { queueURL } = ChromeUtils.importESModule(
-              "chrome://felt/content/FeltProcessParent.sys.mjs"
-            );
-            for (let urlSpec of urlSpecs) {
-              queueURL(urlSpec);
-            }
-          } catch (err) {
-            // Chrome:// URLs not registered yet (early startup)
-            // Add to queue for FeltProcessParent to retrieve later
-            gFeltPendingURLs.push(...urlSpecs);
+          for (let urlSpec of urlSpecs) {
+            queueFeltURL({
+              url: urlSpec,
+              disposition: FELT_OPEN_DISPOSITION_DEFAULT,
+            });
           }
         }
       }

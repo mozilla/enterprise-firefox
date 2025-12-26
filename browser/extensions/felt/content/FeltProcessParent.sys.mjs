@@ -20,22 +20,29 @@ console.debug(`FeltExtension: FeltParentProcess.sys.mjs`);
 // processing) and FeltProcessParent (which forwards URLs after Firefox is ready)
 import { gFeltPendingURLs } from "resource:///modules/BrowserContentHandler.sys.mjs";
 
-export function queueURL(url) {
+export function queueURL(payload) {
   // If Firefox AND extension are both ready, forward immediately
   if (
     gFeltProcessParentInstance?.firefoxReady &&
     gFeltProcessParentInstance?.extensionReady
   ) {
-    gFeltProcessParentInstance.sendURLToFirefox(url);
+    gFeltProcessParentInstance.sendURLToFirefox(payload);
     // Ensure Felt launcher stays hidden when forwarding to running Firefox
     Services.felt.makeBackgroundProcess(true);
   } else {
     // Queue at module level until ready
-    gFeltPendingURLs.push(url);
+    gFeltPendingURLs.push(payload);
   }
 }
 
 let gFeltProcessParentInstance = null;
+
+function extractURLPayload(payload) {
+  return {
+    url: payload.url ?? "",
+    disposition: payload.disposition ?? 0,
+  };
+}
 
 /**
  * Manages the SSO login and launching Firefox
@@ -450,18 +457,19 @@ export class FeltProcessParent extends JSProcessActorParent {
   }
 
   /**
-   * Send a URL to Firefox via IPC (Firefox must be ready)
+   * Send a URL request to Firefox via IPC (Firefox must be ready)
    *
-   * @param {string} url
+   * @param {object} payload - Object with url and disposition properties
    */
-  sendURLToFirefox(url) {
+  sendURLToFirefox(payload) {
     if (!this.firefoxReady || !Services.felt) {
       console.error(`FeltExtension: Cannot send URL, Firefox not ready`);
       return;
     }
 
     try {
-      Services.felt.openURL(url);
+      let { url, disposition } = extractURLPayload(payload);
+      Services.felt.openURL(url, disposition);
     } catch (err) {
       console.error(`FeltExtension: Failed to forward URL: ${err}`);
     }
@@ -491,11 +499,12 @@ export class FeltProcessParent extends JSProcessActorParent {
     }
 
     // Forward all URLs directly via IPC (both Firefox and extension are ready)
-    for (const url of gFeltPendingURLs) {
+    for (const payload of gFeltPendingURLs) {
       try {
-        Services.felt.openURL(url);
+        let { url, disposition } = extractURLPayload(payload);
+        Services.felt.openURL(url, disposition);
       } catch (err) {
-        console.error(`FeltExtension: Failed to forward URL ${url}: ${err}`);
+        console.error(`FeltExtension: Failed to forward URL: ${err}`);
       }
     }
 
