@@ -12,6 +12,11 @@ EXTRA_JS_MODULES.policies += [
     "ProxyPolicies.sys.mjs",
 ]
 
+if CONFIG["MOZ_ENTERPRISE"]:
+    EXTRA_JS_MODULES.policies += [
+        "SyncSettingsPolicy.sys.mjs",
+    ]
+
 EXTRA_PP_JS_MODULES.policies += [
     "WebsiteFilter.sys.mjs",
 ]

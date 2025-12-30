@@ -910,6 +910,16 @@ var gSyncPane = {
       "connect-another-device"
     );
     connectAnotherDeviceLink.setAttribute("restricted-enterprise-view", true);
+
+    if ("SyncSettings" in (Services.policies.getActivePolicies() || {})) {
+      // Hide "Manage Sync" button (visible when Sync is enabled)
+      const manageSyncButton = document.getElementById("syncChangeOptions");
+      manageSyncButton.setAttribute("restricted-enterprise-view", true);
+
+      // Hide info box and "Turn on syncing..."" button (visible when Sync is disabled)
+      const syncOffBox = document.getElementById("syncNotConfigured");
+      syncOffBox.setAttribute("restricted-enterprise-view", true);
+    }
   },
 
   _updateSyncNow(syncing) {

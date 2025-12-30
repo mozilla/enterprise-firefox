@@ -204,6 +204,13 @@ EnterprisePoliciesManager.prototype = {
     const policyNames = Object.keys(unparsedPolicies || {});
 
     for (let policyName of policyNames) {
+
+      if (AppConstants.MOZ_ENTERPRISE) {
+        if (["DisableAccounts", "DisableFirefoxAccounts"].includes(policyName)) {
+          lazy.log.warn("Disabling accounts is unavailable in Firefox Enterprise.");
+          continue;
+        }
+      }
       let policySchema = schema.properties[policyName];
       let policyParameters = unparsedPolicies[policyName];
 

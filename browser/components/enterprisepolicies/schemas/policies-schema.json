@@ -1697,6 +1697,33 @@
       "required": ["Title", "URL"]
     },
 
+    "SyncSettings": {
+      "type": "object",
+      "properties": {
+        "State": {
+          "type": "string",
+          "enum": ["enabled", "disabled", "default"]
+        },
+        "TypesEnabled": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "addresses",
+              "bookmarks",
+              "history",
+              "openTabs",
+              "passwords",
+              "paymentMethods",
+              "addons",
+              "settings"
+            ]
+          }
+        },
+        "required": ["State"]
+      }
+    },
+
     "TranslateEnabled": {
       "type": "boolean"
     },

@@ -3405,6 +3405,11 @@ export var PoliciesUtils = {
   restoreDefaultPref(prefName) {
     const values = this._savedPrefs[prefName];
 
+    if (!values) {
+      // No default values available.
+      return;
+    }
+
     let defaults = Services.prefs.getDefaultBranch("");
     switch (typeof values.defaultValue) {
       case "number":
@@ -3920,4 +3925,18 @@ function processMIMEInfo(mimeInfo, realMIMEInfo) {
     realMIMEInfo.alwaysAskBeforeHandling = mimeInfo.ask;
   }
   lazy.gHandlerService.store(realMIMEInfo);
+}
+
+if (AppConstants.MOZ_ENTERPRISE) {
+  ChromeUtils.defineESModuleGetters(lazy, {
+    SyncSettingsPolicy: "resource:///modules/policies/SyncSettingsPolicy.sys.mjs",
+  });
+  Policies.SyncSettings = {
+    async onBeforeAddons(manager, param) {
+      await lazy.SyncSettingsPolicy.applySettings(manager, param);
+    },
+    async onRemove(manager, _) {
+      await lazy.SyncSettingsPolicy.restoreSettings(manager);
+    }
+  }
 }
