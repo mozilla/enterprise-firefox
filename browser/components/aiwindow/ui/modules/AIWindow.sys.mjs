@@ -6,6 +6,16 @@
 import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
 const AIWINDOW_URL = "chrome://browser/content/aiwindow/aiWindow.html";
+const AIWINDOW_URI = Services.io.newURI(AIWINDOW_URL);
+
+const lazy = {};
+ChromeUtils.defineESModuleGetters(lazy, {
+  ChatStore:
+    "moz-src:///browser/components/aiwindow/ui/modules/ChatStore.sys.mjs",
+
+  AIWindowMenu:
+    "moz-src:///browser/components/aiwindow/ui/modules/AIWindowMenu.sys.mjs",
+});
 
 /**
  * AI Window Service
@@ -14,6 +24,7 @@ const AIWINDOW_URL = "chrome://browser/content/aiwindow/aiWindow.html";
 export const AIWindow = {
   _initialized: false,
   _windowStates: new Map(),
+  _aiWindowMenu: null,
 
   /**
    * Handles startup tasks
@@ -30,6 +41,8 @@ export const AIWindow = {
       "browser.aiwindow.enabled",
       false
     );
+
+    ChromeUtils.defineLazyGetter(this, "chatStore", () => new lazy.ChatStore());
 
     this._initialized = true;
     this._windowStates.set(win, {});
@@ -89,7 +102,7 @@ export const AIWindow = {
   /**
    * Is current window an AI Window
    *
-   * @param {object} win current Window
+   * @param {Window} win current Window
    * @returns {boolean} whether current Window is an AI Window
    */
   isAIWindowActive(win) {
@@ -107,6 +120,47 @@ export const AIWindow = {
 
   isAIWindowActiveAndEnabled(win) {
     return this.isAIWindowActive(win) && this.AIWindowEnabled;
+  },
+
+  /**
+   * Check if window is being opened as an AI Window.
+   *
+   * @param {Window} win - The window to check
+   * @returns {boolean} whether the window is being opened as an AI Window
+   */
+  isOpeningAIWindow(win) {
+    const windowArgs = win?.arguments?.[1];
+    if (!(windowArgs instanceof Ci.nsIPropertyBag2)) {
+      return false;
+    }
+
+    return windowArgs.hasKey("ai-window");
+  },
+
+  /**
+   * Is AI Window content page active
+   *
+   * @param {nsIURI} uri current URI
+   * @returns {boolean} whether AI Window content page is active
+   */
+  isAIWindowContentPage(uri) {
+    return AIWINDOW_URI.equalsExceptRef(uri);
+  },
+
+  /**
+   * Adds the AI Window app menu options
+   *
+   * @param {Event} event - History menu click event
+   * @param {Window} win - current Window reference
+   *
+   * @returns {Promise} - Resolves when menu is done being added
+   */
+  appMenu(event, win) {
+    if (!this._aiWindowMenu) {
+      this._aiWindowMenu = new lazy.AIWindowMenu();
+    }
+
+    return this._aiWindowMenu.addMenuitems(event, win);
   },
 
   get newTabURL() {

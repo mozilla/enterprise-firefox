@@ -2255,8 +2255,9 @@ pref("browser.aiwindow.enabled", false);
 pref("browser.aiwindow.endpoint", "https://mlpa-prod-prod-mozilla.global.ssl.fastly.net/v1");
 pref("browser.aiwindow.insights", false);
 pref("browser.aiwindow.insightsLogLevel", "Warn");
+pref("browser.aiwindow.firstrun.autoAdvanceMS", 3000);
 pref("browser.aiwindow.firstrun.modelChoice", "");
-pref("browser.aiwindow.model", "");
+pref("browser.aiwindow.model", "qwen3-235b-a22b-instruct-2507-maas");
 
 // Block insecure active content on https pages
 pref("security.mixed_content.block_active_content", true);
@@ -2912,7 +2913,7 @@ pref("browser.toolbars.bookmarks.showOtherBookmarks", true);
 
 // Felt Privacy pref to control simplified private browsing UI
 pref("browser.privatebrowsing.felt-privacy-v1", false);
-pref("security.certerrors.felt-privacy-v1", false);
+pref("security.certerrors.felt-privacy-v1", true);
 
 // Prefs to control the Firefox Account toolbar menu.
 // This pref will surface existing Firefox Account information

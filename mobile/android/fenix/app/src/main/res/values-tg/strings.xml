@@ -1612,7 +1612,7 @@
   <!-- Text for the button to open tabs of the selected collection -->
   <string name="collection_open_tabs">Варақаҳои кушодашуда</string>
   <!-- Hint for adding name of a collection -->
-  <string name="collection_name_hint">Номи пайваст</string>
+  <string name="collection_name_hint">Номи маҷмуа</string>
   <!-- Text for the menu button to remove a top site -->
   <string name="remove_top_site">Тоза кардан</string>
   <!-- Text for the menu button to delete a top site from history -->
@@ -2319,7 +2319,7 @@
   <!-- Title for Accessibility Text Size Scaling Preference -->
   <string name="preference_accessibility_font_size_title">Андозаи ҳуруф</string>
   <!-- %d is the percentage of the slide bar for setting the text font size and %% will be announced as "percent". -->
-  <string name="a11y_preference_accessibility_font_size_percentage">%d %%.</string>
+  <string name="a11y_preference_accessibility_font_size_percentage" tools:ignore="UnusedResources" moz:removedIn="148">%d %%.</string>
   <!-- Title for Accessibility Text Automatic Size Scaling Preference -->
   <string name="preference_accessibility_auto_size_2">Андозагирии худкори ҳуруф</string>
   <!-- Summary for Accessibility Text Automatic Size Scaling Preference -->

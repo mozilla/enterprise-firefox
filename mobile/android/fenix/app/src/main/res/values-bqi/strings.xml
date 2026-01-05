@@ -1505,7 +1505,7 @@
   <!-- Title of the active section on the studies list -->
   <string name="studies_active">فعال</string>
   <!-- Description for studies -->
-  <string name="studies_description_3">ویژیی یل وو ایده یل ن ز تیجنیڌن سی پوی امتهووݩ کۊنین.</string>
+  <string name="studies_description_3">ویژیی یل وو ایده یل ن پؽش ز تیجنیڌن سی پوی امتهووݩ کۊنین.</string>
   <!-- Title of the Studies data preference -->
   <string name="studies_title">پۊرنیڌن وو ر وندن خۊندنیا</string>
   <!-- Learn more link for studies, links to an article for more information about studies. -->
@@ -2319,7 +2319,7 @@
   <!-- Title for Accessibility Text Size Scaling Preference -->
   <string name="preference_accessibility_font_size_title">هندا فونت</string>
   <!-- %d is the percentage of the slide bar for setting the text font size and %% will be announced as "percent". -->
-  <string name="a11y_preference_accessibility_font_size_percentage">%d %%.</string>
+  <string name="a11y_preference_accessibility_font_size_percentage" tools:ignore="UnusedResources" moz:removedIn="148">%d %%.</string>
   <!-- Title for Accessibility Text Automatic Size Scaling Preference -->
   <string name="preference_accessibility_auto_size_2">هندا فونت خوتکار</string>
   <!-- Summary for Accessibility Text Automatic Size Scaling Preference -->
@@ -3584,7 +3584,7 @@
   <!-- Text for the connection security panel when the site is secure. -->
   <string name="connection_security_panel_secure">منپیز ٱمن</string>
   <!-- Text for the connection security panel when the site is not secure. -->
-  <string name="connection_security_panel_not_secure">منپیز ن ٱمن</string>
+  <string name="connection_security_panel_not_secure">منپیز ٱمن نؽ</string>
   <!-- Text for the connection security panel when accessed from local PDF. -->
   <string name="connection_security_panel_local_pdf">ای بلگه من دسگا ایسا زفت وابیڌه</string>
   <!--

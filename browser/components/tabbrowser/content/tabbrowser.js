@@ -626,6 +626,19 @@
           browser
         );
 
+      if (AIWindow.isAIWindowActive(window)) {
+        let uriToLoad = gBrowserInit.uriToLoadPromise;
+        let firstURI = Array.isArray(uriToLoad) ? uriToLoad[0] : uriToLoad;
+
+        if (!this._allowTransparentBrowser) {
+          browser.toggleAttribute(
+            "transparent",
+            !firstURI ||
+              AIWindow.isAIWindowContentPage(Services.io.newURI(firstURI))
+          );
+        }
+      }
+
       let uniqueId = this._generateUniquePanelID();
       let panel = this.getPanel(browser);
       panel.id = uniqueId;
@@ -2437,7 +2450,7 @@
         b.setAttribute("name", name);
       }
 
-      if (this._allowTransparentBrowser) {
+      if (AIWindow.isAIWindowActive(window) || this._allowTransparentBrowser) {
         b.setAttribute("transparent", "true");
       }
 
@@ -9062,6 +9075,14 @@
           ) {
             this.mBrowser.originalURI = aRequest.originalURI;
           }
+
+          if (!this._allowTransparentBrowser) {
+            this.mBrowser.toggleAttribute(
+              "transparent",
+              AIWindow.isAIWindowActive(window) &&
+                AIWindow.isAIWindowContentPage(aLocation)
+            );
+          }
         }
 
         let userContextId = this.mBrowser.getAttribute("usercontextid") || 0;
@@ -9833,9 +9854,17 @@ var TabContextMenu = {
     let contextAddNote = document.getElementById("context_addNote");
     let contextUpdateNote = document.getElementById("context_updateNote");
     if (gBrowser._tabNotesEnabled) {
+      // Tab notes behaviour is disabled if a user has a selection of tabs that
+      // contains more than one canonical URL.
+      let multiselectingDiverseUrls =
+        this.multiselected &&
+        !this.contextTabs.every(
+          t => t.canonicalUrl === this.contextTabs[0].canonicalUrl
+        );
+
       contextAddNote.disabled =
-        this.multiselected || !this.TabNotes.isEligible(this.contextTab);
-      contextUpdateNote.disabled = this.multiselected;
+        multiselectingDiverseUrls || !this.TabNotes.isEligible(this.contextTab);
+      contextUpdateNote.disabled = multiselectingDiverseUrls;
 
       this.TabNotes.has(this.contextTab).then(hasNote => {
         contextAddNote.hidden = hasNote;

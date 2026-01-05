@@ -3212,7 +3212,11 @@ enum AttributeFlags {
 }
 
 impl AttributeFlags {
-    fn to_case_sensitivity(self, local_name: &str, have_namespace: bool) -> ParsedCaseSensitivity {
+    fn to_case_sensitivity(
+        self,
+        local_name_lower: &str,
+        have_namespace: bool,
+    ) -> ParsedCaseSensitivity {
         match self {
             AttributeFlags::CaseSensitive => ParsedCaseSensitivity::ExplicitCaseSensitive,
             AttributeFlags::AsciiCaseInsensitive => ParsedCaseSensitivity::AsciiCaseInsensitive,
@@ -3222,7 +3226,7 @@ impl AttributeFlags {
                         env!("OUT_DIR"),
                         "/ascii_case_insensitive_html_attributes.rs"
                     ))
-                    .contains(local_name)
+                    .contains(local_name_lower)
                 {
                     ParsedCaseSensitivity::AsciiCaseInsensitiveIfInHtmlElementInHtmlDocument
                 } else {
@@ -4539,7 +4543,7 @@ pub mod tests {
                     Component::Combinator(Combinator::Child),
                     Component::Class(DummyAtom::from("ok")),
                 ],
-                (1 << 20) + (1 << 10) + (0 << 0),
+                specificity(1, 1, 0),
                 SelectorFlags::empty(),
             )]))
         );
@@ -4634,7 +4638,7 @@ pub mod tests {
                     Component::ParentSelector,
                     Component::Class(DummyAtom::from("bar")),
                 ],
-                (1 << 20) + (1 << 10) + (0 << 0),
+                specificity(1, 1, 0),
                 SelectorFlags::HAS_PARENT
             )]))
         );
@@ -4677,7 +4681,13 @@ pub mod tests {
         assert_eq!(iter.next(), None);
         let combinator = iter.next_sequence();
         assert_eq!(combinator, Some(Combinator::PseudoElement));
-        assert!(matches!(iter.next(), Some(&Component::LocalName(..))));
+        assert_eq!(
+            iter.next(),
+            Some(&Component::LocalName(LocalName {
+                name: DummyAtom::from("q"),
+                lower_name: DummyAtom::from("q"),
+            }))
+        );
         assert_eq!(iter.next(), None);
         assert_eq!(iter.next_sequence(), None);
     }
@@ -4694,10 +4704,10 @@ pub mod tests {
         assert_eq!(iter.next(), None);
         let combinator = iter.next_sequence();
         assert_eq!(combinator, Some(Combinator::PseudoElement));
-        assert!(matches!(
+        assert_eq!(
             iter.next(),
             Some(&Component::PseudoElement(PseudoElement::Before))
-        ));
+        );
         assert_eq!(iter.next(), None);
         let combinator = iter.next_sequence();
         assert_eq!(combinator, Some(Combinator::PseudoElement));
@@ -4724,10 +4734,10 @@ pub mod tests {
         assert_eq!(iter.next(), None);
         let combinator = iter.next_sequence();
         assert_eq!(combinator, Some(Combinator::PseudoElement));
-        assert!(matches!(
+        assert_eq!(
             iter.next(),
             Some(&Component::PseudoElement(PseudoElement::DetailsContent))
-        ));
+        );
         assert_eq!(iter.next(), None);
         let combinator = iter.next_sequence();
         assert_eq!(combinator, Some(Combinator::PseudoElement));

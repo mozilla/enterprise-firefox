@@ -3160,44 +3160,50 @@
 
 # The root margin for image lazy loading, defined as four (value, percentage)
 # pairs.
-- name: dom.image-lazy-loading.root-margin.top
+- name: dom.lazy-loading.margin.top
   type: float
   value: 600
   mirror: always
 
-- name: dom.image-lazy-loading.root-margin.top.percentage
+- name: dom.lazy-loading.margin.top.percentage
   type: bool
   value: false
   mirror: always
 
-- name: dom.image-lazy-loading.root-margin.bottom
+- name: dom.lazy-loading.margin.bottom
   type: float
   value: 600
   mirror: always
 
-- name: dom.image-lazy-loading.root-margin.bottom.percentage
+- name: dom.lazy-loading.margin.bottom.percentage
   type: bool
   value: false
   mirror: always
 
-- name: dom.image-lazy-loading.root-margin.left
+- name: dom.lazy-loading.margin.left
   type: float
   value: 600
   mirror: always
 
-- name: dom.image-lazy-loading.root-margin.left.percentage
+- name: dom.lazy-loading.margin.left.percentage
   type: bool
   value: false
   mirror: always
 
-- name: dom.image-lazy-loading.root-margin.right
+- name: dom.lazy-loading.margin.right
   type: float
   value: 600
   mirror: always
 
-- name: dom.image-lazy-loading.root-margin.right.percentage
+- name: dom.lazy-loading.margin.right.percentage
   type: bool
   value: false
+  mirror: always
+
+# Whether we use scrollMargin or rootMargin
+- name: dom.lazy-loading.margin.is-scroll
+  type: bool
+  value: true
   mirror: always
 
 # Enable indexedDB in private browsing mode with encryption
@@ -3569,6 +3575,14 @@
 # If this is true, "keypress" event's keyCode value and charCode value always
 # become same if the event is not created/initialized by JS.
 - name: dom.keyboardevent.keypress.set_keycode_and_charcode_to_same_value
+  type: bool
+  value: true
+  mirror: always
+
+# If this is set to true, location.ancestorOrigins feature defined
+# by the spec https://html.spec.whatwg.org/#concept-location-ancestor-origins-list
+# is enabled
+- name: dom.location.ancestorOrigins.enabled
   type: bool
   value: true
   mirror: always
@@ -5650,7 +5664,11 @@
 # Is support for the Web GPU API enabled on service workers?
 - name: dom.webgpu.service-workers.enabled
   type: RelaxedAtomicBool
+#if defined(XP_WIN) || defined(XP_MACOSX) && defined(MOZ_AARCH64)
+  value: true
+#else
   value: @IS_EARLY_BETA_OR_EARLIER@
+#endif
   mirror: always
 
 # Comma-separated list of wgpu backend names to permit in WebGPU adapters.
@@ -9950,7 +9968,7 @@
 # Whether to enable position-try-order
 - name: layout.css.anchor-positioning.position-try-order.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
   rust: true
 
@@ -14849,12 +14867,6 @@
   value: 6000
   mirror: always
 
-# The timeout of the TRR confirmation request
-- name: network.trr.confirmation_telemetry_enabled
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-
 # Whether to send the Accept-Language header for TRR requests
 - name: network.trr.send_accept-language_headers
   type: RelaxedAtomicBool
@@ -15493,7 +15505,7 @@
 # Whether to enable Packetization Layer Path MTU Discovery.
 - name: network.http.http3.pmtud
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: false
   mirror: always
   rust: true
 

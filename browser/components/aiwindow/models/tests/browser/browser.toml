@@ -2,5 +2,10 @@
 support-files = [
   "head.js",
 ]
+prefs = [
+  "browser.aiwindow.enabled=true",
+]
 
+["browser_getCurrentTabMetadata.js"]
 ["browser_get_page_content.js"]
+window_attributes = "ai-window"
