@@ -54,7 +54,7 @@ policy:
 tasks:
     # NOTE: support for actions in ci-admin requires that the `tasks` property be an array *before* JSON-e rendering
     # takes place.
-    - $if: 'tasks_for in ["hg-push", "action", "cron"]'
+    - $if: 'tasks_for in ["hg-push", "cron"] || (tasks_for == "action" && parameters["repository_type"] == "hg")'
       then:
           $let:
               # sometimes the push user is just `ffxbld` or the like, but we want an email-like field..
@@ -340,7 +340,7 @@ tasks:
                                       then:
                                           matrixBody: "${repository.project} push notification: https://treeherder.mozilla.org/#/jobs?repo=${repository.project}&revision=${push.revision}"
     # Decision task for events originating from Github
-    - $if: 'tasks_for[:6] == "github"'
+    - $if: 'tasks_for[:6] == "github" || (tasks_for in ["action", "pr-action"] && parameters["repository_type"] == "git")'
       then:
           $let:
               $merge:
@@ -370,6 +370,17 @@ tasks:
                             baseRev: '${event.pull_request.base.sha}'
                             headRev: '${event.pull_request.head.sha}'
                             isPullRequest: true
+                        'tasks_for in ["action", "pr-action"]':
+                            ownerEmail: '${tasks_for}@noreply.mozilla.org'
+                            baseRepoUrl: '${repository.url}'
+                            repoUrl: '${repository.url}'
+                            project: '${repository.project}'
+                            ref: '${push.branch}'
+                            baseRev: '${push.revision}'
+                            headRev: '${push.revision}'
+                            ownTaskId: '${ownTaskId}'
+                            eventType: action
+                            eventAction: null
           in:
               $let:
                   shortRef:
@@ -378,34 +389,54 @@ tasks:
                       else: ${ref}
               in:
                   $if: >
-                    (eventType == "push" && shortRef == "enterprise-main")
+                    eventType == "action"
+                    || (eventType == "push" && shortRef == "enterprise-main")
                     || (isPullRequest && eventAction in ["opened", "reopened", "synchronize"])
                   then:
                       $let:
                           level:
-                              $if: 'eventType == "push" && repoUrl == "https://github.com/mozilla/enterprise-firefox" && shortRef == "enterprise-main"'
+                              $if: '(tasks_for == "action" || eventType == "push") && repoUrl == "https://github.com/mozilla/enterprise-firefox" && shortRef == "enterprise-main"'
                               then: 3
                               else: 1
                       in:
                           taskId: '${ownTaskId}'
-                          taskGroupId: '${ownTaskId}'
+                          taskGroupId: {$if: 'eventType == "action"', then: '${action.taskGroupId}', else: '${ownTaskId}'}
                           schedulerId: '${trustDomain}-level-${level}'
-
                           created: {$fromNow: ''}
                           deadline: {$fromNow: '1 day'}
                           expires: {$fromNow: '1 year 1 second'}  # 1 second so artifacts expire first
                           metadata:
-                              owner: "${ownerEmail}"
-                              source: "${repoUrl}/raw/${headRev}/.taskcluster.yml"
-                              name: "Decision Task (${eventType})"
-                              description: 'The task that creates all of the other tasks in the task graph'
+                              $merge:
+                                  - owner: "${ownerEmail}"
+                                    source: "${repoUrl}/raw/${headRev}/.taskcluster.yml"
+                                  - $switch:
+                                        'tasks_for == "action"':
+                                            name: "Action: ${action.title}"
+                                            description: |
+                                                ${action.description}
+
+                                                Action triggered by clientID `${clientId}`
+                                        'tasks_for == "pr-action"':
+                                            name: "PR action: ${action.title}"
+                                            description: |
+                                                ${action.description}
+
+                                                PR action triggered by clientID `${clientId}`
+                                        $default:
+                                            name: "Decision Task (${eventType})"
+                                            description: 'The task that creates all of the other tasks in the task graph'
 
                           provisionerId: "${trustDomain}-${level}"
                           workerType: "decision"
 
                           tags:
-                              createdForUser: "${ownerEmail}"
-                              kind: decision-task
+                              $merge:
+                                  - createdForUser: "${ownerEmail}"
+                                  - $switch:
+                                        'eventType == "action"':
+                                            kind: action-callback
+                                        '$default':
+                                            kind: decision-task
 
                           routes:
                               $flattenDeep:
@@ -417,15 +448,19 @@ tasks:
                                             - "tc-treeherder.v2.${project}.${headRev}"
                                             - "index.${trustDomain}.v2.${project}.latest.taskgraph.decision"
                                             - "index.${trustDomain}.v2.${project}.revision.${headRev}.taskgraph.decision"
+                                        'eventType == "action"':
+                                            - "index.${trustDomain}.v2.${project}.revision.${headRev}.taskgraph.actions.${ownTaskId}"
                           scopes:
                               $switch:
                                   isPullRequest:
                                       - 'assume:repo:${baseRepoUrl[8:]}:${eventType}'
                                   'eventType == "push"':
                                       - 'assume:repo:${repoUrl[8:]}:branch:${shortRef}'
+                                  'eventType == "action"':
+                                      - 'assume:repo:${repoUrl[8:]}:action:${action.action_perm}'
                           dependencies: []
                           requires: all-completed
-                          priority: very-low
+                          priority: {$if: 'eventType == "action"', then: "lowest", else: "very-low"}
                           retries: 5
 
                           payload:
@@ -450,6 +485,12 @@ tasks:
                                       - $if: 'isPullRequest'
                                         then:
                                             GECKO_PULL_REQUEST_NUMBER: '${event.pull_request.number}'
+                                      - $if: 'eventType == "action"'
+                                        then:
+                                            ACTION_TASK_GROUP_ID: '${action.taskGroupId}'
+                                            ACTION_TASK_ID: {$json: {$eval: 'taskId'}}
+                                            ACTION_INPUT: {$json: {$eval: 'input'}}
+                                            ACTION_CALLBACK: '${action.cb_name}'
                               cache:
                                   "${trustDomain}-level-${level}-${project}-checkouts-git-shallow-v1": /builds/worker/checkouts
 
@@ -466,7 +507,12 @@ tasks:
                                   - '--'
                                   - bash
                                   - -cx
-                                  - >
+                                  - $if: 'eventType == "action"'
+                                    then: >
+                                      cd /builds/worker/checkouts/gecko &&
+                                      ln -s /builds/worker/artifacts artifacts &&
+                                      ./mach --log-no-times taskgraph action-callback
+                                    else: >
                                       cd /builds/worker/checkouts/gecko &&
                                       ln -s /builds/worker/artifacts artifacts &&
                                       ./mach --log-no-times taskgraph decision \
@@ -500,7 +546,24 @@ tasks:
                           extra:
                               $merge:
                                   - treeherder:
-                                        machine:
-                                            platform: gecko-decision
-                                        symbol: D
+                                        $merge:
+                                            - machine:
+                                                  platform: gecko-decision
+                                            - $switch:
+                                                  'eventType == "action"':
+                                                      groupName: 'action-callback'
+                                                      groupSymbol: AC
+                                                      symbol: '${action.symbol}'
+                                                  $default:
+                                                      symbol: D
+                                  - $if: 'eventType == "action"'
+                                    then:
+                                        parent: '${action.taskGroupId}'
+                                        action:
+                                            name: '${action.name}'
+                                            context:
+                                                taskGroupId: '${action.taskGroupId}'
+                                                taskId: {$eval: 'taskId'}
+                                                input: {$eval: 'input'}
+                                                clientId: {$eval: 'clientId'}
                                   - tasks_for: '${tasks_for}'
