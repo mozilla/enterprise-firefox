@@ -410,11 +410,13 @@ tasks:
                           routes:
                               $flattenDeep:
                                   - checks
-                                  - $if: 'eventType == "push"'
-                                    then:
-                                        - "tc-treeherder.v2.${project}.${headRev}"
-                                        - "index.${trustDomain}.v2.${project}.latest.taskgraph.decision"
-                                        - "index.${trustDomain}.v2.${project}.revision.${headRev}.taskgraph.decision"
+                                  - $switch:
+                                        isPullRequest:
+                                            - "tc-treeherder.v2.${project}-pr.${headRev}"
+                                        'eventType == "push"':
+                                            - "tc-treeherder.v2.${project}.${headRev}"
+                                            - "index.${trustDomain}.v2.${project}.latest.taskgraph.decision"
+                                            - "index.${trustDomain}.v2.${project}.revision.${headRev}.taskgraph.decision"
                           scopes:
                               $switch:
                                   isPullRequest:
