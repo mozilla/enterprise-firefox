@@ -18,6 +18,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   setInterval: "resource://gre/modules/Timer.sys.mjs",
   // eslint-disable-next-line mozilla/no-browser-refs-in-toolkit
   ConsoleClient: "resource:///modules/enterprise/ConsoleClient.sys.mjs",
+  schema: "resource:///modules/policies/schema.sys.mjs",
 });
 
 // This is the file that will be searched for in the
@@ -80,7 +81,7 @@ export function EnterprisePoliciesManager() {
   Services.obs.addObserver(this, "final-ui-startup", true);
   Services.obs.addObserver(this, "sessionstore-windows-restored", true);
   Services.obs.addObserver(this, "EnterprisePolicies:Restart", true);
-  Services.obs.addObserver(this, "EnterprisePolicies:Activate", true);
+  Services.obs.addObserver(this, "EnterprisePolicies:Update", true);
   Services.obs.addObserver(this, "distribution-customization-complete", true);
 }
 
@@ -91,56 +92,73 @@ EnterprisePoliciesManager.prototype = {
     "nsIEnterprisePolicies",
   ]),
 
+  // Single or combined provider
+  _provider: null,
+
+  // Caches latest set of parsed policies
+  _parsedPolicies: {},
+
   _cleanupPolicies() {
-    this._previousPolicies = {};
     if (Services.prefs.getBoolPref(PREF_POLICIES_APPLIED, false)) {
       if ("_cleanup" in lazy.Policies) {
         let policyImpl = lazy.Policies._cleanup;
-        this._maybeCallbackPolicy(policyImpl);
+        this._scheduleActivationPolicyCallbacks(policyImpl);
       }
       Services.prefs.clearUserPref(PREF_POLICIES_APPLIED);
     }
   },
 
-  _initialize() {
+  async _initialize() {
     this._cleanupPolicies();
-
-    const changesHandler = provider => {
-      if (!provider.hasPolicies) {
-        this._status = Ci.nsIEnterprisePolicies.INACTIVE;
-        Services.prefs.setBoolPref(PREF_POLICIES_APPLIED, false);
-        return;
-      }
-
-      // Because security.enterprise_roots.enabled is true by default, we can
-      // ignore attempts by Antivirus to try to set it via policy.
-      // We have to explicitly check for true or 1 because this happens before
-      // policy is parsed against the schema, so the value could be coming
-      // from the registry.
-      if (
-        provider.policies &&
-        Object.keys(provider.policies).length === 1 &&
-        provider.policies.Certificates &&
-        Object.keys(provider.policies.Certificates).length === 1 &&
-        (provider.policies.Certificates.ImportEnterpriseRoots === true ||
-          provider.policies.Certificates.ImportEnterpriseRoots === 1)
-      ) {
-        this._status = Ci.nsIEnterprisePolicies.INACTIVE;
-        return;
-      }
-
-      this._status = Ci.nsIEnterprisePolicies.ACTIVE;
-      this._activatePolicies(provider.policies);
-      Services.prefs.setBoolPref(PREF_POLICIES_APPLIED, true);
-    };
-
     this._status = Ci.nsIEnterprisePolicies.INACTIVE;
     Services.prefs.setBoolPref(PREF_POLICIES_APPLIED, false);
 
-    let provider = this._chooseProvider(changesHandler);
-    if (provider.failed) {
-      this._status = Ci.nsIEnterprisePolicies.FAILED;
+    const localProvider = this._chooseProvider();
+#ifdef MOZ_ENTERPRISE
+    const remoteProvider = RemotePoliciesProvider.getInstance();
+    try {
+      // Poll and ingest initial set of policies
+      await remoteProvider.ingestPolicies();
+    } catch (e) {
+      console.error("Unable to find policies in payload.");
     }
+    if (localProvider.hasPolicies) {
+      this._provider = new CombinedProvider(remoteProvider, localProvider);
+    } else {
+      this._provider = remoteProvider;
+    }
+#else
+    this._provider = localProvider;
+#endif
+
+    if (this._provider.failed) {
+      this._status = Ci.nsIEnterprisePolicies.FAILED;
+      return;
+    }
+
+    if (!this._provider.hasPolicies) {
+      this._status = Ci.nsIEnterprisePolicies.INACTIVE;
+      return;
+    }
+
+    // Because security.enterprise_roots.enabled is true by default, we can
+    // ignore attempts by Antivirus to try to set it via policy.
+    // We have to explicitly check for true or 1 because this happens before
+    // policy is parsed against the schema, so the value could be coming
+    // from the registry.
+    const policies = this._provider.policies;
+    if (
+      Object.keys(policies).length === 1 &&
+      policies.Certificates &&
+      Object.keys(policies.Certificates).length === 1 &&
+      (policies.Certificates.ImportEnterpriseRoots === true ||
+        policies.Certificates.ImportEnterpriseRoots === 1)
+    ) {
+      this._status = Ci.nsIEnterprisePolicies.INACTIVE;
+      return;
+    }
+
+    this._activatePolicies();
   },
 
   _reportEnterpriseTelemetry() {
@@ -148,45 +166,68 @@ EnterprisePoliciesManager.prototype = {
     Glean.policies.isEnterprise.set(this.isEnterprise);
   },
 
-  _chooseProvider(handler) {
+  _chooseProvider() {
     let platformProvider = null;
-    if (AppConstants.platform == "win" && AppConstants.MOZ_SYSTEM_POLICIES) {
-      platformProvider = new WindowsGPOPoliciesProvider();
-      platformProvider.onPoliciesChanges(handler);
-    } else if (
-      AppConstants.platform == "macosx" &&
-      AppConstants.MOZ_SYSTEM_POLICIES
-    ) {
-      platformProvider = new macOSPoliciesProvider();
-      platformProvider.onPoliciesChanges(handler);
+    if (AppConstants.MOZ_SYSTEM_POLICIES) {
+      if (AppConstants.platform == "win") {
+        platformProvider = new WindowsGPOPoliciesProvider();
+      } else if (AppConstants.platform == "macosx") {
+        platformProvider = new macOSPoliciesProvider();
+      }
     }
-
     let jsonProvider = new JSONPoliciesProvider();
-    jsonProvider.onPoliciesChanges(handler);
-    let remoteProvider = RemotePoliciesProvider.createInstance();
-    remoteProvider.onPoliciesChanges(handler);
     if (platformProvider && platformProvider.hasPolicies) {
       if (jsonProvider.hasPolicies) {
-        return new CombinedProvider(
-          new CombinedProvider(remoteProvider, platformProvider),
-          jsonProvider
-        );
+        return new CombinedProvider(platformProvider, jsonProvider);
       }
-      return new CombinedProvider(remoteProvider, platformProvider);
+      return platformProvider;
     }
-    if (jsonProvider.hasPolicies) {
-      return new CombinedProvider(remoteProvider, jsonProvider);
-    }
-    return remoteProvider;
+    return jsonProvider;
   },
 
-  _activatePolicies(unparsedPolicies) {
-    const { schema } = ChromeUtils.importESModule(
-      // eslint-disable-next-line mozilla/no-browser-refs-in-toolkit
-      "resource:///modules/policies/schema.sys.mjs"
-    );
+  /**
+   * Activates the policies that are provided during initialization.
+   */
+  _activatePolicies() {
+    this._status = Ci.nsIEnterprisePolicies.ACTIVE;
 
-    // Make a deep copy that will be trimmed later
+    lazy.log.debug(this._provider);
+
+    for (const [policyName, policyParams] of Object.entries(
+      this._provider.policies || {}
+    )) {
+      const { isValid, parsedParams } = this._validatePolicyParams(
+        policyName,
+        policyParams
+      );
+
+      if (!isValid) {
+        continue;
+      }
+
+      this._parsedPolicies[policyName] = parsedParams;
+
+      const policyImpl = lazy.Policies[policyName];
+      this._scheduleActivationPolicyCallbacks(policyImpl, parsedParams);
+    }
+  },
+
+  /**
+   * Parses, validates and applies any policy changes by comparing
+   * the previously parsed set of policies with the updated set
+   * from the remote provider.
+   *
+   * - Apply no changes to a policy if it remains unchanged.
+   * - Re-apply a policy if the parameters changed.
+   * - Remove a policy if it's missing in the updated set.
+   */
+  _updatePolicies() {
+    lazy.log.debug("EnterprisePoliciesManager: _updatePolicies: ");
+
+    if (this._provider.isCombined) {
+      this._provider.mergePolicies();
+    }
+
     let previousPolicies = null;
     try {
       previousPolicies = structuredClone(this._parsedPolicies || {});
@@ -199,83 +240,82 @@ EnterprisePoliciesManager.prototype = {
       }
     }
 
+    this._schedulePolicyUpdates(previousPolicies);
+    this._schedulePolicyRemovals(previousPolicies);
+
+    for (const timing of Object.keys(this._callbacks)) {
+      if (timing !== "onRemove") {
+        const topic = this.topicByCallbackTiming[timing];
+        if (!this._topicsObserved.has(topic)) {
+          // Only run callbacks for a timing that
+          // has already been observed.
+          continue;
+        }
+      }
+      this._runPoliciesCallbacks(timing);
+    }
+  },
+
+  /**
+   * Parse and schedule a policy update
+   *
+   * @param {object} previousPolicies
+   */
+  _schedulePolicyUpdates(previousPolicies) {
     this._parsedPolicies = {};
 
-    const policyNames = Object.keys(unparsedPolicies || {});
+    for (const [policyName, policyParams] of Object.entries(
+      this._provider.policies || {}
+    )) {
+      const { isValid, parsedParams } = this._validatePolicyParams(
+        policyName,
+        policyParams
+      );
 
-    for (let policyName of policyNames) {
-      let policySchema = schema.properties[policyName];
-      let policyParameters = unparsedPolicies[policyName];
-
-      if (!policySchema) {
-        lazy.log.error(`Unknown policy: ${policyName}`);
+      if (!isValid) {
         continue;
       }
 
-      let { valid: parametersAreValid, parsedValue: parsedParameters } =
-        lazy.JsonSchemaValidator.validate(policyParameters, policySchema, {
-          allowAdditionalProperties: true,
-        });
-
-      if (!parametersAreValid) {
-        lazy.log.error(`Invalid parameters specified for ${policyName}.`);
-        continue;
-      }
-
-      let policyImpl = lazy.Policies[policyName];
-      if (!policyImpl) {
-        // This means there is an entry in the schema, but no implementaton.
-        // We only do this when we deprecate policies.
-        lazy.log.info(`${policyName} has been deprecated.`);
-        continue;
-      }
-
-      if (policyImpl.validate && !policyImpl.validate(parsedParameters)) {
-        lazy.log.error(
-          `Parameters for ${policyName} did not validate successfully.`
-        );
-        continue;
-      }
-
-      this._parsedPolicies[policyName] = parsedParameters;
+      this._parsedPolicies[policyName] = parsedParams;
 
       // verify the previous values
       if (policyName in previousPolicies) {
         const previousParameters = JSON.stringify(previousPolicies[policyName]);
-        if (previousParameters == JSON.stringify(parsedParameters)) {
+        if (previousParameters == JSON.stringify(parsedParams)) {
+          // Policy already active. No changes to policy needed.
           continue;
         }
       }
 
-      this._maybeCallbackPolicy(policyImpl, parsedParameters);
+      const policyImpl = lazy.Policies[policyName];
+      this._scheduleActivationPolicyCallbacks(policyImpl, parsedParams);
     }
+  },
 
-    // Only keep in this._previousPolicies the policies that are not part of the
-    // policies that were just received
-    this._previousPolicies = Object.fromEntries(
-      Object.keys(previousPolicies)
-        .filter(previousPolicyName => !policyNames.includes(previousPolicyName))
-        .map(name => [name, previousPolicies[name]])
-    );
-
-    const previousNames = Object.keys(this._previousPolicies).filter(
-      policyName => {
-        let policyImpl = lazy.Policies[policyName];
-        if (!policyImpl) {
-          // This means there is an entry in the schema, but no implementaton.
-          // We only do this when we deprecate policies.
-          lazy.log.info(`${policyName} has been deprecated.`);
-          return false;
-        }
-        return true;
+  /**
+   * Schedule policy removals
+   *
+   * @param {object} previousPolicies
+   */
+  _schedulePolicyRemovals(previousPolicies) {
+    // Schedule callbacks to remove policies that are no longer present
+    // in the latest set of parsed policies.
+    for (const [policyName, policyParams] of Object.entries(previousPolicies)) {
+      if (this._parsedPolicies[policyName] !== undefined) {
+        // Policy remains active.
+        continue;
       }
-    );
 
-    for (let policyName of previousNames) {
-      let policyImpl = lazy.Policies[policyName];
+      const policyImpl = lazy.Policies[policyName];
+      if (!policyImpl) {
+        // This means there is an entry in the schema, but no implementation.
+        // We only do this when we deprecate policies.
+        lazy.log.warn(`The policy ${policyName} has been deprecated.`);
+        continue;
+      }
 
-      const onRemove = "onRemove" in policyImpl && policyImpl.onRemove;
-      if (!onRemove) {
+      if (!policyImpl.onRemove) {
+        lazy.log.warn(`Unable to remove the policy ${policyName}.`);
         continue;
       }
 
@@ -283,15 +323,76 @@ EnterprisePoliciesManager.prototype = {
         policyImpl.onRemove,
         policyImpl,
         this /* the EnterprisePoliciesManager */,
-        this._previousPolicies[policyName],
+        policyParams,
       ]);
     }
   },
 
-  // Schedule a policy callback if there is one to schedule
-  _maybeCallbackPolicy(policyImpl, parsedParameters = undefined) {
+  /**
+   * Validate and parse the policy parameters
+   *
+   * @param {object} policyName policy name
+   * @param {object} policyParams policy parameters
+   * @returns {{ isValid: boolean, parsedParams: object|null}}
+   */
+  _validatePolicyParams(policyName, policyParams) {
+    const policySchema = lazy.schema.properties[policyName];
+
+    if (!policySchema) {
+      lazy.log.error(`Unknown policy: ${policyName}`);
+      return { isValid: false, parsedParams: null };
+    }
+
+    const { valid: isValid, parsedValue: parsedParams } =
+      lazy.JsonSchemaValidator.validate(policyParams, policySchema, {
+        allowAdditionalProperties: true,
+      });
+
+    if (!isValid) {
+      lazy.log.error(`Invalid parameters specified for ${policyName}.`);
+      return { isValid: false, parsedParams: null };
+    }
+
+    const policyImpl = lazy.Policies[policyName];
+    if (!policyImpl) {
+      // This means there is an entry in the schema, but no implementaton.
+      // We only do this when we deprecate policies.
+      lazy.log.info(`${policyName} has been deprecated.`);
+      return { isValid: false, parsedParams: null };
+    }
+
+    if (policyImpl.validate && !policyImpl.validate(parsedParams)) {
+      lazy.log.error(
+        `Parameters for ${policyName} did not validate successfully.`
+      );
+      return { isValid: false, parsedParams: null };
+    }
+
+    return { isValid, parsedParams };
+  },
+
+  /**
+   * Policy implementation
+   *
+   * @typedef {object} PolicyImpl
+   * @property {Function} [onBeforeAddons] - callback that is invoked when notified of a policies-startup event
+   * @property {Function} [onProfileAfterChange] - callback that is invoked when notified of a profile-after-change event
+   * @property {Function} [onBeforeUIStartup] - callback that is invoked when notified of a final-ui-startup event
+   * @property {Function} [onAllWindowsRestored] - callback that is invoked when notified of a sessionstore-windows-restored event
+   * @property {Function} [onRemove] - callback that is invoked when a policy is explicitely removed
+   */
+
+  /**
+   * Schedule all "activating" callbacks, meaning any
+   * "onRemove" callbacks are skipped
+   *
+   * @param {PolicyImpl} policyImpl policy implementation
+   * @param {object} [parsedParams] parsed policy parameters
+   */
+  _scheduleActivationPolicyCallbacks(policyImpl, parsedParams = undefined) {
     for (let timing of Object.keys(this._callbacks)) {
       if (timing === "onRemove") {
+        // Callbacks that remove policies are explicitely scheduled.
         continue;
       }
 
@@ -301,7 +402,7 @@ EnterprisePoliciesManager.prototype = {
           policyCallback,
           policyImpl,
           this /* the EnterprisePoliciesManager */,
-          parsedParameters,
+          parsedParams,
         ]);
       }
     }
@@ -331,7 +432,7 @@ EnterprisePoliciesManager.prototype = {
     onRemove: [],
   },
 
-  _schedulePolicyCallback(timing, callback) {
+  _schedulePolicyCallback(timing, callbackArgs) {
     // Check for existence of the same callback. Since callback are .bind()
     // they cannot be just pushed to the array and checked for existence with
     // .includes() as each bind is a new different object.
@@ -348,15 +449,15 @@ EnterprisePoliciesManager.prototype = {
 
     const exists = this._callbacks[timing].filter(
       e =>
-        e[0] == callback[0] &&
-        e[1] == callback[1] &&
-        e[2] == callback[2] &&
-        JSON.stringify(e[3]) == JSON.stringify(callback[3])
+        e[0] == callbackArgs[0] &&
+        e[1] == callbackArgs[1] &&
+        e[2] == callbackArgs[2] &&
+        JSON.stringify(e[3]) == JSON.stringify(callbackArgs[3])
     );
     if (exists.length) {
       return;
     }
-    this._callbacks[timing].push(callback);
+    this._callbacks[timing].push(callbackArgs);
   },
 
   _runPoliciesCallbacks(timing) {
@@ -381,6 +482,8 @@ EnterprisePoliciesManager.prototype = {
 
     this._status = Ci.nsIEnterprisePolicies.UNINITIALIZED;
     this._parsedPolicies = undefined;
+    this._provider = null;
+    this._topicsObserved = null;
     for (let timing of Object.keys(this._callbacks)) {
       this._callbacks[timing] = [];
     }
@@ -401,24 +504,24 @@ EnterprisePoliciesManager.prototype = {
     await notifyTopicOnIdle("distribution-customization-complete");
   },
 
-  observersReceived: [],
+  _topicsObserved: new Set(),
+
+  topicByCallbackTiming: {
+    onBeforeAddons: "policies-startup",
+    onProfileAfterChange: "profile-after-change",
+    onBeforeUIStartup: "final-ui-startup",
+    onAllWindowsRestored: "sessionstore-windows-restored",
+  },
 
   // nsIObserver implementation
-  observe: function BG_observe(subject, topic, data) {
-    const policiesCallbackMapping = {
-      onBeforeAddons: "policies-startup",
-      onProfileAfterChange: "profile-after-change",
-      onBeforeUIStartup: "final-ui-startup",
-      onAllWindowsRestored: "sessionstore-windows-restored",
-    };
+  async observe(aSubject, aTopic) {
+    this._topicsObserved.add(aTopic);
 
-    this.observersReceived.push(topic);
-
-    switch (topic) {
+    switch (aTopic) {
       case "policies-startup":
         // Before the first set of policy callbacks runs, we must
         // initialize the service.
-        this._initialize();
+        await this._initialize();
 
         this._runPoliciesCallbacks("onBeforeAddons");
         break;
@@ -439,22 +542,8 @@ EnterprisePoliciesManager.prototype = {
         this._restart().then(null, console.error);
         break;
 
-      case "EnterprisePolicies:Activate": {
-        const parsed = JSON.parse(data);
-        this._activatePolicies(parsed.policies);
-
-        // Only run callbacks that are ready right now. The rest is handled by
-        // this._activatePolicies()
-        Object.keys(this._callbacks)
-          .filter(
-            cbName =>
-              cbName !== "onRemove" &&
-              this.observersReceived.includes(policiesCallbackMapping[cbName])
-          )
-          .map(cb => this._runPoliciesCallbacks(cb));
-
-        this._runPoliciesCallbacks("onRemove");
-
+      case "EnterprisePolicies:Update": {
+        this._updatePolicies();
         break;
       }
 
@@ -649,8 +738,31 @@ let ExtensionPolicies = null;
 let ExtensionSettings = null;
 let InstallSources = null;
 
-// TODO: Those providers should likely inherit from a class to share some
-// common parts.
+/**
+ * Basic policies provider
+ */
+class PoliciesProvider {
+  constructor() {
+    this._policies = {};
+    this._failed = false;
+  }
+
+  get policies() {
+    return this._policies;
+  }
+
+  get hasPolicies() {
+    return this._policies !== null && !isEmptyObject(this._policies);
+  }
+
+  get failed() {
+    return this._failed;
+  }
+
+  get isCombined() {
+    return false;
+  }
+}
 
 /*
  * JSON PROVIDER OF POLICIES
@@ -660,34 +772,10 @@ let InstallSources = null;
  * in the installation's distribution folder.
  */
 
-class JSONPoliciesProvider {
+class JSONPoliciesProvider extends PoliciesProvider {
   constructor() {
-    this._changesHandlers = [];
-    this._policies = null;
+    super();
     this._readData();
-  }
-
-  onPoliciesChanges(handler) {
-    this._changesHandlers.push(handler);
-    if (this.hasPolicies) {
-      this.triggerOnPoliciesChanges();
-    }
-  }
-
-  triggerOnPoliciesChanges() {
-    this._changesHandlers.forEach(callback => callback(this));
-  }
-
-  get hasPolicies() {
-    return this._policies !== null && !isEmptyObject(this._policies);
-  }
-
-  get policies() {
-    return this._policies;
-  }
-
-  get failed() {
-    return this._failed;
   }
 
   _getConfigurationFile() {
@@ -793,24 +881,22 @@ class JSONPoliciesProvider {
  * Uses JSON like JSONPoliciesProvider
  */
 
-class RemotePoliciesProvider {
+class RemotePoliciesProvider extends PoliciesProvider {
   POLLING_FREQUENCY_PREF = "browser.policies.live_polling.frequency";
   POLLING_FREQUENCY_FALLBACK = 60_000;
   POLLING_ENABLED_PREF = "browser.policies.live_polling.enabled";
 
   static #instance = null;
-  static createInstance() {
-    if (!RemotePoliciesProvider.#instance) {
-      RemotePoliciesProvider.#instance = new RemotePoliciesProvider();
+  static getInstance() {
+    if (!this.#instance) {
+      this.#instance = new this();
     }
-    return RemotePoliciesProvider.#instance;
+    return this.#instance;
   }
 
   constructor() {
-    this._changesHandlers = [];
-    this._policies = null;
+    super();
     this._socket = null;
-    this._hasRemoteConnection = false;
     this._poller = null;
     this._pollingFrequency = Services.prefs.getIntPref(
       this.POLLING_FREQUENCY_PREF,
@@ -831,17 +917,6 @@ class RemotePoliciesProvider {
     if (this._isPollingEnabled) {
       this._startPolling();
     }
-  }
-
-  onPoliciesChanges(handler) {
-    this._changesHandlers.push(handler);
-    if (this.hasPolicies) {
-      this.triggerOnPoliciesChanges();
-    }
-  }
-
-  triggerOnPoliciesChanges() {
-    this._changesHandlers.forEach(callback => callback(this));
   }
 
   observe(aSubject, aTopic, aData) {
@@ -886,43 +961,23 @@ class RemotePoliciesProvider {
     }
   }
 
-  get hasRemoteConnection() {
-    return this._hasRemoteConnection;
-  }
-
-  get hasPolicies() {
-    return this._policies !== null && !isEmptyObject(this._policies);
-  }
-
-  get policies() {
-    return this._policies;
-  }
-
-  get failed() {
-    return this._failed;
-  }
-
   _stopPolling() {
     if (!this._poller) {
       return;
     }
-    this._hasRemoteConnection = false;
     lazy.clearInterval(this._poller);
     this._poller = null;
   }
 
-  _performPolling() {
-    lazy.ConsoleClient.getRemotePolicies()
-      .then(jsonResponse => {
-        this._hasRemoteConnection = true;
-        this._ingestPolicies(jsonResponse);
-      })
-      .catch(error => {
-        console.warn(
-          `RemotePoliciesProvider performPolling() with frequency ${this._pollingFrequency} caused error ${error}`
-        );
-        this._hasRemoteConnection = false;
-      });
+  async _performPolling() {
+    try {
+      await this.ingestPolicies();
+      Services.obs.notifyObservers(null, "EnterprisePolicies:Update");
+    } catch (e) {
+      lazy.log.error(
+        `RemotePoliciesProvider performPolling() with frequency ${this._pollingFrequency} caused error ${e}`
+      );
+    }
   }
 
   _startPolling() {
@@ -936,31 +991,22 @@ class RemotePoliciesProvider {
     );
   }
 
-  _ingestPolicies(payload) {
-    if ("policies" in payload) {
-      this._policies = payload.policies;
-      this.triggerOnPoliciesChanges();
-      Services.obs.notifyObservers(
-        null,
-        "EnterprisePolicies:Activate",
-        JSON.stringify(payload)
-      );
-    } else {
-      // TODO, this is haha. meh. Maybe restart should be done by activate.
+  async ingestPolicies() {
+    const res = await lazy.ConsoleClient.getRemotePolicies();
+    if (!res.policies) {
       this._policies = {};
-      Services.obs.notifyObservers(null, "EnterprisePolicies:Restart");
-      // Make sure that handler is triggered even when payload is empty as
-      // in "_cleanup"
-      this.triggerOnPoliciesChanges();
+      console.error(
+        `Clearing remote policies because no policies were found in the response: ${res}.`
+      );
+      return;
     }
+    this._policies = res.policies;
   }
 }
 
-class WindowsGPOPoliciesProvider {
+class WindowsGPOPoliciesProvider extends PoliciesProvider {
   constructor() {
-    this._changesHandlers = [];
-    this._policies = null;
-
+    super();
     let wrk = Cc["@mozilla.org/windows-registry-key;1"].createInstance(
       Ci.nsIWindowsRegKey
     );
@@ -972,29 +1018,6 @@ class WindowsGPOPoliciesProvider {
     if (!Cu.isInAutomation && !isXpcshell) {
       this._readData(wrk, wrk.ROOT_KEY_LOCAL_MACHINE);
     }
-  }
-
-  onPoliciesChanges(handler) {
-    this._changesHandlers.push(handler);
-    if (this.hasPolicies) {
-      this.triggerOnPoliciesChanges();
-    }
-  }
-
-  triggerOnPoliciesChanges() {
-    this._changesHandlers.forEach(callback => callback(this.hasPolicies));
-  }
-
-  get hasPolicies() {
-    return this._policies !== null && !isEmptyObject(this._policies);
-  }
-
-  get policies() {
-    return this._policies;
-  }
-
-  get failed() {
-    return this._failed;
   }
 
   _readData(wrk, root) {
@@ -1026,10 +1049,9 @@ class WindowsGPOPoliciesProvider {
   }
 }
 
-class macOSPoliciesProvider {
+class macOSPoliciesProvider extends PoliciesProvider {
   constructor() {
-    this._changesHandlers = [];
-    this._policies = null;
+    super();
     let prefReader = Cc["@mozilla.org/mac-preferences-reader;1"].createInstance(
       Ci.nsIMacPreferencesReader
     );
@@ -1038,69 +1060,35 @@ class macOSPoliciesProvider {
     }
     this._policies = lazy.macOSPoliciesParser.readPolicies(prefReader);
   }
-
-  onPoliciesChanges(handler) {
-    this._changesHandlers.push(handler);
-    if (this.hasPolicies) {
-      this.triggerOnPoliciesChanges();
-    }
-  }
-
-  triggerOnPoliciesChanges() {
-    this._changesHandlers.forEach(callback => callback(this.hasPolicies));
-  }
-
-  get hasPolicies() {
-    return this._policies !== null && Object.keys(this._policies).length;
-  }
-
-  get policies() {
-    return this._policies;
-  }
-
-  get failed() {
-    return this._failed;
-  }
 }
 
-class CombinedProvider {
+class CombinedProvider extends PoliciesProvider {
   constructor(primaryProvider, secondaryProvider) {
-    this._readyProviders = 0;
-    this._primary = primaryProvider;
-    this._secondary = secondaryProvider;
-    this._primary.onPoliciesChanges(this.providerPoliciesChanged.bind(this));
-    this._secondary.onPoliciesChanges(this.providerPoliciesChanged.bind(this));
+    super();
+    this._primaryProvider = primaryProvider;
+    this._secondaryProvider = secondaryProvider;
+    this.mergePolicies();
   }
 
-  providerPoliciesChanged() {
-    this._readyProviders++;
-    if (this._readyProviders === 2) {
-      this.combine();
-    }
-  }
-
-  combine() {
-    // Combine policies with primary taking precedence.
+  mergePolicies() {
+    // Combine policies with primaryProvider taking precedence.
     // We only do this for top level policies.
-    this._policies = this._primary._policies;
-    for (let policyName of Object.keys(this._secondary.policies)) {
+    this._policies = structuredClone(this._primaryProvider.policies);
+    for (let [policyName, policyParams] of Object.entries(
+      this._secondaryProvider.policies || {}
+    )) {
       if (!(policyName in this._policies)) {
-        this._policies[policyName] = this._secondary.policies[policyName];
+        this._policies[policyName] = policyParams;
       }
     }
-  }
-
-  get hasPolicies() {
-    // Combined provider always has policies.
-    return true;
-  }
-
-  get policies() {
-    return this._policies;
   }
 
   get failed() {
     // Combined provider never fails.
     return false;
+  }
+
+  get isCombined() {
+    return true;
   }
 }

@@ -19,6 +19,9 @@ if CONFIG["MOZ_WIDGET_TOOLKIT"] != "android":
     EXTRA_JS_MODULES += [
         "EnterprisePolicies.sys.mjs",
         "EnterprisePoliciesContent.sys.mjs",
+    ]
+
+    EXTRA_PP_JS_MODULES += [
         "EnterprisePoliciesParent.sys.mjs",
     ]
 
