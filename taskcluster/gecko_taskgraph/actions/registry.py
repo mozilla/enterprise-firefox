@@ -190,6 +190,12 @@ def register_callback_action(
                 "base_revision": base_revision,
             }
 
+            if branch := parameters.get("head_ref"):
+                push["branch"] = branch
+
+            if (base_branch := parameters.get("base_ref")) and branch != base_branch:
+                push["base_branch"] = base_branch
+
             action = {
                 "name": name,
                 "title": title,
