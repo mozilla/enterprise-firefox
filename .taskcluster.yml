@@ -401,7 +401,7 @@ tasks:
                                   then: 3
                                   else: 1
                           in:
-                              taskId: '${ownTaskId}'
+                              taskId: {$if: 'eventType != "action"', then: '${ownTaskId}'}
                               taskGroupId: {$if: 'eventType == "action"', then: '${action.taskGroupId}', else: '${ownTaskId}'}
                               schedulerId: '${trustDomain}-level-${level}'
                               created: {$fromNow: ''}
