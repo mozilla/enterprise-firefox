@@ -345,12 +345,12 @@ tasks:
               $let:
                   $merge:
                       - trustDomain: enterprise
-                        ownTaskId: {$eval: as_slugid("decision_task")}
                         isPullRequest: false
                         eventType: '${tasks_for[7:]}'  # strip out 'github-'
                         eventAction: '${event["action"]}'  # empty string if 'action' doesn't exist
                       - $switch:
                             'tasks_for == "github-push"':
+                                ownTaskId: {$eval: as_slugid("decision_task")}
                                 ownerEmail: '${event.pusher.email}'
                                 baseRepoUrl: '${event.repository.html_url}'
                                 repoUrl: '${event.repository.html_url}'
@@ -359,6 +359,7 @@ tasks:
                                 baseRev: '${event.before}'
                                 headRev: '${event.after}'
                             'tasks_for[:19] == "github-pull-request"':
+                                ownTaskId: {$eval: as_slugid("decision_task")}
                                 ownerEmail: '${event.pull_request.user.login}@users.noreply.github.com'
                                 baseRepoUrl: '${event.pull_request.base.repo.html_url}'
                                 repoUrl: '${event.pull_request.head.repo.html_url}'
@@ -371,6 +372,7 @@ tasks:
                                 headRev: '${event.pull_request.head.sha}'
                                 isPullRequest: true
                             'tasks_for in ["action", "pr-action"]':
+                                ownTaskId: '${ownTaskId}'
                                 ownerEmail: '${tasks_for}@noreply.mozilla.org'
                                 baseRepoUrl: '${repository.url}'
                                 repoUrl: '${repository.url}'
@@ -378,7 +380,6 @@ tasks:
                                 ref: '${push.branch}'
                                 baseRev: '${push.revision}'
                                 headRev: '${push.revision}'
-                                ownTaskId: '${ownTaskId}'
                                 eventType: action
                                 eventAction: null
               in:
