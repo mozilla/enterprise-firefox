@@ -450,8 +450,11 @@ tasks:
                                                 - "tc-treeherder.v2.${project}.${headRev}"
                                                 - "index.${trustDomain}.v2.${project}.latest.taskgraph.decision"
                                                 - "index.${trustDomain}.v2.${project}.revision.${headRev}.taskgraph.decision"
-                                            'eventType == "action"':
+                                            'tasks_for == "action"':
+                                                - "tc-treeherder.v2.${project}.${headRev}"
                                                 - "index.${trustDomain}.v2.${project}.revision.${headRev}.taskgraph.actions.${ownTaskId}"
+                                            'tasks_for == "pr-action"':
+                                                - "tc-treeherder.v2.${project}-pr.${headRev}"
                               scopes:
                                   $switch:
                                       isPullRequest:
