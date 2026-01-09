@@ -206,6 +206,13 @@ def register_callback_action(
                 "symbol": symbol,
             }
 
+            # The full parameter set is too large, and gets duplicated in
+            # `actions.json` once per hook. So only pass in what's actually
+            # necessary.
+            filtered_params = {
+                "repository_type": parameters["repository_type"],
+            }
+
             rv = {
                 "name": name,
                 "title": title,
@@ -240,6 +247,7 @@ def register_callback_action(
                             "action": action,
                             "repository": repository,
                             "push": push,
+                            "parameters": filtered_params,
                         },
                         # and pass everything else through from our own context
                         "user": {
