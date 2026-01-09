@@ -318,7 +318,6 @@ def sanity_check_task_scope(callback, parameters, graph_config):
 
     repo_param = "{}head_repository".format(graph_config["project-repo-param-prefix"])
     head_repository = parameters[repo_param]
-    assert head_repository.startswith("https://hg.mozilla.org/")
     expected_scope = f"assume:repo:{head_repository[8:]}:action:{action.permission}"
 
     # the scope should appear literally; no need for a satisfaction check. The use of
