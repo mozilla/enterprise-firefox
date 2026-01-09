@@ -346,11 +346,13 @@ tasks:
                   $merge:
                       - trustDomain: enterprise
                         isPullRequest: false
-                        eventType: '${tasks_for[7:]}'  # strip out 'github-'
-                        eventAction: '${event["action"]}'  # empty string if 'action' doesn't exist
+                      - $if: 'tasks_for[:6] == "github"'
+                        then:
+                            ownTaskId: {$eval: as_slugid("decision_task")}
+                            eventType: '${tasks_for[7:]}'  # strip out 'github-'
+                            eventAction: '${event["action"]}'  # empty string if 'action' doesn't exist
                       - $switch:
                             'tasks_for == "github-push"':
-                                ownTaskId: {$eval: as_slugid("decision_task")}
                                 ownerEmail: '${event.pusher.email}'
                                 baseRepoUrl: '${event.repository.html_url}'
                                 repoUrl: '${event.repository.html_url}'
@@ -359,7 +361,6 @@ tasks:
                                 baseRev: '${event.before}'
                                 headRev: '${event.after}'
                             'tasks_for[:19] == "github-pull-request"':
-                                ownTaskId: {$eval: as_slugid("decision_task")}
                                 ownerEmail: '${event.pull_request.user.login}@users.noreply.github.com'
                                 baseRepoUrl: '${event.pull_request.base.repo.html_url}'
                                 repoUrl: '${event.pull_request.head.repo.html_url}'
