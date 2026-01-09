@@ -1251,13 +1251,63 @@ const FELT_OPEN_DISPOSITION_NEW_WINDOW = 1;
 const FELT_OPEN_DISPOSITION_NEW_PRIVATE_WINDOW = 2;
 
 export function queueFeltURL(payload) {
+  let isReady = false;
   try {
-    const { queueURL } = ChromeUtils.importESModule(
+    const { queueURL, isFeltFirefoxReady } = ChromeUtils.importESModule(
       "chrome://felt/content/FeltProcessParent.sys.mjs"
     );
+    isReady = isFeltFirefoxReady();
     queueURL(payload);
-  } catch (err) {
+  } catch {
     gFeltPendingURLs.push(payload);
+  }
+
+  // On Linux (and as fallback for other platforms), show a notification
+  // if the action was queued before Firefox is ready
+  if (!isReady && payload.disposition !== FELT_OPEN_DISPOSITION_DEFAULT) {
+    showFeltPendingActionNotification();
+  }
+}
+
+function showFeltPendingActionNotification() {
+  try {
+    let now = Cu.now();
+    // Throttle notifications to avoid spam if user clicks multiple times
+    if (
+      showFeltPendingActionNotification._lastShown &&
+      now - showFeltPendingActionNotification._lastShown < 5000
+    ) {
+      return;
+    }
+    showFeltPendingActionNotification._lastShown = now;
+
+    let alertsService = Cc["@mozilla.org/alerts-service;1"]?.getService(
+      Ci.nsIAlertsService
+    );
+    if (!alertsService) {
+      return;
+    }
+
+    let alert = Cc["@mozilla.org/alert-notification;1"].createInstance(
+      Ci.nsIAlertNotification
+    );
+    alert.init(
+      "felt-pending-action",
+      "chrome://branding/content/icon64.png",
+      "Firefox",
+      "Please wait while Firefox starts...",
+      false,
+      "",
+      null,
+      null,
+      null,
+      null,
+      null,
+      false
+    );
+    alertsService.showAlert(alert);
+  } catch {
+    // Notification service may not be available on all platforms
   }
 }
 

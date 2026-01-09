@@ -44,6 +44,27 @@ function extractURLPayload(payload) {
   };
 }
 
+let gFeltFirefoxReadyNotified = false;
+
+export function isFeltFirefoxReady() {
+  return (
+    gFeltProcessParentInstance?.firefoxReady &&
+    gFeltProcessParentInstance?.extensionReady
+  );
+}
+
+function notifyFirefoxReady() {
+  if (gFeltFirefoxReadyNotified) {
+    return;
+  }
+  if (!isFeltFirefoxReady()) {
+    return;
+  }
+  gFeltFirefoxReadyNotified = true;
+  console.debug("FeltExtension: Notifying felt-firefox-window-ready");
+  Services.obs.notifyObservers(null, "felt-firefox-window-ready");
+}
+
 /**
  * Manages the SSO login and launching Firefox
  */
@@ -139,6 +160,7 @@ export class FeltProcessParent extends JSProcessActorParent {
             if (gFeltProcessParentInstance) {
               gFeltProcessParentInstance.extensionReady = true;
               gFeltProcessParentInstance.forwardPendingURLs();
+              notifyFirefoxReady();
             }
             break;
           }
@@ -232,6 +254,7 @@ export class FeltProcessParent extends JSProcessActorParent {
     this.logoutReported = false;
     this.firefoxReady = false;
     this.extensionReady = false;
+    gFeltFirefoxReadyNotified = false;
     Services.cpmm.sendAsyncMessage("FeltParent:FirefoxStarting", {});
     this.firefox = this.startFirefoxProcess();
     this.firefox
@@ -268,6 +291,7 @@ export class FeltProcessParent extends JSProcessActorParent {
 
         // Try to forward pending URLs now (will only forward if extension is also ready)
         this.forwardPendingURLs();
+        notifyFirefoxReady();
       })
       .then(() => {
         console.debug(

@@ -20,6 +20,7 @@ function queueFeltDockAction(isPrivate) {
 
 var NonBrowserWindow = {
   delayedStartupTimeoutId: null,
+  feltReadyObserver: null,
   MAC_HIDDEN_WINDOW: "chrome://browser/content/hiddenWindowMac.xhtml",
 
   openBrowserWindowFromDockMenu(options = {}) {
@@ -127,9 +128,65 @@ var NonBrowserWindow = {
         document.getElementById("key_quitApplication").remove();
         document.getElementById("menu_FileQuitItem").removeAttribute("key");
       }
+
+      // In Felt mode, disable dock menu items until Firefox is ready
+      if (Services.felt.isFeltUI()) {
+        this.setupFeltDockMenuState();
+      }
     }
 
     this.delayedStartupTimeoutId = setTimeout(() => this.delayedStartup(), 0);
+  },
+
+  setupFeltDockMenuState() {
+    let newWindowItem = document.getElementById("macDockMenuNewWindow");
+    let privateWindowItem = document.getElementById(
+      "macDockMenuNewPrivateWindow"
+    );
+
+    // Check if Firefox is already ready (e.g., after restart)
+    let isReady = false;
+    try {
+      const { isFeltFirefoxReady } = ChromeUtils.importESModule(
+        "chrome://felt/content/FeltProcessParent.sys.mjs"
+      );
+      isReady = isFeltFirefoxReady();
+    } catch {
+      // Extension not loaded yet
+    }
+
+    if (isReady) {
+      return;
+    }
+
+    // Disable dock menu items until Firefox is ready
+    if (newWindowItem && !newWindowItem.hidden) {
+      newWindowItem.setAttribute("disabled", "true");
+    }
+    if (privateWindowItem && !privateWindowItem.hidden) {
+      privateWindowItem.setAttribute("disabled", "true");
+    }
+
+    // Listen for Firefox ready notification
+    this.feltReadyObserver = {
+      observe: () => {
+        if (newWindowItem && !newWindowItem.hidden) {
+          newWindowItem.removeAttribute("disabled");
+        }
+        if (privateWindowItem && !privateWindowItem.hidden) {
+          privateWindowItem.removeAttribute("disabled");
+        }
+        Services.obs.removeObserver(
+          NonBrowserWindow.feltReadyObserver,
+          "felt-firefox-window-ready"
+        );
+        NonBrowserWindow.feltReadyObserver = null;
+      },
+    };
+    Services.obs.addObserver(
+      this.feltReadyObserver,
+      "felt-firefox-window-ready"
+    );
   },
 
   delayedStartup() {
@@ -149,6 +206,15 @@ var NonBrowserWindow = {
     // the dock menu element to prevent leaks on shutdown
     if (window.location.href == this.MAC_HIDDEN_WINDOW) {
       this.dockSupport.dockMenu = null;
+
+      // Clean up Felt observer if still registered
+      if (this.feltReadyObserver) {
+        Services.obs.removeObserver(
+          this.feltReadyObserver,
+          "felt-firefox-window-ready"
+        );
+        this.feltReadyObserver = null;
+      }
     }
 
     // If nonBrowserWindowDelayedStartup hasn't run yet, we have no work to do -

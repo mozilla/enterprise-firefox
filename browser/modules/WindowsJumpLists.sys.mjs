@@ -370,6 +370,41 @@ export var WinTaskbarJumpList = {
     if (this._blocked) {
       this._builder._deleteActiveJumpList();
     }
+
+    // In Felt mode, block jump list until Firefox is ready
+    if (Services.felt?.isFeltUI()) {
+      this._setupFeltBlocking();
+    }
+  },
+
+  _setupFeltBlocking: function WTBJL__setupFeltBlocking() {
+    // Check if Firefox is already ready
+    let isReady = false;
+    try {
+      const { isFeltFirefoxReady } = ChromeUtils.importESModule(
+        "chrome://felt/content/FeltProcessParent.sys.mjs"
+      );
+      isReady = isFeltFirefoxReady();
+    } catch {
+      // Extension not loaded yet
+    }
+
+    if (isReady) {
+      return;
+    }
+
+    // Create a promise that resolves when felt-firefox-window-ready fires
+    let feltReadyPromise = new Promise(resolve => {
+      let observer = {
+        observe: () => {
+          Services.obs.removeObserver(observer, "felt-firefox-window-ready");
+          resolve();
+        },
+      };
+      Services.obs.addObserver(observer, "felt-firefox-window-ready");
+    });
+
+    this.blockJumpList(feltReadyPromise);
   },
 
   update: function WTBJL_update() {
