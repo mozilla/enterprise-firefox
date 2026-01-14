@@ -168,7 +168,13 @@ body:has(#notification-popup-box[open]) .felt:not(#notification-popup-box .felt)
   /* stylelint-disable-next-line */
   left: 8px;
   font-size: medium;
-  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
-  color: var(--icon-color-critical);
+  color: var(--text-color-error);
   font-weight: var(--font-weight-bold);
+}
+
+.felt-browser-error-details {
+  display: block;
+  font-weight: normal;
+  font-size: small;
+  margin-top: var(--space-xsmall);
 }

@@ -565,7 +565,7 @@ class FeltTests(EnterpriseTestsBase):
                 self._logger.info(f"Zombie found as {self._browser_pid}")
                 return True
 
-    def test_felt_00_chrome_on_email_submit(self, exp):
+    def submit_email(self, email_address="random@mozilla.com"):
         self._driver.set_context("chrome")
         self._logger.info("Submitting email in chrome context ...")
         email = self.get_elem("#felt-form__email")
@@ -580,13 +580,18 @@ class FeltTests(EnterpriseTestsBase):
             arguments[0].dispatchEvent(new Event('input', { bubbles: true }));
             """,
             email,
-            "random@mozilla.com",
+            email_address,
         )
 
         self._logger.info("Submitting email by clicking")
         btn = self.get_elem("#felt-form__sign-in-btn")
         btn.click()
+        self._driver.set_context("content")
 
+    def test_felt_00_chrome_on_email_submit(self, exp):
+        self.submit_email()
+
+        self._driver.set_context("chrome")
         self._logger.info("Email submitted and SSO browser displayed")
         sso_content_ready = self.get_elem(".felt-login__sso")
         assert sso_content_ready, "The SSO content is displayed"

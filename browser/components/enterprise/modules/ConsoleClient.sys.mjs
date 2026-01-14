@@ -240,6 +240,98 @@ export const ConsoleClient = {
   },
 
   /**
+   * Gets the error name for a channel status code.
+   *
+   * @param {number} status - The channel status code
+   * @returns {string} Human-readable error name
+   */
+  _getErrorNameForStatus(status) {
+    try {
+      const nssErrorsService = Cc[
+        "@mozilla.org/nss_errors_service;1"
+      ].getService(Ci.nsINSSErrorsService);
+      return nssErrorsService.getErrorName(status);
+    } catch {
+      // Not an NSS error, check common network error codes
+      const networkErrors = {
+        [Cr.NS_ERROR_UNKNOWN_HOST]: "unknown-host",
+        [Cr.NS_ERROR_CONNECTION_REFUSED]: "connection-refused",
+        [Cr.NS_ERROR_NET_TIMEOUT]: "net-timeout",
+        [Cr.NS_ERROR_NET_RESET]: "net-reset",
+        [Cr.NS_ERROR_NET_INTERRUPT]: "net-interrupt",
+        [Cr.NS_ERROR_OFFLINE]: "offline",
+      };
+      return networkErrors[status] || `error-code-${status}`;
+    }
+  },
+
+  /**
+   * Fetch-like wrapper that exposes detailed network errors.
+   * Uses XMLHttpRequest internally to access channel.status on error,
+   * which native fetch() does not expose.
+   *
+   * Limitations compared to native fetch():
+   * - Response object only has: ok, status, json(), text()
+   * - Missing: statusText, headers, url, redirected, clone(),
+   *   arrayBuffer(), blob(), formData()
+   * - json()/text() can be called multiple times (no body consumption)
+   *
+   * @param {string} url - The URL to fetch
+   * @param {object} options - Fetch-like options
+   * @param {string} [options.method="GET"] - HTTP method
+   * @param {object} [options.headers={}] - Request headers
+   * @param {string|null} [options.body=null] - Request body
+   * @returns {Promise<{ok: boolean, status: number, json: Function, text: Function}>}
+   */
+  _xhrFetch(url, { method = "GET", headers = {}, body = null } = {}) {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open(method, url, true);
+
+      // Handle both plain objects and Headers instances
+      const headerEntries = Headers.isInstance(headers)
+        ? headers.entries()
+        : Object.entries(headers);
+      for (const [key, value] of headerEntries) {
+        xhr.setRequestHeader(key, value);
+      }
+
+      xhr.onload = () => {
+        const response = {
+          ok: xhr.status >= 200 && xhr.status < 300,
+          status: xhr.status,
+          json() {
+            try {
+              return Promise.resolve(JSON.parse(xhr.responseText));
+            } catch (e) {
+              return Promise.reject(e);
+            }
+          },
+          text: () => Promise.resolve(xhr.responseText),
+        };
+        resolve(response);
+      };
+
+      xhr.onerror = () => {
+        const errorName = xhr.channel
+          ? this._getErrorNameForStatus(xhr.channel.status)
+          : "NetworkError";
+        reject(new TypeError(errorName));
+      };
+
+      xhr.ontimeout = () => {
+        reject(new TypeError("NS_ERROR_NET_TIMEOUT"));
+      };
+
+      xhr.onabort = () => {
+        reject(new TypeError("NS_BINDING_ABORTED"));
+      };
+
+      xhr.send(body);
+    });
+  },
+
+  /**
    * Collect the device posture data and send them to the console.
    *
    * @returns {Promise<{posture: string}>} Token reported by console.
@@ -248,7 +340,7 @@ export const ConsoleClient = {
     const devicePosture = this._collectDevicePosture();
     const url = this.constructURI(this._paths.DEVICE_POSTURE);
 
-    const res = await fetch(url, {
+    const res = await this._xhrFetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -305,12 +397,13 @@ export const ConsoleClient = {
     const headers = new Headers({});
     const accessToken = await this.getAccessToken();
     headers.set("Authorization", `Bearer ${accessToken}`);
+    headers.set("Accept", "application/json");
     if (jsonBody !== null) {
       headers.set("Content-Type", "application/json");
     }
 
     const url = this.constructURI(path);
-    const res = await fetch(url, {
+    const res = await this._xhrFetch(url, {
       method,
       headers,
       body: jsonBody === null ? undefined : JSON.stringify(jsonBody),
@@ -404,7 +497,7 @@ export const ConsoleClient = {
       let res;
       try {
         const url = this.constructURI(this._paths.TOKEN);
-        res = await fetch(url, {
+        res = await this._xhrFetch(url, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -417,7 +510,7 @@ export const ConsoleClient = {
         });
       } catch (cause) {
         throw new InvalidAuthError(
-          "Token refresh request failed",
+          `Token refresh request failed: ${cause.message}`,
           "TOKEN_REFRESH_FAILED",
           { cause }
         );
