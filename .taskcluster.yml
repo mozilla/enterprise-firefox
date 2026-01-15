@@ -56,7 +56,7 @@ tasks:
     # takes place, and only the first task is included in the `in_tree_action` hook.
     - $switch:
           # Decision task for events originating from hg.mozilla.org
-          'tasks_for in ["hg-push", "cron"] || (tasks_for == "action" && parameters["repository_type"] == "hg")':
+          'tasks_for == "hg-push" || (tasks_for == "action" && parameters["repository_type"] == "hg") || (tasks_for == "cron" && repository["type"] == "hg")':
               $let:
                   # sometimes the push user is just `ffxbld` or the like, but we want an email-like field..
                   ownerEmail: {$if: '"@" in push.owner', then: '${push.owner}', else: '${push.owner}@noreply.mozilla.org'}
@@ -341,16 +341,26 @@ tasks:
                                           then:
                                               matrixBody: "${repository.project} push notification: https://treeherder.mozilla.org/#/jobs?repo=${repository.project}&revision=${push.revision}"
           # Decision task for events originating from Github
-          'tasks_for[:6] == "github" || (tasks_for in ["action", "pr-action"] && parameters["repository_type"] == "git")':
+          'tasks_for[:6] == "github" || (tasks_for in ["action", "pr-action"] && parameters["repository_type"] == "git") || (tasks_for == "cron" && repository["type"] == "git")':
               $let:
                   $merge:
                       - trustDomain: enterprise
                         isPullRequest: false
-                      - $if: 'tasks_for[:6] == "github"'
-                        then:
-                            ownTaskId: {$eval: as_slugid("decision_task")}
-                            eventType: '${tasks_for[7:]}'  # strip out 'github-'
-                            eventAction: '${event["action"]}'  # empty string if 'action' doesn't exist
+                        eventType: '${tasks_for}'
+                        eventAction: null
+                      - $switch:
+                            'tasks_for[:6] == "github"':
+                                ownTaskId: {$eval: as_slugid("decision_task")}
+                                eventType: '${tasks_for[7:]}'  # strip out 'github-'
+                                eventAction: '${event["action"]}'  # empty string if 'action' doesn't exist
+                            'tasks_for in ["action", "cron", "pr-action"]':
+                                ownTaskId: '${ownTaskId}'
+                                ownerEmail: '${tasks_for}@noreply.mozilla.org'
+                                repoUrl: '${repository.url}'
+                                project: '${repository.project}'
+                                ref: '${push.branch}'
+                                baseRev: '${push.revision}'
+                                headRev: '${push.revision}'
                       - $switch:
                             'tasks_for == "github-push"':
                                 ownerEmail: '${event.pusher.email}'
@@ -372,17 +382,12 @@ tasks:
                                 baseRev: '${event.pull_request.base.sha}'
                                 headRev: '${event.pull_request.head.sha}'
                                 isPullRequest: true
-                            'tasks_for in ["action", "pr-action"]':
-                                ownTaskId: '${ownTaskId}'
-                                ownerEmail: '${tasks_for}@noreply.mozilla.org'
+                            'tasks_for == "action"':
                                 baseRepoUrl: '${repository.url}'
-                                repoUrl: '${repository.url}'
-                                project: '${repository.project}'
-                                ref: '${push.branch}'
-                                baseRev: '${push.revision}'
-                                headRev: '${push.revision}'
+                            'tasks_for == "pr-action"':
+                                baseRepoUrl: '${repository.base_url}'
                                 eventType: action
-                                eventAction: null
+
               in:
                   $let:
                       shortRef:
@@ -391,13 +396,13 @@ tasks:
                           else: ${ref}
                   in:
                       $if: >
-                        eventType == "action"
+                        eventType in ["action", "cron"]
                         || (eventType == "push" && shortRef == "enterprise-main")
                         || (isPullRequest && eventAction in ["opened", "reopened", "synchronize"])
                       then:
                           $let:
                               level:
-                                  $if: '(tasks_for == "action" || eventType == "push") && repoUrl == "https://github.com/mozilla/enterprise-firefox" && shortRef == "enterprise-main"'
+                                  $if: '(tasks_for == "action" || eventType in ["cron", "push"]) && repoUrl == "https://github.com/mozilla/enterprise-firefox" && shortRef == "enterprise-main"'
                                   then: 3
                                   else: 1
                           in:
@@ -424,6 +429,9 @@ tasks:
                                                     ${action.description}
 
                                                     PR action triggered by clientID `${clientId}`
+                                            'eventType == "cron"':
+                                                name: "Decision Task (cron: ${cron.job_name})"
+                                                description: 'Created by a [cron task](https://firefox-ci-tc.services.mozilla.com/tasks/${cron.task_id})'
                                             $default:
                                                 name: "Decision Task (${eventType})"
                                                 description: 'The task that creates all of the other tasks in the task graph'
@@ -437,6 +445,8 @@ tasks:
                                       - $switch:
                                             'eventType == "action"':
                                                 kind: action-callback
+                                            'eventType == "cron"':
+                                                kind: cron-task
                                             '$default':
                                                 kind: decision-task
 
@@ -455,6 +465,11 @@ tasks:
                                                 - "index.${trustDomain}.v2.${project}.revision.${headRev}.taskgraph.actions.${ownTaskId}"
                                             'tasks_for == "pr-action"':
                                                 - "tc-treeherder.v2.${project}-pr.${headRev}"
+                                            'eventType == "cron"':
+                                                - "index.${trustDomain}.v2.${project}.latest.taskgraph.decision-${cron.job_name}"
+                                                - "index.${trustDomain}.v2.${project}.revision.${head_sha}.taskgraph.decision-${cron.job_name}"
+                                                # list each cron task on this revision, so actions can find them
+                                                - 'index.${trustDomain}.v2.${project}.revision.${head_sha}.cron.${ownTaskId}'
                               scopes:
                                   $switch:
                                       isPullRequest:
@@ -463,9 +478,15 @@ tasks:
                                           - 'assume:repo:${repoUrl[8:]}:branch:${shortRef}'
                                       'eventType == "action"':
                                           - 'assume:repo:${repoUrl[8:]}:action:${action.action_perm}'
+                                      'eventType == "cron"':
+                                          - 'assume:repo:${repoUrl[8:]}:cron:${cron.job_name}'
                               dependencies: []
                               requires: all-completed
-                              priority: {$if: 'eventType == "action"', then: "lowest", else: "very-low"}
+                              priority:
+                                  $switch:
+                                      'eventType == "cron"': "low"
+                                      'eventType == "action"': "lowest"
+                                      $default: "very-low"
                               retries: 5
 
                               payload:
@@ -512,27 +533,30 @@ tasks:
                                       - '--'
                                       - bash
                                       - -cx
-                                      - $if: 'eventType == "action"'
-                                        then: >
-                                          cd /builds/worker/checkouts/gecko &&
-                                          ln -s /builds/worker/artifacts artifacts &&
-                                          ./mach --log-no-times taskgraph action-callback
-                                        else: >
-                                          cd /builds/worker/checkouts/gecko &&
-                                          ln -s /builds/worker/artifacts artifacts &&
-                                          ./mach --log-no-times taskgraph decision \
-                                           --pushlog-id='0' \
-                                           --pushdate='0' \
-                                           --project='${project}' \
-                                           --owner='${ownerEmail}' \
-                                           --level='${level}' \
-                                           --repository-type=git \
-                                           --tasks-for='${tasks_for}' \
-                                           --base-repository='${baseRepoUrl}' \
-                                           --base-rev='${baseRev}' \
-                                           --head-repository='${repoUrl}' \
-                                           --head-ref='${ref}' \
-                                           --head-rev='${headRev}'
+                                      - $let:
+                                            extraArgs: {$if: 'tasks_for == "cron"', then: '${cron.quoted_args}', else: ''}
+                                        in:
+                                            $if: 'eventType == "action"'
+                                            then: >
+                                              cd /builds/worker/checkouts/gecko &&
+                                              ln -s /builds/worker/artifacts artifacts &&
+                                              ./mach --log-no-times taskgraph action-callback
+                                            else: >
+                                              cd /builds/worker/checkouts/gecko &&
+                                              ln -s /builds/worker/artifacts artifacts &&
+                                              ./mach --log-no-times taskgraph decision \
+                                               --pushlog-id='0' \
+                                               --pushdate='0' \
+                                               --project='${project}' \
+                                               --owner='${ownerEmail}' \
+                                               --level='${level}' \
+                                               --repository-type=git \
+                                               --tasks-for='${tasks_for}' \
+                                               --base-repository='${baseRepoUrl}' \
+                                               --base-rev='${baseRev}' \
+                                               --head-repository='${repoUrl}' \
+                                               --head-ref='${ref}' \
+                                               --head-rev='${headRev}'
 
                                   artifacts:
                                       'public':
@@ -559,6 +583,9 @@ tasks:
                                                           groupName: 'action-callback'
                                                           groupSymbol: AC
                                                           symbol: '${action.symbol}'
+                                                      'eventType == "cron"':
+                                                          groupSymbol: cron
+                                                          symbol: "${cron.job_symbol}"
                                                       $default:
                                                           symbol: D
                                       - $if: 'eventType == "action"'
@@ -571,4 +598,7 @@ tasks:
                                                     taskId: {$eval: 'taskId'}
                                                     input: {$eval: 'input'}
                                                     clientId: {$eval: 'clientId'}
+                                      - $if: 'tasks_for == "cron"'
+                                        then:
+                                            cron: {$json: {$eval: 'cron'}}
                                       - tasks_for: '${tasks_for}'
