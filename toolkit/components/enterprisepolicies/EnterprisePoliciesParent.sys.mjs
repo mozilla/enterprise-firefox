@@ -18,7 +18,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
   setInterval: "resource://gre/modules/Timer.sys.mjs",
   // eslint-disable-next-line mozilla/no-browser-refs-in-toolkit
   ConsoleClient: "resource:///modules/enterprise/ConsoleClient.sys.mjs",
-  schema: "resource:///modules/policies/schema.sys.mjs",
 });
 
 // This is the file that will be searched for in the
@@ -46,6 +45,8 @@ const PREF_LOGLEVEL = "browser.policies.loglevel";
 
 // To allow for cleaning up old policies
 const PREF_POLICIES_APPLIED = "browser.policies.applied";
+
+const PREF_REMOTE_POLICIES_ENABLED = "browser.policies.remote.enabled";
 
 ChromeUtils.defineLazyGetter(lazy, "log", () => {
   let { ConsoleAPI } = ChromeUtils.importESModule(
@@ -80,6 +81,7 @@ export function EnterprisePoliciesManager() {
   Services.obs.addObserver(this, "profile-after-change", true);
   Services.obs.addObserver(this, "final-ui-startup", true);
   Services.obs.addObserver(this, "sessionstore-windows-restored", true);
+  Services.obs.addObserver(this, "EnterprisePolicies:Reset", true);
   Services.obs.addObserver(this, "EnterprisePolicies:Restart", true);
   Services.obs.addObserver(this, "EnterprisePolicies:Update", true);
   Services.obs.addObserver(this, "distribution-customization-complete", true);
@@ -98,6 +100,13 @@ EnterprisePoliciesManager.prototype = {
   // Caches latest set of parsed policies
   _parsedPolicies: {},
 
+  isRemotePoliciesSupported() {
+    return (
+      AppConstants.MOZ_ENTERPRISE &&
+      Services.prefs.getBoolPref(PREF_REMOTE_POLICIES_ENABLED, false)
+    );
+  },
+
   _cleanupPolicies() {
     if (Services.prefs.getBoolPref(PREF_POLICIES_APPLIED, false)) {
       if ("_cleanup" in lazy.Policies) {
@@ -110,26 +119,33 @@ EnterprisePoliciesManager.prototype = {
 
   async _initialize() {
     this._cleanupPolicies();
+
+    this._policiesSchema = ChromeUtils.importESModule(
+      "resource:///modules/policies/schema.sys.mjs"
+    ).schema;
+
     this._status = Ci.nsIEnterprisePolicies.INACTIVE;
     Services.prefs.setBoolPref(PREF_POLICIES_APPLIED, false);
 
     const localProvider = this._chooseProvider();
-#ifdef MOZ_ENTERPRISE
-    const remoteProvider = RemotePoliciesProvider.getInstance();
-    try {
-      // Poll and ingest initial set of policies
-      await remoteProvider.ingestPolicies();
-    } catch (e) {
-      console.error("Unable to find policies in payload.");
-    }
-    if (localProvider.hasPolicies) {
-      this._provider = new CombinedProvider(remoteProvider, localProvider);
+    if (this.isRemotePoliciesSupported()) {
+      const remoteProvider = RemotePoliciesProvider.getInstance();
+      try {
+        // Poll and ingest initial set of policies
+        await remoteProvider.ingestPolicies();
+        // Will apply policy updates once policies manager is initialized
+        remoteProvider.startPolling();
+      } catch (e) {
+        console.error("Unable to find policies in payload.");
+      }
+      if (localProvider.hasPolicies) {
+        this._provider = new CombinedProvider(remoteProvider, localProvider);
+      } else {
+        this._provider = remoteProvider;
+      }
     } else {
-      this._provider = remoteProvider;
+      this._provider = localProvider;
     }
-#else
-    this._provider = localProvider;
-#endif
 
     if (this._provider.failed) {
       this._status = Ci.nsIEnterprisePolicies.FAILED;
@@ -202,6 +218,7 @@ EnterprisePoliciesManager.prototype = {
       );
 
       if (!isValid) {
+        console.warn(`Parameters for policy ${policyName} are invalid`);
         continue;
       }
 
@@ -222,7 +239,10 @@ EnterprisePoliciesManager.prototype = {
    * - Remove a policy if it's missing in the updated set.
    */
   _updatePolicies() {
-    lazy.log.debug("EnterprisePoliciesManager: _updatePolicies: ");
+    if (this._status === Ci.nsIEnterprisePolicies.UNINITIALIZED) {
+      // Abort if we are still initializing or restarting the policy engine.
+      return;
+    }
 
     if (this._provider.isCombined) {
       this._provider.mergePolicies();
@@ -336,7 +356,7 @@ EnterprisePoliciesManager.prototype = {
    * @returns {{ isValid: boolean, parsedParams: object|null}}
    */
   _validatePolicyParams(policyName, policyParams) {
-    const policySchema = lazy.schema.properties[policyName];
+    const policySchema = this._policiesSchema.properties[policyName];
 
     if (!policySchema) {
       lazy.log.error(`Unknown policy: ${policyName}`);
@@ -474,19 +494,26 @@ EnterprisePoliciesManager.prototype = {
     }
   },
 
-  async _restart() {
+  async _resetEngine() {
     DisallowedFeatures = {};
 
     Services.ppmm.sharedData.delete("EnterprisePolicies:Status");
     Services.ppmm.sharedData.delete("EnterprisePolicies:DisallowedFeatures");
 
     this._status = Ci.nsIEnterprisePolicies.UNINITIALIZED;
-    this._parsedPolicies = undefined;
+    this._parsedPolicies = {};
+    if (this.isRemotePoliciesSupported) {
+      RemotePoliciesProvider.dropInstance();
+    }
     this._provider = null;
-    this._topicsObserved = null;
+    this._topicsObserved = new Set();
     for (let timing of Object.keys(this._callbacks)) {
       this._callbacks[timing] = [];
     }
+  },
+
+  async _restart() {
+    await this._resetEngine();
 
     // Simulate the startup process. This step-by-step is a bit ugly but it
     // tries to emulate the same behavior as of a normal startup.
@@ -538,12 +565,20 @@ EnterprisePoliciesManager.prototype = {
         this._runPoliciesCallbacks("onAllWindowsRestored");
         break;
 
+      case "EnterprisePolicies:Reset":
+        this._resetEngine().then(null, console.error);
+        break;
+
       case "EnterprisePolicies:Restart":
         this._restart().then(null, console.error);
         break;
 
       case "EnterprisePolicies:Update": {
         this._updatePolicies();
+        Services.obs.notifyObservers(
+          null,
+          "EnterprisePolicies:PolicyUpdatesApplied"
+        );
         break;
       }
 
@@ -848,11 +883,14 @@ class JSONPoliciesProvider extends PoliciesProvider {
       if (data) {
         lazy.log.debug(`policies.json path = ${configFile.path}`);
         lazy.log.debug(`policies.json content = ${data}`);
-        this._policies = JSON.parse(data).policies;
+        const { policies } = JSON.parse(data);
 
-        if (!this._policies) {
+        if (!policies) {
           lazy.log.error("Policies file doesn't contain a 'policies' object");
+          this._policies = {};
           this._failed = true;
+        } else {
+          this._policies = policies;
         }
       }
     } catch (ex) {
@@ -894,9 +932,19 @@ class RemotePoliciesProvider extends PoliciesProvider {
     return this.#instance;
   }
 
+  static dropInstance() {
+    if (!this.#instance) {
+      // No instance was initialized.
+      return;
+    }
+    if (this.#instance._poller) {
+      this.#instance._stopPolling();
+    }
+    this.#instance = null;
+  }
+
   constructor() {
     super();
-    this._socket = null;
     this._poller = null;
     this._pollingFrequency = Services.prefs.getIntPref(
       this.POLLING_FREQUENCY_PREF,
@@ -909,14 +957,6 @@ class RemotePoliciesProvider extends PoliciesProvider {
     Services.prefs.addObserver(this.POLLING_FREQUENCY_PREF, this);
     Services.prefs.addObserver(this.POLLING_ENABLED_PREF, this);
     Services.obs.addObserver(this, "xpcom-shutdown");
-
-    this.init();
-  }
-
-  init() {
-    if (this._isPollingEnabled) {
-      this._startPolling();
-    }
   }
 
   observe(aSubject, aTopic, aData) {
@@ -933,7 +973,7 @@ class RemotePoliciesProvider extends PoliciesProvider {
             return;
           }
           this._stopPolling();
-          this._startPolling();
+          this.startPolling();
         } else if (aData === this.POLLING_ENABLED_PREF) {
           const p = this._isPollingEnabled;
           this._isPollingEnabled = Services.prefs.getBoolPref(
@@ -944,7 +984,7 @@ class RemotePoliciesProvider extends PoliciesProvider {
             return;
           }
           if (this._isPollingEnabled) {
-            this._startPolling();
+            this.startPolling();
           } else {
             this._stopPolling();
           }
@@ -980,7 +1020,7 @@ class RemotePoliciesProvider extends PoliciesProvider {
     }
   }
 
-  _startPolling() {
+  startPolling() {
     if (!this._isPollingEnabled) {
       return;
     }
@@ -992,12 +1032,17 @@ class RemotePoliciesProvider extends PoliciesProvider {
   }
 
   async ingestPolicies() {
+    if (!this._isPollingEnabled) {
+      return;
+    }
+    
     const res = await lazy.ConsoleClient.getRemotePolicies();
     if (!res.policies) {
       this._policies = {};
       console.error(
-        `Clearing remote policies because no policies were found in the response: ${res}.`
+        `Clearing remote policies because no policies were found in the response: ${JSON.stringify(res)}.`
       );
+      this._failed = true;
       return;
     }
     this._policies = res.policies;
@@ -1058,7 +1103,7 @@ class macOSPoliciesProvider extends PoliciesProvider {
     if (!prefReader.policiesEnabled()) {
       return;
     }
-    this._policies = lazy.macOSPoliciesParser.readPolicies(prefReader);
+    this._policies = lazy.macOSPoliciesParser.readPolicies(prefReader) || {};
   }
 }
 
@@ -1084,8 +1129,7 @@ class CombinedProvider extends PoliciesProvider {
   }
 
   get failed() {
-    // Combined provider never fails.
-    return false;
+    return this._primaryProvider.failed && this._secondaryProvider.failed;
   }
 
   get isCombined() {

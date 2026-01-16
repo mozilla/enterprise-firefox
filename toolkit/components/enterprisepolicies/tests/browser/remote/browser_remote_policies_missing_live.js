@@ -10,7 +10,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 });
 
 add_task(async function check_all_policies_are_live() {
-  const allPolicies = new Set(Object.keys(lazy.Policies));
+  const policies = new Set(Object.keys(lazy.Policies));
 
   // Set of policies we know cannot be live
   const notLivePolicies = new Set([
@@ -108,44 +108,33 @@ add_task(async function check_all_policies_are_live() {
     "WindowsSSO",
   ]);
 
-  const allLivePolicies = allPolicies.difference(notLivePolicies);
+  const livePolicies = policies.difference(notLivePolicies);
 
-  let liveEnabled = new Set();
+  let policiesAppliable = new Set();
 
-  for (let policyName of allPolicies) {
+  for (const policyName of policies) {
     const policy = lazy.Policies[policyName];
     const hasOnRemove = typeof policy.onRemove === "function";
     if (hasOnRemove) {
-      liveEnabled.add(policyName);
+      policiesAppliable.add(policyName);
     }
   }
 
-  const notEnabled = [
-    ...allLivePolicies
-      .difference(liveEnabled)
-      .entries()
-      .map(e => e[0]),
-  ];
-  if (notEnabled.length) {
-    console.debug(`Not enabled live policies`, JSON.stringify(notEnabled));
+  const livePoliciesNotAppliable = livePolicies.difference(policiesAppliable)
+  if (livePoliciesNotAppliable.size) {
+    console.debug(`Live policies that are not appliable because of missing remove functions ${JSON.stringify(livePoliciesNotAppliable)}`);
   }
 
-  Assert.equal(notEnabled.length, 0, "Not all policies are live. Work better.");
+  Assert.equal(livePoliciesNotAppliable.size, 0, "Not all policies are live. Work better.");
 
-  const liveAndNotLive = [
-    ...liveEnabled
-      .intersection(notLivePolicies)
-      .entries()
-      .map(e => e[0]),
-  ];
-  if (liveAndNotLive.length) {
+  const liveAndNotLive = policiesAppliable.intersection(notLivePolicies)
+  if (liveAndNotLive.size) {
     console.debug(
-      `Inconsistent state: live and not live`,
-      JSON.stringify(liveAndNotLive)
+      `Inconsistent state: live and not live ${JSON.stringify(liveAndNotLive)}`
     );
   }
   Assert.equal(
-    liveAndNotLive.length,
+    liveAndNotLive.size,
     0,
     "There should be no policy both live and not live."
   );

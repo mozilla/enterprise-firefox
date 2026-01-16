@@ -10,11 +10,30 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   FileTestUtils: "resource://testing-common/FileTestUtils.sys.mjs",
   modifySchemaForTests: "resource:///modules/policies/schema.sys.mjs",
-  HttpServer: "resource://testing-common/httpd.sys.mjs",
-  setTimeout: "resource://gre/modules/Timer.sys.mjs",
+  sinon: "resource://testing-common/Sinon.sys.mjs",
 });
 
-export var EnterprisePolicyTesting = {
+export const REMOTE_POLICIES_TESTING_PREF = "browser.policies.remote.enabled";
+
+export const EnterprisePolicyTesting = {
+  get remotePoliciesStub() {
+    return this._remotePoliciesStub;
+  },
+
+  set remotePoliciesStub(stub) {
+    this._remotePoliciesStub = stub;
+  },
+
+  resolveOnceAllPoliciesApplied(resolve) {
+    Services.obs.addObserver(function observer() {
+      Services.obs.removeObserver(
+        observer,
+        "EnterprisePolicies:AllPoliciesApplied"
+      );
+      resolve();
+    }, "EnterprisePolicies:AllPoliciesApplied");
+  },
+
   // |json| must be an object representing the desired policy configuration, OR a
   // path to the JSON file containing the policy configuration.
   setupPolicyEngineWithJson: async function setupPolicyEngineWithJson(
@@ -34,15 +53,8 @@ export var EnterprisePolicyTesting = {
 
     Services.prefs.setStringPref("browser.policies.alternatePath", filePath);
 
-    let promise = new Promise(resolve => {
-      Services.obs.addObserver(function observer() {
-        Services.obs.removeObserver(
-          observer,
-          "EnterprisePolicies:AllPoliciesApplied"
-        );
-        resolve();
-      }, "EnterprisePolicies:AllPoliciesApplied");
-    });
+    const { promise, resolve } = Promise.withResolvers();
+    this.resolveOnceAllPoliciesApplied(resolve);
 
     // Clear any previously used custom schema or assign a new one
     lazy.modifySchemaForTests(customSchema || null);
@@ -51,60 +63,59 @@ export var EnterprisePolicyTesting = {
     return promise;
   },
 
-  servePolicyWithJson: async function servePolicyWithJson(
-    json,
-    customSchema,
-    registerCleanupFunction
-  ) {
-    if (this._httpd === undefined) {
-      this._httpd = new lazy.HttpServer();
-      await this._httpd.start(-1);
-      const serverAddr = `http://localhost:${this._httpd.identity.primaryPort}`;
-
-      const tokenData = {
-        access_token: "test_access_token",
-        refresh_token: "test_refresh_token",
-        expires_in: 3600,
-        token_type: "Bearer",
-      };
-
-      // Set up mock token endpoint for ConsoleClient (token refresh never hits it yet)
-      this._httpd.registerPathHandler("/sso/token", (req, resp) => {
-        resp.setStatusLine(req.httpVersion, 200, "OK");
-        resp.setHeader("Content-Type", "application/json");
-        resp.write(JSON.stringify(tokenData));
-      });
-
-      Services.prefs.setStringPref("enterprise.console.address", serverAddr);
-      Services.prefs.setBoolPref("browser.policies.live_polling.enabled", true);
-      Services.felt.setTokens(
-        tokenData.access_token,
-        tokenData.refresh_token,
-        tokenData.expires_in
+  resolveOnceAllPolicyUpdatesApplied(resolve) {
+    Services.obs.addObserver(function observer() {
+      Services.obs.removeObserver(
+        observer,
+        "EnterprisePolicies:PolicyUpdatesApplied"
       );
+      resolve();
+    }, "EnterprisePolicies:PolicyUpdatesApplied");
+  },
 
-      registerCleanupFunction(async () => {
-        await new Promise(resolve => this._httpd.stop(resolve));
-        this._httpd = undefined;
-        Services.prefs.clearUserPref("enterprise.console.address");
-        Services.prefs.clearUserPref("browser.policies.live_polling.enabled");
-        const { ConsoleClient } = ChromeUtils.importESModule(
-          "resource:///modules/enterprise/ConsoleClient.sys.mjs"
-        );
-        ConsoleClient.clearTokenData();
-      });
+  nextPolicyUpdatesApplied() {
+    const { promise, resolve } = Promise.withResolvers();
+    this.resolveOnceAllPolicyUpdatesApplied(resolve);
+    return promise;
+  },
+
+  async servePolicyWithRemoteJson(json, customSchema) {
+    lazy.modifySchemaForTests(customSchema || null);
+
+    const policiesAppliedPromise = this.applyRemotePolicies(json, false);
+
+    Services.obs.notifyObservers(null, "EnterprisePolicies:Restart");
+
+    return policiesAppliedPromise;
+  },
+
+  async applyRemotePolicies(policies, isUpdate = true) {
+    const { promise, resolve } = Promise.withResolvers();
+    if (isUpdate) {
+      // Resolve once policies are updated
+      this.resolveOnceAllPolicyUpdatesApplied(resolve);
+    } else {
+      // Resolve once all policies are applied on initial activation
+      this.resolveOnceAllPoliciesApplied(resolve);
     }
 
-    let { promise, resolve } = Promise.withResolvers();
+    const { ConsoleClient } = ChromeUtils.importESModule(
+      "resource:///modules/enterprise/ConsoleClient.sys.mjs"
+    );
 
-    this._httpd.registerPathHandler("/api/browser/policies", (req, resp) => {
-      resp.setStatusLine(req.httpVersion, 200, "OK");
-      resp.write(JSON.stringify(json));
-      lazy.modifySchemaForTests(customSchema || null);
-      lazy.setTimeout(() => {
-        resolve();
-      }, 100);
-    });
+    if (this.remotePoliciesStub) {
+      this.remotePoliciesStub.restore();
+    }
+    this.remotePoliciesStub = lazy.sinon.stub(
+      ConsoleClient,
+      "getRemotePolicies"
+    );
+
+    const returnRemotePolicies = () => {
+      return Promise.resolve(policies);
+    };
+
+    this.remotePoliciesStub.callsFake(returnRemotePolicies);
 
     return promise;
   },
@@ -208,7 +219,9 @@ export var PoliciesPrefTracker = {
       // If a pref was used through setDefaultPref instead
       // of setAndLockPref, it wasn't locked, but calling
       // unlockPref is harmless
-      Preferences.unlock(prefName);
+      if (Services.prefs.prefIsLocked(prefName)) {
+        Preferences.unlock(prefName);
+      }
 
       if (stored.originalDefaultValue !== undefined) {
         defaults.set(prefName, stored.originalDefaultValue);

@@ -8,6 +8,11 @@ BROWSER_CHROME_MANIFESTS += [
     "browser/browser.toml",
 ]
 
+if CONFIG["MOZ_ENTERPRISE"]:
+    BROWSER_CHROME_MANIFESTS += [
+        "browser/remote/browser.toml",
+    ]
+
 TESTING_JS_MODULES += [
     "EnterprisePolicyTesting.sys.mjs",
 ]

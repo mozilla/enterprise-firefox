@@ -7,7 +7,7 @@ import { EnterprisePolicyTesting } from "resource://testing-common/EnterprisePol
 
 export async function runBackgroundTask(commandLine) {
   let filePath = commandLine.getArgument(0);
-  await EnterprisePolicyTesting.setupPolicyEngineWithJson(filePath);
+  await EnterprisePolicyTesting.setupPolicyEngineWithJsonFile(filePath);
 
   let checker = Cc["@mozilla.org/updates/update-checker;1"].getService(
     Ci.nsIUpdateChecker

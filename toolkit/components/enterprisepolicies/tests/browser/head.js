@@ -4,10 +4,17 @@
 
 "use strict";
 
-const { EnterprisePolicyTesting, PoliciesPrefTracker } =
-  ChromeUtils.importESModule(
-    "resource://testing-common/EnterprisePolicyTesting.sys.mjs"
-  );
+const {
+  EnterprisePolicyTesting,
+  PoliciesPrefTracker,
+  REMOTE_POLICIES_TESTING_PREF,
+} = ChromeUtils.importESModule(
+  "resource://testing-common/EnterprisePolicyTesting.sys.mjs"
+);
+
+const { Policies } = ChromeUtils.importESModule(
+  "resource:///modules/policies/Policies.sys.mjs"
+);
 
 PoliciesPrefTracker.start();
 registerCleanupFunction(() => {
@@ -16,11 +23,14 @@ registerCleanupFunction(() => {
 
 async function setupPolicyEngineWithJson(json, customSchema) {
   PoliciesPrefTracker.restoreDefaultValues();
-  const useHttp = Services.prefs.getBoolPref("browser.policies.testUseHttp");
-  if (!useHttp) {
-    return setupPolicyWithJsonFile(json, customSchema);
+  const isRemotePoliciesTesting = Services.prefs.getBoolPref(
+    REMOTE_POLICIES_TESTING_PREF,
+    false
+  );
+  if (isRemotePoliciesTesting) {
+    return servePolicyWithRemoteJson(json, customSchema);
   }
-  return servePolicyWithJson(json, customSchema, registerCleanupFunction);
+  return setupPolicyWithJsonFile(json, customSchema);
 }
 
 async function setupPolicyWithJsonFile(json, customSchema) {
@@ -34,22 +44,14 @@ async function setupPolicyWithJsonFile(json, customSchema) {
   return EnterprisePolicyTesting.setupPolicyEngineWithJson(json, customSchema);
 }
 
-function assertOverHttp() {
-  Assert.notEqual(
-    EnterprisePolicyTesting._httpd,
-    undefined,
-    "Making sure HTTP delivery"
-  );
-}
-
-async function servePolicyWithJson(json, customSchema) {
-  return EnterprisePolicyTesting.servePolicyWithJson(json, customSchema);
+async function servePolicyWithRemoteJson(json, customSchema) {
+  return EnterprisePolicyTesting.servePolicyWithRemoteJson(json, customSchema);
 }
 
 function assert_policy_cleanup() {
   is(
-    Services.policies.getActivePolicies(),
-    undefined,
+    JSON.stringify(Services.policies.getActivePolicies()),
+    JSON.stringify({}),
     "No policies should be defined"
   );
   is(
@@ -60,10 +62,6 @@ function assert_policy_cleanup() {
 }
 
 async function test_simple_policies() {
-  let { Policies } = ChromeUtils.importESModule(
-    "resource:///modules/policies/Policies.sys.mjs"
-  );
-
   let policy0Ran = false,
     policy1Ran = false,
     policy2Ran = false,

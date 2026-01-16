@@ -2,28 +2,20 @@
 head = "head.js"
 support-files = ["config_broken_json.json"]
 prefs = [
-  "enterprise.console.address=",
-  "browser.policies.testUseHttp=false",
-  "browser.policies.live_polling.frequency=500",
+  "browser.policies.remote.enabled=false",
+]
+environment = [
+  "MOZ_BYPASS_FELT=1",
+  "MOZ_AUTOMATION=1",
 ]
 
 ["browser_policies_basic_tests.js"]
 
-["browser_policies_basiclive_tests.js"]
-
 ["browser_policies_broken_json.js"]
-
-["browser_policies_diffing.js"]
 
 ["browser_policies_gpo.js"]
 run-if = [
   "os == 'win'",
 ]
 
-["browser_policies_live_proxy.js"]
-
-["browser_policies_missing_live.js"]
-
 ["browser_policies_mistyped_json.js"]
-
-["browser_policies_prefs.js"]

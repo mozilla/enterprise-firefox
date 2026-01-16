@@ -43,20 +43,6 @@ function checkProxyPref(proxytype, address, port, unlocked = true) {
   }
 }
 
-add_setup(async function test_set_http_server_usage() {
-  await SpecialPowers.pushPrefEnv({
-    set: [["browser.policies.testUseHttp", true]],
-  });
-
-  await EnterprisePolicyTesting.servePolicyWithJson(
-    {},
-    {},
-    registerCleanupFunction
-  );
-
-  assertOverHttp();
-});
-
 add_task(async function test_apply_then_remove_proxy() {
   // Assert proxy settings are not set
   checkProxyPref("http", "", 0);
@@ -70,6 +56,7 @@ add_task(async function test_apply_then_remove_proxy() {
     "changeProxySettings is allowed"
   );
 
+  info("Setting up policy engine.")
   await setupPolicyEngineWithJson(
     {
       policies: {
@@ -96,12 +83,11 @@ add_task(async function test_apply_then_remove_proxy() {
     "changeProxySettings is blocked"
   );
 
-  // New policy removing proxy
-  await setupPolicyEngineWithJson(
+  // Remove Proxy policy
+  await EnterprisePolicyTesting.applyRemotePolicies(
     {
       policies: {},
     },
-    null
   );
 
   // Assert proxy settings are remove
@@ -157,12 +143,11 @@ add_task(async function test_apply_then_remove_proxy_locked() {
     "changeProxySettings is blocked"
   );
 
-  // New policy removing proxy
-  await setupPolicyEngineWithJson(
+  // Remove Proxy policy
+  await EnterprisePolicyTesting.applyRemotePolicies(
     {
       policies: {},
     },
-    null
   );
 
   // Assert proxy settings are remove
@@ -206,7 +191,7 @@ add_task(async function test_apply_proxy_then_change_proxy() {
   );
 
   // Network change from device posture? New policy
-  await setupPolicyEngineWithJson(
+  await EnterprisePolicyTesting.applyRemotePolicies(
     {
       policies: {
         Proxy: {
@@ -217,7 +202,6 @@ add_task(async function test_apply_proxy_then_change_proxy() {
         },
       },
     },
-    null
   );
 
   // Assert proxy settings are set
@@ -231,8 +215,4 @@ add_task(async function test_apply_proxy_then_change_proxy() {
     true,
     "changeProxySettings is allowed"
   );
-});
-
-add_task(async function policy_cleanup() {
-  await EnterprisePolicyTesting.servePolicyWithJson({}, {});
 });

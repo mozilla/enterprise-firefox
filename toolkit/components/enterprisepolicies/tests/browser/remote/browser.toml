@@ -1,0 +1,22 @@
+[DEFAULT]
+head = "head.js"
+support-files = ["../head.js"]
+prefs = [
+  "browser.policies.remote.enabled=true",
+  "browser.policies.live_polling.enabled=true",
+  "browser.policies.live_polling.frequency=500",
+]
+environment = [
+  "MOZ_BYPASS_FELT=1",
+  "MOZ_AUTOMATION=1",
+]
+
+["browser_remote_policies_basic.js"]
+
+["browser_remote_policies_diffing.js"]
+
+["browser_remote_policies_live_proxy.js"]
+
+["browser_remote_policies_missing_live.js"]
+
+["browser_remote_policies_prefs.js"]
