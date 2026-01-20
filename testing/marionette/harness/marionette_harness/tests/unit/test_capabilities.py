@@ -74,7 +74,7 @@ class TestCapabilities(MarionetteTestCase):
         self.assertEqual(self.caps["platformName"], self.os_name)
         self.assertEqual(self.caps["proxy"], {})
 
-        if self.appinfo["name"] == "Firefox":
+        if self.appinfo["name"] in ["Firefox", "FirefoxEnterprise"]:
             self.assertTrue(self.caps["setWindowRect"])
         else:
             self.assertFalse(self.caps["setWindowRect"])
