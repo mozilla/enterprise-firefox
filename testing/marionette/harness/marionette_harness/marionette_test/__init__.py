@@ -10,6 +10,7 @@ from .decorators import (
     parameterized,
     run_if_manage_instance,
     skip_if_chrome,
+    skip_if_enterprise,
     skip_if_desktop,
     skip_unless_browser_pref,
     skip_unless_protocol,

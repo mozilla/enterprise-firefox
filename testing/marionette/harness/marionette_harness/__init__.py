@@ -13,6 +13,7 @@ from .marionette_test import (
     run_if_manage_instance,
     skip,
     skip_if_chrome,
+    skip_if_enterprise,
     skip_if_desktop,
     skip_unless_browser_pref,
     skip_unless_protocol,

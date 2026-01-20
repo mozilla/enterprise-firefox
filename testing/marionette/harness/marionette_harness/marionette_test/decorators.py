@@ -99,6 +99,24 @@ def skip_if_desktop(reason):
     return decorator
 
 
+def skip_if_enterprise(reason):
+    """Decorator which skips a test if run on enteerprise build."""
+
+    def decorator(test_item):
+        if not isinstance(test_item, types.FunctionType):
+            raise Exception("Decorator only supported for functions")
+
+        @functools.wraps(test_item)
+        def skip_wrapper(self, *args, **kwargs):
+            if self.marionette.session_capabilities.get("browserName") == "firefoxenterprise":
+                raise SkipTest(reason)
+            return test_item(self, *args, **kwargs)
+
+        return skip_wrapper
+
+    return decorator
+
+
 def skip_unless_browser_pref(reason, pref, predicate=bool):
     """Decorator which skips a test based on the value of a browser preference.
 
