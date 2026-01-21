@@ -7,6 +7,7 @@ from marionette_driver.wait import Wait
 from marionette_harness import (
     MarionetteTestCase,
     parameterized,
+    skip_if_enterprise,
     skip_if_desktop,
 )
 
@@ -28,6 +29,7 @@ class TestScreenOrientation(MarionetteTestCase):
         )
 
     @skip_if_desktop("Not supported in Firefox")
+    @skip_if_enterprise("Not supported in Firefox Enterprise")
     @parameterized("landscape-primary", "landscape-primary")
     @parameterized("landscape-secondary", "landscape-secondary")
     @parameterized("portrait-primary", "portrait-primary")
@@ -37,6 +39,7 @@ class TestScreenOrientation(MarionetteTestCase):
         self.wait_for_orientation(orientation)
 
     @skip_if_desktop("Not supported in Firefox")
+    @skip_if_enterprise("Not supported in Firefox Enterprise")
     def test_set_orientation_to_shorthand_portrait(self):
         # Set orientation to something other than portrait-primary first,
         # since the default is portrait-primary.
@@ -47,16 +50,19 @@ class TestScreenOrientation(MarionetteTestCase):
         self.wait_for_orientation("portrait-primary")
 
     @skip_if_desktop("Not supported in Firefox")
+    @skip_if_enterprise("Not supported in Firefox Enterprise")
     def test_set_orientation_to_shorthand_landscape(self):
         self.marionette.set_orientation("landscape")
         self.wait_for_orientation("landscape-primary")
 
     @skip_if_desktop("Not supported in Firefox")
+    @skip_if_enterprise("Not supported in Firefox Enterprise")
     def test_set_orientation_with_mixed_casing(self):
         self.marionette.set_orientation("lAnDsCaPe")
         self.wait_for_orientation("landscape-primary")
 
     @skip_if_desktop("Not supported in Firefox")
+    @skip_if_enterprise("Not supported in Firefox Enterprise")
     def test_set_invalid_orientation(self):
         with self.assertRaisesRegex(
             errors.MarionetteException, unknown_orientation.format("cheese")
@@ -64,6 +70,7 @@ class TestScreenOrientation(MarionetteTestCase):
             self.marionette.set_orientation("cheese")
 
     @skip_if_desktop("Not supported in Firefox")
+    @skip_if_enterprise("Not supported in Firefox Enterprise")
     def test_set_null_orientation(self):
         with self.assertRaisesRegex(
             errors.MarionetteException, unknown_orientation.format("null")
