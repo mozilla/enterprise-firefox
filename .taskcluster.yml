@@ -356,6 +356,7 @@ tasks:
                             'tasks_for in ["action", "cron", "pr-action"]':
                                 ownTaskId: '${ownTaskId}'
                                 ownerEmail: '${tasks_for}@noreply.mozilla.org'
+                                baseRepoUrl: '${repository.url}'
                                 repoUrl: '${repository.url}'
                                 project: '${repository.project}'
                                 ref: '${push.branch}'
@@ -382,8 +383,6 @@ tasks:
                                 baseRev: '${event.pull_request.base.sha}'
                                 headRev: '${event.pull_request.head.sha}'
                                 isPullRequest: true
-                            'tasks_for == "action"':
-                                baseRepoUrl: '${repository.url}'
                             'tasks_for == "pr-action"':
                                 baseRepoUrl: '${repository.base_url}'
                                 eventType: action
