@@ -54,6 +54,8 @@ export class FeltProcessParent extends JSProcessActorParent {
     this.firefoxReady = false;
     // Track extension ready state (extension must register its observer)
     this.extensionReady = false;
+    // Current loggedInUserInfo
+    this.loggedInUserInfo = null;
 
     this.abnormalExitCounter = 0;
 
@@ -347,22 +349,29 @@ export class FeltProcessParent extends JSProcessActorParent {
         "@mozilla.org/toolkit/profile-service;1"
       ].getService(Ci.nsIToolkitProfileService);
 
+      let profileName = await this.profileName();
+      let legacyProfileName = lazy.FeltCommon.ENTERPRISE_PROFILE;
       let foundProfile = null;
+
       for (let profile of profileService.profiles) {
-        if (profile.name === lazy.FeltCommon.ENTERPRISE_PROFILE) {
-          foundProfile = profile;
+        if (profile.name === profileName) {
           break;
         }
       }
 
       if (!foundProfile) {
-        console.debug(
-          `FeltExtension: creating new ${lazy.FeltCommon.ENTERPRISE_PROFILE} profile`
-        );
-        foundProfile = profileService.createProfile(
-          null,
-          lazy.FeltCommon.ENTERPRISE_PROFILE
-        );
+        for (let profile of profileService.profiles) {
+          if (profile.name === legacyProfileName) {
+            foundProfile = profile;
+            console.warn("using legacy profile");
+            break;
+          }
+        }
+      }
+
+      if (!foundProfile) {
+        console.debug(`FeltExtension: creating new ${profileName} profile`);
+        foundProfile = profileService.createProfile(null, profileName);
 
         await profileService.asyncFlush();
       }
@@ -532,8 +541,11 @@ export class FeltProcessParent extends JSProcessActorParent {
           Services.felt.setTokens(access_token, refresh_token, expires_in);
 
           // TODO: Bug 2003001 - Pass user info from Felt to Firefox to avoid network request on startup
-          const { email } = await lazy.ConsoleClient.getLoggedInUserInfo();
-          lazy.FeltStorage.updateLastSignedInUserEmail(email);
+          this.loggedInUserInfo =
+            await lazy.ConsoleClient.getLoggedInUserInfo();
+          lazy.FeltStorage.updateLastSignedInUserEmail(
+            this.loggedInUserInfo?.email
+          );
 
           const ssoCollectedCookies = this.getAllCookies();
           console.debug(`Collected cookies: ${ssoCollectedCookies.length}`);
@@ -562,4 +574,23 @@ export class FeltProcessParent extends JSProcessActorParent {
       })
     );
   }
+
+  async profileName() {
+    if (this.loggedInUserInfo !== null) {
+      return `${lazy.FeltCommon.ENTERPRISE_PROFILE}-${await hashTo40bits(this.loggedInUserInfo.id)}`;
+    } else {
+      console.error(`FeltExtension: loggedInUserInfo not set`);
+      return lazy.FeltCommon.ENTERPRISE_PROFILE;
+    }
+  }
+}
+
+async function hashTo40bits(s) {
+  const msgUint8 = new TextEncoder().encode(s);
+  const hashBuffer = await globalThis.crypto.subtle.digest("SHA-256", msgUint8);
+  const base64 = new Uint8Array(hashBuffer).slice(0, 5).toBase64({
+    omitPadding: true,
+    alphabet: "base64url",
+  });
+  return base64;
 }
