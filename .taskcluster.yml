@@ -467,9 +467,9 @@ tasks:
                                                 - "tc-treeherder.v2.${project}-pr.${headRev}"
                                             'eventType == "cron"':
                                                 - "index.${trustDomain}.v2.${project}.latest.taskgraph.decision-${cron.job_name}"
-                                                - "index.${trustDomain}.v2.${project}.revision.${head_sha}.taskgraph.decision-${cron.job_name}"
+                                                - "index.${trustDomain}.v2.${project}.revision.${headRev}.taskgraph.decision-${cron.job_name}"
                                                 # list each cron task on this revision, so actions can find them
-                                                - 'index.${trustDomain}.v2.${project}.revision.${head_sha}.cron.${ownTaskId}'
+                                                - 'index.${trustDomain}.v2.${project}.revision.${headRev}.cron.${ownTaskId}'
                               scopes:
                                   $switch:
                                       isPullRequest:
