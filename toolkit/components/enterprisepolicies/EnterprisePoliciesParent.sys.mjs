@@ -117,7 +117,7 @@ EnterprisePoliciesManager.prototype = {
     }
   },
 
-  async _initialize() {
+  _initialize() {
     this._cleanupPolicies();
 
     this._policiesSchema = ChromeUtils.importESModule(
@@ -132,7 +132,8 @@ EnterprisePoliciesManager.prototype = {
       const remoteProvider = RemotePoliciesProvider.getInstance();
       try {
         // Poll and ingest initial set of policies
-        await remoteProvider.ingestPolicies();
+        const remotePoliciesPromise = remoteProvider.ingestPolicies();
+        this.spinResolve(remotePoliciesPromise);
         // Will apply policy updates once policies manager is initialized
         remoteProvider.startPolling();
       } catch (e) {
@@ -541,14 +542,14 @@ EnterprisePoliciesManager.prototype = {
   },
 
   // nsIObserver implementation
-  async observe(aSubject, aTopic) {
+  observe(aSubject, aTopic) {
     this._topicsObserved.add(aTopic);
 
     switch (aTopic) {
       case "policies-startup":
         // Before the first set of policy callbacks runs, we must
         // initialize the service.
-        await this._initialize();
+        this._initialize();
 
         this._runPoliciesCallbacks("onBeforeAddons");
         break;
@@ -764,6 +765,41 @@ EnterprisePoliciesManager.prototype = {
       policiesLength > 0;
 
     return isEnterprise;
+  },
+
+  /**
+   * Spin the event loop until the passed promise resolves.
+   *
+   * @param {Promise} promise
+   * @returns {any} Result of the resolved promise
+   */
+  spinResolve(promise) {
+    if (!(promise instanceof Promise)) {
+      return promise;
+    }
+    let done = false;
+    let result = null;
+    let error = null;
+    promise
+      .catch(e => {
+        error = e;
+      })
+      .then(r => {
+        result = r;
+        done = true;
+      });
+
+    Services.tm.spinEventLoopUntil(
+      "BrowserContentHandler.sys.mjs:BCH_spinResolve",
+      () => done
+    );
+    if (!done) {
+      throw new Error("Forcefully exited event loop.");
+    } else if (error) {
+      throw error;
+    } else {
+      return result;
+    }
   },
 };
 
@@ -1035,7 +1071,7 @@ class RemotePoliciesProvider extends PoliciesProvider {
     if (!this._isPollingEnabled) {
       return;
     }
-    
+
     const res = await lazy.ConsoleClient.getRemotePolicies();
     if (!res.policies) {
       this._policies = {};
