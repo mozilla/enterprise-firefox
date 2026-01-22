@@ -14,6 +14,7 @@ import androidx.appcompat.app.AppCompatDelegate
 import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.work.Configuration.Builder
 import androidx.work.Configuration.Provider
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -156,8 +157,8 @@ open class FocusApplication : LocaleAwareApplication(), Provider {
      * Finish Megazord setup sequence.
      */
     @OpenForTesting
-    open fun finishSetupMegazord() {
-        applicationScope.launch(Dispatchers.IO) {
+    open fun finishSetupMegazord(ioDispatcher: CoroutineDispatcher = Dispatchers.IO) {
+        applicationScope.launch(ioDispatcher) {
             // We need to use an unwrapped client because native components do not support private
             // requests.
             @Suppress("Deprecation")

@@ -50,9 +50,9 @@ class FeltStartsBrowserSafeMode(FeltStartsBrowser):
         self._child_wait.until(lambda d: len(safemode_box.text) > 0)
         self._logger.info(f"about:support safemode: {safemode_box.text}")
         self._logger.info(f"expected safemode: {exp['safemode_box']}")
-        assert (
-            safemode_box.text == exp["safemode_box"]
-        ), f"about:support should report safemode true, was {safemode_box.text}"
+        assert safemode_box.text == exp["safemode_box"], (
+            f"about:support should report safemode true, was {safemode_box.text}"
+        )
 
         return True
 
@@ -95,9 +95,9 @@ class FeltStartsBrowserSafeMode(FeltStartsBrowser):
 
         for [name, enabled] in addons:
             if name == "uBlock Origin":
-                assert (
-                    not enabled
-                ), "Non policy extensions should not be enabled in safe mode"
+                assert not enabled, (
+                    "Non policy extensions should not be enabled in safe mode"
+                )
 
             if name == "Tree Style Tab":
                 assert enabled, "Policy extensions should be enabled in safe mode"

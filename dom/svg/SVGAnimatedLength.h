@@ -68,6 +68,7 @@ class SVGElementMetrics final : public UserSpaceMetrics {
  public:
   explicit SVGElementMetrics(const SVGElement* aSVGElement,
                              const SVGViewportElement* aCtx = nullptr);
+  ~SVGElementMetrics();
 
   float GetEmLength(Type aType) const override {
     return SVGContentUtils::GetFontSize(GetElementForType(aType));
@@ -85,7 +86,7 @@ class SVGElementMetrics final : public UserSpaceMetrics {
   WritingMode GetWritingModeForType(Type aType) const override;
 
   const SVGElement* mSVGElement;
-  mutable const SVGViewportElement* mCtx;
+  mutable RefPtr<const SVGViewportElement> mCtx;
 };
 
 class NonSVGFrameUserSpaceMetrics final : public UserSpaceMetricsWithSize {

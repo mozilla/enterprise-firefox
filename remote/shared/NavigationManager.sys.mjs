@@ -827,13 +827,11 @@ class NavigationRegistry extends EventEmitter {
   };
 
   #onPromptClosed = (eventName, data) => {
-    const { contentBrowser, detail } = data;
-    const { accepted, promptType } = detail;
+    const { detail } = data;
+    const { accepted, browsingContext, promptType } = detail;
 
     // Send navigation failed event if beforeunload prompt was rejected.
     if (promptType === "beforeunload" && accepted === false) {
-      const browsingContext = contentBrowser.browsingContext;
-
       notifyNavigationFailed({
         contextDetails: {
           context: browsingContext,
@@ -845,13 +843,11 @@ class NavigationRegistry extends EventEmitter {
   };
 
   #onPromptOpened = (eventName, data) => {
-    const { contentBrowser, prompt } = data;
+    const { browsingContext, prompt } = data;
     const { promptType } = prompt;
 
     // We should start the navigation when beforeunload prompt is open.
     if (promptType === "beforeunload") {
-      const browsingContext = contentBrowser.browsingContext;
-
       notifyNavigationStarted({
         contextDetails: {
           context: browsingContext,

@@ -9,7 +9,6 @@ from felt_tests import FeltTests
 
 
 class BrowserFxAccount(FeltTests):
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -28,9 +27,9 @@ class BrowserFxAccount(FeltTests):
             """,
         )
 
-        assert (
-            not fxaccounts_toolbar_enabled
-        ), "FxAccount toolbar button shouldn't be visible in the toolbar"
+        assert not fxaccounts_toolbar_enabled, (
+            "FxAccount toolbar button shouldn't be visible in the toolbar"
+        )
 
         return True
 
@@ -49,9 +48,9 @@ class BrowserFxAccount(FeltTests):
         )
 
         self._child_driver.set_context("content")
-        assert (
-            is_restricted_for_enterprise
-        ), "App menu main view should have the attribute restricted-enterprise-view to hide fxa status and separator"
+        assert is_restricted_for_enterprise, (
+            "App menu main view should have the attribute restricted-enterprise-view to hide fxa status and separator"
+        )
 
         return True
 
@@ -75,15 +74,15 @@ class BrowserFxAccount(FeltTests):
         self._child_driver.set_context("content")
 
         console_addr = f"http://localhost:{self.console_port}"
-        assert (
-            fxaccounts_remote_oauth == f"{console_addr}/api/fxa/oauth/v1"
-        ), f"FxAccount remote auth URI correct: {fxaccounts_remote_oauth}"
-        assert (
-            fxaccounts_remote_profile == f"{console_addr}/api/fxa/profile/v1"
-        ), f"FxAccount remote profile URI correct: {fxaccounts_remote_profile}"
-        assert (
-            fxaccounts_auth == f"{console_addr}/api/fxa/api/v1"
-        ), f"FxAccount auth URI correct: {fxaccounts_auth}"
+        assert fxaccounts_remote_oauth == f"{console_addr}/api/fxa/oauth/v1", (
+            f"FxAccount remote auth URI correct: {fxaccounts_remote_oauth}"
+        )
+        assert fxaccounts_remote_profile == f"{console_addr}/api/fxa/profile/v1", (
+            f"FxAccount remote profile URI correct: {fxaccounts_remote_profile}"
+        )
+        assert fxaccounts_auth == f"{console_addr}/api/fxa/api/v1", (
+            f"FxAccount auth URI correct: {fxaccounts_auth}"
+        )
         assert (
             sync_token_server
             == "https://ent-dev-tokenserver.sync.nonprod.webservices.mozgcp.net/1.0/sync/1.5"

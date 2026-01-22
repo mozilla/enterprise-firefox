@@ -4,10 +4,21 @@
 
 /* globals ContentSearchHandoffUIController */
 
+/**
+ * @backward-compat { version 148 }
+ *
+ * Temporary dual implementation to support train hopping. The old handoff UI
+ * is kept alongside the new contentSearchHandoffUI.mjs custom element until
+ * the module lands on all channels. Controlled by the pref
+ * browser.newtabpage.activity-stream.search.useHandoffComponent.
+ * Remove the old implementation and the pref once this ships to Release.
+ */
+
 import { actionCreators as ac, actionTypes as at } from "common/Actions.mjs";
 import { connect } from "react-redux";
 import { Logo } from "content-src/components/Logo/Logo";
 import React from "react";
+import { ExternalComponentWrapper } from "content-src/components/ExternalComponentWrapper/ExternalComponentWrapper";
 
 export class _Search extends React.PureComponent {
   constructor(props) {
@@ -61,21 +72,49 @@ export class _Search extends React.PureComponent {
   }
 
   componentDidMount() {
-    const caret = this.fakeCaret;
-    const { caretBlinkCount, caretBlinkTime } = this.props.Prefs.values;
+    const {
+      caretBlinkCount,
+      caretBlinkTime,
+      "search.useHandoffComponent": useHandoffComponent,
+      "externalComponents.enabled": useExternalComponents,
+    } = this.props.Prefs.values;
 
-    if (caret) {
-      // If caret blink count isn't defined, use the default infinite behavior for animation
-      caret.style.setProperty(
-        "--caret-blink-count",
-        caretBlinkCount > -1 ? caretBlinkCount : "infinite"
-      );
+    if (useExternalComponents) {
+      // Nothing to do - the external component will have set the caret
+      // values itself.
+      return;
+    }
 
-      // Apply custom blink rate if set, else fallback to default (567ms on/off --> 1134ms total)
-      caret.style.setProperty(
-        "--caret-blink-time",
-        caretBlinkTime > 0 ? `${caretBlinkTime * 2}ms` : `${1134}ms`
-      );
+    if (useHandoffComponent) {
+      const { handoffUI } = this;
+      if (handoffUI) {
+        // If caret blink count isn't defined, use the default infinite behavior for animation
+        handoffUI.style.setProperty(
+          "--caret-blink-count",
+          caretBlinkCount > -1 ? caretBlinkCount : "infinite"
+        );
+
+        // Apply custom blink rate if set, else fallback to default (567ms on/off --> 1134ms total)
+        handoffUI.style.setProperty(
+          "--caret-blink-time",
+          caretBlinkTime > 0 ? `${caretBlinkTime * 2}ms` : `${1134}ms`
+        );
+      }
+    } else {
+      const caret = this.fakeCaret;
+      if (caret) {
+        // If caret blink count isn't defined, use the default infinite behavior for animation
+        caret.style.setProperty(
+          "--caret-blink-count",
+          caretBlinkCount > -1 ? caretBlinkCount : "infinite"
+        );
+
+        // Apply custom blink rate if set, else fallback to default (567ms on/off --> 1134ms total)
+        caret.style.setProperty(
+          "--caret-blink-time",
+          caretBlinkTime > 0 ? `${caretBlinkTime * 2}ms` : `${1134}ms`
+        );
+      }
     }
   }
 
@@ -98,6 +137,37 @@ export class _Search extends React.PureComponent {
    * in order to execute searches in various tests
    */
   render() {
+    const useHandoffComponent =
+      this.props.Prefs.values["search.useHandoffComponent"];
+    const useExternalComponents =
+      this.props.Prefs.values["externalComponents.enabled"];
+
+    if (useHandoffComponent) {
+      if (useExternalComponents) {
+        return (
+          <div className="search-wrapper">
+            {this.props.showLogo && <Logo />}
+            <ExternalComponentWrapper
+              type="SEARCH"
+              className="search-inner-wrapper"
+            ></ExternalComponentWrapper>
+          </div>
+        );
+      }
+      return (
+        <div className="search-wrapper">
+          {this.props.showLogo && <Logo />}
+          <div className="search-inner-wrapper">
+            <content-search-handoff-ui
+              ref={el => {
+                this.handoffUI = el;
+              }}
+            ></content-search-handoff-ui>
+          </div>
+        </div>
+      );
+    }
+
     const wrapperClassName = [
       "search-wrapper",
       this.props.disable && "search-disabled",

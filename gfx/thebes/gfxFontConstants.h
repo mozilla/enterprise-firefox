@@ -103,7 +103,7 @@ enum class StyleFontVariantEmoji : uint8_t { Normal, Text, Emoji, Unicode };
 // pref lang id's for font prefs
 enum eFontPrefLang : uint8_t {
 #define FONT_PREF_LANG(enum_id_, str_, atom_id_) eFontPrefLang_##enum_id_
-#include "gfxFontPrefLangList.h"
+#include "gfxFontPrefLangList.inc"
 #undef FONT_PREF_LANG
 
   ,

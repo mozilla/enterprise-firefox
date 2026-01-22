@@ -44,15 +44,15 @@ user-login = "jschanck"
 user-name = "John Schanck"
 
 [[publisher.bhttp]]
-version = "0.6.1"
-when = "2025-06-19"
+version = "0.7.2"
+when = "2025-12-11"
 user-id = 128763
 user-login = "martinthomson"
 user-name = "Martin Thomson"
 
 [[publisher.breakpad-symbols]]
-version = "0.24.0"
-when = "2025-01-06"
+version = "0.26.1"
+when = "2025-11-03"
 user-id = 72814
 user-login = "gabrielesvelto"
 user-name = "Gabriele Svelto"
@@ -233,15 +233,15 @@ user-login = "nical"
 user-name = "Nicolas Silva"
 
 [[publisher.euclid]]
-version = "0.22.10"
-when = "2024-05-21"
+version = "0.22.13"
+when = "2026-01-19"
 user-id = 1281
 user-login = "nical"
 user-name = "Nicolas Silva"
 
 [[publisher.framehop]]
-version = "0.13.0"
-when = "2024-07-24"
+version = "0.15.0"
+when = "2025-08-05"
 user-id = 20227
 user-login = "mstange"
 user-name = "Markus Stange"
@@ -261,15 +261,15 @@ user-login = "jrmuizel"
 user-name = "Jeff Muizelaar"
 
 [[publisher.glean]]
-version = "66.2.0"
-when = "2025-12-09"
+version = "66.3.0"
+when = "2025-12-19"
 user-id = 48
 user-login = "badboy"
 user-name = "Jan-Erik Rediger"
 
 [[publisher.glean-core]]
-version = "66.2.0"
-when = "2025-12-09"
+version = "66.3.0"
+when = "2025-12-19"
 user-id = 48
 user-login = "badboy"
 user-name = "Jan-Erik Rediger"
@@ -380,8 +380,8 @@ user-login = "Amanieu"
 user-name = "Amanieu d'Antras"
 
 [[publisher.macho-unwind-info]]
-version = "0.4.0"
-when = "2024-01-17"
+version = "0.5.0"
+when = "2024-12-06"
 user-id = 20227
 user-login = "mstange"
 user-name = "Markus Stange"
@@ -401,22 +401,22 @@ user-login = "seanmonstar"
 user-name = "Sean McArthur"
 
 [[publisher.minidump]]
-version = "0.24.0"
-when = "2025-01-06"
+version = "0.26.1"
+when = "2025-11-03"
 user-id = 72814
 user-login = "gabrielesvelto"
 user-name = "Gabriele Svelto"
 
 [[publisher.minidump-common]]
-version = "0.24.0"
-when = "2025-01-06"
+version = "0.26.1"
+when = "2025-11-03"
 user-id = 72814
 user-login = "gabrielesvelto"
 user-name = "Gabriele Svelto"
 
 [[publisher.minidump-unwind]]
-version = "0.24.0"
-when = "2025-01-06"
+version = "0.26.1"
+when = "2025-11-03"
 user-id = 72814
 user-login = "gabrielesvelto"
 user-name = "Gabriele Svelto"
@@ -457,8 +457,8 @@ user-login = "seanmonstar"
 user-name = "Sean McArthur"
 
 [[publisher.ohttp]]
-version = "0.6.1"
-when = "2025-06-19"
+version = "0.7.2"
+when = "2025-12-11"
 user-id = 128763
 user-login = "martinthomson"
 user-name = "Martin Thomson"
@@ -492,8 +492,8 @@ user-login = "dtolnay"
 user-name = "David Tolnay"
 
 [[publisher.pe-unwind-info]]
-version = "0.2.3"
-when = "2024-03-04"
+version = "0.6.0"
+when = "2025-08-05"
 user-id = 106639
 user-login = "afranchuk"
 user-name = "Alex Franchuk"
@@ -761,6 +761,13 @@ when = "2025-10-09"
 user-id = 6743
 user-login = "epage"
 user-name = "Ed Page"
+
+[[publisher.typeid]]
+version = "1.0.3"
+when = "2025-03-04"
+user-id = 3618
+user-login = "dtolnay"
+user-name = "David Tolnay"
 
 [[publisher.unicode-ident]]
 version = "1.0.6"
@@ -1322,13 +1329,31 @@ delta = "0.3.27 -> 0.3.31"
 who = "Pat Hickey <pat@moreproductive.org>"
 criteria = "safe-to-deploy"
 delta = "0.3.27 -> 0.3.31"
-notes = "New waker_ref module contains \"FIXME: panics on Arc::clone / refcount changes could wreak havoc...\" comment, but this corner case feels low risk."
+notes = 'New waker_ref module contains "FIXME: panics on Arc::clone / refcount changes could wreak havoc..." comment, but this corner case feels low risk.'
 
 [[audits.bytecode-alliance.audits.gimli]]
 who = "Alex Crichton <alex@alexcrichton.com>"
 criteria = "safe-to-deploy"
 delta = "0.29.0 -> 0.31.0"
 notes = "Various updates here and there, nothing too major, what you'd expect from a DWARF parsing crate."
+
+[[audits.bytecode-alliance.audits.gimli]]
+who = "Alex Crichton <alex@alexcrichton.com>"
+criteria = "safe-to-deploy"
+delta = "0.31.0 -> 0.31.1"
+notes = "No fundmanetally new `unsafe` code, some small refactoring of existing code. Lots of changes in tests, not as many changes in the rest of the crate. More dwarf!"
+
+[[audits.bytecode-alliance.audits.gimli]]
+who = "Alex Crichton <alex@alexcrichton.com>"
+criteria = "safe-to-deploy"
+delta = "0.31.1 -> 0.32.0"
+notes = "Ever more DWARF to parse, but also no new `unsafe` and everything looks like gimli."
+
+[[audits.bytecode-alliance.audits.gimli]]
+who = "Alex Crichton <alex@alexcrichton.com>"
+criteria = "safe-to-deploy"
+delta = "0.32.0 -> 0.32.3"
+notes = "Ever more dwarf, it never ends! (nothing out of the ordinary)"
 
 [[audits.bytecode-alliance.audits.hashbrown]]
 who = "Chris Fallin <chris@cfallin.org>"
@@ -1871,7 +1896,7 @@ who = "Lukasz Anforowicz <lukasza@chromium.org>"
 criteria = "safe-to-deploy"
 version = "1.6.0"
 notes = """
-Grepped for \"unsafe\", \"crypt\", \"cipher\", \"fs\", \"net\" - there were no
+Grepped for "unsafe", "crypt", "cipher", "fs", "net" - there were no
 hits except for 8 occurrences of `unsafe`.  Additional `unsafe` review comments
 can be found in https://crrev.com/c/5445719.
 """
@@ -2606,7 +2631,7 @@ and there were no hits except for:
 * Using `unsafe` in a string:
 
     ```
-    src/constfn.rs:            \"unsafe\" => Qualifiers::Unsafe,
+    src/constfn.rs:            "unsafe" => Qualifiers::Unsafe,
     ```
 
 * Using `std::fs` in `build/build.rs` to write `${OUT_DIR}/version.expr`

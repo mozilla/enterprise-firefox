@@ -319,8 +319,6 @@ newtab-custom-weather-toggle =
     .description = El pronóstico estimado para hoy
 newtab-custom-widget-weather-toggle =
     .label = Clima
-newtab-custom-widget-trending-search-toggle =
-    .label = Búsquedas más populares
 newtab-custom-widget-lists-toggle =
     .label = Listas
 newtab-custom-widget-timer-toggle =
@@ -566,7 +564,7 @@ newtab-download-mobile-highlight-title = Descargar { -brand-product-name } para 
 newtab-download-mobile-highlight-body-variant-a = Escanea el código para navegar de forma segura mientras viajas.
 newtab-download-mobile-highlight-body-variant-b = Continúa donde lo dejaste cuando sincronizas tus pestañas, contraseñas y más.
 
-## Strings for reporting ads and content
+## Strings for reporting issues with ads and content
 
 newtab-report-cancel = Cancelar
 newtab-report-submit = Enviar

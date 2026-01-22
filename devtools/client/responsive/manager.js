@@ -272,7 +272,7 @@ class ResponsiveUIManager {
 
     const menu = window.document.getElementById("menu_responsiveUI");
     if (menu) {
-      menu.setAttribute("checked", this.isActiveForTab(tab));
+      menu.toggleAttribute("checked", this.isActiveForTab(tab));
     }
   }
 

@@ -210,9 +210,9 @@
   <!-- Browser menu button that opens account settings -->
   <string name="browser_menu_account_settings">Fiosrachadh mun chunntas</string>
   <!-- Browser menu button that sends a user to help articles -->
-  <string name="browser_menu_help">Cobhair</string>
+  <string name="browser_menu_help" tools:ignore="UnusedResources" moz:removedIn="149">Cobhair</string>
   <!-- Browser menu button that sends a to a the what's new article -->
-  <string name="browser_menu_whats_new">Na tha ùr</string>
+  <string name="browser_menu_whats_new" tools:ignore="UnusedResources" moz:removedIn="149">Na tha ùr</string>
   <!-- Browser menu button that opens the settings menu -->
   <string name="browser_menu_settings">Roghainnean</string>
   <!-- Browser menu button that opens a user's library -->
@@ -220,7 +220,7 @@
   <!-- Browser menu toggle that requests a desktop site -->
   <string name="browser_menu_desktop_site">An tionndadh desktop</string>
   <!-- Browser menu button that reopens a private tab as a regular tab -->
-  <string name="browser_menu_open_in_regular_tab">Fosgail ann an taba àbhaisteach</string>
+  <string name="browser_menu_open_in_regular_tab" tools:ignore="UnusedResources" moz:removedIn="149">Fosgail ann an taba àbhaisteach</string>
   <!-- Browser menu toggle that adds a shortcut to the site on the device home screen. -->
   <string name="browser_menu_add_to_homescreen">Cuir ris an sgrìn mhòr</string>
   <!-- Browser menu toggle that adds a PWA of the site on the device home screen. -->
@@ -246,7 +246,7 @@
     Browser menu text shown in custom tabs to indicate this is a Fenix tab
     %1$s is the name of the app (for example "Firefox").
   -->
-  <string name="browser_menu_powered_by">LE CUMHACHD %1$s</string>
+  <string name="browser_menu_powered_by" tools:ignore="UnusedResources" moz:removedIn="149">LE CUMHACHD %1$s</string>
   <!--
     Browser menu text shown in custom tabs to indicate this is a Fenix tab
     %1$s is the name of the app (for example "Firefox").
@@ -259,15 +259,15 @@
   <!-- Browser menu button to open the current page in an external app -->
   <string name="browser_menu_open_app_link">Fosgail ann an aplacaid</string>
   <!-- Browser menu button to show reader view appearance controls e.g. the used font type and size -->
-  <string name="browser_menu_customize_reader_view">Gnàthaich sealladh an leughadair</string>
+  <string name="browser_menu_customize_reader_view" tools:ignore="UnusedResources" moz:removedIn="149">Gnàthaich sealladh an leughadair</string>
   <!-- Browser menu button to show reader view appearance controls e.g. the used font type and size -->
   <string name="browser_menu_customize_reader_view_2">Gnàthaich sealladh an leughadair</string>
   <!-- Browser menu label for adding a bookmark -->
-  <string name="browser_menu_add">Cuir ris</string>
+  <string name="browser_menu_add" tools:ignore="UnusedResources" moz:removedIn="149">Cuir ris</string>
   <!-- Browser menu label for editing a bookmark -->
-  <string name="browser_menu_edit">Deasaich</string>
+  <string name="browser_menu_edit" tools:ignore="UnusedResources" moz:removedIn="149">Deasaich</string>
   <!-- Button shown on the home page that opens the Customize home settings -->
-  <string name="browser_menu_customize_home_1">Gnàthaich an duilleag-dhachaigh</string>
+  <string name="browser_menu_customize_home_1" tools:ignore="UnusedResources" moz:removedIn="149">Gnàthaich an duilleag-dhachaigh</string>
   <!-- Browser menu label to sign in to sync on the device using Mozilla accounts -->
   <string name="browser_menu_sign_in">Clàraich a-steach</string>
   <!-- Browser menu caption label for the "Sign in" browser menu item described in `browser_menu_sign_in` -->
@@ -286,10 +286,6 @@
   <string name="browser_close_main_menu_handlebar_content_description">Dùin an clàr-taice</string>
   <!-- Content description (not visible, for screen readers etc.) for main menu navigation header. -->
   <string name="browser_main_menu_content_description_navigation_header">Seòladaireachd</string>
-  <!-- Content description (not visible, for screen readers etc.) for main menu help button. -->
-  <string name="browser_main_menu_content_description_help_button" tools:ignore="UnusedResources" moz:removedIn="146">Cobhair</string>
-  <!-- Content description (not visible, for screen readers etc.) for main menu settings button. -->
-  <string name="browser_main_menu_content_description_settings_button" tools:ignore="UnusedResources" moz:removedIn="146">Roghainnean</string>
   <!-- Content description (not visible, for screen readers etc.) for bottom sheet handlebar extensions menu. -->
   <string name="browser_extensions_menu_handlebar_content_description">An siota airson clàr-taice nan leudachan a dhùnadh</string>
   <!-- Content description (not visible, for screen readers etc.) for bottom sheet handlebar save menu. -->
@@ -307,7 +303,7 @@
   <!-- Browser menu label for navigating to the translation feature, which provides language translation options the current visited page -->
   <string name="browser_menu_translate_page_2">Eadar-theangaich an duilleag</string>
   <!-- Browser menu label for navigating to the Web Compat Reporter feature, which provides users the ability to send bug reports for broken sites. -->
-  <string name="browser_menu_webcompat_reporter">Dèan aithris air làrach bhriste…</string>
+  <string name="browser_menu_webcompat_reporter" tools:ignore="UnusedResources" moz:removedIn="149">Dèan aithris air làrach bhriste…</string>
   <!-- Browser menu label for navigating to the Web Compat Reporter feature, which provides users the ability to send bug reports for broken sites. -->
   <string name="browser_menu_webcompat_reporter_2">Dèan aithris air làrach bhriste</string>
   <!-- Browser menu label that is displayed when the current page has been translated by the translation feature. -->
@@ -419,19 +415,8 @@
   <string name="juno_onboarding_privacy_notice_text" tools:ignore="BrandUsage">Aithris prìobhaideachd Firefox</string>
   <!-- Title for set firefox as default browser screen used by Nimbus experiments. -->
   <string name="juno_onboarding_default_browser_title_nimbus_2">Tha e a’ toirt tlachd dhuinn do chumail sàbhailte</string>
-  <!--
-    Title for set firefox as default browser screen used by Nimbus experiments.
-    Note: The word "Firefox" should NOT be translated
-  -->
-  <string name="juno_onboarding_default_browser_title_nimbus_3" tools:ignore="BrandUsage,UnusedResources" moz:removedIn="146">Fiosraich carson a tha na milleanan mòra dèidheil air Firefox</string>
-  <!-- Title for set firefox as default browser screen used by Nimbus experiments. -->
-  <string name="juno_onboarding_default_browser_title_nimbus_4" tools:ignore="UnusedResources" moz:removedIn="146">Brabhsadh sàbhailte le barrachd roghainnean</string>
   <!-- Description for set firefox as default browser screen used by Nimbus experiments. -->
   <string name="juno_onboarding_default_browser_description_nimbus_3">Cuiridh am brabhsair againn - fear nach eil airson prothaid - casg air companaidhean o bhith gad leantainn gu dìomhair air feadh an lìn.</string>
-  <!-- Description for set firefox as default browser screen used by Nimbus experiments. -->
-  <string name="juno_onboarding_default_browser_description_nimbus_4" tools:ignore="UnusedResources" moz:removedIn="146">Tha barrachd air 100 millean duine a’ dìon na prìobhaideachd aca le brabhsair aig a bheil cùl-taic buidhinn nach ann a-chùm prothaid.</string>
-  <!-- Description for set firefox as default browser screen used by Nimbus experiments. -->
-  <string name="juno_onboarding_default_browser_description_nimbus_5" tools:ignore="UnusedResources" moz:removedIn="146">Tracaichean as aithne dhuinn? Air am bacadh. Leudachain? Còrr is 700. PDFaichean? Nì an leughadair againne am broinn a’ bhrabhsair furasta iad.</string>
   <!-- Text for the button to set firefox as default browser on the device -->
   <string name="juno_onboarding_default_browser_positive_button" tools:ignore="UnusedResources">Suidhich mar am brabhsair bunaiteach</string>
   <!-- Text for the button dismiss the screen and move on with the flow -->
@@ -526,6 +511,10 @@
   <string name="onboarding_marketing_body_1" tools:ignore="BrandUsage,UnusedResources">Innis do chom-pàirtichean margaideachd mar a fhuair thusa lorg air Firefox is gu bheil thu ga chleachdadh. Cha tèid an dàta seo a reic idir.</string>
   <!-- Marketing onboarding page button label variant. Button to confirm choice and start browsing. -->
   <string name="onboarding_marketing_positive_button_1" tools:ignore="UnusedResources">Aontaich is tòisich air brabhsadh</string>
+  <!-- ==== Project "Nova" onboarding strings ==== -->
+
+  <!-- ==== End of Project "Nova" onboarding strings ==== -->
+
   <!-- Onboarding header for the toolbar selection card, used by Nimbus experiments. -->
   <string name="onboarding_customize_toolbar_title" tools:ignore="UnusedResources">Tagh àite dhan bhàr-inneal</string>
   <!-- Onboarding sub header for toolbar selection card, used by Nimbus experiments. -->
@@ -1721,7 +1710,7 @@
   <!-- Summary for the Delete browsing data on quit preference. "Quit" translation should match delete_browsing_data_on_quit_action translation. -->
   <string name="preference_summary_delete_browsing_data_on_quit_2">Sguabaidh seo an dàta brabhsaidh às gu fèin-obrachail nuair a thaghas tu “Fàg an-seo” on phrìomh chlàr-taice.</string>
   <!-- Action item in menu for the Delete browsing data on quit feature -->
-  <string name="delete_browsing_data_on_quit_action">Fàg an-seo</string>
+  <string name="delete_browsing_data_on_quit_action" tools:ignore="UnusedResources" moz:removedIn="149">Fàg an-seo</string>
   <!-- Title text of a delete browsing data dialog. -->
   <string name="delete_history_prompt_title">An rainse-ama a tha ri sguabadh às</string>
   <!-- Body text of a delete browsing data dialog. -->
@@ -2804,4 +2793,10 @@
   -->
   <string name="beta_feature">Beta</string>
   <!-- TextField Design System Component -->
+
+  <!-- ==== Terms of use pop up prompt ==== -->
+
+  <!-- ==== Experiment strings. ==== -->
+
+  <!-- ==== End of Terms of use popup prompt. ==== -->
 </resources>

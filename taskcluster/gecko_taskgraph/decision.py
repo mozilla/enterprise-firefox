@@ -26,6 +26,7 @@ from taskgraph.util.yaml import load_yaml
 
 from . import GECKO
 from .actions import render_actions_json
+from .files_changed import get_changed_files
 from .parameters import get_app_version, get_version
 from .util.backstop import ANDROID_PERFTEST_BACKSTOP_INDEX, BACKSTOP_INDEX, is_backstop
 from .util.bugbug import push_schedules
@@ -130,6 +131,13 @@ PER_PROJECT_PARAMETERS = {
                             "linux64-aarch64-enterprise-shippable",
                         ],
                     },
+                    "enterfox": {
+                        "locales": ["en-US"],
+                        "platforms": [
+                            "linux64-enterprise-shippable",
+                            "linux64-aarch64-enterprise-shippable",
+                        ],
+                    },
                 },
             },
             "repackage-msi": {
@@ -140,11 +148,26 @@ PER_PROJECT_PARAMETERS = {
                             "win64-enterprise-shippable",
                         ],
                     },
+                    "enterfox": {
+                        "locales": ["en-US"],
+                        "platforms": [
+                            "win64-enterprise-shippable",
+                        ],
+                    },
                 },
             },
             "enterprise-repack-repackage": {
                 "sample": {
                     "gcpEU": {
+                        "locales": ["en-US"],
+                        "platforms": [
+                            "linux64-enterprise-shippable",
+                            "linux64-aarch64-enterprise-shippable",
+                            "macosx64-enterprise-shippable",
+                            "win64-enterprise-shippable",
+                        ],
+                    },
+                    "enterfox": {
                         "locales": ["en-US"],
                         "platforms": [
                             "linux64-enterprise-shippable",
@@ -165,11 +188,27 @@ PER_PROJECT_PARAMETERS = {
                             "win64-enterprise-shippable",
                         ],
                     },
+                    "enterfox": {
+                        "locales": ["en-US"],
+                        "platforms": [
+                            "linux64-enterprise-shippable",
+                            "macosx64-enterprise-shippable",
+                            "win64-enterprise-shippable",
+                        ],
+                    },
                 },
             },
             "enterprise-repack-mac-notarization": {
                 "sample": {
                     "gcpEU": {
+                        "locales": ["en-US"],
+                        "platforms": [
+                            "linux64-enterprise-shippable",
+                            "macosx64-enterprise-shippable",
+                            "win64-enterprise-shippable",
+                        ],
+                    },
+                    "enterfox": {
                         "locales": ["en-US"],
                         "platforms": [
                             "linux64-enterprise-shippable",
@@ -381,17 +420,9 @@ def get_decision_parameters(graph_config, options):
             GECKO, revision=parameters["head_rev"]
         )
 
-        changed_files_since_base = set(
-            repo.get_changed_files(
-                rev=parameters["head_rev"], base=parameters["base_rev"]
-            )
+        parameters["files_changed"] = sorted(
+            get_changed_files(parameters["head_repository"], parameters["head_rev"])
         )
-        if "try" in parameters["project"] and options["tasks_for"] == "hg-push":
-            parameters["files_changed"] = sorted(
-                set(repo.get_outgoing_files()) | changed_files_since_base
-            )
-        else:
-            parameters["files_changed"] = sorted(changed_files_since_base)
 
     elif parameters["repository_type"] == "git":
         parameters["hg_branch"] = None
@@ -471,7 +502,11 @@ def get_decision_parameters(graph_config, options):
     # An empty release_history is fine, it just means no partials will be built
     parameters.setdefault("release_history", dict())
     if "nightly" in parameters.get("target_tasks_method", ""):
-        parameters["release_history"] = populate_release_history("Firefox", project)
+        # generate 8 days' worth of partials so users who update once a week
+        # can get to the latest in one step
+        parameters["release_history"] = populate_release_history(
+            "Firefox", project, maxbuilds=16, maxsearch=32
+        )
 
     if options.get("try_task_config_file"):
         task_config_file = os.path.abspath(options.get("try_task_config_file"))

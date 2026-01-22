@@ -4,8 +4,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef _SIPCCSDP_H_
-#define _SIPCCSDP_H_
+#ifndef SIPCCSDP_H_
+#define SIPCCSDP_H_
 
 #include <vector>
 

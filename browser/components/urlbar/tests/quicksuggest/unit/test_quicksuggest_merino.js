@@ -1136,10 +1136,9 @@ async function doUnmanagedTest({ pref, suggestion, shouldBeAdded }) {
   let dismissalPromise = TestUtils.topicObserved(
     "quicksuggest-dismissals-changed"
   );
+  let providersManager = ProvidersManager.getInstanceForSap("urlbar");
   triggerCommand({
-    feature: UrlbarProvidersManager.getProvider(
-      UrlbarProviderQuickSuggest.name
-    ),
+    feature: providersManager.getProvider(UrlbarProviderQuickSuggest.name),
     command: "dismiss",
     result: context.results[0],
     expectedCountsByCall: {

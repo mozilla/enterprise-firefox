@@ -6,8 +6,8 @@
 
 /* atom list for CSS pseudo-elements */
 
-#ifndef nsCSSPseudoElements_h___
-#define nsCSSPseudoElements_h___
+#ifndef nsCSSPseudoElements_h_
+#define nsCSSPseudoElements_h_
 
 #include "mozilla/CSSEnabledState.h"
 #include "mozilla/PseudoStyleType.h"
@@ -67,7 +67,7 @@ class nsCSSPseudoElements {
         static_cast<const nsCSSPseudoElementStaticAtom*>( \
             nsGkAtoms::PseudoElement_##name_));           \
   }
-#include "nsCSSPseudoElementList.h"
+#include "nsCSSPseudoElementList.inc"
 #undef CSS_PSEUDO_ELEMENT
 
   // Returns an empty Request for a syntactically invalid pseudo-element, and
@@ -94,8 +94,6 @@ class nsCSSPseudoElements {
 
   static bool EnabledInContent(Type aType) {
     switch (aType) {
-      case Type::highlight:
-        return mozilla::StaticPrefs::dom_customHighlightAPI_enabled();
       case Type::targetText:
         return mozilla::StaticPrefs::dom_text_fragments_enabled();
       case Type::sliderTrack:
@@ -153,4 +151,4 @@ class nsCSSPseudoElements {
   static const uint32_t kPseudoElementFlags[size_t(Type::CSSPseudoElementsEnd)];
 };
 
-#endif /* nsCSSPseudoElements_h___ */
+#endif /* nsCSSPseudoElements_h_ */

@@ -23,14 +23,13 @@
 #include <stdarg.h>
 #include <string.h>
 
-#include "jsexn.h"
 #include "jsfriendapi.h"
-#include "jsmath.h"
 #include "jstypes.h"
 
 #include "builtin/AtomicsObject.h"
 #include "builtin/Eval.h"
 #include "builtin/JSON.h"
+#include "builtin/Math.h"
 #include "builtin/Promise.h"
 #include "builtin/Symbol.h"
 #include "frontend/FrontendContext.h"  // AutoReportFrontendContext

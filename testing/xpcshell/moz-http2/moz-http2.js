@@ -5,8 +5,6 @@
 // This module is the stateful server side of test_http2.js and is meant
 // to have node be restarted in between each invocation
 
-/* eslint-env node */
-
 var node_http2_root = "../node-http2";
 if (process.env.NODE_HTTP2_ROOT) {
   node_http2_root = process.env.NODE_HTTP2_ROOT;

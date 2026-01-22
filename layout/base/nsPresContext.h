@@ -6,8 +6,8 @@
 
 /* a presentation of a document, part 1 */
 
-#ifndef nsPresContext_h___
-#define nsPresContext_h___
+#ifndef nsPresContext_h_
+#define nsPresContext_h_
 
 #include "FontVisibilityProvider.h"
 #include "Units.h"
@@ -160,7 +160,7 @@ class nsPresContext : public nsISupports,
   /**
    * Initialize the presentation context from a particular device.
    */
-  nsresult Init(nsDeviceContext* aDeviceContext);
+  void Init(nsDeviceContext*);
 
   /**
    * Initialize the font cache if it hasn't been initialized yet.
@@ -1495,4 +1495,4 @@ class nsRootPresContext final : public nsPresContext {
 #  define DO_GLOBAL_REFLOW_COUNT(_name)
 #endif  // MOZ_REFLOW_PERF
 
-#endif /* nsPresContext_h___ */
+#endif /* nsPresContext_h_ */

@@ -1140,7 +1140,7 @@ void nsRFPService::MaybeCreateSpoofingKeyCodesForEnUS() {
   {u""_ns,                                           \
    KEY_NAME_INDEX_##keyNameIdx_,                     \
    {CODE_NAME_INDEX_##_codeNameIdx, _keyCode, MODIFIER_NONE}},
-#include "KeyCodeConsensus_En_US.h"
+#include "KeyCodeConsensus_En_US.inc"
 #undef CONTROL
 #undef KEY
   };
@@ -2006,10 +2006,14 @@ static const char* CanvasFingerprinterToString(
       return "Ozoki";
     case CanvasFingerprinterAlias::ePerimeterX:
       return "PerimeterX";
+    case CanvasFingerprinterAlias::eClientGear:
+      return "ClientGear";
     case CanvasFingerprinterAlias::eSignifyd:
       return "Signifyd";
     case CanvasFingerprinterAlias::eClaydar:
       return "Claydar";
+    case CanvasFingerprinterAlias::eImperva:
+      return "Imperva";
     case CanvasFingerprinterAlias::eForter:
       return "Forter";
     case CanvasFingerprinterAlias::eVariant1:
@@ -2207,6 +2211,20 @@ CanvasUsageSource CanvasUsage::GetCanvasUsageSource(
             logImpossible("Unknown API for Canvas2D");
             return CanvasUsageSource::Impossible;
         }
+      case dom::CanvasContextType::OffscreenCanvas2D:
+        // Very confused about how we get an OffscreenCanvas2D context without
+        // an OffscreenCanvas but it does happen in the wild...
+        switch (api) {
+          case CanvasExtractionAPI::GetImageData:
+            return CanvasUsageSource::
+                MainThread_Canvas_OffscreenCanvas2D_getImageData;
+          case CanvasExtractionAPI::ToBlob:
+            return CanvasUsageSource::
+                MainThread_Canvas_OffscreenCanvas2D_toBlob;
+          default:
+            logImpossible("Unsupported API for OffscreenCanvas2D");
+            return CanvasUsageSource::Impossible;
+        }
       case dom::CanvasContextType::WebGL1:
       case dom::CanvasContextType::WebGL2:
         switch (api) {
@@ -2282,10 +2300,6 @@ CanvasUsageSource CanvasUsage::GetCanvasUsageSource(
           return CanvasUsageSource::Impossible;
       }
     case dom::CanvasContextType::OffscreenCanvas2D:
-      if (isMainThread) {
-        logImpossible("OffscreenCanvas2D on main thread");
-        return CanvasUsageSource::Impossible;
-      }
       switch (api) {
         case CanvasExtractionAPI::GetImageData:
           return Worker_OffscreenCanvasCanvas2D_Canvas2D_getImageData;
@@ -2387,9 +2401,16 @@ static void MaybeCurrentCaller(nsACString& aFilename, uint32_t& aLineNum,
 }
 
 /* static */ void nsRFPService::MaybeReportCanvasFingerprinter(
-    nsTArray<CanvasUsage>& aUses, nsIChannel* aChannel, const nsACString& aURI,
+    nsTArray<CanvasUsage>& aUses, nsIChannel* aChannel, nsIURI* aURI,
     const nsACString& aOriginNoSuffix) {
   if (!aChannel) {
+    return;
+  }
+
+  nsAutoCString scheme;
+  (void)aURI->GetScheme(scheme);
+  // We exclude reporting for chrome and resource URIs.
+  if (scheme.EqualsLiteral("chrome") || scheme.EqualsLiteral("resource")) {
     return;
   }
 
@@ -2482,6 +2503,10 @@ static void MaybeCurrentCaller(nsACString& aFilename, uint32_t& aLineNum,
     fingerprinter = CanvasFingerprinterAlias::eClaydar;
   } else if (accumulatedFeatureUsage & CanvasFeatureUsage::KnownText_23) {
     fingerprinter = CanvasFingerprinterAlias::eForter;
+  } else if (accumulatedFeatureUsage & CanvasFeatureUsage::KnownText_2) {
+    fingerprinter = CanvasFingerprinterAlias::eImperva;
+  } else if (accumulatedFeatureUsage & CanvasFeatureUsage::KnownText_26) {
+    fingerprinter = CanvasFingerprinterAlias::eClientGear;
   } else if (seenExtracted2D_250x80 &&
              accumulatedFeatureUsage & CanvasFeatureUsage::KnownText_6) {
     fingerprinter = CanvasFingerprinterAlias::eVariant5;
@@ -2494,17 +2519,10 @@ static void MaybeCurrentCaller(nsACString& aFilename, uint32_t& aLineNum,
     fingerprinter = CanvasFingerprinterAlias::eVariant1;
   } else if (extractedWebGL > 0 && extracted2D > 1 && seenExtracted2D_860x6) {
     fingerprinter = CanvasFingerprinterAlias::eVariant2;
-  } else if (extractedWebGL > 0 || extracted2D > 0) {
-    fingerprinter = CanvasFingerprinterAlias::eVariant3;
-  } else if (extracted2D > 0 &&
-             (accumulatedFeatureUsage & CanvasFeatureUsage::SetFont) &&
-             (accumulatedFeatureUsage &
-              (CanvasFeatureUsage::FillRect | CanvasFeatureUsage::LineTo |
-               CanvasFeatureUsage::Stroke))) {
-    fingerprinter = CanvasFingerprinterAlias::eVariant4;
   }
 
-  nsAutoCString uri(aURI);
+  nsAutoCString uri;
+  (void)aURI->GetSpec(uri);
   nsAutoCString origin(aOriginNoSuffix);
   nsAutoCString filename;
   if (MOZ_LOG_TEST(gFingerprinterDetection, LogLevel::Info)) {
@@ -2531,16 +2549,27 @@ static void MaybeCurrentCaller(nsACString& aFilename, uint32_t& aLineNum,
            CanvasFingerprinterToString(fingerprinter),
            CanvasUsageSourceToString(accumulatedUsageSource).get()));
 
-  ContentBlockingNotifier::OnEvent(
-      aChannel, false,
-      nsIWebProgressListener::STATE_ALLOWED_CANVAS_FINGERPRINTING, origin,
-      Nothing(), Some(event));
+  NS_DispatchToMainThread(NS_NewRunnableFunction(
+      "nsRFPService::MaybeReportCanvasFingerprinter::NotifyEvent",
+      [channel = nsCOMPtr{aChannel}, origin = nsCString(aOriginNoSuffix),
+       event = event]() {
+        ContentBlockingNotifier::OnEvent(
+            channel, false,
+            nsIWebProgressListener::STATE_ALLOWED_CANVAS_FINGERPRINTING, origin,
+            Nothing(), Some(event));
+      }));
 }
 
 /* static */ void nsRFPService::MaybeReportFontFingerprinter(
-    nsIChannel* aChannel, const nsACString& aURI,
-    const nsACString& aOriginNoSuffix) {
+    nsIChannel* aChannel, nsIURI* aURI, const nsACString& aOriginNoSuffix) {
   if (!aChannel) {
+    return;
+  }
+
+  nsAutoCString scheme;
+  (void)aURI->GetScheme(scheme);
+  // We exclude reporting for chrome and resource URIs.
+  if (scheme.EqualsLiteral("chrome") || scheme.EqualsLiteral("resource")) {
     return;
   }
 
@@ -2551,7 +2580,7 @@ static void MaybeCurrentCaller(nsACString& aFilename, uint32_t& aLineNum,
     NS_DispatchToMainThread(NS_NewRunnableFunction(
         "nsRFPService::MaybeReportFontFingerprinter",
         [channel = nsCOMPtr{aChannel},
-         originNoSuffix = nsCString(aOriginNoSuffix), uri = nsCString(aURI)]() {
+         originNoSuffix = nsCString(aOriginNoSuffix), uri = nsCOMPtr{aURI}]() {
           nsRFPService::MaybeReportFontFingerprinter(channel, uri,
                                                      originNoSuffix);
         }));
@@ -2559,7 +2588,8 @@ static void MaybeCurrentCaller(nsACString& aFilename, uint32_t& aLineNum,
     return;
   }
 
-  nsAutoCString uri(aURI);
+  nsAutoCString uri;
+  (void)aURI->GetSpec(uri);
   nsAutoCString origin(aOriginNoSuffix);
 
   if (MOZ_LOG_TEST(gFingerprinterDetection, LogLevel::Info)) {

@@ -136,11 +136,9 @@ class DocAccessibleParent : public RemoteAccessible,
   virtual mozilla::ipc::IPCResult RecvAccessiblesWillMove(
       nsTArray<uint64_t>&& aIDs) override;
 
-#if !defined(XP_WIN)
   virtual mozilla::ipc::IPCResult RecvAnnouncementEvent(
       const uint64_t& aID, const nsAString& aAnnouncement,
       const uint16_t& aPriority) override;
-#endif
 
   virtual mozilla::ipc::IPCResult RecvTextSelectionChangeEvent(
       const uint64_t& aID, nsTArray<TextRangeData>&& aSelection) override;

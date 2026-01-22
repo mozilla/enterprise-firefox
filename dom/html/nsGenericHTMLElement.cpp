@@ -88,6 +88,7 @@
 #include "nsRange.h"
 #include "nsString.h"
 #include "nsStyleUtil.h"
+#include "nsTableCellFrame.h"
 #include "nsTextNode.h"
 #include "nsThreadUtils.h"
 #include "nscore.h"
@@ -237,8 +238,7 @@ void nsGenericHTMLElement::GetHidden(
   //    return "until-found".
   nsAutoString result;
   if (GetAttr(kNameSpaceID_None, nsGkAtoms::hidden, result)) {
-    if (StaticPrefs::dom_hidden_until_found_enabled() &&
-        result.LowerCaseEqualsLiteral("until-found")) {
+    if (result.LowerCaseEqualsLiteral("until-found")) {
       value.SetStringLiteral(u"until-found");
     } else {
       // 2. If the hidden attribute is set, then return true.
@@ -270,8 +270,7 @@ void nsGenericHTMLElement::SetHidden(
     //    hidden attribute.
     if (stringValue.IsEmpty()) {
       isHidden = false;
-    } else if (StaticPrefs::dom_hidden_until_found_enabled() &&
-               stringValue.LowerCaseEqualsLiteral("until-found")) {
+    } else if (stringValue.LowerCaseEqualsLiteral("until-found")) {
       return SetAttr(nsGkAtoms::hidden, u"until-found"_ns, aRv);
     }
   }
@@ -427,7 +426,7 @@ nsresult nsGenericHTMLElement::BindToTree(BindContext& aContext,
   // as well.
   nsExtendedDOMSlots* slots = GetExistingExtendedDOMSlots();
   if (slots && slots->mLabelsList) {
-    slots->mLabelsList->MaybeResetRoot(SubtreeRoot());
+    slots->mLabelsList->ResetRoots();
   }
 
   return rv;
@@ -475,7 +474,7 @@ void nsGenericHTMLElement::UnbindFromTree(UnbindContext& aContext) {
   // Invalidate .labels list. It will be repopulated when used the next time.
   nsExtendedDOMSlots* slots = GetExistingExtendedDOMSlots();
   if (slots && slots->mLabelsList) {
-    slots->mLabelsList->MaybeResetRoot(SubtreeRoot());
+    slots->mLabelsList->ResetRoots();
   }
 }
 
@@ -907,7 +906,7 @@ EventListenerManager* nsGenericHTMLElement::GetEventListenerManagerForAttr(
 #define FORWARDED_EVENT(name_, id_, type_, struct_) \
   || nsGkAtoms::on##name_ == aAttrName
 #define WINDOW_EVENT FORWARDED_EVENT
-#include "mozilla/EventNameList.h"  // IWYU pragma: keep
+#include "mozilla/EventNameList.inc"  // IWYU pragma: keep
 #undef WINDOW_EVENT
 #undef FORWARDED_EVENT
 #undef EVENT
@@ -998,7 +997,7 @@ EventListenerManager* nsGenericHTMLElement::GetEventListenerManagerForAttr(
                                                                                \
     return nsINode::SetOn##name_(handler);                                     \
   }
-#include "mozilla/EventNameList.h"  // IWYU pragma: keep
+#include "mozilla/EventNameList.inc"  // IWYU pragma: keep
 #undef ERROR_EVENT
 #undef FORWARDED_EVENT
 #undef EVENT
@@ -1102,13 +1101,33 @@ nsMapRuleToAttributesFunc nsGenericHTMLElement::GetAttributeMappingFunction()
   return &MapCommonAttributesInto;
 }
 
-static constexpr nsAttrValue::EnumTableEntry kDivAlignTable[] = {
-    {"left", StyleTextAlign::MozLeft},
-    {"right", StyleTextAlign::MozRight},
-    {"center", StyleTextAlign::MozCenter},
-    {"middle", StyleTextAlign::MozCenter},
-    {"justify", StyleTextAlign::Justify},
+// Represents a possible value for the "align" attribute. Different
+// elements may support different subsets of these values and map
+// them into different CSS properties.
+enum class HTMLAlignValue : uint8_t {
+  Left,
+  Right,
+  Top,
+  Middle,
+  Bottom,
+  Center,
+  Baseline,
+  TextTop,
+  AbsMiddle,
+  AbsCenter,
+  AbsBottom,
+  Justify,
 };
+
+// clang-format off
+static constexpr nsAttrValue::EnumTableEntry kDivAlignTable[] = {
+    {"left", HTMLAlignValue::Left},
+    {"right", HTMLAlignValue::Right},
+    {"center", HTMLAlignValue::Center},
+    {"middle", HTMLAlignValue::Middle},
+    {"justify", HTMLAlignValue::Justify},
+};
+// clang-format on
 
 static constexpr nsAttrValue::EnumTableEntry kFrameborderTable[] = {
     {"yes", FrameBorderProperty::Yes},
@@ -1129,69 +1148,37 @@ static constexpr nsAttrValue::EnumTableEntry kScrollingTable[] = {
 };
 
 static constexpr nsAttrValue::EnumTableEntry kTableVAlignTable[] = {
-    {"top", StyleVerticalAlignKeyword::Top},
-    {"middle", StyleVerticalAlignKeyword::Middle},
-    {"bottom", StyleVerticalAlignKeyword::Bottom},
-    {"baseline", StyleVerticalAlignKeyword::Baseline},
+    {"top", TableCellAlignment::Top},
+    {"middle", TableCellAlignment::Middle},
+    {"bottom", TableCellAlignment::Bottom},
+    {"baseline", TableCellAlignment::Baseline},
 };
 
 static constexpr nsAttrValue::EnumTableEntry kAlignTable[] = {
-    {"left", StyleTextAlign::Left},
-    {"right", StyleTextAlign::Right},
-
-    {"top", StyleVerticalAlignKeyword::Top},
-    {"middle", StyleVerticalAlignKeyword::MozMiddleWithBaseline},
-
-    // Intentionally not bottom.
-    {"bottom", StyleVerticalAlignKeyword::Baseline},
-
-    {"center", StyleVerticalAlignKeyword::MozMiddleWithBaseline},
-    {"baseline", StyleVerticalAlignKeyword::Baseline},
-
-    {"texttop", StyleVerticalAlignKeyword::TextTop},
-    {"absmiddle", StyleVerticalAlignKeyword::Middle},
-    {"abscenter", StyleVerticalAlignKeyword::Middle},
-    {"absbottom", StyleVerticalAlignKeyword::Bottom},
+    {"left", HTMLAlignValue::Left},
+    {"right", HTMLAlignValue::Right},
+    {"top", HTMLAlignValue::Top},
+    {"middle", HTMLAlignValue::Middle},
+    {"bottom", HTMLAlignValue::Bottom},
+    {"center", HTMLAlignValue::Center},
+    {"baseline", HTMLAlignValue::Baseline},
+    {"texttop", HTMLAlignValue::TextTop},
+    {"absmiddle", HTMLAlignValue::AbsMiddle},
+    {"abscenter", HTMLAlignValue::AbsCenter},
+    {"absbottom", HTMLAlignValue::AbsBottom},
 };
 
 bool nsGenericHTMLElement::ParseAlignValue(const nsAString& aString,
                                            nsAttrValue& aResult) {
-  static_assert(uint8_t(StyleTextAlign::Left) !=
-                    uint8_t(StyleVerticalAlignKeyword::Top) &&
-                uint8_t(StyleTextAlign::Left) !=
-                    uint8_t(StyleVerticalAlignKeyword::MozMiddleWithBaseline) &&
-                uint8_t(StyleTextAlign::Left) !=
-                    uint8_t(StyleVerticalAlignKeyword::Baseline) &&
-                uint8_t(StyleTextAlign::Left) !=
-                    uint8_t(StyleVerticalAlignKeyword::TextTop) &&
-                uint8_t(StyleTextAlign::Left) !=
-                    uint8_t(StyleVerticalAlignKeyword::Middle) &&
-                uint8_t(StyleTextAlign::Left) !=
-                    uint8_t(StyleVerticalAlignKeyword::Bottom));
-
-  static_assert(uint8_t(StyleTextAlign::Right) !=
-                    uint8_t(StyleVerticalAlignKeyword::Top) &&
-                uint8_t(StyleTextAlign::Right) !=
-                    uint8_t(StyleVerticalAlignKeyword::MozMiddleWithBaseline) &&
-                uint8_t(StyleTextAlign::Right) !=
-                    uint8_t(StyleVerticalAlignKeyword::Baseline) &&
-                uint8_t(StyleTextAlign::Right) !=
-                    uint8_t(StyleVerticalAlignKeyword::TextTop) &&
-                uint8_t(StyleTextAlign::Right) !=
-                    uint8_t(StyleVerticalAlignKeyword::Middle) &&
-                uint8_t(StyleTextAlign::Right) !=
-                    uint8_t(StyleVerticalAlignKeyword::Bottom));
-
   return aResult.ParseEnumValue(aString, kAlignTable, false);
 }
 
 //----------------------------------------
 
 static constexpr nsAttrValue::EnumTableEntry kTableHAlignTable[] = {
-    {"left", StyleTextAlign::Left},
-    {"right", StyleTextAlign::Right},
-    {"center", StyleTextAlign::Center},
-    {"justify", StyleTextAlign::Justify},
+    {"left", HTMLAlignValue::Left},
+    {"right", HTMLAlignValue::Right},
+    {"center", HTMLAlignValue::Center},
 };
 
 bool nsGenericHTMLElement::ParseTableHAlignValue(const nsAString& aString,
@@ -1203,12 +1190,12 @@ bool nsGenericHTMLElement::ParseTableHAlignValue(const nsAString& aString,
 
 // This table is used for td, th, tr, col, thead, tbody and tfoot.
 static constexpr nsAttrValue::EnumTableEntry kTableCellHAlignTable[] = {
-    {"left", StyleTextAlign::MozLeft},
-    {"right", StyleTextAlign::MozRight},
-    {"center", StyleTextAlign::MozCenter},
-    {"justify", StyleTextAlign::Justify},
-    {"middle", StyleTextAlign::MozCenter},
-    {"absmiddle", StyleTextAlign::Center},
+    {"left", HTMLAlignValue::Left},
+    {"right", HTMLAlignValue::Right},
+    {"center", HTMLAlignValue::Center},
+    {"justify", HTMLAlignValue::Justify},
+    {"middle", HTMLAlignValue::Middle},
+    {"absmiddle", HTMLAlignValue::AbsMiddle},
 };
 
 bool nsGenericHTMLElement::ParseTableCellHAlignValue(const nsAString& aString,
@@ -1345,8 +1332,7 @@ void nsGenericHTMLElement::MapCommonAttributesInto(
   MOZ_ASSERT(!aBuilder.PropertyIsSet(eCSSProperty_content_visibility));
 
   if (const nsAttrValue* hidden = aBuilder.GetAttr(nsGkAtoms::hidden)) {
-    if (StaticPrefs::dom_hidden_until_found_enabled() &&
-        hidden->Equals(nsGkAtoms::untilFound, eIgnoreCase)) {
+    if (hidden->Equals(nsGkAtoms::untilFound, eIgnoreCase)) {
       aBuilder.SetKeywordValue(eCSSProperty_content_visibility,
                                StyleContentVisibility::Hidden);
     } else {
@@ -1399,45 +1385,153 @@ void nsGenericHTMLElement::MapImageAlignAttributeInto(
     MappedDeclarationsBuilder& aBuilder) {
   const nsAttrValue* value = aBuilder.GetAttr(nsGkAtoms::align);
   if (value && value->Type() == nsAttrValue::eEnum) {
-    int32_t align = value->GetEnumValue();
-    if (!aBuilder.PropertyIsSet(eCSSProperty_float)) {
-      if (align == uint8_t(StyleTextAlign::Left)) {
+    switch (HTMLAlignValue(value->GetEnumValue())) {
+      case HTMLAlignValue::Left:
         aBuilder.SetKeywordValue(eCSSProperty_float, StyleFloat::Left);
-      } else if (align == uint8_t(StyleTextAlign::Right)) {
+        break;
+      case HTMLAlignValue::Right:
         aBuilder.SetKeywordValue(eCSSProperty_float, StyleFloat::Right);
-      }
-    }
-    if (!aBuilder.PropertyIsSet(eCSSProperty_vertical_align)) {
-      switch (align) {
-        case uint8_t(StyleTextAlign::Left):
-        case uint8_t(StyleTextAlign::Right):
-          break;
-        default:
-          aBuilder.SetKeywordValue(eCSSProperty_vertical_align, align);
-          break;
-      }
+        break;
+      case HTMLAlignValue::TextTop:
+        aBuilder.SetKeywordValue(eCSSProperty_alignment_baseline,
+                                 StyleAlignmentBaseline::TextTop);
+        break;
+      case HTMLAlignValue::Top:
+        aBuilder.SetKeywordValue(eCSSProperty_baseline_shift,
+                                 StyleBaselineShiftKeyword::Top);
+        break;
+      case HTMLAlignValue::Middle:
+      case HTMLAlignValue::Center:
+        aBuilder.SetKeywordValue(eCSSProperty_alignment_baseline,
+                                 StyleAlignmentBaseline::MozMiddleWithBaseline);
+        break;
+      case HTMLAlignValue::AbsMiddle:
+      case HTMLAlignValue::AbsCenter:
+        aBuilder.SetKeywordValue(eCSSProperty_alignment_baseline,
+                                 StyleAlignmentBaseline::Middle);
+        break;
+      case HTMLAlignValue::AbsBottom:
+        aBuilder.SetKeywordValue(eCSSProperty_baseline_shift,
+                                 StyleBaselineShiftKeyword::Bottom);
+        break;
+      case HTMLAlignValue::Bottom:  // Intentionally mapped to `baseline`
+      case HTMLAlignValue::Baseline:
+        aBuilder.SetKeywordValue(eCSSProperty_alignment_baseline,
+                                 StyleAlignmentBaseline::Baseline);
+        break;
+      default:
+        MOZ_ASSERT_UNREACHABLE("Unexpected align value");
+        break;
     }
   }
 }
 
 void nsGenericHTMLElement::MapDivAlignAttributeInto(
     MappedDeclarationsBuilder& aBuilder) {
-  if (!aBuilder.PropertyIsSet(eCSSProperty_text_align)) {
-    // align: enum
-    const nsAttrValue* value = aBuilder.GetAttr(nsGkAtoms::align);
-    if (value && value->Type() == nsAttrValue::eEnum)
-      aBuilder.SetKeywordValue(eCSSProperty_text_align, value->GetEnumValue());
+  const nsAttrValue* value = aBuilder.GetAttr(nsGkAtoms::align);
+  if (value && value->Type() == nsAttrValue::eEnum) {
+    switch (HTMLAlignValue(value->GetEnumValue())) {
+      case HTMLAlignValue::Left:
+        aBuilder.SetKeywordValue(eCSSProperty_text_align,
+                                 StyleTextAlign::MozLeft);
+        break;
+      case HTMLAlignValue::Right:
+        aBuilder.SetKeywordValue(eCSSProperty_text_align,
+                                 StyleTextAlign::MozRight);
+        break;
+      case HTMLAlignValue::Center:
+      case HTMLAlignValue::Middle:
+        aBuilder.SetKeywordValue(eCSSProperty_text_align,
+                                 StyleTextAlign::MozCenter);
+        break;
+      case HTMLAlignValue::Justify:
+        aBuilder.SetKeywordValue(eCSSProperty_text_align,
+                                 StyleTextAlign::Justify);
+        break;
+      default:
+        MOZ_ASSERT_UNREACHABLE("Unexpected align value");
+        break;
+    }
   }
 }
 
-void nsGenericHTMLElement::MapVAlignAttributeInto(
+void nsGenericHTMLElement::MapTableVAlignAttributeInto(
     MappedDeclarationsBuilder& aBuilder) {
-  if (!aBuilder.PropertyIsSet(eCSSProperty_vertical_align)) {
-    // align: enum
-    const nsAttrValue* value = aBuilder.GetAttr(nsGkAtoms::valign);
-    if (value && value->Type() == nsAttrValue::eEnum)
-      aBuilder.SetKeywordValue(eCSSProperty_vertical_align,
-                               value->GetEnumValue());
+  const nsAttrValue* value = aBuilder.GetAttr(nsGkAtoms::valign);
+  if (value && value->Type() == nsAttrValue::eEnum) {
+    switch (TableCellAlignment(value->GetEnumValue())) {
+      case TableCellAlignment::Top:
+        aBuilder.SetKeywordValue(eCSSProperty_baseline_shift,
+                                 StyleBaselineShiftKeyword::Top);
+        break;
+      case TableCellAlignment::Middle:
+        aBuilder.SetKeywordValue(eCSSProperty_alignment_baseline,
+                                 StyleAlignmentBaseline::Middle);
+        break;
+      case TableCellAlignment::Bottom:
+        aBuilder.SetKeywordValue(eCSSProperty_baseline_shift,
+                                 StyleBaselineShiftKeyword::Bottom);
+        break;
+      case TableCellAlignment::Baseline:
+        aBuilder.SetKeywordValue(eCSSProperty_alignment_baseline,
+                                 StyleAlignmentBaseline::Baseline);
+        break;
+    }
+  }
+}
+
+void nsGenericHTMLElement::MapTableHAlignAttributeInto(
+    MappedDeclarationsBuilder& aBuilder) {
+  const nsAttrValue* value = aBuilder.GetAttr(nsGkAtoms::align);
+  if (value && value->Type() == nsAttrValue::eEnum) {
+    switch (HTMLAlignValue(value->GetEnumValue())) {
+      case HTMLAlignValue::Center:
+        aBuilder.SetAutoValueIfUnset(eCSSProperty_margin_left);
+        aBuilder.SetAutoValueIfUnset(eCSSProperty_margin_right);
+        break;
+      case HTMLAlignValue::Left:
+        aBuilder.SetKeywordValue(eCSSProperty_float, StyleFloat::Left);
+        break;
+      case HTMLAlignValue::Right:
+        aBuilder.SetKeywordValue(eCSSProperty_float, StyleFloat::Right);
+        break;
+      default:
+        MOZ_ASSERT_UNREACHABLE("Unexpected align value");
+        break;
+    }
+  }
+}
+
+void nsGenericHTMLElement::MapTableCellHAlignAttributeInto(
+    MappedDeclarationsBuilder& aBuilder) {
+  const nsAttrValue* value = aBuilder.GetAttr(nsGkAtoms::align);
+  if (value && value->Type() == nsAttrValue::eEnum) {
+    switch (HTMLAlignValue(value->GetEnumValue())) {
+      case HTMLAlignValue::Left:
+        aBuilder.SetKeywordValue(eCSSProperty_text_align,
+                                 StyleTextAlign::MozLeft);
+        break;
+      case HTMLAlignValue::Right:
+        aBuilder.SetKeywordValue(eCSSProperty_text_align,
+                                 StyleTextAlign::MozRight);
+        break;
+      case HTMLAlignValue::Center:
+      case HTMLAlignValue::Middle:
+        aBuilder.SetKeywordValue(eCSSProperty_text_align,
+                                 StyleTextAlign::MozCenter);
+        break;
+      case HTMLAlignValue::AbsMiddle:
+        aBuilder.SetKeywordValue(eCSSProperty_text_align,
+                                 StyleTextAlign::Center);
+        break;
+      case HTMLAlignValue::Justify:
+        aBuilder.SetKeywordValue(eCSSProperty_text_align,
+                                 StyleTextAlign::Justify);
+        break;
+      default:
+        MOZ_ASSERT_UNREACHABLE("Unexpected align value");
+        break;
+    }
   }
 }
 
@@ -1742,17 +1836,21 @@ bool nsGenericHTMLElement::MatchLabelsElement(Element* aElement,
                                               int32_t aNamespaceID,
                                               nsAtom* aAtom, void* aData) {
   HTMLLabelElement* element = HTMLLabelElement::FromNode(aElement);
-  return element && element->GetControl() == aData;
+  return element && element->GetLabeledElementInternal() == aData;
 }
 
-already_AddRefed<nsINodeList> nsGenericHTMLElement::Labels() {
+already_AddRefed<nsINodeList> nsGenericHTMLElement::LabelsForBindings() {
+  return LabelsInternal();
+}
+
+already_AddRefed<nsINodeList> nsGenericHTMLElement::LabelsInternal() {
   MOZ_ASSERT(IsLabelable(),
              "Labels() only allow labelable elements to use it.");
   nsExtendedDOMSlots* slots = ExtendedDOMSlots();
 
   if (!slots->mLabelsList) {
     slots->mLabelsList =
-        new nsLabelsNodeList(SubtreeRoot(), MatchLabelsElement, nullptr, this);
+        new nsLabelsNodeList(this, SubtreeRoot(), MatchLabelsElement, nullptr);
   }
 
   RefPtr<nsLabelsNodeList> labels = slots->mLabelsList;
@@ -1864,11 +1962,11 @@ void nsGenericHTMLFormElement::UnbindFromTree(UnbindContext& aContext) {
       }
     }
 
-    // We have to remove the form id observer if there was one.
+    // We have to remove the form attribute observer if there was one.
     // We will re-add one later if needed (during bind to tree).
     if (nsContentUtils::HasNonEmptyAttr(this, kNameSpaceID_None,
                                         nsGkAtoms::form)) {
-      RemoveFormIdObserver();
+      RemoveFormAttributeObserver();
     }
   }
 
@@ -1911,17 +2009,6 @@ void nsGenericHTMLFormElement::BeforeSetAttr(int32_t aNameSpaceID,
 
       form->RemoveElement(this, false);
     }
-
-    if (aName == nsGkAtoms::form) {
-      // If @form isn't set or set to the empty string, there were no observer
-      // so we don't have to remove it.
-      if (nsContentUtils::HasNonEmptyAttr(this, kNameSpaceID_None,
-                                          nsGkAtoms::form)) {
-        // The current form id observer is no longer needed.
-        // A new one may be added in AfterSetAttr.
-        RemoveFormIdObserver();
-      }
-    }
   }
 
   return nsGenericHTMLElement::BeforeSetAttr(aNameSpaceID, aName, aValue,
@@ -1963,18 +2050,22 @@ void nsGenericHTMLFormElement::AfterSetAttr(
     }
 
     if (aName == nsGkAtoms::form) {
-      // We need a new form id observer.
-      DocumentOrShadowRoot* docOrShadow =
-          GetUncomposedDocOrConnectedShadowRoot();
-      if (docOrShadow) {
-        Element* formIdElement = nullptr;
-        if (aValue && !aValue->IsEmptyString()) {
-          formIdElement = AddFormIdObserver();
+      bool hadOldValue = aOldValue && !aOldValue->GetAtomValue()->IsEmpty();
+      bool hasNewValue = aValue && !aValue->GetAtomValue()->IsEmpty();
+      if (hadOldValue || hasNewValue) {
+        if (!hadOldValue && hasNewValue) {
+          AddFormAttributeObserver();
         }
 
-        // Because we have a new @form value (or no more @form), we have to
-        // update our form owner.
-        UpdateFormOwner(false, formIdElement);
+        // Fire the observer, which will update the form owner if necessary.
+        IDREFAttributeValueChanged(aName, aValue);
+
+        if (hadOldValue && !hasNewValue) {
+          RemoveFormAttributeObserver();
+        }
+      } else if (aValue && aValue->GetAtomValue()->IsEmpty()) {
+        // Ensure that empty @form value clears the form owner.
+        ClearForm(true, false);
       }
     }
   }
@@ -1990,45 +2081,33 @@ void nsGenericHTMLFormElement::ForgetFieldSet(nsIContent* aFieldset) {
   }
 }
 
-Element* nsGenericHTMLFormElement::AddFormIdObserver() {
+Element* nsGenericHTMLFormElement::AddFormAttributeObserver() {
   MOZ_ASSERT(IsFormAssociatedElement());
 
   nsAutoString formId;
-  DocumentOrShadowRoot* docOrShadow = GetUncomposedDocOrConnectedShadowRoot();
   GetAttr(nsGkAtoms::form, formId);
   NS_ASSERTION(!formId.IsEmpty(),
                "@form value should not be the empty string!");
-  RefPtr<nsAtom> atom = NS_Atomize(formId);
 
-  return docOrShadow->AddIDTargetObserver(atom, FormIdUpdated, this, false);
+  return AddAttrAssociatedElementObserver(nsGkAtoms::form,
+                                          FormAttributeUpdated);
 }
 
-void nsGenericHTMLFormElement::RemoveFormIdObserver() {
+void nsGenericHTMLFormElement::RemoveFormAttributeObserver() {
   MOZ_ASSERT(IsFormAssociatedElement());
 
-  DocumentOrShadowRoot* docOrShadow = GetUncomposedDocOrConnectedShadowRoot();
-  if (!docOrShadow) {
-    return;
-  }
-
-  nsAutoString formId;
-  GetAttr(nsGkAtoms::form, formId);
-  NS_ASSERTION(!formId.IsEmpty(),
-               "@form value should not be the empty string!");
-  RefPtr<nsAtom> atom = NS_Atomize(formId);
-
-  docOrShadow->RemoveIDTargetObserver(atom, FormIdUpdated, this, false);
+  RemoveAttrAssociatedElementObserver(nsGkAtoms::form, FormAttributeUpdated);
 }
 
 /* static */
-bool nsGenericHTMLFormElement::FormIdUpdated(Element* aOldElement,
-                                             Element* aNewElement,
-                                             void* aData) {
+bool nsGenericHTMLFormElement::FormAttributeUpdated(Element* aOldElement,
+                                                    Element* aNewElement,
+                                                    Element* thisElement) {
+  NS_ASSERTION(thisElement->IsHTMLElement(),
+               "thisElement should be an HTML element");
+
   nsGenericHTMLFormElement* element =
-      static_cast<nsGenericHTMLFormElement*>(aData);
-
-  NS_ASSERTION(element->IsHTMLElement(), "aData should be an HTML element");
-
+      static_cast<nsGenericHTMLFormElement*>(thisElement);
   element->UpdateFormOwner(false, aNewElement);
 
   return true;
@@ -2119,19 +2198,22 @@ void nsGenericHTMLFormElement::UpdateFormOwner(bool aBindToTree,
         Element* element = nullptr;
 
         if (aBindToTree) {
-          element = AddFormIdObserver();
+          element = AddFormAttributeObserver();
         } else {
           element = aFormIdElement;
         }
 
-        NS_ASSERTION(!IsInComposedDoc() ||
-                         element == GetUncomposedDocOrConnectedShadowRoot()
-                                        ->GetElementById(formId),
-                     "element should be equals to the current element "
-                     "associated with the id in @form!");
+        NS_ASSERTION(
+            !IsInComposedDoc() ||
+                element == GetAttrAssociatedElementInternal(nsGkAtoms::form),
+            "element should be equals to the current element "
+            "associated via @form!");
 
         if (element && element->IsHTMLElement(nsGkAtoms::form) &&
-            nsContentUtils::IsInSameAnonymousTree(this, element)) {
+            element->GetClosestNativeAnonymousSubtreeRoot() ==
+                GetClosestNativeAnonymousSubtreeRoot() &&
+            (StaticPrefs::dom_shadowdom_referenceTarget_enabled() ||
+             element->GetContainingShadow() == GetContainingShadow())) {
           form = static_cast<HTMLFormElement*>(element);
           SetFormInternal(form, aBindToTree);
         }
@@ -2639,6 +2721,14 @@ HTMLFieldSetElement* nsGenericHTMLFormControlElement::GetFieldSet() {
   return GetFieldSetInternal();
 }
 
+mozilla::dom::Element* nsGenericHTMLFormControlElement::GetFormForBindings()
+    const {
+  if (!mForm) {
+    return nullptr;
+  }
+  return RetargetReferenceTargetForBindings(mForm);
+}
+
 void nsGenericHTMLFormControlElement::SetForm(HTMLFormElement* aForm) {
   MOZ_ASSERT(aForm, "Don't pass null here");
   NS_ASSERTION(!mForm,
@@ -2853,12 +2943,19 @@ bool nsGenericHTMLFormControlElementWithState::ParseAttribute(
 }
 
 mozilla::dom::Element*
-nsGenericHTMLFormControlElementWithState::GetPopoverTargetElement() const {
-  return GetAttrAssociatedElement(nsGkAtoms::popovertarget);
+nsGenericHTMLFormControlElementWithState::GetPopoverTargetElementForBindings()
+    const {
+  return GetAttrAssociatedElementForBindings(nsGkAtoms::popovertarget);
 }
 
-void nsGenericHTMLFormControlElementWithState::SetPopoverTargetElement(
-    mozilla::dom::Element* aElement) {
+mozilla::dom::Element*
+nsGenericHTMLFormControlElementWithState::GetPopoverTargetElementInternal()
+    const {
+  return GetAttrAssociatedElementInternal(nsGkAtoms::popovertarget);
+}
+
+void nsGenericHTMLFormControlElementWithState::
+    SetPopoverTargetElementForBindings(mozilla::dom::Element* aElement) {
   ExplicitlySetAttrElement(nsGkAtoms::popovertarget, aElement);
 }
 

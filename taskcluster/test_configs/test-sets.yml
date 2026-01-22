@@ -33,12 +33,12 @@ web-platform-tests:
     - web-platform-tests-eme
 
 web-platform-tests-2404-tsan:
-    # - web-platform-tests
+    - web-platform-tests
     - web-platform-tests-crashtest
     - web-platform-tests-print-reftest
     - web-platform-tests-reftest
     - web-platform-tests-wdspec
-    # - web-platform-tests-canvas
+    - web-platform-tests-canvas
     - web-platform-tests-webcodecs
     - web-platform-tests-eme
 
@@ -193,6 +193,11 @@ linux-tests:
     - test-verify-wpt
     - xpcshell
 
+linux-tests-enterprise:
+    - marionette-integration
+    - mochitest-plain
+    - xpcshell
+
 linux-2404-tsan-tests:
     - cppunittest
     - crashtest
@@ -342,6 +347,11 @@ windows11-24h2-tests:
     - test-verify-wpt
     - xpcshell
 
+windows11-24h2-tests-enterprise:
+    - marionette-integration
+    - mochitest-plain
+    - xpcshell
+
 mingwclang-tests-debug:
     - cppunittest
     - firefox-ui-functional
@@ -427,6 +437,11 @@ macosx1500-64-tests:
     - xpcshell
     - web-platform-tests-webcodecs
     - web-platform-tests-eme
+
+macosx1500-64-tests-enterprise:
+    - marionette-integration
+    - mochitest-plain
+    - xpcshell
 
 macosx1500-aarch64-tests:
     - cppunittest

@@ -176,6 +176,7 @@ class FunctionBox;
   F(SetThis, BinaryNode)                                                  \
   F(ImportMetaExpr, BinaryNode)                                           \
   F(CallImportExpr, BinaryNode)                                           \
+  IF_SOURCE_PHASE_IMPORTS(F(CallImportSourceExpr, BinaryNode))            \
   F(CallImportSpec, BinaryNode)                                           \
   F(InitExpr, BinaryNode)                                                 \
                                                                           \

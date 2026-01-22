@@ -98,7 +98,8 @@ TASK_CONFIG_TESTS = {
     "rebuild": [
         ([], None),
         (["--rebuild", "10"], {"try_task_config": {"rebuild": 10}}),
-        (["--rebuild", "1"], SystemExit),
+        (["--rebuild", "1"], {"try_task_config": {"rebuild": 1}}),
+        (["--rebuild", "0"], SystemExit),
         (["--rebuild", "21"], SystemExit),
     ],
     "worker-overrides": [
@@ -127,7 +128,7 @@ TASK_CONFIG_TESTS = {
         (
             [
                 "--worker-override",
-                "b-linux=worker/pool" "--worker-suffix",
+                "b-linux=worker/pool--worker-suffix",
                 "b-linux=-dev",
             ],
             SystemExit,

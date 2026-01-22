@@ -270,6 +270,11 @@
   value: false
   mirror: always
 
+- name: accessibility.ariaNotify.enabled
+  type: bool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+
 # Whether to enable all accessibility cache domains on startup.
 #  * false: enable domains as needed
 #  * true:  enable all domains regardless of need (cache everything)
@@ -2615,13 +2620,6 @@
   value: true
   mirror: always
 
-# Disable custom highlight API; implementation pending.
-- name: dom.customHighlightAPI.enabled
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-  rust: true
-
 # Allow control characters appear in composition string.
 # When this is false, control characters except
 # CHARACTER TABULATION (horizontal tab) are removed from
@@ -3160,44 +3158,50 @@
 
 # The root margin for image lazy loading, defined as four (value, percentage)
 # pairs.
-- name: dom.image-lazy-loading.root-margin.top
+- name: dom.lazy-loading.margin.top
   type: float
   value: 600
   mirror: always
 
-- name: dom.image-lazy-loading.root-margin.top.percentage
+- name: dom.lazy-loading.margin.top.percentage
   type: bool
   value: false
   mirror: always
 
-- name: dom.image-lazy-loading.root-margin.bottom
+- name: dom.lazy-loading.margin.bottom
   type: float
   value: 600
   mirror: always
 
-- name: dom.image-lazy-loading.root-margin.bottom.percentage
+- name: dom.lazy-loading.margin.bottom.percentage
   type: bool
   value: false
   mirror: always
 
-- name: dom.image-lazy-loading.root-margin.left
+- name: dom.lazy-loading.margin.left
   type: float
   value: 600
   mirror: always
 
-- name: dom.image-lazy-loading.root-margin.left.percentage
+- name: dom.lazy-loading.margin.left.percentage
   type: bool
   value: false
   mirror: always
 
-- name: dom.image-lazy-loading.root-margin.right
+- name: dom.lazy-loading.margin.right
   type: float
   value: 600
   mirror: always
 
-- name: dom.image-lazy-loading.root-margin.right.percentage
+- name: dom.lazy-loading.margin.right.percentage
   type: bool
   value: false
+  mirror: always
+
+# Whether we use scrollMargin or rootMargin
+- name: dom.lazy-loading.margin.is-scroll
+  type: bool
+  value: true
   mirror: always
 
 # Enable indexedDB in private browsing mode with encryption
@@ -3477,6 +3481,27 @@
   value: @IS_ANDROID@
   mirror: always
 
+#ifndef ANDROID
+- name: dom.forms.html_color_picker.enabled
+  type: bool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+#endif
+
+- name: dom.forms.colorspace.enabled
+  type: bool
+  value: true
+  mirror: always
+
+- name: dom.forms.alpha.enabled
+  type: bool
+#ifndef ANDROID
+  value: @IS_NIGHTLY_BUILD@
+#else
+  value: false
+#endif
+  mirror: always
+
 - name: dom.forms.always_allow_pointer_events.enabled
   type: bool
   value: true
@@ -3498,7 +3523,7 @@
 # Whether to enable showPicker() support for datalist.
 - name: dom.input.showPicker_datalist.enabled
   type: bool
-  value: @IS_EARLY_BETA_OR_EARLIER@
+  value: true
   mirror: always
 
 # Does mousewheel-scrolling over a focused <input type="number"> or
@@ -3562,6 +3587,14 @@
 # If this is true, "keypress" event's keyCode value and charCode value always
 # become same if the event is not created/initialized by JS.
 - name: dom.keyboardevent.keypress.set_keycode_and_charcode_to_same_value
+  type: bool
+  value: true
+  mirror: always
+
+# If this is set to true, location.ancestorOrigins feature defined
+# by the spec https://html.spec.whatwg.org/#concept-location-ancestor-origins-list
+# is enabled
+- name: dom.location.ancestorOrigins.enabled
   type: bool
   value: true
   mirror: always
@@ -4140,6 +4173,13 @@
 #endif
   mirror: always
 
+# When enabled, ClearRequestBase::DeleteFiles would use cached temporary origins
+# to clear origin directories rather than scanning the whole storage directory.
+- name: dom.quotaManager.temporaryStorage.clearTemporaryOriginsUsingOriginCache
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
 # A pref that is used to slow down origin operations for testing purposes.
 - name: dom.quotaManager.originOperations.pauseOnIOThreadMs
   type: RelaxedAtomicUint32
@@ -4328,7 +4368,7 @@
 
 # How many reports should be stored in the report queue before being delivered.
 - name: dom.reporting.delivering.maxReports
-  type: uint32_t
+  type: RelaxedAtomicUint32
   value: 100
   mirror: always
 
@@ -4663,6 +4703,12 @@
   value: false
   mirror: always
 
+# pref controls `digital` credentials being exposed
+- name: dom.security.credentialmanagement.digital.enabled
+  type: bool
+  value: false
+  mirror: always
+
 # pref controls `identity` credentials being exposed
 - name: dom.security.credentialmanagement.identity.enabled
   type: bool
@@ -4815,7 +4861,7 @@
 
 - name: dom.workers.throttling.enabled
   type: bool
-  value: @IS_EARLY_BETA_OR_EARLIER@
+  value: true
   mirror: once
 
 - name: dom.workers.serialized-sab-access
@@ -5051,11 +5097,6 @@
   value: false
   mirror: always
 
-- name: dom.hidden_until_found.enabled
-  type: bool
-  value: true
-  mirror: always
-
 - name: dom.text_fragments.enabled
   type: RelaxedAtomicBool
   value: true
@@ -5148,7 +5189,8 @@
     *.nvidia.com,
     *.fedex.com,
     *.msci.com,
-    *.the-saleroom.com
+    *.the-saleroom.com,
+    *.si.com
   mirror: never
 
 # Maximum amount of time in milliseconds consecutive setTimeout()/setInterval()
@@ -5231,6 +5273,12 @@
 - name: dom.viewTransitions.enabled
   type: RelaxedAtomicBool
   value: true
+  mirror: always
+  rust: true
+
+- name: dom.viewTransitions.cross-document.enabled
+  type: RelaxedAtomicBool
+  value: false
   mirror: always
   rust: true
 
@@ -5503,11 +5551,6 @@
   value: true
   mirror: always
 
-- name: dom.w3c_pointer_events.getcoalescedevents_only_in_securecontext
-  type: bool
-  value: true
-  mirror: always
-
 # `click` event target is defined as overridden by pointer capture target in
 # Pointer Events.  Set this to true if we should conform to it.  Otherwise,
 # consider the target from the pointer position, set this to false.
@@ -5637,7 +5680,11 @@
 # Is support for the Web GPU API enabled on service workers?
 - name: dom.webgpu.service-workers.enabled
   type: RelaxedAtomicBool
+#if defined(XP_WIN) || defined(XP_MACOSX) && defined(MOZ_AARCH64)
+  value: true
+#else
   value: @IS_EARLY_BETA_OR_EARLIER@
+#endif
   mirror: always
 
 # Comma-separated list of wgpu backend names to permit in WebGPU adapters.
@@ -5942,6 +5989,12 @@
   type: String
   value: ""
   mirror: never
+
+# Whether to include common ancestor when serializing HTML data for clipboard copy.
+- name: dom.serializer.includeCommonAncestor.enabled
+  type: bool
+  value: false
+  mirror: always
 
 #---------------------------------------------------------------------------
 # Prefs starting with "editor"
@@ -6648,6 +6701,14 @@
   mirror: always
 #endif
 
+#ifdef XP_WIN
+# Use Windows Runtime Geolocator for location service.
+- name: geo.provider.use_winrt
+  type: bool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+#endif
+
 # If true, open system preferences for the user when geolocation is requested
 # by the user but OS geolocation permission is not available.
 - name: geo.prompt.open_system_prefs
@@ -6964,6 +7025,28 @@
 - name: gfx.color_management.rec2020_gamma_as_rec709
   type: RelaxedAtomicBool
   value: true # Match naive behavior, but hopefully we can stop soon!
+  mirror: always
+
+# Enable HDR video support.
+- name: gfx.color_management.hdr_video
+  type: RelaxedAtomicBool
+#if defined(XP_MACOSX) || defined(MOZ_WAYLAND)
+  value: true
+#elif defined(XP_WIN)
+  value: @IS_EARLY_BETA_OR_EARLIER@
+#else
+  value: false
+#endif
+  mirror: always
+
+# Pending a better refactor we assume BT2020 colorspace is used with PQ transfer
+# function (HDR) rather than assuming it is BT709/BT1886 transfer function,
+# we've been making this assumption for a while on macOS HDR videos and it seems
+# to be the norm. We should refactor to get mTransferFunction to compositor code
+# instead...
+- name: gfx.color_management.hdr_video_assume_rec2020_uses_pq
+  type: RelaxedAtomicBool
+  value: true
   mirror: always
 
 #ifdef XP_MACOSX
@@ -7753,7 +7836,7 @@
 - name: gfx.webrender.layer-compositor
   type: bool
 #if defined(XP_WIN)
-  value: @IS_NIGHTLY_BUILD@
+  value: true
 #else
   value: false
 #endif
@@ -7770,6 +7853,15 @@
   value: false
   mirror: once
 #endif
+
+- name: gfx.webrender.dcomp-texture-overlay-win
+  type: bool
+#if defined(XP_WIN)
+  value: @IS_EARLY_BETA_OR_EARLIER@
+#else
+  value: false
+#endif
+  mirror: once
 
 - name: gfx.webrender.scissored-cache-clears.enabled
   type: bool
@@ -8116,6 +8208,12 @@
 #else
   value: false
 #endif
+  mirror: once
+
+# Enable overlays for HDR content
+- name: gfx.webrender.overlay-hdr
+  type: bool
+  value: true
   mirror: once
 
 # Enable a dedicated arena on frame builder threads.
@@ -9005,13 +9103,6 @@
   mirror: always
   set_spidermonkey_pref: startup
 
-  # Experimental support for upsert in JavaScript.
-- name: javascript.options.experimental.upsert
-  type: bool
-  value: true
-  mirror: always
-  set_spidermonkey_pref: startup
-
 # Experimental support for Symbols as WeakMap keys in JavaScript.
 - name: javascript.options.experimental.symbols_as_weakmap_keys
   type: bool
@@ -9032,6 +9123,13 @@
   value: true
   mirror: always
   set_spidermonkey_pref: startup
+
+# Experimental support for Legacy RegExp in JavaScript.
+- name: javascript.options.experimental.legacy_regexp
+  type: bool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+  set_spidermonkey_pref: always
 
 #ifdef NIGHTLY_BUILD
   # Experimental support for Async Iterator Helpers in JavaScript.
@@ -9069,7 +9167,7 @@
   mirror: always
   set_spidermonkey_pref: startup
 
- # Experimental support for Iterator Chunking in JavaScript.
+  # Experimental support for Iterator Chunking in JavaScript.
 - name: javascript.options.experimental.iterator_chunking
   type: bool
   value: false
@@ -9090,6 +9188,13 @@
   mirror: always
   set_spidermonkey_pref: startup
 #endif  // NIGHTLY_BUILD
+
+  # Capture stack traces for OOM
+- name: javascript.options.experimental.capture_oom_stack_trace
+  type: bool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+  set_spidermonkey_pref: startup
 
 # Whether to Baseline-compile self-hosted functions the first time they are
 # used and cache the result.
@@ -9275,6 +9380,12 @@
     mirror: always
     set_spidermonkey_pref: startup
 
+-   name: javascript.options.wasm_compact_imports
+    type: bool
+    value: false
+    mirror: always
+    set_spidermonkey_pref: always
+
 #if defined(ENABLE_WASM_SIMD)
 #if defined(JS_CODEGEN_X64) || defined(JS_CODEGEN_X86)
   # Enables AVX instructions support on X86/X64 platforms.
@@ -9296,14 +9407,6 @@
 -   name: javascript.options.wasm_test_serialization
     type: bool
     value: false
-    mirror: always
-    set_spidermonkey_pref: always
-
-# Enables lazy tiering for wasm modules that have a GC type defined in them.
-# Use wasm_lazy_tiering to enable it for any module.
--   name: javascript.options.wasm_lazy_tiering_for_gc
-    type: bool
-    value: true
     mirror: always
     set_spidermonkey_pref: always
 
@@ -9618,7 +9721,7 @@
 # unstable GPU process, otherwise simply crash the parent process.
 - name: layers.gpu-process.allow-fallback-to-parent
   type: bool
-  value: @IS_NOT_NIGHTLY_BUILD@
+  value: true
   mirror: once
 
 - name: layers.gpu-process.enabled
@@ -9923,7 +10026,7 @@
 # Whether to enable position-try-order
 - name: layout.css.anchor-positioning.position-try-order.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
   rust: true
 
@@ -11021,6 +11124,8 @@
   type: RelaxedAtomicBool
 #if defined(XP_MACOSX) || defined(MOZ_WAYLAND)
   value: true
+#elif defined(XP_WIN)
+  value: @IS_EARLY_BETA_OR_EARLIER@
 #else
   value: false
 #endif
@@ -12268,6 +12373,11 @@
   value: false
   mirror: always
 
+# This pref enables the HTMLMediaElement API captureStream.
+- name: media.captureStream.enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
 
 # This pref disables the reception of RTCP. It is used for testing.
 - name: media.webrtc.net.force_disable_rtcp_reception
@@ -13885,12 +13995,6 @@
   value: false
   mirror: always
 
-# Enables the predictive service.
-- name: network.predictor.enabled
-  type: bool
-  value: false
-  mirror: always
-
 # Disable requests to 0.0.0.0
 # See Bug 1889130
 - name: network.socket.ip_addr_any.disabled
@@ -13933,94 +14037,6 @@
   mirror: always
 
 - name: network.predictor.enable-hover-on-ssl
-  type: bool
-  value: false
-  mirror: always
-
-- name: network.predictor.enable-prefetch
-  type: bool
-  value: false
-  mirror: always
-
-- name: network.predictor.page-degradation.day
-  type: int32_t
-  value: 0
-  mirror: always
-- name: network.predictor.page-degradation.week
-  type: int32_t
-  value: 5
-  mirror: always
-- name: network.predictor.page-degradation.month
-  type: int32_t
-  value: 10
-  mirror: always
-- name: network.predictor.page-degradation.year
-  type: int32_t
-  value: 25
-  mirror: always
-- name: network.predictor.page-degradation.max
-  type: int32_t
-  value: 50
-  mirror: always
-
-- name: network.predictor.subresource-degradation.day
-  type: int32_t
-  value: 1
-  mirror: always
-- name: network.predictor.subresource-degradation.week
-  type: int32_t
-  value: 10
-  mirror: always
-- name: network.predictor.subresource-degradation.month
-  type: int32_t
-  value: 25
-  mirror: always
-- name: network.predictor.subresource-degradation.year
-  type: int32_t
-  value: 50
-  mirror: always
-- name: network.predictor.subresource-degradation.max
-  type: int32_t
-  value: 100
-  mirror: always
-
-- name: network.predictor.prefetch-rolling-load-count
-  type: int32_t
-  value: 10
-  mirror: always
-
-- name: network.predictor.prefetch-min-confidence
-  type: int32_t
-  value: 100
-  mirror: always
-- name: network.predictor.preconnect-min-confidence
-  type: int32_t
-  value: 90
-  mirror: always
-- name: network.predictor.preresolve-min-confidence
-  type: int32_t
-  value: 60
-  mirror: always
-
-- name: network.predictor.prefetch-force-valid-for
-  type: int32_t
-  value: 10
-  mirror: always
-
-- name: network.predictor.max-resources-per-entry
-  type: int32_t
-  value: 100
-  mirror: always
-
-# This is selected in concert with max-resources-per-entry to keep memory
-# usage low-ish. The default of the combo of the two is ~50k.
-- name: network.predictor.max-uri-length
-  type: uint32_t
-  value: 500
-  mirror: always
-
-# A testing flag.
-- name: network.predictor.doing-tests
   type: bool
   value: false
   mirror: always
@@ -14510,7 +14526,7 @@
 # This is the number of dns cache entries allowed
 - name: network.dnsCacheEntries
   type: RelaxedAtomicUint32
-  value: 800
+  value: 1600
   mirror: always
 
 # In the absence of OS TTLs, the DNS cache TTL value
@@ -14914,12 +14930,6 @@
 - name: network.trr.confirmation_timeout_ms
   type: RelaxedAtomicUint32
   value: 6000
-  mirror: always
-
-# The timeout of the TRR confirmation request
-- name: network.trr.confirmation_telemetry_enabled
-  type: RelaxedAtomicBool
-  value: true
   mirror: always
 
 # Whether to send the Accept-Language header for TRR requests
@@ -15560,9 +15570,15 @@
 # Whether to enable Packetization Layer Path MTU Discovery.
 - name: network.http.http3.pmtud
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: false
   mirror: always
   rust: true
+
+# When true, force TRR connections to use HTTP/3 first
+- name: network.trr.force_http3_first
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
 
 # When true, a http request will be upgraded to https when HTTPS RR is
 # available.
@@ -15676,6 +15692,13 @@
   type: String
   value: ""
   mirror: never
+
+# When true, placing the most recent used cache entry
+# to the tail of the EvictionQ.
+- name: network.dns.mru_to_tail
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
 
 # Whether to add additional record IPs to the cache
 - name: network.trr.add_additional_records
@@ -15820,18 +15843,20 @@
   value: true
   mirror: always
 
-  # If true, HTTP response content-type headers will be parsed using the standards-compliant MimeType parser
-- name: network.standard_content_type_parsing.response_headers
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-
 # If true, it will include extra tags to be sniffed by nsUnknownDecoder
 # These tags were previously sniffed by Firefox for legacy/webcompat but
 # are not part of the MIME sniffing spec.
 - name: network.mimesniff.extra_moz_html_tags
   type: RelaxedAtomicBool
   value: false
+  mirror: always
+
+# When true, we will also sniff content beginning with <!--
+# but not followed by space or > as HTML. This differs from the mimesniff
+# standard but matches Chrome.
+- name: network.mimesniff.non_standard_html_comment
+  type: RelaxedAtomicBool
+  value: true
   mirror: always
 
 # The maximum count that we allow socket prrocess to crash. If this count is
@@ -15932,7 +15957,7 @@
 # Enable HTTP Compression Dictionary support
 - name: network.http.dictionaries.enable
   type: RelaxedAtomicBool
-  value: true
+  value: false
   mirror: always
 
 #---------------------------------------------------------------------------
@@ -16791,11 +16816,6 @@
   value: 900
   mirror: always
 
-- name: privacy.sanitize.useOldClearHistoryDialog
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-
 - name: privacy.sanitize.sanitizeOnShutdown
   type: RelaxedAtomicBool
   value: false
@@ -17301,6 +17321,12 @@
     type: RelaxedAtomicBool
     value: true
     mirror: always
+
+  # Whether MITIGATION_EXTENSION_POINT_DISABLE is used for the GPU sandbox.
+-   name: security.sandbox.gpu.extension-point-disable
+    type: RelaxedAtomicBool
+    value: true
+    mirror: always
 #endif
 
 #if defined(XP_LINUX) && defined(MOZ_SANDBOX)
@@ -17602,8 +17628,14 @@
   value: 128
   mirror: always
 
-# Whether or not to enable the test trust anchor list when verifying QWACs
-# (qualified website authentication certificates)
+# Whether or not QWACs (qualified website authentication certificates)
+# processing is enabled.
+- name: security.qwacs.enabled
+  type: bool
+  value: false
+  mirror: always
+
+# Whether or not to enable the test trust anchor list when verifying QWACs.
 - name: security.qwacs.enable_test_trust_anchors
   type: RelaxedAtomicBool
   value: false

@@ -6,8 +6,8 @@
 
 /* base class #1 for rendering objects that have child lists */
 
-#ifndef nsContainerFrame_h___
-#define nsContainerFrame_h___
+#ifndef nsContainerFrame_h_
+#define nsContainerFrame_h_
 
 #include "LayoutConstants.h"
 #include "mozilla/Attributes.h"
@@ -437,13 +437,14 @@ class nsContainerFrame : public nsSplittableFrame {
                                  const nsDisplayListSet& aLists);
 
   /**
-   * Add absolute frame continuations to the display list.
+   * Add pushed absolute frames to the display list.
    *
-   * Note: for absolute frame's first-in-flow, it will be painted through its
+   * Note: for an absolute frame's first-in-flow without the
+   * NS_FRAME_IS_PUSHED_OUT_OF_FLOW bit, it will be painted through its
    * placeholder frame.
    */
-  void DisplayAbsoluteContinuations(nsDisplayListBuilder* aBuilder,
-                                    const nsDisplayListSet& aLists);
+  void DisplayPushedAbsoluteFrames(nsDisplayListBuilder* aBuilder,
+                                   const nsDisplayListSet& aLists);
 
   /**
    * Builds display lists for the children. The background
@@ -1097,4 +1098,4 @@ class nsOverflowContinuationTracker {
   bool mWalkOOFFrames;
 };
 
-#endif /* nsContainerFrame_h___ */
+#endif /* nsContainerFrame_h_ */

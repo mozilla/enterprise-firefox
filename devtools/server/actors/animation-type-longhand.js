@@ -14,6 +14,7 @@ exports.ANIMATION_TYPE_FOR_LONGHANDS = [
       "align-content",
       "align-items",
       "align-self",
+      "alignment-baseline",
       "aspect-ratio",
       "appearance",
       "backface-visibility",
@@ -348,6 +349,7 @@ exports.ANIMATION_TYPE_FOR_LONGHANDS = [
   [
     "coord",
     new Set([
+      "baseline-shift",
       "border-bottom-left-radius",
       "border-bottom-right-radius",
       "border-top-left-radius",
@@ -409,7 +411,6 @@ exports.ANIMATION_TYPE_FOR_LONGHANDS = [
       "text-decoration-thickness",
       "text-underline-offset",
       "top",
-      "vertical-align",
       "width",
       "word-spacing",
       "x",

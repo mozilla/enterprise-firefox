@@ -18,7 +18,6 @@ from selenium.webdriver.support.ui import WebDriverWait
 
 
 class BrowserSignout(FeltTests):
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -84,9 +83,9 @@ class BrowserSignout(FeltTests):
         self._logger.info("Checking user icon is updated in badge.")
         user_icon = self.get_elem_child("#enterprise-user-icon")
         picture_url = user_icon.value_of_css_property("list-style-image")
-        assert (
-            picture_url == f"url(\"{whoami['picture']}\")"
-        ), "User's picture not correctly set on user icon"
+        assert picture_url == f'url("{whoami["picture"]}")', (
+            "User's picture not correctly set on user icon"
+        )
 
         self._logger.info("Clicking enterprise panel")
         badge.click()
@@ -96,9 +95,9 @@ class BrowserSignout(FeltTests):
 
         self._logger.info("Checking user email address updated in enterprise panel")
         email = self.get_elem_child(".panelUI-enterprise__email")
-        assert (
-            email.get_property("textContent") == whoami["email"]
-        ), "User email not correctly set"
+        assert email.get_property("textContent") == whoami["email"], (
+            "User email not correctly set"
+        )
 
         self._child_driver.set_context("content")
 
@@ -152,9 +151,9 @@ class BrowserSignout(FeltTests):
             self.felt_whoami()
             assert False, "Error on signout"
         except JavascriptException as ex:
-            assert (
-                ex.msg == "InvalidAuthError: Unhandled reauthentication"
-            ), "Deauth done"
+            assert ex.msg == "InvalidAuthError: Unhandled reauthentication", (
+                "Deauth done"
+            )
             return True
         except NoSuchWindowException:
             return True
@@ -173,9 +172,9 @@ class BrowserSignout(FeltTests):
 
         self._driver.set_context("chrome")
         email = self.get_elem("#felt-form__email").get_property("value")
-        assert (
-            email == self._signed_in_email
-        ), "Expected email to be pre-filled after signout"
+        assert email == self._signed_in_email, (
+            "Expected email to be pre-filled after signout"
+        )
         self._driver.set_context("content")
 
         self.test_felt_00_chrome_on_email_submit(exp)
@@ -208,9 +207,9 @@ class BrowserSignout(FeltTests):
             )
         )
 
-        assert (
-            len(expected_cookie) == 1
-        ), f"Cookie {self.cookie_name} was properly set on Firefox started by FELT, found {expected_cookie}"
+        assert len(expected_cookie) == 1, (
+            f"Cookie {self.cookie_name} was properly set on Firefox started by FELT, found {expected_cookie}"
+        )
 
         return True
 

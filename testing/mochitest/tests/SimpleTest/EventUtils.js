@@ -853,21 +853,21 @@ function synthesizeMouseAtCenter(aTarget, aEvent, aWindow, aCallback) {
 
 /**
  * @typedef {object} TouchEventData
- * @property {boolean} [aEvent.asyncEnabled] - If `true`, the event is
+ * @property {boolean} [asyncEnabled] - If `true`, the event is
  * dispatched to the parent process through APZ, without being injected
  * into the OS event queue.
- * @property {string} [aEvent.type] - The touch event type. If undefined,
+ * @property {string} [type] - The touch event type. If undefined,
  * "touchstart" and "touchend" will be synthesized at same point.
- * @property {number | number[]} [aEvent.id] - The touch id. If you don't specify this,
+ * @property {number | number[]} [id] - The touch id. If you don't specify this,
  * default touch id will be used for first touch and further touch ids
  * are the values incremented from the first id.
- * @property {number | number[]} [aEvent.ry] - The X radius in CSS pixels of the touch
- * @property {number | number[]} [aEvent.ry] - The Y radius in CSS pixels of the touch
- * @property {number | number[]} [aEvent.angle] - The angle in degrees
- * @property {number | number[]} [aEvent.force] - The force of the touch
- * @property {number | number[]} [aEvent.tiltX] - The X tilt of the touch
- * @property {number | number[]} [aEvent.tiltY] - The Y tilt of the touch
- * @property {number | number[]} [aEvent.twist] - The twist of the touch
+ * @property {number | number[]} [rx] - The X radius in CSS pixels of the touch
+ * @property {number | number[]} [ry] - The Y radius in CSS pixels of the touch
+ * @property {number | number[]} [angle] - The angle in degrees
+ * @property {number | number[]} [force] - The force of the touch
+ * @property {number | number[]} [tiltX] - The X tilt of the touch
+ * @property {number | number[]} [tiltY] - The Y tilt of the touch
+ * @property {number | number[]} [twist] - The twist of the touch
  */
 
 /**
@@ -1029,36 +1029,37 @@ function synthesizeTouchAtPoint(aLeft, aTop, aEvent = {}, aWindow = window) {
   const tiltYArray = getSameLengthArrayOfEventProperty("tiltY", 0);
   const twistArray = getSameLengthArrayOfEventProperty("twist", 0);
 
-  const modifiers = _parseModifiers(aEvent, aWindow);
-
-  const asyncOption = aEvent.asyncEnabled
-    ? utils.ASYNC_ENABLED
-    : utils.ASYNC_DISABLED;
-
-  const args = [
-    idArray,
-    leftArray,
-    topArray,
-    rxArray,
-    ryArray,
-    angleArray,
-    forceArray,
-    tiltXArray,
-    tiltYArray,
-    twistArray,
-    modifiers,
-    asyncOption,
-  ];
-
-  const sender =
-    aEvent.mozInputSource === "pen" ? "sendTouchEventAsPen" : "sendTouchEvent";
-
-  if ("type" in aEvent && aEvent.type) {
-    return utils[sender](aEvent.type, ...args);
+  const touches = [];
+  for (let i = 0; i < arrayLength; i++) {
+    touches.push({
+      identifier: idArray[i],
+      offsetX: leftArray[i],
+      offsetY: topArray[i],
+      radiiX: rxArray[i],
+      radiiY: ryArray[i],
+      rotationAngle: angleArray[i],
+      pressure: forceArray[i],
+      tiltX: tiltXArray[i],
+      tiltY: tiltYArray[i],
+      twist: twistArray[i],
+    });
   }
 
-  utils[sender]("touchstart", ...args);
-  utils[sender]("touchend", ...args);
+  const args = [
+    touches,
+    _parseModifiers(aEvent, aWindow),
+    {
+      isAsyncEnabled: aEvent.asyncEnabled || false,
+      isPen: aEvent.mozInputSource === "pen",
+    },
+  ];
+
+  if ("type" in aEvent && aEvent.type) {
+    return _EU_maybeWrap(aWindow).synthesizeTouchEvent(aEvent.type, ...args);
+  }
+
+  _EU_maybeWrap(aWindow).synthesizeTouchEvent("touchstart", ...args);
+  _EU_maybeWrap(aWindow).synthesizeTouchEvent("touchend", ...args);
   return false;
 }
 
@@ -1081,48 +1082,48 @@ function synthesizeTouchAtCenter(aTarget, aEvent = {}, aWindow = window) {
 
 /**
  * @typedef {object} WheelEventData
- * @property {string} [aEvent.accessKey] - The character or key associated with
+ * @property {string} [accessKey] - The character or key associated with
  *     the access key event. Typically a single character used to activate a UI
  *     element via keyboard shortcuts (e.g., Alt + accessKey).
- * @property {boolean} [aEvent.altKey] - If set to `true`, the Alt key will be
+ * @property {boolean} [altKey] - If set to `true`, the Alt key will be
  *     considered pressed.
- * @property {boolean} [aEvent.asyncEnabled] - If `true`, the event is
+ * @property {boolean} [asyncEnabled] - If `true`, the event is
  *     dispatched to the parent process through APZ, without being injected
  *     into the OS event queue.
- * @property {boolean} [aEvent.ctrlKey] - If set to `true`, the Ctrl key will
+ * @property {boolean} [ctrlKey] - If set to `true`, the Ctrl key will
  *     be considered pressed.
- * @property {number} [aEvent.deltaMode=WheelEvent.DOM_DELTA_PIXEL] - Delta Mode
+ * @property {number} [deltaMode=WheelEvent.DOM_DELTA_PIXEL] - Delta Mode
  *     for scrolling (pixel, line, or page), which must be one of the
  *     `WheelEvent.DOM_DELTA_*` constants.
- * @property {number} [aEvent.deltaX=0] - Floating-point value in CSS pixels to
+ * @property {number} [deltaX=0] - Floating-point value in CSS pixels to
  *     scroll in the x direction.
- * @property {number} [aEvent.deltaY=0] - Floating-point value in CSS pixels to
+ * @property {number} [deltaY=0] - Floating-point value in CSS pixels to
  *     scroll in the y direction.
- * @property {number} [aEvent.deltaZ=0] - Floating-point value in CSS pixels to
+ * @property {number} [deltaZ=0] - Floating-point value in CSS pixels to
  *     scroll in the z direction.
- * @property {number} [aEvent.expectedOverflowDeltaX] - Decimal value
+ * @property {number} [expectedOverflowDeltaX] - Decimal value
  *     indicating horizontal scroll overflow. Only the sign is checked: `0`,
  *     positive, or negative.
- * @property {number} [aEvent.expectedOverflowDeltaY] - Decimal value
+ * @property {number} [expectedOverflowDeltaY] - Decimal value
  *     indicating vertical scroll overflow. Only the sign is checked: `0`,
  *     positive, or negative.
- * @property {boolean} [aEvent.isCustomizedByPrefs] - If set to `true` the
+ * @property {boolean} [isCustomizedByPrefs] - If set to `true` the
  *     delta values are computed from preferences.
- * @property {boolean} [aEvent.isMomentum] - If set to `true` the event will be
+ * @property {boolean} [isMomentum] - If set to `true` the event will be
  *     caused by momentum.
- * @property {boolean} [aEvent.isNoLineOrPageDelta] - If `true`, the creator
+ * @property {boolean} [isNoLineOrPageDelta] - If `true`, the creator
  *     does not set `lineOrPageDeltaX/Y`. When a widget wheel event is
  *     generated from this object, those fields will be automatically
  *     calculated during dispatch by the `EventStateManager`.
- * @property {number} [aEvent.lineOrPageDeltaX] - If set to a non-zero value
+ * @property {number} [lineOrPageDeltaX] - If set to a non-zero value
  *      for a `DOM_DELTA_PIXEL` event, the EventStateManager will dispatch a
  *     `NS_MOUSE_SCROLL` event for a horizontal scroll.
- * @property {number} [aEvent.lineOrPageDeltaY] - If set to a non-zero value
+ * @property {number} [lineOrPageDeltaY] - If set to a non-zero value
  *     for a `DOM_DELTA_PIXEL` event, the EventStateManager will dispatch a
  *     `NS_MOUSE_SCROLL` event for a vertical scroll.
- * @property {boolean} [aEvent.metaKey] - If set to `true`, the Meta key will
+ * @property {boolean} [metaKey] - If set to `true`, the Meta key will
  *     be considered pressed.
- * @property {boolean} [aEvent.shiftKey] - If set to `true`, the Shift key will
+ * @property {boolean} [shiftKey] - If set to `true`, the Shift key will
  *     be considered pressed.
  */
 
@@ -4164,14 +4165,10 @@ function _checkDataTransferItems(aDataTransfer, aExpectedDragData) {
 }
 
 /**
- * This callback type is used with ``synthesizePlainDragAndCancel()``.
- * It should compare ``actualData`` and ``expectedData`` and return
- * true if the two should be considered equal, false otherwise.
- *
- * @callback eqTest
- * @param {*} actualData
- * @param {*} expectedData
- * @return {boolean}
+ * @typedef {(actualData: any, expectedData: any) -> boolean} eqTest
+ *   This callback type is used with ``synthesizePlainDragAndCancel()``.
+ *   It should compare ``actualData`` and ``expectedData`` and return
+ *   true if the two should be considered equal, false otherwise.
  */
 
 /**
@@ -4188,14 +4185,14 @@ function _checkDataTransferItems(aDataTransfer, aExpectedDragData) {
  *
  *        [
  *          [
- *            {"type": value, "data": value, eqTest: function}
+ *            {"type": value, "data": value, "eqTest": eqTest}
  *            ...,
  *          ],
  *          ...
  *        ]
  *
  *        This can also be null.
- *        You can optionally provide ``eqTest`` {@type eqTest} if the
+ *        You can optionally provide ``eqTest`` if the
  *        comparison to the expected data transfer items can't be done
  *        with x == y;
  * @return {boolean}

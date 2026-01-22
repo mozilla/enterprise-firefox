@@ -41,7 +41,7 @@ export function pickCanonicalUrl(sources) {
  * @param {Document} document
  * @returns {string|null}
  */
-function getLinkRelCanonical(document) {
+export function getLinkRelCanonical(document) {
   return document.querySelector('link[rel="canonical"]')?.getAttribute("href");
 }
 
@@ -51,7 +51,7 @@ function getLinkRelCanonical(document) {
  * @param {Document} document
  * @returns {string|null}
  */
-function getOpenGraphUrl(document) {
+export function getOpenGraphUrl(document) {
   return document
     .querySelector('meta[property="og:url"]')
     ?.getAttribute("content");
@@ -66,8 +66,8 @@ function getOpenGraphUrl(document) {
  * @param {Document} document
  * @returns {string|null}
  */
-function getJSONLDUrl(document) {
-  return Array.from(
+export function getJSONLDUrl(document) {
+  const firstMatch = Array.from(
     document.querySelectorAll('script[type="application/ld+json"]')
   )
     .map(script => {
@@ -77,18 +77,20 @@ function getJSONLDUrl(document) {
         return null;
       }
     })
-    .find(obj => obj?.url)?.url;
+    .find(obj => obj && obj.url && typeof obj.url === "string");
+  return firstMatch?.url;
 }
 
 /**
  * @param {Document} document
  * @returns {string|null}
  */
-function getFallbackCanonicalUrl(document) {
+export function getFallbackCanonicalUrl(document) {
   const fallbackUrl = URL.parse(document.documentURI);
   if (fallbackUrl) {
-    fallbackUrl.hash = "";
-    return fallbackUrl.toString();
+    return [fallbackUrl.origin, fallbackUrl.pathname, fallbackUrl.search].join(
+      ""
+    );
   }
   return null;
 }

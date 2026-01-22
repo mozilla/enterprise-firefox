@@ -47,14 +47,6 @@
 #endif
 
 #if defined(_MSC_VER)
-/*
- * g++ requires -std=c++0x or -std=gnu++0x to support C++11 functionality
- * without warnings (functionality used by the macros below).  These modes are
- * detectable by checking whether __GXX_EXPERIMENTAL_CXX0X__ is defined or, more
- * standardly, by checking whether __cplusplus has a C++11 or greater value.
- * Current versions of g++ do not correctly set __cplusplus, so we check both
- * for forward compatibility.
- */
 #  define MOZ_HAVE_NEVER_INLINE __declspec(noinline)
 #elif defined(__clang__)
 /*

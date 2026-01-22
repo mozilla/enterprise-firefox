@@ -807,8 +807,8 @@ add_task(async function conflicting_alias() {
   let engine = await addTestSuggestionsEngine();
   let keyword = "test";
   engine.alias = keyword;
-  let oldDefaultEngine = await Services.search.getDefault();
-  Services.search.setDefault(engine, Ci.nsISearchService.CHANGE_REASON_UNKNOWN);
+  let oldDefaultEngine = await SearchService.getDefault();
+  SearchService.setDefault(engine, Ci.nsISearchService.CHANGE_REASON_UNKNOWN);
 
   let extensionName = "Omnibox Example";
 
@@ -877,7 +877,7 @@ add_task(async function conflicting_alias() {
     ],
   });
 
-  Services.search.setDefault(
+  SearchService.setDefault(
     oldDefaultEngine,
     Ci.nsISearchService.CHANGE_REASON_UNKNOWN
   );

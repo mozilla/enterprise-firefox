@@ -4,8 +4,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef nsColorControlFrame_h___
-#define nsColorControlFrame_h___
+#ifndef nsColorControlFrame_h_
+#define nsColorControlFrame_h_
 
 #include "ButtonControlFrame.h"
 #include "nsCOMPtr.h"
@@ -52,4 +52,4 @@ class nsColorControlFrame final : public mozilla::ButtonControlFrame {
   nsCOMPtr<Element> mColorContent;
 };
 
-#endif  // nsColorControlFrame_h___
+#endif  // nsColorControlFrame_h_

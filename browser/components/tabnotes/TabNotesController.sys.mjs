@@ -5,6 +5,8 @@
  */
 import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
+/** @import { CanonicalURLParent } from "./CanonicalURLParent.sys.mjs" */
+
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
@@ -95,13 +97,11 @@ class TabNotesControllerClass {
    * @see tabnotes.manifest
    */
   quit() {
-    if (lazy.TAB_NOTES_ENABLED) {
-      lazy.TabNotes.deinit();
-    }
+    lazy.TabNotes.deinit();
   }
 
   /**
-   * @param {CanonicalURLIdentifiedEvent|TabNoteCreatedEvent|TabNoteRemovedEvent} event
+   * @param {CanonicalURLIdentifiedEvent|TabNoteCreatedEvent|TabNoteEditedEvent|TabNoteRemovedEvent} event
    */
   handleEvent(event) {
     switch (event.type) {
@@ -124,6 +124,12 @@ class TabNotesControllerClass {
         break;
       case "TabNote:Created":
         {
+          const { telemetrySource } = event.detail;
+          if (telemetrySource) {
+            Glean.tabNotes.added.record({
+              source: telemetrySource,
+            });
+          }
           // A new tab note was created for a specific canonical URL. Ensure that
           // all tabs with the same canonical URL also indicate that there is a
           // tab note.
@@ -138,8 +144,32 @@ class TabNotesControllerClass {
           lazy.logConsole.debug("TabNote:Created", canonicalUrl);
         }
         break;
+      case "TabNote:Edited":
+        {
+          const { canonicalUrl } = event.target;
+          const { telemetrySource } = event.detail;
+          if (telemetrySource) {
+            Glean.tabNotes.edited.record({
+              source: telemetrySource,
+            });
+          }
+          lazy.logConsole.debug("TabNote:Edited", canonicalUrl);
+        }
+        break;
       case "TabNote:Removed":
         {
+          const { telemetrySource, note } = event.detail;
+          const now = Temporal.Now.instant();
+          const noteAgeHours = Math.round(
+            now.since(note.created).total("hours")
+          );
+          if (telemetrySource) {
+            Glean.tabNotes.deleted.record({
+              source: telemetrySource,
+              note_age_hours: noteAgeHours,
+            });
+          }
+
           // A new tab note was removed from a specific canonical URL. Ensure that
           // all tabs with the same canonical URL also indicate that there is no
           // longer a tab note.
@@ -174,11 +204,60 @@ class TabNotesControllerClass {
     if (!aWebProgress.isTopLevel) {
       return;
     }
-    // If we're still on the same page, the tab note indicator does not need to change.
+
     if (aFlags & Ci.nsIWebProgressListener.LOCATION_CHANGE_SAME_DOCUMENT) {
+      if (
+        aWebProgress.loadType & Ci.nsIDocShell.LOAD_CMD_RELOAD ||
+        aWebProgress.loadType & Ci.nsIDocShell.LOAD_CMD_HISTORY
+      ) {
+        // User is reloading/returning to the same document via history. We
+        // can count on CanonicalURLChild to listen for `pageshow` and tell us
+        // about the canonical URL at the new location.
+        lazy.logConsole.debug(
+          "reload/history navigation, waiting for pageshow",
+          aLocation.spec
+        );
+        return;
+      }
+
+      if (aFlags & Ci.nsIWebProgressListener.LOCATION_CHANGE_HASHCHANGE) {
+        // The web site modified the hash/fragment identifier part of the URL
+        // directly. TODO: determine how and whether to handle `hashchange`.
+        lazy.logConsole.debug("fragment identifier changed", aLocation.spec);
+        return;
+      }
+
+      if (aWebProgress.loadType & Ci.nsIDocShell.LOAD_CMD_PUSHSTATE) {
+        // Web page is using `history.pushState()` to change URLs. There isn't
+        // a way for CanonicalURLChild to detect this in the content process,
+        // so we need to ask it to recalculate canonical URLs to see if they
+        // changed.
+        /** @type {CanonicalURLParent|undefined} */
+        let parent =
+          aBrowser.browsingContext?.currentWindowGlobal.getExistingActor(
+            "CanonicalURL"
+          );
+
+        if (parent) {
+          parent.sendAsyncMessage("CanonicalURL:Detect");
+          lazy.logConsole.debug(
+            "requesting CanonicalURL:Detect due to history.pushState",
+            aLocation.spec
+          );
+        }
+
+        return;
+      }
+
+      // General same document case: we are navigating in the same document,
+      // so the tab note indicator does not need to change.
       return;
     }
 
+    // General case: we are doing normal navigation to another URL, so we
+    // clear the canonical URL/tab note state on the tab and wait for
+    // `CanonicalURL:Identified` to tell us whether the new location has
+    // a tab note.
     const tab = aBrowser.ownerGlobal.gBrowser.getTabForBrowser(aBrowser);
     tab.canonicalUrl = undefined;
     tab.hasTabNote = false;

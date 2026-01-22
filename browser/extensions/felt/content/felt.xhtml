@@ -5,6 +5,7 @@
 
 <html
   xmlns="http://www.w3.org/1999/xhtml"
+  xmlns:xul="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
   role="document"
   class="system-font-size"
   id="felt-window"
@@ -16,6 +17,7 @@
     <link rel="stylesheet" href="chrome://felt/content/styles/felt.css" />
     <link rel="localization" href="preview/felt.ftl" />
     <link rel="localization" href="branding/brand.ftl" />
+    <link rel="localization" href="browser/browser.ftl" />
     <script
       type="application/javascript"
       src="chrome://global/content/customElements.js"
@@ -28,6 +30,32 @@
   </head>
 
   <body>
+    <xul:panel
+      id="notification-popup"
+      type="arrow"
+      position="after_start"
+      hidden="true"
+      orient="vertical"
+      noautofocus="true"
+      role="alert"
+      remote="true"
+    />
+
+    <xul:box
+      id="notification-popup-box"
+      class="anchor-root"
+      hidden="true"
+      align="start"
+    >
+      <!-- We won't display the icon but need it as anchor element. -->
+      <xul:image
+        id="webauthn-notification-icon"
+        class="notification-anchor-icon"
+        role="button"
+        data-l10n-id="urlbar-web-authn-anchor"
+      />
+    </xul:box>
+
     <div class="felt">
       <div class="felt-logo">
         <div class="felt-logo__container"></div>
@@ -52,6 +80,13 @@
               ></moz-button>
             </div>
           </form>
+        </div>
+        <div class="felt-browser-error is-hidden">
+          <span
+            class="felt-browser-error-multiple-crashes is-hidden"
+            data-l10n-id="felt-browser-error-multiple-crashes"
+          >
+          </span>
         </div>
         <span
           class="felt-powered-by text-deemphasized"

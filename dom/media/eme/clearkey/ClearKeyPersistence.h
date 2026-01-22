@@ -14,12 +14,11 @@
  * limitations under the License.
  */
 
-#ifndef __ClearKeyPersistence_h__
-#define __ClearKeyPersistence_h__
+#ifndef ClearKeyPersistence_h_
+#define ClearKeyPersistence_h_
 
 // This include is required in order for content_decryption_module to work
 // on Unix systems.
-#include <stddef.h>
 
 #include <functional>
 #include <set>
@@ -59,4 +58,4 @@ class ClearKeyPersistence : public RefCounted {
   void WriteIndex();
 };
 
-#endif  // __ClearKeyPersistence_h__
+#endif  // ClearKeyPersistence_h_

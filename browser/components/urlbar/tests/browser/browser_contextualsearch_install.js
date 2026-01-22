@@ -75,14 +75,14 @@ add_task(async function test_contextualsearch_install_deny() {
     window.gNotificationBox.getNotificationWithValue(NOTIFICATION_VALUE);
   Assert.ok(!notificationBar, "No notification is not shown after deny chosen");
 
-  Services.search.wrappedJSObject._settings.setMetaDataAttribute(
+  SearchService.wrappedJSObject._settings.setMetaDataAttribute(
     "contextual-engines-seen",
     {}
   );
 });
 
 add_task(async function test_contextualsearch_install() {
-  let initialEngines = await Services.search.getVisibleEngines();
+  let initialEngines = await SearchService.getVisibleEngines();
   await loadUri(ENGINE_TEST_URL);
   await performContextualSearch("search");
 
@@ -111,7 +111,7 @@ add_task(async function test_contextualsearch_install() {
   await promiseEngineAdded;
 
   Assert.greater(
-    (await Services.search.getVisibleEngines()).length,
+    (await SearchService.getVisibleEngines()).length,
     initialEngines.length,
     "New engine was installed"
   );
@@ -135,9 +135,9 @@ add_task(async function test_contextualsearch_install() {
   await UrlbarTestUtils.exitSearchMode(window);
   await UrlbarTestUtils.promisePopupClose(window);
 
-  let engine = Services.search.getEngineByName("Foo");
-  await Services.search.removeEngine(engine);
-  Services.search.wrappedJSObject._settings.setMetaDataAttribute(
+  let engine = SearchService.getEngineByName("Foo");
+  await SearchService.removeEngine(engine);
+  SearchService.wrappedJSObject._settings.setMetaDataAttribute(
     "contextual-engines-seen",
     {}
   );

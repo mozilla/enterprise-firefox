@@ -6,8 +6,8 @@
 
 /* the caret is the text cursor used, e.g., when editing */
 
-#ifndef nsCaret_h__
-#define nsCaret_h__
+#ifndef nsCaret_h_
+#define nsCaret_h_
 
 #include "mozilla/MemoryReporting.h"
 #include "mozilla/SelectionMovementUtils.h"
@@ -195,6 +195,7 @@ class nsCaret final : public nsISelectionListener {
   // If we're tracking the selection, this updates the caret position and
   // invalidates paint as needed.
   void UpdateCaretPositionFromSelectionIfNeeded();
+  void UpdateHiddenDuringSelection();
 
   mozilla::WeakPtr<mozilla::dom::Selection> mDomSelectionWeak;
 
@@ -259,4 +260,4 @@ class nsCaret final : public nsISelectionListener {
   bool mHiddenDuringSelection = false;
 };
 
-#endif  // nsCaret_h__
+#endif  // nsCaret_h_

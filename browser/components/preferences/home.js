@@ -86,11 +86,37 @@ if (Services.prefs.getBoolPref("browser.settings-redesign.enabled")) {
     id: "homepageGoToCustomHomepageUrlPanel",
     deps: ["homepageNewWindows"],
     visible: ({ homepageNewWindows }) => {
-      return homepageNewWindows.value == "custom";
+      return homepageNewWindows.value === "custom";
     },
     onUserClick: () => {
-      // Bug 1969951 - Navigate to Custom Homepage Subpage
+      gotoPref("customHomepage");
     },
+  });
+
+  // Custom Homepage Subpage: layout items
+  Preferences.addSetting({
+    id: "customHomepageCard",
+  });
+
+  Preferences.addSetting({
+    id: "customHomepageBoxGroup",
+  });
+
+  Preferences.addSetting({
+    id: "customHomepageBoxForm",
+  });
+
+  Preferences.addSetting({
+    id: "customHomepageBoxUrlList",
+  });
+
+  Preferences.addSetting({
+    id: "customHomepageBoxActions",
+  });
+
+  // temp filler id for Custom URL subpage setup - to be removed in follow-up patches
+  Preferences.addSetting({
+    id: "customHomepagePlaceholderButton",
   });
 
   // Homepage / New Tabs

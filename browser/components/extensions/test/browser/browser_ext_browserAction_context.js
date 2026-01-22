@@ -194,7 +194,7 @@ async function runTests(options) {
       "badge text is correct"
     );
     is(
-      button.getAttribute("disabled") == "true",
+      button.hasAttribute("disabled"),
       !details.enabled,
       "disabled state is correct"
     );

@@ -43,6 +43,7 @@
   }
 }
 
+toolbar[inactive="true"] .urlbar,
 #urlbar[actiontype="switchtab"][action-override] > .urlbar-input-container > #urlbar-label-box,
 #urlbar:not([actiontype="switchtab"], [actiontype="extension"]) > .urlbar-input-container > #urlbar-label-box,
 #urlbar:not([actiontype="switchtab"]) > .urlbar-input-container > #urlbar-label-box > #urlbar-label-switchtab,
@@ -50,8 +51,9 @@
 .urlbar-input-container[pageproxystate="invalid"] > #page-action-buttons > .urlbar-page-action,
 #identity-box.chromeUI ~ #page-action-buttons > .urlbar-page-action:not(#star-button-box, #split-view-button),
 #urlbar[usertyping] > .urlbar-input-container > #page-action-buttons > #urlbar-zoom-button,
-.urlbar:is(:not([usertyping]), :not([focused])) > .urlbar-input-container > .urlbar-go-button,
-.urlbar-revert-button-container {
+.urlbar:not([usertyping]) > .urlbar-input-container > .urlbar-go-button,
+.urlbar:not(#searchbar-new, [focused]) > .urlbar-input-container > .urlbar-go-button,
+#urlbar-revert-button-container {
   display: none;
 }
 
@@ -150,7 +152,7 @@
   outline: none;
 }
 
-.urlbar-input {
+#urlbar .urlbar-input {
   mask-repeat: no-repeat;
   unicode-bidi: plaintext;
   text-align: match-parent;
@@ -360,9 +362,11 @@
 }
 
 .urlbar-input-box {
-  /* Show the url scheme in a static box when overflowing to the left */
-  position: relative;
-  direction: ltr;
+  #urlbar & {
+    /* Show the url scheme in a static box when overflowing to the left */
+    position: relative;
+    direction: ltr;
+  }
 
   :root[customizing] & {
     visibility: hidden;
@@ -847,7 +851,7 @@
 
 /* Persisted Search revert button */
 
-.urlbar-revert-button {
+#urlbar-revert-button {
   list-style-image: url(chrome://global/skin/icons/defaultFavicon.svg);
   fill: var(--toolbarbutton-icon-fill-attention);
 
@@ -856,8 +860,8 @@
   }
 }
 
-.urlbar[persistsearchterms] > .urlbar-input-container {
-  > .urlbar-revert-button-container {
+#urlbar[persistsearchterms] > .urlbar-input-container {
+  > #urlbar-revert-button-container {
     display: inherit;
   }
 
@@ -1161,21 +1165,19 @@
 
   .urlbar[searchmode] & {
     background-color: var(--urlbar-box-bgcolor);
-    margin-inline-end: 0;
-    border-start-end-radius: 0;
-    border-end-end-radius: 0;
   }
 
-  /* The background rule should match to .searchmode-switcher-chicklet */
   .urlbar[focused] & {
     background-color: var(--urlbar-box-focus-bgcolor);
   }
 
-  /* stylelint-disable media-query-no-invalid */
-  @media (not -moz-pref("browser.urlbar.searchModeSwitcher.featureGate")) and (not -moz-pref("browser.urlbar.scotchBonnet.enableOverride")) {
-    display: none;
+  .urlbar:not(#searchbar-new) & {
+    /* stylelint-disable media-query-no-invalid */
+    @media (not -moz-pref("browser.urlbar.searchModeSwitcher.featureGate")) and (not -moz-pref("browser.urlbar.scotchBonnet.enableOverride")) {
+      display: none;
+    }
+    /* stylelint-enable media-query-no-invalid */
   }
-  /* stylelint-enable media-query-no-invalid */
 }
 
 .searchmode-switcher-icon {
@@ -1186,50 +1188,25 @@
   list-style-image: url("chrome://global/skin/icons/search-glass.svg");
 }
 
-.searchmode-switcher-chicklet {
-  background-color: var(--urlbar-box-bgcolor);
-  border-start-end-radius: var(--toolbarbutton-border-radius);
-  border-end-end-radius: var(--urlbar-inner-border-radius);
-  align-items: center;
-  height: 100%;
-  max-width: 40%;
-  margin-inline-end: var(--urlbar-searchmodeswitcher-margin-inline-end);
-  display: none;
-
-  /* stylelint-disable-next-line media-query-no-invalid */
-  @media -moz-pref("browser.urlbar.searchModeSwitcher.featureGate") or -moz-pref("browser.urlbar.scotchBonnet.enableOverride") {
-    .urlbar[searchmode] & {
-      display: inline-flex;
-    }
-  }
-
-  .urlbar[focused] & {
-    background-color: var(--urlbar-box-focus-bgcolor);
-  }
-}
-
 .searchmode-switcher-title {
+  display: none;
   margin: 0;
   align-items: center;
   text-overflow: ellipsis;
   overflow: hidden;
   white-space: nowrap;
   max-width: var(--search-engine-name-max-width);
-  margin-inline-end: var(--urlbar-searchmodeswitcher-inline-padding);
+  margin-inline: var(--urlbar-searchmodeswitcher-inline-padding);
 
-  &:empty {
-    display: none;
-  }
-
-  #searchbar-new & {
-    display: none;
+  .urlbar:not(#searchbar-new)[searchmode] & {
+    display: inline-flex;
   }
 }
 
 .searchmode-switcher-close {
+  display: none;
   appearance: none;
   pointer-events: all;
-  margin-inline-end: var(--urlbar-searchmodeswitcher-inline-padding);
 
   .urlbar[searchmode] & {
     display: inline-flex;
@@ -1289,27 +1266,29 @@
   #urlbar[searchmode] > .urlbar-input-container > #urlbar-search-mode-indicator {
     display: none;
   }
-
   /* stylelint-disable-next-line media-query-no-invalid */
   @media not -moz-pref("browser.urlbar.unifiedSearchButton.always") {
-    .searchmode-switcher {
-      background-color: var(--urlbar-box-bgcolor);
-      .urlbar:not([unifiedsearchbutton-available]) > .urlbar-input-container > & {
-        /* Display as off-screen to get focus */
-        position: fixed;
-        top: -999px;
-      }
-    }
-
-    .searchmode-switcher-dropmarker {
-      margin-inline-start: var(--urlbar-searchmodeswitcher-inline-padding);
-    }
-
     #urlbar[pageproxystate="invalid"] {
       #identity-box,
       #tracking-protection-icon-container {
         display: none;
       }
     }
+  }
+}
+
+/* stylelint-disable-next-line media-query-no-invalid */
+@media not -moz-pref("browser.urlbar.unifiedSearchButton.always") {
+  .searchmode-switcher {
+    background-color: var(--urlbar-box-bgcolor);
+    .urlbar:not([unifiedsearchbutton-available]) > .urlbar-input-container > & {
+      /* Display as off-screen to get focus */
+      position: fixed;
+      top: -999px;
+    }
+  }
+
+  .searchmode-switcher-dropmarker {
+    margin-inline-start: var(--urlbar-searchmodeswitcher-inline-padding);
   }
 }

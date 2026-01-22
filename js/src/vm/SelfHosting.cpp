@@ -19,8 +19,6 @@
 #include <iterator>
 
 #include "jsfriendapi.h"
-#include "jsmath.h"
-#include "jsnum.h"
 #include "selfhosted.out.h"
 
 #include "builtin/Array.h"
@@ -39,6 +37,8 @@
 #  include "builtin/intl/Segmenter.h"
 #endif
 #include "builtin/MapObject.h"
+#include "builtin/Math.h"
+#include "builtin/Number.h"
 #include "builtin/Object.h"
 #include "builtin/Promise.h"
 #include "builtin/Reflect.h"
@@ -1048,7 +1048,7 @@ static bool intrinsic_RegExpCreate(JSContext* cx, unsigned argc, Value* vp) {
                 args[1].isString() || args[1].isUndefined());
   MOZ_ASSERT(!args.isConstructing());
 
-  return RegExpCreate(cx, args[0], args.get(1), args.rval());
+  return RegExpCreate(cx, args[0], args.get(1), args.rval(), nullptr);
 }
 
 static bool intrinsic_RegExpGetSubstitution(JSContext* cx, unsigned argc,
@@ -1295,19 +1295,6 @@ bool js::ReportIncompatibleSelfHostedMethod(
 }
 
 #ifdef JS_HAS_INTL_API
-static bool intrinsic_DefaultLocale(JSContext* cx, unsigned argc, Value* vp) {
-  CallArgs args = CallArgsFromVp(argc, vp);
-  MOZ_ASSERT(args.length() == 0);
-
-  auto* locale = cx->global()->globalIntlData().defaultLocale(cx);
-  if (!locale) {
-    return false;
-  }
-
-  args.rval().setString(locale);
-  return true;
-}
-
 static bool intrinsic_DefaultTimeZone(JSContext* cx, unsigned argc, Value* vp) {
   CallArgs args = CallArgsFromVp(argc, vp);
   MOZ_ASSERT(args.length() == 0);
@@ -1886,7 +1873,6 @@ static const JSFunctionSpec intrinsic_functions[] = {
     JS_FN("intl_ComputeDisplayName", intl_ComputeDisplayName, 6, 0),
     JS_FN("intl_CreateSegmentIterator", intl_CreateSegmentIterator, 1, 0),
     JS_FN("intl_CreateSegmentsObject", intl_CreateSegmentsObject, 2, 0),
-    JS_FN("intl_DefaultLocale", intrinsic_DefaultLocale, 0, 0),
     JS_FN("intl_DefaultTimeZone", intrinsic_DefaultTimeZone, 0, 0),
     JS_FN("intl_FindNextSegmentBoundaries", intl_FindNextSegmentBoundaries, 1,
           0),
@@ -1897,7 +1883,6 @@ static const JSFunctionSpec intrinsic_functions[] = {
     JS_FN("intl_FormatNumber", intl_FormatNumber, 3, 0),
     JS_FN("intl_FormatNumberRange", intl_FormatNumberRange, 4, 0),
     JS_FN("intl_FormatRelativeTime", intl_FormatRelativeTime, 4, 0),
-    JS_FN("intl_GetCalendarInfo", intl_GetCalendarInfo, 1, 0),
     JS_FN("intl_GetPluralCategories", intl_GetPluralCategories, 1, 0),
     JS_INLINABLE_FN("intl_GuardToCollator",
                     intrinsic_GuardToBuiltin<CollatorObject>, 1, 0,
@@ -1937,26 +1922,21 @@ static const JSFunctionSpec intrinsic_functions[] = {
     JS_FN("intl_IsWrappedNumberFormat",
           intrinsic_IsWrappedInstanceOfBuiltin<NumberFormatObject>, 1, 0),
     JS_FN("intl_NumberFormat", intl_NumberFormat, 2, 0),
+    JS_FN("intl_ResolveLocale", intl_ResolveLocale, 3, 0),
     JS_FN("intl_SelectPluralRule", intl_SelectPluralRule, 2, 0),
     JS_FN("intl_SelectPluralRuleRange", intl_SelectPluralRuleRange, 3, 0),
-    JS_FN("intl_TryValidateAndCanonicalizeLanguageTag",
-          intl_TryValidateAndCanonicalizeLanguageTag, 1, 0),
     JS_FN("intl_ValidateAndCanonicalizeLanguageTag",
           intl_ValidateAndCanonicalizeLanguageTag, 2, 0),
     JS_FN("intl_ValidateAndCanonicalizeTimeZone",
           intl_ValidateAndCanonicalizeTimeZone, 1, 0),
     JS_FN("intl_ValidateAndCanonicalizeUnicodeExtensionType",
           intl_ValidateAndCanonicalizeUnicodeExtensionType, 3, 0),
-    JS_FN("intl_availableCalendars", intl_availableCalendars, 1, 0),
-    JS_FN("intl_availableCollations", intl_availableCollations, 1, 0),
 #  if DEBUG || MOZ_SYSTEM_ICU
     JS_FN("intl_availableMeasurementUnits", intl_availableMeasurementUnits, 0,
           0),
 #  endif
-    JS_FN("intl_defaultCalendar", intl_defaultCalendar, 1, 0),
     JS_FN("intl_isIgnorePunctuation", intl_isIgnorePunctuation, 1, 0),
     JS_FN("intl_isUpperCaseFirst", intl_isUpperCaseFirst, 1, 0),
-    JS_FN("intl_numberingSystem", intl_numberingSystem, 1, 0),
     JS_FN("intl_resolveDateTimeFormatComponents",
           intl_resolveDateTimeFormatComponents, 3, 0),
 #endif  // JS_HAS_INTL_API
@@ -1998,15 +1978,12 @@ static const JSFunctionSpec intrinsic_functions[] = {
                     StringCharCodeAt),
     JS_INLINABLE_FN("std_String_codePointAt", str_codePointAt, 1, 0,
                     StringCodePointAt),
-    JS_INLINABLE_FN("std_String_endsWith", str_endsWith, 1, 0, StringEndsWith),
     JS_INLINABLE_FN("std_String_fromCharCode", str_fromCharCode, 1, 0,
                     StringFromCharCode),
     JS_INLINABLE_FN("std_String_fromCodePoint", str_fromCodePoint, 1, 0,
                     StringFromCodePoint),
     JS_INLINABLE_FN("std_String_includes", str_includes, 1, 0, StringIncludes),
     JS_INLINABLE_FN("std_String_indexOf", str_indexOf, 1, 0, StringIndexOf),
-    JS_INLINABLE_FN("std_String_startsWith", str_startsWith, 1, 0,
-                    StringStartsWith),
     JS_TRAMPOLINE_FN("std_TypedArray_sort", TypedArrayObject::sort, 1, 0,
                      TypedArraySort),
     JS_INLINABLE_FN("std_WeakMap_get", WeakMapObject::get, 1, 0, WeakMapGet),

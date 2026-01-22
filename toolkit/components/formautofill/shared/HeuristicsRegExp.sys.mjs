@@ -9,6 +9,7 @@ export const HeuristicsRegExp = {
     email: undefined,
     "tel-country-code" : undefined,
     tel: undefined,
+    "address-extra-housesuffix": undefined,
     "address-housenumber": undefined,
     "street-address": undefined,
     "address-line1": undefined,
@@ -57,21 +58,26 @@ export const HeuristicsRegExp = {
         "|(?<neg>nome.*)|endereço", // es
       "address-line2":
         "addrline2|address_2|addl2" +
-        "|landmark", // common in IN
-      "address-line3": "addrline3|address_3|addl3",
-      "address-level2": 
+		"|landmark" + // common in IN
+		"|complement|interior|interno|dpto", // es-MX
+      "address-line3": "addrline3|address_3|addl3" +
+		"|complement|interior|interno|dpto", // es-MX
+      "address-level2":
         "città" + // it-IT
         "|miasto|miejscowosc|miejscowość" + //pl-PL
-        "|\\bstad|woonplaats|plaats", // nl
+        "|\\bstad|woonplaats|plaats" + // nl
+		"|ciudad", // es-MX
       "address-housenumber":
         "(house|building|street1?)[\\s\\-_]*number|hausnummer|haus|house[a-z\-]*n(r|o)" +
-        "|n[úu]mero" +
+		"|n[úu]mero(?!\\s*int)|exterior" +
         "|domu" + // pl-PL
         "|huisnummer", // nl
+      "address-extra-housesuffix":
+        "toevoeging|toev.?", // nl
       "address-level3":
         "(^address-?level-?3$)" +
         "|neighbou*rhood|barrio|bairro|colonia|suburb", // en/es/pt/mx/au/nz
-      "postal-code": 
+      "postal-code":
         "^PLZ(\\b|\\*)" + // de-DE
         "|kod.?pocztowy", // pl-PL
       "given-name":
@@ -172,7 +178,7 @@ export const HeuristicsRegExp = {
         "|(^street-?3$)",
 
       "address-level2":
-        "(^city$)" +
+		"(^city$)" +
         "|(^town$)" +
         "|(^address-?level-?2$)" +
         "|(^address-?city$)" +
@@ -448,7 +454,7 @@ export const HeuristicsRegExp = {
       "address-line2":
         "address[_-]?line(2|two)|address2|addr2|street|suite|unit(?!e)" + // Firefox adds `(?!e)` to unit to skip `United State`
         "|adresszusatz|ergänzende.?angaben" + // de-DE
-        "|direccion2|colonia|adicional" + // es
+        "|direccion2|adicional" + // es
         "|addresssuppl|complementnom|appartement" + // fr-FR
         "|indirizzo2" + // it-IT
         "|住所2" + // ja-JP
@@ -460,7 +466,7 @@ export const HeuristicsRegExp = {
       "address-line3":
         "address[_-]?line(3|three)|address3|addr3|street|suite|unit(?!e)" + // Firefox adds `(?!e)` to unit to skip `United State`
         "|adresszusatz|ergänzende.?angaben" + // de-DE
-        "|direccion3|colonia|adicional" + // es
+        "|direccion3|adicional" + // es
         "|addresssuppl|complementnom|appartement" + // fr-FR
         "|indirizzo3" + // it-IT
         "|住所3" + // ja-JP

@@ -44,6 +44,10 @@ neterror-load-error-firewall = If your computer or network is protected by a fir
 neterror-load-osx-permission = If you are trying to load a local network page, please check that { -brand-short-name } has been granted Local Network permissions in the macOS Privacy & Security settings.
 
 neterror-http-error-page = Check to make sure you’ve typed the website address correctly.
+neterror-http-empty-response = Check to make sure you’ve typed the website address correctly and try again in a few moments.
+# Variables:
+#   $hostname (String) - Hostname of the website to which the user was trying to connect.
+neterror-http-empty-response-description = { $hostname } sent back an empty page.
 
 neterror-captive-portal = You must log in to this network before you can access the internet.
 
@@ -86,8 +90,7 @@ neterror-unknown-protocol = You might need to install other software to open thi
 
 neterror-redirect-loop = This problem can sometimes be caused by disabling or refusing to accept cookies.
 
-neterror-unknown-socket-type-psm-installed = Check to make sure your system has the Personal Security Manager installed.
-neterror-unknown-socket-type-server-config = This might be due to a non-standard configuration on the server.
+neterror-unknown-socket-type-client-config = This might be due to a configuration error with your client.
 
 neterror-not-cached-intro = The requested document is not available in { -brand-short-name }’s cache.
 neterror-not-cached-sensitive = As a security precaution, { -brand-short-name } does not automatically re-request sensitive documents.

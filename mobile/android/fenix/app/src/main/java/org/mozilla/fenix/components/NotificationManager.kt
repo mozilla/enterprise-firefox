@@ -11,11 +11,11 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.os.Bundle
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.getSystemService
 import androidx.core.net.toUri
-import androidx.core.os.bundleOf
 import mozilla.components.concept.sync.Device
 import mozilla.components.concept.sync.TabData
 import mozilla.components.support.base.ids.SharedIdsHelper
@@ -99,8 +99,7 @@ class NotificationManager(private val context: Context) {
             )
             setContentIntent(pendingIntent)
 
-            val extras = bundleOf(TOTAL_TABS_CLOSED_EXTRA to totalCount)
-            addExtras(extras)
+            addExtras(Bundle().apply { putInt(TOTAL_TABS_CLOSED_EXTRA, totalCount) })
 
             setSmallIcon(R.drawable.ic_status_logo)
             setWhen(System.currentTimeMillis())

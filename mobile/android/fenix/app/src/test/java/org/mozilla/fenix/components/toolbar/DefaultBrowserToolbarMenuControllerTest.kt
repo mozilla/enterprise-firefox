@@ -69,8 +69,6 @@ import org.mozilla.fenix.browser.readermode.ReaderModeController
 import org.mozilla.fenix.collections.SaveCollectionStep
 import org.mozilla.fenix.components.AppStore
 import org.mozilla.fenix.components.TabCollectionStorage
-import org.mozilla.fenix.components.accounts.AccountState
-import org.mozilla.fenix.components.accounts.FenixFxAEntryPoint
 import org.mozilla.fenix.components.appstate.AppAction.ShortcutAction
 import org.mozilla.fenix.components.usecases.FenixBrowserUseCases
 import org.mozilla.fenix.compose.snackbar.Snackbar
@@ -843,43 +841,6 @@ class DefaultBrowserToolbarMenuControllerTest {
                 ),
             )
         }
-    }
-
-    @Test
-    fun `GIVEN account exists and the user is signed in WHEN sign in to sync menu item is pressed THEN navigate to account settings`() = runTest {
-        val item = ToolbarMenu.Item.SyncAccount(AccountState.AUTHENTICATED)
-        val accountSettingsDirections = BrowserFragmentDirections.actionGlobalAccountSettingsFragment()
-        val controller = createController(scope = this, store = browserStore)
-
-        controller.handleToolbarItemInteraction(item)
-
-        verify { navController.navigate(accountSettingsDirections, null) }
-    }
-
-    @Test
-    fun `GIVEN account exists and the user is not signed in WHEN sign in to sync menu item is pressed THEN navigate to account problem fragment`() = runTest {
-        val item = ToolbarMenu.Item.SyncAccount(AccountState.NEEDS_REAUTHENTICATION)
-        val accountProblemDirections = BrowserFragmentDirections.actionGlobalAccountProblemFragment(
-            entrypoint = FenixFxAEntryPoint.BrowserToolbar,
-        )
-        val controller = createController(scope = this, store = browserStore)
-
-        controller.handleToolbarItemInteraction(item)
-
-        verify { navController.navigate(accountProblemDirections, null) }
-    }
-
-    @Test
-    fun `GIVEN account doesn't exist WHEN sign in to sync menu item is pressed THEN navigate to sign in`() = runTest {
-        val item = ToolbarMenu.Item.SyncAccount(AccountState.NO_ACCOUNT)
-        val turnOnSyncDirections = BrowserFragmentDirections.actionGlobalTurnOnSync(
-            entrypoint = FenixFxAEntryPoint.BrowserToolbar,
-        )
-        val controller = createController(scope = this, store = browserStore)
-
-        controller.handleToolbarItemInteraction(item)
-
-        verify { navController.navigate(turnOnSyncDirections, null) }
     }
 
     @Test

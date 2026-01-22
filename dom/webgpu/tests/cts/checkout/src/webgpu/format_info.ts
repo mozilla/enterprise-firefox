@@ -2400,6 +2400,22 @@ export function isTextureFormatBlendable(device: GPUDevice, format: GPUTextureFo
 }
 
 /**
+ * Returns true if a texture can be filtered.
+ */
+export function isTextureFormatFilterable(device: GPUDevice, format: GPUTextureFormat): boolean {
+  const type = getTextureFormatType(format);
+  switch (type) {
+    case 'float':
+      return true;
+    case 'unfilterable-float':
+      assert(is32Float(format));
+      return hasFeature(device.features, 'float32-filterable');
+    default:
+      return false;
+  }
+}
+
+/**
  * Returns the texture's type (float, unsigned-float, sint, uint, depth)
  */
 export function getTextureFormatType(format: GPUTextureFormat, aspect: GPUTextureAspect = 'all') {
@@ -2463,6 +2479,21 @@ export function isTextureFormatPossiblyMultisampled(format: GPUTextureFormat) {
   return (
     info.multisample || isTextureFormatTier1EnablesRenderAttachmentBlendableMultisample(format)
   );
+}
+
+/**
+ * Returns true if a texture can possibly be resolved.
+ * The texture may require certain features to be enabled.
+ */
+export function isTextureFormatPossiblyResolvable(format: GPUTextureFormat) {
+  if (format === 'rg11b10ufloat') {
+    return true;
+  }
+  if (isTextureFormatTier1EnablesResolve(format)) {
+    return true;
+  }
+  const info = kTextureFormatInfo[format];
+  return !!info.colorRender?.resolve;
 }
 
 /**

@@ -441,8 +441,12 @@ mozperftest:
                     - browsertime
     when:
         files-changed:
-            - 'testing/**'
-            - 'python/**'
+            - 'testing/raptor/**'
+            - 'testing/talos/**'
+            - 'testing/awsy/**'
+            - 'testing/mochitest/**'
+            - 'testing/xpcshell/**'
+            - 'python/mozperftest/**'
 
 nimbus:
     description: >

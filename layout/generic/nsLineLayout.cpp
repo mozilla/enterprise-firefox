@@ -2025,80 +2025,149 @@ void nsLineLayout::VerticalAlignFrames(PerSpanData* psd) {
       }
     }
 
-    // Get vertical-align property ("vertical-align" is the CSS name for
-    // block-direction align)
-    const auto& verticalAlign = frame->StyleDisplay()->mVerticalAlign;
-    Maybe<StyleVerticalAlignKeyword> verticalAlignEnum =
-        frame->VerticalAlignEnum();
+    // Get block-direction alignment values
+    StyleAlignmentBaseline alignmentBaseline = frame->AlignmentBaseline();
+    const StyleBaselineShift& baselineShift = frame->BaselineShift();
+    Maybe<StyleBaselineShiftKeyword> baselineShiftEnum =
+        baselineShift.IsKeyword() ? Some(baselineShift.AsKeyword()) : Nothing();
+
 #ifdef NOISY_BLOCKDIR_ALIGN
     printf("  [frame]");
     frame->ListTag(stdout);
-    printf(": verticalAlignIsKw=%d (enum == %d", verticalAlign.IsKeyword(),
-           verticalAlign.IsKeyword()
-               ? static_cast<int>(verticalAlign.AsKeyword())
-               : -1);
-    if (verticalAlignEnum) {
-      printf(", after SVG dominant-baseline conversion == %d",
-             static_cast<int>(*verticalAlignEnum));
-    }
-    printf(")\n");
+    printf(": alignmentBaseline=%d baselineShiftIsKw=%d (enum == %d)\n",
+           static_cast<int>(alignmentBaseline), baselineShiftEnum,
+           baselineShiftEnum ? static_cast<int>(*baselineShiftEnum) : -1);
 #endif
 
-    if (verticalAlignEnum) {
-      StyleVerticalAlignKeyword keyword = *verticalAlignEnum;
-      if (lineWM.IsVertical()) {
-        if (keyword == StyleVerticalAlignKeyword::Middle) {
-          // For vertical writing mode where the dominant baseline is centered
-          // (i.e. text-orientation is not sideways-*), we remap 'middle' to
-          // 'middle-with-baseline' so that images align sensibly with the
-          // center-baseline-aligned text.
-          if (!lineWM.IsSideways()) {
-            keyword = StyleVerticalAlignKeyword::MozMiddleWithBaseline;
-          }
-        } else if (lineWM.IsLineInverted()) {
-          // Swap the meanings of top and bottom when line is inverted
-          // relative to block direction.
-          switch (keyword) {
-            case StyleVerticalAlignKeyword::Top:
-              keyword = StyleVerticalAlignKeyword::Bottom;
+    // Apply writing mode transforms to the alignment properties
+    if (lineWM.IsVertical()) {
+      // For vertical writing mode where the dominant baseline is centered
+      // (i.e. text-orientation is not sideways-*), we remap 'middle' to
+      // 'middle-with-baseline' so that images align sensibly with the
+      // center-baseline-aligned text.
+      if (alignmentBaseline == StyleAlignmentBaseline::Middle &&
+          !lineWM.IsSideways()) {
+        alignmentBaseline = StyleAlignmentBaseline::MozMiddleWithBaseline;
+      }
+
+      // Swap the meanings of top and bottom when line is inverted
+      // relative to block direction.
+      if (lineWM.IsLineInverted()) {
+        switch (alignmentBaseline) {
+          case StyleAlignmentBaseline::TextTop:
+            alignmentBaseline = StyleAlignmentBaseline::TextBottom;
+            break;
+          case StyleAlignmentBaseline::TextBottom:
+            alignmentBaseline = StyleAlignmentBaseline::TextTop;
+            break;
+          default:
+            break;
+        }
+
+        if (baselineShiftEnum) {
+          switch (*baselineShiftEnum) {
+            case StyleBaselineShiftKeyword::Top:
+              baselineShiftEnum = Some(StyleBaselineShiftKeyword::Bottom);
               break;
-            case StyleVerticalAlignKeyword::Bottom:
-              keyword = StyleVerticalAlignKeyword::Top;
-              break;
-            case StyleVerticalAlignKeyword::TextTop:
-              keyword = StyleVerticalAlignKeyword::TextBottom;
-              break;
-            case StyleVerticalAlignKeyword::TextBottom:
-              keyword = StyleVerticalAlignKeyword::TextTop;
+            case StyleBaselineShiftKeyword::Bottom:
+              baselineShiftEnum = Some(StyleBaselineShiftKeyword::Top);
               break;
             default:
               break;
           }
         }
       }
+    }
 
-      // baseline coord that may be adjusted for script offset
-      nscoord revisedBaselineBCoord = baselineBCoord;
+    // Adjust the bounds according to the given baseline
+    switch (alignmentBaseline) {
+      default:
+      case StyleAlignmentBaseline::Baseline:
+        pfd->mBounds.BStart(lineWM) = baselineBCoord - pfd->mAscent;
+        pfd->mBlockDirAlign = VALIGN_OTHER;
+        break;
 
-      // For superscript and subscript, raise or lower the baseline of the box
-      // to the proper offset of the parent's box, then proceed as for BASELINE
-      if (keyword == StyleVerticalAlignKeyword::Sub ||
-          keyword == StyleVerticalAlignKeyword::Super) {
-        revisedBaselineBCoord += lineWM.FlowRelativeToLineRelativeFactor() *
-                                 (keyword == StyleVerticalAlignKeyword::Sub
-                                      ? fm->SubscriptOffset()
-                                      : -fm->SuperscriptOffset());
-        keyword = StyleVerticalAlignKeyword::Baseline;
+      case StyleAlignmentBaseline::Middle: {
+        // Align the midpoint of the frame with 1/2 the parents
+        // x-height above the baseline.
+        nscoord parentXHeight =
+            lineWM.FlowRelativeToLineRelativeFactor() * fm->XHeight();
+        if (frameSpan) {
+          pfd->mBounds.BStart(lineWM) =
+              baselineBCoord - (parentXHeight + pfd->mBounds.BSize(lineWM)) / 2;
+        } else {
+          pfd->mBounds.BStart(lineWM) = baselineBCoord -
+                                        (parentXHeight + logicalBSize) / 2 +
+                                        pfd->mMargin.BStart(lineWM);
+        }
+        pfd->mBlockDirAlign = VALIGN_OTHER;
+        break;
       }
 
-      switch (keyword) {
-        default:
-        case StyleVerticalAlignKeyword::Baseline:
-          pfd->mBounds.BStart(lineWM) = revisedBaselineBCoord - pfd->mAscent;
-          pfd->mBlockDirAlign = VALIGN_OTHER;
+      case StyleAlignmentBaseline::TextTop: {
+        // The top of the logical box is aligned with the top of
+        // the parent element's text.
+        // XXX For vertical text we will need a new API to get the logical
+        //     max-ascent here
+        nscoord parentAscent =
+            lineWM.IsLineInverted() ? fm->MaxDescent() : fm->MaxAscent();
+        if (frameSpan) {
+          pfd->mBounds.BStart(lineWM) = baselineBCoord - parentAscent -
+                                        pfd->mBorderPadding.BStart(lineWM) +
+                                        frameSpan->mBStartLeading;
+        } else {
+          pfd->mBounds.BStart(lineWM) =
+              baselineBCoord - parentAscent + pfd->mMargin.BStart(lineWM);
+        }
+        pfd->mBlockDirAlign = VALIGN_OTHER;
+        break;
+      }
+
+      case StyleAlignmentBaseline::TextBottom: {
+        // The bottom of the logical box is aligned with the
+        // bottom of the parent elements text.
+        nscoord parentDescent =
+            lineWM.IsLineInverted() ? fm->MaxAscent() : fm->MaxDescent();
+        if (frameSpan) {
+          pfd->mBounds.BStart(lineWM) =
+              baselineBCoord + parentDescent - pfd->mBounds.BSize(lineWM) +
+              pfd->mBorderPadding.BEnd(lineWM) - frameSpan->mBEndLeading;
+        } else {
+          pfd->mBounds.BStart(lineWM) = baselineBCoord + parentDescent -
+                                        pfd->mBounds.BSize(lineWM) -
+                                        pfd->mMargin.BEnd(lineWM);
+        }
+        pfd->mBlockDirAlign = VALIGN_OTHER;
+        break;
+      }
+
+      case StyleAlignmentBaseline::MozMiddleWithBaseline: {
+        // Align the midpoint of the frame with the baseline of the parent.
+        if (frameSpan) {
+          pfd->mBounds.BStart(lineWM) =
+              baselineBCoord - pfd->mBounds.BSize(lineWM) / 2;
+        } else {
+          pfd->mBounds.BStart(lineWM) =
+              baselineBCoord - logicalBSize / 2 + pfd->mMargin.BStart(lineWM);
+        }
+        pfd->mBlockDirAlign = VALIGN_OTHER;
+        break;
+      }
+    }
+
+    // Shift from the baseline
+    if (baselineShiftEnum) {
+      switch (*baselineShiftEnum) {
+        case StyleBaselineShiftKeyword::Sub:
+        case StyleBaselineShiftKeyword::Super:
+          pfd->mBounds.BStart(lineWM) +=
+              lineWM.FlowRelativeToLineRelativeFactor() *
+              (*baselineShiftEnum == StyleBaselineShiftKeyword::Sub
+                   ? fm->SubscriptOffset()
+                   : -fm->SuperscriptOffset());
           break;
 
-        case StyleVerticalAlignKeyword::Top: {
+        case StyleBaselineShiftKeyword::Top: {
           pfd->mBlockDirAlign = VALIGN_TOP;
           nscoord subtreeBSize = logicalBSize;
           if (frameSpan) {
@@ -2112,7 +2181,7 @@ void nsLineLayout::VerticalAlignFrames(PerSpanData* psd) {
           break;
         }
 
-        case StyleVerticalAlignKeyword::Bottom: {
+        case StyleBaselineShiftKeyword::Bottom: {
           pfd->mBlockDirAlign = VALIGN_BOTTOM;
           nscoord subtreeBSize = logicalBSize;
           if (frameSpan) {
@@ -2125,78 +2194,10 @@ void nsLineLayout::VerticalAlignFrames(PerSpanData* psd) {
           }
           break;
         }
-
-        case StyleVerticalAlignKeyword::Middle: {
-          // Align the midpoint of the frame with 1/2 the parents
-          // x-height above the baseline.
-          nscoord parentXHeight =
-              lineWM.FlowRelativeToLineRelativeFactor() * fm->XHeight();
-          if (frameSpan) {
-            pfd->mBounds.BStart(lineWM) =
-                baselineBCoord -
-                (parentXHeight + pfd->mBounds.BSize(lineWM)) / 2;
-          } else {
-            pfd->mBounds.BStart(lineWM) = baselineBCoord -
-                                          (parentXHeight + logicalBSize) / 2 +
-                                          pfd->mMargin.BStart(lineWM);
-          }
-          pfd->mBlockDirAlign = VALIGN_OTHER;
-          break;
-        }
-
-        case StyleVerticalAlignKeyword::TextTop: {
-          // The top of the logical box is aligned with the top of
-          // the parent element's text.
-          // XXX For vertical text we will need a new API to get the logical
-          //     max-ascent here
-          nscoord parentAscent =
-              lineWM.IsLineInverted() ? fm->MaxDescent() : fm->MaxAscent();
-          if (frameSpan) {
-            pfd->mBounds.BStart(lineWM) = baselineBCoord - parentAscent -
-                                          pfd->mBorderPadding.BStart(lineWM) +
-                                          frameSpan->mBStartLeading;
-          } else {
-            pfd->mBounds.BStart(lineWM) =
-                baselineBCoord - parentAscent + pfd->mMargin.BStart(lineWM);
-          }
-          pfd->mBlockDirAlign = VALIGN_OTHER;
-          break;
-        }
-
-        case StyleVerticalAlignKeyword::TextBottom: {
-          // The bottom of the logical box is aligned with the
-          // bottom of the parent elements text.
-          nscoord parentDescent =
-              lineWM.IsLineInverted() ? fm->MaxAscent() : fm->MaxDescent();
-          if (frameSpan) {
-            pfd->mBounds.BStart(lineWM) =
-                baselineBCoord + parentDescent - pfd->mBounds.BSize(lineWM) +
-                pfd->mBorderPadding.BEnd(lineWM) - frameSpan->mBEndLeading;
-          } else {
-            pfd->mBounds.BStart(lineWM) = baselineBCoord + parentDescent -
-                                          pfd->mBounds.BSize(lineWM) -
-                                          pfd->mMargin.BEnd(lineWM);
-          }
-          pfd->mBlockDirAlign = VALIGN_OTHER;
-          break;
-        }
-
-        case StyleVerticalAlignKeyword::MozMiddleWithBaseline: {
-          // Align the midpoint of the frame with the baseline of the parent.
-          if (frameSpan) {
-            pfd->mBounds.BStart(lineWM) =
-                baselineBCoord - pfd->mBounds.BSize(lineWM) / 2;
-          } else {
-            pfd->mBounds.BStart(lineWM) =
-                baselineBCoord - logicalBSize / 2 + pfd->mMargin.BStart(lineWM);
-          }
-          pfd->mBlockDirAlign = VALIGN_OTHER;
-          break;
-        }
       }
     } else {
       // We have either a coord, a percent, or a calc().
-      nscoord offset = verticalAlign.AsLength().Resolve([&] {
+      nscoord offset = baselineShift.AsLength().Resolve([&] {
         // Percentages are like lengths, except treated as a percentage
         // of the elements line block size value.
         float inflation =
@@ -2212,17 +2213,8 @@ void nsLineLayout::VerticalAlignFrames(PerSpanData* psd) {
       // baseline). Since Y coordinates increase towards the bottom of
       // the screen we reverse the sign, unless the line orientation is
       // inverted relative to block direction.
-      nscoord revisedBaselineBCoord =
-          baselineBCoord - offset * lineWM.FlowRelativeToLineRelativeFactor();
-      if (lineWM.IsCentralBaseline()) {
-        // If we're using a dominant center baseline, we align with the center
-        // of the frame being placed (bug 1133945).
-        pfd->mBounds.BStart(lineWM) =
-            revisedBaselineBCoord - pfd->mBounds.BSize(lineWM) / 2;
-      } else {
-        pfd->mBounds.BStart(lineWM) = revisedBaselineBCoord - pfd->mAscent;
-      }
-      pfd->mBlockDirAlign = VALIGN_OTHER;
+      pfd->mBounds.BStart(lineWM) +=
+          -1 * offset * lineWM.FlowRelativeToLineRelativeFactor();
     }
 
     // Update minBCoord/maxBCoord for frames that we just placed. Do not factor

@@ -20,15 +20,18 @@ only-for-attributes:
 
 not-for-build-platforms:
     - linux64-shippable/opt
+    - linux64-enterprise/opt
     - linux64-enterprise-shippable/opt
     - linux64-aarch64-shippable/opt
     - linux64-aarch64-enterprise-shippable/opt
     - linux64-nightlyasrelease/opt
     - macosx64-shippable/opt
+    - macosx64-enterprise/opt
     - macosx64-enterprise-shippable/opt
     - macosx64-nightlyasrelease/opt
     - win32-shippable/opt
     - win64-shippable/opt
+    - win64-enterprise/opt
     - win64-enterprise-shippable/opt
     - win64-aarch64-shippable/opt
     - win64-nightlyasrelease/opt

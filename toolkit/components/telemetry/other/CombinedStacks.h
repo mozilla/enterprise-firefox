@@ -3,8 +3,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef CombinedStacks_h__
-#define CombinedStacks_h__
+#ifndef CombinedStacks_h_
+#define CombinedStacks_h_
 
 #include <vector>
 
@@ -105,4 +105,4 @@ struct ParamTraits<mozilla::Telemetry::CombinedStacks> {
 
 }  // namespace IPC
 
-#endif  // CombinedStacks_h__
+#endif  // CombinedStacks_h_

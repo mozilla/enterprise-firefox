@@ -136,9 +136,7 @@ nsMenuX::nsMenuX(nsMenuParentX* aParent, nsMenuGroupOwnerX* aMenuGroupOwner,
   }
 
   SetEnabled(!mContent->IsElement() ||
-             !mContent->AsElement()->AttrValueIs(
-                 kNameSpaceID_None, nsGkAtoms::disabled, nsGkAtoms::_true,
-                 eCaseMatters));
+             !mContent->AsElement()->GetBoolAttr(nsGkAtoms::disabled));
 
   // We call RebuildMenu here because keyboard commands are dependent upon
   // native menu items being created. If we only call RebuildMenu when a menu
@@ -1053,9 +1051,7 @@ void nsMenuX::ObserveAttributeChanged(dom::Document* aDocument,
   }
 
   if (aAttribute == nsGkAtoms::disabled) {
-    SetEnabled(!mContent->AsElement()->AttrValueIs(
-        kNameSpaceID_None, nsGkAtoms::disabled, nsGkAtoms::_true,
-        eCaseMatters));
+    SetEnabled(!mContent->AsElement()->GetBoolAttr(nsGkAtoms::disabled));
   } else if (aAttribute == nsGkAtoms::label) {
     mContent->AsElement()->GetAttr(nsGkAtoms::label, mLabel);
     NSString* newCocoaLabelString =

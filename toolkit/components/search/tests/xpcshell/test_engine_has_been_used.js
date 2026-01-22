@@ -40,14 +40,14 @@ const CONFIG = [
 
 add_setup(async function () {
   SearchTestUtils.setRemoteSettingsConfig(CONFIG);
-  await Services.search.init();
+  await SearchService.init();
 
   info("Install a non-app provided engine.");
   await SearchTestUtils.installSearchExtension({
     name: "Test",
   });
 
-  let engines = await Services.search.getEngines();
+  let engines = await SearchService.getEngines();
   for (let engine of engines) {
     if (engine.isAppProvided) {
       engine.clearUsage();
@@ -56,7 +56,7 @@ add_setup(async function () {
 });
 
 function getAndUnwrapEngine(engineName) {
-  let engine = Services.search.getEngineByName(engineName);
+  let engine = SearchService.getEngineByName(engineName);
   // Methods we need to access aren't exposed in the IDL so we need to access
   // the unwrapped implementation.
   let unwrapped = engine.wrappedJSObject;

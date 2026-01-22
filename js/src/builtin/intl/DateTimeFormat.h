@@ -126,27 +126,6 @@ class DateTimeFormatObject : public NativeObject {
 };
 
 /**
- * Returns an array with the calendar type identifiers per Unicode
- * Technical Standard 35, Unicode Locale Data Markup Language, for the
- * supported calendars for the given locale. The default calendar is
- * element 0.
- *
- * Usage: calendars = intl_availableCalendars(locale)
- */
-[[nodiscard]] extern bool intl_availableCalendars(JSContext* cx, unsigned argc,
-                                                  JS::Value* vp);
-
-/**
- * Returns the calendar type identifier per Unicode Technical Standard 35,
- * Unicode Locale Data Markup Language, for the default calendar for the given
- * locale.
- *
- * Usage: calendar = intl_defaultCalendar(locale)
- */
-[[nodiscard]] extern bool intl_defaultCalendar(JSContext* cx, unsigned argc,
-                                               JS::Value* vp);
-
-/**
  * Returns a String value representing x (which must be a Number value)
  * according to the effective locale and the formatting options of the
  * given DateTimeFormat.

@@ -496,3 +496,37 @@ add_task(async function test_contextMenuAddSplitViewToNewTabGroup() {
     BrowserTestUtils.removeTab(gBrowser.tabs.at(-1));
   }
 });
+
+add_task(async function test_move_to_split_view_disabled_in_customize_mode() {
+  await SpecialPowers.pushPrefEnv({
+    set: [["sidebar.verticalTabs", false]],
+  });
+
+  info("Enter customize mode.");
+  let customizeStateChange = BrowserTestUtils.waitForEvent(
+    gNavToolbox,
+    "customizationready"
+  );
+  gCustomizeMode.enter();
+  await customizeStateChange;
+
+  await withTabMenu(gBrowser.selectedTab, moveTabToNewSplitViewItem =>
+    BrowserTestUtils.waitForMutationCondition(
+      moveTabToNewSplitViewItem,
+      { attributes: true },
+      () =>
+        !moveTabToNewSplitViewItem.hidden && moveTabToNewSplitViewItem.disabled,
+      "moveTabToNewSplitViewItem is visible and disabled."
+    )
+  );
+
+  info("Exit customize mode.");
+  customizeStateChange = BrowserTestUtils.waitForEvent(
+    gNavToolbox,
+    "aftercustomization"
+  );
+  gCustomizeMode.exit();
+  await customizeStateChange;
+
+  await SpecialPowers.popPrefEnv();
+});

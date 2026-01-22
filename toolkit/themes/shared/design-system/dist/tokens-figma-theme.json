@@ -39,6 +39,11 @@
     "dark": "{Colors$color/yellow/90}",
     "forcedColors": "{Theme$background/color/canvas}"
   },
+  "background/color/list/item/hover": {
+    "light": "color-mix(in srgb, {Theme$color/accent/primary} 20%, transparent)",
+    "dark": "color-mix(in srgb, {Theme$color/accent/primary} 20%, transparent)",
+    "forcedColors": "{HCM Theme$SelectedItem}"
+  },
   "border/color": {
     "light": "{Colors$color/gray/50}",
     "dark": "{Colors$color/gray/70}",
@@ -509,6 +514,26 @@
     "dark": "rgba(0, 0, 0, 0.4)",
     "forcedColors": "transparent"
   },
+  "table/background/color": {
+    "light": "#f8f8fa",
+    "dark": "rgb(35, 34, 43)",
+    "forcedColors": "{HCM Theme$Canvas}"
+  },
+  "table/border/color": {
+    "light": "color-mix(in srgb, currentColor 41%, transparent)",
+    "dark": "color-mix(in srgb, currentColor 41%, transparent)",
+    "forcedColors": "{HCM Theme$CanvasText}"
+  },
+  "table/header/background/color": {
+    "light": "{Theme$color/accent/primary}",
+    "dark": "{Theme$color/accent/primary}",
+    "forcedColors": "{HCM Theme$AccentColor}"
+  },
+  "table/header/text/color": {
+    "light": "{Colors$color/white}",
+    "dark": "{Colors$color/gray/100}",
+    "forcedColors": "{HCM Theme$AccentColorText}"
+  },
   "table/row/background/color": {
     "light": "{Theme$background/color/canvas}",
     "dark": "{Theme$background/color/canvas}",
@@ -542,6 +567,11 @@
   "text/color/accent/primary/selected": {
     "light": "{Colors$color/white}",
     "dark": "{Colors$color/gray/100}",
+    "forcedColors": "{HCM Theme$SelectedItemText}"
+  },
+  "text/color/list/item/hover": {
+    "light": "{Theme$text/color}",
+    "dark": "{Theme$text/color}",
     "forcedColors": "{HCM Theme$SelectedItemText}"
   }
 }

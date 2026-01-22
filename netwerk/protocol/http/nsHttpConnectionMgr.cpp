@@ -529,7 +529,6 @@ nsresult nsHttpConnectionMgr::SpeculativeConnect(
     args->mTrans->SetParallelSpeculativeConnectLimit(
         overrider->GetParallelSpeculativeConnectLimit());
     args->mTrans->SetIgnoreIdle(overrider->GetIgnoreIdle());
-    args->mTrans->SetIsFromPredictor(overrider->GetIsFromPredictor());
     args->mTrans->SetAllow1918(overrider->GetAllow1918());
   }
 
@@ -657,7 +656,7 @@ void nsHttpConnectionMgr::OnMsgClearConnectionHistory(int32_t,
     RefPtr<ConnectionEntry> ent = iter.Data();
     if (ent->IdleConnectionsLength() == 0 && ent->ActiveConnsLength() == 0 &&
         ent->DnsAndConnectSocketsLength() == 0 &&
-        ent->UrgentStartQueueLength() == 0 && ent->PendingQueueLength() == 0 &&
+        ent->UrgentStartQueueIsEmpty() && ent->PendingQueueIsEmpty() &&
         !ent->mDoNotDestroy) {
       iter.Remove();
     }
@@ -1162,14 +1161,14 @@ bool nsHttpConnectionMgr::ProcessPendingQForEntry(ConnectionEntry* ent,
     ent->LogConnections();
   }
 
-  if (!ent->PendingQueueLength() && !ent->UrgentStartQueueLength()) {
+  if (ent->PendingQueueIsEmpty() && ent->UrgentStartQueueIsEmpty()) {
     return false;
   }
   ProcessSpdyPendingQ(ent);
 
   bool dispatchedSuccessfully = false;
 
-  if (ent->UrgentStartQueueLength()) {
+  if (!ent->UrgentStartQueueIsEmpty()) {
     nsTArray<RefPtr<PendingTransactionInfo>> pendingQ;
     ent->AppendPendingUrgentStartQ(pendingQ);
     dispatchedSuccessfully = DispatchPendingQ(pendingQ, ent, considerAll);
@@ -1342,7 +1341,7 @@ nsresult nsHttpConnectionMgr::MakeNewConnection(
   }
 
   nsresult rv = ent->CreateDnsAndConnectSocket(
-      trans, trans->Caps(), false, false,
+      trans, trans->Caps(), false,
       trans->GetClassOfService().Flags() & nsIClassOfService::UrgentStart, true,
       pendingTransInfo);
   if (NS_FAILED(rv)) {
@@ -2438,9 +2437,8 @@ void nsHttpConnectionMgr::OnMsgPruneDeadConnections(int32_t, ARefBase*) {
       if (mCT.Count() > 125 && ent->IdleConnectionsLength() == 0 &&
           ent->ActiveConnsLength() == 0 &&
           ent->DnsAndConnectSocketsLength() == 0 &&
-          ent->PendingQueueLength() == 0 &&
-          ent->UrgentStartQueueLength() == 0 && !ent->mDoNotDestroy &&
-          (!ent->mUsingSpdy || mCT.Count() > 300)) {
+          ent->PendingQueueIsEmpty() && ent->UrgentStartQueueIsEmpty() &&
+          !ent->mDoNotDestroy && (!ent->mUsingSpdy || mCT.Count() > 300)) {
         LOG(("    removing empty connection entry\n"));
         iter.Remove();
         continue;
@@ -3586,8 +3584,6 @@ void nsHttpConnectionMgr::DoSpeculativeConnectionInternal(
           ? *aTrans->ParallelSpeculativeConnectLimit()
           : gHttpHandler->ParallelSpeculativeConnectLimit();
   bool ignoreIdle = aTrans->IgnoreIdle() ? *aTrans->IgnoreIdle() : false;
-  bool isFromPredictor =
-      aTrans->IsFromPredictor() ? *aTrans->IsFromPredictor() : false;
   bool allow1918 = aTrans->Allow1918() ? *aTrans->Allow1918() : false;
 
   bool keepAlive = aTrans->Caps() & NS_HTTP_ALLOW_KEEPALIVE;
@@ -3598,8 +3594,7 @@ void nsHttpConnectionMgr::DoSpeculativeConnectionInternal(
       !(keepAlive && aEnt->RestrictConnections()) &&
       !AtActiveConnectionLimit(aEnt, aTrans->Caps())) {
     nsresult rv = aEnt->CreateDnsAndConnectSocket(aTrans, aTrans->Caps(), true,
-                                                  isFromPredictor, false,
-                                                  allow1918, nullptr);
+                                                  false, allow1918, nullptr);
     if (NS_FAILED(rv)) {
       LOG(
           ("DoSpeculativeConnectionInternal Transport socket creation "

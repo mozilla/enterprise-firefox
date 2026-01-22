@@ -6,8 +6,8 @@
 
 /* factory functions for rendering object classes */
 
-#ifndef nsHTMLParts_h___
-#define nsHTMLParts_h___
+#ifndef nsHTMLParts_h_
+#define nsHTMLParts_h_
 
 #include "nsFrameState.h"
 #include "nsISupports.h"
@@ -48,13 +48,6 @@ nsBlockFrame* NS_NewBlockFrame(mozilla::PresShell* aPresShell,
 nsresult NS_NewAttributeContent(nsNodeInfoManager* aNodeInfoManager,
                                 int32_t aNameSpaceID, nsAtom* aAttrName,
                                 nsAtom* aFallback, nsIContent** aResult);
-
-// Create a basic area frame but the GetFrameForPoint is overridden to always
-// return the option frame
-// By default, area frames will extend
-// their height to cover any children that "stick out".
-nsContainerFrame* NS_NewSelectsAreaFrame(mozilla::PresShell* aPresShell,
-                                         mozilla::ComputedStyle* aStyle);
 
 nsIFrame* NS_NewBRFrame(mozilla::PresShell* aPresShell,
                         mozilla::ComputedStyle* aStyle);
@@ -174,4 +167,4 @@ nsTableCellFrame* NS_NewTableCellFrame(mozilla::PresShell* aPresShell,
                                        mozilla::ComputedStyle* aStyle,
                                        nsTableFrame* aTableFrame);
 
-#endif /* nsHTMLParts_h___ */
+#endif /* nsHTMLParts_h_ */

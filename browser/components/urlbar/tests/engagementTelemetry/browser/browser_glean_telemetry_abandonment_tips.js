@@ -20,16 +20,16 @@ add_setup(async function () {
   const engine = await SearchTestUtils.installOpenSearchEngine({
     url: "chrome://mochitests/content/browser/browser/components/urlbar/tests/browser/searchSuggestionEngine.xml",
   });
-  const originalDefaultEngine = await Services.search.getDefault();
-  await Services.search.setDefault(
+  const originalDefaultEngine = await SearchService.getDefault();
+  await SearchService.setDefault(
     engine,
     Ci.nsISearchService.CHANGE_REASON_UNKNOWN
   );
-  await Services.search.moveEngine(engine, 0);
+  await SearchService.moveEngine(engine, 0);
 
   registerCleanupFunction(async function () {
     await SpecialPowers.popPrefEnv();
-    await Services.search.setDefault(
+    await SearchService.setDefault(
       originalDefaultEngine,
       Ci.nsISearchService.CHANGE_REASON_UNKNOWN
     );

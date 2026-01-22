@@ -16,8 +16,6 @@
 #include <algorithm>
 #include <type_traits>
 
-#include "jsmath.h"
-
 #include "gc/BufferAllocator.h"
 #include "gc/GCInternals.h"
 #include "gc/ParallelMarking.h"
@@ -26,6 +24,7 @@
 #include "js/GCTypeMacros.h"  // JS_FOR_EACH_PUBLIC_{,TAGGED_}GC_POINTER_TYPE
 #include "js/SliceBudget.h"
 #include "util/Poison.h"
+#include "util/RandomSeed.h"
 #include "vm/GeneratorObject.h"
 
 #include "gc/BufferAllocator-inl.h"

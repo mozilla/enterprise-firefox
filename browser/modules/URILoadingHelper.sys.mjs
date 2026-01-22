@@ -11,7 +11,6 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   AboutNewTab: "resource:///modules/AboutNewTab.sys.mjs",
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
-  UrlbarPrefs: "moz-src:///browser/components/urlbar/UrlbarPrefs.sys.mjs",
 });
 
 ChromeUtils.defineLazyGetter(lazy, "ReferrerInfo", () =>
@@ -1050,10 +1049,7 @@ export const URILoadingHelper = {
 
     // No opened tab has that url.
     if (aOpenNew) {
-      if (
-        lazy.UrlbarPrefs.get("switchTabs.searchAllContainers") &&
-        aUserContextId != null
-      ) {
+      if (aUserContextId != null) {
         aOpenParams.userContextId = aUserContextId;
       }
       if (isBrowserWindow && window.gBrowser.selectedTab.isEmpty) {

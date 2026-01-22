@@ -329,13 +329,8 @@ newtab-custom-recent-subtitle = Eine Auswahl kürzlich besuchter Websites und In
 newtab-custom-weather-toggle =
     .label = Wetter
     .description = Heutige Vorhersage auf einen Blick
-newtab-custom-trending-search-toggle =
-    .label = Aktuell beliebte Suchanfragen
-    .description = Beliebte und häufig gesuchte Themen
 newtab-custom-widget-weather-toggle =
     .label = Wetter
-newtab-custom-widget-trending-search-toggle =
-    .label = Beliebte Suchanfragen
 newtab-custom-widget-lists-toggle =
     .label = Listen
 newtab-custom-widget-timer-toggle =
@@ -596,7 +591,7 @@ newtab-download-mobile-highlight-image =
 newtab-shortcuts-highlight-title = Ihre Favoriten in Griffweite
 newtab-shortcuts-highlight-subtitle = Fügen Sie eine Verknüpfung hinzu, damit Ihre Lieblings-Websites mit einem Klick erreichbar sind.
 
-## Strings for reporting ads and content
+## Strings for reporting issues with ads and content
 
 newtab-report-content-why-reporting-this =
     .label = Warum melden Sie das?
@@ -614,21 +609,13 @@ newtab-report-content-inappropriate-offensive =
     .label = Unangemessen oder anstößig
 newtab-report-content-spam-misleading =
     .label = Spam oder irreführend
+newtab-report-content-requires-payment-subscription =
+    .label = Zahlung oder Abonnement erforderlich
+newtab-report-content-requires-payment-subscription-learn-more = Weitere Informationen
 newtab-report-cancel = Abbrechen
 newtab-report-submit = Absenden
 newtab-toast-thanks-for-reporting =
     .message = Danke für die Meldung.
-
-## Strings for trending searches
-
-newtab-trending-searches-show-trending =
-    .title = Aktuell beliebte Suchanfragen anzeigen
-newtab-trending-searches-hide-trending =
-    .title = Aktuell beliebte Suchanfragen ausblenden
-newtab-trending-searches-learn-more = Weitere Informationen
-newtab-trending-searches-dismiss = Aktuell beliebte Suchanfragen ausblenden
-# "Trending searches refers to popular searches from search engines
-newtab-trending-searches-title = Aktuell beliebte Suchanfragen
 
 ## Strings for task / to-do list productivity widget
 

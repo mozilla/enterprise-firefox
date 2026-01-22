@@ -6,8 +6,8 @@
 
 /* A namespace class for static content utilities. */
 
-#ifndef nsContentUtils_h___
-#define nsContentUtils_h___
+#ifndef nsContentUtils_h_
+#define nsContentUtils_h_
 
 #if defined(XP_WIN)
 #  include <float.h>
@@ -199,6 +199,8 @@ class ShadowRoot;
 struct StructuredSerializeOptions;
 struct SynthesizeMouseEventData;
 struct SynthesizeMouseEventOptions;
+struct SynthesizeTouchEventData;
+struct SynthesizeTouchEventOptions;
 class TrustedHTMLOrString;
 class VoidFunction;
 class WorkerPrivate;
@@ -242,6 +244,15 @@ enum EventNameType {
 };
 
 enum class TreeKind : uint8_t { DOM, ShadowIncludingDOM, Flat };
+
+inline std::ostream& operator<<(std::ostream& aStream, TreeKind aTreeKind) {
+  constexpr static const char* sNames[] = {
+      "DOM",
+      "ShadowIncludingDOM",
+      "Flat",
+  };
+  return aStream << sNames[static_cast<uint8_t>(aTreeKind)];
+}
 
 enum class SerializeShadowRoots : uint8_t { Yes, No };
 
@@ -716,9 +727,7 @@ class nsContentUtils {
    *          0 if point1 == point2.
    *          `Nothing` if the two nodes aren't in the same connected subtree.
    */
-  template <TreeKind aKind = TreeKind::ShadowIncludingDOM,
-            typename = std::enable_if_t<aKind == TreeKind::ShadowIncludingDOM ||
-                                        aKind == TreeKind::Flat>>
+  template <TreeKind aKind = TreeKind::ShadowIncludingDOM>
   static mozilla::Maybe<int32_t> ComparePointsWithIndices(
       const nsINode* aParent1, uint32_t aOffset1, const nsINode* aParent2,
       uint32_t aOffset2, NodeIndexCache* aIndexCache = nullptr);
@@ -734,9 +743,7 @@ class nsContentUtils {
    *          `Nothing` if the two nodes aren't in the same connected subtree.
    */
   template <TreeKind aKind = TreeKind::ShadowIncludingDOM, typename PT1,
-            typename RT1, typename PT2, typename RT2,
-            typename = std::enable_if_t<aKind == TreeKind::ShadowIncludingDOM ||
-                                        aKind == TreeKind::Flat>>
+            typename RT1, typename PT2, typename RT2>
   static mozilla::Maybe<int32_t> ComparePoints(
       const mozilla::RangeBoundaryBase<PT1, RT1>& aBoundary1,
       const mozilla::RangeBoundaryBase<PT2, RT2>& aBoundary2,
@@ -752,9 +759,7 @@ class nsContentUtils {
    * traditional behavior. If you want to use this in new code, it means that
    * you **should** check the offset values and call `ComparePoints` instead.
    */
-  template <TreeKind aKind = TreeKind::ShadowIncludingDOM,
-            typename = std::enable_if_t<aKind == TreeKind::ShadowIncludingDOM ||
-                                        aKind == TreeKind::Flat>>
+  template <TreeKind aKind = TreeKind::ShadowIncludingDOM>
   static mozilla::Maybe<int32_t> ComparePoints_AllowNegativeOffsets(
       const nsINode* aParent1, int64_t aOffset1, const nsINode* aParent2,
       int64_t aOffset2) {
@@ -1893,6 +1898,15 @@ class nsContentUtils {
                             const mozilla::dom::SetHTMLUnsafeOptions& aOptions,
                             bool aIsShadowRoot, nsIPrincipal* aSubjectPrincipal,
                             mozilla::ErrorResult& aError);
+
+  // This flags indicates that ParseFragmentHTML/ParseFragmentXHTML should
+  // automatically do default sanitization using the nsTreeSantizer when called
+  // from system privileged or about: code.
+  static const int32_t kParseFragmentPrivilegedDefaultSanitization = -1;
+  // Warning: Only use this for safe callers that do their own sanitization like
+  // setHTML().
+  static const int32_t kParseFragmentNoSanitization = -2;
+
   /**
    * Invoke the fragment parsing algorithm (innerHTML) using the HTML parser.
    *
@@ -1908,22 +1922,22 @@ class nsContentUtils {
    * @param aPreventScriptExecution true to prevent scripts from executing;
    *        don't set to false when parsing into a target node that has been
    *        bound to tree.
+   * @param aFlags defaults to kParseFragmentPrivilegedDefaultSanitization
+   * indicating that ParseFragmentHTML will do default sanitization for system
+   * privileged calls to it. Only ParserUtils::ParseFragment() should ever pass
+   * explicit aFlags which will then used for sanitization of the fragment. To
+   * pass explicit aFlags use any of the sanitization flags listed in
+   * nsIParserUtils.idl. kParseFragmentHTMLNoSanitization should only be used
+   * for setHTML(), which already does its own sanitization.
    * @return NS_ERROR_DOM_INVALID_STATE_ERR if a re-entrant attempt to parse
    *         fragments is made, NS_ERROR_OUT_OF_MEMORY if aSourceBuffer is too
    *         long and NS_OK otherwise.
-   * @param aFlags defaults to -1 indicating that ParseFragmentHTML will do
-   *        default sanitization for system privileged calls to it. Only
-   *        ParserUtils::ParseFragment() should ever pass explicit aFlags
-   *        which will then used for sanitization of the fragment.
-   *        To pass explicit aFlags use any of the sanitization flags
-   *        listed in nsIParserUtils.idl.
    */
-  static nsresult ParseFragmentHTML(const nsAString& aSourceBuffer,
-                                    nsIContent* aTargetNode,
-                                    nsAtom* aContextLocalName,
-                                    int32_t aContextNamespace, bool aQuirks,
-                                    bool aPreventScriptExecution,
-                                    int32_t aFlags = -1);
+  static nsresult ParseFragmentHTML(
+      const nsAString& aSourceBuffer, nsIContent* aTargetNode,
+      nsAtom* aContextLocalName, int32_t aContextNamespace, bool aQuirks,
+      bool aPreventScriptExecution,
+      int32_t aFlags = kParseFragmentPrivilegedDefaultSanitization);
 
   /**
    * Invoke the fragment parsing algorithm (innerHTML) using the XML parser.
@@ -1936,9 +1950,9 @@ class nsContentUtils {
    * @param aDocument the target document
    * @param aTagStack the namespace mapping context
    * @param aPreventExecution whether to mark scripts as already started
-   * @param aFlags, pass -1 and ParseFragmentXML will do default
-   *        sanitization for system privileged calls to it. Only
-   *        ParserUtils::ParseFragment() should ever pass explicit aFlags
+   * @param aFlags, pass kParseFragmentPrivilegedDefaultSanitization and
+   * ParseFragmentXML will do default sanitization for system privileged calls
+   * to it. Only ParserUtils::ParseFragment() should ever pass explicit aFlags
    *        which will then used for sanitization of the fragment.
    *        To pass explicit aFlags use any of the sanitization flags
    *        listed in nsIParserUtils.idl.
@@ -2970,6 +2984,12 @@ class nsContentUtils {
   static nsresult GetHostOrIPv6WithBrackets(nsIPrincipal* aPrincipal,
                                             nsACString& aHost);
 
+  /**
+   * Like GetHostOrIPv6WithBrackets, but returns the ASCII (punycode) host.
+   */
+  static nsresult GetAsciiHostOrIPv6WithBrackets(nsIURI* aURI,
+                                                 nsACString& aHost);
+
   /*
    * Call the given callback on all remote children of the given top-level
    * window. Return Callstate::Stop from the callback to stop calling further
@@ -3056,6 +3076,21 @@ class nsContentUtils {
       const mozilla::dom::SynthesizeMouseEventOptions& aOptions,
       const mozilla::dom::Optional<
           mozilla::OwningNonNull<mozilla::dom::VoidFunction>>& aCallback);
+
+  /**
+   * Synthesize a touch event to the given widget
+   * (See synthesizeTouchEvent in Window.webidl).
+   *
+   * @return A boolean indicating whether the default action was prevented
+   *         by any event listener.
+   */
+  MOZ_CAN_RUN_SCRIPT
+  static mozilla::Result<bool, nsresult> SynthesizeTouchEvent(
+      nsPresContext* aPresContext, nsIWidget* aWidget,
+      const nsPoint& aWidgetOffset, const nsAString& aType,
+      const nsTArray<mozilla::dom::SynthesizeTouchEventData>& aTouches,
+      const int32_t aModifiers,
+      const mozilla::dom::SynthesizeTouchEventOptions& aOptions);
 
   static void FirePageShowEventForFrameLoaderSwap(
       nsIDocShellTreeItem* aItem,
@@ -3510,22 +3545,6 @@ class nsContentUtils {
    */
   static void RequestGeckoTaskBurst();
 
-  static void SetMayHaveFormCheckboxStateChangeListeners() {
-    sMayHaveFormCheckboxStateChangeListeners = true;
-  }
-
-  static bool MayHaveFormCheckboxStateChangeListeners() {
-    return sMayHaveFormCheckboxStateChangeListeners;
-  }
-
-  static void SetMayHaveFormRadioStateChangeListeners() {
-    sMayHaveFormRadioStateChangeListeners = true;
-  }
-
-  static bool MayHaveFormRadioStateChangeListeners() {
-    return sMayHaveFormRadioStateChangeListeners;
-  }
-
   /**
    * Returns the closest link element in the flat tree of aContent if there's
    * one, otherwise returns nullptr.
@@ -3636,9 +3655,7 @@ class nsContentUtils {
    * node.
    * Return Nothing if aChild1 is a root of the native anonymous subtree.
    */
-  template <TreeKind aKind,
-            typename = std::enable_if_t<aKind == TreeKind::ShadowIncludingDOM ||
-                                        aKind == TreeKind::Flat>>
+  template <TreeKind aKind>
   static mozilla::Maybe<int32_t> CompareChildNodes(
       const nsINode* aChild1, const nsINode* aChild2,
       NodeIndexCache* aIndexCache = nullptr);
@@ -3649,9 +3666,7 @@ class nsContentUtils {
    * Return 1 if aChild2 is a preceding sibling of a child at aOffset1.
    * Return Nothing if aChild2 is a root of the native anonymous subtree.
    */
-  template <TreeKind aKind,
-            typename = std::enable_if_t<aKind == TreeKind::ShadowIncludingDOM ||
-                                        aKind == TreeKind::Flat>>
+  template <TreeKind aKind>
   static mozilla::Maybe<int32_t> CompareChildOffsetAndChildNode(
       uint32_t aOffset1, const nsINode& aChild2,
       NodeIndexCache* aIndexCache = nullptr);
@@ -3662,9 +3677,7 @@ class nsContentUtils {
    * Return 1 if aChild1 is a following sibling of a child at aOffset2.
    * Return Nothing if aChild1 is a root of the native anonymous subtree.
    */
-  template <TreeKind aKind,
-            typename = std::enable_if_t<aKind == TreeKind::ShadowIncludingDOM ||
-                                        aKind == TreeKind::Flat>>
+  template <TreeKind aKind>
   static mozilla::Maybe<int32_t> CompareChildNodeAndChildOffset(
       const nsINode& aChild1, uint32_t aOffset2,
       NodeIndexCache* aIndexCache = nullptr);
@@ -3674,9 +3687,7 @@ class nsContentUtils {
    * includes odd traditional behavior. Therefore, do not use this method as a
    * utility method.
    */
-  template <TreeKind aKind = TreeKind::ShadowIncludingDOM,
-            typename = std::enable_if_t<aKind == TreeKind::ShadowIncludingDOM ||
-                                        aKind == TreeKind::Flat>>
+  template <TreeKind aKind = TreeKind::ShadowIncludingDOM>
   static mozilla::Maybe<int32_t> CompareClosestCommonAncestorChildren(
       const nsINode&, const nsINode*, const nsINode*,
       NodeIndexCache* = nullptr);
@@ -3742,9 +3753,6 @@ class nsContentUtils {
 
   static int32_t sInnerOrOuterWindowCount;
   static uint32_t sInnerOrOuterWindowSerialCounter;
-
-  static bool sMayHaveFormCheckboxStateChangeListeners;
-  static bool sMayHaveFormRadioStateChangeListeners;
 };
 
 /* static */ inline ExtContentPolicyType
@@ -3786,6 +3794,7 @@ nsContentUtils::InternalContentPolicyTypeToExternal(nsContentPolicyType aType) {
     case nsIContentPolicy::TYPE_INTERNAL_IMAGE:
     case nsIContentPolicy::TYPE_INTERNAL_IMAGE_PRELOAD:
     case nsIContentPolicy::TYPE_INTERNAL_IMAGE_FAVICON:
+    case nsIContentPolicy::TYPE_INTERNAL_IMAGE_NOTIFICATION:
       return ExtContentPolicy::TYPE_IMAGE;
 
     case nsIContentPolicy::TYPE_INTERNAL_STYLESHEET:
@@ -3936,4 +3945,4 @@ class TreeOrderComparator {
     }                                                       \
   }
 
-#endif /* nsContentUtils_h___ */
+#endif /* nsContentUtils_h_ */

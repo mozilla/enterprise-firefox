@@ -11,12 +11,10 @@ include PlatformWidgetTypes;
 include PCompositorBridgeTypes;
 include protocol PAPZ;
 include protocol PAPZCTreeManager;
-include protocol PAPZInputBridge;
 include protocol PBrowser;
 include protocol PCompositorManager;
 include protocol PCompositorWidget;
 include protocol PTexture;
-include protocol PUiCompositorController;
 include protocol PWebRenderBridge;
 include "mozilla/GfxMessageUtils.h";
 include "mozilla/layers/LayersMessageUtils.h";
@@ -127,16 +125,8 @@ parent:
   async PCompositorWidget(CompositorWidgetInitData aInitData);
 
   // When out-of-process, this must be called to finish initialization.
-  async Initialize(LayersId rootLayerTreeId);
+  sync Initialize(LayersId rootLayerTreeId);
 
-  // Must be called after Initialize(), and only for top-level compositors and
-  // when using a GPU process.
-  async InitAPZInputBridge(Endpoint<PAPZInputBridgeParent> endpoint);
-
-  // Must be called after Initialize(), and only for top-level compositors.
-  async InitUiCompositorController(
-      Endpoint<PUiCompositorControllerParent> endpoint);
-      
   // Must be called after Initialize(), and only succeeds if AsyncPanZoomEnabled() is true.
   async PAPZ(LayersId layersId);
   async PAPZCTreeManager(LayersId layersId);
@@ -197,6 +187,10 @@ parent:
   async PTexture(SurfaceDescriptor aSharedData, ReadLockDescriptor aReadLock, LayersBackend aBackend, TextureFlags aTextureFlags, LayersId id, uint64_t aSerial, MaybeExternalImageId aExternalImageId);
 
   sync SyncWithCompositor();
+
+  // Check if WebRender rasterized any tiles in the last frame, and clear the state.
+  // Used by reftest to verify no rasterization occurred.
+  sync CheckAndClearWRDidRasterize(LayersId id) returns (bool didRasterize);
 
   // The pipelineId is the same as the layersId
   async PWebRenderBridge(PipelineId pipelineId, LayoutDeviceIntSize aSize, WindowKind aKind);

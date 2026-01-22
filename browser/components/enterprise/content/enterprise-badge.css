@@ -26,7 +26,7 @@
   flex-shrink: 0;
 
   border-radius: var(--border-radius-medium);
-  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-border-color-tokens */
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
   border: 1px solid var(--badge-border-color);
   background: var(--background-color-box);
 

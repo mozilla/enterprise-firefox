@@ -10,6 +10,9 @@ var { AppConstants } = ChromeUtils.importESModule(
 const { SitePermissions } = ChromeUtils.importESModule(
   "resource:///modules/SitePermissions.sys.mjs"
 );
+const { PermissionUI } = ChromeUtils.importESModule(
+  "resource:///modules/PermissionUI.sys.mjs"
+);
 
 const sitePermissionsL10n = {
   "desktop-notification": {
@@ -588,6 +591,15 @@ var gSitePermissionsManager = {
     // to write out the pending adds/deletes and don't need
     // to update the UI
     this.uninit();
+
+    // Record telemetry for notification permission revocation via preferences
+    if (this._type === "desktop-notification") {
+      for (let group of this._permissionsToDelete.values()) {
+        Glean.webNotificationPermission.permissionRevokedPreferences.record({
+          site_category: PermissionUI.getSiteCategory(group.principal),
+        });
+      }
+    }
 
     // Delete even _permissionsToChange to clear out double-keyed permissions
     for (let group of [

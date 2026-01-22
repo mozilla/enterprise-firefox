@@ -323,13 +323,8 @@ newtab-custom-recent-subtitle = מבחר של אתרים ותכנים אחרונ
 newtab-custom-weather-toggle =
     .label = מזג אוויר
     .description = התחזית של היום
-newtab-custom-trending-search-toggle =
-    .label = חיפושים פופולריים
-    .description = נושאים נפוצים ובחיפוש תדיר
 newtab-custom-widget-weather-toggle =
     .label = מזג אוויר
-newtab-custom-widget-trending-search-toggle =
-    .label = חיפושים פופולריים
 newtab-custom-widget-lists-toggle =
     .label = רשימות
 newtab-custom-widget-timer-toggle =
@@ -590,7 +585,7 @@ newtab-download-mobile-highlight-image =
 newtab-shortcuts-highlight-title = המועדפים שלך בקצות האצבעות
 newtab-shortcuts-highlight-subtitle = ניתן להוסיף קיצור דרך כדי לשמור את האתרים המועדפים עליך במרחק קליק אחד.
 
-## Strings for reporting ads and content
+## Strings for reporting issues with ads and content
 
 newtab-report-content-why-reporting-this =
     .label = על מה הדיווח?
@@ -608,21 +603,13 @@ newtab-report-content-inappropriate-offensive =
     .label = בלתי הולם או פוגעני
 newtab-report-content-spam-misleading =
     .label = ספאם או הטעיה
+newtab-report-content-requires-payment-subscription =
+    .label = דורש תשלום או מינוי
+newtab-report-content-requires-payment-subscription-learn-more = מידע נוסף
 newtab-report-cancel = ביטול
 newtab-report-submit = שליחה
 newtab-toast-thanks-for-reporting =
     .message = תודה שדיווחת על זה.
-
-## Strings for trending searches
-
-newtab-trending-searches-show-trending =
-    .title = הצגת חיפושים פופולריים
-newtab-trending-searches-hide-trending =
-    .title = הסתרת חיפושים פופולריים
-newtab-trending-searches-learn-more = מידע נוסף
-newtab-trending-searches-dismiss = הסתרת חיפושים פופולריים
-# "Trending searches refers to popular searches from search engines
-newtab-trending-searches-title = חיפושים פופולריים
 
 ## Strings for task / to-do list productivity widget
 

@@ -17,7 +17,7 @@ const { SearchUtils } = ChromeUtils.importESModule(
 add_task(async function test_measure() {
   Services.fog.testResetFOG();
 
-  const EXPECTED_PREFERENCES_KILOBYTES_SIZE = 55;
+  const EXPECTED_PREFERENCES_KILOBYTES_SIZE = 56;
   const tempDir = await IOUtils.createUniqueDirectory(
     PathUtils.tempDir,
     "PreferencesBackupResource-measure-test"
@@ -26,6 +26,7 @@ add_task(async function test_measure() {
     { path: "prefs.js", sizeInKB: 20 },
     { path: "xulstore.json", sizeInKB: 1 },
     { path: "containers.json", sizeInKB: 1 },
+    { path: "customKeys.json", sizeInKB: 1 },
     { path: "handlers.json", sizeInKB: 1 },
     { path: "search.json.mozlz4", sizeInKB: 1 },
     { path: "user.js", sizeInKB: 2 },
@@ -78,6 +79,7 @@ add_task(async function test_backup() {
   const simpleCopyFiles = [
     { path: "xulstore.json" },
     { path: "containers.json" },
+    { path: "customKeys.json" },
     { path: "handlers.json" },
     { path: "search.json.mozlz4" },
     { path: "user.js" },
@@ -180,6 +182,7 @@ add_task(async function test_recover() {
     { path: "prefs.js" },
     { path: "xulstore.json" },
     { path: "containers.json" },
+    { path: "customKeys.json" },
     { path: "handlers.json" },
     { path: "user.js" },
     { path: ["chrome", "userChrome.css"] },

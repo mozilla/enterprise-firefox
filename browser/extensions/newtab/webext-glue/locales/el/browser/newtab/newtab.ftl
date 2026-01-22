@@ -329,13 +329,8 @@ newtab-custom-recent-subtitle = Συλλογή πρόσφατων ιστοτόπ
 newtab-custom-weather-toggle =
     .label = Καιρός
     .description = Σημερινή πρόγνωση με μια ματιά
-newtab-custom-trending-search-toggle =
-    .label = Δημοφιλείς αναζητήσεις
-    .description = Δημοφιλή και συνήθη θέματα αναζήτησης
 newtab-custom-widget-weather-toggle =
     .label = Καιρός
-newtab-custom-widget-trending-search-toggle =
-    .label = Δημοφιλείς αναζητήσεις
 newtab-custom-widget-lists-toggle =
     .label = Λίστες
 newtab-custom-widget-timer-toggle =
@@ -596,7 +591,7 @@ newtab-download-mobile-highlight-image =
 newtab-shortcuts-highlight-title = Τα αγαπημένα σας, στα χέρια σας
 newtab-shortcuts-highlight-subtitle = Προσθέστε μια συντόμευση για να έχετε κοντά σας τους αγαπημένους ιστοτόπους σας.
 
-## Strings for reporting ads and content
+## Strings for reporting issues with ads and content
 
 newtab-report-content-why-reporting-this =
     .label = Γιατί το αναφέρετε αυτό;
@@ -614,21 +609,13 @@ newtab-report-content-inappropriate-offensive =
     .label = Ακατάλληλο ή προσβλητικό
 newtab-report-content-spam-misleading =
     .label = Ανεπιθύμητο ή παραπλανητικό
+newtab-report-content-requires-payment-subscription =
+    .label = Απαιτεί πληρωμή ή συνδρομή
+newtab-report-content-requires-payment-subscription-learn-more = Μάθετε περισσότερα
 newtab-report-cancel = Ακύρωση
 newtab-report-submit = Υποβολή
 newtab-toast-thanks-for-reporting =
     .message = Ευχαριστούμε για την αναφορά σας.
-
-## Strings for trending searches
-
-newtab-trending-searches-show-trending =
-    .title = Εμφάνιση δημοφιλών αναζητήσεων
-newtab-trending-searches-hide-trending =
-    .title = Απόκρυψη δημοφιλών αναζητήσεων
-newtab-trending-searches-learn-more = Μάθετε περισσότερα
-newtab-trending-searches-dismiss = Απόκρυψη δημοφιλών αναζητήσεων
-# "Trending searches refers to popular searches from search engines
-newtab-trending-searches-title = Δημοφιλείς αναζητήσεις
 
 ## Strings for task / to-do list productivity widget
 

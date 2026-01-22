@@ -120,6 +120,7 @@ TEST_PKGS_TARZST := \
   perftests \
   fuzztest \
   trainhop \
+  enterprise \
   $(NULL)
 
 ifdef LINK_GTEST_DURING_COMPILE

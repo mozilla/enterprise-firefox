@@ -6,6 +6,7 @@ import React, { useEffect, useRef } from "react";
 import { useDispatch, useSelector, batch } from "react-redux";
 import { Lists } from "./Lists/Lists";
 import { FocusTimer } from "./FocusTimer/FocusTimer";
+import { WeatherForecast } from "./WeatherForecast/WeatherForecast";
 import { MessageWrapper } from "content-src/components/MessageWrapper/MessageWrapper";
 import { WidgetsFeatureHighlight } from "../DiscoveryStreamComponents/FeatureHighlight/WidgetsFeatureHighlight";
 import { actionCreators as ac, actionTypes as at } from "common/Actions.mjs";
@@ -14,6 +15,8 @@ const PREF_WIDGETS_LISTS_ENABLED = "widgets.lists.enabled";
 const PREF_WIDGETS_SYSTEM_LISTS_ENABLED = "widgets.system.lists.enabled";
 const PREF_WIDGETS_TIMER_ENABLED = "widgets.focusTimer.enabled";
 const PREF_WIDGETS_SYSTEM_TIMER_ENABLED = "widgets.system.focusTimer.enabled";
+const PREF_WIDGETS_SYSTEM_WEATHER_FORECAST_ENABLED =
+  "widgets.system.weatherForecast.enabled";
 const PREF_WIDGETS_MAXIMIZED = "widgets.maximized";
 const PREF_WIDGETS_SYSTEM_MAXIMIZED = "widgets.system.maximized";
 
@@ -63,6 +66,8 @@ function Widgets() {
     prefs.trainhopConfig?.widgets?.listsEnabled;
   const nimbusTimerTrainhopEnabled =
     prefs.trainhopConfig?.widgets?.timerEnabled;
+  const nimbusWeatherForecastTrainhopEnabled =
+    prefs.trainhopConfig?.widgets?.weatherForecastEnabled;
 
   const listsEnabled =
     (nimbusListsTrainhopEnabled ||
@@ -75,6 +80,10 @@ function Widgets() {
       nimbusTimerEnabled ||
       prefs[PREF_WIDGETS_SYSTEM_TIMER_ENABLED]) &&
     prefs[PREF_WIDGETS_TIMER_ENABLED];
+
+  const weatherForecastEnabled =
+    nimbusWeatherForecastTrainhopEnabled ||
+    prefs[PREF_WIDGETS_SYSTEM_WEATHER_FORECAST_ENABLED];
 
   // track previous timerEnabled state to detect when it becomes disabled
   const prevTimerEnabledRef = useRef(timerEnabled);
@@ -134,7 +143,7 @@ function Widgets() {
     }
   }
 
-  if (!(listsEnabled || timerEnabled)) {
+  if (!(listsEnabled || timerEnabled || weatherForecastEnabled)) {
     return null;
   }
 
@@ -181,6 +190,13 @@ function Widgets() {
           )}
           {timerEnabled && (
             <FocusTimer
+              dispatch={dispatch}
+              handleUserInteraction={handleUserInteraction}
+              isMaximized={isMaximized}
+            />
+          )}
+          {weatherForecastEnabled && (
+            <WeatherForecast
               dispatch={dispatch}
               handleUserInteraction={handleUserInteraction}
               isMaximized={isMaximized}

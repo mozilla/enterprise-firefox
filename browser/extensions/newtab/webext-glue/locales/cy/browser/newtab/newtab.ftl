@@ -334,13 +334,8 @@ newtab-custom-recent-subtitle = Detholiad o wefannau a chynnwys diweddar
 newtab-custom-weather-toggle =
     .label = Y Tywydd
     .description = Cipolwg ar ragolygon tywydd heddiw
-newtab-custom-trending-search-toggle =
-    .label = Tueddiadau chwilio
-    .description = Pynciau chwilio aml a phoblogaidd
 newtab-custom-widget-weather-toggle =
     .label = Y Tywydd
-newtab-custom-widget-trending-search-toggle =
-    .label = Tueddiadau chwilio
 newtab-custom-widget-lists-toggle =
     .label = Rhestrau
 newtab-custom-widget-timer-toggle =
@@ -601,7 +596,7 @@ newtab-download-mobile-highlight-image =
 newtab-shortcuts-highlight-title = Eich ffefrynnau ar flaenau eich bysedd
 newtab-shortcuts-highlight-subtitle = Ychwanegwch lwybr byr i gadw'ch hoff wefannau un clic i ffwrdd.
 
-## Strings for reporting ads and content
+## Strings for reporting issues with ads and content
 
 newtab-report-content-why-reporting-this =
     .label = Pam ydych chi'n adrodd ar hyn?
@@ -619,21 +614,13 @@ newtab-report-content-inappropriate-offensive =
     .label = Anaddas neu sarhaus
 newtab-report-content-spam-misleading =
     .label = Sbam neu gamarweiniol
+newtab-report-content-requires-payment-subscription =
+    .label = Mae angen taliad neu danysgrifiad
+newtab-report-content-requires-payment-subscription-learn-more = Darllen rhagor
 newtab-report-cancel = Diddymu
 newtab-report-submit = Cyflwyno
 newtab-toast-thanks-for-reporting =
     .message = Diolch am adrodd ar hwn.
-
-## Strings for trending searches
-
-newtab-trending-searches-show-trending =
-    .title = Dangos y tuedd chwilio
-newtab-trending-searches-hide-trending =
-    .title = Cuddio'r tuedd chwilio
-newtab-trending-searches-learn-more = Dysgu rhagor
-newtab-trending-searches-dismiss = Cuddio'r tuedd chwilio
-# "Trending searches refers to popular searches from search engines
-newtab-trending-searches-title = Tueddiadau chwilio
 
 ## Strings for task / to-do list productivity widget
 

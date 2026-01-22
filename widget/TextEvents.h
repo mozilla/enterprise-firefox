@@ -3,8 +3,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef mozilla_TextEvents_h__
-#define mozilla_TextEvents_h__
+#ifndef mozilla_TextEvents_h_
+#define mozilla_TextEvents_h_
 
 #include <stdint.h>
 
@@ -40,7 +40,7 @@ class nsStringHashKey;
 
 enum {
 #define NS_DEFINE_VK(aDOMKeyName, aDOMKeyCode) NS_##aDOMKeyName = aDOMKeyCode,
-#include "mozilla/VirtualKeyCodeList.h"
+#include "mozilla/VirtualKeyCodeList.inc"
 #undef NS_DEFINE_VK
   NS_VK_UNKNOWN = 0xFF
 };
@@ -310,10 +310,6 @@ class WidgetKeyboardEvent final : public WidgetInputEvent {
   }
 
   bool CanUserGestureActivateTarget() const {
-    if (IsModifierKeyEvent()) {
-      return false;
-    }
-
     if (mFlags.mIsShortcutKey) {
       // Space is quite common shortcut for playing media.
       return mKeyCode == NS_VK_SPACE ||
@@ -1548,4 +1544,4 @@ class InternalLegacyTextEvent : public InternalUIEvent {
 
 }  // namespace mozilla
 
-#endif  // mozilla_TextEvents_h__
+#endif  // mozilla_TextEvents_h_

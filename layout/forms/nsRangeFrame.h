@@ -4,8 +4,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef nsRangeFrame_h___
-#define nsRangeFrame_h___
+#ifndef nsRangeFrame_h_
+#define nsRangeFrame_h_
 
 #include "mozilla/Decimal.h"
 #include "mozilla/EventForwards.h"

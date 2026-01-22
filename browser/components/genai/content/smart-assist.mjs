@@ -11,11 +11,14 @@ import "chrome://browser/content/sidebar/sidebar-panel-header.mjs";
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   AboutNewTab: "resource:///modules/AboutNewTab.sys.mjs",
+  SearchService: "moz-src:///toolkit/components/search/SearchService.sys.mjs",
   SmartAssistEngine:
     "moz-src:///browser/components/genai/SmartAssistEngine.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   SpecialMessageActions:
     "resource://messaging-system/lib/SpecialMessageActions.sys.mjs",
+  AIWindowUI:
+    "moz-src:///browser/components/aiwindow/ui/modules/AIWindowUI.sys.mjs",
 });
 
 const FULL_PAGE_URL = "chrome://browser/content/genai/smartAssistPage.html";
@@ -121,8 +124,8 @@ export class SmartAssist extends MozLitElement {
 
     const isPrivate = lazy.PrivateBrowsingUtils.isWindowPrivate(window);
     const engine = isPrivate
-      ? await Services.search.getDefaultPrivate()
-      : await Services.search.getDefault();
+      ? await lazy.SearchService.getDefaultPrivate()
+      : await lazy.SearchService.getDefault();
 
     const submission = engine.getSubmission(searchTerms); // default to SEARCH (text/html)
 
@@ -247,85 +250,8 @@ export class SmartAssist extends MozLitElement {
     );
   }
 
-  /**
-   * Helper method to get the chrome document
-   *
-   * @returns {Document} The top-level chrome window's document
-   */
-
-  _getChromeDocument() {
-    return window.browsingContext.topChromeWindow.document;
-  }
-
-  /**
-   * Helper method to find an element in the chrome document
-   *
-   * @param {string} id - The element ID to find
-   * @returns {Element|null} The found element or null
-   */
-
-  _getChromeElement(id) {
-    return this._getChromeDocument().getElementById(id);
-  }
-
-  /**
-   * Helper method to get or create the AI window browser element
-   *
-   * @param {Document} chromeDoc - The chrome document
-   * @param {Element} box - The AI window box element
-   * @returns {Element} The AI window browser element
-   */
-
-  _getOrCreateBrowser(chromeDoc, box) {
-    // Find existing browser, or create it the first time we open the sidebar.
-    let browser = chromeDoc.getElementById("ai-window-browser");
-
-    if (!browser) {
-      const stack =
-        box.querySelector(".ai-window-browser-stack") ||
-        chromeDoc.createXULElement("stack");
-
-      stack.className = "ai-window-browser-stack";
-      stack.setAttribute("flex", "1");
-      box.appendChild(stack);
-
-      browser = chromeDoc.createXULElement("browser");
-      browser.setAttribute("id", "ai-window-browser");
-      browser.setAttribute("flex", "1");
-      browser.setAttribute("disablehistory", "true");
-      browser.setAttribute("disablefullscreen", "true");
-      browser.setAttribute("tooltip", "aHTMLTooltip");
-
-      browser.setAttribute(
-        "src",
-        "chrome://browser/content/aiwindow/aiWindow.html"
-      );
-
-      stack.appendChild(browser);
-    }
-  }
-
   _toggleAIWindowSidebar() {
-    const chromeDoc = this._getChromeDocument();
-    const box = chromeDoc.getElementById("ai-window-box");
-    const splitter = chromeDoc.getElementById("ai-window-splitter");
-
-    if (!box || !splitter) {
-      return;
-    }
-
-    this._getOrCreateBrowser(chromeDoc, box);
-
-    // Toggle visibility
-    const opening = box.hidden;
-
-    box.hidden = !opening;
-    splitter.hidden = !opening;
-
-    // Make sure parent container is also visible
-    if (box.parentElement && box.parentElement.hidden) {
-      box.parentElement.hidden = false;
-    }
+    lazy.AIWindowUI.toggleSidebar(window.browsingContext.topChromeWindow);
   }
 
   render() {

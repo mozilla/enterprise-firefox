@@ -123,6 +123,7 @@ export class BaseContent extends React.PureComponent {
       visible: false,
       showSectionsMgmtPanel: false,
     };
+    this.spocPlaceholderStartTime = null;
   }
 
   setFirstVisibleTimestamp() {
@@ -140,6 +141,10 @@ export class BaseContent extends React.PureComponent {
     this.setFirstVisibleTimestamp();
     this.shouldDisplayTopicSelectionModal();
     this.onVisibilityDispatch();
+
+    if (this.isSpocsOnDemandExpired && !this.spocPlaceholderStartTime) {
+      this.spocPlaceholderStartTime = Date.now();
+    }
   }
 
   onVisibilityDispatch() {
@@ -206,6 +211,22 @@ export class BaseContent extends React.PureComponent {
     global.addEventListener("keydown", this.handleOnKeyDown);
     const prefs = this.props.Prefs.values;
     const wallpapersEnabled = prefs["newtabWallpapers.enabled"];
+
+    if (!prefs["externalComponents.enabled"]) {
+      if (prefs["search.useHandoffComponent"]) {
+        // Dynamically import the contentSearchHandoffUI module, but don't worry
+        // about webpacking this one.
+        import(
+          /* webpackIgnore: true */ "chrome://browser/content/contentSearchHandoffUI.mjs"
+        );
+      } else {
+        const scriptURL = "chrome://browser/content/contentSearchHandoffUI.js";
+        const scriptEl = document.createElement("script");
+        scriptEl.src = scriptURL;
+        document.head.appendChild(scriptEl);
+      }
+    }
+
     if (this.props.document.visibilityState === VISIBLE) {
       this.onVisible();
     } else {
@@ -246,10 +267,24 @@ export class BaseContent extends React.PureComponent {
         if (hash === "#customize-topics") {
           this.toggleSectionsMgmtPanel();
         }
+      } else if (this.props.App.customizeMenuVisible) {
+        this.closeCustomizationMenu();
       }
     };
 
-    this._onHashChange();
+    // Using the Performance API to detect page reload vs fresh navigation.
+    // Only open customize menu on fresh navigation, not on page refresh.
+    // See: https://developer.mozilla.org/en-US/docs/Web/API/Performance/getEntriesByType
+    // See: https://developer.mozilla.org/en-US/docs/Web/API/PerformanceEntry/entryType#navigation
+    // See: https://developer.mozilla.org/en-US/docs/Web/API/PerformanceNavigationTiming/type
+    const isReload =
+      globalThis.performance?.getEntriesByType("navigation")[0]?.type ===
+      "reload";
+
+    if (!isReload) {
+      this._onHashChange();
+    }
+
     globalThis.addEventListener("hashchange", this._onHashChange);
   }
 
@@ -303,6 +338,36 @@ export class BaseContent extends React.PureComponent {
     }
 
     this.spocsOnDemandUpdated();
+    this.trackSpocPlaceholderDuration(prevProps);
+  }
+
+  trackSpocPlaceholderDuration(prevProps) {
+    // isExpired returns true when the current props have expired spocs (showing placeholders)
+    const isExpired = this.isSpocsOnDemandExpired;
+
+    // Init tracking when placeholders become visible
+    if (isExpired && this.state.visible && !this.spocPlaceholderStartTime) {
+      this.spocPlaceholderStartTime = Date.now();
+    }
+
+    // wasExpired returns true when the previous props had expired spocs (showing placeholders)
+    const wasExpired =
+      prevProps.DiscoveryStream.spocs.onDemand?.enabled &&
+      !prevProps.DiscoveryStream.spocs.onDemand?.loaded &&
+      Date.now() - prevProps.DiscoveryStream.spocs.lastUpdated >=
+        prevProps.DiscoveryStream.spocs.cacheUpdateTime;
+
+    // Record duration telemetry event when placeholders are replaced with real content
+    if (wasExpired && !isExpired && this.spocPlaceholderStartTime) {
+      const duration = Date.now() - this.spocPlaceholderStartTime;
+      this.props.dispatch(
+        ac.OnlyToMain({
+          type: at.DISCOVERY_STREAM_SPOC_PLACEHOLDER_DURATION,
+          data: { duration },
+        })
+      );
+      this.spocPlaceholderStartTime = null;
+    }
   }
 
   handleColorModeChange() {

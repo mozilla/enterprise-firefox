@@ -4,8 +4,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef nsLayoutUtils_h__
-#define nsLayoutUtils_h__
+#ifndef nsLayoutUtils_h_
+#define nsLayoutUtils_h_
 
 #include <algorithm>
 #include <limits>
@@ -3439,4 +3439,4 @@ class MOZ_RAII SetAndNullOnExit {
   T** mVariable;
 };
 
-#endif  // nsLayoutUtils_h__
+#endif  // nsLayoutUtils_h_

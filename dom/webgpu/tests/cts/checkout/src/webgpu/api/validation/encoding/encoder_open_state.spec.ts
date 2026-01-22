@@ -141,9 +141,9 @@ const kComputePassEncoderCommandInfo: {
 } = {
   setBindGroup: {},
   setPipeline: {},
+  setImmediates: {},
   dispatchWorkgroups: {},
   dispatchWorkgroupsIndirect: {},
-  setImmediates: {},
   pushDebugGroup: {},
   popDebugGroup: {},
   insertDebugMarker: {},
@@ -289,6 +289,13 @@ g.test('render_pass_commands')
       .beginSubcases()
       .combine('finishBeforeCommand', ['no', 'pass', 'encoder'])
   )
+  .beforeAllSubcases(t => {
+    // MAINTENANCE_TODO: Remove when setImmediates is added to spec.
+    t.skipIf(
+      t.params.command === 'setImmediates' && !('setImmediates' in GPURenderPassEncoder.prototype),
+      'setImmediates not supported'
+    );
+  })
   .fn(t => {
     const { command, finishBeforeCommand } = t.params;
     if (command === 'multiDrawIndirect' || command === 'multiDrawIndexedIndirect') {
@@ -394,12 +401,6 @@ g.test('render_pass_commands')
             renderPass.setStencilReference(0);
           }
           break;
-        case 'setImmediates':
-          {
-            const data = new Uint32Array(1);
-            renderPass.setImmediates(0, data, 0, 1);
-          }
-          break;
         case 'beginOcclusionQuery':
           {
             renderPass.beginOcclusionQuery(0);
@@ -449,6 +450,14 @@ g.test('render_bundle_commands')
       .beginSubcases()
       .combine('finishBeforeCommand', [false, true])
   )
+  .beforeAllSubcases(t => {
+    // MAINTENANCE_TODO: Remove when setImmediates is added to spec.
+    t.skipIf(
+      t.params.command === 'setImmediates' &&
+        !('setImmediates' in GPURenderBundleEncoder.prototype),
+      'setImmediates not supported'
+    );
+  })
   .fn(t => {
     const { command, finishBeforeCommand } = t.params;
 
@@ -464,6 +473,11 @@ g.test('render_bundle_commands')
     const bundleEncoder = t.device.createRenderBundleEncoder({
       colorFormats: ['rgba8unorm'],
     });
+
+    t.skipIf(
+      command === 'setImmediates' && !('setImmediates' in bundleEncoder),
+      'setImmediates not supported'
+    );
 
     if (finishBeforeCommand) {
       bundleEncoder.finish();
@@ -511,12 +525,6 @@ g.test('render_bundle_commands')
             bundleEncoder.setVertexBuffer(1, buffer);
           }
           break;
-        case 'setImmediates':
-          {
-            const data = new Uint32Array(1);
-            bundleEncoder.setImmediates(0, data, 0, 1);
-          }
-          break;
         case 'pushDebugGroup':
           {
             bundleEncoder.pushDebugGroup('group');
@@ -555,6 +563,13 @@ g.test('compute_pass_commands')
       .beginSubcases()
       .combine('finishBeforeCommand', ['no', 'pass', 'encoder'])
   )
+  .beforeAllSubcases(t => {
+    // MAINTENANCE_TODO: Remove when setImmediates is added to spec.
+    t.skipIf(
+      t.params.command === 'setImmediates' && !('setImmediates' in GPUComputePassEncoder.prototype),
+      'setImmediates not supported'
+    );
+  })
   .fn(t => {
     const { command, finishBeforeCommand } = t.params;
 
@@ -597,12 +612,6 @@ g.test('compute_pass_commands')
         case 'dispatchWorkgroupsIndirect':
           {
             computePass.dispatchWorkgroupsIndirect(indirectBuffer, 0);
-          }
-          break;
-        case 'setImmediates':
-          {
-            const data = new Uint32Array(1);
-            computePass.setImmediates(0, data, 0, 1);
           }
           break;
         case 'pushDebugGroup':

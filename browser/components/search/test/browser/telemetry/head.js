@@ -18,6 +18,7 @@ ChromeUtils.defineESModuleGetters(this, {
     "moz-src:///browser/components/search/SearchSERPTelemetry.sys.mjs",
   SearchSERPTelemetryUtils:
     "moz-src:///browser/components/search/SearchSERPTelemetry.sys.mjs",
+  SearchService: "moz-src:///toolkit/components/search/SearchService.sys.mjs",
   SearchTestUtils: "resource://testing-common/SearchTestUtils.sys.mjs",
   SearchUITestUtils: "resource://testing-common/SearchUITestUtils.sys.mjs",
   SearchUtils: "moz-src:///toolkit/components/search/SearchUtils.sys.mjs",
@@ -217,6 +218,17 @@ function resetTelemetry() {
   SERPCategorizationRecorder.testReset();
 }
 
+const DEFAULT_IMPRESSION = {
+  provider: "example",
+  tagged: "true",
+  partner_code: "ff",
+  source: "unknown",
+  is_shopping_page: "false",
+  is_private: "false",
+  shopping_tab_displayed: "false",
+  is_signed_in: "false",
+};
+
 /**
  * First checks that we get the correct number of recorded Glean impression events
  * and the recorded Glean impression events have the correct keys and values.
@@ -232,6 +244,17 @@ function assertSERPTelemetry(expectedEvents) {
   // we insert impression id into the expected events to make it easier to
   // run Assert.deepEqual() on the expected and actual result.
   expectedEvents = JSON.parse(JSON.stringify(expectedEvents));
+
+  for (let expectedEvent of expectedEvents) {
+    if (expectedEvent.impression) {
+      expectedEvent.impression = {
+        ...DEFAULT_IMPRESSION,
+        ...expectedEvent.impression,
+      };
+    } else {
+      expectedEvent.impression = { ...DEFAULT_IMPRESSION };
+    }
+  }
 
   // A single test might run assertImpressionEvents more than once
   // so the Set needs to be cleared or else the impression event

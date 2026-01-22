@@ -23,7 +23,6 @@ import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.getSystemService
-import androidx.core.os.bundleOf
 import androidx.core.view.MenuProvider
 import androidx.core.view.isVisible
 import androidx.fragment.app.setFragmentResult
@@ -67,6 +66,7 @@ import org.mozilla.fenix.settings.logins.ui.LoginsMiddleware
 import org.mozilla.fenix.settings.logins.ui.LoginsSortOrder
 import org.mozilla.fenix.settings.logins.ui.LoginsState
 import org.mozilla.fenix.settings.logins.ui.LoginsStore
+import org.mozilla.fenix.settings.logins.ui.LoginsTelemetryMiddleware
 import org.mozilla.fenix.settings.logins.ui.SavedLoginsScreen
 import org.mozilla.fenix.settings.logins.view.SavedLoginsListView
 import org.mozilla.fenix.theme.FirefoxTheme
@@ -173,6 +173,7 @@ class SavedLoginsFragment : SecureFragment(), MenuProvider {
                                     tag = "LoginsStore",
                                     shouldIncludeDetailedData = { Config.channel.isDebug },
                                 ),
+                                LoginsTelemetryMiddleware(),
                                 LoginsMiddleware(
                                     loginsStorage = requireContext().components.core.passwordsStorage,
                                     getNavController = { composeNavController },
@@ -355,7 +356,7 @@ class SavedLoginsFragment : SecureFragment(), MenuProvider {
 
         setFragmentResult(
             LoginDetailFragment.HAS_QUERY_KEY,
-            bundleOf(LoginDetailFragment.HAS_QUERY_BUNDLE to searchQuery?.searchedForText),
+            Bundle().apply { putString(LoginDetailFragment.HAS_QUERY_BUNDLE, searchQuery?.searchedForText) },
         )
         super.onPause()
     }

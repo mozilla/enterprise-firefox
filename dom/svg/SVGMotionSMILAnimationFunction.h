@@ -49,15 +49,15 @@ class SVGMotionSMILAnimationFunction final : public SMILAnimationFunction {
   void MpathChanged() { mIsPathStale = mHasChanged = true; }
 
  protected:
-  enum PathSourceType {
+  enum class PathSourceType {
     // NOTE: Ordering matters here. Higher-priority path-descriptors should
     // have higher enumerated values
-    ePathSourceType_None,    // uninitialized or not applicable
-    ePathSourceType_ByAttr,  // by or from-by animation
-    ePathSourceType_ToAttr,  // to or from-to animation
-    ePathSourceType_ValuesAttr,
-    ePathSourceType_PathAttr,
-    ePathSourceType_Mpath
+    None,    // uninitialized or not applicable
+    ByAttr,  // by or from-by animation
+    ToAttr,  // to or from-to animation
+    ValuesAttr,
+    PathAttr,
+    Mpath
   };
 
   SMILCalcMode GetCalcMode() const override;

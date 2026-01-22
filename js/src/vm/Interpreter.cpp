@@ -20,11 +20,11 @@
 #include <string.h>
 
 #include "jsapi.h"
-#include "jsnum.h"
 
 #include "builtin/Array.h"
 #include "builtin/Eval.h"
 #include "builtin/ModuleObject.h"
+#include "builtin/Number.h"
 #include "builtin/Object.h"
 #include "builtin/Promise.h"
 #include "gc/GC.h"
@@ -4389,6 +4389,19 @@ bool MOZ_NEVER_INLINE JS_HAZ_JSNATIVE_CALLER js::Interpret(JSContext* cx,
     }
     END_CASE(DynamicImport)
 
+#ifdef ENABLE_SOURCE_PHASE_IMPORTS
+    CASE(DynamicImportSource) {
+      ReservedRooted<Value> specifier(&rootValue0);
+      POP_COPY_TO(specifier);
+
+      JSObject* promise = StartDynamicModuleImportSource(cx, script, specifier);
+      if (!promise) goto error;
+
+      PUSH_OBJECT(*promise);
+    }
+    END_CASE(DynamicImportSource)
+#endif
+
     CASE(EnvCallee) {
       uint16_t numHops = GET_ENVCOORD_HOPS(REGS.pc);
       JSObject* env = &REGS.fp()->environmentChain()->as<EnvironmentObject>();
@@ -4472,6 +4485,7 @@ error:
       goto successful_return_continuation;
 
     case ErrorReturnContinuation:
+      CheckForOOMStackTraceInterrupt(cx);
       interpReturnOK = false;
       goto return_continuation;
 

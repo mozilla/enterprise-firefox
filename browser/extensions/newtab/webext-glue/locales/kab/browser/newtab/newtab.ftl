@@ -475,7 +475,7 @@ newtab-download-mobile-highlight-title = Sader { -brand-product-name } i uziraz
 newtab-download-mobile-highlight-image =
     .aria-label = Tangalt QR i usader n { -brand-product-name } i uziraz
 
-## Strings for reporting ads and content
+## Strings for reporting issues with ads and content
 
 newtab-report-content-why-reporting-this =
     .label = Ayɣer i d-tuzneḍ aneqqis ɣef waya?
@@ -489,10 +489,6 @@ newtab-report-cancel = Sefsex
 newtab-report-submit = Azen
 newtab-toast-thanks-for-reporting =
     .message = Tanemmirt imi d-temliḍ aya:
-
-## Strings for trending searches
-
-newtab-trending-searches-learn-more = Issin ugar
 
 ## Strings for task / to-do list productivity widget
 

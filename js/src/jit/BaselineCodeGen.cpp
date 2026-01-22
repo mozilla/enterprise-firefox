@@ -4021,8 +4021,8 @@ bool BaselineCompilerCodeGen::emit_SetAliasedVar() {
   // R2.scratchReg() has the scope coordinate object.
 
   Label skipBarrier;
-  masm.branchPtrInNurseryChunk(Assembler::Equal, objReg, temp, &skipBarrier);
   masm.branchValueIsNurseryCell(Assembler::NotEqual, R0, temp, &skipBarrier);
+  masm.branchPtrInNurseryChunk(Assembler::Equal, objReg, temp, &skipBarrier);
 
   // Uses R2.scratchReg() as input
   masm.call(&postBarrierSlot_);  // Won't clobber R0
@@ -4088,9 +4088,9 @@ bool BaselineInterpreterCodeGen::emit_SetAliasedVar() {
 
   // Post barrier.
   Label skipBarrier;
-  masm.branchPtrInNurseryChunk(Assembler::Equal, env, scratch1, &skipBarrier);
   masm.branchValueIsNurseryCell(Assembler::NotEqual, R2, scratch1,
                                 &skipBarrier);
+  masm.branchPtrInNurseryChunk(Assembler::Equal, env, scratch1, &skipBarrier);
   {
     // Post barrier code expects the object in R2.
     masm.movePtr(env, R2.scratchReg());
@@ -4434,8 +4434,8 @@ bool BaselineCompilerCodeGen::emitFormalArgAccess(JSOp op) {
 
     Label skipBarrier;
 
-    masm.branchPtrInNurseryChunk(Assembler::Equal, reg, temp, &skipBarrier);
     masm.branchValueIsNurseryCell(Assembler::NotEqual, R0, temp, &skipBarrier);
+    masm.branchPtrInNurseryChunk(Assembler::Equal, reg, temp, &skipBarrier);
 
     masm.call(&postBarrierSlot_);
 
@@ -4486,8 +4486,8 @@ bool BaselineInterpreterCodeGen::emitFormalArgAccess(JSOp op) {
       masm.loadPtr(frame.addressOfArgsObj(), reg);
 
       Register temp = R1.scratchReg();
-      masm.branchPtrInNurseryChunk(Assembler::Equal, reg, temp, &done);
       masm.branchValueIsNurseryCell(Assembler::NotEqual, R0, temp, &done);
+      masm.branchPtrInNurseryChunk(Assembler::Equal, reg, temp, &done);
 
       masm.call(&postBarrierSlot_);
     }
@@ -6737,8 +6737,8 @@ bool BaselineCodeGen<Handler>::emit_InitHomeObject() {
   masm.storeValue(R0, addr);
 
   Label skipBarrier;
-  masm.branchPtrInNurseryChunk(Assembler::Equal, func, temp, &skipBarrier);
   masm.branchValueIsNurseryCell(Assembler::NotEqual, R0, temp, &skipBarrier);
+  masm.branchPtrInNurseryChunk(Assembler::Equal, func, temp, &skipBarrier);
   masm.call(&postBarrierSlot_);
   masm.bind(&skipBarrier);
 
@@ -6835,6 +6835,27 @@ bool BaselineCodeGen<Handler>::emit_DynamicImport() {
   frame.push(R0);
   return true;
 }
+
+#ifdef ENABLE_SOURCE_PHASE_IMPORTS
+template <typename Handler>
+bool BaselineCodeGen<Handler>::emit_DynamicImportSource() {
+  // Put specifier into R0
+  frame.popRegsAndSync(1);
+
+  prepareVMCall();
+  pushArg(R0);
+  pushScriptArg();
+
+  using Fn = JSObject* (*)(JSContext*, HandleScript, HandleValue);
+  if (!callVM<Fn, js::StartDynamicModuleImportSource>()) {
+    return false;
+  }
+
+  masm.tagValue(JSVAL_TYPE_OBJECT, ReturnReg, R0);
+  frame.push(R0);
+  return true;
+}
+#endif
 
 template <>
 bool BaselineCompilerCodeGen::emit_ForceInterpreter() {

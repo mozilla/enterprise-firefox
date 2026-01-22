@@ -325,13 +325,8 @@ newtab-custom-recent-subtitle = Une sélection de sites et de contenus récents
 newtab-custom-weather-toggle =
     .label = Météo
     .description = Les prévisions du jour en un coup d’œil
-newtab-custom-trending-search-toggle =
-    .label = Recherches populaires
-    .description = Sujets populaires et fréquemment recherchés
 newtab-custom-widget-weather-toggle =
     .label = Météo
-newtab-custom-widget-trending-search-toggle =
-    .label = Recherches populaires
 newtab-custom-widget-lists-toggle =
     .label = Listes
 newtab-custom-widget-timer-toggle =
@@ -592,7 +587,7 @@ newtab-download-mobile-highlight-image =
 newtab-shortcuts-highlight-title = Vos sites préférés à portée de main
 newtab-shortcuts-highlight-subtitle = Ajoutez un raccourci pour accéder à vos sites préférés en un clic.
 
-## Strings for reporting ads and content
+## Strings for reporting issues with ads and content
 
 newtab-report-content-why-reporting-this =
     .label = Pourquoi signalez-vous ce contenu ?
@@ -610,21 +605,13 @@ newtab-report-content-inappropriate-offensive =
     .label = Inapproprié ou choquant
 newtab-report-content-spam-misleading =
     .label = Spam ou trompeur
+newtab-report-content-requires-payment-subscription =
+    .label = Nécessite un paiement ou un abonnement
+newtab-report-content-requires-payment-subscription-learn-more = En savoir plus
 newtab-report-cancel = Annuler
 newtab-report-submit = Envoyer
 newtab-toast-thanks-for-reporting =
     .message = Merci pour votre signalement.
-
-## Strings for trending searches
-
-newtab-trending-searches-show-trending =
-    .title = Afficher les recherches populaires
-newtab-trending-searches-hide-trending =
-    .title = Masquer les recherches populaires
-newtab-trending-searches-learn-more = En savoir plus
-newtab-trending-searches-dismiss = Masquer les recherches populaires
-# "Trending searches refers to popular searches from search engines
-newtab-trending-searches-title = Recherches populaires
 
 ## Strings for task / to-do list productivity widget
 

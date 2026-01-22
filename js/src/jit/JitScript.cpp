@@ -1037,6 +1037,8 @@ HashNumber ICScript::hash(JSContext* cx) {
                 h = mozilla::AddToHash(h, shape);
                 h = mozilla::AddToHash(h, shapesObject->getOffset(i));
               }
+              // See GuardMultipleShapes above.
+              h = mozilla::AddToHash(h, cx->runtime()->gc.majorGCCount());
             }
             break;
           }

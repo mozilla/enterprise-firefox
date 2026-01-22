@@ -55,6 +55,26 @@ export class FeltProcessParent extends JSProcessActorParent {
     // Track extension ready state (extension must register its observer)
     this.extensionReady = false;
 
+    this.abnormalExitCounter = 0;
+
+    // Amount of abnormal exit to allow over abnormal_exit_period
+    this.abnormalExitLimit = Services.prefs.getIntPref(
+      "enterprise.browser.abnormal_exit_limit",
+      3
+    );
+
+    /* Time period (in seconds) considered for checking the amount of abnormal
+     * exits. Hitting the limit defined above within this period will stop
+     * automatic restart and show user an error.
+     *
+     * confere shouldAbortRestarting()
+     */
+    this.abnormalExitPeriod = Services.prefs.getIntPref(
+      "enterprise.browser.abnormal_exit_period",
+      120
+    );
+    this.abnormalExitFirstTime = 0;
+
     this.restartObserver = {
       observe(aSubject, aTopic) {
         console.debug(`FeltExtension: ParentProcess: Received ${aTopic}`);
@@ -253,19 +273,63 @@ export class FeltProcessParent extends JSProcessActorParent {
           );
           if (!this.restartReported && !this.logoutReported) {
             if (this.proc.exitCode === 0) {
+              this.abnormalExitCounter = 0;
+              this.abnormalExitFirstTime = 0;
               Services.cpmm.sendAsyncMessage(
                 "FeltParent:FirefoxNormalExit",
                 {}
               );
             } else {
-              Services.cpmm.sendAsyncMessage(
-                "FeltParent:FirefoxAbnormalExit",
-                {}
-              );
+              this.handleRestartAfterAbnormalExit();
             }
           }
         });
       });
+  }
+
+  /**
+   * Handles the abnormal exit and decides whether to restart the Firefox
+   * again or to inform the user of the set of crashes.
+   */
+  handleRestartAfterAbnormalExit() {
+    if (this.abnormalExitCounter === 0) {
+      this.abnormalExitFirstTime =
+        Services.telemetry.msSinceProcessStart() / 1000;
+    }
+    this.abnormalExitCounter += 1;
+    if (this.shouldAbortRestarting()) {
+      console.debug(
+        "Abort restarting Firefox and inform the user of the crashes."
+      );
+      Services.cpmm.sendAsyncMessage("FeltParent:FirefoxAbnormalExit", {});
+    } else {
+      console.debug("Trying to restart Firefox again.");
+      this.startFirefox([]);
+    }
+  }
+  /**
+   * Checks the state of the recent abnormal exits, meaning whether the crashes
+   * counter exceeds a pre-set counter limit within a pre-set time period.
+   *
+   * @returns {boolean} Whether these "abnormal" thresholds are exceeded.
+   */
+  shouldAbortRestarting() {
+    console.debug(
+      `Firefox AbnormalExit abnormalExitLimit=${this.abnormalExitLimit} abnormalExitCounter=${this.abnormalExitCounter} ; firstTime=${this.abnormalExitFirstTime} abnormalExitPeriod=${this.abnormalExitPeriod}`
+    );
+    // Have we reached the limit of allowed crashes ?
+    const isExceedingCrashCounterLimit =
+      this.abnormalExitCounter >= this.abnormalExitLimit;
+    // How much time since the first crash we recorded in this session ?
+    const timeSinceFirstCrash =
+      Services.telemetry.msSinceProcessStart() / 1000 -
+      this.abnormalExitFirstTime;
+    // Is the time since first crash too recent ?
+    const isWithinCrashPeriod = timeSinceFirstCrash <= this.abnormalExitPeriod;
+    console.debug(
+      `Firefox AbnormalExit crashLimitHit=${isExceedingCrashCounterLimit} timeSinceFirstCrash=${timeSinceFirstCrash} crashedNotLongAgoEnough=${isWithinCrashPeriod}`
+    );
+    return isExceedingCrashCounterLimit && isWithinCrashPeriod;
   }
 
   async startFirefoxProcess() {

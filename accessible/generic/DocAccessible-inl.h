@@ -131,7 +131,7 @@ inline void DocAccessible::CreateSubtree(LocalAccessible* aChild) {
 }
 
 inline DocAccessible::AttrRelProviders* DocAccessible::GetRelProviders(
-    dom::Element* aElement, const nsAString& aID) const {
+    dom::Element* aElement, nsAtom* aID) const {
   DependentIDsHashtable* hash = mDependentIDsHashes.Get(
       aElement->GetUncomposedDocOrConnectedShadowRoot());
   if (hash) {
@@ -141,7 +141,8 @@ inline DocAccessible::AttrRelProviders* DocAccessible::GetRelProviders(
 }
 
 inline DocAccessible::AttrRelProviders* DocAccessible::GetOrCreateRelProviders(
-    dom::Element* aElement, const nsAString& aID) {
+    dom::Element* aElement, nsAtom* aID) {
+  // TODO (bug 1983819): need to update when reference targets change
   dom::DocumentOrShadowRoot* docOrShadowRoot =
       aElement->GetUncomposedDocOrConnectedShadowRoot();
   DependentIDsHashtable* hash =
@@ -151,7 +152,7 @@ inline DocAccessible::AttrRelProviders* DocAccessible::GetOrCreateRelProviders(
 }
 
 inline void DocAccessible::RemoveRelProvidersIfEmpty(dom::Element* aElement,
-                                                     const nsAString& aID) {
+                                                     nsAtom* aID) {
   dom::DocumentOrShadowRoot* docOrShadowRoot =
       aElement->GetUncomposedDocOrConnectedShadowRoot();
   DependentIDsHashtable* hash = mDependentIDsHashes.Get(docOrShadowRoot);

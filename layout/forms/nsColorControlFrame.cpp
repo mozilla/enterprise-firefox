@@ -14,6 +14,10 @@
 #include "nsGkAtoms.h"
 #include "nsIFormControl.h"
 
+#ifdef ACCESSIBILITY
+#  include "nsAccessibilityService.h"
+#endif
+
 using namespace mozilla;
 using mozilla::dom::CallerType;
 using mozilla::dom::HTMLInputElement;
@@ -82,9 +86,9 @@ void nsColorControlFrame::UpdateColor() {
     return;
   }
 
-  // Set the background-color CSS property of the swatch element to this color.
+  // Set the color CSS property of the swatch element to this color.
   mColorContent->SetAttr(kNameSpaceID_None, nsGkAtoms::style,
-                         u"background-color:"_ns + color,
+                         u"color:"_ns + color,
                          /* aNotify */ true);
 }
 
@@ -100,6 +104,11 @@ nsresult nsColorControlFrame::AttributeChanged(int32_t aNameSpaceID,
           FormControlType::InputColor &&
       aNameSpaceID == kNameSpaceID_None && nsGkAtoms::value == aAttribute) {
     UpdateColor();
+#ifdef ACCESSIBILITY
+    if (nsAccessibilityService* accService = GetAccService()) {
+      accService->ColorValueChanged(PresShell(), mContent);
+    }
+#endif
   }
   return ButtonControlFrame::AttributeChanged(aNameSpaceID, aAttribute,
                                               aModType);

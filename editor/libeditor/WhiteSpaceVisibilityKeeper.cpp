@@ -32,8 +32,7 @@ namespace mozilla {
 
 using namespace dom;
 
-using LeafNodeType = HTMLEditUtils::LeafNodeType;
-using WalkTreeOption = HTMLEditUtils::WalkTreeOption;
+using LeafNodeOption = HTMLEditUtils::LeafNodeOption;
 
 Result<EditorDOMPoint, nsresult>
 WhiteSpaceVisibilityKeeper::PrepareToSplitBlockElement(
@@ -923,15 +922,14 @@ WhiteSpaceVisibilityKeeper::NormalizeWhiteSpacesBefore(
            aPoint.IsInTextNode() && aPoint.IsEndOfContainer()
                ? aPoint.ContainerAs<Text>()
                : HTMLEditUtils::GetPreviousLeafContentOrPreviousBlockElement(
-                     aPoint,
-                     {HTMLEditUtils::LeafNodeType::LeafNodeOrChildBlock},
+                     aPoint, {LeafNodeOption::TreatChildBlockAsLeafNode},
                      BlockInlineCheck::UseComputedDisplayStyle,
                      colsetBlockElement);
        previousContent;
        previousContent =
            HTMLEditUtils::GetPreviousLeafContentOrPreviousBlockElement(
                EditorRawDOMPoint(previousContent),
-               {HTMLEditUtils::LeafNodeType::LeafNodeOrChildBlock},
+               {LeafNodeOption::TreatChildBlockAsLeafNode},
                BlockInlineCheck::UseComputedDisplayStyle, colsetBlockElement)) {
     if (!HTMLEditUtils::IsSimplyEditableNode(*previousContent)) {
       // XXX Assume non-editable nodes are visible.
@@ -1042,14 +1040,13 @@ WhiteSpaceVisibilityKeeper::NormalizeWhiteSpacesAfter(
            aPoint.IsInTextNode() && aPoint.IsStartOfContainer()
                ? aPoint.ContainerAs<Text>()
                : HTMLEditUtils::GetNextLeafContentOrNextBlockElement(
-                     aPoint,
-                     {HTMLEditUtils::LeafNodeType::LeafNodeOrChildBlock},
+                     aPoint, {LeafNodeOption::TreatChildBlockAsLeafNode},
                      BlockInlineCheck::UseComputedDisplayStyle,
                      colsetBlockElement);
        nextContent;
        nextContent = HTMLEditUtils::GetNextLeafContentOrNextBlockElement(
            EditorRawDOMPoint::After(*nextContent),
-           {HTMLEditUtils::LeafNodeType::LeafNodeOrChildBlock},
+           {LeafNodeOption::TreatChildBlockAsLeafNode},
            BlockInlineCheck::UseComputedDisplayStyle, colsetBlockElement)) {
     if (!HTMLEditUtils::IsSimplyEditableNode(*nextContent)) {
       // XXX Assume non-editable nodes are visible.
@@ -1296,13 +1293,13 @@ WhiteSpaceVisibilityKeeper::NormalizeWhiteSpacesToSplitAt(
   if (!pointToSplit.IsInTextNode() || pointToSplit.IsStartOfContainer()) {
     for (nsCOMPtr<nsIContent> previousContent =
              HTMLEditUtils::GetPreviousLeafContentOrPreviousBlockElement(
-                 pointToSplit, {LeafNodeType::LeafNodeOrChildBlock},
+                 pointToSplit, {LeafNodeOption::TreatChildBlockAsLeafNode},
                  BlockInlineCheck::UseComputedDisplayStyle,
                  closestBlockElement);
          previousContent;
          previousContent =
              HTMLEditUtils::GetPreviousLeafContentOrPreviousBlockElement(
-                 *previousContent, {LeafNodeType::LeafNodeOrChildBlock},
+                 *previousContent, {LeafNodeOption::TreatChildBlockAsLeafNode},
                  BlockInlineCheck::UseComputedDisplayStyle,
                  closestBlockElement)) {
       if (auto* const textNode = Text::FromNode(previousContent)) {
@@ -1337,12 +1334,12 @@ WhiteSpaceVisibilityKeeper::NormalizeWhiteSpacesToSplitAt(
   if (!pointToSplit.IsInTextNode() || pointToSplit.IsEndOfContainer()) {
     for (nsCOMPtr<nsIContent> nextContent =
              HTMLEditUtils::GetNextLeafContentOrNextBlockElement(
-                 pointToSplit, {LeafNodeType::LeafNodeOrChildBlock},
+                 pointToSplit, {LeafNodeOption::TreatChildBlockAsLeafNode},
                  BlockInlineCheck::UseComputedDisplayStyle,
                  closestBlockElement);
          nextContent;
          nextContent = HTMLEditUtils::GetNextLeafContentOrNextBlockElement(
-             *nextContent, {LeafNodeType::LeafNodeOrChildBlock},
+             *nextContent, {LeafNodeOption::TreatChildBlockAsLeafNode},
              BlockInlineCheck::UseComputedDisplayStyle, closestBlockElement)) {
       if (auto* const textNode = Text::FromNode(nextContent)) {
         if (!HTMLEditUtils::IsSimplyEditableNode(*textNode) &&
@@ -1697,14 +1694,14 @@ nsresult WhiteSpaceVisibilityKeeper::EnsureNoInvisibleWhiteSpacesAfter(
   for (nsIContent* nextContent =
            HTMLEditUtils::GetNextLeafContentOrNextBlockElement(
                aPoint,
-               {HTMLEditUtils::LeafNodeType::LeafNodeOrChildBlock,
-                HTMLEditUtils::LeafNodeType::TreatCommentAsLeafNode},
+               {LeafNodeOption::TreatChildBlockAsLeafNode,
+                LeafNodeOption::TreatCommentAsLeafNode},
                BlockInlineCheck::UseComputedDisplayStyle, colsetBlockElement);
        nextContent;
        nextContent = HTMLEditUtils::GetNextLeafContentOrNextBlockElement(
            EditorRawDOMPoint::After(*nextContent),
-           {HTMLEditUtils::LeafNodeType::LeafNodeOrChildBlock,
-            HTMLEditUtils::LeafNodeType::TreatCommentAsLeafNode},
+           {LeafNodeOption::TreatChildBlockAsLeafNode,
+            LeafNodeOption::TreatCommentAsLeafNode},
            BlockInlineCheck::UseComputedDisplayStyle, colsetBlockElement)) {
     if (!HTMLEditUtils::IsSimplyEditableNode(*nextContent)) {
       // XXX Assume non-editable nodes are visible.
@@ -1781,15 +1778,15 @@ nsresult WhiteSpaceVisibilityKeeper::EnsureNoInvisibleWhiteSpacesBefore(
   for (nsIContent* previousContent =
            HTMLEditUtils::GetPreviousLeafContentOrPreviousBlockElement(
                aPoint,
-               {HTMLEditUtils::LeafNodeType::LeafNodeOrChildBlock,
-                HTMLEditUtils::LeafNodeType::TreatCommentAsLeafNode},
+               {LeafNodeOption::TreatChildBlockAsLeafNode,
+                LeafNodeOption::TreatCommentAsLeafNode},
                BlockInlineCheck::UseComputedDisplayStyle, colsetBlockElement);
        previousContent;
        previousContent =
            HTMLEditUtils::GetPreviousLeafContentOrPreviousBlockElement(
                EditorRawDOMPoint(previousContent),
-               {HTMLEditUtils::LeafNodeType::LeafNodeOrChildBlock,
-                HTMLEditUtils::LeafNodeType::TreatCommentAsLeafNode},
+               {LeafNodeOption::TreatChildBlockAsLeafNode,
+                LeafNodeOption::TreatCommentAsLeafNode},
                BlockInlineCheck::UseComputedDisplayStyle, colsetBlockElement)) {
     if (!HTMLEditUtils::IsSimplyEditableNode(*previousContent)) {
       // XXX Assume non-editable nodes are visible.
@@ -2525,9 +2522,10 @@ WhiteSpaceVisibilityKeeper::DeleteContentNodeAndJoinTextNodesAroundIt(
     }
   }
 
-  nsCOMPtr<nsIContent> previousEditableSibling =
+  const nsCOMPtr<nsIContent> previousEditableSibling =
       HTMLEditUtils::GetPreviousSibling(
-          aContentToDelete, {WalkTreeOption::IgnoreNonEditableNode});
+          aContentToDelete, {LeafNodeOption::IgnoreNonEditableNode},
+          BlockInlineCheck::UseComputedDisplayOutsideStyle);
   // Delete the node, and join like nodes if appropriate
   nsresult rv = aHTMLEditor.DeleteNodeWithTransaction(aContentToDelete);
   if (NS_FAILED(rv)) {
@@ -2550,8 +2548,9 @@ WhiteSpaceVisibilityKeeper::DeleteContentNodeAndJoinTextNodesAroundIt(
     return CaretPoint(std::move(pointToPutCaret));
   }
 
-  nsIContent* nextEditableSibling = HTMLEditUtils::GetNextSibling(
-      *previousEditableSibling, {WalkTreeOption::IgnoreNonEditableNode});
+  nsIContent* const nextEditableSibling = HTMLEditUtils::GetNextSibling(
+      *previousEditableSibling, {LeafNodeOption::IgnoreNonEditableNode},
+      BlockInlineCheck::UseComputedDisplayOutsideStyle);
   if (aCaretPoint.GetContainer() != nextEditableSibling) {
     return CaretPoint(std::move(pointToPutCaret));
   }

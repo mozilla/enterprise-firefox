@@ -2,8 +2,8 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
-#ifndef nsTableWrapperFrame_h__
-#define nsTableWrapperFrame_h__
+#ifndef nsTableWrapperFrame_h_
+#define nsTableWrapperFrame_h_
 
 #include "LayoutConstants.h"
 #include "mozilla/Maybe.h"
@@ -184,8 +184,6 @@ class nsTableWrapperFrame : public nsContainerFrame {
   // (Remember that caption-side values are interpreted logically, despite
   // having "physical" names.)
   MaybeCaptionSide GetCaptionSide() const;
-
-  mozilla::StyleVerticalAlignKeyword GetCaptionVerticalAlign() const;
 
   nscoord ComputeFinalBSize(const mozilla::LogicalSize& aInnerSize,
                             const mozilla::LogicalSize& aCaptionSize,

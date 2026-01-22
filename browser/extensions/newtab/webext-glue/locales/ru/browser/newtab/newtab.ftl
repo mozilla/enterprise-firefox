@@ -151,11 +151,7 @@ newtab-menu-report-this-ad = Пожаловаться на эту рекламу
 newtab-privacy-modal-button-done = Готово
 newtab-privacy-modal-button-manage = Управление настройками контента спонсоров
 newtab-privacy-modal-header = Ваша приватность имеет значение.
-newtab-privacy-modal-paragraph-2 =
-    Помимо сохранения увлекательных статей, мы также показываем вам
-    проверенный контент от избранных спонсоров. Будьте уверены, <strong>ваши данные
-    веб-сёрфинга никогда не покинут вашу личную копию { -brand-product-name }</strong> — мы не имеем
-    к ним доступа, и наши спонсоры тоже не имеют.
+newtab-privacy-modal-paragraph-2 = Помимо сохранения увлекательных статей, мы также показываем вам проверенный контент от избранных спонсоров. Будьте уверены, <strong>ваши данные веб-сёрфинга никогда не покинут вашу личную копию { -brand-product-name }</strong> — мы не имеем к ним доступа, и наши спонсоры тоже не имеют.
 newtab-privacy-modal-link = Посмотрите, как работает приватность, в новой вкладке
 
 ##
@@ -330,13 +326,8 @@ newtab-custom-recent-subtitle = Подборка недавних сайтов �
 newtab-custom-weather-toggle =
     .label = Погода
     .description = Краткий прогноз на сегодня
-newtab-custom-trending-search-toggle =
-    .label = Популярные поисковые запросы
-    .description = Популярные и часто запрашиваемые темы
 newtab-custom-widget-weather-toggle =
     .label = Погода
-newtab-custom-widget-trending-search-toggle =
-    .label = Популярные поисковые запросы
 newtab-custom-widget-lists-toggle =
     .label = Списки
 newtab-custom-widget-timer-toggle =
@@ -597,7 +588,7 @@ newtab-download-mobile-highlight-image =
 newtab-shortcuts-highlight-title = Ваше любимое на кончиках ваших пальцев
 newtab-shortcuts-highlight-subtitle = Добавьте ярлык, чтобы держать под рукой любимые сайты.
 
-## Strings for reporting ads and content
+## Strings for reporting issues with ads and content
 
 newtab-report-content-why-reporting-this =
     .label = Почему вы сообщаете об этом?
@@ -615,21 +606,13 @@ newtab-report-content-inappropriate-offensive =
     .label = Неуместное или оскорбительное
 newtab-report-content-spam-misleading =
     .label = Спам или вводящее в заблуждение
+newtab-report-content-requires-payment-subscription =
+    .label = Требуется оплата или подписка
+newtab-report-content-requires-payment-subscription-learn-more = Узнать больше
 newtab-report-cancel = Отмена
 newtab-report-submit = Отправить
 newtab-toast-thanks-for-reporting =
     .message = Благодарим за сообщение.
-
-## Strings for trending searches
-
-newtab-trending-searches-show-trending =
-    .title = Показать популярные поисковые запросы
-newtab-trending-searches-hide-trending =
-    .title = Скрыть популярные поисковые запросы
-newtab-trending-searches-learn-more = Узнать больше
-newtab-trending-searches-dismiss = Скрыть популярные поисковые запросы
-# "Trending searches refers to popular searches from search engines
-newtab-trending-searches-title = Популярные поисковые запросы
 
 ## Strings for task / to-do list productivity widget
 

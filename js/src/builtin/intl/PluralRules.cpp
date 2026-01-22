@@ -47,7 +47,7 @@ const JSClass PluralRulesObject::class_ = {
     "Intl.PluralRules",
     JSCLASS_HAS_RESERVED_SLOTS(PluralRulesObject::SLOT_COUNT) |
         JSCLASS_HAS_CACHED_PROTO(JSProto_PluralRules) |
-        JSCLASS_FOREGROUND_FINALIZE,
+        JSCLASS_BACKGROUND_FINALIZE,
     &PluralRulesObject::classOps_,
     &PluralRulesObject::classSpec_,
 };
@@ -136,8 +136,6 @@ static bool PluralRules(JSContext* cx, unsigned argc, Value* vp) {
 }
 
 void js::PluralRulesObject::finalize(JS::GCContext* gcx, JSObject* obj) {
-  MOZ_ASSERT(gcx->onMainThread());
-
   auto* pluralRules = &obj->as<PluralRulesObject>();
   if (mozilla::intl::PluralRules* pr = pluralRules->getPluralRules()) {
     intl::RemoveICUCellMemory(

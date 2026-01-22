@@ -37,7 +37,6 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(DocumentPictureInPicture)
   NS_INTERFACE_MAP_ENTRY(nsIObserver)
-  NS_INTERFACE_MAP_ENTRY(nsIDOMEventListener)
 NS_INTERFACE_MAP_END_INHERITING(DOMEventTargetHelper)
 
 NS_IMPL_ADDREF_INHERITED(DocumentPictureInPicture, DOMEventTargetHelper)
@@ -52,15 +51,17 @@ DocumentPictureInPicture::DocumentPictureInPicture(nsPIDOMWindowInner* aWindow)
     : DOMEventTargetHelper(aWindow) {
   nsCOMPtr<nsIObserverService> os = mozilla::services::GetObserverService();
   NS_ENSURE_TRUE_VOID(os);
-  DebugOnly<nsresult> rv = os->AddObserver(this, "domwindowclosed", false);
-  MOZ_ASSERT(NS_SUCCEEDED(rv));
+  MOZ_ALWAYS_SUCCEEDS(os->AddObserver(this, "domwindowclosed", false));
+  MOZ_ALWAYS_SUCCEEDS(
+      os->AddObserver(this, "docshell-position-size-changed", false));
 }
 
 DocumentPictureInPicture::~DocumentPictureInPicture() {
   nsCOMPtr<nsIObserverService> os = mozilla::services::GetObserverService();
   NS_ENSURE_TRUE_VOID(os);
-  DebugOnly<nsresult> rv = os->RemoveObserver(this, "domwindowclosed");
-  MOZ_ASSERT(NS_SUCCEEDED(rv));
+  MOZ_ALWAYS_SUCCEEDS(os->RemoveObserver(this, "domwindowclosed"));
+  MOZ_ALWAYS_SUCCEEDS(
+      os->RemoveObserver(this, "docshell-position-size-changed"));
 }
 
 void DocumentPictureInPicture::OnPiPResized() {
@@ -87,10 +88,6 @@ void DocumentPictureInPicture::OnPiPClosed() {
   if (!mLastOpenedWindow) {
     return;
   }
-
-  RefPtr<nsGlobalWindowInner> pipInnerWindow =
-      nsGlobalWindowInner::Cast(mLastOpenedWindow);
-  pipInnerWindow->RemoveSystemEventListener(u"resize"_ns, this, true);
 
   MOZ_LOG(gDPIPLog, LogLevel::Debug, ("PiP was closed"));
 
@@ -311,15 +308,10 @@ already_AddRefed<Promise> DocumentPictureInPicture::RequestWindow(
   mLastOpenedWindow = pipTraversable->GetDOMWindow()->GetCurrentInnerWindow();
   MOZ_ASSERT(mLastOpenedWindow);
 
-  // Keep track of resizes to update mPreviousExtent
-  RefPtr<nsGlobalWindowInner> pipInnerWindow =
-      nsGlobalWindowInner::Cast(mLastOpenedWindow);
-  pipInnerWindow->AddSystemEventListener(u"resize"_ns, this, true, false);
-
   // 17. Queue a task to fire a DocumentPictureInPictureEvent named "enter" on
   // this with pipTraversable as it's window attribute
   DocumentPictureInPictureEventInit eventInit;
-  eventInit.mWindow = pipInnerWindow;
+  eventInit.mWindow = nsGlobalWindowInner::Cast(mLastOpenedWindow);
   RefPtr<Event> event =
       DocumentPictureInPictureEvent::Constructor(this, u"enter"_ns, eventInit);
   RefPtr<AsyncEventDispatcher> asyncDispatcher =
@@ -328,32 +320,39 @@ already_AddRefed<Promise> DocumentPictureInPicture::RequestWindow(
 
   // 18. Return pipTraversable
   RefPtr<Promise> promise = Promise::CreateInfallible(GetOwnerGlobal());
-  promise->MaybeResolve(pipInnerWindow);
+  promise->MaybeResolve(nsGlobalWindowInner::Cast(mLastOpenedWindow));
   return promise.forget();
-}
-
-NS_IMETHODIMP
-DocumentPictureInPicture::HandleEvent(Event* aEvent) {
-  nsAutoString type;
-  aEvent->GetType(type);
-
-  if (type.EqualsLiteral("resize")) {
-    OnPiPResized();
-    return NS_OK;
-  }
-
-  return NS_OK;
 }
 
 NS_IMETHODIMP DocumentPictureInPicture::Observe(nsISupports* aSubject,
                                                 const char* aTopic,
                                                 const char16_t* aData) {
+  if (!mLastOpenedWindow) {
+    return NS_OK;
+  }
+
   if (nsCRT::strcmp(aTopic, "domwindowclosed") == 0) {
     nsCOMPtr<nsPIDOMWindowOuter> subjectWin = do_QueryInterface(aSubject);
     NS_ENSURE_TRUE(!!subjectWin, NS_OK);
 
     if (subjectWin->GetCurrentInnerWindow() == mLastOpenedWindow) {
       OnPiPClosed();
+    }
+  } else if (nsCRT::strcmp(aTopic, "docshell-position-size-changed") == 0) {
+    nsCOMPtr<nsIDocShell> docshell = do_QueryInterface(aSubject);
+    NS_ENSURE_TRUE(!!docshell, NS_OK);
+    BrowsingContext* bc = docshell->GetBrowsingContext();
+
+    if (!bc || !bc->GetIsDocumentPiP()) {
+      return NS_OK;
+    }
+
+    if (bc == mLastOpenedWindow->GetBrowsingContext()) {
+      // Async invocation due to MOZ_CAN_RUN_SCRIPT
+      NS_DispatchToMainThread(NS_NewRunnableFunction(
+          "DocumentPictureInPicture::OnPiPResized",
+          [_self = RefPtr(this)]()
+              MOZ_CAN_RUN_SCRIPT_BOUNDARY_LAMBDA { _self->OnPiPResized(); }));
     }
   }
   return NS_OK;

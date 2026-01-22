@@ -7,11 +7,11 @@
 :root {
   height: 100%;
   --splitview-opentabs-card-width: 358px;
+  background: no-repeat light-dark(linear-gradient(#f0ebfd, #f7ebeb), linear-gradient(#332a50, #3f2a2f));
+  background-attachment: fixed;
 }
 
 body {
-  background: no-repeat light-dark(linear-gradient(#f0ebfd, #f7ebeb), linear-gradient(#332a50, #3f2a2f));
-  background-attachment: fixed;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -37,8 +37,8 @@ h3 {
 }
 
 splitview-opentabs {
-  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-size-tokens */
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
   width: var(--splitview-opentabs-card-width);
-  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-size-tokens */
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
   max-width: var(--splitview-opentabs-card-width);
 }

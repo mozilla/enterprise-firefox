@@ -7078,6 +7078,26 @@ PBIResult PortableBaselineInterpret(
         END_OP(DynamicImport);
       }
 
+#ifdef ENABLE_SOURCE_PHASE_IMPORTS
+      CASE(DynamicImportSource) {
+        {
+          ReservedRooted<Value> value0(&state.value0,
+                                       VIRTPOP().asValue());  // specifier
+          JSObject* promise;
+          {
+            PUSH_EXIT_FRAME();
+            ReservedRooted<JSScript*> script0(&state.script0, frame->script());
+            promise = StartDynamicModuleImportSource(cx, script0, value0);
+            if (!promise) {
+              GOTO_ERROR();
+            }
+          }
+          VIRTPUSH(StackVal(ObjectValue(*promise)));
+        }
+        END_OP(DynamicImportSource);
+      }
+#endif
+
       CASE(ImportMeta) {
         IC_ZERO_ARG(0);
         IC_ZERO_ARG(1);

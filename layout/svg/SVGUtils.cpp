@@ -120,7 +120,7 @@ nsRect SVGUtils::GetPostFilterInkOverflowRect(nsIFrame* aFrame,
   nsTArray<SVGFilterFrame*> filterFrames;
   if (!aFrame->StyleEffects()->HasFilters() ||
       SVGObserverUtils::GetAndObserveFilters(aFrame, &filterFrames) ==
-          SVGObserverUtils::eHasRefsSomeInvalid) {
+          SVGObserverUtils::ReferenceState::HasRefsSomeInvalid) {
     return aPreFilterRect;
   }
 
@@ -360,7 +360,8 @@ bool SVGUtils::GetParentSVGTransforms(const nsIFrame* aFrame,
   return false;
 }
 
-void SVGUtils::NotifyChildrenOfSVGChange(nsIFrame* aFrame, uint32_t aFlags) {
+void SVGUtils::NotifyChildrenOfSVGChange(
+    nsIFrame* aFrame, ISVGDisplayableFrame::ChangeFlags aFlags) {
   for (nsIFrame* kid : aFrame->PrincipalChildList()) {
     ISVGDisplayableFrame* SVGFrame = do_QueryFrame(kid);
     if (SVGFrame) {
@@ -407,7 +408,7 @@ SVGUtils::MaskUsage SVGUtils::DetermineMaskUsage(const nsIFrame* aFrame,
   const nsStyleSVGReset* svgReset = firstFrame->StyleSVGReset();
 
   if (SVGObserverUtils::GetAndObserveMasks(firstFrame, nullptr) !=
-      SVGObserverUtils::eHasNoRefs) {
+      SVGObserverUtils::ReferenceState::HasNoRefs) {
     usage.mShouldGenerateMaskLayer = true;
   }
 
@@ -601,7 +602,7 @@ void SVGUtils::PaintFrameWithEffects(nsIFrame* aFrame, gfxContext& aContext,
   nsTArray<SVGFilterFrame*> filterFrames;
   const bool hasInvalidFilter =
       SVGObserverUtils::GetAndObserveFilters(aFrame, &filterFrames) ==
-      SVGObserverUtils::eHasRefsSomeInvalid;
+      SVGObserverUtils::ReferenceState::HasRefsSomeInvalid;
   SVGObserverUtils::GetAndObserveClipPath(aFrame, &clipPathFrame);
   SVGObserverUtils::GetAndObserveMasks(aFrame, &maskFrames);
 
@@ -913,7 +914,7 @@ gfxRect SVGUtils::GetBBox(nsIFrame* aFrame, uint32_t aFlags,
     }
     SVGClipPathFrame* clipPathFrame;
     if (SVGObserverUtils::GetAndObserveClipPath(aFrame, &clipPathFrame) ==
-        SVGObserverUtils::eHasRefsSomeInvalid) {
+        SVGObserverUtils::ReferenceState::HasRefsSomeInvalid) {
       bbox = gfxRect();
     } else {
       if (clipPathFrame) {
@@ -1110,8 +1111,8 @@ static gfxRect PathExtentsToMaxStrokeExtents(const gfxRect& aPathExtents,
     matrix.PreMultiply(outerSVGToUser);
   }
 
-  double dx = style_expansion * (fabs(matrix._11) + fabs(matrix._21));
-  double dy = style_expansion * (fabs(matrix._22) + fabs(matrix._12));
+  double dx = style_expansion * (std::abs(matrix._11) + std::abs(matrix._21));
+  double dy = style_expansion * (std::abs(matrix._22) + std::abs(matrix._12));
 
   gfxRect strokeExtents = aPathExtents;
   strokeExtents.Inflate(dx, dy);

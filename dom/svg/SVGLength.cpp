@@ -261,7 +261,7 @@ float SVGLength::GetPixelsPerCSSUnit(const UserSpaceMetrics& aMetrics,
   case cssValue:                            \
     unitType = id;                          \
     break;
-#include "mozilla/dom/SVGLengthUnits.h"
+#include "mozilla/dom/SVGLengthUnits.inc"
 #undef SVG_LENGTH_UNIT
 #undef SVG_LENGTH_EMPTY_UNIT
     default:
@@ -279,7 +279,7 @@ nsCSSUnit SVGLength::SpecifiedUnitTypeToCSSUnit(uint8_t aSpecifiedUnit) {
   case id:                                  \
     return cssValue;
 #define SVG_LENGTH_UNIT(id, name, cssValue) SVG_LENGTH_EMPTY_UNIT(id, cssValue)
-#include "mozilla/dom/SVGLengthUnits.h"
+#include "mozilla/dom/SVGLengthUnits.inc"
 #undef SVG_LENGTH_UNIT
 #undef SVG_LENGTH_EMPTY_UNIT
     default:
@@ -299,7 +299,7 @@ void SVGLength::GetUnitString(nsAString& aUnit, uint16_t aUnitType) {
   case id:                                  \
     aUnit.AssignLiteral(name);              \
     return;
-#include "mozilla/dom/SVGLengthUnits.h"
+#include "mozilla/dom/SVGLengthUnits.inc"
 #undef SVG_LENGTH_UNIT
 #undef SVG_LENGTH_EMPTY_UNIT
   }
@@ -318,7 +318,7 @@ uint16_t SVGLength::GetUnitTypeForString(const nsAString& aUnit) {
   if (aUnit.LowerCaseEqualsLiteral(name)) { \
     return id;                              \
   }
-#include "mozilla/dom/SVGLengthUnits.h"
+#include "mozilla/dom/SVGLengthUnits.inc"
 #undef SVG_LENGTH_UNIT
 #undef SVG_LENGTH_EMPTY_UNIT
 

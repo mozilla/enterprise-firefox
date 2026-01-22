@@ -8,11 +8,12 @@
     <meta charset="utf-8" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src resource: chrome:; object-src 'none'; img-src chrome:;"
+      content="default-src resource: chrome:; object-src 'none'; img-src chrome: blob:;"
     />
     <meta name="color-scheme" content="light dark" />
-    <!-- TODO : Add localization preview -->
     <title>AI Window</title>
+    <!-- TODO (Bug 2008938): Make in-page Smartbar styling not dependent on chrome styles -->
+    <link rel="stylesheet" href="chrome://browser/skin/browser-shared.css" />
     <link rel="stylesheet" href="chrome://global/skin/in-content/common.css" />
     <link
       rel="stylesheet"
@@ -20,12 +21,15 @@
     />
     <script
       type="module"
-      src="chrome://browser/content/aiwindow/components/ai-window.mjs"
+      src="chrome://browser/content/urlbar/SmartbarInput.mjs"
     ></script>
     <script
       type="module"
-      src="chrome://browser/content/aiwindow/components/input-cta.mjs"
+      src="chrome://browser/content/aiwindow/components/ai-window.mjs"
     ></script>
+    <link rel="localization" href="browser/browser.ftl" />
+    <link rel="localization" href="browser/search.ftl" />
+    <link rel="localization" href="preview/aiWindow.ftl" />
   </head>
   <body>
     <ai-window></ai-window>

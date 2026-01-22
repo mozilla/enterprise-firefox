@@ -26,6 +26,7 @@ import org.hamcrest.Matchers.equalTo
 import org.hamcrest.Matchers.not
 import org.hamcrest.Matchers.notNullValue
 import org.junit.Assume.assumeThat
+import org.junit.Before
 import org.junit.Ignore
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -55,6 +56,19 @@ class TextInputDelegateTest : BaseSessionTest() {
     @field:Parameter(0)
     @JvmField
     var id: String = ""
+
+    @Before
+    fun setup() {
+        // Disable the DOM security feature that filters key events immediately
+        // after navigation. Our tests otherwise may lose events if they send
+        // too fast.
+        sessionRule.setPrefsUntilTestEnd(
+            mapOf(
+                "dom.input_events.security.minTimeElapsedInMS" to 0,
+                "dom.input_events.security.minNumTicks" to 0,
+            ),
+        )
+    }
 
     private var textContent: String
         get() = when (id) {

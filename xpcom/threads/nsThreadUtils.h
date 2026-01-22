@@ -4,8 +4,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef nsThreadUtils_h__
-#define nsThreadUtils_h__
+#ifndef nsThreadUtils_h_
+#define nsThreadUtils_h_
 
 #include <type_traits>
 #include <tuple>
@@ -1847,4 +1847,4 @@ typedef LogTaskBase<dom::VideoFrameRequestCallback>
 
 }  // namespace mozilla
 
-#endif  // nsThreadUtils_h__
+#endif  // nsThreadUtils_h_

@@ -325,13 +325,8 @@ newtab-custom-recent-subtitle = Son kullanılan siteler ve içeriklerden bir se�
 newtab-custom-weather-toggle =
     .label = Hava durumu
     .description = Bugünkü hava durumu tahmini
-newtab-custom-trending-search-toggle =
-    .label = Gündemdeki aramalar
-    .description = Popüler ve sıkça aranan konular
 newtab-custom-widget-weather-toggle =
     .label = Hava durumu
-newtab-custom-widget-trending-search-toggle =
-    .label = Gündemdeki aramalar
 newtab-custom-widget-lists-toggle =
     .label = Listeler
 newtab-custom-widget-timer-toggle =
@@ -592,7 +587,7 @@ newtab-download-mobile-highlight-image =
 newtab-shortcuts-highlight-title = Favorileri siteleriniz parmaklarınızın ucunda
 newtab-shortcuts-highlight-subtitle = Sevdiğiniz siteleri bir tık kadar yakınınızda tutmak için kısayol ekleyebilirsiniz.
 
-## Strings for reporting ads and content
+## Strings for reporting issues with ads and content
 
 newtab-report-content-why-reporting-this =
     .label = Bunu neden rapor ediyorsunuz?
@@ -610,21 +605,13 @@ newtab-report-content-inappropriate-offensive =
     .label = Uygunsuz veya saldırgan
 newtab-report-content-spam-misleading =
     .label = Spam veya yanıltıcı
+newtab-report-content-requires-payment-subscription =
+    .label = Ödeme veya abonelik gerektirir
+newtab-report-content-requires-payment-subscription-learn-more = Daha fazla bilgi alın
 newtab-report-cancel = Vazgeç
 newtab-report-submit = Gönder
 newtab-toast-thanks-for-reporting =
     .message = Raporunuz için teşekkür ederiz.
-
-## Strings for trending searches
-
-newtab-trending-searches-show-trending =
-    .title = Arama trendlerini göster
-newtab-trending-searches-hide-trending =
-    .title = Arama trendlerini gizle
-newtab-trending-searches-learn-more = Daha fazla bilgi al
-newtab-trending-searches-dismiss = Arama trendlerini gizle
-# "Trending searches refers to popular searches from search engines
-newtab-trending-searches-title = Gündemdeki aramalar
 
 ## Strings for task / to-do list productivity widget
 

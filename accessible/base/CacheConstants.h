@@ -4,8 +4,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef _CacheConstants_h_
-#define _CacheConstants_h_
+#ifndef CacheConstants_h_
+#define CacheConstants_h_
 
 #include "nsGkAtoms.h"
 #include "mozilla/a11y/RelationType.h"

@@ -56,14 +56,26 @@ linux1804-64-clang-trunk-qr/opt:
 linux2404-64/opt:
     build-platform: linux64/opt
     test-sets:
+        - awsy
         - desktop-screenshot-capture
         - linux-tests
         - web-platform-tests
         - web-platform-tests-backlog
 
+linux2404-64-enterprise/opt:
+    build-platform: linux64-enterprise/opt
+    test-sets:
+        - linux-tests-enterprise
+
+linux2404-64-enterprise/debug:
+    build-platform: linux64-enterprise/debug
+    test-sets:
+        - linux-tests-enterprise
+
 linux2404-64-shippable/opt:
     build-platform: linux64-shippable/opt
     test-sets:
+        - awsy
         - desktop-screenshot-capture
         - linux-tests
         - web-platform-tests
@@ -117,6 +129,11 @@ linux2204-64-wayland-shippable/opt:
         - linux2204-wayland-tests
         - web-platform-tests
         - webgpu
+
+linux2404-64-clang-trunk/opt:
+    build-platform: linux64-plain-clang-trunk/opt
+    test-sets:
+        - awsy
 
 ##
 # Windows platforms (matching /windows.*/) 24h2 (no -qr)
@@ -240,6 +257,24 @@ windows11-64-24h2/opt:
         - browsertime
         - windows-talos-webgl
 
+windows11-64-24h2-enterprise/opt:
+    build-platform: win64-enterprise/opt
+    build-signing-label:
+        by-variant:
+            msi: repackage-signing-msi-win64-enterprise/opt
+            default: build-signing-win64-enterprise/opt
+    test-sets:
+        - windows11-24h2-tests-enterprise
+
+windows11-64-24h2-enterprise/debug:
+    build-platform: win64-enterprise/debug
+    build-signing-label:
+        by-variant:
+            msi: repackage-signing-msi-win64-enterprise/debug
+            default: build-signing-win64-enterprise/debug
+    test-sets:
+        - windows11-24h2-tests-enterprise
+
 windows11-64-24h2-shippable/opt:
     build-platform: win64-shippable/opt
     build-signing-label:
@@ -300,27 +335,41 @@ windows11-aarch64-24h2/debug:
 ##
 # MacOS X platforms (matching /macosx.*/)
 
-##  TODO: This is trying to fetch build not done on enterprise-firefox
-##  Exception: Task 'test-macosx1500-aarch64-shippable/opt-xpcshell-1-cf' lists a dependency that does not exist: 'repackage-macosx64-shippable/opt'
-## macosx1500-aarch64/debug:
-##    build-platform: macosx64-aarch64/debug
-##    build-signing-label: repackage-macosx64-aarch64/debug
-##    test-sets:
-##        - macosx1500-aarch64-tests
-##        - macosx1500-64-jittests
+macosx1500-aarch64/debug:
+    build-platform: macosx64-aarch64/debug
+    build-signing-label: repackage-macosx64-aarch64/debug
+    test-sets:
+        - macosx1500-aarch64-tests
+        - macosx1500-64-jittests
+
 ##
-## macosx1500-aarch64-shippable/opt:
-##    build-platform: macosx64-shippable/opt
-##    build-signing-label: repackage-macosx64-shippable/opt
-##    test-sets:
-##        - macosx1500-64-jittests
-##        - macosx1500-64-tests
-##        - macosx1500-64-perftests
+# TODO: Generates weird error on PRs for Enterprise
+# Exception: Task 'test-macosx1500-aarch64-shippable/opt-xpcshell-1-cf' lists a dependency that does not exist: 'repackage-macosx64-shippable/opt'
+#
+# macosx1500-aarch64-shippable/opt:
+#    build-platform: macosx64-shippable/opt
+#    build-signing-label: repackage-macosx64-shippable/opt
+#    test-sets:
+#        - macosx1500-64-jittests
+#        - macosx1500-64-tests
+#        - macosx1500-64-perftests
 
 macosx1470-64-nightlyasrelease/opt:
     build-platform: macosx64-nightlyasrelease/opt
     test-sets:
         - browsertime
+
+macosx1500-64-enterprise/opt:
+    build-platform: macosx64-enterprise/opt
+    build-signing-label: repackage-macosx64-enterprise/opt
+    test-sets:
+        - macosx1500-64-tests-enterprise
+
+macosx1500-64-enterprise/debug:
+    build-platform: macosx64-enterprise/debug
+    build-signing-label: repackage-macosx64-enterprise/debug
+    test-sets:
+        - macosx1500-64-tests-enterprise
 
 macosx1470-64-shippable/opt:
     build-platform: macosx64-shippable/opt

@@ -34,6 +34,8 @@
 #include "mozilla/dom/ContentParent.h"
 #include "mozilla/dom/DOMException.h"
 #include "mozilla/dom/DOMExceptionBinding.h"
+#include "mozilla/dom/DigitalCredential.h"
+#include "mozilla/dom/DigitalCredentialParent.h"
 #include "mozilla/dom/IdentityCredential.h"
 #include "mozilla/dom/InProcessParent.h"
 #include "mozilla/dom/JSActorService.h"
@@ -1841,6 +1843,11 @@ WindowGlobalParent::AllocPWebAuthnTransactionParent() {
 already_AddRefed<PWebIdentityParent>
 WindowGlobalParent::AllocPWebIdentityParent() {
   return MakeAndAddRef<WebIdentityParent>();
+}
+
+already_AddRefed<PDigitalCredentialParent>
+WindowGlobalParent::AllocPDigitalCredentialParent() {
+  return MakeAndAddRef<DigitalCredentialParent>();
 }
 
 NS_IMPL_CYCLE_COLLECTION_CLASS(WindowGlobalParent)

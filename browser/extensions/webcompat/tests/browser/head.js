@@ -59,7 +59,7 @@ const WebCompatExtension = new (class WebCompatExtension {
       await content.wrappedJSObject._downgradeForTesting();
       await content.wrappedJSObject.interventions._resetToDefaultInterventions();
       await content.wrappedJSObject.shims._resetToDefaultShims();
-    });
+    }).catch(_ => {});
   }
 
   async availableInterventions() {
@@ -497,6 +497,7 @@ async function generateTestShims() {
         "embedClicked",
         "smartblockEmbedReplaced",
         "smartblockGetFluentString",
+        "shouldShowEmbedContentInPlaceholders",
       ],
       isSmartblockEmbedShim: true,
       onlyIfBlockedByETP: true,

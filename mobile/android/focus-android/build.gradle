@@ -21,7 +21,6 @@ buildscript {
         classpath libs.android.gradle.plugin
         classpath libs.mozilla.glean.gradle.plugin
         classpath libs.osslicenses.plugin
-        classpath "${ApplicationServicesConfig.groupId}:tooling-nimbus-gradle:${ApplicationServicesConfig.version}"
 
         // NOTE: Do not place your application dependencies here; they belong
         // in the individual module build.gradle files
@@ -30,10 +29,29 @@ buildscript {
 
 plugins {
     id "mozac.ConfigPlugin"
+    alias(libs.plugins.dependency.analysis)
     alias(libs.plugins.detekt)
     alias(libs.plugins.kotlin.android) apply false
     alias(libs.plugins.kotlin.compose) apply false
     alias(libs.plugins.ksp)
+}
+
+dependencyAnalysis {
+    structure {
+        bundle("leakcanary") {
+            includeGroup("com.squareup.leakcanary")
+        }
+        // Ignore Android KTX dependencies. See https://developer.android.com/kotlin/ktx#modules
+        //ignoreKtx(true)
+    }
+    issues {
+        all {
+            onAny {
+                // Fail the run if any issues are found (default = 'warn')
+                //severity('fail')
+            }
+        }
+    }
 }
 
 detekt {

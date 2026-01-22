@@ -143,6 +143,9 @@ FormAutofillUtils = {
     // combined they form address-line1
     "address-streetname": "address",
     "address-housenumber": "address",
+    // NL forms often split the suffix from the house number;
+    // for example 35B becomes '35' as the number and 'B' as the suffix.
+    "address-extra-housesuffix": "address",
     "postal-code": "address",
     country: "address",
     "country-name": "address",
@@ -205,8 +208,15 @@ FormAutofillUtils = {
   },
 
   isValidSection(fieldDetails) {
-    // If one of the fields has the autocomplete reason, the section is valid.
-    if (fieldDetails.some(f => f.reason == "autocomplete")) {
+    // If one of the fields has the autocomplete reason, the section is valid,
+    // except for email fields since those are often login forms.
+    // Bug 2008553 - should find a way to display an email dropdown if this
+    // isn't a login form.
+    if (
+      fieldDetails.some(
+        f => f.reason == "autocomplete" && f.fieldName != "email"
+      )
+    ) {
       return true;
     }
 

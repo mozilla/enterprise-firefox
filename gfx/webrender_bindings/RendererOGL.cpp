@@ -9,6 +9,8 @@
 #include "base/task.h"
 #include "GLContext.h"
 #include "mozilla/gfx/Logging.h"
+#include "mozilla/Logging.h"
+
 #include "mozilla/gfx/gfxVars.h"
 #include "mozilla/gfx/Types.h"
 #include "mozilla/layers/CompositorBridgeParent.h"
@@ -227,9 +229,16 @@ RenderedFrameId RendererOGL::UpdateAndRender(
   }
 
   nsTArray<DeviceIntRect> dirtyRects;
-  bool rendered = wr_renderer_render(mRenderer, size.width, size.height,
-                                     bufferAge, aOutStats, &dirtyRects);
+  bool didRasterize = false;
+  bool rendered =
+      wr_renderer_render(mRenderer, size.width, size.height, bufferAge,
+                         aOutStats, &dirtyRects, &didRasterize);
   FlushPipelineInfo();
+
+  // Track whether any tiles were rasterized for reftest support.
+  // Use OR to accumulate - once rasterization is detected, keep it set
+  // until explicitly cleared by CheckAndClearDidRasterize().
+  mLastFrameDidRasterize = mLastFrameDidRasterize || didRasterize;
   if (!rendered) {
     if (present) {
       mCompositor->CancelFrame();
@@ -479,6 +488,12 @@ void RendererOGL::AccumulateMemoryReport(MemoryReport* aReport) {
 void RendererOGL::SetProfilerUI(const nsACString& aUI) {
   wr_renderer_set_profiler_ui(GetRenderer(), (const uint8_t*)aUI.BeginReading(),
                               aUI.Length());
+}
+
+bool RendererOGL::CheckAndClearDidRasterize() {
+  bool result = mLastFrameDidRasterize;
+  mLastFrameDidRasterize = false;
+  return result;
 }
 
 }  // namespace wr

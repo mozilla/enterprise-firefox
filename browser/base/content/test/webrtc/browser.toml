@@ -59,6 +59,11 @@ skip-if = [
   "os == 'mac' && os_version == '15.30' && arch == 'aarch64'", # Bug 1989731
 ]
 
+["browser_devices_get_user_media_camera_preview_abort.js"]
+skip-if = [
+  "os == 'mac' && os_version == '15.30' && arch == 'aarch64'", # Bug 1989731
+]
+
 ["browser_devices_get_user_media_default_permissions.js"]
 https_first_disabled = true
 skip-if = [
@@ -92,6 +97,8 @@ skip-if = [
   "os == 'mac' && os_version == '15.30' && arch == 'aarch64'", # Bug 1707735
   "os == 'win' && debug", # bug 1393761
 ]
+
+["browser_devices_get_user_media_muted_on_init.js"]
 
 ["browser_devices_get_user_media_paused.js"]
 https_first_disabled = true
@@ -183,9 +190,10 @@ skip-if = [
 
 ["browser_macos_indicator_hiding.js"]
 run-if = [
-  "os == 'mac' && os_version >= '14.0'",
+  "os == 'mac'",
 ]
 skip-if = [
+  "os == 'mac' && os_version == '10.15'",
   "os == 'mac' && os_version == '14.70' && arch == 'x86_64'",
   "os == 'mac' && os_version == '15.30' && arch == 'aarch64'",
 ]

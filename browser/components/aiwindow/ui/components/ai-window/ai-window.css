@@ -12,6 +12,11 @@
 #aichat-browser {
   display: flex;
   flex: 1;
+  flex-direction: column;
   /* stylelint-disable-next-line stylelint-plugin-mozilla/use-size-tokens */
   min-height: 400px;
+}
+
+#ai-window-smartbar {
+  width: 100%;
 }

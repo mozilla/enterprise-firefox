@@ -62,6 +62,18 @@ class ReviewPromptMiddleware(
             }
         }
 
+        /**
+         * WARNING!
+         *
+         * It's important that at least one criterion other than the 4 month limit evaluates to false
+         * if Nimbus SDK database fails and loses all events from the event store.
+         * In such case [hasNotBeenPromptedLastFourMonths] will return true and allow showing the prompt.
+         * Another check MUST return false to block the prompt from showing repeatedly.
+         *
+         * See also:
+         *  * [hasBeenOpenedSeveralTimes]
+         *  * https://bugzilla.mozilla.org/show_bug.cgi?id=2001801
+         */
         fun legacyCriteria(
             jexlHelper: NimbusMessagingHelperInterface,
         ): Sequence<Boolean> {
@@ -121,9 +133,7 @@ class ReviewPromptMiddleware(
 
         if (shouldShowPrompt) {
             if (isTelemetryEnabled()) {
-                // This is a temporary change while investigating repeated custom review prompts as
-                // filed in https://bugzilla.mozilla.org/show_bug.cgi?id=2001801.
-                store.dispatch(ShowPlayStorePrompt)
+                store.dispatch(ShowCustomReviewPrompt)
             } else {
                 store.dispatch(ShowPlayStorePrompt)
             }
@@ -184,10 +194,22 @@ internal fun usedAppOnAtLeastFourOfLastSevenDays(
 /**
  * Matches logic from ReviewPromptController.shouldShowPrompt, which has been deleted.
  * Kept so we can fall back to it in case the custom review prompt is disabled with a kill-switch.
+ *
+ * Note: Because Nimbus limits data to 4 calendar years, this will ignore app opens before then.
+ *
+ * WARNING!
+ * This is intentionally using an expression based on the `app_opened` event,
+ * not the `number_of_app_launches` custom attribute.
+ * This means this condition will return false if the event store loses all events,
+ * which helps protect from repeatedly showing the prompt in case Nimbus SDK database fails.
+ *
+ * See also:
+ *  * [ReviewPromptMiddleware.TriggerBuilder.legacyCriteria]
+ *  * https://bugzilla.mozilla.org/show_bug.cgi?id=2001801
  */
 @VisibleForTesting
 internal fun hasBeenOpenedSeveralTimes(
     jexlHelper: NimbusMessagingHelperInterface,
 ): Boolean {
-    return jexlHelper.evalJexlSafe("number_of_app_launches >= 5")
+    return jexlHelper.evalJexlSafe("'app_opened'|eventSum('Years', 4, 0) >= 5")
 }

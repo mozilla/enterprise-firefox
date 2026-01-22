@@ -4,8 +4,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef __FFmpegVideoFramePool_h__
-#define __FFmpegVideoFramePool_h__
+#ifndef FFmpegVideoFramePool_h_
+#define FFmpegVideoFramePool_h_
 
 #include "FFmpegLibWrapper.h"
 #include "FFmpegLibs.h"
@@ -102,7 +102,7 @@ class VideoFrameSurface<LIBAV_VER> {
  protected:
   // Lock VAAPI related data
   void LockVAAPIData(AVCodecContext* aAVCodecContext, AVFrame* aAVFrame,
-                     FFmpegLibWrapper* aLib);
+                     const FFmpegLibWrapper* aLib);
   // Release VAAPI related data, DMABufSurface can be reused
   // for another frame.
   void ReleaseVAAPIData(bool aForFrameRecycle = true);
@@ -135,11 +135,11 @@ class VideoFramePool<LIBAV_VER> {
   RefPtr<VideoFrameSurface<LIBAV_VER>> GetVideoFrameSurface(
       VADRMPRIMESurfaceDescriptor& aVaDesc, int aWidth, int aHeight,
       AVCodecContext* aAVCodecContext, AVFrame* aAVFrame,
-      FFmpegLibWrapper* aLib);
+      const FFmpegLibWrapper* aLib);
   RefPtr<VideoFrameSurface<LIBAV_VER>> GetVideoFrameSurface(
       AVDRMFrameDescriptor& aDesc, int aWidth, int aHeight,
       AVCodecContext* aAVCodecContext, AVFrame* aAVFrame,
-      FFmpegLibWrapper* aLib);
+      const FFmpegLibWrapper* aLib);
   RefPtr<VideoFrameSurface<LIBAV_VER>> GetVideoFrameSurface(
       const layers::PlanarYCbCrData& aData, AVCodecContext* aAVCodecContext);
 
@@ -173,4 +173,4 @@ class VideoFramePool<LIBAV_VER> {
 
 }  // namespace mozilla
 
-#endif  // __FFmpegVideoFramePool_h__
+#endif  // FFmpegVideoFramePool_h_

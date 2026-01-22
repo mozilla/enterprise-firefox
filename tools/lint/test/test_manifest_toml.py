@@ -147,7 +147,7 @@ def test_non_idiomatic_fix(lint, paths, create_temp_file):
     expected = Path(fix).read_text()
     path = create_temp_file(original, f"{basename}.toml")
     results = lint([path], fix=True)
-    assert len(results) == 16
+    assert len(results) == 9
     i: int = 0
     assert (
         results[i].message
@@ -157,32 +157,8 @@ def test_non_idiomatic_fix(lint, paths, create_temp_file):
     i += 1
     assert (
         results[i].message
-        == "instead of 'apple_catalina' please use os == 'mac' && os_version == '10.15' && arch == 'x86_64'"
-    )
-    assert results[i].level == WARNING
-    i += 1
-    assert (
-        results[i].message
-        == "instead of 'apple_silicon' please use os == 'mac' && os_version == '15.30' && arch == 'aarch64'"
-    )
-    assert results[i].level == WARNING
-    i += 1
-    assert (
-        results[i].message
-        == "instead of win10_2009 please use os == 'win' && os_version == '10.2009' && arch == 'x86_64'"
-    )
-    assert results[i].level == WARNING
-    i += 1
-    assert results[i].message == "linux os_version == '18.04' is no longer used"
-    assert results[i].level == WARNING
-    i += 1
-    assert (
-        results[i].message
         == "linux os_version == '24.04' is only supported on display == 'x11'"
     )
-    assert results[i].level == WARNING
-    i += 1
-    assert results[i].message == "mac os_version == '11.20' is no longer used"
     assert results[i].level == WARNING
     i += 1
     assert (
@@ -217,12 +193,6 @@ def test_non_idiomatic_fix(lint, paths, create_temp_file):
     assert (
         results[i].message == "using 'processor' is not idiomatic, use 'arch' instead"
     )
-    assert results[i].level == WARNING
-    i += 1
-    assert results[i].message == "win os_version == '11.2009' is no longer used"
-    assert results[i].level == WARNING
-    i += 1
-    assert results[i].message == "win11_2009 is no longer used"
     assert results[i].level == WARNING
     assert Path(path).read_text() == expected
 

@@ -141,9 +141,14 @@ class ResponsiveUI {
     // strange intermediate states.
     this.hideBrowserUI();
 
-    // Watch for tab close and window close so we can clean up RDM synchronously
+    // To clean up RDM synchronously, watch for:
+    // - tab close
+    // - tab discarded
+    // - window close
+    this.tab.addEventListener("TabBrowserDiscarded", this);
     this.tab.addEventListener("TabClose", this);
     this.browserWindow.addEventListener("unload", this);
+
     this.rdmFrame.contentWindow.addEventListener("message", this);
 
     this.tab.linkedBrowser.enterResponsiveMode();
@@ -296,7 +301,8 @@ class ResponsiveUI {
     const isTabDestroyed = !this.tab.linkedBrowser;
     const isWindowClosing = options?.reason === "unload" || isTabDestroyed;
     const isTabContentDestroying =
-      isWindowClosing || options?.reason === "TabClose";
+      isWindowClosing ||
+      ["TabBrowserDiscarded", "TabClose"].includes(options?.reason);
 
     // Ensure init has finished before starting destroy
     if (!isTabContentDestroying) {
@@ -316,18 +322,26 @@ class ResponsiveUI {
       await this.updateNetworkThrottling();
     }
 
+    this.tab.removeEventListener("TabBrowserDiscarded", this);
     this.tab.removeEventListener("TabClose", this);
     this.browserWindow.removeEventListener("unload", this);
-    this.tab.linkedBrowser.leaveResponsiveMode();
+
+    // Browsing context might be gone already (eg when discarding).
+    // leaveResponsiveMode only updates linkedBrowser.browsingContext, so it can
+    // be skipped in this case.
+    if (this.tab.linkedBrowser.browsingContext) {
+      this.tab.linkedBrowser.leaveResponsiveMode();
+    }
 
     this.browserWindow.removeEventListener("FullZoomChange", this);
-    this.rdmFrame.contentWindow.removeEventListener("message", this);
+    // When discarding, the content document may already have been destroyed.
+    this.rdmFrame.contentWindow?.removeEventListener("message", this);
 
     // Remove observers on the stack.
     this.resizeToolbarObserver.unobserve(this.browserStackEl);
 
     // Cleanup the frame content before disconnecting the frame element.
-    this.rdmFrame.contentWindow.destroy();
+    this.rdmFrame.contentWindow?.destroy();
 
     this.rdmFrame.remove();
 
@@ -355,7 +369,7 @@ class ResponsiveUI {
         this.reloadOnChange("touchSimulation") && !reloadNeeded;
       await this.updateTouchSimulation(null, reloadOnTouchSimulationChange);
       if (reloadNeeded) {
-        await this.reloadBrowser();
+        await this.reloadSelectedTab();
       }
 
       // Unwatch targets & resources as the last step. If we are not waching for
@@ -467,6 +481,7 @@ class ResponsiveUI {
         this.updateViewportSize(width, height);
         break;
       }
+      case "TabBrowserDiscarded":
       case "TabClose":
       case "unload":
         this.manager.closeIfNeeded(browserWindow, tab, {
@@ -542,7 +557,7 @@ class ResponsiveUI {
     await this.updateTouchSimulation(touch, reloadOnTouchSimulationChange);
 
     if (reloadNeeded) {
-      this.reloadBrowser();
+      this.reloadSelectedTab();
     }
 
     // Used by tests
@@ -583,7 +598,7 @@ class ResponsiveUI {
       (await this.updateUserAgent(userAgent)) &&
       this.reloadOnChange("userAgent");
     if (reloadNeeded) {
-      this.reloadBrowser();
+      this.reloadSelectedTab();
     }
     this.emit("user-agent-changed");
   }
@@ -607,7 +622,7 @@ class ResponsiveUI {
         this.reloadOnChange("touchSimulation") && !reloadNeeded;
       await this.updateTouchSimulation(null, reloadOnTouchSimulationChange);
       if (reloadNeeded) {
-        this.reloadBrowser();
+        this.reloadSelectedTab();
       }
     }
 
@@ -863,7 +878,7 @@ class ResponsiveUI {
         this.reloadOnChange("userAgent");
     }
     if (reloadNeeded) {
-      await this.reloadBrowser();
+      await this.reloadSelectedTab();
     }
   }
 
@@ -1122,7 +1137,7 @@ class ResponsiveUI {
   /**
    * Reload the current tab.
    */
-  async reloadBrowser() {
+  async reloadSelectedTab() {
     await this.commands.targetCommand.reloadTopLevelTarget();
   }
 }

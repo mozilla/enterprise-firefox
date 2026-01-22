@@ -229,9 +229,9 @@
   <!-- Browser menu button that opens account settings -->
   <string name="browser_menu_account_settings">Tilin tiedot</string>
   <!-- Browser menu button that sends a user to help articles -->
-  <string name="browser_menu_help">Ohje</string>
+  <string name="browser_menu_help" tools:ignore="UnusedResources" moz:removedIn="149">Ohje</string>
   <!-- Browser menu button that sends a to a the what's new article -->
-  <string name="browser_menu_whats_new">Mitä uutta</string>
+  <string name="browser_menu_whats_new" tools:ignore="UnusedResources" moz:removedIn="149">Mitä uutta</string>
   <!-- Browser menu button that opens the settings menu -->
   <string name="browser_menu_settings">Asetukset</string>
   <!-- Browser menu button that opens a user's library -->
@@ -239,7 +239,7 @@
   <!-- Browser menu toggle that requests a desktop site -->
   <string name="browser_menu_desktop_site">Työpöytäsivusto</string>
   <!-- Browser menu button that reopens a private tab as a regular tab -->
-  <string name="browser_menu_open_in_regular_tab">Avaa tavallisessa välilehdessä</string>
+  <string name="browser_menu_open_in_regular_tab" tools:ignore="UnusedResources" moz:removedIn="149">Avaa tavallisessa välilehdessä</string>
   <!-- Browser menu toggle that adds a shortcut to the site on the device home screen. -->
   <string name="browser_menu_add_to_homescreen">Lisää aloitusnäytölle</string>
   <!-- Browser menu toggle that adds a PWA of the site on the device home screen. -->
@@ -267,7 +267,7 @@
     Browser menu text shown in custom tabs to indicate this is a Fenix tab
     %1$s is the name of the app (for example "Firefox").
   -->
-  <string name="browser_menu_powered_by">MAHDOLLISTAJANA %1$s</string>
+  <string name="browser_menu_powered_by" tools:ignore="UnusedResources" moz:removedIn="149">MAHDOLLISTAJANA %1$s</string>
   <!--
     Browser menu text shown in custom tabs to indicate this is a Fenix tab
     %1$s is the name of the app (for example "Firefox").
@@ -280,15 +280,15 @@
   <!-- Browser menu button to open the current page in an external app -->
   <string name="browser_menu_open_app_link">Avaa sovelluksessa</string>
   <!-- Browser menu button to show reader view appearance controls e.g. the used font type and size -->
-  <string name="browser_menu_customize_reader_view">Mukauta lukunäkymää</string>
+  <string name="browser_menu_customize_reader_view" tools:ignore="UnusedResources" moz:removedIn="149">Mukauta lukunäkymää</string>
   <!-- Browser menu button to show reader view appearance controls e.g. the used font type and size -->
   <string name="browser_menu_customize_reader_view_2">Mukauta lukunäkymää</string>
   <!-- Browser menu label for adding a bookmark -->
-  <string name="browser_menu_add">Lisää</string>
+  <string name="browser_menu_add" tools:ignore="UnusedResources" moz:removedIn="149">Lisää</string>
   <!-- Browser menu label for editing a bookmark -->
-  <string name="browser_menu_edit">Muokkaa</string>
+  <string name="browser_menu_edit" tools:ignore="UnusedResources" moz:removedIn="149">Muokkaa</string>
   <!-- Button shown on the home page that opens the Customize home settings -->
-  <string name="browser_menu_customize_home_1">Mukauta kotisivua</string>
+  <string name="browser_menu_customize_home_1" tools:ignore="UnusedResources" moz:removedIn="149">Mukauta kotisivua</string>
   <!-- Browser menu label to sign in to sync on the device using Mozilla accounts -->
   <string name="browser_menu_sign_in">Kirjaudu sisään</string>
   <!-- Browser menu caption label for the "Sign in" browser menu item described in `browser_menu_sign_in` -->
@@ -307,10 +307,6 @@
   <string name="browser_close_main_menu_handlebar_content_description">Sulje valikko</string>
   <!-- Content description (not visible, for screen readers etc.) for main menu navigation header. -->
   <string name="browser_main_menu_content_description_navigation_header">Navigointi</string>
-  <!-- Content description (not visible, for screen readers etc.) for main menu help button. -->
-  <string name="browser_main_menu_content_description_help_button" tools:ignore="UnusedResources" moz:removedIn="146">Ohje</string>
-  <!-- Content description (not visible, for screen readers etc.) for main menu settings button. -->
-  <string name="browser_main_menu_content_description_settings_button" tools:ignore="UnusedResources" moz:removedIn="146">Asetukset</string>
   <!-- Content description (not visible, for screen readers etc.) for bottom sheet handlebar extensions menu. -->
   <string name="browser_extensions_menu_handlebar_content_description">Sulje laajennusvalikko</string>
   <!-- Content description (not visible, for screen readers etc.) for bottom sheet handlebar save menu. -->
@@ -328,7 +324,7 @@
   <!-- Browser menu label for navigating to the translation feature, which provides language translation options the current visited page -->
   <string name="browser_menu_translate_page_2">Käännä sivu</string>
   <!-- Browser menu label for navigating to the Web Compat Reporter feature, which provides users the ability to send bug reports for broken sites. -->
-  <string name="browser_menu_webcompat_reporter">Ilmoita rikkinäisestä sivustosta…</string>
+  <string name="browser_menu_webcompat_reporter" tools:ignore="UnusedResources" moz:removedIn="149">Ilmoita rikkinäisestä sivustosta…</string>
   <!-- Browser menu label for navigating to the Web Compat Reporter feature, which provides users the ability to send bug reports for broken sites. -->
   <string name="browser_menu_webcompat_reporter_2">Ilmoita rikkinäisestä sivustosta</string>
   <!-- Browser menu label that is displayed when the current page has been translated by the translation feature. -->
@@ -452,19 +448,8 @@
   <string name="juno_onboarding_privacy_notice_text" tools:ignore="BrandUsage">Firefoxin tietosuojakäytäntö</string>
   <!-- Title for set firefox as default browser screen used by Nimbus experiments. -->
   <string name="juno_onboarding_default_browser_title_nimbus_2">Turvaamisesi on tärkeää meille</string>
-  <!--
-    Title for set firefox as default browser screen used by Nimbus experiments.
-    Note: The word "Firefox" should NOT be translated
-  -->
-  <string name="juno_onboarding_default_browser_title_nimbus_3" tools:ignore="BrandUsage,UnusedResources" moz:removedIn="146">Ota selvää, miksi miljoonat rakastavat Firefoxia</string>
-  <!-- Title for set firefox as default browser screen used by Nimbus experiments. -->
-  <string name="juno_onboarding_default_browser_title_nimbus_4" tools:ignore="UnusedResources" moz:removedIn="146">Turvallista selausta ja enemmän vaihtoehtoja</string>
   <!-- Description for set firefox as default browser screen used by Nimbus experiments. -->
   <string name="juno_onboarding_default_browser_description_nimbus_3">Voittoa tavoittelemattoman tahon tukema selaimemme auttaa estämään yrityksiä seuraamasta sinua salaa verkossa.</string>
-  <!-- Description for set firefox as default browser screen used by Nimbus experiments. -->
-  <string name="juno_onboarding_default_browser_description_nimbus_4" tools:ignore="UnusedResources" moz:removedIn="146">Yli 100 miljoonaa ihmistä suojaa yksityisyyttään valitsemalla voittoa tavoittelemattoman järjestön tukeman selaimen.</string>
-  <!-- Description for set firefox as default browser screen used by Nimbus experiments. -->
-  <string name="juno_onboarding_default_browser_description_nimbus_5" tools:ignore="UnusedResources" moz:removedIn="146">Tunnetut seuraimet? Estetty automaattisesti. Laajennukset? Kokeile kaikkia 700:aa. PDF-tiedostoja? Sisäänrakennettu lukija tekee niistä helposti hallittavia.</string>
   <!-- Text for the button to set firefox as default browser on the device -->
   <string name="juno_onboarding_default_browser_positive_button" tools:ignore="UnusedResources">Aseta oletusselaimeksi</string>
   <!-- Text for the button dismiss the screen and move on with the flow -->
@@ -624,6 +609,86 @@
   <string name="onboarding_marketing_body_1" tools:ignore="BrandUsage,UnusedResources">Jaa Mozillan markkinointikumppaneiden kanssa, miten löysit Firefoxin ja kuinka käytät sitä. Näitä tietoja ei koskaan myydä.</string>
   <!-- Marketing onboarding page button label variant. Button to confirm choice and start browsing. -->
   <string name="onboarding_marketing_positive_button_1" tools:ignore="UnusedResources">Hyväksy ja aloita selaaminen</string>
+  <!-- ==== Project "Nova" onboarding strings ==== -->
+
+  <!-- "Continue" onboarding button. -->
+  <string name="nova_onboarding_continue_button" tools:ignore="UnusedResources">Jatka</string>
+  <!-- "Not now" onboarding button. -->
+  <string name="nova_onboarding_negative_button" tools:ignore="UnusedResources">Ei nyt</string>
+  <!-- Terms of use (ToU) onboarding title. -->
+  <string name="nova_onboarding_tou_title" tools:ignore="UnusedResources">Valmistaudu kulkemaan vapaasti</string>
+  <!-- Terms of use (ToU) onboarding subtitle. -->
+  <string name="nova_onboarding_tou_subtitle" tools:ignore="UnusedResources">Nopea, turvallinen eikä tee sinusta kauppatavaraa.\nSelaaminen on juuri parantunut.</string>
+  <!--
+    Terms of use (ToU) onboarding body line one.
+    %1$s is replaced by an active link, using nova_onboarding_tou_body_line_1_link_text as text (“Firefox Terms of Use”).
+  -->
+  <string name="nova_onboarding_tou_body_line_1" tools:ignore="UnusedResources">Jatkamalla hyväksyt %1$s.</string>
+  <!-- Terms of use (ToU) onboarding body line one link text for nova_onboarding_tou_body_line_1. 'Firefox' is intentionally hardcoded. -->
+  <string name="nova_onboarding_tou_body_line_1_link_text" tools:ignore="BrandUsage,UnusedResources">Firefoxin käyttöehdot</string>
+  <!--
+    Terms of use (ToU) onboarding body line two. 'Firefox' is intentionally hardcoded.
+    %1$s is replaced by an active link, using nova_onboarding_tou_body_line_2_link_text as text (“Privacy Notice”).
+  -->
+  <string name="nova_onboarding_tou_body_line_2" tools:ignore="BrandUsage,UnusedResources">Firefox välittää yksityisyydestäsi. Lue lisää: %1$s.</string>
+  <!-- Terms of use (ToU) onboarding body line two link text for nova_onboarding_tou_body_line_2. -->
+  <string name="nova_onboarding_tou_body_line_2_link_text" tools:ignore="UnusedResources">Tietosuojakäytäntö</string>
+  <!--
+    Terms of use (ToU) onboarding body line three. 'Firefox' and 'Mozilla' are intentionally hardcoded.
+    %1$s is replaced by an active link, using nova_onboarding_tou_body_line_3_link_text as text (“Manage Settings”).
+  -->
+  <string name="nova_onboarding_tou_body_line_3" tools:ignore="BrandUsage,UnusedResources">Selaimen parantamiseksi Firefox lähettää diagnostiikka- ja vuorovaikutustietoja Mozillalle. %1$s</string>
+  <!-- Terms of use (ToU) onboarding body line three link text for nova_onboarding_tou_body_line_3. -->
+  <string name="nova_onboarding_tou_body_line_3_link_text" tools:ignore="UnusedResources">Muokkaa asetuksia</string>
+  <!-- "Set to default" onboarding title. -->
+  <string name="nova_onboarding_set_to_default_title" tools:ignore="UnusedResources">Sano hyvästit kammottaville seuraimille</string>
+  <!-- "Set to default" onboarding subtitle. -->
+  <string name="nova_onboarding_set_to_default_subtitle" tools:ignore="UnusedResources">Suojaamme tietosi ja estämme automaattisesti yrityksiä vakoilemasta napsautuksiasi.</string>
+  <!-- "Set to default" onboarding button. -->
+  <string name="nova_onboarding_set_to_default_button" tools:ignore="UnusedResources">Aseta oletusselaimeksi</string>
+  <!-- Toolbar selection onboarding title. -->
+  <string name="nova_onboarding_toolbar_selection_title" tools:ignore="UnusedResources">Valitse osoitepalkki</string>
+  <!-- Toolbar selection onboarding "top" option label. -->
+  <string name="nova_onboarding_toolbar_selection_top_label" tools:ignore="UnusedResources">Ylhäällä</string>
+  <!-- Toolbar selection onboarding "bottom" option label. -->
+  <string name="nova_onboarding_toolbar_selection_bottom_label" tools:ignore="UnusedResources">Alhaalla</string>
+  <!-- Theme selection onboarding title. -->
+  <string name="nova_onboarding_theme_selection_title" tools:ignore="UnusedResources">Valitse teema</string>
+  <!-- Theme selection onboarding "automatic" option label. -->
+  <string name="nova_onboarding_theme_selection_automatic_label" tools:ignore="UnusedResources">Automaattinen</string>
+  <!-- Theme selection onboarding "light" option label. -->
+  <string name="nova_onboarding_theme_selection_light_label" tools:ignore="UnusedResources">Vaalea</string>
+  <!-- Theme selection onboarding "dark" option label. -->
+  <string name="nova_onboarding_theme_selection_dark_label" tools:ignore="UnusedResources">Tumma</string>
+  <!-- Sync onboarding title. -->
+  <string name="nova_onboarding_sync_title" tools:ignore="UnusedResources">Jatka siitä mihin jäit</string>
+  <!-- Sync onboarding subtitle. -->
+  <string name="nova_onboarding_sync_subtitle" tools:ignore="UnusedResources">Hanki kirjanmerkit, salasanat ja paljon muuta mille tahansa laitteelle hetkessä. Henkilökohtaiset tietosi pysyvät turvassa salauksen ansiosta.</string>
+  <!-- Sync onboarding button. -->
+  <string name="nova_onboarding_sync_button" tools:ignore="UnusedResources">Aloita synkronointi</string>
+  <!-- Marketing onboarding title. -->
+  <string name="nova_onboarding_marketing_title" tools:ignore="UnusedResources">Auta meitä rakentamaan parempi internet</string>
+  <!--
+    Marketing onboarding body. 'Firefox' and 'Mozilla' are intentionally hardcoded.
+    %1$s is replaced by an active link, using nova_onboarding_marketing_body_link_text as text (“How we use the data”).
+  -->
+  <string name="nova_onboarding_marketing_body" tools:ignore="BrandUsage,UnusedResources">Jaa Mozillan markkinointikumppaneiden kanssa, miten löysit Firefoxin ja kuinka käytät sitä. Näitä tietoja ei koskaan myydä. %1$s</string>
+  <!-- Marketing onboarding body link text. -->
+  <string name="nova_onboarding_marketing_body_link_text" tools:ignore="UnusedResources">Kuinka käytämme tietoja</string>
+  <!-- Notifications onboarding title. 'Firefox' is intentionally hardcoded. -->
+  <string name="nova_onboarding_notifications_title" tools:ignore="BrandUsage,UnusedResources">Ilmoitukset auttavat sinua pysymään paremmassa turvassa Firefoxilla</string>
+  <!-- Notifications onboarding subtitle. 'Firefox' is intentionally hardcoded. -->
+  <string name="nova_onboarding_notifications_subtitle" tools:ignore="BrandUsage,UnusedResources">Tutustu Firefoxin uusimpiin tietosuojaominaisuuksiin, jotta olet aina ajan tasalla suojautumisen osalta.</string>
+  <!-- Notifications onboarding button. -->
+  <string name="nova_onboarding_notifications_button" tools:ignore="UnusedResources">Ota ilmoitukset käyttöön</string>
+  <!-- "Add search widget" onboarding title. -->
+  <string name="nova_onboarding_add_search_widget_title" tools:ignore="UnusedResources">Tee jokaisesta hausta entistä yksityisempi</string>
+  <!-- "Add search widget" onboarding subtitle. 'Firefox' is intentionally hardcoded. -->
+  <string name="nova_onboarding_add_search_widget_subtitle" tools:ignore="BrandUsage,UnusedResources">Aloita jokainen haku puhelimesi aloitusnäytöltä ja tiedosta, että Firefoxin automaattiset suojaukset pitävät sinusta huolta.</string>
+  <!-- "Add search widget" onboarding button. 'Firefox' is intentionally hardcoded. -->
+  <string name="nova_onboarding_add_search_widget_button" tools:ignore="BrandUsage,UnusedResources">Lisää Firefox-widget</string>
+  <!-- ==== End of Project "Nova" onboarding strings ==== -->
+
   <!-- Onboarding header for the toolbar selection card, used by Nimbus experiments. -->
   <string name="onboarding_customize_toolbar_title" tools:ignore="UnusedResources">Valitse työkalupalkin sijoitus</string>
   <!-- Onboarding sub header for toolbar selection card, used by Nimbus experiments. -->
@@ -1057,8 +1122,6 @@
   <string name="alternative_app_icon_group_solid_colors">Yhtenäiset värit</string>
   <!-- Title for the "Gradients" group of alternative app icon variants in the icon picker screen. This group contains icons with gradient backgrounds inspired by natural light conditions. -->
   <string name="alternative_app_icon_group_gradients">Liukuvärit</string>
-  <!-- Title for the "Other" group of alternative app icon variants in the icon picker screen. This group includes retro, pixel art, themed, and artist-created icons. -->
-  <string name="alternative_app_icon_group_other" tools:ignore="UnusedResources" moz:removedIn="146">Muu</string>
   <!-- Title for the "Featured" group of alternative app icon variants in the icon picker screen. This group includes retro, pixel art, themed, and artist-created icons. -->
   <string name="alternative_app_icon_group_featured">Suositeltu</string>
   <!-- Title to show in alert when user selects an alternative app icon -->
@@ -1425,9 +1488,9 @@
   <!-- Title of the active section on the studies list -->
   <string name="studies_active">Käynnissä</string>
   <!-- Description for studies -->
-  <string name="studies_description_3">Kokeile ominaisuuksia ja ideoita, ennen kuin ne julkaistaan kaikille.</string>
+  <string name="studies_description_3" moz:removedIn="148" tools:ignore="UnusedResources">Kokeile ominaisuuksia ja ideoita, ennen kuin ne julkaistaan kaikille.</string>
   <!-- Title of the Studies data preference -->
-  <string name="studies_title">Asenna ja suorita tutkimuksia</string>
+  <string name="studies_title" moz:removedIn="148" tools:ignore="UnusedResources">Asenna ja suorita tutkimuksia</string>
   <!-- Learn more link for studies, links to an article for more information about studies. -->
   <string name="studies_learn_more">Lue lisää</string>
   <!--
@@ -1511,6 +1574,10 @@
   <string name="remove_tab_from_collection">Poista välilehti kokoelmasta</string>
   <!-- Text for button to enter multiselect mode in tabs tray -->
   <string name="tabs_tray_select_tabs">Valitse välilehdet</string>
+  <!-- Text for tab manager search page when there are no results. -->
+  <string name="tab_manager_no_search_results">Ei hakutuloksia.</string>
+  <!-- Additional text for tab manager search page when there are no results. -->
+  <string name="tab_manager_no_search_results_additional_text">Kokeile muita hakuehtoja!</string>
   <!-- Content description (not visible, for screen readers etc.): Close tab button. Closes the current session when pressed -->
   <string name="close_tab">Sulje välilehti</string>
   <!-- Content description (not visible, for screen readers etc.): Close tab <title> button. %s is the tab title -->
@@ -1910,6 +1977,8 @@
   <string name="bookmark_delete_folder_content_description">Poista kansio</string>
   <!-- Content description for bookmark search floating action button -->
   <string name="bookmark_search_button_content_description">Etsi kirjanmerkeistä</string>
+  <!-- Content description for select folder screen search action button ("search" is a verb) -->
+  <string name="select_bookmark_search_button_content_description">Hae kansioista</string>
   <!-- Content description for the overflow menu for a bookmark item. %s is a folder name or bookmark title. -->
   <string name="bookmark_item_menu_button_content_description">Valikkokohde %s</string>
   <!-- Content description for the "close" button in bookmarks screen. -->
@@ -1928,6 +1997,8 @@
   <string name="bookmark_empty_list_folder_description">Lisää kirjanmerkkejä selatessasi, jotta löydät suosikkisivustosi myöhemmin.</string>
   <!-- Description for the add new folder button when selecting a folder. -->
   <string name="bookmark_select_folder_new_folder_button_title">Uusi kansio</string>
+  <!-- Bookmark snackbar message for moving a single item. %1$s is the title of the item being moved and %2$s is the new parent folder of the bookmark -->
+  <string name="bookmark_moved_single_item">Siirretty %1$s kansioon %2$s</string>
   <!--
     Site Permissions
 
@@ -2112,7 +2183,7 @@
   <!-- An option from the share dialog to sign into sync -->
   <string name="sync_sign_in">Kirjaudu sisään Synciin</string>
   <!-- An option from the three dot menu to sign in -->
-  <string name="sync_menu_sign_in">Kirjaudu sisään</string>
+  <string name="sync_menu_sign_in" tools:ignore="UnusedResources" moz:removedIn="149">Kirjaudu sisään</string>
   <!-- An option from the share dialog to send link to all other sync devices -->
   <string name="sync_send_to_all">Lähetä kaikkiin laitteisiin</string>
   <!-- An option from the share dialog to reconnect to sync -->
@@ -2231,7 +2302,7 @@
   <!-- Title for Accessibility Text Size Scaling Preference -->
   <string name="preference_accessibility_font_size_title">Fontin koko</string>
   <!-- %d is the percentage of the slide bar for setting the text font size and %% will be announced as "percent". -->
-  <string name="a11y_preference_accessibility_font_size_percentage">%d %%.</string>
+  <string name="a11y_preference_accessibility_font_size_percentage" tools:ignore="UnusedResources" moz:removedIn="148">%d %%.</string>
   <!-- Title for Accessibility Text Automatic Size Scaling Preference -->
   <string name="preference_accessibility_auto_size_2">Automaattinen fonttikoko</string>
   <!-- Summary for Accessibility Text Automatic Size Scaling Preference -->
@@ -2272,7 +2343,7 @@
   <!-- Summary for the Delete browsing data on quit preference. "Quit" translation should match delete_browsing_data_on_quit_action translation. -->
   <string name="preference_summary_delete_browsing_data_on_quit_2">Poistaa automaattisesti selaustiedot, kun valitset \"Lopeta\" päävalikosta</string>
   <!-- Action item in menu for the Delete browsing data on quit feature -->
-  <string name="delete_browsing_data_on_quit_action">Lopeta</string>
+  <string name="delete_browsing_data_on_quit_action" tools:ignore="UnusedResources" moz:removedIn="149">Lopeta</string>
   <!-- Title text of a delete browsing data dialog. -->
   <string name="delete_history_prompt_title">Tyhjennettävä aikajakso</string>
   <!-- Body text of a delete browsing data dialog. -->
@@ -3914,11 +3985,9 @@
   <string name="settings_search_no_results_title">Mitään ei löytynyt</string>
   <!-- Sub-message displayed when the search field is not empty but search results is empty. -->
   <string name="settings_search_no_results_message">Kokeile eri hakuehtoja</string>
-  <!--
-    Terms of use pop up prompt
+  <!-- ==== Terms of use pop up prompt ==== -->
 
-    Title for the pop up prompt
-  -->
+  <!-- Title for the pop up prompt -->
   <string name="terms_of_use_prompt_title">Meillä on päivitys</string>
   <!--
     Message for the terms of use pop up prompt
@@ -3942,6 +4011,24 @@
   <string name="terms_of_use_prompt_accept">Hyväksy</string>
   <!-- Label for a button to postpone accepting the terms of use -->
   <string name="terms_of_use_prompt_postpone">Muistuta myöhemmin</string>
+  <!-- ==== Experiment strings. ==== -->
+
+  <!-- A title for the popup prompt. -->
+  <string name="terms_of_use_prompt_title_option_a" tools:ignore="UnusedResources">Käyttöehdot</string>
+  <!--
+    A title for the popup prompt.
+    %1$s is the product name "Firefox"
+  -->
+  <string name="terms_of_use_prompt_title_option_b" tools:ignore="UnusedResources">Ilmoitus %1$s-selaimelta</string>
+  <!--
+    Copy for the Terms of Use popup prompt body line two.
+    %1$s is the string terms_of_use_prompt_body_line_two_alternative_link ("here") that is a link to the Terms of Use
+  -->
+  <string name="terms_of_use_prompt_body_line_two_alternative" tools:ignore="UnusedResources">Lisätietoja on saatavilla %1$s.</string>
+  <!-- Link text for terms_of_use_prompt_body_line_two_alternative that links to a site with more information about the Terms of Use -->
+  <string name="terms_of_use_prompt_body_line_two_alternative_link" tools:ignore="UnusedResources">täältä</string>
+  <!-- ==== End of Terms of use popup prompt. ==== -->
+
   <!--
     Privacy notice homepage banner
 

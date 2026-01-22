@@ -568,6 +568,7 @@ class Longhand(Property):
             return False
         if self.predefined_type:
             return self.predefined_type in {
+                "AlignmentBaseline",
                 "Appearance",
                 "AnimationComposition",
                 "AnimationDirection",
@@ -847,11 +848,8 @@ class PropertiesData(object):
         return [s for s in self.style_structs if s.longhands]
 
     def add_prefixed_aliases(self, property):
-        # FIXME Servo's DOM architecture doesn't support vendor-prefixed properties.
-        #       See servo/servo#14941.
-        if self.engine == "gecko":
-            for prefix, pref in property.extra_prefixes:
-                property.aliases.append(("-%s-%s" % (prefix, property.name), pref))
+        for prefix, pref in property.extra_prefixes:
+            property.aliases.append(("-%s-%s" % (prefix, property.name), pref))
 
     def declare_longhand(self, name, engines=None, **kwargs):
         engines = engines.split()
@@ -989,8 +987,8 @@ class PropertyRestrictions:
                 "initial-letter",
                 # Kinda like css-fonts?
                 "-moz-osx-font-smoothing",
-                "vertical-align",
-                # Will become shorthand of vertical-align (Bug 1830771)
+                "alignment-baseline",
+                "baseline-shift",
                 "baseline-source",
                 "line-height",
                 # Kinda like css-backgrounds?
@@ -1022,8 +1020,8 @@ class PropertyRestrictions:
                 "opacity",
                 # Kinda like css-fonts?
                 "-moz-osx-font-smoothing",
-                "vertical-align",
-                # Will become shorthand of vertical-align (Bug 1830771)
+                "alignment-baseline",
+                "baseline-shift",
                 "baseline-source",
                 "line-height",
                 # Kinda like css-backgrounds?

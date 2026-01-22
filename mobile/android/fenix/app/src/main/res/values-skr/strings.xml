@@ -192,9 +192,9 @@
   <!-- Browser menu button that opens account settings -->
   <string name="browser_menu_account_settings">کھاتہ معلومات</string>
   <!-- Browser menu button that sends a user to help articles -->
-  <string name="browser_menu_help">مدد</string>
+  <string name="browser_menu_help" tools:ignore="UnusedResources" moz:removedIn="149">مدد</string>
   <!-- Browser menu button that sends a to a the what's new article -->
-  <string name="browser_menu_whats_new">نواں کیا ہے؟</string>
+  <string name="browser_menu_whats_new" tools:ignore="UnusedResources" moz:removedIn="149">نواں کیا ہے؟</string>
   <!-- Browser menu button that opens the settings menu -->
   <string name="browser_menu_settings">ترتیباں</string>
   <!-- Browser menu button that opens a user's library -->
@@ -202,7 +202,7 @@
   <!-- Browser menu toggle that requests a desktop site -->
   <string name="browser_menu_desktop_site">ڈیسک ٹاپ سائٹ</string>
   <!-- Browser menu button that reopens a private tab as a regular tab -->
-  <string name="browser_menu_open_in_regular_tab">باقائدہ ٹیب وچ کھولو</string>
+  <string name="browser_menu_open_in_regular_tab" tools:ignore="UnusedResources" moz:removedIn="149">باقائدہ ٹیب وچ کھولو</string>
   <!-- Browser menu toggle that adds a shortcut to the site on the device home screen. -->
   <string name="browser_menu_add_to_homescreen">ہوم سکرین تے شامل کرو</string>
   <!-- Browser menu toggle that adds a PWA of the site on the device home screen. -->
@@ -228,7 +228,7 @@
     Browser menu text shown in custom tabs to indicate this is a Fenix tab
     %1$s is the name of the app (for example "Firefox").
   -->
-  <string name="browser_menu_powered_by">%1$s ولوں تکڑا تھیا</string>
+  <string name="browser_menu_powered_by" tools:ignore="UnusedResources" moz:removedIn="149">%1$s ولوں تکڑا تھیا</string>
   <!--
     Browser menu text shown in custom tabs to indicate this is a Fenix tab
     %1$s is the name of the app (for example "Firefox").
@@ -241,15 +241,15 @@
   <!-- Browser menu button to open the current page in an external app -->
   <string name="browser_menu_open_app_link">ایپ وچ کھولو</string>
   <!-- Browser menu button to show reader view appearance controls e.g. the used font type and size -->
-  <string name="browser_menu_customize_reader_view">من پسند قاری نظارہ بݨاو</string>
+  <string name="browser_menu_customize_reader_view" tools:ignore="UnusedResources" moz:removedIn="149">من پسند قاری نظارہ بݨاو</string>
   <!-- Browser menu button to show reader view appearance controls e.g. the used font type and size -->
   <string name="browser_menu_customize_reader_view_2">من پسند قاری منظر بݨاو</string>
   <!-- Browser menu label for adding a bookmark -->
-  <string name="browser_menu_add">شامل کرو</string>
+  <string name="browser_menu_add" tools:ignore="UnusedResources" moz:removedIn="149">شامل کرو</string>
   <!-- Browser menu label for editing a bookmark -->
-  <string name="browser_menu_edit">تبدیلی کرو</string>
+  <string name="browser_menu_edit" tools:ignore="UnusedResources" moz:removedIn="149">تبدیلی کرو</string>
   <!-- Button shown on the home page that opens the Customize home settings -->
-  <string name="browser_menu_customize_home_1">مکھ پنے کوں من پسند بݨاؤ</string>
+  <string name="browser_menu_customize_home_1" tools:ignore="UnusedResources" moz:removedIn="149">مکھ پنے کوں من پسند بݨاؤ</string>
   <!-- Browser menu label to sign in to sync on the device using Mozilla accounts -->
   <string name="browser_menu_sign_in">سائن ان</string>
   <!-- Browser menu label to sign back in to sync on the device when the user's account needs to be reauthenticated -->
@@ -260,10 +260,6 @@
   <string name="browser_menu_new_private_tab">نویں نجی ٹیب</string>
   <!-- Browser menu label that navigates to the Password screen -->
   <string name="browser_menu_passwords">پاس ورڈز</string>
-  <!-- Content description (not visible, for screen readers etc.) for main menu help button. -->
-  <string name="browser_main_menu_content_description_help_button" tools:ignore="UnusedResources" moz:removedIn="146">مدد</string>
-  <!-- Content description (not visible, for screen readers etc.) for main menu settings button. -->
-  <string name="browser_main_menu_content_description_settings_button" tools:ignore="UnusedResources" moz:removedIn="146">ترتیباں</string>
   <!-- Browser menu label that navigates to the edit bookmark screen for the current bookmarked page -->
   <string name="browser_menu_edit_bookmark">نشانی وچ تبدیلی کرو</string>
   <!--
@@ -343,19 +339,8 @@
   <string name="juno_onboarding_privacy_notice_text" tools:ignore="BrandUsage">فائرفوکس رازداری نوٹس</string>
   <!-- Title for set firefox as default browser screen used by Nimbus experiments. -->
   <string name="juno_onboarding_default_browser_title_nimbus_2">اَساکوں تُہاکوں محفوظ رکّھݨ بھان٘دا ہِے</string>
-  <!--
-    Title for set firefox as default browser screen used by Nimbus experiments.
-    Note: The word "Firefox" should NOT be translated
-  -->
-  <string name="juno_onboarding_default_browser_title_nimbus_3" tools:ignore="BrandUsage,UnusedResources" moz:removedIn="146">معلوم کرو جو لَکّھاں لوکاں کوں فائر فاکس کیوں بھان٘دے</string>
-  <!-- Title for set firefox as default browser screen used by Nimbus experiments. -->
-  <string name="juno_onboarding_default_browser_title_nimbus_4" tools:ignore="UnusedResources" moz:removedIn="146">ٻئے چوݨ دے نال محفوظ براؤزنگ</string>
   <!-- Description for set firefox as default browser screen used by Nimbus experiments. -->
   <string name="juno_onboarding_default_browser_description_nimbus_3">اَساݙا غیر منافع بخش حمایت یافتہ براؤزر کمپنیاں کوں لُکّل طور تے ویب دے چَودھار تُہاݙی پیروی کرݨ کنوں روکݨ وِچ مَدَت کرین٘دا ہِے۔</string>
-  <!-- Description for set firefox as default browser screen used by Nimbus experiments. -->
-  <string name="juno_onboarding_default_browser_description_nimbus_4" tools:ignore="UnusedResources" moz:removedIn="146">100 ملین کنوں وَدھ لوک براؤزر دا چوݨ کر کے آپݨی رازداری دی راکھی کرین٘دے ہِن جین٘دی حمایت غیر منافع بخش ہِے۔</string>
-  <!-- Description for set firefox as default browser screen used by Nimbus experiments. -->
-  <string name="juno_onboarding_default_browser_description_nimbus_5" tools:ignore="UnusedResources" moz:removedIn="146">معلوم ٹریکرز؟ خود کار طریقے نال بلاک تِھی ڳِیا۔ ایکسٹنشناں؟ سبھے 700 کوں اَزماؤ۔ پی ڈی ایف ایس؟ اَساݙا بِلٹ اِن ریڈر اِنّھاں دا انتظام سَوکھا بݨین٘دا ہِے۔</string>
   <!-- Text for the button to set firefox as default browser on the device -->
   <string name="juno_onboarding_default_browser_positive_button" tools:ignore="UnusedResources">پہلوں مقرر براؤز تے طور تے سیٹ کرو</string>
   <!-- Text for the button dismiss the screen and move on with the flow -->
@@ -408,6 +393,10 @@
   <string name="onboarding_term_of_service_line_two_link_text">رازداری نوٹس</string>
   <!-- Used as text for the link in onboarding_term_of_service_line_three. -->
   <string name="onboarding_term_of_service_line_three_link_text">بندوبست کرو</string>
+  <!-- ==== Project "Nova" onboarding strings ==== -->
+
+  <!-- ==== End of Project "Nova" onboarding strings ==== -->
+
   <!-- Onboarding toolbar selection card label for 'top' option, used by Nimbus experiments. -->
   <string name="onboarding_customize_toolbar_top_option">چوٹی</string>
   <!-- Onboarding toolbar selection card label for 'bottom' option, used by Nimbus experiments. -->
@@ -1506,7 +1495,7 @@
   <!-- Summary for the Delete browsing data on quit preference. "Quit" translation should match delete_browsing_data_on_quit_action translation. -->
   <string name="preference_summary_delete_browsing_data_on_quit_2">جہڑے ویلے تساں مین مینیو وچوں \"چھوڑو\" کوں چُݨدے ہو تاں براؤزنگ دا ڈیٹا خودبخود مٹ ویندا ہے</string>
   <!-- Action item in menu for the Delete browsing data on quit feature -->
-  <string name="delete_browsing_data_on_quit_action">نکل ون٘ڄو</string>
+  <string name="delete_browsing_data_on_quit_action" tools:ignore="UnusedResources" moz:removedIn="149">نکل ون٘ڄو</string>
   <!-- Title text of a delete browsing data dialog. -->
   <string name="delete_history_prompt_title">مٹاوݨ کیتے وقت دی حد</string>
   <!-- Body text of a delete browsing data dialog. -->
@@ -2603,4 +2592,10 @@
   -->
   <string name="certificate_warning_homepage_card_update_now_button" tools:ignore="UnusedResources">ہݨ ابڈیٹ کرو</string>
   <!-- TextField Design System Component -->
+
+  <!-- ==== Terms of use pop up prompt ==== -->
+
+  <!-- ==== Experiment strings. ==== -->
+
+  <!-- ==== End of Terms of use popup prompt. ==== -->
 </resources>

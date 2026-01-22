@@ -13,6 +13,7 @@ sys.path.insert(0, "./dom/media/webrtc/third_party_build")
 import lookup_branch_head
 
 script_name = os.path.basename(__file__)
+repo_type = detect_repo_type()
 
 text = """#!/bin/bash
 
@@ -148,8 +149,7 @@ def build_default_config_env(
 
 if __name__ == "__main__":
     # first, check which repo we're in, git or hg
-    repo_type = detect_repo_type()
-    if repo_type is None:
+    if repo_type is None or not isinstance(repo_type, RepoType):
         print("Unable to detect repo (git or hg)")
         sys.exit(1)
 
@@ -220,6 +220,6 @@ if __name__ == "__main__":
     run_shell(
         f"{'git commit -m' if repo_type == RepoType.GIT else 'hg commit --message'} "
         f'"Bug {args.bug_number} - '
-        f'updated default_config_env for v{args.milestone+1}"'
+        f'updated default_config_env for v{args.milestone + 1}"'
         f" {args.output_path}"
     )

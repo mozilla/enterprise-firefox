@@ -140,12 +140,6 @@ class DocAccessibleChild : public PDocAccessibleChild {
                                                     const int32_t& aX,
                                                     const int32_t& aY) override;
 
-#if !defined(XP_WIN)
-  virtual mozilla::ipc::IPCResult RecvAnnounce(
-      const uint64_t& aID, const nsAString& aAnnouncement,
-      const uint16_t& aPriority) override;
-#endif  // !defined(XP_WIN)
-
   virtual mozilla::ipc::IPCResult RecvScrollSubstringToPoint(
       const uint64_t& aID, const int32_t& aStartOffset,
       const int32_t& aEndOffset, const uint32_t& aCoordinateType,

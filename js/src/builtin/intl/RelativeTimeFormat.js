@@ -3,25 +3,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 /**
- * RelativeTimeFormat internal properties.
- *
- * Spec: ECMAScript 402 API, RelativeTimeFormat, 1.3.3.
- */
-var relativeTimeFormatInternalProperties = {
-  localeData: relativeTimeFormatLocaleData,
-  relevantExtensionKeys: ["nu"],
-};
-
-function relativeTimeFormatLocaleData() {
-  return {
-    nu: getNumberingSystems,
-    default: {
-      nu: intl_numberingSystem,
-    },
-  };
-}
-
-/**
  * Compute an internal properties object from |lazyRelativeTimeFormatData|.
  */
 function resolveRelativeTimeFormatInternals(lazyRelativeTimeFormatData) {
@@ -29,15 +10,11 @@ function resolveRelativeTimeFormatInternals(lazyRelativeTimeFormatData) {
 
   var internalProps = std_Object_create(null);
 
-  var RelativeTimeFormat = relativeTimeFormatInternalProperties;
-
   // Steps 10-11.
-  var r = ResolveLocale(
+  var r = intl_ResolveLocale(
     "RelativeTimeFormat",
     lazyRelativeTimeFormatData.requestedLocales,
     lazyRelativeTimeFormatData.opt,
-    RelativeTimeFormat.relevantExtensionKeys,
-    RelativeTimeFormat.localeData
   );
 
   // Steps 12-13.

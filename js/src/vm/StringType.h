@@ -191,6 +191,12 @@ bool CheckStringIsIndex(const CharT* s, size_t length, uint32_t* indexp);
  *
  * The ensureX() operations mutate 'this' in place to effectively make the type
  * be at least X (e.g., ensureLinear will change a JSRope to be a JSLinearString).
+ *
+ * The following type transitions are currently possible:
+ *  - Replace a non-atom with an atom ref
+ *  - Replace leftmost rope child with a dependent string
+ *  - Replace a rope with an extensible or dependent string
+ *  - Make a linear string extensible for testing
  */
 // clang-format on
 
@@ -862,11 +868,30 @@ class JSString : public js::gc::CellWithLengthAndFlags {
     return nurseryZone();
   }
 
-  void setLengthAndFlags(uint32_t len, uint32_t flags) {
+  void initLengthAndFlags(uint32_t len, uint32_t flags) {
     setHeaderLengthAndFlags(len, flags);
   }
-  void setFlagBit(uint32_t flag) { setHeaderFlagBit(flag); }
-  void clearFlagBit(uint32_t flag) { clearHeaderFlagBit(flag); }
+  void setLengthAndFlags(uint32_t len, uint32_t flags) {
+    assertTypeUnchanged(flags);
+    setHeaderLengthAndFlags(len, flags);
+  }
+  void setFlagBit(uint32_t flag) {
+    assertTypeUnchanged(flags() | flag);
+    setHeaderFlagBit(flag);
+  }
+  void clearFlagBit(uint32_t flag) {
+    assertTypeUnchanged(flags() & ~flag);
+    clearHeaderFlagBit(flag);
+  }
+  void changeStringType(uint32_t len, uint32_t flags) {
+    setHeaderLengthAndFlags(len, flags);
+  }
+
+#ifdef DEBUG
+  void assertTypeUnchanged(uint32_t newFlags) const;
+#else
+  void assertTypeUnchanged(uint32_t newFlags) const {}
+#endif
 
   void fixupAfterMovingGC() {}
 

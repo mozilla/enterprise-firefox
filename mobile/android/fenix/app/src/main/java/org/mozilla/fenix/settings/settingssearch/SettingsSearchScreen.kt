@@ -11,7 +11,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -209,7 +209,7 @@ private fun RecentSearchesContent(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(50.dp)
+                .heightIn(min = 50.dp)
                 .padding(start = 16.dp, top = 12.dp, bottom = 6.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
@@ -224,7 +224,7 @@ private fun RecentSearchesContent(
                     store.dispatch(SettingsSearchAction.ClearRecentSearchesClicked)
                 },
                 colors = ButtonDefaults.textButtonColors(),
-                modifier = Modifier,
+                modifier = Modifier.heightIn(min = 48.dp),
                 enabled = true,
             ) {
                Text(
@@ -428,6 +428,6 @@ private fun SettingsSearchScreenNoResultsPreview() {
     }
 }
 
-private val RECENT_SEARCHES_HEADER_TEXT_COLOR = mozilla.components.ui.colors.R.color.photonDarkGrey05
+private val RECENT_SEARCHES_HEADER_TEXT_COLOR = mozilla.components.ui.colors.R.color.photonLightGrey40
 private val RECENT_SEARCHES_CLEAR_RECENTS_TEXT_COLOR = mozilla.components.ui.colors.R.color.photonViolet70
 private const val VERTICAL_BIAS_OFFSET_IMAGE_MESSAGE = -0.33f

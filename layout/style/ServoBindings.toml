@@ -361,6 +361,7 @@ opaque-types = [
     "mozilla::detail::ThreadLocal.*",
     "std::make_signed_t",
     "mozilla::ProfileChunkedBuffer",
+    "nsLabelsNodeList", # Wrong layout in armv7
 ]
 
 # All cbindgen-types are in mod "structs::root::mozilla".
@@ -369,9 +370,13 @@ cbindgen-types = [
     { gecko = "StyleAnimationIterationCount", servo = "crate::values::computed::AnimationIterationCount" },
     { gecko = "StyleAnimationTimeline", servo = "crate::values::computed::AnimationTimeline" },
     { gecko = "StyleTransitionBehavior", servo = "crate::values::computed::TransitionBehavior" },
+    { gecko = "StyleAlignmentBaseline", servo = "crate::values::specified::AlignmentBaseline" },
     { gecko = "StyleAppearance", servo = "crate::values::specified::Appearance" },
     { gecko = "StyleAspectRatio", servo = "crate::values::computed::position::AspectRatio" },
     { gecko = "StyleAtom", servo = "crate::Atom" },
+    { gecko = "StyleGenericBaselineShift", servo = "crate::values::generics::box_::BaselineShift" },
+    { gecko = "StyleBaselineShiftKeyword", servo = "crate::values::generics::box_::BaselineShiftKeyword" },
+    { gecko = "StyleBaselineSource", servo = "crate::values::specified::BaselineSource" },
     { gecko = "StyleCustomIdent", servo = "crate::values::CustomIdent" },
     { gecko = "StyleComputedFontStretchRange", servo = "crate::font_face::ComputedFontStretchRange" },
     { gecko = "StyleComputedFontStyleDescriptor", servo = "crate::font_face::ComputedFontStyleDescriptor" },
@@ -522,8 +527,6 @@ cbindgen-types = [
     { gecko = "StyleColorComponent", servo = "crate::color::component::ColorComponent" },
     { gecko = "StyleAbsoluteColor", servo = "crate::color::AbsoluteColor" },
     { gecko = "StyleOrigin", servo = "crate::stylesheets::Origin" },
-    { gecko = "StyleGenericVerticalAlign", servo = "crate::values::generics::box_::VerticalAlign" },
-    { gecko = "StyleVerticalAlignKeyword", servo = "crate::values::generics::box_::VerticalAlignKeyword" },
     { gecko = "StyleGenericBasicShape", servo = "crate::values::generics::basic_shape::BasicShape" },
     { gecko = "StyleBasicShape", servo = "crate::values::computed::basic_shape::BasicShape" },
     { gecko = "StyleGenericInsetRect", servo = "crate::values::generics::basic_shape::InsetRect" },
@@ -629,7 +632,6 @@ cbindgen-types = [
     { gecko = "StyleLockedMediaList", servo = "crate::gecko::arc_types::LockedMediaList" },
     { gecko = "StyleLockedImportRule", servo = "crate::gecko::arc_types::LockedImportRule" },
     { gecko = "StyleLockedFontFaceRule", servo = "crate::gecko::arc_types::LockedFontFaceRule" },
-    { gecko = "StyleBaselineSource", servo = "crate::values::computed::BaselineSource" },
     { gecko = "StyleListStyleType", servo = "crate::values::computed::ListStyleType" },
     { gecko = "StyleAu", servo = "app_units::Au" },
     { gecko = "StyleAnchorName", servo = "crate::values::computed::position::AnchorName" },

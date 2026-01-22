@@ -227,14 +227,14 @@ class CollectionRobot(private val composeTestRule: ComposeTestRule) {
 
     fun swipeTabLeft(title: String) {
         Log.i(TAG, "swipeTabLeft: Trying to swipe left the collections tab with title: $title")
-        mDevice.findObject(By.textContains(title)).swipe(Direction.LEFT, 1.0f, 200)
+        mDevice.findObject(By.textContains(title)).swipe(Direction.LEFT, 1.0f, 8000)
         Log.i(TAG, "swipeTabLeft: Swiped left the collections tab with title: $title")
         waitForAppWindowToBeUpdated()
     }
 
     fun swipeTabRight(title: String) {
         Log.i(TAG, "swipeTabRight: Trying to swipe right the collections tab with title: $title")
-        mDevice.findObject(By.textContains(title)).swipe(Direction.RIGHT, 1.0f, 200)
+        mDevice.findObject(By.textContains(title)).swipe(Direction.RIGHT, 1.0f, 8000)
         Log.i(TAG, "swipeTabRight: Swiped right the collections tab with title: $title")
         waitForAppWindowToBeUpdated()
     }

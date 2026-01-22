@@ -2572,9 +2572,7 @@ var CustomizableUIInternal = {
       node.setAttribute("id", aWidget.id);
       node.setAttribute("widget-id", aWidget.id);
       node.setAttribute("widget-type", aWidget.type);
-      if (aWidget.disabled) {
-        node.setAttribute("disabled", true);
-      }
+      node.toggleAttribute("disabled", !!aWidget.disabled);
       node.setAttribute("removable", aWidget.removable);
       node.setAttribute("overflows", aWidget.overflows);
       if (aWidget.tabSpecific) {
@@ -3012,7 +3010,7 @@ var CustomizableUIInternal = {
 
       // Break out of the loop immediately for disabled items, as we need to
       // keep the menu open in that case.
-      if (target.getAttribute("disabled") == "true") {
+      if (target.hasAttribute("disabled")) {
         return true;
       }
 
@@ -6878,7 +6876,7 @@ export var CustomizableUI = {
       }
       for (let attr of attrs) {
         let attrVal = menuChild.getAttribute(attr);
-        if (attrVal) {
+        if (attrVal !== null) {
           subviewItem.setAttribute(attr, attrVal);
         }
       }

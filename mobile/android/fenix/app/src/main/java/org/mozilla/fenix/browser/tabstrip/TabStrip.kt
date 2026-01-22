@@ -34,6 +34,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -54,17 +55,16 @@ import androidx.compose.ui.semantics.traversalIndex
 import androidx.compose.ui.tooling.preview.Devices
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewParameter
-import androidx.compose.ui.tooling.preview.PreviewParameterProvider
 import androidx.compose.ui.unit.coerceIn
 import androidx.compose.ui.unit.dp
 import androidx.core.text.BidiFormatter
+import kotlinx.coroutines.flow.map
 import mozilla.components.browser.state.action.TabListAction
 import mozilla.components.browser.state.state.createTab
 import mozilla.components.browser.state.store.BrowserStore
 import mozilla.components.compose.base.modifier.thenConditional
 import mozilla.components.concept.engine.utils.ABOUT_HOME_URL
 import mozilla.components.feature.tabs.TabsUseCases
-import mozilla.components.lib.state.ext.observeAsState
 import org.mozilla.fenix.R
 import org.mozilla.fenix.components.AppStore
 import org.mozilla.fenix.components.components
@@ -76,6 +76,9 @@ import org.mozilla.fenix.tabstray.browser.compose.createListReorderState
 import org.mozilla.fenix.tabstray.browser.compose.detectListPressAndDrag
 import org.mozilla.fenix.theme.FirefoxTheme
 import org.mozilla.fenix.theme.Theme
+import org.mozilla.fenix.theme.ThemeProvider
+import org.mozilla.fenix.theme.ThemedValue
+import org.mozilla.fenix.theme.ThemedValueProvider
 import mozilla.components.ui.icons.R as iconsR
 import org.mozilla.fenix.GleanMetrics.TabStrip as TabStripMetrics
 
@@ -115,26 +118,29 @@ fun TabStrip(
     onSelectedTabClick: (url: String) -> Unit,
     onTabCounterClick: () -> Unit,
 ) {
-    val isPossiblyPrivateMode by appStore.observeAsState(false) { it.mode.isPrivate }
-    val state by browserStore.observeAsState(TabStripState.initial) {
-        it.toTabStripState(
-            isSelectDisabled = isSelectDisabled,
-            isPossiblyPrivateMode = isPossiblyPrivateMode,
-            addTab = onAddTabClick,
-            closeTab = { isPrivate, numberOfTabs ->
-                it.selectedTabId?.let { selectedTabId ->
-                    closeTab(
-                        numberOfTabs = numberOfTabs,
-                        isPrivate = isPrivate,
-                        tabsUseCases = tabsUseCases,
-                        tabId = selectedTabId,
-                        onLastTabClose = onLastTabClose,
-                        onCloseTabClick = onCloseTabClick,
-                    )
-                }
-            },
-        )
-    }
+    val isPossiblyPrivateMode by remember { appStore.stateFlow.map { it.mode.isPrivate } }
+        .collectAsState(initial = false)
+    val state by remember {
+        browserStore.stateFlow.map {
+            it.toTabStripState(
+                isSelectDisabled = isSelectDisabled,
+                isPossiblyPrivateMode = isPossiblyPrivateMode,
+                addTab = onAddTabClick,
+                closeTab = { isPrivate, numberOfTabs ->
+                    it.selectedTabId?.let { selectedTabId ->
+                        closeTab(
+                            numberOfTabs = numberOfTabs,
+                            isPrivate = isPrivate,
+                            tabsUseCases = tabsUseCases,
+                            tabId = selectedTabId,
+                            onLastTabClose = onLastTabClose,
+                            onCloseTabClick = onCloseTabClick,
+                        )
+                    }
+                },
+            )
+        }
+    }.collectAsState(initial = TabStripState.initial)
 
     TabStripContent(
         state = state,
@@ -478,80 +484,67 @@ private fun closeTab(
     TabStripMetrics.closeTab.record()
 }
 
-private class TabUIStateParameterProvider : PreviewParameterProvider<TabStripState> {
-    override val values: Sequence<TabStripState>
-        get() = sequenceOf(
-            TabStripState(
-                listOf(
-                    TabStripItem(
-                        id = "1",
-                        title = "Tab 1",
-                        url = "https://www.mozilla.org",
-                        isPrivate = false,
-                        isSelected = false,
-                    ),
-                    TabStripItem(
-                        id = "2",
-                        title = "Tab 2 with a very long title that should be truncated",
-                        url = "https://www.mozilla.org",
-                        isPrivate = false,
-                        isSelected = false,
-                    ),
-                    TabStripItem(
-                        id = "3",
-                        title = "Selected tab",
-                        url = "https://www.mozilla.org",
-                        isPrivate = false,
-                        isSelected = true,
-                    ),
-                    TabStripItem(
-                        id = "p1",
-                        title = "Private tab 1",
-                        url = "https://www.mozilla.org",
-                        isPrivate = true,
-                        isSelected = false,
-                    ),
-                    TabStripItem(
-                        id = "p2",
-                        title = "Private selected tab",
-                        url = "https://www.mozilla.org",
-                        isPrivate = true,
-                        isSelected = true,
-                    ),
+private class TabUIStateParameterProvider : ThemedValueProvider<TabStripState>(
+    sequenceOf(
+        TabStripState(
+            listOf(
+                TabStripItem(
+                    id = "1",
+                    title = "Tab 1",
+                    url = "https://www.mozilla.org",
+                    isPrivate = false,
+                    isSelected = false,
                 ),
-                isPrivateMode = false,
-                tabCounterMenuItems = emptyList(),
+                TabStripItem(
+                    id = "2",
+                    title = "Tab 2 with a very long title that should be truncated",
+                    url = "https://www.mozilla.org",
+                    isPrivate = false,
+                    isSelected = false,
+                ),
+                TabStripItem(
+                    id = "3",
+                    title = "Selected tab",
+                    url = "https://www.mozilla.org",
+                    isPrivate = false,
+                    isSelected = true,
+                ),
+                TabStripItem(
+                    id = "p1",
+                    title = "Private tab 1",
+                    url = "https://www.mozilla.org",
+                    isPrivate = true,
+                    isSelected = false,
+                ),
+                TabStripItem(
+                    id = "p2",
+                    title = "Private selected tab",
+                    url = "https://www.mozilla.org",
+                    isPrivate = true,
+                    isSelected = true,
+                ),
             ),
-        )
-}
+            isPrivateMode = false,
+            tabCounterMenuItems = emptyList(),
+        ),
+    ),
+)
 
 @Preview(device = Devices.PIXEL_TABLET)
 @Composable
 private fun TabStripPreview(
-    @PreviewParameter(TabUIStateParameterProvider::class) tabStripState: TabStripState,
+    @PreviewParameter(TabUIStateParameterProvider::class) tabStripState: ThemedValue<TabStripState>,
 ) {
-    FirefoxTheme {
-        TabStripContentPreview(tabStripState.tabs.filter { !it.isPrivate })
-    }
-}
-
-@Preview(device = Devices.PIXEL_TABLET)
-@Composable
-private fun TabStripPreviewDarkMode(
-    @PreviewParameter(TabUIStateParameterProvider::class) tabStripState: TabStripState,
-) {
-    FirefoxTheme(theme = Theme.Dark) {
-        TabStripContentPreview(tabStripState.tabs.filter { !it.isPrivate })
-    }
-}
-
-@Preview(device = Devices.PIXEL_TABLET)
-@Composable
-private fun TabStripPreviewPrivateMode(
-    @PreviewParameter(TabUIStateParameterProvider::class) tabStripState: TabStripState,
-) {
-    FirefoxTheme(theme = Theme.Private) {
-        TabStripContentPreview(tabStripState.tabs.filter { it.isPrivate })
+    FirefoxTheme(tabStripState.theme) {
+        TabStripContentPreview(
+            tabStripState.value.tabs.filter {
+                if (tabStripState.theme == Theme.Private) {
+                    it.isPrivate
+                } else {
+                    !it.isPrivate
+                }
+            },
+        )
     }
 }
 
@@ -580,10 +573,12 @@ private fun TabStripContentPreview(tabs: List<TabStripItem>) {
 
 @Preview(device = Devices.PIXEL_TABLET)
 @Composable
-private fun TabStripPreview() {
+private fun TabStripPreview(
+    @PreviewParameter(ThemeProvider::class) theme: Theme,
+) {
     val browserStore = BrowserStore()
 
-    FirefoxTheme {
+    FirefoxTheme(theme) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()

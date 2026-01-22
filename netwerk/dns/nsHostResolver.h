@@ -3,8 +3,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef nsHostResolver_h__
-#define nsHostResolver_h__
+#ifndef nsHostResolver_h_
+#define nsHostResolver_h_
 
 #include "nscore.h"
 #include "prnetdb.h"
@@ -266,8 +266,8 @@ class nsHostResolver : public nsISupports, public AHostResolver {
   already_AddRefed<nsHostRecord> FromUnspecEntry(
       nsHostRecord* aRec, const nsACString& aHost, const nsACString& aTrrServer,
       const nsACString& aOriginSuffix, uint16_t aType,
-      nsIDNSService::DNSFlags aFlags, uint16_t af, bool aPb, nsresult& aStatus)
-      MOZ_REQUIRES(mLock);
+      nsIDNSService::DNSFlags aFlags, uint16_t af, bool aPb, nsresult& aStatus,
+      const mozilla::MutexAutoLock& aLock) MOZ_REQUIRES(mLock);
 
   enum {
     METHOD_HIT = 1,
@@ -309,4 +309,4 @@ class nsHostResolver : public nsISupports, public AHostResolver {
   static bool IsNativeHTTPSEnabled();
 };
 
-#endif  // nsHostResolver_h__
+#endif  // nsHostResolver_h_

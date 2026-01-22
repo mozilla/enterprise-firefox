@@ -21,6 +21,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   NimbusFeatures: "resource://nimbus/ExperimentAPI.sys.mjs",
   NimbusTestUtils: "resource://testing-common/NimbusTestUtils.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
+  SearchService: "moz-src:///toolkit/components/search/SearchService.sys.mjs",
   TestUtils: "resource://testing-common/TestUtils.sys.mjs",
   UrlbarController:
     "moz-src:///browser/components/urlbar/UrlbarController.sys.mjs",
@@ -879,7 +880,9 @@ class UrlbarInputTestUtils {
       let keywordEnabled = Services.prefs.getBoolPref("keyword.enabled");
 
       let expectedPlaceholder;
-      if (keywordEnabled && engineName) {
+      if (this.#urlbar(window).sapName == "searchbar") {
+        expectedPlaceholder = { id: "searchbar-input" };
+      } else if (keywordEnabled && engineName) {
         expectedPlaceholder = {
           id: "urlbar-placeholder-with-name",
           args: { name: engineName },
@@ -914,7 +917,7 @@ class UrlbarInputTestUtils {
 
     let isGeneralPurposeEngine = false;
     if (expectedSearchMode.engineName) {
-      let engine = Services.search.getEngineByName(
+      let engine = lazy.SearchService.getEngineByName(
         expectedSearchMode.engineName
       );
       isGeneralPurposeEngine = engine.isGeneralPurposeEngine;
@@ -1029,7 +1032,7 @@ class UrlbarInputTestUtils {
             "Search mode result matches engine name."
           );
         } else {
-          let engine = Services.search.getEngineByName(
+          let engine = lazy.SearchService.getEngineByName(
             expectedSearchMode.engineName
           );
           let engineRootDomain =
@@ -1077,7 +1080,7 @@ class UrlbarInputTestUtils {
     let buttons = oneOffs.getSelectableButtons(true);
     if (!searchMode) {
       searchMode = { engineName: buttons[0].engine.name };
-      let engine = Services.search.getEngineByName(searchMode.engineName);
+      let engine = lazy.SearchService.getEngineByName(searchMode.engineName);
       if (engine.isGeneralPurposeEngine) {
         searchMode.source = UrlbarUtils.RESULT_SOURCE.SEARCH;
       }
@@ -1262,11 +1265,24 @@ class UrlbarInputTestUtils {
    * @returns {UrlbarController} A new controller.
    */
   newMockController(options = {}) {
+    // Ensure a sapName is defined, as otherwise we'd not get the same
+    // ProvidersManager instance across tests.
+    if (options.input && !options.input.sapName) {
+      Object.defineProperty(options.input, "sapName", {
+        get() {
+          return "urlbar";
+        },
+        configurable: true,
+      });
+    }
     return new lazy.UrlbarController(
       Object.assign(
         {
           input: {
             isPrivate: false,
+            get sapName() {
+              return "urlbar";
+            },
             onFirstResult() {
               return false;
             },
@@ -1450,7 +1466,8 @@ class UrlbarInputTestUtils {
       "shown"
     );
     let rebuildPromise = lazy.BrowserTestUtils.waitForEvent(popup, "rebuild");
-    this.EventUtils.synthesizeMouseAtCenter(button, {}, win);
+    // Ensure the pop-up opens.
+    button.open = true;
     await Promise.all([promiseMenuOpen, rebuildPromise]);
 
     return popup;

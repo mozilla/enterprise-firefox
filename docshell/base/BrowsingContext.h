@@ -253,6 +253,8 @@ struct EmbedderColorSchemes {
   FIELD(TimezoneOverride, nsString)                                           \
   /* DevTools override for forced-colors */                                   \
   FIELD(ForcedColorsOverride, dom::ForcedColorsOverride)                      \
+  /* DevTools multiplier for animations playback rate */                      \
+  FIELD(AnimationsPlayBackRateMultiplier, double)                             \
   /* prefers-color-scheme override based on the color-scheme style of our     \
    * <browser> embedder element. */                                           \
   FIELD(EmbedderColorSchemes, EmbedderColorSchemes)                           \
@@ -1100,6 +1102,10 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
     return GetForcedColorsOverride();
   }
 
+  double AnimationsPlayBackRateMultiplier() const {
+    return Top()->GetAnimationsPlayBackRateMultiplier();
+  }
+
   bool IsInBFCache() const;
 
   bool AllowJavascript() const { return GetAllowJavascript(); }
@@ -1286,6 +1292,11 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
     return IsTop();
   }
 
+  bool CanSet(FieldIndex<IDX_AnimationsPlayBackRateMultiplier>, double&,
+              ContentParent*) {
+    return IsTop();
+  }
+
   void DidSet(FieldIndex<IDX_InRDMPane>, bool aOldValue);
   void DidSet(FieldIndex<IDX_HasOrientationOverride>, bool aOldValue);
   MOZ_CAN_RUN_SCRIPT_BOUNDARY void DidSet(FieldIndex<IDX_ForceDesktopViewport>,
@@ -1299,6 +1310,9 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
 
   void DidSet(FieldIndex<IDX_ForcedColorsOverride>,
               dom::ForcedColorsOverride aOldValue);
+
+  void DidSet(FieldIndex<IDX_AnimationsPlayBackRateMultiplier>,
+              double aOldValue);
 
   template <typename Callback>
   void WalkPresContexts(Callback&&);

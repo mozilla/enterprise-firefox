@@ -2320,33 +2320,32 @@ IteratorHelperObject* js::NewIteratorHelper(JSContext* cx) {
   return NewObjectWithGivenProto<IteratorHelperObject>(cx, proto);
 }
 
-bool js::IterableToArray(JSContext* cx, HandleValue iterable,
-                         MutableHandle<ArrayObject*> array) {
+ArrayObject* js::IterableToArray(JSContext* cx, HandleValue iterable) {
   JS::ForOfIterator iterator(cx);
   if (!iterator.init(iterable, JS::ForOfIterator::ThrowOnNonIterable)) {
-    return false;
+    return nullptr;
   }
 
-  array.set(NewDenseEmptyArray(cx));
+  Rooted<ArrayObject*> array(cx, NewDenseEmptyArray(cx));
   if (!array) {
-    return false;
+    return nullptr;
   }
 
   RootedValue nextValue(cx);
   while (true) {
     bool done;
     if (!iterator.next(&nextValue, &done)) {
-      return false;
+      return nullptr;
     }
     if (done) {
       break;
     }
 
     if (!NewbornArrayPush(cx, array, nextValue)) {
-      return false;
+      return nullptr;
     }
   }
-  return true;
+  return array;
 }
 
 bool js::HasOptimizableArrayIteratorPrototype(JSContext* cx) {

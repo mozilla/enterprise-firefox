@@ -4,8 +4,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef nsTArray_h__
-#define nsTArray_h__
+#ifndef nsTArray_h_
+#define nsTArray_h_
 
 #include <string.h>
 
@@ -76,7 +76,6 @@ namespace mozilla::dom {
 class ClonedMessageData;
 class MessageData;
 class MessagePortIdentifier;
-struct MozPluginParameter;
 template <typename T>
 struct Nullable;
 class OwningFileOrDirectory;
@@ -3769,4 +3768,4 @@ std::ostream& operator<<(std::ostream& aOut,
   return aOut << mozilla::Span(aTArray);
 }
 
-#endif  // nsTArray_h__
+#endif  // nsTArray_h_

@@ -42,7 +42,7 @@ add_setup(async function () {
     DISABLE_SUGGEST_EVENT_MAX_SECONDS
   );
 
-  let oldDefaultEngine = await Services.search.getDefault();
+  let oldDefaultEngine = await SearchService.getDefault();
 
   let root = gTestPath;
   let engineURL = new URL("../../browser/searchSuggestionEngine.xml", root)
@@ -64,7 +64,7 @@ add_setup(async function () {
   });
 
   registerCleanupFunction(async function () {
-    await Services.search.setDefault(
+    await SearchService.setDefault(
       oldDefaultEngine,
       Ci.nsISearchService.CHANGE_REASON_UNKNOWN
     );

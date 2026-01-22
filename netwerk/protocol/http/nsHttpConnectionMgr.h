@@ -3,8 +3,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef nsHttpConnectionMgr_h__
-#define nsHttpConnectionMgr_h__
+#ifndef nsHttpConnectionMgr_h_
+#define nsHttpConnectionMgr_h_
 
 #include "DnsAndConnectSocket.h"
 #include "HttpConnectionBase.h"
@@ -476,4 +476,4 @@ class nsHttpConnectionMgr final : public HttpConnectionMgrShell,
 
 }  // namespace mozilla::net
 
-#endif  // !nsHttpConnectionMgr_h__
+#endif  // !nsHttpConnectionMgr_h_

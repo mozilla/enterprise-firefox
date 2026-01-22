@@ -1607,41 +1607,57 @@ static bool GradientItemsAreOpaque(
 
 template <>
 bool StyleGradient::IsOpaque() const {
-  if (IsLinear()) {
-    return GradientItemsAreOpaque(AsLinear().items.AsSpan());
+  switch (tag) {
+    case Tag::Linear:
+      return GradientItemsAreOpaque(AsLinear().items.AsSpan());
+    case Tag::Radial:
+      return GradientItemsAreOpaque(AsRadial().items.AsSpan());
+    case Tag::Conic:
+      return GradientItemsAreOpaque(AsConic().items.AsSpan());
   }
-  if (IsRadial()) {
-    return GradientItemsAreOpaque(AsRadial().items.AsSpan());
-  }
-  return GradientItemsAreOpaque(AsConic().items.AsSpan());
+  MOZ_ASSERT_UNREACHABLE("Unexpected gradient type");
+  return false;
 }
 
 template <>
 bool StyleImage::IsOpaque() const {
-  if (IsImageSet()) {
-    return FinalImage().IsOpaque();
+  switch (tag) {
+    case Tag::ImageSet:
+      return FinalImage().IsOpaque();
+    case Tag::Gradient:
+      return AsGradient()->IsOpaque();
+    case Tag::Url: {
+      if (!IsComplete()) {
+        return false;
+      }
+      MOZ_ASSERT(GetImageRequest(), "should've returned earlier above");
+      nsCOMPtr<imgIContainer> imageContainer;
+      GetImageRequest()->GetImage(getter_AddRefs(imageContainer));
+      MOZ_ASSERT(imageContainer, "IsComplete() said image container is ready");
+      return imageContainer->WillDrawOpaqueNow();
+    }
+    case Tag::CrossFade:
+      for (const auto& el : AsCrossFade()->elements.AsSpan()) {
+        if (el.image.IsColor()) {
+          if (el.image.AsColor().MaybeTransparent()) {
+            return false;
+          }
+          continue;
+        }
+        MOZ_ASSERT(el.image.IsImage());
+        if (!el.image.AsImage().IsOpaque()) {
+          return false;
+        }
+      }
+      return true;
+    case Tag::LightDark:
+      MOZ_FALLTHROUGH_ASSERT("Should be computed already");
+    case Tag::Element:
+    case Tag::MozSymbolicIcon:
+    case Tag::None:
+      break;
   }
-
-  if (!IsComplete()) {
-    return false;
-  }
-
-  if (IsGradient()) {
-    return AsGradient()->IsOpaque();
-  }
-
-  if (IsElement() || IsMozSymbolicIcon()) {
-    return false;
-  }
-
-  MOZ_ASSERT(IsImageRequestType(), "unexpected image type");
-  MOZ_ASSERT(GetImageRequest(), "should've returned earlier above");
-
-  nsCOMPtr<imgIContainer> imageContainer;
-  GetImageRequest()->GetImage(getter_AddRefs(imageContainer));
-  MOZ_ASSERT(imageContainer, "IsComplete() said image container is ready");
-
-  return imageContainer->WillDrawOpaqueNow();
+  return false;
 }
 
 template <>
@@ -2278,8 +2294,8 @@ nsStyleDisplay::nsStyleDisplay()
                        {0.}},
       mChildPerspective(StylePerspective::None()),
       mPerspectiveOrigin(Position::FromPercentage(0.5f)),
-      mVerticalAlign(
-          StyleVerticalAlign::Keyword(StyleVerticalAlignKeyword::Baseline)),
+      mAlignmentBaseline(StyleAlignmentBaseline::Baseline),
+      mBaselineShift(StyleBaselineShift::Length(LengthPercentage::Zero())),
       mBaselineSource(StyleBaselineSource::Auto),
       mWebkitLineClamp(0),
       mShapeMargin(LengthPercentage::Zero()),
@@ -2335,7 +2351,8 @@ nsStyleDisplay::nsStyleDisplay(const nsStyleDisplay& aSource)
       mTransformOrigin(aSource.mTransformOrigin),
       mChildPerspective(aSource.mChildPerspective),
       mPerspectiveOrigin(aSource.mPerspectiveOrigin),
-      mVerticalAlign(aSource.mVerticalAlign),
+      mAlignmentBaseline(aSource.mAlignmentBaseline),
+      mBaselineShift(aSource.mBaselineShift),
       mBaselineSource(aSource.mBaselineSource),
       mWebkitLineClamp(aSource.mWebkitLineClamp),
       mShapeImageThreshold(aSource.mShapeImageThreshold),
@@ -2580,7 +2597,8 @@ nsChangeHint nsStyleDisplay::CalcDifference(
   }
 
   if (mWebkitLineClamp != aNewData.mWebkitLineClamp ||
-      mVerticalAlign != aNewData.mVerticalAlign ||
+      mAlignmentBaseline != aNewData.mAlignmentBaseline ||
+      mBaselineShift != aNewData.mBaselineShift ||
       mBaselineSource != aNewData.mBaselineSource) {
     // XXX Can this just be AllReflowHints + RepaintFrame, and be included in
     // the block below?

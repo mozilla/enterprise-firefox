@@ -34,7 +34,6 @@
     <ID>UndocumentedPublicClass:CookieBannerRejectAllPreference.kt$CookieBannerRejectAllPreference : LearnMoreSwitchPreference</ID>
     <ID>UndocumentedPublicClass:CrashReporterFragment.kt$CrashReporterFragment : Fragment</ID>
     <ID>UndocumentedPublicClass:CustomTabsService.kt$CustomTabsService : AbstractCustomTabsService</ID>
-    <ID>UndocumentedPublicClass:DebugFocusApplication.kt$DebugFocusApplication : FocusApplication</ID>
     <ID>UndocumentedPublicClass:DefaultBrowserPreference.kt$DefaultBrowserPreference : Preference</ID>
     <ID>UndocumentedPublicClass:DefaultSitePermissionOptionsScreenInteractor.kt$DefaultSitePermissionOptionsScreenInteractor</ID>
     <ID>UndocumentedPublicClass:DownloadService.kt$DownloadService : AbstractFetchDownloadService</ID>
@@ -64,7 +63,6 @@
     <ID>UndocumentedPublicClass:LocaleDescriptor.kt$LocaleDescriptor : Comparable</ID>
     <ID>UndocumentedPublicClass:MainActivity.kt$MainActivity : EdgeToEdgeActivity</ID>
     <ID>UndocumentedPublicClass:ManualAddSearchEnginePreference.kt$ManualAddSearchEnginePreference : Preference</ID>
-    <ID>UndocumentedPublicClass:ManualAddSearchEngineSettingsFragment.kt$ManualAddSearchEngineSettingsFragment : BaseSettingsFragment</ID>
     <ID>UndocumentedPublicClass:MozillaPreference.kt$MozillaPreference : Preference</ID>
     <ID>UndocumentedPublicClass:MozillaSettingsFragment.kt$MozillaSettingsFragment : BaseSettingsFragment</ID>
     <ID>UndocumentedPublicClass:MultiselectSearchEngineListPreference.kt$MultiselectSearchEngineListPreference : SearchEngineListPreference</ID>

@@ -495,6 +495,7 @@ class ContentChild final : public PContentChild,
 
   mozilla::ipc::IPCResult RecvDecodeImage(NotNull<nsIURI*> aURI,
                                           const ImageIntSize& aSize,
+                                          const ColorScheme& aColoScheme,
                                           DecodeImageResolver&& aResolver);
 
 #if defined(XP_WIN)

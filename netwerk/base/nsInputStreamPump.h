@@ -3,8 +3,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef nsInputStreamPump_h__
-#define nsInputStreamPump_h__
+#ifndef nsInputStreamPump_h_
+#define nsInputStreamPump_h_
 
 #include "nsIInputStreamPump.h"
 #include "nsIAsyncInputStream.h"
@@ -120,4 +120,4 @@ class nsInputStreamPump final : public nsIInputStreamPump,
   mozilla::RecursiveMutex mMutex{"nsInputStreamPump"};
 };
 
-#endif  // !nsInputStreamChannel_h__
+#endif  // !nsInputStreamChannel_h_

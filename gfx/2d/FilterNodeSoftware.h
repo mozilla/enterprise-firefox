@@ -4,8 +4,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef _MOZILLA_GFX_FILTERNODESOFTWARE_H_
-#define _MOZILLA_GFX_FILTERNODESOFTWARE_H_
+#ifndef MOZILLA_GFX_FILTERNODESOFTWARE_H_
+#define MOZILLA_GFX_FILTERNODESOFTWARE_H_
 
 #include "Filters.h"
 #include "mozilla/Mutex.h"
@@ -779,4 +779,4 @@ class FilterNodeLightingSoftware : public FilterNodeSoftware {
 }  // namespace gfx
 }  // namespace mozilla
 
-#endif  // _MOZILLA_GFX_FILTERNODESOFTWARE_H_
+#endif  // MOZILLA_GFX_FILTERNODESOFTWARE_H_

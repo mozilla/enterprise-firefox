@@ -170,7 +170,7 @@ class FxaDeviceConstellation(
         val result = handleFxaExceptions(logger, "sending device command", { Result.failure(it) }) {
             val result = when (outgoingCommand) {
                 is DeviceCommandOutgoing.SendTab -> {
-                    account.sendSingleTab(targetDeviceId, outgoingCommand.title, outgoingCommand.url)
+                    account.sendSingleTab(targetDeviceId, outgoingCommand.title, outgoingCommand.url, false)
                     Result.success(true)
                 }
                 is DeviceCommandOutgoing.CloseTab -> {

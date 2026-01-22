@@ -23,9 +23,9 @@
 #include <type_traits>
 #include <utility>
 
-#include "jsnum.h"
 #include "NamespaceImports.h"
 
+#include "builtin/Number.h"
 #include "builtin/temporal/Calendar.h"
 #include "builtin/temporal/Duration.h"
 #include "builtin/temporal/PlainDate.h"

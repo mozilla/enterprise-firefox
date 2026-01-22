@@ -226,6 +226,9 @@ let JSWINDOWACTORS = {
     child: {
       esModuleURI:
         "moz-src:///browser/components/aiwindow/ui/actors/AIChatContentChild.sys.mjs",
+      events: {
+        "AIChatContent:DispatchSearch": { wantUntrusted: true },
+      },
     },
     allFrames: true,
     matches: ["about:aichatcontent"],
@@ -249,7 +252,6 @@ let JSWINDOWACTORS = {
         "BackupUI:RestoreFromBackupChooseFile": { wantUntrusted: true },
         "BackupUI:EnableEncryption": { wantUntrusted: true },
         "BackupUI:DisableEncryption": { wantUntrusted: true },
-        "BackupUI:RerunEncryption": { wantUntrusted: true },
         "BackupUI:ShowBackupLocation": { wantUntrusted: true },
         "BackupUI:EditBackupLocation": { wantUntrusted: true },
         "BackupUI:SetEmbeddedComponentPersistentData": { wantUntrusted: true },
@@ -771,6 +773,14 @@ let JSWINDOWACTORS = {
     },
 
     allFrames: true,
+  },
+
+  TLSCertificateBinding: {
+    child: {
+      esModuleURI: "resource:///actors/TLSCertificateBindingChild.sys.mjs",
+    },
+
+    messageManagerGroups: ["browsers"],
   },
 
   UITour: {

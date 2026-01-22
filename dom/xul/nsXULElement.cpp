@@ -209,6 +209,7 @@ nsXULElement* nsXULElement::Construct(
       nodeInfo->Equals(nsGkAtoms::thumb) ||
       nodeInfo->Equals(nsGkAtoms::button) ||
       nodeInfo->Equals(nsGkAtoms::menuitem) ||
+      nodeInfo->Equals(nsGkAtoms::richlistitem) ||
       nodeInfo->Equals(nsGkAtoms::toolbarbutton) ||
       nodeInfo->Equals(nsGkAtoms::toolbarpaletteitem) ||
       nodeInfo->Equals(nsGkAtoms::scrollbarbutton)) {
@@ -235,26 +236,7 @@ already_AddRefed<Element> nsXULElement::CreateFromPrototype(
   }
 
   nsXULElement* element = FromNode(baseElement);
-
-  if (aPrototype->mHasIdAttribute) {
-    element->SetHasID();
-  }
-  if (aPrototype->mHasClassAttribute) {
-    element->SetMayHaveClass();
-  }
-  if (aPrototype->mHasStyleAttribute) {
-    element->SetMayHaveStyle();
-  }
-
   element->MakeHeavyweight(aPrototype);
-
-  // Check each attribute on the prototype to see if we need to do
-  // any additional processing and hookup that would otherwise be
-  // done 'automagically' by SetAttr().
-  for (const auto& attribute : aPrototype->mAttributes) {
-    element->AddListenerForAttributeIfNeeded(attribute.mName);
-  }
-
   return baseElement.forget();
 }
 
@@ -517,12 +499,6 @@ void nsXULElement::AddListenerForAttributeIfNeeded(nsAtom* aLocalName) {
     nsAutoString value;
     GetAttr(aLocalName, value);
     SetEventHandler(aLocalName, value, true);
-  }
-}
-
-void nsXULElement::AddListenerForAttributeIfNeeded(const nsAttrName& aName) {
-  if (aName.IsAtom()) {
-    AddListenerForAttributeIfNeeded(aName.Atom());
   }
 }
 
@@ -924,7 +900,9 @@ void nsXULElement::Click(CallerType aCallerType) {
 
 void nsXULElement::ClickWithInputSource(uint16_t aInputSource,
                                         bool aIsTrustedEvent) {
-  if (BoolAttrIsTrue(nsGkAtoms::disabled)) return;
+  if (State().HasState(ElementState::DISABLED)) {
+    return;
+  }
 
   nsCOMPtr<Document> doc = GetComposedDoc();  // Strong just in case
   if (doc) {
@@ -1020,46 +998,14 @@ nsresult nsXULElement::AddPopupListener(nsAtom* aName) {
 //----------------------------------------------------------------------
 
 nsresult nsXULElement::MakeHeavyweight(nsXULPrototypeElement* aPrototype) {
-  if (!aPrototype) {
-    return NS_OK;
-  }
-
-  size_t i;
-  nsresult rv;
-  for (i = 0; i < aPrototype->mAttributes.Length(); ++i) {
-    nsXULPrototypeAttribute* protoattr = &aPrototype->mAttributes[i];
-    nsAttrValue attrValue;
-
-    // Style rules need to be cloned.
-    if (protoattr->mValue.Type() == nsAttrValue::eCSSDeclaration) {
-      DeclarationBlock* decl = protoattr->mValue.GetCSSDeclarationValue();
-      RefPtr<DeclarationBlock> declClone = decl->Clone();
-
-      nsString stringValue;
-      protoattr->mValue.ToString(stringValue);
-
-      attrValue.SetTo(declClone.forget(), &stringValue);
-    } else {
-      attrValue.SetTo(protoattr->mValue);
-    }
-
-    bool oldValueSet;
-    // XXX we might wanna have a SetAndTakeAttr that takes an nsAttrName
-    if (protoattr->mName.IsAtom()) {
-      rv = SetAndSwapAttr(protoattr->mName.Atom(), attrValue, &oldValueSet);
-    } else {
-      rv = SetAndSwapAttr(protoattr->mName.NodeInfo(), attrValue, &oldValueSet);
-    }
-    NS_ENSURE_SUCCESS(rv, rv);
+  MOZ_ASSERT(aPrototype);
+  for (const auto& protoattr : aPrototype->mAttributes) {
+    nsAttrValue value(protoattr.mValue);
+    MOZ_TRY(SetParsedAttr(
+        protoattr.mName.NamespaceID(), protoattr.mName.LocalName(),
+        protoattr.mName.GetPrefix(), value, /* aNotify = */ false));
   }
   return NS_OK;
-}
-
-bool nsXULElement::BoolAttrIsTrue(nsAtom* aName) const {
-  const nsAttrValue* attr = GetAttrInfo(kNameSpaceID_None, aName).mValue;
-
-  return attr && attr->Type() == nsAttrValue::eAtom &&
-         attr->GetAtomValue() == nsGkAtoms::_true;
 }
 
 bool nsXULElement::IsEventAttributeNameInternal(nsAtom* aName) {
@@ -1378,7 +1324,6 @@ nsresult nsXULPrototypeElement::SetAttrAt(uint32_t aPos,
   }
 
   if (mAttributes[aPos].mName.Equals(nsGkAtoms::id) && !aValue.IsEmpty()) {
-    mHasIdAttribute = true;
     // Store id as atom.
     // id="" means that the element has no id. Not that it has
     // emptystring as id.
@@ -1389,6 +1334,19 @@ nsresult nsXULPrototypeElement::SetAttrAt(uint32_t aPos,
     mAttributes[aPos].mValue.ParseAtom(aValue);
 
     return NS_OK;
+  } else if (mAttributes[aPos].mName.Equals(nsGkAtoms::aria_controls) ||
+             mAttributes[aPos].mName.Equals(nsGkAtoms::aria_describedby) ||
+             mAttributes[aPos].mName.Equals(nsGkAtoms::aria_details) ||
+             mAttributes[aPos].mName.Equals(nsGkAtoms::aria_errormessage) ||
+             mAttributes[aPos].mName.Equals(nsGkAtoms::aria_flowto) ||
+             mAttributes[aPos].mName.Equals(nsGkAtoms::aria_labelledby) ||
+             mAttributes[aPos].mName.Equals(nsGkAtoms::aria_owns) ||
+             mAttributes[aPos].mName.Equals(nsGkAtoms::control) ||
+             mAttributes[aPos].mName.Equals(nsGkAtoms::_for) ||
+             mAttributes[aPos].mName.Equals(nsGkAtoms::headers)) {
+    mAttributes[aPos].mValue.ParseAtomArray(aValue);
+
+    return NS_OK;
   } else if (mAttributes[aPos].mName.Equals(nsGkAtoms::is)) {
     // Store is as atom.
     mAttributes[aPos].mValue.ParseAtom(aValue);
@@ -1396,13 +1354,11 @@ nsresult nsXULPrototypeElement::SetAttrAt(uint32_t aPos,
 
     return NS_OK;
   } else if (mAttributes[aPos].mName.Equals(nsGkAtoms::_class)) {
-    mHasClassAttribute = true;
     // Compute the element's class list
     mAttributes[aPos].mValue.ParseAtomArray(aValue);
 
     return NS_OK;
   } else if (mAttributes[aPos].mName.Equals(nsGkAtoms::style)) {
-    mHasStyleAttribute = true;
     // Parse the element's 'style' attribute
 
     // This is basically duplicating what nsINode::NodePrincipal() does
@@ -1419,6 +1375,7 @@ nsresult nsXULPrototypeElement::SetAttrAt(uint32_t aPos,
         aValue, data, eCompatibility_FullStandards, nullptr,
         StyleCssRuleType::Style);
     if (declaration) {
+      declaration->SetImmutable();
       mAttributes[aPos].mValue.SetTo(declaration.forget(), &aValue);
 
       return NS_OK;

@@ -1,0 +1,134 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+  <title>captureStream() + loopback output check</title>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
+  <link rel="stylesheet" href="/tests/SimpleTest/test.css"/>
+</head>
+<body>
+<script>
+"use strict";
+
+add_task(async function testCaptureStreamAudioPlayout() {
+  await SpecialPowers.pushPrefEnv({ set: [
+    ["media.captureStream.enabled", true],
+    // For mediaDevices and getUserMedia
+    ["media.navigator.permission.disabled", true],
+    ["media.devices.unfocused.enabled", true],
+    ["logging.MediaDecoder", 5],
+    ["logging.HTMLMediaElement", 5],
+    ["logging.MediaStream", 5],
+  ]});
+
+  if (!navigator.userAgent.includes("Linux")) {
+    ok(true, "audio loopback is only supported on Linux");
+    return;
+  }
+
+  info("opening loopback input device");
+  const loopbackStream =
+    await navigator.mediaDevices.getUserMedia({ audio: true });
+  ok(loopbackStream.getAudioTracks().length === 1,
+     "Got loopback audio track");
+
+  info("setting up analyser graph");
+  const ac = new AudioContext();
+  await ac.resume();
+
+  const source = ac.createMediaStreamSource(loopbackStream);
+  const analyser = ac.createAnalyser();
+  analyser.fftSize = 4096;
+  analyser.smoothingTimeConstant = 0;
+  source.connect(analyser);
+
+  const SILENCE_RMS_THRESHOLD = 0.003;
+  const AUDIO_RMS_THRESHOLD = 0.01;
+
+  info("measuring loopback silence before playback");
+  let prePlayMaxRms =
+    await measureMaxRmsFromAnalyser(analyser, 10);
+  ok(prePlayMaxRms < SILENCE_RMS_THRESHOLD,
+     `Loopback is silent before play (max RMS=${prePlayMaxRms})`);
+
+  info("creating and playing audio element");
+  const audio = document.createElement("audio");
+  audio.src = "tone_1s_nosilence.mp3";
+  audio.loop = true;
+  document.body.appendChild(audio);
+  ok(await audio.play().then(_ => true, _ => false),
+     "audio started playing");
+
+  info("capturing the audio element's media stream");
+  const stream = audio.captureStream();
+  is(stream.getAudioTracks().length, 1,
+     "captured stream has an audio track");
+
+  info("waiting for loopback audio to become audible");
+  let postPlayMaxRms =
+    await waitForAudioAboveThreshold(analyser,
+                                     AUDIO_RMS_THRESHOLD,
+                                     60);
+  ok(postPlayMaxRms > AUDIO_RMS_THRESHOLD,
+     `Loopback has audio after play (max RMS=${postPlayMaxRms})`);
+
+  info("cleaning up");
+  audio.pause();
+  audio.remove();
+  loopbackStream.getTracks().forEach(t => t.stop());
+  await ac.close();
+});
+
+/**
+ * Measure the maximum RMS value seen over `samples` animation frames.
+ */
+async function measureMaxRmsFromAnalyser(analyser, samples) {
+  const data = new Float32Array(analyser.fftSize);
+  let max = 0;
+
+  for (let i = 0; i < samples; i++) {
+    await nextFrame();
+    analyser.getFloatTimeDomainData(data);
+    max = Math.max(max, rms(data));
+  }
+  return max;
+}
+
+/**
+ * Wait until RMS exceeds `threshold`, or fail after `maxFrames`.
+ * Returns the maximum RMS observed.
+ */
+async function waitForAudioAboveThreshold(analyser,
+                                          threshold,
+                                          maxFrames) {
+  const data = new Float32Array(analyser.fftSize);
+  let max = 0;
+
+  for (let i = 0; i < maxFrames; i++) {
+    await nextFrame();
+    analyser.getFloatTimeDomainData(data);
+    const v = rms(data);
+    max = Math.max(max, v);
+    if (v > threshold) {
+      return max;
+    }
+  }
+
+  return max;
+}
+
+function rms(data) {
+  let sum = 0;
+  for (let i = 0; i < data.length; i++) {
+    const v = data[i];
+    sum += v * v;
+  }
+  return Math.sqrt(sum / data.length);
+}
+
+function nextFrame() {
+  return new Promise(resolve => requestAnimationFrame(resolve));
+}
+
+</script>
+</body>
+</html>

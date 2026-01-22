@@ -3,8 +3,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef mozilla_MouseEvents_h__
-#define mozilla_MouseEvents_h__
+#ifndef mozilla_MouseEvents_h_
+#define mozilla_MouseEvents_h_
 
 #include <stdint.h>
 #include <math.h>
@@ -412,9 +412,10 @@ class WidgetMouseEvent : public WidgetMouseEventBase,
    */
   Maybe<uint64_t> mCallbackId;
 
-  void AssignMouseEventData(const WidgetMouseEvent& aEvent, bool aCopyTargets) {
+  void AssignMouseEventData(const WidgetMouseEvent& aEvent, bool aCopyTargets,
+                            bool aCopyCoalescedEvents = true) {
     AssignMouseEventBaseData(aEvent, aCopyTargets);
-    AssignPointerHelperData(aEvent, /* aCopyCoalescedEvents */ true);
+    AssignPointerHelperData(aEvent, aCopyCoalescedEvents);
     AssignMouseEventDataOnly(aEvent);
   }
 
@@ -919,8 +920,9 @@ class WidgetPointerEvent : public WidgetMouseEvent {
 
   // XXX Not tested by test_assign_event_data.html
   void AssignPointerEventData(const WidgetPointerEvent& aEvent,
-                              bool aCopyTargets) {
-    AssignMouseEventData(aEvent, aCopyTargets);
+                              bool aCopyTargets,
+                              bool aCopyCoalescedEvents = true) {
+    AssignMouseEventData(aEvent, aCopyTargets, aCopyCoalescedEvents);
 
     mWidth = aEvent.mWidth;
     mHeight = aEvent.mHeight;
@@ -931,4 +933,4 @@ class WidgetPointerEvent : public WidgetMouseEvent {
 
 }  // namespace mozilla
 
-#endif  // mozilla_MouseEvents_h__
+#endif  // mozilla_MouseEvents_h_

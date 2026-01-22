@@ -9,9 +9,9 @@ felt-sso-title = Sign in
 felt-sso-input-email =
     .description = Use your organizational-issued email
     .label = Work email
-    .accesskey = E
 felt-sso-continue-btn =
     .label = Continue
+felt-browser-error-multiple-crashes = { -brand-short-name } crashed multiple times
 felt-powered-by =
     Powered by { -vendor-short-name }
 # $version is the version of Felt, not Firefox/Enterprise Browser.

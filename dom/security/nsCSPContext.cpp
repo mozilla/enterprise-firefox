@@ -1522,10 +1522,10 @@ void nsCSPContext::HandleInternalPageViolation(
     effectiveDirective.Assign(
         CSP_CSPDirectiveToString(aCSPViolationData.mEffectiveDirective));
     nsFmtCString s(
-        FMT_STRING("Unexpected CSP violation on page {} caused by {} (URL: {}, "
-                   "Source: {}) violating the directive: \"{}\" (file: {} "
-                   "line: {}). For debugging you can set the pref "
-                   "security.csp.testing.allow_internal_csp_violation=true."),
+        "Unexpected CSP violation on page {} caused by {} (URL: {}, "
+        "Source: {}) violating the directive: \"{}\" (file: {} "
+        "line: {}). For debugging you can set the pref "
+        "security.csp.testing.allow_internal_csp_violation=true.",
         selfURISpec.get(), effectiveDirective.get(),
         NS_ConvertUTF16toUTF8(aInit.mBlockedURI).get(),
         NS_ConvertUTF16toUTF8(aCSPViolationData.mSample).get(), directive.get(),

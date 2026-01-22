@@ -323,16 +323,33 @@ class NavigationToolbarRobot(private val composeTestRule: ComposeTestRule) {
             url: Uri,
             interact: BrowserRobot.() -> Unit,
         ): BrowserRobot.Transition {
+            Log.i(TAG, "enterURLAndEnterToBrowser: Waiting for URL box node to appear and be ready for interaction")
+            composeTestRule.waitUntil(waitingTime) {
+                composeTestRule.onAllNodesWithTag(ADDRESSBAR_URL_BOX).fetchSemanticsNodes().isNotEmpty()
+            }
+            Log.i(TAG, "enterURLAndEnterToBrowser: URL box node is now present and ready")
+
             Log.i(TAG, "enterURLAndEnterToBrowser: Trying to click navigation toolbar")
             composeTestRule.onAllNodesWithTag(ADDRESSBAR_URL_BOX).onLast().performClick()
             Log.i(TAG, "enterURLAndEnterToBrowser: Clicked navigation toolbar")
-            Log.i(TAG, "enterURLAndEnterToBrowser: Trying to set toolbar text to: $url and perform IME action")
-            composeTestRule.onNodeWithTag(ADDRESSBAR_SEARCH_BOX).apply {
-                performTextReplacement(url.toString())
-                performImeAction()
-            }
-            Log.i(TAG, "enterURLAndEnterToBrowser: Toolbar text was set to: $url and IME action performed")
-            waitForAppWindowToBeUpdated()
+
+            Log.i(TAG, "enterURLAndEnterToBrowser: Waiting for compose rule to be idle")
+            composeTestRule.waitForIdle()
+            Log.i(TAG, "enterURLAndEnterToBrowser: Waited for compose rule to be idle")
+
+            Log.i(TAG, "enterURLAndEnterToBrowser: Trying to set toolbar text to: $url")
+            composeTestRule.onNodeWithTag(ADDRESSBAR_SEARCH_BOX).performTextReplacement(url.toString())
+            Log.i(TAG, "enterURLAndEnterToBrowser: Toolbar text was set to: $url")
+            Log.i(TAG, "enterURLAndEnterToBrowser: Waiting for compose rule to be idle")
+            composeTestRule.waitForIdle()
+            Log.i(TAG, "enterURLAndEnterToBrowser: Waited for compose rule to be idle")
+
+            Log.i(TAG, "enterURLAndEnterToBrowser: Trying to perform IME action perform on the toolbar")
+            composeTestRule.onNodeWithTag(ADDRESSBAR_SEARCH_BOX).performImeAction()
+            Log.i(TAG, "enterURLAndEnterToBrowser: IME action performed on the toolbar")
+            Log.i(TAG, "enterURLAndEnterToBrowser: Waiting for compose rule to be idle")
+            composeTestRule.waitForIdle()
+            Log.i(TAG, "enterURLAndEnterToBrowser: Waited for compose rule to be idle")
 
             BrowserRobot(composeTestRule).interact()
             return BrowserRobot.Transition(composeTestRule)

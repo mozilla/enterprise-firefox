@@ -94,9 +94,7 @@ function deserializeUnknownProperties(aObject, aSerializable, aFilterFn) {
 /**
  * Check if the file is a placeholder.
  *
- * @return {Promise}
- * @resolves {boolean}
- * @rejects Never.
+ * @returns {Promise<boolean>}
  */
 async function isPlaceholder(path) {
   try {
@@ -210,7 +208,7 @@ Download.prototype = {
    * Progress percent, from 0 to 100.  Intermediate values are reported only if
    * hasProgress is true.
    *
-   * @note You shouldn't rely on this property being equal to 100 to determine
+   * Note: You shouldn't rely on this property being equal to 100 to determine
    *       whether the download is completed.  You should use the individual
    *       state properties instead.
    */
@@ -222,7 +220,7 @@ Download.prototype = {
    *
    * When hasProgress is false, this property is always zero.
    *
-   * @note This property may be different than the final file size on disk for
+   * Note: This property may be different than the final file size on disk for
    *       downloads that are encoded during the network transfer.  You can use
    *       the "size" property of the DownloadTarget object to get the actual
    *       size on disk once the download succeeds.
@@ -233,7 +231,7 @@ Download.prototype = {
    * Number of bytes currently transferred.  This value starts at zero, and may
    * be updated regardless of the value of hasProgress.
    *
-   * @note You shouldn't rely on this property being equal to totalBytes to
+   * Note: You shouldn't rely on this property being equal to totalBytes to
    *       determine whether the download is completed.  You should use the
    *       individual state properties instead.  This property may not be
    *       updated during the last part of the download.
@@ -369,12 +367,12 @@ Download.prototype = {
    * finished yet, this method waits for the cancellation to finish, then
    * restarts the download immediately.
    *
-   * @note If you need to start a new download from the same source, rather than
+   * Note: If you need to start a new download from the same source, rather than
    *       restarting a failed or canceled one, you should create a separate
    *       Download object with the same source as the current one.
    *
-   * @return {Promise}
-   * @resolves When the download has finished successfully.
+   * @returns {Promise<void>}
+   *   Resolves when the download has finished successfully.
    * @rejects JavaScript exception if the download failed.
    */
   start: function D_start() {
@@ -652,8 +650,8 @@ Download.prototype = {
   /**
    * Perform the actions necessary when a Download succeeds.
    *
-   * @return {Promise}
-   * @resolves When the steps to take after success have completed.
+   * @returns {Promise<void>}
+   *   Resolves when the steps to take after success have completed.
    * @rejects  JavaScript exception if any of the operations failed.
    */
   async _succeed() {
@@ -883,8 +881,8 @@ Download.prototype = {
    * The file will be moved out of quarantine and the download will be
    * marked as succeeded.
    *
-   * @return {Promise}
-   * @resolves When the Download has been unblocked and succeeded.
+   * @returns {Promise<void>}
+   *   Resolves when the Download has been unblocked and succeeded.
    * @rejects  JavaScript exception if any of the operations failed.
    */
   unblock() {
@@ -1014,8 +1012,8 @@ Download.prototype = {
    * If a download was blocked but retained on disk this method can be used
    * to remove the file.
    *
-   * @return {Promise}
-   * @resolves When the Download's data has been removed.
+   * @returns {Promise<void>}
+   *   Resolves when the Download's data has been removed.
    * @rejects  JavaScript exception if any of the operations failed.
    */
   confirmBlock() {
@@ -1074,8 +1072,8 @@ Download.prototype = {
    * @param options.useSystemDefault
    *                           Optional value indicating how to handle launching this download,
    *                           this time only. Will override the associated mimeInfo.preferredAction
-   * @return {Promise}
-   * @resolves When the instruction to launch the file has been
+   * @returns {Promise<void>}
+   *   Resolves when the instruction to launch the file has been
    *           successfully given to the operating system. Note that
    *           the OS might still take a while until the file is actually
    *           launched.
@@ -1101,8 +1099,8 @@ Download.prototype = {
    * will be saved. This may be called at any time, even if the download
    * failed or is currently in progress.
    *
-   * @return {Promise}
-   * @resolves When the instruction to open the containing folder has been
+   * @returns {Promise<void>}
+   *   Resolves when the instruction to open the containing folder has been
    *           successfully given to the operating system. Note that
    *           the OS might still take a while until the folder is actually
    *           opened.
@@ -1144,8 +1142,8 @@ Download.prototype = {
    * to "cancel" happens asynchronously, and is consistent with the case where
    * the cancellation request could not be processed in time.
    *
-   * @return {Promise}
-   * @resolves When the cancellation process has finished.
+   * @returns {Promise<void>}
+   *   Resolves when the cancellation process has finished.
    * @rejects Never.
    */
   cancel: function D_cancel() {
@@ -1218,8 +1216,8 @@ Download.prototype = {
    * still true when the download is restarted, partial data will be retained
    * during the new download attempt.
    *
-   * @return {Promise}
-   * @resolves When the partial data has been successfully removed.
+   * @returns {Promise<void>}
+   *   Resolves when the partial data has been successfully removed.
    * @rejects JavaScript exception if the operation could not be completed.
    */
   removePartialData() {
@@ -1287,8 +1285,8 @@ Download.prototype = {
    * download is not controlled interactively, you should use the promise
    * returned by the "start" method instead, to check for success or failure.
    *
-   * @return {Promise}
-   * @resolves When the download has finished successfully.
+   * @returns {Promise<void>}
+   *   Resolves when the download has finished successfully.
    * @rejects Never.
    */
   whenSucceeded: function D_whenSucceeded() {
@@ -1304,8 +1302,8 @@ Download.prototype = {
    * This allows the properties of the download to be updated in case the user
    * moved or deleted the target file or its associated ".part" file.
    *
-   * @return {Promise}
-   * @resolves When the operation has completed.
+   * @returns {Promise<void>}
+   *   Resolves when the operation has completed.
    * @rejects Never.
    */
   refresh() {
@@ -1397,8 +1395,8 @@ Download.prototype = {
    *        Whether any partially downloaded data should be removed after the
    *        download has been stopped.
    *
-   * @return {Promise}
-   * @resolves When the operation has finished successfully.
+   * @returns {Promise<void>}
+   *   Resolves when the operation has finished successfully.
    * @rejects JavaScript exception if an error occurred while removing the
    *          partially downloaded data.
    */
@@ -1768,14 +1766,14 @@ DownloadSource.prototype = {
    * can adjust the network channel before it is opened, for example to change
    * the HTTP headers or to upload a stream as POST data.
    *
-   * @note If this is defined this object will not be serializable, thus the
+   * Note: If this is defined this object will not be serializable, thus the
    *       Download object will not be persisted across sessions.
    *
    * @param aChannel
    *        The nsIChannel to be adjusted.
    *
-   * @return {Promise}
-   * @resolves When the channel has been adjusted and can be opened.
+   * @returns {Promise<void>}
+   *   Resolves when the channel has been adjusted and can be opened.
    * @rejects JavaScript exception that will cause the download to fail.
    */
   adjustChannel: null,
@@ -1785,7 +1783,7 @@ DownloadSource.prototype = {
    * will determine, if provided, if a download can progress or has to be
    * cancelled based on the HTTP status code of the network channel.
    *
-   * @note If this is defined this object will not be serializable, thus the
+   * Note: If this is defined this object will not be serializable, thus the
    *       Download object will not be persisted across sessions.
    *
    * @param aDownload
@@ -2033,8 +2031,8 @@ DownloadTarget.prototype = {
   /**
    * Sets the "exists" and "size" properties based on the actual file on disk.
    *
-   * @return {Promise}
-   * @resolves When the operation has finished successfully.
+   * @returns {Promise<void>}
+   *   Resolves when the operation has finished successfully.
    * @rejects JavaScript exception.
    */
   async refresh() {
@@ -2208,7 +2206,7 @@ export var DownloadError = function (aProperties) {
  * These constants are used by the reputationCheckVerdict property and indicate
  * the detailed reason why a download is blocked.
  *
- * @note These values should not be changed because they can be serialized.
+ * Note: These values should not be changed because they can be serialized.
  */
 DownloadError.BLOCK_VERDICT_MALWARE = "Malware";
 DownloadError.BLOCK_VERDICT_POTENTIALLY_UNWANTED = "PotentiallyUnwanted";
@@ -2362,8 +2360,8 @@ DownloadSaver.prototype = {
    *        the names of the properties to set, and the value represents the
    *        value to set.
    *
-   * @return {Promise}
-   * @resolves When the download has finished successfully.
+   * @returns {Promise<void>}
+   *   Resolves when the download has finished successfully.
    * @rejects JavaScript exception if the download failed.
    */
   async execute() {
@@ -2387,8 +2385,8 @@ DownloadSaver.prototype = {
    *
    * @param canRemoveFinalTarget
    *        True if can remove target file regardless of it being a placeholder.
-   * @return {Promise}
-   * @resolves When the operation has finished successfully.
+   * @returns {Promise<void>}
+   *   Resolves when the operation has finished successfully.
    * @rejects Never.
    */
   async removeData() {},
@@ -2892,8 +2890,8 @@ DownloadCopySaver.prototype = {
    * @param aSetPropertiesFn
    *        Function provided to the "execute" method.
    *
-   * @return {Promise}
-   * @resolves When the reputation check and cleanup is complete.
+   * @returns {Promise<void>}
+   *   Resolves when the reputation check and cleanup is complete.
    * @rejects DownloadError if the download should be blocked.
    */
   async _checkReputationAndMove(aSetPropertiesFn) {

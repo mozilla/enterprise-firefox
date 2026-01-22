@@ -24,9 +24,8 @@
 #include <cmath>
 
 #include "fdlibm.h"
-#include "jslibmath.h"
-#include "jsmath.h"
 
+#include "builtin/Math.h"
 #include "jit/AtomicOperations.h"
 #include "jit/InlinableNatives.h"
 #include "jit/JitRuntime.h"
@@ -39,6 +38,7 @@
 #include "threading/Mutex.h"
 #include "util/Memory.h"
 #include "util/Poison.h"
+#include "util/PortableMath.h"
 #include "vm/BigIntType.h"
 #include "vm/ErrorObject.h"
 #include "wasm/WasmCodegenTypes.h"
@@ -144,8 +144,12 @@ constexpr SymbolicAddressSignature SASigArrayMemMove = {
     6,
     {_WAD, _I32, _WAD, _I32, _I32, _I32, _END}};
 constexpr SymbolicAddressSignature SASigArrayRefsMove = {
-    SymbolicAddress::ArrayRefsMove,      _VOID, _Infallible, _NoTrap, 5,
-    {_WAD, _I32, _WAD, _I32, _I32, _END}};
+    SymbolicAddress::ArrayRefsMove,
+    _VOID,
+    _Infallible,
+    _NoTrap,
+    6,
+    {_RoN, _WAD, _I32, _WAD, _I32, _I32, _END}};
 constexpr SymbolicAddressSignature SASigMemoryGrowM32 = {
     SymbolicAddress::MemoryGrowM32, _I32, _Infallible, _NoTrap, 3,
     {_PTR, _I32, _I32, _END}};
@@ -1323,18 +1327,15 @@ static void WasmArrayMemMove(uint8_t* destArrayData, uint32_t destIndex,
           size_t(elementSize) * count);
 }
 
-static void WasmArrayRefsMove(GCPtr<AnyRef>* destArrayData, uint32_t destIndex,
+static void WasmArrayRefsMove(WasmArrayObject* destArrayObject,
+                              AnyRef* destArrayData, uint32_t destIndex,
                               AnyRef* srcArrayData, uint32_t srcIndex,
                               uint32_t count) {
   AutoUnsafeCallWithABI unsafe;
-  GCPtr<AnyRef>* dstBegin = destArrayData + destIndex;
+
+  AnyRef* dstBegin = destArrayData + destIndex;
   AnyRef* srcBegin = srcArrayData + srcIndex;
-  // The std::copy performs GCPtr::set() operation under the hood.
-  if (uintptr_t(dstBegin) < uintptr_t(srcBegin)) {
-    std::copy(srcBegin, srcBegin + count, dstBegin);
-  } else {
-    std::copy_backward(srcBegin, srcBegin + count, dstBegin + count);
-  }
+  BarrieredMoveRange(destArrayObject, dstBegin, srcBegin, count);
 }
 
 template <class F>
@@ -1514,7 +1515,7 @@ void* wasm::AddressOf(SymbolicAddress imm, ABIFunctionType* abiType) {
       *abiType = Args_Void_GeneralInt32GeneralInt32Int32Int32;
       return FuncCast(WasmArrayMemMove, *abiType);
     case SymbolicAddress::ArrayRefsMove:
-      *abiType = Args_Void_GeneralInt32GeneralInt32Int32;
+      *abiType = Args_Void_GeneralGeneralInt32GeneralInt32Int32;
       return FuncCast(WasmArrayRefsMove, *abiType);
 
     case SymbolicAddress::MemoryGrowM32:

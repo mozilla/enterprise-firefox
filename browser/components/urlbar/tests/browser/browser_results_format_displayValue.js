@@ -31,12 +31,13 @@ add_task(async function test_receive_punycode_result() {
   }
   let provider = new ResultWithHighlightsProvider();
 
+  let providersManager = ProvidersManager.getInstanceForSap("urlbar");
   registerCleanupFunction(async () => {
-    UrlbarProvidersManager.unregisterProvider(provider);
+    providersManager.unregisterProvider(provider);
     await UrlbarTestUtils.promisePopupClose(window, () => gURLBar.blur());
     gURLBar.handleRevert();
   });
-  UrlbarProvidersManager.registerProvider(provider);
+  providersManager.registerProvider(provider);
 
   info("Open the result popup");
   await UrlbarTestUtils.promiseAutocompleteResultPopup({

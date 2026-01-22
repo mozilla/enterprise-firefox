@@ -4,8 +4,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef mozilla_SharedSubResourceCache_h__
-#define mozilla_SharedSubResourceCache_h__
+#ifndef mozilla_SharedSubResourceCache_h_
+#define mozilla_SharedSubResourceCache_h_
 
 // A cache that allows us to share subresources across documents. In order to
 // use it you need to provide some types, mainly:

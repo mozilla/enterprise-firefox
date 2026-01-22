@@ -19551,6 +19551,8 @@ class CGBindingRoot(CGThing):
                     bindingHeaders["mozilla/UseCounter.h"] = True
                 if m.getExtendedAttribute("Trial"):
                     bindingHeaders["mozilla/OriginTrials.h"] = True
+            if d.interface.ctor() and d.interface.ctor().getExtendedAttribute("UseCounter"):
+                bindingHeaders["mozilla/UseCounter.h"] = True
 
         bindingHeaders["mozilla/dom/SimpleGlobalObject.h"] = any(
             CGDictionary.dictionarySafeToJSONify(d) for d in dictionaries

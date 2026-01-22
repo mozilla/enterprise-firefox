@@ -132,23 +132,16 @@ export class AddonSuggestions extends SuggestProvider {
 
     commands.push(
       {
+        name: RESULT_MENU_COMMAND.NOT_RELEVANT,
         l10n: {
-          id: "firefox-suggest-command-dont-show-this",
+          id: "urlbar-result-menu-dismiss-suggestion",
         },
-        children: [
-          {
-            name: RESULT_MENU_COMMAND.NOT_RELEVANT,
-            l10n: {
-              id: "firefox-suggest-command-not-relevant",
-            },
-          },
-          {
-            name: RESULT_MENU_COMMAND.NOT_INTERESTED,
-            l10n: {
-              id: "firefox-suggest-command-not-interested",
-            },
-          },
-        ],
+      },
+      {
+        name: RESULT_MENU_COMMAND.NOT_INTERESTED,
+        l10n: {
+          id: "firefox-suggest-command-dont-show-addons",
+        },
       },
       { name: "separator" },
       {

@@ -218,7 +218,8 @@ nsresult NotificationParent::FireClickEvent() {
 
 // Step 4 of
 // https://notifications.spec.whatwg.org/#dom-notification-notification
-mozilla::ipc::IPCResult NotificationParent::RecvShow(ShowResolver&& aResolver) {
+mozilla::ipc::IPCResult NotificationParent::RecvShow(Maybe<IPCImage>&& aIcon,
+                                                     ShowResolver&& aResolver) {
   MOZ_ASSERT(mId.IsEmpty(), "ID should not be given for a new notification");
 
   mResolver.emplace(std::move(aResolver));
@@ -237,10 +238,11 @@ mozilla::ipc::IPCResult NotificationParent::RecvShow(ShowResolver&& aResolver) {
     return IPC_OK();
   }
 
-  // Step 4.2: Run the fetch steps for notification. (Will happen in
-  // nsIAlertNotification::LoadImage)
+  // Step 4.2: Run the fetch steps for notification. (Already happened in the
+  // child)
+  //
   // Step 4.3: Run the show steps for notification.
-  nsresult rv = Show();
+  nsresult rv = Show(std::move(aIcon));
   // It's possible that we synchronously received a notification while in Show,
   // so mResolver may now be empty.
   if (NS_FAILED(rv) && mResolver) {
@@ -251,7 +253,7 @@ mozilla::ipc::IPCResult NotificationParent::RecvShow(ShowResolver&& aResolver) {
   return IPC_OK();
 }
 
-nsresult NotificationParent::Show() {
+nsresult NotificationParent::Show(Maybe<IPCImage>&& aIcon) {
   // Step 4.3 the show steps, which are almost all about processing `tag` and
   // then displaying the notification. Both are handled by
   // nsIAlertsService::ShowAlert. The below is all about constructing the
@@ -289,6 +291,13 @@ nsresult NotificationParent::Show() {
                       options.lang(), options.dataSerialized(), principal,
                       principal->GetIsInPrivateBrowsing(), requireInteraction,
                       options.silent(), options.vibrate()));
+
+  if (aIcon) {
+    if (nsCOMPtr<imgIContainer> image =
+            nsContentUtils::IPCImageToImage(*aIcon)) {
+      alert->SetImage(image);
+    }
+  }
 
   nsTArray<RefPtr<nsIAlertAction>> actions;
   MOZ_ASSERT(options.actions().Length() <= kMaxActions);

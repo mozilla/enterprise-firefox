@@ -141,14 +141,7 @@ async function track_ad_click(
   assertSERPTelemetry([
     {
       impression: {
-        provider: "example",
-        tagged: "true",
-        partner_code: "ff",
         source: expectedScalarSource,
-        is_shopping_page: "false",
-        is_private: "false",
-        shopping_tab_displayed: "false",
-        is_signed_in: "false",
       },
       engagements: [
         {
@@ -254,7 +247,7 @@ add_task(async function test_source_urlbar_oneoffs_newtab() {
           true
         );
 
-      let engines = await Services.search.getEngines();
+      let engines = await SearchService.getEngines();
       let index = engines.findIndex(e => e.name == "Example");
       let newTabPromise = BrowserTestUtils.waitForNewTab(gBrowser);
       EventUtils.synthesizeMouseAtCenter(oneOffs[index], {
@@ -283,11 +276,14 @@ add_task(async function test_source_urlbar_handoff() {
       await BrowserTestUtils.browserStopped(tab.linkedBrowser, "about:newtab");
 
       info("Focus on search input in newtab content");
-      await BrowserTestUtils.synthesizeMouseAtCenter(
-        ".fake-editable",
-        {},
-        tab.linkedBrowser
-      );
+      await SpecialPowers.spawn(tab.linkedBrowser, [], async () => {
+        let handoffUI = content.document.querySelector(
+          "content-search-handoff-ui"
+        );
+        await handoffUI.updateComplete;
+        let fakeEditable = handoffUI.shadowRoot.querySelector(".fake-editable");
+        fakeEditable.click();
+      });
 
       info("Get suggestions");
       for (const c of "searchSuggestion".split("")) {

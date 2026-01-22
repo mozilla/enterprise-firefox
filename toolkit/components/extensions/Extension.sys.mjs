@@ -58,6 +58,10 @@ const lazy = XPCOMUtils.declareLazy({
   NetUtil: "resource://gre/modules/NetUtil.sys.mjs",
   SITEPERMS_ADDON_TYPE:
     "resource://gre/modules/addons/siteperms-addon-utils.sys.mjs",
+  getSitePermsShortDescriptionStringId:
+    "resource://gre/modules/addons/siteperms-addon-utils.sys.mjs",
+  getSitePermsPermissionsPromptStringIds:
+    "resource://gre/modules/addons/siteperms-addon-utils.sys.mjs",
   Schemas: "resource://gre/modules/Schemas.sys.mjs",
   ServiceWorkerCleanUp: "resource://gre/modules/ServiceWorkerCleanUp.sys.mjs",
   extensionStorageSync: "resource://gre/modules/ExtensionStorageSync.sys.mjs",
@@ -2814,26 +2818,23 @@ export class ExtensionData {
     // a less-generic message than addons with site permissions.
     // NOTE: this is used as part of the synthetic addon install flow implemented for the
     // SitePermissionAddonProvider.
-    // FIXME
     if (addon?.type === lazy.SITEPERMS_ADDON_TYPE) {
       // We simplify the origin to make it more user friendly. The origin is assured to be
       // available because the SitePermsAddon install is always expected to be triggered
       // from a website, making the siteOrigin always available through the installing principal.
       headerArgs.hostname = new URL(siteOrigin).hostname;
 
-      // messages are specific to the type of gated permission being installed
-      const headerId =
-        sitePermissions[0] === "midi-sysex"
-          ? "webext-site-perms-header-with-gated-perms-midi-sysex"
-          : "webext-site-perms-header-with-gated-perms-midi";
-      result.header = l10n.formatValueSync(headerId, headerArgs);
+      const permissionType = sitePermissions[0];
+      const stringIds =
+        lazy.getSitePermsPermissionsPromptStringIds(permissionType);
 
-      // We use the same string for midi and midi-sysex, and don't support any
-      // other types of site permission add-ons. So we just hard-code the
-      // descriptor for now. See bug 1826747.
-      result.text = l10n.formatValueSync(
-        "webext-site-perms-description-gated-perms-midi"
-      );
+      if (stringIds?.header && stringIds?.description) {
+        result.header = l10n.formatValueSync(stringIds.header, headerArgs);
+        result.text = l10n.formatValueSync(stringIds.description);
+      } else {
+        Cu.reportError(`Unknown site permission type: ${permissionType}`);
+        return null;
+      }
 
       setAcceptCancel(acceptId, cancelId);
       return result;
@@ -2844,23 +2845,15 @@ export class ExtensionData {
     // about:addon detail view for the synthetic addon entries.
     if (sitePermissions) {
       for (let permission of sitePermissions) {
-        let permMsg;
-        switch (permission) {
-          case "midi":
-            permMsg = l10n.formatValueSync("webext-site-perms-midi");
-            break;
-          case "midi-sysex":
-            permMsg = l10n.formatValueSync("webext-site-perms-midi-sysex");
-            break;
-          default:
-            Cu.reportError(
-              `site_permission ${permission} missing readable text property`
-            );
-            // We must never have a DOM api permission that is hidden so in
-            // the case of any error, we'll use the plain permission string.
-            // test_ext_sitepermissions.js tests for no missing messages, this
-            // is just an extra fallback.
-            permMsg = permission;
+        let permId = lazy.getSitePermsShortDescriptionStringId(permission);
+        let permMsg = permId ? l10n.formatValueSync(permId) : null;
+        if (!permMsg) {
+          Cu.reportError(
+            `site_permission ${permission} missing readable text property`
+          );
+          // Use the permission name itself as a fallback if a localized
+          // string has not been found.
+          permMsg = permission;
         }
         result.msgs.push(permMsg);
       }

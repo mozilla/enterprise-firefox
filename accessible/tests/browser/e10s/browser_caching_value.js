@@ -445,3 +445,31 @@ addAccessibleTask(
   },
   { chrome: true, iframe: true, remoteIframe: true }
 );
+
+/**
+ * Test the value of a color input.
+ */
+addAccessibleTask(
+  `<input id="color" type="color" value="#000000">`,
+  async function testColor(browser, docAcc) {
+    const color = findAccessibleChildByID(docAcc, "color");
+    is(color.value, "0% red 0% green 0% blue", "Initial value correct");
+    info("Setting value attribute to #ffffff");
+    let changed = waitForEvent(EVENT_TEXT_VALUE_CHANGE, color);
+    await invokeSetAttribute(browser, "color", "value", "#ffffff");
+    await changed;
+    is(
+      color.value,
+      "100% red 100% green 100% blue",
+      "Value correct after change"
+    );
+    info("Setting value property to #ffffff");
+    changed = waitForEvent(EVENT_TEXT_VALUE_CHANGE, color);
+    await invokeContentTask(browser, [], () => {
+      content.document.getElementById("color").value = "#000000";
+    });
+    await changed;
+    is(color.value, "0% red 0% green 0% blue", "Value correct after change");
+  },
+  { chrome: true, topLevel: true }
+);

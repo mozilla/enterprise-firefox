@@ -8,6 +8,7 @@ import {
   ifDefined,
   literal,
   ref,
+  repeat,
   staticHtml,
   unsafeStatic,
 } from "chrome://global/content/vendor/lit.all.mjs";
@@ -80,10 +81,14 @@ const KNOWN_OPTIONS = new Map([
  */
 const ITEM_SLOT_BY_PARENT = new Map([
   ["moz-checkbox", "nested"],
-  ["moz-input-text", "nested"],
-  ["moz-input-search", "nested"],
+  ["moz-input-email", "nested"],
   ["moz-input-folder", "nested"],
+  ["moz-input-number", "nested"],
   ["moz-input-password", "nested"],
+  ["moz-input-search", "nested"],
+  ["moz-input-tel", "nested"],
+  ["moz-input-text", "nested"],
+  ["moz-input-url", "nested"],
   ["moz-radio", "nested"],
   ["moz-radio-group", "nested"],
   // NOTE: moz-select does not support the nested slot.
@@ -122,6 +127,12 @@ export class SettingControl extends SettingElement {
     super();
     /** @type {Ref<LitElement>} */
     this.controlRef = createRef();
+
+    /** @type {Ref<LitElement>} */
+    this.controlledMessageBarRef = createRef();
+
+    /** @type {Ref<LitElement>} */
+    this.enableMessageBarRef = createRef();
 
     /**
      * @type {Preferences['getSetting'] | undefined}
@@ -192,6 +203,7 @@ export class SettingControl extends SettingElement {
     if (!this.setting) {
       throw new SettingNotDefinedError(this.config.id);
     }
+    this.id = `setting-control-${this.config.id}`;
     let prevHidden = this.hidden;
     this.hidden = !this.setting.visible;
     if (prevHidden != this.hidden) {
@@ -259,7 +271,7 @@ export class SettingControl extends SettingElement {
       "?disabled":
         this.setting.disabled ||
         this.setting.locked ||
-        this.isControlledByExtension(),
+        this.isDisabledByExtension(),
       // Hide moz-message-bar directly to maintain the role=alert functionality.
       // This setting-control will be visually hidden in CSS.
       ".hidden": config.control == "moz-message-bar" && this.hidden,
@@ -325,6 +337,13 @@ export class SettingControl extends SettingElement {
     );
   }
 
+  isDisabledByExtension() {
+    return (
+      this.isControlledByExtension() &&
+      !this.setting.controllingExtensionInfo.allowControl
+    );
+  }
+
   handleEnableExtensionDismiss() {
     this.showEnableExtensionMessage = false;
   }
@@ -366,7 +385,9 @@ export class SettingControl extends SettingElement {
       setting: this.getSetting(i.id),
     }));
     let control = config.control || "moz-checkbox";
-    return itemArgs.map(
+    return repeat(
+      itemArgs,
+      item => item.config.key || item.config.id,
       item =>
         html`<setting-control
           .config=${item.config}
@@ -436,6 +457,7 @@ export class SettingControl extends SettingElement {
       let supportPage = this.extensionSupportPage;
       messageBar = html`<moz-message-bar
         class="extension-controlled-message-bar"
+        ${ref(this.controlledMessageBarRef)}
         .messageL10nId=${this.extensionMessageId}
         .messageL10nArgs=${args}
       >
@@ -457,6 +479,7 @@ export class SettingControl extends SettingElement {
       messageBar = html`<moz-message-bar
         class="reenable-extensions-message-bar"
         dismissable=""
+        ${ref(this.enableMessageBarRef)}
         @message-bar:user-dismissed=${this.handleEnableExtensionDismiss}
       >
         <span

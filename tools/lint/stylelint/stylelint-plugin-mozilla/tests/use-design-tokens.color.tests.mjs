@@ -78,6 +78,82 @@ testRule({
       code: ".a { color: currentColor; }",
       description: "Using currentColor for color is valid.",
     },
+    {
+      code: ".a { color: oklch(from var(--link-color) l c h / 30%); }",
+      description: "Using oklch() with valid colors is valid.",
+    },
+    {
+      code: `
+        :root { --local-color: var(--color-gray-80); }
+        .a { color: var(--local-color); }
+      `,
+      description:
+        "Using locally defined variable that falls back to a base color token is valid.",
+    },
+    {
+      code: `
+        :root { --local-color: oklch(from var(--color-gray-80) l c h / 80%); }
+        .a { color: var(--local-color); }
+      `,
+      description:
+        "Using locally defined variable that falls back to an oklch function using a base color token is valid.",
+    },
+    {
+      code: `
+        :root { --local-color: color-mix(in srgb, var(--color-gray-80) 20%, white); }
+        .a { color: var(--local-color); }
+      `,
+      description:
+        "Using locally defined variable that falls back to a color-mix function using a base color token is valid.",
+    },
+    {
+      code: `
+        :root { --local-color: light-dark(var(--color-gray-80), var(--color-gray-20)); }
+        .a { color: var(--local-color); }
+      `,
+      description:
+        "Using locally defined variable that falls back to a light-dark function using base color tokens is valid.",
+    },
+    {
+      code: `
+        :root { --local-color: var(--color-gray-80); }
+        .a { color: var(--random-color, var(--local-color)); }
+      `,
+      description:
+        "Using locally defined variable that falls back to a base color token is valid.",
+    },
+    {
+      code: `
+        :root { --custom-token: var(--button-background-color); }
+        .bg { color: var(--custom-token); }
+      `,
+      description:
+        "Using a custom token that resolves to a background-color token is valid.",
+    },
+    {
+      code: `
+        :root { --custom-token: var(--border-color); }
+        .bg { color: var(--custom-token); }
+      `,
+      description:
+        "Using a custom token that resolves to a border-color token is valid.",
+    },
+    {
+      code: `
+        :root { --custom-token: ButtonText; }
+        .bg { color: var(--custom-token); }
+      `,
+      description:
+        "Using a custom token that resolves to a system color is valid.",
+    },
+    {
+      code: `
+        :root { --custom-token: ButtonFace; }
+        .bg { color: var(--custom-token); }
+      `,
+      description:
+        "Using a custom token that resolves to a system color, even if non-semantic, is valid.",
+    },
   ],
   reject: [
     {
@@ -98,8 +174,12 @@ testRule({
     },
     {
       code: ".a { color: AccentColorText; }",
-      message: messages.rejected("AccentColorText", ["text-color"]),
-      description: "AccentColorText should use a text-color design token.",
+      message: messages.warning(
+        "AccentColorText",
+        "var(--button-text-color-primary)"
+      ),
+      description:
+        "AccentColorText should use var(--button-text-color-primary).",
     },
     {
       code: ".a { color: var(--random-color, #000); }",
@@ -112,12 +192,36 @@ testRule({
         "var(--random-color, #000) should use a text-color design token.",
     },
     {
+      code: ".a { color: var(--random-color, var(--color-gray-50)); }",
+      message: messages.rejected("var(--random-color, var(--color-gray-50))", [
+        "text-color",
+      ]),
+      description:
+        "var(--random-color, var(--color-gray-50)) should use a text-color design token.",
+    },
+    {
       code: `
         :root { --custom-token: #666; }
         .a { color: var(--custom-token); }
       `,
       message: messages.rejected("var(--custom-token)", ["text-color"]),
       description: "var(--custom-token) should use a text-color design token.",
+    },
+    {
+      code: `
+        :root { --custom-token: #666; }
+        .a { color: var(--random-token, var(--custom-token)); }
+      `,
+      message: messages.rejected("var(--random-token, var(--custom-token))", [
+        "text-color",
+      ]),
+      description:
+        "var(--random-token, var(--custom-token)) should use a color design token.",
+    },
+    {
+      code: ".a { color: var(--color-blue-50); }",
+      message: messages.rejected("var(--color-blue-50)", ["text-color"]),
+      description: "var(--color-blue-50) should use a color design token",
     },
     {
       code: ".a { color: color-mix(in srgb, var(--light), var(--dark)); }",
@@ -144,6 +248,39 @@ testRule({
       ),
       description:
         "color-mix inside a light-dark function should use a text-color design token.",
+    },
+    {
+      code: ".a { color: FieldText; }",
+      message: messages.rejected("FieldText", ["text-color"]),
+      description: "FieldText should use a text-color design token.",
+    },
+    {
+      code: ".a { color: ButtonText; }",
+      message: messages.warning("ButtonText", "var(--button-text-color)"),
+      description: "ButtonText should use var(--button-text-color) instead.",
+    },
+    {
+      code: ".a { color: light-dark(#666, #333); }",
+      message: messages.rejected("light-dark(#666, #333)", ["text-color"]),
+      description:
+        "light-dark(#666, #333) should use a text-color design token.",
+    },
+    {
+      code: ".a { color: color-mix(in oklch, #666 20%, transparent); }",
+      message: messages.rejected("color-mix(in oklch, #666 20%, transparent)", [
+        "text-color",
+      ]),
+      description:
+        "color-mix(in oklch, #666 20%, transparent) should use a text-color design token.",
+    },
+    {
+      code: ".a { color: oklch(from var(--color-blue-50) l c h / 20%); }",
+      message: messages.rejected(
+        "oklch(from var(--color-blue-50) l c h / 20%)",
+        ["text-color"]
+      ),
+      description:
+        "oklch(from var(--color-blue-50) l c h / 20%) should use a text-color design token.",
     },
   ],
 });

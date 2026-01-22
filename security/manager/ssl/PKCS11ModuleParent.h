@@ -6,9 +6,9 @@
 #ifndef mozilla_psm_PKCS11ModuleParent_h
 #define mozilla_psm_PKCS11ModuleParent_h
 
-#ifdef MOZ_NO_SMART_CARDS
-#  error This file should not be used under MOZ_NO_SMART_CARDS.
-#endif  // MOZ_NO_SMART_CARDS
+#if !defined(NIGHTLY_BUILD) || defined(MOZ_NO_SMART_CARDS)
+#  error This file should only be used under NIGHTLY_BUILD and when MOZ_NO_SMART_CARDS is not defined.
+#endif  // !NIGHTLY_BUILD || MOZ_NO_SMART_CARDS
 
 #include "mozilla/ProcInfo.h"
 

@@ -105,8 +105,9 @@ export default class MozBoxItem extends MozBoxBase {
   }
 
   get isDraggable() {
+    const reorderableParent = this.closest("moz-box-group");
     return (
-      this.parentElement?.type == GROUP_TYPES.reorderable &&
+      reorderableParent?.type == GROUP_TYPES.reorderable &&
       this.slot != "header" &&
       this.slot != "footer"
     );

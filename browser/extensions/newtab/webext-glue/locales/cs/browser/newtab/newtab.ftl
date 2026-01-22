@@ -144,7 +144,7 @@ newtab-menu-section-unfollow = Přestat sledovat téma
 
 newtab-menu-manage-sponsored-content = Správa sponzorovaného obsahu
 newtab-menu-our-sponsors-and-your-privacy = Naši sponzoři a vaše soukromí
-newtab-menu-report-this-ad = Nahlásit tento inzerát
+newtab-menu-report-this-ad = Nahlásit tuto reklamu
 
 ## Message displayed in a modal window to explain privacy and provide context for sponsored content.
 
@@ -153,10 +153,10 @@ newtab-privacy-modal-button-manage = Nastavení sponzorovaného obsahu
 newtab-privacy-modal-header = Na vašem soukromí záleží.
 newtab-privacy-modal-paragraph-2 =
     { -brand-product-name.gender ->
-        [masculine] Kromě zajímavých článků zobrazujeme také relevantní a prověřený obsah od vybraných partnerů. Nemusíte se ale bát, <strong>vaše údaje nikdy neopustí váš { -brand-product-name(case: "acc") }</strong> - neodesílají se nám ani našim partnerům.
-        [feminine] Kromě zajímavých článků zobrazujeme také relevantní a prověřený obsah od vybraných partnerů. Nemusíte se ale bát, <strong>vaše údaje nikdy neopustí vaši { -brand-product-name(case: "acc") }</strong> - neodesílají se nám ani našim partnerům.
-        [neuter] Kromě zajímavých článků zobrazujeme také relevantní a prověřený obsah od vybraných partnerů. Nemusíte se ale bát, <strong>vaše údaje nikdy neopustí vaše { -brand-product-name(case: "acc") }</strong> - neodesílají se nám ani našim partnerům.
-       *[other] Kromě zajímavých článků zobrazujeme také relevantní a prověřený obsah od vybraných partnerů. Nemusíte se ale bát, <strong>vaše údaje nikdy neopustí vaši aplikaci { -brand-product-name }</strong> - neodesílají se nám ani našim partnerům.
+        [masculine] Kromě zajímavých příběhů zobrazujeme také relevantní a prověřený obsah od vybraných partnerů. Nemusíte se ale bát, <strong>vaše údaje nikdy neopustí váš { -brand-product-name(case: "acc") }</strong> - neodesílají se nám ani našim partnerům.
+        [feminine] Kromě zajímavých příběhů zobrazujeme také relevantní a prověřený obsah od vybraných partnerů. Nemusíte se ale bát, <strong>vaše údaje nikdy neopustí vaši { -brand-product-name(case: "acc") }</strong> - neodesílají se nám ani našim partnerům.
+        [neuter] Kromě zajímavých příběhů zobrazujeme také relevantní a prověřený obsah od vybraných partnerů. Nemusíte se ale bát, <strong>vaše údaje nikdy neopustí vaše { -brand-product-name(case: "acc") }</strong> - neodesílají se nám ani našim partnerům.
+       *[other] Kromě zajímavých příběhů zobrazujeme také relevantní a prověřený obsah od vybraných partnerů. Nemusíte se ale bát, <strong>vaše údaje nikdy neopustí vaši aplikaci { -brand-product-name }</strong> - neodesílají se nám ani našim partnerům.
     }
 newtab-privacy-modal-link = Zjistěte, jak chráníme vaše soukromí na stránce nového panelu.
 
@@ -239,7 +239,7 @@ newtab-section-header-recent-activity = Nedávná aktivita
 # Variables:
 #   $provider (string) - Name of the corresponding content provider.
 newtab-section-header-pocket = Doporučení ze služby { $provider }
-newtab-section-header-stories = Podnětné články
+newtab-section-header-stories = Podnětné příběhy
 # "picks" refers to recommended articles
 newtab-section-header-todays-picks = Dnešní výběr pro vás
 
@@ -249,14 +249,14 @@ newtab-empty-section-highlights = Začněte prohlížet a my vám zde ukážeme 
 # Ex. When there are no more Pocket story recommendations, in the space where there would have been stories, this is shown instead.
 # Variables:
 #   $provider (string) - Name of the content provider for this section, e.g "Pocket".
-newtab-empty-section-topstories = Už jste všechno přečetli. Další články ze služby { $provider } tu najdete zase později. Ale pokud se nemůžete dočkat, vyberte své oblíbené téma a podívejte se na další velké články z celého webu.
+newtab-empty-section-topstories = Už jste všechno přečetli. Další příběhy ze služby { $provider } tu najdete zase později. Ale pokud se nemůžete dočkat, vyberte své oblíbené téma a podívejte se na další velké příběhy z celého webu.
 # Ex. When there are no more story recommendations, in the space where there would have been stories, this is shown instead.
-newtab-empty-section-topstories-generic = Už jste všechno přečetli. Další články zde najdete později. Nechcete čekat? Vyberte si oblíbené téma a najděte další skvělé články z celého webu.
+newtab-empty-section-topstories-generic = Už jste všechno přečetli. Další příběhy zde najdete později. Nechcete čekat? Vyberte si oblíbené téma a najděte další skvělé příběhy z celého webu.
 
 ## Empty Section (Content Discovery Experience). These show when there are no more stories or when some stories fail to load.
 
 newtab-discovery-empty-section-topstories-header = Už jste všechno přečetli.
-newtab-discovery-empty-section-topstories-content = Další články zde najdete později.
+newtab-discovery-empty-section-topstories-content = Další příběhy zde najdete později.
 newtab-discovery-empty-section-topstories-try-again-button = Zkusit znovu
 newtab-discovery-empty-section-topstories-loading = Načítání…
 # Displays when a layout in a section took too long to fetch articles.
@@ -266,11 +266,11 @@ newtab-discovery-empty-section-topstories-timed-out = Jejda, při načítání o
 
 # This is shown at the bottom of the trending stories section and precedes a list of links to popular topics.
 newtab-pocket-read-more = Oblíbená témata:
-newtab-pocket-new-topics-title = Chcete další články? Podívejte se na oblíbené témata v { -pocket-brand-name(case: "loc") }.
+newtab-pocket-new-topics-title = Chcete další příběhy? Podívejte se na oblíbené témata v { -pocket-brand-name(case: "loc") }.
 newtab-pocket-more-recommendations = Další doporučení
 newtab-pocket-learn-more = Zjistit více
 newtab-pocket-cta-button = Získejte { -pocket-brand-name(case: "acc") }
-newtab-pocket-cta-text = Ukládejte si články do { -pocket-brand-name(case: "gen") } a užívejte si skvělé čtení.
+newtab-pocket-cta-text = Ukládejte si příběhy do { -pocket-brand-name(case: "gen") } a užívejte si skvělé čtení.
 newtab-pocket-pocket-firefox-family = { -pocket-brand-name } je součástí rodiny { -brand-product-name(case: "gen") }
 newtab-pocket-save = Uložit
 newtab-pocket-saved = Uloženo
@@ -324,25 +324,20 @@ newtab-custom-sponsored-sites = Sponzorované zkratky
 newtab-custom-pocket-title = Doporučeno službou { -pocket-brand-name }
 newtab-custom-pocket-subtitle = Výjimečný obsah vybraný službou { -pocket-brand-name }, která je součástí rodiny { -brand-product-name(case: "gen") }
 newtab-custom-stories-toggle =
-    .label = Doporučené články
+    .label = Doporučené příběhy
     .description = Výjimečný obsah spravovaný rodinou { -brand-product-name(case: "gen") }
 newtab-custom-stories-personalized-toggle =
-    .label = Články
+    .label = Příběhy
 newtab-custom-stories-personalized-checkbox-label = Personalizované příběhy na základě vaší aktivity
-newtab-custom-pocket-sponsored = Sponzorované články
+newtab-custom-pocket-sponsored = Sponzorované příběhy
 newtab-custom-pocket-show-recent-saves = Zobrazit nedávno uložené
 newtab-custom-recent-title = Nedávná aktivita
 newtab-custom-recent-subtitle = Výběr z nedávných stránek a obsahu
 newtab-custom-weather-toggle =
     .label = Počasí
     .description = Dnešní předpověď ve zkratce
-newtab-custom-trending-search-toggle =
-    .label = Trendy ve vyhledávání
-    .description = Oblíbená a často vyhledávaná témata
 newtab-custom-widget-weather-toggle =
     .label = Počasí
-newtab-custom-widget-trending-search-toggle =
-    .label = Trendy ve vyhledávání
 newtab-custom-widget-lists-toggle =
     .label = Seznamy
 newtab-custom-widget-timer-toggle =
@@ -532,7 +527,7 @@ newtab-topic-label-home = Dům a zahrada
 newtab-topic-selection-title = Vyberte témata pro vyladění svého kanálu
 # “tailored” refers to process of (a tailor) making (clothes) to fit individual customers.
 # In other words, “Our expert curators prioritize stories to fit your selected interests”
-newtab-topic-selection-subtitle = Vyberte dvě nebo více témat. Naši odborní kurátoři upřednostňují články přizpůsobené vašim zájmům. Aktualizovat můžete kdykoliv.
+newtab-topic-selection-subtitle = Vyberte dvě nebo více témat. Naši odborní kurátoři upřednostňují příběhy přizpůsobené vašim zájmům. Aktualizovat můžete kdykoliv.
 newtab-topic-selection-save-button = Uložit
 newtab-topic-selection-cancel-button = Zrušit
 newtab-topic-selection-button-maybe-later = Možná později
@@ -623,7 +618,7 @@ newtab-download-mobile-highlight-image =
 newtab-shortcuts-highlight-title = Vaše oblíbené položky na dosah ruky
 newtab-shortcuts-highlight-subtitle = Přidejte si zkratky, abyste měli oblíbené weby dostupné na jedno klepnutí.
 
-## Strings for reporting ads and content
+## Strings for reporting issues with ads and content
 
 newtab-report-content-why-reporting-this =
     .label = Proč to nahlašujete?
@@ -641,21 +636,13 @@ newtab-report-content-inappropriate-offensive =
     .label = Nevhodné nebo urážlivé
 newtab-report-content-spam-misleading =
     .label = Nevyžádaný příspěvek nebo klamavá zpráva
+newtab-report-content-requires-payment-subscription =
+    .label = Vyžaduje platbu nebo předplatné
+newtab-report-content-requires-payment-subscription-learn-more = Zjistit více
 newtab-report-cancel = Zrušit
 newtab-report-submit = Odeslat
 newtab-toast-thanks-for-reporting =
     .message = Děkujeme za nahlášení.
-
-## Strings for trending searches
-
-newtab-trending-searches-show-trending =
-    .title = Zobrazit populární vyhledávání
-newtab-trending-searches-hide-trending =
-    .title = Skrýt populární vyhledávání
-newtab-trending-searches-learn-more = Zjistit více
-newtab-trending-searches-dismiss = Skrýt populární vyhledávání
-# "Trending searches refers to popular searches from search engines
-newtab-trending-searches-title = Trendy ve vyhledávání
 
 ## Strings for task / to-do list productivity widget
 

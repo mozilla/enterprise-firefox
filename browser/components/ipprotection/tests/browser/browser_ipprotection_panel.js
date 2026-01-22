@@ -7,9 +7,12 @@
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
-  IPProtectionWidget: "resource:///modules/ipprotection/IPProtection.sys.mjs",
+  IPProtectionWidget:
+    "moz-src:///browser/components/ipprotection/IPProtection.sys.mjs",
   IPProtectionPanel:
-    "resource:///modules/ipprotection/IPProtectionPanel.sys.mjs",
+    "moz-src:///browser/components/ipprotection/IPProtectionPanel.sys.mjs",
+  IPPProxyManager:
+    "moz-src:///browser/components/ipprotection/IPPProxyManager.sys.mjs",
 });
 
 /**
@@ -134,4 +137,58 @@ add_task(async function test_close_panel() {
   await panelHiddenPromise;
 
   Assert.ok(!BrowserTestUtils.isVisible(panelView), "Panel should be closed");
+});
+
+add_task(async function test_user_enable_count() {
+  Services.prefs.clearUserPref("browser.ipProtection.userEnableCount");
+
+  let initialCount = Services.prefs.getIntPref(
+    "browser.ipProtection.userEnableCount",
+    0
+  );
+  Assert.equal(initialCount, 0, "userEnableCount should start at 0");
+
+  let startStub = sinon.stub(lazy.IPPProxyManager, "start");
+
+  let button = document.getElementById(lazy.IPProtectionWidget.WIDGET_ID);
+
+  let panelShownPromise = waitForPanelEvent(document, "popupshown");
+  button.click();
+  await panelShownPromise;
+
+  for (let i = 1; i <= 5; i++) {
+    document.dispatchEvent(
+      new CustomEvent("IPProtection:UserEnable", { bubbles: true })
+    );
+
+    let currentCount = Services.prefs.getIntPref(
+      "browser.ipProtection.userEnableCount",
+      0
+    );
+
+    let expectedCount = Math.min(i, 3);
+    Assert.equal(
+      currentCount,
+      expectedCount,
+      `userEnableCount should be ${expectedCount} after ${i} enable(s)`
+    );
+  }
+
+  let finalCount = Services.prefs.getIntPref(
+    "browser.ipProtection.userEnableCount",
+    0
+  );
+  Assert.equal(
+    finalCount,
+    3,
+    "userEnableCount should not exceed 3 even after 5 enables"
+  );
+
+  let panelHiddenPromise = waitForPanelEvent(document, "popuphidden");
+  EventUtils.synthesizeKey("KEY_Escape");
+  await panelHiddenPromise;
+
+  startStub.restore();
+  Services.prefs.clearUserPref("browser.ipProtection.userEnableCount");
+  Services.prefs.clearUserPref("browser.ipProtection.userEnabled");
 });

@@ -105,6 +105,7 @@ def get_hg_file(parameters, path):
 
 
 def run(
+    metrics,
     task_type,
     release_type,
     try_config_params=None,
@@ -118,13 +119,16 @@ def run(
         print_available_task_types()
         sys.exit(0)
 
+    metrics.mach_try.remote_data_fetching_duration.start()
     if release_type == "nightly":
         previous_graph = get_nightly_graph()
     else:
         release = get_releases(RELEASE_TO_BRANCH[release_type])[-1]
         previous_graph = get_release_graph(release)
     existing_tasks = find_existing_tasks([previous_graph])
+    metrics.mach_try.remote_data_fetching_duration.stop()
 
+    metrics.mach_try.task_config_generation_duration.start()
     previous_parameters = Parameters(
         strict=False, **get_artifact(previous_graph, "public/parameters.yml")
     )
@@ -160,10 +164,12 @@ def run(
         if label in existing_tasks:
             del existing_tasks[label]
 
+    metrics.mach_try.task_config_generation_duration.stop()
     msg = f"scriptworker tests: {task_type}"
     return push_to_try(
         "scriptworker",
         message.format(msg=msg),
+        metrics,
         stage_changes=stage_changes,
         dry_run=dry_run,
         closed_tree=closed_tree,

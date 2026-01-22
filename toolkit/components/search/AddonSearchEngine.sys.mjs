@@ -10,6 +10,7 @@ import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 const lazy = XPCOMUtils.declareLazy({
   AddonManager: "resource://gre/modules/AddonManager.sys.mjs",
   ExtensionParent: "resource://gre/modules/ExtensionParent.sys.mjs",
+  SearchService: "moz-src:///toolkit/components/search/SearchService.sys.mjs",
   SearchUtils: "moz-src:///toolkit/components/search/SearchUtils.sys.mjs",
   logConsole: () =>
     console.createInstance({
@@ -93,7 +94,7 @@ export class AddonSearchEngine extends SearchEngine {
 
     let originalName = this.name;
     let name = manifest.chrome_settings_overrides.search_provider.name.trim();
-    if (originalName != name && Services.search.getEngineByName(name)) {
+    if (originalName != name && lazy.SearchService.getEngineByName(name)) {
       throw new Error("Can't upgrade to the same name as an existing engine");
     }
 

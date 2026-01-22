@@ -2,8 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-"""Python environment for Windows a11y browser tests.
-"""
+"""Python environment for Windows a11y browser tests."""
 
 import ctypes
 import os
@@ -95,8 +94,8 @@ del ia2Mod
 uiaMod = comtypes.client.GetModule("UIAutomationCore.dll")
 globals().update((k, getattr(uiaMod, k)) for k in uiaMod.__all__)
 uiaClient = comtypes.CoCreateInstance(
-    uiaMod.CUIAutomation._reg_clsid_,
-    interface=uiaMod.IUIAutomation,
+    uiaMod.CUIAutomation8._reg_clsid_,
+    interface=uiaMod.IUIAutomation5,
     clsctx=comtypes.CLSCTX_INPROC_SERVER,
 )
 
@@ -346,6 +345,13 @@ def findUiaByDomId(root, id):
     return el.QueryInterface(uiaMod.IUIAutomationElement9)
 
 
+class UiaEvent:
+    def __init__(self, sender, **kwargs):
+        self.sender = sender
+        # Make any kwargs accessible as attributes.
+        self.__dict__.update(**kwargs)
+
+
 class WaitForUiaEvent(comtypes.COMObject):
     """Wait for a UIA event.
     This should be used as follows:
@@ -362,6 +368,7 @@ class WaitForUiaEvent(comtypes.COMObject):
         uiaMod.IUIAutomationFocusChangedEventHandler,
         uiaMod.IUIAutomationPropertyChangedEventHandler,
         uiaMod.IUIAutomationEventHandler,
+        uiaMod.IUIAutomationNotificationEventHandler,
     ]
 
     def __init__(self, *, eventId=None, property=None, match=None):
@@ -377,6 +384,13 @@ class WaitForUiaEvent(comtypes.COMObject):
         self._signal = ctypes.windll.kernel32.CreateEventW(None, True, False, None)
         if eventId == uiaMod.UIA_AutomationFocusChangedEventId:
             uiaClient.AddFocusChangedEventHandler(None, self)
+        elif eventId == uiaMod.UIA_NotificationEventId:
+            uiaClient.AddNotificationEventHandler(
+                uiaClient.GetRootElement(),
+                uiaMod.TreeScope_Subtree,
+                None,
+                self,
+            )
         elif eventId:
             # Generic automation event.
             uiaClient.AddAutomationEventHandler(
@@ -397,36 +411,53 @@ class WaitForUiaEvent(comtypes.COMObject):
         else:
             raise ValueError("No supported event specified")
 
-    def _checkMatch(self, sender):
+    def _checkMatch(self, event):
         if isinstance(self._match, str):
             try:
-                if sender.CurrentAutomationId == self._match:
-                    self._matched = sender
+                if event.sender.CurrentAutomationId == self._match:
+                    self._matched = event
             except comtypes.COMError:
                 pass
         elif callable(self._match):
             try:
-                if self._match(sender):
-                    self._matched = sender
+                if self._match(event):
+                    self._matched = event
             except Exception as e:
                 self._matched = e
         else:
-            self._matched = sender
+            self._matched = event
         if self._matched:
             ctypes.windll.kernel32.SetEvent(self._signal)
 
     def HandleFocusChangedEvent(self, sender):
-        self._checkMatch(sender)
+        self._checkMatch(UiaEvent(sender))
 
     def HandlePropertyChangedEvent(self, sender, propertyId, newValue):
-        self._checkMatch(sender)
+        self._checkMatch(UiaEvent(sender))
 
     def HandleAutomationEvent(self, sender, eventId):
-        self._checkMatch(sender)
+        self._checkMatch(UiaEvent(sender))
+
+    def HandleNotificationEvent(
+        self,
+        sender,
+        notificationKind,
+        notificationProcessing,
+        displayString,
+        activityId,
+    ):
+        self._checkMatch(
+            UiaEvent(
+                sender,
+                notificationKind=notificationKind,
+                notificationProcessing=notificationProcessing,
+                displayString=displayString,
+                activityId=activityId,
+            )
+        )
 
     def wait(self):
-        """Wait for and return the IUIAutomationElement which sent the desired
-        event."""
+        """Wait for and return the desired UiaEvent."""
         # Pump Windows messages until we get the desired event, which will be
         # signalled using a kernel event.
         handles = (ctypes.c_void_p * 1)(self._signal)

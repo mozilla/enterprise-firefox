@@ -683,6 +683,7 @@ support-files = [
   "test-8-7.1.opus^headers^",
   "test-stereo-phase-inversion-180.opus",
   "test-stereo-phase-inversion-180.opus^headers^",
+  "tone_1s_nosilence.mp3",
   "variable-channel.ogg",
   "variable-channel.ogg^headers^",
   "variable-channel.opus",
@@ -771,6 +772,10 @@ skip-if = [
   "os == 'linux' && os_version == '24.04' && arch == 'x86_64' && display == 'x11'", # 1713397, 1719881 (high intermittent failure on linux tsan), 1776937
   "os == 'mac' && os_version == '10.15' && arch == 'x86_64'", # 1517199 (timeout-on-osx)
 ]
+
+["test_captureStream_audioLoopBack.html"]
+scheme = "https"
+tags = "capturestream"
 
 ["test_chaining.html"]
 

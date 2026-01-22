@@ -7,6 +7,8 @@
  * https://w3c.github.io/reporting/#interface-reporting-observer
  */
 
+interface nsISupports;
+
 [Pref="dom.reporting.enabled",
  Exposed=(Window,Worker)]
 interface ReportBody {
@@ -85,6 +87,16 @@ interface CSPViolationReportBody : ReportBody {
   readonly attribute unsigned long? columnNumber;
 };
 
+// https://w3c.github.io/webappsec-subresource-integrity/#report-violations
+[Exposed=Window, Pref="dom.reporting.enabled"]
+interface IntegrityViolationReportBody : ReportBody {
+  [Default] object toJSON();
+  readonly attribute UTF8String documentURL;
+  readonly attribute UTF8String blockedURL;
+  readonly attribute UTF8String destination;
+  readonly attribute boolean    reportOnly;
+};
+
 // Used internally to process the JSON
 [GenerateInit]
 dictionary ReportingHeaderValue {
@@ -111,4 +123,22 @@ dictionary ReportingEndpoint {
   any priority;
   // This is an unsigned long.
   any weight;
+};
+
+dictionary GenerateTestReportParameters
+{
+  required DOMString message;
+  DOMString group = "default";
+};
+
+[ChromeOnly, Pref="dom.reporting.enabled", Exposed=Window]
+namespace TestReportGenerator {
+  [Throws]
+  Promise<undefined> generateReport(GenerateTestReportParameters params);
+};
+
+[LegacyNoInterfaceObject, Exposed=Window]
+interface TestReportBody : ReportBody {
+  [Default] object toJSON();
+  readonly attribute DOMString message;
 };

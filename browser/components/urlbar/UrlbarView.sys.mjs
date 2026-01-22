@@ -17,6 +17,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "resource://gre/modules/ContextualIdentityService.sys.mjs",
   L10nCache: "moz-src:///browser/components/urlbar/UrlbarUtils.sys.mjs",
   ObjectUtils: "resource://gre/modules/ObjectUtils.sys.mjs",
+  SearchService: "moz-src:///toolkit/components/search/SearchService.sys.mjs",
   UrlbarProviderOpenTabs:
     "moz-src:///browser/components/urlbar/UrlbarProviderOpenTabs.sys.mjs",
   UrlbarPrefs: "moz-src:///browser/components/urlbar/UrlbarPrefs.sys.mjs",
@@ -1174,8 +1175,8 @@ export class UrlbarView {
   #resultIsSearchSuggestion(result) {
     return Boolean(
       result &&
-        result.type == lazy.UrlbarUtils.RESULT_TYPE.SEARCH &&
-        result.payload.suggestion
+      result.type == lazy.UrlbarUtils.RESULT_TYPE.SEARCH &&
+      result.payload.suggestion
     );
   }
 
@@ -2688,7 +2689,7 @@ export class UrlbarView {
     }
 
     let engineName =
-      row.result.payload.engine || Services.search.defaultEngine.name;
+      row.result.payload.engine || lazy.SearchService.defaultEngine.name;
 
     if (row.result.payload.trending) {
       return {
@@ -2701,23 +2702,10 @@ export class UrlbarView {
       return { id: "urlbar-group-recent-searches" };
     }
 
-    if (
-      row.result.isBestMatch &&
-      row.result.providerName == lazy.UrlbarProviderQuickSuggest.name
-    ) {
-      switch (row.result.payload.telemetryType) {
-        case "adm_sponsored":
-          if (!lazy.UrlbarPrefs.get("quickSuggestSponsoredPriority")) {
-            return { id: "urlbar-group-sponsored" };
-          }
-          break;
-        case "amo":
-          return { id: "urlbar-group-addon" };
-        case "mdn":
-          return { id: "urlbar-group-mdn" };
-        case "yelp":
-          return { id: "urlbar-group-local" };
-      }
+    if (row.result.providerName == lazy.UrlbarProviderQuickSuggest.name) {
+      return row.result.isBestMatch
+        ? null
+        : { id: "urlbar-group-firefox-suggest" };
     }
 
     if (row.result.isBestMatch) {
@@ -2734,16 +2722,6 @@ export class UrlbarView {
 
     if (!this.#queryContext?.searchString || row.result.heuristic) {
       return null;
-    }
-
-    if (row.result.providerName == lazy.UrlbarProviderQuickSuggest.name) {
-      if (
-        row.result.payload.provider == "Weather" &&
-        !row.result.payload.showRowLabel
-      ) {
-        return null;
-      }
-      return { id: "urlbar-group-firefox-suggest" };
     }
 
     switch (row.result.type) {
@@ -3197,7 +3175,6 @@ export class UrlbarView {
     );
 
     if (
-      lazy.UrlbarPrefs.get("switchTabs.searchAllContainers") &&
       result.type == lazy.UrlbarUtils.RESULT_TYPE.TAB_SWITCH &&
       lazy.UrlbarProviderOpenTabs.isContainerUserContextId(
         result.payload.userContextId
@@ -3468,32 +3445,14 @@ export class UrlbarView {
       { id: "urlbar-result-action-visit-from-clipboard" },
     ];
 
-    let suggestSponsoredEnabled =
-      lazy.UrlbarPrefs.get("quickSuggestEnabled") &&
-      lazy.UrlbarPrefs.get("suggest.quicksuggest.sponsored");
-
     if (lazy.UrlbarPrefs.get("groupLabels.enabled")) {
       idArgs.push({ id: "urlbar-group-firefox-suggest" });
       idArgs.push({ id: "urlbar-group-best-match" });
-      if (lazy.UrlbarPrefs.get("quickSuggestEnabled")) {
-        if (lazy.UrlbarPrefs.get("addonsFeatureGate")) {
-          idArgs.push({ id: "urlbar-group-addon" });
-        }
-        if (lazy.UrlbarPrefs.get("mdn.featureGate")) {
-          idArgs.push({ id: "urlbar-group-mdn" });
-        }
-        if (lazy.UrlbarPrefs.get("yelpFeatureGate")) {
-          idArgs.push({ id: "urlbar-group-local" });
-        }
-        if (
-          suggestSponsoredEnabled &&
-          lazy.UrlbarPrefs.get("quickSuggestAmpTopPickCharThreshold")
-        ) {
-          idArgs.push({ id: "urlbar-group-sponsored" });
-        }
-      }
     }
 
+    let suggestSponsoredEnabled =
+      lazy.UrlbarPrefs.get("quickSuggestEnabled") &&
+      lazy.UrlbarPrefs.get("suggest.quicksuggest.sponsored");
     if (suggestSponsoredEnabled) {
       idArgs.push({ id: "urlbar-result-action-sponsored" });
     }
@@ -3518,13 +3477,13 @@ export class UrlbarView {
     // ongoing. Generally there's no reason for our string-caching paths to be
     // async and it may even be a bad idea (except for the final necessary
     // `this.#l10nCache.ensureAll()` call).
-    if (!Services.search.hasSuccessfullyInitialized) {
+    if (!lazy.SearchService.hasSuccessfullyInitialized) {
       return [];
     }
 
     let idArgs = [];
 
-    let { defaultEngine, defaultPrivateEngine } = Services.search;
+    let { defaultEngine, defaultPrivateEngine } = lazy.SearchService;
     let engineNames = [defaultEngine?.name, defaultPrivateEngine?.name].filter(
       name => name
     );

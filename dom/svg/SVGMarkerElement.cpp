@@ -162,7 +162,7 @@ gfx::Matrix SVGMarkerElement::GetMarkerTransform(float aStrokeWidth,
       angle = aMark.angle;
       break;
     case SVG_MARKER_ORIENT_AUTO_START_REVERSE:
-      angle = aMark.angle + (aMark.type == SVGMark::eStart ? M_PI : 0.0f);
+      angle = aMark.angle + (aMark.type == SVGMark::Type::Start ? M_PI : 0.0f);
       break;
     default:  // SVG_MARKER_ORIENT_ANGLE
       angle = mOrient.GetAnimValue() * M_PI / 180.0f;

@@ -10,6 +10,7 @@
 #include "mozilla/Assertions.h"
 #include "mozilla/Maybe.h"
 #include "mozilla/StaticPrefs_dom.h"
+#include "mozilla/ToString.h"
 #include "mozilla/dom/HTMLSlotElement.h"
 #include "mozilla/dom/ShadowRoot.h"
 #include "nsCOMPtr.h"
@@ -158,8 +159,12 @@ class RangeBoundaryBase {
       } else if (aOffset > 0) {
         mRef = GetChildAt(mParent, aOffset - 1);
       }
-      NS_WARNING_ASSERTION(mRef || aOffset == 0,
-                           "Constructing RangeBoundary with invalid value");
+      NS_WARNING_ASSERTION(
+          mRef || aOffset == 0,
+          nsPrintfCString("Constructing RangeBoundary with invalid "
+                          "value:\nthis=%s",
+                          ToString(*this).c_str())
+              .get());
     }
     NS_WARNING_ASSERTION(!mRef || IsValidParent(mParent, mRef),
                          "Constructing RangeBoundary with invalid value");
@@ -168,6 +173,10 @@ class RangeBoundaryBase {
   [[nodiscard]] TreeKind GetTreeKind() const { return mTreeKind; }
 
   RangeBoundaryBase AsRangeBoundaryInFlatTree() const {
+    // FIXME: Here does wrong things mParent may be not a proper flat tree
+    // parent of mRef if mTreeKind == TreeKind::DOM.  Additionally, mOffset and
+    // mRef may be different when the child node is in flat tree.  Therefore, we
+    // need to recompute mRef and mOffset too.
     if (mOffset) {
       if (mTreeKind == TreeKind::Flat) {
         MOZ_ASSERT_IF(IsSet(), IsSetAndValid());
@@ -291,8 +300,12 @@ class RangeBoundaryBase {
         // `mOffset` is out of bounds.
         return nullptr;
       }
-      MOZ_ASSERT(*Offset(OffsetFilter::kValidOrInvalidOffsets) == 0,
-                 "invalid RangeBoundary");
+      MOZ_ASSERT_IF(mTreeKind == TreeKind::DOM,
+                    *Offset(OffsetFilter::kValidOrInvalidOffsets) == 0);
+      NS_ASSERTION(*Offset(OffsetFilter::kValidOrInvalidOffsets) == 0,
+                   nsPrintfCString("Invalid range boundary:\nthis=%s",
+                                   ToString(*this).c_str())
+                       .get());
       return GetFirstChild(mParent);
     }
     MOZ_ASSERT(
@@ -404,9 +417,8 @@ class RangeBoundaryBase {
       const RangeBoundaryBase<ParentType, RefType>& aRangeBoundary) {
     aStream << "{ mParent=" << aRangeBoundary.GetContainer();
     if (aRangeBoundary.GetContainer()) {
-      aStream << " (" << *aRangeBoundary.GetContainer()
-              << ", Length()=" << aRangeBoundary.GetContainer()->Length()
-              << ")";
+      aStream << " (" << *aRangeBoundary.GetContainer() << ", Length="
+              << aRangeBoundary.GetLength(aRangeBoundary.GetContainer()) << ")";
     }
     if (aRangeBoundary.mIsMutationObserved) {
       aStream << ", mRef=" << aRangeBoundary.mRef;
@@ -417,7 +429,9 @@ class RangeBoundaryBase {
 
     aStream << ", mOffset=" << aRangeBoundary.mOffset;
     aStream << ", mIsMutationObserved="
-            << (aRangeBoundary.mIsMutationObserved ? "true" : "false") << " }";
+            << (aRangeBoundary.mIsMutationObserved ? "true" : "false");
+    aStream << ", mTreeKind=" << aRangeBoundary.mTreeKind;
+    aStream << " }";
     return aStream;
   }
 
@@ -449,12 +463,10 @@ class RangeBoundaryBase {
 
     if (mTreeKind == TreeKind::Flat) {
       if (const auto* slot = dom::HTMLSlotElement::FromNode(mParent)) {
-        const auto& assignedNodes = slot->AssignedNodes();
-        const auto index = assignedNodes.IndexOf(aCurrentNode);
-        if (index != assignedNodes.NoIndex &&
-            index + 1 < assignedNodes.Length()) {
-          if (RawRefType* nextSibling =
-                  RawRefType::FromNode(assignedNodes.ElementAt(index + 1))) {
+        const Span assigned = slot->AssignedNodes();
+        const auto index = assigned.IndexOf(aCurrentNode);
+        if (index != assigned.npos && index + 1 < assigned.Length()) {
+          if (auto* nextSibling = RawRefType::FromNode(assigned[index + 1])) {
             return nextSibling;
           }
           return nullptr;
@@ -468,9 +480,9 @@ class RangeBoundaryBase {
     MOZ_ASSERT(aNode);
     if (mTreeKind == TreeKind::Flat) {
       if (const auto* slot = dom::HTMLSlotElement::FromNode(aNode)) {
-        const auto& assignedNodes = slot->AssignedNodes();
-        if (!assignedNodes.IsEmpty()) {
-          if (RawRefType* child = RawRefType::FromNode(assignedNodes[0])) {
+        const Span assigned = slot->AssignedNodes();
+        if (!assigned.IsEmpty()) {
+          if (RawRefType* child = RawRefType::FromNode(assigned[0])) {
             return child;
           }
           return nullptr;
@@ -506,9 +518,9 @@ class RangeBoundaryBase {
     MOZ_ASSERT(aNode);
     if (mTreeKind == TreeKind::Flat) {
       if (const auto* slot = dom::HTMLSlotElement::FromNode(aNode)) {
-        const auto& assignedNodes = slot->AssignedNodes();
-        if (!assignedNodes.IsEmpty()) {
-          return assignedNodes.Length();
+        const Span assigned = slot->AssignedNodes();
+        if (!assigned.IsEmpty()) {
+          return assigned.Length();
         }
       }
 
@@ -531,9 +543,9 @@ class RangeBoundaryBase {
     MOZ_ASSERT(aParent);
     if (mTreeKind == TreeKind::Flat) {
       if (const auto* slot = dom::HTMLSlotElement::FromNode(aParent)) {
-        const auto& assignedNodes = slot->AssignedNodes();
-        if (!assignedNodes.IsEmpty()) {
-          return RawRefType::FromNode(assignedNodes.LastElement());
+        const Span assigned = slot->AssignedNodes();
+        if (!assigned.IsEmpty()) {
+          return RawRefType::FromNode(assigned[assigned.Length() - 1]);
         }
       }
       if (const auto* shadowRoot = aParent->GetShadowRoot()) {

@@ -4,9 +4,11 @@
 
 use crate::{
     error::{error_to_string, ErrMsg, ErrorBuffer, ErrorBufferType, OwnedErrorBuffer},
-    make_byte_buf, wgpu_string, AdapterInformation, BufferMapResult, ByteBuf, CommandEncoderAction,
-    DeviceAction, FfiSlice, Message, PipelineError, QueueWriteAction, QueueWriteDataSource,
-    ServerMessage, ShaderModuleCompilationMessage, SwapChainId, TextureAction,
+    make_byte_buf,
+    telemetry::build_telemetry_struct,
+    wgpu_string, AdapterInformation, BufferMapResult, ByteBuf, CommandEncoderAction, DeviceAction,
+    FfiSlice, Message, PipelineError, QueueWriteAction, QueueWriteDataSource, ServerMessage,
+    ShaderModuleCompilationMessage, SwapChainId, TextureAction,
 };
 
 use nsstring::{nsACString, nsCString};
@@ -151,7 +153,7 @@ pub extern "C" fn wgpu_server_new(owner: WebGPUParentPtr) -> *mut Global {
 
     let global = wgc::global::Global::new(
         "wgpu",
-        &wgt::InstanceDescriptor {
+        wgt::InstanceDescriptor {
             backends,
             flags: instance_flags,
             backend_options: wgt::BackendOptions {
@@ -169,7 +171,9 @@ pub extern "C" fn wgpu_server_new(owner: WebGPUParentPtr) -> *mut Global {
                 for_resource_creation: Some(95),
                 for_device_loss: Some(99),
             },
+            display: None,
         },
+        Some(build_telemetry_struct()),
     );
     let global = Global { owner, global };
     Box::into_raw(Box::new(global))
@@ -851,7 +855,7 @@ pub unsafe extern "C" fn wgpu_server_texture_create_view(
             base_array_layer: desc.base_array_layer,
             array_layer_count: desc.array_layer_count.map(|ptr| *ptr),
         },
-        usage: None,
+        usage: Some(desc.usage),
     };
     let (_, err) = global.texture_create_view(texture_id, &desc, Some(id_in));
     if let Some(err) = err {
@@ -1491,25 +1495,6 @@ pub fn select_memory_type(
     None
 }
 
-#[cfg(target_os = "linux")]
-struct VkImageHolder {
-    pub device: vk::Device,
-    pub image: vk::Image,
-    pub memory: vk::DeviceMemory,
-    pub fn_destroy_image: vk::PFN_vkDestroyImage,
-    pub fn_free_memory: vk::PFN_vkFreeMemory,
-}
-
-#[cfg(target_os = "linux")]
-impl VkImageHolder {
-    fn destroy(&self) {
-        unsafe {
-            (self.fn_destroy_image)(self.device, self.image, ptr::null());
-            (self.fn_free_memory)(self.device, self.memory, ptr::null());
-        }
-    }
-}
-
 impl Global {
     #[cfg(target_os = "windows")]
     fn create_texture_with_shared_texture_d3d11(
@@ -1765,14 +1750,6 @@ impl Global {
                 }
             }
 
-            let image_holder = VkImageHolder {
-                device: device.handle(),
-                image,
-                memory,
-                fn_destroy_image: device.fp_v1_0().destroy_image,
-                fn_free_memory: device.fp_v1_0().free_memory,
-            };
-
             let hal_desc = wgh::TextureDescriptor {
                 label: None,
                 size: desc.size,
@@ -1785,16 +1762,12 @@ impl Global {
                 view_formats: vec![],
             };
 
-            let image = image_holder.image;
-
             let hal_texture = <wgh::api::Vulkan as wgh::Api>::Device::texture_from_raw(
                 &hal_device,
                 image,
                 &hal_desc,
-                Some(Box::new(move || {
-                    image_holder.destroy();
-                })),
                 None,
+                wgh::vulkan::TextureMemory::Dedicated(memory),
             );
 
             let (_, error) = self.create_texture_from_hal(
@@ -2538,6 +2511,8 @@ unsafe fn process_message(
                     backend,
                     transient_saves_memory,
                     device_pci_bus_id: _,
+                    subgroup_min_size,
+                    subgroup_max_size,
                 } = global.adapter_get_info(adapter_id);
 
                 let is_hardware = match device_type {
@@ -2576,6 +2551,8 @@ unsafe fn process_message(
                     backend,
                     support_use_shared_texture_in_swap_chain,
                     transient_saves_memory,
+                    subgroup_min_size,
+                    subgroup_max_size,
                 };
                 Some(info)
             } else {
@@ -3170,7 +3147,7 @@ mod macos {
             global.create_texture_error(Some(id_in), &desc);
             return;
         };
-        let metal_device = hal_device.raw_device().lock();
+        let metal_device = hal_device.raw_device();
 
         let metal_desc = metal::TextureDescriptor::new();
         let texture_type = match desc.dimension {
@@ -3296,8 +3273,7 @@ mod macos {
                     descriptor.set_usage(usage);
                     descriptor.set_storage_mode(metal::MTLStorageMode::Private);
 
-                    let raw_device = device.lock();
-                    msg_send![*raw_device, newTextureWithDescriptor: descriptor iosurface:io_surface.obj plane:0]
+                    msg_send![*device, newTextureWithDescriptor: descriptor iosurface:io_surface.obj plane:0]
                 })
             };
 

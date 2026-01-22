@@ -10,6 +10,7 @@ import android.content.Context
 import android.content.Context.MODE_PRIVATE
 import android.content.SharedPreferences
 import android.content.pm.ShortcutManager
+import android.os.Environment
 import android.view.accessibility.AccessibilityManager
 import androidx.annotation.VisibleForTesting
 import androidx.annotation.VisibleForTesting.Companion.PRIVATE
@@ -46,6 +47,7 @@ import org.mozilla.fenix.autofill.address.RegionAddressFeatureGate
 import org.mozilla.fenix.browser.browsingmode.BrowsingMode
 import org.mozilla.fenix.components.settings.counterPreference
 import org.mozilla.fenix.components.settings.featureFlagBooleanPreference
+import org.mozilla.fenix.components.settings.lazyBooleanPreference
 import org.mozilla.fenix.components.settings.lazyFeatureFlagBooleanPreference
 import org.mozilla.fenix.components.toolbar.ToolbarPosition
 import org.mozilla.fenix.debugsettings.addresses.EmptyAddressesDebugRegionRepository
@@ -600,6 +602,12 @@ class Settings(
         },
     )
 
+    var isTermsOfUsePublishedDebugDateEnabled by booleanPreference(
+        appContext.getPreferenceKey(R.string.pref_key_terms_latest_date),
+        default = false,
+        persistDefaultIfNotExists = true,
+    )
+
     var privacyNoticeBannerLastDisplayedTimeInMillis by longPreference(
         key = appContext.getPreferenceKey(R.string.pref_key_privacy_notice_banner_last_displayed_time),
         default = 0,
@@ -627,6 +635,14 @@ class Settings(
     var shouldShowTermsOfUsePromptDragHandle by booleanPreference(
         key = appContext.getPreferenceKey(R.string.pref_key_terms_prompt_drag_handle_enabled),
         default = { FxNimbus.features.termsOfUsePrompt.value().enableDragToDismiss },
+    )
+
+    /**
+     * The ID of the content option for the Terms of Use prompt.
+     */
+    var termsOfUsePromptContentOptionId by stringPreference(
+        key = appContext.getPreferenceKey(R.string.pref_key_terms_prompt_content_option),
+        default = { FxNimbus.features.termsOfUsePrompt.value().contentOption.name },
     )
 
     /**
@@ -694,6 +710,16 @@ class Settings(
         default = false,
     )
 
+    /**
+     * Controls whether the user is opted into rollouts (remote improvements).
+     * Rollouts are completely decoupled from telemetry and experiments, so users
+     * can receive feature updates regardless of their telemetry or experiment settings.
+     */
+    var isRolloutsEnabled by lazyBooleanPreference(
+        key = appContext.getPreferenceKey(R.string.pref_key_rollouts),
+        defaultValue = { appContext.components.nimbus.sdk.rolloutParticipation },
+    )
+
     var isOverrideTPPopupsForPerformanceTest = false
 
     // We do not use `booleanPreference` because we only want the "read" part of this setting to be
@@ -717,11 +743,6 @@ class Settings(
 
     val shouldShowSecurityPinWarning: Boolean
         get() = secureWarningCount.underMaxCount()
-
-    var shouldShowPrivacyPopWindow by booleanPreference(
-        appContext.getPreferenceKey(R.string.pref_key_privacy_pop_window),
-        default = true,
-    )
 
     var shouldUseLightTheme by booleanPreference(
         appContext.getPreferenceKey(R.string.pref_key_light_theme),
@@ -2317,14 +2338,6 @@ class Settings(
     )
 
     /**
-     * Indicates if the menu redesign is enabled.
-     */
-    var enableMenuRedesign by booleanPreference(
-        key = appContext.getPreferenceKey(R.string.pref_key_enable_menu_redesign),
-        default = { FxNimbus.features.menuRedesign.value().enabled },
-    )
-
-    /**
      * Indicates if the extensions status should be shown in the menu opened for custom tabs.
      */
     var shouldShowCustomTabExtensions by booleanPreference(
@@ -2418,11 +2431,6 @@ class Settings(
     )
 
     /**
-     * Indicates if the new Search settings UI is enabled.
-     */
-    var enableUnifiedSearchSettingsUI: Boolean = showUnifiedSearchFeature && FeatureFlags.UNIFIED_SEARCH_SETTINGS
-
-    /**
      * Indicates if hidden engines were restored due to migration to unified search settings UI.
      * Should be removed once we expect the majority of the users to migrate.
      * Tracking: https://bugzilla.mozilla.org/show_bug.cgi?id=1850767
@@ -2486,11 +2494,22 @@ class Settings(
     )
 
     /**
-     * Indicates whether Relay enabled or not.
+     * Indicates whether Email Mask is enabled or not.
      */
-    var isRelayFeatureEnabled by booleanPreference(
-        key = appContext.getPreferenceKey(R.string.pref_key_enable_relay_email_masks),
-        default = { FxNimbus.features.relayEmailMasks.value().enabled },
+    var isEmailMaskFeatureEnabled by booleanPreference(
+        key = appContext.getPreferenceKey(R.string.pref_key_enable_email_masks),
+        default = { FxNimbus.features.emailMasks.value().enabled },
+    )
+
+    /**
+     * Indicates whether we should suggest using Relay email masks.
+     *
+     * This is separate from [isEmailMaskFeatureEnabled] so turning suggestions off
+     * does not hide the feature from Settings. This is controlled by the user.
+     */
+    var isEmailMaskSuggestionEnabled by booleanPreference(
+        key = appContext.getPreferenceKey(R.string.pref_key_email_mask_suggestion),
+        default = true,
     )
 
     /**
@@ -2626,11 +2645,11 @@ class Settings(
     )
 
     /**
-     * Indicates whether or not we should use the new crash reporter dialog.
+     * Indicates whether or not we should use the new crash reporter flow.
      */
-    var useNewCrashReporterDialog by booleanPreference(
+    var useNewCrashReporterFlow by booleanPreference(
         appContext.getPreferenceKey(R.string.pref_key_use_new_crash_reporter),
-        default = Config.channel.isNightlyOrDebug,
+        default = Config.channel.isNightlyOrDebug || Config.channel.isBeta,
     )
 
     /**
@@ -2836,6 +2855,14 @@ class Settings(
     )
 
     /**
+     * Whether the Native Share Sheet feature is enabled.
+     */
+    var nativeShareSheetEnabled by booleanPreference(
+        key = appContext.getPreferenceKey(R.string.pref_key_native_share_sheet),
+        default = { FxNimbus.features.nativeShareSheet.value().enabled },
+    )
+
+    /**
      * Indicates whether the app should automatically clean up downloaded files.
      */
     fun shouldCleanUpDownloadsAutomatically(): Boolean {
@@ -2843,4 +2870,9 @@ class Settings(
         val cleanupPreferenceKey = appContext.getString(R.string.pref_key_downloads_clean_up_files_automatically)
         return sharedPreferences.getBoolean(cleanupPreferenceKey, false)
     }
+
+    var downloadsDefaultLocation by stringPreference(
+        appContext.getPreferenceKey(R.string.pref_key_downloads_default_location),
+        default = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).path,
+    )
 }

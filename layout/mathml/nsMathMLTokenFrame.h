@@ -4,8 +4,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef nsMathMLTokenFrame_h___
-#define nsMathMLTokenFrame_h___
+#ifndef nsMathMLTokenFrame_h_
+#define nsMathMLTokenFrame_h_
 
 #include "nsMathMLContainerFrame.h"
 
@@ -29,7 +29,7 @@ class nsMathMLTokenFrame : public nsMathMLContainerFrame {
     // The REC defines the following elements to be space-like:
     // * an mtext, mspace, maligngroup, or malignmark element;
     if (mContent->IsMathMLElement(nsGkAtoms::mtext)) {
-      mPresentationData.flags |= NS_MATHML_SPACE_LIKE;
+      mPresentationData.flags += MathMLPresentationFlag::SpaceLike;
     }
     return NS_OK;
   }
@@ -37,7 +37,7 @@ class nsMathMLTokenFrame : public nsMathMLContainerFrame {
   NS_IMETHOD
   InheritAutomaticData(nsIFrame* aParent) override;
 
-  eMathMLFrameType GetMathMLFrameType() override;
+  MathMLFrameType GetMathMLFrameType() override;
 
   void SetInitialChildList(ChildListID aListID,
                            nsFrameList&& aChildList) override;

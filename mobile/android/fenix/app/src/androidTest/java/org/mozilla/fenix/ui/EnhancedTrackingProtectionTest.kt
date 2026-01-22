@@ -8,6 +8,7 @@ import androidx.compose.ui.test.junit4.AndroidComposeTestRule
 import androidx.core.net.toUri
 import androidx.test.espresso.Espresso.pressBack
 import mozilla.components.concept.engine.utils.EngineReleaseChannel
+import okhttp3.internal.wait
 import org.junit.Rule
 import org.junit.Test
 import org.mozilla.fenix.customannotations.SmokeTest
@@ -108,6 +109,7 @@ class EnhancedTrackingProtectionTest : TestSetup() {
 
         navigationToolbar(composeTestRule) {
         }.enterURLAndEnterToBrowser(genericPage.url) {
+            waitForPageToLoad()
         }.openSiteSecuritySheet {
             verifyETPSwitchVisibility(false)
         }.closeSiteSecuritySheet(composeTestRule) {
@@ -195,6 +197,7 @@ class EnhancedTrackingProtectionTest : TestSetup() {
         navigationToolbar(composeTestRule) {
         }.enterURLAndEnterToBrowser(firstPage.url) {
         }.openSiteSecuritySheet {
+            verifyEnhancedTrackingProtectionSheetStatus("ON", true)
         }.toggleEnhancedTrackingProtectionFromSheet {
             verifyEnhancedTrackingProtectionSheetStatus("OFF", false)
         }.closeSiteSecuritySheet(composeTestRule) {
@@ -217,6 +220,7 @@ class EnhancedTrackingProtectionTest : TestSetup() {
         }
         browserScreen(composeTestRule) {
         }.openSiteSecuritySheet {
+            mDevice.waitForIdle()
             verifyEnhancedTrackingProtectionSheetStatus("ON", true)
         }
     }

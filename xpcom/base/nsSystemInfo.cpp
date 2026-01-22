@@ -1421,6 +1421,52 @@ BOOL WINAPI IsUserCetAvailableInEnvironment(_In_ DWORD UserCetEnvironment);
 #  define USER_CET_ENVIRONMENT_WIN32_PROCESS 0x00000000
 #endif
 
+#if defined(MOZ_ENTERPRISE) && defined(XP_LINUX)
+bool GetSecureBootStatus_Linux() {
+  std::ifstream input(
+      "/sys/firmware/efi/efivars/"
+      "SecureBoot-8be4df61-93ca-11d2-aa0d-00e098032b8c",
+      std::ios::binary);
+  if (input.fail()) {
+    return false;
+  }
+
+  unsigned char bytes[5] = {0};
+  input.read(reinterpret_cast<char*>(bytes), sizeof(bytes));
+  if (!input) {
+    return false;
+  }
+
+  return bytes[4] == 0x01;
+}
+#endif
+
+#if defined(MOZ_ENTERPRISE) && defined(XP_WIN)
+bool GetSecureBootStatus_Windows() {
+  HKEY secureBootStateHKey;
+  LONG status =
+      RegOpenKeyEx(HKEY_LOCAL_MACHINE,
+                   L"SYSTEM\\CurrentControlSet\\Control\\SecureBoot\\State", 0,
+                   KEY_READ, &secureBootStateHKey);
+
+  if (status != ERROR_SUCCESS) {
+    return false;
+  }
+
+  nsAutoRegKey secureBootStateKey(secureBootStateHKey);
+
+  DWORD data, len;
+  len = sizeof(data);
+
+  if (RegQueryValueEx(secureBootStateHKey, L"UEFISecureBootEnabled", 0, 0,
+                      reinterpret_cast<LPBYTE>(&data), &len) == ERROR_SUCCESS) {
+    return static_cast<bool>(data);
+  }
+
+  return false;
+}
+#endif
+
 nsresult nsSystemInfo::Init() {
   // check that it is called from the main thread on all platforms.
   MOZ_ASSERT(NS_IsMainThread());
@@ -1694,8 +1740,25 @@ nsresult nsSystemInfo::Init() {
   }
 #endif  // XP_LINUX && MOZ_SANDBOX
 
+#if defined(MOZ_ENTERPRISE)
+  SetPropertyAsBool(u"secureBootEnabled"_ns, GetSecureBootStatus());
+#endif
+
   return NS_OK;
 }
+
+#if defined(MOZ_ENTERPRISE)
+/* static */
+bool nsSystemInfo::GetSecureBootStatus() {
+#  if defined(XP_LINUX)
+  return GetSecureBootStatus_Linux();
+#  elif defined(XP_WIN)
+  return GetSecureBootStatus_Windows();
+#  else
+  return false;
+#  endif
+}
+#endif
 
 #ifdef MOZ_WIDGET_ANDROID
 // Prerelease versions of Android use a letter instead of version numbers.

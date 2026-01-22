@@ -282,7 +282,6 @@ const DOMAPIs = [
       CSS.highlights.set("anchor", new Highlight());
       CSS.highlights;
     `,
-    prefs: [["dom.customHighlightAPI.enabled", true]],
   },
   {
     context: CONTEXTS.PAGE,

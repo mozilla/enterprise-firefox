@@ -87,14 +87,7 @@ add_task(
     assertSERPTelemetry([
       {
         impression: {
-          provider: "example",
-          tagged: "true",
-          partner_code: "ff",
-          source: "unknown",
-          is_shopping_page: "false",
-          is_private: "false",
           shopping_tab_displayed: "true",
-          is_signed_in: "false",
         },
         adImpressions: [
           {

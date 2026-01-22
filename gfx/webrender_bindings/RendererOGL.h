@@ -171,6 +171,13 @@ class RendererOGL {
   std::unordered_map<uint64_t, wr::Epoch> mContentPipelineEpochs;
 
   RefPtr<WebRenderPipelineInfo> mLastPipelineInfo;
+
+  // Tracks whether the last render rasterized any tiles.
+  // Used by reftest to verify no rasterization occurred.
+  bool mLastFrameDidRasterize = false;
+
+ public:
+  bool CheckAndClearDidRasterize();
 };
 
 }  // namespace wr

@@ -14,10 +14,6 @@ Feature enablement and experiments
 ``browser.ipProtection.userEnabled`` (boolean, default: ``false``)
   For testing; simulates user‑enabled state.
 
-``browser.ipProtection.variant`` (string, default: ``""``)
-  Stores the current UI experiment variant. The value is passed to
-  ``IPProtectionPanel`` to render variant-specific strings and layouts.
-
 ``browser.ipProtection.added`` (boolean, default: ``false``)
   Tracks whether the toolbar button was auto-placed next to the FxA button.
   Once true, the widget is not reinserted automatically after manual removal.

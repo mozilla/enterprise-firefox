@@ -254,7 +254,7 @@ newtab-empty-section-topstories-generic = Ko’ág̃a reikuaapáma. Eikejey ag̃
 
 newtab-discovery-empty-section-topstories-header = ¡Rejejokóma!
 newtab-discovery-empty-section-topstories-content = Ejujey ag̃ave tembiasaverã.
-newtab-discovery-empty-section-topstories-try-again-button = Eha’ãjey
+newtab-discovery-empty-section-topstories-try-again-button = Eha’ã jey
 newtab-discovery-empty-section-topstories-loading = Henyhẽhína…
 # Displays when a layout in a section took too long to fetch articles.
 newtab-discovery-empty-section-topstories-timed-out = ¡Háke! Haimete ñamyanyhẽ ko pehẽ’i, hákatu nahenyhẽmbamo’ãi.
@@ -328,13 +328,8 @@ newtab-custom-recent-subtitle = Tenda jeporavo ha tetepy ramovegua
 newtab-custom-weather-toggle =
     .label = Arapytu
     .description = Ko árape g̃uara ára
-newtab-custom-trending-search-toggle =
-    .label = Jeheka ojejapovéva
-    .description = Umi téma ojeguerohory ha ojehekavéva
 newtab-custom-widget-weather-toggle =
     .label = Arapytu
-newtab-custom-widget-trending-search-toggle =
-    .label = Eheka ojejapovéva
 newtab-custom-widget-lists-toggle =
     .label = Tysýi
 newtab-custom-widget-timer-toggle =
@@ -572,7 +567,7 @@ newtab-section-mangage-topics-blocked-topics-empty-state = Ndojokói gueteri mba
 newtab-custom-wallpaper-title = Ko’ápe oĩ mba’erechaha rugua
 # 'Make firefox yours" means to customize or personalize
 newtab-custom-wallpaper-subtitle = Ehupi ne mba’erechaha teéva térã eiporavo sa’yete embohéra hag̃ua ne { -brand-product-name }.
-newtab-custom-wallpaper-cta = Eha’ãjey
+newtab-custom-wallpaper-cta = Eha’ã jey
 
 ## Strings for new user activation custom wallpaper highlight
 
@@ -595,7 +590,7 @@ newtab-download-mobile-highlight-image =
 newtab-shortcuts-highlight-title = Eguerohoryvéva ne kuã ykerete
 newtab-shortcuts-highlight-subtitle = Embojuaju jeike pya’eha ereko hag̃ua erohoryvéva nde ykére.
 
-## Strings for reporting ads and content
+## Strings for reporting issues with ads and content
 
 newtab-report-content-why-reporting-this =
     .label = ¿Mba’ére emombe’u kóva rehegua?
@@ -613,21 +608,13 @@ newtab-report-content-inappropriate-offensive =
     .label = Nahendái térã oporoja’óva
 newtab-report-content-spam-misleading =
     .label = Spam térã japúva
+newtab-report-content-requires-payment-subscription =
+    .label = Oikotevẽ jehepyme’ẽ térã ñemboheraguapy
+newtab-report-content-requires-payment-subscription-learn-more = Eikuaave
 newtab-report-cancel = Heja
 newtab-report-submit = Mondo
 newtab-toast-thanks-for-reporting =
     .message = Aguyje emomarandu haguére.
-
-## Strings for trending searches
-
-newtab-trending-searches-show-trending =
-    .title = Ehechauka jeheka ojejapovéva
-newtab-trending-searches-hide-trending =
-    .title = Eñomi jeheka ojejapovéva
-newtab-trending-searches-learn-more = Eikuaave
-newtab-trending-searches-dismiss = Eñomi jeheka ojejapovéva
-# "Trending searches refers to popular searches from search engines
-newtab-trending-searches-title = Jeheka ojejapovéva
 
 ## Strings for task / to-do list productivity widget
 

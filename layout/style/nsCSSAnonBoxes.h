@@ -6,8 +6,8 @@
 
 /* atom list for CSS anonymous boxes */
 
-#ifndef nsCSSAnonBoxes_h___
-#define nsCSSAnonBoxes_h___
+#ifndef nsCSSAnonBoxes_h_
+#define nsCSSAnonBoxes_h_
 
 #include "mozilla/PseudoStyleType.h"
 #include "nsAtom.h"
@@ -60,4 +60,4 @@ class nsCSSAnonBoxes {
 #undef CSS_ANON_BOX
 };
 
-#endif /* nsCSSAnonBoxes_h___ */
+#endif /* nsCSSAnonBoxes_h_ */

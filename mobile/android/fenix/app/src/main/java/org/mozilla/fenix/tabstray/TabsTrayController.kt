@@ -7,7 +7,6 @@ package org.mozilla.fenix.tabstray
 import androidx.annotation.VisibleForTesting
 import androidx.navigation.NavController
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import mozilla.appservices.places.BookmarkRoot
@@ -192,6 +191,7 @@ interface TabsTrayController : SyncedTabsController, InactiveTabsController, Tab
  * @param fenixBrowserUseCases [FenixBrowserUseCases] used for adding new homepage tabs.
  * @param bookmarksStorage Storage layer for retrieving and saving bookmarks.
  * @param closeSyncedTabsUseCases Use cases for closing synced tabs.
+ * @param mainDispatcher [CoroutineContext] used for UI-related operations.
  * @param ioDispatcher [CoroutineContext] used for storage operations.
  * @param collectionStorage Storage layer for interacting with collections.
  * @param dismissTray Lambda used to dismiss/minimize the tabs tray.
@@ -219,6 +219,7 @@ class DefaultTabsTrayController(
     private val fenixBrowserUseCases: FenixBrowserUseCases,
     private val bookmarksStorage: BookmarksStorage,
     private val closeSyncedTabsUseCases: CloseTabsUseCases,
+    private val mainDispatcher: CoroutineContext,
     private val ioDispatcher: CoroutineContext,
     private val collectionStorage: TabCollectionStorage,
     private val dismissTray: () -> Unit,
@@ -455,7 +456,7 @@ class DefaultTabsTrayController(
                         position = null,
                     )
                 }
-                withContext(Dispatchers.Main) {
+                withContext(mainDispatcher) {
                     showBookmarkSnackbar(tabs.size, parentNode?.title)
                 }
             }.getOrElse {
@@ -568,7 +569,7 @@ class DefaultTabsTrayController(
     override fun handleSyncedTabClosed(deviceId: String, tab: Tab) {
         CoroutineScope(ioDispatcher).launch {
             val operation = closeSyncedTabsUseCases.close(deviceId, tab.active().url)
-            withContext(Dispatchers.Main) {
+            withContext(mainDispatcher) {
                 showUndoSnackbarForSyncedTab(operation)
             }
         }

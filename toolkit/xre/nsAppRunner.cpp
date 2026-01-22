@@ -10,6 +10,7 @@
 #include "mozilla/AppShutdown.h"
 #include "mozilla/Assertions.h"
 #include "mozilla/Attributes.h"
+#include "mozilla/BaseProfiler.h"
 #include "mozilla/Components.h"
 #include "mozilla/FilePreferences.h"
 #include "mozilla/ChaosMode.h"
@@ -41,11 +42,11 @@
 #include "mozilla/glean/ToolkitXreMetrics.h"
 #include "mozilla/glean/GleanPings.h"
 #include "mozilla/widget/TextRecognition.h"
-#include "BaseProfiler.h"
 #include "mozJSModuleLoader.h"
 
 #if defined(MOZ_ENTERPRISE)
 #  include "mozilla/browser/extensions/felt/felt.h"
+#  include "SpecialSystemDirectory.h"
 #endif
 
 #include "nsAppRunner.h"
@@ -3118,6 +3119,39 @@ static nsresult SelectProfile(nsToolkitProfileService* aProfileSvc,
     return ShowProfileManager(aProfileSvc, aNative);
   }
 
+#if defined(MOZ_ENTERPRISE)
+  {
+    auto forcedProfile = geckoargs::sProfile.IsPresent(gArgc, gArgv);
+    if (is_felt_ui() && !forcedProfile) {
+      nsCOMPtr<nsIFile> file;
+      MOZ_TRY(GetSpecialSystemDirectory(OS_TemporaryDirectory,
+                                        getter_AddRefs(file)));
+      MOZ_TRY(file->AppendNative("felt"_ns));
+
+      bool exists = false;
+      MOZ_TRY(file->Exists(&exists));
+
+      if (!exists) {
+        // Create a unique profile directory.  This can fail if there are too
+        // many (thousands) of existing directories, which is unlikely to
+        // happen.
+        MOZ_TRY(file->CreateUnique(nsIFile::DIRECTORY_TYPE, 0700));
+      }
+
+      nsCOMPtr<nsIFile> localDir = file;
+      file.forget(aRootDir);
+      localDir.forget(aLocalDir);
+      // Background tasks never use profiles known to the profile service.
+      *aProfile = nullptr;
+
+      // consume -profile
+      (void)geckoargs::sProfile.Get(gArgc, gArgv);
+
+      return NS_OK;
+    }
+  }
+#endif
+
   // Ask the profile manager to select the profile directories to use.
   bool didCreate = false;
   rv = aProfileSvc->SelectStartupProfile(&gArgc, gArgv, gDoProfileReset,
@@ -4856,7 +4890,7 @@ int XREMain::XRE_mainStartup(bool* aExitFlag) {
     if (const char* currentDesktop = PR_GetEnv("XDG_CURRENT_DESKTOP")) {
       useXI2 |= (nsDependentCString(currentDesktop) == "gamescope"_ns);
     }
-#    ifdef NIGHTLY_BUILD
+#    ifdef EARLY_BETA_OR_EARLIER
     // We tried 3.24.0+ but had problems, let's retry with newer versions. See
     // bug 1660212.
     useXI2 |= !gtk_check_version(3, 24, 49);

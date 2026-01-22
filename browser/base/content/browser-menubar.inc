@@ -154,7 +154,7 @@
                     <menuitem id="toggle_zoom"
                               type="checkbox"
                               command="cmd_fullZoomToggle"
-                              checked="false" data-l10n-id="menu-view-full-zoom-toggle"/>
+                              data-l10n-id="menu-view-full-zoom-toggle"/>
                   </menupopup>
                 </menu>
                 <menu id="pageStyleMenu" data-l10n-id="menu-view-page-style-menu">
@@ -214,6 +214,11 @@
                 <menuitem id="menu_showAllHistory"
                           key="showAllHistoryKb"
                           command="Browser:ShowAllHistory" data-l10n-id="menu-history-show-all-history"/>
+
+                <menuitem id="chatsHistoryMenu" class="chats-history-menuitem"
+                          data-l10n-id="menu-history-chats"
+                          disabled="true" hidden="true" command="Tools:ChatsHistory"/>
+
                 <menuitem id="sanitizeItem"
                           key="key_sanitize"
                           command="Tools:Sanitize" data-l10n-id="menu-history-clear-recent-history"/>
@@ -255,8 +260,16 @@
 #endif
                   </menupopup>
                 </menu>
+
+                <menuseparator id="startChatHistorySeparator" hidden="true"/>
+                <menuitem id="recentChatsHeader" class="recent-chats-header"
+                          data-l10n-id="menu-history-chats-recent"
+                          disabled="true" hidden="true"/>
+                <!-- Chat history menu items -->
+
                 <menuseparator id="startHistorySeparator"
                                class="hide-if-empty-places-result"/>
+
               </menupopup>
             </menu>
 

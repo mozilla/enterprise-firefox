@@ -2,27 +2,27 @@
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
 const { IPProtectionPanel } = ChromeUtils.importESModule(
-  "resource:///modules/ipprotection/IPProtectionPanel.sys.mjs"
+  "moz-src:///browser/components/ipprotection/IPProtectionPanel.sys.mjs"
 );
 
 const { IPProtection, IPProtectionWidget } = ChromeUtils.importESModule(
-  "resource:///modules/ipprotection/IPProtection.sys.mjs"
+  "moz-src:///browser/components/ipprotection/IPProtection.sys.mjs"
 );
 
 const { IPProtectionService, IPProtectionStates } = ChromeUtils.importESModule(
-  "resource:///modules/ipprotection/IPProtectionService.sys.mjs"
+  "moz-src:///browser/components/ipprotection/IPProtectionService.sys.mjs"
 );
 
 const { IPPProxyManager, IPPProxyStates } = ChromeUtils.importESModule(
-  "resource:///modules/ipprotection/IPPProxyManager.sys.mjs"
+  "moz-src:///browser/components/ipprotection/IPPProxyManager.sys.mjs"
 );
 
 const { IPPSignInWatcher } = ChromeUtils.importESModule(
-  "resource:///modules/ipprotection/IPPSignInWatcher.sys.mjs"
+  "moz-src:///browser/components/ipprotection/IPPSignInWatcher.sys.mjs"
 );
 
 const { IPPEnrollAndEntitleManager } = ChromeUtils.importESModule(
-  "resource:///modules/ipprotection/IPPEnrollAndEntitleManager.sys.mjs"
+  "moz-src:///browser/components/ipprotection/IPPEnrollAndEntitleManager.sys.mjs"
 );
 
 const { HttpServer, HTTP_403 } = ChromeUtils.importESModule(
@@ -34,7 +34,7 @@ const { NimbusTestUtils } = ChromeUtils.importESModule(
 );
 
 const { Server } = ChromeUtils.importESModule(
-  "resource:///modules/ipprotection/IPProtectionServerlist.sys.mjs"
+  "moz-src:///browser/components/ipprotection/IPProtectionServerlist.sys.mjs"
 );
 
 ChromeUtils.defineESModuleGetters(this, {
@@ -45,7 +45,7 @@ ChromeUtils.defineESModuleGetters(this, {
 });
 
 const { ProxyPass } = ChromeUtils.importESModule(
-  "resource:///modules/ipprotection/GuardianClient.sys.mjs"
+  "moz-src:///browser/components/ipprotection/GuardianClient.sys.mjs"
 );
 const { RemoteSettings } = ChromeUtils.importESModule(
   "resource://services-settings/remote-settings.sys.mjs"
@@ -156,6 +156,21 @@ async function closePanel(win = window) {
   await panelHiddenPromise;
 }
 /* exported closePanel */
+
+function waitForTabReloaded(tab) {
+  return new Promise(resolve => {
+    gBrowser.addTabsProgressListener({
+      async onLocationChange(aBrowser) {
+        if (tab.linkedBrowser == aBrowser) {
+          gBrowser.removeTabsProgressListener(this);
+          await Promise.resolve();
+          resolve();
+        }
+      },
+    });
+  });
+}
+/* exported waitForTabReloaded */
 
 /**
  * Creates a fake proxy server for testing.
@@ -290,6 +305,7 @@ add_setup(async function setupVPN() {
     CustomizableUI.reset();
     Services.prefs.clearUserPref(IPProtectionWidget.ADDED_PREF);
     Services.prefs.clearUserPref("browser.ipProtection.panelOpenCount");
+    Services.prefs.clearUserPref("browser.ipProtection.userEnableCount");
     Services.prefs.clearUserPref("browser.ipProtection.stateCache");
     Services.prefs.clearUserPref("browser.ipProtection.entitlementCache");
     Services.prefs.clearUserPref("browser.ipProtection.locationListCache");

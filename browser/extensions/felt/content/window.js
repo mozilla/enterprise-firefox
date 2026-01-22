@@ -14,6 +14,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   ConsoleClient: "resource:///modules/enterprise/ConsoleClient.sys.mjs",
   FeltCommon: "chrome://felt/content/FeltCommon.sys.mjs",
   FeltStorage: "resource:///modules/FeltStorage.sys.mjs",
+  PopupNotifications: "resource://gre/modules/PopupNotifications.sys.mjs",
 });
 
 // Will at least make move forward marionette
@@ -83,6 +84,8 @@ async function listenFormEmailSubmission() {
     signInBtn.disabled = emailInput.value.trim() === "";
   });
 
+  emailInput.focus();
+
   // <moz-button> does not trigger the native "submit" event on <form>
   // so we manually handle submission on button click and when Enter is pressed
   signInBtn.addEventListener("click", () => {
@@ -96,7 +99,25 @@ async function listenFormEmailSubmission() {
   });
 }
 
+function informAboutPotentialStartupFailure() {
+  if (window.location.search) {
+    const errorClass = new URLSearchParams(window.location.search).get("error");
+    if (errorClass) {
+      document
+        .querySelector(".felt-browser-error")
+        .classList.remove("is-hidden");
+      document.querySelector(`.${errorClass}`).classList.remove("is-hidden");
+    }
+  }
+}
+
 function setupMarionetteEnvironment() {
+  window.fullScreen = false;
+
+  window.FullScreen = {
+    exitDomFullScreen() {},
+  };
+
   window.gBrowser = {
     get selectedBrowser() {
       let rv = document.getElementById("browser");
@@ -134,6 +155,10 @@ function setupMarionetteEnvironment() {
       return window;
     },
 
+    get ownerGlobal() {
+      return window;
+    },
+
     addEventListener() {
       this.selectedBrowser.addEventListener(...arguments);
     },
@@ -147,11 +172,35 @@ function setupMarionetteEnvironment() {
   Services.obs.notifyObservers(window, "browser-idle-startup-tasks-finished");
 }
 
+function setupPopupNotifications() {
+  ChromeUtils.defineLazyGetter(window, "PopupNotifications", () => {
+    const panel = document.getElementById("notification-popup");
+    const anchor = document.getElementById("notification-popup-box");
+
+    panel.addEventListener("popupshowing", () => {
+      // Need to shift the anchor element relative to the panel's height and width
+      const r = panel.getBoundingClientRect();
+      const tx = -(r.width / 2);
+      const ty = -(r.height / 2);
+      anchor.style.transform = `translate(${tx}px, ${ty}px)`;
+    });
+
+    try {
+      return new lazy.PopupNotifications(window.gBrowser, panel, anchor, {});
+    } catch (ex) {
+      console.error(ex);
+      return null;
+    }
+  });
+}
+
 window.addEventListener(
   "load",
   () => {
     setupMarionetteEnvironment();
+    setupPopupNotifications();
     listenFormEmailSubmission();
+    informAboutPotentialStartupFailure();
   },
   true
 );

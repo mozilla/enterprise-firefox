@@ -69,6 +69,7 @@ import org.mozilla.fenix.helpers.MatcherHelper.itemWithResId
 import org.mozilla.fenix.helpers.MatcherHelper.itemWithResIdAndText
 import org.mozilla.fenix.helpers.MatcherHelper.itemWithResIdContainingText
 import org.mozilla.fenix.helpers.MatcherHelper.itemWithText
+import org.mozilla.fenix.helpers.MatcherHelper.itemWithTextAndIndex
 import org.mozilla.fenix.helpers.SessionLoadedIdlingResource
 import org.mozilla.fenix.helpers.TestAssetHelper.waitingTime
 import org.mozilla.fenix.helpers.TestAssetHelper.waitingTimeLong
@@ -131,9 +132,22 @@ class BrowserRobot(private val composeTestRule: ComposeTestRule) {
 
     fun verifyUrl(url: String) {
         Log.i(TAG, "verifyUrl: Trying to verify $url")
-        composeTestRule.onAllNodesWithTag(ADDRESSBAR_URL, useUnmergedTree = true)
-            .assertAny(hasText(url.replace("http://", ""), substring = true, ignoreCase = true))
-        Log.i(TAG, "verifyUrl: Verified $url")
+
+        val expectedText = url.replace("http://", "")
+        val textMatcher = hasText(expectedText, substring = true, ignoreCase = true)
+        try {
+            composeTestRule.waitUntil(waitingTimeShort) {
+                composeTestRule.onAllNodesWithTag(ADDRESSBAR_URL, useUnmergedTree = true).fetchSemanticsNodes()
+                    .any { textMatcher.matches(it) }
+            }
+        } catch (_: ComposeTimeoutException) {
+            Log.i(TAG, "verifyUrl [$url] failed because: ")
+            composeTestRule.onAllNodesWithTag(ADDRESSBAR_URL, useUnmergedTree = true).fetchSemanticsNodes()
+                .forEachIndexed { index, node ->
+                    val text = node.config.getOrNull(SemanticsProperties.Text)?.joinToString("")
+                    Log.i(TAG, "verifyUrl: Node[$index] with tag '$ADDRESSBAR_URL' has text: '$text'")
+                }
+        }
     }
 
     fun verifyHelpUrl() {
@@ -1020,7 +1034,7 @@ class BrowserRobot(private val composeTestRule: ComposeTestRule) {
                 if (i == RETRY_COUNT) {
                     throw e
                 } else {
-                    browserScreen(this@BrowserRobot.composeTestRule) {
+                    browserScreen(composeTestRule) {
                     }.openThreeDotMenu {
                     }.clickRefreshButton {
                         waitForPageToLoad(pageLoadWaitingTime = waitingTimeLong)
@@ -1359,7 +1373,8 @@ class BrowserRobot(private val composeTestRule: ComposeTestRule) {
     }
 
     fun clickWebCompatPageItem(itemText: String) {
-        clickPageObject(this@BrowserRobot.composeTestRule, itemContainingText(itemText))
+        clickPageObject(composeTestRule, itemWithTextAndIndex(itemText, 0))
+        waitForAppWindowToBeUpdated()
     }
 
     class Transition(private val composeTestRule: ComposeTestRule) {
@@ -1474,7 +1489,7 @@ class BrowserRobot(private val composeTestRule: ComposeTestRule) {
 
         fun clickDownloadLink(title: String, interact: DownloadRobot.() -> Unit): DownloadRobot.Transition {
             clickPageObject(composeTestRule, itemContainingText(title))
-
+            waitForAppWindowToBeUpdated()
             DownloadRobot(composeTestRule).interact()
             return DownloadRobot.Transition(composeTestRule)
         }

@@ -458,8 +458,8 @@ function checkContextMenu(aContextMenu, aExpectedEntries, aWindow = window) {
         ? aWindow.document.getElementById(commandValue)
         : null;
       let menuItemDisabled = relatedCommand
-        ? relatedCommand.getAttribute("disabled") == "true"
-        : menuitem.getAttribute("disabled") == "true";
+        ? relatedCommand.hasAttribute("disabled")
+        : menuitem.hasAttribute("disabled");
       is(
         menuItemDisabled,
         !aExpectedEntries[i][1],

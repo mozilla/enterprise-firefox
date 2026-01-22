@@ -229,7 +229,7 @@ class BrowserFragment :
             CookieBannerReducerState(),
             listOf(
                 CookieBannerReducerMiddleware(
-                    ioScope = this.lifecycleScope + Dispatchers.IO,
+                    scope = viewLifecycleOwner.lifecycleScope,
                     cookieBannersStorage = requireContext().components.cookieBannerStorage,
                     appContext = requireContext(),
                     currentTab = tab,

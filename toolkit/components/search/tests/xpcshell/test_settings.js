@@ -21,7 +21,7 @@ add_setup(async function () {
     { identifier: "engine2" },
   ]);
   await SearchTestUtils.initXPCShellAddonManager();
-  await Services.search.init();
+  await SearchService.init();
 });
 
 async function loadSettingsFile(settingsFile, setVersion, setHashes) {
@@ -60,14 +60,14 @@ async function checkLoadSettingProperties(
   expectedUseDBValue
 ) {
   info("init search service");
-  let ss = Services.search.wrappedJSObject;
+  let ss = SearchService.wrappedJSObject;
 
   await loadSettingsFile(settingsFile, setVersion);
 
   const settingsFileWritten = promiseAfterSettings();
 
   await ss.reset();
-  await Services.search.init();
+  await SearchService.init();
 
   await settingsFileWritten;
 
@@ -150,13 +150,13 @@ add_task(async function test_legacy_setting_engine_properties() {
 
 add_task(
   async function test_legacy_setting_migration_with_undefined_metaData_current_and_private() {
-    let ss = Services.search.wrappedJSObject;
+    let ss = SearchService.wrappedJSObject;
 
     await loadSettingsFile("settings/v1-metadata-migration.json", false);
     const settingsFileWritten = promiseAfterSettings();
 
     await ss.reset();
-    await Services.search.init();
+    await SearchService.init();
 
     await settingsFileWritten;
 
@@ -179,7 +179,7 @@ add_task(
 
 add_task(
   async function test_legacy_setting_migration_with_correct_metaData_current_and_private_hashes() {
-    let ss = Services.search.wrappedJSObject;
+    let ss = SearchService.wrappedJSObject;
 
     await loadSettingsFile(
       "settings/v6-correct-default-engine-hashes.json",
@@ -189,7 +189,7 @@ add_task(
     const settingsFileWritten = promiseAfterSettings();
 
     await ss.reset();
-    await Services.search.init();
+    await SearchService.init();
 
     await settingsFileWritten;
 
@@ -212,7 +212,7 @@ add_task(
 
 add_task(
   async function test_legacy_setting_migration_with_incorrect_metaData_current_and_private_hashes_app_provided() {
-    let ss = Services.search.wrappedJSObject;
+    let ss = SearchService.wrappedJSObject;
 
     // Here we are testing correct migration for the case that a user has set
     // their default engine to an application provided engine (but not the app
@@ -231,7 +231,7 @@ add_task(
     const settingsFileWritten = promiseAfterSettings();
 
     await ss.reset();
-    await Services.search.init();
+    await SearchService.init();
 
     await settingsFileWritten;
 
@@ -243,7 +243,7 @@ add_task(
       "Should ignore invalid metaData.hash when the default engine is application provided."
     );
     Assert.equal(
-      Services.search.defaultEngine.name,
+      SearchService.defaultEngine.name,
       "engine2",
       "Should have the correct engine set as default"
     );
@@ -254,7 +254,7 @@ add_task(
       "Should ignore invalid metaData.privateHash when the default private engine is application provided."
     );
     Assert.equal(
-      Services.search.defaultPrivateEngine.name,
+      SearchService.defaultPrivateEngine.name,
       "engine2",
       "Should have the correct engine set as default private"
     );
@@ -265,7 +265,7 @@ add_task(
 
 add_task(
   async function test_legacy_setting_migration_with_incorrect_metaData_current_and_private_hashes_third_party() {
-    let ss = Services.search.wrappedJSObject;
+    let ss = SearchService.wrappedJSObject;
 
     // This test is checking that if the user has set a third-party engine as
     // default, and the verification hash is invalid, then we do not copy
@@ -279,7 +279,7 @@ add_task(
     const settingsFileWritten = promiseAfterSettings();
 
     await ss.reset();
-    await Services.search.init();
+    await SearchService.init();
 
     await settingsFileWritten;
 
@@ -291,7 +291,7 @@ add_task(
       "Should reset the default engine when metaData.hash is invalid and the engine is not application provided."
     );
     Assert.equal(
-      Services.search.defaultEngine.name,
+      SearchService.defaultEngine.name,
       "engine1",
       "Should have reset the default engine"
     );
@@ -302,7 +302,7 @@ add_task(
       "Should reset the default engine when metaData.privateHash is invalid and the engine is not application provided."
     );
     Assert.equal(
-      Services.search.defaultPrivateEngine.name,
+      SearchService.defaultPrivateEngine.name,
       "engine1",
       "Should have reset the default private engine"
     );
@@ -320,13 +320,13 @@ add_task(async function test_current_setting_engine_properties() {
 });
 
 add_task(async function test_settings_metadata_properties() {
-  let ss = Services.search.wrappedJSObject;
+  let ss = SearchService.wrappedJSObject;
 
   await loadSettingsFile("settings/settings-loading.json");
 
   const settingsFileWritten = promiseAfterSettings();
   await ss.reset();
-  await Services.search.init();
+  await SearchService.init();
 
   await settingsFileWritten;
 
@@ -350,12 +350,12 @@ add_task(async function test_settings_metadata_properties() {
 });
 
 add_task(async function test_settings_write_when_settings_changed() {
-  let ss = Services.search.wrappedJSObject;
+  let ss = SearchService.wrappedJSObject;
   await loadSettingsFile("settings/settings-loading.json");
 
   const settingsFileWritten = promiseAfterSettings();
   await ss.reset();
-  await Services.search.init();
+  await SearchService.init();
   await settingsFileWritten;
 
   Assert.ok(
@@ -383,12 +383,12 @@ add_task(async function test_settings_write_when_settings_changed() {
 });
 
 add_task(async function test_set_and_get_engine_metadata_attribute() {
-  let ss = Services.search.wrappedJSObject;
+  let ss = SearchService.wrappedJSObject;
   await loadSettingsFile("settings/settings-loading.json");
 
   const settingsFileWritten = promiseAfterSettings();
   await ss.reset();
-  await Services.search.init();
+  await SearchService.init();
   await settingsFileWritten;
 
   let engines = await ss.getEngines();
@@ -416,12 +416,12 @@ add_task(async function test_set_and_get_engine_metadata_attribute() {
 
 add_task(
   async function test_settings_write_prevented_when_settings_unchanged() {
-    let ss = Services.search.wrappedJSObject;
+    let ss = SearchService.wrappedJSObject;
     await loadSettingsFile("settings/settings-loading.json");
 
     const settingsFileWritten = promiseAfterSettings();
     await ss.reset();
-    await Services.search.init();
+    await SearchService.init();
     await settingsFileWritten;
 
     Assert.ok(
@@ -460,14 +460,14 @@ add_task(
  * Test that the JSON settings written in the profile is correct.
  */
 add_task(async function test_settings_write() {
-  let ss = Services.search.wrappedJSObject;
+  let ss = SearchService.wrappedJSObject;
   info("test settings writing");
 
   await loadSettingsFile("settings/settings-loading.json");
 
   const settingsFileWritten = promiseAfterSettings();
   await ss.reset();
-  await Services.search.init();
+  await SearchService.init();
   await settingsFileWritten;
 
   let settingsData = await promiseSettingsData();
@@ -519,7 +519,7 @@ add_task(async function test_settings_write() {
 });
 
 async function settings_write_check(disableFn) {
-  let ss = Services.search.wrappedJSObject;
+  let ss = SearchService.wrappedJSObject;
 
   sinon.stub(ss._settings, "_write").returns(Promise.resolve());
 
@@ -557,26 +557,26 @@ async function settings_write_check(disableFn) {
 add_task(async function test_settings_write_prevented_during_init() {
   await settings_write_check(disable => {
     let status = disable ? "success" : "failed";
-    Services.search.wrappedJSObject.forceInitializationStatusForTests(status);
+    SearchService.wrappedJSObject.forceInitializationStatusForTests(status);
   });
 });
 
 add_task(async function test_settings_write_prevented_during_reload() {
   await settings_write_check(
-    disable => (Services.search.wrappedJSObject._reloadingEngines = disable)
+    disable => (SearchService.wrappedJSObject._reloadingEngines = disable)
   );
 });
 
 add_task(async function test_correct_change_reason_when_no_default_engine() {
   Services.fog.initializeFOG();
 
-  let ss = Services.search.wrappedJSObject;
+  let ss = SearchService.wrappedJSObject;
 
   await loadSettingsFile("settings/settings-loading.json", false, false);
   const settingsFileWritten = promiseAfterSettings();
 
   await ss.reset();
-  await Services.search.init();
+  await SearchService.init();
 
   await settingsFileWritten;
 
@@ -596,12 +596,12 @@ add_task(async function test_correct_change_reason_when_no_default_engine() {
 });
 
 add_task(async function test_markAsUsed_affects_settings() {
-  let ss = Services.search.wrappedJSObject;
+  let ss = SearchService.wrappedJSObject;
   await loadSettingsFile("settings/settings-loading.json");
 
   let settingsFileWritten = promiseAfterSettings();
   await ss.reset();
-  await Services.search.init();
+  await SearchService.init();
   await settingsFileWritten;
 
   let engines = await ss.getEngines();

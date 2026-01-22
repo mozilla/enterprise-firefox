@@ -9,6 +9,7 @@ document.addEventListener(
     const lazy = {};
     ChromeUtils.defineESModuleGetters(lazy, {
       TabMetrics: "moz-src:///browser/components/tabbrowser/TabMetrics.sys.mjs",
+      TabNotes: "moz-src:///browser/components/tabnotes/TabNotes.sys.mjs",
     });
     let mainPopupSet = document.getElementById("mainPopupSet");
     // eslint-disable-next-line complexity
@@ -86,7 +87,12 @@ document.addEventListener(
           break;
         case "context_addNote":
         case "context_editNote":
-          gBrowser.tabNoteMenu.openPanel(TabContextMenu.contextTab);
+          gBrowser.tabNoteMenu.openPanel(TabContextMenu.contextTab, {
+            telemetrySource: lazy.TabNotes.TELEMETRY_SOURCE.TAB_CONTEXT_MENU,
+          });
+          break;
+        case "context_deleteNote":
+          TabContextMenu.deleteTabNotes();
           break;
         case "context_moveToStart":
           gBrowser.moveTabsToStart(TabContextMenu.contextTab);
@@ -196,9 +202,6 @@ document.addEventListener(
           }
           break;
         // == editBookmarkPanel ==
-        case "editBookmarkPanel_showForNewBookmarks":
-          StarUI.onShowForNewBookmarksCheckboxCommand();
-          break;
         case "editBookmarkPanelDoneButton":
           StarUI.panel.hidePopup();
           break;
@@ -251,7 +254,7 @@ document.addEventListener(
           ToolbarContextMenu.onDownloadsAutoHideChange(event);
           break;
         case "toolbar-context-always-show-extensions-button":
-          if (event.target.getAttribute("checked") == "true") {
+          if (event.target.hasAttribute("checked")) {
             gUnifiedExtensions.showExtensionsButtonInToolbar();
           } else {
             gUnifiedExtensions.hideExtensionsButtonFromToolbar();
@@ -490,7 +493,10 @@ document.addEventListener(
             event.target,
             TabContextMenu.contextTab.linkedBrowser.currentURI,
             TabContextMenu.contextTab.linkedBrowser.contentTitle,
-            TabContextMenu.contextTab.multiselected
+            {
+              multiselected: TabContextMenu.contextTab.multiselected,
+              contextMenuType: "tab",
+            }
           );
           break;
         case "context_reopenInContainerPopupMenu":
@@ -598,6 +604,10 @@ document.addEventListener(
         case "tabbrowser-tab-tooltip":
         case "bhTooltip":
           event.target.removeAttribute("position");
+          break;
+        case "tabContextMenu":
+          // Reset Send Tab exposure tracking when tab context menu closes
+          gSync._resetSendTabExposureTracking();
           break;
       }
     });

@@ -79,9 +79,9 @@
 #  include <sys/vfs.h>
 #endif
 
-#ifndef MOZ_NO_SMART_CARDS
+#if defined(NIGHTLY_BUILD) && !defined(MOZ_NO_SMART_CARDS)
 #  include "mozilla/ipc/UtilityProcessManager.h"
-#endif  // !MOZ_NO_SMART_CARDS
+#endif  // NIGHTLY_BUILD && !MOZ_NO_SMART_CARDS
 
 using namespace mozilla;
 using namespace mozilla::psm;

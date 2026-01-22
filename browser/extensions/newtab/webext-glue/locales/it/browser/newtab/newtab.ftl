@@ -331,18 +331,18 @@ newtab-custom-recent-subtitle = Una selezione di siti e contenuti visualizzati d
 newtab-custom-weather-toggle =
     .label = Meteo
     .description = Panoramica delle previsioni meteo per oggi
-newtab-custom-trending-search-toggle =
-    .label = Ricerche di tendenza
-    .description = Argomenti popolari e cercati di frequente
 newtab-custom-widget-weather-toggle =
     .label = Meteo
-newtab-custom-widget-trending-search-toggle =
-    .label = Ricerche di tendenza
 newtab-custom-widget-lists-toggle =
     .label = Liste
 newtab-custom-widget-timer-toggle =
     .label = Timer
 newtab-custom-widget-section-title = Widget
+newtab-custom-widget-section-toggle =
+    .label = Widget
+newtab-widget-manage-title = Widget
+newtab-widget-manage-widget-button =
+    .label = Gestisci widget
 # Tooltip for close button
 newtab-custom-close-menu-button =
     .title = Chiudi
@@ -470,6 +470,8 @@ newtab-weather-change-location-search-input-placeholder =
     .placeholder = Cerca località
     .aria-label = Cerca località
 newtab-weather-menu-weather-display = Visualizzazione meteo
+newtab-weather-todays-forecast = Previsioni per oggi
+newtab-weather-see-full-forecast = Mostra previsioni complete
 # Display options are:
 # - Simple: Displays a current weather condition icon and the current temperature
 # - Detailed: Include simple information plus a short text summary: e.g. "Mostly cloudy"
@@ -598,7 +600,7 @@ newtab-download-mobile-highlight-image =
 newtab-shortcuts-highlight-title = I tuoi preferiti a portata di mano
 newtab-shortcuts-highlight-subtitle = Aggiungi una scorciatoia per mantenere i tuoi siti preferiti a portata di clic.
 
-## Strings for reporting ads and content
+## Strings for reporting issues with ads and content
 
 newtab-report-content-why-reporting-this =
     .label = Perché stai segnalando questa pubblicità?
@@ -616,21 +618,13 @@ newtab-report-content-inappropriate-offensive =
     .label = Inappropriata o offensiva
 newtab-report-content-spam-misleading =
     .label = Spam o ingannevole
+newtab-report-content-requires-payment-subscription =
+    .label = Richiede pagamento o abbonamento
+newtab-report-content-requires-payment-subscription-learn-more = Ulteriori informazioni
 newtab-report-cancel = Annulla
 newtab-report-submit = Invia
 newtab-toast-thanks-for-reporting =
     .message = Grazie per la segnalazione.
-
-## Strings for trending searches
-
-newtab-trending-searches-show-trending =
-    .title = Mostra ricerche di tendenza
-newtab-trending-searches-hide-trending =
-    .title = Nascondi ricerche di tendenza
-newtab-trending-searches-learn-more = Ulteriori informazioni
-newtab-trending-searches-dismiss = Nascondi ricerche di tendenza
-# "Trending searches refers to popular searches from search engines
-newtab-trending-searches-title = Ricerche di tendenza
 
 ## Strings for task / to-do list productivity widget
 
@@ -707,7 +701,7 @@ newtab-widget-message-title = Mantieni la concentrazione utilizzando le liste e 
 # to-dos stands for "things to do".
 newtab-widget-message-copy = Da promemoria veloci a liste di attività quotidiane, da sessioni di concentrazione a pause per rilassarsi: mantieni l’attenzione e rispetta i tempi.
 newtab-promo-card-title = Sostieni { -brand-product-name }
-newtab-promo-card-body = I nostri sponsor sostengono la nostra missione di costruire un Web migliore
+newtab-promo-card-body = Gli sponsor sostengono la nostra missione di costruire un Web migliore
 newtab-promo-card-cta = Ulteriori informazioni
 newtab-promo-card-dismiss-button =
     .title = Chiudi

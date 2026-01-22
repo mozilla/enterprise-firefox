@@ -51,6 +51,7 @@ import mozilla.components.compose.base.menu.MenuItem.CheckableItem
 import mozilla.components.compose.base.text.Text
 import mozilla.components.compose.base.text.value
 import mozilla.components.compose.base.theme.surfaceDimVariant
+import mozilla.components.support.utils.CertificateUtils
 import org.mozilla.fenix.R
 import org.mozilla.fenix.components.menu.compose.MenuBadgeItem
 import org.mozilla.fenix.components.menu.compose.MenuGroup
@@ -91,6 +92,7 @@ internal fun ProtectionPanel(
     onPrivacySecuritySettingsClick: () -> Unit,
     onAutoplayValueClick: (AutoplayValue) -> Unit,
     onToggleablePermissionClick: (WebsitePermission.Toggleable) -> Unit,
+    onViewCertificateClick: () -> Unit,
 ) {
     val isSiteProtectionEnabled = isTrackingProtectionEnabled && isGlobalTrackingProtectionEnabled
     MenuScaffold(
@@ -111,8 +113,8 @@ internal fun ProtectionPanel(
             if (!isLocalPdf) {
                 MenuBadgeItem(
                     label = stringResource(id = R.string.protection_panel_etp_toggle_label),
-                    checked = isTrackingProtectionEnabled && isGlobalTrackingProtectionEnabled,
-                    description = if (isTrackingProtectionEnabled && isGlobalTrackingProtectionEnabled) {
+                    checked = isSiteProtectionEnabled,
+                    description = if (isSiteProtectionEnabled) {
                         stringResource(id = R.string.protection_panel_etp_toggle_enabled_description_2)
                     } else {
                         stringResource(id = R.string.protection_panel_etp_toggle_disabled_description_2)
@@ -122,7 +124,7 @@ internal fun ProtectionPanel(
                     } else {
                         stringResource(id = R.string.protection_panel_etp_toggle_off)
                     },
-                    enabled = (isSiteProtectionEnabled),
+                    enabled = isGlobalTrackingProtectionEnabled,
                     onClick = onTrackingProtectionToggleClick,
                 )
 
@@ -163,8 +165,9 @@ internal fun ProtectionPanel(
                     beforeIconPainter = painterResource(id = iconsR.drawable.mozac_ic_lock_24),
                     description = stringResource(
                         id = R.string.connection_security_panel_verified_by,
-                        websiteInfoState.certificateName,
+                        CertificateUtils.issuerOrganization(websiteInfoState.certificate) ?: "",
                     ),
+                    onClick = onViewCertificateClick,
                 )
             } else {
                 MenuItem(
@@ -443,7 +446,7 @@ private fun ProtectionPanelPreview() {
                     isSecured = true,
                     websiteUrl = "https://www.mozilla.org",
                     websiteTitle = "Mozilla",
-                    certificateName = "",
+                    certificate = null,
                 ),
                 icon = null,
                 isTrackingProtectionEnabled = true,
@@ -463,6 +466,7 @@ private fun ProtectionPanelPreview() {
                 onPrivacySecuritySettingsClick = {},
                 onAutoplayValueClick = {},
                 onToggleablePermissionClick = {},
+                onViewCertificateClick = {},
             )
         }
     }

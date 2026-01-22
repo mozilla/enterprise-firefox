@@ -300,6 +300,7 @@ option {
   will-change: -moz-fixed-pos-containing-block !important;
 
   min-block-size: 1em;
+  min-inline-size: min-content;
   padding-block: 2px;
   user-select: none;
   /*
@@ -437,6 +438,9 @@ input[type="image"]:disabled {
   box-sizing: border-box;
   border: 1px solid grey;
   display: block;
+  background-color: #fff;
+  background-image: linear-gradient(currentColor), repeating-conic-gradient(#ccc 0 25%, transparent 0 50%);
+  background-size: 12px 12px;
 }
 
 /* radio buttons */

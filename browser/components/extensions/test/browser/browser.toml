@@ -384,7 +384,7 @@ run-if = [
 
 ["browser_ext_popup_select_in_oopif.js"]
 skip-if = [
-  "os == 'linux' && os_version == '24.04' && arch == 'x86_64' && display == 'x11' && swgl && fission && tsan", # high frequency intermittent
+  "os == 'linux' && os_version == '24.04' && arch == 'x86_64' && display == 'x11' && tsan && fission && swgl", # high frequency intermittent
 ]
 
 ["browser_ext_popup_sendMessage.js"]
@@ -661,6 +661,9 @@ skip-if = [
 ]
 
 ["browser_ext_user_events.js"]
+
+["browser_ext_webNavigation_bookmark_transitions.js"]
+support-files = ["!/browser/components/places/tests/browser/head.js"]
 
 ["browser_ext_webNavigation_containerIsolation.js"]
 https_first_disabled = true

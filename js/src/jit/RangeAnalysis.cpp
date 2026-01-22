@@ -11,8 +11,7 @@
 
 #include <algorithm>
 
-#include "jsmath.h"
-
+#include "builtin/Math.h"
 #include "jit/CompileInfo.h"
 #include "jit/IonAnalysis.h"
 #include "jit/JitSpewer.h"

@@ -25,6 +25,7 @@ MOZ_SRC_FILES += [
     "PolicySearchEngine.sys.mjs",
     "SearchEngine.sys.mjs",
     "SearchEngineSelector.sys.mjs",
+    "SearchService.sys.mjs",
     "SearchSettings.sys.mjs",
     "SearchShortcuts.sys.mjs",
     "SearchStaticData.sys.mjs",
@@ -34,7 +35,6 @@ MOZ_SRC_FILES += [
 ]
 
 EXTRA_JS_MODULES += [
-    "SearchService.sys.mjs",
     "SearchSuggestions.sys.mjs",
 ]
 

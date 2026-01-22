@@ -13,4 +13,6 @@ prefs = [
 
 ["browser_searchModeSwitcher.js"]
 
+["browser_searchbar_customizing_nobreakout.js"]
+
 ["browser_searchmode.js"]

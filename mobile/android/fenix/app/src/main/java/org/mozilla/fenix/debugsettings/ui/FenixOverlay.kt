@@ -8,6 +8,7 @@ import android.content.Intent
 import android.os.StrictMode
 import android.widget.Toast
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -18,12 +19,12 @@ import androidx.core.net.toUri
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.rememberNavController
+import kotlinx.coroutines.flow.map
 import mozilla.components.browser.state.state.BrowserState
 import mozilla.components.browser.state.state.createTab
 import mozilla.components.browser.state.store.BrowserStore
 import mozilla.components.concept.storage.CreditCardsAddressesStorage
 import mozilla.components.concept.storage.LoginsStorage
-import mozilla.components.lib.state.ext.observeAsState
 import mozilla.telemetry.glean.Glean
 import org.mozilla.fenix.R
 import org.mozilla.fenix.debugsettings.addresses.AddressesDebugRegionRepository
@@ -159,9 +160,9 @@ private fun FenixOverlay(
             creditCardsAddressesStorage = creditCardsAddressesStorage,
         )
     }
-    val drawerStatus by debugDrawerStore.observeAsState(initialValue = DrawerStatus.Closed) { state ->
-        state.drawerStatus
-    }
+    val drawerStatus by remember {
+        debugDrawerStore.stateFlow.map { state -> state.drawerStatus }
+    }.collectAsState(initial = DrawerStatus.Closed)
 
     FirefoxTheme(theme = Theme.getTheme(allowPrivateTheme = false)) {
         DebugOverlay(

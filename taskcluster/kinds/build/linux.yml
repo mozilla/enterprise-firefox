@@ -52,13 +52,66 @@ linux64/opt:
             - onnxruntime-x86_64-linux-gnu
 
 linux64-enterprise-shippable/opt:
+    description: "Linux64 Enterprise Shippable Opt"
+    use-pgo: linux64-shippable/opt
+    index:
+        product: firefox
+        job-name: linux64-enterprise-shippable-opt
+    attributes:
+        shippable: true
+        enable-build-signing: true
+        enable-full-crashsymbols: true
+    shipping-phase: build
+    shipping-product: firefox
+    treeherder:
+        platform: linux64-enterprise-shippable/opt
+        symbol: Bpgo(Bent)
+        tier: 1
+    worker-type: b-linux-docker-xlarge-amd
+    worker:
+        max-run-time: 7200
+        env:
+            PERFHERDER_EXTRA_OPTIONS: enterprise
+            MOZ_AUTOMATION_PACKAGE_TESTS: "1"
+            # bug 1690154 - enable full symbols on all branches, but only
+            # upload them on the official set. In conjunction with
+            # `enable-full-crashsymbols`.
+            MOZ_ENABLE_FULL_SYMBOLS: "1"
+    run:
+        using: mozharness
+        actions: [get-secrets, build]
+        config:
+            - builds/releng_base_firefox.py
+            - builds/releng_base_linux_64_builds.py
+            - taskcluster_nightly.py
+        script: "mozharness/scripts/fx_desktop_build.py"
+        secrets: true
+        tooltool-downloads: public
+    run-on-projects: ["enterprise-firefox"]
+    run-on-repo-type: ["git"]
+    use-sccache: false
+    use-python: "3.11"
+    fetches:
+        toolchain:
+            - linux64-clang
+            - linux64-rust
+            - linux64-rust-size
+            - linux64-cbindgen
+            - linux64-dump_syms
+            - linux64-sccache
+            - linux64-nasm
+            - linux64-node
+            - linux64-pkgconf
+            - sysroot-x86_64-linux-gnu
+            - sysroot-wasm32-wasi
+            - onnxruntime-x86_64-linux-gnu
+
+linux64-enterprise/opt:
     description: "Linux64 Enterprise Opt"
     index:
         product: firefox
         job-name: linux64-enterprise-opt
     attributes:
-        shippable: true
-        enable-build-signing: true
         enable-full-crashsymbols: true
     shipping-phase: build
     shipping-product: firefox
@@ -463,7 +516,7 @@ linux64-enterprise/debug:
         max-run-time: 5400
         env:
             PERFHERDER_EXTRA_OPTIONS: enterprise
-            # MOZ_AUTOMATION_PACKAGE_TESTS: "1"
+            MOZ_AUTOMATION_PACKAGE_TESTS: "1"
             # bug 1690154 - enable full symbols on all branches, but only
             # upload them on the official set. In conjunction with
             # `enable-full-crashsymbols`.
@@ -1812,6 +1865,7 @@ linux64-aarch64-shippable/opt:
 
 linux64-aarch64-enterprise-shippable/opt:
     description: "Linux AArch64 (a.k.a. ARM64) Shippable Enterprise"
+    use-pgo: linux64-shippable/opt
     index:
         product: firefox
         job-name: linux64-aarch64-enterprise-opt
@@ -1824,7 +1878,7 @@ linux64-aarch64-enterprise-shippable/opt:
     shipping-product: firefox
     treeherder:
         platform: linux64-aarch64-enterprise-shippable/opt
-        symbol: Bent
+        symbol: Bpgo(Bent)
     worker-type: b-linux-docker-xlarge-amd
     worker:
         max-run-time: 9000

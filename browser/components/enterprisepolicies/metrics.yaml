@@ -32,6 +32,15 @@ content_policy:
     extra_keys:
       url:
         description: >
-          The blocked url that was browsed.
+          The url that was blocked by policy.
+        type: string
+      original_url:
+        description: >
+          The original url, prior to redirects, that was requested resulting in a block,
+          if different from the blocked url.
+        type: string
+      referrer:
+        description: >
+          The referrer address from which the url was requested.
         type: string
 #endif

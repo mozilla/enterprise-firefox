@@ -13,7 +13,7 @@ add_setup(async function () {
   Services.locale.requestedLocales = ["en"];
 
   SearchTestUtils.setRemoteSettingsConfig([{ identifier: "unused" }]);
-  await Services.search.init();
+  await SearchService.init();
   await promiseAfterSettings();
 });
 
@@ -43,7 +43,7 @@ add_task(async function test_language_switch_changes_name() {
     }
   );
 
-  let engine = Services.search.getEngineById("engine@tests.mozilla.orgdefault");
+  let engine = SearchService.getEngineById("engine@tests.mozilla.orgdefault");
   Assert.ok(!!engine, "Should have loaded the engine");
   Assert.equal(
     engine.name,
@@ -51,7 +51,7 @@ add_task(async function test_language_switch_changes_name() {
     "Should have loaded the English version of the name"
   );
 
-  await Services.search.setDefault(
+  await SearchService.setDefault(
     engine,
     Ci.nsISearchService.CHANGE_REASON_UNKNOWN
   );
@@ -65,7 +65,7 @@ add_task(async function test_language_switch_changes_name() {
 
   await promiseChanged;
 
-  engine = Services.search.getEngineById("engine@tests.mozilla.orgdefault");
+  engine = SearchService.getEngineById("engine@tests.mozilla.orgdefault");
   Assert.ok(!!engine, "Should still be available");
   Assert.equal(
     engine.name,
@@ -74,7 +74,7 @@ add_task(async function test_language_switch_changes_name() {
   );
 
   Assert.equal(
-    (await Services.search.getDefault()).id,
+    (await SearchService.getDefault()).id,
     engine.id,
     "Should have kept the default engine the same"
   );
@@ -89,7 +89,7 @@ add_task(async function test_language_switch_changes_name() {
 
   await promiseChanged;
 
-  engine = Services.search.getEngineById("engine@tests.mozilla.orgdefault");
+  engine = SearchService.getEngineById("engine@tests.mozilla.orgdefault");
   Assert.ok(!!engine, "Should still be available");
   Assert.equal(
     engine.name,
@@ -98,7 +98,7 @@ add_task(async function test_language_switch_changes_name() {
   );
 
   Assert.equal(
-    (await Services.search.getDefault()).id,
+    (await SearchService.getDefault()).id,
     engine.id,
     "Should have kept the default engine the same"
   );

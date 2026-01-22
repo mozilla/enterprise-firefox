@@ -326,13 +326,8 @@ newtab-custom-recent-subtitle = Výber z nedávno navštívených stránok a obs
 newtab-custom-weather-toggle =
     .label = Počasie
     .description = Dnešná predpoveď v skratke
-newtab-custom-trending-search-toggle =
-    .label = Populárne vyhľadávania
-    .description = Populárne a často hľadané témy
 newtab-custom-widget-weather-toggle =
     .label = Počasie
-newtab-custom-widget-trending-search-toggle =
-    .label = Populárne vyhľadávania
 newtab-custom-widget-lists-toggle =
     .label = Zoznamy
 newtab-custom-widget-timer-toggle =
@@ -593,7 +588,7 @@ newtab-download-mobile-highlight-image =
 newtab-shortcuts-highlight-title = Vaše obľúbené položky na dosah ruky
 newtab-shortcuts-highlight-subtitle = Pridajte si skratku, aby ste mali svoje obľúbené stránky dostupné na jedno kliknutie.
 
-## Strings for reporting ads and content
+## Strings for reporting issues with ads and content
 
 newtab-report-content-why-reporting-this =
     .label = Prečo to nahlasujete?
@@ -611,21 +606,13 @@ newtab-report-content-inappropriate-offensive =
     .label = Nevhodné alebo urážlivé
 newtab-report-content-spam-misleading =
     .label = Spam alebo zavádzanie
+newtab-report-content-requires-payment-subscription =
+    .label = Vyžaduje platbu alebo predplatné
+newtab-report-content-requires-payment-subscription-learn-more = Ďalšie informácie
 newtab-report-cancel = Zrušiť
 newtab-report-submit = Odoslať
 newtab-toast-thanks-for-reporting =
     .message = Ďakujeme za nahlásenie.
-
-## Strings for trending searches
-
-newtab-trending-searches-show-trending =
-    .title = Zobraziť populárne vyhľadávania
-newtab-trending-searches-hide-trending =
-    .title = Skryť populárne vyhľadávania
-newtab-trending-searches-learn-more = Ďalšie informácie
-newtab-trending-searches-dismiss = Skryť populárne vyhľadávania
-# "Trending searches refers to popular searches from search engines
-newtab-trending-searches-title = Populárne vyhľadávania
 
 ## Strings for task / to-do list productivity widget
 

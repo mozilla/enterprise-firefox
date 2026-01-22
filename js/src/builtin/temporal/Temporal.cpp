@@ -23,10 +23,10 @@
 #include <string_view>
 #include <utility>
 
-#include "jsnum.h"
 #include "jspubtd.h"
 #include "NamespaceImports.h"
 
+#include "builtin/Number.h"
 #include "builtin/temporal/PlainDate.h"
 #include "builtin/temporal/PlainDateTime.h"
 #include "builtin/temporal/PlainMonthDay.h"

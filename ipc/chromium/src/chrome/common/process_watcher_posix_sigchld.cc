@@ -447,9 +447,9 @@ mozilla::UniqueFileHandle ProcessWatcher::GetSignalPipe() {
   EnsureProcessWatcher();
   int fd = gSignalPipe[1];
   MOZ_ASSERT(fd >= 0);
-  fd = dup(fd);
-  MOZ_ASSERT(fd >= 0);
-  return mozilla::UniqueFileHandle(fd);
+  auto rv = mozilla::DuplicateFileHandle(fd);
+  MOZ_ASSERT(rv);
+  return rv;
 }
 
 /**

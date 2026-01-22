@@ -318,10 +318,12 @@ async function testInteractionFeature(interaction, win) {
 
   info("Click on search-handoff-button in newtab page");
   await ContentTask.spawn(win.gBrowser.selectedBrowser, null, async () => {
-    await ContentTaskUtils.waitForCondition(() =>
-      content.document.querySelector(".search-handoff-button")
-    );
-    content.document.querySelector(".search-handoff-button").click();
+    await ContentTaskUtils.waitForCondition(() => {
+      return content.document.querySelector("content-search-handoff-ui");
+    }, "Handoff UI has loaded");
+    let handoffUI = content.document.querySelector("content-search-handoff-ui");
+    await handoffUI.updateComplete;
+    handoffUI.shadowRoot.querySelector(".search-handoff-button").click();
   });
 
   await BrowserTestUtils.waitForCondition(
@@ -366,13 +368,14 @@ function getSuppressFocusPromise(win = window) {
 
 async function withAwaitProvider(args, promise, callback) {
   let provider = new AwaitPromiseProvider(args, promise);
-  UrlbarProvidersManager.registerProvider(provider);
+  let providersManager = ProvidersManager.getInstanceForSap("urlbar");
+  providersManager.registerProvider(provider);
   try {
     await callback();
   } catch (ex) {
     console.error(ex);
   } finally {
-    UrlbarProvidersManager.unregisterProvider(provider);
+    providersManager.unregisterProvider(provider);
   }
 }
 
@@ -387,5 +390,7 @@ async function openAboutNewTab(win = window) {
     () => win.gBrowser.tabs.length === tabCount + 1,
     "Waiting for background about:newtab to open."
   );
-  return win.gBrowser.tabs[win.gBrowser.tabs.length - 1];
+  let tab = win.gBrowser.tabs[win.gBrowser.tabs.length - 1];
+  await BrowserTestUtils.browserLoaded(tab.linkedBrowser);
+  return tab;
 }

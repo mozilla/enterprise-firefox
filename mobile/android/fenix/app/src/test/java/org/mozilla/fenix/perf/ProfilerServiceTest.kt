@@ -17,12 +17,9 @@ import io.mockk.impl.annotations.MockK
 import io.mockk.impl.annotations.RelaxedMockK
 import io.mockk.mockk
 import io.mockk.unmockkAll
-import kotlinx.coroutines.test.StandardTestDispatcher
-import kotlinx.coroutines.test.runTest
 import mozilla.components.browser.engine.gecko.profiler.Profiler
 import mozilla.components.concept.engine.Engine
 import mozilla.components.support.base.android.NotificationsDelegate
-import mozilla.components.support.test.rule.MainCoroutineRule
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -31,7 +28,6 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
-import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mozilla.fenix.components.Core
@@ -48,10 +44,6 @@ import org.robolectric.shadows.ShadowService
 @RunWith(RobolectricTestRunner::class)
 @Config(application = FenixRobolectricTestApplication::class, sdk = [Build.VERSION_CODES.TIRAMISU])
 class ProfilerServiceTest {
-
-    @get:Rule
-    val coroutineRule = MainCoroutineRule(StandardTestDispatcher())
-
     private lateinit var context: Context
     private lateinit var notificationManager: NotificationManager
     private lateinit var shadowNotificationManager: ShadowNotificationManager
@@ -82,15 +74,6 @@ class ProfilerServiceTest {
         val fenixApp = context as FenixRobolectricTestApplication
 
         val mockNotificationsDelegate = mockk<NotificationsDelegate>(relaxed = true)
-        every {
-            mockNotificationsDelegate.requestNotificationPermission(
-                onPermissionGranted = any(),
-                showPermissionRationale = any(),
-            )
-        } answers {
-            val onPermissionGranted = arg<() -> Unit>(0)
-            onPermissionGranted.invoke()
-        }
 
         every { fenixApp.components.notificationsDelegate } returns mockNotificationsDelegate
         every { fenixApp.components.core } returns mockCore
@@ -99,10 +82,6 @@ class ProfilerServiceTest {
 
         // Mock profiler methods
         every { mockProfiler.isProfilerActive() } returns true
-        every { mockProfiler.stopProfiler(any(), any()) } answers {
-            val onError = secondArg<(Throwable) -> Unit>()
-            onError(Exception("Test error"))
-        }
     }
 
     @After
@@ -160,7 +139,7 @@ class ProfilerServiceTest {
     }
 
     @Test
-    fun `GIVEN profiler service is running WHEN receiving inactive broadcast THEN the service stops`() = runTest(coroutineRule.testDispatcher) {
+    fun `GIVEN profiler service is running WHEN receiving inactive broadcast THEN the service stops`() {
         serviceController = Robolectric.buildService(ProfilerService::class.java)
         serviceController.create()
         service = serviceController.get()

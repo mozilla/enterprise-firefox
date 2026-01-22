@@ -11,6 +11,7 @@
 #include "gfxRect.h"
 #include "gfxTextRun.h"
 #include "mozilla/Attributes.h"
+#include "mozilla/EnumeratedArray.h"
 #include "mozilla/Maybe.h"
 #include "mozilla/PresShellForwards.h"
 #include "mozilla/RefPtr.h"
@@ -45,6 +46,17 @@ nsIFrame* NS_NewSVGTextFrame(mozilla::PresShell* aPresShell,
                              mozilla::ComputedStyle* aStyle);
 
 namespace mozilla {
+
+enum class SVGTextFrameWhichCachedRange {
+  Before,
+  After,
+};
+
+// Glue to make EnumeratedArray work with SVGTextFrameWhichCachedRange.
+template <>
+struct MaxContiguousEnumValue<SVGTextFrameWhichCachedRange> {
+  static constexpr auto value = SVGTextFrameWhichCachedRange::After;
+};
 
 /**
  * Information about the positioning for a single character in an SVG <text>
@@ -226,7 +238,7 @@ class SVGTextFrame final : public SVGDisplayContainerFrame {
       const nsPoint& aPoint, FrameWithDistance* aCurrentBestFrame) override;
 
   // ISVGDisplayableFrame interface:
-  void NotifySVGChanged(uint32_t aFlags) override;
+  void NotifySVGChanged(ChangeFlags aFlags) override;
   void PaintSVG(gfxContext& aContext, const gfxMatrix& aTransform,
                 imgDrawingParams& aImgParams) override;
   nsIFrame* GetFrameForPoint(const gfxPoint& aPoint) override;
@@ -590,22 +602,20 @@ class SVGTextFrame final : public SVGDisplayContainerFrame {
 
  public:
   struct CachedMeasuredRange {
+    CachedMeasuredRange() : mAdvance(0) {}
     Range mRange;
     nscoord mAdvance;
   };
 
   void SetCurrentFrameForCaching(const nsTextFrame* aFrame) {
     if (mFrameForCachedRanges != aFrame) {
-      PodArrayZero(mCachedRanges);
+      std::fill(mCachedRanges.begin(), mCachedRanges.end(),
+                CachedMeasuredRange());
       mFrameForCachedRanges = aFrame;
     }
   }
 
-  enum WhichRange {
-    Before,
-    After,
-    CachedRangeCount,
-  };
+  using WhichRange = SVGTextFrameWhichCachedRange;
 
   CachedMeasuredRange& CachedRange(WhichRange aWhichRange) {
     return mCachedRanges[aWhichRange];
@@ -630,7 +640,7 @@ class SVGTextFrame final : public SVGDisplayContainerFrame {
 
  private:
   const nsTextFrame* mFrameForCachedRanges = nullptr;
-  CachedMeasuredRange mCachedRanges[CachedRangeCount];
+  EnumeratedArray<WhichRange, CachedMeasuredRange> mCachedRanges;
 
   Maybe<nsTextFrame::PropertyProvider> mCachedProvider;
 };

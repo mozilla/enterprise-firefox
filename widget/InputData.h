@@ -3,8 +3,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef InputData_h__
-#define InputData_h__
+#ifndef InputData_h_
+#define InputData_h_
 
 #include "nsDebug.h"
 #include "nsPoint.h"
@@ -853,4 +853,4 @@ MultiTouchInput UpdateSynthesizedTouchState(
 
 }  // namespace mozilla
 
-#endif  // InputData_h__
+#endif  // InputData_h_

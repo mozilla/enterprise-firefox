@@ -758,6 +758,7 @@ LoadInfo::LoadInfo(
     nsIPrincipal* aPrincipalToInherit, nsIPrincipal* aTopLevelPrincipal,
     nsIURI* aResultPrincipalURI, nsICookieJarSettings* aCookieJarSettings,
     nsIPolicyContainer* aPolicyContainerToInherit,
+    const Maybe<dom::FeaturePolicyInfo>& aContainerFeaturePolicyInfo,
     const nsACString& aTriggeringRemoteType,
     const nsID& aSandboxedNullPrincipalID, const Maybe<ClientInfo>& aClientInfo,
     const Maybe<ClientInfo>& aReservedClientInfo,
@@ -792,6 +793,7 @@ LoadInfo::LoadInfo(
       mResultPrincipalURI(aResultPrincipalURI),
       mCookieJarSettings(aCookieJarSettings),
       mPolicyContainerToInherit(aPolicyContainerToInherit),
+      mContainerFeaturePolicyInfo(aContainerFeaturePolicyInfo),
       mTriggeringRemoteType(aTriggeringRemoteType),
       mSandboxedNullPrincipalID(aSandboxedNullPrincipalID),
       mClientInfo(aClientInfo),
@@ -1765,6 +1767,14 @@ LoadInfo::GetIsTopLevelLoad(bool* aResult) {
 
 void LoadInfo::SetIsFromProcessingFrameAttributes() {
   mIsFromProcessingFrameAttributes = true;
+}
+
+dom::ReferrerPolicy LoadInfo::GetFrameReferrerPolicySnapshot() const {
+  return mFrameReferrerPolicySnapshot;
+}
+
+void LoadInfo::SetFrameReferrerPolicySnapshot(dom::ReferrerPolicy aPolicy) {
+  mFrameReferrerPolicySnapshot = aPolicy;
 }
 
 NS_IMETHODIMP

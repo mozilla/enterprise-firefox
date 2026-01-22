@@ -11,6 +11,9 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.runTest
 import mozilla.appservices.RustComponentsInitializer
 import mozilla.components.concept.storage.Login
 import mozilla.components.concept.storage.LoginEntry
@@ -19,12 +22,9 @@ import mozilla.components.service.sync.logins.InvalidRecordException
 import mozilla.components.service.sync.logins.SyncableLoginsStorage
 import mozilla.components.service.sync.logins.UNDECRYPTABLE_LOGINS_CLEANED_KEY
 import mozilla.components.support.test.robolectric.testContext
-import mozilla.components.support.test.rule.MainCoroutineRule
-import mozilla.components.support.test.rule.runTestOnMain
 import mozilla.components.support.utils.ClipboardHandler
 import org.junit.Assert.assertTrue
 import org.junit.Before
-import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mozilla.fenix.R
@@ -35,11 +35,10 @@ import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
 class SavedLoginsStorageControllerTest {
-    @get:Rule
-    val coroutinesTestRule = MainCoroutineRule()
-    private val ioDispatcher = coroutinesTestRule.testDispatcher
-    private val scope = coroutinesTestRule.scope
 
+    private val testDispatcher = StandardTestDispatcher()
+
+    private val testScope = TestScope(testDispatcher)
     private val passwordsStorage: SyncableLoginsStorage = mockk(relaxed = true)
     private lateinit var controller: SavedLoginsStorageController
     private val navController: NavController = mockk(relaxed = true)
@@ -57,19 +56,20 @@ class SavedLoginsStorageControllerTest {
 
         controller = SavedLoginsStorageController(
             passwordsStorage = passwordsStorage,
-            lifecycleScope = scope,
+            lifecycleScope = testScope,
             navController = navController,
             loginsFragmentStore = loginsFragmentStore,
-            ioDispatcher = ioDispatcher,
             clipboardHandler = clipboardHandler,
         )
     }
 
     @Test
-    fun `WHEN a login is deleted, THEN navigate back to the previous page`() = runTestOnMain {
+    fun `WHEN a login is deleted, THEN navigate back to the previous page`() = runTest(testDispatcher) {
         val loginId = "id"
         coEvery { passwordsStorage.delete(any()) } returns true
+
         controller.delete(loginId)
+        testDispatcher.scheduler.advanceUntilIdle()
 
         coVerify {
             passwordsStorage.delete(loginId)
@@ -79,7 +79,7 @@ class SavedLoginsStorageControllerTest {
     }
 
     @Test
-    fun `WHEN fetching the login list, THEN update the state in the store`() = runTestOnMain {
+    fun `WHEN fetching the login list, THEN update the state in the store`() = runTest(testDispatcher) {
         val login = Login(
             guid = "id",
             origin = "https://www.test.co.gov.org",
@@ -91,6 +91,7 @@ class SavedLoginsStorageControllerTest {
         coEvery { passwordsStorage.get("id") } returns login
 
         controller.fetchLoginDetails(login.guid)
+        testDispatcher.scheduler.advanceUntilIdle()
 
         val expectedLogin = login.mapToSavedLogin()
 
@@ -105,7 +106,7 @@ class SavedLoginsStorageControllerTest {
     }
 
     @Test
-    fun `WHEN saving an update to an item, THEN navigate to login detail view`() = runTestOnMain {
+    fun `WHEN saving an update to an item, THEN navigate to login detail view`() = runTest(testDispatcher) {
         val oldLogin = Login(
             guid = "id",
             origin = "https://www.test.co.gov.org",
@@ -127,6 +128,7 @@ class SavedLoginsStorageControllerTest {
         coEvery { passwordsStorage.update(any(), any()) } returns newLogin
 
         controller.save(oldLogin.guid, "newUsername", "newPassword")
+        testDispatcher.scheduler.advanceUntilIdle()
 
         val directions =
             EditLoginFragmentDirections.actionEditLoginFragmentToLoginDetailFragment(
@@ -149,7 +151,7 @@ class SavedLoginsStorageControllerTest {
     }
 
     @Test
-    fun `WHEN login dupe is found for save, THEN update duplicate in the store`() = runTestOnMain {
+    fun `WHEN login dupe is found for save, THEN update duplicate in the store`() = runTest(testDispatcher) {
         val login = Login(
             guid = "id",
             origin = "https://www.test.co.gov.org",
@@ -175,6 +177,7 @@ class SavedLoginsStorageControllerTest {
 
         // Simulate calling findDuplicateForSave after the user set the username field to the login2's username
         controller.findDuplicateForSave(login.guid, login2.username, login.password)
+        testDispatcher.scheduler.advanceUntilIdle()
 
         coVerify {
             passwordsStorage.get(login.guid)
@@ -194,7 +197,7 @@ class SavedLoginsStorageControllerTest {
     }
 
     @Test
-    fun `WHEN login dupe is not found for save, THEN update duplicate in the store`() = runTestOnMain {
+    fun `WHEN login dupe is not found for save, THEN update duplicate in the store`() = runTest(testDispatcher) {
         val login = Login(
             guid = "id",
             origin = "https://www.test.co.gov.org",
@@ -211,6 +214,7 @@ class SavedLoginsStorageControllerTest {
 
         // Simulate calling findDuplicateForSave after the user set the username field to a new value
         controller.findDuplicateForSave(login.guid, "new-username", login.password)
+        testDispatcher.scheduler.advanceUntilIdle()
 
         coVerify {
             passwordsStorage.get(login.guid)
@@ -230,7 +234,7 @@ class SavedLoginsStorageControllerTest {
     }
 
     @Test
-    fun `WHEN login dupe is found for add, THEN update duplicate in the store`() = runTestOnMain {
+    fun `WHEN login dupe is found for add, THEN update duplicate in the store`() = runTest(testDispatcher) {
         val login = Login(
             guid = "id",
             origin = "https://www.test.co.gov.org",
@@ -246,6 +250,7 @@ class SavedLoginsStorageControllerTest {
 
         // Simulate calling findDuplicateForAdd after the user set the origin/username fields to match login
         controller.findDuplicateForAdd(login.origin, login.username, "new-password")
+        testDispatcher.scheduler.advanceUntilIdle()
 
         coVerify {
             passwordsStorage.findLoginToUpdate(
@@ -264,7 +269,7 @@ class SavedLoginsStorageControllerTest {
     }
 
     @Test
-    fun `WHEN login dupe is not found for add, THEN update duplicate in the store`() = runTestOnMain {
+    fun `WHEN login dupe is not found for add, THEN update duplicate in the store`() = runTest(testDispatcher) {
         coEvery {
             passwordsStorage.findLoginToUpdate(any())
         } returns null
@@ -272,6 +277,7 @@ class SavedLoginsStorageControllerTest {
         // Simulate calling findDuplicateForAdd after the user set the origin/username field to new values
         val origin = "https://new-origin.example.com"
         controller.findDuplicateForAdd(origin, "username", "password")
+        testDispatcher.scheduler.advanceUntilIdle()
 
         coVerify {
             passwordsStorage.findLoginToUpdate(
@@ -290,7 +296,7 @@ class SavedLoginsStorageControllerTest {
     }
 
     @Test
-    fun `WHEN findLoginToUpdate throws THEN update duplicate in the store`() = runTestOnMain {
+    fun `WHEN findLoginToUpdate throws THEN update duplicate in the store`() = runTest(testDispatcher) {
         coEvery {
             passwordsStorage.findLoginToUpdate(any())
         } throws InvalidRecordException("InvalidOrigin")
@@ -298,6 +304,7 @@ class SavedLoginsStorageControllerTest {
         // Simulate calling findDuplicateForAdd with an invalid origin
         val origin = "https://"
         controller.findDuplicateForAdd(origin, "username", "password")
+        testDispatcher.scheduler.advanceUntilIdle()
 
         coVerify {
             passwordsStorage.findLoginToUpdate(
@@ -316,7 +323,7 @@ class SavedLoginsStorageControllerTest {
     }
 
     @Test
-    fun `WHEN dupe checking THEN always use a non-blank password`() = runTestOnMain {
+    fun `WHEN dupe checking THEN always use a non-blank password`() = runTest(testDispatcher) {
         // If the user hasn't entered a password yet, we should use a dummy
         // password to send a valid login entry to findLoginToUpdate()
 
@@ -327,6 +334,7 @@ class SavedLoginsStorageControllerTest {
         // Simulate calling findDuplicateForAdd with an invalid origin
         val origin = "https://example.com/"
         controller.findDuplicateForAdd(origin, "username", "")
+        testDispatcher.scheduler.advanceUntilIdle()
 
         coVerify {
             passwordsStorage.findLoginToUpdate(
@@ -342,17 +350,17 @@ class SavedLoginsStorageControllerTest {
     }
 
     @Test
-    fun `VERIFY cleaning undecryptable logins only happens once`() = runTestOnMain {
+    fun `VERIFY cleaning undecryptable logins only happens once`() = runTest(testDispatcher) {
         RustComponentsInitializer.init()
         val securePrefs = SecureAbove22Preferences(testContext, "logins", forceInsecure = true)
         val testPasswordsStorage = SyncableLoginsStorage(
             testContext,
             lazy { securePrefs },
-            coroutinesTestRule.testDispatcher,
+            testDispatcher,
         )
 
         testPasswordsStorage.warmUp()
-        coroutinesTestRule.testDispatcher.scheduler.advanceUntilIdle()
+        testDispatcher.scheduler.advanceUntilIdle()
 
         // Assert we've never ran the logins cleanup
         assertTrue(
@@ -363,7 +371,7 @@ class SavedLoginsStorageControllerTest {
 
         // Register with the sync manager to "pretend" we're about to sync
         testPasswordsStorage.registerWithSyncManager()
-        coroutinesTestRule.testDispatcher.scheduler.advanceUntilIdle()
+        testDispatcher.scheduler.advanceUntilIdle()
         // Validate we've ran once and set the pref successfully
         assertTrue(
             testContext
@@ -372,7 +380,7 @@ class SavedLoginsStorageControllerTest {
         )
 
         testPasswordsStorage.registerWithSyncManager()
-        coroutinesTestRule.testDispatcher.scheduler.advanceUntilIdle()
+        testDispatcher.scheduler.advanceUntilIdle()
 
         // Subsequent calls should not call the method again
         assertTrue(

@@ -564,7 +564,7 @@ newtab-download-mobile-highlight-body-variant-a = Pindai kode untuk menjelajah d
 newtab-shortcuts-highlight-title = Favorit Anda di ujung jari Anda
 newtab-shortcuts-highlight-subtitle = Tambahkan pintasan untuk menjaga situs favorit Anda dengan sekali klik.
 
-## Strings for reporting ads and content
+## Strings for reporting issues with ads and content
 
 newtab-report-content-why-reporting-this =
     .label = Mengapa Anda melaporkan ini?
@@ -580,10 +580,6 @@ newtab-report-cancel = Batal
 newtab-report-submit = Kirim
 newtab-toast-thanks-for-reporting =
     .message = Terima kasih telah melaporkan ini.
-
-## Strings for trending searches
-
-newtab-trending-searches-learn-more = Pelajari lebih lanjut
 
 ## Strings for task / to-do list productivity widget
 

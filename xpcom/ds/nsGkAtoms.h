@@ -4,8 +4,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef nsGkAtoms_h___
-#define nsGkAtoms_h___
+#ifndef nsGkAtoms_h_
+#define nsGkAtoms_h_
 
 #include "nsAtom.h"
 
@@ -181,4 +181,4 @@ class nsGkAtoms {
 
 inline bool nsAtom::IsEmpty() const { return this == nsGkAtoms::_empty; }
 
-#endif /* nsGkAtoms_h___ */
+#endif /* nsGkAtoms_h_ */

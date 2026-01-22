@@ -4611,29 +4611,32 @@ bool nsGlobalWindowOuter::CanMoveResizeWindows(CallerType aCallerType,
     if (mBrowsingContext->Top()->HasSiblings()) {
       return false;
     }
+
+    if (mBrowsingContext->GetIsDocumentPiP()) {
+      // https://wicg.github.io/document-picture-in-picture/#positioning
+      if (aIsMove) {
+        nsLiteralString errorMsg(
+            u"Picture-in-Picture windows cannot be moved by script.");
+        nsContentUtils::ReportToConsoleNonLocalized(
+            errorMsg, nsIScriptError::warningFlag, "Window"_ns, GetDocument());
+        return false;
+      }
+
+      // https://wicg.github.io/document-picture-in-picture/#resizing-the-pip-window
+      WindowContext* wc = mInnerWindow->GetWindowContext();
+      if (!wc || !wc->ConsumeTransientUserGestureActivation()) {
+        aError.ThrowNotAllowedError(
+            "Resizing a Picture-in-Picture window requires transient "
+            "activation");
+        return false;
+      }
+    }
   }
 
   if (mDocShell) {
     bool allow;
     nsresult rv = mDocShell->GetAllowWindowControl(&allow);
-    if (NS_SUCCEEDED(rv) && !allow) return false;
-  }
-
-  if (mBrowsingContext->GetIsDocumentPiP()) {
-    // https://wicg.github.io/document-picture-in-picture/#positioning
-    if (aIsMove) {
-      nsLiteralString errorMsg(
-          u"Picture-in-Picture windows cannot be moved by script.");
-      nsContentUtils::ReportToConsoleNonLocalized(
-          errorMsg, nsIScriptError::warningFlag, "Window"_ns, GetDocument());
-      return false;
-    }
-
-    // https://wicg.github.io/document-picture-in-picture/#resizing-the-pip-window
-    WindowContext* wc = mInnerWindow->GetWindowContext();
-    if (!wc || !wc->ConsumeTransientUserGestureActivation()) {
-      aError.ThrowNotAllowedError(
-          "Resizing a Picture-in-Picture window requires transient activation");
+    if (NS_SUCCEEDED(rv) && !allow) {
       return false;
     }
   }
@@ -5179,10 +5182,11 @@ Nullable<WindowProxyHolder> nsGlobalWindowOuter::Print(
     // which case this is the second print with this static document clone that
     // we created the first time through, and we are responsible for cleaning it
     // up. There's also an exception if we're directly using the system print
-    // dialog rather than our preview panel, because in this case the preview
-    // will not take care of cleaning up the cloned doc.
-    closeWindowAfterPrint =
-        usingCachedBrowsingContext || StaticPrefs::print_prefer_system_dialog();
+    // dialog or silent printing, rather than our preview panel, because in this
+    // case the preview will not take care of cleaning up the cloned doc.
+    closeWindowAfterPrint = usingCachedBrowsingContext ||
+                            StaticPrefs::print_prefer_system_dialog() ||
+                            StaticPrefs::print_always_print_silent();
   } else {
     // In this case the document was not a static clone, so we made a static
     // clone for printing purposes and must clean it up after the print is done.

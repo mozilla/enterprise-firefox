@@ -66,7 +66,7 @@
 .widgets-container {
   --widgets-card-width: var(--newtab-card-grid-layout-width);
   // This is the maximum number of widgets the Widgets row can support
-  --widgets-max-cols: 2;
+  --widgets-max-cols: 3;
   --widgets-grid-gap: var(--space-large);
 
   // Update the card width when Sections is enabled

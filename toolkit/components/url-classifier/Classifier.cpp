@@ -42,6 +42,26 @@ extern mozilla::LazyLogModule gUrlClassifierDbServiceLog;
 namespace mozilla {
 namespace safebrowsing {
 
+// Static table for overriding the storage location of specific tables.
+// This is used for backward compatibility when tables need to be stored
+// in a different directory than their provider name would suggest.
+// For example, google5 tables are stored in "google4" directory because
+// both V4 and V5 share the same file format.
+struct TableLocationOverride {
+  nsLiteralCString mTableName;
+  nsLiteralCString mDirectoryName;
+};
+
+static const TableLocationOverride kTableLocationOverrides[] = {
+    {"goog-badbinurl-proto"_ns, "google4"_ns},
+    {"goog-downloadwhite-proto"_ns, "google4"_ns},
+    {"goog-phish-proto"_ns, "google4"_ns},
+    {"googpub-phish-proto"_ns, "google4"_ns},
+    {"goog-malware-proto"_ns, "google4"_ns},
+    {"goog-unwanted-proto"_ns, "google4"_ns},
+    {"goog-harmful-proto"_ns, "google4"_ns},
+};
+
 bool Classifier::OnUpdateThread() const {
   bool onthread = false;
   if (mUpdateThread) {
@@ -84,21 +104,28 @@ nsresult Classifier::GetPrivateStoreDirectory(
     return NS_OK;
   }
 
+  // Determine the provider directory name for this table.
+  nsAutoCString providerDirectoryName;
+  for (const auto& override : kTableLocationOverrides) {
+    if (aTableName.Equals(override.mTableName)) {
+      providerDirectoryName.Assign(override.mDirectoryName);
+      break;
+    }
+  }
+
+  if (providerDirectoryName.IsEmpty()) {
+    // Default: use provider name as directory name
+    providerDirectoryName = aProvider;
+  }
+
   nsCOMPtr<nsIFile> providerDirectory;
 
   // Clone first since we are gonna create a new directory.
   nsresult rv = aRootStoreDirectory->Clone(getter_AddRefs(providerDirectory));
   NS_ENSURE_SUCCESS(rv, rv);
 
-  // Append the provider name to the root store directory.
-  if (aProvider.EqualsLiteral("google5")) {
-    // We reuse the google4 directory for google5 provider because both V4 and
-    // V5 share the same file format. Reusing the directory avoids the need to
-    // migrate the data between the two providers.
-    rv = providerDirectory->AppendNative("google4"_ns);
-  } else {
-    rv = providerDirectory->AppendNative(aProvider);
-  }
+  // Append the provider directory name to the root store directory.
+  rv = providerDirectory->AppendNative(providerDirectoryName);
   NS_ENSURE_SUCCESS(rv, rv);
 
   // Ensure existence of the provider directory.

@@ -551,20 +551,20 @@ add_task(async function () {
   });
 
   info("change default engine");
-  let originalTestEngine = Services.search.getEngineByName(
+  let originalTestEngine = SearchService.getEngineByName(
     SUGGESTIONS_ENGINE_NAME
   );
   await SearchTestUtils.installSearchExtension({
     name: "AliasEngine",
     keyword: "alias",
   });
-  let engine2 = Services.search.getEngineByName("AliasEngine");
+  let engine2 = SearchService.getEngineByName("AliasEngine");
   Assert.notEqual(
-    Services.search.defaultEngine,
+    SearchService.defaultEngine,
     engine2,
     "New engine shouldn't be the current engine yet"
   );
-  await Services.search.setDefault(
+  await SearchService.setDefault(
     engine2,
     Ci.nsISearchService.CHANGE_REASON_UNKNOWN
   );
@@ -579,7 +579,7 @@ add_task(async function () {
       }),
     ],
   });
-  await Services.search.setDefault(
+  await SearchService.setDefault(
     originalTestEngine,
     Ci.nsISearchService.CHANGE_REASON_UNKNOWN
   );
@@ -826,6 +826,13 @@ add_task(async function dont_fixup_urls_with_at_symbol() {
         engineName: SUGGESTIONS_ENGINE_NAME,
       }),
     ],
+  });
+
+  query = "";
+  context = createContext(query, { isPrivate: false });
+  await check_results({
+    context,
+    matches: [],
   });
 });
 

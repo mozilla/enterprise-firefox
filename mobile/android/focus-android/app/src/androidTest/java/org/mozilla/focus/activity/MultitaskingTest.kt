@@ -125,6 +125,9 @@ class MultitaskingTest : TestSetup() {
         }.openTabsTray {
             verifyTabsOrder(tab3.title, tab2.title)
         }.closeTab(tab3.title) {
+        }.openTabsTray {
+            verifyTabsOrder(tab2.title)
+        }.closeTab(tab2.title) {
             verifyTabsCounterNotShown()
         }
     }

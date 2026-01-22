@@ -4,20 +4,38 @@
 
 import { html } from "chrome://global/content/vendor/lit.all.mjs";
 import { MozLitElement } from "chrome://global/content/lit-utils.mjs";
+import {
+  createParserState,
+  consumeStreamChunk,
+  flushTokenRemainder,
+} from "chrome://browser/content/aiwindow/modules/TokenStreamParser.mjs";
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   Chat: "moz-src:///browser/components/aiwindow/models/Chat.sys.mjs",
+  generateChatTitle:
+    "moz-src:///browser/components/aiwindow/models/TitleGeneration.sys.mjs",
+  AIWindow:
+    "moz-src:///browser/components/aiwindow/ui/modules/AIWindow.sys.mjs",
+  ChatConversation:
+    "moz-src:///browser/components/aiwindow/ui/modules/ChatConversation.sys.mjs",
+  MESSAGE_ROLE:
+    "moz-src:///browser/components/aiwindow/ui/modules/ChatEnums.sys.mjs",
+  AssistantRoleOpts:
+    "moz-src:///browser/components/aiwindow/ui/modules/ChatMessage.sys.mjs",
+  getRoleLabel:
+    "moz-src:///browser/components/aiwindow/ui/modules/ChatUtils.sys.mjs",
 });
 
-/**
- * State Management Strategy:
- *
- * - On initialization, this component will call `.renderState()` from ChatStore to hydrate the UI
- * - Currently using temporary local state (`this.conversationState`) that only tracks the current conversation turn
- * - When ChatStore is integrated, rely on it as the source of truth for full conversation history
- * - When calling Chat.sys.mjs to fetch responses, supplement the request with complete history from ChatStore
- */
+ChromeUtils.defineLazyGetter(lazy, "log", function () {
+  return console.createInstance({
+    prefix: "ChatStore",
+    maxLogLevelPref: "browser.aiwindow.chatStore.loglevel",
+  });
+});
+
+const FULLPAGE = "fullpage";
+const SIDEBAR = "sidebar";
 
 /**
  * A custom element for managing AI Window
@@ -25,18 +43,64 @@ ChromeUtils.defineESModuleGetters(lazy, {
 export class AIWindow extends MozLitElement {
   static properties = {
     userPrompt: { type: String },
-    conversationState: { type: Array },
+    mode: { type: String }, // sidebar | fullpage
   };
+
+  #browser;
+  #smartbar;
+  #conversation;
+  #visibilityChangeHandler;
+
+  #detectModeFromContext() {
+    return window.browsingContext?.embedderElement?.id === "ai-window-browser"
+      ? SIDEBAR
+      : FULLPAGE;
+  }
 
   constructor() {
     super();
-    this._browser = null;
+
     this.userPrompt = "";
-    this.conversationState = [];
+    this.#browser = null;
+    this.#smartbar = null;
+    this.#conversation = new lazy.ChatConversation({});
+    this.mode = this.#detectModeFromContext();
   }
 
   connectedCallback() {
     super.connectedCallback();
+  }
+
+  disconnectedCallback() {
+    // Clean up visibility change handler
+    if (this.#visibilityChangeHandler) {
+      this.ownerDocument.removeEventListener(
+        "visibilitychange",
+        this.#visibilityChangeHandler
+      );
+      this.#visibilityChangeHandler = null;
+    }
+
+    // Clean up smartbar
+    if (this.#smartbar) {
+      this.#smartbar.removeEventListener(
+        "smartbar-commit",
+        this.#handleSmartbarCommit
+      );
+      this.#smartbar.remove();
+      this.#smartbar = null;
+    }
+
+    // Clean up browser
+    if (this.#browser) {
+      this.#browser.remove();
+      this.#browser = null;
+    }
+
+    // Clean up conversation
+    this.#conversation = null;
+
+    super.disconnectedCallback();
   }
 
   firstUpdated() {
@@ -49,25 +113,107 @@ export class AIWindow extends MozLitElement {
     browser.setAttribute("maychangeremoteness", "true");
     browser.setAttribute("disableglobalhistory", "true");
     browser.setAttribute("src", "about:aichatcontent");
+    browser.setAttribute("transparent", "true");
 
     const container = this.renderRoot.querySelector("#browser-container");
     container.appendChild(browser);
 
-    this._browser = browser;
+    this.#browser = browser;
+
+    // Defer Smartbar initialization for preloaded documents
+    if (doc.hidden) {
+      this.#visibilityChangeHandler = () => {
+        if (!doc.hidden && !this.#smartbar) {
+          this.#getOrCreateSmartbar(doc, container);
+        }
+      };
+      doc.addEventListener("visibilitychange", this.#visibilityChangeHandler, {
+        once: true,
+      });
+    } else {
+      this.#getOrCreateSmartbar(doc, container);
+    }
   }
 
   /**
-   * Adds a new message to the conversation history.
+   * Helper method to get or create the smartbar element
    *
-   * @param {object} chatEntry - A message object to add to the conversation
-   * @param {("system"|"user"|"assistant")} chatEntry.role - The role of the message sender
-   * @param {string} chatEntry.content - The text content of the message
+   * @param {Document} doc - The document
+   * @param {Element} container - The container element
    */
+  #getOrCreateSmartbar(doc, container) {
+    // Find existing Smartbar or create it when we init the AI Window.
+    let smartbar = container.querySelector("#ai-window-smartbar");
 
-  // TODO - can remove this method after ChatStore is integrated
-  #updateConversationState = chatEntry => {
-    this.conversationState = [...this.conversationState, chatEntry];
+    if (!smartbar) {
+      // The Smartbar can’t be initialized in the shadow DOM and needs
+      // to be created from the chrome document.
+      smartbar = doc.createElement("moz-smartbar");
+      smartbar.id = "ai-window-smartbar";
+      smartbar.setAttribute("sap-name", "smartbar");
+      smartbar.setAttribute("pageproxystate", "invalid");
+      smartbar.setAttribute("popover", "manual");
+      smartbar.classList.add("smartbar", "urlbar");
+      container.append(smartbar);
+
+      smartbar.addEventListener("smartbar-commit", this.#handleSmartbarCommit);
+    }
+    this.#smartbar = smartbar;
+  }
+
+  /**
+   * Handles the smartbar-commit action for the user prompt
+   *
+   * @param {CustomEvent} event - The smartbar-commit event
+   * @private
+   */
+  #handleSmartbarCommit = event => {
+    const { value, action } = event.detail;
+    if (action === "chat") {
+      this.userPrompt = value;
+      this.#fetchAIResponse();
+    }
   };
+
+  /**
+   * Persists the current conversation state to the database.
+   *
+   * @private
+   */
+  async #updateConversation() {
+    await lazy.AIWindow.chatStore
+      .updateConversation(this.#conversation)
+      .catch(updateError => {
+        lazy.log.error(`Error updating conversation: ${updateError.message}`);
+      });
+  }
+
+  /**
+   * Generates and sets a title for the conversation if one doesn't exist.
+   *
+   * @private
+   */
+  async #addConversationTitle() {
+    if (this.#conversation.title) {
+      return;
+    }
+
+    const firstUserMessage = this.#conversation.messages.find(
+      m => m.role === lazy.MESSAGE_ROLE.USER
+    );
+
+    const title = await lazy.generateChatTitle(
+      firstUserMessage?.content?.body,
+      {
+        url: firstUserMessage?.pageUrl?.href || "",
+        title: this.#conversation.pageMeta?.title || "",
+        description: this.#conversation.pageMeta?.description || "",
+      }
+    );
+
+    this.#conversation.title = title;
+    this.#updateConversation();
+  }
 
   /**
    * Fetches an AI response based on the current user prompt.
@@ -84,39 +230,73 @@ export class AIWindow extends MozLitElement {
     }
 
     // Handle User Prompt
-    await this.#dispatchMessageToChatContent({
-      role: "user",
-      content: this.userPrompt,
+    this.#dispatchMessageToChatContent({
+      role: lazy.MESSAGE_ROLE.USER,
+      content: {
+        body: formattedPrompt,
+      },
     });
 
-    // TODO - can remove this call after ChatStore is integrated
-    this.#updateConversationState({ role: "user", content: formattedPrompt });
-    this.userPrompt = "";
-
-    // Create an empty assistant placeholder.
-    // TODO - can remove this call after ChatStore is integrated
-    this.#updateConversationState({ role: "assistant", content: "" });
-    const latestAssistantMessageIndex = this.conversationState.length - 1;
-
-    let acc = "";
+    const nextTurnIndex = this.#conversation.currentTurnIndex() + 1;
     try {
-      // TODO - replace with ChatStore integration IE pass chatstore.getConversationState(this.userPrompt)
-      const stream = lazy.Chat.fetchWithHistory(this.conversationState);
+      const pageUrl = URL.fromURI(
+        window.browsingContext.topChromeWindow.gBrowser.currentURI
+      );
+
+      const stream = lazy.Chat.fetchWithHistory(
+        await this.#conversation.generatePrompt(formattedPrompt, pageUrl)
+      );
+      this.#updateConversation();
+      this.#addConversationTitle();
+      this.userPrompt = "";
+
+      // @todo
+      // fill out these assistant message flags
+      const assistantRoleOpts = new lazy.AssistantRoleOpts();
+      this.#conversation.addAssistantMessage(
+        "text",
+        "",
+        nextTurnIndex,
+        assistantRoleOpts
+      );
+
+      const parserState = createParserState();
+      const currentMessage = this.#conversation.messages
+        .filter(message => message.role === lazy.MESSAGE_ROLE.ASSISTANT)
+        .at(-1);
+
       for await (const chunk of stream) {
-        acc += chunk;
+        const { plainText, tokens } = consumeStreamChunk(chunk, parserState);
 
-        // TODO - can remove this after ChatStore is integrated
-        this.conversationState[latestAssistantMessageIndex] = {
-          ...this.conversationState[latestAssistantMessageIndex],
-          content: acc,
-        };
+        if (!currentMessage.tokens) {
+          currentMessage.tokens = {
+            search: [],
+            existing_memory: [],
+          };
+        }
 
-        // TODO - can pass chatstore.getLastturnIndex() instead of latestAssistantMessageIndex after ChatStore is integrated
-        await this.#dispatchMessageToChatContent({
-          role: "assistant",
-          content: acc,
-          latestAssistantMessageIndex,
-        });
+        if (plainText) {
+          currentMessage.content.body += plainText;
+        }
+
+        if (tokens?.length) {
+          tokens.forEach(token => {
+            currentMessage.tokens[token.key].push(token.value);
+          });
+        }
+
+        this.#updateConversation();
+        this.#dispatchMessageToChatContent(currentMessage);
+        this.requestUpdate?.();
+      }
+
+      // End of stream: if there was an unclosed §... treat as literal text
+      const remainder = flushTokenRemainder(parserState);
+
+      if (remainder) {
+        currentMessage.content.body += remainder;
+        this.#updateConversation();
+        this.#dispatchMessageToChatContent(currentMessage);
         this.requestUpdate?.();
       }
     } catch (e) {
@@ -132,23 +312,23 @@ export class AIWindow extends MozLitElement {
    * @private
    */
 
-  async #getAIChatContentActor() {
-    if (!this._browser) {
-      console.warn("AI browser not set, cannot get AIChatContent actor");
+  #getAIChatContentActor() {
+    if (!this.#browser) {
+      lazy.log.warn("AI browser not set, cannot get AIChatContent actor");
       return null;
     }
 
-    const windowGlobal = this._browser.browsingContext?.currentWindowGlobal;
+    const windowGlobal = this.#browser.browsingContext?.currentWindowGlobal;
 
     if (!windowGlobal) {
-      console.warn("No window global found for AI browser");
+      lazy.log.warn("No window global found for AI browser");
       return null;
     }
 
     try {
       return windowGlobal.getActor("AIChatContent");
     } catch (error) {
-      console.error("Failed to get AIChatContent actor:", error);
+      lazy.log.error("Failed to get AIChatContent actor:", error);
       return null;
     }
   }
@@ -156,35 +336,24 @@ export class AIWindow extends MozLitElement {
   /**
    * Dispatches a message to the AIChatContent actor.
    *
-   * @param {object} message - message to dispatch to chat content actor
+   * @param {ChatMessage} message - message to dispatch to chat content actor
    * @returns
    */
 
-  async #dispatchMessageToChatContent(message) {
-    const actor = await this.#getAIChatContentActor();
-    return await actor.dispatchMessageToChatContent(message);
-  }
+  #dispatchMessageToChatContent(message) {
+    const actor = this.#getAIChatContentActor();
 
-  /**
-   * Handles input events from the prompt textarea.
-   * Updates the userPrompt property with the current input value.
-   *
-   * @param {Event} e - The input event.
-   * @private
-   */
+    const newMessage = { ...message };
+    if (typeof message.role !== "string") {
+      const roleLabel = lazy.getRoleLabel(newMessage.role).toLowerCase();
+      newMessage.role = roleLabel;
+    }
 
-  #handlePromptInput = async e => {
-    const value = e.target.value;
-    this.userPrompt = value;
-  };
+    if (!actor) {
+      return null;
+    }
 
-  /**
-   * Handles the submit action for the user prompt.
-   * Triggers the AI response fetch process.
-   */
-
-  #handleSubmit() {
-    this.#fetchAIResponse();
+    return actor.dispatchMessageToChatContent(newMessage);
   }
 
   render() {
@@ -193,17 +362,11 @@ export class AIWindow extends MozLitElement {
         rel="stylesheet"
         href="chrome://browser/content/aiwindow/components/ai-window.css"
       />
-      <div>
-        <div id="browser-container"></div>
-        <!-- TODO : Remove place holder submit button, prompt will come from ai-input -->
-        <textarea
-          .value=${this.userPrompt}
-          @input=${e => this.#handlePromptInput(e)}
-        ></textarea>
-        <moz-button type="primary" size="small" @click=${this.#handleSubmit}>
-          Submit mock prompt
-        </moz-button>
-      </div>
+      <!-- TODO (Bug 2008938): Make in-page Smartbar styling not dependent on chrome styles -->
+      <link rel="stylesheet" href="chrome://browser/skin/smartbar.css" />
+      <div id="browser-container"></div>
+      <!-- TODO : Example of mode-based rendering -->
+      ${this.mode === FULLPAGE ? html`<div>Fullpage Footer Content</div>` : ""}
     `;
   }
 }

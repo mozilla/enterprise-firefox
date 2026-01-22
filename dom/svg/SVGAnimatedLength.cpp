@@ -194,6 +194,8 @@ SVGElementMetrics::SVGElementMetrics(const SVGElement* aSVGElement,
                                      const SVGViewportElement* aCtx)
     : mSVGElement(aSVGElement), mCtx(aCtx) {}
 
+SVGElementMetrics::~SVGElementMetrics() = default;
+
 const Element* SVGElementMetrics::GetElementForType(Type aType) const {
   switch (aType) {
     case Type::This:

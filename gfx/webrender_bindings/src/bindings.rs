@@ -648,11 +648,13 @@ pub extern "C" fn wr_renderer_render(
     buffer_age: usize,
     out_stats: &mut RendererStats,
     out_dirty_rects: &mut ThinVec<DeviceIntRect>,
+    out_did_rasterize: &mut bool,
 ) -> bool {
     match renderer.render(DeviceIntSize::new(width, height), buffer_age) {
         Ok(results) => {
             *out_stats = results.stats;
             out_dirty_rects.extend(results.dirty_rects);
+            *out_did_rasterize = results.did_rasterize_any_tile;
             true
         },
         Err(errors) => {
@@ -2069,15 +2071,13 @@ pub extern "C" fn wr_window_new(
                 use_native_compositor,
             )),
         }
+    } else if use_layer_compositor {
+        CompositorConfig::Layer {
+            compositor: Box::new(WrLayerCompositor::new(compositor)),
+        }
     } else if use_native_compositor {
-        if use_layer_compositor {
-            CompositorConfig::Layer {
-                compositor: Box::new(WrLayerCompositor::new(compositor)),
-            }
-        } else {
-            CompositorConfig::Native {
-                compositor: Box::new(WrCompositor(compositor)),
-            }
+        CompositorConfig::Native {
+            compositor: Box::new(WrCompositor(compositor)),
         }
     } else {
         CompositorConfig::Draw {

@@ -8,8 +8,8 @@
  * Storage of the attributes of a DOM node.
  */
 
-#ifndef AttrArray_h___
-#define AttrArray_h___
+#ifndef AttrArray_h_
+#define AttrArray_h_
 
 #include "mozilla/BindgenUniquePtr.h"
 #include "mozilla/MemoryReporting.h"

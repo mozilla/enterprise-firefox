@@ -236,26 +236,44 @@ def verify_task_graph_symbol_enterprise(
                             expected_group="MSI-Ent",
                         )
                         task_matcher_exception_generator(
-                            "repacks MSI",
-                            task.label,
-                            "repackage-enterprise-repack-msi",
-                            symbol=symbol,
-                            expected_symbol="sample/gcpEU/en-US",
-                        )
-                        task_matcher_exception_generator(
                             "repacks MSI signed",
                             task.label,
                             "repackage-signing-enterprise-repack-msi",
                             group_symbol=group_symbol,
                             expected_group="MSIs-Ent",
                         )
-                        task_matcher_exception_generator(
-                            "repacks MSI signed",
-                            task.label,
-                            "repackage-signing-enterprise-repack-msi",
-                            symbol=symbol,
-                            expected_symbol="sample/gcpEU/en-US",
-                        )
+
+                        if "gcpEU" in task.label:
+                            task_matcher_exception_generator(
+                                "repacks MSI",
+                                task.label,
+                                "repackage-enterprise-repack-msi",
+                                symbol=symbol,
+                                expected_symbol="sample/gcpEU/en-US",
+                            )
+                            task_matcher_exception_generator(
+                                "repacks MSI signed",
+                                task.label,
+                                "repackage-signing-enterprise-repack-msi",
+                                symbol=symbol,
+                                expected_symbol="sample/gcpEU/en-US",
+                            )
+
+                        if "enterfox" in task.label:
+                            task_matcher_exception_generator(
+                                "repacks MSI",
+                                task.label,
+                                "repackage-enterprise-repack-msi",
+                                symbol=symbol,
+                                expected_symbol="sample/enterfox/en-US",
+                            )
+                            task_matcher_exception_generator(
+                                "repacks MSI signed",
+                                task.label,
+                                "repackage-signing-enterprise-repack-msi",
+                                symbol=symbol,
+                                expected_symbol="sample/enterfox/en-US",
+                            )
 
                 if "macosx64" in task.label:
                     if "enterprise-repack-mac-" in task.label:
@@ -267,26 +285,44 @@ def verify_task_graph_symbol_enterprise(
                             expected_group="BMS-Ent",
                         )
                         task_matcher_exception_generator(
-                            "repacks mac signing",
-                            task.label,
-                            "enterprise-repack-mac-signing",
-                            symbol=symbol,
-                            expected_symbol="sample/gcpEU/en-US",
-                        )
-                        task_matcher_exception_generator(
                             "repacks mac notarization",
                             task.label,
                             "enterprise-repack-mac-notarization",
                             group_symbol=group_symbol,
                             expected_group="BMN-Ent",
                         )
-                        task_matcher_exception_generator(
-                            "repacks mac notarization",
-                            task.label,
-                            "enterprise-repack-mac-notarization",
-                            symbol=symbol,
-                            expected_symbol="sample/gcpEU/en-US",
-                        )
+
+                        if "gcpEU" in task.label:
+                            task_matcher_exception_generator(
+                                "repacks mac signing",
+                                task.label,
+                                "enterprise-repack-mac-signing",
+                                symbol=symbol,
+                                expected_symbol="sample/gcpEU/en-US",
+                            )
+                            task_matcher_exception_generator(
+                                "repacks mac notarization",
+                                task.label,
+                                "enterprise-repack-mac-notarization",
+                                symbol=symbol,
+                                expected_symbol="sample/gcpEU/en-US",
+                            )
+
+                        if "enterfox" in task.label:
+                            task_matcher_exception_generator(
+                                "repacks mac signing",
+                                task.label,
+                                "enterprise-repack-mac-signing",
+                                symbol=symbol,
+                                expected_symbol="sample/enterfox/en-US",
+                            )
+                            task_matcher_exception_generator(
+                                "repacks mac notarization",
+                                task.label,
+                                "enterprise-repack-mac-notarization",
+                                symbol=symbol,
+                                expected_symbol="sample/enterfox/en-US",
+                            )
 
                     if "build-mac-" in task.label:
                         task_matcher_exception_generator(
@@ -313,13 +349,24 @@ def verify_task_graph_symbol_enterprise(
                             symbol=symbol,
                             expected_symbol="Rpk-deb",
                         )
-                        task_matcher_exception_generator(
-                            "repacks deb package",
-                            task.label,
-                            "repackage-enterprise-repack-deb",
-                            symbol=symbol,
-                            expected_symbol="Rpk-deb-gcpEU",
-                        )
+
+                        if "gcpEU" in task.label:
+                            task_matcher_exception_generator(
+                                "repacks deb package",
+                                task.label,
+                                "repackage-enterprise-repack-deb",
+                                symbol=symbol,
+                                expected_symbol="sample/gcpEU/en-US",
+                            )
+
+                        if "enterfox" in task.label:
+                            task_matcher_exception_generator(
+                                "repacks deb package",
+                                task.label,
+                                "repackage-enterprise-repack-deb",
+                                symbol=symbol,
+                                expected_symbol="sample/enterfox/en-US",
+                            )
 
 
 @verifications.add("full_task_graph")
@@ -381,7 +428,9 @@ def verify_trust_domain_v2_routes_enterprise(
 
     if (
         "upload" in task.label
+        or not "shippable" in task.label
         or task.label.startswith("enterprise-test")
+        or task.label.startswith("test-")
         or task.label.startswith("build-signing")
         or task.label.startswith("build-mac-signing")
     ):
@@ -593,14 +642,12 @@ def verify_test_packaging(task, taskgraph, scratch_pad, graph_config, parameters
     if task is None:
         # In certain cases there are valid reasons for tests to be missing,
         # don't error out when that happens.
-        missing_tests_allowed = any(
-            (
-                # user specified `--target-kind`
-                bool(parameters.get("target-kinds")),
-                # manifest scheduling is enabled
-                parameters["test_manifest_loader"] != "default",
-            )
-        )
+        missing_tests_allowed = any((
+            # user specified `--target-kind`
+            bool(parameters.get("target-kinds")),
+            # manifest scheduling is enabled
+            parameters["test_manifest_loader"] != "default",
+        ))
 
         test_env = parameters["try_task_config"].get("env", {})
         if test_env.get("MOZHARNESS_TEST_PATHS", "") or test_env.get(

@@ -385,15 +385,17 @@ nsresult AbstractRange::SetStartAndEndInternal(
     return NS_OK;
   }
 
-  const Maybe<int32_t> pointOrder =
+  const bool useFlatTree =
       aAllowCrossShadowBoundary == AllowRangeCrossShadowBoundary::Yes &&
-              StaticPrefs::dom_shadowdom_selection_across_boundary_enabled()
-          ? nsContentUtils::ComparePoints<TreeKind::Flat>(aStartBoundary,
-                                                          aEndBoundary)
-          : nsContentUtils::ComparePoints(aStartBoundary, aEndBoundary);
+      StaticPrefs::dom_shadowdom_selection_across_boundary_enabled();
+  const Maybe<int32_t> pointOrder =
+      useFlatTree ? nsContentUtils::ComparePoints<TreeKind::Flat>(
+                        aStartBoundary, aEndBoundary)
+                  : nsContentUtils::ComparePoints<TreeKind::ShadowIncludingDOM>(
+                        aStartBoundary, aEndBoundary);
   if (!pointOrder) {
     // Safely return a value but also detected this in debug builds.
-    MOZ_ASSERT_UNREACHABLE();
+    MOZ_ASSERT_UNREACHABLE("The boundaries are not connected");
     return NS_ERROR_INVALID_ARG;
   }
 
@@ -404,8 +406,26 @@ nsresult AbstractRange::SetStartAndEndInternal(
     return NS_OK;
   }
 
-  // Otherwise, set the range as specified.
-  aRange->DoSetRange(aStartBoundary, aEndBoundary, newStartRoot);
+  // Otherwise, set the range as specified.  However, the order may be opposite
+  // in the same tree if the given range is for the flat tree.  Thus, we need to
+  // recompute the order within the same tree if we computed the order in the
+  // flat tree.
+  if (!useFlatTree) {
+    aRange->DoSetRange(aStartBoundary, aEndBoundary, newStartRoot);
+  } else {
+    const Maybe<int32_t> pointOrderInSameTree =
+        nsContentUtils::ComparePoints<TreeKind::DOM>(aStartBoundary,
+                                                     aEndBoundary);
+    if (MOZ_UNLIKELY(pointOrderInSameTree.isNothing())) {
+      MOZ_ASSERT_UNREACHABLE(
+          "The boundaries are not connected in the same DOM tree");
+      aRange->DoSetRange(aEndBoundary, aEndBoundary, newStartRoot);
+    } else if (*pointOrderInSameTree != 1) {
+      aRange->DoSetRange(aStartBoundary, aEndBoundary, newStartRoot);
+    } else {
+      aRange->DoSetRange(aEndBoundary, aStartBoundary, newStartRoot);
+    }
+  }
 
   if (aAllowCrossShadowBoundary == AllowRangeCrossShadowBoundary::Yes &&
       aRange->IsDynamicRange()) {

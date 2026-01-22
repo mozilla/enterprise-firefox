@@ -1743,6 +1743,9 @@ fn prepare_tiled_picture_surface(
                     );
                 }
             } else {
+                // Track that actual tile rasterization is occurring
+                frame_state.composite_state.did_rasterize_any_tile = true;
+
                 // Add this dirty rect to the dirty region tracker. This must be done outside the if statement below,
                 // so that we include in the dirty region tiles that are handled by a background color only (no
                 // surface allocation).

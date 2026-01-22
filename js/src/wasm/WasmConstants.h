@@ -218,6 +218,12 @@ enum class DefinitionKind {
   Tag = 0x04,
 };
 
+// The values here must not intersect with the values of DefinitionKind.
+enum class CompactImportKind {
+  ModuleName = 0x7F,
+  ModuleNameAndExternType = 0x7E,
+};
+
 enum class GlobalTypeImmediate { IsMutable = 0x1, AllowedMask = 0x1 };
 
 enum class LimitsFlags {

@@ -73,7 +73,7 @@ add_task(async function rowLabel() {
 
   const { element } = await UrlbarTestUtils.getDetailsOfResultAt(window, 1);
   const row = element.row;
-  Assert.equal(row.getAttribute("label"), "Recommended resource");
+  Assert.ok(!row.hasAttribute("label"), "Row should not have a label");
 
   await UrlbarTestUtils.promisePopupClose(window);
 });

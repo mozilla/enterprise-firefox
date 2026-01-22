@@ -30,7 +30,7 @@ class Element;
 enum class PseudoStyleType : uint8_t {
 // If CSS pseudo-elements stop being first here, change GetPseudoType.
 #define CSS_PSEUDO_ELEMENT(_name, _value, _flags) _name,
-#include "nsCSSPseudoElementList.h"
+#include "nsCSSPseudoElementList.inc"
 #undef CSS_PSEUDO_ELEMENT
   CSSPseudoElementsEnd,
   AnonBoxesStart = CSSPseudoElementsEnd,

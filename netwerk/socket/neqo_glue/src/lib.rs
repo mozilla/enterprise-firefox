@@ -629,8 +629,8 @@ impl NeqoHttp3Conn {
             && static_prefs::pref!("network.http.http3.ecn_mark")
             && stats.frame_rx.handshake_done != 0
         {
-            let tx_ect0_sum: u64 = stats.ecn_tx.into_values().map(|v| v[Ecn::Ect0]).sum();
-            let tx_ce_sum: u64 = stats.ecn_tx.into_values().map(|v| v[Ecn::Ce]).sum();
+            let tx_ect0_sum: u64 = stats.ecn_tx_acked.into_values().map(|v| v[Ecn::Ect0]).sum();
+            let tx_ce_sum: u64 = stats.ecn_tx_acked.into_values().map(|v| v[Ecn::Ce]).sum();
             if tx_ect0_sum > 0 {
                 if let Ok(ratio) = i64::try_from((tx_ce_sum * PRECISION_FACTOR) / tx_ect0_sum) {
                     glean::http_3_ecn_ce_ect0_ratio_sent.accumulate_single_sample_signed(ratio);
@@ -706,6 +706,26 @@ impl NeqoHttp3Conn {
                 qwarn!("{msg}");
                 debug_assert!(false, "{msg}");
             }
+        }
+
+        // Collect congestion event reason metric
+        if let Ok(ce_loss) = i32::try_from(stats.cc.congestion_events[CongestionEvent::Loss]) {
+            glean::http_3_congestion_event_reason
+                .get("loss")
+                .add(ce_loss);
+        } else {
+            let msg = "Failed to convert to i32 for use with glean";
+            qwarn!("{msg}");
+            debug_assert!(false, "{msg}");
+        }
+        if let Ok(ce_ecn) = i32::try_from(stats.cc.congestion_events[CongestionEvent::Ecn]) {
+            glean::http_3_congestion_event_reason
+                .get("ecn-ce")
+                .add(ce_ecn);
+        } else {
+            let msg = "Failed to convert to i32 for use with glean";
+            qwarn!("{msg}");
+            debug_assert!(false, "{msg}");
         }
     }
 

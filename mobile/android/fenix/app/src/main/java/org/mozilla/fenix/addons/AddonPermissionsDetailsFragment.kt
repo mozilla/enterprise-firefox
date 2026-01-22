@@ -4,6 +4,7 @@
 
 package org.mozilla.fenix.addons
 
+import android.content.Context
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.ViewGroup
@@ -11,15 +12,17 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.fragment.app.Fragment
 import androidx.fragment.compose.content
+import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import mozilla.components.feature.addons.Addon
 import mozilla.components.feature.addons.Addon.Companion.isAllURLsPermission
 import mozilla.components.feature.addons.ui.translateName
-import org.mozilla.fenix.BrowserDirection
-import org.mozilla.fenix.HomeActivity
 import org.mozilla.fenix.addons.ui.AddonPermissionsScreen
 import org.mozilla.fenix.ext.components
+import org.mozilla.fenix.ext.openToBrowser
+import org.mozilla.fenix.ext.requireComponents
 import org.mozilla.fenix.ext.showToolbar
+import org.mozilla.fenix.settings.SupportUtils
 import org.mozilla.fenix.theme.FirefoxTheme
 
 /**
@@ -120,9 +123,15 @@ class AddonPermissionsDetailsFragment : Fragment() {
                 onLearnMoreClick = { learnMoreUrl ->
                     openWebsite(learnMoreUrl)
                 },
+                learnMoreUrl = learnMoreUrl(requireContext()),
             )
         }
     }
+
+    private fun learnMoreUrl(context: Context) = SupportUtils.getSumoURLForTopic(
+        context,
+        SupportUtils.SumoTopic.MANAGE_OPTIONAL_EXTENSION_PERMISSIONS,
+    )
 
     private fun addOptionalPermissions(
         addPermissionsRequest: AddonPermissionsUpdateRequest,
@@ -161,10 +170,10 @@ class AddonPermissionsDetailsFragment : Fragment() {
     }
 
     private fun openWebsite(addonSiteUrl: String) {
-        (activity as HomeActivity).openToBrowserAndLoad(
+        findNavController().openToBrowser()
+        requireComponents.useCases.fenixBrowserUseCases.loadUrlOrSearch(
             searchTermOrURL = addonSiteUrl,
             newTab = true,
-            from = BrowserDirection.FromAddonPermissionsDetailsFragment,
         )
     }
 

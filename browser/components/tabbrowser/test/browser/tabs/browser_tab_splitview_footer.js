@@ -50,12 +50,16 @@ async function setupSplitView() {
 async function activateCommand(panel, command) {
   const footerMenu = document.getElementById("split-view-menu");
   const promiseShown = BrowserTestUtils.waitForPopupEvent(footerMenu, "shown");
-  const { menuButtonElement } = panel.querySelector("split-view-footer");
+  const footer = panel.querySelector("split-view-footer");
   // Only the urlbar menu is focusable, not the footer menu.
   AccessibilityUtils.setEnv({ focusableRule: false });
-  EventUtils.synthesizeMouseAtCenter(menuButtonElement, {});
+  EventUtils.synthesizeMouseAtCenter(footer.menuButtonElement, {});
   AccessibilityUtils.resetEnv();
   await promiseShown;
+  Assert.ok(
+    BrowserTestUtils.isVisible(footer),
+    "Footer remains present within the panel."
+  );
   const item = footerMenu.querySelector(`menuitem[command="${command}"]`);
   footerMenu.activateItem(item);
 }
@@ -219,34 +223,4 @@ add_task(async function test_menu_close_tabs() {
   );
   await activateCommand(inactivePanel, "splitViewCmd_closeTabs");
   await promiseTabsClosed;
-});
-
-add_task(async function test_findbar_displayed_over_footer() {
-  const { tabs, splitView } = await setupSplitView();
-  const [tab1, tab2] = tabs;
-  await SimpleTest.promiseFocus(tab1.linkedBrowser);
-
-  info("Activate Find in Page within the second panel.");
-  const findbar = await gBrowser.getFindBar(tab2);
-  const promiseFindbarOpen = BrowserTestUtils.waitForEvent(
-    findbar,
-    "findbaropen"
-  );
-  findbar.open();
-  await promiseFindbarOpen;
-
-  const panel = document.getElementById(tab2.linkedPanel);
-  const footer = panel.querySelector("split-view-footer");
-  const footerRect = footer.getBoundingClientRect();
-  Assert.ok(
-    !footer.contains(
-      document.elementFromPoint(
-        footerRect.left + footerRect.width / 2,
-        footerRect.top + footerRect.height / 2
-      )
-    ),
-    "Findbar is displayed over split view footer."
-  );
-
-  splitView.close();
 });

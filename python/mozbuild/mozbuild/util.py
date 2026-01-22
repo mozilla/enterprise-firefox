@@ -17,6 +17,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 from io import BytesIO, StringIO
 from pathlib import Path
 
@@ -37,6 +38,27 @@ else:
     system_encoding = "utf-8"
 
 
+LOG_TIMESTAMP_FORMAT = "%Y%m%d_%H%M%S"
+
+
+def get_latest_file(directory, prefix):
+    """Find the most recent file in a directory that starts with prefix, or None."""
+    log_dir = Path(directory)
+    try:
+        files = [f for f in log_dir.iterdir() if f.name.startswith(prefix)]
+    except OSError:
+        return None
+    if not files:
+        return None
+    return max(files, key=lambda f: f.stat().st_mtime)
+
+
+def construct_log_filename(prefix, suffix=".json"):
+    """Generate a timestamped log filename."""
+    timestamp = time.strftime(LOG_TIMESTAMP_FORMAT)
+    return f"{prefix}_log_{timestamp}{suffix}"
+
+
 class MissingL10nError(Exception):
     """Raised when the l10n repositories haven’t been checked out."""
 
@@ -47,6 +69,15 @@ class NotAGitRepositoryError(Exception):
     """Raised when the directory isn’t a git repository."""
 
     pass
+
+
+def is_running_under_coding_agent():
+    return bool(
+        os.environ.get("CLAUDECODE")
+        or os.environ.get("CODEX_SANDBOX")
+        or os.environ.get("GEMINI_CLI")
+        or os.environ.get("OPENCODE")
+    )
 
 
 def _open(path, mode):
@@ -411,11 +442,9 @@ class List(list):
     def __setitem__(self, key, val):
         if isinstance(key, slice):
             if not isinstance(val, list):
-                raise ValueError(
-                    "List can only be sliced with other list " "instances."
-                )
+                raise ValueError("List can only be sliced with other list instances.")
             if key.step:
-                raise ValueError("List cannot be sliced with a nonzero step " "value")
+                raise ValueError("List cannot be sliced with a nonzero step value")
             return super().__setitem__(key, val)
         return super().__setitem__(key, val)
 

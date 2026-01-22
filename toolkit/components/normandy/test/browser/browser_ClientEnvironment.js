@@ -62,21 +62,27 @@ add_task(async function testUserId() {
 });
 
 add_task(async function testDistribution() {
-  // distribution id defaults to "default" for most builds, and
-  // "mozilla-MSIX" for MSIX builds.
+  // distribution id defaults to "default" for most builds,
+  // "mozilla-MSIX" for MSIX builds, or MOZ_DISTRIBUTION_ID if set.
+  let expectedDefault = "default";
+  if (
+    AppConstants.platform === "win" &&
+    Services.sysinfo.getProperty("hasWinPackageId")
+  ) {
+    expectedDefault = "mozilla-MSIX";
+  } else if (Services.appinfo.distributionID) {
+    expectedDefault = Services.appinfo.distributionID;
+  }
   is(
     ClientEnvironment.distribution,
-    AppConstants.platform === "win" &&
-      Services.sysinfo.getProperty("hasWinPackageId")
-      ? "mozilla-MSIX"
-      : "default",
+    expectedDefault,
     "distribution has a default value"
   );
 
   // distribution id is read from a preference
   Services.prefs
     .getDefaultBranch(null)
-    .setStringPref("distribution.id", "funnelcake");
+    .setCharPref("distribution.id", "funnelcake");
   is(
     ClientEnvironment.distribution,
     "funnelcake",
@@ -84,7 +90,7 @@ add_task(async function testDistribution() {
   );
   Services.prefs
     .getDefaultBranch(null)
-    .setStringPref("distribution.id", "default");
+    .setCharPref("distribution.id", "default");
 });
 
 const mockClassify = { country: "FR", request_time: new Date(2017, 1, 1) };

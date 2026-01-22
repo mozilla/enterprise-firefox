@@ -329,13 +329,8 @@ newtab-custom-recent-subtitle = Valikoima viimeisimpiä sivustoja ja sisältöä
 newtab-custom-weather-toggle =
     .label = Sää
     .description = Päivän sääennuste yhdellä vilkaisulla
-newtab-custom-trending-search-toggle =
-    .label = Nousussa olevat haut
-    .description = Suosittuja ja usein haettuja aiheita
 newtab-custom-widget-weather-toggle =
     .label = Sää
-newtab-custom-widget-trending-search-toggle =
-    .label = Nousussa olevat haut
 newtab-custom-widget-lists-toggle =
     .label = Listat
 newtab-custom-widget-timer-toggle =
@@ -596,7 +591,7 @@ newtab-download-mobile-highlight-image =
 newtab-shortcuts-highlight-title = Suosikkisi sormiesi ulottuvilla
 newtab-shortcuts-highlight-subtitle = Lisää pikakuvake, niin suosikkisivustosi ovat yhden napsautuksen päässä.
 
-## Strings for reporting ads and content
+## Strings for reporting issues with ads and content
 
 newtab-report-content-why-reporting-this =
     .label = Miksi ilmoitat tästä?
@@ -614,21 +609,13 @@ newtab-report-content-inappropriate-offensive =
     .label = Sopimaton tai loukkaava
 newtab-report-content-spam-misleading =
     .label = Roskapostia tai harhaanjohtavaa
+newtab-report-content-requires-payment-subscription =
+    .label = Vaatii maksun tai tilauksen
+newtab-report-content-requires-payment-subscription-learn-more = Lue lisää
 newtab-report-cancel = Peruuta
 newtab-report-submit = Lähetä
 newtab-toast-thanks-for-reporting =
     .message = Kiitos, että ilmoitit tästä.
-
-## Strings for trending searches
-
-newtab-trending-searches-show-trending =
-    .title = Näytä nousussa olevat haut
-newtab-trending-searches-hide-trending =
-    .title = Piilota nousussa olevat haut
-newtab-trending-searches-learn-more = Lue lisää
-newtab-trending-searches-dismiss = Piilota nousussa olevat haut
-# "Trending searches refers to popular searches from search engines
-newtab-trending-searches-title = Nousussa olevat haut
 
 ## Strings for task / to-do list productivity widget
 

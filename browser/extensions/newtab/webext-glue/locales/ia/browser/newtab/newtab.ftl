@@ -325,13 +325,8 @@ newtab-custom-recent-subtitle = Un selection de sitos e contento recente
 newtab-custom-weather-toggle =
     .label = Meteo
     .description = Prevision hodierne a un colpo de oculos
-newtab-custom-trending-search-toggle =
-    .label = Recercas popular
-    .description = Themas popular e frequentemente recercate
 newtab-custom-widget-weather-toggle =
     .label = Meteo
-newtab-custom-widget-trending-search-toggle =
-    .label = Recercas popular
 newtab-custom-widget-lists-toggle =
     .label = Listas
 newtab-custom-widget-timer-toggle =
@@ -592,7 +587,7 @@ newtab-download-mobile-highlight-image =
 newtab-shortcuts-highlight-title = Tu preferentias a tu punctas de digitos
 newtab-shortcuts-highlight-subtitle = Adde un via-breve pro mantener tu sitos favorite a portata de clic.
 
-## Strings for reporting ads and content
+## Strings for reporting issues with ads and content
 
 newtab-report-content-why-reporting-this =
     .label = Proque reporta tu isto?
@@ -610,21 +605,13 @@ newtab-report-content-inappropriate-offensive =
     .label = Inappropriate o offensive
 newtab-report-content-spam-misleading =
     .label = Spam o deception
+newtab-report-content-requires-payment-subscription =
+    .label = Require pagamento o abonamento
+newtab-report-content-requires-payment-subscription-learn-more = Pro saper plus
 newtab-report-cancel = Cancellar
 newtab-report-submit = Inviar
 newtab-toast-thanks-for-reporting =
     .message = Gratias pro iste reporto.
-
-## Strings for trending searches
-
-newtab-trending-searches-show-trending =
-    .title = Monstrar recercas popular
-newtab-trending-searches-hide-trending =
-    .title = Celar recercas popular
-newtab-trending-searches-learn-more = Pro saper plus
-newtab-trending-searches-dismiss = Celar recercas popular
-# "Trending searches refers to popular searches from search engines
-newtab-trending-searches-title = Recercas popular
 
 ## Strings for task / to-do list productivity widget
 

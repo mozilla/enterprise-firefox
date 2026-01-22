@@ -328,13 +328,8 @@ newtab-custom-recent-subtitle = 최근 사이트 및 콘텐츠 모음
 newtab-custom-weather-toggle =
     .label = 날씨
     .description = 오늘의 일기예보를 한눈에 보기
-newtab-custom-trending-search-toggle =
-    .label = 인기 검색어
-    .description = 인기 있고 자주 검색되는 주제
 newtab-custom-widget-weather-toggle =
     .label = 날씨
-newtab-custom-widget-trending-search-toggle =
-    .label = 인기 검색어
 newtab-custom-widget-lists-toggle =
     .label = 목록
 newtab-custom-widget-timer-toggle =
@@ -595,7 +590,7 @@ newtab-download-mobile-highlight-image =
 newtab-shortcuts-highlight-title = 즐겨찾기를 간편하게
 newtab-shortcuts-highlight-subtitle = 바로 가기를 추가하여 한 번의 클릭으로 즐겨찾는 사이트를 이용하세요.
 
-## Strings for reporting ads and content
+## Strings for reporting issues with ads and content
 
 newtab-report-content-why-reporting-this =
     .label = 보고하는 이유?
@@ -613,21 +608,13 @@ newtab-report-content-inappropriate-offensive =
     .label = 부적절하거나 불쾌감을 주는 내용
 newtab-report-content-spam-misleading =
     .label = 스팸 또는 오해의 소지가 있는 내용
+newtab-report-content-requires-payment-subscription =
+    .label = 결제나 구독이 필요함
+newtab-report-content-requires-payment-subscription-learn-more = 더 알아보기
 newtab-report-cancel = 취소
 newtab-report-submit = 보내기
 newtab-toast-thanks-for-reporting =
     .message = 신고해 주셔서 감사합니다.
-
-## Strings for trending searches
-
-newtab-trending-searches-show-trending =
-    .title = 인기 검색어 표시
-newtab-trending-searches-hide-trending =
-    .title = 인기 검색어 숨기기
-newtab-trending-searches-learn-more = 더 알아보기
-newtab-trending-searches-dismiss = 인기 검색어 숨기기
-# "Trending searches refers to popular searches from search engines
-newtab-trending-searches-title = 인기 검색어
 
 ## Strings for task / to-do list productivity widget
 

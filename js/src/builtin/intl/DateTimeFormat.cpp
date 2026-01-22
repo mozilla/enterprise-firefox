@@ -17,9 +17,8 @@
 #include "mozilla/intl/TimeZone.h"
 #include "mozilla/Span.h"
 
-#include "jsdate.h"
-
 #include "builtin/Array.h"
+#include "builtin/Date.h"
 #include "builtin/intl/CommonFunctions.h"
 #include "builtin/intl/FormatBuffer.h"
 #include "builtin/intl/LanguageTag.h"
@@ -86,7 +85,7 @@ const JSClass DateTimeFormatObject::class_ = {
     "Intl.DateTimeFormat",
     JSCLASS_HAS_RESERVED_SLOTS(DateTimeFormatObject::SLOT_COUNT) |
         JSCLASS_HAS_CACHED_PROTO(JSProto_DateTimeFormat) |
-        JSCLASS_FOREGROUND_FINALIZE,
+        JSCLASS_BACKGROUND_FINALIZE,
     &DateTimeFormatObject::classOps_,
     &DateTimeFormatObject::classSpec_,
 };
@@ -280,8 +279,6 @@ DateTimeFormatObject* js::intl::GetOrCreateDateTimeFormat(
 }
 
 void js::DateTimeFormatObject::finalize(JS::GCContext* gcx, JSObject* obj) {
-  MOZ_ASSERT(gcx->onMainThread());
-
   auto* dateTimeFormat = &obj->as<DateTimeFormatObject>();
   mozilla::intl::DateTimeFormat* df = dateTimeFormat->getDateFormat();
   mozilla::intl::DateIntervalFormat* dif =
@@ -338,95 +335,6 @@ bool JS::AddMozDateTimeFormatConstructor(JSContext* cx,
 
   RootedValue ctorValue(cx, ObjectValue(*ctor));
   return DefineDataProperty(cx, intl, cx->names().DateTimeFormat, ctorValue, 0);
-}
-
-static bool DefaultCalendar(JSContext* cx, const UniqueChars& locale,
-                            MutableHandleValue rval) {
-  auto calendar = mozilla::intl::Calendar::TryCreate(locale.get());
-  if (calendar.isErr()) {
-    intl::ReportInternalError(cx, calendar.unwrapErr());
-    return false;
-  }
-
-  auto type = calendar.unwrap()->GetBcp47Type();
-  if (type.isErr()) {
-    intl::ReportInternalError(cx, type.unwrapErr());
-    return false;
-  }
-
-  JSString* str = NewStringCopy<CanGC>(cx, type.unwrap());
-  if (!str) {
-    return false;
-  }
-
-  rval.setString(str);
-  return true;
-}
-
-bool js::intl_availableCalendars(JSContext* cx, unsigned argc, Value* vp) {
-  CallArgs args = CallArgsFromVp(argc, vp);
-  MOZ_ASSERT(args.length() == 1);
-  MOZ_ASSERT(args[0].isString());
-
-  UniqueChars locale = intl::EncodeLocale(cx, args[0].toString());
-  if (!locale) {
-    return false;
-  }
-
-  RootedObject calendars(cx, NewDenseEmptyArray(cx));
-  if (!calendars) {
-    return false;
-  }
-
-  // We need the default calendar for the locale as the first result.
-  RootedValue defaultCalendar(cx);
-  if (!DefaultCalendar(cx, locale, &defaultCalendar)) {
-    return false;
-  }
-
-  if (!NewbornArrayPush(cx, calendars, defaultCalendar)) {
-    return false;
-  }
-
-  // Now get the calendars that "would make a difference", i.e., not the
-  // default.
-  auto keywords =
-      mozilla::intl::Calendar::GetBcp47KeywordValuesForLocale(locale.get());
-  if (keywords.isErr()) {
-    intl::ReportInternalError(cx, keywords.unwrapErr());
-    return false;
-  }
-
-  for (auto keyword : keywords.unwrap()) {
-    if (keyword.isErr()) {
-      intl::ReportInternalError(cx);
-      return false;
-    }
-
-    JSString* jscalendar = NewStringCopy<CanGC>(cx, keyword.unwrap());
-    if (!jscalendar) {
-      return false;
-    }
-    if (!NewbornArrayPush(cx, calendars, StringValue(jscalendar))) {
-      return false;
-    }
-  }
-
-  args.rval().setObject(*calendars);
-  return true;
-}
-
-bool js::intl_defaultCalendar(JSContext* cx, unsigned argc, Value* vp) {
-  CallArgs args = CallArgsFromVp(argc, vp);
-  MOZ_ASSERT(args.length() == 1);
-  MOZ_ASSERT(args[0].isString());
-
-  UniqueChars locale = intl::EncodeLocale(cx, args[0].toString());
-  if (!locale) {
-    return false;
-  }
-
-  return DefaultCalendar(cx, locale, args.rval());
 }
 
 enum class HourCycle {

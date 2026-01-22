@@ -327,6 +327,9 @@ lextab.py
 .vscode/
 *.user
 
+# Ignore Zed editor configuration files.
+.zed/
+
 # Thunderbird source tree
 /comm/
 
@@ -395,6 +398,7 @@ toolkit/crashreporter/minidump-analyzer/target/
 
 # Ignore personal preferences files
 CLAUDE.local.md
+.claude/settings.local.json
 
 # Ignore .json.gz (typically profiles) in the root directory
 # lint-ignore-next-line: git-only

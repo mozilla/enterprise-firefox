@@ -3491,6 +3491,19 @@ static void AssertResumePointDominatedByOperands(MResumePoint* resume) {
 }
 #endif  // DEBUG
 
+static bool PrecedesInSameBlock(MInstruction* a, MInstruction* b) {
+  MOZ_ASSERT(a->block() == b->block());
+  MBasicBlock* block = a->block();
+  MInstructionIterator opIter = block->begin(a);
+  do {
+    ++opIter;
+    if (opIter == block->end()) {
+      return false;
+    }
+  } while (*opIter != b);
+  return true;
+}
+
 // Checks the basic GraphCoherency but also other conditions that
 // do not hold immediately (such as the fact that critical edges
 // are split, or conditions related to wasm semantics)
@@ -3580,12 +3593,8 @@ void jit::AssertExtendedGraphCoherency(MIRGraph& graph, bool underValueNumberer,
         // If the operand is an instruction in the same block, check
         // that it comes first.
         if (opBlock == *block && !op->isPhi()) {
-          MInstructionIterator opIter = block->begin(op->toInstruction());
-          do {
-            ++opIter;
-            MOZ_ASSERT(opIter != block->end(),
-                       "Operand in same block as instruction does not precede");
-          } while (*opIter != ins);
+          MOZ_ASSERT(PrecedesInSameBlock(op->toInstruction(), ins),
+                     "Operand in same block as instruction does not precede");
         }
       }
       AssertIfResumableInstruction(ins);
@@ -3727,6 +3736,8 @@ SimpleLinearSum jit::ExtractLinearSum(MDefinition* ins, MathSpace space,
   }
   MOZ_ASSERT(space == MathSpace::Modulo || space == MathSpace::Infinite);
 
+  // Note: support for the Modulo math space is currently disabled due to
+  // security bugs. See bug 1966614.
   if (space == MathSpace::Modulo) {
     return SimpleLinearSum(ins, 0);
   }
@@ -4314,20 +4325,10 @@ bool jit::MarkLoadsUsedAsPropertyKeys(MIRGraph& graph) {
   return true;
 }
 
-// Updates the wasm ref type of a node and verifies that in this pass we only
-// narrow types, and never widen.
+// Updates the wasm ref type of a node.
 static bool UpdateWasmRefType(MDefinition* def) {
   wasm::MaybeRefType newRefType = def->computeWasmRefType();
   bool changed = newRefType != def->wasmRefType();
-
-  // Ensure that we do not regress from Some to Nothing.
-  MOZ_ASSERT(!(def->wasmRefType().isSome() && newRefType.isNothing()));
-  // Ensure that the new ref type is a subtype of the previous one (i.e. we
-  // only narrow ref types).
-  MOZ_ASSERT_IF(def->wasmRefType().isSome(),
-                wasm::RefType::isSubTypeOf(newRefType.value(),
-                                           def->wasmRefType().value()));
-
   def->setWasmRefType(newRefType);
   return changed;
 }
@@ -4397,6 +4398,228 @@ bool jit::TrackWasmRefTypes(MIRGraph& graph) {
       bool changed = UpdateWasmRefType(use->consumer()->toDefinition());
       if (changed && !worklist.append(use->consumer()->toDefinition())) {
         return false;
+      }
+    }
+  }
+
+  return true;
+}
+
+static bool IsWasmRefTest(MDefinition* def) {
+  return def->isWasmRefTestAbstract() || def->isWasmRefTestConcrete();
+}
+
+static bool IsWasmRefCast(MDefinition* def) {
+  return def->isWasmRefCastAbstract() || def->isWasmRefCastConcrete() ||
+         def->isWasmRefCastInfallible();
+}
+
+static MDefinition* WasmRefCastOrTestSourceRef(MDefinition* refTestOrCast) {
+  switch (refTestOrCast->op()) {
+    case MDefinition::Opcode::WasmRefCastAbstract:
+      return refTestOrCast->toWasmRefCastAbstract()->ref();
+    case MDefinition::Opcode::WasmRefCastConcrete:
+      return refTestOrCast->toWasmRefCastConcrete()->ref();
+    case MDefinition::Opcode::WasmRefCastInfallible:
+      return refTestOrCast->toWasmRefCastInfallible()->ref();
+    case MDefinition::Opcode::WasmRefTestAbstract:
+      return refTestOrCast->toWasmRefTestAbstract()->ref();
+    case MDefinition::Opcode::WasmRefTestConcrete:
+      return refTestOrCast->toWasmRefTestConcrete()->ref();
+    default:
+      MOZ_CRASH();
+  }
+}
+
+static wasm::RefType WasmRefTestOrCastDestType(MDefinition* refTestOrCast) {
+  switch (refTestOrCast->op()) {
+    case MDefinition::Opcode::WasmRefCastAbstract:
+      return refTestOrCast->toWasmRefCastAbstract()->destType();
+    case MDefinition::Opcode::WasmRefCastConcrete:
+      return refTestOrCast->toWasmRefCastConcrete()->destType();
+    case MDefinition::Opcode::WasmRefCastInfallible:
+      return refTestOrCast->toWasmRefCastInfallible()->destType();
+    case MDefinition::Opcode::WasmRefTestAbstract:
+      return refTestOrCast->toWasmRefTestAbstract()->destType();
+    case MDefinition::Opcode::WasmRefTestConcrete:
+      return refTestOrCast->toWasmRefTestConcrete()->destType();
+    default:
+      MOZ_CRASH();
+  }
+}
+
+static void TryOptimizeWasmCast(MDefinition* cast, MIRGraph& graph) {
+  // Find all uses of the ref we are casting
+  MDefinition* ref = WasmRefCastOrTestSourceRef(cast);
+  for (MUseIterator refUse(ref->usesBegin()); refUse != ref->usesEnd();
+       refUse++) {
+    // If the ref we are casting is used in a ref.test instruction...
+    if (IsWasmRefTest(refUse->consumer()->toDefinition())) {
+      MDefinition* refTest = refUse->consumer()->toDefinition();
+      // And that ref.test instruction is used in an MTest instruction...
+      for (MUseIterator testUse(refTest->usesBegin());
+           testUse != refTest->usesEnd(); testUse++) {
+        if (testUse->consumer()->toDefinition()->isTest()) {
+          // And the MTest instruction true block dominates the block of
+          // the cast...
+          MTest* test = testUse->consumer()->toDefinition()->toTest();
+          if (test->ifTrue()->dominates(cast->block())) {
+            // And the type of the dominating ref.test is <: the type of
+            // the current cast...
+            wasm::RefType refTestDestType = WasmRefTestOrCastDestType(refTest);
+            wasm::RefType refCastDestType = WasmRefTestOrCastDestType(cast);
+            if (wasm::RefType::isSubTypeOf(refTestDestType, refCastDestType)) {
+              // Then the cast is redundant because it is dominated by a
+              // tighter ref.test. Replace it with a dummy cast at the top of
+              // the MTest's true block.
+              if (!graph.alloc().ensureBallast()) {
+                return;
+              }
+              auto* dummy = MWasmRefCastInfallible::New(graph.alloc(), ref,
+                                                        refCastDestType);
+              cast->replaceAllUsesWith(dummy);
+              test->ifTrue()->insertBefore(test->ifTrue()->safeInsertTop(),
+                                           dummy->toInstruction());
+              cast->block()->discard(cast->toInstruction());
+              return;
+            }
+          }
+        }
+      }
+    }
+
+    // If the ref we are casting is used in a different ref.cast instruction...
+    if (IsWasmRefCast(refUse->consumer()->toDefinition()) &&
+        refUse->consumer() != cast) {
+      MDefinition* otherCast = refUse->consumer()->toDefinition();
+      // And that ref.cast instruction dominates us...
+      if (otherCast->block()->dominates(cast->block())) {
+        // Like _really_ dominates us...
+        bool precedes = otherCast->block() == cast->block()
+                            ? PrecedesInSameBlock(otherCast->toInstruction(),
+                                                  cast->toInstruction())
+                            : true;
+        if (precedes) {
+          // And the type of the dominating ref.cast is <: the type of the
+          // current cast...
+          wasm::RefType dominatingDestType =
+              WasmRefTestOrCastDestType(otherCast);
+          wasm::RefType currentDestType = WasmRefTestOrCastDestType(cast);
+          if (wasm::RefType::isSubTypeOf(dominatingDestType, currentDestType)) {
+            // Then the cast is redundant because it is dominated by a tighter
+            // ref.cast. Discard the cast and fall back on the other.
+            cast->replaceAllUsesWith(otherCast);
+            cast->block()->discard(cast->toInstruction());
+            return;
+          }
+        }
+      }
+    }
+  }
+}
+
+static void TryOptimizeWasmTest(MDefinition* refTest, MIRGraph& graph) {
+  // Find all uses of the ref we are testing
+  MDefinition* ref = WasmRefCastOrTestSourceRef(refTest);
+  for (MUseIterator refUse(ref->usesBegin()); refUse != ref->usesEnd();
+       refUse++) {
+    // If the ref we are testing is used in a different ref.test instruction...
+    if (IsWasmRefTest(refUse->consumer()->toDefinition()) &&
+        refUse->consumer() != refTest) {
+      MDefinition* otherRefTest = refUse->consumer()->toDefinition();
+      // And that ref.test instruction is used in an MTest instruction...
+      for (MUseIterator testUse(otherRefTest->usesBegin());
+           testUse != otherRefTest->usesEnd(); testUse++) {
+        if (testUse->consumer()->toDefinition()->isTest()) {
+          MTest* test = testUse->consumer()->toDefinition()->toTest();
+
+          wasm::RefType otherDestType = WasmRefTestOrCastDestType(otherRefTest);
+          wasm::RefType currentDestType = WasmRefTestOrCastDestType(refTest);
+
+          MInstruction* replacement = nullptr;
+
+          if (!graph.alloc().ensureBallast()) {
+            return;
+          }
+
+          // And the MTest instruction true block dominates the block of the
+          // current test...
+          if (test->ifTrue()->dominates(refTest->block())) {
+            // And the type of the DOMINATING ref.test is <: the type of the
+            // CURRENT ref.test...
+            if (wasm::RefType::isSubTypeOf(otherDestType, currentDestType)) {
+              // Then the ref.test is redundant because it is dominated by the
+              // success of a tighter ref.test. Replace it with a constant 1.
+              replacement = MConstant::NewInt32(graph.alloc(), 1);
+            }
+          }
+
+          // Or the MTest instruction false block dominates the block of the
+          // current test...
+          if (test->ifFalse()->dominates(refTest->block())) {
+            // And the type of the CURRENT ref.test is <: the type of the
+            // DOMINATING ref.test...
+            if (wasm::RefType::isSubTypeOf(currentDestType, otherDestType)) {
+              // Then the ref.test is redundant because it is dominated by the
+              // failure of a looser ref.test. Replace it with a constant 0.
+              replacement = MConstant::NewInt32(graph.alloc(), 0);
+            }
+          }
+
+          if (replacement) {
+            refTest->block()->insertBefore(refTest->toInstruction(),
+                                           replacement);
+            refTest->replaceAllUsesWith(replacement);
+            refTest->block()->discard(refTest->toInstruction());
+            return;
+          }
+        }
+      }
+    }
+
+    // If the ref we are testing is used in a ref.cast instruction...
+    if (IsWasmRefCast(refUse->consumer()->toDefinition())) {
+      MDefinition* refCast = refUse->consumer()->toDefinition();
+      // And that ref.cast instruction dominates us...
+      if (refCast->block()->dominates(refTest->block())) {
+        // Like _really_ dominates us...
+        bool precedes = refCast->block() == refTest->block()
+                            ? PrecedesInSameBlock(refCast->toInstruction(),
+                                                  refTest->toInstruction())
+                            : true;
+        if (precedes) {
+          // And the type of the dominating ref.cast is <: the type of the
+          // current ref.test...
+          wasm::RefType dominatingDestType = WasmRefTestOrCastDestType(refCast);
+          wasm::RefType currentDestType = WasmRefTestOrCastDestType(refTest);
+          if (wasm::RefType::isSubTypeOf(dominatingDestType, currentDestType)) {
+            // Then the ref.test is redundant because it is dominated by a
+            // tighter ref.cast. Replace with a constant 1.
+            auto* replacement = MConstant::NewInt32(graph.alloc(), 1);
+            refTest->block()->insertBefore(refTest->toInstruction(),
+                                           replacement);
+            refTest->replaceAllUsesWith(replacement);
+            refTest->block()->discard(refTest->toInstruction());
+            return;
+          }
+        }
+      }
+    }
+  }
+}
+
+bool jit::OptimizeWasmCasts(MIRGraph& graph) {
+  for (ReversePostorderIterator blockIter = graph.rpoBegin();
+       blockIter != graph.rpoEnd(); blockIter++) {
+    MBasicBlock* block = *blockIter;
+    for (MDefinitionIterator def(block); def;) {
+      MDefinition* castOrTest = *def;
+      def++;
+
+      if (IsWasmRefCast(castOrTest)) {
+        TryOptimizeWasmCast(castOrTest, graph);
+      } else if (IsWasmRefTest(castOrTest)) {
+        TryOptimizeWasmTest(castOrTest, graph);
       }
     }
   }

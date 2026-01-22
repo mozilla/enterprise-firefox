@@ -6,6 +6,7 @@
 ChromeUtils.defineESModuleGetters(this, {
   AddonManager: "resource://gre/modules/AddonManager.sys.mjs",
   AddonTestUtils: "resource://testing-common/AddonTestUtils.sys.mjs",
+  SearchService: "moz-src:///toolkit/components/search/SearchService.sys.mjs",
   SearchTestUtils: "resource://testing-common/SearchTestUtils.sys.mjs",
 });
 
@@ -78,8 +79,8 @@ const CONFIG = [
 ];
 
 async function restoreDefaultEngine() {
-  let engine = Services.search.getEngineByName(DEFAULT_ENGINE.name);
-  await Services.search.setDefault(
+  let engine = SearchService.getEngineByName(DEFAULT_ENGINE.name);
+  await SearchService.setDefault(
     engine,
     Ci.nsISearchService.CHANGE_REASON_UNKNOWN
   );
@@ -136,7 +137,7 @@ add_task(async function test_extension_setting_default_engine() {
   await AddonTestUtils.waitForSearchProviderStartup(ext1);
 
   is(
-    (await Services.search.getDefault()).name,
+    (await SearchService.getDefault()).name,
     ALTERNATE_ENGINE.name,
     `Default engine is ${ALTERNATE_ENGINE.name}`
   );
@@ -148,7 +149,7 @@ add_task(async function test_extension_setting_default_engine() {
   await ext1.unload();
 
   is(
-    (await Services.search.getDefault()).name,
+    (await SearchService.getDefault()).name,
     DEFAULT_ENGINE.name,
     `Default engine is ${DEFAULT_ENGINE.name}`
   );
@@ -158,7 +159,7 @@ add_task(async function test_extension_setting_default_engine() {
 
 /* This tests what happens when the engine you're setting it to is hidden. */
 add_task(async function test_extension_setting_default_engine_hidden() {
-  let engine = Services.search.getEngineByName(ALTERNATE_ENGINE.name);
+  let engine = SearchService.getEngineByName(ALTERNATE_ENGINE.name);
   engine.hidden = true;
 
   let ext1 = ExtensionTestUtils.loadExtension({
@@ -178,7 +179,7 @@ add_task(async function test_extension_setting_default_engine_hidden() {
   await AddonTestUtils.waitForSearchProviderStartup(ext1);
 
   is(
-    (await Services.search.getDefault()).name,
+    (await SearchService.getDefault()).name,
     DEFAULT_ENGINE.name,
     "Default engine should have remained as the default"
   );
@@ -191,7 +192,7 @@ add_task(async function test_extension_setting_default_engine_hidden() {
   await ext1.unload();
 
   is(
-    (await Services.search.getDefault()).name,
+    (await SearchService.getDefault()).name,
     DEFAULT_ENGINE.name,
     `Default engine is ${DEFAULT_ENGINE.name}`
   );
@@ -258,7 +259,7 @@ add_task(async function test_extension_setting_default_engine_external() {
   await TestUtils.topicObserved("webextension-defaultsearch-prompt-response");
 
   is(
-    (await Services.search.getDefault()).name,
+    (await SearchService.getDefault()).name,
     DEFAULT_ENGINE.name,
     "Default engine was not changed after rejecting prompt"
   );
@@ -274,7 +275,7 @@ add_task(async function test_extension_setting_default_engine_external() {
   await TestUtils.topicObserved("webextension-defaultsearch-prompt-response");
 
   is(
-    (await Services.search.getDefault()).name,
+    (await SearchService.getDefault()).name,
     NAME,
     "Default engine was changed after accepting prompt"
   );
@@ -297,7 +298,7 @@ add_task(async function test_extension_setting_default_engine_external() {
   await disabledPromise;
 
   is(
-    (await Services.search.getDefault()).name,
+    (await SearchService.getDefault()).name,
     DEFAULT_ENGINE.name,
     `Default engine is ${DEFAULT_ENGINE.name} after disabling`
   );
@@ -324,7 +325,7 @@ add_task(async function test_extension_setting_default_engine_external() {
   await TestUtils.topicObserved("webextension-defaultsearch-prompt-response");
 
   is(
-    (await Services.search.getDefault()).name,
+    (await SearchService.getDefault()).name,
     NAME,
     `Default engine is ${NAME} after enabling`
   );
@@ -339,7 +340,7 @@ add_task(async function test_extension_setting_default_engine_external() {
   await extension.unload();
 
   is(
-    (await Services.search.getDefault()).name,
+    (await SearchService.getDefault()).name,
     DEFAULT_ENGINE.name,
     "Default engine is reverted after uninstalling extension."
   );
@@ -354,7 +355,7 @@ add_task(async function test_extension_setting_default_engine_external() {
   await BrowserTestUtils.closeWindow(win);
 
   is(
-    (await Services.search.getDefault()).name,
+    (await SearchService.getDefault()).name,
     DEFAULT_ENGINE.name,
     "Default engine is unchanged when prompt is dismissed"
   );
@@ -395,7 +396,7 @@ add_task(async function test_extension_setting_multiple_default_engine() {
   await AddonTestUtils.waitForSearchProviderStartup(ext1);
 
   is(
-    (await Services.search.getDefault()).name,
+    (await SearchService.getDefault()).name,
     ALTERNATE_ENGINE.name,
     `Default engine is ${ALTERNATE_ENGINE.name}`
   );
@@ -404,7 +405,7 @@ add_task(async function test_extension_setting_multiple_default_engine() {
   await AddonTestUtils.waitForSearchProviderStartup(ext2);
 
   is(
-    (await Services.search.getDefault()).name,
+    (await SearchService.getDefault()).name,
     ALTERNATE2_ENGINE.name,
     `Default engine is ${ALTERNATE2_ENGINE.name}`
   );
@@ -412,7 +413,7 @@ add_task(async function test_extension_setting_multiple_default_engine() {
   await ext2.unload();
 
   is(
-    (await Services.search.getDefault()).name,
+    (await SearchService.getDefault()).name,
     ALTERNATE_ENGINE.name,
     `Default engine is ${ALTERNATE_ENGINE.name}`
   );
@@ -420,7 +421,7 @@ add_task(async function test_extension_setting_multiple_default_engine() {
   await ext1.unload();
 
   is(
-    (await Services.search.getDefault()).name,
+    (await SearchService.getDefault()).name,
     DEFAULT_ENGINE.name,
     `Default engine is ${DEFAULT_ENGINE.name}`
   );
@@ -460,7 +461,7 @@ add_task(
     await AddonTestUtils.waitForSearchProviderStartup(ext1);
 
     is(
-      (await Services.search.getDefault()).name,
+      (await SearchService.getDefault()).name,
       ALTERNATE_ENGINE.name,
       `Default engine is ${ALTERNATE_ENGINE.name}`
     );
@@ -469,7 +470,7 @@ add_task(
     await AddonTestUtils.waitForSearchProviderStartup(ext2);
 
     is(
-      (await Services.search.getDefault()).name,
+      (await SearchService.getDefault()).name,
       ALTERNATE2_ENGINE.name,
       `Default engine is ${ALTERNATE2_ENGINE.name}`
     );
@@ -477,7 +478,7 @@ add_task(
     await ext1.unload();
 
     is(
-      (await Services.search.getDefault()).name,
+      (await SearchService.getDefault()).name,
       ALTERNATE2_ENGINE.name,
       `Default engine is ${ALTERNATE2_ENGINE.name}`
     );
@@ -485,7 +486,7 @@ add_task(
     await ext2.unload();
 
     is(
-      (await Services.search.getDefault()).name,
+      (await SearchService.getDefault()).name,
       DEFAULT_ENGINE.name,
       `Default engine is ${DEFAULT_ENGINE.name}`
     );
@@ -512,13 +513,13 @@ add_task(async function test_user_changing_default_engine() {
   await AddonTestUtils.waitForSearchProviderStartup(ext1);
 
   is(
-    (await Services.search.getDefault()).name,
+    (await SearchService.getDefault()).name,
     ALTERNATE_ENGINE.name,
     `Default engine is ${ALTERNATE_ENGINE.name}`
   );
 
-  let engine = Services.search.getEngineByName(ALTERNATE2_ENGINE.name);
-  await Services.search.setDefault(
+  let engine = SearchService.getEngineByName(ALTERNATE2_ENGINE.name);
+  await SearchService.setDefault(
     engine,
     Ci.nsISearchService.CHANGE_REASON_UNKNOWN
   );
@@ -532,7 +533,7 @@ add_task(async function test_user_changing_default_engine() {
   await ext1.unload();
 
   is(
-    (await Services.search.getDefault()).name,
+    (await SearchService.getDefault()).name,
     ALTERNATE2_ENGINE.name,
     `Default engine is ${ALTERNATE2_ENGINE.name}`
   );
@@ -564,13 +565,13 @@ add_task(async function test_user_change_with_disabling() {
   await AddonTestUtils.waitForSearchProviderStartup(ext1);
 
   is(
-    (await Services.search.getDefault()).name,
+    (await SearchService.getDefault()).name,
     ALTERNATE_ENGINE.name,
     `Default engine is ${ALTERNATE_ENGINE.name}`
   );
 
-  let engine = Services.search.getEngineByName(ALTERNATE2_ENGINE.name);
-  await Services.search.setDefault(
+  let engine = SearchService.getEngineByName(ALTERNATE2_ENGINE.name);
+  await SearchService.setDefault(
     engine,
     Ci.nsISearchService.CHANGE_REASON_UNKNOWN
   );
@@ -582,7 +583,7 @@ add_task(async function test_user_change_with_disabling() {
   );
 
   is(
-    (await Services.search.getDefault()).name,
+    (await SearchService.getDefault()).name,
     ALTERNATE2_ENGINE.name,
     `Default engine is ${ALTERNATE2_ENGINE.name}`
   );
@@ -593,7 +594,7 @@ add_task(async function test_user_change_with_disabling() {
   await disabledPromise;
 
   is(
-    (await Services.search.getDefault()).name,
+    (await SearchService.getDefault()).name,
     ALTERNATE2_ENGINE.name,
     `Default engine is ${ALTERNATE2_ENGINE.name}`
   );
@@ -603,7 +604,7 @@ add_task(async function test_user_change_with_disabling() {
   await processedPromise;
 
   is(
-    (await Services.search.getDefault()).name,
+    (await SearchService.getDefault()).name,
     ALTERNATE2_ENGINE.name,
     `Default engine is ${ALTERNATE2_ENGINE.name}`
   );
@@ -655,7 +656,7 @@ add_task(async function test_two_addons_with_first_disabled_before_second() {
   await AddonTestUtils.waitForSearchProviderStartup(ext1);
 
   is(
-    (await Services.search.getDefault()).name,
+    (await SearchService.getDefault()).name,
     ALTERNATE_ENGINE.name,
     `Default engine is ${ALTERNATE_ENGINE.name}`
   );
@@ -666,7 +667,7 @@ add_task(async function test_two_addons_with_first_disabled_before_second() {
   await disabledPromise;
 
   is(
-    (await Services.search.getDefault()).name,
+    (await SearchService.getDefault()).name,
     DEFAULT_ENGINE.name,
     `Default engine is ${DEFAULT_ENGINE.name}`
   );
@@ -675,7 +676,7 @@ add_task(async function test_two_addons_with_first_disabled_before_second() {
   await AddonTestUtils.waitForSearchProviderStartup(ext2);
 
   is(
-    (await Services.search.getDefault()).name,
+    (await SearchService.getDefault()).name,
     ALTERNATE2_ENGINE.name,
     `Default engine is ${ALTERNATE2_ENGINE.name}`
   );
@@ -685,7 +686,7 @@ add_task(async function test_two_addons_with_first_disabled_before_second() {
   await enabledPromise;
 
   is(
-    (await Services.search.getDefault()).name,
+    (await SearchService.getDefault()).name,
     ALTERNATE2_ENGINE.name,
     `Default engine is ${ALTERNATE2_ENGINE.name}`
   );
@@ -693,7 +694,7 @@ add_task(async function test_two_addons_with_first_disabled_before_second() {
   await ext1.unload();
 
   is(
-    (await Services.search.getDefault()).name,
+    (await SearchService.getDefault()).name,
     DEFAULT_ENGINE.name,
     `Default engine is ${DEFAULT_ENGINE.name}`
   );
@@ -743,7 +744,7 @@ add_task(async function test_two_addons_with_first_disabled() {
   await AddonTestUtils.waitForSearchProviderStartup(ext1);
 
   is(
-    (await Services.search.getDefault()).name,
+    (await SearchService.getDefault()).name,
     ALTERNATE_ENGINE.name,
     `Default engine is ${ALTERNATE_ENGINE.name}`
   );
@@ -752,7 +753,7 @@ add_task(async function test_two_addons_with_first_disabled() {
   await AddonTestUtils.waitForSearchProviderStartup(ext2);
 
   is(
-    (await Services.search.getDefault()).name,
+    (await SearchService.getDefault()).name,
     ALTERNATE2_ENGINE.name,
     `Default engine is ${ALTERNATE2_ENGINE.name}`
   );
@@ -763,7 +764,7 @@ add_task(async function test_two_addons_with_first_disabled() {
   await disabledPromise;
 
   is(
-    (await Services.search.getDefault()).name,
+    (await SearchService.getDefault()).name,
     ALTERNATE2_ENGINE.name,
     `Default engine is ${ALTERNATE2_ENGINE.name}`
   );
@@ -773,7 +774,7 @@ add_task(async function test_two_addons_with_first_disabled() {
   await enabledPromise;
 
   is(
-    (await Services.search.getDefault()).name,
+    (await SearchService.getDefault()).name,
     ALTERNATE2_ENGINE.name,
     `Default engine is ${ALTERNATE2_ENGINE.name}`
   );
@@ -781,7 +782,7 @@ add_task(async function test_two_addons_with_first_disabled() {
   await ext1.unload();
 
   is(
-    (await Services.search.getDefault()).name,
+    (await SearchService.getDefault()).name,
     DEFAULT_ENGINE.name,
     `Default engine is ${DEFAULT_ENGINE.name}`
   );
@@ -831,7 +832,7 @@ add_task(async function test_two_addons_with_second_disabled() {
   await AddonTestUtils.waitForSearchProviderStartup(ext1);
 
   is(
-    (await Services.search.getDefault()).name,
+    (await SearchService.getDefault()).name,
     ALTERNATE_ENGINE.name,
     `Default engine is ${ALTERNATE_ENGINE.name}`
   );
@@ -840,7 +841,7 @@ add_task(async function test_two_addons_with_second_disabled() {
   await AddonTestUtils.waitForSearchProviderStartup(ext2);
 
   is(
-    (await Services.search.getDefault()).name,
+    (await SearchService.getDefault()).name,
     ALTERNATE2_ENGINE.name,
     `Default engine is ${ALTERNATE2_ENGINE.name}`
   );
@@ -851,7 +852,7 @@ add_task(async function test_two_addons_with_second_disabled() {
   await disabledPromise;
 
   is(
-    (await Services.search.getDefault()).name,
+    (await SearchService.getDefault()).name,
     ALTERNATE_ENGINE.name,
     `Default engine is ${ALTERNATE_ENGINE.name}`
   );
@@ -865,21 +866,21 @@ add_task(async function test_two_addons_with_second_disabled() {
   await defaultPromise;
 
   is(
-    (await Services.search.getDefault()).name,
+    (await SearchService.getDefault()).name,
     ALTERNATE2_ENGINE.name,
     `Default engine is ${ALTERNATE2_ENGINE.name}`
   );
   await ext2.unload();
 
   is(
-    (await Services.search.getDefault()).name,
+    (await SearchService.getDefault()).name,
     ALTERNATE_ENGINE.name,
     `Default engine is ${ALTERNATE_ENGINE.name}`
   );
   await ext1.unload();
 
   is(
-    (await Services.search.getDefault()).name,
+    (await SearchService.getDefault()).name,
     DEFAULT_ENGINE.name,
     `Default engine is ${DEFAULT_ENGINE.name}`
   );

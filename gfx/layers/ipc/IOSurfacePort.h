@@ -4,8 +4,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef mozilla_gfx_IOSurfacePort_h__
-#define mozilla_gfx_IOSurfacePort_h__
+#ifndef mozilla_gfx_IOSurfacePort_h_
+#define mozilla_gfx_IOSurfacePort_h_
 
 #include "chrome/common/ipc_message_utils.h"
 
@@ -70,4 +70,4 @@ struct ParamTraits<mozilla::layers::IOSurfacePort> {
 
 }  // namespace IPC
 
-#endif /* mozilla_gfx_IOSurfacePort_h__ */
+#endif /* mozilla_gfx_IOSurfacePort_h_ */

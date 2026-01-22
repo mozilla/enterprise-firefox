@@ -64,8 +64,10 @@ ChromeUtils.defineESModuleGetters(lazy, {
   FeatureCalloutBroker:
     "resource:///modules/asrouter/FeatureCalloutBroker.sys.mjs",
   HomePage: "resource:///modules/HomePage.sys.mjs",
+  PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   ProfileAge: "resource://gre/modules/ProfileAge.sys.mjs",
   Region: "resource://gre/modules/Region.sys.mjs",
+  SearchService: "moz-src:///toolkit/components/search/SearchService.sys.mjs",
   // eslint-disable-next-line mozilla/no-browser-refs-in-toolkit
   SelectableProfileService:
     "resource:///modules/profiles/SelectableProfileService.sys.mjs",
@@ -768,12 +770,11 @@ const TargetingGetters = {
       return Promise.resolve(NONE);
     }
     return new Promise(resolve => {
-      // Note: calling getAppProvidedEngines, calls Services.search.init which
+      // Note: calling getAppProvidedEngines, calls SearchService.init which
       // ensures this code is only executed after Search has been initialized.
-      Services.search
-        .getAppProvidedEngines()
+      lazy.SearchService.getAppProvidedEngines()
         .then(engines => {
-          let { defaultEngine } = Services.search;
+          let { defaultEngine } = lazy.SearchService;
           resolve({
             // Skip reporting the id for third party engines.
             current: defaultEngine.isAppProvided ? defaultEngine.id : null,
@@ -1388,7 +1389,31 @@ const TargetingGetters = {
       ) === "full";
     return isEncryptedBackup;
   },
+
+  get isPrivateWindow() {
+    let win = lazy.BrowserWindowTracker.getTopWindow({
+      allowFromInactiveWorkspace: true,
+    });
+    // If there's no window (like in backgroundTask mode), return false
+    if (!win) {
+      return false;
+    }
+    return lazy.PrivateBrowsingUtils.isContentWindowPrivate(win);
+  },
 };
+
+function addAIWindowTargeting(targeting) {
+  if (!targeting || targeting === "true") {
+    // Default behavior: Classic-only if no targeting is specified
+    return `!isAIWindow`;
+  }
+
+  if (/\bisAIWindow\b/.test(targeting)) {
+    return targeting;
+  }
+
+  return `((${targeting}) && !isAIWindow)`;
+}
 
 export const ASRouterTargeting = {
   Environment: TargetingGetters,
@@ -1531,14 +1556,13 @@ export const ASRouterTargeting = {
       Array.from(arguments) // eslint-disable-line prefer-rest-params
     );
 
-    // If no targeting is specified,
-    if (!message.targeting) {
-      return true;
-    }
+    let { targeting } = message;
+    targeting = addAIWindowTargeting(targeting);
+
     let result;
     try {
       if (shouldCache) {
-        result = this.getCachedEvaluation(message.targeting);
+        result = this.getCachedEvaluation(targeting);
         if (result) {
           return result.value;
         }
@@ -1546,9 +1570,9 @@ export const ASRouterTargeting = {
       // Used to report the source of the targeting error in the case of
       // undesired events
       targetingContext.setTelemetrySource(message.id);
-      result = await targetingContext.evalWithDefault(message.targeting);
+      result = await targetingContext.evalWithDefault(targeting);
       if (shouldCache) {
-        jexlEvaluationCache.set(message.targeting, {
+        jexlEvaluationCache.set(targeting, {
           timestamp: Date.now(),
           value: result,
         });

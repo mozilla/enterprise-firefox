@@ -3,8 +3,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef __nsAccessibilityService_h__
-#define __nsAccessibilityService_h__
+#ifndef _nsAccessibilityService_h_
+#define _nsAccessibilityService_h_
 
 #include "mozilla/a11y/CacheConstants.h"
 #include "mozilla/a11y/DocManager.h"
@@ -58,7 +58,7 @@ SelectionManager* SelectionMgr();
 ApplicationAccessible* ApplicationAcc();
 xpcAccessibleApplication* XPCApplicationAcc();
 
-typedef LocalAccessible*(New_Accessible)(mozilla::dom::Element* aElement,
+typedef LocalAccessible*(New_Accessible)(mozilla::dom::Element * aElement,
                                          LocalAccessible* aContext);
 
 // These fields are not `nsStaticAtom* const` because MSVC doesn't like it.
@@ -222,6 +222,11 @@ class nsAccessibilityService final : public mozilla::a11y::DocManager,
   void RangeValueChanged(mozilla::PresShell* aPresShell, nsIContent* aContent);
 
   /**
+   * Notify accessibility that the value of an <input type="color"> has changed.
+   */
+  void ColorValueChanged(mozilla::PresShell* aPresShell, nsIContent* aContent);
+
+  /**
    * Update the image map.
    */
   void UpdateImageMap(nsImageFrame* aImageFrame);
@@ -303,6 +308,9 @@ class nsAccessibilityService final : public mozilla::a11y::DocManager,
    * changed. See dom::Element::ExplicitlySetAttrElement.
    */
   void NotifyAttrElementChanged(mozilla::dom::Element* aElement, nsAtom* aAttr);
+
+  void AriaNotify(nsINode* aNode, const nsAString& aAnnouncement,
+                  const mozilla::dom::AriaNotificationOptions& aOptions);
 
   // nsAccessibiltiyService
 

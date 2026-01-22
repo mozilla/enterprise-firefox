@@ -110,6 +110,10 @@ enum class StreamCaptureBehavior : uint8_t {
   FINISH_WHEN_ENDED
 };
 
+// `NotNeeded` means audio is routed through WebAudio (audio output is
+// configured by WebAudio), or audio output configuration is not required.
+enum class AudioOutputConfig : bool { NotNeeded = false, Needed = true };
+
 /**
  * Possible values of the 'preload' attribute.
  */
@@ -753,7 +757,9 @@ class HTMLMediaElement : public nsGenericHTMLElement,
 
   already_AddRefed<DOMMediaStream> MozCaptureStreamUntilEnded(ErrorResult& aRv);
 
-  bool MozAudioCaptured() const { return mAudioCaptured; }
+  already_AddRefed<DOMMediaStream> CaptureStream(ErrorResult& aRv);
+
+  bool MozAudioCaptured() const;
 
   void MozGetMetadata(JSContext* aCx, JS::MutableHandle<JSObject*> aResult,
                       ErrorResult& aRv);
@@ -1038,12 +1044,16 @@ class HTMLMediaElement : public nsGenericHTMLElement,
    * to the DOMMediaStream. Volume and mute state will be applied to the audio
    * reaching the stream. No video tracks will be captured in this case.
    *
+   * aAudioOutputConfig determines if we should configure audio output in our
+   * media pipeline.
+   *
    * aGraph may be null if the stream's tracks do not need to use a
    * specific graph.
    */
   already_AddRefed<DOMMediaStream> CaptureStreamInternal(
       StreamCaptureBehavior aFinishBehavior,
-      StreamCaptureType aStreamCaptureType, MediaTrackGraph* aGraph);
+      StreamCaptureType aStreamCaptureType,
+      AudioOutputConfig aAudioOutputConfig, MediaTrackGraph* aGraph);
 
   /**
    * Initialize a decoder as a clone of an existing decoder in another
@@ -1967,12 +1977,25 @@ class HTMLMediaElement : public nsGenericHTMLElement,
   // with. See bug 1946547.
   void MaybeMarkSHEntryAsUserInteracted();
 
+  // True if we should have track sources for captured tracks.
+  bool ShouldHaveTrackSources() const;
+
 #ifdef MOZ_WMF_CDM
   // It's used to record telemetry probe for WMFCDM playback.
   bool mIsUsingWMFCDM = false;
 #endif
 
   Maybe<DelayedScheduler<AwakeTimeStamp>> mAudioWakelockReleaseScheduler;
+
+  // AudioOutputConfig::Needed means audio is rendered through our own
+  // media-pipeline audio backend. Otherwise, audio output configuration is not
+  // required because audio is routed to Web Audio’s backend (via
+  // MediaElementAudioSourceNode), or is not played through output devices at
+  // all (via MozCaptureStreamXXX). The latter will be unsupported and removed
+  // soon.
+  // Note: Once this becomes NotNeeded, it will never change back. The current
+  // API design does not provide a way to revert this change.
+  AudioOutputConfig mAudioOutputConfig = AudioOutputConfig::Needed;
 };
 
 // Check if the context is chrome or has the debugger or tabs permission

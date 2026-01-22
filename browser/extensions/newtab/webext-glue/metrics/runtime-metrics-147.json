@@ -1,4 +1,17 @@
 {
-  "metrics": {},
+  "metrics": {
+    "pocket": {
+      "spoc_placeholder_duration": {
+        "description": "Time in milliseconds that a placeholder for a sponsored story (spoc) is visible to the user before being replaced with actual sponsored content. This measures how long users see loading placeholders when spocs need to be fetched, which can happen during startup, cache expiration, or other loading scenarios.\n",
+        "disabled": false,
+        "extraArgs": {
+          "time_unit": "millisecond"
+        },
+        "lifetime": "ping",
+        "pings": ["newtab"],
+        "type": "timing_distribution"
+      }
+    }
+  },
   "pings": {}
 }

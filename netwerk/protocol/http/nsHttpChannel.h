@@ -4,8 +4,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef nsHttpChannel_h__
-#define nsHttpChannel_h__
+#ifndef nsHttpChannel_h_
+#define nsHttpChannel_h_
 
 #include "AlternateServices.h"
 #include "AutoClose.h"
@@ -951,4 +951,4 @@ inline nsISupports* ToSupports(mozilla::net::nsHttpChannel* aChannel) {
   return static_cast<nsIHttpChannel*>(aChannel);
 }
 
-#endif  // nsHttpChannel_h__
+#endif  // nsHttpChannel_h_

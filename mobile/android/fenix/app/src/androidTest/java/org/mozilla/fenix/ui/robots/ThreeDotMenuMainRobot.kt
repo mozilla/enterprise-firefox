@@ -15,6 +15,7 @@ import androidx.compose.ui.test.assertIsNotDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.ComposeTestRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -45,7 +46,9 @@ import org.mozilla.fenix.helpers.MatcherHelper.assertUIObjectExists
 import org.mozilla.fenix.helpers.MatcherHelper.itemContainingText
 import org.mozilla.fenix.helpers.MatcherHelper.itemWithDescription
 import org.mozilla.fenix.helpers.MatcherHelper.itemWithResId
+import org.mozilla.fenix.helpers.MatcherHelper.itemWithResIdAndDescription
 import org.mozilla.fenix.helpers.TestAssetHelper.waitingTime
+import org.mozilla.fenix.helpers.TestAssetHelper.waitingTimeLong
 import org.mozilla.fenix.helpers.TestAssetHelper.waitingTimeShort
 import org.mozilla.fenix.helpers.TestHelper.appName
 import org.mozilla.fenix.helpers.TestHelper.mDevice
@@ -374,16 +377,10 @@ class ThreeDotMenuMainRobot(private val composeTestRule: ComposeTestRule) {
 
     @OptIn(ExperimentalTestApi::class)
     fun verifyExtensionsButtonWithInstalledExtension(extensionTitle: String) {
-        Log.i(TAG, "verifyExtensionsButtonWithInstalledExtension: Waiting for $waitingTime for the collapsed \"Extensions\" button with installed $extensionTitle to exist.")
-        composeTestRule.waitUntilAtLeastOneExists(hasContentDescription(extensionTitle, substring = true, ignoreCase = true), waitingTime)
-        Log.i(TAG, "verifyExtensionsButtonWithInstalledExtension: Waited for $waitingTime for the collapsed \"Extensions\" button with installed $extensionTitle to exist.")
-        Log.i(TAG, "verifyExtensionsButtonWithInstalledExtension: Trying to verify that the collapsed \"Extensions\" button with installed $extensionTitle exists.")
-        composeTestRule.onNode(
-            hasTestTag("mainMenu.extensions"),
-        ).assert(
-            hasContentDescription(extensionTitle, substring = true, ignoreCase = true),
-        ).assertIsDisplayed()
-        Log.i(TAG, "verifyExtensionsButtonWithInstalledExtension: Verified that the collapsed \"Extensions\" button with installed $extensionTitle exists.")
+        Log.i(TAG, "verifyExtensionsButtonWithInstalledExtension: Waiting for the compose test rule to be idle.")
+        composeTestRule.waitForIdle()
+        Log.i(TAG, "verifyExtensionsButtonWithInstalledExtension: Waited for the compose test rule to be idle.")
+        assertUIObjectExists(itemWithResIdAndDescription("mainMenu.extensions", extensionTitle))
     }
 
     @OptIn(ExperimentalTestApi::class)
@@ -540,7 +537,14 @@ class ThreeDotMenuMainRobot(private val composeTestRule: ComposeTestRule) {
             return BrowserRobot.Transition(composeTestRule)
         }
 
+        @OptIn(ExperimentalTestApi::class)
         fun clickRefreshButton(interact: BrowserRobot.() -> Unit): BrowserRobot.Transition {
+            Log.i(TAG, "clickRefreshButton: Waiting for $waitingTimeLong until the \"Stop\" button does not exist")
+            composeTestRule.waitUntilDoesNotExist(hasText("Stop"), waitingTimeLong)
+            Log.i(TAG, "clickRefreshButton: Waited for $waitingTimeLong until the \"Stop\" button does not exist")
+            Log.i(TAG, "clickRefreshButton: Waiting for $waitingTime until the \"Refresh\" button exists")
+            composeTestRule.waitUntilAtLeastOneExists(hasText("Refresh"), waitingTime)
+            Log.i(TAG, "clickRefreshButton: Waited for $waitingTime until the \"Refresh\" button exists")
             Log.i(TAG, "clickRefreshButton: Trying to click the \"Refresh\" button")
             composeTestRule.refreshButton().performClick()
             Log.i(TAG, "clickRefreshButton: Clicked the \"Refresh\" button")
@@ -722,8 +726,6 @@ private fun threeDotMenuRecyclerView() =
 
 private fun editBookmarkButton() = onView(withText("Edit"))
 
-private fun stopLoadingButton() = itemWithDescription("Stop")
-
 private fun closeAllTabsButton() = onView(allOf(withText("Close all tabs"))).inRoot(RootMatchers.isPlatformPopup())
 
 private fun shareTabButton() = onView(allOf(withText("Share all tabs"))).inRoot(RootMatchers.isPlatformPopup())
@@ -763,6 +765,8 @@ private fun ComposeTestRule.backButton() = onNodeWithText("Back")
 private fun ComposeTestRule.forwardButton() = onNodeWithText("Forward")
 
 private fun ComposeTestRule.refreshButton() = onNodeWithText("Refresh")
+
+private fun ComposeTestRule.stopButton() = onNodeWithText("Stop")
 
 private fun ComposeTestRule.shareButton() = onNodeWithText("Share")
 

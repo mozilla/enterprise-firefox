@@ -25,6 +25,8 @@ add_setup(async function setup() {
     set: [
       ["browser.urlbar.scotchBonnet.enableOverride", true],
       ["browser.urlbar.trustPanel.featureGate", true],
+      // Hover previews can block opening the trustpanel.
+      ["browser.tabs.hoverPreview.enabled", false],
     ],
   });
   registerCleanupFunction(async () => {
@@ -63,6 +65,14 @@ add_task(async function basic_test() {
   await BrowserTestUtils.waitForCondition(() => urlbarIcon(window) != "none");
 
   Assert.equal(urlbarIcon(window), ETP_ACTIVE_ICON, "Showing trusted icon");
+  Assert.equal(
+    window.document
+      .getElementById("trust-icon-container")
+      .getAttribute("tooltiptext"),
+    "Verified by: Mozilla Testing",
+    "Tooltip has been set"
+  );
+
   Assert.ok(
     !BrowserTestUtils.isVisible(urlbarLabel(window)),
     "Not showing Not Secure label"
@@ -229,4 +239,22 @@ add_task(async function test_update() {
   );
 
   BrowserTestUtils.removeTab(tab);
+});
+
+add_task(async function test_etld() {
+  const tab = await BrowserTestUtils.openNewForegroundTab({
+    gBrowser,
+    opening: "https://www.example.com",
+    waitForLoad: true,
+  });
+
+  await UrlbarTestUtils.openTrustPanel(window);
+
+  Assert.equal(
+    window.document.getElementById("trustpanel-popup-host").value,
+    "example.com",
+    "Showing the eTLD+1"
+  );
+
+  await BrowserTestUtils.removeTab(tab);
 });

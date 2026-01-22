@@ -1008,12 +1008,12 @@ add_task(async function setup() {
   await setupSearchService();
   await addTestEngines();
 
-  await Services.search.setDefault(
-    Services.search.getEngineByName(kSearchEngineID),
+  await SearchService.setDefault(
+    SearchService.getEngineByName(kSearchEngineID),
     Ci.nsISearchService.CHANGE_REASON_UNKNOWN
   );
-  await Services.search.setDefaultPrivate(
-    Services.search.getEngineByName(kPrivateSearchEngineID),
+  await SearchService.setDefaultPrivate(
+    SearchService.getEngineByName(kPrivateSearchEngineID),
     Ci.nsISearchService.CHANGE_REASON_UNKNOWN
   );
 });
@@ -1037,8 +1037,8 @@ add_task(async function run_test() {
   gSingleWordDNSLookup = true;
   await do_single_test_run();
   gSingleWordDNSLookup = false;
-  await Services.search.setDefault(
-    Services.search.getEngineByName(kPostSearchEngineID),
+  await SearchService.setDefault(
+    SearchService.getEngineByName(kPostSearchEngineID),
     Ci.nsISearchService.CHANGE_REASON_UNKNOWN
   );
   await do_single_test_run();
@@ -1050,12 +1050,12 @@ async function do_single_test_run() {
     ? testcases.filter(t => t.keywordLookup)
     : testcases;
 
-  let engine = await Services.search.getDefault();
+  let engine = await SearchService.getDefault();
   let engineUrl =
     engine.name == kPostSearchEngineID
       ? kPostSearchEngineURL
       : kSearchEngineURL;
-  let privateEngine = await Services.search.getDefaultPrivate();
+  let privateEngine = await SearchService.getDefaultPrivate();
   let privateEngineUrl = kPrivateSearchEngineURL;
 
   for (let {

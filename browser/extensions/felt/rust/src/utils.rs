@@ -7,11 +7,12 @@ use nsstring::nsCString;
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, LazyLock, OnceLock, RwLock};
 use std::{ffi::CString, future::Future};
-use time::OffsetDateTime;
 use xpcom::interfaces::{nsICookie, nsICookieManager, nsIObserverService, nsIPrefBranch};
 use xpcom::RefPtr;
 
 use log::trace;
+
+use crate::message::nsICookieWrapper;
 
 #[derive(Default, Debug, Serialize, Deserialize)]
 pub struct Tokens {
@@ -26,93 +27,70 @@ pub static TOKENS: LazyLock<Arc<RwLock<Tokens>>> =
     LazyLock::new(|| Arc::new(RwLock::new(Default::default())));
 pub static CONSOLE_URL: OnceLock<Arc<String>> = OnceLock::new();
 
-pub fn inject_one_cookie(raw_cookie: String) {
-    trace!("inject_one_cookie() raw_cookie:{:?}", raw_cookie.clone());
-    match cookie::Cookie::parse(raw_cookie) {
-        Ok(cookie) => {
-            let cookie2 = cookie.clone();
+pub fn inject_one_cookie(cookie: nsICookieWrapper) {
+    trace!("inject_one_cookie() cookie:{:?}", cookie.clone());
+    trace!(
+        "inject_one_cookie() name:{} value:{} domain:{:?} path:{:?}",
+        cookie.name.clone(),
+        cookie.value.clone(),
+        cookie.domain.clone(),
+        cookie.path.clone()
+    );
+    do_main_thread("felt_inject_one_cookie", async move {
+        let host: nsCString = cookie.domain.clone().into();
+        let path: nsCString = cookie.path.clone().into();
+        let name: nsCString = cookie.name.clone().into();
+        let value: nsCString = cookie.value.clone().into();
+        let expiry: i64 = cookie.expiration;
+        trace!("inject_one_cookie() expiry:{:?}", expiry);
+
+        let is_secure = cookie.is_secure;
+        trace!("inject_one_cookie() is_secure:{}", is_secure);
+
+        let is_http_only = cookie.http_only;
+        trace!("inject_one_cookie() is_http_only:{}", is_http_only);
+
+        let same_site = cookie.same_site;
+        trace!(
+            "inject_one_cookie() cookie.same_site():{:?}",
+            cookie.same_site
+        );
+        trace!("inject_one_cookie() same_site:{:?}", same_site);
+
+        let is_session = cookie.is_session;
+        trace!("inject_one_cookie() is_session:{}", is_session);
+
+        let cookie_manager =
+            xpcom::get_service::<nsICookieManager>(cstr!("@mozilla.org/cookiemanager;1")).unwrap();
+        let rv = unsafe {
+            cookie_manager.AddNativeForFelt(
+                &*host,
+                &*path,
+                &*name,
+                &*value,
+                is_secure,
+                is_http_only,
+                is_session,
+                expiry,
+                same_site,
+                nsICookie::SCHEME_UNSET,
+                false, // cookie.partitioned().unwrap(), NOT IN cookie 0.16 crate
+            )
+        };
+
+        if rv == NS_OK {
             trace!(
-                "inject_one_cookie() name:{} value:{} domain:{:?} path:{:?}",
-                cookie2.name(),
-                cookie2.value(),
-                cookie2.domain(),
-                cookie2.path()
+                "inject_one_cookie() AddNativeForFelt({}) SUCCESS",
+                cookie.name
             );
-            do_main_thread("felt_inject_one_cookie", async move {
-                let host: nsCString = cookie.domain().unwrap_or("").into();
-                let path: nsCString = cookie.path().unwrap_or("").into();
-                let name: nsCString = cookie.name().into();
-                let value: nsCString = cookie.value().into();
-                let expiry: i64 = if let Some(exp) = cookie.expires() {
-                    exp.datetime().unwrap().unix_timestamp() * 1000
-                } else {
-                    0
-                };
-                trace!("inject_one_cookie() expiry:{:?}", expiry);
-
-                let is_secure = cookie.secure().unwrap_or(false);
-                trace!("inject_one_cookie() is_secure:{}", is_secure);
-
-                let is_http_only = cookie.http_only().unwrap_or(false);
-                trace!("inject_one_cookie() is_http_only:{}", is_http_only);
-
-                let same_site = match cookie.same_site() {
-                    Some(cookie::SameSite::Strict) => nsICookie::SAMESITE_STRICT,
-                    Some(cookie::SameSite::Lax) => nsICookie::SAMESITE_LAX,
-                    Some(cookie::SameSite::None) => nsICookie::SAMESITE_NONE,
-                    _ => nsICookie::SAMESITE_NONE,
-                }
-                .try_into()
-                .unwrap();
-                trace!(
-                    "inject_one_cookie() cookie.same_site():{:?}",
-                    cookie.same_site()
-                );
-                trace!("inject_one_cookie() same_site:{:?}", same_site);
-
-                let is_session = cookie
-                    .expires()
-                    .unwrap_or(cookie::Expiration::from(None))
-                    .is_session();
-                trace!("inject_one_cookie() is_session:{}", is_session);
-
-                let cookie_manager =
-                    xpcom::get_service::<nsICookieManager>(cstr!("@mozilla.org/cookiemanager;1"))
-                        .unwrap();
-                let rv = unsafe {
-                    cookie_manager.AddNativeForFelt(
-                        &*host,
-                        &*path,
-                        &*name,
-                        &*value,
-                        is_secure,
-                        is_http_only,
-                        is_session,
-                        expiry,
-                        same_site,
-                        nsICookie::SCHEME_UNSET,
-                        false, // cookie.partitioned().unwrap(), NOT IN cookie 0.16 crate
-                    )
-                };
-
-                if rv == NS_OK {
-                    trace!(
-                        "inject_one_cookie() AddNativeForFelt({}) SUCCESS",
-                        cookie.name()
-                    );
-                } else {
-                    trace!(
-                        "inject_one_cookie() AddNativeForFelt({}) FAILED: {}",
-                        cookie.name(),
-                        rv
-                    );
-                }
-            });
+        } else {
+            trace!(
+                "inject_one_cookie() AddNativeForFelt({}) FAILED: {}",
+                cookie.name,
+                rv
+            );
         }
-        Err(err) => {
-            trace!("inject_one_cookie(): PARSE ERROR: {}", err);
-        }
-    }
+    });
 }
 
 pub fn inject_bool_pref(name: String, value: bool) {
@@ -219,7 +197,7 @@ where
 }
 
 #[allow(non_snake_case)]
-pub fn nsICookie_to_Cookie(cookie: &RefPtr<nsICookie>) -> cookie::Cookie<'_> {
+pub fn nsICookie_wrap(cookie: &RefPtr<nsICookie>) -> nsICookieWrapper {
     let mut name = nsCString::new();
     unsafe {
         cookie.GetName(&mut *name);
@@ -230,36 +208,25 @@ pub fn nsICookie_to_Cookie(cookie: &RefPtr<nsICookie>) -> cookie::Cookie<'_> {
         cookie.GetValue(&mut *value);
     }
 
-    let mut rv = cookie::Cookie::new(name.to_string(), value.to_string());
-    trace!("cookie_to_string: {}", rv.name());
-
     let mut domain = nsCString::new();
     unsafe {
         cookie.GetHost(&mut *domain);
     }
-    rv.set_domain(domain.to_string());
 
     let mut is_session: bool = false;
     unsafe {
         cookie.GetIsSession(&mut is_session);
     }
 
-    let expiration = if is_session {
-        None
-    } else {
-        let mut expiry: i64 = 0;
-        unsafe {
-            cookie.GetExpiry(&mut expiry);
-        }
-        Some(OffsetDateTime::from_unix_timestamp(expiry / 1000).unwrap())
-    };
-    rv.set_expires(expiration);
+    let mut expiration: i64 = 0;
+    unsafe {
+        cookie.GetExpiry(&mut expiration);
+    }
 
     let mut http_only: bool = false;
     unsafe {
         cookie.GetIsHttpOnly(&mut http_only);
     }
-    rv.set_http_only(http_only);
 
     // rv.set_partitioned(); // needs newer version of cookie crate
 
@@ -267,30 +234,30 @@ pub fn nsICookie_to_Cookie(cookie: &RefPtr<nsICookie>) -> cookie::Cookie<'_> {
     unsafe {
         cookie.GetPath(&mut *path);
     }
-    rv.set_path(path.to_string());
 
     let mut same_site: i32 = 42;
     unsafe {
         cookie.GetSameSite(&mut same_site);
     }
 
-    let val_same_site = match same_site as u32 {
-        nsICookie::SAMESITE_STRICT => Some(cookie::SameSite::Strict),
-        nsICookie::SAMESITE_LAX => Some(cookie::SameSite::Lax),
-        nsICookie::SAMESITE_NONE => Some(cookie::SameSite::None),
-        nsICookie::SAMESITE_UNSET => None,
-        _ => None,
-    };
-
-    rv.set_same_site(val_same_site);
-
     let mut is_secure: bool = false;
     unsafe {
         cookie.GetIsSecure(&mut is_secure);
     }
-    rv.set_secure(is_secure);
 
-    rv
+    trace!("nsICookie_wrap: {}", name.to_string());
+
+    nsICookieWrapper::new(
+        name.to_string(),
+        value.to_string(),
+        domain.to_string(),
+        is_session,
+        expiration,
+        http_only,
+        path.to_string(),
+        same_site,
+        is_secure,
+    )
 }
 
 pub fn set_console_url(console_url: String) {

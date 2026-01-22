@@ -16,6 +16,7 @@
 import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
 const lazy = XPCOMUtils.declareLazy({
+  SearchService: "moz-src:///toolkit/components/search/SearchService.sys.mjs",
   UrlUtils: "resource://gre/modules/UrlUtils.sys.mjs",
   UrlbarUtils: "moz-src:///browser/components/urlbar/UrlbarUtils.sys.mjs",
   separatePrivateDefaultUIEnabled: {
@@ -43,7 +44,7 @@ class SearchUtils {
   }
 
   /**
-   * Initializes the instance and also Services.search.
+   * Initializes the instance and also SearchService.
    */
   async init() {
     if (!this._initPromise) {
@@ -88,7 +89,7 @@ class SearchUtils {
     // Array of perfectly matched engines. We also keep a Set for O(1) lookup.
     let perfectMatchEngines = [];
     let perfectMatchEngineSet = new Set();
-    for (let engine of await Services.search.getVisibleEngines()) {
+    for (let engine of await lazy.SearchService.getVisibleEngines()) {
       if (engine.hideOneOffButton) {
         continue;
       }
@@ -172,7 +173,7 @@ class SearchUtils {
     }
 
     let tokenAliasEngines = [];
-    for (let engine of await Services.search.getVisibleEngines()) {
+    for (let engine of await lazy.SearchService.getVisibleEngines()) {
       let tokenAliases = this._aliasesForEngine(engine).filter(a =>
         a.startsWith("@")
       );
@@ -217,15 +218,15 @@ class SearchUtils {
    *   The default engine or null if SearchService has not initialized.
    */
   getDefaultEngine(isPrivate = false) {
-    if (!Services.search.hasSuccessfullyInitialized) {
+    if (!lazy.SearchService.hasSuccessfullyInitialized) {
       return null;
     }
 
     return lazy.separatePrivateDefaultUIEnabled &&
       lazy.separatePrivateDefault &&
       isPrivate
-      ? Services.search.defaultPrivateEngine
-      : Services.search.defaultEngine;
+      ? lazy.SearchService.defaultPrivateEngine
+      : lazy.SearchService.defaultEngine;
   }
 
   /**
@@ -257,7 +258,7 @@ class SearchUtils {
   getSearchModeScalarKey(searchMode) {
     let scalarKey;
     if (searchMode.engineName) {
-      let engine = Services.search.getEngineByName(searchMode.engineName);
+      let engine = lazy.SearchService.getEngineByName(searchMode.engineName);
       let resultDomain = engine.searchUrlDomain;
       // For config engines, sanitize the data in a few special cases to make
       // analysis easier.
@@ -285,7 +286,7 @@ class SearchUtils {
    *
    * @param {UrlbarResult} result
    *   The result to evaluate
-   * @param {Array<RESULT_SOURCE>} [allowedSources]
+   * @param {Values<typeof lazy.UrlbarUtils.RESULT_SOURCE>[]} [allowedSources]
    *   Array of allowed result sources. if defined, the result must be from one
    *   of these sources to be evaluated as a SERP, otherwise this will return
    *   false.
@@ -297,14 +298,15 @@ class SearchUtils {
       return false;
     }
     try {
-      return !!Services.search.parseSubmissionURL(result.payload.url)?.engine;
+      return !!lazy.SearchService.parseSubmissionURL(result.payload.url)
+        ?.engine;
     } catch (ex) {
       return false;
     }
   }
 
   async _initInternal() {
-    await Services.search.init();
+    await lazy.SearchService.init();
     await this._refreshEnginesByAlias();
     Services.obs.addObserver(this, SEARCH_ENGINE_TOPIC, true);
   }
@@ -314,7 +316,7 @@ class SearchUtils {
     // class is for O(1) case-insensitive lookup for search aliases, which is
     // facilitated by _enginesByAlias.
     this._enginesByAlias = new Map();
-    for (let engine of await Services.search.getVisibleEngines()) {
+    for (let engine of await lazy.SearchService.getVisibleEngines()) {
       if (!engine.hidden) {
         for (let alias of this._aliasesForEngine(engine)) {
           this._enginesByAlias.set(alias, engine);
@@ -393,11 +395,11 @@ class SearchUtils {
    *   initialized.
    */
   getEngineByName(engineName) {
-    if (!Services.search.hasSuccessfullyInitialized) {
+    if (!lazy.SearchService.hasSuccessfullyInitialized) {
       return null;
     }
 
-    return Services.search.getEngineByName(engineName);
+    return lazy.SearchService.getEngineByName(engineName);
   }
 
   observe(subject, topic, data) {

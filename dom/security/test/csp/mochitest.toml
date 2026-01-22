@@ -343,9 +343,9 @@ skip-if = [
 
 ["test_bug663567.html"]
 skip-if = [
-  "os == 'win' && os_version == '10.2009' && arch == 'x86_64' && fission && xorigin && debug", # Bug 1716406 - New fission platform triage
-  "os == 'win' && os_version == '11.26100' && arch == 'x86' && fission && xorigin && debug", # Bug 1716406 - New fission platform triage
-  "os == 'win' && os_version == '11.26100' && arch == 'x86_64' && fission && xorigin && debug", # Bug 1716406 - New fission platform triage
+  "os == 'win' && os_version == '10.2009' && arch == 'x86_64' && debug && fission && xorigin", # Bug 1716406 - New fission platform triage
+  "os == 'win' && os_version == '11.26100' && arch == 'x86' && debug && fission && xorigin", # Bug 1716406 - New fission platform triage
+  "os == 'win' && os_version == '11.26100' && arch == 'x86_64' && debug && fission && xorigin", # Bug 1716406 - New fission platform triage
 ]
 
 ["test_bug802872.html"]
@@ -524,7 +524,7 @@ skip-if = [
 
 ["test_hash_source.html"]
 skip-if = [
-  "fission && xorigin && debug", # Bug 1716406 - New fission platform triage
+  "debug && fission && xorigin", # Bug 1716406 - New fission platform triage
 ]
 
 ["test_iframe_sandbox.html"]

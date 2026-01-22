@@ -38,15 +38,15 @@ async function addSearches(searches = TEST_SEARCHES) {
 
 add_setup(async () => {
   defaultEngine = await addTestSuggestionsEngine();
-  await Services.search.setDefault(
+  await SearchService.setDefault(
     defaultEngine,
     Ci.nsISearchService.CHANGE_REASON_ADDON_INSTALL
   );
 
-  let oldCurrentEngine = Services.search.defaultEngine;
+  let oldCurrentEngine = SearchService.defaultEngine;
 
   registerCleanupFunction(async () => {
-    await Services.search.setDefault(
+    await SearchService.setDefault(
       oldCurrentEngine,
       Ci.nsISearchService.CHANGE_REASON_ADDON_INSTALL
     );
@@ -109,7 +109,7 @@ add_task(async function test_per_engine() {
   defaultEngine = await addTestSuggestionsEngine(null, {
     name: "NewTestEngine",
   });
-  await Services.search.setDefault(
+  await SearchService.setDefault(
     defaultEngine,
     Ci.nsISearchService.CHANGE_REASON_ADDON_INSTALL
   );
@@ -129,7 +129,7 @@ add_task(async function test_per_engine() {
   });
 
   defaultEngine = oldEngine;
-  await Services.search.setDefault(
+  await SearchService.setDefault(
     defaultEngine,
     Ci.nsISearchService.CHANGE_REASON_ADDON_INSTALL
   );
@@ -165,5 +165,15 @@ add_task(async function test_expiry() {
   await check_results({
     context: createContext("", { isPrivate: false }),
     matches: [],
+  });
+
+  // On the searchbar, EXPIRE_PREF should be ignored.
+  await check_results({
+    context: createContext("", { isPrivate: false, sapName: "searchbar" }),
+    matches: [
+      makeRecentSearchResult(context, defaultEngine, "Joy Formidable"),
+      makeRecentSearchResult(context, defaultEngine, "Glasgow Weather"),
+      makeRecentSearchResult(context, defaultEngine, "Bob Vylan"),
+    ],
   });
 });

@@ -269,6 +269,12 @@
      * @type {XULElement}
      */
     #splitViewSplitter = null;
+    #splitViewSplitterObserver = new MutationObserver(() => {
+      const splitterState = this.#splitViewSplitter.getAttribute("state");
+      if (splitterState === "dragging") {
+        gBrowser.activeSplitView.resetRightPanelWidth();
+      }
+    });
 
     static #SPLIT_VIEW_PANEL_EVENTS = Object.freeze([
       "click",
@@ -281,13 +287,23 @@
       this._tabbox = null;
     }
 
+    disconnectedCallback() {
+      super.disconnectedCallback();
+      this.#splitViewSplitterObserver.disconnect();
+    }
+
     handleEvent(e) {
       const browser =
         e.currentTarget.tagName === "browser"
           ? e.currentTarget
           : e.currentTarget.querySelector("browser");
+      let elToFocus = null;
       switch (e.type) {
         case "click":
+          if (e.target.tagName !== "browser") {
+            elToFocus = e.target;
+          }
+        // falls through
         case "focus": {
           const tab = gBrowser.getTabForBrowser(browser);
           const tabstrip = this.tabbox.tabs;
@@ -298,9 +314,11 @@
           gBrowser.appendStatusPanel(browser);
           break;
         case "mouseout":
+          StatusPanel.panel.setAttribute("inactive", true);
           gBrowser.appendStatusPanel();
           break;
       }
+      elToFocus?.focus();
     }
 
     get tabbox() {
@@ -320,6 +338,12 @@
         splitter.setAttribute("resizebefore", "sibling");
         splitter.setAttribute("resizeafter", "none");
         this.#splitViewSplitter = splitter;
+        splitter.addEventListener("command", () =>
+          gBrowser.activeSplitView.resetRightPanelWidth()
+        );
+        this.#splitViewSplitterObserver.observe(splitter, {
+          attributeFilter: ["state"],
+        });
       }
       return this.#splitViewSplitter;
     }

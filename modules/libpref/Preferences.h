@@ -529,6 +529,7 @@ class Preferences final : public nsIPrefService,
 
  private:
   nsCOMPtr<nsIFile> mCurrentFile;
+  nsCOMPtr<nsISerialEventTarget> mAsyncTarget;
   // Time since unix epoch in ms (JS Date compatible)
   PRTime mUserPrefsFileLastModifiedAtStartup = 0;
   bool mDirty = false;

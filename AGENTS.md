@@ -9,15 +9,17 @@ The Firefox repository is very big and so it isn't advised to blindly run grep o
 ```
 searchfox-cli --define 'AudioContext::AudioContext' # get function impl
 searchfox-cli --define 'AudioSink' # get class definition
-searchfox-cli -q blob --path ipdl # search for a string, restrict on path
+searchfox-cli -q blob --path ipdl # search for a text string, restrict on path
 searchfox-cli --id AudioSink -l 150 --cpp # search for identifier audio sink in C++ code, 150 results max
 ```
-- Use the `searchfox-cli` tool except if you suspect that you need to find information about something that has changed locally, in which case use `rg` or the usual tools, since `searchfox.org` only indexes public (merged) code
-- If you can't find something easily, it is better to ask than to search aimlessly
+- Prefer searching for identifiers with `searchfox-cli`, falling back to text search restricted by path if that fails.
+- Use the `searchfox-cli` tool, only using `rg` or usual local tools if you need to find information about something
+that has definitely changed locally. If you're unsure, ask.
+- If you can't find something quickly, it is better to ask than run local searches.
 - `./mach` is the main interface to the Mozilla build system and common developer tasks. Important commands are listed here, and you can run `./mach help` for a full list of commands. If you want additional details for a given command, you can run `./mach COMMAND --help`
 - `./mach lint`: Run linters. Run it without additional parameters to lint all the files you have modified
 - `./mach format`: Format code. Run it without additional parameters to format all the files you have modified
-- `./mach build`: Build the project
+- `./mach build`: Build the project. Full builds can take a long time, up to tens of minutes.
 - `./mach test --auto`: Run tests
 - `./mach run`: Run the project
 - `treeherder-check`: Pull CI results for a try push

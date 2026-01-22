@@ -8,8 +8,8 @@
  * A class for handing out nodeinfos and ensuring sharing of them as needed.
  */
 
-#ifndef nsNodeInfoManager_h___
-#define nsNodeInfoManager_h___
+#ifndef nsNodeInfoManager_h_
+#define nsNodeInfoManager_h_
 
 #include "mozilla/Attributes.h"  // for final
 #include "mozilla/MruCache.h"
@@ -179,4 +179,4 @@ class nsNodeInfoManager final {
   bool mHasAllocated = false;
 };
 
-#endif /* nsNodeInfoManager_h___ */
+#endif /* nsNodeInfoManager_h_ */

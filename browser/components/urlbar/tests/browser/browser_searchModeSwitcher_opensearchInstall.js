@@ -68,9 +68,9 @@ async function testInstallEngine(installFun) {
   let settingsWritten = SearchTestUtils.promiseSearchNotification(
     "write-settings-to-disk-complete"
   );
-  let engine = Services.search.getEngineByName("Foo");
+  let engine = SearchService.getEngineByName("Foo");
   await Promise.all([
-    Services.search.removeEngine(engine),
+    SearchService.removeEngine(engine),
     promiseEngineRemoved,
     settingsWritten,
   ]);

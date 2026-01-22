@@ -116,8 +116,9 @@ class SVGFilterInstance {
   }
   float GetPrimitiveNumber(uint8_t aCtxType,
                            const SVGAnimatedNumberPair* aNumberPair,
-                           SVGAnimatedNumberPair::PairIndex aIndex) const {
-    return GetPrimitiveNumber(aCtxType, aNumberPair->GetAnimValue(aIndex));
+                           SVGAnimatedNumberPairWhichOne aPairWhichOne) const {
+    return GetPrimitiveNumber(aCtxType,
+                              aNumberPair->GetAnimValue(aPairWhichOne));
   }
 
   /**

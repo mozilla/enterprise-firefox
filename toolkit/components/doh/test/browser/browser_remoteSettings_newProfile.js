@@ -30,6 +30,7 @@ add_task(async function testNewProfile() {
     id: "provider1",
     uri: "https://example.org/1",
     autoDefault: true,
+    http3First: true,
   };
   let provider2 = {
     id: "provider2",
@@ -69,6 +70,16 @@ add_task(async function testNewProfile() {
     DoHConfigController.currentConfig.providerList,
     [provider1, provider3],
     "Provider list should be loaded"
+  );
+  is(
+    DoHConfigController.currentConfig.http3FirstEnabled,
+    true,
+    "http3First should be enabled"
+  );
+  is(
+    Preferences.get("doh-rollout.force_http3_first"),
+    true,
+    "http3First pref should be enabled"
   );
   is(
     DoHConfigController.currentConfig.providerSteering.enabled,

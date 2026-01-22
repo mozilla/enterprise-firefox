@@ -330,13 +330,8 @@ newtab-custom-recent-subtitle = Падборка нядаўніх сайтаў �
 newtab-custom-weather-toggle =
     .label = Надвор'е
     .description = Кароткі прагноз на сёння
-newtab-custom-trending-search-toggle =
-    .label = Папулярныя пошукавыя запыты
-    .description = Папулярныя і часта запытаныя тэмы
 newtab-custom-widget-weather-toggle =
     .label = Надвор'е
-newtab-custom-widget-trending-search-toggle =
-    .label = Папулярныя пошукавыя запыты
 newtab-custom-widget-lists-toggle =
     .label = Спісы
 newtab-custom-widget-timer-toggle =
@@ -597,7 +592,7 @@ newtab-download-mobile-highlight-image =
 newtab-shortcuts-highlight-title = Вашы любімыя рэчы ў вас пад рукой
 newtab-shortcuts-highlight-subtitle = Дадайце цэтлік, каб вашы любімыя сайты былі на адлегласці дотыку.
 
-## Strings for reporting ads and content
+## Strings for reporting issues with ads and content
 
 newtab-report-content-why-reporting-this =
     .label = Чаму вы паведамляеце пра гэта?
@@ -615,21 +610,13 @@ newtab-report-content-inappropriate-offensive =
     .label = Недарэчнае або абразлівае
 newtab-report-content-spam-misleading =
     .label = Спам або зман
+newtab-report-content-requires-payment-subscription =
+    .label = Патрэбна аплата або падпіска
+newtab-report-content-requires-payment-subscription-learn-more = Даведацца больш
 newtab-report-cancel = Скасаваць
 newtab-report-submit = Даслаць
 newtab-toast-thanks-for-reporting =
     .message = Дзякуй, што паведамілі пра гэта.
-
-## Strings for trending searches
-
-newtab-trending-searches-show-trending =
-    .title = Паказаць папулярныя пошукавыя запыты
-newtab-trending-searches-hide-trending =
-    .title = Схаваць папулярныя пошукавыя запыты
-newtab-trending-searches-learn-more = Падрабязней
-newtab-trending-searches-dismiss = Схаваць папулярныя пошукавыя запыты
-# "Trending searches refers to popular searches from search engines
-newtab-trending-searches-title = Папулярныя пошукавыя запыты
 
 ## Strings for task / to-do list productivity widget
 

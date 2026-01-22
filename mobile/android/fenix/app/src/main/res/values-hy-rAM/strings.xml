@@ -229,9 +229,9 @@
   <!-- Browser menu button that opens account settings -->
   <string name="browser_menu_account_settings">Հաշվի տվյալներ</string>
   <!-- Browser menu button that sends a user to help articles -->
-  <string name="browser_menu_help">Օգնություն</string>
+  <string name="browser_menu_help" tools:ignore="UnusedResources" moz:removedIn="149">Օգնություն</string>
   <!-- Browser menu button that sends a to a the what's new article -->
-  <string name="browser_menu_whats_new">Ինչն է նոր</string>
+  <string name="browser_menu_whats_new" tools:ignore="UnusedResources" moz:removedIn="149">Ինչն է նոր</string>
   <!-- Browser menu button that opens the settings menu -->
   <string name="browser_menu_settings">Կարգավորումներ</string>
   <!-- Browser menu button that opens a user's library -->
@@ -239,7 +239,7 @@
   <!-- Browser menu toggle that requests a desktop site -->
   <string name="browser_menu_desktop_site">Ամբողջական կայք</string>
   <!-- Browser menu button that reopens a private tab as a regular tab -->
-  <string name="browser_menu_open_in_regular_tab">Բացել կանոնավոր ներդիրում</string>
+  <string name="browser_menu_open_in_regular_tab" tools:ignore="UnusedResources" moz:removedIn="149">Բացել կանոնավոր ներդիրում</string>
   <!-- Browser menu toggle that adds a shortcut to the site on the device home screen. -->
   <string name="browser_menu_add_to_homescreen">Հավելել տնային էկրանին</string>
   <!-- Browser menu toggle that adds a PWA of the site on the device home screen. -->
@@ -267,7 +267,7 @@
     Browser menu text shown in custom tabs to indicate this is a Fenix tab
     %1$s is the name of the app (for example "Firefox").
   -->
-  <string name="browser_menu_powered_by">%1$s-Ի ԿՈՂՄԻՑ</string>
+  <string name="browser_menu_powered_by" tools:ignore="UnusedResources" moz:removedIn="149">%1$s-Ի ԿՈՂՄԻՑ</string>
   <!--
     Browser menu text shown in custom tabs to indicate this is a Fenix tab
     %1$s is the name of the app (for example "Firefox").
@@ -280,15 +280,15 @@
   <!-- Browser menu button to open the current page in an external app -->
   <string name="browser_menu_open_app_link">Բացել հավելվածում</string>
   <!-- Browser menu button to show reader view appearance controls e.g. the used font type and size -->
-  <string name="browser_menu_customize_reader_view">Հարմարեցնել ընթերցելու տեսքը</string>
+  <string name="browser_menu_customize_reader_view" tools:ignore="UnusedResources" moz:removedIn="149">Հարմարեցնել ընթերցելու տեսքը</string>
   <!-- Browser menu button to show reader view appearance controls e.g. the used font type and size -->
   <string name="browser_menu_customize_reader_view_2">Հարմարեցնել Ընթերցելու տեսքը</string>
   <!-- Browser menu label for adding a bookmark -->
-  <string name="browser_menu_add">Ավելացնել</string>
+  <string name="browser_menu_add" tools:ignore="UnusedResources" moz:removedIn="149">Ավելացնել</string>
   <!-- Browser menu label for editing a bookmark -->
-  <string name="browser_menu_edit">Խմբագրել</string>
+  <string name="browser_menu_edit" tools:ignore="UnusedResources" moz:removedIn="149">Խմբագրել</string>
   <!-- Button shown on the home page that opens the Customize home settings -->
-  <string name="browser_menu_customize_home_1">Հարմարեցնել տնէջը</string>
+  <string name="browser_menu_customize_home_1" tools:ignore="UnusedResources" moz:removedIn="149">Հարմարեցնել տնէջը</string>
   <!-- Browser menu label to sign in to sync on the device using Mozilla accounts -->
   <string name="browser_menu_sign_in">Մուտք գործել</string>
   <!-- Browser menu caption label for the "Sign in" browser menu item described in `browser_menu_sign_in` -->
@@ -307,10 +307,6 @@
   <string name="browser_close_main_menu_handlebar_content_description">Փակել ցանկը</string>
   <!-- Content description (not visible, for screen readers etc.) for main menu navigation header. -->
   <string name="browser_main_menu_content_description_navigation_header">Նավարկում</string>
-  <!-- Content description (not visible, for screen readers etc.) for main menu help button. -->
-  <string name="browser_main_menu_content_description_help_button" tools:ignore="UnusedResources" moz:removedIn="146">Օգնություն</string>
-  <!-- Content description (not visible, for screen readers etc.) for main menu settings button. -->
-  <string name="browser_main_menu_content_description_settings_button" tools:ignore="UnusedResources" moz:removedIn="146">Կարգավորումներ</string>
   <!-- Content description (not visible, for screen readers etc.) for bottom sheet handlebar extensions menu. -->
   <string name="browser_extensions_menu_handlebar_content_description">Փակել ընդլայնումների ցանկի էջը</string>
   <!-- Content description (not visible, for screen readers etc.) for bottom sheet handlebar save menu. -->
@@ -328,7 +324,7 @@
   <!-- Browser menu label for navigating to the translation feature, which provides language translation options the current visited page -->
   <string name="browser_menu_translate_page_2">Թարգմանել էջը</string>
   <!-- Browser menu label for navigating to the Web Compat Reporter feature, which provides users the ability to send bug reports for broken sites. -->
-  <string name="browser_menu_webcompat_reporter">Զեկուցել խոտանումը…</string>
+  <string name="browser_menu_webcompat_reporter" tools:ignore="UnusedResources" moz:removedIn="149">Զեկուցել խոտանումը…</string>
   <!-- Browser menu label for navigating to the Web Compat Reporter feature, which provides users the ability to send bug reports for broken sites. -->
   <string name="browser_menu_webcompat_reporter_2">Զեկուցել կայքի խոտանումը</string>
   <!-- Browser menu label that is displayed when the current page has been translated by the translation feature. -->
@@ -438,6 +434,10 @@
     The colon character (in "%s:") is intended to have the screen reader make a small pause between the search engine name and the description of the button.
   -->
   <string name="search_engine_selector_content_description">%s՝ որոնիչի ընտրիչ</string>
+  <!-- Text for the snackbar shown to confirm the deletion of a single browsing history item. %1$s is the shortened URL of the deleted history entry or the the actual deleted search term. Only one such item is deleted at a time. -->
+  <string name="search_suggestions_delete_history_item_snackbar">%1$s-ը ջնջվեց պատմությունից</string>
+  <!-- Content description (not visible, for screen readers etc.): Button shown near a history search result allowing to delete it from browsing history. -->
+  <string name="mozac_browser_awesomebar_remove_suggestion" tools:ignore="UnusedResources">Ջնջել այս պատմության գրառումը</string>
   <!--
     Home onboarding
 
@@ -452,19 +452,8 @@
   <string name="juno_onboarding_privacy_notice_text" tools:ignore="BrandUsage">Firefox֊ի գաղտնիության ծանուցում</string>
   <!-- Title for set firefox as default browser screen used by Nimbus experiments. -->
   <string name="juno_onboarding_default_browser_title_nimbus_2">Մենք սիրում ենք ձեզ ապահով պահել</string>
-  <!--
-    Title for set firefox as default browser screen used by Nimbus experiments.
-    Note: The word "Firefox" should NOT be translated
-  -->
-  <string name="juno_onboarding_default_browser_title_nimbus_3" tools:ignore="BrandUsage,UnusedResources" moz:removedIn="146">Պարզեք, թե ինչու են միլիոնավոր մարդիկ սիրում Firefox-ը</string>
-  <!-- Title for set firefox as default browser screen used by Nimbus experiments. -->
-  <string name="juno_onboarding_default_browser_title_nimbus_4" tools:ignore="UnusedResources" moz:removedIn="146">Անվտանգ դիտարկում ավելի շատ ընտրանքներով</string>
   <!-- Description for set firefox as default browser screen used by Nimbus experiments. -->
   <string name="juno_onboarding_default_browser_description_nimbus_3">Մեր շահույթ չհետապնդող դիտարկիչն օգնում է դադարեցնել ընկերությունների կողմից համացանցում ձեզ գաղտնի հետևելը:</string>
-  <!-- Description for set firefox as default browser screen used by Nimbus experiments. -->
-  <string name="juno_onboarding_default_browser_description_nimbus_4" tools:ignore="UnusedResources" moz:removedIn="146">Ավելի քան 100 միլիոն մարդ պաշտպանում է իր գաղտնիությունը՝ ընտրելով ոչ առևտրային կազմակերպության կողմից աջակցվող զննիչ:</string>
-  <!-- Description for set firefox as default browser screen used by Nimbus experiments. -->
-  <string name="juno_onboarding_default_browser_description_nimbus_5" tools:ignore="UnusedResources" moz:removedIn="146">Հայտնի հետագծիչնե՞ր: Ինքնաշխատ արգելափակվում են: Ընդլայնումնե՞ր; Փորձե՞ք բոլոր 700-ը։ PDF ֆայլե՞ր: Մեր ներկառուցված ընթերցողը հեշտացնում է դրանց կառավարումը:</string>
   <!-- Text for the button to set firefox as default browser on the device -->
   <string name="juno_onboarding_default_browser_positive_button" tools:ignore="UnusedResources">Կայել որպես սկզբնադիր դիտարկիչ</string>
   <!-- Text for the button dismiss the screen and move on with the flow -->
@@ -624,6 +613,86 @@
   <string name="onboarding_marketing_body_1" tools:ignore="BrandUsage,UnusedResources">Կիսվեք, թե ինչպես եք հայտնաբերել Firefox-ը և որ այն օգտագործում եք Mozilla-ի մարքեթինգային տեխնոլոգիաների գործընկերների հետ:</string>
   <!-- Marketing onboarding page button label variant. Button to confirm choice and start browsing. -->
   <string name="onboarding_marketing_positive_button_1" tools:ignore="UnusedResources">Համաձայնեք և սկսեք դիտարկումը</string>
+  <!-- ==== Project "Nova" onboarding strings ==== -->
+
+  <!-- "Continue" onboarding button. -->
+  <string name="nova_onboarding_continue_button" tools:ignore="UnusedResources">Շարունակել</string>
+  <!-- "Not now" onboarding button. -->
+  <string name="nova_onboarding_negative_button" tools:ignore="UnusedResources">Ոչ հիմա</string>
+  <!-- Terms of use (ToU) onboarding title. -->
+  <string name="nova_onboarding_tou_title" tools:ignore="UnusedResources">Պատրաստվեք ազատ վազելու</string>
+  <!-- Terms of use (ToU) onboarding subtitle. -->
+  <string name="nova_onboarding_tou_subtitle" tools:ignore="UnusedResources">Արագ, անվտանգ և չի խաբի ձեզ։\nԶննարկումը հենց նոր ավելի լավն է դարձել։</string>
+  <!--
+    Terms of use (ToU) onboarding body line one.
+    %1$s is replaced by an active link, using nova_onboarding_tou_body_line_1_link_text as text (“Firefox Terms of Use”).
+  -->
+  <string name="nova_onboarding_tou_body_line_1" tools:ignore="UnusedResources">Շարունակելով՝ դուք համաձայնում եք Firefox-ի %1$s-ին:</string>
+  <!-- Terms of use (ToU) onboarding body line one link text for nova_onboarding_tou_body_line_1. 'Firefox' is intentionally hardcoded. -->
+  <string name="nova_onboarding_tou_body_line_1_link_text" tools:ignore="BrandUsage,UnusedResources">Firefox -ի օգտագործման պայմաններ</string>
+  <!--
+    Terms of use (ToU) onboarding body line two. 'Firefox' is intentionally hardcoded.
+    %1$s is replaced by an active link, using nova_onboarding_tou_body_line_2_link_text as text (“Privacy Notice”).
+  -->
+  <string name="nova_onboarding_tou_body_line_2" tools:ignore="BrandUsage,UnusedResources">Firefox -ը հոգ է տանում ձեր գաղտնիության մասին: Կարդացեք ավելին մեր %1$s-ում</string>
+  <!-- Terms of use (ToU) onboarding body line two link text for nova_onboarding_tou_body_line_2. -->
+  <string name="nova_onboarding_tou_body_line_2_link_text" tools:ignore="UnusedResources">Գաղտնիության դրույթներ</string>
+  <!--
+    Terms of use (ToU) onboarding body line three. 'Firefox' and 'Mozilla' are intentionally hardcoded.
+    %1$s is replaced by an active link, using nova_onboarding_tou_body_line_3_link_text as text (“Manage Settings”).
+  -->
+  <string name="nova_onboarding_tou_body_line_3" tools:ignore="BrandUsage,UnusedResources">Դիտարկիչը բարելավելու համար Firefox-ը ախտորոշիչ և փոխազդեցության տվյալներ է ուղարկում Mozilla-ին։ %1$s</string>
+  <!-- Terms of use (ToU) onboarding body line three link text for nova_onboarding_tou_body_line_3. -->
+  <string name="nova_onboarding_tou_body_line_3_link_text" tools:ignore="UnusedResources">Կառավարել կարգավորումները</string>
+  <!-- "Set to default" onboarding title. -->
+  <string name="nova_onboarding_set_to_default_title" tools:ignore="UnusedResources">Ասեք «ցտեսություն» սարսափելի գովազդներին</string>
+  <!-- "Set to default" onboarding subtitle. -->
+  <string name="nova_onboarding_set_to_default_subtitle" tools:ignore="UnusedResources">Մենք պաշտպանում ենք ձեր տվյալները և ավտոմատ կերպով արգելափակում ենք ընկերությունների կողմից ձեր սեղմումների լրտեսումը։</string>
+  <!-- "Set to default" onboarding button. -->
+  <string name="nova_onboarding_set_to_default_button" tools:ignore="UnusedResources">Սահմանել որպես սկզբնադիր դիտարկիչ</string>
+  <!-- Toolbar selection onboarding title. -->
+  <string name="nova_onboarding_toolbar_selection_title" tools:ignore="UnusedResources">Ընտրեք ձեր հասցեագոտին</string>
+  <!-- Toolbar selection onboarding "top" option label. -->
+  <string name="nova_onboarding_toolbar_selection_top_label" tools:ignore="UnusedResources">Վերև</string>
+  <!-- Toolbar selection onboarding "bottom" option label. -->
+  <string name="nova_onboarding_toolbar_selection_bottom_label" tools:ignore="UnusedResources">ներքև</string>
+  <!-- Theme selection onboarding title. -->
+  <string name="nova_onboarding_theme_selection_title" tools:ignore="UnusedResources">Ընտրեք ձեր ձևավորումը</string>
+  <!-- Theme selection onboarding "automatic" option label. -->
+  <string name="nova_onboarding_theme_selection_automatic_label" tools:ignore="UnusedResources">Ինքնաշխատ</string>
+  <!-- Theme selection onboarding "light" option label. -->
+  <string name="nova_onboarding_theme_selection_light_label" tools:ignore="UnusedResources">Լուսավոր</string>
+  <!-- Theme selection onboarding "dark" option label. -->
+  <string name="nova_onboarding_theme_selection_dark_label" tools:ignore="UnusedResources">Մութ</string>
+  <!-- Sync onboarding title. -->
+  <string name="nova_onboarding_sync_title" tools:ignore="UnusedResources">Անմիջապես շարունակեք այնտեղից, որտեղ կանգ եք առել</string>
+  <!-- Sync onboarding subtitle. -->
+  <string name="nova_onboarding_sync_subtitle" tools:ignore="UnusedResources">Միանգամից ցանկացած սարքում պահեք էջանիշեր, գաղտնաբառեր և այլն: Ձեր անձնական տվյալները մնում են անվտանգ կոդավորման միջոցով:</string>
+  <!-- Sync onboarding button. -->
+  <string name="nova_onboarding_sync_button" tools:ignore="UnusedResources">Համաժամեցնել</string>
+  <!-- Marketing onboarding title. -->
+  <string name="nova_onboarding_marketing_title" tools:ignore="UnusedResources">Օգնեք մեզ կառուցել ավելի լավ համացանց</string>
+  <!--
+    Marketing onboarding body. 'Firefox' and 'Mozilla' are intentionally hardcoded.
+    %1$s is replaced by an active link, using nova_onboarding_marketing_body_link_text as text (“How we use the data”).
+  -->
+  <string name="nova_onboarding_marketing_body" tools:ignore="BrandUsage,UnusedResources">Կիսվեք Mozilla-ի մարքեթինգային գործընկերների հետ, թե ինչպես եք հայտնաբերել Firefox-ը և որ օգտագործում եք այն։ Այս տվյալները երբեք չեն վաճառվում։ %1$s</string>
+  <!-- Marketing onboarding body link text. -->
+  <string name="nova_onboarding_marketing_body_link_text" tools:ignore="UnusedResources">Ինչպես ենք մենք օգտագործում տվյալները</string>
+  <!-- Notifications onboarding title. 'Firefox' is intentionally hardcoded. -->
+  <string name="nova_onboarding_notifications_title" tools:ignore="BrandUsage,UnusedResources">Ծանուցումները կօգնեն ձեզ ավելի անվտանգ լինել Firefox-ի հետ</string>
+  <!-- Notifications onboarding subtitle. 'Firefox' is intentionally hardcoded. -->
+  <string name="nova_onboarding_notifications_subtitle" tools:ignore="BrandUsage,UnusedResources">Բացահայտեք Firefox-ի գաղտնիության վերջին հնարավորությունները, որպեսզի միշտ տեղեկացված լինեք, թե ինչպես պաշտպանված մնալ։</string>
+  <!-- Notifications onboarding button. -->
+  <string name="nova_onboarding_notifications_button" tools:ignore="UnusedResources">Միացնել ծանուցումները</string>
+  <!-- "Add search widget" onboarding title. -->
+  <string name="nova_onboarding_add_search_widget_title" tools:ignore="UnusedResources">Դարձրեք յուրաքանչյուր որոնում ավելի անձնական</string>
+  <!-- "Add search widget" onboarding subtitle. 'Firefox' is intentionally hardcoded. -->
+  <string name="nova_onboarding_add_search_widget_subtitle" tools:ignore="BrandUsage,UnusedResources">Սկսեք յուրաքանչյուր որոնում ձեր հեռախոսի գլխավոր էկրանից և իմացեք, որ Firefox-ի ավտոմատ պաշտպանությունները ձեզ կօգնեն։</string>
+  <!-- "Add search widget" onboarding button. 'Firefox' is intentionally hardcoded. -->
+  <string name="nova_onboarding_add_search_widget_button" tools:ignore="BrandUsage,UnusedResources">Ավելացնել Firefox-ի վիջեթը</string>
+  <!-- ==== End of Project "Nova" onboarding strings ==== -->
+
   <!-- Onboarding header for the toolbar selection card, used by Nimbus experiments. -->
   <string name="onboarding_customize_toolbar_title" tools:ignore="UnusedResources">Ընտրեք գործիքագոտու տեղը</string>
   <!-- Onboarding sub header for toolbar selection card, used by Nimbus experiments. -->
@@ -892,6 +961,15 @@
   <string name="preferences_open_links_in_apps_ask">Հարցել բացելուց առաջ</string>
   <!-- Preference for open links in third party apps never open in apps option -->
   <string name="preferences_open_links_in_apps_never">Երբեք</string>
+  <!-- Preference category for file storage. -->
+  <string name="preferences_category_file_storage">Ֆայլերի պահեստ</string>
+  <!-- Preference title for downloads default location. -->
+  <string name="preferences_downloads_default_location_title">Ներբեռնման սկզբնադիր տեղադրություն</string>
+  <!--
+    Message shown as the summary of the download location preference when the
+    app has lost the permission to access a previously selected custom folder.
+  -->
+  <string name="preference_downloads_folder_permission_lost">Դուք չունեք այս պանակն օգտագործելու թույլտվություն։ Փորձեք ընտրել մեկ ուրիշը։</string>
   <!-- Preference title for choosing an app to handle downloads -->
   <string name="preferences_choose_app_for_downloads">Կառավարեք ներբեռնումները մեկ այլ հավելվածով</string>
   <!-- Title for the setting to automatically clean up downloaded files. %s is the name of the app (for example "Firefox"). -->
@@ -1057,8 +1135,6 @@
   <string name="alternative_app_icon_group_solid_colors">Միագույն</string>
   <!-- Title for the "Gradients" group of alternative app icon variants in the icon picker screen. This group contains icons with gradient backgrounds inspired by natural light conditions. -->
   <string name="alternative_app_icon_group_gradients">Սահանցումներ</string>
-  <!-- Title for the "Other" group of alternative app icon variants in the icon picker screen. This group includes retro, pixel art, themed, and artist-created icons. -->
-  <string name="alternative_app_icon_group_other" tools:ignore="UnusedResources" moz:removedIn="146">Այլ</string>
   <!-- Title for the "Featured" group of alternative app icon variants in the icon picker screen. This group includes retro, pixel art, themed, and artist-created icons. -->
   <string name="alternative_app_icon_group_featured">Յուրահատկություններ</string>
   <!-- Title to show in alert when user selects an alternative app icon -->
@@ -1425,11 +1501,27 @@
   <!-- Title of the active section on the studies list -->
   <string name="studies_active">Գործուն</string>
   <!-- Description for studies -->
-  <string name="studies_description_3">Փորձեք յուրահատկությունները և գաղափարները, նախքան դրանք բոլորին հասանելի լինեն:</string>
+  <string name="studies_description_3" moz:removedIn="148" tools:ignore="UnusedResources">Փորձեք յուրահատկությունները և գաղափարները, նախքան դրանք բոլորին հասանելի լինեն:</string>
+  <!-- Description for studies. Note: The word "Firefox" should NOT be translated -->
+  <string name="studies_description_4" tools:ignore="BrandUsage">Firefox-ը պատահականորեն ընտրում է օգտատերերին՝ գործառույթները փորձարկելու համար, ինչը բարելավում է որակը բոլորի համար։</string>
   <!-- Title of the Studies data preference -->
-  <string name="studies_title">Տեղադրել և գործարկել ուսումնասիրությունները</string>
+  <string name="studies_title" moz:removedIn="148" tools:ignore="UnusedResources">Տեղադրել և գործարկել ուսումնասիրությունները</string>
+  <!-- Title of the Studies data preference -->
+  <string name="studies_title_2">Թույլատրել յուրահատկությունների ուսումնասիրությունները</string>
   <!-- Learn more link for studies, links to an article for more information about studies. -->
   <string name="studies_learn_more">Իմանալ ավելին</string>
+  <!--
+    Remote Improvements (Rollouts)
+
+    Title of the Remote Improvements (rollouts) data preference
+  -->
+  <string name="remote_improvements_title">Թույլատրել հեռակա բարելավումներ</string>
+  <!-- Description for remote improvements. Note: The word "Firefox" should NOT be translated -->
+  <string name="remote_improvements_description" tools:ignore="BrandUsage">Firefox-ը կբարելավի գործառույթները, կատարողականությունը և կայունությունը թարմացումների միջև ընկած ժամանակահատվածում: Փոփոխությունները կիրառվում են հեռակա կարգով:</string>
+  <!-- Learn more link for remote improvements, links to an article for more information about rollouts. -->
+  <string name="remote_improvements_learn_more">Իմանալ ավելին</string>
+  <!-- Title for remote improvements preference in Advanced settings -->
+  <string name="preferences_remote_improvements">Հեռակա բարելավումներ</string>
   <!--
     Sessions
 
@@ -1511,6 +1603,10 @@
   <string name="remove_tab_from_collection">Հեռացնել ներդիրը հավաքածուից</string>
   <!-- Text for button to enter multiselect mode in tabs tray -->
   <string name="tabs_tray_select_tabs">Ընտրել ներդիրները</string>
+  <!-- Text for tab manager search page when there are no results. -->
+  <string name="tab_manager_no_search_results">Հետագծողներ չեն գտնվել</string>
+  <!-- Additional text for tab manager search page when there are no results. -->
+  <string name="tab_manager_no_search_results_additional_text">Փորձեք մեկ այլ որոնում։</string>
   <!-- Content description (not visible, for screen readers etc.): Close tab button. Closes the current session when pressed -->
   <string name="close_tab">Փակել ներդիրը</string>
   <!-- Content description (not visible, for screen readers etc.): Close tab <title> button. %s is the tab title -->
@@ -1619,6 +1715,8 @@
   <string name="download_delete_item">Ջնջել</string>
   <!-- Content description for the toolbar "Navigate back" button -->
   <string name="download_navigate_back_description">Նավարկել ետ</string>
+  <!-- Content description for the toolbar "Navigate to Downloads Settings" button -->
+  <string name="download_navigate_settings_description">Անցնել Ներբեռնումների կարգավորումներին</string>
   <!-- Content description for the toolbar back button while searching the downloads -->
   <string name="download_close_search_description">Վերադառնալ և փակել որոնումը</string>
   <!--
@@ -1834,6 +1932,8 @@
   <string name="bookmark_error_edit_bookmark">Հնարավոր չէ խմբագրել էջանիշը</string>
   <!-- Snackbar edit button shown after a bookmark has been created. -->
   <string name="edit_bookmark_snackbar_action">ԽՄԲԱԳՐԵԼ</string>
+  <!-- Bookmark menu select button -->
+  <string name="bookmark_menu_select_button">Ընտրել</string>
   <!-- Bookmark menu move button -->
   <string name="bookmark_menu_move_button">Տեղափոխել</string>
   <!-- Bookmark overflow menu edit button -->
@@ -1910,8 +2010,14 @@
   <string name="bookmark_delete_folder_content_description">Ջնջել պանակը</string>
   <!-- Content description for bookmark search floating action button -->
   <string name="bookmark_search_button_content_description">Որոնել էջանիշեր</string>
+  <!-- Content description for select folder screen search action button ("search" is a verb) -->
+  <string name="select_bookmark_search_button_content_description">Փնտրել թղթապանակներ</string>
   <!-- Content description for the overflow menu for a bookmark item. %s is a folder name or bookmark title. -->
   <string name="bookmark_item_menu_button_content_description">Միավորի ցանկը %s-ի համար</string>
+  <!-- Content description for the chevron that will open a folder on the select folder screen and display its children. %s is the title of the folder that will be opened -->
+  <string name="bookmark_select_folder_expand_folder_content_description">Ընդարձակել պանակը՝ %s</string>
+  <!-- Content description for the chevron that will close a folder on the select folder screen so that its children are no longer visible. %s is the title of the folder that will be closed -->
+  <string name="bookmark_select_folder_close_folder_content_description">Փակել պանակը՝ %s</string>
   <!-- Content description for the "close" button in bookmarks screen. -->
   <string name="bookmark_close_button_content_description">Փակել էջանիշերը</string>
   <!-- Title for the bookmark list empty state -->
@@ -1928,6 +2034,8 @@
   <string name="bookmark_empty_list_folder_description">Հավելեք էջանիշեր, ինչպես որ դիտարկում եք, որպեսզի ավելի ուշ կարողանաք գտնել ձեր ընտրյալ կայքերը:</string>
   <!-- Description for the add new folder button when selecting a folder. -->
   <string name="bookmark_select_folder_new_folder_button_title">Նոր պանակ</string>
+  <!-- Bookmark snackbar message for moving a single item. %1$s is the title of the item being moved and %2$s is the new parent folder of the bookmark -->
+  <string name="bookmark_moved_single_item">%1$s-ը տեղափոխվեց %2$s</string>
   <!--
     Site Permissions
 
@@ -2112,7 +2220,7 @@
   <!-- An option from the share dialog to sign into sync -->
   <string name="sync_sign_in">Մուտք գործել համաժամեցում</string>
   <!-- An option from the three dot menu to sign in -->
-  <string name="sync_menu_sign_in">Մուտք գործել</string>
+  <string name="sync_menu_sign_in" tools:ignore="UnusedResources" moz:removedIn="149">Մուտք գործել</string>
   <!-- An option from the share dialog to send link to all other sync devices -->
   <string name="sync_send_to_all">Ուղարկել բոլոր սարքերին</string>
   <!-- An option from the share dialog to reconnect to sync -->
@@ -2231,7 +2339,7 @@
   <!-- Title for Accessibility Text Size Scaling Preference -->
   <string name="preference_accessibility_font_size_title">Տառատեսակի չափ</string>
   <!-- %d is the percentage of the slide bar for setting the text font size and %% will be announced as "percent". -->
-  <string name="a11y_preference_accessibility_font_size_percentage">%d %%:</string>
+  <string name="a11y_preference_accessibility_font_size_percentage" tools:ignore="UnusedResources" moz:removedIn="148">%d %%:</string>
   <!-- Title for Accessibility Text Automatic Size Scaling Preference -->
   <string name="preference_accessibility_auto_size_2">Տառատեսակի ինքնաշխատ չափում</string>
   <!-- Summary for Accessibility Text Automatic Size Scaling Preference -->
@@ -2272,7 +2380,7 @@
   <!-- Summary for the Delete browsing data on quit preference. "Quit" translation should match delete_browsing_data_on_quit_action translation. -->
   <string name="preference_summary_delete_browsing_data_on_quit_2">Ինքնաբար ջնջում է դիտարկման տվյալները, երբ հիմնական ցանկից ընտրում եք \\«Փակել»\\:</string>
   <!-- Action item in menu for the Delete browsing data on quit feature -->
-  <string name="delete_browsing_data_on_quit_action">Փակել</string>
+  <string name="delete_browsing_data_on_quit_action" tools:ignore="UnusedResources" moz:removedIn="149">Փակել</string>
   <!-- Title text of a delete browsing data dialog. -->
   <string name="delete_history_prompt_title">Ջնջման ենթակա ժամանակահատվածը</string>
   <!-- Body text of a delete browsing data dialog. -->
@@ -2735,6 +2843,20 @@
   <string name="saved_logins_sort_strategy_last_used">Վերջին օգտագործվածը</string>
   <!-- Content description (not visible, for screen readers etc.) -->
   <string name="saved_logins_menu_dropdown_chevron_icon_content_description_2">Տեսակավորել գաղտնաբառերի ցանկը</string>
+  <!--
+    Email Masks
+
+    Title for the Email Masks in the settings menu
+  -->
+  <string name="preferences_email_masks">Էլ․ փոստի դիմակներ</string>
+  <!-- Title for the Suggest Email Masks toggle -->
+  <string name="preferences_email_masks_suggest_title">Առաջարկել \u0020էլ. փոստի դիմակներ</string>
+  <!-- Summary for the Suggest Email Masks toggle. -->
+  <string name="preferences_email_masks_suggest_summary">Թաքցրեք ձեր իրական էլ. փոստը՝ ձեր էլ. փոստի մտից պանակը սպամից պաշտպանելու համար: Որոշ կայքեր չեն աջակցում էլ. փոստի դիմակներ:</string>
+  <!-- Text that links to additional information about the Email Masks -->
+  <string name="preferences_email_masks_suggest_learn_more">Իմանալ ավելին</string>
+  <!-- Title for the Manage Email Masks links to Firefox Relay dashboard -->
+  <string name="preferences_email_masks_manage_title">Կառավարել էլ. փոստի դիմակները</string>
   <!--
     Autofill
 
@@ -3914,11 +4036,11 @@
   <string name="settings_search_no_results_title">Ոչինչ չհայտնվեց</string>
   <!-- Sub-message displayed when the search field is not empty but search results is empty. -->
   <string name="settings_search_no_results_message">Գուցե փորձեք այլ որոնում կատարե՞լ։</string>
-  <!--
-    Terms of use pop up prompt
+  <!-- Content Description for the button to open Settings Search (to search through settings). -->
+  <string name="settings_search_button_content_description">Կարգավորումների որոնման կոճակ</string>
+  <!-- ==== Terms of use pop up prompt ==== -->
 
-    Title for the pop up prompt
-  -->
+  <!-- Title for the pop up prompt -->
   <string name="terms_of_use_prompt_title">Մենք ունենք թարմացում</string>
   <!--
     Message for the terms of use pop up prompt
@@ -3942,6 +4064,24 @@
   <string name="terms_of_use_prompt_accept">Ընդունել</string>
   <!-- Label for a button to postpone accepting the terms of use -->
   <string name="terms_of_use_prompt_postpone">Հիշեցնել ավելի ուշ</string>
+  <!-- ==== Experiment strings. ==== -->
+
+  <!-- A title for the popup prompt. -->
+  <string name="terms_of_use_prompt_title_option_a" tools:ignore="UnusedResources">Օգտագործման պայմաններ</string>
+  <!--
+    A title for the popup prompt.
+    %1$s is the product name "Firefox"
+  -->
+  <string name="terms_of_use_prompt_title_option_b" tools:ignore="UnusedResources">Նշում %1$s-ից</string>
+  <!--
+    Copy for the Terms of Use popup prompt body line two.
+    %1$s is the string terms_of_use_prompt_body_line_two_alternative_link ("here") that is a link to the Terms of Use
+  -->
+  <string name="terms_of_use_prompt_body_line_two_alternative" tools:ignore="UnusedResources">Դուք կարող եք ավելին իմանալ %1$s-ի մասին։</string>
+  <!-- Link text for terms_of_use_prompt_body_line_two_alternative that links to a site with more information about the Terms of Use -->
+  <string name="terms_of_use_prompt_body_line_two_alternative_link" tools:ignore="UnusedResources">այստեղ</string>
+  <!-- ==== End of Terms of use popup prompt. ==== -->
+
   <!--
     Privacy notice homepage banner
 

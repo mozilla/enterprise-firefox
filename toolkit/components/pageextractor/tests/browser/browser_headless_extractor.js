@@ -81,7 +81,7 @@ add_task(async function test_headless_extraction_about_blank() {
 
   await Assert.rejects(
     PageExtractorParent.getHeadlessExtractor("about:blank", () => {}),
-    /about: pages are not supported/,
+    /Only http: and https: URLs are supported/,
     "PageExtractor fails on about: pages."
   );
 });
@@ -99,7 +99,7 @@ add_task(async function test_headless_extraction_about_blank() {
       "file:///NeverGonnaGiveYouUp.mp4",
       () => {}
     ),
-    /file: pages are not supported/,
+    /Only http: and https: URLs are supported/,
     "PageExtractor fails on file: URLs."
   );
 });

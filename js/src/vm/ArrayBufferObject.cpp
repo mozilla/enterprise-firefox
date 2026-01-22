@@ -27,9 +27,9 @@
 #  include <valgrind/memcheck.h>
 #endif
 
-#include "jsnum.h"
 #include "jstypes.h"
 
+#include "builtin/Number.h"
 #include "gc/Barrier.h"
 #include "gc/Memory.h"
 #include "jit/InlinableNatives.h"

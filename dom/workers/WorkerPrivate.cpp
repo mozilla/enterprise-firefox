@@ -5634,24 +5634,10 @@ void WorkerPrivate::EnterDebuggerEventLoop() {
     {
       MutexAutoLock lock(mMutex);
 
-      if (StaticPrefs::javascript_options_use_js_microtask_queue()) {
-        // When JS microtask queue is enabled, check for debugger microtasks
-        // directly from the JS engine
-        while (mControlQueue.IsEmpty() &&
-               !(debuggerRunnablesPending = !mDebuggerQueue.IsEmpty()) &&
-               !JS::HasDebuggerMicroTasks(cx)) {
-          WaitForWorkerEvents();
-        }
-      } else {
-        // Legacy path: check the debugger microtask queue in
-        // CycleCollectedJSContext
-        std::deque<RefPtr<MicroTaskRunnable>>& debuggerMtQueue =
-            ccjscx->GetDebuggerMicroTaskQueue();
-        while (mControlQueue.IsEmpty() &&
-               !(debuggerRunnablesPending = !mDebuggerQueue.IsEmpty()) &&
-               debuggerMtQueue.empty()) {
-          WaitForWorkerEvents();
-        }
+      while (mControlQueue.IsEmpty() &&
+             !(debuggerRunnablesPending = !mDebuggerQueue.IsEmpty()) &&
+             !JS::HasDebuggerMicroTasks(cx)) {
+        WaitForWorkerEvents();
       }
 
       ProcessAllControlRunnablesLocked();

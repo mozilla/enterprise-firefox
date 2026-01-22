@@ -6338,6 +6338,20 @@ mozilla::ipc::IPCResult ContentParent::RecvRecordPageLoadEvent(
 #ifdef ANDROID
   RecordAndroidAppLinkTelemetry(&aPageloadEventData, aNavigationStartTime,
                                 aAndroidAppLinkLaunchTypeIdentifier);
+
+  // Set the process isolation category based on the remote type for Android.
+  const nsDependentCSubstring remoteTypePrefix =
+      RemoteTypePrefix(GetRemoteType());
+
+  if (remoteTypePrefix == WEB_REMOTE_TYPE) {
+    aPageloadEventData.set_androidIsolationCategory("shared_web"_ns);
+  } else if (remoteTypePrefix == FISSION_WEB_REMOTE_TYPE) {
+    aPageloadEventData.set_androidIsolationCategory("site_isolated"_ns);
+  } else if (remoteTypePrefix == WITH_COOP_COEP_REMOTE_TYPE) {
+    aPageloadEventData.set_androidIsolationCategory("coop_isolated"_ns);
+  } else {
+    aPageloadEventData.set_androidIsolationCategory("other"_ns);
+  }
 #endif
 
   // If the domain information exists, then we need to send it using a special
@@ -7985,6 +7999,32 @@ mozilla::ipc::IPCResult ContentParent::RecvSetContainerFeaturePolicy(
 
   auto* context = aContainerContext.get_canonical();
   context->SetContainerFeaturePolicy(std::move(aContainerFeaturePolicyInfo));
+
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult ContentParent::RecvUpdateAncestorOriginsList(
+    const MaybeDiscardedBrowsingContext& aContext) {
+  if (!aContext.IsNullOrDiscarded()) {
+    auto* canonical = aContext.get_canonical();
+    if (WindowGlobalParent* windowGlobal =
+            canonical->GetCurrentWindowGlobal()) {
+      canonical->CreateRedactedAncestorOriginsList(
+          windowGlobal->DocumentPrincipal(),
+          canonical->GetEmbedderFrameReferrerPolicy());
+    }
+  }
+
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult ContentParent::RecvSetReferrerPolicyForEmbedderFrame(
+    const MaybeDiscardedBrowsingContext& aContext,
+    const ReferrerPolicy& aPolicy) {
+  if (!aContext.IsNullOrDiscarded()) {
+    auto* canonical = aContext.get_canonical();
+    canonical->SetEmbedderFrameReferrerPolicy(aPolicy);
+  }
 
   return IPC_OK();
 }

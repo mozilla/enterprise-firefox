@@ -1543,9 +1543,13 @@ class FunctionCompiler {
   // the offset rather than vice versa is that a small offset can be ignored
   // by both explicit bounds checking and bounds check elimination.
   void foldConstantPointer(MemoryAccessDesc* access, MDefinition** base) {
+    PageSize pageSize = codeMeta().memories[access->memoryIndex()].pageSize();
+    if (pageSize != PageSize::Standard) {
+      return;
+    }
+
     uint64_t offsetGuardLimit = GetMaxOffsetGuardLimit(
-        codeMeta().hugeMemoryEnabled(access->memoryIndex()),
-        codeMeta().memories[access->memoryIndex()].pageSize());
+        codeMeta().hugeMemoryEnabled(access->memoryIndex()), pageSize);
 
     if ((*base)->isConstant()) {
       uint64_t basePtr = 0;
@@ -5133,22 +5137,18 @@ class FunctionCompiler {
       uint32_t fieldIndex, MDefinition* structObject, MDefinition* value,
       WasmPreBarrierKind preBarrierKind) {
     StorageType fieldType = structType.fields_[fieldIndex].type;
-    uint32_t fieldOffset = structType.fieldOffset(fieldIndex);
-
-    bool areaIsOutline;
-    uint32_t areaOffset;
-    WasmStructObject::fieldOffsetToAreaAndOffset(fieldType, fieldOffset,
-                                                 &areaIsOutline, &areaOffset);
+    FieldAccessPath path = structType.fieldAccessPaths_[fieldIndex];
+    uint32_t areaOffset = path.hasOOL() ? path.oolOffset() : path.ilOffset();
 
     // Make `base` point at the first byte of either the struct object as a
-    // whole or of the out-of-line data area.  And adjust `areaOffset`
-    // accordingly.
+    // whole or of the out-of-line data area.
     MDefinition* base;
     bool needsTrapInfo;
-    if (areaIsOutline) {
+    if (path.hasOOL()) {
+      // The path has two components, of which the first (the IL component) is
+      // the offset where the OOL pointer is stored.  Hence `path.ilOffset()`.
       auto* loadDataPointer = MWasmLoadField::New(
-          alloc(), structObject, nullptr,
-          WasmStructObject::offsetOfOutlineData(), mozilla::Nothing(),
+          alloc(), structObject, nullptr, path.ilOffset(), mozilla::Nothing(),
           MIRType::WasmStructData, MWideningOp::None,
           AliasSet::Load(AliasSet::WasmStructOutlineDataPointer),
           mozilla::Some(trapSiteDesc()));
@@ -5161,14 +5161,12 @@ class FunctionCompiler {
     } else {
       base = structObject;
       needsTrapInfo = true;
-      areaOffset += WasmStructObject::offsetOfInlineData();
     }
     // The transaction is to happen at `base + areaOffset`, so to speak.
-    // After this point we must ignore `fieldOffset`.
 
     // The alias set denoting the field's location, although lacking a
     // Load-vs-Store indication at this point.
-    AliasSet::Flag fieldAliasSet = areaIsOutline
+    AliasSet::Flag fieldAliasSet = path.hasOOL()
                                        ? AliasSet::WasmStructOutlineDataArea
                                        : AliasSet::WasmStructInlineDataArea;
 
@@ -5185,22 +5183,18 @@ class FunctionCompiler {
       const StructType& structType, uint32_t fieldIndex,
       FieldWideningOp wideningOp, MDefinition* structObject) {
     StorageType fieldType = structType.fields_[fieldIndex].type;
-    uint32_t fieldOffset = structType.fieldOffset(fieldIndex);
-
-    bool areaIsOutline;
-    uint32_t areaOffset;
-    WasmStructObject::fieldOffsetToAreaAndOffset(fieldType, fieldOffset,
-                                                 &areaIsOutline, &areaOffset);
+    FieldAccessPath path = structType.fieldAccessPaths_[fieldIndex];
+    uint32_t areaOffset = path.hasOOL() ? path.oolOffset() : path.ilOffset();
 
     // Make `base` point at the first byte of either the struct object as a
-    // whole or of the out-of-line data area.  And adjust `areaOffset`
-    // accordingly.
+    // whole or of the out-of-line data area.
     MDefinition* base;
     bool needsTrapInfo;
-    if (areaIsOutline) {
+    if (path.hasOOL()) {
+      // The path has two components, of which the first (the IL component) is
+      // the offset where the OOL pointer is stored.  Hence `path.ilOffset()`.
       auto* loadDataPointer = MWasmLoadField::New(
-          alloc(), structObject, nullptr,
-          WasmStructObject::offsetOfOutlineData(), mozilla::Nothing(),
+          alloc(), structObject, nullptr, path.ilOffset(), mozilla::Nothing(),
           MIRType::WasmStructData, MWideningOp::None,
           AliasSet::Load(AliasSet::WasmStructOutlineDataPointer),
           mozilla::Some(trapSiteDesc()));
@@ -5213,14 +5207,12 @@ class FunctionCompiler {
     } else {
       base = structObject;
       needsTrapInfo = true;
-      areaOffset += WasmStructObject::offsetOfInlineData();
     }
     // The transaction is to happen at `base + areaOffset`, so to speak.
-    // After this point we must ignore `fieldOffset`.
 
     // The alias set denoting the field's location, although lacking a
     // Load-vs-Store indication at this point.
-    AliasSet::Flag fieldAliasSet = areaIsOutline
+    AliasSet::Flag fieldAliasSet = path.hasOOL()
                                        ? AliasSet::WasmStructOutlineDataArea
                                        : AliasSet::WasmStructInlineDataArea;
 
@@ -5562,9 +5554,9 @@ class FunctionCompiler {
     if (elemsAreRefTyped) {
       MOZ_RELEASE_ASSERT(elemSize == sizeof(void*));
 
-      if (!builtinCall5(SASigArrayRefsMove, lineOrBytecode, dstData,
-                        dstArrayIndex, srcData, srcArrayIndex, numElements,
-                        nullptr)) {
+      if (!builtinCall6(SASigArrayRefsMove, lineOrBytecode, dstArrayObject,
+                        dstData, dstArrayIndex, srcData, srcArrayIndex,
+                        numElements, nullptr)) {
         return false;
       }
     } else {
@@ -8286,7 +8278,8 @@ bool FunctionCompiler::emitRefNull() {
 
 bool FunctionCompiler::emitRefIsNull() {
   MDefinition* input;
-  if (!iter().readRefIsNull(&input)) {
+  RefType sourceType;
+  if (!iter().readRefIsNull(&input, &sourceType)) {
     return false;
   }
 
@@ -8294,12 +8287,16 @@ bool FunctionCompiler::emitRefIsNull() {
     return true;
   }
 
-  MDefinition* nullVal = constantNullRef(MaybeRefType());
-  if (!nullVal) {
+  // ref.is_null is implemented as a ref.test against the bottom type of the
+  // input ref's hierarchy. This will codegen to a simple null comparison, but
+  // allows this op to participate in other optimizations surrounding ref.test
+  // and ref.cast.
+  MDefinition* test = refTest(input, sourceType.bottomType());
+  if (!test) {
     return false;
   }
-  iter().setResult(
-      compare(input, nullVal, JSOp::Eq, MCompare::Compare_WasmAnyRef));
+
+  iter().setResult(test);
   return true;
 }
 
@@ -10899,11 +10896,16 @@ bool wasm::IonDumpFunction(const CompilerEnvironment& compilerEnv,
 
   mirGen.spewEndFunction();
   graphSpewer.end();
-
-#else
-  out.printf("cannot dump Ion without --enable-jitspew");
-#endif
   return true;
+#else
+  UniqueChars errStr =
+      DuplicateString("cannot dump Ion without --enable-jitspew");
+  if (!errStr) {
+    return false;
+  }
+  *error = std::move(errStr);
+  return false;
+#endif
 }
 
 bool js::wasm::IonPlatformSupport() {

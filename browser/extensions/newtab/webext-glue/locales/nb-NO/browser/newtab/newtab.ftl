@@ -328,13 +328,8 @@ newtab-custom-recent-subtitle = Et utvalg av nylige nettsteder og innhold
 newtab-custom-weather-toggle =
     .label = Vær
     .description = Dagens værmelding i korte trekk
-newtab-custom-trending-search-toggle =
-    .label = Populære søk
-    .description = Populære og ofte søkte emner
 newtab-custom-widget-weather-toggle =
     .label = Vær
-newtab-custom-widget-trending-search-toggle =
-    .label = Populære søk
 newtab-custom-widget-lists-toggle =
     .label = Lister
 newtab-custom-widget-timer-toggle =
@@ -595,7 +590,7 @@ newtab-download-mobile-highlight-image =
 newtab-shortcuts-highlight-title = Dine favoritter lett tilgjengelig
 newtab-shortcuts-highlight-subtitle = Legg til en snarvei for å ha favorittnettstedene dine ett klikk unna.
 
-## Strings for reporting ads and content
+## Strings for reporting issues with ads and content
 
 newtab-report-content-why-reporting-this =
     .label = Hvorfor rapporterer du dette?
@@ -613,21 +608,13 @@ newtab-report-content-inappropriate-offensive =
     .label = Upassende eller støtende
 newtab-report-content-spam-misleading =
     .label = Spam eller villedende
+newtab-report-content-requires-payment-subscription =
+    .label = Krever betaling eller abonnement
+newtab-report-content-requires-payment-subscription-learn-more = Les mer
 newtab-report-cancel = Avbryt
 newtab-report-submit = Send
 newtab-toast-thanks-for-reporting =
     .message = Takk for at du rapporterte dette.
-
-## Strings for trending searches
-
-newtab-trending-searches-show-trending =
-    .title = Vis populære søk
-newtab-trending-searches-hide-trending =
-    .title = Skjul populære søk
-newtab-trending-searches-learn-more = Les mer
-newtab-trending-searches-dismiss = Skjul populære søk
-# "Trending searches refers to popular searches from search engines
-newtab-trending-searches-title = Populære søk
 
 ## Strings for task / to-do list productivity widget
 

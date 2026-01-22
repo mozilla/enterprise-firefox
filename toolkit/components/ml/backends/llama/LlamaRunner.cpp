@@ -116,9 +116,8 @@ nsresult LlamaGenerateTask::Run() {
         //  Reset for next chunk
         response = mozilla::dom::LlamaChatResponse();
       } else {
-        auto msg = nsFmtCString(
-            FMT_STRING("{}: fatal error: the message queue is full"),
-            __PRETTY_FUNCTION__);
+        nsFmtCString msg("{}: fatal error: the message queue is full",
+                         __PRETTY_FUNCTION__);
         LOGE_RUNNER("{}", msg);
         // graceful termination
         return mozilla::Err(Error{msg});
@@ -129,9 +128,8 @@ nsresult LlamaGenerateTask::Run() {
     auto out =
         response.mTokens.AppendElements(chunk.mTokens, mozilla::fallible);
     if (!out) {
-      auto msg = nsFmtCString(
-          FMT_STRING("{}: Unable to append message to the response"),
-          __PRETTY_FUNCTION__);
+      auto msg = nsFmtCString("{}: Unable to append message to the response",
+                              __PRETTY_FUNCTION__);
       LOGE_RUNNER("{}", msg);
       return mozilla::Err(Error{msg});
     }
@@ -177,10 +175,10 @@ nsresult LlamaGenerateTask::Run() {
   LOGV_RUNNER("{}: Indicating completed status", __PRETTY_FUNCTION__);
 
   if (MOZ_UNLIKELY(!PushMessage(mozilla::Nothing()))) {
-    auto msg =
-        nsFmtCString(FMT_STRING("{}: Fatal error: Unable to indicate "
-                                "completion status as the queue is full"),
-                     __PRETTY_FUNCTION__);
+    auto msg = nsFmtCString(
+        "{}: Fatal error: Unable to indicate "
+        "completion status as the queue is full",
+        __PRETTY_FUNCTION__);
     LOGE_RUNNER("{}", msg);
 
     mErrorMessage = msg;
@@ -195,7 +193,6 @@ nsresult LlamaGenerateTask::Run() {
 nsresult LlamaGenerateTask::Cancel() {
   LOGD_RUNNER("Entered {}", __PRETTY_FUNCTION__);
   if (mState == TaskState::Idle || mState == TaskState::Running) {
-    // Cancel signal for backend to stop generation
     mState = TaskState::Cancelled;
     LOGD_RUNNER("{}: Cancellation signal set", __PRETTY_FUNCTION__);
   } else {
@@ -253,9 +250,8 @@ bool LlamaGenerateTask::MaybePushMessage(
       auto numEnqueued = mMessagesQueue.Enqueue(aMessage);
       if (MOZ_UNLIKELY(!numEnqueued)) {
         auto msg = nsFmtCString(
-            FMT_STRING(
-                "{}: LlamaGenerateTask::PushMessage failed: queue is full when "
-                "it shoudn't"),
+            "{}: LlamaGenerateTask::PushMessage failed: queue is full when "
+            "it shoudn't",
             __PRETTY_FUNCTION__);
         LOGE_RUNNER("{}", msg);
 
@@ -286,7 +282,6 @@ bool LlamaGenerateTask::MaybePushMessage(
 RefPtr<LlamaGenerateTaskPromise> LlamaGenerateTask::GetMessage() {
   LOGV_RUNNER("Entered {}", __PRETTY_FUNCTION__);
   if (mState == TaskState::CompletedFailure) {
-    // If the task has already failed, reject immediately with the stored error.
     LOGE_RUNNER("{}: {}", __PRETTY_FUNCTION__, mErrorMessage);
     return LlamaGenerateTaskPromise::CreateAndReject(mErrorMessage, __func__);
   }
@@ -314,28 +309,97 @@ RefPtr<LlamaGenerateTaskPromise> LlamaGenerateTask::GetMessage() {
 
 namespace mozilla::dom {
 
-LlamaStreamSource::LlamaStreamSource(RefPtr<LlamaBackend> aBackend,
+LlamaStreamSource::LlamaStreamSource(nsIGlobalObject* aGlobal,
+                                     RefPtr<LlamaBackend> aBackend,
                                      const LlamaChatOptions& aOptions)
-    : mBackend(std::move(aBackend)), mChatOptions(aOptions) {}
+    : GlobalTeardownObserver(aGlobal),
+      mBackend(std::move(aBackend)),
+      mChatOptions(aOptions) {
+  LOGD_RUNNER("LlamaStreamSource created and bound to global");
+}
+
+void LlamaStreamSource::DisconnectFromOwner() {
+  LOGD_RUNNER("DisconnectFromOwner called - worker is shutting down");
+  ShutdownWorkerThread();
+  GlobalTeardownObserver::DisconnectFromOwner();
+}
+
+void LlamaStreamSource::ShutdownWorkerThread() {
+  LOGD_RUNNER("Entered {}", __PRETTY_FUNCTION__);
+
+  if (mTask) {
+    LOGD_RUNNER("{}: Cancelling the generation task", __PRETTY_FUNCTION__);
+    mTask->Cancel();
+    mTask = nullptr;
+  }
+
+  if (!mGenerateThread) {
+    return;
+  }
+
+  LOGD_RUNNER("{}: Shutting down the generation thread asynchronously",
+              __PRETTY_FUNCTION__);
+
+  // Critical section: Properly coordinate async shutdown with WorkerRef.
+  // When using AsyncShutdown(), we need to ensure the worker stays alive until
+  // the thread is fully shut down. We do this by posting a final runnable to
+  // the worker thread before calling AsyncShutdown(). That runnable will
+  // execute after all pending work and post back to the original thread to
+  // release the WorkerRef, ensuring the worker lives long enough for cleanup
+  // to complete.
+  if (mWorkerRef && mOriginalEventTarget) {
+    RefPtr<ThreadSafeWorkerRef> workerRef = mWorkerRef;
+    nsCOMPtr<nsISerialEventTarget> originalTarget = mOriginalEventTarget;
+
+    // Post a final task to the worker thread that will run after all pending
+    // work. This task posts back to the original thread to clear the WorkerRef.
+    nsresult rv = mGenerateThread->Dispatch(
+        NS_NewRunnableFunction(
+            "LlamaStreamSource::ShutdownWorkerThread::ClearWorkerRef",
+            [workerRef, originalTarget]() {
+              LOGD_RUNNER(
+                  "Worker thread is idle, posting back to original thread to "
+                  "clear WorkerRef");
+              // Post back to the original thread to clear the WorkerRef
+              // This ensures the ref is released on the correct thread
+              originalTarget->Dispatch(NS_NewRunnableFunction(
+                  "LlamaStreamSource::ClearWorkerRefOnOriginalThread",
+                  [workerRef]() {
+                    LOGD_RUNNER(
+                        "Releasing WorkerRef now that async shutdown is "
+                        "complete");
+                    // workerRef goes out of scope here, releasing the last
+                    // reference
+                  }));
+            }),
+        NS_DISPATCH_NORMAL);
+
+    if (NS_FAILED(rv)) {
+      LOGE_RUNNER(
+          "{}: Failed to dispatch cleanup task, clearing WorkerRef immediately",
+          __PRETTY_FUNCTION__);
+      // If we can't dispatch the cleanup task, clear the ref now to avoid
+      // blocking worker shutdown
+      mWorkerRef = nullptr;
+    } else {
+      // Clear our reference to the WorkerRef now - the cleanup task holds
+      // its own reference
+      mWorkerRef = nullptr;
+    }
+  }
+
+  mGenerateThread->AsyncShutdown();
+  mGenerateThread = nullptr;
+
+  LOGD_RUNNER("Exited {}", __PRETTY_FUNCTION__);
+}
 
 already_AddRefed<Promise> LlamaStreamSource::CancelCallbackImpl(
     JSContext* aCx, const Optional<JS::Handle<JS::Value>>& aReason,
     ErrorResult& aRv) {
   LOGD_RUNNER("Entered {}", __PRETTY_FUNCTION__);
-  // Gracefully stop the background generation thread and task
-  if (mTask) {
-    LOGD_RUNNER("{}: Cancelling the generation task ", __PRETTY_FUNCTION__);
-    mTask->Cancel();
-    mTask = nullptr;
-  }
-  if (mGenerateThread) {
-    LOGD_RUNNER("{}: Shuting down the generation thread ", __PRETTY_FUNCTION__);
-    mGenerateThread->Shutdown();
-    mGenerateThread = nullptr;
-  }
-
+  ShutdownWorkerThread();
   LOGD_RUNNER("Exited {}", __PRETTY_FUNCTION__);
-
   return nullptr;
 }
 
@@ -348,9 +412,9 @@ already_AddRefed<Promise> LlamaStreamSource::PullCallbackImpl(
   // Create JS promise to signal when data becomes available
   RefPtr<Promise> promise = Promise::Create(controller->GetParentObject(), aRv);
   if (!promise) {
-    auto msg = nsFmtCString(
-        FMT_STRING("{} Unable to create promise for llama source stream"),
-        __PRETTY_FUNCTION__);
+    auto msg =
+        nsFmtCString("{} Unable to create promise for llama source stream",
+                     __PRETTY_FUNCTION__);
     LOGE_RUNNER("{}", msg);
     // Cannot continue if promise creation failed
     aRv.ThrowTypeError(msg);
@@ -375,12 +439,40 @@ already_AddRefed<Promise> LlamaStreamSource::PullCallbackImpl(
         getter_AddRefs(mGenerateThread));
 
     if (NS_FAILED(rv2)) {
-      auto msg = nsFmtCString(FMT_STRING("{} Could not initialize LlamaWorker "
-                                         "thread via nsThreadManager."),
-                              __PRETTY_FUNCTION__);
+      auto msg = nsFmtCString(
+          "{} Could not initialize LlamaWorker "
+          "thread via nsThreadManager.",
+          __PRETTY_FUNCTION__);
       LOGE_RUNNER("{}", msg);
       aRv.ThrowTypeError(msg);
       return nullptr;
+    }
+
+    // Create a WorkerRef to keep the worker alive during async shutdown.
+    // When we use AsyncShutdown(), the thread cleanup happens asynchronously.
+    // Without this ref, the worker could be torn down while the thread is still
+    // shutting down, leading to use-after-free crashes.
+    if (WorkerPrivate* workerPrivate = GetCurrentThreadWorkerPrivate()) {
+      LOGD_RUNNER("{}: Creating WorkerRef for worker", __PRETTY_FUNCTION__);
+      // Create a StrongWorkerRef that keeps the worker alive until we
+      // explicitly release it
+      RefPtr<StrongWorkerRef> strongRef =
+          StrongWorkerRef::Create(workerPrivate, "LlamaStreamSource");
+      if (strongRef) {
+        mWorkerRef = new ThreadSafeWorkerRef(strongRef);
+        LOGD_RUNNER("{}: Successfully created ThreadSafeWorkerRef",
+                    __PRETTY_FUNCTION__);
+      } else {
+        // Worker is already shutting down, we can't start new work
+        LOGE_RUNNER("{}: Worker is shutting down, cannot create WorkerRef",
+                    __PRETTY_FUNCTION__);
+        mGenerateThread = nullptr;
+        auto msg = nsFmtCString(
+            "{} Worker is shutting down, cannot start generation task",
+            __PRETTY_FUNCTION__);
+        aRv.ThrowTypeError(msg);
+        return nullptr;
+      }
     }
 
     LOGD_RUNNER("{}: Creating LlamaGenerateTask", __PRETTY_FUNCTION__);
@@ -397,7 +489,7 @@ already_AddRefed<Promise> LlamaStreamSource::PullCallbackImpl(
     if (NS_FAILED(rv)) {
       mTask = nullptr;
       auto msg = nsFmtCString(
-          FMT_STRING("{} Unable to start LlamaGenerateTask in the background "),
+          "{} Unable to start LlamaGenerateTask in the background ",
           __PRETTY_FUNCTION__);
       LOGE_RUNNER("{}", msg);
       aRv.ThrowTypeError(msg);
@@ -463,16 +555,8 @@ already_AddRefed<Promise> LlamaStreamSource::PullCallbackImpl(
 
 LlamaStreamSource::~LlamaStreamSource() {
   LOGD_RUNNER("Entered {}", __PRETTY_FUNCTION__);
-  if (mTask) {
-    LOGD_RUNNER("{}: Cancelling the generation task ", __PRETTY_FUNCTION__);
-    mTask->Cancel();
-    mTask = nullptr;
-  }
-  if (mGenerateThread) {
-    LOGD_RUNNER("{}: Shuting down the generation thread ", __PRETTY_FUNCTION__);
-    mGenerateThread->Shutdown();
-    mGenerateThread = nullptr;
-  }
+  ShutdownWorkerThread();
+  LOGD_RUNNER("Exited {}", __PRETTY_FUNCTION__);
 }
 
 void LlamaStreamSource::SetControllerStream(RefPtr<ReadableStream> aStream) {
@@ -490,12 +574,13 @@ LlamaRunner::LlamaRunner(const GlobalObject& aGlobal)
 already_AddRefed<ReadableStream> LlamaRunner::CreateGenerationStream(
     const LlamaChatOptions& aOptions, ErrorResult& aRv) {
   LOGD_RUNNER("Entered {}", __PRETTY_FUNCTION__);
-  RefPtr<LlamaStreamSource> source = new LlamaStreamSource(mBackend, aOptions);
+  RefPtr<LlamaStreamSource> source =
+      new LlamaStreamSource(mGlobal, mBackend, aOptions);
 
   AutoJSAPI jsapi;
   if (!jsapi.Init(mGlobal)) {
-    auto msg = nsFmtCString(FMT_STRING("{} Unable to initialize the JSAPI"),
-                            __PRETTY_FUNCTION__);
+    auto msg =
+        nsFmtCString("{} Unable to initialize the JSAPI", __PRETTY_FUNCTION__);
     LOGE_RUNNER("{}", msg);
     aRv.ThrowTypeError(msg);
     return nullptr;

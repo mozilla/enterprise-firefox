@@ -200,6 +200,7 @@ treeherder:
         'Rpk': 'Classic repacks'
         'MSI-Ent': "MSI Enterprise repacks"
         'MSIs-Ent': "MSI signed Enterprise repacks"
+        'DEB-Ent': "Debian Enterprise repacks"
         'BMS-Ent': "Mac signing for Enterprise repacks"
         'BMN-Ent': "Mac notarization for Enterprise repacks"
 
@@ -817,8 +818,8 @@ workers:
             os: macosx
             worker-type:
                 by-level:
-                    '3': 'gecko-3-b-osx-arm64'
-                    default: 'gecko-1-b-osx-arm64'
+                    '3': '{trust-domain}-3-b-osx-arm64'
+                    default: '{trust-domain}-1-b-osx-arm64'
         win10-64-2009-hw:
             provisioner: releng-hardware
             implementation: generic-worker
@@ -893,14 +894,13 @@ mac-signing:
                   globs:
                       - "/Contents/MacOS/media-plugin-helper.app"
 
-                # Only built in Nightly builds for now. For other builds, the
-                # globs will match nothing, and so nothing will happen.
                 - deep: false
                   runtime: true
                   force: true
                   entitlements: public/build/security/security-module-helper.xml
                   globs:
                       - "/Contents/MacOS/security-module-helper.app"
+                  only-if-milestone-is-nightly: true
 
                 - deep: false
                   runtime: true
@@ -951,14 +951,13 @@ mac-signing:
                   globs:
                       - "/Contents/MacOS/media-plugin-helper.app"
 
-                # Only built in Nightly builds for now. For other builds, the
-                # globs will match nothing, and so nothing will happen.
                 - deep: false
                   runtime: true
                   force: true
                   entitlements: public/build/security/security-module-helper.xml
                   globs:
                       - "/Contents/MacOS/security-module-helper.app"
+                  only-if-milestone-is-nightly: true
 
                 - deep: false
                   runtime: true

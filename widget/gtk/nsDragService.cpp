@@ -565,9 +565,6 @@ nsDragSession::nsDragSession() {
 
   // set up our logging module
   mTempFileTimerID = 0;
-#ifdef MOZ_X11
-  mActive = widget::GdkIsX11Display();
-#endif
 
   static std::once_flag onceFlag;
   std::call_once(onceFlag, [] {
@@ -775,8 +772,6 @@ nsresult nsDragSession::InvokeDragSessionImpl(
   // length of this call
   mSourceDataItems = aArrayTransferables;
 
-  LOGDRAGSERVICE("nsDragSession::InvokeDragSessionImpl");
-
   GdkDevice* device = widget::GdkGetPointer();
   GdkWindow* originGdkWindow = nullptr;
   if (widget::GdkIsWaylandDisplay() || widget::IsXWaylandProtocol()) {
@@ -789,12 +784,20 @@ nsresult nsDragSession::InvokeDragSessionImpl(
           "nsDragSession::InvokeDragSessionImpl(): Missing origin GdkWindow!");
       return NS_ERROR_FAILURE;
     }
+#ifdef MOZ_WAYLAND
+    if (!gdk_wayland_window_get_wl_surface(originGdkWindow)) {
+      NS_WARNING(
+          "nsDragSession::InvokeDragSessionImpl(): Missing origin wl_surface!");
+      return NS_ERROR_FAILURE;
+    }
+#endif
   }
 
   // get the list of items we offer for drags
   GtkTargetList* sourceList = GetSourceList();
-
-  if (!sourceList) return NS_OK;
+  if (!sourceList) {
+    return NS_OK;
+  }
 
   // save our action type
   GdkDragAction action = GDK_ACTION_DEFAULT;
@@ -826,6 +829,9 @@ nsresult nsDragSession::InvokeDragSessionImpl(
   GtkWindowGroup* window_group =
       gtk_window_get_group(GetGtkWindow(mSourceDocument));
   gtk_window_group_add_window(window_group, GTK_WINDOW(mHiddenWidget));
+
+  LOGDRAGSERVICE("nsDragSession::InvokeDragSessionImpl() originGdkWindow [%p]",
+                 originGdkWindow);
 
   // start our drag.
   GdkDragContext* context = gtk_drag_begin_with_coordinates(
@@ -2409,6 +2415,9 @@ void nsDragSession::SourceBeginDrag(GdkDragContext* aContext) {
     LOGDRAGSERVICE("  FlavorsTransferableCanImport failed!");
     return;
   }
+  if (widget::GdkIsWaylandDisplay()) {
+    mSourceDragContext = aContext;
+  }
 
   for (uint32_t i = 0; i < flavors.Length(); ++i) {
     if (flavors[i].EqualsLiteral(kFilePromiseDestFilename)) {
@@ -2520,6 +2529,14 @@ void nsDragSession::SetDragIcon(GdkDragContext* aContext) {
   } else {
     LOGDRAGSERVICE("  Surface is missing!");
   }
+}
+
+void nsDragSession::MarkAsActive() { mSourceDragContext = nullptr; }
+
+bool nsDragSession::IsActive() const { return !!mSourceDragContext; }
+
+RefPtr<GdkDragContext> nsDragSession::GetSourceDragContext() {
+  return mSourceDragContext;
 }
 
 static void invisibleSourceDragBegin(GtkWidget* aWidget,

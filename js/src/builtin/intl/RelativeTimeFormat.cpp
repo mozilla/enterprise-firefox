@@ -48,7 +48,7 @@ const JSClass RelativeTimeFormatObject::class_ = {
     "Intl.RelativeTimeFormat",
     JSCLASS_HAS_RESERVED_SLOTS(RelativeTimeFormatObject::SLOT_COUNT) |
         JSCLASS_HAS_CACHED_PROTO(JSProto_RelativeTimeFormat) |
-        JSCLASS_FOREGROUND_FINALIZE,
+        JSCLASS_BACKGROUND_FINALIZE,
     &RelativeTimeFormatObject::classOps_,
     &RelativeTimeFormatObject::classSpec_,
 };
@@ -139,8 +139,6 @@ static bool RelativeTimeFormat(JSContext* cx, unsigned argc, Value* vp) {
 }
 
 void js::RelativeTimeFormatObject::finalize(JS::GCContext* gcx, JSObject* obj) {
-  MOZ_ASSERT(gcx->onMainThread());
-
   if (mozilla::intl::RelativeTimeFormat* rtf =
           obj->as<RelativeTimeFormatObject>().getRelativeTimeFormatter()) {
     intl::RemoveICUCellMemory(gcx, obj,

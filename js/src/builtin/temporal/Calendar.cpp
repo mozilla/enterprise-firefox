@@ -27,11 +27,10 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "diplomat_runtime.hpp"
-#include "jsnum.h"
 #include "jstypes.h"
 #include "NamespaceImports.h"
 
+#include "builtin/Number.h"
 #include "builtin/temporal/CalendarFields.h"
 #include "builtin/temporal/Duration.h"
 #include "builtin/temporal/Era.h"
@@ -51,6 +50,7 @@
 #include "gc/GCEnum.h"
 #include "icu4x/Calendar.hpp"
 #include "icu4x/Date.hpp"
+#include "icu4x/diplomat_runtime.hpp"
 #include "icu4x/IsoDate.hpp"
 #include "js/AllocPolicy.h"
 #include "js/ErrorReport.h"
@@ -76,7 +76,8 @@
 // avoid memory allocation.
 // (https://github.com/rust-diplomat/diplomat/issues/866)
 namespace diplomat::capi {
-extern "C" DiplomatWrite diplomat_simple_write(char* buf, size_t buf_size);
+extern "C" icu4x::diplomat::capi::DiplomatWrite diplomat_simple_write(
+    char* buf, size_t buf_size);
 }
 
 using namespace js;
@@ -933,10 +934,10 @@ static mozilla::Result<UniqueICU4XDate, CalendarError> CreateDateFromCodes(
   auto era = IcuEraName(calendarId, eraYear.era);
   auto monthCodeView = std::string_view{monthCode};
   auto date = icu4x::capi::icu4x_Date_from_codes_in_calendar_mv1(
-      diplomat::capi::DiplomatStringView{era.data(), era.length()},
+      icu4x::diplomat::capi::DiplomatStringView{era.data(), era.length()},
       eraYear.year,
-      diplomat::capi::DiplomatStringView{monthCodeView.data(),
-                                         monthCodeView.length()},
+      icu4x::diplomat::capi::DiplomatStringView{monthCodeView.data(),
+                                                monthCodeView.length()},
       day, calendar);
   if (date.is_ok) {
     return UniqueICU4XDate{date.ok};
@@ -1026,12 +1027,6 @@ static bool JapaneseEraYearToCommonEraYear(
 }
 
 static constexpr int32_t ethiopianYearsFromCreationToIncarnation = 5500;
-
-static int32_t FromAmeteAlemToAmeteMihret(int32_t year) {
-  // Subtract the number of years from creation to incarnation to anchor
-  // at the date of incarnation.
-  return year - ethiopianYearsFromCreationToIncarnation;
-}
 
 static int32_t FromAmeteMihretToAmeteAlem(int32_t year) {
   // Add the number of years from creation to incarnation to anchor at the date
@@ -1534,21 +1529,15 @@ static int32_t CalendarDateYear(CalendarId calendar,
       //
       // https://unicode-org.atlassian.net/browse/CLDR-18739
 
-      int32_t year = icu4x::capi::icu4x_Date_extended_year_mv1(date);
-
+#ifdef DEBUG
       auto eraName = EraName(date);
       MOZ_ASSERT(
           eraName == IcuEraName(CalendarId::Ethiopian, EraCode::Standard) ||
           eraName ==
               IcuEraName(CalendarId::EthiopianAmeteAlem, EraCode::Standard));
+#endif
 
-      // Workaround for <https://github.com/unicode-org/icu4x/issues/6719>.
-      if (eraName ==
-          IcuEraName(CalendarId::EthiopianAmeteAlem, EraCode::Standard)) {
-        year = FromAmeteAlemToAmeteMihret(year);
-      }
-
-      return year;
+      return icu4x::capi::icu4x_Date_extended_year_mv1(date);
     }
 
     case CalendarId::ROC: {
@@ -1836,40 +1825,16 @@ struct Month {
  * NonISOCalendarDateToISO ( calendar, fields, overflow )
  * NonISOMonthDayToISOReferenceDate ( calendar, fields, overflow )
  *
- * Extract `month` and `monthCode` from |fields| and perform some initial
+ * Extract `monthCode` and `month` from |fields| and perform some initial
  * validation to ensure the values are valid for the requested calendar.
  */
 static bool CalendarFieldMonth(JSContext* cx, CalendarId calendar,
                                Handle<CalendarFields> fields,
                                TemporalOverflow overflow, Month* result) {
-  MOZ_ASSERT(fields.has(CalendarField::Month) ||
-             fields.has(CalendarField::MonthCode));
+  MOZ_ASSERT(fields.has(CalendarField::MonthCode) ||
+             fields.has(CalendarField::Month));
 
-  // Case 1: |month| field is present.
-  int32_t intMonth = 0;
-  if (fields.has(CalendarField::Month)) {
-    double month = fields.month();
-    MOZ_ASSERT(IsInteger(month) && month > 0);
-
-    if (!mozilla::NumberEqualsInt32(month, &intMonth)) {
-      intMonth = 0;
-    }
-
-    const int32_t monthsPerYear = CalendarMonthsPerYear(calendar);
-    if (intMonth < 1 || intMonth > monthsPerYear) {
-      if (overflow == TemporalOverflow::Reject) {
-        ReportCalendarFieldOverflow(cx, "month", month);
-        return false;
-      }
-      MOZ_ASSERT(overflow == TemporalOverflow::Constrain);
-
-      intMonth = monthsPerYear;
-    }
-
-    MOZ_ASSERT(intMonth > 0);
-  }
-
-  // Case 2: |monthCode| field is present.
+  // Case 1: |monthCode| field is present.
   MonthCode fromMonthCode;
   if (fields.has(CalendarField::MonthCode)) {
     auto monthCode = fields.monthCode();
@@ -1894,6 +1859,43 @@ static bool CalendarFieldMonth(JSContext* cx, CalendarId calendar,
                                MonthCodeString{monthCode}.toCString());
       return false;
     }
+  }
+
+  // Case 2: |month| field is present.
+  int32_t intMonth = 0;
+  if (fields.has(CalendarField::Month)) {
+    double month = fields.month();
+    MOZ_ASSERT(IsInteger(month) && month > 0);
+
+    if (!mozilla::NumberEqualsInt32(month, &intMonth)) {
+      intMonth = 0;
+    }
+
+    const int32_t monthsPerYear = CalendarMonthsPerYear(calendar);
+    if (intMonth < 1 || intMonth > monthsPerYear) {
+      if (overflow == TemporalOverflow::Reject) {
+        ReportCalendarFieldOverflow(cx, "month", month);
+        return false;
+      }
+      MOZ_ASSERT(overflow == TemporalOverflow::Constrain);
+
+      // An invalid month can't be equal to any valid month code.
+      if (fields.has(CalendarField::MonthCode)) {
+        ToCStringBuf cbuf;
+        const char* monthStr = NumberToCString(&cbuf, month);
+
+        JS_ReportErrorNumberUTF8(
+            cx, GetErrorMessage, nullptr,
+            JSMSG_TEMPORAL_CALENDAR_INCOMPATIBLE_MONTHCODE,
+            MonthCodeString{fields.monthCode()}.toCString(), monthStr);
+        return false;
+      }
+
+      // Constrain to largest allowed month value.
+      intMonth = monthsPerYear;
+    }
+
+    MOZ_ASSERT(intMonth > 0);
   }
 
   *result = {fromMonthCode, intMonth};
@@ -1962,11 +1964,11 @@ static bool CalendarFieldEraYearMatchesYear(JSContext* cx, CalendarId calendar,
 
   // The user requested year must match the actual (extended/epoch) year.
   if (intYear != yearFromEraYear) {
-    ToCStringBuf yearCbuf;
-    const char* yearStr = NumberToCString(&yearCbuf, intYear);
+    Int32ToCStringBuf yearCbuf;
+    const char* yearStr = Int32ToCString(&yearCbuf, intYear);
 
-    ToCStringBuf fromEraCbuf;
-    const char* fromEraStr = NumberToCString(&fromEraCbuf, yearFromEraYear);
+    Int32ToCStringBuf fromEraCbuf;
+    const char* fromEraStr = Int32ToCString(&fromEraCbuf, yearFromEraYear);
 
     JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr,
                               JSMSG_TEMPORAL_CALENDAR_INCOMPATIBLE_YEAR,

@@ -15,6 +15,13 @@ const { LoginCSVImport } = ChromeUtils.importESModule(
   "resource://gre/modules/LoginCSVImport.sys.mjs"
 );
 
+add_setup(async function () {
+  registerCleanupFunction(async function () {
+    SpecialPowers.clearUserPref("signon.rustMirror.migrationNeeded");
+    SpecialPowers.clearUserPref("signon.rustMirror.poisoned");
+  });
+});
+
 /**
  * Tests addLogin gets synced to Rust Storage
  */

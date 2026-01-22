@@ -23,6 +23,7 @@ class nsHttpConnectionInfo;
 
 static const char kRolloutURIPref[] = "doh-rollout.uri";
 static const char kRolloutModePref[] = "doh-rollout.mode";
+static const char kRolloutHttp3FirstPref[] = "doh-rollout.force_http3_first";
 
 class TRRServiceBase : public nsIProxyConfigChangedCallback {
  public:

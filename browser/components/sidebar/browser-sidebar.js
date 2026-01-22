@@ -99,6 +99,10 @@ var SidebarController = {
     this.promiseInitialized.then(() => updateMenus(sidebar.visible));
   },
 
+  isAIWindow() {
+    return this.AIWindow.isAIWindowActive(window);
+  },
+
   get sidebars() {
     if (this._sidebars) {
       return this._sidebars;
@@ -169,23 +173,25 @@ var SidebarController = {
       ],
     ]);
 
-    this.registerPrefSidebar(
-      "browser.ml.chat.enabled",
-      "viewGenaiChatSidebar",
-      {
-        name: "aichat",
-        elementId: "sidebar-switcher-genai-chat",
-        url: "chrome://browser/content/genai/chat.html",
-        keyId: "viewGenaiChatSidebarKb",
-        menuId: "menu_genaiChatSidebar",
-        menuL10nId: "menu-view-genai-chat",
-        // Bug 1900915 to expose as conditional tool
-        revampL10nId: "sidebar-menu-genai-chat-label",
-        iconUrl: "chrome://global/skin/icons/highlights.svg",
-        gleanClickEvent: Glean.sidebar.chatbotIconClick,
-        toolContextMenuId: "aichat",
-      }
-    );
+    if (!this.isAIWindow()) {
+      this.registerPrefSidebar(
+        "browser.ml.chat.enabled",
+        "viewGenaiChatSidebar",
+        {
+          name: "aichat",
+          elementId: "sidebar-switcher-genai-chat",
+          url: "chrome://browser/content/genai/chat.html",
+          keyId: "viewGenaiChatSidebarKb",
+          menuId: "menu_genaiChatSidebar",
+          menuL10nId: "menu-view-genai-chat",
+          // Bug 1900915 to expose as conditional tool
+          revampL10nId: "sidebar-menu-genai-chat-label",
+          iconUrl: "chrome://global/skin/icons/highlights.svg",
+          gleanClickEvent: Glean.sidebar.chatbotIconClick,
+          toolContextMenuId: "aichat",
+        }
+      );
+    }
 
     this.registerPrefSidebar(
       "browser.ml.pageAssist.enabled",
@@ -227,6 +233,8 @@ var SidebarController = {
         revampL10nId: "sidebar-menu-contextual-password-manager-label",
         iconUrl: "chrome://browser/skin/login.svg",
         gleanEvent: Glean.contextualManager.sidebarToggle,
+        gleanClickEvent: Glean.sidebar.passwordsIconClick,
+        recordSidebarVersion: true,
       }
     );
 
@@ -1758,6 +1766,8 @@ var SidebarController = {
     sidebar.label = label;
 
     const updateAttributes = el => {
+      // TODO Bug 1996762 - Add support for dark-theme sidebar icons
+      // --webextension-menuitem-image-dark is used in dark themes
       el.style.setProperty("--webextension-menuitem-image", sidebar.icon);
       el.setAttribute("label", sidebar.label);
     };
@@ -2397,6 +2407,8 @@ var SidebarController = {
 };
 
 ChromeUtils.defineESModuleGetters(SidebarController, {
+  AIWindow:
+    "moz-src:///browser/components/aiwindow/ui/modules/AIWindow.sys.mjs",
   SidebarManager:
     "moz-src:///browser/components/sidebar/SidebarManager.sys.mjs",
   SidebarState: "moz-src:///browser/components/sidebar/SidebarState.sys.mjs",

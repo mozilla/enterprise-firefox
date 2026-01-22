@@ -7100,8 +7100,8 @@ AsyncPanZoomController::MaybeAdjustDeltaForScrollSnappingOnWheelInput(
     snapFlags |= ScrollSnapFlags::IntendedEndPosition;
   }
   return MaybeAdjustDeltaForScrollSnapping(
-      ScrollWheelInput::ScrollUnitForDeltaType(aEvent.mDeltaType),
-      ScrollSnapFlags::IntendedDirection, aDelta, aStartPosition);
+      ScrollWheelInput::ScrollUnitForDeltaType(aEvent.mDeltaType), snapFlags,
+      aDelta, aStartPosition);
 }
 
 Maybe<CSSSnapDestination>

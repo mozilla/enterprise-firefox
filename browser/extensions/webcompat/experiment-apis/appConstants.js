@@ -13,6 +13,9 @@ this.appConstants = class extends ExtensionAPI {
         getAndroidPackageName: () => {
           return Services.env.get("MOZ_ANDROID_PACKAGE_NAME");
         },
+        getAppVersion: () => {
+          return Services.appinfo.version;
+        },
         getEffectiveUpdateChannel: () => {
           const ver = AppConstants.MOZ_APP_VERSION_DISPLAY;
           if (ver.includes("a")) {
@@ -23,6 +26,15 @@ this.appConstants = class extends ExtensionAPI {
             return "esr";
           }
           return "stable";
+        },
+        getPlatform: () => {
+          const os = AppConstants.platform;
+          if (os == "win") {
+            return "windows";
+          } else if (os == "macosx") {
+            return "mac";
+          }
+          return os;
         },
         getReleaseBranch: () => {
           if (AppConstants.NIGHTLY_BUILD) {

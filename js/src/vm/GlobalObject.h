@@ -15,7 +15,6 @@
 #include <stdint.h>
 #include <type_traits>
 
-#include "jsexn.h"
 #include "jsfriendapi.h"
 #include "jspubtd.h"
 #include "jstypes.h"
@@ -33,6 +32,7 @@
 #include "js/TypeDecls.h"
 #include "js/Value.h"
 #include "vm/ArrayObject.h"
+#include "vm/ErrorObject.h"
 #include "vm/JSAtomState.h"
 #include "vm/JSContext.h"
 #include "vm/JSFunction.h"

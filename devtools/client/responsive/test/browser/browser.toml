@@ -153,6 +153,8 @@ https_first_disabled = true
 
 ["browser_tab_close.js"]
 
+["browser_tab_discard.js"]
+
 ["browser_tab_not_selected.js"]
 
 ["browser_tab_remoteness_change.js"]

@@ -643,9 +643,9 @@ bool nsPresContext::NormalizeRubyMetrics() {
   return mRubyPositioningFactor > 0.0f;
 }
 
-nsresult nsPresContext::Init(nsDeviceContext* aDeviceContext) {
-  NS_ASSERTION(!mInitialized, "attempt to reinit pres context");
-  NS_ENSURE_ARG(aDeviceContext);
+void nsPresContext::Init(nsDeviceContext* aDeviceContext) {
+  MOZ_ASSERT(!mInitialized, "attempt to reinit pres context");
+  MOZ_ASSERT(aDeviceContext);
 
   mDeviceContext = aDeviceContext;
 
@@ -716,8 +716,7 @@ nsresult nsPresContext::Init(nsDeviceContext* aDeviceContext) {
   Preferences::RegisterCallbacks(nsPresContext::PreferenceChanged,
                                  gExactCallbackPrefs, this);
 
-  nsresult rv = mEventManager->Init();
-  NS_ENSURE_SUCCESS(rv, rv);
+  mEventManager->Init();
 
   mEventManager->SetPresContext(this);
 
@@ -736,8 +735,6 @@ nsresult nsPresContext::Init(nsDeviceContext* aDeviceContext) {
 #ifdef DEBUG
   mInitialized = true;
 #endif
-
-  return NS_OK;
 }
 
 void nsPresContext::UpdateForcedColors(bool aNotify) {
@@ -1291,13 +1288,13 @@ void nsPresContext::SetSMILAnimations(dom::Document* aDoc, uint16_t aNewMode,
       case imgIContainer::kNormalAnimMode:
       case imgIContainer::kLoopOnceAnimMode:
         if (aOldMode == imgIContainer::kDontAnimMode) {
-          controller->Resume(SMILTimeContainer::PAUSE_USERPREF);
+          controller->Resume(SMILTimeContainer::PauseType::UserPref);
         }
         break;
 
       case imgIContainer::kDontAnimMode:
         if (aOldMode != imgIContainer::kDontAnimMode) {
-          controller->Pause(SMILTimeContainer::PAUSE_USERPREF);
+          controller->Pause(SMILTimeContainer::PauseType::UserPref);
         }
         break;
     }

@@ -246,6 +246,12 @@ newtab-custom-widget-lists-toggle =
 newtab-custom-widget-timer-toggle =
   .label = Timer
 newtab-custom-widget-section-title = Widgets
+newtab-custom-widget-section-toggle =
+    .label = Widgets
+newtab-widget-manage-title = Widgets
+newtab-widget-manage-widget-button =
+    .label = Manage widgets
+
 # Tooltip for close button
 newtab-custom-close-menu-button =
     .title = Close
@@ -363,8 +369,9 @@ feature-highlight-wallpaper =
 
 # Variables:
 #   $provider (string) - Service provider for weather data
-newtab-weather-see-forecast =
+newtab-weather-see-forecast-description =
     .title = See forecast in { $provider }
+    .aria-description = { $provider } ∙ Sponsored
 # Variables:
 #   $provider (string) - Service provider for weather data
 newtab-weather-sponsored = { $provider } ∙ Sponsored
@@ -373,6 +380,8 @@ newtab-weather-change-location-search-input-placeholder =
     .placeholder = Search location
     .aria-label = Search location
 newtab-weather-menu-weather-display = Weather display
+newtab-weather-todays-forecast = Today’s forecast
+newtab-weather-see-full-forecast = See full forecast
 # Display options are:
 # - Simple: Displays a current weather condition icon and the current temperature
 # - Detailed: Include simple information plus a short text summary: e.g. "Mostly cloudy"
@@ -505,7 +514,7 @@ newtab-download-mobile-highlight-image =
 newtab-shortcuts-highlight-title = Your favorites at your fingertips
 newtab-shortcuts-highlight-subtitle = Add a shortcut to keep your favorite sites one click away.
 
-## Strings for reporting ads and content
+## Strings for reporting issues with ads and content
 
 newtab-report-content-why-reporting-this =
   .label = Why are you reporting this?
@@ -523,6 +532,9 @@ newtab-report-content-inappropriate-offensive =
   .label = Inappropriate or offensive
 newtab-report-content-spam-misleading =
   .label = Spam or misleading
+newtab-report-content-requires-payment-subscription =
+  .label = Requires payment or subscription
+newtab-report-content-requires-payment-subscription-learn-more = Learn more
 newtab-report-cancel = Cancel
 newtab-report-submit = Submit
 newtab-toast-thanks-for-reporting =

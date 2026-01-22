@@ -10,6 +10,7 @@ const {
   makeGuid,
   parseConversationRow,
   parseMessageRows,
+  parseChatHistoryViewRows,
   parseJSONOrNull,
   getRoleLabel,
 } = ChromeUtils.importESModule(
@@ -103,9 +104,9 @@ add_task(function test_parseConversationRow() {
     conv_id: "123456789012",
     page_url: "https://www.firefox.com",
     turn_index: 0,
-    insights_enabled: true,
-    insights_flag_source: 1,
-    insights_applied: '{ "some": "insights" }',
+    memories_enabled: true,
+    memories_flag_source: 1,
+    memories_applied: '{ "some": "memories" }',
     web_search_queries: '{ "some": "web search queries" }',
   });
 
@@ -130,9 +131,9 @@ add_task(function test_parseConversationRow() {
     soft.ok(URL.isInstance(message.pageUrl));
     soft.deepEqual(message.pageUrl.href, "https://www.firefox.com/");
     soft.equal(message.turnIndex, 0);
-    soft.equal(message.insightsEnabled, true);
-    soft.equal(message.insightsFlagSource, 1);
-    soft.deepEqual(message.insightsApplied, { some: "insights" });
+    soft.equal(message.memoriesEnabled, true);
+    soft.equal(message.memoriesFlagSource, 1);
+    soft.deepEqual(message.memoriesApplied, { some: "memories" });
     soft.deepEqual(message.webSearchQueries, { some: "web search queries" });
   });
 });
@@ -154,9 +155,9 @@ add_task(function test_missingField_parseConversationRow() {
     conv_id: "123456789012",
     page_url: "https://www.firefox.com",
     turn_index: 0,
-    insights_enabled: true,
-    insights_flag_source: 1,
-    insights_applied: '{ "some": "insights" }',
+    memories_enabled: true,
+    memories_flag_source: 1,
+    memories_applied: '{ "some": "memories" }',
     web_search_queries: '{ "some": "web search queries" }',
   });
 
@@ -203,4 +204,57 @@ add_task(function test_user_getRoleLabel() {
   const role = getRoleLabel(3);
 
   Assert.equal(role, "Tool");
+});
+
+add_task(function test_parseChatHistoryViewRows() {
+  const row1 = new RowStub({
+    conv_id: "1",
+    title: "conv 1",
+    created_date: 116952982,
+    updated_date: 116952982,
+    urls: "https://www.firefox.com,https://www.mozilla.com",
+  });
+
+  const row2 = new RowStub({
+    conv_id: "2",
+    title: "conv 2",
+    created_date: 117189198,
+    updated_date: 117189198,
+    urls: "https://www.mozilla.org",
+  });
+
+  const row3 = new RowStub({
+    conv_id: "3",
+    title: "conv 3",
+    created_date: 168298919,
+    updated_date: 168298919,
+    urls: "https://www.firefox.com",
+  });
+
+  const rows = [row1, row2, row3];
+
+  const viewRows = parseChatHistoryViewRows(rows);
+
+  Assert.withSoftAssertions(function (soft) {
+    soft.equal(viewRows[0].convId, "1");
+    soft.equal(viewRows[0].title, "conv 1");
+    soft.equal(viewRows[0].createdDate, 116952982);
+    soft.equal(viewRows[0].updatedDate, 116952982);
+    soft.deepEqual(viewRows[0].urls, [
+      new URL("https://www.firefox.com"),
+      new URL("https://www.mozilla.com"),
+    ]);
+
+    soft.equal(viewRows[1].convId, "2");
+    soft.equal(viewRows[1].title, "conv 2");
+    soft.equal(viewRows[1].createdDate, 117189198);
+    soft.equal(viewRows[1].updatedDate, 117189198);
+    soft.deepEqual(viewRows[1].urls, [new URL("https://www.mozilla.org")]);
+
+    soft.equal(viewRows[2].convId, "3");
+    soft.equal(viewRows[2].title, "conv 3");
+    soft.equal(viewRows[2].createdDate, 168298919);
+    soft.equal(viewRows[2].updatedDate, 168298919);
+    soft.deepEqual(viewRows[2].urls, [new URL("https://www.firefox.com")]);
+  });
 });

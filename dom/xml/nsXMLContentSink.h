@@ -4,8 +4,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef nsXMLContentSink_h__
-#define nsXMLContentSink_h__
+#ifndef nsXMLContentSink_h_
+#define nsXMLContentSink_h_
 
 #include "js/ColumnNumber.h"  // JS::ColumnNumberOneOrigin
 #include "mozilla/dom/FromParser.h"
@@ -217,4 +217,4 @@ class nsXMLContentSink : public nsContentSink,
   char16_t mText[NS_ACCUMULATION_BUFFER_SIZE];
 };
 
-#endif  // nsXMLContentSink_h__
+#endif  // nsXMLContentSink_h_

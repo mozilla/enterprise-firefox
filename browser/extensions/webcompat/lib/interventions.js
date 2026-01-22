@@ -25,6 +25,8 @@ class Interventions {
 
     this._readyPromise = new Promise(done => (this._resolveReady = done));
 
+    this._appVersion = browser.appConstants.getAppVersion();
+
     this._disabledPrefListeners = {};
 
     this._availableInterventions = this._reformatSourceJSON(
@@ -190,17 +192,15 @@ class Interventions {
 
     const skipped = [];
 
-    const channel = await browser.appConstants.getEffectiveUpdateChannel();
-    const version =
-      this.versionForTesting ??
-      (await browser.runtime.getBrowserInfo()).version;
+    const channel = browser.appConstants.getEffectiveUpdateChannel();
+    const version = this.versionForTesting ?? this._appVersion;
     const cleanVersion = parseFloat(version.match(/\d+(\.\d+)?/)[0]);
 
-    const os = await InterventionHelpers.getOS();
-    this.currentPlatform = os;
+    this.currentPlatform = InterventionHelpers.getOS();
 
     const customFunctionNames = new Set(Object.keys(this._customFunctions));
 
+    const contentScriptsToRegister = [];
     for (const config of whichInterventions) {
       config.active = false;
 
@@ -258,7 +258,7 @@ class Interventions {
         ) {
           continue;
         }
-        if (!(await InterventionHelpers.checkPlatformMatches(intervention))) {
+        if (!InterventionHelpers.checkPlatformMatches(intervention)) {
           // special case: allow platforms=[] to indicate "disabled by default"
           if (
             intervention.platforms &&
@@ -283,11 +283,18 @@ class Interventions {
       }
 
       try {
-        await this._enableInterventionNow(config);
+        contentScriptsToRegister.push(
+          ...(await this._enableInterventionNow(config))
+        );
       } catch (e) {
         console.error("Error enabling intervention(s) for", config.label, e);
       }
     }
+    InterventionHelpers._registerContentScripts(
+      contentScriptsToRegister,
+      "webcompat",
+      debugLog
+    );
 
     if (skipped.length) {
       debugLog(
@@ -309,7 +316,10 @@ class Interventions {
 
   async enableIntervention(config, force = false) {
     return navigator.locks.request("intervention_lock", async () => {
-      await this._enableInterventionNow(config, force);
+      await this._enableInterventionNow(config, {
+        force,
+        registerContentScripts: true,
+      });
     });
   }
 
@@ -319,9 +329,10 @@ class Interventions {
     });
   }
 
-  async _enableInterventionNow(config, force = false) {
+  async _enableInterventionNow(config, options = {}) {
+    const { force = false, registerContentScripts } = options;
     if (config.active) {
-      return;
+      return [];
     }
 
     const { bugs, label } = config;
@@ -335,6 +346,7 @@ class Interventions {
       .filter(v => v !== undefined);
 
     let somethingWasEnabled = false;
+    let contentScriptsToRegister = [];
     for (const intervention of config.interventions) {
       if (!intervention.enabled && !force) {
         continue;
@@ -342,17 +354,25 @@ class Interventions {
 
       await this._changeCustomFuncs("enable", label, intervention, config);
       if (intervention.content_scripts) {
-        await this._enableContentScripts(
-          config.id,
-          label,
+        const contentScriptsForIntervention =
+          this._buildContentScriptRegistrations(label, intervention, matches);
+        this._contentScriptsPerIntervention.set(
           intervention,
-          matches
+          contentScriptsForIntervention
         );
+        contentScriptsToRegister.push(...contentScriptsForIntervention);
       }
-      await this._enableUAOverrides(label, intervention, matches);
-      await this._enableRequestBlocks(label, intervention, blocks);
+      this._enableUAOverrides(label, intervention, matches);
+      this._enableRequestBlocks(label, intervention, blocks);
       somethingWasEnabled = true;
       intervention.enabled = true;
+    }
+    if (registerContentScripts) {
+      InterventionHelpers._registerContentScripts(
+        contentScriptsToRegister,
+        "webcompat",
+        debugLog
+      );
     }
 
     if (!this._getActiveInterventionById(config.id)) {
@@ -368,6 +388,7 @@ class Interventions {
     }
 
     config.active = somethingWasEnabled;
+    return contentScriptsToRegister;
   }
 
   async _disableInterventionNow(_config) {
@@ -424,7 +445,7 @@ class Interventions {
     }
   }
 
-  async _enableUAOverrides(label, intervention, matches) {
+  _enableUAOverrides(label, intervention, matches) {
     if (!("ua_string" in intervention)) {
       return;
     }
@@ -480,7 +501,7 @@ class Interventions {
     debugLog(`Enabled UA override for ${label}`);
   }
 
-  async _enableRequestBlocks(label, intervention, blocks) {
+  _enableRequestBlocks(label, intervention, blocks) {
     if (!blocks.length) {
       return;
     }
@@ -503,59 +524,15 @@ class Interventions {
     debugLog(`Blocking requests as specified for ${label}`);
   }
 
-  async _enableContentScripts(bug, label, intervention, matches) {
-    const scriptsToReg = this._buildContentScriptRegistrations(
-      label,
-      intervention,
-      matches
-    );
-    this._contentScriptsPerIntervention.set(intervention, scriptsToReg);
-
-    // Try to avoid re-registering scripts already registered
-    // (e.g. if the webcompat background page is restarted
-    // after an extension process crash, after having registered
-    // the content scripts already once), but do not prevent
-    // to try registering them again if the getRegisteredContentScripts
-    // method returns an unexpected rejection.
-
-    const ids = scriptsToReg.map(s => s.id);
-    try {
-      const alreadyRegged = await browser.scripting.getRegisteredContentScripts(
-        { ids }
-      );
-      const alreadyReggedIds = alreadyRegged.map(script => script.id);
-      const stillNeeded = scriptsToReg.filter(
-        ({ id }) => !alreadyReggedIds.includes(id)
-      );
-      await browser.scripting.registerContentScripts(stillNeeded);
-      debugLog(
-        `Registered still-not-active content scripts for ${label}`,
-        stillNeeded
-      );
-    } catch (e) {
-      try {
-        await browser.scripting.registerContentScripts(scriptsToReg);
-        debugLog(
-          `Registered all content scripts for ${label} after error registering just non-active ones`,
-          scriptsToReg,
-          e
-        );
-      } catch (e2) {
-        console.error(
-          `Error while registering content scripts for ${label}:`,
-          e2,
-          scriptsToReg
-        );
-      }
-    }
-  }
-
   async _disableContentScripts(label, intervention) {
     const contentScripts =
       this._contentScriptsPerIntervention.get(intervention);
     if (contentScripts) {
-      const ids = contentScripts.map(s => s.id);
-      await browser.scripting.unregisterContentScripts({ ids });
+      for (const id of contentScripts.map(s => s.id)) {
+        try {
+          await browser.scripting.unregisterContentScripts({ ids: [id] });
+        } catch (_) {}
+      }
     }
   }
 

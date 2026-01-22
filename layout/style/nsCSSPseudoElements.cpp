@@ -20,7 +20,7 @@ using namespace mozilla;
 // Flags data for each of the pseudo-elements.
 /* static */ const uint32_t nsCSSPseudoElements::kPseudoElementFlags[] = {
 #define CSS_PSEUDO_ELEMENT(name_, value_, flags_) flags_,
-#include "nsCSSPseudoElementList.h"
+#include "nsCSSPseudoElementList.inc"
 #undef CSS_PSEUDO_ELEMENT
 };
 
@@ -55,7 +55,7 @@ Maybe<PseudoStyleRequest> nsCSSPseudoElements::ParsePseudoElement(
   // Servo_ParsePseudoElement() doesn't do enabled check, so it may return all
   // possible PseudoElements, including tree pseudo-elements and anoymous boxes,
   // so we have to filter out the pseudo-elements not defined in
-  // "nsCSSPseudoElementList.h" as well.
+  // "nsCSSPseudoElementList.inc" as well.
   // Also, IsEnabled() checks if this pseudo-element should be enabled here
   // (e.g. preference check and ua stylesheet check).
   if (!PseudoStyle::IsPseudoElement(result.mType) ||
@@ -117,7 +117,7 @@ void nsCSSPseudoElements::AssertAtoms() {
       MOZ_ASSERT(atom == &base[index],                                \
                  "Static atom for " #name_ " not at expected index"); \
     }
-#  include "nsCSSPseudoElementList.h"
+#  include "nsCSSPseudoElementList.inc"
 #  undef CSS_PSEUDO_ELEMENT
 }
 #endif

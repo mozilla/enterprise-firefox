@@ -3,8 +3,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef Telemetry_Comms_h__
-#define Telemetry_Comms_h__
+#ifndef Telemetry_Comms_h_
+#define Telemetry_Comms_h_
 
 #include "ipc/IPCMessageUtils.h"
 #include "ipc/IPCMessageUtilsSpecializations.h"
@@ -392,4 +392,4 @@ struct ParamTraits<mozilla::Telemetry::DiscardedData>
 
 }  // namespace IPC
 
-#endif  // Telemetry_Comms_h__
+#endif  // Telemetry_Comms_h_

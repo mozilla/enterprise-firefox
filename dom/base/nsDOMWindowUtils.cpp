@@ -826,124 +826,6 @@ nsDOMWindowUtils::SendWheelEvent(float aX, float aY, double aDeltaX,
   return (!failedX && !failedY) ? NS_OK : NS_ERROR_FAILURE;
 }
 
-NS_IMETHODIMP
-nsDOMWindowUtils::SendTouchEvent(
-    const nsAString& aType, const nsTArray<uint32_t>& aIdentifiers,
-    const nsTArray<int32_t>& aXs, const nsTArray<int32_t>& aYs,
-    const nsTArray<uint32_t>& aRxs, const nsTArray<uint32_t>& aRys,
-    const nsTArray<float>& aRotationAngles, const nsTArray<float>& aForces,
-    const nsTArray<int32_t>& aTiltXs, const nsTArray<int32_t>& aTiltYs,
-    const nsTArray<int32_t>& aTwists, int32_t aModifiers,
-    AsyncEnabledOption aAsyncEnabled, bool* aPreventDefault) {
-  return SendTouchEventCommon(
-      aType, aIdentifiers, aXs, aYs, aRxs, aRys, aRotationAngles, aForces,
-      aTiltXs, aTiltYs, aTwists, aModifiers, /* aIsPen */ false,
-      /* aToWindow */ false, aAsyncEnabled, aPreventDefault);
-}
-
-NS_IMETHODIMP
-nsDOMWindowUtils::SendTouchEventAsPen(
-    const nsAString& aType, uint32_t aIdentifier, int32_t aX, int32_t aY,
-    uint32_t aRx, uint32_t aRy, float aRotationAngle, float aForce,
-    int32_t aTiltX, int32_t aTiltY, int32_t aTwist, int32_t aModifier,
-    AsyncEnabledOption aAsyncEnabled, bool* aPreventDefault) {
-  return SendTouchEventCommon(
-      aType, nsTArray{aIdentifier}, nsTArray{aX}, nsTArray{aY}, nsTArray{aRx},
-      nsTArray{aRy}, nsTArray{aRotationAngle}, nsTArray{aForce},
-      nsTArray{aTiltX}, nsTArray{aTiltY}, nsTArray{aTwist}, aModifier,
-      /* aIsPen */ true, /* aToWindow */ false, aAsyncEnabled, aPreventDefault);
-}
-
-NS_IMETHODIMP
-nsDOMWindowUtils::SendTouchEventToWindow(
-    const nsAString& aType, const nsTArray<uint32_t>& aIdentifiers,
-    const nsTArray<int32_t>& aXs, const nsTArray<int32_t>& aYs,
-    const nsTArray<uint32_t>& aRxs, const nsTArray<uint32_t>& aRys,
-    const nsTArray<float>& aRotationAngles, const nsTArray<float>& aForces,
-    const nsTArray<int32_t>& aTiltXs, const nsTArray<int32_t>& aTiltYs,
-    const nsTArray<int32_t>& aTwists, int32_t aModifiers,
-    bool* aPreventDefault) {
-  return SendTouchEventCommon(
-      aType, aIdentifiers, aXs, aYs, aRxs, aRys, aRotationAngles, aForces,
-      aTiltXs, aTiltYs, aTwists, aModifiers, /* aIsPen */ false,
-      /* aToWindow */ true, AsyncEnabledOption::ASYNC_DISABLED,
-      aPreventDefault);
-}
-
-nsresult nsDOMWindowUtils::SendTouchEventCommon(
-    const nsAString& aType, const nsTArray<uint32_t>& aIdentifiers,
-    const nsTArray<int32_t>& aXs, const nsTArray<int32_t>& aYs,
-    const nsTArray<uint32_t>& aRxs, const nsTArray<uint32_t>& aRys,
-    const nsTArray<float>& aRotationAngles, const nsTArray<float>& aForces,
-    const nsTArray<int32_t>& aTiltXs, const nsTArray<int32_t>& aTiltYs,
-    const nsTArray<int32_t>& aTwists, int32_t aModifiers, bool aIsPen,
-    bool aToWindow, AsyncEnabledOption aAsyncEnabled, bool* aPreventDefault) {
-  // get the widget to send the event to
-  nsPoint offset;
-  nsCOMPtr<nsIWidget> widget = GetWidget(&offset);
-  if (!widget) {
-    return NS_ERROR_NULL_POINTER;
-  }
-  EventMessage msg;
-  if (aType.EqualsLiteral("touchstart")) {
-    msg = eTouchStart;
-  } else if (aType.EqualsLiteral("touchmove")) {
-    msg = eTouchMove;
-  } else if (aType.EqualsLiteral("touchend")) {
-    msg = eTouchEnd;
-  } else if (aType.EqualsLiteral("touchcancel")) {
-    msg = eTouchCancel;
-  } else {
-    return NS_ERROR_UNEXPECTED;
-  }
-  WidgetTouchEvent event(true, msg, widget);
-  event.mFlags.mIsSynthesizedForTests = true;
-  event.mModifiers = nsContentUtils::GetWidgetModifiers(aModifiers);
-  if (aIsPen) {
-    event.mInputSource = MouseEvent_Binding::MOZ_SOURCE_PEN;
-  }
-
-  nsPresContext* presContext = GetPresContext();
-  if (!presContext) {
-    return NS_ERROR_FAILURE;
-  }
-  uint32_t count = aIdentifiers.Length();
-  if (aXs.Length() != count || aYs.Length() != count ||
-      aRxs.Length() != count || aRys.Length() != count ||
-      aRotationAngles.Length() != count || aForces.Length() != count) {
-    return NS_ERROR_INVALID_ARG;
-  }
-  event.mTouches.SetCapacity(count);
-  for (uint32_t i = 0; i < count; ++i) {
-    LayoutDeviceIntPoint pt = nsContentUtils::ToWidgetPoint(
-        CSSPoint(aXs[i], aYs[i]), offset, presContext);
-    LayoutDeviceIntPoint radius = LayoutDeviceIntPoint::FromAppUnitsRounded(
-        CSSPoint::ToAppUnits(CSSPoint(aRxs[i], aRys[i])),
-        presContext->AppUnitsPerDevPixel());
-
-    RefPtr<Touch> t = new Touch(aIdentifiers[i], pt, radius, aRotationAngles[i],
-                                aForces[i], aTiltXs[i], aTiltYs[i], aTwists[i]);
-
-    event.mTouches.AppendElement(t);
-  }
-
-  nsEventStatus status = nsEventStatus_eIgnore;
-  if (aToWindow) {
-    RefPtr<PresShell> presShell = presContext->PresShell();
-    MOZ_TRY(presShell->HandleEvent(presShell->GetRootFrame(), &event, false,
-                                   &status));
-  } else if (aAsyncEnabled == AsyncEnabledOption::ASYNC_ENABLED ||
-             StaticPrefs::test_events_async_enabled()) {
-    status = widget->DispatchInputEvent(&event).mContentStatus;
-  } else {
-    status = widget->DispatchEvent(&event);
-  }
-  if (aPreventDefault) {
-    *aPreventDefault = (status == nsEventStatus_eConsumeNoDefault);
-  }
-  return NS_OK;
-}
-
 static_assert(
     static_cast<uint32_t>(nsIWidget::Modifiers::CAPS_LOCK) ==
         static_cast<uint32_t>(nsIDOMWindowUtils::NATIVE_MODIFIER_CAPS_LOCK),
@@ -3417,6 +3299,24 @@ nsDOMWindowUtils::CheckAndClearDisplayListState(Element* aElement,
     frame = nsLayoutUtils::GetNextContinuationOrIBSplitSibling(frame);
   }
   *aResult = true;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsDOMWindowUtils::CheckAndClearWRDidRasterize(bool* aResult) {
+  *aResult = false;
+
+  nsIWidget* widget = GetWidget();
+  if (!widget) {
+    return NS_OK;
+  }
+
+  CompositorBridgeChild* cbc = GetCompositorBridge();
+  if (!cbc) {
+    return NS_OK;
+  }
+
+  cbc->SendCheckAndClearWRDidRasterize(widget->GetLayersId(), aResult);
   return NS_OK;
 }
 

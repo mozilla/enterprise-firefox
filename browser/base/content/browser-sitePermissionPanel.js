@@ -2,6 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+ChromeUtils.defineESModuleGetters(this, {
+  PermissionUI: "resource:///modules/PermissionUI.sys.mjs",
+});
+
 /**
  * Utility object to handle manipulations of the identity permission indicators
  * in the UI.
@@ -899,6 +903,15 @@ var gPermissionPanel = {
         permission.id,
         browser
       );
+
+      // Record telemetry for notification permission revocation via toolbar
+      if (idNoSuffix === "desktop-notification") {
+        Glean.webNotificationPermission.permissionRevokedToolbar.record({
+          site_category: PermissionUI.getSiteCategory(
+            gBrowser.contentPrincipal
+          ),
+        });
+      }
 
       this._permissionReloadHint.hidden = false;
 

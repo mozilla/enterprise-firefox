@@ -32,6 +32,8 @@ skip-if = [
 
 ["test_recover_storeID.js"]
 
+["test_relative_profile_path.js"]
+
 ["test_selectable_profile_launch.js"]
 
 ["test_selectable_profile_service_exists.js"]
@@ -44,4 +46,4 @@ skip-if = [
 
 ["test_shared_prefs_lifecycles_methods.js"]
 
-["test_usageProgileGroupID.js"]
+["test_usageProfileGroupID.js"]

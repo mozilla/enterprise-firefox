@@ -229,9 +229,9 @@
   <!-- Browser menu button that opens account settings -->
   <string name="browser_menu_account_settings">ანგარიშის შესახებ</string>
   <!-- Browser menu button that sends a user to help articles -->
-  <string name="browser_menu_help">დახმარება</string>
+  <string name="browser_menu_help" tools:ignore="UnusedResources" moz:removedIn="149">დახმარება</string>
   <!-- Browser menu button that sends a to a the what's new article -->
-  <string name="browser_menu_whats_new">რა სიახლეებია</string>
+  <string name="browser_menu_whats_new" tools:ignore="UnusedResources" moz:removedIn="149">რა სიახლეებია</string>
   <!-- Browser menu button that opens the settings menu -->
   <string name="browser_menu_settings">პარამეტრები</string>
   <!-- Browser menu button that opens a user's library -->
@@ -239,7 +239,7 @@
   <!-- Browser menu toggle that requests a desktop site -->
   <string name="browser_menu_desktop_site">სრული საიტი</string>
   <!-- Browser menu button that reopens a private tab as a regular tab -->
-  <string name="browser_menu_open_in_regular_tab">გახსნა ჩვეულებრივ ჩანართში</string>
+  <string name="browser_menu_open_in_regular_tab" tools:ignore="UnusedResources" moz:removedIn="149">გახსნა ჩვეულებრივ ჩანართში</string>
   <!-- Browser menu toggle that adds a shortcut to the site on the device home screen. -->
   <string name="browser_menu_add_to_homescreen">ეკრანზე დამატება</string>
   <!-- Browser menu toggle that adds a PWA of the site on the device home screen. -->
@@ -267,7 +267,7 @@
     Browser menu text shown in custom tabs to indicate this is a Fenix tab
     %1$s is the name of the app (for example "Firefox").
   -->
-  <string name="browser_menu_powered_by">უზრუნველყოფს %1$s</string>
+  <string name="browser_menu_powered_by" tools:ignore="UnusedResources" moz:removedIn="149">უზრუნველყოფს %1$s</string>
   <!--
     Browser menu text shown in custom tabs to indicate this is a Fenix tab
     %1$s is the name of the app (for example "Firefox").
@@ -280,15 +280,15 @@
   <!-- Browser menu button to open the current page in an external app -->
   <string name="browser_menu_open_app_link">გახსნა პროგრამით</string>
   <!-- Browser menu button to show reader view appearance controls e.g. the used font type and size -->
-  <string name="browser_menu_customize_reader_view">კითხვის რეჟიმის მორგება</string>
+  <string name="browser_menu_customize_reader_view" tools:ignore="UnusedResources" moz:removedIn="149">კითხვის რეჟიმის მორგება</string>
   <!-- Browser menu button to show reader view appearance controls e.g. the used font type and size -->
   <string name="browser_menu_customize_reader_view_2">კითხვის ხედის მორგება</string>
   <!-- Browser menu label for adding a bookmark -->
-  <string name="browser_menu_add">დამატება</string>
+  <string name="browser_menu_add" tools:ignore="UnusedResources" moz:removedIn="149">დამატება</string>
   <!-- Browser menu label for editing a bookmark -->
-  <string name="browser_menu_edit">ჩასწორება</string>
+  <string name="browser_menu_edit" tools:ignore="UnusedResources" moz:removedIn="149">ჩასწორება</string>
   <!-- Button shown on the home page that opens the Customize home settings -->
-  <string name="browser_menu_customize_home_1">საწყისი გვერდის მორგება</string>
+  <string name="browser_menu_customize_home_1" tools:ignore="UnusedResources" moz:removedIn="149">საწყისი გვერდის მორგება</string>
   <!-- Browser menu label to sign in to sync on the device using Mozilla accounts -->
   <string name="browser_menu_sign_in">შესვლა</string>
   <!-- Browser menu caption label for the "Sign in" browser menu item described in `browser_menu_sign_in` -->
@@ -307,10 +307,6 @@
   <string name="browser_close_main_menu_handlebar_content_description">მენიუს დახურვა</string>
   <!-- Content description (not visible, for screen readers etc.) for main menu navigation header. -->
   <string name="browser_main_menu_content_description_navigation_header">გადაადგილება</string>
-  <!-- Content description (not visible, for screen readers etc.) for main menu help button. -->
-  <string name="browser_main_menu_content_description_help_button" tools:ignore="UnusedResources" moz:removedIn="146">დახმარება</string>
-  <!-- Content description (not visible, for screen readers etc.) for main menu settings button. -->
-  <string name="browser_main_menu_content_description_settings_button" tools:ignore="UnusedResources" moz:removedIn="146">პარამეტრები</string>
   <!-- Content description (not visible, for screen readers etc.) for bottom sheet handlebar extensions menu. -->
   <string name="browser_extensions_menu_handlebar_content_description">გაფართოების მენიუს ფურცლის დახურვა</string>
   <!-- Content description (not visible, for screen readers etc.) for bottom sheet handlebar save menu. -->
@@ -328,7 +324,7 @@
   <!-- Browser menu label for navigating to the translation feature, which provides language translation options the current visited page -->
   <string name="browser_menu_translate_page_2">გვერდის თარგმნა</string>
   <!-- Browser menu label for navigating to the Web Compat Reporter feature, which provides users the ability to send bug reports for broken sites. -->
-  <string name="browser_menu_webcompat_reporter">არეული საიტის მოხსენება…</string>
+  <string name="browser_menu_webcompat_reporter" tools:ignore="UnusedResources" moz:removedIn="149">არეული საიტის მოხსენება…</string>
   <!-- Browser menu label for navigating to the Web Compat Reporter feature, which provides users the ability to send bug reports for broken sites. -->
   <string name="browser_menu_webcompat_reporter_2">არეული საიტის მოხსენება</string>
   <!-- Browser menu label that is displayed when the current page has been translated by the translation feature. -->
@@ -452,19 +448,8 @@
   <string name="juno_onboarding_privacy_notice_text" tools:ignore="BrandUsage">Firefox-ის პირადულობის განაცხადი</string>
   <!-- Title for set firefox as default browser screen used by Nimbus experiments. -->
   <string name="juno_onboarding_default_browser_title_nimbus_2">ჩვენ ვზრუნავთ თქვენს უსაფრთხოებაზე</string>
-  <!--
-    Title for set firefox as default browser screen used by Nimbus experiments.
-    Note: The word "Firefox" should NOT be translated
-  -->
-  <string name="juno_onboarding_default_browser_title_nimbus_3" tools:ignore="BrandUsage,UnusedResources" moz:removedIn="146">გაარკვიეთ, რითაა მილიონობით ხალხის რჩეული Firefox</string>
-  <!-- Title for set firefox as default browser screen used by Nimbus experiments. -->
-  <string name="juno_onboarding_default_browser_title_nimbus_4" tools:ignore="UnusedResources" moz:removedIn="146">უსაფრთხო თვალიერება მეტი არჩევანით</string>
   <!-- Description for set firefox as default browser screen used by Nimbus experiments. -->
   <string name="juno_onboarding_default_browser_description_nimbus_3">ჩვენი ბრაუზერი არამომგებიანი დაწესებულებისგანაა და გეხმარებათ აირიდოთ კომპანიებისგან ფარული თვალთვალი ვებსივრცით სარგებლობისას.</string>
-  <!-- Description for set firefox as default browser screen used by Nimbus experiments. -->
-  <string name="juno_onboarding_default_browser_description_nimbus_4" tools:ignore="UnusedResources" moz:removedIn="146">100 მილიონზე მეტი ადამიანი იცავს თავის პირადულობას არამომგებიანი დაწესებულების მიერ მხარდაჭერილი ბრაუზერის არჩევით.</string>
-  <!-- Description for set firefox as default browser screen used by Nimbus experiments. -->
-  <string name="juno_onboarding_default_browser_description_nimbus_5" tools:ignore="UnusedResources" moz:removedIn="146">ცნობილი მეთვალყურეები? იზღუდება თავისთავად. გაფართოებები? 700-ვე შეგიძლიათ მოსინჯოთ. PDF? ჩვენი ჩაშენებული წამკითხველით უადვილესი გამოსაყენებელია.</string>
   <!-- Text for the button to set firefox as default browser on the device -->
   <string name="juno_onboarding_default_browser_positive_button" tools:ignore="UnusedResources">ნაგულისხმევ ბრაუზერად დაყენება</string>
   <!-- Text for the button dismiss the screen and move on with the flow -->
@@ -624,6 +609,10 @@
   <string name="onboarding_marketing_body_1" tools:ignore="BrandUsage,UnusedResources">გაუზიარეთ Mozilla-ს მოკავშირე სამსახურებს გავრცელების საკითხებში, როგორ აღმოაჩინეთ Firefox და იყენებთ თუ არა. ეს მონაცემები არასდროს გაიყიდება.</string>
   <!-- Marketing onboarding page button label variant. Button to confirm choice and start browsing. -->
   <string name="onboarding_marketing_positive_button_1" tools:ignore="UnusedResources">თანხმობა და გვერდების მონახულების დაწყება</string>
+  <!-- ==== Project "Nova" onboarding strings ==== -->
+
+  <!-- ==== End of Project "Nova" onboarding strings ==== -->
+
   <!-- Onboarding header for the toolbar selection card, used by Nimbus experiments. -->
   <string name="onboarding_customize_toolbar_title" tools:ignore="UnusedResources">ხელსაწყოთა ზოლის განთავსება</string>
   <!-- Onboarding sub header for toolbar selection card, used by Nimbus experiments. -->
@@ -1057,8 +1046,6 @@
   <string name="alternative_app_icon_group_solid_colors">ერთგვაროვანი ფერები</string>
   <!-- Title for the "Gradients" group of alternative app icon variants in the icon picker screen. This group contains icons with gradient backgrounds inspired by natural light conditions. -->
   <string name="alternative_app_icon_group_gradients">გარდამავალი ფერები</string>
-  <!-- Title for the "Other" group of alternative app icon variants in the icon picker screen. This group includes retro, pixel art, themed, and artist-created icons. -->
-  <string name="alternative_app_icon_group_other" tools:ignore="UnusedResources" moz:removedIn="146">სხვა</string>
   <!-- Title for the "Featured" group of alternative app icon variants in the icon picker screen. This group includes retro, pixel art, themed, and artist-created icons. -->
   <string name="alternative_app_icon_group_featured">რჩეული</string>
   <!-- Title to show in alert when user selects an alternative app icon -->
@@ -1425,9 +1412,9 @@
   <!-- Title of the active section on the studies list -->
   <string name="studies_active">მოქმედი</string>
   <!-- Description for studies -->
-  <string name="studies_description_3">გამოცადეთ შესაძლებლობები ჯერ კიდევ ჩანაფიქრის დონეზე, სანამ ყველასთვის ხილული გახდება.</string>
+  <string name="studies_description_3" moz:removedIn="148" tools:ignore="UnusedResources">გამოცადეთ შესაძლებლობები ჯერ კიდევ ჩანაფიქრის დონეზე, სანამ ყველასთვის ხილული გახდება.</string>
   <!-- Title of the Studies data preference -->
-  <string name="studies_title">კვლევების ჩადგმა და გაშვება</string>
+  <string name="studies_title" moz:removedIn="148" tools:ignore="UnusedResources">კვლევების ჩადგმა და გაშვება</string>
   <!-- Learn more link for studies, links to an article for more information about studies. -->
   <string name="studies_learn_more">ვრცლად</string>
   <!--
@@ -2108,7 +2095,7 @@
   <!-- An option from the share dialog to sign into sync -->
   <string name="sync_sign_in">დასინქ. შესვლა</string>
   <!-- An option from the three dot menu to sign in -->
-  <string name="sync_menu_sign_in">შესვლა</string>
+  <string name="sync_menu_sign_in" tools:ignore="UnusedResources" moz:removedIn="149">შესვლა</string>
   <!-- An option from the share dialog to send link to all other sync devices -->
   <string name="sync_send_to_all">ყველა მოწყობილობაზე გაგზავნა</string>
   <!-- An option from the share dialog to reconnect to sync -->
@@ -2227,7 +2214,7 @@
   <!-- Title for Accessibility Text Size Scaling Preference -->
   <string name="preference_accessibility_font_size_title">შრიფტის ზომა</string>
   <!-- %d is the percentage of the slide bar for setting the text font size and %% will be announced as "percent". -->
-  <string name="a11y_preference_accessibility_font_size_percentage">%d %%.</string>
+  <string name="a11y_preference_accessibility_font_size_percentage" tools:ignore="UnusedResources" moz:removedIn="148">%d %%.</string>
   <!-- Title for Accessibility Text Automatic Size Scaling Preference -->
   <string name="preference_accessibility_auto_size_2">შრიფტის ავტომატური ზომა</string>
   <!-- Summary for Accessibility Text Automatic Size Scaling Preference -->
@@ -2268,7 +2255,7 @@
   <!-- Summary for the Delete browsing data on quit preference. "Quit" translation should match delete_browsing_data_on_quit_action translation. -->
   <string name="preference_summary_delete_browsing_data_on_quit_2">წაიშლება დათვალიერებული გვერდების მონაცემები მენიუში „გამოსვლაზე“ დაჭერისას</string>
   <!-- Action item in menu for the Delete browsing data on quit feature -->
-  <string name="delete_browsing_data_on_quit_action">გამოსვლა</string>
+  <string name="delete_browsing_data_on_quit_action" tools:ignore="UnusedResources" moz:removedIn="149">გამოსვლა</string>
   <!-- Title text of a delete browsing data dialog. -->
   <string name="delete_history_prompt_title">გასასუფთავებელი დროის შუალედი</string>
   <!-- Body text of a delete browsing data dialog. -->
@@ -3910,11 +3897,9 @@
   <string name="settings_search_no_results_title">ვერაფერი მოინახა</string>
   <!-- Sub-message displayed when the search field is not empty but search results is empty. -->
   <string name="settings_search_no_results_message">იქნებ სხვანაირად მოინახოს?</string>
-  <!--
-    Terms of use pop up prompt
+  <!-- ==== Terms of use pop up prompt ==== -->
 
-    Title for the pop up prompt
-  -->
+  <!-- Title for the pop up prompt -->
   <string name="terms_of_use_prompt_title">გარკვეული ცვლილებებია</string>
   <!--
     Message for the terms of use pop up prompt
@@ -3938,6 +3923,10 @@
   <string name="terms_of_use_prompt_accept">მიღება</string>
   <!-- Label for a button to postpone accepting the terms of use -->
   <string name="terms_of_use_prompt_postpone">მოგვიანებით შეხსენება</string>
+  <!-- ==== Experiment strings. ==== -->
+
+  <!-- ==== End of Terms of use popup prompt. ==== -->
+
   <!--
     Privacy notice homepage banner
 

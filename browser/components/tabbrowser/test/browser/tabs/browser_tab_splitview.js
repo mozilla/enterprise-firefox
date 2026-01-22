@@ -80,6 +80,24 @@ add_task(async function test_splitViewCreateAndAddTabs() {
     "The split view wrapper has the expected attribute when it does not contain the selected tab"
   );
 
+  // Verify ARIA labels for split view tabs
+  const splitViewLeft = gBrowser.tabLocalization.formatValueSync(
+    "tabbrowser-tab-label-tab-split-view-left",
+    { label: "" }
+  );
+  const splitViewRight = gBrowser.tabLocalization.formatValueSync(
+    "tabbrowser-tab-label-tab-split-view-right",
+    { label: "" }
+  );
+  Assert.ok(
+    tab1.getAttribute("aria-label").includes(splitViewLeft),
+    "Left tab has the correct ARIA label."
+  );
+  Assert.ok(
+    tab2.getAttribute("aria-label").includes(splitViewRight),
+    "Right tab has the correct ARIA label."
+  );
+
   gBrowser.selectTabAtIndex(tab1._tPos);
   await BrowserTestUtils.waitForMutationCondition(
     splitview,
@@ -102,6 +120,14 @@ add_task(async function test_splitViewCreateAndAddTabs() {
     document.querySelectorAll("tab-split-view-wrapper").length,
     1,
     "Tabs have been unsplit from split view"
+  );
+  Assert.ok(
+    !tab1.hasAttribute("aria-label"),
+    "ARIA label was removed from the left tab."
+  );
+  Assert.ok(
+    !tab2.hasAttribute("aria-label"),
+    "ARIA label was removed from the right tab."
   );
 
   let tab3Panel = tab3.linkedBrowser.closest(".browserSidebarContainer");
@@ -283,6 +309,15 @@ add_task(async function test_resize_split_view_panels() {
     "Right panel is larger."
   );
 
+  info("Reverse split view panels and resize.");
+  splitView.reverseTabs();
+  dragSplitter(-100, tabpanels.splitViewSplitter);
+  await BrowserTestUtils.waitForMutationCondition(
+    leftPanel,
+    { attributeFilter: ["width"] },
+    () => !leftPanel.hasAttribute("width")
+  );
+
   info("Separate split view panels to remove the custom width.");
   splitView.unsplitTabs();
   for (const panel of [leftPanel, rightPanel]) {
@@ -322,7 +357,7 @@ add_task(async function test_click_findbar_to_select_panel() {
   await promiseFindbarOpen;
 
   info("Select the second panel by clicking the find bar.");
-  EventUtils.synthesizeMouseAtCenter(findbar, {});
+  findbar.getElement("findbar-textbox").click();
   await BrowserTestUtils.waitForMutationCondition(
     panel2,
     { attributeFilter: ["class"] },
@@ -330,4 +365,144 @@ add_task(async function test_click_findbar_to_select_panel() {
   );
 
   splitView.close();
+});
+
+add_task(async function test_moving_tabs() {
+  let [tab1, tab2, tab3, tab4] = await Promise.all(
+    Array.from({ length: 4 }).map((_, index) =>
+      addTab(`data:text/plain,tab${index + 1}`)
+    )
+  );
+  let startingTab = gBrowser.tabs[0];
+
+  let splitview = gBrowser.addTabSplitView([tab1, tab2], {
+    insertBefore: tab1,
+  });
+  Assert.equal(splitview.tabs.length, 2, "Split view has 2 tabs");
+
+  Assert.deepEqual(
+    gBrowser.tabs,
+    [startingTab, tab1, tab2, tab3, tab4],
+    "Confirm starting order of tabs"
+  );
+
+  gBrowser.moveTabTo(startingTab, { tabIndex: 2 });
+
+  Assert.deepEqual(
+    gBrowser.tabs,
+    [tab1, tab2, startingTab, tab3, tab4],
+    "Starting tab is moved after splitview tabs"
+  );
+  ok(
+    tab1.splitview && tab2.splitview && !startingTab.splitview,
+    "Tab 1 and tab 2 are still in a splitview and starting tab isn't"
+  );
+
+  gBrowser.moveTabTo(tab1, { tabIndex: 3 });
+  Assert.deepEqual(
+    gBrowser.tabs,
+    [startingTab, tab1, tab2, tab3, tab4],
+    "Moving a splitview tab moves both tabs in the splitview"
+  );
+  ok(
+    tab1.splitview && tab2.splitview,
+    "Tab 1 and tab 2 are still in a splitview"
+  );
+
+  gBrowser.selectedTab = startingTab;
+  gBrowser.moveTabForward();
+  Assert.deepEqual(
+    gBrowser.tabs,
+    [tab1, tab2, startingTab, tab3, tab4],
+    "Selected tab moves forward but after splitview tabs"
+  );
+  ok(
+    tab1.splitview && tab2.splitview && !startingTab.splitview,
+    "Tab 1 and tab 2 are still in a splitview and starting tab isn't"
+  );
+
+  gBrowser.moveTabBackward();
+  Assert.deepEqual(
+    gBrowser.tabs,
+    [startingTab, tab1, tab2, tab3, tab4],
+    "Selected tab moves backward but before splitview tabs"
+  );
+  ok(
+    tab1.splitview && tab2.splitview && !startingTab.splitview,
+    "Tab 1 and tab 2 are still in a splitview and starting tab isn't"
+  );
+
+  gBrowser.selectedTab = tab1;
+  gBrowser.moveTabForward();
+
+  Assert.deepEqual(
+    gBrowser.tabs,
+    [startingTab, tab3, tab1, tab2, tab4],
+    "Selected tab in a splitview moves both splitview tabs forward"
+  );
+  ok(
+    tab1.splitview && tab2.splitview,
+    "Tab 1 and tab 2 are still in a splitview"
+  );
+
+  gBrowser.selectedTab = tab2;
+  gBrowser.moveTabBackward();
+  Assert.deepEqual(
+    gBrowser.tabs,
+    [startingTab, tab1, tab2, tab3, tab4],
+    "Selected tab in a splitview moves both splitview tabs backward"
+  );
+  ok(
+    tab1.splitview && tab2.splitview,
+    "Tab 1 and tab 2 are still in a splitview"
+  );
+
+  // Create a tabgroup with tabs and a splitview
+  gBrowser.addTabGroup([tab1, tab2, tab3], { insertBefore: tab3 });
+  Assert.deepEqual(
+    gBrowser.tabs,
+    [startingTab, tab1, tab2, tab3, tab4],
+    "Selected tab in a splitview moves both splitview tabs backward"
+  );
+
+  // Add another splitview to the existing group, so two splitviews are in the group
+  let splitview2 = gBrowser.addTabSplitView([tab3, tab4], {
+    insertBefore: tab3,
+  });
+  ok(
+    tab3.splitview && tab4.splitview && splitview2.group,
+    "Tab 3 and tab 4 are in a splitview and in a tab group"
+  );
+
+  gBrowser.selectedTab = tab2;
+  gBrowser.moveTabForward();
+
+  Assert.deepEqual(
+    gBrowser.tabs,
+    [startingTab, tab3, tab4, tab1, tab2],
+    "First splitview tabs are moved after the second splitview but within the group"
+  );
+
+  Assert.equal(
+    splitview.group,
+    splitview2.group,
+    "Both splitviews are still in the same tab group"
+  );
+
+  gBrowser.selectedTab = tab4;
+  gBrowser.moveTabBackward();
+
+  // The order doesn't change, the splitview tabs just moved outside of the group.
+  Assert.deepEqual(
+    gBrowser.tabs,
+    [startingTab, tab3, tab4, tab1, tab2],
+    "Splitview tabs are moved together and in the correct order"
+  );
+  ok(
+    tab3.splitview && tab4.splitview && !splitview2.group,
+    "Tab 3 and tab 4 are still in a splitview but no longer in a tab group"
+  );
+  for (let tab of [tab1, tab2, tab3, tab4]) {
+    BrowserTestUtils.removeTab(tab);
+  }
 });

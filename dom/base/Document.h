@@ -4,8 +4,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef mozilla_dom_Document_h___
-#define mozilla_dom_Document_h___
+#ifndef mozilla_dom_Document_h_
+#define mozilla_dom_Document_h_
 
 #include <bitset>
 #include <cstddef>
@@ -356,7 +356,7 @@ class PostMessageEvent;
 
 #define DEPRECATED_OPERATION(_op) e##_op,
 enum class DeprecatedOperations : uint16_t {
-#include "nsDeprecatedOperationList.h"
+#include "nsDeprecatedOperationList.inc"
   eDeprecatedOperationCount
 };
 #undef DEPRECATED_OPERATION
@@ -1610,6 +1610,7 @@ class Document : public nsINode,
   nsresult InitIntegrityPolicy(nsIChannel* aChannel);
   nsresult InitCOEP(nsIChannel* aChannel);
   nsresult InitDocPolicy(nsIChannel* aChannel);
+  nsresult InitTLSCertificateBinding(nsIChannel* aChannel);
 
   nsresult InitReferrerInfo(nsIChannel* aChannel);
 
@@ -1985,6 +1986,11 @@ class Document : public nsINode,
   MOZ_CAN_RUN_SCRIPT bool TryAutoFocusCandidate(Element& aElement);
 
  public:
+  void SetAncestorOriginsList(nsTArray<nsString>&& aAncestorOriginsList);
+  Span<const nsString> GetAncestorOriginsList() const;
+  // https://html.spec.whatwg.org/#concept-location-ancestor-origins-list
+  already_AddRefed<DOMStringList> AncestorOrigins() const;
+
   // Removes all the elements with fullscreen flag set from the top layer, and
   // clears their fullscreen flag.
   void CleanupFullscreenState();
@@ -3366,7 +3372,7 @@ class Document : public nsINode,
 
 #define DOCUMENT_WARNING(_op) e##_op,
   enum DocumentWarnings {
-#include "nsDocumentWarningList.h"
+#include "nsDocumentWarningList.inc"
     eDocumentWarningCount
   };
 #undef DOCUMENT_WARNING
@@ -3385,6 +3391,9 @@ class Document : public nsINode,
 
   // Posts an event to call UpdateVisibilityState.
   void PostVisibilityUpdateEvent();
+
+  // https://html.spec.whatwg.org/#reveal
+  void Reveal();
 
   bool IsSyntheticDocument() const { return mIsSyntheticDocument; }
 
@@ -5239,6 +5248,9 @@ class Document : public nsINode,
   // while a paste event is being handled in JS.
   bool mClipboardCopyTriggered : 1;
 
+  // https://html.spec.whatwg.org/#has-been-revealed
+  bool mHasBeenRevealed : 1;
+
   // The fingerprinting protections overrides for this document. The value will
   // override the default enabled fingerprinting protections for this document.
   // This will only get populated if these is one that comes from the local
@@ -5328,6 +5340,8 @@ class Document : public nsINode,
 
  private:
   nsCString mContentType;
+
+  nsTArray<nsString> mAncestorOriginsList;
 
  protected:
   // The document's security info
@@ -5769,6 +5783,8 @@ class Document : public nsINode,
   RefPtr<class FragmentDirective> mFragmentDirective;
   UniquePtr<RadioGroupContainer> mRadioGroupContainer;
 
+  nsCOMPtr<nsIURI> mTLSCertificateBindingURI;
+
  public:
   // Needs to be public because the bindings code pokes at it.
   JS::ExpandoAndGeneration mExpandoAndGeneration;
@@ -5791,6 +5807,10 @@ class Document : public nsINode,
                                               const nsAString& aHTML,
                                               const SetHTMLOptions& aOptions,
                                               ErrorResult& aError);
+
+  nsIURI* GetTlsCertificateBindingURI() const {
+    return mTLSCertificateBindingURI;
+  }
 };
 
 enum class SyncOperationBehavior { eSuspendInput, eAllowInput };
@@ -5958,4 +5978,4 @@ inline nsISupports* ToSupports(mozilla::dom::Document* aDoc) {
   return static_cast<nsINode*>(aDoc);
 }
 
-#endif /* mozilla_dom_Document_h___ */
+#endif /* mozilla_dom_Document_h_ */

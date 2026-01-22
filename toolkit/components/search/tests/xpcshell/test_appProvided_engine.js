@@ -117,11 +117,11 @@ const TEST_CONFIG_OVERRIDE = [
 
 add_setup(async function () {
   SearchTestUtils.setRemoteSettingsConfig(CONFIG);
-  await Services.search.init();
+  await SearchService.init();
 });
 
 add_task(async function test_engine_with_all_params_set() {
-  let engine = Services.search.getEngineById("testEngine");
+  let engine = SearchService.getEngineById("testEngine");
   Assert.ok(engine, "Should have found the engine");
 
   Assert.equal(
@@ -236,7 +236,7 @@ add_task(async function test_engine_with_all_params_set() {
 });
 
 add_task(async function test_engine_with_some_params_set() {
-  let engine = Services.search.getEngineById("testOtherValuesEngine");
+  let engine = SearchService.getEngineById("testOtherValuesEngine");
   Assert.ok(engine, "Should have found the engine");
 
   Assert.equal(
@@ -279,7 +279,7 @@ add_task(async function test_engine_with_some_params_set() {
 
 add_task(async function test_engine_remote_override() {
   // First check the existing engine doesn't have the overrides.
-  let engine = Services.search.getEngineById("override");
+  let engine = SearchService.getEngineById("override");
   Assert.ok(engine, "Should have found the override engine");
 
   Assert.equal(engine.name, "override name", "Should have the expected name");
@@ -305,7 +305,7 @@ add_task(async function test_engine_remote_override() {
     TEST_CONFIG_OVERRIDE
   );
 
-  engine = Services.search.getEngineById("override");
+  engine = SearchService.getEngineById("override");
   Assert.ok(engine, "Should have found the override engine");
 
   Assert.equal(engine.name, "override name", "Should have the expected name");
@@ -329,7 +329,7 @@ add_task(async function test_engine_remote_override() {
 });
 
 add_task(async function test_displayName() {
-  let engine = Services.search.getEngineById("testEngine");
+  let engine = SearchService.getEngineById("testEngine");
 
   let supportedTypesWithoutNames = [
     SearchUtils.URL_TYPE.SEARCH,
@@ -383,7 +383,7 @@ add_task(async function test_displayName() {
 add_task(async function test_isNew_urlOnly() {
   // This engine has `isNewUntil` defined for its trending and visual search
   // URLs, but the trending date is in the past.
-  let engine = Services.search.getEngineById("testEngine");
+  let engine = SearchService.getEngineById("testEngine");
   Assert.ok(
     !engine.wrappedJSObject.isNew(),
     "isNew should return false for testEngine without an arg"
@@ -414,7 +414,7 @@ add_task(async function test_isNew_urlOnly() {
 
 add_task(async function test_isNew_variant() {
   // This engine has `isNewUntil` defined on its variant.
-  let engine = Services.search.getEngineById("override");
+  let engine = SearchService.getEngineById("override");
   Assert.ok(
     engine.wrappedJSObject.isNew(),
     "isNew should return true for override engine"

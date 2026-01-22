@@ -4,7 +4,7 @@
 
 "use strict";
 
-/* globals browser, module, onMessageFromTab */
+/* globals browser, InterventionHelpers, module, onMessageFromTab */
 
 // To grant shims access to bundled logo images without risking
 // exposing our moz-extension URL, we have the shim request them via
@@ -16,27 +16,23 @@ const loggingPrefValue = browser.aboutConfigPrefs.getPref(
   "disable_debug_logging"
 );
 
-const releaseBranchPromise = browser.appConstants.getReleaseBranch();
+const releaseBranch = browser.appConstants.getReleaseBranch();
 
-const platformPromise = browser.runtime.getPlatformInfo().then(info => {
-  return info.os === "android" ? "android" : "desktop";
-});
+const platform =
+  browser.appConstants.getPlatform() === "android" ? "android" : "desktop";
 
 let debug = async function () {
-  if (
-    loggingPrefValue !== true &&
-    (await releaseBranchPromise) !== "release_or_beta"
-  ) {
+  if (loggingPrefValue !== true && releaseBranch !== "release_or_beta") {
     console.debug.apply(this, arguments);
   }
 };
 let error = async function () {
-  if ((await releaseBranchPromise) !== "release_or_beta") {
+  if (releaseBranch !== "release_or_beta") {
     console.error.apply(this, arguments);
   }
 };
 let warn = async function () {
-  if ((await releaseBranchPromise) !== "release_or_beta") {
+  if (releaseBranch !== "release_or_beta") {
     console.warn.apply(this, arguments);
   }
 };
@@ -69,16 +65,7 @@ class Shim {
     this.runFirst = opts.runFirst;
     this.unblocksOnOptIn = unblocksOnOptIn;
     this.requestStorageAccessForRedirect = opts.requestStorageAccessForRedirect;
-    this.shouldUseScriptingAPI = browser.aboutConfigPrefs.getPref(
-      "useScriptingAPI",
-      false
-    );
     this.isSmartblockEmbedShim = opts.isSmartblockEmbedShim || false;
-    debug(
-      `WebCompat Shim ${this.id} will be injected using ${
-        this.shouldUseScriptingAPI ? "scripting" : "contentScripts"
-      } API`
-    );
 
     this._hostOptIns = new Set();
     this._pBModeHostOptIns = new Set();
@@ -97,26 +84,15 @@ class Shim {
 
     this.redirectsRequests = !!this.file && matches?.length;
 
-    // NOTE: _contentScriptRegistrations is an array of string ids when
-    // shouldUseScriptingAPI is true and an array of script handles returned
-    // by contentScripts.register otherwise.
     this._contentScriptRegistrations = [];
 
     this.contentScripts = contentScripts || [];
     for (const script of this.contentScripts) {
       if (typeof script.css === "string") {
-        script.css = [
-          this.shouldUseScriptingAPI
-            ? `/shims/${script.css}`
-            : { file: `/shims/${script.css}` },
-        ];
+        script.css = [`/shims/${script.css}`];
       }
       if (typeof script.js === "string") {
-        script.js = [
-          this.shouldUseScriptingAPI
-            ? `/shims/${script.js}`
-            : { file: `/shims/${script.js}` },
-        ];
+        script.js = [`/shims/${script.js}`];
       }
     }
 
@@ -138,30 +114,31 @@ class Shim {
     }, pref);
 
     this._disabledPrefValue = browser.aboutConfigPrefs.getPref(pref);
-    this.ready = Promise.all([platformPromise, releaseBranchPromise]).then(
-      ([platform, branch]) => {
-        this._disabledByPlatform =
-          this.platform !== "all" && this.platform !== platform;
 
-        this._disabledByReleaseBranch = false;
-        for (const supportedBranchAndPlatform of this.branches || []) {
-          const [supportedBranch, supportedPlatform] =
-            supportedBranchAndPlatform.split(":");
-          if (
-            (!supportedPlatform || supportedPlatform == platform) &&
-            supportedBranch != branch
-          ) {
-            this._disabledByReleaseBranch = true;
-          }
-        }
+    this._disabledByPlatform =
+      this.platform !== "all" && this.platform !== platform;
 
-        this._preprocessOptions(platform, branch);
-        this._onEnabledStateChanged();
+    this._disabledByReleaseBranch = false;
+    for (const supportedBranchAndPlatform of this.branches || []) {
+      const [supportedBranch, supportedPlatform] =
+        supportedBranchAndPlatform.split(":");
+      if (
+        (supportedPlatform && supportedPlatform != platform) ||
+        supportedBranch != releaseBranch
+      ) {
+        this._disabledByReleaseBranch = true;
       }
-    );
+    }
+
+    this._preprocessOptions();
+
+    // Don't register content scripts individually during startup.
+    this.ready = this._onEnabledStateChanged({
+      alsoToggleContentScripts: false,
+    });
   }
 
-  _preprocessOptions(platform, branch) {
+  _preprocessOptions() {
     // options may be any value, but can optionally be gated for specified
     // platform/branches, if in the format `{value, branches, platform}`
     this.options = {};
@@ -169,7 +146,7 @@ class Shim {
       if (v?.value) {
         if (
           (!v.platform || v.platform === platform) &&
-          (!v.branches || v.branches.includes(branch))
+          (!v.branches || v.branches.includes(releaseBranch))
         ) {
           this.options[k] = v.value;
         }
@@ -283,84 +260,21 @@ class Shim {
     }
   }
 
-  async _onEnabledStateChanged({ alsoClearResourceCache = false } = {}) {
+  async _onEnabledStateChanged({
+    alsoClearResourceCache = false,
+    alsoToggleContentScripts = true,
+  } = {}) {
     this.manager?.onShimStateChanged(this.id);
     if (!this.enabled) {
-      await this._unregisterContentScripts();
+      if (alsoToggleContentScripts) {
+        await this.manager._unregisterContentScriptsForShims([this]);
+      }
       return this._revokeRequestsInETP(alsoClearResourceCache);
     }
-    await this._registerContentScripts();
+    if (alsoToggleContentScripts) {
+      await this.manager._registerContentScriptsForShims([this]);
+    }
     return this._allowRequestsInETP(alsoClearResourceCache);
-  }
-
-  async _registerContentScripts() {
-    if (
-      this.contentScripts.length &&
-      !this._contentScriptRegistrations.length
-    ) {
-      const matches = [];
-      let idx = 0;
-      for (const options of this.contentScripts) {
-        matches.push(options.matches);
-        if (this.shouldUseScriptingAPI) {
-          // Some shims includes more than one script (e.g. Blogger one contains
-          // a content script to be run on document_start and one to be run
-          // on document_end.
-          options.id = `shim-${this.id}-${idx++}`;
-          options.persistAcrossSessions = false;
-          // Having to call getRegisteredContentScripts each time we are going to
-          // register a Shim content script is suboptimal, but avoiding that
-          // may require a bit more changes (e.g. rework both Injections, Shim and Shims
-          // classes to more easily register all content scripts with a single
-          // call to the scripting API methods when the background script page is loading
-          // and one per injection or shim being enabled from the AboutCompatBroker).
-          // In the short term we call getRegisteredContentScripts and restrict it to
-          // the script id we are about to register.
-          let isAlreadyRegistered = false;
-          try {
-            const registeredScripts =
-              await browser.scripting.getRegisteredContentScripts({
-                ids: [options.id],
-              });
-            isAlreadyRegistered = !!registeredScripts.length;
-          } catch (ex) {
-            console.error(
-              "Retrieve WebCompat GoFaster registered content scripts failed: ",
-              ex
-            );
-          }
-          try {
-            if (!isAlreadyRegistered) {
-              await browser.scripting.registerContentScripts([options]);
-            }
-            this._contentScriptRegistrations.push(options.id);
-          } catch (ex) {
-            console.error(
-              "Registering WebCompat Shim content scripts failed: ",
-              options,
-              ex
-            );
-          }
-        } else {
-          const reg = await browser.contentScripts.register(options);
-          this._contentScriptRegistrations.push(reg);
-        }
-      }
-      const urls = Array.from(new Set(matches.flat()));
-      debug("Enabling content scripts for these URLs:", urls);
-    }
-  }
-
-  async _unregisterContentScripts() {
-    if (this.shouldUseScriptingAPI) {
-      const ids = this._contentScriptRegistrations;
-      await browser.scripting.unregisterContentScripts({ ids });
-    } else {
-      for (const registration of this._contentScriptRegistrations) {
-        registration.unregister();
-      }
-    }
-    this._contentScriptRegistrations = [];
   }
 
   async _allowRequestsInETP(alsoClearResourceCache) {
@@ -479,17 +393,15 @@ class Shim {
         continue;
       }
       const { branches, patterns, platforms } = unblock;
-      if (platforms?.length) {
-        const platform = await platformPromise;
-        if (platform !== "all" && !platforms.includes(platform)) {
-          continue;
-        }
+      if (
+        platforms?.length &&
+        platform !== "all" &&
+        !platforms.includes(platform)
+      ) {
+        continue;
       }
-      if (branches?.length) {
-        const branch = await releaseBranchPromise;
-        if (!branches.includes(branch)) {
-          continue;
-        }
+      if (branches?.length && !branches.includes(releaseBranch)) {
+        continue;
       }
       optins.push.apply(optins, patterns);
     }
@@ -741,6 +653,9 @@ class Shims {
         this.shims.set(shimOpts.id, new Shim(shimOpts, this));
       }
     }
+
+    // Batch-register the content scripts during startup to improve IPC performance.
+    this._registerContentScriptsForShims();
 
     // Register onBeforeRequest listener which handles storage access requests
     // on matching redirects.
@@ -1032,7 +947,8 @@ class Shims {
       message !== "embedClicked" &&
       message !== "smartblockEmbedReplaced" &&
       message !== "smartblockGetFluentString" &&
-      message !== "checkFacebookLoginStatus"
+      message !== "checkFacebookLoginStatus" &&
+      message !== "shouldShowEmbedContentInPlaceholders"
     ) {
       return undefined;
     }
@@ -1053,8 +969,8 @@ class Shims {
     if (message === "getOptions") {
       return Object.assign(
         {
-          platform: await platformPromise,
-          releaseBranch: await releaseBranchPromise,
+          platform,
+          releaseBranch,
         },
         shim.options
       );
@@ -1097,6 +1013,11 @@ class Shims {
 
       // If the cookie is found, the user is logged in to Facebook.
       return cookie != null;
+    } else if (message === "shouldShowEmbedContentInPlaceholders") {
+      // Only show embed content in placeholders if the Sanitizer API is available.
+      // setHTML is available in Firefox 148+.
+      // TODO(Bug 2010092): Remove when `documentElement.setHTML` becomes available in esr.
+      return true;
     }
 
     return undefined;
@@ -1407,6 +1328,59 @@ class Shims {
       debug(`ignoring ${url} on tab ${tabId} frame ${frameId}`);
     }
     return undefined;
+  }
+
+  async _registerContentScriptsForShims(shims) {
+    const contentScriptsToRegister = [];
+
+    for (const shim of shims ?? this.shims.values()) {
+      if (
+        shim.disabledReason ||
+        !shim.contentScripts.length ||
+        shim._contentScriptRegistrations.length
+      ) {
+        continue;
+      }
+
+      shim._contentScriptRegistrations = [];
+      for (const options of shim.contentScripts) {
+        // Some shims includes more than one script (e.g. Blogger one contains
+        // a content script to be run on document_start and one to be run
+        // on document_end.
+        const id = `SmartBlock shim for ${shim.id}: ${JSON.stringify(options)}`;
+        shim._contentScriptRegistrations.push(id);
+        contentScriptsToRegister.push(
+          Object.assign(
+            {
+              id,
+              persistAcrossSessions: false,
+            },
+            options
+          )
+        );
+      }
+    }
+
+    if (contentScriptsToRegister.length) {
+      await InterventionHelpers._registerContentScripts(
+        contentScriptsToRegister,
+        "SmartBlock",
+        debug
+      );
+    }
+  }
+
+  async _unregisterContentScriptsForShims(shims) {
+    const ids = [];
+    for (const shim of shims ?? this.shims.values()) {
+      ids.push(...shim._contentScriptRegistrations);
+      shim._contentScriptRegistrations = [];
+    }
+    for (const id of ids) {
+      try {
+        await browser.scripting.unregisterContentScripts({ ids: [id] });
+      } catch (_) {}
+    }
   }
 }
 

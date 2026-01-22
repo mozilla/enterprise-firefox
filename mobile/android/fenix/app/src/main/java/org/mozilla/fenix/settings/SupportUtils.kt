@@ -29,6 +29,7 @@ object SupportUtils {
     const val WHATS_NEW_URL = "https://www.mozilla.org/firefox/android/notes"
     const val FXACCOUNT_SUMO_URL = "https://support.mozilla.org/kb/access-mozilla-services-firefox-account"
     const val ANDROID_SUPPORT_SUMO_URL = "mzl.la/AndroidSupport"
+    const val RELAY_MANAGE_URL = "https://relay.firefox.com"
 
     // This is locale-less on purpose so that the content negotiation happens on the AMO side because the current
     // user language might not be supported by AMO and/or the language might not be exactly what AMO is expecting
@@ -42,12 +43,12 @@ object SupportUtils {
         TRACKING_PROTECTION("tracking-protection-firefox-android"),
         TOTAL_COOKIE_PROTECTION("enhanced-tracking-protection-android"),
         OPT_OUT_STUDIES("how-opt-out-studies-firefox-android"),
+        REMOTE_IMPROVEMENTS("remote-improvements"),
         SEND_TABS("send-tab-preview"),
         SET_AS_DEFAULT_BROWSER("make-firefox-default-browser-android"),
         SEARCH_SUGGESTION("how-search-firefox-preview"),
         CUSTOM_SEARCH_ENGINES("custom-search-engines"),
         SYNC_SETUP("how-set-firefox-sync-firefox-android"),
-        QR_CAMERA_ACCESS("qr-camera-access"),
         SMARTBLOCK("smartblock-enhanced-tracking-protection"),
         SPONSOR_PRIVACY("sponsor-privacy"),
         HTTPS_ONLY_MODE("https-only-mode-firefox-android"),
@@ -57,7 +58,6 @@ object SupportUtils {
         ),
         DNS_OVER_HTTPS_NETWORK("configure-dns-over-https-protection-levels-firefox-android"),
         UNSIGNED_ADDONS("unsigned-addons"),
-        REVIEW_QUALITY_CHECK("review_checker_mobile"),
         FX_SUGGEST("search-suggestions-firefox"),
         TRANSLATIONS("android-translation"),
         MANAGE_OPTIONAL_EXTENSION_PERMISSIONS("manage-optional-permissions-android-extensions"),
@@ -69,6 +69,7 @@ object SupportUtils {
         MARKETING_DATA("mobile-marketing-data"),
         REQUESTED_CRASH_MINIDUMP("unsent-crash-reports-in-firefox-android"),
         TERMS_OF_USE("firefox-terms-of-use-faq"),
+        RELAY("relay-masks-android"),
 
         /**
          * SUMO page for Local Network Access & Local Device Access permissions

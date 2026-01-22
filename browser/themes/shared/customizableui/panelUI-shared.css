@@ -231,9 +231,11 @@ panelview {
 }
 
 .panel-subview-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  flex: 1;
   padding: var(--panel-subview-body-padding);
 
   &:not(:last-child) {
@@ -258,7 +260,7 @@ panelview {
   border-radius: var(--button-border-radius);
   flex-shrink: 0;
 
-  &[disabled="true"] {
+  &[disabled] {
     visibility: hidden;
   }
 
@@ -1232,7 +1234,7 @@ panelview .toolbarbutton-1,
     margin-inline-start: 10px;
   }
 
-  &[checked="true"] {
+  &[checked] {
     list-style-image: url(chrome://global/skin/icons/check.svg);
     -moz-context-properties: fill;
     fill: currentColor;
@@ -1258,7 +1260,7 @@ panelview .toolbarbutton-1,
 .subviewbutton[image] > .toolbarbutton-text,
 .subviewbutton[targetURI] > .toolbarbutton-text,
 .subviewbutton.bookmark-item > .toolbarbutton-text,
-.subviewbutton[checked="true"] > .toolbarbutton-text {
+.subviewbutton[checked] > .toolbarbutton-text {
   padding-inline-start: 8px;
 }
 
@@ -1541,7 +1543,7 @@ panelview .toolbarbutton-1 {
     min-width: 0;
     display: flex;
 
-    &[disabled="true"] {
+    &[disabled] {
       pointer-events: none;
     }
   }
@@ -1801,6 +1803,7 @@ radiogroup:focus-visible > .subviewradio[focused="true"] {
   align-items: center;
   justify-content: center;
   text-align: center;
+  box-sizing: border-box;
   /* Set the header's padding according to menuitems horizontal padding
      to make sure they are even from all sides and aligned according to that padding. */
   padding: var(--arrowpanel-menuitem-margin-inline);
@@ -2014,7 +2017,7 @@ radiogroup:focus-visible > .subviewradio[focused="true"] {
 #PanelUI-profiler-presets {
   margin: 8px 0;
 
-  &[disabled="true"]::part(label-box) {
+  &[disabled]::part(label-box) {
     opacity: 0.5;
   }
 }
@@ -2446,9 +2449,14 @@ radiogroup:focus-visible > .subviewradio[focused="true"] {
   width: 400px;
 }
 
+#PanelUI-ipprotection > toolbarseparator {
+  display: none;
+}
+
 #ipprotection-experiment-badge {
   margin-inline-start: var(--space-xsmall);
   display: inline-block;
+  color: var(--text-color-deemphasized);
 }
 
 #ipprotection-header-button {

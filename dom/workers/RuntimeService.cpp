@@ -1019,53 +1019,27 @@ class WorkerJSContext final : public mozilla::CycleCollectedJSContext {
     NS_ASSERTION(global, "This should never be null!");
 
     JS::JobQueueMayNotBeEmpty(cx);
-    if (StaticPrefs::javascript_options_use_js_microtask_queue()) {
-      PROFILER_MARKER_FLOW_ONLY("WorkerJSContext::DispatchToMicroTask", OTHER,
-                                {}, FlowMarker,
-                                Flow::FromPointer(runnable.get()));
+    PROFILER_MARKER_FLOW_ONLY("WorkerJSContext::DispatchToMicroTask", OTHER, {},
+                              FlowMarker, Flow::FromPointer(runnable.get()));
 
-      // On worker threads, if the current global is the worker global or
-      // ShadowRealm global, we use the main micro task queue. Otherwise, the
-      // current global must be either the debugger global or a debugger
-      // sandbox, and we use the debugger micro task queue instead.
-      if (IsWorkerGlobal(global) || IsShadowRealmGlobal(global)) {
-        if (!EnqueueMicroTask(cx, runnable.forget())) {
-          // This should never fail, but if it does, we have no choice but to
-          // crash. This is always an OOM.
-          NS_ABORT_OOM(0);
-        }
-      } else {
-        MOZ_ASSERT(IsWorkerDebuggerGlobal(global) ||
-                   IsWorkerDebuggerSandbox(global));
-        if (!EnqueueDebugMicroTask(cx, runnable.forget())) {
-          // This should never fail, but if it does, we have no choice but to
-          // crash. This is always an OOM.
-          NS_ABORT_OOM(0);
-        }
+    // On worker threads, if the current global is the worker global or
+    // ShadowRealm global, we use the main micro task queue. Otherwise, the
+    // current global must be either the debugger global or a debugger
+    // sandbox, and we use the debugger micro task queue instead.
+    if (IsWorkerGlobal(global) || IsShadowRealmGlobal(global)) {
+      if (!EnqueueMicroTask(cx, runnable.forget())) {
+        // This should never fail, but if it does, we have no choice but to
+        // crash. This is always an OOM.
+        NS_ABORT_OOM(0);
       }
     } else {
-      std::deque<RefPtr<MicroTaskRunnable>>* microTaskQueue = nullptr;
-      // On worker threads, if the current global is the worker global or
-      // ShadowRealm global, we use the main micro task queue. Otherwise, the
-      // current global must be either the debugger global or a debugger
-      // sandbox, and we use the debugger micro task queue instead.
-      if (IsWorkerGlobal(global) || IsShadowRealmGlobal(global)) {
-        microTaskQueue = &GetMicroTaskQueue();
-      } else {
-        MOZ_ASSERT(IsWorkerDebuggerGlobal(global) ||
-                   IsWorkerDebuggerSandbox(global));
-
-        microTaskQueue = &GetDebuggerMicroTaskQueue();
+      MOZ_ASSERT(IsWorkerDebuggerGlobal(global) ||
+                 IsWorkerDebuggerSandbox(global));
+      if (!EnqueueDebugMicroTask(cx, runnable.forget())) {
+        // This should never fail, but if it does, we have no choice but to
+        // crash. This is always an OOM.
+        NS_ABORT_OOM(0);
       }
-
-      if (!runnable->isInList()) {
-        // A recycled object may be in the list already.
-        mMicrotasksToTrace.insertBack(runnable);
-      }
-      PROFILER_MARKER_FLOW_ONLY("WorkerJSContext::DispatchToMicroTask", OTHER,
-                                {}, FlowMarker,
-                                Flow::FromPointer(runnable.get()));
-      microTaskQueue->push_back(std::move(runnable));
     }
   }
 

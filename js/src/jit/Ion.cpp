@@ -1202,6 +1202,18 @@ bool OptimizeMIR(MIRGenerator* mir) {
     }
   }
 
+  if (mir->compilingWasm()) {
+    if (!OptimizeWasmCasts(graph)) {
+      return false;
+    }
+    mir->spewPass("Optimize Wasm tests and casts");
+    AssertExtendedGraphCoherency(graph);
+
+    if (mir->shouldCancel("Optimize Wasm tests and casts")) {
+      return false;
+    }
+  }
+
   if (mir->optimizationInfo().gvnEnabled()) {
     JitSpewCont(JitSpew_GVN, "\n");
     if (!gvn.run(ValueNumberer::UpdateAliasAnalysis)) {

@@ -24,7 +24,6 @@
 #include <cstdint>
 
 #include "jsapi.h"
-#include "jsexn.h"
 
 #include "ds/IdValuePair.h"            // js::IdValuePair
 #include "frontend/FrontendContext.h"  // AutoReportFrontendContext
@@ -4038,6 +4037,10 @@ bool WasmExceptionObject::loadArg(JSContext* cx, size_t offset,
 
 bool WasmExceptionObject::initArg(JSContext* cx, size_t offset,
                                   wasm::ValType type, HandleValue value) {
+  // We use writeToTenuredHeapLocation below as WasmExceptionObject is always
+  // tenured.
+  MOZ_ASSERT(isTenured());
+
   if (!type.isExposable()) {
     JS_ReportErrorNumberUTF8(cx, GetErrorMessage, nullptr,
                              JSMSG_WASM_BAD_VAL_TYPE);
@@ -4047,22 +4050,23 @@ bool WasmExceptionObject::initArg(JSContext* cx, size_t offset,
   // Avoid rooting hazard of `this` being live across `fromJSValue`
   // which may GC.
   uint8_t* dest = typedMem() + offset;
+
   RootedVal val(cx);
   if (!Val::fromJSValue(cx, type, value, &val)) {
     return false;
   }
-  val.get().writeToHeapLocation(dest);
+  val.get().writeToTenuredHeapLocation(dest);
   return true;
 }
 
 void WasmExceptionObject::initRefArg(size_t offset, wasm::AnyRef ref) {
   uint8_t* dest = typedMem() + offset;
-  *((GCPtr<AnyRef>*)dest) = ref;
+  BarrieredInit(this, dest, ref);
 }
 
 wasm::AnyRef WasmExceptionObject::loadRefArg(size_t offset) const {
   uint8_t* src = typedMem() + offset;
-  return *((GCPtr<AnyRef>*)src);
+  return *(AnyRef*)src;
 }
 
 const JSFunctionSpec WasmExceptionObject::methods[] = {

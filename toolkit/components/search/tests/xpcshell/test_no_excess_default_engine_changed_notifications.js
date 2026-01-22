@@ -56,8 +56,8 @@ add_setup(async function () {
 
   await SearchTestUtils.setRemoteSettingsConfig(CONFIG);
   await SearchTestUtils.initXPCShellAddonManager();
-  Services.search.wrappedJSObject.reset();
-  await Services.search.init();
+  SearchService.wrappedJSObject.reset();
+  await SearchService.init();
 
   registerCleanupFunction(async () => {
     sinon.restore();
@@ -102,7 +102,7 @@ add_task(
     await AddonTestUtils.waitForSearchProviderStartup(ext);
     await promiseAfterSettings();
 
-    let engines = await Services.search.getEngines();
+    let engines = await SearchService.getEngines();
     let overriddenEngine = engines.find(e => e.name == "MozParamsTest2");
 
     Assert.equal(
@@ -112,12 +112,12 @@ add_task(
     );
 
     notificationSpy.resetHistory();
-    Services.search.wrappedJSObject.reset();
-    await Services.search.init();
+    SearchService.wrappedJSObject.reset();
+    await SearchService.init();
     await AddonTestUtils.promiseRestartManager();
     await ext.awaitStartup();
 
-    let engineAfterRestart = Services.search.getEngineByName("MozParamsTest2");
+    let engineAfterRestart = SearchService.getEngineByName("MozParamsTest2");
 
     Assert.equal(
       engineAfterRestart.wrappedJSObject.getAttr("overriddenBy"),

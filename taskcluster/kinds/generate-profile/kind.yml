@@ -18,7 +18,7 @@ transforms:
 
 
 task-defaults:
-    run-on-repo-type: [hg]
+    run-on-repo-type: ["hg", "git"]
     treeherder:
         symbol: Bpgo(run)
         kind: build
@@ -51,7 +51,7 @@ tasks:
             cwd: '{checkout}'
             command: >
                 ./taskcluster/scripts/misc/run-profileserver.sh
-        run-on-projects: ['release']
+        run-on-projects: ["release", "enterprise-firefox"]
         fetches:
             toolchain:
                 - linux64-clang
@@ -246,7 +246,7 @@ tasks:
             sparse-profile: profile-generate
             cwd: '{checkout}'
             command: ./taskcluster/scripts/misc/run-profileserver.sh
-        run-on-projects: ['release']
+        run-on-projects: ["release", "enterprise-firefox"]
         fetches:
             toolchain:
                 - win64-clang-toolchain
@@ -366,7 +366,7 @@ tasks:
             sparse-profile: profile-generate
             cwd: '{checkout}'
             command: ./taskcluster/scripts/misc/run-profileserver-macos.sh
-        run-on-projects: ['release']
+        run-on-projects: ["release", "enterprise-firefox"]
         fetches:
             toolchain:
                 - macosx64-aarch64-clang

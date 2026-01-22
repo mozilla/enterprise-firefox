@@ -31,8 +31,7 @@
 #include <algorithm>
 #include <new>
 
-#include "jsmath.h"
-
+#include "builtin/Math.h"
 #include "frontend/BytecodeCompiler.h"    // CompileStandaloneFunction
 #include "frontend/FrontendContext.h"     // js::FrontendContext
 #include "frontend/FunctionSyntaxKind.h"  // FunctionSyntaxKind

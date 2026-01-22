@@ -101,7 +101,7 @@ menulist > menupopup {
   }
 
   @media (-moz-platform: windows) {
-    > menuitem[_moz-menuactive][disabled="true"] {
+    > menuitem[_moz-menuactive][disabled] {
       color: GrayText;
     }
   }
@@ -189,10 +189,10 @@ menubar > menu {
       color: ThreeDShadow;
     }
 
-    &:not([disabled="true"]) {
+    &:not([disabled]) {
       color: inherit;
     }
-    &[_moz-menuactive]:not([disabled="true"]) {
+    &[_moz-menuactive]:not([disabled]) {
       color: -moz-menubarhovertext;
 
       *|*:root[lwtheme] & {
@@ -226,17 +226,17 @@ menucaption {
 
 menu,
 menuitem {
-  &:where([disabled="true"]) {
+  &:where([disabled]) {
     color: var(--text-color-disabled);
     text-shadow: none;
   }
 
-  &:where([_moz-menuactive]:not([disabled="true"])) {
+  &:where([_moz-menuactive]:not([disabled])) {
     color: -moz-menuhovertext;
     background-color: -moz-menuhover;
   }
 
-  &:where([_moz-menuactive][disabled="true"]) {
+  &:where([_moz-menuactive][disabled]) {
     background-color: -moz-menuhoverdisabled;
   }
 }
@@ -362,7 +362,7 @@ menuitem[highlightable] > .menu-text {
 
 /* On linux, we use regular checkboxes and radio buttons */
 @media (-moz-platform: linux) {
-  menuitem:is([type="checkbox"], [checked="true"]) > .menu-icon {
+  menuitem:is([type="checkbox"], [checked]) > .menu-icon {
     visibility: inherit;
     appearance: auto;
     -moz-default-appearance: checkbox;
@@ -381,7 +381,7 @@ menuitem[highlightable] > .menu-text {
      checkboxes and radio buttons because the native drawing we use on other
      Windows versions looks pretty bad with the Win10 styles, so for now we'll
      insert a generic checkmark icon for both types. */
-  menuitem[checked="true"] > .menu-icon {
+  menuitem[checked] > .menu-icon {
     visibility: inherit;
     -moz-context-properties: fill, fill-opacity;
     fill: currentColor;
@@ -416,7 +416,7 @@ menupopup[needsgutter] {
       }
     }
 
-    > menuitem:is([checked="true"], [selected="true"])::before {
+    > menuitem:is([checked], [selected])::before {
       visibility: inherit;
     }
   }

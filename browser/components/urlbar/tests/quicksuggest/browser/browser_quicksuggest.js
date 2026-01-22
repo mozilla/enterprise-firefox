@@ -142,12 +142,8 @@ add_task(async function sponsoredPriority() {
 
   // Group label.
   let before = window.getComputedStyle(row, "::before");
-  Assert.equal(before.content, "attr(label)", "::before.content is enabled");
-  Assert.equal(
-    row.getAttribute("label"),
-    "Top pick",
-    "Row has 'Top pick' group label"
-  );
+  Assert.equal(before.content, "none", "::before.content is none");
+  Assert.ok(!row.hasAttribute("label"), "Row should not have a group label");
 
   await UrlbarTestUtils.promisePopupClose(window);
   await cleanUpNimbus();
@@ -216,12 +212,8 @@ add_task(async function ampTopPickCharThreshold_meetsThreshold() {
 
   // Group label.
   let before = window.getComputedStyle(row, "::before");
-  Assert.equal(before.content, "attr(label)", "::before.content is enabled");
-  Assert.equal(
-    row.getAttribute("label"),
-    "Sponsored",
-    "Row has 'Sponsored' group label"
-  );
+  Assert.equal(before.content, "none", "::before.content is none");
+  Assert.ok(!row.hasAttribute("label"), "Row should not have a group label");
 
   await UrlbarTestUtils.promisePopupClose(window);
   await cleanUpNimbus();

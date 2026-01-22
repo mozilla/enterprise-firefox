@@ -3,24 +3,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 /**
- * PluralRules internal properties.
- *
- * 9.1 Internal slots of Service Constructors
- * 16.2.3 Properties of the Intl.PluralRules Constructor, Internal slots
- *
- * ES2024 Intl draft rev 74ca7099f103d143431b2ea422ae640c6f43e3e6
- */
-var pluralRulesInternalProperties = {
-  localeData: pluralRulesLocaleData,
-  relevantExtensionKeys: [],
-};
-
-function pluralRulesLocaleData() {
-  // PluralRules don't support any extension keys.
-  return {};
-}
-
-/**
  * 16.1.2 InitializePluralRules ( pluralRules, locales, options )
  *
  * Compute an internal properties object from |lazyPluralRulesData|.
@@ -32,20 +14,13 @@ function resolvePluralRulesInternals(lazyPluralRulesData) {
 
   var internalProps = std_Object_create(null);
 
-  var PluralRules = pluralRulesInternalProperties;
-
   // Compute effective locale.
 
-  // Step 9.
-  var localeData = PluralRules.localeData;
-
-  // Step 10.
-  var r = ResolveLocale(
+  // Steps 9-10.
+  var r = intl_ResolveLocale(
     "PluralRules",
     lazyPluralRulesData.requestedLocales,
     lazyPluralRulesData.opt,
-    PluralRules.relevantExtensionKeys,
-    localeData
   );
 
   // Step 11.

@@ -6,8 +6,8 @@
 
 /* the interface (to internal code) for retrieving computed style data */
 
-#ifndef _ComputedStyle_h_
-#define _ComputedStyle_h_
+#ifndef ComputedStyle_h_
+#define ComputedStyle_h_
 
 #include "mozilla/Assertions.h"
 #include "mozilla/CachedInheritingStyles.h"

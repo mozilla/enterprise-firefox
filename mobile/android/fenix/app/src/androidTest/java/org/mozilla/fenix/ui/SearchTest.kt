@@ -610,7 +610,6 @@ class SearchTest : TestSetup() {
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/1232633
     // Default search code for Google-US
     @Test
-    @SkipLeaks
     fun defaultSearchCodeGoogleUS() {
         homeScreen(composeTestRule) {
         }.openSearch {
@@ -661,7 +660,6 @@ class SearchTest : TestSetup() {
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/1232638
     // Default search code for DuckDuckGo-US
     @Test
-    @SkipLeaks
     fun defaultSearchCodeDuckDuckGoUS() {
         homeScreen(composeTestRule) {
         }.openThreeDotMenu {
@@ -926,8 +924,8 @@ class SearchTest : TestSetup() {
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/1232631
     // Expected for app language set to Arabic
-    @SkipLeaks(reasons = ["https://bugzilla.mozilla.org/show_bug.cgi?id=2006674"])
     @Test
+    @SkipLeaks(reasons = ["https://bugzilla.mozilla.org/show_bug.cgi?id=2004855"])
     fun verifySearchEnginesFunctionalityUsingRTLLocaleTest() {
         val arabicLocale = Locale.Builder().setLanguage("ar").setRegion("AR").build()
 

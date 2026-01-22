@@ -221,8 +221,6 @@
     <color name="accent_high_contrast_private_theme">#AA71FF</color>
     <color name="neutral_private_theme">@color/photonGrey20</color>
     <color name="neutral_faded_private_theme">#1FFBFBFE</color>
-    <color name="sync_disconnected_icon_fill_private_theme">@color/photonYellow70</color>
-    <color name="sync_disconnected_background_private_theme">#5B5846</color>
     <color name="prompt_login_edit_text_cursor_color_private_theme">@color/photonViolet50</color>
 
     <!-- Normal theme colors for light mode -->
@@ -231,8 +229,6 @@
     <color name="neutral_normal_theme">@color/photonGrey30</color>
     <color name="neutral_faded_normal_theme">@color/photonGrey20</color>
     <color name="fill_link_from_clipboard_normal_theme">@color/photonInk20</color>
-    <color name="sync_disconnected_icon_fill_normal_theme">@color/photonYellow70</color>
-    <color name="sync_disconnected_background_normal_theme">#FFFDE2</color>
     <color name="add_on_private_browsing_exterior_circle_background_normal_theme">@color/photonViolet70</color>
     <color name="prompt_login_edit_text_cursor_color_normal_theme">@color/photonInk20</color>
     <color name="search_suggestion_indicator_icon_color_normal_theme">@color/photonGreen70</color>
@@ -240,9 +236,6 @@
 
     <!-- Bookmark buttons -->
     <color name="bookmark_favicon_background">#DFDFE3</color>
-
-    <!-- Quick action buttons-->
-    <color name="quick_action_reader_appearance_icon">#482166</color>
 
     <!-- Toggle Colors -->
     <color name="toggle_off_knob_dark_theme">@color/photonLightGrey05</color>
@@ -252,7 +245,6 @@
 
     <!-- Misc colors applied universally-->
     <color name="suggestion_highlight_color">#5C592ACB</color>
-    <color name="text_scale_example_text_color">#232749</color>
     <color name="sync_error_background_color">#FFF36E</color>
     <color name="sync_error_text_color">@color/photonYellow90</color>
     <color name="bottom_bar_shadow">#1A000000</color>

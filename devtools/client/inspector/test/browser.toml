@@ -154,6 +154,8 @@ skip-if = [
 
 ["browser_inspector_picker-no-page-events.js"]
 
+["browser_inspector_picker-page-reload.js"]
+
 ["browser_inspector_picker-reset-reference.js"]
 
 ["browser_inspector_picker-shift-key.js"]

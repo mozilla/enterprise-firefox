@@ -5,6 +5,10 @@
 // @ts-check
 
 /**
+ * @see {extractTextFromDOM} for a high level overview of this file.
+ */
+
+/**
  * @import { GetTextOptions } from './PageExtractor.d.ts'
  */
 
@@ -176,7 +180,6 @@ class ExtractionContext {
 
 /**
  * Extracts visible text content from the DOM.
- *
  * By default, this extracts content from the entire page.
  *
  * Callers may specify filters for the extracted text via
@@ -186,6 +189,54 @@ class ExtractionContext {
  * @param {GetTextOptions} options
  *
  * @returns {string}
+ *
+ * In-depth documentation:
+ *
+ * Webpages are complicated documents. There are many different semantic structures
+ * like <article>, aria controls or even specifications like schema.org. The DOMExtractor
+ * can use these as hints, but ultimately the goal is to extract the user visible text
+ * from a webpage in the same way it is presented to the user. Text in layout is done
+ * through inline elements that go through reflow within a block. The intent of this
+ * algorithm is to collect all of the blocks on the screen, and convert each block into
+ * a paragraph of plain text that is representative of the information that is displayed
+ * on the screen.
+ *
+ * For example:
+ *
+ *   <article>
+ *     <div>
+ *       This <span>is an example</span> of a block with inline elements.
+ *     </div>
+ *     <span style="display: block">
+ *       The <div style="display: inline">computed style</div> is respected for extraction.
+ *     </span>
+ *     <div style="display: none">
+ *       Only visible text will be extracted.
+ *     </div>
+ *   </article>
+ *
+ * If extraction is run on this document you will get the following lines:
+ *
+ *   ```
+ *   This is an example of a block with inline elements.\n
+ *   The computed style is respected for extraction.\n
+ *   ```
+ *
+ * This text should be formatted in a way that a language model can infer the meaning
+ * of the page, and work efficiently with the returned structure. A user reads and
+ * understands the content of the page based on how it's displayed to them. Therefore
+ * a language model should get plain text that as closely resembles that.
+ *
+ * The DOMExtractor supports different modes to limit the amount of content, or provide
+ * only information that is in the viewport. Ultimately it should be able to take any
+ * type of request from things like the get_page_content tool call, and fulfill that
+ * request in an efficient way that returns content as much as possible as how a user
+ * would actually experience it once rendered to the page.
+ *
+ * This strategy differs from more traditional scraping methods, as the browser has
+ * access to the full styled page. We can measure the computed style of elements to
+ * determine visibility and the actually computed block status (e.g. "display: block"
+ * and "display: inline")
  */
 export function extractTextFromDOM(document, options) {
   const context = new ExtractionContext(document, options);

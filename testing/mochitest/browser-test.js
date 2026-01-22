@@ -225,6 +225,10 @@ function Tester(aTests, structuredLogger, aCallback) {
   this.SimpleTest.harnessParameters = gConfig;
 
   this.MemoryStats = simpleTestScope.MemoryStats;
+  // Lazy import since we only use it if a test loaded it.
+  ChromeUtils.defineESModuleGetters(this, {
+    sinon: "resource://testing-common/Sinon.sys.mjs",
+  });
   this.ContentTask = ChromeUtils.importESModule(
     "resource://testing-common/ContentTask.sys.mjs"
   ).ContentTask;
@@ -243,7 +247,6 @@ function Tester(aTests, structuredLogger, aCallback) {
   this.PerTestCoverageUtils = ChromeUtils.importESModule(
     "resource://testing-common/PerTestCoverageUtils.sys.mjs"
   ).PerTestCoverageUtils;
-
   this.PromiseTestUtils.init();
 
   this.SimpleTestOriginal = {};
@@ -898,6 +901,10 @@ Tester.prototype = {
         }
       }
 
+      // Ensure any sinon stubs and spies have been cleaned up before the next test.
+      if (Cu.isESModuleLoaded("resource://testing-common/Sinon.sys.mjs")) {
+        this.sinon.restore();
+      }
       // Spare tests cleanup work.
       // Reset gReduceMotionOverride in case the test set it.
       if (typeof gReduceMotionOverride == "boolean") {
@@ -1012,12 +1019,17 @@ Tester.prototype = {
 
       // Notify a long running test problem if it didn't end up in a timeout.
       if (this.currentTest.unexpectedTimeouts && !this.currentTest.timedOut) {
+        let timeRan = Math.ceil((Date.now() - this.lastStartTime) / 1000);
+        let timeoutFactor = this.currentTest.scope.__maxTimeoutFactor;
+        let timeLimit = Math.round(gTimeoutSeconds * timeoutFactor);
         this.currentTest.addResult(
           new testResult({
             name:
-              "This test exceeded the timeout threshold. It should be" +
-              " rewritten or split up. If that's not possible, use" +
-              " requestLongerTimeout(N), but only as a last resort.",
+              `This test exceeded the timeout threshold. It should be ` +
+              `rewritten or split up. If that's not possible, use ` +
+              `requestLongerTimeout(N), but only as a last resort. ` +
+              `Test ran for ${timeRan}s, limit was ${timeLimit}s ` +
+              `(timeout factor ${timeoutFactor}).`,
           })
         );
       }
@@ -1126,8 +1138,8 @@ Tester.prototype = {
 
       this.structuredLogger.testEnd(
         this.currentTest.path,
-        "OK",
-        undefined,
+        this.currentTest.failCount > 0 ? "FAIL" : "PASS",
+        "PASS",
         "finished in " + time + "ms"
       );
       this.currentTest.setDuration(time);
@@ -1284,6 +1296,8 @@ Tester.prototype = {
     let desc = isSetup ? "setup" : "test";
     currentScope.SimpleTest.info(`Entering ${desc} ${task.name}`);
     let startTimestamp = ChromeUtils.now();
+    currentScope.SimpleTest._currentTaskName = task.name;
+
     let controller = new AbortController();
     currentScope.__signal = controller.signal;
     if (isSetup) {
@@ -1312,7 +1326,7 @@ Tester.prototype = {
       }
       currentTest.addResult(
         new testResult({
-          name: `Uncaught exception in ${desc} ${task.name}`,
+          name: `Uncaught exception in ${desc}`,
           pass: currentScope.SimpleTest.isExpectingUncaughtException(),
           ex,
           stack: typeof ex == "object" && "stack" in ex ? ex.stack : null,
@@ -1328,9 +1342,10 @@ Tester.prototype = {
     ChromeUtils.addProfilerMarker(
       isSetup ? "setup-task" : "task",
       { category: "Test", startTime: startTimestamp },
-      task.name.replace(/^bound /, "") || undefined
+      task.name || undefined
     );
     currentScope.SimpleTest.info(`Leaving ${desc} ${task.name}`);
+    currentScope.SimpleTest._currentTaskName = null;
   },
 
   async _runTaskBasedTest(currentTest) {
@@ -1624,6 +1639,12 @@ Tester.prototype = {
               self.nextTest();
             } else {
               await self.notifyProfilerOfTestEnd();
+              self.structuredLogger.testEnd(
+                self.currentTest.path,
+                "TIMEOUT",
+                "PASS",
+                "Test timed out"
+              );
               self.finish();
             }
           },
@@ -1704,8 +1725,23 @@ function testResult({ name, pass, todo, ex, stack, allowFailure }) {
 
   if (ex) {
     if (typeof ex == "object" && "fileName" in ex) {
-      // we have an exception - print filename and linenumber information
-      this.msg += "at " + ex.fileName + ":" + ex.lineNumber + " - ";
+      // Only add "at fileName:lineNumber" if stack doesn't start with same location
+      let stackMatchesExLocation = false;
+
+      if (stack instanceof Ci.nsIStackFrame) {
+        stackMatchesExLocation =
+          stack.filename == ex.fileName && stack.lineNumber == ex.lineNumber;
+      } else if (typeof stack === "string") {
+        // For string stacks, format is: functionName@fileName:lineNumber:columnNumber
+        // Check if first line contains fileName:lineNumber
+        let firstLine = stack.split("\n")[0];
+        let expectedLocation = ex.fileName + ":" + ex.lineNumber;
+        stackMatchesExLocation = firstLine.includes(expectedLocation);
+      }
+
+      if (!stackMatchesExLocation) {
+        this.msg += "at " + ex.fileName + ":" + ex.lineNumber + " - ";
+      }
     }
 
     if (
@@ -1722,8 +1758,8 @@ function testResult({ name, pass, todo, ex, stack, allowFailure }) {
     }
   }
 
+  // Store stack separately instead of appending to msg
   if (stack) {
-    this.msg += "\nStack trace:\n";
     let normalized;
     if (stack instanceof Ci.nsIStackFrame) {
       let frames = [];
@@ -1739,7 +1775,7 @@ function testResult({ name, pass, todo, ex, stack, allowFailure }) {
     } else {
       normalized = "" + stack;
     }
-    this.msg += normalized;
+    this.stack = normalized;
   }
 
   if (gConfig.debugOnFailure) {
@@ -1941,6 +1977,9 @@ function testScope(aTester, aTest, expected) {
 
   this.requestLongerTimeout = function test_requestLongerTimeout(aFactor) {
     self.__timeoutFactor = aFactor;
+    if (aFactor > self.__maxTimeoutFactor) {
+      self.__maxTimeoutFactor = aFactor;
+    }
   };
 
   this.expectUncaughtException = function test_expectUncaughtException(
@@ -1997,7 +2036,10 @@ function testScope(aTester, aTest, expected) {
 }
 
 function decorateTaskFn(fn) {
+  let originalName = fn.name;
   fn = fn.bind(this);
+  // Restore original name to avoid "bound " prefix in task name
+  Object.defineProperty(fn, "name", { value: originalName });
   fn.skip = (val = true) => (fn.__skipMe = val);
   fn.only = () => (this.__runOnlyThisTask = fn);
   return fn;
@@ -2011,6 +2053,7 @@ testScope.prototype = {
   __waitTimer: null,
   __cleanupFunctions: [],
   __timeoutFactor: 1,
+  __maxTimeoutFactor: 1,
   __expectedMinAsserts: 0,
   __expectedMaxAsserts: 0,
   /** @type {AbortSignal} */

@@ -1,5 +1,9 @@
 "use strict";
 
+const { SearchService } = ChromeUtils.importESModule(
+  "moz-src:///toolkit/components/search/SearchService.sys.mjs"
+);
+
 add_task(async function test_query() {
   async function background() {
     let resolvers = {};
@@ -163,8 +167,8 @@ add_task(async function test_query() {
   // these tests aren't allowed to load actual
   // webpages, like google.com for example.
   await searchExtension.startup();
-  await Services.search.setDefault(
-    Services.search.getEngineByName(SEARCH_NAME),
+  await SearchService.setDefault(
+    SearchService.getEngineByName(SEARCH_NAME),
     Ci.nsISearchService.CHANGE_REASON_ADDON_INSTALL
   );
   await extension.startup();

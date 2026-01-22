@@ -25,6 +25,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.distinctUntilChangedBy
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapNotNull
 import mozilla.components.browser.state.selector.findCustomTab
 import mozilla.components.browser.state.selector.findCustomTabOrSelectedTab
@@ -253,10 +254,11 @@ class BrowserToolbarIntegration(
 
     private fun setBrowserActionButtons() {
         tabsCounterScope =
-            store.flowScoped(coroutineScope = CoroutineScope(coroutineDispatcher + SupervisorJob())) { flow ->
-                flow.distinctUntilChangedBy { state -> state.tabs.size > 1 }
-                    .collect { state ->
-                        if (state.tabs.size > 1) {
+            store.flowScoped(dispatcher = coroutineDispatcher) { flow ->
+                flow.map { it.tabs.isNotEmpty() }
+                    .distinctUntilChanged()
+                    .collect { hasTabs ->
+                        if (hasTabs) {
                             toolbar.addBrowserAction(tabsAction)
                         } else {
                             toolbar.removeBrowserAction(tabsAction)

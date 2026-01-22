@@ -329,13 +329,8 @@ newtab-custom-recent-subtitle = Ett urval av senaste webbplatser och innehåll
 newtab-custom-weather-toggle =
     .label = Väder
     .description = Dagens prognos i korthet
-newtab-custom-trending-search-toggle =
-    .label = Trendiga sökningar
-    .description = Populära och ofta sökta ämnen
 newtab-custom-widget-weather-toggle =
     .label = Väder
-newtab-custom-widget-trending-search-toggle =
-    .label = Populära sökningar
 newtab-custom-widget-lists-toggle =
     .label = Listor
 newtab-custom-widget-timer-toggle =
@@ -596,7 +591,7 @@ newtab-download-mobile-highlight-image =
 newtab-shortcuts-highlight-title = Dina favoriter nära till hands
 newtab-shortcuts-highlight-subtitle = Lägg till en genväg så att du har dina favoritwebbplatser bara ett klick bort.
 
-## Strings for reporting ads and content
+## Strings for reporting issues with ads and content
 
 newtab-report-content-why-reporting-this =
     .label = Varför anmäler du detta?
@@ -614,21 +609,13 @@ newtab-report-content-inappropriate-offensive =
     .label = Olämplig eller kränkande
 newtab-report-content-spam-misleading =
     .label = Skräppost eller vilseledande
+newtab-report-content-requires-payment-subscription =
+    .label = Kräver betalning eller abonnemang
+newtab-report-content-requires-payment-subscription-learn-more = Läs mer
 newtab-report-cancel = Avbryt
 newtab-report-submit = Skicka in
 newtab-toast-thanks-for-reporting =
     .message = Tack för att du rapporterade detta.
-
-## Strings for trending searches
-
-newtab-trending-searches-show-trending =
-    .title = Visa trendiga sökningar
-newtab-trending-searches-hide-trending =
-    .title = Dölj trendiga sökningar
-newtab-trending-searches-learn-more = Läs mer
-newtab-trending-searches-dismiss = Dölj trendiga sökningar
-# "Trending searches refers to popular searches from search engines
-newtab-trending-searches-title = Populära sökningar
 
 ## Strings for task / to-do list productivity widget
 

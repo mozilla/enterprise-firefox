@@ -13,6 +13,7 @@ import org.mozilla.fenix.R
 import org.mozilla.fenix.settings.PhoneFeature
 import org.mozilla.fenix.trackingprotection.TrackerBuckets
 import org.mozilla.fenix.trackingprotection.TrackingProtectionCategory
+import java.security.cert.X509Certificate
 
 typealias WebsitePermissionsState = Map<PhoneFeature, WebsitePermission>
 
@@ -49,13 +50,13 @@ data class TrustPanelState(
  * @property isSecured Whether the website connection is secured or not.
  * @property websiteUrl The URL of the current web page.
  * @property websiteTitle The title of the current web page.
- * @property certificateName the certificate name of the current web page.
+ * @property certificate The certificate presented by the current web page.
  */
 data class WebsiteInfoState(
     val isSecured: Boolean = true,
     val websiteUrl: String = "",
     val websiteTitle: String = "",
-    val certificateName: String = "",
+    val certificate: X509Certificate? = null,
 )
 
 /**

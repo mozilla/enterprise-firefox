@@ -3,8 +3,8 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
-#ifndef nsPageSequenceFrame_h___
-#define nsPageSequenceFrame_h___
+#ifndef nsPageSequenceFrame_h_
+#define nsPageSequenceFrame_h_
 
 #include "mozilla/UniquePtr.h"
 #include "nsContainerFrame.h"
@@ -187,4 +187,4 @@ class nsPageSequenceFrame final : public nsContainerFrame {
   bool mCurrentCanvasListSetup;
 };
 
-#endif /* nsPageSequenceFrame_h___ */
+#endif /* nsPageSequenceFrame_h_ */

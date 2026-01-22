@@ -9,6 +9,9 @@ const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
   AddonManager: "resource://gre/modules/AddonManager.sys.mjs",
+  AIWindow:
+    // eslint-disable-next-line mozilla/no-browser-refs-in-toolkit
+    "moz-src:///browser/components/aiwindow/ui/modules/AIWindow.sys.mjs",
   // eslint-disable-next-line mozilla/no-browser-refs-in-toolkit
   CustomizableUI:
     "moz-src:///browser/components/customizableui/CustomizableUI.sys.mjs",
@@ -248,6 +251,8 @@ export const SpecialMessageActions = {
     // Array of prefs that are allowed to be edited by SET_PREF
     const allowedPrefs = [
       "browser.aboutwelcome.didSeeFinalScreen",
+      "browser.aiwindow.firstrun.hasCompleted",
+      "browser.aiwindow.firstrun.modelChoice",
       "browser.crashReports.unsubmittedCheck.autoSubmit2",
       "browser.dataFeatureRecommendations.enabled",
       "browser.ipProtection.enabled",
@@ -748,6 +753,9 @@ export const SpecialMessageActions = {
       case "FXA_SIGNIN_FLOW":
         /** @returns {Promise<boolean>} */
         return this.fxaSignInFlow(action.data, browser);
+      case "FXA_AIWINDOW_SIGNIN_FLOW":
+        /** @returns {Promise<boolean>} */
+        return lazy.AIWindow.launchWindow(browser);
       case "OPEN_PROTECTION_PANEL": {
         let { gProtectionsHandler } = window;
         gProtectionsHandler.showProtectionsPopup({});

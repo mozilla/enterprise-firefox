@@ -64,6 +64,7 @@ const TEST_URI = `
 `;
 
 add_task(async function () {
+  await pushPref("devtools.inspector.three-pane-enabled", false);
   await addTab("data:text/html;charset=utf-8," + encodeURIComponent(TEST_URI));
   const { inspector, view } = await openRuleView();
   await selectNode("h1#testid", inspector);
@@ -477,8 +478,11 @@ async function highlightProperty(
   const onHighlightProperty = view.once("element-highlighted");
   jumpToDefinitionButton.click();
   const highlightedElement = await onHighlightProperty;
+  const propertyNameEl = highlightedElement.querySelector(
+    ".ruleview-propertyname"
+  );
   is(
-    highlightedElement.querySelector(".ruleview-propertyname").innerText,
+    propertyNameEl.innerText,
     expectedPropertyName,
     "The expected element was highlighted"
   );
@@ -492,6 +496,11 @@ async function highlightProperty(
   ok(
     isInViewport(highlightedElement, view.styleWindow),
     `Highlighted element is in view`
+  );
+  is(
+    view.styleDocument.activeElement,
+    propertyNameEl,
+    "Focus is set on the declaration name element"
   );
 }
 

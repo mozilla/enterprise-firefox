@@ -48,7 +48,7 @@ FilterDescription FilterInstance::GetFilterDescription(
   nsTArray<SVGFilterFrame*> filterFrames;
   if (SVGObserverUtils::GetAndObserveFilters(aFiltersObserverList,
                                              &filterFrames) ==
-      SVGObserverUtils::eHasRefsSomeInvalid) {
+      SVGObserverUtils::ReferenceState::HasRefsSomeInvalid) {
     return FilterDescription();
   }
 
@@ -167,7 +167,7 @@ WrFiltersStatus FilterInstance::BuildWebRenderFiltersImpl(
   nsTArray<SVGFilterFrame*> filterFrames;
   if (SVGObserverUtils::GetAndObserveFilters(firstFrame, &filterFrames,
                                              aStyleFilterType) ==
-      SVGObserverUtils::eHasRefsSomeInvalid) {
+      SVGObserverUtils::ReferenceState::HasRefsSomeInvalid) {
     return WrFiltersStatus::UNSUPPORTED;
   }
 
@@ -1224,7 +1224,7 @@ WrFiltersStatus FilterInstance::BuildWebRenderSVGFiltersImpl(
   nsTArray<SVGFilterFrame*> filterFrames;
   if (SVGObserverUtils::GetAndObserveFilters(firstFrame, &filterFrames,
                                              aStyleFilterType) ==
-      SVGObserverUtils::eHasRefsSomeInvalid) {
+      SVGObserverUtils::ReferenceState::HasRefsSomeInvalid) {
     return WrFiltersStatus::UNSUPPORTED;
   }
 

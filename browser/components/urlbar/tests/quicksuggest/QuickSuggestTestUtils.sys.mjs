@@ -1136,6 +1136,7 @@ class _QuickSuggestTestUtils {
       type: lazy.UrlbarUtils.RESULT_TYPE.URL,
       source: lazy.UrlbarUtils.RESULT_SOURCE.SEARCH,
       heuristic: false,
+      isBestMatch: true,
       suggestedIndex: 1,
       isRichSuggestion: true,
       richSuggestionIconVariation: "6",

@@ -144,13 +144,12 @@ this.felt = class extends ExtensionAPI {
         );
         break;
 
-      case "FeltParent:FirefoxAbnormalExit":
-        Services.ppmm.removeMessageListener(
-          "FeltParent:FirefoxAbnormalExit",
-          this
-        );
-        // TODO: What should we do, restart Firefox?
+      case "FeltParent:FirefoxAbnormalExit": {
+        const success = Services.felt.makeBackgroundProcess(false);
+        console.debug(`FeltExtension: makeBackgroundProcess? ${success}`);
+        this.showWindow("felt-browser-error-multiple-crashes");
         break;
+      }
 
       case "FeltParent:FirefoxLogoutExit": {
         const success = Services.felt.makeBackgroundProcess(false);
@@ -188,13 +187,17 @@ this.felt = class extends ExtensionAPI {
     }
   }
 
-  showWindow() {
+  showWindow(errorMessage = "") {
     // Height and width are for now set to fit the sso.mozilla.com without the need to resize the window
     let flags =
       "chrome,private,centerscreen,titlebar,resizable,width=727,height=744";
+    const queryString = errorMessage
+      ? `?error=${encodeURIComponent(errorMessage)}`
+      : "";
+
     this._win = Services.ww.openWindow(
       null,
-      "chrome://felt/content/felt.xhtml",
+      `chrome://felt/content/felt.xhtml${queryString}`,
       "_blank",
       flags,
       null

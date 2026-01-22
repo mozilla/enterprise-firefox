@@ -22,6 +22,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -32,24 +33,23 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.tooling.preview.PreviewParameter
-import androidx.compose.ui.tooling.preview.PreviewParameterProvider
 import androidx.compose.ui.unit.dp
 import androidx.core.text.isDigitsOnly
+import kotlinx.coroutines.flow.map
 import mozilla.components.browser.state.action.TabListAction
 import mozilla.components.browser.state.state.createTab
 import mozilla.components.browser.state.store.BrowserStore
 import mozilla.components.compose.base.button.FilledButton
 import mozilla.components.compose.base.textfield.TextField
 import mozilla.components.compose.base.utils.toLocaleString
-import mozilla.components.lib.state.ext.observeAsState
 import org.mozilla.fenix.R
 import org.mozilla.fenix.debugsettings.ui.DebugDrawer
 import org.mozilla.fenix.ext.maxActiveTime
 import org.mozilla.fenix.tabstray.ext.isNormalTabInactive
 import org.mozilla.fenix.theme.FirefoxTheme
 import org.mozilla.fenix.theme.Theme
+import org.mozilla.fenix.theme.ThemeProvider
 
 @VisibleForTesting
 internal const val MAX_TABS_GENERATED = 1000
@@ -65,7 +65,8 @@ fun TabTools(
     store: BrowserStore,
     inactiveTabsEnabled: Boolean,
 ) {
-    val tabs by store.observeAsState(initialValue = emptyList()) { state -> state.tabs }
+    val tabs by remember { store.stateFlow.map { state -> state.tabs } }
+        .collectAsState(initial = emptyList())
     val totalTabCount = remember(tabs) { tabs.size }
     val privateTabCount = remember(tabs) { tabs.filter { it.content.private }.size }
     val inactiveTabCount = remember(tabs) {
@@ -314,44 +315,28 @@ internal fun validateTextField(text: String): Int? {
     }
 }
 
-private data class TabToolsPreviewModel(
-    val inactiveTabsEnabled: Boolean = true,
-)
-
-private class TabToolsPreviewParameterProvider : PreviewParameterProvider<TabToolsPreviewModel> {
-    override val values: Sequence<TabToolsPreviewModel>
-        get() = sequenceOf(
-            TabToolsPreviewModel(
-                inactiveTabsEnabled = true,
-            ),
-            TabToolsPreviewModel(
-                inactiveTabsEnabled = false,
-            ),
-        )
-}
-
+@Preview
 @Composable
-@PreviewLightDark
 private fun TabToolsPreview(
-    @PreviewParameter(TabToolsPreviewParameterProvider::class) model: TabToolsPreviewModel,
+    @PreviewParameter(ThemeProvider::class) theme: Theme,
 ) {
-    FirefoxTheme {
+    FirefoxTheme(theme) {
         TabTools(
             store = BrowserStore(),
-            inactiveTabsEnabled = model.inactiveTabsEnabled,
+            inactiveTabsEnabled = true,
         )
     }
 }
 
-@Composable
 @Preview
-private fun TabToolsPrivatePreview(
-    @PreviewParameter(TabToolsPreviewParameterProvider::class) model: TabToolsPreviewModel,
+@Composable
+private fun TabToolsInactiveTabsDisabledPreview(
+    @PreviewParameter(ThemeProvider::class) theme: Theme,
 ) {
-    FirefoxTheme(theme = Theme.Private) {
+    FirefoxTheme(theme) {
         TabTools(
             store = BrowserStore(),
-            inactiveTabsEnabled = model.inactiveTabsEnabled,
+            inactiveTabsEnabled = false,
         )
     }
 }

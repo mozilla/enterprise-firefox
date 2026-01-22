@@ -36,13 +36,13 @@ static StaticAutoPtr<nsTHashMap<nsCStringHashKey, NonCustomCSSPropertyId>>
 
 static constexpr const char* const kCSSRawFontDescs[] = {
 #define CSS_FONT_DESC(name_, method_) #name_,
-#include "nsCSSFontDescList.h"
+#include "nsCSSFontDescList.inc"
 #undef CSS_FONT_DESC
 };
 
 static constexpr const char* const kCSSRawCounterDescs[] = {
 #define CSS_COUNTER_DESC(name_, method_) #name_,
-#include "nsCSSCounterDescList.h"
+#include "nsCSSCounterDescList.inc"
 #undef CSS_COUNTER_DESC
 };
 

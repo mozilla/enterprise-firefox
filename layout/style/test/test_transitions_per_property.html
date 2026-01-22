@@ -106,6 +106,8 @@ var supported_properties = {
                              /* test_length_percent_pair_unclamped */ ],
     "background-size": [ test_background_size_transition,
                          test_length_percent_pair_clamped ],
+    "baseline-shift": [ test_length_transition, test_percent_transition,
+                        test_length_unclamped, test_percent_unclamped ],
     "border-bottom-color": [ test_color_transition,
                              test_currentcolor_transition ],
     "border-bottom-width": [ test_length_transition,
@@ -308,8 +310,6 @@ var supported_properties = {
     "rotate": [ test_rotate_transition ],
     "scale": [ test_scale_transition ],
     "translate": [ test_translate_transition ],
-    "vertical-align": [ test_length_transition, test_percent_transition,
-                        test_length_unclamped, test_percent_unclamped ],
     "visibility": [ test_visibility_transition ],
     "width": [ test_length_transition, test_percent_transition,
                test_length_percent_calc_transition,
@@ -2748,8 +2748,8 @@ function test_background_position_coord_transition(prop) {
  * Common tests for 'background-position', 'background-size', and other
  * properties that take CSS value-type 'position' or 'bg-size'.
  *
- *  @arg prop The name of the property
- *  @arg doesPropTakeListValues
+ *  @param prop The name of the property
+ *  @param doesPropTakeListValues
  *         If false, the property is assumed to just take a single 'position' or
  *         'bg-size' value. If true, the property is assumed to also accept
  *         comma-separated list of such values.

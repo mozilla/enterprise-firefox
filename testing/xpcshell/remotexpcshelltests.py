@@ -512,15 +512,13 @@ class XPCShellRemote(xpcshell.XPCShellTests):
             f.write("#!/system/bin/sh\n")
             for envkey, envval in self.env.items():
                 f.write("export %s=%s\n" % (envkey, envval))
-            f.writelines(
-                [
-                    "cd $1\n",
-                    "echo xpcw: cd $1\n",
-                    "shift\n",
-                    'echo xpcw: xpcshell "$@"\n',
-                    '%s/xpcshell "$@"\n' % self.remoteBinDir,
-                ]
-            )
+            f.writelines([
+                "cd $1\n",
+                "echo xpcw: cd $1\n",
+                "shift\n",
+                'echo xpcw: xpcshell "$@"\n',
+                '%s/xpcshell "$@"\n' % self.remoteBinDir,
+            ])
         remoteWrapper = posixpath.join(self.remoteBinDir, "xpcw")
         self.device.push(localWrapper, remoteWrapper)
         self.device.chmod(remoteWrapper)
@@ -530,8 +528,7 @@ class XPCShellRemote(xpcshell.XPCShellTests):
         test.selectedProcess = RemoteProcessMonitor.pickUnusedProcess()
         if test.selectedProcess == -1:
             self.log.error(
-                "TEST-UNEXPECTED-FAIL | remotexpcshelltests.py | "
-                "no more free processes"
+                "TEST-UNEXPECTED-FAIL | remotexpcshelltests.py | no more free processes"
             )
         test.start()
 
@@ -690,6 +687,17 @@ class XPCShellRemote(xpcshell.XPCShellTests):
         self.device.rm(self.remoteScriptsDir, recursive=True, force=True, timeout=None)
         self.device.push(self.xpcDir, self.remoteScriptsDir, timeout=600)
         self.device.chmod(self.remoteScriptsDir, recursive=True)
+
+    def buildNodeEnvironment(self):
+        """
+        Filter self.env to avoid passing device-specific variables like HOME or
+        LD_LIBRARY_PATH to the host node process.
+        """
+        node_env = dict(os.environ)
+        for key, value in self.env.items():
+            if key.startswith("MOZ"):
+                node_env[key] = value
+        return node_env
 
     def trySetupNode(self):
         super().trySetupNode()

@@ -3,8 +3,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef nsUDPSocket_h__
-#define nsUDPSocket_h__
+#ifndef nsUDPSocket_h_
+#define nsUDPSocket_h_
 
 #include "nsIUDPSocket.h"
 #include "mozilla/Mutex.h"
@@ -113,4 +113,4 @@ class nsUDPOutputStream : public nsIOutputStream {
 }  // namespace net
 }  // namespace mozilla
 
-#endif  // nsUDPSocket_h__
+#endif  // nsUDPSocket_h_

@@ -261,6 +261,7 @@ linux64-android-gradle-dependencies:
         sparse-profile: null
         resources:
             - '*.gradle'
+            - 'config/milestone.txt'
             - 'gradle.properties'
             - 'gradle/**'
             - 'mobile/android/**/*.gradle'
@@ -296,6 +297,7 @@ linux64-android-gradle-dependencies-lite:
         sparse-profile: null
         resources:
             - '*.gradle'
+            - 'config/milestone.txt'
             - 'gradle.properties'
             - 'gradle/**'
             - 'mobile/android/**/*.gradle'

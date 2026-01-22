@@ -16,10 +16,13 @@ ChromeUtils.defineESModuleGetters(this, {
   SelectableProfileService:
     "resource:///modules/profiles/SelectableProfileService.sys.mjs",
   TranslationsParent: "resource://gre/actors/TranslationsParent.sys.mjs",
+  TranslationsUtils:
+    "chrome://global/content/translations/TranslationsUtils.mjs",
   WindowsLaunchOnLogin: "resource://gre/modules/WindowsLaunchOnLogin.sys.mjs",
   NimbusFeatures: "resource://nimbus/ExperimentAPI.sys.mjs",
   FormAutofillPreferences:
     "resource://autofill/FormAutofillPreferences.sys.mjs",
+  getMozRemoteImageURL: "moz-src:///toolkit/modules/FaviconUtils.sys.mjs",
 });
 
 // Constants & Enumeration Values
@@ -188,6 +191,7 @@ Preferences.addAll([
     id: "privacy.userContext.newTabContainerOnLeftClick.enabled",
     type: "bool",
   },
+  { id: "nimbus.rollouts.enabled", type: "bool" },
 
   // Picture-in-Picture
   {
@@ -773,6 +777,11 @@ Preferences.addSetting({
 Preferences.addSetting({
   id: "connectionSettings",
   onUserClick: () => gMainPane.showConnections(),
+  controllingExtensionInfo: {
+    storeId: PROXY_KEY,
+    l10nId: "extension-controlling-proxy-config",
+    allowControl: true,
+  },
 });
 
 Preferences.addSetting({
@@ -1226,7 +1235,9 @@ const DefaultBrowserHelper = {
 
     const pollForDefaultBrowser = () => {
       if (
-        (location.hash == "" || location.hash == "#general") &&
+        (location.hash == "" ||
+          location.hash == "#general" ||
+          location.hash == "#sync") &&
         document.visibilityState == "visible"
       ) {
         const { isBrowserDefault } = this;
@@ -1443,16 +1454,35 @@ Preferences.addSetting({
 Preferences.addSetting({
   id: "add-payment-button",
   deps: ["saveAndFillPayments"],
+  setup: (emitChange, _, setting) => {
+    function updateDepsAndChange() {
+      setting._deps = null;
+      emitChange();
+    }
+    Services.obs.addObserver(
+      updateDepsAndChange,
+      "formautofill-preferences-initialized"
+    );
+    return () =>
+      Services.obs.removeObserver(
+        updateDepsAndChange,
+        "formautofill-preferences-initialized"
+      );
+  },
   onUserClick: ({ target }) => {
     target.ownerGlobal.gSubDialog.open(
       "chrome://formautofill/content/editCreditCard.xhtml"
     );
   },
-  disabled: ({ saveAndFillPayments }) => !saveAndFillPayments.value,
+  disabled: ({ saveAndFillPayments }) => !saveAndFillPayments?.value,
 });
 
 Preferences.addSetting({
   id: "payments-list-header",
+});
+
+Preferences.addSetting({
+  id: "no-payments-stored",
 });
 
 Preferences.addSetting(
@@ -1938,14 +1968,33 @@ Preferences.addSetting({
 Preferences.addSetting({
   id: "add-address-button",
   deps: ["saveAndFillAddresses"],
+  setup: (emitChange, _, setting) => {
+    function updateDepsAndChange() {
+      setting._deps = null;
+      emitChange();
+    }
+    Services.obs.addObserver(
+      updateDepsAndChange,
+      "formautofill-preferences-initialized"
+    );
+    return () =>
+      Services.obs.removeObserver(
+        updateDepsAndChange,
+        "formautofill-preferences-initialized"
+      );
+  },
   onUserClick: () => {
     FormAutofillPreferences.prototype.openEditAddressDialog(undefined, window);
   },
-  disabled: ({ saveAndFillAddresses }) => !saveAndFillAddresses.value,
+  disabled: ({ saveAndFillAddresses }) => !saveAndFillAddresses?.value,
 });
 
 Preferences.addSetting({
   id: "addresses-list-header",
+});
+
+Preferences.addSetting({
+  id: "no-addresses-stored",
 });
 
 Preferences.addSetting(
@@ -1978,6 +2027,45 @@ Preferences.addSetting(
     }
   }
 );
+
+function createDefaultBrowserConfig({
+  includeIsDefaultPane = true,
+  inProgress = false,
+} = {}) {
+  const isDefaultPane = {
+    id: "isDefaultPane",
+    l10nId: "is-default-browser-2",
+    control: "moz-promo",
+  };
+
+  const isNotDefaultPane = {
+    id: "isNotDefaultPane",
+    l10nId: "is-not-default-browser-2",
+    control: "moz-promo",
+    options: [
+      {
+        control: "moz-button",
+        l10nId: "set-as-my-default-browser-2",
+        id: "setDefaultButton",
+        slot: "actions",
+        controlAttrs: {
+          type: "primary",
+        },
+      },
+    ],
+  };
+
+  const items = includeIsDefaultPane
+    ? [isDefaultPane, isNotDefaultPane]
+    : [isNotDefaultPane];
+
+  return {
+    l10nId: "home-default-browser-title",
+    headingLevel: 2,
+    items,
+    ...(inProgress && { inProgress }),
+  };
+}
 
 SettingGroupManager.registerGroups({
   containers: {
@@ -2049,7 +2137,10 @@ SettingGroupManager.registerGroups({
       },
     ],
   },
+  defaultBrowser: createDefaultBrowserConfig(),
   startup: {
+    l10nId: "startup-group",
+    headingLevel: 2,
     items: [
       {
         id: "browserRestoreSession",
@@ -2088,27 +2179,6 @@ SettingGroupManager.registerGroups({
       {
         id: "alwaysCheckDefault",
         l10nId: "always-check-default",
-      },
-      {
-        id: "isDefaultPane",
-        l10nId: "is-default-browser",
-        control: "moz-promo",
-      },
-      {
-        id: "isNotDefaultPane",
-        l10nId: "is-not-default-browser",
-        control: "moz-promo",
-        options: [
-          {
-            control: "moz-button",
-            l10nId: "set-as-my-default-browser",
-            id: "setDefaultButton",
-            slot: "actions",
-            controlAttrs: {
-              type: "primary",
-            },
-          },
-        ],
       },
     ],
   },
@@ -2163,6 +2233,59 @@ SettingGroupManager.registerGroups({
         control: "moz-button",
         l10nId: "home-restore-defaults",
         controlAttrs: { id: "restoreDefaultHomePageBtn" },
+      },
+    ],
+  },
+  customHomepage: {
+    inProgress: true,
+    headingLevel: 2,
+    items: [
+      {
+        id: "customHomepageCard",
+        control: "moz-card",
+        l10nId: "home-custom-homepage-card",
+        iconSrc: "chrome://global/skin/icons/link.svg",
+        items: [
+          {
+            id: "customHomepageBoxGroup",
+            control: "moz-box-group",
+            controlAttrs: {
+              type: "list",
+            },
+            items: [
+              {
+                id: "customHomepageBoxForm",
+                control: "moz-box-item",
+                items: [
+                  {
+                    id: "customHomepagePlaceholderButton",
+                    control: "moz-button",
+                  },
+                ],
+              },
+              {
+                id: "customHomepageBoxUrlList",
+                control: "moz-box-item",
+                items: [
+                  {
+                    id: "customHomepagePlaceholderButton",
+                    control: "moz-button",
+                  },
+                ],
+              },
+              {
+                id: "customHomepageBoxActions",
+                control: "moz-box-item",
+                items: [
+                  {
+                    id: "customHomepagePlaceholderButton",
+                    control: "moz-button",
+                  },
+                ],
+              },
+            ],
+          },
+        ],
       },
     ],
   },
@@ -2379,7 +2502,8 @@ SettingGroupManager.registerGroups({
     ],
   },
   appearance: {
-    l10nId: "web-appearance-group",
+    l10nId: "appearance-group",
+    headingLevel: 2,
     items: [
       {
         id: "web-appearance-override-warning",
@@ -2455,6 +2579,8 @@ SettingGroupManager.registerGroups({
     ],
   },
   drm: {
+    l10nId: "drm-group",
+    headingLevel: 2,
     subcategory: "drm",
     items: [
       {
@@ -2504,7 +2630,8 @@ SettingGroupManager.registerGroups({
     ],
   },
   browsing: {
-    l10nId: "browsing-group-label",
+    l10nId: "browsing-group",
+    headingLevel: 1,
     items: [
       {
         id: "useAutoScroll",
@@ -2584,12 +2711,14 @@ SettingGroupManager.registerGroups({
     ],
   },
   httpsOnly: {
+    l10nId: "httpsonly-group",
+    supportPage: "https-only-prefs",
+    headingLevel: 2,
     items: [
       {
         id: "httpsOnlyRadioGroup",
         control: "moz-radio-group",
-        l10nId: "httpsonly-label",
-        supportPage: "https-only-prefs",
+        l10nId: "httpsonly-label2",
         options: [
           {
             id: "httpsOnlyRadioEnabled",
@@ -2657,6 +2786,8 @@ SettingGroupManager.registerGroups({
     ],
   },
   browsingProtection: {
+    l10nId: "browsing-protection-group",
+    headingLevel: 2,
     items: [
       {
         id: "enableSafeBrowsing",
@@ -2677,7 +2808,8 @@ SettingGroupManager.registerGroups({
     ],
   },
   nonTechnicalPrivacy: {
-    l10nId: "non-technical-privacy-label",
+    l10nId: "non-technical-privacy-group",
+    headingLevel: 2,
     items: [
       {
         id: "gpcEnabled",
@@ -2695,18 +2827,63 @@ SettingGroupManager.registerGroups({
       },
     ],
   },
+  nonTechnicalPrivacy2: {
+    inProgress: true,
+    l10nId: "non-technical-privacy-heading",
+    headingLevel: 2,
+    items: [
+      {
+        id: "gpcEnabled",
+        l10nId: "global-privacy-control-description",
+        supportPage: "global-privacy-control",
+        controlAttrs: {
+          "search-l10n-ids": "global-privacy-control-search",
+        },
+      },
+      {
+        id: "relayIntegration",
+        l10nId: "preferences-privacy-relay-available",
+        supportPage: "firefox-relay-integration",
+      },
+      {
+        id: "dntRemoval",
+        l10nId: "do-not-track-removal3",
+        control: "moz-message-bar",
+        supportPage: "how-do-i-turn-do-not-track-feature",
+        controlAttrs: {
+          dismissable: true,
+        },
+      },
+    ],
+  },
   securityPrivacyStatus: {
+    inProgress: true,
     items: [
       {
         id: "privacyCard",
         control: "security-privacy-card",
       },
+    ],
+  },
+  securityPrivacyWarnings: {
+    inProgress: true,
+    items: [
       {
-        id: "securityWarningsGroup",
-        control: "moz-box-group",
+        id: "warningCard",
+        l10nId: "security-privacy-issue-card",
+        control: "moz-card",
         controlAttrs: {
-          type: "list",
+          type: "accordion",
         },
+        items: [
+          {
+            id: "securityWarningsGroup",
+            control: "moz-box-group",
+            controlAttrs: {
+              type: "list",
+            },
+          },
+        ],
       },
     ],
   },
@@ -2738,6 +2915,8 @@ SettingGroupManager.registerGroups({
     ],
   },
   performance: {
+    l10nId: "performance-group",
+    headingLevel: 1,
     items: [
       {
         id: "useRecommendedPerformanceSettings",
@@ -2766,7 +2945,6 @@ SettingGroupManager.registerGroups({
         items: [
           {
             id: "ipProtectionExceptionAllListButton",
-            l10nId: "ip-protection-site-exceptions-all-sites-button",
             control: "moz-box-button",
           },
         ],
@@ -2789,31 +2967,18 @@ SettingGroupManager.registerGroups({
         ],
       },
       {
-        id: "ipProtectionAdditionalLinks",
-        control: "moz-box-group",
-        options: [
-          {
-            id: "ipProtectionSupportLink",
-            l10nId: "ip-protection-contact-support-link",
-            control: "moz-box-link",
-            controlAttrs: {
-              href: "https://support.mozilla.org/questions/new/mozilla-vpn/form",
-            },
-          },
-          {
-            id: "ipProtectionUpgradeLink",
-            l10nId: "ip-protection-upgrade-link",
-            control: "moz-box-link",
-            controlAttrs: {
-              href: "https://www.mozilla.org/products/vpn/",
-            },
-          },
-        ],
+        id: "ipProtectionLinks",
+        control: "moz-box-link",
+        l10nId: "ip-protection-vpn-upgrade-link",
+        controlAttrs: {
+          href: "https://www.mozilla.org/products/vpn/",
+        },
       },
     ],
   },
   cookiesAndSiteData: {
-    l10nId: "sitedata-label",
+    l10nId: "cookies-site-data-group",
+    headingLevel: 2,
     items: [
       {
         id: "clearSiteDataButton",
@@ -2883,7 +3048,79 @@ SettingGroupManager.registerGroups({
       },
     ],
   },
+  cookiesAndSiteData2: {
+    inProgress: true,
+    l10nId: "sitedata-heading",
+    headingLevel: 2,
+    items: [
+      {
+        id: "siteDataSize",
+        l10nId: "sitedata-total-size-calculating",
+        control: "moz-box-item",
+        supportPage: "sitedata-learn-more",
+      },
+      {
+        id: "manageDataSettingsGroup",
+        control: "moz-box-group",
+        controlAttrs: {
+          type: "default",
+        },
+        items: [
+          {
+            id: "clearSiteDataButton",
+            l10nId: "sitedata-clear2",
+            control: "moz-box-button",
+            iconSrc: "chrome://browser/skin/flame.svg",
+            controlAttrs: {
+              "search-l10n-ids": `
+                clear-site-data-cookies-empty.label,
+                clear-site-data-cache-empty.label
+              `,
+            },
+          },
+          {
+            id: "siteDataSettings",
+            l10nId: "sitedata-settings3",
+            control: "moz-box-button",
+            controlAttrs: {
+              "search-l10n-ids": `
+                site-data-settings-window.title,
+                site-data-column-host.label,
+                site-data-column-cookies.label,
+                site-data-column-storage.label,
+                site-data-settings-description,
+                site-data-remove-all.label,
+              `,
+            },
+          },
+          {
+            id: "cookieExceptions",
+            l10nId: "sitedata-cookies-exceptions3",
+            control: "moz-box-button",
+            controlAttrs: {
+              "search-l10n-ids": `
+                permissions-address,
+                permissions-block.label,
+                permissions-allow.label,
+                permissions-remove.label,
+                permissions-remove-all.label,
+                permissions-exceptions-cookie-desc
+              `,
+            },
+          },
+        ],
+      },
+      {
+        id: "deleteOnClose",
+        l10nId: "sitedata-delete-on-close",
+      },
+    ],
+  },
   networkProxy: {
+    l10nId: "network-proxy-group",
+    headingLevel: 1,
+    supportPage: "prefs-connection-settings",
+    subcategory: "netsettings",
     items: [
       {
         id: "connectionSettings",
@@ -2893,10 +3130,6 @@ SettingGroupManager.registerGroups({
           "search-l10n-ids":
             "connection-window2.title,connection-proxy-option-no.label,connection-proxy-option-auto.label,connection-proxy-option-system.label,connection-proxy-option-wpad.label,connection-proxy-option-manual.label,connection-proxy-http,connection-proxy-https,connection-proxy-http-port,connection-proxy-socks,connection-proxy-socks4,connection-proxy-socks5,connection-proxy-noproxy,connection-proxy-noproxy-desc,connection-proxy-https-sharing.label,connection-proxy-autotype.label,connection-proxy-reload.label,connection-proxy-autologin-checkbox.label,connection-proxy-socks-remote-dns.label",
         },
-        // Bug 1990552: due to how this lays out in the legacy page, we do not include a
-        // controllingExtensionInfo attribute here. We will want one in the redesigned page,
-        // using storeId: "proxy.settings".
-        controllingExtensionInfo: undefined,
       },
     ],
   },
@@ -2935,7 +3168,7 @@ SettingGroupManager.registerGroups({
       },
       {
         id: "requireOSAuthForPasswords",
-        l10nId: "forms-os-reauth",
+        l10nId: "forms-os-reauth-2",
       },
       {
         id: "allowWindowSSO",
@@ -2961,7 +3194,7 @@ SettingGroupManager.registerGroups({
             items: [
               {
                 id: "usePrimaryPassword",
-                l10nId: "forms-primary-pw-use",
+                l10nId: "forms-primary-pw-use-2",
                 control: "moz-box-item",
                 supportPage: "primary-password-stored-logins",
               },
@@ -3009,6 +3242,8 @@ SettingGroupManager.registerGroups({
     ],
   },
   history: {
+    l10nId: "history-group",
+    headingLevel: 2,
     items: [
       {
         id: "historyMode",
@@ -3023,8 +3258,9 @@ SettingGroupManager.registerGroups({
         ],
         controlAttrs: {
           "search-l10n-ids": `
-            history-remember-description3,
-            history-dontremember-description3,
+            history-remember-description4,
+            history-dontremember-description4,
+            history-custom-description4,
             history-private-browsing-permanent.label,
             history-remember-browser-option.label,
             history-remember-search-option.label,
@@ -3072,6 +3308,93 @@ SettingGroupManager.registerGroups({
         id: "clearHistoryButton",
         l10nId: "history-clear-button",
         control: "moz-box-button",
+      },
+    ],
+  },
+  history2: {
+    inProgress: true,
+    l10nId: "history-section-header",
+    items: [
+      {
+        id: "deleteOnCloseInfo",
+        l10nId: "sitedata-delete-on-close-private-browsing3",
+        control: "moz-message-bar",
+      },
+      {
+        id: "historyMode",
+        control: "moz-radio-group",
+        options: [
+          {
+            value: "remember",
+            l10nId: "history-remember-option-all",
+          },
+          { value: "dontremember", l10nId: "history-remember-option-never" },
+          {
+            value: "custom",
+            l10nId: "history-remember-option-custom",
+            items: [
+              {
+                id: "customHistoryButton",
+                control: "moz-box-button",
+                l10nId: "history-custom-button",
+              },
+            ],
+          },
+        ],
+        controlAttrs: {
+          "search-l10n-ids": `
+            history-remember-description3,
+            history-dontremember-description3,
+            history-private-browsing-permanent.label,
+            history-remember-browser-option.label,
+            history-remember-search-option.label,
+            history-clear-on-close-option.label,
+            history-clear-on-close-settings.label
+          `,
+        },
+      },
+    ],
+  },
+  historyAdvanced: {
+    l10nId: "history-custom-section-header",
+    headingLevel: 2,
+    items: [
+      {
+        id: "privateBrowsingAutoStart",
+        l10nId: "history-private-browsing-permanent",
+      },
+      {
+        id: "rememberHistory",
+        l10nId: "history-remember-browser-option",
+      },
+      {
+        id: "rememberForms",
+        l10nId: "history-remember-search-option",
+      },
+      {
+        id: "alwaysClear",
+        l10nId: "history-clear-on-close-option",
+        items: [
+          {
+            id: "clearDataSettings",
+            l10nId: "history-clear-on-close-settings",
+            control: "moz-box-button",
+            controlAttrs: {
+              "search-l10n-ids": `
+                    clear-data-settings-label,
+                    history-section-label,
+                    item-history-and-downloads.label,
+                    item-cookies.label,
+                    item-active-logins.label,
+                    item-cache.label,
+                    item-form-search-history.label,
+                    data-section-label,
+                    item-site-settings.label,
+                    item-offline-apps.label
+                  `,
+            },
+          },
+        ],
       },
     ],
   },
@@ -3222,6 +3545,8 @@ SettingGroupManager.registerGroups({
     ],
   },
   dnsOverHttps: {
+    l10nId: "dns-over-https-group",
+    headingLevel: 1,
     inProgress: true,
     items: [
       {
@@ -3298,6 +3623,26 @@ SettingGroupManager.registerGroups({
             control: "moz-message-bar",
           },
         ],
+      },
+    ],
+  },
+  searchShortcuts: {
+    inProgress: true,
+    l10nId: "search-one-click-header-3",
+    headingLevel: 2,
+    items: [
+      {
+        id: "addEngineButton",
+        l10nId: "search-add-engine-2",
+        control: "moz-button",
+        iconSrc: "chrome://global/skin/icons/plus.svg",
+      },
+      {
+        id: "engineList",
+        control: "moz-box-group",
+        controlAttrs: {
+          type: "reorderable-list",
+        },
       },
     ],
   },
@@ -3559,6 +3904,18 @@ SettingGroupManager.registerGroups({
         ],
       },
       {
+        id: "reloadTabsHint",
+        control: "moz-message-bar",
+        l10nId: "preferences-etp-reload-tabs-hint",
+        options: [
+          {
+            control: "moz-button",
+            l10nId: "preferences-etp-reload-tabs-hint-button",
+            slot: "actions",
+          },
+        ],
+      },
+      {
         id: "rfpWarning",
         control: "moz-message-bar",
         l10nId: "preferences-etp-rfp-warning-message",
@@ -3739,6 +4096,10 @@ SettingGroupManager.registerGroups({
       },
     ],
   },
+  defaultBrowserSync: createDefaultBrowserConfig({
+    includeIsDefaultPane: false,
+    inProgress: true,
+  }),
   sync: {
     inProgress: true,
     l10nId: "sync-group-label",
@@ -4131,6 +4492,88 @@ SettingGroupManager.registerGroups({
       },
     ],
   },
+  firefoxSuggest: {
+    id: "locationBarGroup",
+    items: [
+      {
+        id: "locationBarGroupHeader",
+        l10nId: "addressbar-header-1",
+        supportPage: "firefox-suggest",
+        control: "moz-fieldset",
+        controlAttrs: {
+          headinglevel: 2,
+        },
+        items: [
+          {
+            id: "historySuggestion",
+            l10nId: "addressbar-locbar-history-option",
+          },
+          {
+            id: "bookmarkSuggestion",
+            l10nId: "addressbar-locbar-bookmarks-option",
+          },
+          {
+            id: "clipboardSuggestion",
+            l10nId: "addressbar-locbar-clipboard-option",
+          },
+          {
+            id: "openpageSuggestion",
+            l10nId: "addressbar-locbar-openpage-option",
+          },
+          {
+            id: "topSitesSuggestion",
+            l10nId: "addressbar-locbar-shortcuts-option",
+          },
+          {
+            id: "enableRecentSearches",
+            l10nId: "addressbar-locbar-showrecentsearches-option-2",
+          },
+          {
+            id: "enginesSuggestion",
+            l10nId: "addressbar-locbar-engines-option-1",
+          },
+          {
+            id: "enableQuickActions",
+            l10nId: "addressbar-locbar-quickactions-option",
+            supportPage: "quick-actions-firefox-search-bar",
+          },
+          {
+            id: "firefoxSuggestAll",
+            l10nId: "addressbar-locbar-suggest-all-option-2",
+            items: [
+              {
+                id: "firefoxSuggestSponsored",
+                l10nId: "addressbar-locbar-suggest-sponsored-option-2",
+              },
+              {
+                id: "firefoxSuggestOnlineEnabledToggle",
+                l10nId: "addressbar-firefox-suggest-online",
+                supportPage: "firefox-suggest",
+                subcategory: "w_what-is-firefox-suggest",
+              },
+            ],
+          },
+          {
+            id: "dismissedSuggestionsDescription",
+            l10nId: "addressbar-dismissed-suggestions-label-2",
+            control: "moz-fieldset",
+            controlAttrs: {
+              headinglevel: 3,
+            },
+            items: [
+              {
+                id: "restoreDismissedSuggestions",
+                l10nId: "addressbar-restore-dismissed-suggestions-button-2",
+                control: "moz-button",
+                iconSrc:
+                  "chrome://global/skin/icons/arrow-counterclockwise-16.svg",
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  },
 });
 
 /**
@@ -4154,6 +4597,7 @@ function initSettingGroup(id) {
     }
     group.config = config;
     group.getSetting = Preferences.getSetting.bind(Preferences);
+    group.srdEnabled = srdSectionPrefs.all;
   }
 }
 
@@ -4231,8 +4675,6 @@ var gMainPane = {
     }
 
     this.displayUseSystemLocale();
-    this.updateProxySettingsUI();
-    initializeProxyUI(gMainPane);
 
     if (Services.prefs.getBoolPref("intl.multilingual.enabled")) {
       gMainPane.initPrimaryBrowserLanguageUI();
@@ -4250,6 +4692,7 @@ var gMainPane = {
     initSettingGroup("support");
     initSettingGroup("translations");
     initSettingGroup("performance");
+    initSettingGroup("defaultBrowser");
     initSettingGroup("startup");
     initSettingGroup("importBrowserData");
     initSettingGroup("networkProxy");
@@ -4751,7 +5194,7 @@ var gMainPane = {
         this.hideError();
         this.disableButtons(true);
         try {
-          await TranslationsParent.deleteAllLanguageFiles();
+          await TranslationsUtils.deleteAllLanguageFiles();
           this.markAllDownloadPhases("uninstalled");
         } catch (error) {
           TranslationsView.showError("translations-manage-error-remove", error);
@@ -5220,12 +5663,16 @@ var gMainPane = {
   },
 
   /**
-   *  Shows a subdialog containing the profile selector page.
+   *  Shows a window dialog containing the profile selector page.
    */
   manageProfiles() {
-    SelectableProfileService.maybeSetupDataStore().then(() => {
-      gSubDialog.open("about:profilemanager");
-    });
+    const win = window.browsingContext.topChromeWindow;
+
+    win.toOpenWindowByType(
+      "about:profilemanager",
+      "about:profilemanager",
+      "chrome,extrachrome,menubar,resizable,scrollbars,status,toolbar,centerscreen"
+    );
   },
 
   /**
@@ -5413,33 +5860,8 @@ var gMainPane = {
    */
   showConnections() {
     gSubDialog.open(
-      "chrome://browser/content/preferences/dialogs/connection.xhtml",
-      { closingCallback: this.updateProxySettingsUI.bind(this) }
+      "chrome://browser/content/preferences/dialogs/connection.xhtml"
     );
-  },
-
-  // Update the UI to show the proper description depending on whether an
-  // extension is in control or not.
-  async updateProxySettingsUI() {
-    let controllingExtension = await getControllingExtension(
-      PREF_SETTING_TYPE,
-      PROXY_KEY
-    );
-    let description = document.getElementById("connectionSettingsDescription");
-
-    if (controllingExtension) {
-      setControllingExtensionDescription(
-        description,
-        controllingExtension,
-        "proxy.settings"
-      );
-    } else {
-      setControllingExtensionDescription(
-        description,
-        null,
-        "network-proxy-connection-description"
-      );
-    }
   },
 
   // FONTS
@@ -6671,12 +7093,7 @@ var gMainPane = {
     ) {
       // As the favicon originates from web content and is displayed in the parent process,
       // use the moz-remote-image: protocol to safely re-encode it.
-      let params = new URLSearchParams({
-        url: uri.prePath + "/favicon.ico",
-        width: 16,
-        height: 16,
-      });
-      return "moz-remote-image://?" + params;
+      return getMozRemoteImageURL(uri.prePath + "/favicon.ico", { size: 16 });
     }
 
     return "";

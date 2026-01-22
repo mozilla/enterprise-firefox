@@ -3,8 +3,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef nsCopySupport_h__
-#define nsCopySupport_h__
+#ifndef nsCopySupport_h_
+#define nsCopySupport_h_
 
 #include <cstdint>
 

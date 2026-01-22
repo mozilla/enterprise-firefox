@@ -39,6 +39,7 @@
 #include "mozilla/Maybe.h"
 #include "mozilla/Mutex.h"  // mozilla::Mutex
 #include "mozilla/ScopeExit.h"
+#include "mozilla/StaticPrefs_browser.h"
 #include "mozilla/StaticPrefs_dom.h"
 #include "mozilla/StaticPrefs_javascript.h"
 #include "mozilla/StaticPrefs_network.h"
@@ -82,7 +83,6 @@
 #include "nsIDocShell.h"
 #include "nsIHttpChannel.h"
 #include "nsIHttpChannelInternal.h"
-#include "nsINetworkPredictor.h"
 #include "nsIPrincipal.h"
 #include "nsIScriptContext.h"
 #include "nsIScriptElement.h"
@@ -1007,11 +1007,6 @@ nsresult ScriptLoader::StartLoadInternal(
   rv =
       PrepareHttpRequestAndInitiatorType(channel, aRequest, aCharsetForPreload);
   NS_ENSURE_SUCCESS(rv, rv);
-
-  mozilla::net::PredictorLearn(
-      aRequest->URI(), mDocument->GetDocumentURI(),
-      nsINetworkPredictor::LEARN_LOAD_SUBRESOURCE,
-      mDocument->NodePrincipal()->OriginAttributesRef());
 
   nsCOMPtr<nsIIncrementalStreamLoader> loader;
   rv =
@@ -2870,18 +2865,50 @@ void ScriptLoader::CalculateCacheFlag(ScriptLoadRequest* aRequest) {
   // If the script is too small/large, do not attempt at creating a disk
   // cache for this script, as the overhead of parsing it might not be worth the
   // effort.
+  size_t sourceLength;
+  if (aRequest->IsCachedStencil()) {
+    sourceLength = JS::GetScriptSourceLength(aRequest->GetStencil());
+  } else {
+    MOZ_ASSERT(aRequest->IsTextSource());
+    sourceLength = aRequest->ReceivedScriptTextLength();
+  }
   if (strategy.mHasSourceLengthMin) {
-    size_t sourceLength;
-    if (aRequest->IsCachedStencil()) {
-      sourceLength = JS::GetScriptSourceLength(aRequest->GetStencil());
-    } else {
-      MOZ_ASSERT(aRequest->IsTextSource());
-      sourceLength = aRequest->ReceivedScriptTextLength();
-    }
     if (sourceLength < strategy.mSourceLengthMin) {
       LOG(
           ("ScriptLoadRequest (%p): Bytecode-cache: Skip disk: Script is too "
            "small.",
+           aRequest));
+      aRequest->MarkSkippedDiskCaching();
+      aRequest->getLoadedScript()->DropDiskCacheReferenceAndSRI();
+      return;
+    }
+  }
+
+  // The disk cache size is limited by the pref, and also the disk capacity.
+  // Assuming the disk capacity is sufficient, we use the pref to limit the
+  // maximum size, to avoid processing the too large cache, which will
+  // ultimately be rejected when saving the cache.
+  //
+  // The actual disk cache is the concatenation of the main data and the
+  // alternate data.
+  //
+  // The main data is the JavaScript source transferred over the network,
+  // which can be compressed, but it's at most sourceLength bytes.
+  //
+  // The alternate data is the serialized Stencil, which also contains the
+  // raw uncompressed JavaScript source in addition to the compiled data.
+  //
+  // The serialized Stencil takes ~3.8x size of the source length.
+  // (gathered from scripts used in the top 50 websites)
+  size_t expectedDiskCacheSize = sourceLength * 5;
+  int32_t diskCacheMaxSizeInKb =
+      StaticPrefs::browser_cache_disk_max_entry_size();
+  // The pref being -1 means "no limit".
+  if (diskCacheMaxSizeInKb > 0) {
+    if (expectedDiskCacheSize > size_t(diskCacheMaxSizeInKb) * 1024) {
+      LOG(
+          ("ScriptLoadRequest (%p): Bytecode-cache: Skip disk: Script is too "
+           "large.",
            aRequest));
       aRequest->MarkSkippedDiskCaching();
       aRequest->getLoadedScript()->DropDiskCacheReferenceAndSRI();
@@ -3053,11 +3080,24 @@ nsresult ScriptLoader::EvaluateScriptElement(ScriptLoadRequest* aRequest) {
   //    Assert: Never reached.
   MOZ_ASSERT(!aRequest->IsImportMapRequest());
 
+  auto start = TimeStamp::Now();
+
+  nsresult rv;
   if (aRequest->IsModuleRequest()) {
-    return aRequest->AsModuleRequest()->EvaluateModule();
+    rv = aRequest->AsModuleRequest()->EvaluateModule();
+  } else {
+    rv = EvaluateScript(globalObject, aRequest);
   }
 
-  return EvaluateScript(globalObject, aRequest);
+  auto end = TimeStamp::Now();
+  auto duration = (end - start).ToMilliseconds();
+
+  static constexpr double LongScriptThresholdInMilliseconds = 1.0;
+  if (duration > LongScriptThresholdInMilliseconds) {
+    aRequest->SetTookLongInPreviousRuns();
+  }
+
+  return rv;
 }
 
 // Decode a script contained in a buffer.
@@ -3530,17 +3570,7 @@ nsresult ScriptLoader::EvaluateScript(nsIGlobalObject* aGlobalObject,
     MOZ_ASSERT(options.noScriptRval);
     TRACE_FOR_TEST(aRequest, "evaluate:classic");
 
-    auto start = TimeStamp::Now();
-
     ExecuteCompiledScript(cx, classicScript, script, erv);
-
-    auto end = TimeStamp::Now();
-    auto duration = (end - start).ToMilliseconds();
-
-    static constexpr double LongScriptThresholdInMilliseconds = 1.0;
-    if (duration > LongScriptThresholdInMilliseconds) {
-      aRequest->SetTookLongInPreviousRuns();
-    }
   }
   rv = EvaluationExceptionToNSResult(erv);
 
@@ -3670,6 +3700,9 @@ void ScriptLoader::UpdateDiskCache() {
     return;
   }
 
+  int32_t diskCacheMaxSizeInKb =
+      StaticPrefs::browser_cache_disk_max_entry_size();
+
   for (auto& loadedScript : mDiskCacheQueue) {
     // The encoding is performed only when there was no disk cache stored in
     // the necko cache.
@@ -3686,6 +3719,19 @@ void ScriptLoader::UpdateDiskCache() {
       loadedScript->DropSRIOrSRIAndSerializedStencil();
       TRACE_FOR_TEST(loadedScript, "diskcache:failed");
       continue;
+    }
+
+    // The pref being -1 means "no limit".
+    if (diskCacheMaxSizeInKb > 0) {
+      size_t sourceLength =
+          JS::GetScriptSourceLength(loadedScript->GetStencil());
+      size_t expectedDiskCacheSize = sourceLength + compressed.length();
+      if (expectedDiskCacheSize > size_t(diskCacheMaxSizeInKb) * 1024) {
+        loadedScript->DropDiskCacheReference();
+        loadedScript->DropSRIOrSRIAndSerializedStencil();
+        TRACE_FOR_TEST(loadedScript, "diskcache:toolarge");
+        continue;
+      }
     }
 
     if (!SaveToDiskCache(loadedScript, compressed)) {
@@ -3757,6 +3803,14 @@ bool ScriptLoader::SaveToDiskCache(
   // Open the output stream to the cache entry alternate data storage. This
   // might fail if the stream is already open by another request, in which
   // case, we just ignore the current one.
+  //
+  // OpenAlternativeOutputStream doesn't immediately report errors on the
+  // parent process, but instead it sets the error state and asynchronously
+  // send it over IPC to report it as Write/Close result.  If all the
+  // operations finish before the error arrives, no error will be reported.
+  //
+  // We don't wait for the parent process here because there's nothing we can
+  // do for the error case.
   nsCOMPtr<nsIAsyncOutputStream> output;
   nsresult rv = aLoadedScript->mCacheEntry->OpenAlternativeOutputStream(
       BytecodeMimeTypeFor(aLoadedScript),
@@ -3911,6 +3965,13 @@ void ScriptLoader::ProcessPendingRequests(bool aAllowBypassingParserBlocking) {
   }
 
   while (ReadyToExecuteScripts() && !mLoadedAsyncRequests.isEmpty()) {
+    if (mLoadedAsyncRequests.getFirst()->TookLongInPreviousRuns() &&
+        !mLoadedAsyncRequests.getFirst()->HadPostponed() && IsBeforeFCP()) {
+      mLoadedAsyncRequests.getFirst()->SetHadPostponed();
+      ProcessPendingRequestsAsync();
+      return;
+    }
+
     request = mLoadedAsyncRequests.StealFirst();
     if (request->IsModuleRequest()) {
       ProcessRequest(request);

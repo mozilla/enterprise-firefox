@@ -587,12 +587,30 @@ static bool GetBuildConfiguration(JSContext* cx, unsigned argc, Value* vp) {
     return false;
   }
 
+#ifdef ENABLE_SOURCE_PHASE_IMPORTS
+  value = BooleanValue(true);
+#else
+  value = BooleanValue(false);
+#endif
+  if (!JS_SetProperty(cx, info, "source-phase-imports", value)) {
+    return false;
+  }
+
 #ifdef FUZZING
   value = BooleanValue(true);
 #else
   value = BooleanValue(false);
 #endif
   if (!JS_SetProperty(cx, info, "fuzzing-defined", value)) {
+    return false;
+  }
+
+#ifdef JS_JITSPEW
+  value = BooleanValue(true);
+#else
+  value = BooleanValue(false);
+#endif
+  if (!JS_SetProperty(cx, info, "jitspew", value)) {
     return false;
   }
 
@@ -3205,7 +3223,7 @@ static bool GetAtomMarkIndex(JSContext* cx, unsigned argc, Value* vp) {
   RootedObject callee(cx, &args.callee());
 
   if (args.length() != 1 || !args[0].isGCThing() ||
-      !args[0].toGCThing()->zone()->isAtomsZone()) {
+      !args[0].toGCThing()->zoneFromAnyThread()->isAtomsZone()) {
     ReportUsageErrorASCII(cx, callee,
                           "Expected an atom as the single argument");
     return false;
@@ -4850,7 +4868,7 @@ static bool SettlePromiseNow(JSContext* cx, unsigned argc, Value* vp) {
   }
 
   int32_t flags = promise->flags();
-  promise->setFixedSlot(
+  promise->setNeverGCThingFixedSlot(
       PromiseSlot_Flags,
       Int32Value(flags | PROMISE_FLAG_RESOLVED | PROMISE_FLAG_FULFILLED));
   promise->setFixedSlot(PromiseSlot_ReactionsOrResult, UndefinedValue());
@@ -10043,6 +10061,30 @@ static bool TestingFunc_SupportDifferentialTesting(JSContext* cx, unsigned argc,
   return true;
 }
 
+static bool GetLastOOMStackTrace(JSContext* cx, unsigned argc, Value* vp) {
+  CallArgs args = CallArgsFromVp(argc, vp);
+
+  if (!cx->hasOOMStackTrace()) {
+    args.rval().setNull();
+    return true;
+  }
+
+  const char* stackTrace = cx->getOOMStackTrace();
+  MOZ_ASSERT(stackTrace);
+
+  // The stackTrace persists, so we can clear the flag here in case copying the
+  // string fails
+  cx->unsetOOMStackTrace();
+
+  JSString* str = JS_NewStringCopyZ(cx, stackTrace);
+  if (!str) {
+    return false;
+  }
+
+  args.rval().setString(str);
+  return true;
+}
+
 // clang-format off
 static const JSFunctionSpecWithHelp TestingFunctions[] = {
     JS_FN_HELP("gc", ::GC, 0, 0,
@@ -11161,6 +11203,12 @@ JS_FN_HELP("isSmallFunction", IsSmallFunction, 1, 0,
   "popAllFusesInRealm()",
   " Pops all the fuses in the current realm"),
 
+    JS_FN_HELP("getLastOOMStackTrace", GetLastOOMStackTrace, 0, 0,
+"getLastOOMStackTrace()",
+"  Returns the stack trace captured from the most recent out-of-memory exception,\n"
+"  or null if no OOM stack trace is available. The stack trace shows the JavaScript\n"
+"  call stack at the time the out-of-memory condition occurred."),
+
   JS_FN_HELP("popAllFusesInRuntime", PopAllFusesInRuntime, 0, 0,
   "popAllFusesInRuntime()",
   " Pops all the fuses in the runtime"),
@@ -11321,13 +11369,10 @@ JS_FN_HELP("getFuseState", GetFuseState, 0, 0,
 "  Converts a compiled wasm module to the wasm text format.\n"),
 
     JS_FN_HELP("wasmDumpIon", WasmDumpIon, 2, 0,
-"wasmDumpIon(bytecode, funcIndex, [, contents])\n",
-"wasmDumpIon(bytecode, funcIndex, [, contents])"
-"  Returns a dump of compiling a function in the specified module with Ion."
-"  The `contents` flag controls what is dumped. one of:"
-"    `mir` | `unopt-mir`: Unoptimized MIR (the default)"
-"    `opt-mir`: Optimized MIR"
-"    `lir`: LIR"),
+"wasmDumpIon(bytecode, funcIndex)\n",
+"wasmDumpIon(bytecode, funcIndex)"
+"  Returns a dump of compiling a function in the specified module with Ion, in"
+"  the iongraph JSON format."),
 
     JS_FN_HELP("wasmFunctionTier", WasmFunctionTier, 1, 0,
 "wasmFunctionTier(wasmFunc)\n",

@@ -209,7 +209,7 @@ add_setup(async function init() {
 
   // Install a default test engine.
   let engine = await addTestSuggestionsEngine();
-  await Services.search.setDefault(
+  await SearchService.setDefault(
     engine,
     Ci.nsISearchService.CHANGE_REASON_UNKNOWN
   );
@@ -459,10 +459,11 @@ add_task(async function emptySearchStringsAndSpaces() {
       context,
       matches: [],
     });
+    let providersManager = ProvidersManager.getInstanceForSap("urlbar");
     Assert.ok(
-      !(await UrlbarProvidersManager.getProvider(
-        UrlbarProviderQuickSuggest.name
-      ).isActive(context)),
+      !(await providersManager
+        .getProvider(UrlbarProviderQuickSuggest.name)
+        .isActive(context)),
       "Provider should not be active for search string: " + msg
     );
   }
@@ -550,17 +551,17 @@ add_task(async function suggestionsBeforeGeneral_only() {
       makeSearchResult(context, {
         heuristic: true,
         query: SPONSORED_SEARCH_STRING,
-        engineName: Services.search.defaultEngine.name,
+        engineName: SearchService.defaultEngine.name,
       }),
       makeSearchResult(context, {
         query: SPONSORED_SEARCH_STRING,
         suggestion: SPONSORED_SEARCH_STRING + " foo",
-        engineName: Services.search.defaultEngine.name,
+        engineName: SearchService.defaultEngine.name,
       }),
       makeSearchResult(context, {
         query: SPONSORED_SEARCH_STRING,
         suggestion: SPONSORED_SEARCH_STRING + " bar",
-        engineName: Services.search.defaultEngine.name,
+        engineName: SearchService.defaultEngine.name,
       }),
       QuickSuggestTestUtils.ampResult(),
     ],
@@ -605,17 +606,17 @@ add_task(async function suggestionsBeforeGeneral_others() {
       makeSearchResult(context, {
         heuristic: true,
         query: SPONSORED_SEARCH_STRING,
-        engineName: Services.search.defaultEngine.name,
+        engineName: SearchService.defaultEngine.name,
       }),
       makeSearchResult(context, {
         query: SPONSORED_SEARCH_STRING,
         suggestion: SPONSORED_SEARCH_STRING + " foo",
-        engineName: Services.search.defaultEngine.name,
+        engineName: SearchService.defaultEngine.name,
       }),
       makeSearchResult(context, {
         query: SPONSORED_SEARCH_STRING,
         suggestion: SPONSORED_SEARCH_STRING + " bar",
-        engineName: Services.search.defaultEngine.name,
+        engineName: SearchService.defaultEngine.name,
       }),
       QuickSuggestTestUtils.ampResult(),
       ...historyResults,
@@ -645,18 +646,18 @@ add_task(async function generalBeforeSuggestions_only() {
       makeSearchResult(context, {
         heuristic: true,
         query: SPONSORED_SEARCH_STRING,
-        engineName: Services.search.defaultEngine.name,
+        engineName: SearchService.defaultEngine.name,
       }),
       QuickSuggestTestUtils.ampResult({ suggestedIndex: -1 }),
       makeSearchResult(context, {
         query: SPONSORED_SEARCH_STRING,
         suggestion: SPONSORED_SEARCH_STRING + " foo",
-        engineName: Services.search.defaultEngine.name,
+        engineName: SearchService.defaultEngine.name,
       }),
       makeSearchResult(context, {
         query: SPONSORED_SEARCH_STRING,
         suggestion: SPONSORED_SEARCH_STRING + " bar",
-        engineName: Services.search.defaultEngine.name,
+        engineName: SearchService.defaultEngine.name,
       }),
     ],
   });
@@ -700,19 +701,19 @@ add_task(async function generalBeforeSuggestions_others() {
       makeSearchResult(context, {
         heuristic: true,
         query: SPONSORED_SEARCH_STRING,
-        engineName: Services.search.defaultEngine.name,
+        engineName: SearchService.defaultEngine.name,
       }),
       ...historyResults,
       QuickSuggestTestUtils.ampResult({ suggestedIndex: -1 }),
       makeSearchResult(context, {
         query: SPONSORED_SEARCH_STRING,
         suggestion: SPONSORED_SEARCH_STRING + " foo",
-        engineName: Services.search.defaultEngine.name,
+        engineName: SearchService.defaultEngine.name,
       }),
       makeSearchResult(context, {
         query: SPONSORED_SEARCH_STRING,
         suggestion: SPONSORED_SEARCH_STRING + " bar",
-        engineName: Services.search.defaultEngine.name,
+        engineName: SearchService.defaultEngine.name,
       }),
     ],
   });
@@ -744,7 +745,8 @@ add_task(async function maxResults() {
   // Spy on `muxer.sort()` so we can verify the provider limited the number of
   // results it added to the query.
   let muxerName = context.muxer || "UnifiedComplete";
-  let muxer = UrlbarProvidersManager.muxers.get(muxerName);
+  let providersManager = ProvidersManager.getInstanceForSap("urlbar");
+  let muxer = providersManager.muxers.get(muxerName);
   Assert.ok(!!muxer, "Muxer should exist");
 
   let sandbox = sinon.createSandbox();
@@ -870,7 +872,8 @@ async function doManySuggestResultsTest({
   }
 
   let provider = new UrlbarTestUtils.TestProvider({ results: otherResults });
-  UrlbarProvidersManager.registerProvider(provider);
+  let providersManager = ProvidersManager.getInstanceForSap("urlbar");
+  providersManager.registerProvider(provider);
 
   // Do a search that matches all the Suggest suggestions and the test
   // provider's results. The Suggest suggestion(s) should be first since its
@@ -886,7 +889,7 @@ async function doManySuggestResultsTest({
     ],
   });
 
-  UrlbarProvidersManager.unregisterProvider(provider);
+  providersManager.unregisterProvider(provider);
 }
 
 add_task(async function dedupeAgainstURL_samePrefix() {
@@ -968,7 +971,7 @@ async function doDedupeAgainstURLTest({
       makeSearchResult(context, {
         heuristic: true,
         query: searchString,
-        engineName: Services.search.defaultEngine.name,
+        engineName: SearchService.defaultEngine.name,
       }),
       makeVisitResult(context, {
         uri: otherURL,
@@ -988,7 +991,7 @@ async function doDedupeAgainstURLTest({
     makeSearchResult(context, {
       heuristic: true,
       query: searchString,
-      engineName: Services.search.defaultEngine.name,
+      engineName: SearchService.defaultEngine.name,
     }),
   ];
 
@@ -1088,7 +1091,7 @@ add_task(async function dedupeAgainstURL_timestamps() {
   let expectedHeuristic = makeSearchResult(context, {
     heuristic: true,
     query: TIMESTAMP_SEARCH_STRING,
-    engineName: Services.search.defaultEngine.name,
+    engineName: SearchService.defaultEngine.name,
   });
   let expectedDupeResult = makeVisitResult(context, {
     uri: dupeURL,
@@ -1431,7 +1434,7 @@ add_task(async function tabToSearch() {
     },
     { skipUnload: true }
   );
-  let engine = Services.search.getEngineByName("Test");
+  let engine = SearchService.getEngineByName("Test");
 
   // Also need to add a visit to trigger TTS.
   await PlacesTestUtils.addVisits(engineURL);
@@ -1444,8 +1447,8 @@ add_task(async function tabToSearch() {
     matches: [
       // search heuristic
       makeSearchResult(context, {
-        engineName: Services.search.defaultEngine.name,
-        engineIconUri: await Services.search.defaultEngine.getIconURL(),
+        engineName: SearchService.defaultEngine.name,
+        engineIconUri: await SearchService.defaultEngine.getIconURL(),
         heuristic: true,
       }),
       // tab to search
@@ -1509,7 +1512,6 @@ add_task(async function globalAction() {
     },
     { skipUnload: true }
   );
-  let engine = Services.search.getEngineByName("Amp");
 
   await PlacesTestUtils.addVisits(engineURL);
 
@@ -1522,8 +1524,8 @@ add_task(async function globalAction() {
     matches: [
       // search heuristic
       makeSearchResult(context, {
-        engineName: Services.search.defaultEngine.name,
-        engineIconUri: await Services.search.defaultEngine.getIconURL(),
+        engineName: SearchService.defaultEngine.name,
+        engineIconUri: await SearchService.defaultEngine.getIconURL(),
         heuristic: true,
       }),
 
@@ -1534,8 +1536,6 @@ add_task(async function globalAction() {
             providerName: "ActionsProviderContextualSearch",
           },
         ],
-        providesSearchMode: true,
-        engine: engine.name,
         query: "",
         input: "",
         inputLength: context.searchString.length,

@@ -210,6 +210,13 @@ struct Cell {
   inline JS::Zone* nurseryZone() const;
   inline JS::Zone* nurseryZoneFromAnyThread() const;
 
+  MOZ_ALWAYS_INLINE JS::shadow::Zone* shadowZone() const {
+    return JS::shadow::Zone::from(zone());
+  }
+  MOZ_ALWAYS_INLINE JS::shadow::Zone* shadowZoneFromAnyThread() const {
+    return JS::shadow::Zone::from(zoneFromAnyThread());
+  }
+
   inline ChunkBase* chunk() const;
 
   // Default implementation for kinds that cannot be permanent. This may be
@@ -264,13 +271,6 @@ class TenuredCell : public Cell {
   inline JS::Zone* zone() const;
   inline JS::Zone* zoneFromAnyThread() const;
   inline bool isInsideZone(JS::Zone* zone) const;
-
-  MOZ_ALWAYS_INLINE JS::shadow::Zone* shadowZone() const {
-    return JS::shadow::Zone::from(zone());
-  }
-  MOZ_ALWAYS_INLINE JS::shadow::Zone* shadowZoneFromAnyThread() const {
-    return JS::shadow::Zone::from(zoneFromAnyThread());
-  }
 
   template <typename T, typename = std::enable_if_t<JS::IsBaseTraceType_v<T>>>
   inline bool is() const {
@@ -358,8 +358,10 @@ inline uintptr_t Cell::address() const {
 ChunkBase* Cell::chunk() const {
   uintptr_t addr = uintptr_t(this);
   MOZ_ASSERT(addr % CellAlignBytes == 0);
-  addr &= ~ChunkMask;
-  return reinterpret_cast<ChunkBase*>(addr);
+  auto* chunk = reinterpret_cast<ChunkBase*>(addr & ~ChunkMask);
+  MOZ_ASSERT(chunk->isNurseryChunk() ||
+             chunk->kind == ChunkKind::TenuredArenas);
+  return chunk;
 }
 
 inline StoreBuffer* Cell::storeBuffer() const { return chunk()->storeBuffer; }

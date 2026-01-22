@@ -12,28 +12,17 @@ function resolveCollatorInternals(lazyCollatorData) {
 
   var internalProps = std_Object_create(null);
 
-  var Collator = collatorInternalProperties;
-
   // Step 5.
   internalProps.usage = lazyCollatorData.usage;
 
-  // Steps 6-7.
-  var collatorIsSorting = lazyCollatorData.usage === "sort";
-  var localeData = collatorIsSorting
-    ? Collator.sortLocaleData
-    : Collator.searchLocaleData;
-
   // Compute effective locale.
-  // Step 16.
-  var relevantExtensionKeys = Collator.relevantExtensionKeys;
 
-  // Step 17.
-  var r = ResolveLocale(
+  // Steps 6-7 and 16-17.
+  var r = intl_ResolveLocale(
     "Collator",
     lazyCollatorData.requestedLocales,
     lazyCollatorData.opt,
-    relevantExtensionKeys,
-    localeData
+    lazyCollatorData.usage === "search"
   );
 
   // Step 18.
@@ -247,17 +236,6 @@ function InitializeCollator(collator, locales, options) {
 }
 
 /**
- * Collator internal properties.
- *
- * Spec: ECMAScript Internationalization API Specification, 9.1 and 10.2.3.
- */
-var collatorInternalProperties = {
-  sortLocaleData: collatorSortLocaleData,
-  searchLocaleData: collatorSearchLocaleData,
-  relevantExtensionKeys: ["co", "kf", "kn"],
-};
-
-/**
  * Returns the actual locale used when a collator for |locale| is constructed.
  */
 function collatorActualLocale(locale) {
@@ -267,84 +245,6 @@ function collatorActualLocale(locale) {
   // through a fallback (da), we need to get the actual locale before we
   // can call intl_isUpperCaseFirst. Also see intl_BestAvailableLocale.
   return BestAvailableLocaleIgnoringDefault("Collator", locale);
-}
-
-/**
- * Returns the default caseFirst values for the given locale. The first
- * element in the returned array denotes the default value per ES2017 Intl,
- * 9.1 Internal slots of Service Constructors.
- */
-function collatorSortCaseFirst(locale) {
-  var actualLocale = collatorActualLocale(locale);
-  if (intl_isUpperCaseFirst(actualLocale)) {
-    return ["upper", "false", "lower"];
-  }
-
-  // Default caseFirst values for all other languages.
-  return ["false", "lower", "upper"];
-}
-
-/**
- * Returns the default caseFirst value for the given locale.
- */
-function collatorSortCaseFirstDefault(locale) {
-  var actualLocale = collatorActualLocale(locale);
-  if (intl_isUpperCaseFirst(actualLocale)) {
-    return "upper";
-  }
-
-  // Default caseFirst value for all other languages.
-  return "false";
-}
-
-function collatorSortLocaleData() {
-  /* eslint-disable object-shorthand */
-  return {
-    co: intl_availableCollations,
-    kn: function() {
-      return ["false", "true"];
-    },
-    kf: collatorSortCaseFirst,
-    default: {
-      co: function() {
-        // The first element of the collations array must be |null|
-        // per ES2017 Intl, 10.2.3 Internal Slots.
-        return null;
-      },
-      kn: function() {
-        return "false";
-      },
-      kf: collatorSortCaseFirstDefault,
-    },
-  };
-  /* eslint-enable object-shorthand */
-}
-
-function collatorSearchLocaleData() {
-  /* eslint-disable object-shorthand */
-  return {
-    co: function() {
-      return [null];
-    },
-    kn: function() {
-      return ["false", "true"];
-    },
-    kf: function() {
-      return ["false", "lower", "upper"];
-    },
-    default: {
-      co: function() {
-        return null;
-      },
-      kn: function() {
-        return "false";
-      },
-      kf: function() {
-        return "false";
-      },
-    },
-  };
-  /* eslint-enable object-shorthand */
 }
 
 /**

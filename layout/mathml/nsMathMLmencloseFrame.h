@@ -4,8 +4,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef nsMathMLmencloseFrame_h___
-#define nsMathMLmencloseFrame_h___
+#ifndef nsMathMLmencloseFrame_h_
+#define nsMathMLmencloseFrame_h_
 
 #include "mozilla/EnumSet.h"
 #include "nsMathMLChar.h"
@@ -100,4 +100,4 @@ class nsMathMLmencloseFrame : public nsMathMLContainerFrame {
                        nscoord aThickness, nsMencloseNotation aType);
 };
 
-#endif /* nsMathMLmencloseFrame_h___ */
+#endif /* nsMathMLmencloseFrame_h_ */

@@ -177,3 +177,49 @@ add_task(
     return cleanup();
   }
 );
+
+add_task(async function test_dom_extractor_inline_batching() {
+  const { actor, cleanup } = await html`
+    <div>This is a simple section.</div>
+    <div>
+      <a href="http://example.com">This entire</a>
+      section continues in a
+      <b>batch</b>.
+    </div>
+  `;
+
+  is(
+    await actor.getText(),
+    [
+      "This is a simple section.",
+      "This entire section continues in a batch.",
+    ].join("\n"),
+    "Inline content is grouped within block elements."
+  );
+
+  return cleanup();
+});
+
+add_task(async function test_dom_extractor_inline_block_styling() {
+  const { actor, cleanup } = await html`
+    Bare text is sent in a batch.
+    <span>Inline text at the root is sent in a <b>batch</b>.</span>
+    <div>
+      <span style="display: block">Display "block"</span>
+      overrides the inline designation.
+    </div>
+  `;
+
+  is(
+    await actor.getText(),
+    [
+      "Bare text is sent in a batch.",
+      "Inline text at the root is sent in a batch.",
+      'Display "block"',
+      "overrides the inline designation.",
+    ].join("\n"),
+    "Inline and block styling are extracted as separate blocks."
+  );
+
+  return cleanup();
+});

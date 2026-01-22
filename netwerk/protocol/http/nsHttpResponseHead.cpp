@@ -499,8 +499,7 @@ nsresult nsHttpResponseHead::ParseHeaderLine_locked(
     }
 
   } else if (hdr == nsHttp::Content_Type) {
-    if (StaticPrefs::network_standard_content_type_parsing_response_headers() &&
-        CMimeType::Parse(val, mContentType, mContentCharset)) {
+    if (CMimeType::Parse(val, mContentType, mContentCharset)) {
     } else {
       bool dummy;
       net_ParseContentType(val, mContentType, mContentCharset, &dummy);

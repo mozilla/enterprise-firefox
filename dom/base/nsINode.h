@@ -4,8 +4,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef nsINode_h___
-#define nsINode_h___
+#ifndef nsINode_h_
+#define nsINode_h_
 
 #include <iosfwd>
 
@@ -118,6 +118,7 @@ struct DOMPointInit;
 struct GetRootNodeOptions;
 enum class AllowRangeCrossShadowBoundary : bool;  // defined in AbstractRange.h
 enum class CallerType : uint32_t;
+struct AriaNotificationOptions;
 }  // namespace dom
 }  // namespace mozilla
 
@@ -2279,7 +2280,7 @@ class nsINode : public mozilla::dom::EventTarget {
     ClearBoolFlag(ElementCreatedFromPrototypeAndHasUnmodifiedL10n);
   }
 
-  mozilla::dom::ShadowRoot* GetShadowRoot() const;
+  inline mozilla::dom::ShadowRoot* GetShadowRoot() const;
 
   // Return the shadow root of the node if it is a shadow host and
   // it meets the requirements for being a shadow host of a selection.
@@ -2631,7 +2632,7 @@ class nsINode : public mozilla::dom::EventTarget {
   }
 #define TOUCH_EVENT EVENT
 #define DOCUMENT_ONLY_EVENT EVENT
-#include "mozilla/EventNameList.h"
+#include "mozilla/EventNameList.inc"
 #undef DOCUMENT_ONLY_EVENT
 #undef TOUCH_EVENT
 #undef EVENT
@@ -2639,6 +2640,9 @@ class nsINode : public mozilla::dom::EventTarget {
   NodeSelectorFlags GetSelectorFlags() const {
     return static_cast<NodeSelectorFlags>(mSelectorFlags.Get());
   }
+
+  void AriaNotify(const nsAString& aAnnouncement,
+                  const mozilla::dom::AriaNotificationOptions& aOptions);
 
  protected:
   static bool Traverse(nsINode* tmp, nsCycleCollectionTraversalCallback& cb);
@@ -2790,4 +2794,4 @@ inline nsISupports* ToSupports(nsINode* aPointer) { return aPointer; }
 #define NS_IMPL_FROMNODE_HTML_WITH_TAG(_class, _tag) \
   NS_IMPL_FROMNODE_WITH_TAG(_class, kNameSpaceID_XHTML, _tag)
 
-#endif /* nsINode_h___ */
+#endif /* nsINode_h_ */

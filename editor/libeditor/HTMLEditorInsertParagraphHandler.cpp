@@ -49,9 +49,8 @@ namespace mozilla {
 using namespace dom;
 using EmptyCheckOption = HTMLEditUtils::EmptyCheckOption;
 using EmptyCheckOptions = HTMLEditUtils::EmptyCheckOptions;
-using LeafNodeType = HTMLEditUtils::LeafNodeType;
-using LeafNodeTypes = HTMLEditUtils::LeafNodeTypes;
-using WalkTreeOption = HTMLEditUtils::WalkTreeOption;
+using LeafNodeOption = HTMLEditUtils::LeafNodeOption;
+using LeafNodeOptions = HTMLEditUtils::LeafNodeOptions;
 
 Result<EditActionResult, nsresult>
 HTMLEditor::InsertParagraphSeparatorAsSubAction(const Element& aEditingHost) {
@@ -1060,7 +1059,9 @@ nsresult HTMLEditor::AutoInsertParagraphHandler::
   if (!backwardScanFromPointToCreateNewBRElementResult
            .InVisibleOrCollapsibleCharacters() &&
       !backwardScanFromPointToCreateNewBRElementResult
-           .ReachedSpecialContent()) {
+           .ReachedSpecialContent() &&
+      !backwardScanFromPointToCreateNewBRElementResult
+           .ReachedEmptyInlineContainerElement()) {
     return NS_SUCCESS_DOM_NO_OPERATION;
   }
   const WSScanResult forwardScanFromPointAfterNewBRElementResult =
@@ -1075,6 +1076,8 @@ nsresult HTMLEditor::AutoInsertParagraphHandler::
   if (!forwardScanFromPointAfterNewBRElementResult
            .InVisibleOrCollapsibleCharacters() &&
       !forwardScanFromPointAfterNewBRElementResult.ReachedSpecialContent() &&
+      !forwardScanFromPointAfterNewBRElementResult
+           .ReachedEmptyInlineContainerElement() &&
       // In case we're at the very end.
       !forwardScanFromPointAfterNewBRElementResult
            .ReachedCurrentBlockBoundary()) {
@@ -1216,7 +1219,8 @@ bool HTMLEditor::AutoInsertParagraphHandler::ShouldCreateNewParagraph(
       const auto* const precedingBRElement =
           HTMLBRElement::FromNodeOrNull(HTMLEditUtils::GetPreviousSibling(
               *aPointToSplit.ContainerAs<Text>(),
-              {WalkTreeOption::IgnoreNonEditableNode}));
+              {LeafNodeOption::IgnoreNonEditableNode},
+              BlockInlineCheck::UseComputedDisplayOutsideStyle));
       return !IsNullOrInvisibleBRElementOrPaddingOneForEmptyLastLine(
           precedingBRElement);
     }
@@ -1228,7 +1232,8 @@ bool HTMLEditor::AutoInsertParagraphHandler::ShouldCreateNewParagraph(
       const auto* const followingBRElement =
           HTMLBRElement::FromNodeOrNull(HTMLEditUtils::GetNextSibling(
               *aPointToSplit.ContainerAs<Text>(),
-              {WalkTreeOption::IgnoreNonEditableNode}));
+              {LeafNodeOption::IgnoreNonEditableNode},
+              BlockInlineCheck::UseComputedDisplayOutsideStyle));
       return !IsNullOrInvisibleBRElementOrPaddingOneForEmptyLastLine(
           followingBRElement);
     }
@@ -1246,9 +1251,9 @@ bool HTMLEditor::AutoInsertParagraphHandler::ShouldCreateNewParagraph(
   //     moving to the caret, but I think that this could be handled in fewer
   //     cases than this.
   const auto* const precedingBRElement =
-      HTMLBRElement::FromNodeOrNull(HTMLEditUtils::GetPreviousContent(
-          aPointToSplit, {WalkTreeOption::IgnoreNonEditableNode},
-          BlockInlineCheck::Unused, &mEditingHost));
+      HTMLBRElement::FromNodeOrNull(HTMLEditUtils::GetPreviousLeafContent(
+          aPointToSplit, {LeafNodeOption::IgnoreNonEditableNode},
+          BlockInlineCheck::Auto, &mEditingHost));
   if (!IsNullOrInvisibleBRElementOrPaddingOneForEmptyLastLine(
           precedingBRElement)) {
     return true;
@@ -1257,9 +1262,9 @@ bool HTMLEditor::AutoInsertParagraphHandler::ShouldCreateNewParagraph(
   // followed by a <br> or followed by an invisible <br>, we should not create a
   // new paragraph.
   const auto* followingBRElement =
-      HTMLBRElement::FromNodeOrNull(HTMLEditUtils::GetNextContent(
-          aPointToSplit, {WalkTreeOption::IgnoreNonEditableNode},
-          BlockInlineCheck::Unused, &mEditingHost));
+      HTMLBRElement::FromNodeOrNull(HTMLEditUtils::GetNextLeafContent(
+          aPointToSplit, {LeafNodeOption::IgnoreNonEditableNode},
+          BlockInlineCheck::Auto, &mEditingHost));
   return !IsNullOrInvisibleBRElementOrPaddingOneForEmptyLastLine(
       followingBRElement);
 }
@@ -1749,7 +1754,7 @@ HTMLEditor::AutoInsertParagraphHandler::SplitParagraphWithTransaction(
 
   // Let's put caret at start of the first leaf container.
   nsIContent* child = HTMLEditUtils::GetFirstLeafContent(
-      *rightDivOrParagraphElement, {LeafNodeType::LeafNodeOrChildBlock},
+      *rightDivOrParagraphElement, {LeafNodeOption::TreatChildBlockAsLeafNode},
       BlockInlineCheck::UseComputedDisplayStyle);
   if (MOZ_UNLIKELY(!child)) {
     return SplitNodeResult(std::move(splitDivOrPResult),
@@ -1830,8 +1835,9 @@ HTMLEditor::AutoInsertParagraphHandler::HandleInListItemElement(
     // If the given list item element is not the last list item element of
     // its parent nor not followed by sub list elements, split the parent
     // before it.
-    if (!HTMLEditUtils::IsLastChild(aListItemElement,
-                                    {WalkTreeOption::IgnoreNonEditableNode})) {
+    if (!HTMLEditUtils::IsLastChild(
+            aListItemElement, {LeafNodeOption::IgnoreNonEditableNode},
+            BlockInlineCheck::UseComputedDisplayOutsideStyle)) {
       Result<SplitNodeResult, nsresult> splitListItemParentResult =
           mHTMLEditor.SplitNodeWithTransaction(
               EditorDOMPoint(&aListItemElement));

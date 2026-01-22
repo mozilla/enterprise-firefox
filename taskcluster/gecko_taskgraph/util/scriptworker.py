@@ -15,6 +15,7 @@ happen on mozilla-beta and mozilla-release.
 
 Additional configuration is found in the :ref:`graph config <taskgraph-graph-config>`.
 """
+
 import functools
 import itertools
 import json
@@ -487,12 +488,10 @@ def get_release_config(config):
         "release-secondary-balrog-submit-toplevel",
     ):
         partial_updates = json.loads(partial_updates)
-        release_config["partial_versions"] = ", ".join(
-            [
-                "{}build{}".format(v, info["buildNumber"])
-                for v, info in partial_updates.items()
-            ]
-        )
+        release_config["partial_versions"] = ", ".join([
+            "{}build{}".format(v, info["buildNumber"])
+            for v, info in partial_updates.items()
+        ])
         if release_config["partial_versions"] == "{}":
             del release_config["partial_versions"]
 
@@ -508,7 +507,11 @@ def get_signing_type_per_platform(build_platform, is_shippable, config):
     if "devedition" in build_platform:
         return get_devedition_signing_type(config)
     if "enterprise" in build_platform:
-        if is_shippable and "enterprise-main" in config.params["head_ref"] and int(config.params["level"]) == 3:
+        if (
+            is_shippable
+            and "enterprise-main" in config.params["head_ref"]
+            and int(config.params["level"]) == 3
+        ):
             return get_enterprise_main_signing_type(config)
         else:
             return get_enterprise_try_signing_type(config)
@@ -628,14 +631,12 @@ def generate_beetmover_upstream_artifacts(
         if not paths:
             continue
 
-        upstream_artifacts.append(
-            {
-                "taskId": {"task-reference": f"<{dep}>"},
-                "taskType": map_config["tasktype_map"].get(dep),
-                "paths": sorted(paths),
-                "locale": current_locale,
-            }
-        )
+        upstream_artifacts.append({
+            "taskId": {"task-reference": f"<{dep}>"},
+            "taskType": map_config["tasktype_map"].get(dep),
+            "paths": sorted(paths),
+            "locale": current_locale,
+        })
 
     upstream_artifacts.sort(key=lambda u: u["paths"])
     return upstream_artifacts
@@ -721,7 +722,7 @@ def generate_beetmover_artifact_map(config, job, **kwargs):
     else:
         locales = map_config["default_locales"]
 
-    resolve_keyed_by(map_config, "s3_bucket_paths", job["label"], platform=platform)
+    resolve_keyed_by(map_config, "bucket_paths", job["label"], platform=platform)
 
     for locale, dep in sorted(itertools.product(locales, dependencies)):
         paths = dict()
@@ -776,14 +777,14 @@ def generate_beetmover_artifact_map(config, job, **kwargs):
             # This format string should ideally be in the configuration file,
             # but this would mean keeping variable names in sync between code + config.
             destinations = [
-                "{s3_bucket_path}/{dest_path}/{locale_prefix}{filename}".format(
-                    s3_bucket_path=bucket_path,
+                "{bucket_path}/{dest_path}/{locale_prefix}{filename}".format(
+                    bucket_path=bucket_path,
                     dest_path=dest_path,
                     locale_prefix=file_config["locale_prefix"],
                     filename=file_config.get("pretty_name", filename),
                 )
                 for dest_path, bucket_path in itertools.product(
-                    file_config["destinations"], map_config["s3_bucket_paths"]
+                    file_config["destinations"], map_config["bucket_paths"]
                 )
             ]
             # Creating map entries
@@ -823,28 +824,24 @@ def generate_beetmover_artifact_map(config, job, **kwargs):
 
         upload_date = datetime.fromtimestamp(config.params["build_date"])
 
-        kwargs.update(
-            {
-                "locale": locale,
-                "version": config.params["version"],
-                "branch": config.params["project"],
-                "build_number": config.params["build_number"],
-                "year": upload_date.year,
-                "month": upload_date.strftime("%m"),  # zero-pad the month
-                "day": upload_date.strftime("%d"),
-                "upload_date": upload_date.strftime("%Y-%m-%d-%H-%M-%S"),
-                "head_rev": config.params["head_rev"],
-            }
-        )
+        kwargs.update({
+            "locale": locale,
+            "version": config.params["version"],
+            "branch": config.params["project"],
+            "build_number": config.params["build_number"],
+            "year": upload_date.year,
+            "month": upload_date.strftime("%m"),  # zero-pad the month
+            "day": upload_date.strftime("%d"),
+            "upload_date": upload_date.strftime("%Y-%m-%d-%H-%M-%S"),
+            "head_rev": config.params["head_rev"],
+        })
         kwargs.update(**platforms)
         paths = jsone.render(paths, kwargs)
-        artifacts.append(
-            {
-                "taskId": {"task-reference": f"<{dep}>"},
-                "locale": locale,
-                "paths": paths,
-            }
-        )
+        artifacts.append({
+            "taskId": {"task-reference": f"<{dep}>"},
+            "locale": locale,
+            "paths": paths,
+        })
 
     return artifacts
 
@@ -890,9 +887,7 @@ def generate_beetmover_partials_artifact_map(config, job, partials_info, **kwarg
     else:
         locales = map_config["default_locales"]
 
-    resolve_keyed_by(
-        map_config, "s3_bucket_paths", "s3_bucket_paths", platform=platform
-    )
+    resolve_keyed_by(map_config, "bucket_paths", "bucket_paths", platform=platform)
 
     platforms = deepcopy(map_config.get("platform_names", {}))
     if platform:
@@ -931,14 +926,14 @@ def generate_beetmover_partials_artifact_map(config, job, partials_info, **kwarg
             # This format string should ideally be in the configuration file,
             # but this would mean keeping variable names in sync between code + config.
             destinations = [
-                "{s3_bucket_path}/{dest_path}/{locale_prefix}{filename}".format(
-                    s3_bucket_path=bucket_path,
+                "{bucket_path}/{dest_path}/{locale_prefix}{filename}".format(
+                    bucket_path=bucket_path,
                     dest_path=dest_path,
                     locale_prefix=file_config["locale_prefix"],
                     filename=file_config.get("pretty_name", filename),
                 )
                 for dest_path, bucket_path in itertools.product(
-                    file_config["destinations"], map_config["s3_bucket_paths"]
+                    file_config["destinations"], map_config["bucket_paths"]
                 )
             ]
             # Creating map entries
@@ -977,34 +972,30 @@ def generate_beetmover_partials_artifact_map(config, job, partials_info, **kwarg
                     }
 
                 # render buildid
-                kwargs.update(
-                    {
-                        "partial": pname,
-                        "from_buildid": info["buildid"],
-                        "previous_version": info.get("previousVersion"),
-                        "buildid": str(config.params["moz_build_date"]),
-                        "locale": locale,
-                        "version": config.params["version"],
-                        "branch": config.params["project"],
-                        "build_number": config.params["build_number"],
-                        "year": upload_date.year,
-                        "month": upload_date.strftime("%m"),  # zero-pad the month
-                        "upload_date": upload_date.strftime("%Y-%m-%d-%H-%M-%S"),
-                    }
-                )
+                kwargs.update({
+                    "partial": pname,
+                    "from_buildid": info["buildid"],
+                    "previous_version": info.get("previousVersion"),
+                    "buildid": str(config.params["moz_build_date"]),
+                    "locale": locale,
+                    "version": config.params["version"],
+                    "branch": config.params["project"],
+                    "build_number": config.params["build_number"],
+                    "year": upload_date.year,
+                    "month": upload_date.strftime("%m"),  # zero-pad the month
+                    "upload_date": upload_date.strftime("%Y-%m-%d-%H-%M-%S"),
+                })
                 kwargs.update(**platforms)
                 paths.update(jsone.render(partials_paths, kwargs))
 
         if not paths:
             continue
 
-        artifacts.append(
-            {
-                "taskId": {"task-reference": f"<{dep}>"},
-                "locale": locale,
-                "paths": paths,
-            }
-        )
+        artifacts.append({
+            "taskId": {"task-reference": f"<{dep}>"},
+            "locale": locale,
+            "paths": paths,
+        })
 
     artifacts.sort(key=lambda a: sorted(a["paths"].items()))
     return artifacts

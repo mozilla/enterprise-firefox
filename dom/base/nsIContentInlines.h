@@ -48,14 +48,6 @@ inline void nsIContent::SetPrimaryFrame(nsIFrame* aFrame) {
   mPrimaryFrame = aFrame;
 }
 
-inline mozilla::dom::ShadowRoot* nsIContent::GetShadowRoot() const {
-  if (!IsElement()) {
-    return nullptr;
-  }
-
-  return AsElement()->GetShadowRoot();
-}
-
 template <nsINode::FlattenedParentType aType>
 static inline nsINode* GetFlattenedTreeParentNode(const nsINode* aNode) {
   if (!aNode->IsContent()) {
@@ -251,8 +243,7 @@ inline void nsIContent::HandleShadowDOMRelatedInsertionSteps(bool aHadParent) {
   }
 }
 
-inline void nsIContent::HandleShadowDOMRelatedRemovalSteps(bool aNullParent,
-                                                           bool aInBatch) {
+inline void nsIContent::HandleShadowDOMRelatedRemovalSteps(bool aNullParent) {
   using mozilla::dom::Element;
   using mozilla::dom::ShadowRoot;
 
@@ -262,7 +253,7 @@ inline void nsIContent::HandleShadowDOMRelatedRemovalSteps(bool aNullParent,
     // (with already disconnected anonymous content subtrees).
     if (Element* parentElement = Element::FromNodeOrNull(mParent)) {
       if (ShadowRoot* shadow = parentElement->GetShadowRoot()) {
-        shadow->MaybeUnslotHostChild(*this, aInBatch);
+        shadow->MaybeUnslotHostChild(*this);
       }
       HandleInsertionToOrRemovalFromSlot();
     }

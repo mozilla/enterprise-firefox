@@ -19,7 +19,9 @@ import androidx.annotation.UiThread
 import androidx.annotation.VisibleForTesting
 import androidx.appcompat.app.AppCompatDialogFragment
 import androidx.biometric.BiometricManager
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -31,6 +33,7 @@ import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.map
 import mozilla.appservices.places.BookmarkRoot
 import mozilla.components.browser.state.selector.normalTabs
 import mozilla.components.browser.state.selector.privateTabs
@@ -39,7 +42,6 @@ import mozilla.components.concept.base.crash.Breadcrumb
 import mozilla.components.feature.accounts.push.CloseTabsUseCases
 import mozilla.components.feature.downloads.ui.DownloadCancelDialogFragment
 import mozilla.components.feature.tabs.tabstray.TabsFeature
-import mozilla.components.lib.state.ext.observeAsState
 import mozilla.components.lib.state.helpers.StoreProvider.Companion.storeProvider
 import mozilla.components.support.base.feature.ViewBoundFeatureWrapper
 import mozilla.components.support.ktx.android.util.AndroidDisplayUnitConverter
@@ -190,9 +192,9 @@ class TabsTrayFragment : AppCompatDialogFragment() {
         tabsTrayComposeBinding.root
             .setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
         tabsTrayComposeBinding.root.setContent {
-            val isPbmLocked by requireComponents.appStore.observeAsState(
-                initialValue = requireComponents.appStore.state.isPrivateScreenLocked,
-            ) { it.isPrivateScreenLocked }
+            val isPbmLocked by remember {
+                requireComponents.appStore.stateFlow.map { it.isPrivateScreenLocked }
+            }.collectAsState(initial = requireComponents.appStore.state.isPrivateScreenLocked)
 
             FirefoxTheme(theme = Theme.getTheme(allowPrivateTheme = false)) {
                 TabsTray(
@@ -338,9 +340,9 @@ class TabsTrayFragment : AppCompatDialogFragment() {
         fabButtonComposeBinding.root
             .setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
         fabButtonComposeBinding.root.setContent {
-            val isPbmLocked by requireComponents.appStore.observeAsState(
-                initialValue = requireComponents.appStore.state.isPrivateScreenLocked,
-            ) { it.isPrivateScreenLocked }
+            val isPbmLocked by remember {
+                requireComponents.appStore.stateFlow.map { it.isPrivateScreenLocked }
+            }.collectAsState(initial = requireComponents.appStore.state.isPrivateScreenLocked)
 
             FirefoxTheme(theme = Theme.getTheme(allowPrivateTheme = false)) {
                 TabsTrayFab(
@@ -411,6 +413,7 @@ class TabsTrayFragment : AppCompatDialogFragment() {
             fenixBrowserUseCases = requireComponents.useCases.fenixBrowserUseCases,
             closeSyncedTabsUseCases = requireComponents.useCases.closeSyncedTabsUseCases,
             bookmarksStorage = requireComponents.core.bookmarksStorage,
+            mainDispatcher = Dispatchers.Main,
             ioDispatcher = Dispatchers.IO,
             collectionStorage = requireComponents.core.tabCollectionStorage,
             dismissTray = ::dismissTabsTray,

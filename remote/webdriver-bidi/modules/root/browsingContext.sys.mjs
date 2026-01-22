@@ -144,7 +144,7 @@ const TIMEOUT_WAIT_FOR_VISIBILITY = 250;
  * @readonly
  * @enum {UserPromptType}
  */
-const UserPromptType = {
+export const UserPromptType = {
   alert: "alert",
   confirm: "confirm",
   prompt: "prompt",
@@ -2204,15 +2204,18 @@ class BrowsingContextModule extends RootBiDiModule {
 
   #onPromptClosed = (eventName, data) => {
     if (this.#subscribedEvents.has("browsingContext.userPromptClosed")) {
-      const { contentBrowser, detail } = data;
-      const navigableId = lazy.NavigableManager.getIdForBrowser(contentBrowser);
+      const { detail } = data;
+      const { browsingContext } = detail;
+      const navigableId = lazy.NavigableManager.getIdForBrowsingContext(
+        detail.browsingContext
+      );
 
       if (navigableId === null) {
         return;
       }
 
       lazy.logger.trace(
-        `[${contentBrowser.browsingContext.id}] Prompt closed (type: "${
+        `[${browsingContext.id}] Prompt closed (type: "${
           detail.promptType
         }", accepted: "${detail.accepted}")`
       );
@@ -2225,7 +2228,7 @@ class BrowsingContextModule extends RootBiDiModule {
       };
 
       this.#emitContextEventForBrowsingContext(
-        contentBrowser.browsingContext.id,
+        browsingContext.id,
         "browsingContext.userPromptClosed",
         params
       );
@@ -2234,7 +2237,7 @@ class BrowsingContextModule extends RootBiDiModule {
 
   #onPromptOpened = async (eventName, data) => {
     if (this.#subscribedEvents.has("browsingContext.userPromptOpened")) {
-      const { contentBrowser, prompt } = data;
+      const { browsingContext, prompt, promptDetails } = data;
       const type = prompt.promptType;
 
       prompt.getText().then(text => {
@@ -2242,8 +2245,8 @@ class BrowsingContextModule extends RootBiDiModule {
         // randomly opened. Because on Android the text is asynchronously
         // retrieved lets delay the logging without making the handler async.
         lazy.logger.trace(
-          `[${contentBrowser.browsingContext.id}] Prompt opened (type: "${
-            prompt.promptType
+          `[${browsingContext.id}] Prompt opened (type: "${
+            type
           }", text: "${text}")`
         );
       });
@@ -2254,26 +2257,30 @@ class BrowsingContextModule extends RootBiDiModule {
         return;
       }
 
-      const navigableId = lazy.NavigableManager.getIdForBrowser(contentBrowser);
+      const navigableId =
+        lazy.NavigableManager.getIdForBrowsingContext(browsingContext);
 
       const session = lazy.getWebDriverSessionById(
         this.messageHandler.sessionId
       );
-      const handlerConfig = session.userPromptHandler.getPromptHandler(type);
+      const handlerConfig = session.userPromptHandler.getPromptHandler(
+        type == "beforeunload" ? "beforeUnload" : type
+      );
+      const { defaultValue, message } = promptDetails;
 
       const eventPayload = {
         context: navigableId,
         handler: handlerConfig.handler,
-        message: await prompt.getText(),
+        message,
         type,
       };
 
-      if (type === "prompt") {
-        eventPayload.defaultValue = await prompt.getInputText();
+      if (defaultValue !== null) {
+        eventPayload.defaultValue = defaultValue;
       }
 
       this.#emitContextEventForBrowsingContext(
-        contentBrowser.browsingContext.id,
+        browsingContext.id,
         "browsingContext.userPromptOpened",
         eventPayload
       );
@@ -2615,11 +2622,14 @@ export const getBrowsingContextInfo = (context, options = {}) => {
     );
   }
 
-  const userContext = lazy.UserContextManager.getIdByBrowsingContext(context);
+  const chromeWindow =
+    lazy.windowManager.getChromeWindowForBrowsingContext(context);
   const originalOpener =
     context.crossGroupOpener !== null
       ? lazy.NavigableManager.getIdForBrowsingContext(context.crossGroupOpener)
       : null;
+  const userContext = lazy.UserContextManager.getIdByBrowsingContext(context);
+
   const contextInfo = {
     children,
     context: lazy.NavigableManager.getIdForBrowsingContext(context),
@@ -2630,7 +2640,7 @@ export const getBrowsingContextInfo = (context, options = {}) => {
     originalOpener: originalOpener === undefined ? null : originalOpener,
     url: context.currentURI.spec,
     userContext,
-    clientWindow: lazy.windowManager.getIdForBrowsingContext(context),
+    clientWindow: lazy.windowManager.getIdForWindow(chromeWindow),
   };
 
   if (includeParentId) {

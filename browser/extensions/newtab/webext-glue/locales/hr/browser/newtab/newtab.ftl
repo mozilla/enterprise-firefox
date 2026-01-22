@@ -221,7 +221,7 @@ newtab-section-menu-add-topsite = Dodaj najbolju stranicu
 newtab-section-menu-add-search-engine = Dodaj tražilicu
 newtab-section-menu-move-up = Pomakni gore
 newtab-section-menu-move-down = Pomakni dolje
-newtab-section-menu-privacy-notice = Napomena o privatnosti
+newtab-section-menu-privacy-notice = Napomene o privatnosti
 
 ## Section aria-labels
 
@@ -243,7 +243,7 @@ newtab-section-header-todays-picks = Današnji preporučeni članci za tebe
 
 ## Empty Section States: These show when there are no more items in a section. Ex. When there are no more Pocket story recommendations, in the space where there would have been stories, this is shown instead.
 
-newtab-empty-section-highlights = Započni pregledavanje i pokazat ćemo ti neke od izvrsnih članaka, videa i drugih web stranica prema tvojim nedavno posjećenim stranicama ili zabilješkama.
+newtab-empty-section-highlights = Započni pregledavanje i pokazat ćemo ti neke izvrsne članke, videa i druge stranice koje si nedavno posjetio/la ili zabilježio/la.
 # Ex. When there are no more Pocket story recommendations, in the space where there would have been stories, this is shown instead.
 # Variables:
 #   $provider (string) - Name of the content provider for this section, e.g "Pocket".
@@ -330,13 +330,8 @@ newtab-custom-recent-subtitle = Izbor nedavno posjećenih stranica i sadržaja
 newtab-custom-weather-toggle =
     .label = Vrijeme
     .description = Današnja prognoza
-newtab-custom-trending-search-toggle =
-    .label = Popularne pretrage
-    .description = Popularne i često tražene teme
 newtab-custom-widget-weather-toggle =
     .label = Vrijeme
-newtab-custom-widget-trending-search-toggle =
-    .label = Popularne pretrage
 newtab-custom-widget-lists-toggle =
     .label = Popisi
 newtab-custom-widget-timer-toggle =
@@ -597,7 +592,7 @@ newtab-download-mobile-highlight-image =
 newtab-shortcuts-highlight-title = Vaši favoriti na dohvat ruke
 newtab-shortcuts-highlight-subtitle = Dodajte prečac kako biste svoje omiljene stranice imali nadohvat ruke.
 
-## Strings for reporting ads and content
+## Strings for reporting issues with ads and content
 
 newtab-report-content-why-reporting-this =
     .label = Zašto ovo prijavljuješ?
@@ -619,17 +614,6 @@ newtab-report-cancel = Odustani
 newtab-report-submit = Pošalji
 newtab-toast-thanks-for-reporting =
     .message = Hvala na prijavi!
-
-## Strings for trending searches
-
-newtab-trending-searches-show-trending =
-    .title = Prikaži popularne pretrage
-newtab-trending-searches-hide-trending =
-    .title = Sakrij popularne pretrage
-newtab-trending-searches-learn-more = Saznaj više
-newtab-trending-searches-dismiss = Sakrij popularne pretrage
-# "Trending searches refers to popular searches from search engines
-newtab-trending-searches-title = Popularne pretrage
 
 ## Strings for task / to-do list productivity widget
 

@@ -886,7 +886,7 @@ void nsIFrame::Destroy(DestroyContext& aContext) {
   MaybeScheduleReflowSVGNonDisplayText(this);
 
   SVGObserverUtils::InvalidateDirectRenderingObservers(
-      this, SVGObserverUtils::INVALIDATE_DESTROY);
+      this, SVGObserverUtils::InvalidationFlag::FrameBeingDestroyed);
 
   const auto* disp = StyleDisplay();
   if (disp->mPosition == StylePositionProperty::Sticky) {
@@ -3406,6 +3406,7 @@ void nsIFrame::BuildDisplayListForStackingContext(
     // anyways).
     asrSetter.SetCurrentActiveScrolledRoot(nullptr);
   }
+  DisplayListClipState::AutoSaveRestore stickyItemClipState(aBuilder);
   if (useStickyPosition) {
     StickyScrollContainer* stickyScrollContainer =
         StickyScrollContainer::GetOrCreateForFrame(this);
@@ -3425,6 +3426,7 @@ void nsIFrame::BuildDisplayListForStackingContext(
       stickyASR = aBuilder->GetOrCreateActiveScrolledRootForSticky(
           aBuilder->CurrentActiveScrolledRoot(), this);
       asrSetter.SetCurrentActiveScrolledRoot(stickyASR);
+      stickyItemClipState.MaybeRemoveDisplayportClip();
     }
   }
 
@@ -3960,8 +3962,6 @@ void nsIFrame::BuildDisplayListForStackingContext(
     // that on the display item as the "container ASR" (i.e. the normal ASR of
     // the container item, excluding the special behaviour induced by fixed
     // descendants).
-    DisplayListClipState::AutoSaveRestore stickyItemClipState(aBuilder);
-    stickyItemClipState.MaybeRemoveDisplayportClip();
     const ActiveScrolledRoot* stickyItemASR = ActiveScrolledRoot::PickAncestor(
         containerItemASR, aBuilder->CurrentActiveScrolledRoot());
 
@@ -4339,12 +4339,12 @@ void nsIFrame::BuildDisplayListForChild(nsDisplayListBuilder* aBuilder,
       aBuilder->ClearWillChangeBudgetStatus(child);
     }
 
-    // If 'child' is a pushed float then it's owned by a block that's not an
-    // ancestor of the placeholder, and it will be painted by that block and
+    // If 'child' is a pushed out-of-flow then it's owned by a block that's not
+    // an ancestor of the placeholder, and it will be painted by that block and
     // should not be painted through the placeholder. Also recheck
     // NS_FRAME_TOO_DEEP_IN_FRAME_TREE and NS_FRAME_IS_NONDISPLAY.
     static const nsFrameState skipFlags =
-        (NS_FRAME_IS_PUSHED_FLOAT | NS_FRAME_TOO_DEEP_IN_FRAME_TREE |
+        (NS_FRAME_IS_PUSHED_OUT_OF_FLOW | NS_FRAME_TOO_DEEP_IN_FRAME_TREE |
          NS_FRAME_IS_NONDISPLAY);
     if (child->HasAnyStateBits(skipFlags) || nsLayoutUtils::IsPopup(child)) {
       return;
@@ -4393,13 +4393,6 @@ void nsIFrame::BuildDisplayListForChild(nsDisplayListBuilder* aBuilder,
     // it acts like inline-block or inline-table. Therefore it is a
     // pseudo-stacking-context.
     pseudoStackingContext = true;
-  }
-
-  const nsStyleDisplay* ourDisp = StyleDisplay();
-  // Don't paint our children if the theme object is a leaf.
-  if (IsThemed(ourDisp) && !PresContext()->Theme()->WidgetIsContainer(
-                               ourDisp->EffectiveAppearance())) {
-    return;
   }
 
   // Since we're now sure that we're adding this frame to the display list
@@ -7604,8 +7597,7 @@ void nsIFrame::DidReflow(nsPresContext* aPresContext,
     return;
   }
 
-  SVGObserverUtils::InvalidateDirectRenderingObservers(
-      this, SVGObserverUtils::INVALIDATE_REFLOW);
+  SVGObserverUtils::InvalidateDirectRenderingObservers(this);
 
   RemoveStateBits(NS_FRAME_IN_REFLOW | NS_FRAME_FIRST_REFLOW |
                   NS_FRAME_IS_DIRTY | NS_FRAME_HAS_DIRTY_CHILDREN);
@@ -8607,14 +8599,13 @@ OverflowAreas nsIFrame::GetOverflowAreasRelativeToParent() const {
 
 OverflowAreas nsIFrame::GetActualAndNormalOverflowAreasRelativeToParent()
     const {
-  const bool hasAnchorPosReference = HasAnchorPosReference();
-  if (MOZ_LIKELY(!IsRelativelyOrStickyPositioned() && !hasAnchorPosReference)) {
+  if (MOZ_LIKELY(!IsRelativelyOrStickyPositioned())) {
     return GetOverflowAreasRelativeToParent();
   }
 
   const OverflowAreas overflows = GetOverflowAreas();
   OverflowAreas actualAndNormalOverflows = overflows + GetNormalPosition();
-  if (IsRelativelyPositioned() || hasAnchorPosReference) {
+  if (IsRelativelyPositioned()) {
     actualAndNormalOverflows.UnionWith(overflows + GetPosition());
   } else {
     // For sticky positioned elements, we only use the normal position for the
@@ -11625,41 +11616,50 @@ Focusable nsIFrame::IsFocusable(IsFocusableFlags aFlags) {
  */
 bool nsIFrame::HasSignificantTerminalNewline() const { return false; }
 
-static StyleVerticalAlignKeyword ConvertSVGDominantBaselineToVerticalAlign(
+static StyleAlignmentBaseline ConvertSVGDominantBaselineToAlignmentBaseline(
     StyleDominantBaseline aDominantBaseline) {
   // Most of these are approximate mappings.
   switch (aDominantBaseline) {
     case StyleDominantBaseline::Hanging:
     case StyleDominantBaseline::TextBeforeEdge:
-      return StyleVerticalAlignKeyword::TextTop;
+      return StyleAlignmentBaseline::TextTop;
     case StyleDominantBaseline::TextAfterEdge:
     case StyleDominantBaseline::Ideographic:
-      return StyleVerticalAlignKeyword::TextBottom;
+      return StyleAlignmentBaseline::TextBottom;
     case StyleDominantBaseline::Central:
     case StyleDominantBaseline::Middle:
     case StyleDominantBaseline::Mathematical:
-      return StyleVerticalAlignKeyword::Middle;
+      return StyleAlignmentBaseline::Middle;
     case StyleDominantBaseline::Auto:
     case StyleDominantBaseline::Alphabetic:
-      return StyleVerticalAlignKeyword::Baseline;
+      return StyleAlignmentBaseline::Baseline;
     default:
       MOZ_ASSERT_UNREACHABLE("unexpected aDominantBaseline value");
-      return StyleVerticalAlignKeyword::Baseline;
+      return StyleAlignmentBaseline::Baseline;
   }
 }
 
-Maybe<StyleVerticalAlignKeyword> nsIFrame::VerticalAlignEnum() const {
+StyleAlignmentBaseline nsIFrame::AlignmentBaseline() const {
   if (IsInSVGTextSubtree()) {
+    // TODO Bug 2010721 - Implement alignment-baseline directly for SVG
+    // text elements instead of only approximating from dominant-baseline.
     StyleDominantBaseline dominantBaseline = StyleSVG()->mDominantBaseline;
-    return Some(ConvertSVGDominantBaselineToVerticalAlign(dominantBaseline));
+    return ConvertSVGDominantBaselineToAlignmentBaseline(dominantBaseline);
   }
 
-  const auto& verticalAlign = StyleDisplay()->mVerticalAlign;
-  if (verticalAlign.IsKeyword()) {
-    return Some(verticalAlign.AsKeyword());
+  return StyleDisplay()->mAlignmentBaseline;
+}
+
+const StyleBaselineShift& nsIFrame::BaselineShift() const {
+  if (IsInSVGTextSubtree()) {
+    // TODO Bug 2010713 - Implement baseline-shift directly for SVG
+    // text elements instead of always using a zero shift.
+    static StyleBaselineShift BASELINE_SHIFT_ZERO =
+        StyleBaselineShift::Length(LengthPercentage::Zero());
+    return BASELINE_SHIFT_ZERO;
   }
 
-  return Nothing();
+  return StyleDisplay()->mBaselineShift;
 }
 
 void nsIFrame::UpdateStyleOfChildAnonBox(nsIFrame* aChildFrame,

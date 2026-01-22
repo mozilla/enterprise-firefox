@@ -2,7 +2,6 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-import codecs
 import itertools
 import logging
 import os
@@ -17,6 +16,7 @@ sys.path.insert(0, os.path.join(base_dir, "python", "mozboot"))
 sys.path.insert(0, os.path.join(base_dir, "python", "mozbuild"))
 sys.path.insert(0, os.path.join(base_dir, "third_party", "python", "packaging"))
 sys.path.insert(0, os.path.join(base_dir, "testing", "mozbase", "mozfile"))
+sys.path.insert(0, os.path.join(base_dir, "testing", "mozbase", "mozshellutil"))
 sys.path.insert(0, os.path.join(base_dir, "third_party", "python", "six"))
 sys.path.insert(0, os.path.join(base_dir, "third_party", "python", "looseversion"))
 sys.path.insert(0, os.path.join(base_dir, "third_party", "python", "filelock"))
@@ -226,7 +226,7 @@ def config_status(config, execute=True):
     # Create config.status. Eventually, we'll want to just do the work it does
     # here, when we're able to skip configure tests/use cached results/not rely
     # on autoconf.
-    with codecs.open("config.status", "w", "utf-8") as fh:
+    with open("config.status", "w", encoding="utf-8") as fh:
         fh.write(
             textwrap.dedent(
                 """\
@@ -241,7 +241,7 @@ def config_status(config, execute=True):
             fh.write("%s = " % k)
             pprint.pprint(v, stream=fh, indent=4)
         fh.write(
-            "__all__ = ['topobjdir', 'topsrcdir', 'defines', " "'substs', 'mozconfig']"
+            "__all__ = ['topobjdir', 'topsrcdir', 'defines', 'substs', 'mozconfig']"
         )
 
         if execute:

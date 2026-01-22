@@ -1,8 +1,8 @@
 // Copyright 2022 the V8 project authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
-#ifndef jit_riscv64_constant_Base_constant_riscv__h_
-#define jit_riscv64_constant_Base_constant_riscv__h_
+#ifndef jit_riscv64_constant_Base_constant_riscv_h_
+#define jit_riscv64_constant_Base_constant_riscv_h_
 
 #include "mozilla/Assertions.h"
 
@@ -1064,4 +1064,4 @@ bool InstructionGetters<P>::IsTrap() const {
 
 }  // namespace jit
 }  // namespace js
-#endif  //  jit_riscv64_constant_Base_constant_riscv__h_
+#endif  //  jit_riscv64_constant_Base_constant_riscv_h_

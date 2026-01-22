@@ -4,8 +4,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef nsMathMLOperators_h___
-#define nsMathMLOperators_h___
+#ifndef nsMathMLOperators_h_
+#define nsMathMLOperators_h_
 
 #include <stdint.h>
 
@@ -176,4 +176,4 @@ class nsMathMLOperators {
   (NS_MATHML_OPERATOR_RSPACE_ATTR ==               \
    ((_flags) & NS_MATHML_OPERATOR_RSPACE_ATTR))
 
-#endif /* nsMathMLOperators_h___ */
+#endif /* nsMathMLOperators_h_ */

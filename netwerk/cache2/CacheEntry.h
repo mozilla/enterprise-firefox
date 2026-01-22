@@ -2,8 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef CacheEntry__h__
-#define CacheEntry__h__
+#ifndef CacheEntry_h_
+#define CacheEntry_h_
 
 #include "mozilla/LinkedList.h"
 #include "nsICacheEntry.h"

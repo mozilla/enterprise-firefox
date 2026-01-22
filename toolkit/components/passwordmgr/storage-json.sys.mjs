@@ -506,7 +506,7 @@ export class LoginManagerStorage_json {
    * fails due to a corrupt entry, the login is not included in
    * the resulting array.
    *
-   * @resolve {nsILoginInfo[]}
+   * @returns {Promise<nsILoginInfo[]>}
    */
   async getAllLogins(includeDeleted) {
     this._store.ensureDataReady();
@@ -1128,7 +1128,6 @@ export class LoginManagerStorage_json {
     }
     this.reencryptionInProgress = true;
     this._store.ensureDataReady();
-    Glean.pwmgr.migration.record({ value: "started" });
 
     const encryptedLogins = structuredClone(
       this._store.data.logins.filter(login => !this.loginIsDeleted(login.guid))
@@ -1147,18 +1146,10 @@ export class LoginManagerStorage_json {
       const decrypted = await this._crypto
         .decryptMany(encrypted)
         .catch(error => {
-          Glean.pwmgr.migration.record({
-            value: "decryptionError",
-            error: error.name,
-          });
           this.reencryptionInProgress = false;
           throw error;
         });
       encrypted = await this._crypto.encryptMany(decrypted).catch(error => {
-        Glean.pwmgr.migration.record({
-          value: "encryptionError",
-          error: error.name,
-        });
         this.reencryptionInProgress = false;
         throw error;
       });
@@ -1206,7 +1197,6 @@ export class LoginManagerStorage_json {
     if (this.addedLoginObserver) {
       Services.obs.removeObserver(this, "passwordmgr-crypto-login");
     }
-    Glean.pwmgr.migration.record({ value: "success" });
   }
 
   /**

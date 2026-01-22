@@ -41,10 +41,6 @@
 #  include "mozilla/WidgetUtilsGtk.h"
 #endif
 
-#if defined(MOZ_ENTERPRISE)
-#  include "mozilla/browser/extensions/felt/felt.h"
-#endif
-
 #include "nsAppDirectoryServiceDefs.h"
 #include "nsDirectoryServiceDefs.h"
 #include "nsNetCID.h"
@@ -274,8 +270,8 @@ nsToolkitProfile::nsToolkitProfile(const nsACString& aName, nsIFile* aRootDir,
 
     bool isRelative = false;
     nsCString descriptor;
-    nsToolkitProfileService::gService->GetProfileDescriptor(this, descriptor,
-                                                            &isRelative);
+    nsToolkitProfileService::gService->GetProfileDescriptor(this, &isRelative,
+                                                            descriptor);
 
     db->SetString(mSection.get(), "IsRelative", isRelative ? "1" : "0");
     db->SetString(mSection.get(), "Path", descriptor.get());
@@ -311,7 +307,7 @@ nsToolkitProfile::SetRootDir(nsIFile* aRootDir) {
   nsCString newPath;
   bool isRelative;
   rv = nsToolkitProfileService::gService->GetProfileDescriptor(
-      aRootDir, newPath, &isRelative);
+      aRootDir, &isRelative, newPath);
   NS_ENSURE_SUCCESS(rv, rv);
 
   nsCOMPtr<nsIFile> localDir;
@@ -835,7 +831,7 @@ nsresult nsToolkitProfileService::MaybeMakeDefaultDedicatedProfile(
   }
 
   nsCString descriptor;
-  rv = GetProfileDescriptor(aProfile, descriptor, nullptr);
+  rv = GetProfileDescriptor(aProfile, nullptr, descriptor);
   NS_ENSURE_SUCCESS(rv, rv);
 
   // Get a list of all the installs.
@@ -1159,7 +1155,7 @@ nsresult nsToolkitProfileService::Init() {
     // expected form again.
     bool nowRelative;
     nsCString descriptor;
-    GetProfileDescriptor(currentProfile, descriptor, &nowRelative);
+    GetProfileDescriptor(currentProfile, &nowRelative, descriptor);
 
     if (isRelative != nowRelative || !descriptor.Equals(filePath)) {
       mProfileDB.SetString(profileID.get(), "IsRelative",
@@ -1310,7 +1306,7 @@ nsToolkitProfileService::SetDefaultProfile(nsIToolkitProfile* aProfile) {
         mProfileDB.SetString(mInstallSection.get(), "Default", "");
       } else {
         nsCString profilePath;
-        nsresult rv = GetProfileDescriptor(profile, profilePath, nullptr);
+        nsresult rv = GetProfileDescriptor(profile, nullptr, profilePath);
         NS_ENSURE_SUCCESS(rv, rv);
 
         mProfileDB.SetString(mInstallSection.get(), "Default",
@@ -1338,13 +1334,14 @@ nsToolkitProfileService::SetDefaultProfile(nsIToolkitProfile* aProfile) {
 // Gets the profile root directory descriptor for storing in profiles.ini or
 // installs.ini.
 nsresult nsToolkitProfileService::GetProfileDescriptor(
-    nsToolkitProfile* aProfile, nsACString& aDescriptor, bool* aIsRelative) {
-  return GetProfileDescriptor(aProfile->mRootDir, aDescriptor, aIsRelative);
+    nsToolkitProfile* aProfile, bool* aIsRelative, nsACString& aDescriptor) {
+  return GetProfileDescriptor(aProfile->mRootDir, aIsRelative, aDescriptor);
 }
 
-nsresult nsToolkitProfileService::GetProfileDescriptor(nsIFile* aRootDir,
-                                                       nsACString& aDescriptor,
-                                                       bool* aIsRelative) {
+NS_IMETHODIMP
+nsToolkitProfileService::GetProfileDescriptor(nsIFile* aRootDir,
+                                              bool* aIsRelative,
+                                              nsACString& aDescriptor) {
   // if the profile dir is relative to appdir...
   bool isRelative;
   nsresult rv = mAppData->Contains(aRootDir, &isRelative);
@@ -1558,36 +1555,6 @@ nsresult nsToolkitProfileService::SelectStartupProfile(
     NS_IF_ADDREF(*aProfile = profile);
     return NS_OK;
   }
-
-#if defined(MOZ_ENTERPRISE)
-  auto forcedProfile = geckoargs::sProfile.IsPresent(gArgc, gArgv);
-  if (is_felt_ui() && !forcedProfile) {
-    nsCOMPtr<nsIFile> file;
-    MOZ_TRY(
-        GetSpecialSystemDirectory(OS_TemporaryDirectory, getter_AddRefs(file)));
-    MOZ_TRY(file->AppendNative("felt"_ns));
-
-    bool exists = false;
-    MOZ_TRY(file->Exists(&exists));
-
-    if (!exists) {
-      // Create a unique profile directory.  This can fail if there are too many
-      // (thousands) of existing directories, which is unlikely to happen.
-      MOZ_TRY(file->CreateUnique(nsIFile::DIRECTORY_TYPE, 0700));
-    }
-
-    nsCOMPtr<nsIFile> localDir = file;
-    file.forget(aRootDir);
-    localDir.forget(aLocalDir);
-    // Background tasks never use profiles known to the profile service.
-    *aProfile = nullptr;
-
-    // consume -profile
-    (void)geckoargs::sProfile.Get(gArgc, gArgv);
-
-    return NS_OK;
-  }
-#endif
 
   // Check the -profile command line argument. It accepts a single argument that
   // gives the path to use for the profile.
@@ -1814,7 +1781,7 @@ nsresult nsToolkitProfileService::SelectStartupProfile(
       nsCString descriptor;
 
       for (RefPtr<nsToolkitProfile> profile : mProfiles) {
-        GetProfileDescriptor(profile, descriptor, &isRelative);
+        GetProfileDescriptor(profile, &isRelative, descriptor);
 
         if (descriptor.Equals(defaultDescriptor)) {
           // Found the default profile. Copy the install section over to
@@ -2406,6 +2373,10 @@ nsresult WriteProfileInfo(nsIFile* profilesDBFile, nsIFile* installDBFile,
     rv = profilesIni.SetString(iniSection.get(), "Path",
                                profileInfo->mPath.get());
     NS_ENSURE_SUCCESS(rv, rv);
+
+    rv = profilesIni.SetString(iniSection.get(), "IsRelative",
+                               profileInfo->mIsRelative ? "1" : "0");
+    NS_ENSURE_SUCCESS(rv, rv);
     changed = true;
 
     // We must update the install default profile if it matches the old profile.
@@ -2477,8 +2448,7 @@ nsToolkitProfileService::AsyncFlushCurrentProfile(JSContext* aCx,
   profileData->mStoreID = mCurrent->mStoreID;
   profileData->mShowSelector = mCurrent->mShowProfileSelector;
 
-  bool isRelative;
-  GetProfileDescriptor(mCurrent, profileData->mPath, &isRelative);
+  GetProfileDescriptor(mCurrent, &profileData->mIsRelative, profileData->mPath);
 
   nsCOMPtr<nsIRemoteService> rs = GetRemoteService();
   RefPtr<nsRemoteService> remoteService =
@@ -2771,13 +2741,14 @@ nsToolkitProfileService::Flush() {
   return FlushData(profilesIniData, installsIniData);
 }
 
-nsresult nsToolkitProfileService::GetLocalDirFromRootDir(nsIFile* aRootDir,
-                                                         nsIFile** aResult) {
+NS_IMETHODIMP
+nsToolkitProfileService::GetLocalDirFromRootDir(nsIFile* aRootDir,
+                                                nsIFile** aResult) {
   NS_ASSERTION(nsToolkitProfileService::gService, "Where did my service go?");
   nsCString path;
   bool isRelative;
   nsresult rv = nsToolkitProfileService::gService->GetProfileDescriptor(
-      aRootDir, path, &isRelative);
+      aRootDir, &isRelative, path);
   NS_ENSURE_SUCCESS(rv, rv);
 
   nsCOMPtr<nsIFile> localDir;

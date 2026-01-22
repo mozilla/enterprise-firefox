@@ -509,15 +509,21 @@ var tests = [
         "undefined",
         "Check distribution isn't undefined."
       );
-      // distribution id defaults to "default" for most builds, and
-      // "mozilla-MSIX" for MSIX builds.
+      // distribution id defaults to "default" for most builds,
+      // "mozilla-MSIX" for MSIX builds, or MOZ_DISTRIBUTION_ID if set.
+      let expectedDefault = "default";
+      if (
+        AppConstants.platform === "win" &&
+        Services.sysinfo.getProperty("hasWinPackageId")
+      ) {
+        expectedDefault = "mozilla-MSIX";
+      } else if (Services.appinfo.distributionID) {
+        expectedDefault = Services.appinfo.distributionID;
+      }
       is(
         result.distribution,
-        AppConstants.platform === "win" &&
-          Services.sysinfo.getProperty("hasWinPackageId")
-          ? "mozilla-MSIX"
-          : "default",
-        'Should be "default" without preference set.'
+        expectedDefault,
+        "distribution has expected default value"
       );
 
       let defaults = Services.prefs.getDefaultBranch("distribution.");
@@ -600,8 +606,8 @@ var tests = [
     });
   },
   taskify(async function test_search() {
-    let defaultEngine = await Services.search.getDefault();
-    let visibleEngines = await Services.search.getVisibleEngines();
+    let defaultEngine = await SearchService.getDefault();
+    let visibleEngines = await SearchService.getVisibleEngines();
     let expectedEngines = visibleEngines
       .filter(engine => engine.isAppProvided)
       .map(engine => "searchEngine-" + engine.id);
@@ -637,7 +643,7 @@ var tests = [
         info("browser-search-engine-modified: " + verb);
         if (verb == "engine-default") {
           is(
-            Services.search.defaultEngine.id,
+            SearchService.defaultEngine.id,
             someOtherEngineID,
             "correct engine was switched to"
           );
@@ -646,7 +652,7 @@ var tests = [
       };
       Services.obs.addObserver(observe, "browser-search-engine-modified");
       registerCleanupFunction(async () => {
-        await Services.search.setDefault(
+        await SearchService.setDefault(
           defaultEngine,
           Ci.nsISearchService.CHANGE_REASON_UNKNOWN
         );
@@ -655,7 +661,7 @@ var tests = [
       gContentAPI.setDefaultSearchEngine(someOtherEngineID);
     });
 
-    let engine = Services.search.getEngineById(someOtherEngineID);
+    let engine = SearchService.getEngineById(someOtherEngineID);
 
     let submissionUrl = engine
       .getSubmission("dummy")

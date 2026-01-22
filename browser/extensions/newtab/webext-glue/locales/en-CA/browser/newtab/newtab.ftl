@@ -329,13 +329,8 @@ newtab-custom-recent-subtitle = A selection of recent sites and content
 newtab-custom-weather-toggle =
     .label = Weather
     .description = Today’s forecast at a glance
-newtab-custom-trending-search-toggle =
-    .label = Trending searches
-    .description = Popular and frequently searched topics
 newtab-custom-widget-weather-toggle =
     .label = Weather
-newtab-custom-widget-trending-search-toggle =
-    .label = Trending searches
 newtab-custom-widget-lists-toggle =
     .label = Lists
 newtab-custom-widget-timer-toggle =
@@ -596,7 +591,7 @@ newtab-download-mobile-highlight-image =
 newtab-shortcuts-highlight-title = Your favourites at your fingertips
 newtab-shortcuts-highlight-subtitle = Add a shortcut to keep your favourite sites one click away.
 
-## Strings for reporting ads and content
+## Strings for reporting issues with ads and content
 
 newtab-report-content-why-reporting-this =
     .label = Why are you reporting this?
@@ -614,21 +609,13 @@ newtab-report-content-inappropriate-offensive =
     .label = Inappropriate or offensive
 newtab-report-content-spam-misleading =
     .label = Spam or misleading
+newtab-report-content-requires-payment-subscription =
+    .label = Requires payment or subscription
+newtab-report-content-requires-payment-subscription-learn-more = Learn more
 newtab-report-cancel = Cancel
 newtab-report-submit = Submit
 newtab-toast-thanks-for-reporting =
     .message = Thank you for reporting this.
-
-## Strings for trending searches
-
-newtab-trending-searches-show-trending =
-    .title = Show trending searches
-newtab-trending-searches-hide-trending =
-    .title = Hide trending searches
-newtab-trending-searches-learn-more = Learn more
-newtab-trending-searches-dismiss = Hide trending searches
-# "Trending searches refers to popular searches from search engines
-newtab-trending-searches-title = Trending searches
 
 ## Strings for task / to-do list productivity widget
 

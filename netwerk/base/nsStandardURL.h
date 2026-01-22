@@ -3,8 +3,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef nsStandardURL_h__
-#define nsStandardURL_h__
+#ifndef nsStandardURL_h_
+#define nsStandardURL_h_
 
 #include <bitset>
 
@@ -618,4 +618,4 @@ inline nsDependentCSubstring nsStandardURL::Filename() {
 }  // namespace net
 }  // namespace mozilla
 
-#endif  // nsStandardURL_h__
+#endif  // nsStandardURL_h_

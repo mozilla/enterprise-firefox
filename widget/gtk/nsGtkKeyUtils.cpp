@@ -1426,7 +1426,7 @@ KeyNameIndex KeymapWrapper::ComputeDOMKeyNameIndex(
   case aNativeKey:                                                     \
     return aKeyNameIndex;
 
-#include "NativeKeyToDOMKeyName.h"
+#include "NativeKeyToDOMKeyName.inc"
 
 #undef NS_NATIVE_KEY_TO_DOM_KEY_NAME_INDEX
 
@@ -1445,7 +1445,7 @@ CodeNameIndex KeymapWrapper::ComputeDOMCodeNameIndex(
   case aNativeKey:                                                       \
     return aCodeNameIndex;
 
-#include "NativeKeyToDOMCodeName.h"
+#include "NativeKeyToDOMCodeName.inc"
 
 #undef NS_NATIVE_KEY_TO_DOM_CODE_NAME_INDEX
 
@@ -2221,7 +2221,7 @@ struct KeyCodeData {
 static struct KeyCodeData gKeyCodes[] = {
 #define NS_DEFINE_VK(aDOMKeyName, aDOMKeyCode) \
   {#aDOMKeyName, sizeof(#aDOMKeyName) - 1, aDOMKeyCode},
-#include "mozilla/VirtualKeyCodeList.h"
+#include "mozilla/VirtualKeyCodeList.inc"
 #undef NS_DEFINE_VK
     {nullptr, 0, 0}};
 

@@ -10,7 +10,7 @@ const { PromiseTestUtils } = ChromeUtils.importESModule(
   "resource://testing-common/PromiseTestUtils.sys.mjs"
 );
 
-const searchService = Services.search.wrappedJSObject;
+const searchService = SearchService.wrappedJSObject;
 
 add_setup(async function setup() {
   UrlbarPrefs.set("suggest.quickactions", false);

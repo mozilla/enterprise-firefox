@@ -18,10 +18,10 @@
 #include <string_view>
 #include <utility>
 
-#include "jsdate.h"
 #include "jstypes.h"
 #include "NamespaceImports.h"
 
+#include "builtin/Date.h"
 #include "builtin/intl/CommonFunctions.h"
 #include "builtin/intl/FormatBuffer.h"
 #include "builtin/intl/SharedIntlData.h"

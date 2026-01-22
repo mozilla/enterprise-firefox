@@ -3369,8 +3369,7 @@ RefPtr<ShutdownPromise> MediaDecoderStateMachine::ShutdownState::Enter() {
   // Disconnect canonicals and mirrors before shutting down our task queue.
   master->mStreamName.DisconnectIfConnected();
   master->mSinkDevice.DisconnectIfConnected();
-  master->mOutputCaptureState.DisconnectIfConnected();
-  master->mOutputDummyTrack.DisconnectIfConnected();
+  master->mOutputCaptureInfo.DisconnectIfConnected();
   master->mOutputTracks.DisconnectIfConnected();
   master->mOutputPrincipal.DisconnectIfConnected();
 
@@ -3409,8 +3408,9 @@ MediaDecoderStateMachine::MediaDecoderStateMachine(MediaDecoder* aDecoder,
       mTotalBufferingDuration(TimeDuration::Zero()),
       INIT_MIRROR(mStreamName, nsAutoString()),
       INIT_MIRROR(mSinkDevice, nullptr),
-      INIT_MIRROR(mOutputCaptureState, MediaDecoder::OutputCaptureState::None),
-      INIT_MIRROR(mOutputDummyTrack, nullptr),
+      INIT_MIRROR(mOutputCaptureInfo,
+                  MediaDecoder::OutputCaptureInfo(
+                      MediaDecoder::OutputCaptureState::None)),
       INIT_MIRROR(mOutputTracks, nsTArray<RefPtr<ProcessedMediaTrack>>()),
       INIT_MIRROR(mOutputPrincipal, PRINCIPAL_HANDLE_NONE),
       INIT_CANONICAL(mCanonicalOutputPrincipal, PRINCIPAL_HANDLE_NONE),
@@ -3441,9 +3441,7 @@ void MediaDecoderStateMachine::InitializationTask(MediaDecoder* aDecoder) {
   // Initialize watchers.
   mWatchManager.Watch(mStreamName,
                       &MediaDecoderStateMachine::StreamNameChanged);
-  mWatchManager.Watch(mOutputCaptureState,
-                      &MediaDecoderStateMachine::UpdateOutputCaptured);
-  mWatchManager.Watch(mOutputDummyTrack,
+  mWatchManager.Watch(mOutputCaptureInfo,
                       &MediaDecoderStateMachine::UpdateOutputCaptured);
   mWatchManager.Watch(mOutputTracks,
                       &MediaDecoderStateMachine::UpdateOutputCaptured);
@@ -3464,14 +3462,17 @@ void MediaDecoderStateMachine::AudioAudibleChanged(bool aAudible) {
 }
 
 MediaSink* MediaDecoderStateMachine::CreateAudioSink() {
-  if (mOutputCaptureState != MediaDecoder::OutputCaptureState::None) {
+  if (mOutputCaptureInfo.Ref().mState !=
+      MediaDecoder::OutputCaptureState::None) {
+    const auto& outputCaptureInfo = mOutputCaptureInfo.Ref();
     DecodedStream* stream = new DecodedStream(
         OwnerThread(),
-        mOutputCaptureState == MediaDecoder::OutputCaptureState::Capture
-            ? mOutputDummyTrack.Ref()
+        outputCaptureInfo.mState == MediaDecoder::OutputCaptureState::Capture
+            ? outputCaptureInfo.mDummyTrack
             : nullptr,
         mOutputTracks, CanonicalOutputPrincipal(), mVolume, mPlaybackRate,
-        mPreservesPitch, mAudioQueue, mVideoQueue);
+        mPreservesPitch, outputCaptureInfo.mShouldConfigAudioOutput,
+        outputCaptureInfo.mDevice, mAudioQueue, mVideoQueue);
     mAudibleListener.DisconnectIfExists();
     mAudibleListener = stream->AudibleEvent().Connect(
         OwnerThread(), this, &MediaDecoderStateMachine::AudioAudibleChanged);
@@ -3609,8 +3610,7 @@ nsresult MediaDecoderStateMachine::Init(MediaDecoder* aDecoder) {
   // Connect mirrors.
   aDecoder->CanonicalStreamName().ConnectMirror(&mStreamName);
   aDecoder->CanonicalSinkDevice().ConnectMirror(&mSinkDevice);
-  aDecoder->CanonicalOutputCaptureState().ConnectMirror(&mOutputCaptureState);
-  aDecoder->CanonicalOutputDummyTrack().ConnectMirror(&mOutputDummyTrack);
+  aDecoder->CanonicalOutputCaptureInfo().ConnectMirror(&mOutputCaptureInfo);
   aDecoder->CanonicalOutputTracks().ConnectMirror(&mOutputTracks);
   aDecoder->CanonicalOutputPrincipal().ConnectMirror(&mOutputPrincipal);
 
@@ -4426,9 +4426,12 @@ void MediaDecoderStateMachine::UpdateOutputCaptured() {
   AUTO_PROFILER_LABEL("MediaDecoderStateMachine::UpdateOutputCaptured",
                       MEDIA_PLAYBACK);
   MOZ_ASSERT(OnTaskQueue());
-  MOZ_ASSERT_IF(
-      mOutputCaptureState == MediaDecoder::OutputCaptureState::Capture,
-      mOutputDummyTrack.Ref());
+  MOZ_ASSERT_IF(mOutputCaptureInfo.Ref().mState ==
+                    MediaDecoder::OutputCaptureState::Capture,
+                mOutputCaptureInfo.Ref().mDummyTrack);
+
+  LOG("UpdateOutputCaptured, shouldConfigAudioOutput=%d",
+      static_cast<int>(mOutputCaptureInfo.Ref().mShouldConfigAudioOutput));
 
   // Reset these flags so they are consistent with the status of the sink.
   // TODO: Move these flags into MediaSink to improve cohesion so we don't need
@@ -4436,6 +4439,9 @@ void MediaDecoderStateMachine::UpdateOutputCaptured() {
   mAudioCompleted = false;
   mVideoCompleted = false;
 
+  // TODO: When it becomes necessary to remove audio output from a DecodedStream
+  // that already has an audio output set, we should remove the output directly
+  // instead of tearing down and recreating a new sink. See bug 2009488.
   // Don't create a new media sink if we're still suspending media sink.
   if (!mIsMediaSinkSuspended) {
     const bool wasPlaying = IsPlaying();
@@ -4454,7 +4460,7 @@ void MediaDecoderStateMachine::UpdateOutputCaptured() {
   // Don't buffer as much when audio is captured because we don't need to worry
   // about high latency audio devices.
   mAmpleAudioThreshold =
-      mOutputCaptureState != MediaDecoder::OutputCaptureState::None
+      mOutputCaptureInfo.Ref().mState != MediaDecoder::OutputCaptureState::None
           ? detail::AMPLE_AUDIO_THRESHOLD / 2
           : detail::AMPLE_AUDIO_THRESHOLD;
 

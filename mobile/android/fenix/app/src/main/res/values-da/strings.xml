@@ -61,6 +61,8 @@
   <string name="tab_manager_empty_synced_tabs_page_description">Log ind for at håndtere synkroniserede faneblade fra alle dine enheder.</string>
   <!-- The action text displayed on the synced tabs page when the user is not logged into an account, prompting the user to sign into their account. When clicked, it takes the user to the account sign-in flow. -->
   <string name="tab_manager_empty_synced_tabs_page_sign_in_cta">Log ind</string>
+  <!-- Text for the button used to show all stories -->
+  <string name="homepage_all_stories">Alle historier</string>
   <!--
     Home - Bookmarks
 
@@ -227,9 +229,9 @@
   <!-- Browser menu button that opens account settings -->
   <string name="browser_menu_account_settings">Kontooplysninger</string>
   <!-- Browser menu button that sends a user to help articles -->
-  <string name="browser_menu_help">Hjælp</string>
+  <string name="browser_menu_help" tools:ignore="UnusedResources" moz:removedIn="149">Hjælp</string>
   <!-- Browser menu button that sends a to a the what's new article -->
-  <string name="browser_menu_whats_new">Nyheder</string>
+  <string name="browser_menu_whats_new" tools:ignore="UnusedResources" moz:removedIn="149">Nyheder</string>
   <!-- Browser menu button that opens the settings menu -->
   <string name="browser_menu_settings">Indstillinger</string>
   <!-- Browser menu button that opens a user's library -->
@@ -237,7 +239,7 @@
   <!-- Browser menu toggle that requests a desktop site -->
   <string name="browser_menu_desktop_site">Desktop-version</string>
   <!-- Browser menu button that reopens a private tab as a regular tab -->
-  <string name="browser_menu_open_in_regular_tab">Åbn i almindeligt faneblad</string>
+  <string name="browser_menu_open_in_regular_tab" tools:ignore="UnusedResources" moz:removedIn="149">Åbn i almindeligt faneblad</string>
   <!-- Browser menu toggle that adds a shortcut to the site on the device home screen. -->
   <string name="browser_menu_add_to_homescreen">Føj til startskærm</string>
   <!-- Browser menu toggle that adds a PWA of the site on the device home screen. -->
@@ -265,7 +267,7 @@
     Browser menu text shown in custom tabs to indicate this is a Fenix tab
     %1$s is the name of the app (for example "Firefox").
   -->
-  <string name="browser_menu_powered_by">LEVERET AF %1$s</string>
+  <string name="browser_menu_powered_by" tools:ignore="UnusedResources" moz:removedIn="149">LEVERET AF %1$s</string>
   <!--
     Browser menu text shown in custom tabs to indicate this is a Fenix tab
     %1$s is the name of the app (for example "Firefox").
@@ -278,15 +280,15 @@
   <!-- Browser menu button to open the current page in an external app -->
   <string name="browser_menu_open_app_link">Åbn i app</string>
   <!-- Browser menu button to show reader view appearance controls e.g. the used font type and size -->
-  <string name="browser_menu_customize_reader_view">Tilpas læsevisning</string>
+  <string name="browser_menu_customize_reader_view" tools:ignore="UnusedResources" moz:removedIn="149">Tilpas læsevisning</string>
   <!-- Browser menu button to show reader view appearance controls e.g. the used font type and size -->
   <string name="browser_menu_customize_reader_view_2">Tilpas læsevisning</string>
   <!-- Browser menu label for adding a bookmark -->
-  <string name="browser_menu_add">Tilføj</string>
+  <string name="browser_menu_add" tools:ignore="UnusedResources" moz:removedIn="149">Tilføj</string>
   <!-- Browser menu label for editing a bookmark -->
-  <string name="browser_menu_edit">Rediger</string>
+  <string name="browser_menu_edit" tools:ignore="UnusedResources" moz:removedIn="149">Rediger</string>
   <!-- Button shown on the home page that opens the Customize home settings -->
-  <string name="browser_menu_customize_home_1">Tilpas startside</string>
+  <string name="browser_menu_customize_home_1" tools:ignore="UnusedResources" moz:removedIn="149">Tilpas startside</string>
   <!-- Browser menu label to sign in to sync on the device using Mozilla accounts -->
   <string name="browser_menu_sign_in">Log ind</string>
   <!-- Browser menu caption label for the "Sign in" browser menu item described in `browser_menu_sign_in` -->
@@ -305,10 +307,6 @@
   <string name="browser_close_main_menu_handlebar_content_description">Luk menu</string>
   <!-- Content description (not visible, for screen readers etc.) for main menu navigation header. -->
   <string name="browser_main_menu_content_description_navigation_header">Navigation</string>
-  <!-- Content description (not visible, for screen readers etc.) for main menu help button. -->
-  <string name="browser_main_menu_content_description_help_button" tools:ignore="UnusedResources" moz:removedIn="146">Hjælp</string>
-  <!-- Content description (not visible, for screen readers etc.) for main menu settings button. -->
-  <string name="browser_main_menu_content_description_settings_button" tools:ignore="UnusedResources" moz:removedIn="146">Indstillinger</string>
   <!-- Content description (not visible, for screen readers etc.) for bottom sheet handlebar extensions menu. -->
   <string name="browser_extensions_menu_handlebar_content_description">Luk menuen udvidelser</string>
   <!-- Content description (not visible, for screen readers etc.) for bottom sheet handlebar save menu. -->
@@ -326,7 +324,7 @@
   <!-- Browser menu label for navigating to the translation feature, which provides language translation options the current visited page -->
   <string name="browser_menu_translate_page_2">Oversæt side</string>
   <!-- Browser menu label for navigating to the Web Compat Reporter feature, which provides users the ability to send bug reports for broken sites. -->
-  <string name="browser_menu_webcompat_reporter">Rapporter probl. m. websted…</string>
+  <string name="browser_menu_webcompat_reporter" tools:ignore="UnusedResources" moz:removedIn="149">Rapporter probl. m. websted…</string>
   <!-- Browser menu label for navigating to the Web Compat Reporter feature, which provides users the ability to send bug reports for broken sites. -->
   <string name="browser_menu_webcompat_reporter_2">Rapporter problem med websted</string>
   <!-- Browser menu label that is displayed when the current page has been translated by the translation feature. -->
@@ -450,19 +448,8 @@
   <string name="juno_onboarding_privacy_notice_text" tools:ignore="BrandUsage">Privatlivserklæring for Firefox</string>
   <!-- Title for set firefox as default browser screen used by Nimbus experiments. -->
   <string name="juno_onboarding_default_browser_title_nimbus_2">Vi elsker at holde dig sikker</string>
-  <!--
-    Title for set firefox as default browser screen used by Nimbus experiments.
-    Note: The word "Firefox" should NOT be translated
-  -->
-  <string name="juno_onboarding_default_browser_title_nimbus_3" tools:ignore="BrandUsage,UnusedResources" moz:removedIn="146">Find ud af, hvorfor millioner elsker Firefox</string>
-  <!-- Title for set firefox as default browser screen used by Nimbus experiments. -->
-  <string name="juno_onboarding_default_browser_title_nimbus_4" tools:ignore="UnusedResources" moz:removedIn="146">Sikker browsing med flere valgmuligheder</string>
   <!-- Description for set firefox as default browser screen used by Nimbus experiments. -->
   <string name="juno_onboarding_default_browser_description_nimbus_3">Vores browser er støttet af en nonprofit-organisation og forhindrer virksomheder i at følge dig rundt på nettet i det skjulte.</string>
-  <!-- Description for set firefox as default browser screen used by Nimbus experiments. -->
-  <string name="juno_onboarding_default_browser_description_nimbus_4" tools:ignore="UnusedResources" moz:removedIn="146">Mere end 100 millioner mennesker beskytter deres privatliv ved at vælge en browser, der er støttet af en nonprofit-organisation.</string>
-  <!-- Description for set firefox as default browser screen used by Nimbus experiments. -->
-  <string name="juno_onboarding_default_browser_description_nimbus_5" tools:ignore="UnusedResources" moz:removedIn="146">Kendte sporings-mekanismer? Blokeret automatisk. Udvidelser? Prøv alle 700. PDF-filer? Vores indbyggede læser gør det nemt at håndtere dem.</string>
   <!-- Text for the button to set firefox as default browser on the device -->
   <string name="juno_onboarding_default_browser_positive_button" tools:ignore="UnusedResources">Angiv som standard-browser</string>
   <!-- Text for the button dismiss the screen and move on with the flow -->
@@ -622,6 +609,86 @@
   <string name="onboarding_marketing_body_1" tools:ignore="BrandUsage,UnusedResources">Del, hvordan du opdagede Firefox, og at du bruger appen med Mozillas partnere indenfor markedsføringsteknologi. Disse data vil aldrig blive solgt.</string>
   <!-- Marketing onboarding page button label variant. Button to confirm choice and start browsing. -->
   <string name="onboarding_marketing_positive_button_1" tools:ignore="UnusedResources">Accepter og begynd at browse</string>
+  <!-- ==== Project "Nova" onboarding strings ==== -->
+
+  <!-- "Continue" onboarding button. -->
+  <string name="nova_onboarding_continue_button" tools:ignore="UnusedResources">Fortsæt</string>
+  <!-- "Not now" onboarding button. -->
+  <string name="nova_onboarding_negative_button" tools:ignore="UnusedResources">Ikke nu</string>
+  <!-- Terms of use (ToU) onboarding title. -->
+  <string name="nova_onboarding_tou_title" tools:ignore="UnusedResources">Gør dig klar til frihed</string>
+  <!-- Terms of use (ToU) onboarding subtitle. -->
+  <string name="nova_onboarding_tou_subtitle" tools:ignore="UnusedResources">Hurtig, sikker og pålidelig.\nDet er lige blevet bedre at browse.</string>
+  <!--
+    Terms of use (ToU) onboarding body line one.
+    %1$s is replaced by an active link, using nova_onboarding_tou_body_line_1_link_text as text (“Firefox Terms of Use”).
+  -->
+  <string name="nova_onboarding_tou_body_line_1" tools:ignore="UnusedResources">Ved at fortsætte accepterer du %1$s.</string>
+  <!-- Terms of use (ToU) onboarding body line one link text for nova_onboarding_tou_body_line_1. 'Firefox' is intentionally hardcoded. -->
+  <string name="nova_onboarding_tou_body_line_1_link_text" tools:ignore="BrandUsage,UnusedResources">betingelser for brug af Firefox</string>
+  <!--
+    Terms of use (ToU) onboarding body line two. 'Firefox' is intentionally hardcoded.
+    %1$s is replaced by an active link, using nova_onboarding_tou_body_line_2_link_text as text (“Privacy Notice”).
+  -->
+  <string name="nova_onboarding_tou_body_line_2" tools:ignore="BrandUsage,UnusedResources">Firefox passer på dit privatliv. Læs mere i vores %1$s.</string>
+  <!-- Terms of use (ToU) onboarding body line two link text for nova_onboarding_tou_body_line_2. -->
+  <string name="nova_onboarding_tou_body_line_2_link_text" tools:ignore="UnusedResources">privatlivserklæring</string>
+  <!--
+    Terms of use (ToU) onboarding body line three. 'Firefox' and 'Mozilla' are intentionally hardcoded.
+    %1$s is replaced by an active link, using nova_onboarding_tou_body_line_3_link_text as text (“Manage Settings”).
+  -->
+  <string name="nova_onboarding_tou_body_line_3" tools:ignore="BrandUsage,UnusedResources">For at hjælpe med at forbedre browseren sender Firefox diagnosticeringsdata og data om brug til Mozilla. %1$s</string>
+  <!-- Terms of use (ToU) onboarding body line three link text for nova_onboarding_tou_body_line_3. -->
+  <string name="nova_onboarding_tou_body_line_3_link_text" tools:ignore="UnusedResources">Håndter indstillinger</string>
+  <!-- "Set to default" onboarding title. -->
+  <string name="nova_onboarding_set_to_default_title" tools:ignore="UnusedResources">Sig farvel til skumle sporings-mekanismer</string>
+  <!-- "Set to default" onboarding subtitle. -->
+  <string name="nova_onboarding_set_to_default_subtitle" tools:ignore="UnusedResources">Vi beskytter dine data og forhindrer automatisk virksomheder i at overvåge dine klik.</string>
+  <!-- "Set to default" onboarding button. -->
+  <string name="nova_onboarding_set_to_default_button" tools:ignore="UnusedResources">Angiv som standardbrowser</string>
+  <!-- Toolbar selection onboarding title. -->
+  <string name="nova_onboarding_toolbar_selection_title" tools:ignore="UnusedResources">Vælg din adresselinje</string>
+  <!-- Toolbar selection onboarding "top" option label. -->
+  <string name="nova_onboarding_toolbar_selection_top_label" tools:ignore="UnusedResources">Top</string>
+  <!-- Toolbar selection onboarding "bottom" option label. -->
+  <string name="nova_onboarding_toolbar_selection_bottom_label" tools:ignore="UnusedResources">Bund</string>
+  <!-- Theme selection onboarding title. -->
+  <string name="nova_onboarding_theme_selection_title" tools:ignore="UnusedResources">Vælg dit tema</string>
+  <!-- Theme selection onboarding "automatic" option label. -->
+  <string name="nova_onboarding_theme_selection_automatic_label" tools:ignore="UnusedResources">Automatisk</string>
+  <!-- Theme selection onboarding "light" option label. -->
+  <string name="nova_onboarding_theme_selection_light_label" tools:ignore="UnusedResources">Lys</string>
+  <!-- Theme selection onboarding "dark" option label. -->
+  <string name="nova_onboarding_theme_selection_dark_label" tools:ignore="UnusedResources">Mørk</string>
+  <!-- Sync onboarding title. -->
+  <string name="nova_onboarding_sync_title" tools:ignore="UnusedResources">Fortsæt hurtigt hvor du slap</string>
+  <!-- Sync onboarding subtitle. -->
+  <string name="nova_onboarding_sync_subtitle" tools:ignore="UnusedResources">Synkroniser bogmærker, adgangskoder med mere mellem alle dine enheder. Dine personlige data er sikre og beskyttet med kryptering.</string>
+  <!-- Sync onboarding button. -->
+  <string name="nova_onboarding_sync_button" tools:ignore="UnusedResources">Start synkronisering</string>
+  <!-- Marketing onboarding title. -->
+  <string name="nova_onboarding_marketing_title" tools:ignore="UnusedResources">Hjælp os med at skabe et bedre internet</string>
+  <!--
+    Marketing onboarding body. 'Firefox' and 'Mozilla' are intentionally hardcoded.
+    %1$s is replaced by an active link, using nova_onboarding_marketing_body_link_text as text (“How we use the data”).
+  -->
+  <string name="nova_onboarding_marketing_body" tools:ignore="BrandUsage,UnusedResources">Del, hvordan du opdagede Firefox, og at du bruger appen med Mozillas partnere indenfor markedsføringsteknologi. Disse data vil aldrig blive solgt. %1$s</string>
+  <!-- Marketing onboarding body link text. -->
+  <string name="nova_onboarding_marketing_body_link_text" tools:ignore="UnusedResources">Sådan bruger vi dataene</string>
+  <!-- Notifications onboarding title. 'Firefox' is intentionally hardcoded. -->
+  <string name="nova_onboarding_notifications_title" tools:ignore="BrandUsage,UnusedResources">Meddelelser gør dig mere sikker, når du bruger Firefox</string>
+  <!-- Notifications onboarding subtitle. 'Firefox' is intentionally hardcoded. -->
+  <string name="nova_onboarding_notifications_subtitle" tools:ignore="BrandUsage,UnusedResources">Opdag de seneste funktioner i Firefox til at beskytte dit privatliv. Så er du altid opdateret om, hvordan du kan beskytte dig selv.</string>
+  <!-- Notifications onboarding button. -->
+  <string name="nova_onboarding_notifications_button" tools:ignore="UnusedResources">Slå meddelelser til</string>
+  <!-- "Add search widget" onboarding title. -->
+  <string name="nova_onboarding_add_search_widget_title" tools:ignore="UnusedResources">Gør hver søgning mere privat</string>
+  <!-- "Add search widget" onboarding subtitle. 'Firefox' is intentionally hardcoded. -->
+  <string name="nova_onboarding_add_search_widget_subtitle" tools:ignore="BrandUsage,UnusedResources">Start hver søgning fra din telefons startskærm, og vid, at Firefox\' automatiske beskyttelser står klar til at hjælpe dig.</string>
+  <!-- "Add search widget" onboarding button. 'Firefox' is intentionally hardcoded. -->
+  <string name="nova_onboarding_add_search_widget_button" tools:ignore="BrandUsage,UnusedResources">Tilføj Firefox-widget</string>
+  <!-- ==== End of Project "Nova" onboarding strings ==== -->
+
   <!-- Onboarding header for the toolbar selection card, used by Nimbus experiments. -->
   <string name="onboarding_customize_toolbar_title" tools:ignore="UnusedResources">Vælg placeringen af værktøjslinjen</string>
   <!-- Onboarding sub header for toolbar selection card, used by Nimbus experiments. -->
@@ -1055,8 +1122,6 @@
   <string name="alternative_app_icon_group_solid_colors">Ensfarvede</string>
   <!-- Title for the "Gradients" group of alternative app icon variants in the icon picker screen. This group contains icons with gradient backgrounds inspired by natural light conditions. -->
   <string name="alternative_app_icon_group_gradients">Farveforløb</string>
-  <!-- Title for the "Other" group of alternative app icon variants in the icon picker screen. This group includes retro, pixel art, themed, and artist-created icons. -->
-  <string name="alternative_app_icon_group_other" tools:ignore="UnusedResources" moz:removedIn="146">Andet</string>
   <!-- Title for the "Featured" group of alternative app icon variants in the icon picker screen. This group includes retro, pixel art, themed, and artist-created icons. -->
   <string name="alternative_app_icon_group_featured">Udvalgt</string>
   <!-- Title to show in alert when user selects an alternative app icon -->
@@ -1423,9 +1488,9 @@
   <!-- Title of the active section on the studies list -->
   <string name="studies_active">Aktive</string>
   <!-- Description for studies -->
-  <string name="studies_description_3">Prøv nye funktioner og idéer før de bliver tilgængelige for alle.</string>
+  <string name="studies_description_3" moz:removedIn="148" tools:ignore="UnusedResources">Prøv nye funktioner og idéer før de bliver tilgængelige for alle.</string>
   <!-- Title of the Studies data preference -->
-  <string name="studies_title">Installer og kør undersøgelser</string>
+  <string name="studies_title" moz:removedIn="148" tools:ignore="UnusedResources">Installer og kør undersøgelser</string>
   <!-- Learn more link for studies, links to an article for more information about studies. -->
   <string name="studies_learn_more">Læs mere</string>
   <!--
@@ -1465,6 +1530,8 @@
   <string name="tab_drawer_fab_content">Privat</string>
   <!-- Text for the new tab button to indicate syncing command on the synced tabs page -->
   <string name="tab_drawer_fab_sync">Synkroniser</string>
+  <!-- Text for the tab search bar placeholder -->
+  <string name="tab_manager_search_bar_placeholder">Søg i dine faneblade</string>
   <!-- Text shown in the menu for sharing all tabs -->
   <string name="tab_tray_menu_item_share">Del alle faneblade</string>
   <!-- Text shown in the menu to view recently closed tabs -->
@@ -1477,6 +1544,14 @@
   <string name="tab_tray_menu_tab_settings">Fanebladsindstillinger</string>
   <!-- Text shown in the menu for closing all tabs -->
   <string name="tab_tray_menu_item_close">Luk alle faneblade</string>
+  <!-- Text shown as the title of the Close all tabs confirmation dialog in Tab Manager -->
+  <string name="tab_manager_close_all_tabs_dialog_title">Luk alle faneblade?</string>
+  <!-- Text shown in the body of the Close all tabs confirmation dialog in Tab Manager -->
+  <string name="tab_manager_close_all_tabs_dialog_body">Dette vil lukke alle åbne faneblade.</string>
+  <!-- Text shown on the confirm button in the Close all tabs confirmation dialog -->
+  <string name="tab_manager_close_all_tabs_dialog_confirm">Luk faneblade</string>
+  <!-- Text shown on the cancel button in the Close all tabs confirmation dialog -->
+  <string name="tab_manager_close_all_tabs_dialog_cancel">Annuller</string>
   <!-- Text shown in the multiselect menu for bookmarking selected tabs. -->
   <string name="tab_tray_multiselect_menu_item_bookmark">Bogmærk</string>
   <!-- Content description (not visible, for screen readers etc.): Bookmarks selected tabs. -->
@@ -1499,12 +1574,18 @@
   <string name="remove_tab_from_collection">Fjern faneblad fra samling</string>
   <!-- Text for button to enter multiselect mode in tabs tray -->
   <string name="tabs_tray_select_tabs">Vælg faneblade</string>
+  <!-- Text for tab manager search page when there are no results. -->
+  <string name="tab_manager_no_search_results">Ingen forekomster fundet.</string>
+  <!-- Additional text for tab manager search page when there are no results. -->
+  <string name="tab_manager_no_search_results_additional_text">Prøv en anden søgning!</string>
   <!-- Content description (not visible, for screen readers etc.): Close tab button. Closes the current session when pressed -->
   <string name="close_tab">Luk faneblad</string>
   <!-- Content description (not visible, for screen readers etc.): Close tab <title> button. %s is the tab title -->
   <string name="close_tab_title">Luk faneblad %s</string>
   <!-- Content description (not visible, for screen readers etc.): Opens the open tabs menu when pressed -->
   <string name="open_tabs_menu">Åbn faneblads-menuen</string>
+  <!-- Content description (not visible, for screen readers etc.): Return to tab manager -->
+  <string name="tab_manager_search_bar_back_content_description">Tilbage til fanebladhåndteringen</string>
   <!-- Open tabs menu item to save tabs to collection -->
   <string name="tabs_menu_save_to_collection1">Gem faneblade til samling</string>
   <!-- Text for the menu button to delete a collection -->
@@ -1521,6 +1602,8 @@
   <string name="delete_from_history">Slet fra historik</string>
   <!-- Postfix for private WebApp titles. %1$s is the name of the app (for example "Firefox"). -->
   <string name="pwa_site_controls_title_private">%1$s (Privat tilstand)</string>
+  <!-- Content description (not visible, for screen readers etc.) for the button to open the Tab Search feature to search through tabs. -->
+  <string name="tab_manager_open_tab_search">Åbn søgning i faneblade</string>
   <!--
     History
 
@@ -1894,6 +1977,8 @@
   <string name="bookmark_delete_folder_content_description">Slet mappe</string>
   <!-- Content description for bookmark search floating action button -->
   <string name="bookmark_search_button_content_description">Søg i bogmærker</string>
+  <!-- Content description for select folder screen search action button ("search" is a verb) -->
+  <string name="select_bookmark_search_button_content_description">Søg i mapper</string>
   <!-- Content description for the overflow menu for a bookmark item. %s is a folder name or bookmark title. -->
   <string name="bookmark_item_menu_button_content_description">Elementmenu for %s</string>
   <!-- Content description for the "close" button in bookmarks screen. -->
@@ -1912,6 +1997,8 @@
   <string name="bookmark_empty_list_folder_description">Tilføj bogmærker, mens du browser, så du kan finde dine foretrukne websteder senere.</string>
   <!-- Description for the add new folder button when selecting a folder. -->
   <string name="bookmark_select_folder_new_folder_button_title">Ny mappe</string>
+  <!-- Bookmark snackbar message for moving a single item. %1$s is the title of the item being moved and %2$s is the new parent folder of the bookmark -->
+  <string name="bookmark_moved_single_item">Flyttet %1$s til %2$s</string>
   <!--
     Site Permissions
 
@@ -2096,7 +2183,7 @@
   <!-- An option from the share dialog to sign into sync -->
   <string name="sync_sign_in">Log ind på Sync</string>
   <!-- An option from the three dot menu to sign in -->
-  <string name="sync_menu_sign_in">Log ind</string>
+  <string name="sync_menu_sign_in" tools:ignore="UnusedResources" moz:removedIn="149">Log ind</string>
   <!-- An option from the share dialog to send link to all other sync devices -->
   <string name="sync_send_to_all">Send til alle enheder</string>
   <!-- An option from the share dialog to reconnect to sync -->
@@ -2215,7 +2302,7 @@
   <!-- Title for Accessibility Text Size Scaling Preference -->
   <string name="preference_accessibility_font_size_title">Skriftstørrelse</string>
   <!-- %d is the percentage of the slide bar for setting the text font size and %% will be announced as "percent". -->
-  <string name="a11y_preference_accessibility_font_size_percentage">%d %%.</string>
+  <string name="a11y_preference_accessibility_font_size_percentage" tools:ignore="UnusedResources" moz:removedIn="148">%d %%.</string>
   <!-- Title for Accessibility Text Automatic Size Scaling Preference -->
   <string name="preference_accessibility_auto_size_2">Automatisk skriftstørrelse</string>
   <!-- Summary for Accessibility Text Automatic Size Scaling Preference -->
@@ -2256,7 +2343,7 @@
   <!-- Summary for the Delete browsing data on quit preference. "Quit" translation should match delete_browsing_data_on_quit_action translation. -->
   <string name="preference_summary_delete_browsing_data_on_quit_2">Sletter automatisk browserdata, når du vælger \"Afslut\" i hovedmenuen</string>
   <!-- Action item in menu for the Delete browsing data on quit feature -->
-  <string name="delete_browsing_data_on_quit_action">Afslut</string>
+  <string name="delete_browsing_data_on_quit_action" tools:ignore="UnusedResources" moz:removedIn="149">Afslut</string>
   <!-- Title text of a delete browsing data dialog. -->
   <string name="delete_history_prompt_title">Tidsinterval der skal slettes</string>
   <!-- Body text of a delete browsing data dialog. -->
@@ -2683,6 +2770,10 @@
   <string name="edit_login_navigate_back_button_content_description">Gå tilbage</string>
   <!-- Content description, used by tools like screenreaders, to press on the edit login button. -->
   <string name="edit_login_button_content_description">Rediger login</string>
+  <!-- Content description, used by tools like screenreaders, to press on the add new login button. -->
+  <string name="saved_logins_add_new_login_button_content_description">Tilføj nyt login</string>
+  <!-- Content description, used by tools like screenreaders, to press on the clear search text button. -->
+  <string name="saved_logins_clear_search_text_button_content_description">Ryd søgetekst</string>
   <!-- Content Description (for screenreaders etc) read for the button to open a site in logins -->
   <string name="saved_login_open_site">Åbn websted i browser</string>
   <!-- Content Description (for screenreaders etc) read for the button to reveal a password in logins -->
@@ -3894,11 +3985,9 @@
   <string name="settings_search_no_results_title">Intet dukkede op</string>
   <!-- Sub-message displayed when the search field is not empty but search results is empty. -->
   <string name="settings_search_no_results_message">Prøv med en anden søgning?</string>
-  <!--
-    Terms of use pop up prompt
+  <!-- ==== Terms of use pop up prompt ==== -->
 
-    Title for the pop up prompt
-  -->
+  <!-- Title for the pop up prompt -->
   <string name="terms_of_use_prompt_title">Vi har en opdatering</string>
   <!--
     Message for the terms of use pop up prompt
@@ -3922,4 +4011,34 @@
   <string name="terms_of_use_prompt_accept">Accepter</string>
   <!-- Label for a button to postpone accepting the terms of use -->
   <string name="terms_of_use_prompt_postpone">Påmind mig senere</string>
+  <!-- ==== Experiment strings. ==== -->
+
+  <!-- A title for the popup prompt. -->
+  <string name="terms_of_use_prompt_title_option_a" tools:ignore="UnusedResources">Betingelser for brug</string>
+  <!--
+    A title for the popup prompt.
+    %1$s is the product name "Firefox"
+  -->
+  <string name="terms_of_use_prompt_title_option_b" tools:ignore="UnusedResources">En bemærkning fra %1$s</string>
+  <!--
+    Copy for the Terms of Use popup prompt body line two.
+    %1$s is the string terms_of_use_prompt_body_line_two_alternative_link ("here") that is a link to the Terms of Use
+  -->
+  <string name="terms_of_use_prompt_body_line_two_alternative" tools:ignore="UnusedResources">Du kan læse mere %1$s.</string>
+  <!-- Link text for terms_of_use_prompt_body_line_two_alternative that links to a site with more information about the Terms of Use -->
+  <string name="terms_of_use_prompt_body_line_two_alternative_link" tools:ignore="UnusedResources">her</string>
+  <!-- ==== End of Terms of use popup prompt. ==== -->
+
+  <!--
+    Privacy notice homepage banner
+
+    A message we show the user on the homepage when there is a new version of the privacy notice. 'Firefox' is intentionally hardcoded.
+    %1$s is replaced by an active link using privacy_notice_updated_homepage_message_privacy_notice as text (Privacy Notice)
+    %2$s is replaced by an active link using privacy_notice_updated_homepage_message_learn_more as text (Learn more)
+  -->
+  <string name="privacy_notice_updated_homepage_message" tools:ignore="BrandUsage,UnusedResources">Vi har opdateret vores %1$s for at afspejle de nyeste funktioner i Firefox. %2$s</string>
+  <!-- The first active link used in privacy_notice_updated_homepage_message -->
+  <string name="privacy_notice_updated_homepage_message_privacy_notice" tools:ignore="UnusedResources">privatlivserklæring</string>
+  <!-- The second active link used in privacy_notice_updated_homepage_message -->
+  <string name="privacy_notice_updated_homepage_message_learn_more" tools:ignore="UnusedResources">Læs mere</string>
 </resources>

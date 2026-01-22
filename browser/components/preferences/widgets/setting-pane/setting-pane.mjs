@@ -11,6 +11,8 @@ import { MozLitElement } from "chrome://global/content/lit-utils.mjs";
  * @property {string} l10nId Fluent id for the heading/description.
  * @property {string[]} groupIds What setting groups should be rendered.
  * @property {string} [iconSrc] Optional icon shown in the page header.
+ * @property {string} [module] Import path for module housing the config.
+ * @property {() => boolean} [visible] If this pane is visible.
  */
 
 export class SettingPane extends MozLitElement {
@@ -49,8 +51,25 @@ export class SettingPane extends MozLitElement {
     window.gotoPref(this.config.parent);
   }
 
+  handleVisibility() {
+    if (this.config.visible) {
+      let visible = this.config.visible();
+      if (!visible && !this.isSubPane) {
+        let categoryButton = /** @type {XULElement} */ (
+          document.querySelector(`#categories [value="${this.name}"]`)
+        );
+        if (categoryButton) {
+          categoryButton.remove();
+        }
+        this.remove();
+      }
+    }
+  }
+
   connectedCallback() {
     super.connectedCallback();
+
+    this.handleVisibility();
 
     document.addEventListener(
       "paneshown",
@@ -82,13 +101,16 @@ export class SettingPane extends MozLitElement {
     if (this.isSubPane) {
       this.setAttribute("data-hidden-from-search", "true");
       this.setAttribute("data-subpanel", "true");
+      this._createCategoryButton();
     }
-    this._createCategoryButton();
   }
 
   init() {
     if (!this.hasUpdated) {
       this.performUpdate();
+    }
+    if (this.config.module) {
+      ChromeUtils.importESModule(this.config.module, { global: "current" });
     }
     for (let groupId of this.config.groupIds) {
       window.initSettingGroup(groupId);
@@ -107,7 +129,10 @@ export class SettingPane extends MozLitElement {
 
   /** @param {string} groupId */
   groupTemplate(groupId) {
-    return html`<setting-group groupid=${groupId}></setting-group>`;
+    return html`<setting-group
+      groupid=${groupId}
+      .inSubPane=${this.isSubPane}
+    ></setting-group>`;
   }
 
   render() {
@@ -115,6 +140,7 @@ export class SettingPane extends MozLitElement {
       <moz-page-header
         data-l10n-id=${this.config.l10nId}
         .iconSrc=${this.config.iconSrc}
+        .supportPage=${this.config.supportPage}
         .backButton=${this.isSubPane}
         @navigate-back=${this.goBack}
       ></moz-page-header>

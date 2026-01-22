@@ -4,8 +4,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef mozilla_dom_BindingUtils_h__
-#define mozilla_dom_BindingUtils_h__
+#ifndef mozilla_dom_BindingUtils_h_
+#define mozilla_dom_BindingUtils_h_
 
 #include <type_traits>
 
@@ -892,11 +892,11 @@ bool DefineLegacyUnforgeableAttributes(
 #ifdef _MSC_VER
 #  define HAS_MEMBER_CHECK(_name) \
     template <typename V>         \
-    static yes& Check##_name(char(*)[(&V::_name == 0) + 1])
+    static yes& Check##_name(char (*)[(&V::_name == 0) + 1])
 #else
 #  define HAS_MEMBER_CHECK(_name) \
     template <typename V>         \
-    static yes& Check##_name(char(*)[sizeof(&V::_name) + 1])
+    static yes& Check##_name(char (*)[sizeof(&V::_name) + 1])
 #endif
 
 #define HAS_MEMBER(_memberName, _valueName) \
@@ -3581,4 +3581,4 @@ void ClearXrayExpandoSlots(JS::RootingContext* aCx, JSObject* aObject,
 
 }  // namespace mozilla
 
-#endif /* mozilla_dom_BindingUtils_h__ */
+#endif /* mozilla_dom_BindingUtils_h_ */

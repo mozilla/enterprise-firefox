@@ -11,8 +11,6 @@
 #include "mozilla/MathAlgorithms.h"
 #include "mozilla/Maybe.h"
 
-#include "jsmath.h"
-
 #include "jit/arm/Simulator-arm.h"
 #include "jit/AtomicOp.h"
 #include "jit/AtomicOperations.h"
@@ -25,6 +23,7 @@
 #include "jit/ProcessExecutableMemory.h"
 #include "js/ScalarType.h"  // js::Scalar::Type
 #include "util/Memory.h"
+#include "util/PortableMath.h"
 #include "vm/BigIntType.h"
 #include "vm/JitActivation.h"  // js::jit::JitActivation
 #include "vm/JSContext.h"
@@ -4942,20 +4941,24 @@ void MacroAssembler::wasmBoundsCheck32(Condition cond, Register index,
 void MacroAssembler::wasmBoundsCheck64(Condition cond, Register64 index,
                                        Register64 boundsCheckLimit,
                                        Label* label) {
-  Label ifFalse;
+  MOZ_ASSERT(cond == Assembler::AboveOrEqual || cond == Assembler::Below);
+  Label rejoin;
+  Label* failLabel = cond == Assembler::AboveOrEqual ? label : &rejoin;
   cmp32(index.high, Imm32(0));
-  j(Assembler::NonZero, &ifFalse);
+  j(Assembler::NonZero, failLabel);
   wasmBoundsCheck32(cond, index.low, boundsCheckLimit.low, label);
-  bind(&ifFalse);
+  bind(&rejoin);
 }
 
 void MacroAssembler::wasmBoundsCheck64(Condition cond, Register64 index,
                                        Address boundsCheckLimit, Label* label) {
-  Label ifFalse;
+  MOZ_ASSERT(cond == Assembler::AboveOrEqual || cond == Assembler::Below);
+  Label rejoin;
+  Label* failLabel = cond == Assembler::AboveOrEqual ? label : &rejoin;
   cmp32(index.high, Imm32(0));
-  j(Assembler::NonZero, &ifFalse);
+  j(Assembler::NonZero, failLabel);
   wasmBoundsCheck32(cond, index.low, boundsCheckLimit, label);
-  bind(&ifFalse);
+  bind(&rejoin);
 }
 
 void MacroAssembler::wasmTruncateDoubleToUInt32(FloatRegister input,

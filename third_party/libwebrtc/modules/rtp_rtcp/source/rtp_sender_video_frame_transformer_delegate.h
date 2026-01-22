@@ -14,7 +14,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
-#include <optional>
+#include <string>
 #include <vector>
 
 #include "api/array_view.h"
@@ -40,7 +40,7 @@ namespace webrtc {
 class RTPVideoFrameSenderInterface {
  public:
   virtual bool SendVideo(int payload_type,
-                         std::optional<VideoCodecType> codec_type,
+                         VideoCodecType codec_type,
                          uint32_t rtp_timestamp,
                          Timestamp capture_time,
                          ArrayView<const uint8_t> payload,
@@ -67,14 +67,14 @@ class RTPSenderVideoFrameTransformerDelegate : public TransformedFrameCallback {
       RTPVideoFrameSenderInterface* sender,
       scoped_refptr<FrameTransformerInterface> frame_transformer,
       uint32_t ssrc,
-      const std::string& rid,
+      std::string rid,
       TaskQueueFactory* send_transport_queue);
 
   void Init();
 
   // Delegates the call to FrameTransformerInterface::TransformFrame.
   bool TransformFrame(int payload_type,
-                      std::optional<VideoCodecType> codec_type,
+                      VideoCodecType codec_type,
                       uint32_t rtp_timestamp,
                       const EncodedImage& encoded_image,
                       RTPVideoHeader video_header,

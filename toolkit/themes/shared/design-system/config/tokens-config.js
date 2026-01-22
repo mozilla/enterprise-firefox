@@ -2,8 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/* eslint-env node */
-
 const StyleDictionary = require("style-dictionary");
 const { createPropertyFormatter } = StyleDictionary.formatHelpers;
 const figmaConfig = require("./figma-tokens-config");
@@ -28,6 +26,7 @@ const TOKEN_SECTIONS = {
   Page: "page",
   Size: "size",
   Space: "space",
+  Table: "table",
   Text: "text",
   Unspecified: "",
 };

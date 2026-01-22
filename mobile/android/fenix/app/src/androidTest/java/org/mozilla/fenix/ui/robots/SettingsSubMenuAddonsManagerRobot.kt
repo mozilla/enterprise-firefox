@@ -59,7 +59,6 @@ import org.mozilla.fenix.helpers.TestAssetHelper.waitingTimeLong
 import org.mozilla.fenix.helpers.TestHelper.appName
 import org.mozilla.fenix.helpers.TestHelper.mDevice
 import org.mozilla.fenix.helpers.TestHelper.packageName
-import org.mozilla.fenix.helpers.TestHelper.restartApp
 import org.mozilla.fenix.helpers.TestHelper.waitForAppWindowToBeUpdated
 import org.mozilla.fenix.helpers.click
 import org.mozilla.fenix.helpers.ext.waitNotNull
@@ -152,37 +151,19 @@ class SettingsSubMenuAddonsManagerRobot(private val composeTestRule: ComposeTest
     fun verifyAddonInstallCompletedPrompt(addonName: String, activityTestRule: HomeActivityIntentTestRule) {
         // Assigns a more descriptive name to the addon if it is "Bitwarden", otherwise keeps the original name
         // The name of this extenssion is being displayed differently across the app
-        var addonName = if (addonName == "Bitwarden") "Bitwarden Password Manager" else addonName
 
-        for (i in 1..RETRY_COUNT) {
-            Log.i(TAG, "verifyAddonInstallCompletedPrompt: Started try #$i")
-            try {
-                assertUIObjectExists(
-                    itemContainingText("$addonName was added"),
-                    itemContainingText("Update permissions and data preferences any time in the extension settings."),
-                    itemContainingText("OK"),
-                    waitingTime = waitingTimeLong,
-                )
-
-                break
-            } catch (e: AssertionError) {
-                Log.i(TAG, "verifyAddonInstallCompletedPrompt: AssertionError caught, executing fallback methods")
-                if (i == RETRY_COUNT) {
-                    throw e
-                } else {
-                    restartApp(activityTestRule)
-                    homeScreen(composeTestRule) {
-                    }.openThreeDotMenu {
-                    }.clickExtensionsButton {
-                        waitForAddonsListProgressBarToBeGone()
-                        scrollToAddon(addonName)
-                        clickInstallAddon(addonName)
-                        verifyAddonPermissionPrompt(addonName)
-                        acceptPermissionToInstallAddon()
-                    }
-                }
-            }
+        val addonDisplayName = when (addonName) {
+            "Bitwarden" -> "Bitwarden Password Manager"
+            "Tomato Clock" -> "Tomato Clock - A Simple Pomodoro Timer"
+            else -> addonName
         }
+
+        assertUIObjectExists(
+            itemContainingText("$addonDisplayName was added"),
+            itemContainingText("Update permissions and data preferences any time in the extension settings."),
+            itemContainingText("OK"),
+            waitingTime = waitingTimeLong,
+        )
     }
 
     fun closeAddonInstallCompletePrompt() {

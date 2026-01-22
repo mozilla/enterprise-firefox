@@ -239,7 +239,7 @@ fail-if = [
 ]
 skip-if = [
   "asan",
-  "os == 'linux' && os_version == '24.04' && arch == 'x64_64' && display == 'x11' && debug", # Bug 1840479
+  "os == 'linux' && os_version == '24.04' && arch == 'x86_64' && display == 'x11' && debug", # Bug 1840479
   "os == 'win' && os_version == '10.2009' && arch == 'x86_64' && debug", # Bug 1840479
   "os == 'win' && os_version == '11.26100' && debug", # Bug 1840479
   "tsan",

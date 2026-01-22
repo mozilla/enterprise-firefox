@@ -17,6 +17,7 @@ ChromeUtils.defineESModuleGetters(this, {
   HttpServer: "resource://testing-common/httpd.sys.mjs",
   PlacesTestUtils: "resource://testing-common/PlacesTestUtils.sys.mjs",
   PlacesUtils: "resource://gre/modules/PlacesUtils.sys.mjs",
+  SearchService: "moz-src:///toolkit/components/search/SearchService.sys.mjs",
   SearchTestUtils: "resource://testing-common/SearchTestUtils.sys.mjs",
   TestUtils: "resource://testing-common/TestUtils.sys.mjs",
   UrlbarController:
@@ -24,7 +25,7 @@ ChromeUtils.defineESModuleGetters(this, {
   UrlbarPrefs: "moz-src:///browser/components/urlbar/UrlbarPrefs.sys.mjs",
   UrlbarProviderOpenTabs:
     "moz-src:///browser/components/urlbar/UrlbarProviderOpenTabs.sys.mjs",
-  UrlbarProvidersManager:
+  ProvidersManager:
     "moz-src:///browser/components/urlbar/UrlbarProvidersManager.sys.mjs",
   UrlbarResult: "moz-src:///browser/components/urlbar/UrlbarResult.sys.mjs",
   UrlbarTokenizer:
@@ -199,10 +200,9 @@ function registerBasicTestProvider(results = [], onCancel, type, name) {
     type,
     name,
   });
-  UrlbarProvidersManager.registerProvider(provider);
-  registerCleanupFunction(() =>
-    UrlbarProvidersManager.unregisterProvider(provider)
-  );
+  let providersManager = ProvidersManager.getInstanceForSap("urlbar");
+  providersManager.registerProvider(provider);
+  registerCleanupFunction(() => providersManager.unregisterProvider(provider));
   return provider;
 }
 
@@ -249,7 +249,7 @@ async function addTestSuggestionsEngine(
     suggest_url: `http://localhost:${server.identity.primaryPort}/suggest`,
     suggest_url_get_params: "?q={searchTerms}",
   });
-  let engine = Services.search.getEngineByName(name);
+  let engine = SearchService.getEngineByName(name);
   return engine;
 }
 
@@ -304,7 +304,7 @@ async function addTestTailSuggestionsEngine(suggestionsFn = null) {
     suggest_url: `http://localhost:${server.identity.primaryPort}/suggest`,
     suggest_url_get_params: "?q={searchTerms}",
   });
-  let engine = Services.search.getEngineByName("Tail Suggestions");
+  let engine = SearchService.getEngineByName("Tail Suggestions");
   return engine;
 }
 
@@ -386,7 +386,7 @@ function testEngine_setup() {
   add_setup(async () => {
     await cleanupPlaces();
     let engine = await addTestSuggestionsEngine();
-    let oldDefaultEngine = await Services.search.getDefault();
+    let oldDefaultEngine = await SearchService.getDefault();
 
     registerCleanupFunction(async () => {
       Services.prefs.clearUserPref("browser.urlbar.suggest.searches");
@@ -394,16 +394,13 @@ function testEngine_setup() {
       Services.prefs.clearUserPref(
         "browser.search.separatePrivateDefault.ui.enabled"
       );
-      Services.search.setDefault(
+      SearchService.setDefault(
         oldDefaultEngine,
         Ci.nsISearchService.CHANGE_REASON_UNKNOWN
       );
     });
 
-    Services.search.setDefault(
-      engine,
-      Ci.nsISearchService.CHANGE_REASON_UNKNOWN
-    );
+    SearchService.setDefault(engine, Ci.nsISearchService.CHANGE_REASON_UNKNOWN);
     Services.prefs.setBoolPref(
       "browser.search.separatePrivateDefault.ui.enabled",
       false
@@ -980,10 +977,6 @@ function makeCalculatorResult(queryContext, { value }) {
  *  Original input length.
  * @param {boolean} [options.showOnboardingLabel]
  *   Whether the “press Tab” hint should appear.
- * @param {boolean} [options.providesSearchMode]
- *   Whether selecting an action enters a search mode.
- * @param {string | null} [options.engine]
- *   The engine name, if providesSearchMode is true.
  * @returns {UrlbarResult}
  */
 function makeGlobalActionsResult({
@@ -991,8 +984,6 @@ function makeGlobalActionsResult({
   query,
   inputLength,
   showOnboardingLabel = false,
-  providesSearchMode = false,
-  engine,
 }) {
   const payload = {
     actionsResults,
@@ -1001,8 +992,6 @@ function makeGlobalActionsResult({
     input: query,
     inputLength,
     showOnboardingLabel,
-    providesSearchMode,
-    engine,
   };
 
   return new UrlbarResult({

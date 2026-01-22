@@ -3,29 +3,51 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 :host {
+  --button-background: linear-gradient(235deg, #d6b4fd -57%, #8341ca 219%);
+  --button-border-color: color-mix(in srgb, white 20%, transparent);
+  --button-border-width: var(--border-width);
+  --button-box-shadow: inset 0 0 0 var(--button-border-width) var(--button-border-color);
+  --button-separator-color: color-mix(in srgb, white 60%, transparent);
   display: inline-flex;
 }
 
 moz-button.input-cta {
+  --button-background-color-active: color-mix(in srgb, black 25%, transparent);
   --button-background-color-disabled: var(--color-gray-20);
-  --button-text-color: white;
+  --button-background-color-hover: color-mix(in srgb, black 15%, transparent);
+  --button-background-color-selected: color-mix(in srgb, black 25%, transparent);
+  --button-background-color: transparent;
+  --button-border-radius: var(--border-radius-circle);
+  --button-padding: 0 var(--space-small) 0 var(--space-large);
+  --button-text-color-active: white;
   --button-text-color-disabled: white;
   --button-text-color-hover: white;
-  --button-text-color-active: white;
   --button-text-color-selected: white;
-  --button-border-radius: var(--border-radius-circle);
-
+  --button-text-color: white;
   border-radius: var(--button-border-radius);
 }
 
-moz-button[type="default"].input-cta::part(button) {
-  padding-inline: var(--space-xxlarge);
-}
-
 moz-button[type="split"].input-cta {
-  background: linear-gradient(260deg, rgba(255, 183, 148, 0.8) -45%, rgba(181, 62, 175, 0.8) 65%, rgba(131, 62, 181, 0.8) 150%);
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  background: var(--button-background);
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  box-shadow: var(--button-box-shadow);
+  gap: 0;
 }
 
 moz-button[type="split"].input-cta::part(chevron-button) {
   padding-inline-end: var(--space-xsmall);
+}
+
+moz-button[type="split"].input-cta::part(chevron-button)::before {
+  background: var(--button-separator-color);
+  border-radius: var(--border-radius-circle);
+  content: "";
+  display: block;
+  height: var(--size-item-small);
+  left: 0;
+  position: absolute;
+  transform: translateX(-100%);
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/no-non-semantic-token-usage, stylelint-plugin-mozilla/use-size-tokens, stylelint-plugin-mozilla/use-design-tokens */
+  width: var(--button-border-width);
 }

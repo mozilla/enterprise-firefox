@@ -35,77 +35,6 @@ static uint32_t ToAHardwareBuffer_Format(gfx::SurfaceFormat aFormat) {
   }
 }
 
-StaticAutoPtr<AndroidHardwareBufferApi> AndroidHardwareBufferApi::sInstance;
-
-/* static */
-void AndroidHardwareBufferApi::Init() {
-  MOZ_ASSERT(XRE_IsGPUProcess());
-
-  sInstance = new AndroidHardwareBufferApi();
-  if (!sInstance->Load()) {
-    sInstance = nullptr;
-  }
-}
-
-/* static */
-void AndroidHardwareBufferApi::Shutdown() { sInstance = nullptr; }
-
-AndroidHardwareBufferApi::AndroidHardwareBufferApi() {}
-
-bool AndroidHardwareBufferApi::Load() {
-  mAHardwareBuffer_allocate = AHardwareBuffer_allocate;
-  mAHardwareBuffer_acquire = AHardwareBuffer_acquire;
-  mAHardwareBuffer_release = AHardwareBuffer_release;
-  mAHardwareBuffer_describe = AHardwareBuffer_describe;
-  mAHardwareBuffer_lock = AHardwareBuffer_lock;
-  mAHardwareBuffer_unlock = AHardwareBuffer_unlock;
-  mAHardwareBuffer_sendHandleToUnixSocket =
-      AHardwareBuffer_sendHandleToUnixSocket;
-  mAHardwareBuffer_recvHandleFromUnixSocket =
-      AHardwareBuffer_recvHandleFromUnixSocket;
-  return true;
-}
-
-void AndroidHardwareBufferApi::Allocate(const AHardwareBuffer_Desc* aDesc,
-                                        AHardwareBuffer** aOutBuffer) {
-  mAHardwareBuffer_allocate(aDesc, aOutBuffer);
-}
-
-void AndroidHardwareBufferApi::Acquire(AHardwareBuffer* aBuffer) {
-  mAHardwareBuffer_acquire(aBuffer);
-}
-
-void AndroidHardwareBufferApi::Release(AHardwareBuffer* aBuffer) {
-  mAHardwareBuffer_release(aBuffer);
-}
-
-void AndroidHardwareBufferApi::Describe(const AHardwareBuffer* aBuffer,
-                                        AHardwareBuffer_Desc* aOutDesc) {
-  mAHardwareBuffer_describe(aBuffer, aOutDesc);
-}
-
-int AndroidHardwareBufferApi::Lock(AHardwareBuffer* aBuffer, uint64_t aUsage,
-                                   int32_t aFence, const ARect* aRect,
-                                   void** aOutVirtualAddress) {
-  return mAHardwareBuffer_lock(aBuffer, aUsage, aFence, aRect,
-                               aOutVirtualAddress);
-}
-
-int AndroidHardwareBufferApi::Unlock(AHardwareBuffer* aBuffer,
-                                     int32_t* aFence) {
-  return mAHardwareBuffer_unlock(aBuffer, aFence);
-}
-
-int AndroidHardwareBufferApi::SendHandleToUnixSocket(
-    const AHardwareBuffer* aBuffer, int aSocketFd) {
-  return mAHardwareBuffer_sendHandleToUnixSocket(aBuffer, aSocketFd);
-}
-
-int AndroidHardwareBufferApi::RecvHandleFromUnixSocket(
-    int aSocketFd, AHardwareBuffer** aOutBuffer) {
-  return mAHardwareBuffer_recvHandleFromUnixSocket(aSocketFd, aOutBuffer);
-}
-
 /* static */
 uint64_t AndroidHardwareBuffer::GetNextId() {
   static std::atomic<uint64_t> sNextId = 0;
@@ -116,10 +45,6 @@ uint64_t AndroidHardwareBuffer::GetNextId() {
 /* static */
 already_AddRefed<AndroidHardwareBuffer> AndroidHardwareBuffer::Create(
     gfx::IntSize aSize, gfx::SurfaceFormat aFormat) {
-  if (!AndroidHardwareBufferApi::Get()) {
-    return nullptr;
-  }
-
   if (aFormat != gfx::SurfaceFormat::R8G8B8A8 &&
       aFormat != gfx::SurfaceFormat::R8G8B8X8 &&
       aFormat != gfx::SurfaceFormat::B8G8R8A8 &&
@@ -139,13 +64,13 @@ already_AddRefed<AndroidHardwareBuffer> AndroidHardwareBuffer::Create(
   desc.format = ToAHardwareBuffer_Format(aFormat);
 
   AHardwareBuffer* nativeBuffer = nullptr;
-  AndroidHardwareBufferApi::Get()->Allocate(&desc, &nativeBuffer);
+  AHardwareBuffer_allocate(&desc, &nativeBuffer);
   if (!nativeBuffer) {
     return nullptr;
   }
 
   AHardwareBuffer_Desc bufferInfo = {};
-  AndroidHardwareBufferApi::Get()->Describe(nativeBuffer, &bufferInfo);
+  AHardwareBuffer_describe(nativeBuffer, &bufferInfo);
 
   RefPtr<AndroidHardwareBuffer> buffer = new AndroidHardwareBuffer(
       nativeBuffer, aSize, bufferInfo.stride, aFormat, GetNextId());
@@ -167,7 +92,7 @@ AndroidHardwareBuffer::AndroidHardwareBuffer(AHardwareBuffer* aNativeBuffer,
   MOZ_ASSERT(mNativeBuffer);
 #ifdef DEBUG
   AHardwareBuffer_Desc bufferInfo = {};
-  AndroidHardwareBufferApi::Get()->Describe(mNativeBuffer, &bufferInfo);
+  AHardwareBuffer_describe(mNativeBuffer, &bufferInfo);
   MOZ_ASSERT(mSize.width == (int32_t)bufferInfo.width);
   MOZ_ASSERT(mSize.height == (int32_t)bufferInfo.height);
   MOZ_ASSERT(mStride == bufferInfo.stride);
@@ -179,20 +104,20 @@ AndroidHardwareBuffer::~AndroidHardwareBuffer() {
   if (mIsRegistered) {
     AndroidHardwareBufferManager::Get()->Unregister(this);
   }
-  AndroidHardwareBufferApi::Get()->Release(mNativeBuffer);
+  AHardwareBuffer_release(mNativeBuffer);
 }
 
 int AndroidHardwareBuffer::Lock(uint64_t aUsage, const ARect* aRect,
                                 void** aOutVirtualAddress) {
   UniqueFileHandle fd = GetAndResetReleaseFence();
-  return AndroidHardwareBufferApi::Get()->Lock(mNativeBuffer, aUsage, fd.get(),
-                                               aRect, aOutVirtualAddress);
+  return AHardwareBuffer_lock(mNativeBuffer, aUsage, fd.get(), aRect,
+                              aOutVirtualAddress);
 }
 
 int AndroidHardwareBuffer::Unlock() {
   int rawFd = -1;
   // XXX All tested recent Android devices did not return valid fence.
-  int ret = AndroidHardwareBufferApi::Get()->Unlock(mNativeBuffer, &rawFd);
+  int ret = AHardwareBuffer_unlock(mNativeBuffer, &rawFd);
   if (ret != 0) {
     return ret;
   }

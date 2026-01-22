@@ -428,20 +428,6 @@ add_task(async function test_IPProtectionService_stop_on_signout() {
   cleanupService();
 });
 
-function waitForTabReloaded(tab) {
-  return new Promise(resolve => {
-    gBrowser.addTabsProgressListener({
-      async onLocationChange(aBrowser) {
-        if (tab.linkedBrowser == aBrowser) {
-          gBrowser.removeTabsProgressListener(this);
-          await Promise.resolve();
-          resolve();
-        }
-      },
-    });
-  });
-}
-
 /**
  * Tests a user start or stopping the proxy reloads the current tab.
  */
@@ -493,82 +479,6 @@ add_task(async function test_IPProtectionService_reload() {
   await closePanel();
   await cleanupAlpha();
   cleanupService();
-});
-
-/**
- * Tests the add-on manager interaction
- */
-add_task(async function test_IPProtectionService_addon() {
-  let cleanupAlpha = await setupExperiment({ enabled: true, variant: "alpha" });
-  let widget = document.getElementById(IPProtectionWidget.WIDGET_ID);
-
-  Assert.ok(
-    BrowserTestUtils.isVisible(widget),
-    "IP-Protection toolbaritem is enabled"
-  );
-
-  setupService({
-    isEnrolledAndEntitled: true,
-    isSignedIn: true,
-    entitlement: {
-      status: 200,
-      error: undefined,
-      entitlement: {
-        subscribed: true, // hasUpgraded=true
-        uid: 42,
-        created_at: "2023-01-01T12:00:00.000Z",
-      },
-    },
-  });
-  await IPPEnrollAndEntitleManager.refetchEntitlement();
-
-  const extension = ExtensionTestUtils.loadExtension({
-    useAddonManager: "permanent",
-    manifest: {
-      manifest_version: 2,
-      name: "Test VPN",
-      version: "1.0",
-      applications: { gecko: { id: "vpn@mozilla.com" } },
-    },
-  });
-
-  await extension.startup();
-
-  Assert.ok(
-    !BrowserTestUtils.isVisible(widget),
-    "IP-Protection toolbaritem is removed"
-  );
-
-  await extension.unload();
-
-  widget = document.getElementById(IPProtectionWidget.WIDGET_ID);
-  Assert.ok(
-    BrowserTestUtils.isVisible(widget),
-    "IP-Protection toolbaritem is re-added"
-  );
-
-  cleanupService(); // hasUpgraded=false
-  await IPPEnrollAndEntitleManager.refetchEntitlement();
-
-  const extension2 = ExtensionTestUtils.loadExtension({
-    useAddonManager: "permanent",
-    manifest: {
-      manifest_version: 2,
-      name: "Test VPN",
-      version: "2.0",
-      applications: { gecko: { id: "vpn@mozilla.com" } },
-    },
-  });
-
-  await extension2.startup();
-
-  Assert.ok(
-    BrowserTestUtils.isVisible(widget),
-    "IP-Protection toolbaritem does not change when user has not upgraded"
-  );
-
-  await extension2.unload();
-  await cleanupAlpha();
 });
 
 /**

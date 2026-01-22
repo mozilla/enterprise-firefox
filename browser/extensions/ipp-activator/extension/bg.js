@@ -25,6 +25,7 @@ class IPPAddonActivator {
     this.tabActivated = this.#tabActivated.bind(this);
     this.tabRemoved = this.#tabRemoved.bind(this);
     this.onRequest = this.#onRequest.bind(this);
+    this.ippExceptionsChanged = this.#ippExceptionsChanged.bind(this);
 
     browser.ippActivator.isTesting().then(async isTesting => {
       await this.#loadAndRebuildBreakages();
@@ -177,6 +178,10 @@ class IPPAddonActivator {
       browser.tabs.onActivated.addListener(this.tabActivated);
       browser.tabs.onRemoved.addListener(this.tabRemoved);
     }
+
+    browser.ippActivator.onIPPExceptionsChanged.addListener(
+      this.ippExceptionsChanged
+    );
   }
 
   #unregisterListeners() {
@@ -196,8 +201,35 @@ class IPPAddonActivator {
       browser.webRequest.onBeforeRequest.removeListener(this.onRequest);
     }
 
+    browser.ippActivator.onIPPExceptionsChanged.removeListener(
+      this.ippExceptionsChanged
+    );
+
     this.#pendingTabs.clear();
     this.#pendingWebRequests.clear();
+  }
+
+  async #ippExceptionsChanged() {
+    if (!this.#shownDomainByTab.size) {
+      return;
+    }
+
+    const tabIds = Array.from(this.#shownDomainByTab.keys());
+    await Promise.allSettled(
+      tabIds.map(async tabId => {
+        try {
+          const tab = await browser.tabs.get(tabId);
+          if (!tab?.url) {
+            return;
+          }
+
+          if (await browser.ippActivator.hasExclusion(tab.url)) {
+            await browser.ippActivator.hideMessage(tabId);
+            this.#shownDomainByTab.delete(tabId);
+          }
+        } catch (_) {}
+      })
+    );
   }
 
   async #tabUpdated(tabId, changeInfo, tab) {
@@ -287,6 +319,10 @@ class IPPAddonActivator {
   async #maybeNotify(tab, breakages, url) {
     const info = await browser.ippActivator.getBaseDomainFromURL(url);
     if (!info.baseDomain && !info.host) {
+      return false;
+    }
+
+    if (await browser.ippActivator.hasExclusion(url)) {
       return false;
     }
 

@@ -20,8 +20,6 @@ devtools/shared/heapsnapshot/CoreDump.pb.cc
 devtools/shared/heapsnapshot/CoreDump.pb.h
 devtools/shared/jsbeautify/
 devtools/shared/node-properties/
-devtools/shared/qrcode/decoder/
-devtools/shared/qrcode/encoder/
 devtools/shared/sprintfjs/
 devtools/shared/storage/vendor/
 dom/canvas/test/webgl-conf/checkout/
@@ -197,8 +195,6 @@ toolkit/components/translations/bergamot-translator/thirdparty
 toolkit/components/translations/bergamot-translator/bergamot-translator.js
 toolkit/components/url-classifier/chromium/
 toolkit/components/utils/mozjexl.sys.mjs
-toolkit/components/viaduct/fetch_msg_types.pb.cc
-toolkit/components/viaduct/fetch_msg_types.pb.h
 toolkit/content/vendor/react/
 toolkit/content/widgets/vendor/
 toolkit/crashreporter/breakpad-client/

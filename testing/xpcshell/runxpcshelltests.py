@@ -70,13 +70,11 @@ TBPL_RETRY = 4  # defined in mozharness
 # are needed for custom CPU/memory configurations
 NUM_THREADS = int(cpu_count() * 2.5)
 
-EXPECTED_LOG_ACTIONS = set(
-    [
-        "crash_reporter_init",
-        "test_status",
-        "log",
-    ]
-)
+EXPECTED_LOG_ACTIONS = set([
+    "crash_reporter_init",
+    "test_status",
+    "log",
+])
 
 # --------------------------------------------------------------
 # TODO: this is a hack for mozbase without virtualenv, remove with bug 849900
@@ -740,9 +738,10 @@ class XPCShellTestThread(Thread):
             if "message" in line:
                 line["message"] = self.fix_text_output(line["message"])
             if "xpcshell_process" in line:
-                line["thread"] = " ".join(
-                    [current_thread().name, line["xpcshell_process"]]
-                )
+                line["thread"] = " ".join([
+                    current_thread().name,
+                    line["xpcshell_process"],
+                ])
             else:
                 line["thread"] = current_thread().name
             self.log.log_raw(line)
@@ -913,15 +912,17 @@ class XPCShellTestThread(Thread):
         # 3) Arguments for the test file
         self.command.extend(self.buildCmdTestFile(path))
         self.command.extend(["-e", 'const _TEST_NAME = "%s";' % name])
-        self.command.extend(
-            ["-e", 'const _EXPECTED = "%s";' % self.test_object["expected"]]
-        )
+        self.command.extend([
+            "-e",
+            'const _EXPECTED = "%s";' % self.test_object["expected"],
+        ])
 
         # 4) Arguments for code coverage
         if self.jscovdir:
-            self.command.extend(
-                ["-e", 'const _JSCOV_DIR = "%s";' % self.jscovdir.replace("\\", "/")]
-            )
+            self.command.extend([
+                "-e",
+                'const _JSCOV_DIR = "%s";' % self.jscovdir.replace("\\", "/"),
+            ])
 
         # 5) Runtime arguments
         if "debug" in self.test_object:
@@ -1455,9 +1456,10 @@ class XPCShellTests:
         elif "LD_LIBRARY_PATH" not in self.env or self.env["LD_LIBRARY_PATH"] is None:
             self.env["LD_LIBRARY_PATH"] = self.xrePath
         else:
-            self.env["LD_LIBRARY_PATH"] = ":".join(
-                [self.xrePath, self.env["LD_LIBRARY_PATH"]]
-            )
+            self.env["LD_LIBRARY_PATH"] = ":".join([
+                self.xrePath,
+                self.env["LD_LIBRARY_PATH"],
+            ])
 
         usingASan = "asan" in self.mozInfo and self.mozInfo["asan"]
         usingTSan = "tsan" in self.mozInfo and self.mozInfo["tsan"]
@@ -1514,6 +1516,13 @@ class XPCShellTests:
         """
         return os.path.abspath(dirname)
 
+    def buildNodeEnvironment(self):
+        """
+        Return the environment to use for the node process. This can be overridden
+        by subclasses to filter or modify the environment.
+        """
+        return self.env
+
     def trySetupNode(self):
         """
         Run node for HTTP/2 tests, if available, and updates mozinfo as appropriate.
@@ -1546,6 +1555,8 @@ class XPCShellTests:
 
         self.log.info("Found node at %s" % (nodeBin,))
 
+        node_env = self.buildNodeEnvironment()
+
         def read_streams(name, proc, pipe):
             output = "stdout" if pipe == proc.stdout else "stderr"
             for line in iter(pipe.readline, ""):
@@ -1568,7 +1579,7 @@ class XPCShellTests:
                         stdin=PIPE,
                         stdout=PIPE,
                         stderr=PIPE,
-                        env=self.env,
+                        env=node_env,
                         cwd=os.getcwd(),
                         universal_newlines=True,
                         start_new_session=True,

@@ -25,8 +25,7 @@
 
 #include <algorithm>
 
-#include "jsnum.h"
-
+#include "builtin/Number.h"
 #include "jit/Disassemble.h"
 #include "jit/ExecutableAllocator.h"
 #include "jit/FlushICache.h"  // for FlushExecutionContextForAllThreads
@@ -528,9 +527,9 @@ bool Code::createManyLazyEntryStubs(const WriteGuard& guard,
     }
   }
 
-  stubCodeBlock->sendToProfiler(*codeMeta_, *codeTailMeta_, codeMetaForAsmJS_,
-                                FuncIonPerfSpewerSpan(),
-                                FuncBaselinePerfSpewerSpan());
+  guard->blocks[*stubBlockIndex]->sendToProfiler(
+      *codeMeta_, *codeTailMeta_, codeMetaForAsmJS_, FuncIonPerfSpewerSpan(),
+      FuncBaselinePerfSpewerSpan());
   return true;
 }
 

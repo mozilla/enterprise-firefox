@@ -47,6 +47,8 @@ skip-if = [
 
 ["browser_autofill_address_textarea.js"]
 
+["browser_autofill_creditCard_expiry.js"]
+
 ["browser_autofill_creditCard_name.js"]
 
 ["browser_autofill_creditCard_type.js"]
@@ -109,6 +111,8 @@ skip-if = [
 ["browser_iframe_cross_origin_field_detection.js"]
 
 ["browser_iframe_layout_telemetry.js"]
+
+["browser_iframe_nested.js"]
 
 ["browser_iframe_same_origin_field_detection.js"]
 

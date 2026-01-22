@@ -6,6 +6,9 @@
 const { AddonTestUtils } = ChromeUtils.importESModule(
   "resource://testing-common/AddonTestUtils.sys.mjs"
 );
+const { SearchService } = ChromeUtils.importESModule(
+  "moz-src:///toolkit/components/search/SearchService.sys.mjs"
+);
 const { setTimeout } = ChromeUtils.importESModule(
   "resource://gre/modules/Timer.sys.mjs"
 );
@@ -28,7 +31,7 @@ AddonTestUtils.createAppInfo(
 
 add_task(async function setup() {
   await AddonTestUtils.promiseStartupManager();
-  await Services.search.init();
+  await SearchService.init();
 });
 
 add_task(async function test_extension_adding_engine() {
@@ -53,7 +56,7 @@ add_task(async function test_extension_adding_engine() {
   await ext1.startup();
   await AddonTestUtils.waitForSearchProviderStartup(ext1);
 
-  let engine = Services.search.getEngineByName("MozSearch");
+  let engine = SearchService.getEngineByName("MozSearch");
   ok(engine, "Engine should exist.");
 
   let { baseURI } = ext1.extension;
@@ -102,7 +105,7 @@ add_task(async function test_extension_adding_engine() {
   await ext1.unload();
   await delay();
 
-  engine = Services.search.getEngineByName("MozSearch");
+  engine = SearchService.getEngineByName("MozSearch");
   ok(!engine, "Engine should not exist");
 });
 
@@ -123,13 +126,13 @@ add_task(async function test_extension_adding_engine_with_spaces() {
   await ext1.startup();
   await AddonTestUtils.waitForSearchProviderStartup(ext1);
 
-  let engine = Services.search.getEngineByName("MozSearch");
+  let engine = SearchService.getEngineByName("MozSearch");
   ok(engine, "Engine should exist.");
 
   await ext1.unload();
   await delay();
 
-  engine = Services.search.getEngineByName("MozSearch");
+  engine = SearchService.getEngineByName("MozSearch");
   ok(!engine, "Engine should not exist");
 });
 
@@ -156,12 +159,12 @@ add_task(async function test_upgrade_default_position_engine() {
   await ext1.startup();
   await AddonTestUtils.waitForSearchProviderStartup(ext1);
 
-  let engine = Services.search.getEngineByName("MozSearch");
-  await Services.search.setDefault(
+  let engine = SearchService.getEngineByName("MozSearch");
+  await SearchService.setDefault(
     engine,
     Ci.nsISearchService.CHANGE_REASON_UNKNOWN
   );
-  await Services.search.moveEngine(engine, 1);
+  await SearchService.moveEngine(engine, 1);
 
   await ext1.upgrade({
     manifest: {
@@ -183,14 +186,14 @@ add_task(async function test_upgrade_default_position_engine() {
   });
   await AddonTestUtils.waitForSearchProviderStartup(ext1);
 
-  engine = Services.search.getEngineByName("MozSearch");
+  engine = SearchService.getEngineByName("MozSearch");
   equal(
-    Services.search.defaultEngine,
+    SearchService.defaultEngine,
     engine,
     "Default engine should still be MozSearch"
   );
   equal(
-    (await Services.search.getEngines()).map(e => e.name).indexOf(engine.name),
+    (await SearchService.getEngines()).map(e => e.name).indexOf(engine.name),
     1,
     "Engine is in position 1"
   );
@@ -198,7 +201,7 @@ add_task(async function test_upgrade_default_position_engine() {
   await ext1.unload();
   await delay();
 
-  engine = Services.search.getEngineByName("MozSearch");
+  engine = SearchService.getEngineByName("MozSearch");
   ok(!engine, "Engine should not exist");
 });
 
@@ -222,7 +225,7 @@ add_task(async function test_extension_get_params() {
   await ext1.startup();
   await AddonTestUtils.waitForSearchProviderStartup(ext1);
 
-  let engine = Services.search.getEngineByName("MozSearch");
+  let engine = SearchService.getEngineByName("MozSearch");
   ok(engine, "Engine should exist.");
 
   let url = engine.wrappedJSObject.getURLOfType("text/html");
@@ -273,7 +276,7 @@ add_task(async function test_extension_post_params() {
   await ext1.startup();
   await AddonTestUtils.waitForSearchProviderStartup(ext1);
 
-  let engine = Services.search.getEngineByName("MozSearch");
+  let engine = SearchService.getEngineByName("MozSearch");
   ok(engine, "Engine should exist.");
 
   let url = engine.wrappedJSObject.getURLOfType("text/html");
@@ -329,7 +332,7 @@ add_task(async function test_extension_no_query_params() {
   await ext1.startup();
   await AddonTestUtils.waitForSearchProviderStartup(ext1);
 
-  let engine = Services.search.getEngineByName("MozSearch");
+  let engine = SearchService.getEngineByName("MozSearch");
   ok(engine, "Engine should exist.");
 
   const encodedSubmissionURL = engine.getSubmission(kSearchTermIntl).uri.spec;
@@ -355,7 +358,7 @@ add_task(async function test_extension_no_query_params() {
   await ext1.unload();
   await delay();
 
-  engine = Services.search.getEngineByName("MozSearch");
+  engine = SearchService.getEngineByName("MozSearch");
   ok(!engine, "Engine should not exist");
 });
 
@@ -390,7 +393,7 @@ add_task(async function test_extension_empty_suggestUrl() {
   await ext1.startup();
   await AddonTestUtils.waitForSearchProviderStartup(ext1);
 
-  let engine = Services.search.getEngineByName("MozSearch");
+  let engine = SearchService.getEngineByName("MozSearch");
   ok(engine, "Engine should exist.");
 
   let url = engine.wrappedJSObject.getURLOfType("text/html");
@@ -446,7 +449,7 @@ add_task(async function test_extension_empty_suggestUrl_with_params() {
   await ext1.startup();
   await AddonTestUtils.waitForSearchProviderStartup(ext1);
 
-  let engine = Services.search.getEngineByName("MozSearch");
+  let engine = SearchService.getEngineByName("MozSearch");
   ok(engine, "Engine should exist.");
 
   let url = engine.wrappedJSObject.getURLOfType("text/html");
@@ -555,7 +558,7 @@ add_task(async function test_extension_allow_http_for_localhost() {
   await ext1.startup();
   await AddonTestUtils.waitForSearchProviderStartup(ext1);
 
-  let engine = Services.search.getEngineByName("MozSearch");
+  let engine = SearchService.getEngineByName("MozSearch");
   ok(engine, "Engine should exist.");
 
   await ext1.unload();

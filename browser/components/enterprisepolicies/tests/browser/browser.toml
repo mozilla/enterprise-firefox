@@ -115,10 +115,9 @@ https_first_disabled = true
 
 ["browser_policy_privatebrowsingmodeavailability.js"]
 
+["browser_policy_privatebrowsingmodeavailability_srd.js"]
+
 ["browser_policy_search_engine.js"]
-skip-if = [
-  "os == 'win' && os_version == '11.26100' && arch == 'x86_64' && opt && verify-standalone",
-]
 
 ["browser_policy_searchbar.js"]
 
@@ -133,3 +132,10 @@ skip-if = [
 ["browser_policy_usermessaging.js"]
 
 ["browser_policy_websitefilter.js"]
+
+["browser_policy_websitefilter_telemetry.js"]
+# Only run in MOZ_ENTERPRISE builds
+skip-if = [
+  "!buildapp:firefox",
+  "!enterprise",
+]

@@ -325,13 +325,8 @@ newtab-custom-recent-subtitle = Una selección de sitios y contenidos recientes
 newtab-custom-weather-toggle =
     .label = El tiempo
     .description = El pronóstico de hoy de un vistazo
-newtab-custom-trending-search-toggle =
-    .label = Tendencias de búsqueda
-    .description = Temas populares y buscados frecuentemente
 newtab-custom-widget-weather-toggle =
     .label = El tiempo
-newtab-custom-widget-trending-search-toggle =
-    .label = Tendencias de búsqueda
 newtab-custom-widget-lists-toggle =
     .label = Listas
 newtab-custom-widget-timer-toggle =
@@ -592,7 +587,7 @@ newtab-download-mobile-highlight-image =
 newtab-shortcuts-highlight-title = Sus favoritos en la punta de sus dedos
 newtab-shortcuts-highlight-subtitle = Añada un acceso directo para mantener sus favoritos a un clic de distancia.
 
-## Strings for reporting ads and content
+## Strings for reporting issues with ads and content
 
 newtab-report-content-why-reporting-this =
     .label = ¿Por qué está informando de esto?
@@ -610,21 +605,13 @@ newtab-report-content-inappropriate-offensive =
     .label = Inapropiado u ofensivo
 newtab-report-content-spam-misleading =
     .label = Spam o engañoso
+newtab-report-content-requires-payment-subscription =
+    .label = Requiere pago o suscripción
+newtab-report-content-requires-payment-subscription-learn-more = Saber más
 newtab-report-cancel = Cancelar
 newtab-report-submit = Enviar
 newtab-toast-thanks-for-reporting =
     .message = Gracias por informar sobre esto.
-
-## Strings for trending searches
-
-newtab-trending-searches-show-trending =
-    .title = Mostrar búsquedas más populares
-newtab-trending-searches-hide-trending =
-    .title = Ocultar búsquedas más populares
-newtab-trending-searches-learn-more = Saber más
-newtab-trending-searches-dismiss = Ocultar búsquedas más populares
-# "Trending searches refers to popular searches from search engines
-newtab-trending-searches-title = Tendencias de búsqueda
 
 ## Strings for task / to-do list productivity widget
 

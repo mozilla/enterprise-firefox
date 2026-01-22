@@ -4,8 +4,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef nsMathMLChar_h___
-#define nsMathMLChar_h___
+#ifndef nsMathMLChar_h_
+#define nsMathMLChar_h_
 
 #include "gfxTextRun.h"
 #include "nsBoundingMetrics.h"
@@ -47,29 +47,20 @@ enum {
 };
 
 // A single glyph in our internal representation is either
-// 1) a 'code@font' pair from the mathfontFONTFAMILY.properties table. The
-// 'code' is interpreted as a Unicode point. The 'font' is a numeric
-// identifier given to the font to which the glyph belongs, which is 0 for the
-// FONTFAMILY and > 0 for 'external' fonts.
-// 2) a glyph index from the Open Type MATH table. In that case, all the glyphs
-// come from the font containing that table and 'font' is just set to -1.
+// 1) a code pair from the mathfontFONTFAMILY.properties table, interpreted
+// as a Unicode point.
+// 2) a glyph index from the Open Type MATH table.
 struct nsGlyphCode {
   union {
-    char16_t code[2];
+    char16_t code;
     uint32_t glyphID;
   };
-  int8_t font;
+  bool isGlyphID = true;
 
-  bool IsGlyphID() const { return font == -1; }
-
-  int32_t Length() const {
-    return (IsGlyphID() || code[1] == char16_t('\0') ? 1 : 2);
-  }
-  bool Exists() const { return IsGlyphID() ? glyphID != 0 : code[0] != 0; }
+  bool Exists() const { return isGlyphID ? glyphID != 0 : code != 0; }
   bool operator==(const nsGlyphCode& other) const {
-    return (other.font == font && ((IsGlyphID() && other.glyphID == glyphID) ||
-                                   (!IsGlyphID() && other.code[0] == code[0] &&
-                                    other.code[1] == code[1])));
+    return (other.isGlyphID == isGlyphID &&
+            (isGlyphID ? other.glyphID == glyphID : other.code == code));
   }
   bool operator!=(const nsGlyphCode&) const = default;
 };
@@ -231,4 +222,4 @@ class nsMathMLChar {
                        nsRect& r);
 };
 
-#endif /* nsMathMLChar_h___ */
+#endif /* nsMathMLChar_h_ */

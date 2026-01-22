@@ -8,8 +8,8 @@
 // nsMenuPopupFrame
 //
 
-#ifndef nsMenuPopupFrame_h__
-#define nsMenuPopupFrame_h__
+#ifndef nsMenuPopupFrame_h_
+#define nsMenuPopupFrame_h_
 
 #include "Units.h"
 #include "mozilla/Attributes.h"

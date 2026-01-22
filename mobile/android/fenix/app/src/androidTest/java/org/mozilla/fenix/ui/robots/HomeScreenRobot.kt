@@ -561,6 +561,11 @@ class HomeScreenRobot(private val composeTestRule: ComposeTestRule) {
             Log.i(TAG, "openThreeDotMenu: Trying to click main menu button")
             composeTestRule.onNodeWithContentDescription(getStringResource(R.string.content_description_menu)).performClick()
             Log.i(TAG, "openThreeDotMenu: Clicked main menu button")
+
+            composeTestRule.runOnIdle {
+                Log.i(TAG, "runOnIdle: Compose is idle, thread=${Thread.currentThread().name}")
+            }
+
             assertUIObjectExists(itemWithResId("$packageName:id/design_bottom_sheet"))
 
             ThreeDotMenuMainRobot(composeTestRule).interact()

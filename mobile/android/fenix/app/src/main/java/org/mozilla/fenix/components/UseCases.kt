@@ -133,7 +133,7 @@ class UseCases(
     val fenixBrowserUseCases by lazyMonitored {
         FenixBrowserUseCases(
             appStore = appStore.value,
-            addNewTabUseCase = tabsUseCases.addTab,
+            tabsUseCases = tabsUseCases,
             loadUrlUseCase = sessionUseCases.loadUrl,
             searchUseCases = searchUseCases,
             homepageTitle = context.getString(R.string.tab_tray_homepage_tab),

@@ -3,31 +3,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 /**
- * Intl.DisplayNames internal properties.
- */
-function displayNamesLocaleData() {
-  // Intl.DisplayNames doesn't support any extension keys.
-  return {};
-}
-var displayNamesInternalProperties = {
-  localeData: displayNamesLocaleData,
-  relevantExtensionKeys: [],
-};
-
-function mozDisplayNamesLocaleData() {
-  return {
-    ca: intl_availableCalendars,
-    default: {
-      ca: intl_defaultCalendar,
-    },
-  };
-}
-var mozDisplayNamesInternalProperties = {
-  localeData: mozDisplayNamesLocaleData,
-  relevantExtensionKeys: ["ca"],
-};
-
-/**
  * Intl.DisplayNames ( [ locales [ , options ] ] )
  *
  * Compute an internal properties object from |lazyDisplayNamesData|.
@@ -39,22 +14,14 @@ function resolveDisplayNamesInternals(lazyDisplayNamesData) {
 
   var mozExtensions = lazyDisplayNamesData.mozExtensions;
 
-  var DisplayNames = mozExtensions
-    ? mozDisplayNamesInternalProperties
-    : displayNamesInternalProperties;
-
   // Compute effective locale.
 
-  // Step 7.
-  var localeData = DisplayNames.localeData;
-
-  // Step 10.
-  var r = ResolveLocale(
+  // Steps 7 and 10.
+  var r = intl_ResolveLocale(
     "DisplayNames",
     lazyDisplayNamesData.requestedLocales,
     lazyDisplayNamesData.opt,
-    DisplayNames.relevantExtensionKeys,
-    localeData
+    mozExtensions
   );
 
   // Step 12.

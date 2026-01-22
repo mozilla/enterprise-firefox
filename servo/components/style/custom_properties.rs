@@ -27,9 +27,9 @@ use crate::selector_map::{PrecomputedHashMap, PrecomputedHashSet};
 use crate::stylesheets::UrlExtraData;
 use crate::stylist::Stylist;
 use crate::values::computed::{self, ToComputedValue};
+use crate::values::generics::calc::SortKey as AttrUnit;
 use crate::values::specified::FontRelativeLength;
-use crate::values::AtomIdent;
-use crate::Atom;
+use crate::{Atom, LocalName};
 use cssparser::{
     CowRcStr, Delimiter, Parser, ParserInput, SourcePosition, Token, TokenSerializationType,
 };
@@ -476,8 +476,9 @@ enum SubstitutionFunctionKind {
 #[derive(Clone, Debug, MallocSizeOf, PartialEq, ToShmem, Parse)]
 enum AttributeType {
     None,
+    RawString,
     Type(Descriptor),
-    Unit,
+    Unit(AttrUnit),
 }
 
 #[derive(Clone, Debug, MallocSizeOf, PartialEq, ToShmem)]
@@ -598,8 +599,6 @@ impl VariableValue {
         input: &mut Parser<'i, 't>,
         url_data: &UrlExtraData,
     ) -> Result<Self, ParseError<'i>> {
-        input.skip_whitespace();
-
         let mut references = References::default();
         let mut missing_closing_characters = String::new();
         let start_position = input.position();
@@ -609,7 +608,10 @@ impl VariableValue {
             &mut references,
             &mut missing_closing_characters,
         )?;
-        let mut css = input.slice_from(start_position).to_owned();
+        let mut css = input
+            .slice_from(start_position)
+            .trim_ascii_start()
+            .to_owned();
         if !missing_closing_characters.is_empty() {
             // Unescaped backslash at EOF in a quoted string is ignored.
             if css.ends_with("\\")
@@ -620,6 +622,7 @@ impl VariableValue {
             css.push_str(&missing_closing_characters);
         }
 
+        css.truncate(css.trim_ascii_end().len());
         css.shrink_to_fit();
         references.refs.shrink_to_fit();
 
@@ -839,18 +842,12 @@ fn parse_declaration_value_block<'i, 't>(
                                 name.as_ref()
                             });
 
-                        let mut attribute_syntax = AttributeType::None;
-                        if substitution_kind == SubstitutionFunctionKind::Attr
-                            && input
-                                .try_parse(|input| input.expect_function_matching("type"))
-                                .is_ok()
-                        {
-                            // TODO(descalante): determine what to do for `type(garbage)` bug 2006626
-                            attribute_syntax = input
-                                .parse_nested_block(Descriptor::from_css_parser)
-                                .ok()
-                                .map_or(AttributeType::None, AttributeType::Type);
-                        }
+                        let attribute_syntax =
+                            if substitution_kind == SubstitutionFunctionKind::Attr {
+                                parse_attr_type(input)
+                            } else {
+                                AttributeType::None
+                            };
 
                         // We want the order of the references to match source order. So we need to reserve our slot
                         // now, _before_ parsing our fallback. Note that we don't care if parsing fails after all, since
@@ -968,6 +965,32 @@ fn parse_declaration_value_block<'i, 't>(
         };
     }
     Ok((first_token_type, last_token_type))
+}
+
+/// Parse <attr-type> = type( <syntax> ) | raw-string | number | <attr-unit>.
+/// https://drafts.csswg.org/css-values-5/#attr-notation
+fn parse_attr_type<'i, 't>(input: &mut Parser<'i, 't>) -> AttributeType {
+    input
+        .try_parse(|input| {
+            Ok(match input.next()? {
+                Token::Function(ref name) if name.eq_ignore_ascii_case("type") => {
+                    AttributeType::Type(input.parse_nested_block(Descriptor::from_css_parser)?)
+                },
+                Token::Ident(ref ident) => {
+                    if ident.eq_ignore_ascii_case("raw-string") {
+                        AttributeType::RawString
+                    } else {
+                        let unit = AttrUnit::from_ident(ident).map_err(|_| {
+                            input.new_custom_error(StyleParseErrorKind::UnspecifiedError)
+                        })?;
+                        AttributeType::Unit(unit)
+                    }
+                },
+                Token::Delim('%') => AttributeType::Unit(AttrUnit::Percentage),
+                _ => return Err(input.new_custom_error(StyleParseErrorKind::UnspecifiedError)),
+            })
+        })
+        .unwrap_or(AttributeType::None)
 }
 
 /// A struct that takes care of encapsulating the cascade process for custom properties.
@@ -2147,6 +2170,13 @@ fn substitute_one_reference<'a>(
     references: &mut std::iter::Peekable<std::slice::Iter<SubstitutionFunctionReference>>,
     attr_provider: &dyn AttributeProvider,
 ) -> Result<Substitution<'a>, ()> {
+    let simple_subst = |s: &str| {
+        Some(Substitution::new(
+            Cow::Owned(quoted_css_string(s)),
+            TokenSerializationType::Nothing,
+            TokenSerializationType::Nothing,
+        ))
+    };
     let substitution: Option<_> = match reference.substitution_kind {
         SubstitutionFunctionKind::Var => {
             let registration = stylist.get_custom_property_registration(&reference.name);
@@ -2161,28 +2191,60 @@ fn substitute_one_reference<'a>(
                 .get(&reference.name, device, url_data)
                 .map(Substitution::from_value)
         },
-        SubstitutionFunctionKind::Attr => attr_provider
-            .get_attr(AtomIdent::cast(&reference.name))
-            .and_then(|attr| {
-                let AttributeType::Type(syntax) = &reference.attribute_syntax else {
-                    return Some(Substitution::new(
-                        Cow::Owned(quoted_css_string(&attr)),
-                        TokenSerializationType::Nothing,
-                        TokenSerializationType::Nothing,
-                    ));
-                };
-                let mut input = ParserInput::new(&attr);
-                let mut parser = Parser::new(&mut input);
-                let value = SpecifiedRegisteredValue::parse(
-                    &mut parser,
-                    syntax,
-                    url_data,
-                    AllowComputationallyDependent::Yes,
-                )
-                .ok()?;
-                let value = value.to_computed_value(computed_context);
-                Some(Substitution::from_value(value.to_variable_value()))
-            }),
+        // https://drafts.csswg.org/css-values-5/#attr-substitution
+        SubstitutionFunctionKind::Attr => {
+            #[cfg(feature = "gecko")]
+            let local_name = LocalName::cast(&reference.name);
+            #[cfg(feature = "servo")]
+            let local_name = LocalName::from(reference.name.as_ref());
+            attr_provider.get_attr(&local_name).map_or_else(
+                || {
+                    // Special case when fallback and <attr-type> are omitted.
+                    // See FAILURE: https://drafts.csswg.org/css-values-5/#attr-substitution
+                    if reference.fallback.is_none()
+                        && reference.attribute_syntax == AttributeType::None
+                    {
+                        simple_subst("")
+                    } else {
+                        None
+                    }
+                },
+                |attr| {
+                    let mut input = ParserInput::new(&attr);
+                    let mut parser = Parser::new(&mut input);
+                    match &reference.attribute_syntax {
+                        AttributeType::Unit(unit) => {
+                            let css = {
+                                // Verify that attribute data is a <number-token>.
+                                parser.expect_number().ok()?;
+                                let mut s = attr.clone();
+                                s.push_str(unit.as_ref());
+                                s
+                            };
+                            let serialization = match unit {
+                                AttrUnit::Number => TokenSerializationType::Number,
+                                AttrUnit::Percentage => TokenSerializationType::Percentage,
+                                _ => TokenSerializationType::Dimension,
+                            };
+                            let value =
+                                ComputedValue::new(css, url_data, serialization, serialization);
+                            Some(Substitution::from_value(value))
+                        },
+                        AttributeType::Type(syntax) => {
+                            let value = SpecifiedRegisteredValue::parse(
+                                &mut parser,
+                                syntax,
+                                url_data,
+                                AllowComputationallyDependent::Yes,
+                            )
+                            .ok()?;
+                            Some(Substitution::from_value(value.to_variable_value()))
+                        },
+                        AttributeType::RawString | AttributeType::None => simple_subst(&attr),
+                    }
+                },
+            )
+        },
     };
 
     if let Some(s) = substitution {

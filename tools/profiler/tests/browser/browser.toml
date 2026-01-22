@@ -48,7 +48,7 @@ support-files = ["do_work_500ms.html"]
 skip-if = [
   "ccov", #            The signals for the profiler conflict with the ccov signals
   "os == 'win'", # than these tests, so we're disabling them for now. See Bug 1904897.
-  "verify && debug",
+  "debug && verify",
 ]
 
 ["browser_test_feature_nostacksampling.js"]

@@ -4,8 +4,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef nsMathMLmtableFrame_h___
-#define nsMathMLmtableFrame_h___
+#ifndef nsMathMLmtableFrame_h_
+#define nsMathMLmtableFrame_h_
 
 #include "mozilla/UniquePtr.h"
 #include "nsBlockFrame.h"
@@ -216,7 +216,7 @@ class nsMathMLmtdFrame final : public nsTableCellFrame {
   nsresult AttributeChanged(int32_t aNameSpaceID, nsAtom* aAttribute,
                             AttrModType aModType) override;
 
-  mozilla::StyleVerticalAlignKeyword GetVerticalAlign() const override;
+  TableCellAlignment GetTableCellAlignment() const override;
   void ProcessBorders(nsTableFrame* aFrame,
                       mozilla::nsDisplayListBuilder* aBuilder,
                       const mozilla::nsDisplayListSet& aLists) override;
@@ -246,9 +246,10 @@ class nsMathMLmtdInnerFrame final : public nsBlockFrame, public nsMathMLFrame {
   // Overloaded nsIMathMLFrame methods
 
   NS_IMETHOD
-  UpdatePresentationDataFromChildAt(int32_t aFirstIndex, int32_t aLastIndex,
-                                    uint32_t aFlagsValues,
-                                    uint32_t aFlagsToUpdate) override {
+  UpdatePresentationDataFromChildAt(
+      int32_t aFirstIndex, int32_t aLastIndex,
+      MathMLPresentationFlags aFlagsValues,
+      MathMLPresentationFlags aFlagsToUpdate) override {
     nsMathMLContainerFrame::PropagatePresentationDataFromChildAt(
         this, aFirstIndex, aLastIndex, aFlagsValues, aFlagsToUpdate);
     return NS_OK;
@@ -274,4 +275,4 @@ class nsMathMLmtdInnerFrame final : public nsBlockFrame, public nsMathMLFrame {
 
 };  // class nsMathMLmtdInnerFrame
 
-#endif /* nsMathMLmtableFrame_h___ */
+#endif /* nsMathMLmtableFrame_h_ */

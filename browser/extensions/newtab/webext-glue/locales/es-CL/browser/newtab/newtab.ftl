@@ -325,13 +325,8 @@ newtab-custom-recent-subtitle = Una selección de sitios y contenidos recientes
 newtab-custom-weather-toggle =
     .label = Clima
     .description = El pronóstico del día de un vistazo
-newtab-custom-trending-search-toggle =
-    .label = Tendencias de búsquedas
-    .description = Temas populares y buscados frecuentemente
 newtab-custom-widget-weather-toggle =
     .label = Clima
-newtab-custom-widget-trending-search-toggle =
-    .label = Tendencias de búsquedas
 newtab-custom-widget-lists-toggle =
     .label = Listas
 newtab-custom-widget-timer-toggle =
@@ -592,7 +587,7 @@ newtab-download-mobile-highlight-image =
 newtab-shortcuts-highlight-title = Tus favoritos al alcance de tus dedos
 newtab-shortcuts-highlight-subtitle = Añade un acceso directo para tener tus sitios favoritos a un solo clic de distancia.
 
-## Strings for reporting ads and content
+## Strings for reporting issues with ads and content
 
 newtab-report-content-why-reporting-this =
     .label = ¿Por qué estás informando esto?
@@ -610,21 +605,13 @@ newtab-report-content-inappropriate-offensive =
     .label = Inapropiado u ofensivo
 newtab-report-content-spam-misleading =
     .label = Spam o engañoso
+newtab-report-content-requires-payment-subscription =
+    .label = Requiere pago o suscripción
+newtab-report-content-requires-payment-subscription-learn-more = Aprender más
 newtab-report-cancel = Cancelar
 newtab-report-submit = Enviar
 newtab-toast-thanks-for-reporting =
     .message = Gracias por informar esto.
-
-## Strings for trending searches
-
-newtab-trending-searches-show-trending =
-    .title = Mostrar búsquedas de tendencia
-newtab-trending-searches-hide-trending =
-    .title = Ocultar búsquedas de tendencia
-newtab-trending-searches-learn-more = Aprender más
-newtab-trending-searches-dismiss = Ocultar búsquedas de tendencia
-# "Trending searches refers to popular searches from search engines
-newtab-trending-searches-title = Tendencias de búsquedas
 
 ## Strings for task / to-do list productivity widget
 
@@ -664,6 +651,17 @@ newtab-widget-lists-name-placeholder-default =
 # The placeholder value of the name field for a newly created list
 newtab-widget-lists-name-placeholder-new =
     .placeholder = Nueva lista
+newtab-widget-section-title = Widgets
+# Tooltip for hide all widgets button
+newtab-widget-section-hide-all-button =
+    .title = Ocultar widgets
+    .aria-label = Ocultar todos los widgets
+newtab-widget-section-maximize =
+    .title = Expandir widgets
+    .aria-label = Expandir todos los widgets al tamaño completo
+newtab-widget-section-minimize =
+    .title = Minimizar widgets
+    .aria-label = Minimizar todos los widgets al tamaño compacto
 
 ## Strings for timer productivity widget
 ## When the timer ends, a system notification may be shown. Depending on which mode the timer is in, that message would be shown

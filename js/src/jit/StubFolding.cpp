@@ -113,10 +113,11 @@ static bool TryFoldingGuardShapes(JSContext* cx, ICFallbackStub* fallback,
     uint32_t i = 0;
     for (ICCacheIRStub* stub = firstStub; stub; stub = stub->nextCacheIR()) {
       printer.printf("- stub %d (enteredCount: %d)\n", i, stub->enteredCount());
-      ICCacheIRStub* cache_stub = stub->toCacheIRStub();
 
-      CacheIRReader reader(cache_stub->stubInfo());
+#  ifdef JS_CACHEIR_SPEW
+      ICCacheIRStub* cache_stub = stub->toCacheIRStub();
       SpewCacheIROps(printer, "  ", cache_stub->stubInfo());
+#  endif
       i++;
     }
   }
@@ -249,6 +250,10 @@ static bool TryFoldingGuardShapes(JSContext* cx, ICFallbackStub* fallback,
   CacheIRCloner cloner(firstStub);
   bool hasSlotOffsets = offsetList.length() > 1;
 
+  if (JitOptions.disableStubFoldingLoadsAndStores && hasSlotOffsets) {
+    return true;
+  }
+
   // Initialize the operands.
   CacheKind cacheKind = stubInfo->kind();
   for (uint32_t i = 0; i < NumInputsForCacheKind(cacheKind); i++) {
@@ -274,13 +279,11 @@ static bool TryFoldingGuardShapes(JSContext* cx, ICFallbackStub* fallback,
 
     for (uint32_t i = 0; i < shapeList.length(); i++) {
       if (!shapeObj->append(cx, shapeList[i])) {
-        cx->recoverFromOutOfMemory();
         return false;
       }
 
       if (hasSlotOffsets) {
         if (!shapeObj->append(cx, offsetList[i])) {
-          cx->recoverFromOutOfMemory();
           return false;
         }
       }
@@ -422,12 +425,14 @@ static bool TryFoldingGuardShapes(JSContext* cx, ICFallbackStub* fallback,
 #ifdef JS_JITSPEW
   if (JitSpewEnabled(JitSpew_StubFoldingDetails)) {
     ICStub* newEntryStub = icEntry->firstStub();
-    ICCacheIRStub* newStub = newEntryStub->toCacheIRStub();
 
     Fprinter& printer(JitSpewPrinter());
-    printer.printf("- stub 0 (enteredCount: %d)\n", newStub->enteredCount());
-    CacheIRReader reader(newStub->stubInfo());
+    printer.printf("- stub 0 (enteredCount: %d)\n",
+                   newEntryStub->enteredCount());
+#  ifdef JS_CACHEIR_SPEW
+    ICCacheIRStub* newStub = newEntryStub->toCacheIRStub();
     SpewCacheIROps(printer, "  ", newStub->stubInfo());
+#  endif
   }
 #endif
 
@@ -440,6 +445,10 @@ bool js::jit::TryFoldingStubs(JSContext* cx, ICFallbackStub* fallback,
                               JSScript* script, ICScript* icScript) {
   ICEntry* icEntry = icScript->icEntryForStub(fallback);
   ICStub* entryStub = icEntry->firstStub();
+
+  if (JitOptions.disableStubFolding) {
+    return true;
+  }
 
   // Don't fold unless there are at least two stubs.
   if (entryStub == fallback) {

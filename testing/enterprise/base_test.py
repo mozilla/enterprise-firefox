@@ -260,9 +260,10 @@ class EnterpriseTestsBase:
         return self._open_tab(url, self._child_driver, self._child_wait)
 
     def need_allow_system_access(self):
-        geckodriver_output = subprocess.check_output(
-            [self._EXE_PATH, "--help"]
-        ).decode()
+        geckodriver_output = subprocess.check_output([
+            self._EXE_PATH,
+            "--help",
+        ]).decode()
         return "--allow-system-access" in geckodriver_output
 
     def get_marionette_port(self, max_try=100):

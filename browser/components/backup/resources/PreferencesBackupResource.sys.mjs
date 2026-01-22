@@ -73,6 +73,7 @@ export class PreferencesBackupResource extends BackupResource {
     const simpleCopyFiles = [
       "xulstore.json",
       "containers.json",
+      "customKeys.json",
       "handlers.json",
       "search.json.mozlz4",
       "user.js",
@@ -178,6 +179,7 @@ export class PreferencesBackupResource extends BackupResource {
       "prefs.js",
       "xulstore.json",
       "containers.json",
+      "customKeys.json",
       "handlers.json",
       "user.js",
       "chrome",
@@ -210,6 +212,7 @@ export class PreferencesBackupResource extends BackupResource {
       "prefs.js",
       "xulstore.json",
       "containers.json",
+      "customKeys.json",
       "handlers.json",
       "search.json.mozlz4",
       "user.js",

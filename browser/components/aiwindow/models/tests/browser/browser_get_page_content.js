@@ -4,7 +4,7 @@
 "use strict";
 
 /**
- * Test that the get_page_content tool call can extract content from a page.
+ * Test that the get_page_content tool call can extract content from pages.
  */
 add_task(async function test_get_page_content_basic() {
   const html = `
@@ -24,13 +24,32 @@ add_task(async function test_get_page_content_basic() {
     </html>
   `;
 
-  const { url, GetPageContent, cleanup } = await setupGetPageContentTest(html);
+  const { url_list, GetPageContent, cleanup } =
+    await setupGetPageContentTests(html);
+
+  // Manually set the ai-window attribute for testing
+  // (in production this is set via window features when opening the window)
+  window.document.documentElement.setAttribute("ai-window", "true");
+
+  // Verify we're in an AI Window
+  const { AIWindow } = ChromeUtils.importESModule(
+    "moz-src:///browser/components/aiwindow/ui/modules/AIWindow.sys.mjs"
+  );
+  info("Is AI Window: " + AIWindow.isAIWindowActive(window));
+  info(
+    "Window has ai-window attribute: " +
+      window.document.documentElement.hasAttribute("ai-window")
+  );
 
   // Create an allowed URLs set containing the test page
-  const allowedUrls = new Set([url]);
+  const allowedUrls = new Set(url_list);
 
   // Call the tool with the URL
-  const result = await GetPageContent.getPageContent({ url }, allowedUrls);
+  const result_array = await GetPageContent.getPageContent(
+    { url_list },
+    allowedUrls
+  );
+  const result = result_array[0];
 
   info("Extraction result: " + result);
 

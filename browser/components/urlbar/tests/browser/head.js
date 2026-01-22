@@ -360,7 +360,7 @@ function assertSearchStringIsInUrlbar(
 async function searchWithTab(
   searchString,
   tab = null,
-  engine = Services.search.defaultEngine,
+  engine = SearchService.defaultEngine,
   expectedPersistedSearchTerms = true
 ) {
   if (!tab) {

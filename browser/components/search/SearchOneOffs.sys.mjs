@@ -8,6 +8,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   OpenSearchManager:
     "moz-src:///browser/components/search/OpenSearchManager.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
+  SearchService: "moz-src:///toolkit/components/search/SearchService.sys.mjs",
   SearchUIUtils: "moz-src:///browser/components/search/SearchUIUtils.sys.mjs",
 });
 
@@ -357,9 +358,9 @@ export class SearchOneOffs {
 
     this._engineInfo = {};
     if (lazy.PrivateBrowsingUtils.isWindowPrivate(this.window)) {
-      this._engineInfo.default = await Services.search.getDefaultPrivate();
+      this._engineInfo.default = await lazy.SearchService.getDefaultPrivate();
     } else {
-      this._engineInfo.default = await Services.search.getDefault();
+      this._engineInfo.default = await lazy.SearchService.getDefault();
     }
 
     let currentEngineNameToIgnore;
@@ -368,7 +369,7 @@ export class SearchOneOffs {
     }
 
     this._engineInfo.engines = (
-      await Services.search.getVisibleEngines()
+      await lazy.SearchService.getVisibleEngines()
     ).filter(e => {
       let name = e.name;
       return (
@@ -1072,7 +1073,7 @@ export class SearchOneOffs {
       const engineType = isPrivateButton
         ? "defaultPrivateEngine"
         : "defaultEngine";
-      let currentEngine = Services.search[engineType];
+      let currentEngine = lazy.SearchService[engineType];
 
       const isPrivateWin = lazy.PrivateBrowsingUtils.isWindowPrivate(
         this.window
@@ -1096,12 +1097,12 @@ export class SearchOneOffs {
       }
 
       if (isPrivateButton) {
-        Services.search.setDefaultPrivate(
+        lazy.SearchService.setDefaultPrivate(
           newDefaultEngine,
           Ci.nsISearchService.CHANGE_REASON_USER_SEARCHBAR_CONTEXT
         );
       } else {
-        Services.search.setDefault(
+        lazy.SearchService.setDefault(
           newDefaultEngine,
           Ci.nsISearchService.CHANGE_REASON_USER_SEARCHBAR_CONTEXT
         );
@@ -1123,7 +1124,7 @@ export class SearchOneOffs {
       .querySelector(".search-one-offs-context-set-default")
       .setAttribute(
         "disabled",
-        target.engine == Services.search.defaultEngine.wrappedJSObject
+        target.engine == lazy.SearchService.defaultEngine.wrappedJSObject
       );
 
     const privateDefaultItem = this.contextMenuPopup.querySelector(
@@ -1140,7 +1141,7 @@ export class SearchOneOffs {
       privateDefaultItem.hidden = false;
       privateDefaultItem.setAttribute(
         "disabled",
-        target.engine == Services.search.defaultPrivateEngine.wrappedJSObject
+        target.engine == lazy.SearchService.defaultPrivateEngine.wrappedJSObject
       );
     } else {
       privateDefaultItem.hidden = true;

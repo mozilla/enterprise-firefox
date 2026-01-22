@@ -672,8 +672,7 @@ NSMenuItem* nsMenuBarX::CreateNativeAppMenuItem(nsMenuX* aMenu,
 
   // Check collapsed rather than hidden since the app menu items are always
   // hidden in AquifyMenuBar.
-  if (menuItem->AttrValueIs(kNameSpaceID_None, nsGkAtoms::collapsed,
-                            nsGkAtoms::_true, eCaseMatters)) {
+  if (menuItem->GetBoolAttr(nsGkAtoms::collapsed)) {
     return nil;
   }
 

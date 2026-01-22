@@ -28,9 +28,11 @@
 #include "builtin/intl/SharedIntlData.h"
 #include "ds/Sort.h"
 #include "js/Class.h"
+#include "js/experimental/Intl.h"
 #include "js/friend/ErrorMessages.h"  // js::GetErrorMessage, JSMSG_*
 #include "js/GCAPI.h"
 #include "js/GCVector.h"
+#include "js/PropertyAndElement.h"
 #include "js/PropertySpec.h"
 #include "vm/GlobalObject.h"
 #include "vm/JSAtomUtils.h"  // ClassName
@@ -44,66 +46,213 @@
 using namespace js;
 using namespace js::intl;
 
-/******************** Intl ********************/
+/******************** Mozilla Intl extensions ********************/
 
-bool js::intl_GetCalendarInfo(JSContext* cx, unsigned argc, Value* vp) {
-  CallArgs args = CallArgsFromVp(argc, vp);
-  MOZ_ASSERT(args.length() == 1);
-
-  UniqueChars locale = intl::EncodeLocale(cx, args[0].toString());
+/**
+ * Returns a plain object with calendar information for a single valid locale
+ * (callers must perform this validation).  The object will have these
+ * properties:
+ *
+ *   firstDayOfWeek
+ *     an integer in the range 1=Monday to 7=Sunday indicating the day
+ *     considered the first day of the week in calendars, e.g. 7 for en-US,
+ *     1 for en-GB, 7 for bn-IN
+ *   minDays
+ *     an integer in the range of 1 to 7 indicating the minimum number
+ *     of days required in the first week of the year, e.g. 1 for en-US,
+ *     4 for de
+ *   weekend
+ *     an array with values in the range 1=Monday to 7=Sunday indicating the
+ *     days of the week considered as part of the weekend, e.g. [6, 7] for en-US
+ *     and en-GB, [7] for bn-IN (note that "weekend" is *not* necessarily two
+ *     days)
+ *
+ * NOTE: "calendar" and "locale" properties are *not* added to the object.
+ */
+static PlainObject* GetCalendarInfo(JSContext* cx,
+                                    Handle<JSLinearString*> loc) {
+  auto locale = EncodeLocale(cx, loc);
   if (!locale) {
-    return false;
+    return nullptr;
   }
 
   auto result = mozilla::intl::Calendar::TryCreate(locale.get());
   if (result.isErr()) {
-    intl::ReportInternalError(cx, result.unwrapErr());
-    return false;
+    ReportInternalError(cx, result.unwrapErr());
+    return nullptr;
   }
   auto calendar = result.unwrap();
 
-  RootedObject info(cx, NewPlainObject(cx));
-  if (!info) {
-    return false;
+  Rooted<IdValueVector> properties(cx, cx);
+
+  if (!properties.emplaceBack(NameToId(cx->names().locale), StringValue(loc))) {
+    return nullptr;
   }
 
-  RootedValue v(cx);
-
-  v.setInt32(static_cast<int32_t>(calendar->GetFirstDayOfWeek()));
-  if (!DefineDataProperty(cx, info, cx->names().firstDayOfWeek, v)) {
-    return false;
+  auto type = calendar->GetBcp47Type();
+  if (type.isErr()) {
+    ReportInternalError(cx, type.unwrapErr());
+    return nullptr;
   }
 
-  v.setInt32(calendar->GetMinimalDaysInFirstWeek());
-  if (!DefineDataProperty(cx, info, cx->names().minDays, v)) {
-    return false;
+  auto* calendarType = NewStringCopy<CanGC>(cx, type.unwrap());
+  if (!calendarType) {
+    return nullptr;
   }
 
-  Rooted<ArrayObject*> weekendArray(cx, NewDenseEmptyArray(cx));
-  if (!weekendArray) {
-    return false;
+  if (!properties.emplaceBack(NameToId(cx->names().calendar),
+                              StringValue(calendarType))) {
+    return nullptr;
+  }
+
+  if (!properties.emplaceBack(
+          NameToId(cx->names().firstDayOfWeek),
+          Int32Value(static_cast<int32_t>(calendar->GetFirstDayOfWeek())))) {
+    return nullptr;
+  }
+
+  if (!properties.emplaceBack(
+          NameToId(cx->names().minDays),
+          Int32Value(calendar->GetMinimalDaysInFirstWeek()))) {
+    return nullptr;
   }
 
   auto weekend = calendar->GetWeekend();
   if (weekend.isErr()) {
-    intl::ReportInternalError(cx, weekend.unwrapErr());
+    ReportInternalError(cx, weekend.unwrapErr());
+    return nullptr;
+  }
+  auto weekendSet = weekend.unwrap();
+
+  auto* weekendArray = NewDenseFullyAllocatedArray(cx, weekendSet.size());
+  if (!weekendArray) {
+    return nullptr;
+  }
+  weekendArray->setDenseInitializedLength(weekendSet.size());
+
+  size_t index = 0;
+  for (auto day : weekendSet) {
+    weekendArray->initDenseElement(index++,
+                                   Int32Value(static_cast<int32_t>(day)));
+  }
+  MOZ_ASSERT(index == weekendSet.size());
+
+  if (!properties.emplaceBack(NameToId(cx->names().weekend),
+                              ObjectValue(*weekendArray))) {
+    return nullptr;
+  }
+
+  return NewPlainObjectWithUniqueNames(cx, properties);
+}
+
+/**
+ * This function is a custom function in the style of the standard Intl.*
+ * functions, that isn't part of any spec or proposal yet.
+ *
+ * Returns an object with the following properties:
+ *   locale:
+ *     The actual resolved locale.
+ *
+ *   calendar:
+ *     The default calendar of the resolved locale.
+ *
+ *   firstDayOfWeek:
+ *     The first day of the week for the resolved locale.
+ *
+ *   minDays:
+ *     The minimum number of days in a week for the resolved locale.
+ *
+ *   weekend:
+ *     The days of the week considered as the weekend for the resolved locale.
+ *
+ * Days are encoded as integers in the range 1=Monday to 7=Sunday.
+ */
+static bool intl_getCalendarInfo(JSContext* cx, unsigned argc, Value* vp) {
+  CallArgs args = CallArgsFromVp(argc, vp);
+
+  // 1. Let requestedLocales be ? CanonicalizeLocaleList(locales).
+  Rooted<LocalesList> requestedLocales(cx, cx);
+  if (!CanonicalizeLocaleList(cx, args.get(0), &requestedLocales)) {
     return false;
   }
 
-  for (auto day : weekend.unwrap()) {
-    if (!NewbornArrayPush(cx, weekendArray,
-                          Int32Value(static_cast<int32_t>(day)))) {
-      return false;
-    }
-  }
-
-  v.setObject(*weekendArray);
-  if (!DefineDataProperty(cx, info, cx->names().weekend, v)) {
+  Rooted<ArrayObject*> reqLocales(cx, LocalesListToArray(cx, requestedLocales));
+  if (!reqLocales) {
     return false;
   }
 
-  args.rval().setObject(*info);
+  // 2. Let localeOptions be a new Record.
+  // 3. Set localeOptions.[[localeMatcher]] to "best fit".
+  Rooted<LocaleOptions> localeOptions(cx);
+
+  // 4. Let r be ResolveLocale(%DateTimeFormat%.[[availableLocales]],
+  //    requestedLocales, localeOpt).
+  auto localeData = LocaleData::Default;
+  mozilla::EnumSet<UnicodeExtensionKey> relevantExtensionKeys{
+      UnicodeExtensionKey::Calendar,
+  };
+
+  Rooted<ResolvedLocale> resolved(cx);
+  if (!ResolveLocale(cx, AvailableLocaleKind::DateTimeFormat, reqLocales,
+                     localeOptions, relevantExtensionKeys, localeData,
+                     &resolved)) {
+    return false;
+  }
+
+  Rooted<JSLinearString*> locale(cx, resolved.toLocale(cx));
+  if (!locale) {
+    return false;
+  }
+
+  // 5. Let result be GetCalendarInfo(r.[[locale]]).
+  auto* result = GetCalendarInfo(cx, locale);
+  if (!result) {
+    return false;
+  }
+
+  // 6. Return result.
+  args.rval().setObject(*result);
   return true;
+}
+
+static const JSFunctionSpec intl_extensions[] = {
+    JS_FN("getCalendarInfo", intl_getCalendarInfo, 1, 0),
+    JS_FS_END,
+};
+
+bool JS::AddMozGetCalendarInfo(JSContext* cx, Handle<JSObject*> intl) {
+  return JS_DefineFunctions(cx, intl, intl_extensions);
+}
+
+/******************** Intl ********************/
+
+static auto ToAvailableLocaleKind(JSLinearString* string) {
+  if (StringEqualsLiteral(string, "Collator")) {
+    return AvailableLocaleKind::Collator;
+  }
+  if (StringEqualsLiteral(string, "DateTimeFormat")) {
+    return AvailableLocaleKind::DateTimeFormat;
+  }
+  if (StringEqualsLiteral(string, "DisplayNames")) {
+    return AvailableLocaleKind::DisplayNames;
+  }
+  if (StringEqualsLiteral(string, "DurationFormat")) {
+    return AvailableLocaleKind::DurationFormat;
+  }
+  if (StringEqualsLiteral(string, "ListFormat")) {
+    return AvailableLocaleKind::ListFormat;
+  }
+  if (StringEqualsLiteral(string, "NumberFormat")) {
+    return AvailableLocaleKind::NumberFormat;
+  }
+  if (StringEqualsLiteral(string, "PluralRules")) {
+    return AvailableLocaleKind::PluralRules;
+  }
+  if (StringEqualsLiteral(string, "RelativeTimeFormat")) {
+    return AvailableLocaleKind::RelativeTimeFormat;
+  }
+  MOZ_ASSERT(StringEqualsLiteral(string, "Segmenter"));
+  return AvailableLocaleKind::Segmenter;
 }
 
 // 9.2.2 BestAvailableLocale ( availableLocales, locale )
@@ -114,8 +263,6 @@ bool js::intl_BestAvailableLocale(JSContext* cx, unsigned argc, Value* vp) {
   CallArgs args = CallArgsFromVp(argc, vp);
   MOZ_ASSERT(args.length() == 3);
 
-  using AvailableLocaleKind = js::intl::AvailableLocaleKind;
-
   AvailableLocaleKind kind;
   {
     JSLinearString* typeStr = args[0].toString()->ensureLinear(cx);
@@ -123,26 +270,7 @@ bool js::intl_BestAvailableLocale(JSContext* cx, unsigned argc, Value* vp) {
       return false;
     }
 
-    if (StringEqualsLiteral(typeStr, "Collator")) {
-      kind = AvailableLocaleKind::Collator;
-    } else if (StringEqualsLiteral(typeStr, "DateTimeFormat")) {
-      kind = AvailableLocaleKind::DateTimeFormat;
-    } else if (StringEqualsLiteral(typeStr, "DisplayNames")) {
-      kind = AvailableLocaleKind::DisplayNames;
-    } else if (StringEqualsLiteral(typeStr, "DurationFormat")) {
-      kind = AvailableLocaleKind::DurationFormat;
-    } else if (StringEqualsLiteral(typeStr, "ListFormat")) {
-      kind = AvailableLocaleKind::ListFormat;
-    } else if (StringEqualsLiteral(typeStr, "NumberFormat")) {
-      kind = AvailableLocaleKind::NumberFormat;
-    } else if (StringEqualsLiteral(typeStr, "PluralRules")) {
-      kind = AvailableLocaleKind::PluralRules;
-    } else if (StringEqualsLiteral(typeStr, "RelativeTimeFormat")) {
-      kind = AvailableLocaleKind::RelativeTimeFormat;
-    } else {
-      MOZ_ASSERT(StringEqualsLiteral(typeStr, "Segmenter"));
-      kind = AvailableLocaleKind::Segmenter;
-    }
+    kind = ToAvailableLocaleKind(typeStr);
   }
 
   Rooted<JSLinearString*> locale(cx, args[1].toString()->ensureLinear(cx));
@@ -169,6 +297,83 @@ bool js::intl_BestAvailableLocale(JSContext* cx, unsigned argc, Value* vp) {
   } else {
     args.rval().setUndefined();
   }
+  return true;
+}
+
+bool js::intl_ResolveLocale(JSContext* cx, unsigned argc, Value* vp) {
+  CallArgs args = CallArgsFromVp(argc, vp);
+  MOZ_ASSERT(args.length() == 3 || args.length() == 4);
+
+  AvailableLocaleKind kind;
+  {
+    JSLinearString* typeStr = args[0].toString()->ensureLinear(cx);
+    if (!typeStr) {
+      return false;
+    }
+
+    kind = ToAvailableLocaleKind(typeStr);
+  }
+
+  Rooted<ArrayObject*> requestedLocales(cx,
+                                        &args[1].toObject().as<ArrayObject>());
+  Rooted<JSObject*> options(cx, &args[2].toObject());
+
+  bool collatorSearchOrMozDisplay = args.get(3).isTrue();
+
+  auto localeData = LocaleData::Default;
+
+  mozilla::EnumSet<UnicodeExtensionKey> relevantExtensionKeys{};
+  switch (kind) {
+    case AvailableLocaleKind::Collator:
+      relevantExtensionKeys = {
+          UnicodeExtensionKey::Collation,
+          UnicodeExtensionKey::CollationCaseFirst,
+          UnicodeExtensionKey::CollationNumeric,
+      };
+      if (collatorSearchOrMozDisplay) {
+        localeData = LocaleData::CollatorSearch;
+      }
+      break;
+    case AvailableLocaleKind::DateTimeFormat:
+      relevantExtensionKeys = {
+          UnicodeExtensionKey::Calendar,
+          UnicodeExtensionKey::HourCycle,
+          UnicodeExtensionKey::NumberingSystem,
+      };
+      break;
+    case AvailableLocaleKind::DurationFormat:
+    case AvailableLocaleKind::NumberFormat:
+    case AvailableLocaleKind::RelativeTimeFormat:
+      relevantExtensionKeys = {
+          UnicodeExtensionKey::NumberingSystem,
+      };
+      break;
+    case AvailableLocaleKind::DisplayNames:
+      if (collatorSearchOrMozDisplay) {
+        relevantExtensionKeys = {
+            UnicodeExtensionKey::Calendar,
+        };
+        break;
+      }
+      [[fallthrough]];
+    case AvailableLocaleKind::ListFormat:
+    case AvailableLocaleKind::PluralRules:
+    case AvailableLocaleKind::Segmenter:
+      // No support for additional Unicode extension keys.
+      break;
+  }
+
+  Rooted<ResolvedLocale> resolved(cx);
+  if (!ResolveLocale(cx, kind, requestedLocales, options, relevantExtensionKeys,
+                     localeData, &resolved)) {
+    return false;
+  }
+
+  auto* result = ResolveLocaleToObject(cx, resolved, relevantExtensionKeys);
+  if (!result) {
+    return false;
+  }
+  args.rval().setObject(*result);
   return true;
 }
 

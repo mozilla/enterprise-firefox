@@ -329,13 +329,8 @@ newtab-custom-recent-subtitle = Een selectie van recente websites en inhoud
 newtab-custom-weather-toggle =
     .label = Weer
     .description = De weersverwachting van vandaag in een oogopslag
-newtab-custom-trending-search-toggle =
-    .label = Trending zoekopdrachten
-    .description = Populaire en veel gezochte onderwerpen
 newtab-custom-widget-weather-toggle =
     .label = Weer
-newtab-custom-widget-trending-search-toggle =
-    .label = Trending zoekopdrachten
 newtab-custom-widget-lists-toggle =
     .label = Lijsten
 newtab-custom-widget-timer-toggle =
@@ -596,7 +591,7 @@ newtab-download-mobile-highlight-image =
 newtab-shortcuts-highlight-title = Uw favorieten binnen handbereik
 newtab-shortcuts-highlight-subtitle = Voeg een snelkoppeling toe om uw favoriete websites op één klik afstand te houden.
 
-## Strings for reporting ads and content
+## Strings for reporting issues with ads and content
 
 newtab-report-content-why-reporting-this =
     .label = Waarom meldt u dit?
@@ -614,21 +609,13 @@ newtab-report-content-inappropriate-offensive =
     .label = Ongepast of beledigend
 newtab-report-content-spam-misleading =
     .label = Spam of misleidend
+newtab-report-content-requires-payment-subscription =
+    .label = Vereist betaling of abonnement
+newtab-report-content-requires-payment-subscription-learn-more = Meer info
 newtab-report-cancel = Annuleren
 newtab-report-submit = Indienen
 newtab-toast-thanks-for-reporting =
     .message = Bedankt voor het melden.
-
-## Strings for trending searches
-
-newtab-trending-searches-show-trending =
-    .title = Trending zoekopdrachten tonen
-newtab-trending-searches-hide-trending =
-    .title = Trending zoekopdrachten verbergen
-newtab-trending-searches-learn-more = Meer info
-newtab-trending-searches-dismiss = Trending zoekopdrachten verbergen
-# "Trending searches refers to popular searches from search engines
-newtab-trending-searches-title = Trending zoekopdrachten
 
 ## Strings for task / to-do list productivity widget
 

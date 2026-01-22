@@ -157,6 +157,7 @@ for (const type of [
   "DISCOVERY_STREAM_SPOCS_UPDATE",
   "DISCOVERY_STREAM_SPOC_BLOCKED",
   "DISCOVERY_STREAM_SPOC_IMPRESSION",
+  "DISCOVERY_STREAM_SPOC_PLACEHOLDER_DURATION",
   "DISCOVERY_STREAM_TOPICS_LOADING",
   "DISCOVERY_STREAM_USER_EVENT",
   "DOWNLOAD_CHANGED",
@@ -210,6 +211,7 @@ for (const type of [
   "PROMO_CARD_CLICK",
   "PROMO_CARD_DISMISS",
   "PROMO_CARD_IMPRESSION",
+  "REFRESH_EXTERNAL_COMPONENTS",
   "REMOVE_DOWNLOAD_FILE",
   "REPORT_AD_OPEN",
   "REPORT_AD_SUBMIT",
@@ -891,7 +893,7 @@ class DiscoveryStreamAdminUI extends (external_React_default()).PureComponent {
   }
   sendConversionEvent() {
     const detail = {
-      partnerId: "demo-partner",
+      partnerId: "295BEEF7-1E3B-4128-B8F8-858E12AA660B",
       lookbackDays: 7,
       impressionType: "default"
     };
@@ -1301,6 +1303,22 @@ class _ConfirmDialog extends (external_React_default()).PureComponent {
     super(props);
     this._handleCancelBtn = this._handleCancelBtn.bind(this);
     this._handleConfirmBtn = this._handleConfirmBtn.bind(this);
+    this.dialogRef = /*#__PURE__*/external_React_default().createRef();
+  }
+  componentDidUpdate() {
+    const dialogElement = this.dialogRef.current;
+    if (!dialogElement) {
+      return;
+    }
+
+    // Open dialog when visible becomes true
+    if (this.props.visible && !dialogElement.open) {
+      dialogElement.showModal();
+    }
+    // Close dialog when visible becomes false
+    else if (!this.props.visible && dialogElement.open) {
+      dialogElement.close();
+    }
   }
   _handleCancelBtn() {
     this.props.dispatch({
@@ -1325,32 +1343,32 @@ class _ConfirmDialog extends (external_React_default()).PureComponent {
     })));
   }
   render() {
-    if (!this.props.visible) {
-      return null;
-    }
-    return /*#__PURE__*/external_React_default().createElement("div", {
-      className: "confirmation-dialog"
+    return /*#__PURE__*/external_React_default().createElement("dialog", {
+      ref: this.dialogRef,
+      className: "confirmation-dialog",
+      onClick: e => {
+        // Close modal when clicking on the backdrop pseudo element (the background of the modal)
+        if (e.target === this.dialogRef.current) {
+          this._handleCancelBtn();
+        }
+      }
     }, /*#__PURE__*/external_React_default().createElement("div", {
-      className: "modal-overlay",
-      onClick: this._handleCancelBtn,
-      role: "presentation"
-    }), /*#__PURE__*/external_React_default().createElement("div", {
       className: "modal"
     }, /*#__PURE__*/external_React_default().createElement("section", {
       className: "modal-message"
     }, this.props.data.icon && /*#__PURE__*/external_React_default().createElement("span", {
       className: `icon icon-spacer icon-${this.props.data.icon}`
     }), this._renderModalMessage()), /*#__PURE__*/external_React_default().createElement("section", {
-      className: "actions"
-    }, /*#__PURE__*/external_React_default().createElement("button", {
+      className: "button-group"
+    }, /*#__PURE__*/external_React_default().createElement("moz-button-group", null, /*#__PURE__*/external_React_default().createElement("moz-button", {
       onClick: this._handleCancelBtn,
       "data-l10n-id": this.props.data.cancel_button_string_id
-    }), /*#__PURE__*/external_React_default().createElement("button", {
-      className: "done",
+    }), /*#__PURE__*/external_React_default().createElement("moz-button", {
+      type: "primary",
       onClick: this._handleConfirmBtn,
       "data-l10n-id": this.props.data.confirm_button_string_id,
       "data-l10n-args": JSON.stringify(this.props.data.confirm_button_string_args)
-    }))));
+    })))));
   }
 }
 const ConfirmDialog = (0,external_ReactRedux_namespaceObject.connect)(state => state.Dialog)(_ConfirmDialog);
@@ -4327,7 +4345,7 @@ const TopicsWidget = (0,external_ReactRedux_namespaceObject.connect)(state => ({
  * @param type
  * @param showAdReporting
  * @returns {Element}
- * @constructor
+ * @class
  */
 function AdBannerContextMenu({
   dispatch,
@@ -4533,7 +4551,7 @@ const PREF_PROMOCARD_VISIBLE = "discoverystream.promoCard.visible";
  * @param type
  * @param prefs
  * @returns {Element}
- * @constructor
+ * @class
  */
 const AdBanner = ({
   spoc,
@@ -5438,7 +5456,17 @@ const ReportContent = spocs => {
   }), /*#__PURE__*/external_React_default().createElement("moz-radio", {
     "data-l10n-id": "newtab-report-content-spam-misleading",
     value: "spam_or_misleading"
-  }))), /*#__PURE__*/external_React_default().createElement("moz-button-group", null, /*#__PURE__*/external_React_default().createElement("moz-button", {
+  }), /*#__PURE__*/external_React_default().createElement("moz-radio", {
+    "data-l10n-id": "newtab-report-content-requires-payment-subscription",
+    value: "requires_payment_or_subscription"
+  }, /*#__PURE__*/external_React_default().createElement("a", {
+    slot: "support-link",
+    is: "moz-support-link",
+    "support-page": "recommendations-firefox-new-tab#w_what-is-a-paywall",
+    "data-l10n-id": "newtab-report-content-requires-payment-subscription-learn-more",
+    rel: "noreferrer",
+    target: "_blank"
+  })))), /*#__PURE__*/external_React_default().createElement("moz-button-group", null, /*#__PURE__*/external_React_default().createElement("moz-button", {
     "data-l10n-id": "newtab-report-cancel",
     onClick: handleCancel,
     className: "cancel-report-btn"
@@ -5884,7 +5912,7 @@ _PerfService.prototype = {
    * Used to ensure that timestamps from the add-on code and the content code
    * are comparable.
    *
-   * @note If this is called from a context without a window
+   * Note: If this is called from a context without a window
    * (eg a JSM in chrome), it will return the timeOrigin of the XUL hidden
    * window, which appears to be the first created window (and thus
    * timeOrigin) in the browser.  Note also, however, there is also a private
@@ -5919,7 +5947,7 @@ _PerfService.prototype = {
    *
    * @throws {Error}        "No Marks with the name ..." if none are available
    *
-   * @note Always surround calls to this by try/catch.  Otherwise your code
+   * Note: Always surround calls to this by try/catch.  Otherwise your code
    * may fail when the `privacy.resistFingerprinting` pref is true.  When
    * this pref is set, all attempts to get marks will likely fail, which will
    * cause this method to throw.
@@ -5980,7 +6008,7 @@ class ComponentPerfTimer extends (external_React_default()).Component {
   /**
    * Call the given callback after the upcoming frame paints.
    *
-   * @note Both setTimeout and requestAnimationFrame are throttled when the page
+   * Note: Both setTimeout and requestAnimationFrame are throttled when the page
    * is hidden, so this callback may get called up to a second or so after the
    * requestAnimationFrame "paint" for hidden tabs.
    *
@@ -6125,8 +6153,6 @@ class MoreRecommendations extends (external_React_default()).PureComponent {
 
 
 function ModalOverlayWrapper({
-  // eslint-disable-next-line no-shadow
-  document = globalThis.document,
   unstyled,
   innerClassName,
   onClose,
@@ -6134,37 +6160,40 @@ function ModalOverlayWrapper({
   headerId,
   id
 }) {
-  const modalRef = (0,external_React_namespaceObject.useRef)(null);
-  let className = unstyled ? "" : "modalOverlayInner active";
+  const dialogRef = (0,external_React_namespaceObject.useRef)(null);
+  let className = unstyled ? "" : "modalOverlayInner";
   if (innerClassName) {
     className += ` ${innerClassName}`;
   }
-
-  // The intended behaviour is to listen for an escape key
-  // but not for a click; see Bug 1582242
-  const onKeyDown = (0,external_React_namespaceObject.useCallback)(event => {
-    if (event.key === "Escape") {
-      onClose(event);
-    }
-  }, [onClose]);
   (0,external_React_namespaceObject.useEffect)(() => {
-    document.addEventListener("keydown", onKeyDown);
-    document.body.classList.add("modal-open");
-    return () => {
-      document.removeEventListener("keydown", onKeyDown);
-      document.body.classList.remove("modal-open");
+    const dialogElement = dialogRef.current;
+    if (dialogElement && !dialogElement.open) {
+      dialogElement.showModal();
+    }
+    const handleCancel = e => {
+      e.preventDefault();
+      onClose(e);
     };
-  }, [document, onKeyDown]);
-  return /*#__PURE__*/external_React_default().createElement("div", {
-    className: "modalOverlayOuter active",
-    onKeyDown: onKeyDown,
-    role: "presentation"
+    dialogElement?.addEventListener("cancel", handleCancel);
+    return () => {
+      dialogElement?.removeEventListener("cancel", handleCancel);
+      if (dialogElement && dialogElement.open) {
+        dialogElement.close();
+      }
+    };
+  }, [onClose]);
+  return /*#__PURE__*/external_React_default().createElement("dialog", {
+    ref: dialogRef,
+    className: "modalOverlayOuter",
+    onClick: e => {
+      if (e.target === dialogRef.current) {
+        onClose(e);
+      }
+    }
   }, /*#__PURE__*/external_React_default().createElement("div", {
     className: className,
     "aria-labelledby": headerId,
-    id: id,
-    role: "dialog",
-    ref: modalRef
+    id: id
   }, children));
 }
 
@@ -6595,6 +6624,9 @@ const INITIAL_STATE = {
       startTime: null,
       isRunning: false,
     },
+  },
+  ExternalComponents: {
+    components: [],
   },
 };
 
@@ -7570,6 +7602,18 @@ function ListsWidget(prevState = INITIAL_STATE.ListsWidget, action) {
   }
 }
 
+function ExternalComponents(
+  prevState = INITIAL_STATE.ExternalComponents,
+  action
+) {
+  switch (action.type) {
+    case actionTypes.REFRESH_EXTERNAL_COMPONENTS:
+      return { ...prevState, components: action.data };
+    default:
+      return prevState;
+  }
+}
+
 const reducers = {
   TopSites,
   App,
@@ -7588,6 +7632,7 @@ const reducers = {
   ListsWidget,
   Wallpapers,
   Weather,
+  ExternalComponents,
 };
 
 ;// CONCATENATED MODULE: ./content-src/components/TopSites/TopSiteFormInput.jsx
@@ -9274,20 +9319,24 @@ class TopSiteForm extends (external_React_default()).PureComponent {
       title: this.state.label
     }))), /*#__PURE__*/external_React_default().createElement("section", {
       className: "actions"
-    }, /*#__PURE__*/external_React_default().createElement("button", {
-      className: "cancel",
-      type: "button",
-      onClick: this.onCancelButtonClick,
-      "data-l10n-id": "newtab-topsites-cancel-button"
-    }), previewMode ? /*#__PURE__*/external_React_default().createElement("button", {
-      className: "done preview",
-      type: "submit",
-      "data-l10n-id": "newtab-topsites-preview-button"
-    }) : /*#__PURE__*/external_React_default().createElement("button", {
-      className: "done",
-      type: "submit",
-      "data-l10n-id": showAsAdd ? "newtab-topsites-add-button" : "newtab-topsites-save-button"
-    })));
+    }, /*#__PURE__*/external_React_default().createElement("moz-button-group", {
+      className: "button-group"
+    }, /*#__PURE__*/external_React_default().createElement("moz-button", {
+      id: "topsites-form-cancel-button",
+      type: "default",
+      "data-l10n-id": "newtab-topsites-cancel-button",
+      onClick: this.onCancelButtonClick
+    }), previewMode ? /*#__PURE__*/external_React_default().createElement("moz-button", {
+      id: "topsites-form-preview-button",
+      type: "primary",
+      "data-l10n-id": "newtab-topsites-preview-button",
+      onClick: this.onPreviewButtonClick
+    }) : /*#__PURE__*/external_React_default().createElement("moz-button", {
+      id: "topsites-form-save-button",
+      type: "primary",
+      "data-l10n-id": showAsAdd ? "newtab-topsites-add-button" : "newtab-topsites-save-button",
+      onClick: this.onDoneButtonClick
+    }))));
   }
 }
 TopSiteForm.defaultProps = {
@@ -10978,10 +11027,23 @@ class _Weather extends (external_React_default()).PureComponent {
       Weather
     } = props;
     const WEATHER_SUGGESTION = Weather.suggestions?.[0];
+    const nimbusWeatherDisplay = Prefs.values.trainhopConfig?.weather?.display;
+    const showDetailedView = nimbusWeatherDisplay === "detailed" || Prefs.values["weather.display"] === "detailed";
+    const nimbusWeatherForecastTrainhopEnabled = Prefs.values.trainhopConfig?.widgets?.weatherForecastEnabled;
+    const weatherForecastWidgetEnabled = nimbusWeatherForecastTrainhopEnabled || Prefs.values["widgets.system.weatherForecast.enabled"];
+    if (showDetailedView && weatherForecastWidgetEnabled) {
+      return null;
+    }
     const outerClassName = ["weather", Weather.searchActive && "search", props.isInSection && "section-weather"].filter(v => v).join(" ");
-    const showDetailedView = Prefs.values["weather.display"] === "detailed";
     const weatherOptIn = Prefs.values["system.showWeatherOptIn"];
     const nimbusWeatherOptInEnabled = Prefs.values.trainhopConfig?.weather?.weatherOptInEnabled;
+    // Bug 2009484: Controls button order in opt-in dialog for A/B testing.
+    // When true, "Not now" gets slot="primary";
+    // when false/undefined, "Yes" gets slot="primary".
+    // Also note the primary button's position varies by platform:
+    // on Windows, it appears on the left,
+    // while on Linux and macOS, it appears on the right.
+    const reverseOptInButtons = Prefs.values.trainhopConfig?.weather?.reverseOptInButtons;
     const optInDisplayed = Prefs.values["weather.optInDisplayed"];
     const optInUserChoice = Prefs.values["weather.optInAccepted"];
     const staticWeather = Prefs.values["weather.staticData.enabled"];
@@ -11053,8 +11115,9 @@ class _Weather extends (external_React_default()).PureComponent {
         className: "weatherCity",
         "data-l10n-id": "newtab-weather-static-city"
       })))) : /*#__PURE__*/external_React_default().createElement("a", {
-        "data-l10n-id": "newtab-weather-see-forecast",
+        "data-l10n-id": "newtab-weather-see-forecast-description",
         "data-l10n-args": "{\"provider\": \"AccuWeather\xAE\"}",
+        "data-l10n-attrs": "aria-description",
         href: WEATHER_SUGGESTION.forecast.url,
         className: "weatherInfoLink",
         onClick: this.onProviderClick
@@ -11072,14 +11135,15 @@ class _Weather extends (external_React_default()).PureComponent {
         className: "weatherCityRow"
       }, /*#__PURE__*/external_React_default().createElement("span", {
         className: "weatherCity"
-      }, Weather.locationData.city)), showDetailedView ? /*#__PURE__*/external_React_default().createElement("div", {
+      }, Weather.locationData.city)), showDetailedView && !weatherForecastWidgetEnabled ? /*#__PURE__*/external_React_default().createElement("div", {
         className: "weatherDetailedSummaryRow"
       }, /*#__PURE__*/external_React_default().createElement("div", {
         className: "weatherHighLowTemps"
       }, /*#__PURE__*/external_React_default().createElement("span", null, WEATHER_SUGGESTION.forecast.high[Prefs.values["weather.temperatureUnits"]], "\xB0", Prefs.values["weather.temperatureUnits"]), /*#__PURE__*/external_React_default().createElement("span", null, "\u2022"), /*#__PURE__*/external_React_default().createElement("span", null, WEATHER_SUGGESTION.forecast.low[Prefs.values["weather.temperatureUnits"]], "\xB0", Prefs.values["weather.temperatureUnits"])), /*#__PURE__*/external_React_default().createElement("span", {
         className: "weatherTextSummary"
       }, WEATHER_SUGGESTION.current_conditions.summary)) : null)), contextMenu(showStaticData ? WEATHER_SOURCE_SHORTENED_CONTEXT_MENU_OPTIONS : WEATHER_SOURCE_CONTEXT_MENU_OPTIONS)), /*#__PURE__*/external_React_default().createElement("span", {
-        className: "weatherSponsorText"
+        className: "weatherSponsorText",
+        "aria-hidden": "true"
       }, /*#__PURE__*/external_React_default().createElement("span", {
         "data-l10n-id": "newtab-weather-sponsored",
         "data-l10n-args": "{\"provider\": \"AccuWeather\xAE\"}"
@@ -11098,15 +11162,17 @@ class _Weather extends (external_React_default()).PureComponent {
       }, /*#__PURE__*/external_React_default().createElement("moz-button", {
         size: "small",
         type: "default",
-        "data-l10n-id": "newtab-weather-opt-in-not-now",
-        onClick: this.handleRejectOptIn,
-        id: "reject-opt-in"
+        "data-l10n-id": "newtab-weather-opt-in-yes",
+        onClick: this.handleAcceptOptIn,
+        id: "accept-opt-in",
+        slot: reverseOptInButtons ? "" : "primary"
       }), /*#__PURE__*/external_React_default().createElement("moz-button", {
         size: "small",
         type: "default",
-        "data-l10n-id": "newtab-weather-opt-in-yes",
-        onClick: this.handleAcceptOptIn,
-        id: "accept-opt-in"
+        "data-l10n-id": "newtab-weather-opt-in-not-now",
+        onClick: this.handleRejectOptIn,
+        id: "reject-opt-in",
+        slot: reverseOptInButtons ? "primary" : ""
       }))))));
     }
     return /*#__PURE__*/external_React_default().createElement("div", {
@@ -13016,6 +13082,188 @@ function EditableTimerFields({
     tabIndex: tabIndex
   }, formatTime(props.timeLeft).split(":")[1]));
 }
+;// CONCATENATED MODULE: ./content-src/components/Widgets/WeatherForecast/WeatherForecast.jsx
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
+
+
+
+
+function WeatherForecast({
+  dispatch
+}) {
+  const prefs = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.Prefs.values);
+  const weatherData = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.Weather);
+  const WEATHER_SUGGESTION = weatherData.suggestions?.[0];
+  const nimbusWeatherDisplay = prefs.trainhopConfig?.weather?.display;
+  const showDetailedView = nimbusWeatherDisplay === "detailed" || prefs["weather.display"] === "detailed";
+
+  // Check if weather is enabled (browser.newtabpage.activity-stream.showWeather)
+  const {
+    showWeather
+  } = prefs;
+  const systemShowWeather = prefs["system.showWeather"];
+  const weatherExperimentEnabled = prefs.trainhopConfig?.weather?.enabled;
+  const isWeatherEnabled = showWeather && (systemShowWeather || weatherExperimentEnabled);
+
+  // Check if the WeatherForecast widget is enabled
+  const nimbusWeatherForecastTrainhopEnabled = prefs.trainhopConfig?.widgets?.weatherForecastEnabled;
+  const weatherForecastWidgetEnabled = nimbusWeatherForecastTrainhopEnabled || prefs["widgets.system.weatherForecast.enabled"];
+
+  // This weather forecast widget will only show when the following:
+  // - The weather view is set to "detailed" (can be checked with the weather.display pref)
+  // - Weather is displayed on New Tab (system.showWeather)
+  // The weather forecast widget is enabled (system.weatherForecast.enabled)
+  // Note that if the view is set to "detailed" but the weather forecast widget is not enabled, then the mini weather widget will display with the "detailed" view
+  if (!showDetailedView || !weatherData?.initialized || !weatherForecastWidgetEnabled || !isWeatherEnabled) {
+    return null;
+  }
+  const weatherOptIn = prefs["system.showWeatherOptIn"];
+  const nimbusWeatherOptInEnabled = prefs.trainhopConfig?.weather?.weatherOptInEnabled;
+  const isOptInEnabled = weatherOptIn || nimbusWeatherOptInEnabled;
+  const {
+    searchActive
+  } = weatherData;
+  function handleChangeLocation() {
+    dispatch(actionCreators.BroadcastToContent({
+      type: actionTypes.WEATHER_SEARCH_ACTIVE,
+      data: true
+    }));
+  }
+  function handleDetectLocation() {
+    dispatch(actionCreators.AlsoToMain({
+      type: actionTypes.WEATHER_USER_OPT_IN_LOCATION
+    }));
+  }
+  function handleChangeTempUnit(unit) {
+    dispatch(actionCreators.OnlyToMain({
+      type: actionTypes.SET_PREF,
+      data: {
+        name: "weather.temperatureUnits",
+        value: unit
+      }
+    }));
+  }
+  function handleChangeDisplay(display) {
+    dispatch(actionCreators.OnlyToMain({
+      type: actionTypes.SET_PREF,
+      data: {
+        name: "weather.display",
+        value: display
+      }
+    }));
+  }
+  function handleHideWeather() {
+    dispatch(actionCreators.OnlyToMain({
+      type: actionTypes.SET_PREF,
+      data: {
+        name: "showWeather",
+        value: false
+      }
+    }));
+  }
+  function handleLearnMore() {
+    dispatch(actionCreators.OnlyToMain({
+      type: actionTypes.OPEN_LINK,
+      data: {
+        url: "https://support.mozilla.org/kb/firefox-new-tab-widgets"
+      }
+    }));
+  }
+  return /*#__PURE__*/React.createElement("article", {
+    className: "weather-forecast-widget"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "city-wrapper"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "city-name"
+  }, searchActive ? /*#__PURE__*/React.createElement(LocationSearch, {
+    outerClassName: ""
+  }) : /*#__PURE__*/React.createElement("h3", null, weatherData.locationData.city)), /*#__PURE__*/React.createElement("div", {
+    className: "weather-forecast-context-menu-wrapper"
+  }, /*#__PURE__*/React.createElement("moz-button", {
+    className: "weather-forecast-context-menu-button",
+    iconSrc: "chrome://global/skin/icons/more.svg",
+    menuId: "weather-forecast-context-menu",
+    type: "ghost"
+  }), /*#__PURE__*/React.createElement("panel-list", {
+    id: "weather-forecast-context-menu"
+  }, prefs["weather.locationSearchEnabled"] && /*#__PURE__*/React.createElement("panel-item", {
+    "data-l10n-id": "newtab-weather-menu-change-location",
+    onClick: handleChangeLocation
+  }), isOptInEnabled && /*#__PURE__*/React.createElement("panel-item", {
+    "data-l10n-id": "newtab-weather-menu-detect-my-location",
+    onClick: handleDetectLocation
+  }), prefs["weather.temperatureUnits"] === "f" ? /*#__PURE__*/React.createElement("panel-item", {
+    "data-l10n-id": "newtab-weather-menu-change-temperature-units-celsius",
+    onClick: () => handleChangeTempUnit("c")
+  }) : /*#__PURE__*/React.createElement("panel-item", {
+    "data-l10n-id": "newtab-weather-menu-change-temperature-units-fahrenheit",
+    onClick: () => handleChangeTempUnit("f")
+  }), !showDetailedView ? /*#__PURE__*/React.createElement("panel-item", {
+    "data-l10n-id": "newtab-weather-menu-change-weather-display-detailed",
+    onClick: () => handleChangeDisplay("detailed")
+  }) : /*#__PURE__*/React.createElement("panel-item", {
+    "data-l10n-id": "newtab-weather-menu-change-weather-display-simple",
+    onClick: () => handleChangeDisplay("simple")
+  }), /*#__PURE__*/React.createElement("panel-item", {
+    "data-l10n-id": "newtab-weather-menu-hide-weather",
+    onClick: handleHideWeather
+  }), /*#__PURE__*/React.createElement("panel-item", {
+    "data-l10n-id": "newtab-weather-menu-learn-more",
+    onClick: handleLearnMore
+  })))), /*#__PURE__*/React.createElement("div", {
+    className: "current-weather-wrapper"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "weather-icon-column"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: `weather-icon iconId${WEATHER_SUGGESTION.current_conditions.icon_id}`
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "weather-info-column"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "temperature-unit"
+  }, WEATHER_SUGGESTION.current_conditions.temperature[prefs["weather.temperatureUnits"]], "\xB0", prefs["weather.temperatureUnits"]), /*#__PURE__*/React.createElement("span", {
+    className: "temperature-description"
+  }, WEATHER_SUGGESTION.current_conditions.summary)), /*#__PURE__*/React.createElement("div", {
+    className: "high-low-column"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "high-temperature"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "arrow-icon arrow-up"
+  }), WEATHER_SUGGESTION.forecast.high[prefs["weather.temperatureUnits"]], "\xB0"), /*#__PURE__*/React.createElement("span", {
+    className: "low-temperature"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "arrow-icon arrow-down"
+  }), WEATHER_SUGGESTION.forecast.low[prefs["weather.temperatureUnits"]], "\xB0"))), /*#__PURE__*/React.createElement("hr", null), /*#__PURE__*/React.createElement("div", {
+    className: "forecast-row"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "today-forecast",
+    "data-l10n-id": "newtab-weather-todays-forecast"
+  }), /*#__PURE__*/React.createElement("ul", {
+    className: "forecast-row-items"
+  }, /*#__PURE__*/React.createElement("li", null, /*#__PURE__*/React.createElement("span", null, "80\xB0"), /*#__PURE__*/React.createElement("span", {
+    className: `weather-icon iconId${WEATHER_SUGGESTION.current_conditions.icon_id}`
+  }), /*#__PURE__*/React.createElement("span", null, "7:00")), /*#__PURE__*/React.createElement("li", null, /*#__PURE__*/React.createElement("span", null, "80\xB0"), /*#__PURE__*/React.createElement("span", {
+    className: `weather-icon iconId${WEATHER_SUGGESTION.current_conditions.icon_id}`
+  }), /*#__PURE__*/React.createElement("span", null, "7:00")), /*#__PURE__*/React.createElement("li", null, /*#__PURE__*/React.createElement("span", null, "80\xB0"), /*#__PURE__*/React.createElement("span", {
+    className: `weather-icon iconId${WEATHER_SUGGESTION.current_conditions.icon_id}`
+  }), /*#__PURE__*/React.createElement("span", null, "7:00")), /*#__PURE__*/React.createElement("li", null, /*#__PURE__*/React.createElement("span", null, "80\xB0"), /*#__PURE__*/React.createElement("span", {
+    className: `weather-icon iconId${WEATHER_SUGGESTION.current_conditions.icon_id}`
+  }), /*#__PURE__*/React.createElement("span", null, "7:00")), /*#__PURE__*/React.createElement("li", null, /*#__PURE__*/React.createElement("span", null, "80\xB0"), /*#__PURE__*/React.createElement("span", {
+    className: `weather-icon iconId${WEATHER_SUGGESTION.current_conditions.icon_id}`
+  }), /*#__PURE__*/React.createElement("span", null, "7:00")))), /*#__PURE__*/React.createElement("div", {
+    className: "weather-forecast-footer"
+  }, /*#__PURE__*/React.createElement("a", {
+    href: "#",
+    className: "full-forecast",
+    "data-l10n-id": "newtab-weather-see-full-forecast"
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "sponsored-text",
+    "data-l10n-id": "newtab-weather-sponsored",
+    "data-l10n-args": "{\"provider\": \"AccuWeather\xAE\"}"
+  })));
+}
+
 ;// CONCATENATED MODULE: ./content-src/components/DiscoveryStreamComponents/FeatureHighlight/WidgetsFeatureHighlight.jsx
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -13069,10 +13317,12 @@ function WidgetsFeatureHighlight({
 
 
 
+
 const PREF_WIDGETS_LISTS_ENABLED = "widgets.lists.enabled";
 const PREF_WIDGETS_SYSTEM_LISTS_ENABLED = "widgets.system.lists.enabled";
 const PREF_WIDGETS_TIMER_ENABLED = "widgets.focusTimer.enabled";
 const PREF_WIDGETS_SYSTEM_TIMER_ENABLED = "widgets.system.focusTimer.enabled";
+const PREF_WIDGETS_SYSTEM_WEATHER_FORECAST_ENABLED = "widgets.system.weatherForecast.enabled";
 const PREF_WIDGETS_MAXIMIZED = "widgets.maximized";
 const PREF_WIDGETS_SYSTEM_MAXIMIZED = "widgets.system.maximized";
 
@@ -13116,8 +13366,10 @@ function Widgets() {
   const nimbusTimerEnabled = prefs.widgetsConfig?.timerEnabled;
   const nimbusListsTrainhopEnabled = prefs.trainhopConfig?.widgets?.listsEnabled;
   const nimbusTimerTrainhopEnabled = prefs.trainhopConfig?.widgets?.timerEnabled;
+  const nimbusWeatherForecastTrainhopEnabled = prefs.trainhopConfig?.widgets?.weatherForecastEnabled;
   const listsEnabled = (nimbusListsTrainhopEnabled || nimbusListsEnabled || prefs[PREF_WIDGETS_SYSTEM_LISTS_ENABLED]) && prefs[PREF_WIDGETS_LISTS_ENABLED];
   const timerEnabled = (nimbusTimerTrainhopEnabled || nimbusTimerEnabled || prefs[PREF_WIDGETS_SYSTEM_TIMER_ENABLED]) && prefs[PREF_WIDGETS_TIMER_ENABLED];
+  const weatherForecastEnabled = nimbusWeatherForecastTrainhopEnabled || prefs[PREF_WIDGETS_SYSTEM_WEATHER_FORECAST_ENABLED];
 
   // track previous timerEnabled state to detect when it becomes disabled
   const prevTimerEnabledRef = (0,external_React_namespaceObject.useRef)(timerEnabled);
@@ -13173,7 +13425,7 @@ function Widgets() {
       dispatch(actionCreators.SetPref(prefName, true));
     }
   }
-  if (!(listsEnabled || timerEnabled)) {
+  if (!(listsEnabled || timerEnabled || weatherForecastEnabled)) {
     return null;
   }
   return /*#__PURE__*/external_React_default().createElement("div", {
@@ -13209,6 +13461,10 @@ function Widgets() {
     handleUserInteraction: handleUserInteraction,
     isMaximized: isMaximized
   }), timerEnabled && /*#__PURE__*/external_React_default().createElement(FocusTimer, {
+    dispatch: dispatch,
+    handleUserInteraction: handleUserInteraction,
+    isMaximized: isMaximized
+  }), weatherForecastEnabled && /*#__PURE__*/external_React_default().createElement(WeatherForecast, {
     dispatch: dispatch,
     handleUserInteraction: handleUserInteraction,
     isMaximized: isMaximized
@@ -14830,12 +15086,134 @@ function Logo() {
   })));
 }
 
+;// CONCATENATED MODULE: ./content-src/components/ExternalComponentWrapper/ExternalComponentWrapper.jsx
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+
+
+
+/**
+ * A React component that dynamically loads and embeds external custom elements
+ * into the newtab page.
+ *
+ * This component serves as a bridge between React's declarative rendering and
+ * browser-native custom elements that are registered and managed outside of
+ * React's control. It:
+ *
+ * 1. Looks up the component configuration by type from the ExternalComponents
+ *    registry
+ * 2. Dynamically imports the component's script module (which registers the
+ *    custom element)
+ * 3. Creates an instance of the custom element using imperative DOM APIs
+ * 4. Appends it to a React-managed container div
+ * 5. Cleans up the custom element on unmount
+ *
+ * This approach is necessary because:
+ * - Custom elements have their own lifecycle separate from React
+ * - They need to be created imperatively (document.createElement) rather than
+ *   declaratively (JSX)
+ * - React shouldn't try to diff/reconcile their internal DOM, as they manage
+ *   their own shadow DOM
+ * - We need manual cleanup to prevent memory leaks when the component unmounts
+ *
+ * @param {object} props
+ * @param {string} props.type - The component type to load (e.g., "SEARCH")
+ * @param {string} props.className - CSS class name(s) to apply to the wrapper div
+ * @param {Function} props.importModule - Function to import modules (for testing)
+ */
+function ExternalComponentWrapper({
+  type,
+  className,
+  // importFunction is declared as an arrow function here purely so that we can
+  // override it for testing.
+  // eslint-disable-next-line no-unsanitized/method
+  importModule = url => import(/* webpackIgnore: true */url)
+}) {
+  const containerRef = external_React_default().useRef(null);
+  const customElementRef = external_React_default().useRef(null);
+  const l10nLinksRef = external_React_default().useRef([]);
+  const [error, setError] = external_React_default().useState(null);
+  const {
+    components
+  } = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.ExternalComponents);
+  external_React_default().useEffect(() => {
+    const container = containerRef.current;
+    const loadComponent = async () => {
+      try {
+        const config = components.find(c => c.type === type);
+        if (!config) {
+          console.warn(`No external component configuration found for type: ${type}`);
+          return;
+        }
+        await importModule(config.componentURL);
+        l10nLinksRef.current = [];
+        for (let l10nURL of config.l10nURLs) {
+          const l10nEl = document.createElement("link");
+          l10nEl.rel = "localization";
+          l10nEl.href = l10nURL;
+          document.head.appendChild(l10nEl);
+          l10nLinksRef.current.push(l10nEl);
+        }
+        if (containerRef.current && !customElementRef.current) {
+          const element = document.createElement(config.tagName);
+          if (config.attributes) {
+            for (const [key, value] of Object.entries(config.attributes)) {
+              element.setAttribute(key, value);
+            }
+          }
+          if (config.cssVariables) {
+            for (const [variable, style] of Object.entries(config.cssVariables)) {
+              element.style.setProperty(variable, style);
+            }
+          }
+          customElementRef.current = element;
+          containerRef.current.appendChild(element);
+        }
+      } catch (err) {
+        console.error(`Failed to load external component for type ${type}:`, err);
+        setError(err);
+      }
+    };
+    loadComponent();
+    return () => {
+      if (customElementRef.current && container) {
+        container.removeChild(customElementRef.current);
+        customElementRef.current = null;
+      }
+      for (const link of l10nLinksRef.current) {
+        link.remove();
+      }
+      l10nLinksRef.current = [];
+    };
+  }, [type, components, importModule]);
+  if (error) {
+    return null;
+  }
+  return /*#__PURE__*/external_React_default().createElement("div", {
+    ref: containerRef,
+    className: className
+  });
+}
+
 ;// CONCATENATED MODULE: ./content-src/components/Search/Search.jsx
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 /* globals ContentSearchHandoffUIController */
+
+/**
+ * @backward-compat { version 148 }
+ *
+ * Temporary dual implementation to support train hopping. The old handoff UI
+ * is kept alongside the new contentSearchHandoffUI.mjs custom element until
+ * the module lands on all channels. Controlled by the pref
+ * browser.newtabpage.activity-stream.search.useHandoffComponent.
+ * Remove the old implementation and the pref once this ships to Release.
+ */
+
 
 
 
@@ -14897,17 +15275,37 @@ class _Search extends (external_React_default()).PureComponent {
     }
   }
   componentDidMount() {
-    const caret = this.fakeCaret;
     const {
       caretBlinkCount,
-      caretBlinkTime
+      caretBlinkTime,
+      "search.useHandoffComponent": useHandoffComponent,
+      "externalComponents.enabled": useExternalComponents
     } = this.props.Prefs.values;
-    if (caret) {
-      // If caret blink count isn't defined, use the default infinite behavior for animation
-      caret.style.setProperty("--caret-blink-count", caretBlinkCount > -1 ? caretBlinkCount : "infinite");
+    if (useExternalComponents) {
+      // Nothing to do - the external component will have set the caret
+      // values itself.
+      return;
+    }
+    if (useHandoffComponent) {
+      const {
+        handoffUI
+      } = this;
+      if (handoffUI) {
+        // If caret blink count isn't defined, use the default infinite behavior for animation
+        handoffUI.style.setProperty("--caret-blink-count", caretBlinkCount > -1 ? caretBlinkCount : "infinite");
 
-      // Apply custom blink rate if set, else fallback to default (567ms on/off --> 1134ms total)
-      caret.style.setProperty("--caret-blink-time", caretBlinkTime > 0 ? `${caretBlinkTime * 2}ms` : `${1134}ms`);
+        // Apply custom blink rate if set, else fallback to default (567ms on/off --> 1134ms total)
+        handoffUI.style.setProperty("--caret-blink-time", caretBlinkTime > 0 ? `${caretBlinkTime * 2}ms` : `${1134}ms`);
+      }
+    } else {
+      const caret = this.fakeCaret;
+      if (caret) {
+        // If caret blink count isn't defined, use the default infinite behavior for animation
+        caret.style.setProperty("--caret-blink-count", caretBlinkCount > -1 ? caretBlinkCount : "infinite");
+
+        // Apply custom blink rate if set, else fallback to default (567ms on/off --> 1134ms total)
+        caret.style.setProperty("--caret-blink-time", caretBlinkTime > 0 ? `${caretBlinkTime * 2}ms` : `${1134}ms`);
+      }
     }
   }
   onInputMountHandoff(input) {
@@ -14928,6 +15326,27 @@ class _Search extends (external_React_default()).PureComponent {
    * in order to execute searches in various tests
    */
   render() {
+    const useHandoffComponent = this.props.Prefs.values["search.useHandoffComponent"];
+    const useExternalComponents = this.props.Prefs.values["externalComponents.enabled"];
+    if (useHandoffComponent) {
+      if (useExternalComponents) {
+        return /*#__PURE__*/external_React_default().createElement("div", {
+          className: "search-wrapper"
+        }, this.props.showLogo && /*#__PURE__*/external_React_default().createElement(Logo, null), /*#__PURE__*/external_React_default().createElement(ExternalComponentWrapper, {
+          type: "SEARCH",
+          className: "search-inner-wrapper"
+        }));
+      }
+      return /*#__PURE__*/external_React_default().createElement("div", {
+        className: "search-wrapper"
+      }, this.props.showLogo && /*#__PURE__*/external_React_default().createElement(Logo, null), /*#__PURE__*/external_React_default().createElement("div", {
+        className: "search-inner-wrapper"
+      }, /*#__PURE__*/external_React_default().createElement("content-search-handoff-ui", {
+        ref: el => {
+          this.handoffUI = el;
+        }
+      })));
+    }
     const wrapperClassName = ["search-wrapper", this.props.disable && "search-disabled", this.props.fakeFocus && "fake-focus"].filter(v => v).join(" ");
     return /*#__PURE__*/external_React_default().createElement("div", {
       className: wrapperClassName
@@ -15180,23 +15599,9 @@ function TopicSelection({
     inputRef?.current?.focus();
   }, [inputRef]);
   const handleFocus = (0,external_React_namespaceObject.useCallback)(e => {
-    // this list will have to be updated with other reusable components that get used inside of this modal
-    const tabbableElements = modalRef.current.querySelectorAll('a[href], button, moz-button, input[tabindex="0"]');
-    const [firstTabableEl] = tabbableElements;
-    const lastTabbableEl = tabbableElements[tabbableElements.length - 1];
-    let isTabPressed = e.key === "Tab" || e.keyCode === 9;
-    let isArrowPressed = e.key === "ArrowUp" || e.key === "ArrowDown";
-    if (isTabPressed) {
-      if (e.shiftKey) {
-        if (document.activeElement === firstTabableEl) {
-          lastTabbableEl.focus();
-          e.preventDefault();
-        }
-      } else if (document.activeElement === lastTabbableEl) {
-        firstTabableEl.focus();
-        e.preventDefault();
-      }
-    } else if (isArrowPressed && checkboxWrapperRef.current.contains(document.activeElement)) {
+    const isArrowPressed = e.key === "ArrowUp" || e.key === "ArrowDown";
+    if (isArrowPressed && checkboxWrapperRef.current.contains(document.activeElement)) {
+      e.preventDefault();
       const checkboxElements = checkboxWrapperRef.current.querySelectorAll("input");
       const [firstInput] = checkboxElements;
       const lastInput = checkboxElements[checkboxElements.length - 1];
@@ -15615,6 +16020,7 @@ class BaseContent extends (external_React_default()).PureComponent {
       visible: false,
       showSectionsMgmtPanel: false
     };
+    this.spocPlaceholderStartTime = null;
   }
   setFirstVisibleTimestamp() {
     if (!this.state.firstVisibleTimestamp) {
@@ -15630,6 +16036,9 @@ class BaseContent extends (external_React_default()).PureComponent {
     this.setFirstVisibleTimestamp();
     this.shouldDisplayTopicSelectionModal();
     this.onVisibilityDispatch();
+    if (this.isSpocsOnDemandExpired && !this.spocPlaceholderStartTime) {
+      this.spocPlaceholderStartTime = Date.now();
+    }
   }
   onVisibilityDispatch() {
     const {
@@ -15688,6 +16097,18 @@ class BaseContent extends (external_React_default()).PureComponent {
     __webpack_require__.g.addEventListener("keydown", this.handleOnKeyDown);
     const prefs = this.props.Prefs.values;
     const wallpapersEnabled = prefs["newtabWallpapers.enabled"];
+    if (!prefs["externalComponents.enabled"]) {
+      if (prefs["search.useHandoffComponent"]) {
+        // Dynamically import the contentSearchHandoffUI module, but don't worry
+        // about webpacking this one.
+        import(/* webpackIgnore: true */"chrome://browser/content/contentSearchHandoffUI.mjs");
+      } else {
+        const scriptURL = "chrome://browser/content/contentSearchHandoffUI.js";
+        const scriptEl = document.createElement("script");
+        scriptEl.src = scriptURL;
+        document.head.appendChild(scriptEl);
+      }
+    }
     if (this.props.document.visibilityState === Base_VISIBLE) {
       this.onVisible();
     } else {
@@ -15714,9 +16135,20 @@ class BaseContent extends (external_React_default()).PureComponent {
         if (hash === "#customize-topics") {
           this.toggleSectionsMgmtPanel();
         }
+      } else if (this.props.App.customizeMenuVisible) {
+        this.closeCustomizationMenu();
       }
     };
-    this._onHashChange();
+
+    // Using the Performance API to detect page reload vs fresh navigation.
+    // Only open customize menu on fresh navigation, not on page refresh.
+    // See: https://developer.mozilla.org/en-US/docs/Web/API/Performance/getEntriesByType
+    // See: https://developer.mozilla.org/en-US/docs/Web/API/PerformanceEntry/entryType#navigation
+    // See: https://developer.mozilla.org/en-US/docs/Web/API/PerformanceNavigationTiming/type
+    const isReload = globalThis.performance?.getEntriesByType("navigation")[0]?.type === "reload";
+    if (!isReload) {
+      this._onHashChange();
+    }
     globalThis.addEventListener("hashchange", this._onHashChange);
   }
   componentDidUpdate(prevProps) {
@@ -15768,6 +16200,31 @@ class BaseContent extends (external_React_default()).PureComponent {
       }
     }
     this.spocsOnDemandUpdated();
+    this.trackSpocPlaceholderDuration(prevProps);
+  }
+  trackSpocPlaceholderDuration(prevProps) {
+    // isExpired returns true when the current props have expired spocs (showing placeholders)
+    const isExpired = this.isSpocsOnDemandExpired;
+
+    // Init tracking when placeholders become visible
+    if (isExpired && this.state.visible && !this.spocPlaceholderStartTime) {
+      this.spocPlaceholderStartTime = Date.now();
+    }
+
+    // wasExpired returns true when the previous props had expired spocs (showing placeholders)
+    const wasExpired = prevProps.DiscoveryStream.spocs.onDemand?.enabled && !prevProps.DiscoveryStream.spocs.onDemand?.loaded && Date.now() - prevProps.DiscoveryStream.spocs.lastUpdated >= prevProps.DiscoveryStream.spocs.cacheUpdateTime;
+
+    // Record duration telemetry event when placeholders are replaced with real content
+    if (wasExpired && !isExpired && this.spocPlaceholderStartTime) {
+      const duration = Date.now() - this.spocPlaceholderStartTime;
+      this.props.dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.DISCOVERY_STREAM_SPOC_PLACEHOLDER_DURATION,
+        data: {
+          duration
+        }
+      }));
+      this.spocPlaceholderStartTime = null;
+    }
   }
   handleColorModeChange() {
     const colorMode = this.prefersDarkQuery?.matches ? "dark" : "light";

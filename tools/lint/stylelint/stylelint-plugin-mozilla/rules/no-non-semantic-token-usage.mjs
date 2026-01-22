@@ -22,10 +22,10 @@ import {
   ICON_COLOR,
   SIZE,
   OPACITY,
+  OUTLINE,
   SPACE,
   TEXT_COLOR,
   BOX_SHADOW,
-  OUTLINE,
 } from "../data.mjs";
 
 const {
@@ -55,10 +55,10 @@ const fontWeightTokens = createTokenNamesArray(FONT_WEIGHT.CATEGORIES);
 const iconColorTokens = createTokenNamesArray(ICON_COLOR.CATEGORIES);
 const sizeTokens = createTokenNamesArray(SIZE.CATEGORIES);
 const opacityTokens = createTokenNamesArray(OPACITY.CATEGORIES);
+const outlineTokens = createTokenNamesArray(OUTLINE.CATEGORIES);
 const spaceTokens = createTokenNamesArray(SPACE.CATEGORIES);
 const textColorTokens = createTokenNamesArray(TEXT_COLOR.CATEGORIES);
 const boxShadowTokens = createTokenNamesArray(BOX_SHADOW.CATEGORIES);
-const outlineTokens = createTokenNamesArray(OUTLINE.CATEGORIES);
 
 // Get allowed properties by token category
 const getAllowedProps = token => {
@@ -91,6 +91,9 @@ const getAllowedProps = token => {
     case opacityTokens.includes(token):
       tokenProperties = OPACITY.PROPERTIES;
       break;
+    case outlineTokens.includes(token):
+      tokenProperties = OUTLINE.PROPERTIES;
+      break;
     case spaceTokens.includes(token):
       tokenProperties = SPACE.PROPERTIES;
       break;
@@ -99,9 +102,6 @@ const getAllowedProps = token => {
       break;
     case boxShadowTokens.includes(token):
       tokenProperties = BOX_SHADOW.PROPERTIES;
-      break;
-    case outlineTokens.includes(token):
-      tokenProperties = OUTLINE.PROPERTIES;
       break;
     default:
       break;

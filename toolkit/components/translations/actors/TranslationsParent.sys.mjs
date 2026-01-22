@@ -49,6 +49,7 @@ const USE_LEXICAL_SHORTLIST_PREF = "browser.translations.useLexicalShortlist";
 
 /**
  * @import {DetectionResult} from "../translations.d.ts"
+ * @import {TranslationsFeature} from "chrome://global/content/translations/TranslationsFeature.sys.mjs"
  */
 
 /** @type {Lazy} */
@@ -85,6 +86,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "resource://gre/modules/translations/LanguageDetector.sys.mjs",
   RemoteSettings: "resource://services-settings/remote-settings.sys.mjs",
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
+  TranslationsFeature:
+    "chrome://global/content/translations/TranslationsFeature.sys.mjs",
   TranslationsTelemetry:
     "chrome://global/content/translations/TranslationsTelemetry.sys.mjs",
   TranslationsUtils:
@@ -445,6 +448,15 @@ export class TranslationsParent extends JSWindowActorParent {
    */
   static LANGUAGE_MODEL_MAJOR_VERSION_MIN = 3;
   static LANGUAGE_MODEL_MAJOR_VERSION_MAX = 3;
+
+  /**
+   * Translations AIFeature implementation.
+   *
+   * @returns {typeof TranslationsFeature}
+   */
+  static get AIFeature() {
+    return lazy.TranslationsFeature;
+  }
 
   /**
    * The shorter the text, the less confidence we should have in the result of the language
@@ -2250,7 +2262,9 @@ export class TranslationsParent extends JSWindowActorParent {
     }
 
     /** @type {RemoteSettingsClient} */
-    const client = lazy.RemoteSettings("translations-models-v2");
+    const client = lazy.RemoteSettings(
+      lazy.TranslationsUtils.translationsModelsCollectionName
+    );
     TranslationsParent.#translationModelsRemoteClient = client;
     client.on("sync", TranslationsParent.#handleTranslationsModelsSync);
 
@@ -2609,7 +2623,9 @@ export class TranslationsParent extends JSWindowActorParent {
     }
 
     /** @type {RemoteSettingsClient} */
-    const client = lazy.RemoteSettings("translations-wasm-v2");
+    const client = lazy.RemoteSettings(
+      lazy.TranslationsUtils.translationsWasmCollectionName
+    );
     TranslationsParent.#translationsWasmRemoteClient = client;
     client.on("sync", TranslationsParent.#handleTranslationsWasmSync);
 
@@ -2849,18 +2865,6 @@ export class TranslationsParent extends JSWindowActorParent {
     });
 
     return downloadManager(queue);
-  }
-
-  /**
-   * Delete all language model files.
-   *
-   * @returns {Promise<string[]>} A list of record IDs.
-   */
-  static async deleteAllLanguageFiles() {
-    const client = TranslationsParent.#getTranslationModelsRemoteClient();
-    await chaosMode();
-    await client.attachments.deleteAll();
-    return [...(await TranslationsParent.#getTranslationModelRecords()).keys()];
   }
 
   /**

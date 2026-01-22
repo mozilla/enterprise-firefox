@@ -565,23 +565,19 @@ class SMILTimedElement {
   SMILTimeValue mMin;
   SMILTimeValue mMax;
 
-  enum SMILFillMode : uint8_t { FILL_REMOVE, FILL_FREEZE };
+  enum class SMILFillMode : uint8_t { Remove, Freeze };
   SMILFillMode mFillMode;
   static constexpr nsAttrValue::EnumTableEntry sFillModeTable[] = {
-      {"remove", FILL_REMOVE},
-      {"freeze", FILL_FREEZE},
+      {"remove", SMILFillMode::Remove},
+      {"freeze", SMILFillMode::Freeze},
   };
 
-  enum SMILRestartMode : uint8_t {
-    RESTART_ALWAYS,
-    RESTART_WHENNOTACTIVE,
-    RESTART_NEVER
-  };
+  enum class SMILRestartMode : uint8_t { Always, WhenNotActive, Never };
   SMILRestartMode mRestartMode;
   static constexpr nsAttrValue::EnumTableEntry sRestartModeTable[] = {
-      {"always", RESTART_ALWAYS},
-      {"whenNotActive", RESTART_WHENNOTACTIVE},
-      {"never", RESTART_NEVER},
+      {"always", SMILRestartMode::Always},
+      {"whenNotActive", SMILRestartMode::WhenNotActive},
+      {"never", SMILRestartMode::Never},
   };
 
   InstanceTimeList mBeginInstances;
@@ -610,20 +606,20 @@ class SMILTimedElement {
    * The state of the element in its life-cycle. These states are based on the
    * element life-cycle described in SMILANIM 3.6.8
    */
-  enum SMILElementState {
-    STATE_STARTUP,
-    STATE_WAITING,
-    STATE_ACTIVE,
-    STATE_POSTACTIVE
+  enum class SMILElementState : uint8_t {
+    Startup,
+    Waiting,
+    Active,
+    PostActive
   };
   SMILElementState mElementState;
 
-  enum SMILSeekState {
-    SEEK_NOT_SEEKING,
-    SEEK_FORWARD_FROM_ACTIVE,
-    SEEK_FORWARD_FROM_INACTIVE,
-    SEEK_BACKWARD_FROM_ACTIVE,
-    SEEK_BACKWARD_FROM_INACTIVE
+  enum class SMILSeekState : uint8_t {
+    NotSeeking,
+    ForwardFromActive,
+    ForwardFromInactive,
+    BackwardFromActive,
+    BackwardFromInactive
   };
   SMILSeekState mSeekState;
 

@@ -11,6 +11,7 @@
 
 class nsAtom;
 class nsIGlobalObject;
+class nsIURI;
 
 namespace mozilla::dom {
 
@@ -18,6 +19,8 @@ class ReportBody;
 
 class ReportingUtils final {
  public:
+  static void StripURL(nsIURI* aURI, nsACString& outStrippedURL);
+
   static void Report(nsIGlobalObject* aGlobal, nsAtom* aType,
                      const nsAString& aGroupName, const nsAString& aURL,
                      ReportBody* aBody);

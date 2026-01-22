@@ -9,14 +9,13 @@
 
 #include <cstdlib>
 
-#include "jsmath.h"
-
 #include "gc/Allocator.h"
 #include "gc/BufferAllocatorInternals.h"
 #include "gc/Memory.h"
 #include "gc/Nursery.h"
 #include "gc/Zone.h"
 #include "jsapi-tests/tests.h"
+#include "util/RandomSeed.h"
 #include "vm/PlainObject.h"
 
 #include "gc/BufferAllocator-inl.h"

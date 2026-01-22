@@ -32,6 +32,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mozilla.fenix.R
+import org.mozilla.fenix.TabPartitionTags
 import org.mozilla.fenix.browser.browsingmode.BrowsingMode
 import org.mozilla.fenix.components.AppStore
 import org.mozilla.fenix.components.appstate.AppState
@@ -42,7 +43,7 @@ class FenixBrowserUseCasesTest {
     private lateinit var searchEngine: SearchEngine
     private lateinit var browserStore: BrowserStore
     private lateinit var profiler: Profiler
-    private lateinit var addNewTabUseCase: TabsUseCases.AddNewTabUseCase
+    private lateinit var tabsUseCases: TabsUseCases
     private lateinit var loadUrlUseCase: SessionUseCases.DefaultLoadUrlUseCase
     private lateinit var searchUseCases: SearchUseCases
     private lateinit var defaultSearchUseCase: SearchUseCases.DefaultSearchUseCase
@@ -55,7 +56,7 @@ class FenixBrowserUseCasesTest {
 
     @Before
     fun setup() {
-        addNewTabUseCase = mockk(relaxed = true)
+        tabsUseCases = mockk(relaxed = true)
         loadUrlUseCase = mockk(relaxed = true)
         searchUseCases = mockk(relaxed = true)
 
@@ -99,7 +100,7 @@ class FenixBrowserUseCasesTest {
         appStore = AppStore(AppState())
 
         useCases = FenixBrowserUseCases(
-            addNewTabUseCase = addNewTabUseCase,
+            tabsUseCases = tabsUseCases,
             loadUrlUseCase = loadUrlUseCase,
             searchUseCases = searchUseCases,
             homepageTitle = homepageTitle,
@@ -144,7 +145,7 @@ class FenixBrowserUseCasesTest {
         )
 
         verify {
-            addNewTabUseCase.invoke(
+            tabsUseCases.addTab.invoke(
                 url = url,
                 flags = EngineSession.LoadUrlFlags.none(),
                 private = private,
@@ -168,7 +169,7 @@ class FenixBrowserUseCasesTest {
         )
 
         verify {
-            addNewTabUseCase.invoke(
+            tabsUseCases.addTab.invoke(
                 url = url,
                 flags = EngineSession.LoadUrlFlags.none(),
                 private = private,
@@ -215,7 +216,7 @@ class FenixBrowserUseCasesTest {
         )
 
         verify {
-            addNewTabUseCase.invoke(
+            tabsUseCases.addTab.invoke(
                 url = url,
                 flags = EngineSession.LoadUrlFlags.none(),
                 private = private,
@@ -334,7 +335,7 @@ class FenixBrowserUseCasesTest {
         useCases.addNewHomepageTab(private = true)
 
         verify {
-            addNewTabUseCase.invoke(
+            tabsUseCases.addTab.invoke(
                 url = ABOUT_HOME_URL,
                 title = homepageTitle,
                 private = true,
@@ -344,7 +345,7 @@ class FenixBrowserUseCasesTest {
         useCases.addNewHomepageTab(private = false)
 
         verify {
-            addNewTabUseCase.invoke(
+            tabsUseCases.addTab.invoke(
                 url = ABOUT_HOME_URL,
                 title = homepageTitle,
                 private = false,
@@ -370,7 +371,7 @@ class FenixBrowserUseCasesTest {
         appStore = AppStore(initialState = AppState(mode = BrowsingMode.Normal))
         useCases = FenixBrowserUseCases(
             appStore = appStore,
-            addNewTabUseCase = addNewTabUseCase,
+            tabsUseCases = tabsUseCases,
             loadUrlUseCase = loadUrlUseCase,
             searchUseCases = searchUseCases,
             homepageTitle = homepageTitle,
@@ -385,7 +386,7 @@ class FenixBrowserUseCasesTest {
         )
 
         verify {
-            addNewTabUseCase.invoke(
+            tabsUseCases.addTab.invoke(
                 url = url,
                 flags = EngineSession.LoadUrlFlags.none(),
                 private = false,
@@ -400,7 +401,7 @@ class FenixBrowserUseCasesTest {
         appStore = AppStore(initialState = AppState(mode = BrowsingMode.Private))
         useCases = FenixBrowserUseCases(
             appStore = appStore,
-            addNewTabUseCase = addNewTabUseCase,
+            tabsUseCases = tabsUseCases,
             loadUrlUseCase = loadUrlUseCase,
             searchUseCases = searchUseCases,
             homepageTitle = homepageTitle,
@@ -415,11 +416,49 @@ class FenixBrowserUseCasesTest {
         )
 
         verify {
-            addNewTabUseCase.invoke(
+            tabsUseCases.addTab.invoke(
                 url = url,
                 flags = EngineSession.LoadUrlFlags.none(),
                 private = true,
                 originalInput = url,
+            )
+        }
+    }
+
+    @Test
+    fun `WHEN add new homepage tab in group use case is invoked with default partition THEN create a new homepage tab and add it to group`() {
+        val tabId = "new-tab-id"
+        val group = "test-group"
+        appStore = AppStore(initialState = AppState(mode = BrowsingMode.Normal))
+        useCases = FenixBrowserUseCases(
+            appStore = appStore,
+            tabsUseCases = tabsUseCases,
+            loadUrlUseCase = loadUrlUseCase,
+            searchUseCases = searchUseCases,
+            homepageTitle = homepageTitle,
+            profiler = profiler,
+        )
+
+        every {
+            tabsUseCases.addTab.invoke(
+                url = any(),
+                title = any(),
+                private = any(),
+            )
+        } returns tabId
+
+        useCases.addNewHomepageTabInGroup(group = group)
+
+        verifyOrder {
+            tabsUseCases.addTab.invoke(
+                url = ABOUT_HOME_URL,
+                title = homepageTitle,
+                private = false,
+            )
+            tabsUseCases.addTabsInGroup(
+                partition = TabPartitionTags.TAB_GROUPS,
+                group = group,
+                tabId = tabId,
             )
         }
     }

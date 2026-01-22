@@ -11,8 +11,9 @@
 
 #include "mozilla/MathAlgorithms.h"
 
-#include "ds/SlimLinkedList.h"
+#include "NamespaceImports.h"
 
+#include "ds/SlimLinkedList.h"
 #include "gc/BufferAllocator.h"
 #include "gc/IteratorUtils.h"
 

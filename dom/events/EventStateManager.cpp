@@ -626,7 +626,7 @@ LayoutDeviceIntPoint EventStateManager::sLastRefPointOfRawUpdate =
 CSSIntPoint EventStateManager::sLastScreenPoint = CSSIntPoint(0, 0);
 LayoutDeviceIntPoint EventStateManager::sSynthCenteringPoint = kInvalidRefPoint;
 CSSIntPoint EventStateManager::sLastClientPoint = CSSIntPoint(0, 0);
-MOZ_RUNINIT nsCOMPtr<nsIContent> EventStateManager::sDragOverContent = nullptr;
+constinit nsCOMPtr<nsIContent> EventStateManager::sDragOverContent;
 
 EventStateManager::WheelPrefs* EventStateManager::WheelPrefs::sInstance =
     nullptr;
@@ -679,14 +679,12 @@ nsresult EventStateManager::UpdateUserActivityTimer() {
   return NS_OK;
 }
 
-nsresult EventStateManager::Init() {
+void EventStateManager::Init() {
   nsCOMPtr<nsIObserverService> observerService =
       mozilla::services::GetObserverService();
-  if (!observerService) return NS_ERROR_FAILURE;
-
-  observerService->AddObserver(this, NS_XPCOM_SHUTDOWN_OBSERVER_ID, true);
-
-  return NS_OK;
+  if (observerService) {
+    observerService->AddObserver(this, NS_XPCOM_SHUTDOWN_OBSERVER_ID, true);
+  }
 }
 
 bool EventStateManager::ShouldAlwaysUseLineDeltas() {
@@ -754,10 +752,7 @@ EventStateManager::~EventStateManager() {
   }
 }
 
-nsresult EventStateManager::Shutdown() {
-  m_haveShutdown = true;
-  return NS_OK;
-}
+void EventStateManager::Shutdown() { m_haveShutdown = true; }
 
 NS_IMETHODIMP
 EventStateManager::Observe(nsISupports* aSubject, const char* aTopic,
@@ -3652,16 +3647,16 @@ void EventStateManager::DoScrollText(
   nsIntSize devPixelPageSize(pc->AppUnitsToDevPixels(pageSize.width),
                              pc->AppUnitsToDevPixels(pageSize.height));
   if (!WheelPrefs::GetInstance()->IsOverOnePageScrollAllowedX(aEvent) &&
-      DeprecatedAbs(actualDevPixelScrollAmount.x.value) >
-          devPixelPageSize.width) {
+      Abs(actualDevPixelScrollAmount.x.value) >
+          (unsigned)std::max(devPixelPageSize.width, 0)) {
     actualDevPixelScrollAmount.x = (actualDevPixelScrollAmount.x >= 0)
                                        ? devPixelPageSize.width
                                        : -devPixelPageSize.width;
   }
 
   if (!WheelPrefs::GetInstance()->IsOverOnePageScrollAllowedY(aEvent) &&
-      DeprecatedAbs(actualDevPixelScrollAmount.y.value) >
-          devPixelPageSize.height) {
+      Abs(actualDevPixelScrollAmount.y.value) >
+          (unsigned)std::max(devPixelPageSize.height, 0)) {
     actualDevPixelScrollAmount.y = (actualDevPixelScrollAmount.y >= 0)
                                        ? devPixelPageSize.height
                                        : -devPixelPageSize.height;
@@ -6534,7 +6529,7 @@ static Element* GetLabelTarget(nsIContent* aPossibleLabel) {
       mozilla::dom::HTMLLabelElement::FromNode(aPossibleLabel);
   if (!label) return nullptr;
 
-  return label->GetLabeledElement();
+  return label->GetLabeledElementInternal();
 }
 
 /* static */

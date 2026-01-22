@@ -12,7 +12,6 @@
 #include <stddef.h>
 
 #include "jsfriendapi.h"
-#include "jsmath.h"
 
 #include "builtin/WrappedFunctionObject.h"
 #include "debugger/DebugAPI.h"
@@ -25,6 +24,7 @@
 #include "js/Proxy.h"
 #include "js/RootingAPI.h"
 #include "js/Wrapper.h"
+#include "util/RandomSeed.h"
 #include "vm/Compartment.h"
 #include "vm/DateTime.h"
 #include "vm/Iteration.h"
@@ -480,6 +480,22 @@ void Realm::unsetIsDebuggee() {
     debugModeBits_ = 0;
     DebugEnvironments::onRealmUnsetIsDebuggee(this);
     runtimeFromMainThread()->decrementNumDebuggeeRealms();
+  }
+}
+
+void Realm::restoreDebugModeBitsOnOOM(uint32_t bits) {
+  // This is called from Debugger::addDebuggeeGlobal after calling
+  // Realm::setIsDebuggee. If the realm was not a debuggee realm before, we need
+  // to call unsetIsDebuggee to update counters on the JSRuntime.
+
+  MOZ_RELEASE_ASSERT(isDebuggee());
+
+  if (!(bits & IsDebuggee)) {
+    MOZ_ASSERT(bits == 0);
+    unsetIsDebuggee();
+    MOZ_ASSERT(debugModeBits_ == 0);
+  } else {
+    debugModeBits_ = bits;
   }
 }
 

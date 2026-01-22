@@ -480,9 +480,6 @@ nsParser* nsContentUtils::sXMLFragmentParser = nullptr;
 nsIFragmentContentSink* nsContentUtils::sXMLFragmentSink = nullptr;
 bool nsContentUtils::sFragmentParsingActive = false;
 
-bool nsContentUtils::sMayHaveFormCheckboxStateChangeListeners = false;
-bool nsContentUtils::sMayHaveFormRadioStateChangeListeners = false;
-
 mozilla::LazyLogModule nsContentUtils::gResistFingerprintingLog(
     "nsResistFingerprinting");
 mozilla::LazyLogModule nsContentUtils::sDOMDumpLog("Dump");
@@ -493,66 +490,55 @@ mozilla::LazyLogModule gInputEventLog("InputEvent");
 int32_t nsContentUtils::sInnerOrOuterWindowCount = 0;
 uint32_t nsContentUtils::sInnerOrOuterWindowSerialCounter = 0;
 
-template Maybe<int32_t>
-nsContentUtils::ComparePoints<TreeKind::ShadowIncludingDOM>(
-    const RangeBoundary& aFirstBoundary, const RangeBoundary& aSecondBoundary,
-    NodeIndexCache* aIndexCache);
-template Maybe<int32_t> nsContentUtils::ComparePoints<TreeKind::Flat>(
-    const RangeBoundary& aFirstBoundary, const RangeBoundary& aSecondBoundary,
-    NodeIndexCache* aIndexCache);
+#define INSTANTIATE_METHOD_FOR_TREEKIND_TEMPLATE_PARAM( \
+    aResultType, aMethodName, aTreeKind, ...)           \
+  template aResultType aMethodName<aTreeKind>(__VA_ARGS__);
 
-template Maybe<int32_t>
-nsContentUtils::ComparePoints<TreeKind::ShadowIncludingDOM>(
-    const RangeBoundary& aFirstBoundary,
-    const RawRangeBoundary& aSecondBoundary, NodeIndexCache* aIndexCache);
-template Maybe<int32_t> nsContentUtils::ComparePoints<TreeKind::Flat>(
-    const RangeBoundary& aFirstBoundary,
-    const RawRangeBoundary& aSecondBoundary, NodeIndexCache* aIndexCache);
+#define INSTANTIATE_METHOD_FOR_CONST_RANGE_BOUNDARY_REFS(                \
+    aResultType, aMethodName, aTreeKind, ...)                            \
+  INSTANTIATE_METHOD_FOR_TREEKIND_TEMPLATE_PARAM(                        \
+      aResultType, aMethodName, aTreeKind, const RangeBoundary&,         \
+      const RangeBoundary&, __VA_ARGS__)                                 \
+  INSTANTIATE_METHOD_FOR_TREEKIND_TEMPLATE_PARAM(                        \
+      aResultType, aMethodName, aTreeKind, const RangeBoundary&,         \
+      const RawRangeBoundary&, __VA_ARGS__)                              \
+  INSTANTIATE_METHOD_FOR_TREEKIND_TEMPLATE_PARAM(                        \
+      aResultType, aMethodName, aTreeKind, const RawRangeBoundary&,      \
+      const RangeBoundary&, __VA_ARGS__)                                 \
+  INSTANTIATE_METHOD_FOR_TREEKIND_TEMPLATE_PARAM(                        \
+      aResultType, aMethodName, aTreeKind, const RawRangeBoundary&,      \
+      const RawRangeBoundary&, __VA_ARGS__)                              \
+  INSTANTIATE_METHOD_FOR_TREEKIND_TEMPLATE_PARAM(                        \
+      aResultType, aMethodName, aTreeKind, const ConstRawRangeBoundary&, \
+      const ConstRawRangeBoundary&, __VA_ARGS__)                         \
+  INSTANTIATE_METHOD_FOR_TREEKIND_TEMPLATE_PARAM(                        \
+      aResultType, aMethodName, aTreeKind, const ConstRawRangeBoundary&, \
+      const RangeBoundary&, __VA_ARGS__)                                 \
+  INSTANTIATE_METHOD_FOR_TREEKIND_TEMPLATE_PARAM(                        \
+      aResultType, aMethodName, aTreeKind, const ConstRawRangeBoundary&, \
+      const RawRangeBoundary&, __VA_ARGS__)                              \
+  INSTANTIATE_METHOD_FOR_TREEKIND_TEMPLATE_PARAM(                        \
+      aResultType, aMethodName, aTreeKind, const RangeBoundary&,         \
+      const ConstRawRangeBoundary&, __VA_ARGS__)                         \
+  INSTANTIATE_METHOD_FOR_TREEKIND_TEMPLATE_PARAM(                        \
+      aResultType, aMethodName, aTreeKind, const RawRangeBoundary&,      \
+      const ConstRawRangeBoundary&, __VA_ARGS__)
 
-template Maybe<int32_t>
-nsContentUtils::ComparePoints<TreeKind::ShadowIncludingDOM>(
-    const RawRangeBoundary& aFirstBoundary,
-    const RangeBoundary& aSecondBoundary, NodeIndexCache* aIndexCache);
-template Maybe<int32_t> nsContentUtils::ComparePoints<TreeKind::Flat>(
-    const RawRangeBoundary& aFirstBoundary,
-    const RangeBoundary& aSecondBoundary, NodeIndexCache* aIndexCache);
+INSTANTIATE_METHOD_FOR_CONST_RANGE_BOUNDARY_REFS(Maybe<int32_t>,
+                                                 nsContentUtils::ComparePoints,
+                                                 TreeKind::DOM,
+                                                 NodeIndexCache*);
+INSTANTIATE_METHOD_FOR_CONST_RANGE_BOUNDARY_REFS(Maybe<int32_t>,
+                                                 nsContentUtils::ComparePoints,
+                                                 TreeKind::ShadowIncludingDOM,
+                                                 NodeIndexCache*);
+INSTANTIATE_METHOD_FOR_CONST_RANGE_BOUNDARY_REFS(Maybe<int32_t>,
+                                                 nsContentUtils::ComparePoints,
+                                                 TreeKind::Flat,
+                                                 NodeIndexCache*);
 
-template Maybe<int32_t>
-nsContentUtils::ComparePoints<TreeKind::ShadowIncludingDOM>(
-    const RawRangeBoundary& aFirstBoundary,
-    const RawRangeBoundary& aSecondBoundary, NodeIndexCache* aIndexCache);
-template Maybe<int32_t> nsContentUtils::ComparePoints<TreeKind::Flat>(
-    const RawRangeBoundary& aFirstBoundary,
-    const RawRangeBoundary& aSecondBoundary, NodeIndexCache* aIndexCache);
-
-template Maybe<int32_t>
-nsContentUtils::ComparePoints<TreeKind::ShadowIncludingDOM>(
-    const RangeBoundary& aFirstBoundary,
-    const ConstRawRangeBoundary& aSecondBoundary, NodeIndexCache* aIndexCache);
-template Maybe<int32_t> nsContentUtils::ComparePoints<TreeKind::Flat>(
-    const RangeBoundary& aFirstBoundary,
-    const ConstRawRangeBoundary& aSecondBoundary, NodeIndexCache* aIndexCache);
-
-template Maybe<int32_t>
-nsContentUtils::ComparePoints<TreeKind::ShadowIncludingDOM>(
-    const ConstRawRangeBoundary& aFirstBoundary,
-    const RangeBoundary& aSecondBoundary, NodeIndexCache* aIndexCache);
-template Maybe<int32_t> nsContentUtils::ComparePoints<TreeKind::Flat>(
-    const ConstRawRangeBoundary& aFirstBoundary,
-    const RangeBoundary& aSecondBoundary, NodeIndexCache* aIndexCache);
-
-template Maybe<int32_t>
-nsContentUtils::ComparePoints<TreeKind::ShadowIncludingDOM>(
-    const ConstRawRangeBoundary& aFirstBoundary,
-    const RawRangeBoundary& aSecondBoundary, NodeIndexCache* aIndexCache);
-
-template Maybe<int32_t>
-nsContentUtils::ComparePoints<TreeKind::ShadowIncludingDOM>(
-    const ConstRawRangeBoundary& aFirstBoundary,
-    const ConstRawRangeBoundary& aSecondBoundary, NodeIndexCache* aIndexCache);
-template Maybe<int32_t> nsContentUtils::ComparePoints<TreeKind::Flat>(
-    const ConstRawRangeBoundary& aFirstBoundary,
-    const ConstRawRangeBoundary& aSecondBoundary, NodeIndexCache* aIndexCache);
+#undef INSTANTIATE_METHOD_FOR_CONST_RANGE_BOUNDARY_REFS
+#undef INSTANTIATE_METHOD_FOR_TREEKIND_TEMPLATE_PARAM
 
 // Subset of
 // http://www.whatwg.org/specs/web-apps/current-work/#autofill-field-name
@@ -821,11 +807,21 @@ static bool AreNodesInSameSlot(const nsINode* aNode1, const nsINode* aNode2) {
   return false;
 }
 
-template <TreeKind aKind,
-          typename = std::enable_if_t<aKind == TreeKind::ShadowIncludingDOM ||
-                                      aKind == TreeKind::Flat>>
+static bool ChildNodeIsInShadowDOMHostedByParent(const nsINode* aParent,
+                                                 const nsINode* aChild) {
+  ShadowRoot* const shadowRoot = aParent->GetShadowRoot();
+  if (!shadowRoot) {
+    return false;
+  }
+  return shadowRoot == aChild->GetContainingShadow();
+}
+
+template <TreeKind aKind>
 static nsINode* GetParentFuncForComparison(const nsINode* aNode) {
   MOZ_ASSERT(aNode);
+  if constexpr (aKind == TreeKind::DOM) {
+    return aNode->GetParentNode();
+  }
   if constexpr (aKind == TreeKind::Flat) {
     if (aNode->IsContent() && aNode->AsContent()->GetAssignedSlot()) {
       return aNode->GetFlattenedTreeParentNodeForSelection();
@@ -935,9 +931,7 @@ class MOZ_STACK_CLASS CommonAncestors final {
     return child;
   }
 
-  template <TreeKind aKind, typename Node,
-            typename = std::enable_if_t<aKind == TreeKind::ShadowIncludingDOM ||
-                                        aKind == TreeKind::Flat>>
+  template <TreeKind aKind, typename Node>
   void WarnIfClosestCommonAncestorChildIsNotInChildList(
       const nsTArray<Node*>& aInclusiveAncestors) const {
 #ifdef DEBUG
@@ -951,34 +945,32 @@ class MOZ_STACK_CLASS CommonAncestors final {
         return;
       }
 
-      Maybe<uint32_t> childIndex;
+      bool found = false;
       if constexpr (aKind == TreeKind::Flat) {
         if (auto* slot = HTMLSlotElement::FromNode(mClosestCommonAncestor)) {
-          auto index = slot->AssignedNodes().IndexOf(child);
-          if (index != nsTArray<RefPtr<nsINode>>::NoIndex) {
-            childIndex = Some(index);
-          }
+          auto span = slot->AssignedNodes();
+          found = span.IndexOf(child) != span.npos;
         }
       }
 
-      if (childIndex.isNothing()) {
-        childIndex = mClosestCommonAncestor->ComputeIndexOf(child);
+      if (!found) {
+        found = mClosestCommonAncestor->ComputeIndexOf(child).isSome();
       }
-      if (MOZ_LIKELY(childIndex.isSome())) {
+      if (MOZ_LIKELY(found)) {
         return;
       }
       const Maybe<size_t> index =
           GetClosestCommonAncestorChildIndex(aInclusiveAncestors);
       NS_WARNING(
           fmt::format(
-              FMT_STRING("The caller cannot compare the position of the child "
-                         "of the common ancestor due to not in the child list "
-                         "of the common ancestor:\n"
-                         "  {}\n"      // common ancestor
-                         "    + {}\n"  // common ancestor child
-                         "{}"),  // child of common ancestor child if there is
+              "The caller cannot compare the position of the child "
+              "of the common ancestor due to not in the child list "
+              "of the common ancestor:\n"
+              "  {}\n"      // common ancestor
+              "    + {}\n"  // common ancestor child
+              "{}",         // child of common ancestor child if there is
               ToString(*mClosestCommonAncestor), ToString(*child),
-              *index ? fmt::format(FMT_STRING("       + {}"),
+              *index ? fmt::format("       + {}",
                                    ToString(*aInclusiveAncestors[*index - 1]))
                      : "")
               .c_str());
@@ -1241,7 +1233,7 @@ mozilla::EventClassID nsContentUtils::GetEventClassIDFromMessage(
 #define MESSAGE_TO_EVENT(name_, message_, type_, struct_) \
   case message_:                                          \
     return struct_;
-#include "mozilla/EventNameList.h"
+#include "mozilla/EventNameList.inc"
 #undef MESSAGE_TO_EVENT
     default:
       MOZ_ASSERT_UNREACHABLE("Invalid event message?");
@@ -1262,7 +1254,7 @@ nsAtom* nsContentUtils::GetEventTypeFromMessage(EventMessage aEventMessage) {
 #define MESSAGE_TO_EVENT(name_, message_, type_, struct_) \
   case message_:                                          \
     return nsGkAtoms::on##name_;
-#include "mozilla/EventNameList.h"
+#include "mozilla/EventNameList.inc"
 #undef MESSAGE_TO_EVENT
     default:
       return nullptr;
@@ -1289,7 +1281,7 @@ bool nsContentUtils::InitializeEventTable() {
 #define WINDOW_ONLY_EVENT EVENT
 #define DOCUMENT_ONLY_EVENT EVENT
 #define NON_IDL_EVENT EVENT
-#include "mozilla/EventNameList.h"
+#include "mozilla/EventNameList.inc"
 #undef WINDOW_ONLY_EVENT
 #undef NON_IDL_EVENT
 #undef EVENT
@@ -1304,7 +1296,7 @@ bool nsContentUtils::InitializeEventTable() {
   // Subtract one from the length because of the trailing null
   for (uint32_t i = 0; i < std::size(eventArray) - 1; ++i) {
     MOZ_ASSERT(!sAtomEventTable->Contains(eventArray[i].mAtom),
-               "Double-defining event name; fix your EventNameList.h");
+               "Double-defining event name; fix your EventNameList.inc");
     sAtomEventTable->InsertOrUpdate(eventArray[i].mAtom, eventArray[i]);
     sStringEventTable->InsertOrUpdate(
         Substring(nsDependentAtomString(eventArray[i].mAtom), 2),
@@ -1322,7 +1314,7 @@ void nsContentUtils::InitializeTouchEventTable() {
 #define EVENT(name_, _message, _type, _class)
 #define TOUCH_EVENT(name_, _message, _type, _class) \
   {nsGkAtoms::on##name_, _type, _message, _class},
-#include "mozilla/EventNameList.h"
+#include "mozilla/EventNameList.inc"
 #undef TOUCH_EVENT
 #undef EVENT
         {nullptr}};
@@ -1422,7 +1414,7 @@ bool nsContentUtils::IsAutocompleteEnabled(mozilla::dom::Element* aElement) {
 
   if (autocomplete.IsEmpty()) {
     auto* control = nsGenericHTMLFormControlElement::FromNode(aElement);
-    auto* form = control->GetForm();
+    auto* form = control->GetFormInternal();
     if (!form) {
       return true;
     }
@@ -2024,7 +2016,7 @@ uint32_t nsContentUtils::ParseSandboxAttributeToFlags(
   if (aSandboxAttr->Contains(nsGkAtoms::atom, eIgnoreCase)) { \
     out &= ~(flags);                                          \
   }
-#include "IframeSandboxKeywordList.h"
+#include "IframeSandboxKeywordList.inc"
 #undef SANDBOX_KEYWORD
 
   return out;
@@ -2041,7 +2033,7 @@ bool nsContentUtils::IsValidSandboxFlag(const nsAString& aFlag) {
   if (EqualsIgnoreASCIICase(nsDependentAtomString(nsGkAtoms::atom), aFlag)) { \
     return true;                                                              \
   }
-#include "IframeSandboxKeywordList.h"
+#include "IframeSandboxKeywordList.inc"
 #undef SANDBOX_KEYWORD
   return false;
 }
@@ -2069,7 +2061,7 @@ void nsContentUtils::SandboxFlagsToString(uint32_t aFlags, nsAString& aString) {
     }                                                       \
     aString.Append(nsDependentAtomString(nsGkAtoms::atom)); \
   }
-#include "IframeSandboxKeywordList.h"
+#include "IframeSandboxKeywordList.inc"
 #undef SANDBOX_KEYWORD
 }
 
@@ -3343,7 +3335,7 @@ Element* nsContentUtils::GetCommonFlattenedTreeAncestorForStyle(
 }
 
 /* static */
-template <TreeKind aKind, typename Dummy>
+template <TreeKind aKind>
 Maybe<int32_t> nsContentUtils::CompareChildNodes(
     const nsINode* aChild1, const nsINode* aChild2,
     NodeIndexCache* aIndexCache /* = nullptr */) {
@@ -3359,11 +3351,13 @@ Maybe<int32_t> nsContentUtils::CompareChildNodes(
   }
   MOZ_ASSERT(aChild1 || aChild2);
   if (!aChild1) {  // i.e., end of parent vs aChild2
-    MOZ_ASSERT(aChild2->GetParentOrShadowHostNode());
+    MOZ_ASSERT_IF(aKind == TreeKind::DOM, aChild2->GetParentNode());
+    MOZ_ASSERT_IF(aKind != TreeKind::DOM, aChild2->GetParentOrShadowHostNode());
     return Some(1);
   }
   if (!aChild2) {  // i.e., aChild1 vs. end of parent
-    MOZ_ASSERT(aChild1->GetParentOrShadowHostNode());
+    MOZ_ASSERT_IF(aKind == TreeKind::DOM, aChild1->GetParentNode());
+    MOZ_ASSERT_IF(aKind != TreeKind::DOM, aChild1->GetParentOrShadowHostNode());
     return Some(-1);
   }
 
@@ -3373,19 +3367,41 @@ Maybe<int32_t> nsContentUtils::CompareChildNodes(
       const auto* slot = aChild1->AsContent()->GetAssignedSlot();
       MOZ_ASSERT(slot);
 
-      auto child1Index = slot->AssignedNodes().IndexOf(aChild1);
-      auto child2Index = slot->AssignedNodes().IndexOf(aChild2);
+      constexpr auto NoIndex = size_t(-1);
+      auto child1Index = NoIndex;
+      auto child2Index = NoIndex;
+      size_t index = 0;
+      for (nsINode* node : slot->AssignedNodes()) {
+        if (node == aChild1) {
+          child1Index = index;
+          if (child2Index != NoIndex) {
+            break;
+          }
+        } else if (node == aChild2) {
+          child2Index = index;
+          if (child1Index != NoIndex) {
+            break;
+          }
+        }
+        index++;
+      }
 
-      MOZ_ASSERT(child1Index != nsTArray<RefPtr<nsINode>>::NoIndex);
-      MOZ_ASSERT(child2Index != nsTArray<RefPtr<nsINode>>::NoIndex);
+      MOZ_ASSERT(child1Index != NoIndex);
+      MOZ_ASSERT(child2Index != NoIndex);
 
       return Some(child1Index < child2Index ? -1 : 1);
     }
   }
 
-  MOZ_ASSERT(aChild1->GetParentOrShadowHostNode());
-  const nsINode& commonParentNode = *aChild1->GetParentOrShadowHostNode();
-  MOZ_ASSERT(aChild2->GetParentOrShadowHostNode() == &commonParentNode);
+  MOZ_ASSERT_IF(aKind == TreeKind::DOM, aChild1->GetParentNode());
+  MOZ_ASSERT_IF(aKind != TreeKind::DOM, aChild1->GetParentOrShadowHostNode());
+  const nsINode& commonParentNode = aKind == TreeKind::DOM
+                                        ? *aChild1->GetParentNode()
+                                        : *aChild1->GetParentOrShadowHostNode();
+  MOZ_ASSERT_IF(aKind == TreeKind::DOM,
+                aChild2->GetParentNode() == &commonParentNode);
+  MOZ_ASSERT_IF(aKind != TreeKind::DOM,
+                aChild2->GetParentOrShadowHostNode() == &commonParentNode);
   if (aChild1->GetNextSibling() == aChild2) {
     return Some(-1);
   }
@@ -3451,12 +3467,16 @@ Maybe<int32_t> nsContentUtils::CompareChildNodes(
 }
 
 /* static */
-template <TreeKind aKind, typename Dummy>
+template <TreeKind aKind>
 Maybe<int32_t> nsContentUtils::CompareClosestCommonAncestorChildren(
     const nsINode& aParent, const nsINode* aChild1, const nsINode* aChild2,
     nsContentUtils::NodeIndexCache* aIndexCache) {
-  MOZ_ASSERT_IF(aChild1, GetParentOrShadowHostNode(aChild1));
-  MOZ_ASSERT_IF(aChild2, GetParentOrShadowHostNode(aChild2));
+  MOZ_ASSERT_IF(aChild1 && aKind == TreeKind::DOM, aChild1->GetParentNode());
+  MOZ_ASSERT_IF(aChild2 && aKind == TreeKind::DOM, aChild2->GetParentNode());
+  MOZ_ASSERT_IF(aChild1 && aKind != TreeKind::DOM,
+                aChild1->GetParentOrShadowHostNode());
+  MOZ_ASSERT_IF(aChild2 && aKind != TreeKind::DOM,
+                aChild2->GetParentOrShadowHostNode());
 
   if (aChild1 && aChild2) {
     if (MOZ_UNLIKELY(aChild1->IsShadowRoot())) {
@@ -3503,7 +3523,7 @@ Maybe<int32_t> nsContentUtils::CompareClosestCommonAncestorChildren(
 }
 
 /* static */
-template <TreeKind aKind, typename Dummy>
+template <TreeKind aKind>
 Maybe<int32_t> nsContentUtils::CompareChildOffsetAndChildNode(
     uint32_t aOffset1, const nsINode& aChild2,
     NodeIndexCache* aIndexCache /* = nullptr */) {
@@ -3554,15 +3574,12 @@ Maybe<int32_t> nsContentUtils::CompareChildOffsetAndChildNode(
     return Some(!aOffset1 ? 0 : 1);
   }
 
-#ifdef DEBUG
-  if (!isFlatAndSlotted) {
-    MOZ_ASSERT(parentNode->GetLastChild());
-  }
-#endif
+  MOZ_ASSERT_IF(!isFlatAndSlotted, parentNode->GetLastChild());
   const nsIContent& lastChild = [parentNode]() -> const nsIContent& {
     if constexpr (aKind == TreeKind::Flat) {
       if (const HTMLSlotElement* slot = HTMLSlotElement::FromNode(parentNode)) {
-        return *slot->AssignedNodes().LastElement()->AsContent();
+        auto assigned = slot->AssignedNodes();
+        return *assigned[assigned.Length() - 1]->AsContent();
       }
     }
 
@@ -3585,7 +3602,7 @@ Maybe<int32_t> nsContentUtils::CompareChildOffsetAndChildNode(
 }
 
 /* static */
-template <TreeKind aKind, typename Dummy>
+template <TreeKind aKind>
 Maybe<int32_t> nsContentUtils::CompareChildNodeAndChildOffset(
     const nsINode& aChild1, uint32_t aOffset2,
     NodeIndexCache* aIndexCache /* = nullptr */) {
@@ -3598,7 +3615,7 @@ Maybe<int32_t> nsContentUtils::CompareChildNodeAndChildOffset(
 }
 
 /* static */
-template <TreeKind aKind, typename Dummy>
+template <TreeKind aKind>
 Maybe<int32_t> nsContentUtils::ComparePointsWithIndices(
     const nsINode* aParent1, uint32_t aOffset1, const nsINode* aParent2,
     uint32_t aOffset2, NodeIndexCache* aIndexCache) {
@@ -3630,12 +3647,14 @@ Maybe<int32_t> nsContentUtils::ComparePointsWithIndices(
   }
 
   if (closestCommonAncestorChild2) {
+    // aParent1 is the common ancestor.
     MOZ_ASSERT(GetParentFuncForComparison<aKind>(closestCommonAncestorChild2) ==
                aParent1);
-    if (aParent1->GetShadowRoot() == closestCommonAncestorChild2) {
+    if (aKind != TreeKind::DOM && ChildNodeIsInShadowDOMHostedByParent(
+                                      aParent1, closestCommonAncestorChild2)) {
       // Comparing a shadow host with its shadow root.
-      // We consider: [aParent1, 0] < closestCommonAncestorChild2 < [aParent1,
-      // 1]
+      // We consider:
+      // [aParent1, 0] < closestCommonAncestorChild2 < [aParent1, 1]
       return aOffset1 > 0 ? Some(1) : Some(-1);
     }
 
@@ -3666,15 +3685,17 @@ Maybe<int32_t> nsContentUtils::ComparePointsWithIndices(
     return comp;
   }
 
-  if (aParent2->GetShadowRoot() == closestCommonAncestorChild1) {
+  // aParent2 is the common ancestor.
+  MOZ_ASSERT(closestCommonAncestorChild1);
+  MOZ_ASSERT(GetParentFuncForComparison<aKind>(closestCommonAncestorChild1) ==
+             aParent2);
+  if (aKind != TreeKind::DOM && ChildNodeIsInShadowDOMHostedByParent(
+                                    aParent2, closestCommonAncestorChild1)) {
     // Comparing a shadow host with its shadow root.
     // We consider: [aParent2, 0] < closestCommonAncestorChild1 < [aParent2, 1]
     return aOffset2 > 0 ? Some(-1) : Some(1);
   }
 
-  MOZ_ASSERT(closestCommonAncestorChild1);
-  MOZ_ASSERT(GetParentFuncForComparison<aKind>(closestCommonAncestorChild1) ==
-             aParent2);
   // FIXME: bug 1946001, bug 1946003 and bug 1946008.
   if (MOZ_UNLIKELY(
           closestCommonAncestorChild1->IsRootOfNativeAnonymousSubtree() ||
@@ -3766,7 +3787,7 @@ Element* nsContentUtils::GetTargetElement(Document* aDocument,
 
 /* static */
 template <TreeKind aKind, typename PT1, typename RT1, typename PT2,
-          typename RT2, typename Dummy>
+          typename RT2>
 Maybe<int32_t> nsContentUtils::ComparePoints(
     const RangeBoundaryBase<PT1, RT1>& aBoundary1,
     const RangeBoundaryBase<PT2, RT2>& aBoundary2,
@@ -4111,7 +4132,7 @@ void nsContentUtils::GenerateStateKey(nsIContent* aContent, Document* aDocument,
       KeyAppendInt(int32_t(control->ControlType()), aKey);
 
       // If in a form, add form name / index of form / index in form
-      HTMLFormElement* formElement = control->GetForm();
+      HTMLFormElement* formElement = control->GetFormInternal();
       if (formElement) {
         if (IsAutocompleteOff(formElement)) {
           aKey.Truncate();
@@ -6071,7 +6092,8 @@ already_AddRefed<DocumentFragment> nsContentUtils::CreateContextualFragment(
 
   RefPtr<DocumentFragment> frag;
   aRv = ParseFragmentXML(aFragment, document, tagStack, aPreventScriptExecution,
-                         -1, getter_AddRefs(frag));
+                         kParseFragmentPrivilegedDefaultSanitization,
+                         getter_AddRefs(frag));
   return frag.forget();
 }
 
@@ -6084,32 +6106,6 @@ void nsContentUtils::DropFragmentParsers() {
 
 /* static */
 void nsContentUtils::XPCOMShutdown() { nsContentUtils::DropFragmentParsers(); }
-
-/* Helper function to compuate Sanitization Flags for ParseFramentHTML/XML */
-uint32_t computeSanitizationFlags(nsIPrincipal* aPrincipal, int32_t aFlags) {
-  uint32_t sanitizationFlags = 0;
-  if (aPrincipal->IsSystemPrincipal()) {
-    if (aFlags < 0) {
-      // if this is a chrome-privileged document and no explicit flags
-      // were passed, then use this sanitization flags.
-      sanitizationFlags = nsIParserUtils::SanitizerAllowStyle |
-                          nsIParserUtils::SanitizerAllowComments |
-                          nsIParserUtils::SanitizerDropForms |
-                          nsIParserUtils::SanitizerLogRemovals;
-    } else {
-      // if the caller explicitly passes flags, then we use those
-      // flags but additionally drop forms.
-      sanitizationFlags = aFlags | nsIParserUtils::SanitizerDropForms;
-    }
-  } else if (aFlags >= 0) {
-    // aFlags by default is -1 and is only ever non equal to -1 if the
-    // caller of ParseFragmentHTML/ParseFragmentXML is
-    // ParserUtils::ParseFragment(). Only in that case we should use
-    // the sanitization flags passed within aFlags.
-    sanitizationFlags = aFlags;
-  }
-  return sanitizationFlags;
-}
 
 // https://wicg.github.io/sanitizer-api/#set-and-filter-html
 static void SetAndFilterHTML(
@@ -6174,8 +6170,12 @@ static void SetAndFilterHTML(
 
   nsAtom* contextLocalName = aContext->NodeInfo()->NameAtom();
   int32_t contextNameSpaceID = aContext->GetNameSpaceID();
-  aError = nsContentUtils::ParseFragmentHTML(aHTML, fragment, contextLocalName,
-                                             contextNameSpaceID, false, true);
+  int32_t flags =
+      aSafe ? nsContentUtils::kParseFragmentNoSanitization
+            : nsContentUtils::kParseFragmentPrivilegedDefaultSanitization;
+  aError = nsContentUtils::ParseFragmentHTML(
+      aHTML, fragment, contextLocalName, contextNameSpaceID,
+      /* aQuirks */ false, /* aPreventScriptExecution */ true, flags);
   if (aError.Failed()) {
     return;
   }
@@ -6263,6 +6263,63 @@ void nsContentUtils::SetHTMLUnsafe(
   aTarget->ReplaceChildren(fragment, IgnoreErrors());
 }
 
+// We sanitize if the fragment occurs in a system privileged
+// context, an about: page, or if there are explicit sanitization flags.
+// Please note that about:blank and about:srcdoc inherit the security
+// context from the embedding context and hence are not loaded using
+// an about: scheme principal.
+bool ShouldSanitize(nsIPrincipal* aPrincipal, int32_t aFlags) {
+  // We don't need to sanitize for setHTML(), which uses
+  // kParseFragmentNoSanitization.
+  if (aFlags == nsContentUtils::kParseFragmentNoSanitization) {
+    return false;
+  }
+
+  if (aFlags >= 0) {
+    return true;
+  }
+
+  MOZ_ASSERT(aFlags ==
+             nsContentUtils::kParseFragmentPrivilegedDefaultSanitization);
+  return aPrincipal->IsSystemPrincipal() || aPrincipal->SchemeIs("about");
+}
+
+// Helper function to compuate Sanitization Flags for ParseFramentHTML/XML
+uint32_t ComputeSanitizationFlags(nsIPrincipal* aPrincipal, int32_t aFlags) {
+  MOZ_ASSERT(aFlags ==
+                 nsContentUtils::kParseFragmentPrivilegedDefaultSanitization ||
+             aFlags >= 0);
+
+  if (aPrincipal->IsSystemPrincipal() || aPrincipal->SchemeIs("about")) {
+    if (aFlags == nsContentUtils::kParseFragmentPrivilegedDefaultSanitization) {
+      // If this is a chrome-privileged document and no explicit flags
+      // were passed, then use these sanitization flags.
+      return nsIParserUtils::SanitizerAllowStyle |
+             nsIParserUtils::SanitizerAllowComments |
+             // Don't drop forms in about: to avoid breaking existing users
+             (aPrincipal->IsSystemPrincipal()
+                  ? nsIParserUtils::SanitizerDropForms
+                  : 0) |
+             nsIParserUtils::SanitizerLogRemovals;
+    }
+
+    // If the caller explicitly passes flags, then we use those
+    // flags but additionally drop forms.
+    return aFlags | nsIParserUtils::SanitizerDropForms;
+  }
+
+  if (aFlags >= 0) {
+    // aFlags by default is -1 and is only ever non equal to -1 if the
+    // caller of ParseFragmentHTML/ParseFragmentXML is
+    // ParserUtils::ParseFragment(). Only in that case we should use
+    // the sanitization flags passed within aFlags.
+    return aFlags;
+  }
+
+  MOZ_ASSERT_UNREACHABLE("We should have explicit flags");
+  return 0;
+}
+
 /* static */
 nsresult nsContentUtils::ParseFragmentHTML(
     const nsAString& aSourceBuffer, nsIContent* aTargetNode,
@@ -6282,11 +6339,14 @@ nsresult nsContentUtils::ParseFragmentHTML(
   nsCOMPtr<nsIPrincipal> nodePrincipal = aTargetNode->NodePrincipal();
 
 #ifdef DEBUG
-  // aFlags should always be -1 unless the caller of ParseFragmentHTML
-  // is ParserUtils::ParseFragment() which is the only caller that intends
-  // sanitization. For all other callers we need to ensure to call
-  // AuditParsingOfHTMLXMLFragments.
-  if (aFlags < 0) {
+  // aFlags should always be kParseFragmentPrivilegedDefaultSanitization unless
+  // the caller of ParseFragmentHTML is ParserUtils::ParseFragment() which is
+  // the only caller that intends sanitization. For all other callers we need to
+  // ensure to call AuditParsingOfHTMLXMLFragments.
+  //
+  // For SetHTML the flag is kParseFragmentNoSanitization, because that function
+  // already sanitizes.
+  if (aFlags == kParseFragmentPrivilegedDefaultSanitization) {
     DOMSecurityMonitor::AuditParsingOfHTMLXMLFragments(nodePrincipal,
                                                        aSourceBuffer);
   }
@@ -6296,14 +6356,8 @@ nsresult nsContentUtils::ParseFragmentHTML(
 
   RefPtr<Document> doc = aTargetNode->OwnerDoc();
   RefPtr<DocumentFragment> fragment;
-  // We sanitize if the fragment occurs in a system privileged
-  // context, an about: page, or if there are explicit sanitization flags.
-  // Please note that about:blank and about:srcdoc inherit the security
-  // context from the embedding context and hence are not loaded using
-  // an about: scheme principal.
-  bool shouldSanitize = nodePrincipal->IsSystemPrincipal() ||
-                        nodePrincipal->SchemeIs("about") || aFlags >= 0;
-  if (shouldSanitize) {
+
+  if (ShouldSanitize(nodePrincipal, aFlags)) {
     if (!doc->IsLoadedAsData()) {
       doc = nsContentUtils::CreateInertHTMLDocument(doc);
       if (!doc) {
@@ -6322,7 +6376,7 @@ nsresult nsContentUtils::ParseFragmentHTML(
 
   if (fragment) {
     uint32_t sanitizationFlags =
-        computeSanitizationFlags(nodePrincipal, aFlags);
+        ComputeSanitizationFlags(nodePrincipal, aFlags);
     // Don't fire mutation events for nodes removed by the sanitizer.
     nsAutoScriptBlockerSuppressNodeRemoved scriptBlocker;
     nsTreeSanitizer sanitizer(sanitizationFlags);
@@ -6385,23 +6439,17 @@ nsresult nsContentUtils::ParseFragmentXML(const nsAString& aSourceBuffer,
   nsCOMPtr<nsIPrincipal> nodePrincipal = aDocument->NodePrincipal();
 
 #ifdef DEBUG
-  // aFlags should always be -1 unless the caller of ParseFragmentXML
-  // is ParserUtils::ParseFragment() which is the only caller that intends
-  // sanitization. For all other callers we need to ensure to call
-  // AuditParsingOfHTMLXMLFragments.
-  if (aFlags < 0) {
+  // aFlags should always be kParseFragmentPrivilegedDefaultSanitization unless
+  // the caller of ParseFragmentXML is ParserUtils::ParseFragment() which is the
+  // only caller that intends sanitization. For all other callers we need to
+  // ensure to call AuditParsingOfHTMLXMLFragments.
+  if (aFlags == kParseFragmentPrivilegedDefaultSanitization) {
     DOMSecurityMonitor::AuditParsingOfHTMLXMLFragments(nodePrincipal,
                                                        aSourceBuffer);
   }
 #endif
 
-  // We sanitize if the fragment occurs in a system privileged
-  // context, an about: page, or if there are explicit sanitization flags.
-  // Please note that about:blank and about:srcdoc inherit the security
-  // context from the embedding context and hence are not loaded using
-  // an about: scheme principal.
-  bool shouldSanitize = nodePrincipal->IsSystemPrincipal() ||
-                        nodePrincipal->SchemeIs("about") || aFlags >= 0;
+  bool shouldSanitize = ShouldSanitize(nodePrincipal, aFlags);
   if (shouldSanitize && !aDocument->IsLoadedAsData()) {
     doc = nsContentUtils::CreateInertXMLDocument(aDocument);
   } else {
@@ -6426,7 +6474,7 @@ nsresult nsContentUtils::ParseFragmentXML(const nsAString& aSourceBuffer,
 
   if (shouldSanitize) {
     uint32_t sanitizationFlags =
-        computeSanitizationFlags(nodePrincipal, aFlags);
+        ComputeSanitizationFlags(nodePrincipal, aFlags);
     // Don't fire mutation events for nodes removed by the sanitizer.
     nsAutoScriptBlockerSuppressNodeRemoved scriptBlocker;
     nsTreeSanitizer sanitizer(sanitizationFlags);
@@ -8830,6 +8878,18 @@ nsresult nsContentUtils::GetHostOrIPv6WithBrackets(nsIPrincipal* aPrincipal,
   return NS_OK;
 }
 
+nsresult nsContentUtils::GetAsciiHostOrIPv6WithBrackets(nsIURI* aURI,
+                                                        nsACString& aHost) {
+  aHost.Truncate();
+  nsresult rv = aURI->GetAsciiHost(aHost);
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
+
+  MaybeFixIPv6Host(aHost);
+  return NS_OK;
+}
+
 CallState nsContentUtils::CallOnAllRemoteChildren(
     MessageBroadcaster* aManager,
     const std::function<CallState(BrowserParent*)>& aCallback) {
@@ -9643,6 +9703,69 @@ Result<bool, nsresult> nsContentUtils::SynthesizeMouseEvent(
   if (mouseOrPointerEvent.mCallbackId.isSome()) {
     mozilla::widget::AutoSynthesizedEventCallbackNotifier::NotifySavedCallback(
         mouseOrPointerEvent.mCallbackId.ref());
+  }
+
+  return status == nsEventStatus_eConsumeNoDefault;
+}
+
+mozilla::Result<bool, nsresult> nsContentUtils::SynthesizeTouchEvent(
+    nsPresContext* aPresContext, nsIWidget* aWidget,
+    const nsPoint& aWidgetOffset, const nsAString& aType,
+    const nsTArray<SynthesizeTouchEventData>& aTouches,
+    const int32_t aModifiers, const SynthesizeTouchEventOptions& aOptions) {
+  MOZ_ASSERT(aPresContext);
+  MOZ_ASSERT(aWidget);
+  AUTO_PROFILER_LABEL("nsContentUtils::SynthesizeTouchEvent", OTHER);
+
+  EventMessage msg;
+  if (aType.EqualsLiteral("touchstart")) {
+    msg = eTouchStart;
+  } else if (aType.EqualsLiteral("touchmove")) {
+    msg = eTouchMove;
+  } else if (aType.EqualsLiteral("touchend")) {
+    msg = eTouchEnd;
+  } else if (aType.EqualsLiteral("touchcancel")) {
+    msg = eTouchCancel;
+  } else {
+    return Err(NS_ERROR_UNEXPECTED);
+  }
+
+  WidgetTouchEvent event(true, msg, aWidget);
+  event.mFlags.mIsSynthesizedForTests = true;
+  event.mModifiers = nsContentUtils::GetWidgetModifiers(aModifiers);
+  if (aOptions.mIsPen) {
+    event.mInputSource = MouseEvent_Binding::MOZ_SOURCE_PEN;
+  }
+
+  uint32_t count = aTouches.Length();
+  event.mTouches.SetCapacity(count);
+  for (uint32_t i = 0; i < count; ++i) {
+    LayoutDeviceIntPoint pt = nsContentUtils::ToWidgetPoint(
+        CSSPoint(aTouches[i].mOffsetX, aTouches[i].mOffsetY), aWidgetOffset,
+        aPresContext);
+    LayoutDeviceIntPoint radius = LayoutDeviceIntPoint::FromAppUnitsRounded(
+        CSSPoint::ToAppUnits(
+            CSSPoint(aTouches[i].mRadiiX, aTouches[i].mRadiiY)),
+        aPresContext->AppUnitsPerDevPixel());
+
+    RefPtr<Touch> t =
+        new Touch(aTouches[i].mIdentifier, pt, radius,
+                  aTouches[i].mRotationAngle, aTouches[i].mPressure,
+                  aTouches[i].mTiltX, aTouches[i].mTiltY, aTouches[i].mTwist);
+
+    event.mTouches.AppendElement(t);
+  }
+
+  nsEventStatus status = nsEventStatus_eIgnore;
+  if (aOptions.mToWindow) {
+    RefPtr<PresShell> presShell = aPresContext->PresShell();
+    MOZ_TRY(presShell->HandleEvent(presShell->GetRootFrame(), &event, false,
+                                   &status));
+  } else if (aOptions.mIsAsyncEnabled ||
+             StaticPrefs::test_events_async_enabled()) {
+    status = aWidget->DispatchInputEvent(&event).mContentStatus;
+  } else {
+    status = aWidget->DispatchEvent(&event);
   }
 
   return status == nsEventStatus_eConsumeNoDefault;

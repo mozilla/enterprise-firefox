@@ -6,8 +6,8 @@
 
 /* Classes to manage lookup of static names in a table. */
 
-#ifndef nsStaticNameTable_h___
-#define nsStaticNameTable_h___
+#ifndef nsStaticNameTable_h_
+#define nsStaticNameTable_h_
 
 #include "PLDHashTable.h"
 #include "nsString.h"
@@ -45,4 +45,4 @@ class nsStaticCaseInsensitiveNameTable {
   nsDependentCString mNullStr;
 };
 
-#endif /* nsStaticNameTable_h___ */
+#endif /* nsStaticNameTable_h_ */

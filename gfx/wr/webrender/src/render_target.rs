@@ -14,12 +14,13 @@ use crate::spatial_tree::SpatialTree;
 use crate::clip::{ClipStore, ClipItemKind};
 use crate::frame_builder::FrameGlobalResources;
 use crate::gpu_types::{BorderInstance, SVGFEFilterInstance, BlurDirection, BlurInstance, PrimitiveHeaders, ScalingInstance};
-use crate::gpu_types::{TransformPalette, ZBufferIdGenerator, MaskInstance, ClipSpace, BlurEdgeMode};
-use crate::gpu_types::{ZBufferId, QuadSegment, PrimitiveInstanceData, TransformPaletteId};
+use crate::gpu_types::{ZBufferIdGenerator, MaskInstance, ClipSpace, BlurEdgeMode};
+use crate::gpu_types::{ZBufferId, QuadSegment, PrimitiveInstanceData};
 use crate::internal_types::{CacheTextureId, FastHashMap, FrameAllocator, FrameMemory, FrameVec, TextureSource};
 use crate::svg_filter::FilterGraphOp;
 use crate::picture::{SurfaceInfo, ResolvedSurfaceTexture};
 use crate::tile_cache::{SliceId, TileCacheInstance};
+use crate::transform::{TransformPalette, GpuTransformId};
 use crate::quad;
 use crate::prim_store::{PrimitiveInstance, PrimitiveStore, PrimitiveScratchBuffer};
 use crate::prim_store::gradient::{
@@ -923,7 +924,7 @@ fn build_mask_tasks(
                 panic!("bug: box-shadow clips not expected on non-legacy rect/quads");
             }
             ClipItemKind::Image { rect, .. } => {
-                let clip_transform_id = transforms.get_id(
+                let clip_transform_id = transforms.gpu.get_id(
                     clip_node.item.spatial_node_index,
                     raster_spatial_node_index,
                     spatial_tree,
@@ -1004,10 +1005,10 @@ fn build_mask_tasks(
         let raster_clip = raster_spatial_node.coordinate_system_id == clip_spatial_node.coordinate_system_id;
 
         let (clip_space, clip_transform_id, main_prim_address, prim_transform_id, is_same_coord_system) = if raster_clip {
-            let prim_transform_id = TransformPaletteId::IDENTITY;
+            let prim_transform_id = GpuTransformId::IDENTITY;
             let pattern = Pattern::color(ColorF::WHITE);
 
-            let clip_transform_id = transforms.get_id(
+            let clip_transform_id = transforms.gpu.get_id(
                 raster_spatial_node_index,
                 clip_node.item.spatial_node_index,
                 spatial_tree,
@@ -1025,20 +1026,20 @@ fn build_mask_tasks(
 
             (ClipSpace::Raster, clip_transform_id, main_prim_address, prim_transform_id, true)
         } else {
-            let prim_transform_id = transforms.get_id(
+            let prim_transform_id = transforms.gpu.get_id(
                 prim_spatial_node_index,
                 raster_spatial_node_index,
                 spatial_tree,
             );
 
             let clip_transform_id = if prim_spatial_node.coordinate_system_id < clip_spatial_node.coordinate_system_id {
-                transforms.get_id(
+                transforms.gpu.get_id(
                     clip_node.item.spatial_node_index,
                     prim_spatial_node_index,
                     spatial_tree,
                 )
             } else {
-                transforms.get_id(
+                transforms.gpu.get_id(
                     prim_spatial_node_index,
                     clip_node.item.spatial_node_index,
                     spatial_tree,

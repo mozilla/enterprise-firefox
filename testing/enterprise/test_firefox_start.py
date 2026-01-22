@@ -49,9 +49,9 @@ class EnterpriseTests(EnterpriseTestsBase):
         )
         self._wait.until(lambda d: len(build_flags_box.text) > 0)
         self._logger.info(f"about:buildconfig buildflags: {build_flags_box.text}")
-        assert (
-            exp["enterprise"] in build_flags_box.text
-        ), "enterprise branding build flag should be there"
+        assert exp["enterprise"] in build_flags_box.text, (
+            "enterprise branding build flag should be there"
+        )
 
         return True
 

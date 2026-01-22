@@ -233,7 +233,7 @@ win64-enterprise/debug:
         max-run-time: 7200
         env:
             PERFHERDER_EXTRA_OPTIONS: enterprise
-            # MOZ_AUTOMATION_PACKAGE_TESTS: "1"
+            MOZ_AUTOMATION_PACKAGE_TESTS: "1"
     run:
         options: [append-env-variables-from-configs]
         actions: [get-secrets, build]
@@ -475,12 +475,69 @@ win64/opt:
             - upx-3.95-win
 
 win64-enterprise-shippable/opt:
+    description: "Win64 Enterprise Shinpable Opt"
+    use-pgo: win64-shippable/opt
+    index:
+        product: firefox
+        job-name: win64-enterprise-shippable-opt
+    attributes:
+        shippable: true
+        enable-build-signing: true
+        enable-full-crashsymbols: true
+    shipping-phase: build
+    shipping-product: firefox
+    treeherder:
+        platform: windows2012-64-enterprise-shippable/opt
+        symbol: Bpgo(Bent)
+        tier: 1
+    worker-type: b-linux-docker-xlarge-amd
+    worker:
+        max-run-time: 7200
+        env:
+            PERFHERDER_EXTRA_OPTIONS: enterprise
+            MOZ_AUTOMATION_PACKAGE_TESTS: "1"
+    run:
+        options: [append-env-variables-from-configs]
+        actions: [get-secrets, build]
+        script: mozharness/scripts/fx_desktop_build.py
+        secrets: true
+        config:
+            - builds/releng_base_firefox.py
+            - builds/releng_base_linux_64_builds.py
+        extra-config:
+            stage_platform: win64
+            mozconfig_platform: win64
+    run-on-projects: ["enterprise-firefox"]
+    run-on-repo-type: ["git"]
+    use-sccache: false
+    fetches:
+        toolchain:
+            - linux64-clang
+            - linux64-rust-cross
+            - linux64-rust-size
+            - linux64-nasm
+            - linux64-node
+            - linux64-cbindgen
+            - linux64-sccache
+            - linux64-dump_syms
+            - linux64-wine
+            - linux64-winchecksec
+            - nsis
+            - sysroot-x86_64-linux-gnu
+            - sysroot-wasm32-wasi
+            - vs
+            - dxc-x86_64-pc-windows-msvc
+            - onnxruntime-x86_64-windows-msvc
+            - winappsdk-x86_64-pc-windows-msvc
+        fetch:
+            - upx-3.95-win
+
+win64-enterprise/opt:
     description: "Win64 Enterprise Opt"
     index:
         product: firefox
         job-name: win64-enterprise-opt
     attributes:
-        shippable: true
         enable-build-signing: true
         enable-full-crashsymbols: true
     shipping-phase: build

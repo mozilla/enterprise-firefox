@@ -328,13 +328,8 @@ newtab-custom-recent-subtitle = Tuyển chọn các trang và nội dung gần �
 newtab-custom-weather-toggle =
     .label = Thời tiết
     .description = Sơ lược về dự báo hôm nay
-newtab-custom-trending-search-toggle =
-    .label = Tìm kiếm thịnh hành
-    .description = Các chủ đề phổ biến và được tìm kiếm thường xuyên
 newtab-custom-widget-weather-toggle =
     .label = Thời tiết
-newtab-custom-widget-trending-search-toggle =
-    .label = Tìm kiếm thịnh hành
 newtab-custom-widget-lists-toggle =
     .label = Danh sách
 newtab-custom-widget-timer-toggle =
@@ -595,7 +590,7 @@ newtab-download-mobile-highlight-image =
 newtab-shortcuts-highlight-title = Những mục yêu thích của bạn trong tầm tay bạn
 newtab-shortcuts-highlight-subtitle = Thêm lối tắt để truy cập các trang web yêu thích chỉ bằng một cú nhấp chuột.
 
-## Strings for reporting ads and content
+## Strings for reporting issues with ads and content
 
 newtab-report-content-why-reporting-this =
     .label = Tại sao bạn báo cáo điều này?
@@ -613,21 +608,13 @@ newtab-report-content-inappropriate-offensive =
     .label = Không phù hợp hoặc xúc phạm
 newtab-report-content-spam-misleading =
     .label = Spam hoặc gây hiểu lầm
+newtab-report-content-requires-payment-subscription =
+    .label = Yêu cầu thanh toán hoặc gói đăng ký
+newtab-report-content-requires-payment-subscription-learn-more = Tìm hiểu thêm
 newtab-report-cancel = Hủy bỏ
 newtab-report-submit = Gửi
 newtab-toast-thanks-for-reporting =
     .message = Cảm ơn bạn đã báo cáo điều này.
-
-## Strings for trending searches
-
-newtab-trending-searches-show-trending =
-    .title = Hiển thị tìm kiếm thịnh hành
-newtab-trending-searches-hide-trending =
-    .title = Ẩn tìm kiếm thịnh hành
-newtab-trending-searches-learn-more = Tìm hiểu thêm
-newtab-trending-searches-dismiss = Ẩn tìm kiếm thịnh hành
-# "Trending searches refers to popular searches from search engines
-newtab-trending-searches-title = Tìm kiếm thịnh hành
 
 ## Strings for task / to-do list productivity widget
 

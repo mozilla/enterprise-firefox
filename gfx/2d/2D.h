@@ -4,8 +4,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef _MOZILLA_GFX_2D_H
-#define _MOZILLA_GFX_2D_H
+#ifndef MOZILLA_GFX_2D_H
+#define MOZILLA_GFX_2D_H
 
 #include "Types.h"
 #include "Point.h"
@@ -2420,4 +2420,4 @@ class GFX2D_API Factory {
 }  // namespace gfx
 }  // namespace mozilla
 
-#endif  // _MOZILLA_GFX_2D_H
+#endif  // MOZILLA_GFX_2D_H

@@ -285,6 +285,7 @@ RequestDestination InternalRequest::MapContentPolicyTypeToRequestDestination(
     case nsIContentPolicy::TYPE_INTERNAL_IMAGE:
     case nsIContentPolicy::TYPE_INTERNAL_IMAGE_PRELOAD:
     case nsIContentPolicy::TYPE_INTERNAL_IMAGE_FAVICON:
+    case nsIContentPolicy::TYPE_INTERNAL_IMAGE_NOTIFICATION:
     case nsIContentPolicy::TYPE_IMAGE:
       return RequestDestination::Image;
     case nsIContentPolicy::TYPE_STYLESHEET:

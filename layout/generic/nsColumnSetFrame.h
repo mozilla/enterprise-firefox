@@ -4,8 +4,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef nsColumnSetFrame_h___
-#define nsColumnSetFrame_h___
+#ifndef nsColumnSetFrame_h_
+#define nsColumnSetFrame_h_
 
 /* rendering object for css3 multi-column layout */
 
@@ -203,4 +203,4 @@ class nsColumnSetFrame final : public nsContainerFrame {
   nscoord PrefISize(const mozilla::IntrinsicSizeInput& aInput);
 };
 
-#endif  // nsColumnSetFrame_h___
+#endif  // nsColumnSetFrame_h_

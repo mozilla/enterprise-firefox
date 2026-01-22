@@ -14,7 +14,7 @@ add_setup(async function () {
     });
   }
 
-  defaultEngine = await Services.search.getDefault();
+  defaultEngine = await SearchService.getDefault();
 
   extension = await SearchTestUtils.installSearchExtension({
     id: TEST_ENGINE_NAME,
@@ -24,7 +24,7 @@ add_setup(async function () {
     suggest_url_get_params: "query={searchTerms}",
   });
 
-  addedEngine = await Services.search.getEngineByName(TEST_ENGINE_NAME);
+  addedEngine = await SearchService.getEngineByName(TEST_ENGINE_NAME);
 
   // Enable suggestions in this test. Otherwise, the string in the content
   // search box changes.
@@ -33,7 +33,7 @@ add_setup(async function () {
   });
 
   registerCleanupFunction(async () => {
-    await Services.search.setDefault(
+    await SearchService.setDefault(
       defaultEngine,
       Ci.nsISearchService.CHANGE_REASON_UNKNOWN
     );
@@ -98,10 +98,16 @@ async function ensurePlaceholder(tab, expectedId, expectedEngine) {
       await ContentTaskUtils.waitForCondition(() => !content.document.hidden);
 
       await ContentTaskUtils.waitForCondition(
-        () => content.document.querySelector(".search-handoff-button"),
-        "l10n ID not set."
+        () => content.document.querySelector("content-search-handoff-ui"),
+        "content-search-handoff-ui not found."
       );
-      let buttonNode = content.document.querySelector(".search-handoff-button");
+      let handoffUI = content.document.querySelector(
+        "content-search-handoff-ui"
+      );
+      await handoffUI.updateComplete;
+      let buttonNode = handoffUI.shadowRoot.querySelector(
+        ".search-handoff-button"
+      );
       let expectedAttributes = { id, args: engine ? { engine } : null };
       Assert.deepEqual(
         content.document.l10n.getAttributes(buttonNode),
@@ -125,10 +131,10 @@ async function runNewTabTest() {
   await ensurePlaceholder(
     tab,
     "newtab-search-box-handoff-input",
-    Services.search.defaultEngine.name
+    SearchService.defaultEngine.name
   );
 
-  await Services.search.setDefault(
+  await SearchService.setDefault(
     addedEngine,
     Ci.nsISearchService.CHANGE_REASON_UNKNOWN
   );
@@ -146,7 +152,7 @@ async function runNewTabTest() {
   await ensurePlaceholder(tab, "newtab-search-box-input");
   await SpecialPowers.popPrefEnv();
 
-  await Services.search.setDefault(
+  await SearchService.setDefault(
     defaultEngine,
     Ci.nsISearchService.CHANGE_REASON_UNKNOWN
   );
@@ -171,10 +177,10 @@ add_task(async function test_content_search_attributes_in_private_window() {
   await ensurePlaceholder(
     tab,
     "about-private-browsing-handoff",
-    Services.search.defaultEngine.name
+    SearchService.defaultEngine.name
   );
 
-  await Services.search.setDefault(
+  await SearchService.setDefault(
     addedEngine,
     Ci.nsISearchService.CHANGE_REASON_UNKNOWN
   );
@@ -190,7 +196,7 @@ add_task(async function test_content_search_attributes_in_private_window() {
   await ensurePlaceholder(tab, "about-private-browsing-search-btn");
   await SpecialPowers.popPrefEnv();
 
-  await Services.search.setDefault(
+  await SearchService.setDefault(
     defaultEngine,
     Ci.nsISearchService.CHANGE_REASON_UNKNOWN
   );

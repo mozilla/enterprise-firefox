@@ -2,7 +2,7 @@
   "manifest_version": 2,
   "name": "Web Compatibility Interventions",
   "description": "Urgent post-release fixes for web compatibility.",
-  "version": "148.0.0",
+  "version": "149.2.0",
   "browser_specific_settings": {
     "gecko": {
       "id": "webcompat@mozilla.org",
@@ -26,8 +26,8 @@
     },
     "appConstants": {
       "schema": "experiment-apis/appConstants.json",
-      "parent": {
-        "scopes": ["addon_parent"],
+      "child": {
+        "scopes": ["addon_child"],
         "script": "experiment-apis/appConstants.js",
         "paths": [["appConstants"]]
       }

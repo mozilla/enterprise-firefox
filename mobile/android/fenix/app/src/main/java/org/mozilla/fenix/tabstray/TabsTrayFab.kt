@@ -6,7 +6,9 @@ package org.mozilla.fenix.tabstray
 
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.platform.testTag
@@ -14,8 +16,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.flow.map
 import mozilla.components.compose.base.button.FloatingActionButton
-import mozilla.components.lib.state.ext.observeAsState
 import org.mozilla.fenix.R
 import org.mozilla.fenix.theme.FirefoxTheme
 import mozilla.components.ui.icons.R as iconsR
@@ -39,15 +41,15 @@ fun TabsTrayFab(
     onPrivateTabsFabClicked: () -> Unit,
     onSyncedTabsFabClicked: () -> Unit,
 ) {
-    val currentPage by tabsTrayStore.observeAsState(
-        initialValue = tabsTrayStore.state.selectedPage,
-    ) { state -> state.selectedPage }
-    val isSyncing by tabsTrayStore.observeAsState(
-        initialValue = tabsTrayStore.state.syncing,
-    ) { state -> state.syncing }
-    val isInNormalMode by tabsTrayStore.observeAsState(
-        initialValue = tabsTrayStore.state.mode == TabsTrayState.Mode.Normal,
-    ) { state -> state.mode == TabsTrayState.Mode.Normal }
+    val currentPage by remember {
+        tabsTrayStore.stateFlow.map { state -> state.selectedPage }
+    }.collectAsState(initial = tabsTrayStore.state.selectedPage)
+    val isSyncing by remember {
+        tabsTrayStore.stateFlow.map { state -> state.syncing }
+    }.collectAsState(initial = tabsTrayStore.state.syncing)
+    val isInNormalMode by remember {
+        tabsTrayStore.stateFlow.map { state -> state.mode == TabsTrayState.Mode.Normal }
+    }.collectAsState(initial = tabsTrayStore.state.mode == TabsTrayState.Mode.Normal)
 
     val shouldDisplayFloatingActionButton = shouldDisplayFloatingActionButton(
         isPbmLocked,

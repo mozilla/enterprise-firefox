@@ -76,7 +76,7 @@ nsresult SVGLengthSMILType::ComputeDistance(const SMILValue& aFrom,
   dom::SVGElementMetrics metrics(from.Element());
 
   // Normalize both to pixels in case they're different units:
-  aDistance = fabs(to.ValueInPixels(metrics) - from.ValueInPixels(metrics));
+  aDistance = std::abs(to.ValueInPixels(metrics) - from.ValueInPixels(metrics));
 
   return std::isfinite(aDistance) ? NS_OK : NS_ERROR_FAILURE;
 }

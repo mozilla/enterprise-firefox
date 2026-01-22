@@ -3,8 +3,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-#ifndef __nsUserCharacteristics_h__
-#define __nsUserCharacteristics_h__
+#ifndef _nsUserCharacteristics_h_
+#define _nsUserCharacteristics_h_
 
 #include "ErrorList.h"
 #include "mozilla/MouseEvents.h"
@@ -33,4 +33,4 @@ int MaxTouchPoints();
 }  // extern "C"
 };  // namespace testing
 
-#endif /*  __nsUserCharacteristics_h__ */
+#endif /*  _nsUserCharacteristics_h_ */

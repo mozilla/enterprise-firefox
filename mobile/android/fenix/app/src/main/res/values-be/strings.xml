@@ -57,6 +57,8 @@
   <string name="tab_manager_empty_synced_tabs_page_header">Захоплівайце карткі з любой прылады</string>
   <!-- The action text displayed on the synced tabs page when the user is not logged into an account, prompting the user to sign into their account. When clicked, it takes the user to the account sign-in flow. -->
   <string name="tab_manager_empty_synced_tabs_page_sign_in_cta">Увайсці</string>
+  <!-- Text for the button used to show all stories -->
+  <string name="homepage_all_stories">Усе гісторыі</string>
   <!--
     Home - Bookmarks
 
@@ -210,9 +212,9 @@
   <!-- Browser menu button that opens account settings -->
   <string name="browser_menu_account_settings">Ваш уліковы запіс</string>
   <!-- Browser menu button that sends a user to help articles -->
-  <string name="browser_menu_help">Даведка</string>
+  <string name="browser_menu_help" tools:ignore="UnusedResources" moz:removedIn="149">Даведка</string>
   <!-- Browser menu button that sends a to a the what's new article -->
-  <string name="browser_menu_whats_new">Што новага</string>
+  <string name="browser_menu_whats_new" tools:ignore="UnusedResources" moz:removedIn="149">Што новага</string>
   <!-- Browser menu button that opens the settings menu -->
   <string name="browser_menu_settings">Налады</string>
   <!-- Browser menu button that opens a user's library -->
@@ -220,7 +222,7 @@
   <!-- Browser menu toggle that requests a desktop site -->
   <string name="browser_menu_desktop_site">Версія для ПК</string>
   <!-- Browser menu button that reopens a private tab as a regular tab -->
-  <string name="browser_menu_open_in_regular_tab">Адкрыць у звычайнай картцы</string>
+  <string name="browser_menu_open_in_regular_tab" tools:ignore="UnusedResources" moz:removedIn="149">Адкрыць у звычайнай картцы</string>
   <!-- Browser menu toggle that adds a shortcut to the site on the device home screen. -->
   <string name="browser_menu_add_to_homescreen">Дадаць на хатні экран</string>
   <!-- Browser menu toggle that adds a PWA of the site on the device home screen. -->
@@ -248,7 +250,7 @@
     Browser menu text shown in custom tabs to indicate this is a Fenix tab
     %1$s is the name of the app (for example "Firefox").
   -->
-  <string name="browser_menu_powered_by">ПРЫ ПАДТРЫМЦЫ %1$s</string>
+  <string name="browser_menu_powered_by" tools:ignore="UnusedResources" moz:removedIn="149">ПРЫ ПАДТРЫМЦЫ %1$s</string>
   <!--
     Browser menu text shown in custom tabs to indicate this is a Fenix tab
     %1$s is the name of the app (for example "Firefox").
@@ -261,15 +263,15 @@
   <!-- Browser menu button to open the current page in an external app -->
   <string name="browser_menu_open_app_link">Адкрыць у праграме</string>
   <!-- Browser menu button to show reader view appearance controls e.g. the used font type and size -->
-  <string name="browser_menu_customize_reader_view">Уладкаваць рэжым чытання</string>
+  <string name="browser_menu_customize_reader_view" tools:ignore="UnusedResources" moz:removedIn="149">Уладкаваць рэжым чытання</string>
   <!-- Browser menu button to show reader view appearance controls e.g. the used font type and size -->
   <string name="browser_menu_customize_reader_view_2">Уладкаваць рэжым чытання</string>
   <!-- Browser menu label for adding a bookmark -->
-  <string name="browser_menu_add">Дадаць</string>
+  <string name="browser_menu_add" tools:ignore="UnusedResources" moz:removedIn="149">Дадаць</string>
   <!-- Browser menu label for editing a bookmark -->
-  <string name="browser_menu_edit">Змяніць</string>
+  <string name="browser_menu_edit" tools:ignore="UnusedResources" moz:removedIn="149">Змяніць</string>
   <!-- Button shown on the home page that opens the Customize home settings -->
-  <string name="browser_menu_customize_home_1">Уладкаваць хатнюю старонку</string>
+  <string name="browser_menu_customize_home_1" tools:ignore="UnusedResources" moz:removedIn="149">Уладкаваць хатнюю старонку</string>
   <!-- Browser menu label to sign in to sync on the device using Mozilla accounts -->
   <string name="browser_menu_sign_in">Увайсці</string>
   <!-- Browser menu caption label for the "Sign in" browser menu item described in `browser_menu_sign_in` -->
@@ -286,10 +288,6 @@
   <string name="browser_close_main_menu_handlebar_content_description">Закрыць меню</string>
   <!-- Content description (not visible, for screen readers etc.) for main menu navigation header. -->
   <string name="browser_main_menu_content_description_navigation_header">Навігацыя</string>
-  <!-- Content description (not visible, for screen readers etc.) for main menu help button. -->
-  <string name="browser_main_menu_content_description_help_button" tools:ignore="UnusedResources" moz:removedIn="146">Даведка</string>
-  <!-- Content description (not visible, for screen readers etc.) for main menu settings button. -->
-  <string name="browser_main_menu_content_description_settings_button" tools:ignore="UnusedResources" moz:removedIn="146">Налады</string>
   <!-- Content description (not visible, for screen readers etc.) for bottom sheet handlebar save menu. -->
   <string name="browser_save_menu_handlebar_content_description">Закрыць меню захавання</string>
   <!-- Content description (not visible, for screen readers etc.) for bottom sheet handlebar tools menu. -->
@@ -303,7 +301,7 @@
   <!-- Browser menu label for navigating to the translation feature, which provides language translation options the current visited page -->
   <string name="browser_menu_translate_page_2">Перакласці старонку</string>
   <!-- Browser menu label for navigating to the Web Compat Reporter feature, which provides users the ability to send bug reports for broken sites. -->
-  <string name="browser_menu_webcompat_reporter">Паведаміць пра пашкоджаны сайт…</string>
+  <string name="browser_menu_webcompat_reporter" tools:ignore="UnusedResources" moz:removedIn="149">Паведаміць пра пашкоджаны сайт…</string>
   <!-- Browser menu label for navigating to the Web Compat Reporter feature, which provides users the ability to send bug reports for broken sites. -->
   <string name="browser_menu_webcompat_reporter_2">Паведаміць пра пашкоджаны сайт</string>
   <!-- Browser menu label that is displayed when the current page has been translated by the translation feature. -->
@@ -346,6 +344,14 @@
     %2$s is the name of the language which the page was translated to. (For example: French)
   -->
   <string name="browser_toolbar_translated_successfully">Старонка перакладзена з %1$s на %2$s.</string>
+  <!--
+    Translation Toolbar
+
+    Translation toolbar label that is displayed when the current page has been translated by the translation feature.
+    %1$s is the name of the language that is displayed in the original page. (For example: English)
+    %2$s is the name of the language which the page was translated to. (For example: French)
+  -->
+  <string name="translation_toolbar_translated_from_and_to" tools:ignore="UnusedResources">Перакладзена з %1$s на %2$s</string>
   <!-- Content description for the translate toolbar action that opens the translations dialog. -->
   <string name="translation_toolbar_expand_action">Адкрыць аркуш перакладаў</string>
   <!-- Content description for the translate toolbar action that closes the translations toolbar. -->
@@ -411,19 +417,8 @@
   <string name="juno_onboarding_privacy_notice_text" tools:ignore="BrandUsage">Паведамленне аб прыватнасці Firefox</string>
   <!-- Title for set firefox as default browser screen used by Nimbus experiments. -->
   <string name="juno_onboarding_default_browser_title_nimbus_2">Нам падабаецца забяспечваць вашу бяспеку</string>
-  <!--
-    Title for set firefox as default browser screen used by Nimbus experiments.
-    Note: The word "Firefox" should NOT be translated
-  -->
-  <string name="juno_onboarding_default_browser_title_nimbus_3" tools:ignore="BrandUsage,UnusedResources" moz:removedIn="146">Даведайцеся, чаму мільёны людзей любяць Firefox</string>
-  <!-- Title for set firefox as default browser screen used by Nimbus experiments. -->
-  <string name="juno_onboarding_default_browser_title_nimbus_4" tools:ignore="UnusedResources" moz:removedIn="146">Бяспечнае агляданне з вялікім выбарам</string>
   <!-- Description for set firefox as default browser screen used by Nimbus experiments. -->
   <string name="juno_onboarding_default_browser_description_nimbus_3">Наш браўзер, падтрыманы некамерцыйнай арганізацыяй, дапамагае не даваць кампаніям таемна сачыць за вамі ў сеціве.</string>
-  <!-- Description for set firefox as default browser screen used by Nimbus experiments. -->
-  <string name="juno_onboarding_default_browser_description_nimbus_4" tools:ignore="UnusedResources" moz:removedIn="146">Больш за 100 мільёнаў чалавек абараняюць сваю прыватнасць, выбіраючы браўзер, які падтрымліваецца некамерцыйнай арганізацыяй.</string>
-  <!-- Description for set firefox as default browser screen used by Nimbus experiments. -->
-  <string name="juno_onboarding_default_browser_description_nimbus_5" tools:ignore="UnusedResources" moz:removedIn="146">Вядомыя трэкеры? Блакуюцца аўтаматычна. Пашырэнні? Паспрабуйце ўсе 700. PDF? Наш убудаваны чытальнік дазваляе лёгка імі кіраваць.</string>
   <!-- Text for the button to set firefox as default browser on the device -->
   <string name="juno_onboarding_default_browser_positive_button" tools:ignore="UnusedResources">Зрабіць прадвызначаным браўзерам</string>
   <!-- Text for the button dismiss the screen and move on with the flow -->
@@ -494,6 +489,8 @@
   <string name="onboarding_term_of_service_line_one_2">Працягваючы, вы згаджаецеся з %1$s.</string>
   <!-- Used as text for the link in onboarding_term_of_service_line_one_2. -->
   <string name="onboarding_term_of_service_line_one_link_text_2" tools:ignore="BrandUsage">Умовы выкарыстання Firefox</string>
+  <!-- Line two of the terms of service onboarding page. 'Firefox' is intentionally hardcoded. %1$s is replaced by an active link, using onboarding_term_of_service_line_two_link_text as text (“Privacy Notice”). -->
+  <string name="onboarding_term_of_service_line_two_2" tools:ignore="BrandUsage">Firefox клапоціцца аб вашай прыватнасці. Даведайцеся больш у нашых %1$s.</string>
   <!-- Used as text for the link in onboarding_term_of_service_line_two. -->
   <string name="onboarding_term_of_service_line_two_link_text">Паведамленнем аб прыватнасці</string>
   <!-- Used as text for the link in onboarding_term_of_service_line_three. -->
@@ -535,6 +532,45 @@
   <string name="onboarding_marketing_learn_more" tools:ignore="UnusedResources">Як мы выкарыстоўваем дадзеныя</string>
   <!-- Marketing onboarding page title variant. “One last thing” refers to the final step or action in the onboarding process that we’re asking users to take before they can start using the browser. -->
   <string name="onboarding_marketing_title_1" tools:ignore="UnusedResources">Яшчэ адна рэч</string>
+  <!-- ==== Project "Nova" onboarding strings ==== -->
+
+  <!-- "Continue" onboarding button. -->
+  <string name="nova_onboarding_continue_button" tools:ignore="UnusedResources">Працягнуць</string>
+  <!-- "Not now" onboarding button. -->
+  <string name="nova_onboarding_negative_button" tools:ignore="UnusedResources">Не зараз</string>
+  <!-- Terms of use (ToU) onboarding body line one link text for nova_onboarding_tou_body_line_1. 'Firefox' is intentionally hardcoded. -->
+  <string name="nova_onboarding_tou_body_line_1_link_text" tools:ignore="BrandUsage,UnusedResources">Умовы выкарыстання Firefox</string>
+  <!--
+    Terms of use (ToU) onboarding body line two. 'Firefox' is intentionally hardcoded.
+    %1$s is replaced by an active link, using nova_onboarding_tou_body_line_2_link_text as text (“Privacy Notice”).
+  -->
+  <string name="nova_onboarding_tou_body_line_2" tools:ignore="BrandUsage,UnusedResources">Firefox клапоціцца аб вашай прыватнасці. Даведайцеся больш у нашых %1$s.</string>
+  <!-- Terms of use (ToU) onboarding body line two link text for nova_onboarding_tou_body_line_2. -->
+  <string name="nova_onboarding_tou_body_line_2_link_text" tools:ignore="UnusedResources">Паведамленне аб прыватнасці</string>
+  <!-- "Set to default" onboarding button. -->
+  <string name="nova_onboarding_set_to_default_button" tools:ignore="UnusedResources">Зрабіць прадвызначаным браўзерам</string>
+  <!-- Toolbar selection onboarding "top" option label. -->
+  <string name="nova_onboarding_toolbar_selection_top_label" tools:ignore="UnusedResources">Уверсе</string>
+  <!-- Toolbar selection onboarding "bottom" option label. -->
+  <string name="nova_onboarding_toolbar_selection_bottom_label" tools:ignore="UnusedResources">Унізе</string>
+  <!-- Theme selection onboarding title. -->
+  <string name="nova_onboarding_theme_selection_title" tools:ignore="UnusedResources">Выберыце тэму</string>
+  <!-- Theme selection onboarding "automatic" option label. -->
+  <string name="nova_onboarding_theme_selection_automatic_label" tools:ignore="UnusedResources">Аўтаматычна</string>
+  <!-- Theme selection onboarding "light" option label. -->
+  <string name="nova_onboarding_theme_selection_light_label" tools:ignore="UnusedResources">Светлая</string>
+  <!-- Theme selection onboarding "dark" option label. -->
+  <string name="nova_onboarding_theme_selection_dark_label" tools:ignore="UnusedResources">Цёмная</string>
+  <!-- Sync onboarding button. -->
+  <string name="nova_onboarding_sync_button" tools:ignore="UnusedResources">Пачаць сінхранізацыю</string>
+  <!-- Marketing onboarding title. -->
+  <string name="nova_onboarding_marketing_title" tools:ignore="UnusedResources">Дапамажыце нам будаваць лепшы інтэрнэт</string>
+  <!-- "Add search widget" onboarding button. 'Firefox' is intentionally hardcoded. -->
+  <string name="nova_onboarding_add_search_widget_button" tools:ignore="BrandUsage,UnusedResources">Дадаць віджэт Firefox</string>
+  <!-- ==== End of Project "Nova" onboarding strings ==== -->
+
+  <!-- Onboarding header for the toolbar selection card, used by Nimbus experiments. -->
+  <string name="onboarding_customize_toolbar_title" tools:ignore="UnusedResources">Выберыце размяшчэнне панэлі інструментаў</string>
   <!-- Onboarding label for 'Save and continue' button, used by Nimbus experiments. -->
   <string name="onboarding_save_and_continue_button">Захаваць і працягваць</string>
   <!-- Onboarding toolbar selection card label for 'top' option, used by Nimbus experiments. -->
@@ -915,8 +951,6 @@
   <string name="alternative_app_icon_group_solid_colors">Аднатонныя колеры</string>
   <!-- Title for the "Gradients" group of alternative app icon variants in the icon picker screen. This group contains icons with gradient backgrounds inspired by natural light conditions. -->
   <string name="alternative_app_icon_group_gradients">Градыенты</string>
-  <!-- Title for the "Other" group of alternative app icon variants in the icon picker screen. This group includes retro, pixel art, themed, and artist-created icons. -->
-  <string name="alternative_app_icon_group_other" tools:ignore="UnusedResources" moz:removedIn="146">Іншыя</string>
   <!-- Dialog button text for cancelling app icon change -->
   <string name="restart_warning_dialog_button_negative">Скасаваць</string>
   <!--
@@ -1273,6 +1307,10 @@
   <string name="tab_tray_menu_tab_settings">Налады картак</string>
   <!-- Text shown in the menu for closing all tabs -->
   <string name="tab_tray_menu_item_close">Закрыць усе карткі</string>
+  <!-- Text shown on the confirm button in the Close all tabs confirmation dialog -->
+  <string name="tab_manager_close_all_tabs_dialog_confirm">Закрыць карткі</string>
+  <!-- Text shown on the cancel button in the Close all tabs confirmation dialog -->
+  <string name="tab_manager_close_all_tabs_dialog_cancel">Скасаваць</string>
   <!-- Text shown in the multiselect menu for bookmarking selected tabs. -->
   <string name="tab_tray_multiselect_menu_item_bookmark">Закладка</string>
   <!-- Text shown in the multiselect menu for closing selected tabs. -->
@@ -1444,12 +1482,16 @@
     The title of the Web Compat Reporter feature. This is displayed in the top app bar.
   -->
   <string name="webcompat_reporter_screen_title">Паведаміць пра пашкоджаны сайт</string>
+  <!-- The button text for navigating to the SUMO link to learn more about reporting a broken site. -->
+  <string name="webcompat_reporter_learn_more">Падрабязней</string>
   <!-- The text field label of the URL text field. This is displayed above the user-inputted URL. -->
   <string name="webcompat_reporter_label_url">URL</string>
   <!-- The error message of the URL text field when an invalid URL has been entered. -->
   <string name="webcompat_reporter_url_error_invalid">Калі ласка, увядзіце сапраўдны URL</string>
   <!-- The label/title of a field in the Web Compat Reporter feature for explaining a high-level reason why the site is broken. -->
   <string name="webcompat_reporter_label_whats_broken_2">Што пашкоджана?</string>
+  <!-- The placeholder text for the dropdown where a user selects a high-level reason why the site is broken. -->
+  <string name="webcompat_reporter_choose_reason_2">Выберыце прычыну</string>
   <!-- The error message of the dropdown, prompting the user to select a high-level reason why the site is broken. -->
   <string name="webcompat_reporter_choose_reason_error">Калі ласка, выберыце прычыну</string>
   <!-- The label/title of an optional field in the Web Compat Reporter feature for adding additional information. -->
@@ -1460,6 +1502,14 @@
   <string name="webcompat_reporter_send">Даслаць</string>
   <!-- Text for a snackbar to confirm the successful submission of a WebCompat report. -->
   <string name="webcompat_reporter_success_snackbar_text_2">Справаздача адпраўлена</string>
+  <!-- Label of the checkbox on the “Report broken site” screen for sending URLS blocked by Enhanced Tracking Protection. -->
+  <string name="webcompat_reporter_etp_checkbox_text">Адпраўляць URL-адрасы, заблакаваныя аховай ад сачэння</string>
+  <!-- Description text for the checkbox on the “Report broken site” screen for sending URLS blocked by Enhanced Tracking Protection. It informs the user when checked, the report will include the list of URLs that were blocked by Enhanced Tracking Protection on the current page. -->
+  <string name="webcompat_reporter_etp_checkbox_description">Узмоцненая ахова ад сачэння можа блакаваць трэкеры і\u00a0скрыпты, неабходныя для правільнай працы некаторых сайтаў.</string>
+  <!-- The button text for the preview report button to view a preview of the report. -->
+  <string name="webcompat_reporter_preview_report">Перадпаказ справаздачы</string>
+  <!-- The title shown at the top of the WebCompat Report preview panel. This appears after the user taps the “Preview” button before sending a report. -->
+  <string name="webcompat_reporter_preview_bottom_sheet_header">Папярэдні прагляд справаздачы</string>
   <!-- Label for the “Send” button shown in the WebCompat Report preview panel, which the user taps to submit the report. -->
   <string name="webcompat_reporter_preview_bottom_sheet_send">Даслаць</string>
   <!-- Broken site reason text for site is slow -->
@@ -1470,6 +1520,8 @@
   <string name="webcompat_reporter_reason_account2">Не магу ўвайсці або зарэгістравацца</string>
   <!-- Broken site reason text for site asked to turn off ad blocker -->
   <string name="webcompat_reporter_reason_turn_off_adblocker">Сайт запытаў адключыць блакаванне рэкламы</string>
+  <!-- Broken site reason text for browser isn’t supported or blocked -->
+  <string name="webcompat_reporter_reason_notsupported">Браўзер не падтрымліваецца або заблакаваны</string>
   <!-- Broken site reason text for something else -->
   <string name="webcompat_reporter_reason_other">Нешта іншае</string>
   <!--
@@ -1492,6 +1544,7 @@
   <string name="unsubmitted_crash_requested_by_devs_dialog_never_button">Ніколі не паказваць зноў</string>
   <!-- Unsubmitted crash dialog positive button to submit crash report -->
   <string name="unsubmitted_crash_dialog_positive_button">Даслаць справаздачу пра крах</string>
+  <string name="unsubmitted_crash_dialog_learn_more">Падрабязней</string>
   <!-- Unsubmitted crash dialog button to open a web page with more details on the feature and privacy policy -->
   <string name="unsubmitted_crash_requested_by_devs_learn_more">Падрабязней</string>
   <!-- Text for the cancel button on delete bookmark dialog -->
@@ -1526,10 +1579,16 @@
   <string name="bookmark_menu_open_all_in_private_tabs_button">Адкрыць усё ў прыватных картках</string>
   <!-- Bookmark overflow menu delete button -->
   <string name="bookmark_menu_delete_button">Выдаліць</string>
+  <!-- Accessibility label for sorting options -->
+  <string name="bookmark_sort_menu_content_desc">Налады сартавання</string>
   <!-- Label for button to sort bookmarks by newest in the bookmark sorting overflow menu. -->
   <string name="bookmark_sort_menu_newest">Размеркаваць па найноўшых</string>
   <!-- Label for button to sort bookmarks by oldest in the bookmark sorting overflow menu. -->
   <string name="bookmark_sort_menu_oldest">Размеркаваць па старэйшых</string>
+  <!-- Label for button to sort bookmarks in alphabetical order in the bookmark sorting overflow menu. -->
+  <string name="bookmark_sort_menu_a_to_z">Сартаваць ад А да Я</string>
+  <!-- Label for button to sort bookmarks in reverse alphabetical order in the bookmark sorting overflow menu. -->
+  <string name="bookmark_sort_menu_z_to_a">Сартаваць ад Я да А</string>
   <!--
     Bookmark multi select title in app bar
     %1$d is the number of bookmarks selected
@@ -1754,7 +1813,7 @@
   <!-- An option from the share dialog to sign into sync -->
   <string name="sync_sign_in">Увайсці ў сінхранізацыю</string>
   <!-- An option from the three dot menu to sign in -->
-  <string name="sync_menu_sign_in">Увайсці</string>
+  <string name="sync_menu_sign_in" tools:ignore="UnusedResources" moz:removedIn="149">Увайсці</string>
   <!-- An option from the share dialog to send link to all other sync devices -->
   <string name="sync_send_to_all">Даслаць на ўсе прылады</string>
   <!-- An option from the share dialog to reconnect to sync -->
@@ -1905,7 +1964,7 @@
   <!-- Summary for the Delete browsing data on quit preference. "Quit" translation should match delete_browsing_data_on_quit_action translation. -->
   <string name="preference_summary_delete_browsing_data_on_quit_2">Аўтаматычна выдаляе дадзеныя аглядання, калі вы выбіраеце \"Выйсці\" ў галоўным меню</string>
   <!-- Action item in menu for the Delete browsing data on quit feature -->
-  <string name="delete_browsing_data_on_quit_action">Выйсці</string>
+  <string name="delete_browsing_data_on_quit_action" tools:ignore="UnusedResources" moz:removedIn="149">Выйсці</string>
   <!-- Title text of a delete browsing data dialog. -->
   <string name="delete_history_prompt_title">Дыяпазон часу для выдалення</string>
   <!-- Body text of a delete browsing data dialog. -->
@@ -3024,10 +3083,38 @@
   <string name="certificate_warning_push_notification_update_recommended_title" tools:ignore="UnusedResources">Рэкамендуецца абнавіць</string>
   <!-- TextField Design System Component -->
 
+  <!-- Title for the setup checklist feature when the state is 'completed' -->
+  <string name="setup_checklist_title_state_completed">Віншуем!</string>
+  <!-- The title of the theme selection task for the setup checklist -->
+  <string name="setup_checklist_task_theme_selection">Выберыце тэму</string>
+  <!-- The title of the toolbar selection task for the setup checklist -->
+  <string name="setup_checklist_task_toolbar_selection">Выберыце размяшчэнне панэлі інструментаў</string>
+  <!-- Label for the primary action button to unlock private tabs -->
+  <string name="pbm_authentication_unlock">Разблакаваць</string>
   <!-- Negative button text for the contextual feature recommendation (CFR) dismissing the screen lock suggestion -->
   <string name="private_tab_cfr_negative">Не, дзякуй</string>
   <!-- Label for a button opening a feedback forum -->
   <string name="review_prompt_feedback_button">Пакінуць водгук</string>
+  <!--
+    Settings Search Strings
+
+    Title of Settings Search. "Search" is a verb here
+  -->
+  <string name="settings_search_title">Налады пошуку</string>
+  <!-- Content description (not visible, for screen readers etc.) for the button to clear the search field for settings search -->
+  <string name="content_description_settings_search_clear_search">Ачысціць пошук</string>
+  <!-- Content description (not visible, for screen readers etc.) for the button to navigate back to the Settings page from the Settings Search screen. -->
+  <string name="content_description_settings_search_navigate_back">Перайсці назад</string>
+  <!-- Message displayed when the search field in the Settings Search screen is empty -->
+  <string name="settings_search_empty_query_placeholder">Няма нядаўніх пошукаў</string>
+  <!-- Message when error happens with Settings Search -->
+  <string name="settings_search_error_message" tools:ignore="UnusedResources" moz:removedIn="147">Узнікла памылка</string>
+  <!-- Text of button allowing to clear history of recent searches done in the settings screen. -->
+  <string name="settings_search_clear_recent_searches_message">Ачысціць усё</string>
+  <!-- Section header for recent search results -->
+  <string name="settings_search_recent_searches_section_header">Нядаўнія вынікі пошуку</string>
+  <!-- ==== Terms of use pop up prompt ==== -->
+
   <!-- Terms of use link in the pop up prompt message that links to the terms of use -->
   <string name="terms_of_use_prompt_link_terms_of_use">Умовы выкарыстання</string>
   <!-- Privacy notice link in the pop up prompt message that links to the privacy notice -->
@@ -3038,4 +3125,14 @@
   <string name="terms_of_use_prompt_accept">Прыняць</string>
   <!-- Label for a button to postpone accepting the terms of use -->
   <string name="terms_of_use_prompt_postpone">Нагадаць пазней</string>
+  <!-- ==== Experiment strings. ==== -->
+
+  <!-- A title for the popup prompt. -->
+  <string name="terms_of_use_prompt_title_option_a" tools:ignore="UnusedResources">Умовы выкарыстання</string>
+  <!-- ==== End of Terms of use popup prompt. ==== -->
+
+  <!-- The first active link used in privacy_notice_updated_homepage_message -->
+  <string name="privacy_notice_updated_homepage_message_privacy_notice" tools:ignore="UnusedResources">Паведамленне аб прыватнасці</string>
+  <!-- The second active link used in privacy_notice_updated_homepage_message -->
+  <string name="privacy_notice_updated_homepage_message_learn_more" tools:ignore="UnusedResources">Падрабязней</string>
 </resources>

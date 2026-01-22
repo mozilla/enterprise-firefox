@@ -18,6 +18,8 @@ import io.mockk.runs
 import io.mockk.spyk
 import io.mockk.verify
 import io.mockk.verifyOrder
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.runTest
 import mozilla.appservices.places.BookmarkRoot
 import mozilla.components.browser.state.action.TabListAction
 import mozilla.components.browser.state.selector.findTab
@@ -37,8 +39,6 @@ import mozilla.components.feature.accounts.push.CloseTabsUseCases
 import mozilla.components.feature.tabs.TabsUseCases
 import mozilla.components.support.test.middleware.CaptureActionsMiddleware
 import mozilla.components.support.test.robolectric.testContext
-import mozilla.components.support.test.rule.MainCoroutineRule
-import mozilla.components.support.test.rule.runTestOnMain
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -48,7 +48,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
-import org.junit.rules.RuleChain
 import org.junit.runner.RunWith
 import org.mozilla.fenix.BrowserDirection
 import org.mozilla.fenix.GleanMetrics.Collections
@@ -69,6 +68,8 @@ import org.mozilla.fenix.home.HomeScreenViewModel.Companion.ALL_PRIVATE_TABS
 import org.mozilla.fenix.utils.Settings
 import org.robolectric.RobolectricTestRunner
 import java.util.concurrent.TimeUnit
+
+private const val PARENT_GUID = "parentGuid"
 
 @RunWith(RobolectricTestRunner::class) // for gleanTestRule
 class DefaultTabsTrayControllerTest {
@@ -105,9 +106,7 @@ class DefaultTabsTrayControllerTest {
     private val bookmarksStorage: BookmarksStorage = mockk(relaxed = true)
     private val closeSyncedTabsUseCases: CloseTabsUseCases = mockk(relaxed = true)
     private val collectionStorage: TabCollectionStorage = mockk(relaxed = true)
-
-    private val coroutinesTestRule: MainCoroutineRule = MainCoroutineRule()
-    private val testDispatcher = coroutinesTestRule.testDispatcher
+    private val testDispatcher = StandardTestDispatcher()
 
     private val mockPrivateTab = mockk<TabSessionState> {
         every { content.private } returns true
@@ -117,10 +116,8 @@ class DefaultTabsTrayControllerTest {
         every { content.private } returns false
     }
 
-    val gleanTestRule = FenixGleanTestRule(testContext)
-
     @get:Rule
-    val chain: RuleChain = RuleChain.outerRule(gleanTestRule).around(coroutinesTestRule)
+    val gleanTestRule = FenixGleanTestRule(testContext)
 
     @Before
     fun setup() {
@@ -661,6 +658,7 @@ class DefaultTabsTrayControllerTest {
             inactive = false,
         )
         controller.handleSyncedTabClosed("1234", tab)
+        testDispatcher.scheduler.advanceUntilIdle()
 
         coVerify(exactly = 1) { closeSyncedTabsUseCases.close("1234", any()) }
         assertTrue(showUndoSnackbarForSyncedTabInvoked)
@@ -1201,7 +1199,7 @@ class DefaultTabsTrayControllerTest {
     }
 
     @Test
-    fun `GIVEN one tab selected and no bookmarks previously saved WHEN saving selected tabs to bookmarks THEN save bookmark in root, report telemetry, show snackbar`() = runTestOnMain {
+    fun `GIVEN one tab selected and no bookmarks previously saved WHEN saving selected tabs to bookmarks THEN save bookmark in root, report telemetry, show snackbar`() = runTest(testDispatcher) {
         var showBookmarkSnackbarInvoked = false
 
         coEvery { bookmarksStorage.getRecentBookmarks(eq(1), any(), any()) } returns Result.success(listOf())
@@ -1213,6 +1211,7 @@ class DefaultTabsTrayControllerTest {
                 showBookmarkSnackbarInvoked = true
             },
         ).handleBookmarkSelectedTabsClicked()
+        testDispatcher.scheduler.advanceUntilIdle()
 
         verify { trayStore.dispatch(TabsTrayAction.BookmarkSelectedTabs(1)) }
         coVerify(exactly = 1) { bookmarksStorage.addItem(eq(BookmarkRoot.Mobile.id), any(), any(), any()) }
@@ -1220,13 +1219,12 @@ class DefaultTabsTrayControllerTest {
     }
 
     @Test
-    fun `GIVEN one tab selected and a previously saved bookmark WHEN saving selected tabs to bookmarks THEN save bookmark in last saved folder, report telemetry, show snackbar`() = runTestOnMain {
+    fun `GIVEN one tab selected and a previously saved bookmark WHEN saving selected tabs to bookmarks THEN save bookmark in last saved folder, report telemetry, show snackbar`() = runTest(testDispatcher) {
         var showBookmarkSnackbarInvoked = false
 
-        val parentGuid = "parentGuid"
-        val previousBookmark = makeBookmarkItem(parentGuid = parentGuid)
+        val previousBookmark = makeBookmarkItem()
         coEvery { bookmarksStorage.getRecentBookmarks(eq(1), any(), any()) } returns Result.success(listOf(previousBookmark))
-        coEvery { bookmarksStorage.getBookmark(parentGuid) } returns Result.success(makeBookmarkFolder(guid = parentGuid))
+        coEvery { bookmarksStorage.getBookmark(PARENT_GUID) } returns Result.success(makeBookmarkFolder(guid = PARENT_GUID))
         every { trayStore.state.mode.selectedTabs } returns setOf(createTab(url = "https://mozilla.org"))
 
         createController(
@@ -1234,14 +1232,15 @@ class DefaultTabsTrayControllerTest {
                 showBookmarkSnackbarInvoked = true
             },
         ).handleBookmarkSelectedTabsClicked()
+        testDispatcher.scheduler.advanceUntilIdle()
 
         verify { trayStore.dispatch(TabsTrayAction.BookmarkSelectedTabs(1)) }
-        coVerify(exactly = 1) { bookmarksStorage.addItem(eq(parentGuid), any(), any(), any()) }
+        coVerify(exactly = 1) { bookmarksStorage.addItem(eq(PARENT_GUID), any(), any(), any()) }
         assertTrue(showBookmarkSnackbarInvoked)
     }
 
     @Test
-    fun `GIVEN multiple tabs selected and no bookmarks previously saved WHEN saving selected tabs to bookmarks THEN save bookmarks in root, report telemetry, show a snackbar`() = runTestOnMain {
+    fun `GIVEN multiple tabs selected and no bookmarks previously saved WHEN saving selected tabs to bookmarks THEN save bookmarks in root, report telemetry, show a snackbar`() = runTest(testDispatcher) {
         var showBookmarkSnackbarInvoked = false
 
         coEvery { bookmarksStorage.getRecentBookmarks(eq(1), any(), any()) } returns Result.failure(IllegalStateException())
@@ -1253,6 +1252,7 @@ class DefaultTabsTrayControllerTest {
                 showBookmarkSnackbarInvoked = true
             },
         ).handleBookmarkSelectedTabsClicked()
+        testDispatcher.scheduler.advanceUntilIdle()
 
         verify { trayStore.dispatch(TabsTrayAction.BookmarkSelectedTabs(2)) }
         coVerify(exactly = 2) { bookmarksStorage.addItem(eq(BookmarkRoot.Mobile.id), any(), any(), any()) }
@@ -1260,13 +1260,12 @@ class DefaultTabsTrayControllerTest {
     }
 
     @Test
-    fun `GIVEN multiple tabs selected and a previously saved bookmark WHEN saving selected tabs to bookmarks THEN save bookmarks in same folder as recent bookmark, report telemetry, show a snackbar`() = runTestOnMain {
+    fun `GIVEN multiple tabs selected and a previously saved bookmark WHEN saving selected tabs to bookmarks THEN save bookmarks in same folder as recent bookmark, report telemetry, show a snackbar`() = runTest(testDispatcher) {
         var showBookmarkSnackbarInvoked = false
 
-        val parentGuid = "parentGuid"
-        val previousBookmark = makeBookmarkItem(parentGuid = parentGuid)
+        val previousBookmark = makeBookmarkItem()
         coEvery { bookmarksStorage.getRecentBookmarks(eq(1), any(), any()) } returns Result.success(listOf(previousBookmark))
-        coEvery { bookmarksStorage.getBookmark(parentGuid) } returns Result.success(makeBookmarkFolder(guid = parentGuid))
+        coEvery { bookmarksStorage.getBookmark(PARENT_GUID) } returns Result.success(makeBookmarkFolder(guid = PARENT_GUID))
         every { trayStore.state.mode.selectedTabs } returns setOf(createTab(url = "https://mozilla.org"), createTab(url = "https://mozilla2.org"))
 
         createController(
@@ -1274,9 +1273,10 @@ class DefaultTabsTrayControllerTest {
                 showBookmarkSnackbarInvoked = true
             },
         ).handleBookmarkSelectedTabsClicked()
+        testDispatcher.scheduler.advanceUntilIdle()
 
         verify { trayStore.dispatch(TabsTrayAction.BookmarkSelectedTabs(2)) }
-        coVerify(exactly = 2) { bookmarksStorage.addItem(eq(parentGuid), any(), any(), any()) }
+        coVerify(exactly = 2) { bookmarksStorage.addItem(eq(PARENT_GUID), any(), any(), any()) }
         assertTrue(showBookmarkSnackbarInvoked)
     }
 
@@ -1372,6 +1372,7 @@ class DefaultTabsTrayControllerTest {
             bookmarksStorage = bookmarksStorage,
             closeSyncedTabsUseCases = closeSyncedTabsUseCases,
             collectionStorage = collectionStorage,
+            mainDispatcher = testDispatcher,
             ioDispatcher = testDispatcher,
             dismissTray = dismissTray,
             showUndoSnackbarForTab = showUndoSnackbarForTab,
@@ -1395,9 +1396,9 @@ class DefaultTabsTrayControllerTest {
         children = null,
     )
 
-    private fun makeBookmarkItem(parentGuid: String) = BookmarkNode(
+    private fun makeBookmarkItem() = BookmarkNode(
         type = BookmarkNodeType.ITEM,
-        parentGuid = parentGuid,
+        parentGuid = PARENT_GUID,
         guid = "guid",
         position = 42U,
         title = "title",

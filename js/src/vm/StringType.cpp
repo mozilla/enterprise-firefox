@@ -21,9 +21,9 @@
 #include <type_traits>  // std::is_same, std::is_unsigned
 
 #include "jsfriendapi.h"
-#include "jsnum.h"
 
 #include "builtin/Boolean.h"
+#include "builtin/Number.h"
 #include "gc/AllocKind.h"
 #include "gc/MaybeRooted.h"
 #include "gc/Nursery.h"
@@ -60,6 +60,19 @@ using JS::AutoCheckCannotGC;
 using JS::AutoStableStringChars;
 
 using UniqueLatin1Chars = UniquePtr<Latin1Char[], JS::FreePolicy>;
+
+#ifdef DEBUG
+void JSString::assertTypeUnchanged(uint32_t newFlags) const {
+  // Don't allow accidentally changing the string type when updating flags. Call
+  // changeStringType instead.
+  uint32_t oldFlags = flags();
+  uint32_t typeMask = TYPE_FLAGS_MASK;
+  if (isAtom()) {
+    typeMask &= ~(ATOM_IS_PERMANENT_BIT | ATOM_IS_INDEX_BIT);
+  }
+  MOZ_ASSERT((newFlags & typeMask) == (oldFlags & typeMask));
+}
+#endif  // DEBUG
 
 size_t JSString::sizeOfExcludingThis(mozilla::MallocSizeOf mallocSizeOf) {
   // JSRope: do nothing, we'll count all children chars when we hit the leaf
@@ -590,7 +603,7 @@ JSExtensibleString& JSLinearString::makeExtensible(size_t capacity) {
   MOZ_ASSERT(capacity >= length());
   size_t oldSize = allocSize();
   js::RemoveCellMemory(this, oldSize, js::MemoryUse::StringContents);
-  setLengthAndFlags(length(), flags() | EXTENSIBLE_FLAGS);
+  changeStringType(length(), flags() | EXTENSIBLE_FLAGS);
   d.s.u3.capacity = capacity;
   size_t newSize = allocSize();
   js::AddCellMemory(this, newSize, js::MemoryUse::StringContents);
@@ -1187,9 +1200,10 @@ finish_node: {
   bool finishNode = str->flags() & FLATTEN_FINISH_NODE;
   MOZ_ASSERT(visitRight != finishNode);
 
-  // This also clears the flags related to flattening.
-  str->setLengthAndFlags(str->length(),
-                         StringFlagsForCharType<CharT>(INIT_DEPENDENT_FLAGS));
+  // Change rope into a dependent string. This also clears the flags related to
+  // flattening.
+  str->changeStringType(str->length(),
+                        StringFlagsForCharType<CharT>(INIT_DEPENDENT_FLAGS));
   str->d.s.u3.base =
       reinterpret_cast<JSLinearString*>(root); /* will be true on exit */
   newRootFlags |= DEPENDED_ON_BIT;
@@ -1219,12 +1233,13 @@ finish_root:
   MOZ_ASSERT(str == root);
   MOZ_ASSERT(pos == wholeChars + wholeLength);
 
+  // Change root into an extensible string.
   uint32_t flags = StringFlagsForCharType<CharT>(EXTENSIBLE_FLAGS);
   if (hasStringBuffer) {
     flags |= HAS_STRING_BUFFER_BIT;
     wholeChars[wholeLength] = '\0';
   }
-  root->setLengthAndFlags(wholeLength, flags);
+  root->changeStringType(wholeLength, flags);
   root->setNonInlineChars(wholeChars, hasStringBuffer);
   root->d.s.u3.capacity = wholeCapacity;
   AddCellMemory(root, wholeCapacity * sizeof(CharT), MemoryUse::StringContents);
@@ -1242,6 +1257,7 @@ finish_root:
     // dependent.
     newRootFlags |= DEPENDED_ON_BIT;
 
+    // Change leftmost string into a dependent string.
     uint32_t flags = INIT_DEPENDENT_FLAGS;
     if (left.inStringToAtomCache()) {
       flags |= IN_STRING_TO_ATOM_CACHE;
@@ -1253,7 +1269,7 @@ finish_root:
     if (left.isDependedOn()) {
       flags |= DEPENDED_ON_BIT;
     }
-    left.setLengthAndFlags(left.length(), StringFlagsForCharType<CharT>(flags));
+    left.changeStringType(left.length(), StringFlagsForCharType<CharT>(flags));
     left.d.s.u3.base = &root->asLinear();
     if (left.isTenured() && !root->isTenured()) {
       // leftmost child -> root is a tenured -> nursery edge. Put the leftmost
@@ -1265,7 +1281,7 @@ finish_root:
     }
   }
 
-  root->setHeaderFlagBit(newRootFlags);
+  root->setFlagBit(newRootFlags);
 
   return &root->asLinear();
 }
@@ -2908,14 +2924,15 @@ bool JSString::tryReplaceWithAtomRef(JSAtom* atom) {
     PreWriteBarrier(d.s.u3.base);
   }
 
+  // Change string into an atom ref.
   uint32_t flags = INIT_ATOM_REF_FLAGS;
   d.s.u3.atom = atom;
   if (atom->hasLatin1Chars()) {
     flags |= LATIN1_CHARS_BIT;
-    setLengthAndFlags(length(), flags);
+    changeStringType(length(), flags);
     setNonInlineChars(atom->chars<Latin1Char>(nogc), atom->hasStringBuffer());
   } else {
-    setLengthAndFlags(length(), flags);
+    changeStringType(length(), flags);
     setNonInlineChars(atom->chars<char16_t>(nogc), atom->hasStringBuffer());
   }
   // Redundant, but just a reminder that this needs to be true or else we need

@@ -3,8 +3,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef nsHttpResponseHead_h__
-#define nsHttpResponseHead_h__
+#ifndef nsHttpResponseHead_h_
+#define nsHttpResponseHead_h_
 
 #include "nsHttpHeaderArray.h"
 #include "nsHttp.h"
@@ -246,4 +246,4 @@ class nsHttpResponseHead {
 }  // namespace net
 }  // namespace mozilla
 
-#endif  // nsHttpResponseHead_h__
+#endif  // nsHttpResponseHead_h_

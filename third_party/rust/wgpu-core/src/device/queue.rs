@@ -537,6 +537,8 @@ impl Queue {
         let data_size = if let Some(data_size) = wgt::BufferSize::new(data_size) {
             data_size
         } else {
+            // This must happen after parameter validation (so that errors are reported
+            // as required by the spec), but before any side effects.
             log::trace!("Ignoring write_buffer of size 0");
             return Ok(());
         };
@@ -791,6 +793,8 @@ impl Queue {
 
         let dst_raw = dst.try_raw(&snatch_guard)?;
 
+        // This must happen after parameter validation (so that errors are reported
+        // as required by the spec), but before any side effects.
         if size.width == 0 || size.height == 0 || size.depth_or_array_layers == 0 {
             log::trace!("Ignoring write_texture of size 0");
             return Ok(());
@@ -963,11 +967,6 @@ impl Queue {
 
         self.device.check_is_valid()?;
 
-        if size.width == 0 || size.height == 0 || size.depth_or_array_layers == 0 {
-            log::trace!("Ignoring write_texture of size 0");
-            return Ok(());
-        }
-
         let mut needs_flag = false;
         needs_flag |= matches!(source.source, wgt::ExternalImageSource::OffscreenCanvas(_));
         needs_flag |= source.origin != wgt::Origin2d::ZERO;
@@ -1050,6 +1049,13 @@ impl Queue {
             validate_texture_copy_range(&destination, &dst.desc, CopySide::Destination, &size)?;
 
         let (selector, dst_base) = extract_texture_selector(&destination, &size, &dst)?;
+
+        // This must happen after parameter validation (so that errors are reported
+        // as required by the spec), but before any side effects.
+        if size.width == 0 || size.height == 0 || size.depth_or_array_layers == 0 {
+            log::trace!("Ignoring copy_external_image_to_texture of size 0");
+            return Ok(());
+        }
 
         let mut pending_writes = self.pending_writes.lock();
         let encoder = pending_writes.activate();
@@ -1149,6 +1155,33 @@ impl Queue {
         Ok(())
     }
 
+    #[cfg(feature = "trace")]
+    fn trace_submission(
+        &self,
+        submit_index: SubmissionIndex,
+        commands: Vec<crate::command::Command<crate::command::PointerReferences>>,
+    ) {
+        if let Some(ref mut trace) = *self.device.trace.lock() {
+            trace.add(Action::Submit(submit_index, commands));
+        }
+    }
+
+    #[cfg(feature = "trace")]
+    fn trace_failed_submission(
+        &self,
+        submit_index: SubmissionIndex,
+        commands: Option<Vec<crate::command::Command<crate::command::PointerReferences>>>,
+        error: alloc::string::String,
+    ) {
+        if let Some(ref mut trace) = *self.device.trace.lock() {
+            trace.add(Action::FailedCommands {
+                commands,
+                failed_at_submit: Some(submit_index),
+                error,
+            });
+        }
+    }
+
     pub fn submit(
         &self,
         command_buffers: &[Arc<CommandBuffer>],
@@ -1203,19 +1236,15 @@ impl Queue {
                         #[allow(unused_mut)]
                         let mut cmd_buf_data = command_buffer.take_finished();
 
-                        #[cfg(feature = "trace")]
-                        if let Some(ref mut trace) = *self.device.trace.lock() {
-                            if let Ok(ref mut cmd_buf_data) = cmd_buf_data {
-                                trace.add(Action::Submit(
-                                    submit_index,
-                                    cmd_buf_data.trace_commands.take().unwrap(),
-                                ));
-                            }
-                        }
-
                         if first_error.is_some() {
                             continue;
                         }
+
+                        #[cfg(feature = "trace")]
+                        let trace_commands = cmd_buf_data
+                            .as_mut()
+                            .ok()
+                            .and_then(|data| mem::take(&mut data.trace_commands));
 
                         let mut baked = match cmd_buf_data {
                             Ok(cmd_buf_data) => {
@@ -1229,12 +1258,30 @@ impl Queue {
                                     &mut command_index_guard,
                                 );
                                 if let Err(err) = res {
+                                    #[cfg(feature = "trace")]
+                                    self.trace_failed_submission(
+                                        submit_index,
+                                        trace_commands,
+                                        err.to_string(),
+                                    );
                                     first_error.get_or_insert(err);
                                     continue;
                                 }
+
+                                #[cfg(feature = "trace")]
+                                if let Some(commands) = trace_commands {
+                                    self.trace_submission(submit_index, commands);
+                                }
+
                                 cmd_buf_data.into_baked_commands()
                             }
                             Err(err) => {
+                                #[cfg(feature = "trace")]
+                                self.trace_failed_submission(
+                                    submit_index,
+                                    trace_commands,
+                                    err.to_string(),
+                                );
                                 first_error.get_or_insert(err.into());
                                 continue;
                             }
@@ -1564,11 +1611,13 @@ impl Global {
 
         #[cfg(feature = "trace")]
         if let Some(ref mut trace) = *queue.device.trace.lock() {
-            let data_path = trace.make_binary("bin", data);
+            use crate::device::trace::DataKind;
+            let range = buffer_offset..buffer_offset + data.len() as u64;
+            let data = trace.make_binary(DataKind::Bin, data);
             trace.add(Action::WriteBuffer {
                 id: buffer.to_trace(),
-                data: data_path,
-                range: buffer_offset..buffer_offset + data.len() as u64,
+                data,
+                range,
                 queued: true,
             });
         }
@@ -1635,10 +1684,11 @@ impl Global {
 
         #[cfg(feature = "trace")]
         if let Some(ref mut trace) = *queue.device.trace.lock() {
-            let data_path = trace.make_binary("bin", data);
+            use crate::device::trace::DataKind;
+            let data = trace.make_binary(DataKind::Bin, data);
             trace.add(Action::WriteTexture {
                 to: destination.to_trace(),
-                data: data_path,
+                data,
                 layout: *data_layout,
                 size: *size,
             });

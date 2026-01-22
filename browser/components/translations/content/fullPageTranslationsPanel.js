@@ -737,23 +737,14 @@ var FullPageTranslationsPanel = new (class {
         (await TranslationsParent.getTopPreferredSupportedToLang());
 
     for (const menuitem of alwaysOfferTranslationsMenuItems) {
-      menuitem.setAttribute(
-        "checked",
-        alwaysOfferTranslations ? "true" : "false"
-      );
+      menuitem.toggleAttribute("checked", alwaysOfferTranslations);
     }
     for (const menuitem of alwaysTranslateMenuItems) {
-      menuitem.setAttribute(
-        "checked",
-        alwaysTranslateLanguage ? "true" : "false"
-      );
+      menuitem.toggleAttribute("checked", alwaysTranslateLanguage);
       menuitem.disabled = shouldDisable;
     }
     for (const menuitem of neverTranslateMenuItems) {
-      menuitem.setAttribute(
-        "checked",
-        neverTranslateLanguage ? "true" : "false"
-      );
+      menuitem.toggleAttribute("checked", neverTranslateLanguage);
       menuitem.disabled = shouldDisable;
     }
   }
@@ -772,7 +763,7 @@ var FullPageTranslationsPanel = new (class {
     ).shouldNeverTranslateSite();
 
     for (const menuitem of neverTranslateSiteMenuItems) {
-      menuitem.setAttribute("checked", neverTranslateSite ? "true" : "false");
+      menuitem.toggleAttribute("checked", neverTranslateSite);
     }
   }
 
@@ -1260,9 +1251,11 @@ var FullPageTranslationsPanel = new (class {
   /**
    * A handler for opening the settings context menu.
    */
-  openSettingsPopup(button) {
-    this.#updateSettingsMenuLanguageCheckboxStates();
-    this.#updateSettingsMenuSiteCheckboxStates();
+  async openSettingsPopup(button) {
+    await Promise.all([
+      this.#updateSettingsMenuLanguageCheckboxStates(),
+      this.#updateSettingsMenuSiteCheckboxStates(),
+    ]);
     const popup = button.ownerDocument.getElementById(
       "full-page-translations-panel-settings-menupopup"
     );
@@ -1284,11 +1277,11 @@ var FullPageTranslationsPanel = new (class {
     } = this.elements;
 
     const alwaysTranslateLanguage =
-      alwaysTranslateLanguageMenuItem.getAttribute("checked") === "true";
+      alwaysTranslateLanguageMenuItem.hasAttribute("checked");
     const neverTranslateLanguage =
-      neverTranslateLanguageMenuItem.getAttribute("checked") === "true";
+      neverTranslateLanguageMenuItem.hasAttribute("checked");
     const neverTranslateSite =
-      neverTranslateSiteMenuItem.getAttribute("checked") === "true";
+      neverTranslateSiteMenuItem.hasAttribute("checked");
 
     return new CheckboxPageAction(
       this.#isTranslationsActive(),

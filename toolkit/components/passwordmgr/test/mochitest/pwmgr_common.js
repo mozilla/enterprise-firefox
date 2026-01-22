@@ -838,12 +838,10 @@ function runInParent(aFunctionOrURL) {
  */
 function manageLoginsInParent() {
   return runInParent(function addLoginsInParentInner() {
-    /* eslint-env mozilla/chrome-script */
     addMessageListener("removeAllUserFacingLogins", () => {
       Services.logins.removeAllUserFacingLogins();
     });
 
-    /* eslint-env mozilla/chrome-script */
     addMessageListener("getLogins", async () => {
       const logins = await Services.logins.getAllLogins();
       return logins.map(
@@ -867,7 +865,6 @@ function manageLoginsInParent() {
       );
     });
 
-    /* eslint-env mozilla/chrome-script */
     addMessageListener("addLogins", async logins => {
       let nsLoginInfo = Components.Constructor(
         "@mozilla.org/login-manager/loginInfo;1",
@@ -1014,7 +1011,6 @@ SimpleTest.registerCleanupFunction(() => {
   PWMGR_COMMON_PARENT.sendAsyncMessage("cleanup");
 
   runInParent(function cleanupParent() {
-    /* eslint-env mozilla/chrome-script */
     // eslint-disable-next-line no-shadow
     const { LoginManagerParent } = ChromeUtils.importESModule(
       "resource://gre/modules/LoginManagerParent.sys.mjs"

@@ -48,7 +48,7 @@ add_task(async function test_about_compat_loads_properly() {
 
     // both should have their content scripts registered at startup
     const interventionRCSId = `webcompat intervention for ${interventionWithContentScripts.label}: ${JSON.stringify(interventionWithContentScripts.interventions[0].content_scripts)}`;
-    const shimRCSId = `shim-${shimWithContentScripts.id}-0`;
+    const shimRCSId = `SmartBlock shim for ${shimWithContentScripts.id}: ${JSON.stringify(shimWithContentScripts.contentScripts[0])}`;
     ok(
       await findRegisteredScript(interventionRCSId),
       `Found registered script for intervention: '${interventionRCSId}'`

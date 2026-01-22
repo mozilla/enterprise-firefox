@@ -6,8 +6,8 @@
 
 /* constants used in the style struct data provided by ComputedStyle */
 
-#ifndef nsStyleConsts_h___
-#define nsStyleConsts_h___
+#ifndef nsStyleConsts_h_
+#define nsStyleConsts_h_
 
 #include <inttypes.h>
 
@@ -536,4 +536,4 @@ enum class StyleScrollBehavior : uint8_t {
 
 }  // namespace mozilla
 
-#endif /* nsStyleConsts_h___ */
+#endif /* nsStyleConsts_h_ */

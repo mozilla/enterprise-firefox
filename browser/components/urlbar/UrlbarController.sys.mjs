@@ -14,13 +14,12 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   ExtensionUtils: "resource://gre/modules/ExtensionUtils.sys.mjs",
   Interactions: "moz-src:///browser/components/places/Interactions.sys.mjs",
-  SearchbarProvidersManager:
+  ProvidersManager:
     "moz-src:///browser/components/urlbar/UrlbarProvidersManager.sys.mjs",
+  SearchService: "moz-src:///toolkit/components/search/SearchService.sys.mjs",
   UrlbarPrefs: "moz-src:///browser/components/urlbar/UrlbarPrefs.sys.mjs",
   UrlbarProviderSemanticHistorySearch:
     "moz-src:///browser/components/urlbar/UrlbarProviderSemanticHistorySearch.sys.mjs",
-  UrlbarProvidersManager:
-    "moz-src:///browser/components/urlbar/UrlbarProvidersManager.sys.mjs",
   UrlbarUtils: "moz-src:///browser/components/urlbar/UrlbarUtils.sys.mjs",
   UrlUtils: "resource://gre/modules/UrlUtils.sys.mjs",
 });
@@ -83,6 +82,9 @@ export class UrlbarController {
     if (!("isPrivate" in options.input)) {
       throw new Error("input.isPrivate must be set.");
     }
+    if (!options.input.sapName) {
+      throw new Error("input needs a non-empty 'sapName' property.");
+    }
 
     this.input = options.input;
     this.browserWindow = options.input.window;
@@ -92,9 +94,7 @@ export class UrlbarController {
      */
     this.manager =
       options.manager ||
-      (this.input.sapName == "searchbar"
-        ? lazy.SearchbarProvidersManager
-        : lazy.UrlbarProvidersManager);
+      lazy.ProvidersManager.getInstanceForSap(options.input.sapName);
 
     this._listeners = new Set();
     this._userSelectionBehavior = "none";
@@ -314,7 +314,7 @@ export class UrlbarController {
       return;
     }
 
-    if (this.view.isOpen && executeAction && this._lastQueryContextWrapper) {
+    if (executeAction) {
       // In native inputs on most platforms, Shift+Up/Down moves the caret to the
       // start/end of the input and changes its selection, so in that case defer
       // handling to the input instead of changing the view's selection.
@@ -326,11 +326,11 @@ export class UrlbarController {
         return;
       }
 
-      let { queryContext } = this._lastQueryContextWrapper;
       let handled = false;
       if (lazy.UrlbarPrefs.get("scotchBonnet.enableOverride")) {
         handled = this.input.searchModeSwitcher.handleKeyDown(event);
-      } else {
+      } else if (this.view.isOpen && this._lastQueryContextWrapper) {
+        let { queryContext } = this._lastQueryContextWrapper;
         handled = this.view.oneOffSearchButtons?.handleKeyDown(
           event,
           this.view.visibleRowCount,
@@ -570,7 +570,7 @@ export class UrlbarController {
                 context.sapName == "searchbar") &&
               lazy.UrlbarPrefs.get("browser.search.suggest.enabled")
             ) {
-              let engine = Services.search.getEngineByName(
+              let engine = lazy.SearchService.getEngineByName(
                 result.payload.engine
               );
               lazy.UrlbarUtils.setupSpeculativeConnection(
@@ -1140,7 +1140,8 @@ class TelemetryEvent {
       .filter(v => v)
       .join(",");
     let available_semantic_sources = this.#getAvailableSemanticSources().join();
-    const search_engine_default_id = Services.search.defaultEngine.telemetryId;
+    const search_engine_default_id =
+      lazy.SearchService.defaultEngine.telemetryId;
 
     switch (method) {
       case "engagement": {

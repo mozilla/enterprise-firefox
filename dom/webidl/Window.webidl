@@ -390,9 +390,13 @@ Window includes SpeechSynthesisGetter;
 #endif
 
 // Mozilla-specific stuff
-dictionary SynthesizeMouseEventData {
+dictionary SynthesizeEventData {
   // A unique identifier for the pointer causing the event, defaulting to 0.
   unsigned long identifier = 0;
+};
+
+// Mozilla-specific stuff
+dictionary SynthesizeMouseEventData : SynthesizeEventData {
   // Indicates which mouse button is pressed/released when a mouse event is triggered.
   long button = 0;
   // Indicates which mouse buttons are pressed when a mouse event is triggered.
@@ -411,19 +415,51 @@ dictionary SynthesizeMouseEventData {
 };
 
 // Mozilla-specific stuff
-dictionary SynthesizeMouseEventOptions {
-  // Indicates whether the event should ignore viewport bounds during dispatch.
-  boolean ignoreRootScrollFrame = false;
+dictionary SynthesizeTouchEventData : SynthesizeEventData {
+  // X offset in CSS pixels.
+  required long offsetX;
+  // Y offset in CSS pixels.
+  required long offsetY;
+  // X radii in CSS pixels.
+  unsigned long radiiX = 1;
+  // Y radii in CSS pixels.
+  unsigned long radiiY = 1;
+  // Rotation angle in degrees.
+  float rotationAngle = 0;
+  // Touch input pressure (0.0 -> 1.0).
+  float pressure = 1;
+  // X tilt in degrees (-90 -> 90).
+  long tiltX = 0;
+  // Y tilt in degrees (-90 -> 90).
+  long tiltY = 0;
+  // Twist in degrees (0 -> 360).
+  long twist = 0;
+};
+
+// Mozilla-specific stuff
+dictionary SynthesizeEventOptions {
   // If true the event is dispatched to the parent process through APZ,
   // without being injected into the OS event queue.
   boolean isAsyncEnabled = false;
+  // Set this to true to ensure that the event is dispatched to this DOM window
+  // or one of its children.
+  boolean toWindow = false;
+};
+
+// Mozilla-specific stuff
+dictionary SynthesizeMouseEventOptions : SynthesizeEventOptions {
+  // Indicates whether the event should ignore viewport bounds during dispatch.
+  boolean ignoreRootScrollFrame = false;
   // Controls Event.isSynthesized value that helps identifying test related events.
   boolean isDOMEventSynthesized = true;
   // Controls WidgetMouseEvent.mReason value.
   boolean isWidgetEventSynthesized = false;
-  // Set this to true to ensure that the event is dispatched to this DOM window
-  // or one of its children.
-  boolean toWindow = false;
+};
+
+// Mozilla-specific stuff
+dictionary SynthesizeTouchEventOptions : SynthesizeEventOptions {
+  // If true, the event is synthesized as a pen input.
+  boolean isPen = false;
 };
 
 // Mozilla-specific stuff
@@ -618,6 +654,30 @@ partial interface Window {
                                optional SynthesizeMouseEventData mouseEventData = {},
                                optional SynthesizeMouseEventOptions options = {},
                                optional VoidFunction callback);
+
+  /**
+   * Synthesize a touch event. The event types supported are:
+   *    touchstart, touchend, touchmove, and touchcancel
+   *
+   * The event is dispatched via the toplevel window, so it could go to any
+   * window under the toplevel window, in some cases it could never reach this
+   * window at all. (Set SynthesizeTouchEventOptions.toWindow to true to ensure
+   * that the event is dispatched to this window or one of its children.)
+   *
+   * @param type       Event type.
+   * @param touches    An array of SynthesizeTouchEventData dictionaries containing
+   *                   touch event data.
+   * @param modifiers  Modifiers pressed, using constants defined as MODIFIER_*
+   *                   in nsIDOMWindowUtils.
+   * @param options    A SynthesizeTouchEventOptions dictionary containing options
+   *                   for the event dispatching.
+   *
+   * @return true if someone called prevent default on this event.
+   */
+  [ChromeOnly, Throws]
+  boolean synthesizeTouchEvent(DOMString type, sequence<SynthesizeTouchEventData> touches,
+                               optional long modifiers = 0,
+                               optional SynthesizeTouchEventOptions options = {});
 
   [Pure, ChromeOnly]
   readonly attribute WindowGlobalChild? windowGlobalChild;
@@ -844,24 +904,6 @@ dictionary IdleRequestOptions {
 callback IdleRequestCallback = undefined (IdleDeadline deadline);
 
 partial interface Window {
-  /**
-   * Returns a list of locales that the internationalization components
-   * should be localized to.
-   *
-   * The function name refers to Regional Preferences which can be either
-   * fetched from the internal internationalization database (CLDR), or
-   * from the host environment.
-   *
-   * The result is a sorted list of valid locale IDs and it should be
-   * used for all APIs that accept list of locales, like ECMA402 and L10n APIs.
-   *
-   * This API always returns at least one locale.
-   *
-   * Example: ["en-US", "de", "pl", "sr-Cyrl", "zh-Hans-HK"]
-   */
-  [Func="IsChromeOrUAWidget"]
-  sequence<DOMString> getRegionalPrefsLocales();
-
   /**
    * Returns a list of locales that the web content would know from the user.
    *

@@ -228,6 +228,17 @@ static inline ValueOperand ToValue(const LBoxAllocation& a) {
 #endif
 }
 
+static inline ValueOperand ToValue(const LBoxDefinition& a) {
+#if defined(JS_NUNBOX32)
+  return ValueOperand(ToRegister(a.pointerType()),
+                      ToRegister(a.pointerPayload()));
+#elif defined(JS_PUNBOX64)
+  return ValueOperand(ToRegister(a.pointer()));
+#else
+#  error "Unknown"
+#endif
+}
+
 // For argument construction for calls. Argslots are Value-sized.
 Address CodeGeneratorShared::AddressOfPassedArg(uint32_t slot) const {
   MOZ_ASSERT(masm.framePushed() == frameSize());

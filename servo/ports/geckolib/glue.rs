@@ -1819,36 +1819,6 @@ pub extern "C" fn Servo_AuthorStyles_IsDirty(styles: &AuthorStyles) -> bool {
 }
 
 #[no_mangle]
-pub extern "C" fn Servo_AuthorStyles_Flush(
-    styles: &mut AuthorStyles,
-    document_set: &PerDocumentStyleData,
-) {
-    // Try to avoid the atomic borrow below if possible.
-    if !styles.stylesheets.dirty() {
-        return;
-    }
-
-    let global_style_data = &*GLOBAL_STYLE_DATA;
-    let guard = global_style_data.shared_lock.read();
-
-    let mut document_data = document_set.borrow_mut();
-
-    // TODO(emilio): This is going to need an element or something to do proper
-    // invalidation in Shadow roots.
-    styles.flush::<GeckoElement>(&mut document_data.stylist, &guard);
-}
-
-#[no_mangle]
-pub extern "C" fn Servo_StyleSet_RemoveUniqueEntriesFromAuthorStylesCache(
-    document_set: &PerDocumentStyleData,
-) {
-    let mut document_data = document_set.borrow_mut();
-    document_data
-        .stylist
-        .remove_unique_author_data_cache_entries();
-}
-
-#[no_mangle]
 pub unsafe extern "C" fn Servo_DeclarationBlock_SizeOfIncludingThis(
     malloc_size_of: GeckoMallocSizeOf,
     malloc_enclosing_size_of: GeckoMallocSizeOf,
@@ -2008,18 +1978,50 @@ pub unsafe extern "C" fn Servo_StyleSet_FlushStyleSheets(
     raw_data: &PerDocumentStyleData,
     doc_element: Option<&RawGeckoElement>,
     snapshots: *const ServoElementSnapshotTable,
+    non_document_styles: &mut nsTArray<&mut AuthorStyles>,
 ) {
     let global_style_data = &*GLOBAL_STYLE_DATA;
     let guard = global_style_data.shared_lock.read();
     let mut data = raw_data.borrow_mut();
     let doc_element = doc_element.map(GeckoElement);
 
-    let have_invalidations = data.flush_stylesheets(&guard, doc_element, snapshots.as_ref());
+    let mut invalidations = data.flush_stylesheets(&guard);
+    if !non_document_styles.is_empty() {
+        for author_styles in non_document_styles {
+            let shadow_invalidations = author_styles.flush(&mut data.stylist, &guard);
+            // TODO(emilio): For now we drop the style invalidations on the floor, relying on
+            // explicit invalidation from C++.
+            // TODO(emilio): Consider doing scoped cascade data invalidation, specially once we
+            // have tree-scoped names.
+            invalidations
+                .cascade_data_difference
+                .merge_with(shadow_invalidations.cascade_data_difference);
+        }
+        data.stylist.remove_unique_author_data_cache_entries();
+    }
 
-    if have_invalidations && doc_element.is_some() {
-        // The invalidation machinery propagates the bits up, but we still need
-        // to tell the Gecko restyle root machinery about it.
-        bindings::Gecko_NoteDirtySubtreeForInvalidation(doc_element.unwrap().0);
+    // TODO(emilio): consider merging the existing stylesheet invalidation machinery into the
+    // `CascadeDataDifference`.
+    let Some(doc_element) = doc_element else {
+        return;
+    };
+    if invalidations.process_style(doc_element, snapshots.as_ref()) {
+        // The style invalidation machinery propagates the bits up, but we still need to tell the
+        // Gecko restyle root machinery about it.
+        bindings::Gecko_NoteDirtySubtreeForInvalidation(doc_element.0);
+    }
+    let changed_position_try_names = &invalidations
+        .cascade_data_difference
+        .changed_position_try_names;
+    if !changed_position_try_names.is_empty() {
+        style::invalidation::stylesheets::invalidate_position_try(
+            doc_element,
+            &changed_position_try_names,
+            &mut |e, _data| unsafe {
+                bindings::Gecko_InvalidatePositionTry(e.0);
+            },
+            &mut |_| {},
+        );
     }
 }
 
@@ -5925,11 +5927,11 @@ pub extern "C" fn Servo_DeclarationBlock_SetKeywordValue(
     use num_traits::FromPrimitive;
     use style::properties::longhands;
     use style::properties::PropertyDeclaration;
-    use style::values::generics::box_::{VerticalAlign, VerticalAlignKeyword};
+    use style::values::generics::box_::{BaselineShift, BaselineShiftKeyword};
     use style::values::generics::font::FontStyle;
     use style::values::specified::{
-        table::CaptionSide, BorderStyle, Clear, Display, Float, TextAlign, TextEmphasisPosition,
-        TextTransform,
+        table::CaptionSide, AlignmentBaseline, BorderStyle, Clear, Display, Float, TextAlign,
+        TextEmphasisPosition, TextTransform,
     };
 
     fn get_from_computed<T>(value: u32) -> T
@@ -5944,11 +5946,12 @@ pub extern "C" fn Servo_DeclarationBlock_SetKeywordValue(
     let value = value as u32;
 
     let prop = match_wrap_declared! { long,
+        AlignmentBaseline => get_from_computed::<AlignmentBaseline>(value),
+        BaselineShift => BaselineShift::Keyword(BaselineShiftKeyword::from_u32(value).unwrap()),
         Direction => get_from_computed::<longhands::direction::SpecifiedValue>(value),
         Display => get_from_computed::<Display>(value),
         Float => get_from_computed::<Float>(value),
         Clear => get_from_computed::<Clear>(value),
-        VerticalAlign => VerticalAlign::Keyword(VerticalAlignKeyword::from_u32(value).unwrap()),
         TextAlign => get_from_computed::<TextAlign>(value),
         TextEmphasisPosition => TextEmphasisPosition::from_bits_retain(value as u8),
         FontSize => {
@@ -8975,21 +8978,23 @@ pub unsafe extern "C" fn Servo_ComputeColor(
     true
 }
 
-// This implements https://html.spec.whatwg.org/#update-a-color-well-control-color,
-// except the actual serialization steps in step 6 of "serialize a color well control color".
 #[no_mangle]
-pub unsafe extern "C" fn Servo_ComputeColorWellControlColor(
+pub unsafe extern "C" fn Servo_ComputeAbsoluteColor(
     raw_data: Option<&PerDocumentStyleData>,
     value: &nsACString,
-    to_color_space: ColorSpace,
     result_color: &mut AbsoluteColor,
 ) -> bool {
     if let Some(color) = compute_color(raw_data, &AbsoluteColor::BLACK, value, ptr::null_mut()) {
-        *result_color = color.result_color.to_color_space(to_color_space);
+        *result_color = color.result_color;
         true
     } else {
         false
     }
+}
+
+#[no_mangle]
+pub extern "C" fn Servo_AbsoluteColor_ToCss(s: &AbsoluteColor, result: &mut nsACString) {
+    s.to_css(&mut CssWriter::new(result)).unwrap()
 }
 
 #[no_mangle]

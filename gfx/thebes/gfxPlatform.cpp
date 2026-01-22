@@ -2614,6 +2614,23 @@ void gfxPlatform::InitWebRenderConfig() {
 
   if (gfxConfig::IsEnabled(Feature::WEBRENDER_SHADER_CACHE)) {
     gfxVars::SetUseWebRenderProgramBinaryDisk(true);
+    bool warmUp = true;
+#ifdef MOZ_WIDGET_ANDROID
+    // Loading cached program binaries on the Samsung Xclipse driver on Android
+    // 14 is slightly faster than compiling shaders from source, so we still
+    // want to keep the disk cache enabled. However, it is slow enough that
+    // eagerly warming up the cache with shaders which may not be required can
+    // negatively impact performance. See bug 2007127.
+    if (jni::GetAPIVersion() == 34) {
+      const nsCOMPtr<nsIGfxInfo> gfxInfo = components::GfxInfo::Service();
+      nsAutoString renderer;
+      gfxInfo->GetAdapterDeviceID(renderer);
+      if (renderer.Find(u"Samsung Xclipse") != -1) {
+        warmUp = false;
+      }
+    }
+#endif
+    gfxVars::SetShouldWarmUpWebRenderProgramBinaries(warmUp);
   }
 
   gfxVars::SetUseWebRenderOptimizedShaders(
@@ -2858,13 +2875,16 @@ void gfxPlatform::InitWebRenderConfig() {
     }
   }
 
-#  ifdef XP_WIN
   if (StaticPrefs::
           gfx_webrender_layer_compositor_use_dcomp_texture_AtStartup() &&
       IsWin1122H2OrLater() && gfxVars::UseWebRenderDCompWin()) {
     gfxVars::SetWebRenderLayerCompositorDCompTexture(true);
   }
-#  endif
+
+  if (StaticPrefs::gfx_webrender_dcomp_texture_overlay_win_AtStartup() &&
+      IsWin1122H2OrLater() && gfxVars::UseWebRenderDCompWin()) {
+    gfxVars::SetUseWebRenderDCompositionTextureOverlayWin(true);
+  }
 #endif
 
   bool allowOverlayVpAutoHDR = false;
@@ -2886,6 +2906,10 @@ void gfxPlatform::InitWebRenderConfig() {
 
   if (allowOverlayVpAutoHDR) {
     gfxVars::SetWebRenderOverlayVpAutoHDR(true);
+  }
+
+  if (StaticPrefs::gfx_webrender_overlay_hdr_AtStartup()) {
+    gfxVars::SetWebRenderOverlayHDR(true);
   }
 
   bool allowOverlayVpSuperResolution = false;
@@ -3037,12 +3061,23 @@ void gfxPlatform::InitHardwareVideoConfig() {
   gfxVars::SetCanUseHardwareVideoDecoding(featureDec.IsEnabled());
   gfxVars::SetCanUseHardwareVideoEncoding(featureEnc.IsEnabled());
 
+#ifdef MOZ_WIDGET_ANDROID
+#  define CODEC_HW_FEATURE_SETUP_PLATFORM(name, type, encoder)             \
+    feature##type##name.SetDefault(gfxAndroidPlatform::IsHwCodecSupported( \
+                                       media::MediaCodec::name, encoder),  \
+                                   FeatureStatus::Unavailable,             \
+                                   "Hardware codec not available");
+#else
+#  define CODEC_HW_FEATURE_SETUP_PLATFORM(name, type, encoder) \
+    feature##type##name.EnableByDefault();
+#endif
+
 #define CODEC_HW_FEATURE_SETUP(name)                                           \
   FeatureState& featureDec##name =                                             \
       gfxConfig::GetFeature(Feature::name##_HW_DECODE);                        \
   featureDec##name.Reset();                                                    \
   if (featureDec.IsEnabled()) {                                                \
-    featureDec##name.EnableByDefault();                                        \
+    CODEC_HW_FEATURE_SETUP_PLATFORM(name, Dec, false)                          \
     if (!IsGfxInfoStatusOkay(nsIGfxInfo::FEATURE_##name##_HW_DECODE, &message, \
                              failureId)) {                                     \
       featureDec##name.Disable(FeatureStatus::Blocklisted, message.get(),      \
@@ -3054,7 +3089,7 @@ void gfxPlatform::InitHardwareVideoConfig() {
       gfxConfig::GetFeature(Feature::name##_HW_ENCODE);                        \
   featureEnc##name.Reset();                                                    \
   if (featureEnc.IsEnabled()) {                                                \
-    featureEnc##name.EnableByDefault();                                        \
+    CODEC_HW_FEATURE_SETUP_PLATFORM(name, Enc, true)                           \
     if (!IsGfxInfoStatusOkay(nsIGfxInfo::FEATURE_##name##_HW_ENCODE, &message, \
                              failureId)) {                                     \
       featureEnc##name.Disable(FeatureStatus::Blocklisted, message.get(),      \
@@ -3073,11 +3108,7 @@ void gfxPlatform::InitHardwareVideoConfig() {
   CODEC_HW_FEATURE_SETUP(HEVC)
 #endif
 
-#ifdef MOZ_WIDGET_ANDROID
-  gfxVars::SetVP9HwDecodeIsAccelerated(
-      java::HardwareCodecCapabilityUtils::HasHWVP9(false /* aIsEncoder */));
-#endif
-
+#undef CODEC_HW_FEATURE_SETUP_PLATFORM
 #undef CODEC_HW_FEATURE_SETUP
 }
 
@@ -3752,13 +3783,16 @@ void gfxPlatform::GetOverlayInfo(mozilla::widget::InfoObject& aObj) {
   };
 
   nsPrintfCString value(
-      "NV12=%s YUV2=%s BGRA8=%s RGB10A2=%s VpSR=%s VpAutoHDR=%s",
+      "NV12=%s YUV2=%s BGRA8=%s RGB10A2=%s RGBA16F=%s VpSR=%s VpAutoHDR=%s "
+      "HDR=%s",
       toString(mOverlayInfo.ref().mNv12Overlay),
       toString(mOverlayInfo.ref().mYuy2Overlay),
       toString(mOverlayInfo.ref().mBgra8Overlay),
       toString(mOverlayInfo.ref().mRgb10a2Overlay),
+      toString(mOverlayInfo.ref().mRgba16fOverlay),
       toStringBool(mOverlayInfo.ref().mSupportsVpSuperResolution),
-      toStringBool(mOverlayInfo.ref().mSupportsVpAutoHDR));
+      toStringBool(mOverlayInfo.ref().mSupportsVpAutoHDR),
+      toStringBool(mOverlayInfo.ref().mSupportsHDR));
 
   aObj.DefineProperty("OverlaySupport", NS_ConvertUTF8toUTF16(value));
 }

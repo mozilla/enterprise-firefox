@@ -4,6 +4,8 @@
 
 package mozilla.components.feature.syncedtabs.storage
 
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.runTest
 import mozilla.components.browser.state.action.ContentAction
 import mozilla.components.browser.state.action.LastAccessAction
 import mozilla.components.browser.state.action.TabListAction
@@ -25,12 +27,9 @@ import mozilla.components.service.fxa.manager.FxaAccountManager
 import mozilla.components.service.fxa.sync.SyncReason
 import mozilla.components.support.test.any
 import mozilla.components.support.test.mock
-import mozilla.components.support.test.rule.MainCoroutineRule
-import mozilla.components.support.test.rule.runTestOnMain
 import mozilla.components.support.test.whenever
 import org.junit.Assert.assertEquals
 import org.junit.Before
-import org.junit.Rule
 import org.junit.Test
 import org.mockito.Mockito.doReturn
 import org.mockito.Mockito.never
@@ -40,12 +39,10 @@ import org.mockito.Mockito.times
 import org.mockito.Mockito.verify
 
 class SyncedTabsStorageTest {
-    @get:Rule
-    val coroutinesTestRule = MainCoroutineRule()
-
     private lateinit var store: BrowserStore
     private lateinit var tabsStorage: RemoteTabsStorage
     private lateinit var accountManager: FxaAccountManager
+    private val testDispatcher = StandardTestDispatcher()
 
     @Before
     fun setup() {
@@ -66,18 +63,22 @@ class SyncedTabsStorageTest {
     }
 
     @Test
-    fun `listens to browser store changes, stores state changes, and calls onStoreComplete`() = runTestOnMain {
+    fun `listens to browser store changes, stores state changes, and calls onStoreComplete`() = runTest(testDispatcher) {
         val feature = SyncedTabsStorage(
             accountManager,
             store,
             tabsStorage,
             0,
             debounceMillis = 0,
+            dispatcher = testDispatcher,
         )
+
         feature.start()
+        testDispatcher.scheduler.advanceUntilIdle()
 
         // This action will change the state due to lastUsed timestamp, but will run the flow.
         store.dispatch(TabListAction.RemoveAllPrivateTabsAction)
+        testDispatcher.scheduler.advanceUntilIdle()
 
         verify(tabsStorage, times(2)).store(
             listOf(
@@ -94,17 +95,21 @@ class SyncedTabsStorageTest {
     }
 
     @Test
-    fun `stops listening to browser store changes on stop()`() = runTestOnMain {
+    fun `stops listening to browser store changes on stop()`() = runTest(testDispatcher) {
         val feature = SyncedTabsStorage(
             accountManager,
             store,
             tabsStorage,
             0,
             debounceMillis = 0,
+            dispatcher = testDispatcher,
         )
+
         feature.start()
-        // Run the flow.
+        testDispatcher.scheduler.advanceUntilIdle()
+
         store.dispatch(TabListAction.RemoveAllPrivateTabsAction)
+        testDispatcher.scheduler.advanceUntilIdle()
 
         verify(tabsStorage, times(2)).store(
             listOf(
@@ -121,13 +126,14 @@ class SyncedTabsStorageTest {
     }
 
     @Test
-    fun `getSyncedTabs matches tabs with FxA devices`() = runTestOnMain {
+    fun `getSyncedTabs matches tabs with FxA devices`() = runTest(testDispatcher) {
         val feature = spy(
             SyncedTabsStorage(
                 accountManager,
                 store,
                 tabsStorage,
                 0,
+                dispatcher = testDispatcher,
             ),
         )
         val device1 = Device(
@@ -169,13 +175,14 @@ class SyncedTabsStorageTest {
     }
 
     @Test
-    fun `getSyncedTabs returns empty list if syncClients() is null`() = runTestOnMain {
+    fun `getSyncedTabs returns empty list if syncClients() is null`() = runTest(testDispatcher) {
         val feature = spy(
             SyncedTabsStorage(
                 accountManager,
                 store,
                 tabsStorage,
                 0,
+                dispatcher = testDispatcher,
             ),
         )
         doReturn(null).`when`(feature).syncClients()
@@ -190,6 +197,7 @@ class SyncedTabsStorageTest {
                 store,
                 tabsStorage,
                 0,
+                dispatcher = testDispatcher,
             ),
         )
         val account: OAuthAccount = mock()
@@ -222,6 +230,7 @@ class SyncedTabsStorageTest {
                 store,
                 tabsStorage,
                 0,
+                dispatcher = testDispatcher,
             ),
         )
         val account: OAuthAccount = mock()
@@ -240,6 +249,7 @@ class SyncedTabsStorageTest {
                 store,
                 tabsStorage,
                 0,
+                dispatcher = testDispatcher,
             ),
         )
         whenever(accountManager.authenticatedAccount()).thenReturn(null)
@@ -247,7 +257,7 @@ class SyncedTabsStorageTest {
     }
 
     @Test
-    fun `tabs are stored when loaded`() = runTestOnMain {
+    fun `tabs are stored when loaded`() = runTest(testDispatcher) {
         val store = BrowserStore(
             BrowserState(
                 tabs = listOf(
@@ -264,9 +274,11 @@ class SyncedTabsStorageTest {
                 tabsStorage,
                 0,
                 debounceMillis = 0,
+                dispatcher = testDispatcher,
             ),
         )
         feature.start()
+        testDispatcher.scheduler.advanceUntilIdle()
 
         // Tabs are only stored when initial state is collected, since they are already loaded
         verify(tabsStorage, times(1)).store(
@@ -278,6 +290,7 @@ class SyncedTabsStorageTest {
 
         // Change a tab besides loading it
         store.dispatch(ContentAction.UpdateProgressAction("tab1", 50))
+        testDispatcher.scheduler.advanceUntilIdle()
 
         reset(tabsStorage)
 
@@ -285,7 +298,7 @@ class SyncedTabsStorageTest {
     }
 
     @Test
-    fun `only loaded tabs are stored on load`() = runTestOnMain {
+    fun `only loaded tabs are stored on load`() = runTest(testDispatcher) {
         val store = BrowserStore(
             BrowserState(
                 tabs = listOf(
@@ -302,11 +315,13 @@ class SyncedTabsStorageTest {
                 tabsStorage,
                 0,
                 debounceMillis = 0,
+                dispatcher = testDispatcher,
             ),
         )
         feature.start()
 
         store.dispatch(ContentAction.UpdateLoadingStateAction("tab1", false))
+        testDispatcher.scheduler.advanceUntilIdle()
 
         verify(tabsStorage).store(
             listOf(
@@ -316,7 +331,7 @@ class SyncedTabsStorageTest {
     }
 
     @Test
-    fun `tabs are stored when selected tab changes`() = runTestOnMain {
+    fun `tabs are stored when selected tab changes`() = runTest(testDispatcher) {
         val store = BrowserStore(
             BrowserState(
                 tabs = listOf(
@@ -333,11 +348,14 @@ class SyncedTabsStorageTest {
                 tabsStorage,
                 System.currentTimeMillis() * 2,
                 debounceMillis = 0,
+                dispatcher = testDispatcher,
             ),
         )
         feature.start()
+        testDispatcher.scheduler.advanceUntilIdle()
 
         store.dispatch(TabListAction.SelectTabAction("tab2"))
+        testDispatcher.scheduler.advanceUntilIdle()
 
         verify(tabsStorage, times(2)).store(
             listOf(
@@ -348,7 +366,7 @@ class SyncedTabsStorageTest {
     }
 
     @Test
-    fun `tabs are stored when lastAccessed is changed for any tab`() = runTestOnMain {
+    fun `tabs are stored when lastAccessed is changed for any tab`() = runTest(testDispatcher) {
         val store = BrowserStore(
             BrowserState(
                 tabs = listOf(
@@ -365,11 +383,14 @@ class SyncedTabsStorageTest {
                 tabsStorage,
                 0,
                 debounceMillis = 0,
+                dispatcher = testDispatcher,
             ),
         )
         feature.start()
+        testDispatcher.scheduler.advanceUntilIdle()
 
         store.dispatch(LastAccessAction.UpdateLastAccessAction("tab1", 300L))
+        testDispatcher.scheduler.advanceUntilIdle()
 
         verify(tabsStorage, times(1)).store(
             listOf(

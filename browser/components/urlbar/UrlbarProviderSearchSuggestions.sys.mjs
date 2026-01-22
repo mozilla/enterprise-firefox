@@ -341,7 +341,7 @@ export class UrlbarProviderSearchSuggestions extends UrlbarProvider {
         },
         {
           name: RESULT_MENU_COMMANDS.TRENDING_HELP,
-          l10n: { id: "urlbar-result-menu-trending-why" },
+          l10n: { id: "urlbar-result-menu-learn-more" },
         },
       ]);
     }

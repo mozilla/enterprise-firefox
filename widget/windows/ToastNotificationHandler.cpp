@@ -67,7 +67,7 @@ using ToastFailedHandler =
 using IVectorView_ToastNotification =
     Collections::IVectorView<WinToastNotification*>;
 
-NS_IMPL_ISUPPORTS(ToastNotificationHandler, nsIAlertNotificationImageListener)
+NS_IMPL_ISUPPORTS0(ToastNotificationHandler)
 
 static bool SetNodeValueString(const nsString& aString, IXmlNode* node,
                                IXmlDocument* xml) {
@@ -270,11 +270,6 @@ GetToastNotificationManagerStatics() {
 }
 
 ToastNotificationHandler::~ToastNotificationHandler() {
-  if (mImageRequest) {
-    mImageRequest->Cancel(NS_BINDING_ABORTED);
-    mImageRequest = nullptr;
-  }
-
   if (mHasImage && mImageFile) {
     DebugOnly<nsresult> rv = mImageFile->Remove(false);
     NS_ASSERTION(NS_SUCCEEDED(rv), "Cannot remove temporary image file");
@@ -315,9 +310,10 @@ nsresult ToastNotificationHandler::InitAlertAsync() {
   }
 #endif
 
-  return mAlertNotification->LoadImage(/* aTimeout = */ 0, this,
-                                       /* aUserData = */ nullptr,
-                                       getter_AddRefs(mImageRequest));
+  nsCOMPtr<imgIContainer> image;
+  MOZ_TRY(mAlertNotification->GetImage(getter_AddRefs(image)));
+
+  return image ? AsyncSaveImage(image) : TryShowAlert();
 }
 
 nsString ToastNotificationHandler::ActionArgsJSONString(
@@ -1028,21 +1024,7 @@ nsresult ToastNotificationHandler::TryShowAlert() {
   return NS_OK;
 }
 
-NS_IMETHODIMP
-ToastNotificationHandler::OnImageMissing(nsISupports*) {
-  return TryShowAlert();
-}
-
-NS_IMETHODIMP
-ToastNotificationHandler::OnImageReady(nsISupports*, imgIRequest* aRequest) {
-  nsresult rv = AsyncSaveImage(aRequest);
-  if (NS_FAILED(rv)) {
-    return TryShowAlert();
-  }
-  return rv;
-}
-
-nsresult ToastNotificationHandler::AsyncSaveImage(imgIRequest* aRequest) {
+nsresult ToastNotificationHandler::AsyncSaveImage(imgIContainer* aImage) {
   nsresult rv =
       NS_GetSpecialDirectory(NS_OS_TEMP_DIR, getter_AddRefs(mImageFile));
   NS_ENSURE_SUCCESS(rv, rv);
@@ -1063,16 +1045,12 @@ nsresult ToastNotificationHandler::AsyncSaveImage(imgIRequest* aRequest) {
   uuidStr.AppendLiteral(".png");
   mImageFile->AppendNative(uuidStr);
 
-  nsCOMPtr<imgIContainer> imgContainer;
-  rv = aRequest->GetImage(getter_AddRefs(imgContainer));
-  NS_ENSURE_SUCCESS(rv, rv);
-
   nsMainThreadPtrHandle<ToastNotificationHandler> self(
       new nsMainThreadPtrHolder<ToastNotificationHandler>(
           "ToastNotificationHandler", this));
 
   nsCOMPtr<nsIFile> imageFile(mImageFile);
-  RefPtr<mozilla::gfx::SourceSurface> surface = imgContainer->GetFrame(
+  RefPtr<mozilla::gfx::SourceSurface> surface = aImage->GetFrame(
       imgIContainer::FRAME_FIRST,
       imgIContainer::FLAG_SYNC_DECODE | imgIContainer::FLAG_ASYNC_NOTIFY);
   nsCOMPtr<nsIRunnable> r = NS_NewRunnableFunction(

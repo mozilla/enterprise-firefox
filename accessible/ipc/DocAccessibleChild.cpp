@@ -374,19 +374,6 @@ mozilla::ipc::IPCResult DocAccessibleChild::RecvScrollToPoint(
   return IPC_OK();
 }
 
-#if !defined(XP_WIN)
-mozilla::ipc::IPCResult DocAccessibleChild::RecvAnnounce(
-    const uint64_t& aID, const nsAString& aAnnouncement,
-    const uint16_t& aPriority) {
-  LocalAccessible* acc = IdToAccessible(aID);
-  if (acc) {
-    acc->Announce(aAnnouncement, aPriority);
-  }
-
-  return IPC_OK();
-}
-#endif  // !defined(XP_WIN)
-
 mozilla::ipc::IPCResult DocAccessibleChild::RecvScrollSubstringToPoint(
     const uint64_t& aID, const int32_t& aStartOffset, const int32_t& aEndOffset,
     const uint32_t& aCoordinateType, const int32_t& aX, const int32_t& aY) {

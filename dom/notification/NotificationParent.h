@@ -43,7 +43,7 @@ class NotificationParent final : public PNotificationParent,
   NS_DECL_ISUPPORTS
 
   nsresult HandleAlertTopic(AlertTopic aTopic);
-  IPCResult RecvShow(ShowResolver&& aResolver);
+  IPCResult RecvShow(Maybe<IPCImage>&& aIcon, ShowResolver&& aResolver);
   IPCResult RecvClose();
 
   static nsresult CreateOnMainThread(
@@ -56,7 +56,7 @@ class NotificationParent final : public PNotificationParent,
       : mId(aArgs.mNotification.id()), mArgs(std::move(aArgs)) {};
   ~NotificationParent() = default;
 
-  nsresult Show();
+  nsresult Show(Maybe<IPCImage>&& aIcon);
   nsresult FireClickEvent();
 
   void Unregister();

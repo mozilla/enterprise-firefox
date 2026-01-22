@@ -65,7 +65,7 @@ add_setup(async function () {
   // Add a search engine with search suggestions so sponsored suggestions can
   // be shown first. See the `quickSuggestSponsoredIndex` pref for more info.
   SearchTestUtils.setRemoteSettingsConfig(CONFIG_V2);
-  await Services.search.init();
+  await SearchService.init();
   await QuickSuggestTestUtils.ensureQuickSuggestInit({
     remoteSettingsRecords: REMOTE_SETTINGS_RECORDS,
     prefs: [

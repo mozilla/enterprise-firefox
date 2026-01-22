@@ -2689,6 +2689,40 @@ bool nsGlobalWindowInner::SynthesizeMouseEvent(
   return result.unwrap();
 }
 
+bool nsGlobalWindowInner::SynthesizeTouchEvent(
+    const nsAString& aType, const nsTArray<SynthesizeTouchEventData>& aTouches,
+    const int32_t aModifiers, const SynthesizeTouchEventOptions& aOptions,
+    mozilla::ErrorResult& aError) {
+  nsIDocShell* docShell = GetDocShell();
+  RefPtr<PresShell> presShell = docShell ? docShell->GetPresShell() : nullptr;
+  if (!presShell) {
+    aError.Throw(NS_ERROR_FAILURE);
+    return false;
+  }
+
+  nsPoint offset;
+  nsCOMPtr<nsIWidget> widget = nsContentUtils::GetWidget(presShell, &offset);
+  if (!widget) {
+    aError.Throw(NS_ERROR_FAILURE);
+    return false;
+  }
+
+  RefPtr<nsPresContext> presContext = mDoc->GetPresContext();
+  if (!presContext) {
+    aError.Throw(NS_ERROR_FAILURE);
+    return false;
+  }
+
+  auto result = nsContentUtils::SynthesizeTouchEvent(
+      presContext, widget, offset, aType, aTouches, aModifiers, aOptions);
+  if (result.isErr()) {
+    aError.Throw(result.unwrapErr());
+    return false;
+  }
+
+  return result.unwrap();
+}
+
 CallState nsGlobalWindowInner::ShouldReportForServiceWorkerScopeInternal(
     const nsACString& aScope, bool* aResultOut) {
   MOZ_DIAGNOSTIC_ASSERT(aResultOut);
@@ -7515,19 +7549,6 @@ Worklet* nsGlobalWindowInner::GetPaintWorklet(ErrorResult& aRv) {
   }
 
   return mPaintWorklet;
-}
-
-void nsGlobalWindowInner::GetRegionalPrefsLocales(
-    nsTArray<nsString>& aLocales) {
-  MOZ_ASSERT(mozilla::intl::LocaleService::GetInstance());
-
-  AutoTArray<nsCString, 10> rpLocales;
-  mozilla::intl::LocaleService::GetInstance()->GetRegionalPrefsLocales(
-      rpLocales);
-
-  for (const auto& loc : rpLocales) {
-    aLocales.AppendElement(NS_ConvertUTF8toUTF16(loc));
-  }
 }
 
 void nsGlobalWindowInner::GetWebExposedLocales(nsTArray<nsString>& aLocales) {

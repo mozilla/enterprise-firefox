@@ -4,8 +4,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef nsMathMLmspaceFrame_h___
-#define nsMathMLmspaceFrame_h___
+#ifndef nsMathMLmspaceFrame_h_
+#define nsMathMLmspaceFrame_h_
 
 #include "nsCSSValue.h"
 #include "nsMathMLContainerFrame.h"
@@ -29,7 +29,7 @@ class nsMathMLmspaceFrame final : public nsMathMLContainerFrame {
   TransmitAutomaticData() override {
     // The REC defines the following elements to be space-like:
     // * an mtext, mspace, maligngroup, or malignmark element;
-    mPresentationData.flags |= NS_MATHML_SPACE_LIKE;
+    mPresentationData.flags += MathMLPresentationFlag::SpaceLike;
     return NS_OK;
   }
 
@@ -61,4 +61,4 @@ class nsMathMLmspaceFrame final : public nsMathMLContainerFrame {
              ReflowOutput& aDesiredSize) final;
 };
 
-#endif /* nsMathMLmspaceFrame_h___ */
+#endif /* nsMathMLmspaceFrame_h_ */

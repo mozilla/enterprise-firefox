@@ -1,0 +1,40 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
+
+@import "chrome://global/skin/global.css";
+
+:host {
+  --border-color: var(--border-color-card);
+}
+
+.disconnected {
+  background-color: var(--background-color-box-info);
+}
+
+#content-container {
+  margin-inline: var(--space-small);
+  border-radius: var(--border-radius-medium);
+  padding: var(--space-medium);
+}
+
+#title {
+  /* Intentionally using a larger font size for clearer visual hierarchy */
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  font-size: 1.8em;
+  font-weight: var(--font-weight-semibold);
+  padding-bottom: var(--space-xsmall);
+  margin-block: 0;
+}
+
+#description {
+  /* Intentionally using a larger font size for clearer visual hierarchy */
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  font-size: 1.23em;
+  color: var(--text-color-deemphasized);
+}
+
+::slotted([slot="content"]) {
+  border-top: var(--border-width) solid var(--border-color-deemphasized);
+  margin-top: var(--space-large);
+}

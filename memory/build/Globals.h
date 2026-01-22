@@ -98,7 +98,7 @@ extern size_t gPageSize;
     MOZ_PASTE_PREFIX_AND_ARG_COUNT(GLOBAL_ASSERT_HELPER, __VA_ARGS__) \
     (__VA_ARGS__)
 #  define GLOBAL_CONSTEXPR constexpr
-#  include "Globals_inc.h"
+#  include "Globals.inc"
 #  undef GLOBAL_CONSTEXPR
 #  undef GLOBAL_ASSERT
 #  undef GLOBAL_ASSERT_HELPER1
@@ -109,7 +109,7 @@ extern size_t gPageSize;
 // We declare the globals here and initialise them in DefineGlobals()
 #  define GLOBAL(type, name, value) extern type name;
 #  define GLOBAL_ASSERT(...)
-#  include "Globals_inc.h"
+#  include "Globals.inc"
 #  undef GLOBAL_ASSERT
 #  undef GLOBAL
 

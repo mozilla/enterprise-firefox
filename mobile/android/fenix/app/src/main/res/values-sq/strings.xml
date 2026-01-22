@@ -61,6 +61,8 @@
   <string name="tab_manager_empty_synced_tabs_page_description">Bëni hyrjen në llogari, që të administroni skeda të njëkohësuara nga krejt pajisjet tuaja.</string>
   <!-- The action text displayed on the synced tabs page when the user is not logged into an account, prompting the user to sign into their account. When clicked, it takes the user to the account sign-in flow. -->
   <string name="tab_manager_empty_synced_tabs_page_sign_in_cta">Hyni</string>
+  <!-- Text for the button used to show all stories -->
+  <string name="homepage_all_stories">Krejt historitë</string>
   <!--
     Home - Bookmarks
 
@@ -227,9 +229,9 @@
   <!-- Browser menu button that opens account settings -->
   <string name="browser_menu_account_settings">Hollësi llogarie</string>
   <!-- Browser menu button that sends a user to help articles -->
-  <string name="browser_menu_help">Ndihmë</string>
+  <string name="browser_menu_help" tools:ignore="UnusedResources" moz:removedIn="149">Ndihmë</string>
   <!-- Browser menu button that sends a to a the what's new article -->
-  <string name="browser_menu_whats_new">Ç’ka të Re</string>
+  <string name="browser_menu_whats_new" tools:ignore="UnusedResources" moz:removedIn="149">Ç’ka të Re</string>
   <!-- Browser menu button that opens the settings menu -->
   <string name="browser_menu_settings">Rregullime</string>
   <!-- Browser menu button that opens a user's library -->
@@ -237,7 +239,7 @@
   <!-- Browser menu toggle that requests a desktop site -->
   <string name="browser_menu_desktop_site">Sajt për desktop</string>
   <!-- Browser menu button that reopens a private tab as a regular tab -->
-  <string name="browser_menu_open_in_regular_tab">Hape në skedë të rregullt</string>
+  <string name="browser_menu_open_in_regular_tab" tools:ignore="UnusedResources" moz:removedIn="149">Hape në skedë të rregullt</string>
   <!-- Browser menu toggle that adds a shortcut to the site on the device home screen. -->
   <string name="browser_menu_add_to_homescreen">Shtoje te skena e Kreut</string>
   <!-- Browser menu toggle that adds a PWA of the site on the device home screen. -->
@@ -265,7 +267,7 @@
     Browser menu text shown in custom tabs to indicate this is a Fenix tab
     %1$s is the name of the app (for example "Firefox").
   -->
-  <string name="browser_menu_powered_by">BAZUAR NË %1$s</string>
+  <string name="browser_menu_powered_by" tools:ignore="UnusedResources" moz:removedIn="149">BAZUAR NË %1$s</string>
   <!--
     Browser menu text shown in custom tabs to indicate this is a Fenix tab
     %1$s is the name of the app (for example "Firefox").
@@ -278,15 +280,15 @@
   <!-- Browser menu button to open the current page in an external app -->
   <string name="browser_menu_open_app_link">Hape në Aplikacion</string>
   <!-- Browser menu button to show reader view appearance controls e.g. the used font type and size -->
-  <string name="browser_menu_customize_reader_view">Përshtatni pamjen e Lexuesit</string>
+  <string name="browser_menu_customize_reader_view" tools:ignore="UnusedResources" moz:removedIn="149">Përshtatni pamjen e Lexuesit</string>
   <!-- Browser menu button to show reader view appearance controls e.g. the used font type and size -->
   <string name="browser_menu_customize_reader_view_2">Përshtatni Pamje Lexuesi</string>
   <!-- Browser menu label for adding a bookmark -->
-  <string name="browser_menu_add">Shtoni</string>
+  <string name="browser_menu_add" tools:ignore="UnusedResources" moz:removedIn="149">Shtoni</string>
   <!-- Browser menu label for editing a bookmark -->
-  <string name="browser_menu_edit">Përpunoni</string>
+  <string name="browser_menu_edit" tools:ignore="UnusedResources" moz:removedIn="149">Përpunoni</string>
   <!-- Button shown on the home page that opens the Customize home settings -->
-  <string name="browser_menu_customize_home_1">Përshtatni faqe hyrëse</string>
+  <string name="browser_menu_customize_home_1" tools:ignore="UnusedResources" moz:removedIn="149">Përshtatni faqe hyrëse</string>
   <!-- Browser menu label to sign in to sync on the device using Mozilla accounts -->
   <string name="browser_menu_sign_in">Hyni</string>
   <!-- Browser menu caption label for the "Sign in" browser menu item described in `browser_menu_sign_in` -->
@@ -305,10 +307,6 @@
   <string name="browser_close_main_menu_handlebar_content_description">Mbylle menunë</string>
   <!-- Content description (not visible, for screen readers etc.) for main menu navigation header. -->
   <string name="browser_main_menu_content_description_navigation_header">Lëvizje</string>
-  <!-- Content description (not visible, for screen readers etc.) for main menu help button. -->
-  <string name="browser_main_menu_content_description_help_button" tools:ignore="UnusedResources" moz:removedIn="146">Ndihmë</string>
-  <!-- Content description (not visible, for screen readers etc.) for main menu settings button. -->
-  <string name="browser_main_menu_content_description_settings_button" tools:ignore="UnusedResources" moz:removedIn="146">Rregullime</string>
   <!-- Content description (not visible, for screen readers etc.) for bottom sheet handlebar extensions menu. -->
   <string name="browser_extensions_menu_handlebar_content_description">Mbyllni fletën e menusë së zgjerimeve</string>
   <!-- Content description (not visible, for screen readers etc.) for bottom sheet handlebar save menu. -->
@@ -326,7 +324,7 @@
   <!-- Browser menu label for navigating to the translation feature, which provides language translation options the current visited page -->
   <string name="browser_menu_translate_page_2">Përktheje faqen</string>
   <!-- Browser menu label for navigating to the Web Compat Reporter feature, which provides users the ability to send bug reports for broken sites. -->
-  <string name="browser_menu_webcompat_reporter">Njoftoni për sajt të dëmtuar…</string>
+  <string name="browser_menu_webcompat_reporter" tools:ignore="UnusedResources" moz:removedIn="149">Njoftoni për sajt të dëmtuar…</string>
   <!-- Browser menu label for navigating to the Web Compat Reporter feature, which provides users the ability to send bug reports for broken sites. -->
   <string name="browser_menu_webcompat_reporter_2">Njoftoni për sajt të dëmtuar</string>
   <!-- Browser menu label that is displayed when the current page has been translated by the translation feature. -->
@@ -450,19 +448,8 @@
   <string name="juno_onboarding_privacy_notice_text" tools:ignore="BrandUsage">Shënim mbi privatësinë në Firefox</string>
   <!-- Title for set firefox as default browser screen used by Nimbus experiments. -->
   <string name="juno_onboarding_default_browser_title_nimbus_2">Duam fort t’ju mbajmë të parrezik</string>
-  <!--
-    Title for set firefox as default browser screen used by Nimbus experiments.
-    Note: The word "Firefox" should NOT be translated
-  -->
-  <string name="juno_onboarding_default_browser_title_nimbus_3" tools:ignore="BrandUsage,UnusedResources" moz:removedIn="146">Zbuloni pse e duan Firefox-in miliona vetë</string>
-  <!-- Title for set firefox as default browser screen used by Nimbus experiments. -->
-  <string name="juno_onboarding_default_browser_title_nimbus_4" tools:ignore="UnusedResources" moz:removedIn="146">Shfletim i parrezik, me më tepër zgjedhje</string>
   <!-- Description for set firefox as default browser screen used by Nimbus experiments. -->
   <string name="juno_onboarding_default_browser_description_nimbus_3">Shfletuesi ynë, me entin jofitimprurës nga pas, ndihmon të ndalen shoqëri t’ju ndjekin fshehtazi nëpër internet.</string>
-  <!-- Description for set firefox as default browser screen used by Nimbus experiments. -->
-  <string name="juno_onboarding_default_browser_description_nimbus_4" tools:ignore="UnusedResources" moz:removedIn="146">Më tepër se 100 milionë vetëm e mbrojnë privatësinë e tyre duke zgjedhur një shfletues që ka pas një ent jofitimprurës.</string>
-  <!-- Description for set firefox as default browser screen used by Nimbus experiments. -->
-  <string name="juno_onboarding_default_browser_description_nimbus_5" tools:ignore="UnusedResources" moz:removedIn="146">Gjurmues të ditur? Të bllokuar automatikisht. Zgjerime? Provojini krejt të 700-ët. PDF? Lexuesi ynë i brendshëm i bën të administrohen me lehtësi.</string>
   <!-- Text for the button to set firefox as default browser on the device -->
   <string name="juno_onboarding_default_browser_positive_button" tools:ignore="UnusedResources">Vëre si shfletuesin parazgjedhje</string>
   <!-- Text for the button dismiss the screen and move on with the flow -->
@@ -622,6 +609,86 @@
   <string name="onboarding_marketing_body_1" tools:ignore="BrandUsage,UnusedResources">Ndani me partnerë marketingu të Mozilla-s se si e zbuluat Firefox-in dhe se e përdorni. Këto të dhëna s’shiten kurrë.</string>
   <!-- Marketing onboarding page button label variant. Button to confirm choice and start browsing. -->
   <string name="onboarding_marketing_positive_button_1" tools:ignore="UnusedResources">Pajtohuni dhe filloni të shfletoni</string>
+  <!-- ==== Project "Nova" onboarding strings ==== -->
+
+  <!-- "Continue" onboarding button. -->
+  <string name="nova_onboarding_continue_button" tools:ignore="UnusedResources">Vazhdo</string>
+  <!-- "Not now" onboarding button. -->
+  <string name="nova_onboarding_negative_button" tools:ignore="UnusedResources">Jo tani</string>
+  <!-- Terms of use (ToU) onboarding title. -->
+  <string name="nova_onboarding_tou_title" tools:ignore="UnusedResources">Bëhuni gati të rendi të lirë</string>
+  <!-- Terms of use (ToU) onboarding subtitle. -->
+  <string name="nova_onboarding_tou_subtitle" tools:ignore="UnusedResources">I shpejtë, i parrezik dhe që s’do t’ju shesë.\nShfletimi sapo u bë më i mirë.</string>
+  <!--
+    Terms of use (ToU) onboarding body line one.
+    %1$s is replaced by an active link, using nova_onboarding_tou_body_line_1_link_text as text (“Firefox Terms of Use”).
+  -->
+  <string name="nova_onboarding_tou_body_line_1" tools:ignore="UnusedResources">Duke vazhduar, pajtoheni me %1$s.</string>
+  <!-- Terms of use (ToU) onboarding body line one link text for nova_onboarding_tou_body_line_1. 'Firefox' is intentionally hardcoded. -->
+  <string name="nova_onboarding_tou_body_line_1_link_text" tools:ignore="BrandUsage,UnusedResources">Terma Përdorimi Firefox-i</string>
+  <!--
+    Terms of use (ToU) onboarding body line two. 'Firefox' is intentionally hardcoded.
+    %1$s is replaced by an active link, using nova_onboarding_tou_body_line_2_link_text as text (“Privacy Notice”).
+  -->
+  <string name="nova_onboarding_tou_body_line_2" tools:ignore="BrandUsage,UnusedResources">Firefox-i kujdeset për privatësinë tuaj. Mësoni më tepër te %1$s tona.</string>
+  <!-- Terms of use (ToU) onboarding body line two link text for nova_onboarding_tou_body_line_2. -->
+  <string name="nova_onboarding_tou_body_line_2_link_text" tools:ignore="UnusedResources">Shënim Mbi Privatësinë</string>
+  <!--
+    Terms of use (ToU) onboarding body line three. 'Firefox' and 'Mozilla' are intentionally hardcoded.
+    %1$s is replaced by an active link, using nova_onboarding_tou_body_line_3_link_text as text (“Manage Settings”).
+  -->
+  <string name="nova_onboarding_tou_body_line_3" tools:ignore="BrandUsage,UnusedResources">Që të ndihmoni të përmirësohet shfletuesi, Firefox-i dërgon te Mozilla të dhëna diagnostikimesh dhe ndërveprimesh. %1$s</string>
+  <!-- Terms of use (ToU) onboarding body line three link text for nova_onboarding_tou_body_line_3. -->
+  <string name="nova_onboarding_tou_body_line_3_link_text" tools:ignore="UnusedResources">Administroni rregullime</string>
+  <!-- "Set to default" onboarding title. -->
+  <string name="nova_onboarding_set_to_default_title" tools:ignore="UnusedResources">U thoni lamtumirë gjurmuesve të shpifur</string>
+  <!-- "Set to default" onboarding subtitle. -->
+  <string name="nova_onboarding_set_to_default_subtitle" tools:ignore="UnusedResources">Ne i mbrojmë të dhënat tuaja dhe bllokojmë automatikisht shoqëri për të mos ju spiunuar përmes klikimeve tuaja.</string>
+  <!-- "Set to default" onboarding button. -->
+  <string name="nova_onboarding_set_to_default_button" tools:ignore="UnusedResources">Vëre si shfletuesin parazgjedhje</string>
+  <!-- Toolbar selection onboarding title. -->
+  <string name="nova_onboarding_toolbar_selection_title" tools:ignore="UnusedResources">Zgjidhni shtyllën tuaj të adresave</string>
+  <!-- Toolbar selection onboarding "top" option label. -->
+  <string name="nova_onboarding_toolbar_selection_top_label" tools:ignore="UnusedResources">Krye</string>
+  <!-- Toolbar selection onboarding "bottom" option label. -->
+  <string name="nova_onboarding_toolbar_selection_bottom_label" tools:ignore="UnusedResources">Poshtë</string>
+  <!-- Theme selection onboarding title. -->
+  <string name="nova_onboarding_theme_selection_title" tools:ignore="UnusedResources">Zgjidhni temën tuaj</string>
+  <!-- Theme selection onboarding "automatic" option label. -->
+  <string name="nova_onboarding_theme_selection_automatic_label" tools:ignore="UnusedResources">Vetvetiu</string>
+  <!-- Theme selection onboarding "light" option label. -->
+  <string name="nova_onboarding_theme_selection_light_label" tools:ignore="UnusedResources">E çelët</string>
+  <!-- Theme selection onboarding "dark" option label. -->
+  <string name="nova_onboarding_theme_selection_dark_label" tools:ignore="UnusedResources">E errët</string>
+  <!-- Sync onboarding title. -->
+  <string name="nova_onboarding_sync_title" tools:ignore="UnusedResources">Vazhdoni menjëherë atje ku e latë</string>
+  <!-- Sync onboarding subtitle. -->
+  <string name="nova_onboarding_sync_subtitle" tools:ignore="UnusedResources">Merrni faqerojtës, fjalëkalime, etj në cilëndo pajisje në çast. Të dhënat tuaja personale qëndrojnë të parrezik dhe të siguruara me fshehtëzim.</string>
+  <!-- Sync onboarding button. -->
+  <string name="nova_onboarding_sync_button" tools:ignore="UnusedResources">Fillo njëkohësim</string>
+  <!-- Marketing onboarding title. -->
+  <string name="nova_onboarding_marketing_title" tools:ignore="UnusedResources">Ndihmonani të ndërtojmë një Internet më të mirë</string>
+  <!--
+    Marketing onboarding body. 'Firefox' and 'Mozilla' are intentionally hardcoded.
+    %1$s is replaced by an active link, using nova_onboarding_marketing_body_link_text as text (“How we use the data”).
+  -->
+  <string name="nova_onboarding_marketing_body" tools:ignore="BrandUsage,UnusedResources">Ndani me partnerë marketingu të Mozilla-s se si e zbuluat Firefox-in dhe se e përdorni. Këto të dhëna s’shiten kurrë. %1$s</string>
+  <!-- Marketing onboarding body link text. -->
+  <string name="nova_onboarding_marketing_body_link_text" tools:ignore="UnusedResources">Si i përdorim të dhënat</string>
+  <!-- Notifications onboarding title. 'Firefox' is intentionally hardcoded. -->
+  <string name="nova_onboarding_notifications_title" tools:ignore="BrandUsage,UnusedResources">Njoftimet ju ndihmojnë të jini më të parrezik në Firefox</string>
+  <!-- Notifications onboarding subtitle. 'Firefox' is intentionally hardcoded. -->
+  <string name="nova_onboarding_notifications_subtitle" tools:ignore="BrandUsage,UnusedResources">Zbuloni veçoritë më të reja mbi privatësinë në Firefox, që të jeni përherë i përditësuar rreth se si mund të qëndroni i mbrojtur.</string>
+  <!-- Notifications onboarding button. -->
+  <string name="nova_onboarding_notifications_button" tools:ignore="UnusedResources">Aktivizoni njoftimet</string>
+  <!-- "Add search widget" onboarding title. -->
+  <string name="nova_onboarding_add_search_widget_title" tools:ignore="UnusedResources">Bëjeni çdo kërkim edhe më privat</string>
+  <!-- "Add search widget" onboarding subtitle. 'Firefox' is intentionally hardcoded. -->
+  <string name="nova_onboarding_add_search_widget_subtitle" tools:ignore="BrandUsage,UnusedResources">Niseni çdo kërkim nga skena e kreut e telefonit tua dhe dijeni se mbrojtjet e automatizuara të Firefox-it ju mbrojnë krahët.</string>
+  <!-- "Add search widget" onboarding button. 'Firefox' is intentionally hardcoded. -->
+  <string name="nova_onboarding_add_search_widget_button" tools:ignore="BrandUsage,UnusedResources">Shtoni “widget” Firefox-i</string>
+  <!-- ==== End of Project "Nova" onboarding strings ==== -->
+
   <!-- Onboarding header for the toolbar selection card, used by Nimbus experiments. -->
   <string name="onboarding_customize_toolbar_title" tools:ignore="UnusedResources">Zgjidhni një vendosje të panelit</string>
   <!-- Onboarding sub header for toolbar selection card, used by Nimbus experiments. -->
@@ -1053,18 +1120,20 @@
   <string name="alternative_app_icon_group_solid_colors">Ngjyra të plota</string>
   <!-- Title for the "Gradients" group of alternative app icon variants in the icon picker screen. This group contains icons with gradient backgrounds inspired by natural light conditions. -->
   <string name="alternative_app_icon_group_gradients">Gradientë</string>
-  <!-- Title for the "Other" group of alternative app icon variants in the icon picker screen. This group includes retro, pixel art, themed, and artist-created icons. -->
-  <string name="alternative_app_icon_group_other" tools:ignore="UnusedResources" moz:removedIn="146">Tjetër</string>
   <!-- Title for the "Featured" group of alternative app icon variants in the icon picker screen. This group includes retro, pixel art, themed, and artist-created icons. -->
   <string name="alternative_app_icon_group_featured">Të zgjedhur</string>
   <!-- Title to show in alert when user selects an alternative app icon -->
   <string name="restart_warning_dialog_title">Të ndërrohet ikonë aplikacioni?</string>
   <!-- Message to warn users that applying an alternative app icon may require an app restart. Whether or not the app closes depends on what version of Android it is, so we use the word "may" instead of "will". %1$s is replaced by the brand name (e.g. Firefox). -->
   <string name="restart_warning_dialog_body_2">Aplikacioni mund të mbyllet. Që të rihapni %1$s, thjesht prekni ikonën tuaj të re shkëlqyese.</string>
+  <!-- Message to warn users that applying an alternative app icon may require an app restart and will remove existing shortcuts because of the OS limitations. Whether or not the app closes depends on what version of Android it is, so we use the word "may" instead of "will". %1$s is replaced by the brand name (e.g. Firefox). -->
+  <string name="restart_and_shortcuts_removal_warning_dialog_body">Ndryshimi i ikonës do të sjellë heqjen e çfarëdo sajtesh dhe shkurtoresh që keni ruajtur te skena juaj E Kreut. \n\n%1$s mund të mbyllet. Që ta rihapni, prekni ikonën tuaj të re.</string>
   <!-- Dialog button text for confirming the possible app restart and new icon selection -->
   <string name="restart_warning_dialog_button_positive_2">Ndryshoni ikonë</string>
   <!-- Dialog button text for cancelling app icon change -->
   <string name="restart_warning_dialog_button_negative">Anuloje</string>
+  <!-- Error message snackbar shown after the user tried to apply the new icon but the Android OS threw an error while updating existing app shortcuts (e.g. private mode shortcut) -->
+  <string name="shortcuts_update_error">S’u arrit të përditësohej ikona e aplikacionit. Hiqni shkurtore ekzistuese dhe riprovoni.</string>
   <!--
     Add-ons general availability nimbus message
 
@@ -1417,9 +1486,9 @@
   <!-- Title of the active section on the studies list -->
   <string name="studies_active">Aktive</string>
   <!-- Description for studies -->
-  <string name="studies_description_3">Provoni veçori dhe ide para se të hidhen në qarkullim për këdo.</string>
+  <string name="studies_description_3" moz:removedIn="148" tools:ignore="UnusedResources">Provoni veçori dhe ide para se të hidhen në qarkullim për këdo.</string>
   <!-- Title of the Studies data preference -->
-  <string name="studies_title">Instaloni dhe kryeni studime</string>
+  <string name="studies_title" moz:removedIn="148" tools:ignore="UnusedResources">Instaloni dhe kryeni studime</string>
   <!-- Learn more link for studies, links to an article for more information about studies. -->
   <string name="studies_learn_more">Mësoni më tepër</string>
   <!--
@@ -1459,6 +1528,8 @@
   <string name="tab_drawer_fab_content">Private</string>
   <!-- Text for the new tab button to indicate syncing command on the synced tabs page -->
   <string name="tab_drawer_fab_sync">Njëkohësoji</string>
+  <!-- Text for the tab search bar placeholder -->
+  <string name="tab_manager_search_bar_placeholder">Kërkoni te skedat tuaja</string>
   <!-- Text shown in the menu for sharing all tabs -->
   <string name="tab_tray_menu_item_share">Nda krejt skedat</string>
   <!-- Text shown in the menu to view recently closed tabs -->
@@ -1471,6 +1542,14 @@
   <string name="tab_tray_menu_tab_settings">Rregullime skedash</string>
   <!-- Text shown in the menu for closing all tabs -->
   <string name="tab_tray_menu_item_close">Mbylli krejt skedat</string>
+  <!-- Text shown as the title of the Close all tabs confirmation dialog in Tab Manager -->
+  <string name="tab_manager_close_all_tabs_dialog_title">Të mbyllen krejt skedat?</string>
+  <!-- Text shown in the body of the Close all tabs confirmation dialog in Tab Manager -->
+  <string name="tab_manager_close_all_tabs_dialog_body">Kjo do të mbyllë krejt skedat e hapura.</string>
+  <!-- Text shown on the confirm button in the Close all tabs confirmation dialog -->
+  <string name="tab_manager_close_all_tabs_dialog_confirm">Mbylli skedat</string>
+  <!-- Text shown on the cancel button in the Close all tabs confirmation dialog -->
+  <string name="tab_manager_close_all_tabs_dialog_cancel">Anuloje</string>
   <!-- Text shown in the multiselect menu for bookmarking selected tabs. -->
   <string name="tab_tray_multiselect_menu_item_bookmark">Faqeruaji</string>
   <!-- Content description (not visible, for screen readers etc.): Bookmarks selected tabs. -->
@@ -1493,12 +1572,18 @@
   <string name="remove_tab_from_collection">Hiq skedë prej koleksionit</string>
   <!-- Text for button to enter multiselect mode in tabs tray -->
   <string name="tabs_tray_select_tabs">Përzgjidhni skeda</string>
+  <!-- Text for tab manager search page when there are no results. -->
+  <string name="tab_manager_no_search_results">S’u gjetën përputhje.</string>
+  <!-- Additional text for tab manager search page when there are no results. -->
+  <string name="tab_manager_no_search_results_additional_text">Provoni një tjetër kërkim!</string>
   <!-- Content description (not visible, for screen readers etc.): Close tab button. Closes the current session when pressed -->
   <string name="close_tab">Mbylle skedën</string>
   <!-- Content description (not visible, for screen readers etc.): Close tab <title> button. %s is the tab title -->
   <string name="close_tab_title">Mbylle skedën %s</string>
   <!-- Content description (not visible, for screen readers etc.): Opens the open tabs menu when pressed -->
   <string name="open_tabs_menu">Menu skedash të hapura</string>
+  <!-- Content description (not visible, for screen readers etc.): Return to tab manager -->
+  <string name="tab_manager_search_bar_back_content_description">Kthehuni te përgjegjës skedash</string>
   <!-- Open tabs menu item to save tabs to collection -->
   <string name="tabs_menu_save_to_collection1">Ruaj skeda në koleksion</string>
   <!-- Text for the menu button to delete a collection -->
@@ -1515,6 +1600,8 @@
   <string name="delete_from_history">Fshije prej historiku</string>
   <!-- Postfix for private WebApp titles. %1$s is the name of the app (for example "Firefox"). -->
   <string name="pwa_site_controls_title_private">%1$s (Mënyrë Private)</string>
+  <!-- Content description (not visible, for screen readers etc.) for the button to open the Tab Search feature to search through tabs. -->
+  <string name="tab_manager_open_tab_search">Hap kërkim skedash</string>
   <!--
     History
 
@@ -1888,6 +1975,8 @@
   <string name="bookmark_delete_folder_content_description">Fshije dosjen</string>
   <!-- Content description for bookmark search floating action button -->
   <string name="bookmark_search_button_content_description">Kërkoni te faqerojtësit</string>
+  <!-- Content description for select folder screen search action button ("search" is a verb) -->
+  <string name="select_bookmark_search_button_content_description">Kërko në dosje</string>
   <!-- Content description for the overflow menu for a bookmark item. %s is a folder name or bookmark title. -->
   <string name="bookmark_item_menu_button_content_description">Menu Elementësh për %s</string>
   <!-- Content description for the "close" button in bookmarks screen. -->
@@ -1906,6 +1995,8 @@
   <string name="bookmark_empty_list_folder_description">Shtoni faqerojtës teksa shfletoni, që të mund të gjeni më vonë sajtet tuaj të parapëlqyer.</string>
   <!-- Description for the add new folder button when selecting a folder. -->
   <string name="bookmark_select_folder_new_folder_button_title">Dosje e re</string>
+  <!-- Bookmark snackbar message for moving a single item. %1$s is the title of the item being moved and %2$s is the new parent folder of the bookmark -->
+  <string name="bookmark_moved_single_item">U kalua %1$s te %2$s</string>
   <!--
     Site Permissions
 
@@ -2090,7 +2181,7 @@
   <!-- An option from the share dialog to sign into sync -->
   <string name="sync_sign_in">Për Njëkohësim, bëni hyrjen</string>
   <!-- An option from the three dot menu to sign in -->
-  <string name="sync_menu_sign_in">Hyni</string>
+  <string name="sync_menu_sign_in" tools:ignore="UnusedResources" moz:removedIn="149">Hyni</string>
   <!-- An option from the share dialog to send link to all other sync devices -->
   <string name="sync_send_to_all">Dërgoje te krejt pajisjet</string>
   <!-- An option from the share dialog to reconnect to sync -->
@@ -2209,7 +2300,7 @@
   <!-- Title for Accessibility Text Size Scaling Preference -->
   <string name="preference_accessibility_font_size_title">Madhësi Shkronjash</string>
   <!-- %d is the percentage of the slide bar for setting the text font size and %% will be announced as "percent". -->
-  <string name="a11y_preference_accessibility_font_size_percentage">%d %%.</string>
+  <string name="a11y_preference_accessibility_font_size_percentage" tools:ignore="UnusedResources" moz:removedIn="148">%d %%.</string>
   <!-- Title for Accessibility Text Automatic Size Scaling Preference -->
   <string name="preference_accessibility_auto_size_2">Përmasim automatik i shkronjave</string>
   <!-- Summary for Accessibility Text Automatic Size Scaling Preference -->
@@ -2250,7 +2341,7 @@
   <!-- Summary for the Delete browsing data on quit preference. "Quit" translation should match delete_browsing_data_on_quit_action translation. -->
   <string name="preference_summary_delete_browsing_data_on_quit_2">Fshin automatikisht të dhënat e shfletimit, kur përzgjidhni “Dil” nga menuja kryesore</string>
   <!-- Action item in menu for the Delete browsing data on quit feature -->
-  <string name="delete_browsing_data_on_quit_action">Dil</string>
+  <string name="delete_browsing_data_on_quit_action" tools:ignore="UnusedResources" moz:removedIn="149">Dil</string>
   <!-- Title text of a delete browsing data dialog. -->
   <string name="delete_history_prompt_title">Interval kohor për t’u fshirë</string>
   <!-- Body text of a delete browsing data dialog. -->
@@ -2677,6 +2768,10 @@
   <string name="edit_login_navigate_back_button_content_description">Shko mbrapsht</string>
   <!-- Content description, used by tools like screenreaders, to press on the edit login button. -->
   <string name="edit_login_button_content_description">Përpunoni kredenciale hyrjesh</string>
+  <!-- Content description, used by tools like screenreaders, to press on the add new login button. -->
+  <string name="saved_logins_add_new_login_button_content_description">Shtoni kredenciale hyrjeje të re</string>
+  <!-- Content description, used by tools like screenreaders, to press on the clear search text button. -->
+  <string name="saved_logins_clear_search_text_button_content_description">Spastro tekst kërkimi</string>
   <!-- Content Description (for screenreaders etc) read for the button to open a site in logins -->
   <string name="saved_login_open_site">Hape sajtin në shfletues</string>
   <!-- Content Description (for screenreaders etc) read for the button to reveal a password in logins -->
@@ -2743,8 +2838,12 @@
   <string name="preferences_addresses_sync_addresses_across_devices">Njëkohëso adresa mes pajisjesh</string>
   <!-- Preference option for syncing addresses across devices. This is displayed when the user is signed into sync -->
   <string name="preferences_addresses_sync_addresses">Njëkohëso adresa</string>
+  <!-- Content description navigating back from autofill settings screen. -->
+  <string name="autofill_settings_navigate_back_button_content_description">Mbrapsht</string>
   <!-- Title of the "Add card" screen -->
   <string name="credit_cards_add_card">Shtoni kartë</string>
+  <!-- Content description for the "credit card feature" top bar back button -->
+  <string name="credit_cards_navigate_back_button_content_description">Shko mbrapsht</string>
   <!-- Title of the "Edit card" screen -->
   <string name="credit_cards_edit_card">Përpunoni kartën</string>
   <!-- The header for the card number of a credit card -->
@@ -2821,6 +2920,8 @@
   <string name="addresses_village_township" tools:ignore="UnusedResources">Fshat ose Lokalitet</string>
   <!-- Label for an address field (e.g. mailing address) used as part of the form autofill feature. The Island field, used in places like the Cayman Islands and the Bahamas if an address is located on a specific island. -->
   <string name="addresses_island" tools:ignore="UnusedResources">Ishull</string>
+  <!-- Label for an address field (e.g. mailing address) used as part of the form autofill feature. The Townland field, specific to Ireland is a specific type of land division used in rural areas. -->
+  <string name="addresses_townland" tools:ignore="UnusedResources">Komunë</string>
   <!-- Label for an address field (e.g. mailing address) used as part of the form autofill feature. This specific field is used as secondary address information (below the country level, e.g. county) in Honk Kong, Sudan, Syria, Türkiye, and as sublocality (civil entity below a locality, e.g. district) in Korea. -->
   <string name="addresses_district" tools:ignore="UnusedResources">Distrikt</string>
   <!-- Label for an address field (e.g. mailing address) used as part of the form autofill feature. This specific field is used as a tertiary address information (below the state level, e.g. Tasmania in Australia -->
@@ -3878,11 +3979,9 @@
   <string name="settings_search_no_results_title">S’u prodhua gjë</string>
   <!-- Sub-message displayed when the search field is not empty but search results is empty. -->
   <string name="settings_search_no_results_message">Mbase të provohet një tjetër kërkim?</string>
-  <!--
-    Terms of use pop up prompt
+  <!-- ==== Terms of use pop up prompt ==== -->
 
-    Title for the pop up prompt
-  -->
+  <!-- Title for the pop up prompt -->
   <string name="terms_of_use_prompt_title">Kemi një përditësim</string>
   <!--
     Message for the terms of use pop up prompt
@@ -3906,4 +4005,34 @@
   <string name="terms_of_use_prompt_accept">Pranoje</string>
   <!-- Label for a button to postpone accepting the terms of use -->
   <string name="terms_of_use_prompt_postpone">Kujtoma më vonë</string>
+  <!-- ==== Experiment strings. ==== -->
+
+  <!-- A title for the popup prompt. -->
+  <string name="terms_of_use_prompt_title_option_a" tools:ignore="UnusedResources">Kushte e Përdorimi</string>
+  <!--
+    A title for the popup prompt.
+    %1$s is the product name "Firefox"
+  -->
+  <string name="terms_of_use_prompt_title_option_b" tools:ignore="UnusedResources">Një shënim nga %1$s</string>
+  <!--
+    Copy for the Terms of Use popup prompt body line two.
+    %1$s is the string terms_of_use_prompt_body_line_two_alternative_link ("here") that is a link to the Terms of Use
+  -->
+  <string name="terms_of_use_prompt_body_line_two_alternative" tools:ignore="UnusedResources">Mund të mësoni më tepër %1$s.</string>
+  <!-- Link text for terms_of_use_prompt_body_line_two_alternative that links to a site with more information about the Terms of Use -->
+  <string name="terms_of_use_prompt_body_line_two_alternative_link" tools:ignore="UnusedResources">këtu</string>
+  <!-- ==== End of Terms of use popup prompt. ==== -->
+
+  <!--
+    Privacy notice homepage banner
+
+    A message we show the user on the homepage when there is a new version of the privacy notice. 'Firefox' is intentionally hardcoded.
+    %1$s is replaced by an active link using privacy_notice_updated_homepage_message_privacy_notice as text (Privacy Notice)
+    %2$s is replaced by an active link using privacy_notice_updated_homepage_message_learn_more as text (Learn more)
+  -->
+  <string name="privacy_notice_updated_homepage_message" tools:ignore="BrandUsage,UnusedResources">I përditësuam %1$s tona për të pasqyruar veçoritë më të reja në Firefox. %2$s</string>
+  <!-- The first active link used in privacy_notice_updated_homepage_message -->
+  <string name="privacy_notice_updated_homepage_message_privacy_notice" tools:ignore="UnusedResources">Shënim Mbi Privatësinë</string>
+  <!-- The second active link used in privacy_notice_updated_homepage_message -->
+  <string name="privacy_notice_updated_homepage_message_learn_more" tools:ignore="UnusedResources">Mësoni më tepër</string>
 </resources>

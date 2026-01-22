@@ -6,13 +6,14 @@ import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
 const lazy = XPCOMUtils.declareLazy({
   IPPExceptionsManager:
-    "resource:///modules/ipprotection/IPPExceptionsManager.sys.mjs",
+    "moz-src:///browser/components/ipprotection/IPPExceptionsManager.sys.mjs",
   ProxyService: {
     service: "@mozilla.org/network/protocol-proxy-service;1",
     iid: Ci.nsIProtocolProxyService,
   },
 });
-const { TRANSPARENT_PROXY_RESOLVES_HOST } = Ci.nsIProxyInfo;
+const { TRANSPARENT_PROXY_RESOLVES_HOST, ALWAYS_TUNNEL_VIA_PROXY } =
+  Ci.nsIProxyInfo;
 const failOverTimeout = 10; // seconds
 
 const MODE_PREF = "browser.ipProtection.mode";
@@ -81,13 +82,15 @@ export class IPPChannelFilter {
    * @param {string} isolationKey - the isolation key for the proxy connection.
    * @param {MasqueProtocol|ConnectProtocol} protocol - the protocol definition.
    * @param {nsIProxyInfo} fallBackInfo - optional fallback proxy info.
+   * @param {boolean} [alwaysTunnel] - when true, always tunnel requests through the proxy
    * @returns {nsIProxyInfo}
    */
   static constructProxyInfo(
     authToken,
     isolationKey,
     protocol,
-    fallBackInfo = null
+    fallBackInfo = null,
+    alwaysTunnel = false
   ) {
     switch (protocol.name) {
       case "masque":
@@ -101,17 +104,21 @@ export class IPPChannelFilter {
           failOverTimeout,
           fallBackInfo
         );
-      case "connect":
+      case "connect": {
+        const flags =
+          TRANSPARENT_PROXY_RESOLVES_HOST |
+          (alwaysTunnel ? ALWAYS_TUNNEL_VIA_PROXY : 0);
         return lazy.ProxyService.newProxyInfo(
           protocol.scheme,
           protocol.host,
           protocol.port,
           authToken,
           isolationKey,
-          TRANSPARENT_PROXY_RESOLVES_HOST,
+          flags,
           failOverTimeout,
           fallBackInfo
         );
+      }
       default:
         throw new Error(
           "Cannot construct ProxyInfo for Unknown server-protocol: " +
@@ -267,10 +274,11 @@ export class IPPChannelFilter {
         return true;
       }
 
-      let loadingPrincipal = channel.loadInfo?.loadingPrincipal;
-      let hasExclusion =
-        loadingPrincipal &&
-        lazy.IPPExceptionsManager.hasExclusion(loadingPrincipal);
+      let principal =
+        channel.loadInfo?.loadingPrincipal ||
+        Services.scriptSecurityManager.getChannelURIPrincipal(channel);
+
+      let hasExclusion = lazy.IPPExceptionsManager.hasExclusion(principal);
 
       if (hasExclusion) {
         return true;

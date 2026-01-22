@@ -14,7 +14,7 @@ use glyph_rasterizer::{GlyphFormat, SubpixelDirection};
 use crate::gpu_types::{BrushFlags, BrushInstance, ImageSource, PrimitiveHeaders, UvRectKind, ZBufferId, ZBufferIdGenerator};
 use crate::gpu_types::SplitCompositeInstance;
 use crate::gpu_types::{PrimitiveInstanceData, RasterizationSpace, GlyphInstance};
-use crate::gpu_types::{PrimitiveHeader, PrimitiveHeaderIndex, TransformPaletteId, TransformPalette};
+use crate::gpu_types::{PrimitiveHeader, PrimitiveHeaderIndex};
 use crate::gpu_types::{ImageBrushUserData, get_shader_opacity, BoxShadowData, MaskInstance};
 use crate::gpu_types::{ClipMaskInstanceCommon, ClipMaskInstanceRect, ClipMaskInstanceBoxShadow};
 use crate::internal_types::{FastHashMap, Filter, FrameAllocator, FrameMemory, FrameVec, Swizzle, TextureSource};
@@ -31,10 +31,11 @@ use crate::renderer::{BlendMode, GpuBufferAddress, GpuBufferBlockF, GpuBufferBui
 use crate::renderer::MAX_VERTEX_TEXTURE_WIDTH;
 use crate::resource_cache::{GlyphFetchResult, ImageProperties};
 use crate::space::SpaceMapper;
+use crate::transform::{GpuTransformId, TransformPalette, TransformMetadata};
 use crate::visibility::{PrimitiveVisibilityFlags, VisibilityState};
 use smallvec::SmallVec;
 use std::{f32, i32, usize};
-use crate::util::{project_rect, MaxRect, TransformedRectKind, ScaleOffset};
+use crate::util::{project_rect, MaxRect, ScaleOffset};
 use crate::segment::EdgeAaSegmentMask;
 
 
@@ -941,17 +942,16 @@ impl BatchBuilder {
             return;
         }
 
-        let transform_id = transforms
-            .get_id(
-                prim_spatial_node_index,
-                root_spatial_node_index,
-                ctx.spatial_tree,
-            );
+        let transform_id = transforms.gpu.get_id(
+            prim_spatial_node_index,
+            root_spatial_node_index,
+            ctx.spatial_tree,
+        );
 
         // TODO(gw): Calculating this for every primitive is a bit
         //           wasteful. We should probably cache this in
         //           the scroll node...
-        let transform_kind = transform_id.transform_kind();
+        let transform_metadata = transform_id.metadata();
         let prim_info = &prim_instance.vis;
         let bounding_rect = &prim_info.clip_chain.pic_coverage_rect;
 
@@ -968,7 +968,7 @@ impl BatchBuilder {
             batch_features |= BatchFeatures::REPETITION;
         }
 
-        if transform_kind != TransformedRectKind::AxisAligned || is_anti_aliased {
+        if !transform_id.is_2d_axis_aligned() || is_anti_aliased {
             batch_features |= BatchFeatures::ANTIALIASING;
         }
 
@@ -1033,7 +1033,7 @@ impl BatchBuilder {
                             .unwrap();
                         local_clip_rect = transform.unmap_rect(&raster_clip_rect);
 
-                        transforms.get_custom(transform.to_transform())
+                        transforms.gpu.get_custom(transform.to_transform())
                     };
 
                     let picture_prim_header = PrimitiveHeader {
@@ -1048,7 +1048,7 @@ impl BatchBuilder {
 
                     let mut is_opaque = prim_info.clip_task_index == ClipTaskIndex::INVALID
                         && surface.is_opaque
-                        && transform_kind == TransformedRectKind::AxisAligned
+                        && transform_id.is_2d_axis_aligned()
                         && !is_anti_aliased;
 
                     let pic_task_id = picture.primary_render_task_id.unwrap();
@@ -1435,12 +1435,11 @@ impl BatchBuilder {
 
                                     let prim_header = PrimitiveHeader {
                                         z: z_id,
-                                        transform_id: transforms
-                                            .get_id(
-                                                prim_spatial_node_index,
-                                                root_spatial_node_index,
-                                                ctx.spatial_tree,
-                                            ),
+                                        transform_id: transforms.gpu.get_id(
+                                            prim_spatial_node_index,
+                                            root_spatial_node_index,
+                                            ctx.spatial_tree,
+                                        ),
                                         user_data: [
                                             uv_rect_address.as_int(),
                                             BrushFlags::PERSPECTIVE_INTERPOLATION.bits() as i32,
@@ -1511,7 +1510,7 @@ impl BatchBuilder {
                                         EdgeAaSegmentMask::all(),
                                         prim_header_index,
                                         bounding_rect,
-                                        transform_kind,
+                                        transform_metadata,
                                         z_id,
                                         prim_info.clip_task_index,
                                         ctx,
@@ -1585,7 +1584,7 @@ impl BatchBuilder {
 
         let needs_blending = !common_data.opacity.is_opaque ||
             prim_info.clip_task_index != ClipTaskIndex::INVALID ||
-            transform_kind == TransformedRectKind::Complex ||
+            !transform_metadata.is_2d_axis_aligned ||
             is_anti_aliased;
 
         let blend_mode = if needs_blending {
@@ -1682,7 +1681,7 @@ impl BatchBuilder {
                     common_data.edge_aa_mask,
                     prim_header_index,
                     bounding_rect,
-                    transform_kind,
+                    transform_metadata,
                     z_id,
                     prim_info.clip_task_index,
                     ctx,
@@ -1792,7 +1791,7 @@ impl BatchBuilder {
                     common_data.edge_aa_mask,
                     prim_header_index,
                     bounding_rect,
-                    transform_kind,
+                    transform_metadata,
                     z_id,
                     prim_info.clip_task_index,
                     ctx,
@@ -2110,7 +2109,7 @@ impl BatchBuilder {
                     common_data.edge_aa_mask,
                     prim_header_index,
                     bounding_rect,
-                    transform_kind,
+                    transform_metadata,
                     z_id,
                     prim_info.clip_task_index,
                     ctx,
@@ -2204,7 +2203,7 @@ impl BatchBuilder {
                     common_data.edge_aa_mask,
                     prim_header_index,
                     bounding_rect,
-                    transform_kind,
+                    transform_metadata,
                     z_id,
                     prim_info.clip_task_index,
                     ctx,
@@ -2308,7 +2307,7 @@ impl BatchBuilder {
                         common_data.edge_aa_mask,
                         prim_header_index,
                         bounding_rect,
-                        transform_kind,
+                        transform_metadata,
                         z_id,
                         prim_info.clip_task_index,
                         ctx,
@@ -2421,7 +2420,7 @@ impl BatchBuilder {
                         prim_data.edge_aa_mask,
                         prim_header_index,
                         bounding_rect,
-                        transform_kind,
+                        transform_metadata,
                         z_id,
                         prim_info.clip_task_index,
                         ctx,
@@ -2577,7 +2576,7 @@ impl BatchBuilder {
         prim_rect: LayoutRect,
         local_clip_rect: LayoutRect,
         clip_task_index: ClipTaskIndex,
-        transform_id: TransformPaletteId,
+        transform_id: GpuTransformId,
         z_id: ZBufferId,
         bounding_rect: &PictureRect,
         ctx: &RenderTargetContext,
@@ -2638,7 +2637,7 @@ impl BatchBuilder {
         brush_flags: BrushFlags,
         edge_aa_mask: EdgeAaSegmentMask,
         bounding_rect: &PictureRect,
-        transform_kind: TransformedRectKind,
+        transform_metadata: TransformMetadata,
         z_id: ZBufferId,
         prim_opacity: PrimitiveOpacity,
         clip_task_index: ClipTaskIndex,
@@ -2658,7 +2657,7 @@ impl BatchBuilder {
             let is_inner = segment.edge_flags.is_empty();
             let needs_blending = !prim_opacity.is_opaque ||
                                  clip_task_address != OPAQUE_TASK_ADDRESS ||
-                                 (!is_inner && transform_kind == TransformedRectKind::Complex) ||
+                                 (!is_inner && !transform_metadata.is_2d_axis_aligned) ||
                                  brush_flags.contains(BrushFlags::FORCE_AA);
 
             let textures = BatchTextures {
@@ -2704,7 +2703,7 @@ impl BatchBuilder {
         edge_aa_mask: EdgeAaSegmentMask,
         prim_header_index: PrimitiveHeaderIndex,
         bounding_rect: &PictureRect,
-        transform_kind: TransformedRectKind,
+        transform_metadata: TransformMetadata,
         z_id: ZBufferId,
         clip_task_index: ClipTaskIndex,
         ctx: &RenderTargetContext,
@@ -2731,7 +2730,7 @@ impl BatchBuilder {
                         brush_flags,
                         edge_aa_mask,
                         bounding_rect,
-                        transform_kind,
+                        transform_metadata,
                         z_id,
                         prim_opacity,
                         clip_task_index,
@@ -2758,7 +2757,7 @@ impl BatchBuilder {
                         brush_flags,
                         edge_aa_mask,
                         bounding_rect,
-                        transform_kind,
+                        transform_metadata,
                         z_id,
                         prim_opacity,
                         clip_task_index,
@@ -2973,8 +2972,8 @@ impl ClipBatcher {
     ) {
         let instance = ClipMaskInstanceRect {
             common: ClipMaskInstanceCommon {
-                clip_transform_id: TransformPaletteId::IDENTITY,
-                prim_transform_id: TransformPaletteId::IDENTITY,
+                clip_transform_id: GpuTransformId::IDENTITY,
+                prim_transform_id: GpuTransformId::IDENTITY,
                 sub_rect,
                 task_origin,
                 screen_origin,
@@ -3109,13 +3108,13 @@ impl ClipBatcher {
             let clip_instance = clip_store.get_instance_from_range(&clip_node_range, i);
             let clip_node = &ctx.data_stores.clip[clip_instance.handle];
 
-            let clip_transform_id = transforms.get_id(
+            let clip_transform_id = transforms.gpu.get_id(
                 clip_node.item.spatial_node_index,
                 ctx.root_spatial_node_index,
                 ctx.spatial_tree,
             );
 
-            let prim_transform_id = transforms.get_id(
+            let prim_transform_id = transforms.gpu.get_id(
                 root_spatial_node_index,
                 ctx.root_spatial_node_index,
                 ctx.spatial_tree,

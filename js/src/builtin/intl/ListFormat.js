@@ -3,18 +3,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 /**
- * ListFormat internal properties.
- */
-function listFormatLocaleData() {
-  // ListFormat don't support any extension keys.
-  return {};
-}
-var listFormatInternalProperties = {
-  localeData: listFormatLocaleData,
-  relevantExtensionKeys: [],
-};
-
-/**
  * Intl.ListFormat ( [ locales [ , options ] ] )
  *
  * Compute an internal properties object from |lazyListFormatData|.
@@ -24,20 +12,13 @@ function resolveListFormatInternals(lazyListFormatData) {
 
   var internalProps = std_Object_create(null);
 
-  var ListFormat = listFormatInternalProperties;
-
   // Compute effective locale.
 
-  // Step 9.
-  var localeData = ListFormat.localeData;
-
-  // Step 10.
-  var r = ResolveLocale(
+  // Steps 9-10.
+  var r = intl_ResolveLocale(
     "ListFormat",
     lazyListFormatData.requestedLocales,
     lazyListFormatData.opt,
-    ListFormat.relevantExtensionKeys,
-    localeData
   );
 
   // Step 11.

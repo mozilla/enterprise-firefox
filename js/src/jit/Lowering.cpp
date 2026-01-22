@@ -2934,7 +2934,7 @@ void LIRGenerator::visitLinearizeString(MLinearizeString* ins) {
   MDefinition* str = ins->string();
   MOZ_ASSERT(str->type() == MIRType::String);
 
-  auto* lir = new (alloc()) LLinearizeString(useRegister(str));
+  auto* lir = new (alloc()) LLinearizeString(useRegisterAtStart(str));
   define(lir, ins);
   assignSafepoint(lir, ins);
 }
@@ -3256,9 +3256,8 @@ void LIRGenerator::visitStringTrimStartIndex(MStringTrimStartIndex* ins) {
   auto* string = ins->string();
   MOZ_ASSERT(string->type() == MIRType::String);
 
-  auto* lir = new (alloc()) LStringTrimStartIndex(useRegister(string));
-  define(lir, ins);
-  assignSafepoint(lir, ins);
+  auto* lir = new (alloc()) LStringTrimStartIndex(useRegisterAtStart(string));
+  defineReturn(lir, ins);
 }
 
 void LIRGenerator::visitStringTrimEndIndex(MStringTrimEndIndex* ins) {
@@ -3268,10 +3267,9 @@ void LIRGenerator::visitStringTrimEndIndex(MStringTrimEndIndex* ins) {
   auto* start = ins->start();
   MOZ_ASSERT(start->type() == MIRType::Int32);
 
-  auto* lir = new (alloc())
-      LStringTrimEndIndex(useRegister(string), useRegister(start));
-  define(lir, ins);
-  assignSafepoint(lir, ins);
+  auto* lir = new (alloc()) LStringTrimEndIndex(useRegisterAtStart(string),
+                                                useRegisterAtStart(start));
+  defineReturn(lir, ins);
 }
 
 void LIRGenerator::visitStart(MStart* start) {}
@@ -3865,8 +3863,8 @@ void LIRGenerator::visitWasmBuiltinTruncateToInt32(
 }
 
 void LIRGenerator::visitWasmAnyRefFromJSValue(MWasmAnyRefFromJSValue* ins) {
-  LWasmAnyRefFromJSValue* lir =
-      new (alloc()) LWasmAnyRefFromJSValue(useBox(ins->input()), tempDouble());
+  LWasmAnyRefFromJSValue* lir = new (alloc())
+      LWasmAnyRefFromJSValue(useBox(ins->input()), tempDouble(), tempBox());
   define(lir, ins);
   assignSafepoint(lir, ins);
 }
@@ -4115,6 +4113,15 @@ void LIRGenerator::visitDynamicImport(MDynamicImport* ins) {
   defineReturn(lir, ins);
   assignSafepoint(lir, ins);
 }
+
+#ifdef ENABLE_SOURCE_PHASE_IMPORTS
+void LIRGenerator::visitDynamicImportSource(MDynamicImportSource* ins) {
+  LDynamicImportSource* lir =
+      new (alloc()) LDynamicImportSource(useBoxAtStart(ins->specifier()));
+  defineReturn(lir, ins);
+  assignSafepoint(lir, ins);
+}
+#endif
 
 void LIRGenerator::visitLambda(MLambda* ins) {
   MOZ_ASSERT(ins->environmentChain()->type() == MIRType::Object);
@@ -8886,6 +8893,10 @@ void LIRGenerator::visitWasmRefCastConcrete(MWasmRefCastConcrete* ins) {
   defineReuseInput(new (alloc()) LWasmRefCastConcrete(
                        ref, regs.superSTV, regs.scratch1, regs.scratch2),
                    ins, 0);
+}
+
+void LIRGenerator::visitWasmRefCastInfallible(MWasmRefCastInfallible* ins) {
+  redefine(ins, ins->ref());
 }
 
 void LIRGenerator::visitWasmRefConvertAnyExtern(MWasmRefConvertAnyExtern* ins) {

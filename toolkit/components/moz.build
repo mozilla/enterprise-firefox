@@ -68,6 +68,7 @@ DIRS += [
     "promiseworker",
     "prompts",
     "protobuf",
+    "qrcode",
     "remotebrowserutils",
     "reflect",
     "reputationservice",
@@ -103,7 +104,6 @@ if CONFIG["MOZ_BUILD_APP"] != "mobile/android":
         "narrate",
         "pictureinpicture",
         "reader",
-        "viaduct",
         "uniffi-js",
         "uniffi-bindgen-gecko-js/components",
     ]

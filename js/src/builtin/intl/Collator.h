@@ -57,17 +57,6 @@ class CollatorObject : public NativeObject {
 };
 
 /**
- * Returns an array with the collation type identifiers per Unicode
- * Technical Standard 35, Unicode Locale Data Markup Language, for the
- * collations supported for the given locale. "standard" and "search" are
- * excluded.
- *
- * Usage: collations = intl_availableCollations(locale)
- */
-[[nodiscard]] extern bool intl_availableCollations(JSContext* cx, unsigned argc,
-                                                   JS::Value* vp);
-
-/**
  * Compares x and y (which must be String values), and returns a number less
  * than 0 if x < y, 0 if x = y, or a number greater than 0 if x > y according
  * to the sort order for the locale and collation options of the given

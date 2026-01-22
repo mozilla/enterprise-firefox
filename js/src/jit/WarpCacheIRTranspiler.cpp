@@ -9,8 +9,7 @@
 #include "mozilla/Casting.h"
 #include "mozilla/Maybe.h"
 
-#include "jsmath.h"
-
+#include "builtin/Math.h"
 #include "jit/AtomicOp.h"
 #include "jit/CacheIR.h"
 #include "jit/CacheIRCompiler.h"
@@ -2896,7 +2895,10 @@ bool WarpCacheIRTranspiler::emitStringIncludesResult(
   MDefinition* str = getOperand(strId);
   MDefinition* searchStr = getOperand(searchStrId);
 
-  auto* includes = MStringIncludes::New(alloc(), str, searchStr);
+  auto* linear = MLinearizeString::New(alloc(), str);
+  add(linear);
+
+  auto* includes = MStringIncludes::New(alloc(), linear, searchStr);
   add(includes);
 
   pushResult(includes);
@@ -2908,7 +2910,10 @@ bool WarpCacheIRTranspiler::emitStringIndexOfResult(
   MDefinition* str = getOperand(strId);
   MDefinition* searchStr = getOperand(searchStrId);
 
-  auto* indexOf = MStringIndexOf::New(alloc(), str, searchStr);
+  auto* linear = MLinearizeString::New(alloc(), str);
+  add(linear);
+
+  auto* indexOf = MStringIndexOf::New(alloc(), linear, searchStr);
   add(indexOf);
 
   pushResult(indexOf);

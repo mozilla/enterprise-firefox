@@ -18,9 +18,9 @@
 #include <cmath>
 
 #include "jsfriendapi.h"
-#include "jsnum.h"
 #include "jstypes.h"
 
+#include "builtin/Number.h"
 #include "builtin/SelfHostingDefines.h"
 #include "ds/Sort.h"
 #include "jit/InlinableNatives.h"
@@ -48,6 +48,7 @@
 #include "vm/ToSource.h"  // js::ValueToSource
 #include "vm/TypedArrayObject.h"
 #include "vm/WrapperObject.h"
+
 #include "builtin/Sorting-inl.h"
 #include "vm/ArgumentsObject-inl.h"
 #include "vm/ArrayObject-inl.h"

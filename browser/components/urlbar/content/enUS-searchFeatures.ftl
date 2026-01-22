@@ -29,22 +29,6 @@ urlbar-group-shortcuts =
 urlbar-group-best-match =
   .label = Top pick
 
-# Label shown above an extension suggestion in the urlbar results (an
-# alternative phrasing is "Extension for Firefox"). It's singular since only one
-# suggested extension is displayed.
-urlbar-group-addon =
-  .label = { -brand-product-name } extension
-
-# Label shown above a MDN suggestion in the urlbar results.
-urlbar-group-mdn =
-  .label = Recommended resource
-
-# A label shown above urlbar suggestions for businesses and other locations
-# in the user's city or a city they included in their search string (e.g., Yelp
-# suggestions).
-urlbar-group-local =
-  .label = Local recommendations
-
 # A message that replaces a result when the user dismisses a single suggestion.
 firefox-suggest-dismissal-acknowledgment-one = Thanks for your feedback. You won’t see this suggestion again.
 
@@ -108,6 +92,8 @@ firefox-suggest-command-dont-show-this-suggestion =
   .label = Don’t show this suggestion
 firefox-suggest-command-dont-show-any-suggestions =
   .label = Don’t show any suggestions
+firefox-suggest-command-dont-show-addons =
+  .label = Don’t show { -brand-product-name } extension suggestions
 
 ## These strings are used for add-on suggestions in the urlbar.
 

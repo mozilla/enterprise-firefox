@@ -54,6 +54,7 @@
 #include "mozilla/dom/ElementBinding.h"
 #include "mozilla/dom/Event.h"
 #include "mozilla/dom/Exceptions.h"
+#include "mozilla/dom/FeaturePolicyUtils.h"
 #include "mozilla/dom/HTMLButtonElement.h"
 #include "mozilla/dom/HTMLDetailsElement.h"
 #include "mozilla/dom/HTMLDialogElement.h"
@@ -118,6 +119,7 @@
 
 #ifdef ACCESSIBILITY
 #  include "mozilla/dom/AccessibleNode.h"
+#  include "nsAccessibilityService.h"
 #endif
 
 using namespace mozilla;
@@ -3385,16 +3387,11 @@ inline static Element* FindMatchingElementWithId(
       aRoot.IsInUncomposedDoc() || aRoot.IsInShadowTree(),
       "Don't call me if the root is not in the document or in a shadow tree");
 
-  const nsTArray<Element*>* elements =
-      aContainingDocOrShadowRoot.GetAllElementsForId(aId);
-  if (!elements) {
-    // Nothing to do; we're done
-    return nullptr;
-  }
+  Span elements = aContainingDocOrShadowRoot.GetAllElementsForId(aId);
 
   // XXXbz: Should we fall back to the tree walk if |elements| is long,
   // for some value of "long"?
-  for (Element* element : *elements) {
+  for (Element* element : elements) {
     if (MOZ_UNLIKELY(element == &aRoot)) {
       continue;
     }
@@ -3591,7 +3588,7 @@ nsGenericHTMLElement* nsINode::GetEffectiveCommandForElement() const {
 
   if (const auto* buttonControl = HTMLButtonElement::FromNodeOrNull(this)) {
     if (auto* popover = nsGenericHTMLElement::FromNodeOrNull(
-            buttonControl->GetCommandForElement())) {
+            buttonControl->GetCommandForElementInternal())) {
       if (popover->GetPopoverAttributeState() != PopoverAttributeState::None) {
         return popover;
       }
@@ -3608,7 +3605,7 @@ nsGenericHTMLElement* nsINode::GetEffectivePopoverTargetElement() const {
     return nullptr;
   }
   if (auto* popover = nsGenericHTMLElement::FromNodeOrNull(
-          formControl->GetPopoverTargetElement())) {
+          formControl->GetPopoverTargetElementInternal())) {
     if (popover->GetPopoverAttributeState() != PopoverAttributeState::None) {
       return popover;
     }
@@ -4154,10 +4151,6 @@ void nsINode::NotifyDevToolsOfRemovalsOfChildren() {
   }
 }
 
-ShadowRoot* nsINode::GetShadowRoot() const {
-  return IsContent() ? AsContent()->GetShadowRoot() : nullptr;
-}
-
 ShadowRoot* nsINode::GetShadowRootForSelection() const {
   if (!StaticPrefs::dom_shadowdom_selection_across_boundary_enabled()) {
     return nullptr;
@@ -4273,6 +4266,18 @@ void nsINode::AncestorRevealingAlgorithm(ErrorResult& aRv) {
       }
     }
   }
+}
+
+void nsINode::AriaNotify(const nsAString& aAnnouncement,
+                         const AriaNotificationOptions& aOptions) {
+  if (!FeaturePolicyUtils::IsFeatureAllowed(OwnerDoc(), u"aria-notify"_ns)) {
+    return;
+  }
+#ifdef ACCESSIBILITY
+  if (nsAccessibilityService* accService = GetAccService()) {
+    accService->AriaNotify(this, aAnnouncement, aOptions);
+  }
+#endif
 }
 
 NS_IMPL_ISUPPORTS(nsNodeWeakReference, nsIWeakReference)

@@ -18,8 +18,7 @@ const TEST_PAGE_URL =
  *   The keys are "enlarge", "reduce" and "reset" for readability,
  *   and internally this function maps those keys to the appropriate
  *   commands.
- * @returns Promise
- * @resolves undefined
+ * @returns {Promise<void>}
  */
 async function waitForCommandEnabledState(expectedState) {
   const COMMAND_MAP = {
@@ -54,8 +53,8 @@ async function waitForCommandEnabledState(expectedState) {
 function assertTextZoomCommandCheckedState(isChecked) {
   let command = document.getElementById("cmd_fullZoomToggle");
   Assert.equal(
-    command.getAttribute("checked"),
-    "" + isChecked,
+    command.hasAttribute("checked"),
+    isChecked,
     "Text zoom command has expected checked attribute"
   );
 }

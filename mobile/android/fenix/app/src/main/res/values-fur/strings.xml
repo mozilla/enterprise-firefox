@@ -229,9 +229,9 @@
   <!-- Browser menu button that opens account settings -->
   <string name="browser_menu_account_settings">Informazions account</string>
   <!-- Browser menu button that sends a user to help articles -->
-  <string name="browser_menu_help">Jutori</string>
+  <string name="browser_menu_help" tools:ignore="UnusedResources" moz:removedIn="149">Jutori</string>
   <!-- Browser menu button that sends a to a the what's new article -->
-  <string name="browser_menu_whats_new">Novitâts</string>
+  <string name="browser_menu_whats_new" tools:ignore="UnusedResources" moz:removedIn="149">Novitâts</string>
   <!-- Browser menu button that opens the settings menu -->
   <string name="browser_menu_settings">Impostazions</string>
   <!-- Browser menu button that opens a user's library -->
@@ -239,7 +239,7 @@
   <!-- Browser menu toggle that requests a desktop site -->
   <string name="browser_menu_desktop_site">Sît par scritori</string>
   <!-- Browser menu button that reopens a private tab as a regular tab -->
-  <string name="browser_menu_open_in_regular_tab">Vierç intune schede normâl</string>
+  <string name="browser_menu_open_in_regular_tab" tools:ignore="UnusedResources" moz:removedIn="149">Vierç intune schede normâl</string>
   <!-- Browser menu toggle that adds a shortcut to the site on the device home screen. -->
   <string name="browser_menu_add_to_homescreen">Zonte a schermade principâl</string>
   <!-- Browser menu toggle that adds a PWA of the site on the device home screen. -->
@@ -267,7 +267,7 @@
     Browser menu text shown in custom tabs to indicate this is a Fenix tab
     %1$s is the name of the app (for example "Firefox").
   -->
-  <string name="browser_menu_powered_by">AL FUNZIONE GRACIE A %1$s</string>
+  <string name="browser_menu_powered_by" tools:ignore="UnusedResources" moz:removedIn="149">AL FUNZIONE GRACIE A %1$s</string>
   <!--
     Browser menu text shown in custom tabs to indicate this is a Fenix tab
     %1$s is the name of the app (for example "Firefox").
@@ -280,15 +280,15 @@
   <!-- Browser menu button to open the current page in an external app -->
   <string name="browser_menu_open_app_link">Vierç intune aplicazion</string>
   <!-- Browser menu button to show reader view appearance controls e.g. the used font type and size -->
-  <string name="browser_menu_customize_reader_view">Personalize viodude di leture</string>
+  <string name="browser_menu_customize_reader_view" tools:ignore="UnusedResources" moz:removedIn="149">Personalize viodude di leture</string>
   <!-- Browser menu button to show reader view appearance controls e.g. the used font type and size -->
   <string name="browser_menu_customize_reader_view_2">Personalize viodude di leture</string>
   <!-- Browser menu label for adding a bookmark -->
-  <string name="browser_menu_add">Zonte</string>
+  <string name="browser_menu_add" tools:ignore="UnusedResources" moz:removedIn="149">Zonte</string>
   <!-- Browser menu label for editing a bookmark -->
-  <string name="browser_menu_edit">Modifiche</string>
+  <string name="browser_menu_edit" tools:ignore="UnusedResources" moz:removedIn="149">Modifiche</string>
   <!-- Button shown on the home page that opens the Customize home settings -->
-  <string name="browser_menu_customize_home_1">Personalize pagjine iniziâl</string>
+  <string name="browser_menu_customize_home_1" tools:ignore="UnusedResources" moz:removedIn="149">Personalize pagjine iniziâl</string>
   <!-- Browser menu label to sign in to sync on the device using Mozilla accounts -->
   <string name="browser_menu_sign_in">Jentre</string>
   <!-- Browser menu caption label for the "Sign in" browser menu item described in `browser_menu_sign_in` -->
@@ -307,10 +307,6 @@
   <string name="browser_close_main_menu_handlebar_content_description">Siere menù</string>
   <!-- Content description (not visible, for screen readers etc.) for main menu navigation header. -->
   <string name="browser_main_menu_content_description_navigation_header">Navigazion</string>
-  <!-- Content description (not visible, for screen readers etc.) for main menu help button. -->
-  <string name="browser_main_menu_content_description_help_button" tools:ignore="UnusedResources" moz:removedIn="146">Jutori</string>
-  <!-- Content description (not visible, for screen readers etc.) for main menu settings button. -->
-  <string name="browser_main_menu_content_description_settings_button" tools:ignore="UnusedResources" moz:removedIn="146">Impostazions</string>
   <!-- Content description (not visible, for screen readers etc.) for bottom sheet handlebar extensions menu. -->
   <string name="browser_extensions_menu_handlebar_content_description">Siere il menù des estensions</string>
   <!-- Content description (not visible, for screen readers etc.) for bottom sheet handlebar save menu. -->
@@ -328,7 +324,7 @@
   <!-- Browser menu label for navigating to the translation feature, which provides language translation options the current visited page -->
   <string name="browser_menu_translate_page_2">Tradûs pagjine</string>
   <!-- Browser menu label for navigating to the Web Compat Reporter feature, which provides users the ability to send bug reports for broken sites. -->
-  <string name="browser_menu_webcompat_reporter">Segnale probleme cul sît…</string>
+  <string name="browser_menu_webcompat_reporter" tools:ignore="UnusedResources" moz:removedIn="149">Segnale probleme cul sît…</string>
   <!-- Browser menu label for navigating to the Web Compat Reporter feature, which provides users the ability to send bug reports for broken sites. -->
   <string name="browser_menu_webcompat_reporter_2">Segnale problemis cul sît</string>
   <!-- Browser menu label that is displayed when the current page has been translated by the translation feature. -->
@@ -452,19 +448,8 @@
   <string name="juno_onboarding_privacy_notice_text" tools:ignore="BrandUsage">Informative su la riservatece di Firefox</string>
   <!-- Title for set firefox as default browser screen used by Nimbus experiments. -->
   <string name="juno_onboarding_default_browser_title_nimbus_2">Nus plâs tignîti di cont</string>
-  <!--
-    Title for set firefox as default browser screen used by Nimbus experiments.
-    Note: The word "Firefox" should NOT be translated
-  -->
-  <string name="juno_onboarding_default_browser_title_nimbus_3" tools:ignore="BrandUsage,UnusedResources" moz:removedIn="146">Scuvierç parcè che milions di personis a adorin Firefox</string>
-  <!-- Title for set firefox as default browser screen used by Nimbus experiments. -->
-  <string name="juno_onboarding_default_browser_title_nimbus_4" tools:ignore="UnusedResources" moz:removedIn="146">Navigazion sigure cun plui sielte</string>
   <!-- Description for set firefox as default browser screen used by Nimbus experiments. -->
   <string name="juno_onboarding_default_browser_description_nimbus_3">Il nestri navigadôr, supuartât di une organizazion cence fins di vuadagn, al bloche in automatic lis societâts che, di scuindon, a cirin di stâti daûr tes tôs ativitâts ator pal web.</string>
-  <!-- Description for set firefox as default browser screen used by Nimbus experiments. -->
-  <string name="juno_onboarding_default_browser_description_nimbus_4" tools:ignore="UnusedResources" moz:removedIn="146">Plui di 100 milions di personis a protezin la lôr riservatece sielzint un navigadôr che al è supuartât di une organizazion cence fins di vuadagn.</string>
-  <!-- Description for set firefox as default browser screen used by Nimbus experiments. -->
-  <string name="juno_onboarding_default_browser_description_nimbus_5" tools:ignore="UnusedResources" moz:removedIn="146">Spiis cognossudis? Blocadis in automatic. Estensions? Provilis dutis, a \'nd è plui di 700. PDFs? Il nestri letôr integrât al rint plui facile la lôr gjestion.</string>
   <!-- Text for the button to set firefox as default browser on the device -->
   <string name="juno_onboarding_default_browser_positive_button" tools:ignore="UnusedResources">Met come navigadôr predefinît</string>
   <!-- Text for the button dismiss the screen and move on with the flow -->
@@ -624,6 +609,86 @@
   <string name="onboarding_marketing_body_1" tools:ignore="BrandUsage,UnusedResources">Condivît cemût che tu âs discuviert Firefox e il fat che tu lu dopris cui colaboradôrs pe comercializazion di Mozilla. Chescj dâts no vegnin mai vendûts.</string>
   <!-- Marketing onboarding page button label variant. Button to confirm choice and start browsing. -->
   <string name="onboarding_marketing_positive_button_1" tools:ignore="UnusedResources">Acete e scomence a navigâ</string>
+  <!-- ==== Project "Nova" onboarding strings ==== -->
+
+  <!-- "Continue" onboarding button. -->
+  <string name="nova_onboarding_continue_button" tools:ignore="UnusedResources">Continue</string>
+  <!-- "Not now" onboarding button. -->
+  <string name="nova_onboarding_negative_button" tools:ignore="UnusedResources">No cumò</string>
+  <!-- Terms of use (ToU) onboarding title. -->
+  <string name="nova_onboarding_tou_title" tools:ignore="UnusedResources">Prontiti a navigâ in plene libertât</string>
+  <!-- Terms of use (ToU) onboarding subtitle. -->
+  <string name="nova_onboarding_tou_subtitle" tools:ignore="UnusedResources">Svelt, sigûr e no ti tradirà.\nLa navigazion e je ancjemò plui plasevule.</string>
+  <!--
+    Terms of use (ToU) onboarding body line one.
+    %1$s is replaced by an active link, using nova_onboarding_tou_body_line_1_link_text as text (“Firefox Terms of Use”).
+  -->
+  <string name="nova_onboarding_tou_body_line_1" tools:ignore="UnusedResources">Continuant, tu acetis lis %1$s.</string>
+  <!-- Terms of use (ToU) onboarding body line one link text for nova_onboarding_tou_body_line_1. 'Firefox' is intentionally hardcoded. -->
+  <string name="nova_onboarding_tou_body_line_1_link_text" tools:ignore="BrandUsage,UnusedResources">cundizions di utilizazion di Firefox</string>
+  <!--
+    Terms of use (ToU) onboarding body line two. 'Firefox' is intentionally hardcoded.
+    %1$s is replaced by an active link, using nova_onboarding_tou_body_line_2_link_text as text (“Privacy Notice”).
+  -->
+  <string name="nova_onboarding_tou_body_line_2" tools:ignore="BrandUsage,UnusedResources">La tô riservatece e sta sul cûr a Firefox. Altris informazions te nestre %1$s.</string>
+  <!-- Terms of use (ToU) onboarding body line two link text for nova_onboarding_tou_body_line_2. -->
+  <string name="nova_onboarding_tou_body_line_2_link_text" tools:ignore="UnusedResources">Informative su la riservatece</string>
+  <!--
+    Terms of use (ToU) onboarding body line three. 'Firefox' and 'Mozilla' are intentionally hardcoded.
+    %1$s is replaced by an active link, using nova_onboarding_tou_body_line_3_link_text as text (“Manage Settings”).
+  -->
+  <string name="nova_onboarding_tou_body_line_3" tools:ignore="BrandUsage,UnusedResources">Par judâ a miorâ il navigadôr, Firefox al mande a Mozilla dâts diagnostics e di interazion. %1$s</string>
+  <!-- Terms of use (ToU) onboarding body line three link text for nova_onboarding_tou_body_line_3. -->
+  <string name="nova_onboarding_tou_body_line_3_link_text" tools:ignore="UnusedResources">Gjestìs impostazions</string>
+  <!-- "Set to default" onboarding title. -->
+  <string name="nova_onboarding_set_to_default_title" tools:ignore="UnusedResources">Dîs mandi par simpri aes spiis fastidiosis</string>
+  <!-- "Set to default" onboarding subtitle. -->
+  <string name="nova_onboarding_set_to_default_subtitle" tools:ignore="UnusedResources">O parìn i tiei dâts e o blochìn lis aziendis dal spiâ i tiei clics, dut in mût automatic.</string>
+  <!-- "Set to default" onboarding button. -->
+  <string name="nova_onboarding_set_to_default_button" tools:ignore="UnusedResources">Met come navigadôr predefinît</string>
+  <!-- Toolbar selection onboarding title. -->
+  <string name="nova_onboarding_toolbar_selection_title" tools:ignore="UnusedResources">Sielç la tô sbare de direzion</string>
+  <!-- Toolbar selection onboarding "top" option label. -->
+  <string name="nova_onboarding_toolbar_selection_top_label" tools:ignore="UnusedResources">Adalt</string>
+  <!-- Toolbar selection onboarding "bottom" option label. -->
+  <string name="nova_onboarding_toolbar_selection_bottom_label" tools:ignore="UnusedResources">In bas</string>
+  <!-- Theme selection onboarding title. -->
+  <string name="nova_onboarding_theme_selection_title" tools:ignore="UnusedResources">Sielç il to teme</string>
+  <!-- Theme selection onboarding "automatic" option label. -->
+  <string name="nova_onboarding_theme_selection_automatic_label" tools:ignore="UnusedResources">Automatic</string>
+  <!-- Theme selection onboarding "light" option label. -->
+  <string name="nova_onboarding_theme_selection_light_label" tools:ignore="UnusedResources">Clâr</string>
+  <!-- Theme selection onboarding "dark" option label. -->
+  <string name="nova_onboarding_theme_selection_dark_label" tools:ignore="UnusedResources">Scûr</string>
+  <!-- Sync onboarding title. -->
+  <string name="nova_onboarding_sync_title" tools:ignore="UnusedResources">Ripie dut intun lamp di dulà che tu vevis molât</string>
+  <!-- Sync onboarding subtitle. -->
+  <string name="nova_onboarding_sync_subtitle" tools:ignore="UnusedResources">Dopre intun lamp segnelibris, passwords e tant altri su cualsisei dispositîf. I tiei dâts personâi a son protets e al sigûr in gracie de criptografie.</string>
+  <!-- Sync onboarding button. -->
+  <string name="nova_onboarding_sync_button" tools:ignore="UnusedResources">Scomence la sincronizazion</string>
+  <!-- Marketing onboarding title. -->
+  <string name="nova_onboarding_marketing_title" tools:ignore="UnusedResources">Judinus a fâ sù un internet miôr</string>
+  <!--
+    Marketing onboarding body. 'Firefox' and 'Mozilla' are intentionally hardcoded.
+    %1$s is replaced by an active link, using nova_onboarding_marketing_body_link_text as text (“How we use the data”).
+  -->
+  <string name="nova_onboarding_marketing_body" tools:ignore="BrandUsage,UnusedResources">Condivît cemût che tu âs scuviert Firefox e il fat che tu lu dopris cui colaboradôrs comerciâi di Mozilla. Chescj dâts no vegnin mai vendûts. %1$s</string>
+  <!-- Marketing onboarding body link text. -->
+  <string name="nova_onboarding_marketing_body_link_text" tools:ignore="UnusedResources">Cemût che o doprìn i dâts</string>
+  <!-- Notifications onboarding title. 'Firefox' is intentionally hardcoded. -->
+  <string name="nova_onboarding_notifications_title" tools:ignore="BrandUsage,UnusedResources">Lis notifichis ti judin a restâ al sigûr cun Firefox</string>
+  <!-- Notifications onboarding subtitle. 'Firefox' is intentionally hardcoded. -->
+  <string name="nova_onboarding_notifications_subtitle" tools:ignore="BrandUsage,UnusedResources">Scuvierç lis ultimis funzionalitâts di Firefox pe riservatece, par restâ simpri informât su cemût restâ protet.</string>
+  <!-- Notifications onboarding button. -->
+  <string name="nova_onboarding_notifications_button" tools:ignore="UnusedResources">Ative lis notifichis</string>
+  <!-- "Add search widget" onboarding title. -->
+  <string name="nova_onboarding_add_search_widget_title" tools:ignore="UnusedResources">Rint ogni ricercje plui riservade</string>
+  <!-- "Add search widget" onboarding subtitle. 'Firefox' is intentionally hardcoded. -->
+  <string name="nova_onboarding_add_search_widget_subtitle" tools:ignore="BrandUsage,UnusedResources">Invie dutis lis ricercjis de schermade iniziâl dal to telefon e cognòs lis protezions automatichis di Firefox che ti parin.</string>
+  <!-- "Add search widget" onboarding button. 'Firefox' is intentionally hardcoded. -->
+  <string name="nova_onboarding_add_search_widget_button" tools:ignore="BrandUsage,UnusedResources">Zonte widget di Firefox</string>
+  <!-- ==== End of Project "Nova" onboarding strings ==== -->
+
   <!-- Onboarding header for the toolbar selection card, used by Nimbus experiments. -->
   <string name="onboarding_customize_toolbar_title" tools:ignore="UnusedResources">Sielç la posizion de sbare dai struments</string>
   <!-- Onboarding sub header for toolbar selection card, used by Nimbus experiments. -->
@@ -795,7 +860,7 @@
   <!-- Message shown in the error page for when trying to access a http website while https only mode is enabled. The message has two paragraphs. This is the second. -->
   <string name="errorpage_httpsonly_message_summary">Dut câs al è ancje pussibil che al sedi un tentatîf di atac. Se tu continuis su chest sît web, no tu varessis di inserî nissune informazion sensibile. Se tu continuis, la modalitât dome-HTTPS e vignarà disativade in mût temporani par chest sît.</string>
   <!-- Preference for accessibility -->
-  <string name="preferences_accessibility">Acessibilitât</string>
+  <string name="preferences_accessibility">Acès facilitât</string>
   <!-- Preference to override the Mozilla account server -->
   <string name="preferences_override_account_server">Servidôr di account Mozilla personalizât</string>
   <!-- Preference to override the Sync token server -->
@@ -1057,8 +1122,6 @@
   <string name="alternative_app_icon_group_solid_colors">Colôrs solits</string>
   <!-- Title for the "Gradients" group of alternative app icon variants in the icon picker screen. This group contains icons with gradient backgrounds inspired by natural light conditions. -->
   <string name="alternative_app_icon_group_gradients">Gradients</string>
-  <!-- Title for the "Other" group of alternative app icon variants in the icon picker screen. This group includes retro, pixel art, themed, and artist-created icons. -->
-  <string name="alternative_app_icon_group_other" tools:ignore="UnusedResources" moz:removedIn="146">Altri</string>
   <!-- Title for the "Featured" group of alternative app icon variants in the icon picker screen. This group includes retro, pixel art, themed, and artist-created icons. -->
   <string name="alternative_app_icon_group_featured">Conseadis</string>
   <!-- Title to show in alert when user selects an alternative app icon -->
@@ -1425,9 +1488,9 @@
   <!-- Title of the active section on the studies list -->
   <string name="studies_active">Atîfs</string>
   <!-- Description for studies -->
-  <string name="studies_description_3">Prove lis funzionalitâts e lis ideis prime che a vegnin publicadis par ducj.</string>
+  <string name="studies_description_3" moz:removedIn="148" tools:ignore="UnusedResources">Prove lis funzionalitâts e lis ideis prime che a vegnin publicadis par ducj.</string>
   <!-- Title of the Studies data preference -->
-  <string name="studies_title">Instale e fâs studis</string>
+  <string name="studies_title" moz:removedIn="148" tools:ignore="UnusedResources">Instale e fâs studis</string>
   <!-- Learn more link for studies, links to an article for more information about studies. -->
   <string name="studies_learn_more">Plui informazions</string>
   <!--
@@ -1511,6 +1574,10 @@
   <string name="remove_tab_from_collection">Gjave schede de racuelte</string>
   <!-- Text for button to enter multiselect mode in tabs tray -->
   <string name="tabs_tray_select_tabs">Selezione schedis</string>
+  <!-- Text for tab manager search page when there are no results. -->
+  <string name="tab_manager_no_search_results">Nissun risultât cjatât.</string>
+  <!-- Additional text for tab manager search page when there are no results. -->
+  <string name="tab_manager_no_search_results_additional_text">Prove cuntune altre ricercje!</string>
   <!-- Content description (not visible, for screen readers etc.): Close tab button. Closes the current session when pressed -->
   <string name="close_tab">Siere schede</string>
   <!-- Content description (not visible, for screen readers etc.): Close tab <title> button. %s is the tab title -->
@@ -1910,6 +1977,8 @@
   <string name="bookmark_delete_folder_content_description">Elimine cartele</string>
   <!-- Content description for bookmark search floating action button -->
   <string name="bookmark_search_button_content_description">Cîr tai segnelibris</string>
+  <!-- Content description for select folder screen search action button ("search" is a verb) -->
+  <string name="select_bookmark_search_button_content_description">Cîr tes cartelis</string>
   <!-- Content description for the overflow menu for a bookmark item. %s is a folder name or bookmark title. -->
   <string name="bookmark_item_menu_button_content_description">Menù par %s</string>
   <!-- Content description for the "close" button in bookmarks screen. -->
@@ -1928,6 +1997,8 @@
   <string name="bookmark_empty_list_folder_description">Zonte segnelibris intant che tu navighis par cjatâ i tiei sîts preferîts plui indevant.</string>
   <!-- Description for the add new folder button when selecting a folder. -->
   <string name="bookmark_select_folder_new_folder_button_title">Gnove cartele</string>
+  <!-- Bookmark snackbar message for moving a single item. %1$s is the title of the item being moved and %2$s is the new parent folder of the bookmark -->
+  <string name="bookmark_moved_single_item">Mot %1$s in %2$s</string>
   <!--
     Site Permissions
 
@@ -2112,7 +2183,7 @@
   <!-- An option from the share dialog to sign into sync -->
   <string name="sync_sign_in">Jentre par sincronizâ</string>
   <!-- An option from the three dot menu to sign in -->
-  <string name="sync_menu_sign_in">Jentre</string>
+  <string name="sync_menu_sign_in" tools:ignore="UnusedResources" moz:removedIn="149">Jentre</string>
   <!-- An option from the share dialog to send link to all other sync devices -->
   <string name="sync_send_to_all">Mande a ducj i dispositîfs</string>
   <!-- An option from the share dialog to reconnect to sync -->
@@ -2231,7 +2302,7 @@
   <!-- Title for Accessibility Text Size Scaling Preference -->
   <string name="preference_accessibility_font_size_title">Dimension caratars</string>
   <!-- %d is the percentage of the slide bar for setting the text font size and %% will be announced as "percent". -->
-  <string name="a11y_preference_accessibility_font_size_percentage">%d %%.</string>
+  <string name="a11y_preference_accessibility_font_size_percentage" tools:ignore="UnusedResources" moz:removedIn="148">%d %%.</string>
   <!-- Title for Accessibility Text Automatic Size Scaling Preference -->
   <string name="preference_accessibility_auto_size_2">Dimensionament automatic dai caratars</string>
   <!-- Summary for Accessibility Text Automatic Size Scaling Preference -->
@@ -2272,7 +2343,7 @@
   <!-- Summary for the Delete browsing data on quit preference. "Quit" translation should match delete_browsing_data_on_quit_action translation. -->
   <string name="preference_summary_delete_browsing_data_on_quit_2">Elimine in automatic i dâts di navigazion cuant che tu selezionis “Jes” dal menù principâl</string>
   <!-- Action item in menu for the Delete browsing data on quit feature -->
-  <string name="delete_browsing_data_on_quit_action">Jes</string>
+  <string name="delete_browsing_data_on_quit_action" tools:ignore="UnusedResources" moz:removedIn="149">Jes</string>
   <!-- Title text of a delete browsing data dialog. -->
   <string name="delete_history_prompt_title">Dade di timp par eliminâ</string>
   <!-- Body text of a delete browsing data dialog. -->
@@ -3914,11 +3985,9 @@
   <string name="settings_search_no_results_title">Nol è vignût fûr nuie</string>
   <!-- Sub-message displayed when the search field is not empty but search results is empty. -->
   <string name="settings_search_no_results_message">Provâ cuntune altre ricercje?</string>
-  <!--
-    Terms of use pop up prompt
+  <!-- ==== Terms of use pop up prompt ==== -->
 
-    Title for the pop up prompt
-  -->
+  <!-- Title for the pop up prompt -->
   <string name="terms_of_use_prompt_title">O vin un inzornament</string>
   <!--
     Message for the terms of use pop up prompt
@@ -3942,6 +4011,24 @@
   <string name="terms_of_use_prompt_accept">Acete</string>
   <!-- Label for a button to postpone accepting the terms of use -->
   <string name="terms_of_use_prompt_postpone">Visimi plui indevant</string>
+  <!-- ==== Experiment strings. ==== -->
+
+  <!-- A title for the popup prompt. -->
+  <string name="terms_of_use_prompt_title_option_a" tools:ignore="UnusedResources">Cundizions di utilizazion</string>
+  <!--
+    A title for the popup prompt.
+    %1$s is the product name "Firefox"
+  -->
+  <string name="terms_of_use_prompt_title_option_b" tools:ignore="UnusedResources">Une note di %1$s</string>
+  <!--
+    Copy for the Terms of Use popup prompt body line two.
+    %1$s is the string terms_of_use_prompt_body_line_two_alternative_link ("here") that is a link to the Terms of Use
+  -->
+  <string name="terms_of_use_prompt_body_line_two_alternative" tools:ignore="UnusedResources">Tu puedis savênt di plui %1$s.</string>
+  <!-- Link text for terms_of_use_prompt_body_line_two_alternative that links to a site with more information about the Terms of Use -->
+  <string name="terms_of_use_prompt_body_line_two_alternative_link" tools:ignore="UnusedResources">achì</string>
+  <!-- ==== End of Terms of use popup prompt. ==== -->
+
   <!--
     Privacy notice homepage banner
 

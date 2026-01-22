@@ -654,7 +654,7 @@ support-files = ["redundant_font_download.sjs"]
 
 ["test_setPropertyWithNull.html"]
 skip-if = [
-  "xorigin && debug",
+  "debug && xorigin",
 ]
 
 ["test_shape_outside_CORS.html"]

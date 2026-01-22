@@ -4420,7 +4420,7 @@ class GeckoEngineSessionTest {
 
         captureDelegates()
 
-        val unparsedIssuerName = "Verified By: CN=Digicert SHA2 Extended Validation Server CA,OU=www.digicert.com,O=DigiCert Inc,C=US"
+        val unparsedIssuerName = "CN=Digicert SHA2 Extended Validation Server CA,OU=www.digicert.com,O=DigiCert Inc,C=US"
         val parsedIssuerName = "DigiCert Inc"
         val certificate: X509Certificate = mock()
         val principal: Principal = mock()
@@ -4452,36 +4452,6 @@ class GeckoEngineSessionTest {
 
         val unparsedIssuerName = null
         val parsedIssuerName = null
-        val certificate: X509Certificate = mock()
-        val principal: Principal = mock()
-        whenever(principal.name).thenReturn(unparsedIssuerName)
-        whenever(certificate.issuerDN).thenReturn(principal)
-
-        val securityInformation = MockSecurityInformation(certificate = certificate)
-        progressDelegate.value.onSecurityChange(mock(), securityInformation)
-        assertEquals(parsedIssuerName, observedIssuer)
-        assertEquals(certificate, observedCertificate)
-    }
-
-    @Test
-    fun `pattern-breaking certificate issuer isnt parsed and returns original name `() {
-        val engineSession = GeckoEngineSession(mock(), geckoSessionProvider = geckoSessionProvider)
-
-        var observedIssuer: String? = null
-        var observedCertificate: X509Certificate? = null
-        engineSession.register(
-            object : EngineSession.Observer {
-                override fun onSecurityChange(secure: Boolean, host: String?, issuer: String?, certificate: X509Certificate?) {
-                    observedIssuer = issuer
-                    observedCertificate = certificate
-                }
-            },
-        )
-
-        captureDelegates()
-
-        val unparsedIssuerName = "pattern breaking cert"
-        val parsedIssuerName = "pattern breaking cert"
         val certificate: X509Certificate = mock()
         val principal: Principal = mock()
         whenever(principal.name).thenReturn(unparsedIssuerName)

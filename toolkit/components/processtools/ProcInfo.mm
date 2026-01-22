@@ -10,8 +10,6 @@
 
 #include "nsMemoryReporterManager.h"
 
-#include <cstdio>
-#include <cstring>
 #include <unistd.h>
 
 #include <sys/sysctl.h>

@@ -141,8 +141,6 @@ add_task(async function test_osAuth_shown_on_reveal_password() {
 });
 
 add_task(async function test_os_auth_and_prp() {
-  LoginHelper.setOSAuthEnabled(true);
-
   if (!OSKeyStoreTestUtils.canTestOSKeyStoreLogin()) {
     Assert.ok(
       true,
@@ -150,6 +148,8 @@ add_task(async function test_os_auth_and_prp() {
     );
     return;
   }
+
+  LoginHelper.setOSAuthEnabled(true);
 
   await BrowserTestUtils.openNewForegroundTab({
     gBrowser,
@@ -161,9 +161,10 @@ add_task(async function test_os_auth_and_prp() {
   // I should probably come up with a better way to test for OS auth.
   LoginTestUtils.primaryPassword.enable();
 
-  // Now we have a PrP and OS auth enabled so revealing a password should
-  // prompt for the PrP.
+  info("PrP has been enabled");
 
+  // Now we have a PrP and OS auth enabled so revealing a password should
+  // prompt for the PrP because the token is still locked, so it must.
   let mpDialogShown = forceAuthTimeoutAndWaitForMPDialog("authenticate");
 
   await SpecialPowers.spawn(gBrowser.selectedBrowser, [], async function () {
@@ -171,10 +172,11 @@ add_task(async function test_os_auth_and_prp() {
     let revealCheckbox = loginItem.shadowRoot.querySelector(
       ".reveal-password-checkbox"
     );
+    info("Clicking reveal now, expecting PrP auth dialog");
     revealCheckbox.click();
   });
   await mpDialogShown;
-  info("OS auth dialog shown and authenticated");
+  info("PrP dialog shown and authenticated");
   await SpecialPowers.spawn(gBrowser.selectedBrowser, [], async function () {
     let loginItem = content.document.querySelector("login-item");
     let revealCheckbox = loginItem.shadowRoot.querySelector(
@@ -186,6 +188,10 @@ add_task(async function test_os_auth_and_prp() {
     );
     // Hide it again
     revealCheckbox.click();
+    Assert.ok(
+      !revealCheckbox.checked,
+      "reveal checkbox should be unchecked again"
+    );
   });
 
   // Now that the PrP is already unlocked revealing a password should trigger
@@ -195,6 +201,8 @@ add_task(async function test_os_auth_and_prp() {
     osAuthDialogShown = forceAuthTimeoutAndWaitForOSKeyStoreLogin({
       loginResult: true,
     });
+  } else {
+    Assert(false, "Must be able to use OS authentication!");
   }
 
   await SpecialPowers.spawn(gBrowser.selectedBrowser, [], async function () {
@@ -202,15 +210,29 @@ add_task(async function test_os_auth_and_prp() {
     let revealCheckbox = loginItem.shadowRoot.querySelector(
       ".reveal-password-checkbox"
     );
+    info("Clicking reveal now, expecting OS auth dialog");
     revealCheckbox.click();
   });
 
   await osAuthDialogShown;
+  info("OS auth dialog shown and authenticated");
+
+  await SpecialPowers.spawn(gBrowser.selectedBrowser, [], async function () {
+    let loginItem = content.document.querySelector("login-item");
+    let revealCheckbox = loginItem.shadowRoot.querySelector(
+      ".reveal-password-checkbox"
+    );
+    Assert.ok(
+      revealCheckbox.checked,
+      "reveal checkbox should be checked if OS auth successful"
+    );
+    // Hide it again
+    revealCheckbox.click();
+  });
 
   // cleanup
   BrowserTestUtils.removeTab(gBrowser.selectedTab);
   LoginTestUtils.primaryPassword.disable();
-  //LoginHelper.setOSAuthEnabled(false);
 });
 
 add_task(async function test_osAuth_shown_on_copy_password() {

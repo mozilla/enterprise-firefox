@@ -229,9 +229,9 @@
   <!-- Browser menu button that opens account settings -->
   <string name="browser_menu_account_settings">Manylion cyfrif</string>
   <!-- Browser menu button that sends a user to help articles -->
-  <string name="browser_menu_help">Cymorth</string>
+  <string name="browser_menu_help" tools:ignore="UnusedResources" moz:removedIn="149">Cymorth</string>
   <!-- Browser menu button that sends a to a the what's new article -->
-  <string name="browser_menu_whats_new">Be sy’n Newydd</string>
+  <string name="browser_menu_whats_new" tools:ignore="UnusedResources" moz:removedIn="149">Be sy’n Newydd</string>
   <!-- Browser menu button that opens the settings menu -->
   <string name="browser_menu_settings">Gosodiadau</string>
   <!-- Browser menu button that opens a user's library -->
@@ -239,7 +239,7 @@
   <!-- Browser menu toggle that requests a desktop site -->
   <string name="browser_menu_desktop_site">Gwefan bwrdd gwaith</string>
   <!-- Browser menu button that reopens a private tab as a regular tab -->
-  <string name="browser_menu_open_in_regular_tab">Agorwch mewn tab arferol</string>
+  <string name="browser_menu_open_in_regular_tab" tools:ignore="UnusedResources" moz:removedIn="149">Agorwch mewn tab arferol</string>
   <!-- Browser menu toggle that adds a shortcut to the site on the device home screen. -->
   <string name="browser_menu_add_to_homescreen">Ychwanegu i’r sgrin Cartref</string>
   <!-- Browser menu toggle that adds a PWA of the site on the device home screen. -->
@@ -267,7 +267,7 @@
     Browser menu text shown in custom tabs to indicate this is a Fenix tab
     %1$s is the name of the app (for example "Firefox").
   -->
-  <string name="browser_menu_powered_by">GRYM %1$s</string>
+  <string name="browser_menu_powered_by" tools:ignore="UnusedResources" moz:removedIn="149">GRYM %1$s</string>
   <!--
     Browser menu text shown in custom tabs to indicate this is a Fenix tab
     %1$s is the name of the app (for example "Firefox").
@@ -280,15 +280,15 @@
   <!-- Browser menu button to open the current page in an external app -->
   <string name="browser_menu_open_app_link">Agor yn yr Ap</string>
   <!-- Browser menu button to show reader view appearance controls e.g. the used font type and size -->
-  <string name="browser_menu_customize_reader_view">Cyfaddasu’r golwg defnyddiwr</string>
+  <string name="browser_menu_customize_reader_view" tools:ignore="UnusedResources" moz:removedIn="149">Cyfaddasu’r golwg defnyddiwr</string>
   <!-- Browser menu button to show reader view appearance controls e.g. the used font type and size -->
   <string name="browser_menu_customize_reader_view_2">Cyfaddasu\'r Golwg Darllenydd</string>
   <!-- Browser menu label for adding a bookmark -->
-  <string name="browser_menu_add">Ychwanegu</string>
+  <string name="browser_menu_add" tools:ignore="UnusedResources" moz:removedIn="149">Ychwanegu</string>
   <!-- Browser menu label for editing a bookmark -->
-  <string name="browser_menu_edit">Golygu</string>
+  <string name="browser_menu_edit" tools:ignore="UnusedResources" moz:removedIn="149">Golygu</string>
   <!-- Button shown on the home page that opens the Customize home settings -->
-  <string name="browser_menu_customize_home_1">Cyfaddasu’r dudalen cartref</string>
+  <string name="browser_menu_customize_home_1" tools:ignore="UnusedResources" moz:removedIn="149">Cyfaddasu’r dudalen cartref</string>
   <!-- Browser menu label to sign in to sync on the device using Mozilla accounts -->
   <string name="browser_menu_sign_in">Mewngofnodi</string>
   <!-- Browser menu caption label for the "Sign in" browser menu item described in `browser_menu_sign_in` -->
@@ -307,10 +307,6 @@
   <string name="browser_close_main_menu_handlebar_content_description">Cau\'r ddewislen</string>
   <!-- Content description (not visible, for screen readers etc.) for main menu navigation header. -->
   <string name="browser_main_menu_content_description_navigation_header">Llywio</string>
-  <!-- Content description (not visible, for screen readers etc.) for main menu help button. -->
-  <string name="browser_main_menu_content_description_help_button" tools:ignore="UnusedResources" moz:removedIn="146">Cymorth</string>
-  <!-- Content description (not visible, for screen readers etc.) for main menu settings button. -->
-  <string name="browser_main_menu_content_description_settings_button" tools:ignore="UnusedResources" moz:removedIn="146">Gosodiadau</string>
   <!-- Content description (not visible, for screen readers etc.) for bottom sheet handlebar extensions menu. -->
   <string name="browser_extensions_menu_handlebar_content_description">Caewch ddalen y ddewislen estyniadau</string>
   <!-- Content description (not visible, for screen readers etc.) for bottom sheet handlebar save menu. -->
@@ -328,7 +324,7 @@
   <!-- Browser menu label for navigating to the translation feature, which provides language translation options the current visited page -->
   <string name="browser_menu_translate_page_2">Cyfieithu\'r dudalen</string>
   <!-- Browser menu label for navigating to the Web Compat Reporter feature, which provides users the ability to send bug reports for broken sites. -->
-  <string name="browser_menu_webcompat_reporter">Adrodd ar wefan wedi torri…</string>
+  <string name="browser_menu_webcompat_reporter" tools:ignore="UnusedResources" moz:removedIn="149">Adrodd ar wefan wedi torri…</string>
   <!-- Browser menu label for navigating to the Web Compat Reporter feature, which provides users the ability to send bug reports for broken sites. -->
   <string name="browser_menu_webcompat_reporter_2">Adrodd ar wefan wedi torri</string>
   <!-- Browser menu label that is displayed when the current page has been translated by the translation feature. -->
@@ -438,6 +434,10 @@
     The colon character (in "%s:") is intended to have the screen reader make a small pause between the search engine name and the description of the button.
   -->
   <string name="search_engine_selector_content_description">%s: dewisydd peiriant chwilio</string>
+  <!-- Text for the snackbar shown to confirm the deletion of a single browsing history item. %1$s is the shortened URL of the deleted history entry or the the actual deleted search term. Only one such item is deleted at a time. -->
+  <string name="search_suggestions_delete_history_item_snackbar">Wedi dileu %1$s o\'r hanes</string>
+  <!-- Content description (not visible, for screen readers etc.): Button shown near a history search result allowing to delete it from browsing history. -->
+  <string name="mozac_browser_awesomebar_remove_suggestion" tools:ignore="UnusedResources">Dileu\'r cofnod hanes hwn</string>
   <!--
     Home onboarding
 
@@ -452,19 +452,8 @@
   <string name="juno_onboarding_privacy_notice_text" tools:ignore="BrandUsage">Hysbysiad preifatrwydd Firefox</string>
   <!-- Title for set firefox as default browser screen used by Nimbus experiments. -->
   <string name="juno_onboarding_default_browser_title_nimbus_2">Rydyn ni wrth ein bodd yn eich cadw chi’n ddiogel</string>
-  <!--
-    Title for set firefox as default browser screen used by Nimbus experiments.
-    Note: The word "Firefox" should NOT be translated
-  -->
-  <string name="juno_onboarding_default_browser_title_nimbus_3" tools:ignore="BrandUsage,UnusedResources" moz:removedIn="146">Deall pam mae miliynau\'n caru Firefox</string>
-  <!-- Title for set firefox as default browser screen used by Nimbus experiments. -->
-  <string name="juno_onboarding_default_browser_title_nimbus_4" tools:ignore="UnusedResources" moz:removedIn="146">Pori diogel gyda mwy o ddewisiadau</string>
   <!-- Description for set firefox as default browser screen used by Nimbus experiments. -->
   <string name="juno_onboarding_default_browser_description_nimbus_3">Mae ein porwr gan gorff dim-er-elw\'n atal cwmnïau rhag eich dilyn yn gyfrinachol o amgylch y we.</string>
-  <!-- Description for set firefox as default browser screen used by Nimbus experiments. -->
-  <string name="juno_onboarding_default_browser_description_nimbus_4" tools:ignore="UnusedResources" moz:removedIn="146">Mae mwy na 100 miliwn o bobl yn diogelu eu preifatrwydd trwy ddewis porwr sy\'n cael ei gefnogi gan gorff dim-er-elw.</string>
-  <!-- Description for set firefox as default browser screen used by Nimbus experiments. -->
-  <string name="juno_onboarding_default_browser_description_nimbus_5" tools:ignore="UnusedResources" moz:removedIn="146">Tracwyr hysbys? Wedi\'u rwystro\'n awtomatig. Estyniadau? Rhowch gynnig ar bob un o\'r 700. PDF? Mae ein darllenydd mewnol yn eu gwneud yn hawdd i\'w rheoli.</string>
   <!-- Text for the button to set firefox as default browser on the device -->
   <string name="juno_onboarding_default_browser_positive_button" tools:ignore="UnusedResources">Gosod fel y porwr ragosodedig</string>
   <!-- Text for the button dismiss the screen and move on with the flow -->
@@ -624,6 +613,86 @@
   <string name="onboarding_marketing_body_1" tools:ignore="BrandUsage,UnusedResources">Rhannwch sut wnaethoch chi ddarganfod Firefox, a\'ch bod chi\'n ei ddefnyddio, gyda phartneriaid marchnata Mozilla. Nid yw\'r data hwn byth yn cael ei werthu.</string>
   <!-- Marketing onboarding page button label variant. Button to confirm choice and start browsing. -->
   <string name="onboarding_marketing_positive_button_1" tools:ignore="UnusedResources">Cytuno a dechrau pori</string>
+  <!-- ==== Project "Nova" onboarding strings ==== -->
+
+  <!-- "Continue" onboarding button. -->
+  <string name="nova_onboarding_continue_button" tools:ignore="UnusedResources">Parhau</string>
+  <!-- "Not now" onboarding button. -->
+  <string name="nova_onboarding_negative_button" tools:ignore="UnusedResources">Nid nawr</string>
+  <!-- Terms of use (ToU) onboarding title. -->
+  <string name="nova_onboarding_tou_title" tools:ignore="UnusedResources">Paratowch i redeg yn rhydd</string>
+  <!-- Terms of use (ToU) onboarding subtitle. -->
+  <string name="nova_onboarding_tou_subtitle" tools:ignore="UnusedResources">Cyflym, diogel, a ddim yn eich bradychu.\nMae pori newydd wella.</string>
+  <!--
+    Terms of use (ToU) onboarding body line one.
+    %1$s is replaced by an active link, using nova_onboarding_tou_body_line_1_link_text as text (“Firefox Terms of Use”).
+  -->
+  <string name="nova_onboarding_tou_body_line_1" tools:ignore="UnusedResources">Drwy barhau, rydych yn cytuno i\'r %1$s.</string>
+  <!-- Terms of use (ToU) onboarding body line one link text for nova_onboarding_tou_body_line_1. 'Firefox' is intentionally hardcoded. -->
+  <string name="nova_onboarding_tou_body_line_1_link_text" tools:ignore="BrandUsage,UnusedResources">Amodau Defnyddio Firefox</string>
+  <!--
+    Terms of use (ToU) onboarding body line two. 'Firefox' is intentionally hardcoded.
+    %1$s is replaced by an active link, using nova_onboarding_tou_body_line_2_link_text as text (“Privacy Notice”).
+  -->
+  <string name="nova_onboarding_tou_body_line_2" tools:ignore="BrandUsage,UnusedResources">Mae Firefox yn pryderu am eich preifatrwydd. Darllenwch ein %1$s.</string>
+  <!-- Terms of use (ToU) onboarding body line two link text for nova_onboarding_tou_body_line_2. -->
+  <string name="nova_onboarding_tou_body_line_2_link_text" tools:ignore="UnusedResources">Hysbysiad Preifatrwydd</string>
+  <!--
+    Terms of use (ToU) onboarding body line three. 'Firefox' and 'Mozilla' are intentionally hardcoded.
+    %1$s is replaced by an active link, using nova_onboarding_tou_body_line_3_link_text as text (“Manage Settings”).
+  -->
+  <string name="nova_onboarding_tou_body_line_3" tools:ignore="BrandUsage,UnusedResources">Er mwyn helpu i wella\'r porwr, mae Firefox yn anfon data diagnostig a rhyngweithio i Mozilla. %1$s</string>
+  <!-- Terms of use (ToU) onboarding body line three link text for nova_onboarding_tou_body_line_3. -->
+  <string name="nova_onboarding_tou_body_line_3_link_text" tools:ignore="UnusedResources">Rheoli gosodiadau</string>
+  <!-- "Set to default" onboarding title. -->
+  <string name="nova_onboarding_set_to_default_title" tools:ignore="UnusedResources">Dweud ffarwel wrth dracwyr annymunol</string>
+  <!-- "Set to default" onboarding subtitle. -->
+  <string name="nova_onboarding_set_to_default_subtitle" tools:ignore="UnusedResources">Rydym yn diogelu eich data ac yn awtomatig yn rhwystro cwmnïau rhag ysbïo ar eich cliciau.</string>
+  <!-- "Set to default" onboarding button. -->
+  <string name="nova_onboarding_set_to_default_button" tools:ignore="UnusedResources">Gosod fel fy mhorwr arferol</string>
+  <!-- Toolbar selection onboarding title. -->
+  <string name="nova_onboarding_toolbar_selection_title" tools:ignore="UnusedResources">Dewis eich bar cyfeiriad</string>
+  <!-- Toolbar selection onboarding "top" option label. -->
+  <string name="nova_onboarding_toolbar_selection_top_label" tools:ignore="UnusedResources">Brig</string>
+  <!-- Toolbar selection onboarding "bottom" option label. -->
+  <string name="nova_onboarding_toolbar_selection_bottom_label" tools:ignore="UnusedResources">Gwaelod</string>
+  <!-- Theme selection onboarding title. -->
+  <string name="nova_onboarding_theme_selection_title" tools:ignore="UnusedResources">Dewis eich thema</string>
+  <!-- Theme selection onboarding "automatic" option label. -->
+  <string name="nova_onboarding_theme_selection_automatic_label" tools:ignore="UnusedResources">Awtomatig</string>
+  <!-- Theme selection onboarding "light" option label. -->
+  <string name="nova_onboarding_theme_selection_light_label" tools:ignore="UnusedResources">Golau</string>
+  <!-- Theme selection onboarding "dark" option label. -->
+  <string name="nova_onboarding_theme_selection_dark_label" tools:ignore="UnusedResources">Tywyll</string>
+  <!-- Sync onboarding title. -->
+  <string name="nova_onboarding_sync_title" tools:ignore="UnusedResources">Ail gychwyn yn syth o\'r lle roeddech chi</string>
+  <!-- Sync onboarding subtitle. -->
+  <string name="nova_onboarding_sync_subtitle" tools:ignore="UnusedResources">Cipiwch nodau tudalen, cyfrineiriau, a mwy yn syth ar unrhyw ddyfais. Mae eich data personol yn aros yn ddiogel wedi\'i amgryptio.</string>
+  <!-- Sync onboarding button. -->
+  <string name="nova_onboarding_sync_button" tools:ignore="UnusedResources">Cychwyn cydweddu</string>
+  <!-- Marketing onboarding title. -->
+  <string name="nova_onboarding_marketing_title" tools:ignore="UnusedResources">Helpwch ni i adeiladu rhyngrwyd gwell</string>
+  <!--
+    Marketing onboarding body. 'Firefox' and 'Mozilla' are intentionally hardcoded.
+    %1$s is replaced by an active link, using nova_onboarding_marketing_body_link_text as text (“How we use the data”).
+  -->
+  <string name="nova_onboarding_marketing_body" tools:ignore="BrandUsage,UnusedResources">Rhannwch sut wnaethoch chi ddarganfod Firefox, a\'ch bod chi\'n ei ddefnyddio, gyda phartneriaid marchnata Mozilla. Fydd y data hwn byth yn cael ei werthu. %1$s</string>
+  <!-- Marketing onboarding body link text. -->
+  <string name="nova_onboarding_marketing_body_link_text" tools:ignore="UnusedResources">Sut rydym yn defnyddio\'r data</string>
+  <!-- Notifications onboarding title. 'Firefox' is intentionally hardcoded. -->
+  <string name="nova_onboarding_notifications_title" tools:ignore="BrandUsage,UnusedResources">Mae hysbysiadau’n eich helpu i gadw’n fwy diogel gyda Firefox</string>
+  <!-- Notifications onboarding subtitle. 'Firefox' is intentionally hardcoded. -->
+  <string name="nova_onboarding_notifications_subtitle" tools:ignore="BrandUsage,UnusedResources">Darganfyddwch y nodweddion preifatrwydd diweddaraf yn Firefox fel eich bod bob amser yn gwybod sut i gadw\'n ddiogel.</string>
+  <!-- Notifications onboarding button. -->
+  <string name="nova_onboarding_notifications_button" tools:ignore="UnusedResources">Troi hysbysiadau ymlaen</string>
+  <!-- "Add search widget" onboarding title. -->
+  <string name="nova_onboarding_add_search_widget_title" tools:ignore="UnusedResources">Gwnewch bob chwilio\'n fwy preifat</string>
+  <!-- "Add search widget" onboarding subtitle. 'Firefox' is intentionally hardcoded. -->
+  <string name="nova_onboarding_add_search_widget_subtitle" tools:ignore="BrandUsage,UnusedResources">Dechreuwch bob chwilio o sgrin gartref eich ffôn a gwybod bod diogeledd awtomatig Firefox yn eich cefnogi.</string>
+  <!-- "Add search widget" onboarding button. 'Firefox' is intentionally hardcoded. -->
+  <string name="nova_onboarding_add_search_widget_button" tools:ignore="BrandUsage,UnusedResources">Ychwanegu teclyn Firefox</string>
+  <!-- ==== End of Project "Nova" onboarding strings ==== -->
+
   <!-- Onboarding header for the toolbar selection card, used by Nimbus experiments. -->
   <string name="onboarding_customize_toolbar_title" tools:ignore="UnusedResources">Dewiswch leoliad eich bar offer</string>
   <!-- Onboarding sub header for toolbar selection card, used by Nimbus experiments. -->
@@ -892,6 +961,15 @@
   <string name="preferences_open_links_in_apps_ask">Gofyn cyn agor</string>
   <!-- Preference for open links in third party apps never open in apps option -->
   <string name="preferences_open_links_in_apps_never">Byth</string>
+  <!-- Preference category for file storage. -->
+  <string name="preferences_category_file_storage">Cadw ffeiliau</string>
+  <!-- Preference title for downloads default location. -->
+  <string name="preferences_downloads_default_location_title">Lleoliad llwytho i lawr arferol</string>
+  <!--
+    Message shown as the summary of the download location preference when the
+    app has lost the permission to access a previously selected custom folder.
+  -->
+  <string name="preference_downloads_folder_permission_lost">Does gennych chi ddim caniatâd i ddefnyddio\'r ffolder hon. Ceisiwch ddewis un gwahanol.</string>
   <!-- Preference title for choosing an app to handle downloads -->
   <string name="preferences_choose_app_for_downloads">Rheoli\'r llwytho i lawr gydag ap arall</string>
   <!-- Title for the setting to automatically clean up downloaded files. %s is the name of the app (for example "Firefox"). -->
@@ -1057,8 +1135,6 @@
   <string name="alternative_app_icon_group_solid_colors">Lliwiau solet</string>
   <!-- Title for the "Gradients" group of alternative app icon variants in the icon picker screen. This group contains icons with gradient backgrounds inspired by natural light conditions. -->
   <string name="alternative_app_icon_group_gradients">Graddiannau</string>
-  <!-- Title for the "Other" group of alternative app icon variants in the icon picker screen. This group includes retro, pixel art, themed, and artist-created icons. -->
-  <string name="alternative_app_icon_group_other" tools:ignore="UnusedResources" moz:removedIn="146">Arall</string>
   <!-- Title for the "Featured" group of alternative app icon variants in the icon picker screen. This group includes retro, pixel art, themed, and artist-created icons. -->
   <string name="alternative_app_icon_group_featured">Nodweddion</string>
   <!-- Title to show in alert when user selects an alternative app icon -->
@@ -1425,11 +1501,27 @@
   <!-- Title of the active section on the studies list -->
   <string name="studies_active">Gweithredol</string>
   <!-- Description for studies -->
-  <string name="studies_description_3">Rhowch gynnig ar nodweddion a syniadau cyn iddyn nhw gael eu rhyddhau i bawb.</string>
+  <string name="studies_description_3" moz:removedIn="148" tools:ignore="UnusedResources">Rhowch gynnig ar nodweddion a syniadau cyn iddyn nhw gael eu rhyddhau i bawb.</string>
+  <!-- Description for studies. Note: The word "Firefox" should NOT be translated -->
+  <string name="studies_description_4" tools:ignore="BrandUsage">Mae Firefox yn dewis defnyddwyr ar hap i brofi nodweddion, sy\'n gwella ansawdd i bawb.</string>
   <!-- Title of the Studies data preference -->
-  <string name="studies_title">Gosod a rhedeg astudiaethau</string>
+  <string name="studies_title" moz:removedIn="148" tools:ignore="UnusedResources">Gosod a rhedeg astudiaethau</string>
+  <!-- Title of the Studies data preference -->
+  <string name="studies_title_2">Caniatáu astudiaethau nodwedd</string>
   <!-- Learn more link for studies, links to an article for more information about studies. -->
   <string name="studies_learn_more">Darllen rhagor</string>
+  <!--
+    Remote Improvements (Rollouts)
+
+    Title of the Remote Improvements (rollouts) data preference
+  -->
+  <string name="remote_improvements_title">Caniatáu gwelliannau o bell</string>
+  <!-- Description for remote improvements. Note: The word "Firefox" should NOT be translated -->
+  <string name="remote_improvements_description" tools:ignore="BrandUsage">Bydd Firefox yn gwella nodweddion, perfformiad, a sefydlogrwydd rhwng diweddariadau. Mae newidiadau\'n cael eu gwneud o bell.</string>
+  <!-- Learn more link for remote improvements, links to an article for more information about rollouts. -->
+  <string name="remote_improvements_learn_more">Dysgu rhagor</string>
+  <!-- Title for remote improvements preference in Advanced settings -->
+  <string name="preferences_remote_improvements">Gwelliannau o bell</string>
   <!--
     Sessions
 
@@ -1468,7 +1560,7 @@
   <!-- Text for the new tab button to indicate syncing command on the synced tabs page -->
   <string name="tab_drawer_fab_sync">Cydweddu</string>
   <!-- Text for the tab search bar placeholder -->
-  <string name="tab_manager_search_bar_placeholder">Chwiliwch eich tabiau</string>
+  <string name="tab_manager_search_bar_placeholder">Chwilio eich tabiau</string>
   <!-- Text shown in the menu for sharing all tabs -->
   <string name="tab_tray_menu_item_share">Rhannu pob tab</string>
   <!-- Text shown in the menu to view recently closed tabs -->
@@ -1511,6 +1603,10 @@
   <string name="remove_tab_from_collection">Tynnu tab o’r casgliad</string>
   <!-- Text for button to enter multiselect mode in tabs tray -->
   <string name="tabs_tray_select_tabs">Dewis tabiau</string>
+  <!-- Text for tab manager search page when there are no results. -->
+  <string name="tab_manager_no_search_results">Heb ganfod cydweddiad.</string>
+  <!-- Additional text for tab manager search page when there are no results. -->
+  <string name="tab_manager_no_search_results_additional_text">Rhowch gynnig ar chwilio arall!</string>
   <!-- Content description (not visible, for screen readers etc.): Close tab button. Closes the current session when pressed -->
   <string name="close_tab">Cau tab</string>
   <!-- Content description (not visible, for screen readers etc.): Close tab <title> button. %s is the tab title -->
@@ -1518,7 +1614,7 @@
   <!-- Content description (not visible, for screen readers etc.): Opens the open tabs menu when pressed -->
   <string name="open_tabs_menu">Dewislen tabiau agored</string>
   <!-- Content description (not visible, for screen readers etc.): Return to tab manager -->
-  <string name="tab_manager_search_bar_back_content_description">Dychwelyd i\'r rheolwr tab</string>
+  <string name="tab_manager_search_bar_back_content_description">Nôl i\'r rheolwr tabiau</string>
   <!-- Open tabs menu item to save tabs to collection -->
   <string name="tabs_menu_save_to_collection1">Cadw tabiau i Gasgliad</string>
   <!-- Text for the menu button to delete a collection -->
@@ -1619,6 +1715,8 @@
   <string name="download_delete_item">Dileu</string>
   <!-- Content description for the toolbar "Navigate back" button -->
   <string name="download_navigate_back_description">Symud nôl</string>
+  <!-- Content description for the toolbar "Navigate to Downloads Settings" button -->
+  <string name="download_navigate_settings_description">Ewch i Gosodiadau Llwytho i Lawr</string>
   <!-- Content description for the toolbar back button while searching the downloads -->
   <string name="download_close_search_description">Nôl a chau chwilio</string>
   <!--
@@ -1834,6 +1932,8 @@
   <string name="bookmark_error_edit_bookmark">Methu golygu nod tudalen</string>
   <!-- Snackbar edit button shown after a bookmark has been created. -->
   <string name="edit_bookmark_snackbar_action">GOLYGU</string>
+  <!-- Bookmark menu select button -->
+  <string name="bookmark_menu_select_button">Dewis</string>
   <!-- Bookmark menu move button -->
   <string name="bookmark_menu_move_button">Symud</string>
   <!-- Bookmark overflow menu edit button -->
@@ -1910,8 +2010,14 @@
   <string name="bookmark_delete_folder_content_description">Dileu ffolder</string>
   <!-- Content description for bookmark search floating action button -->
   <string name="bookmark_search_button_content_description">Chwilio’r nodau tudalen</string>
+  <!-- Content description for select folder screen search action button ("search" is a verb) -->
+  <string name="select_bookmark_search_button_content_description">Chwilio ffolderi</string>
   <!-- Content description for the overflow menu for a bookmark item. %s is a folder name or bookmark title. -->
   <string name="bookmark_item_menu_button_content_description">Dewislen Eitem %s</string>
+  <!-- Content description for the chevron that will open a folder on the select folder screen and display its children. %s is the title of the folder that will be opened -->
+  <string name="bookmark_select_folder_expand_folder_content_description">Ehangu ffolder: %s</string>
+  <!-- Content description for the chevron that will close a folder on the select folder screen so that its children are no longer visible. %s is the title of the folder that will be closed -->
+  <string name="bookmark_select_folder_close_folder_content_description">Cau\'r ffolder: %s</string>
   <!-- Content description for the "close" button in bookmarks screen. -->
   <string name="bookmark_close_button_content_description">Cau nodau tudalen</string>
   <!-- Title for the bookmark list empty state -->
@@ -1928,6 +2034,8 @@
   <string name="bookmark_empty_list_folder_description">Ychwanegwch nodau tudalen wrth i chi bori fel y gallwch ddod o hyd i\'ch hoff wefannau yn nes ymlaen.</string>
   <!-- Description for the add new folder button when selecting a folder. -->
   <string name="bookmark_select_folder_new_folder_button_title">Ffolder newydd</string>
+  <!-- Bookmark snackbar message for moving a single item. %1$s is the title of the item being moved and %2$s is the new parent folder of the bookmark -->
+  <string name="bookmark_moved_single_item">Wedi symud %1$s i %2$s</string>
   <!--
     Site Permissions
 
@@ -2112,7 +2220,7 @@
   <!-- An option from the share dialog to sign into sync -->
   <string name="sync_sign_in">Mewngofnodi i Sync</string>
   <!-- An option from the three dot menu to sign in -->
-  <string name="sync_menu_sign_in">Mewngofnodi</string>
+  <string name="sync_menu_sign_in" tools:ignore="UnusedResources" moz:removedIn="149">Mewngofnodi</string>
   <!-- An option from the share dialog to send link to all other sync devices -->
   <string name="sync_send_to_all">Anfon at bob dyfais</string>
   <!-- An option from the share dialog to reconnect to sync -->
@@ -2231,7 +2339,7 @@
   <!-- Title for Accessibility Text Size Scaling Preference -->
   <string name="preference_accessibility_font_size_title">Maint Ffont</string>
   <!-- %d is the percentage of the slide bar for setting the text font size and %% will be announced as "percent". -->
-  <string name="a11y_preference_accessibility_font_size_percentage">%d %%.</string>
+  <string name="a11y_preference_accessibility_font_size_percentage" tools:ignore="UnusedResources" moz:removedIn="148">%d %%.</string>
   <!-- Title for Accessibility Text Automatic Size Scaling Preference -->
   <string name="preference_accessibility_auto_size_2">Newid maint ffont awtomatig</string>
   <!-- Summary for Accessibility Text Automatic Size Scaling Preference -->
@@ -2272,7 +2380,7 @@
   <!-- Summary for the Delete browsing data on quit preference. "Quit" translation should match delete_browsing_data_on_quit_action translation. -->
   <string name="preference_summary_delete_browsing_data_on_quit_2">Yn dileu data pori’n awtomatig pan fyddwch yn dewis \"Gadael\" o’r brif ddewislen</string>
   <!-- Action item in menu for the Delete browsing data on quit feature -->
-  <string name="delete_browsing_data_on_quit_action">Gadael</string>
+  <string name="delete_browsing_data_on_quit_action" tools:ignore="UnusedResources" moz:removedIn="149">Gadael</string>
   <!-- Title text of a delete browsing data dialog. -->
   <string name="delete_history_prompt_title">Ystod amser i’w ddileu</string>
   <!-- Body text of a delete browsing data dialog. -->
@@ -2735,6 +2843,20 @@
   <string name="saved_logins_sort_strategy_last_used">Defnyddiwyd Diwethaf</string>
   <!-- Content description (not visible, for screen readers etc.) -->
   <string name="saved_logins_menu_dropdown_chevron_icon_content_description_2">Didoli dewislen cyfrineiriau</string>
+  <!--
+    Email Masks
+
+    Title for the Email Masks in the settings menu
+  -->
+  <string name="preferences_email_masks">Arallenwau e-byst</string>
+  <!-- Title for the Suggest Email Masks toggle -->
+  <string name="preferences_email_masks_suggest_title">Awgrymu arallenwau e-bost</string>
+  <!-- Summary for the Suggest Email Masks toggle. -->
+  <string name="preferences_email_masks_suggest_summary">Cuddiwch eich e-bost go iawn i ddiogelu eich blwch derbyn rhag sbam. Dyw rhai gwefannau ddim yn cefnog arallenwau.</string>
+  <!-- Text that links to additional information about the Email Masks -->
+  <string name="preferences_email_masks_suggest_learn_more">Dysgu rhagor</string>
+  <!-- Title for the Manage Email Masks links to Firefox Relay dashboard -->
+  <string name="preferences_email_masks_manage_title">Rheoli arallenwau e-bost</string>
   <!--
     Autofill
 
@@ -3914,11 +4036,11 @@
   <string name="settings_search_no_results_title">Daeth dim i\'r golwg</string>
   <!-- Sub-message displayed when the search field is not empty but search results is empty. -->
   <string name="settings_search_no_results_message">Efallai rhoi cynnig ar chwilio gwahanol?</string>
-  <!--
-    Terms of use pop up prompt
+  <!-- Content Description for the button to open Settings Search (to search through settings). -->
+  <string name="settings_search_button_content_description">Botwm chwilio gosodiadau</string>
+  <!-- ==== Terms of use pop up prompt ==== -->
 
-    Title for the pop up prompt
-  -->
+  <!-- Title for the pop up prompt -->
   <string name="terms_of_use_prompt_title">Mae gennym ni ddiweddariad</string>
   <!--
     Message for the terms of use pop up prompt
@@ -3942,6 +4064,24 @@
   <string name="terms_of_use_prompt_accept">Derbyn</string>
   <!-- Label for a button to postpone accepting the terms of use -->
   <string name="terms_of_use_prompt_postpone">Atgoffwch fi yn nes ymlaen</string>
+  <!-- ==== Experiment strings. ==== -->
+
+  <!-- A title for the popup prompt. -->
+  <string name="terms_of_use_prompt_title_option_a" tools:ignore="UnusedResources">Amodau Defnydd</string>
+  <!--
+    A title for the popup prompt.
+    %1$s is the product name "Firefox"
+  -->
+  <string name="terms_of_use_prompt_title_option_b" tools:ignore="UnusedResources">Nodyn gan %1$s</string>
+  <!--
+    Copy for the Terms of Use popup prompt body line two.
+    %1$s is the string terms_of_use_prompt_body_line_two_alternative_link ("here") that is a link to the Terms of Use
+  -->
+  <string name="terms_of_use_prompt_body_line_two_alternative" tools:ignore="UnusedResources">Gallwch ddarllen rhagor yn %1$s.</string>
+  <!-- Link text for terms_of_use_prompt_body_line_two_alternative that links to a site with more information about the Terms of Use -->
+  <string name="terms_of_use_prompt_body_line_two_alternative_link" tools:ignore="UnusedResources">yma</string>
+  <!-- ==== End of Terms of use popup prompt. ==== -->
+
   <!--
     Privacy notice homepage banner
 

@@ -4,8 +4,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef nsMathMLmoFrame_h___
-#define nsMathMLmoFrame_h___
+#ifndef nsMathMLmoFrame_h_
+#define nsMathMLmoFrame_h_
 
 #include "nsMathMLChar.h"
 #include "nsMathMLTokenFrame.h"
@@ -25,7 +25,7 @@ class nsMathMLmoFrame final : public nsMathMLTokenFrame {
   friend nsIFrame* NS_NewMathMLmoFrame(mozilla::PresShell* aPresShell,
                                        ComputedStyle* aStyle);
 
-  eMathMLFrameType GetMathMLFrameType() override;
+  MathMLFrameType GetMathMLFrameType() override;
 
   void DidSetComputedStyle(ComputedStyle* aOldStyle) override;
 
@@ -96,4 +96,4 @@ class nsMathMLmoFrame final : public nsMathMLTokenFrame {
   bool IsFrameInSelection(nsIFrame* aFrame);
 };
 
-#endif /* nsMathMLmoFrame_h___ */
+#endif /* nsMathMLmoFrame_h_ */

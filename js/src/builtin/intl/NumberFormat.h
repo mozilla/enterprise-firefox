@@ -88,16 +88,6 @@ class NumberFormatObject : public NativeObject {
                                             Value* vp);
 
 /**
- * Returns the numbering system type identifier per Unicode
- * Technical Standard 35, Unicode Locale Data Markup Language, for the
- * default numbering system for the given locale.
- *
- * Usage: defaultNumberingSystem = intl_numberingSystem(locale)
- */
-[[nodiscard]] extern bool intl_numberingSystem(JSContext* cx, unsigned argc,
-                                               Value* vp);
-
-/**
  * Returns a string representing the number x according to the effective
  * locale and the formatting options of the given NumberFormat.
  *

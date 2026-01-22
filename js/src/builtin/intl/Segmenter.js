@@ -3,18 +3,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 /**
- * Intl.Segmenter internal properties.
- */
-function segmenterLocaleData() {
-  // Segmenter doesn't support any extension keys.
-  return {};
-}
-var segmenterInternalProperties = {
-  localeData: segmenterLocaleData,
-  relevantExtensionKeys: [],
-};
-
-/**
  * Intl.Segmenter ( [ locales [ , options ] ] )
  *
  * Compute an internal properties object from |lazySegmenterData|.
@@ -24,20 +12,13 @@ function resolveSegmenterInternals(lazySegmenterData) {
 
   var internalProps = std_Object_create(null);
 
-  var Segmenter = segmenterInternalProperties;
-
   // Compute effective locale.
 
-  // Step 9.
-  var localeData = Segmenter.localeData;
-
-  // Step 10.
-  var r = ResolveLocale(
+  // Steps 9-10.
+  var r = intl_ResolveLocale(
     "Segmenter",
     lazySegmenterData.requestedLocales,
     lazySegmenterData.opt,
-    Segmenter.relevantExtensionKeys,
-    localeData
   );
 
   // Step 11.

@@ -55,10 +55,10 @@ newtab-topsites-add-search-engine-header = Pytnicu pśidaś
 newtab-topsites-add-shortcut-header = Nowe zwězanje
 newtab-topsites-edit-topsites-header = Nejcesćej woglědane sedło wobźěłaś
 newtab-topsites-edit-shortcut-header = Zwězanje wobźěłaś
-newtab-topsites-add-shortcut-label = Skrotconku pśidaś
+newtab-topsites-add-shortcut-label = Zwězanje pśidaś
 newtab-topsites-add-shortcut-title =
-    .title = Skrotconku pśidaś
-    .aria-label = Skrotconku pśidaś
+    .title = Zwězanje pśidaś
+    .aria-label = Zwězanje pśidaś
 newtab-topsites-title-label = Titel
 newtab-topsites-title-input =
     .placeholder = Titel zapódaś
@@ -331,13 +331,8 @@ newtab-custom-recent-subtitle = Wuběrk nejnowšych sedłow a nejnowšego wopśi
 newtab-custom-weather-toggle =
     .label = Wjedro
     .description = Źinsajšna wjedrowa pśedpowěsć
-newtab-custom-trending-search-toggle =
-    .label = Woblubowane pytanja
-    .description = Popularne a cesto pytane temy
 newtab-custom-widget-weather-toggle =
     .label = Wjedro
-newtab-custom-widget-trending-search-toggle =
-    .label = Woblubowane pytanja
 newtab-custom-widget-lists-toggle =
     .label = Lisćiny
 newtab-custom-widget-timer-toggle =
@@ -598,7 +593,7 @@ newtab-download-mobile-highlight-image =
 newtab-shortcuts-highlight-title = Waše fawority k ruce
 newtab-shortcuts-highlight-subtitle = Pśidajśo zwězanje, aby swóje nejlubše sedła jadno kliknjenje pšec źaržał.
 
-## Strings for reporting ads and content
+## Strings for reporting issues with ads and content
 
 newtab-report-content-why-reporting-this =
     .label = Cogodla dawaśo to k wěsći?
@@ -616,21 +611,13 @@ newtab-report-content-inappropriate-offensive =
     .label = Njepśistojny abo kśiwźecy
 newtab-report-content-spam-misleading =
     .label = Spam abo torjecy
+newtab-report-content-requires-payment-subscription =
+    .label = Pomina se płaśenje abo abonement
+newtab-report-content-requires-payment-subscription-learn-more = Dalšne informacije
 newtab-report-cancel = Pśetergnuś
 newtab-report-submit = Wótpósłaś
 newtab-toast-thanks-for-reporting =
     .message = Wjeliki źěk, až sćo dał to k wěsći.
-
-## Strings for trending searches
-
-newtab-trending-searches-show-trending =
-    .title = Woblubowane pytanja pokazaś
-newtab-trending-searches-hide-trending =
-    .title = Woblubowane pytanja schowaś
-newtab-trending-searches-learn-more = Dalšne informacije
-newtab-trending-searches-dismiss = Woblubowane pytanja schowaś
-# "Trending searches refers to popular searches from search engines
-newtab-trending-searches-title = Woblubowane pytanja
 
 ## Strings for task / to-do list productivity widget
 

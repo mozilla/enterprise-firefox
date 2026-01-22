@@ -4,8 +4,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include <cstdio>
-
 #include "mozilla/Result.h"
 #include "mozilla/ResultVariant.h"
 #include "mozilla/interceptor/Arm64.h"
@@ -123,19 +121,25 @@ bool TestCheckForPCRelBr() {
   Result<LoadOrBranch, PCRelCheckError> result =
       CheckForPCRel(kExamplePCValue, 0xd61f0200);
 
-  if (result.isErr()) {
-    auto error = result.unwrapErr();
-    if (error != PCRelCheckError::InstructionNotPCRel) {
-      TEST_FAILED(
-          "Failed to recognize br as a non-PC-relative instruction, got "
-          "PCRelCheckError %d.\n",
-          error);
-    }
-  } else {
-    TEST_FAILED("Incorrectly recognized br as a PC-relative instruction.\n");
+  if (!result.isErr()) {
+    TEST_FAILED(
+        "Unexpectedly recognized br as a PC-relative instruction with a "
+        "decoder. While br is not actually PC-relative, we treat it as such "
+        "due to bug 2010042. If you have implemented a decoder for this "
+        "instruction, "
+        "please update TestArm64Disassembler.cpp.\n");
+  }
+  auto error = result.unwrapErr();
+  if (error != PCRelCheckError::NoDecoderAvailable) {
+    TEST_FAILED(
+        "Failed to recognize br as a PC-relative instruction, got "
+        "PCRelCheckError %d.\n",
+        error);
   }
 
-  TEST_PASS("Properly recognized br as a non-PC-relative instruction.\n");
+  TEST_PASS(
+      "Properly recognized br as a PC-relative instruction without a "
+      "decoder.\n");
   return true;
 }
 
@@ -168,7 +172,8 @@ bool TestCheckForAbsB() {
 
 int wmain(int argc, wchar_t* argv[]) {
   if (!TestCheckForPCRelAdrp() || !TestCheckForPCRelAdr() ||
-      !TestCheckForPCRelBlr() || !TestCheckForPCRelBr()) {
+      !TestCheckForPCRelBlr() || !TestCheckForPCRelBr() ||
+      !TestCheckForAbsB()) {
     return -1;
   }
   return 0;

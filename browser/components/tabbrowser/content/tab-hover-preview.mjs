@@ -42,6 +42,9 @@ export default class TabHoverPanelSet {
   /** @type {HoverPanel|null} */
   #activePanel;
 
+  /**
+   * @param {Window} win
+   */
   constructor(win) {
     XPCOMUtils.defineLazyPreferenceGetter(
       this,
@@ -59,16 +62,37 @@ export default class TabHoverPanelSet {
       this.#win
     );
 
-    this.tabPanel = new TabPanel(
-      this.#win.document.getElementById("tab-preview-panel"),
-      this
+    /** @type {HTMLTemplateElement} */
+    const tabPreviewTemplate = win.document.getElementById(
+      "tabPreviewPanelTemplate"
     );
+    const importedFragment = win.document.importNode(
+      tabPreviewTemplate.content,
+      true
+    );
+    // #tabPreviewPanelTemplate is currently just the .tab-preview-add-note
+    // button element, so append it to the tab preview panel body.
+    const addNoteButton = importedFragment.firstElementChild;
+    const tabPreviewPanel =
+      this.#win.document.getElementById("tab-preview-panel");
+    tabPreviewPanel.append(addNoteButton);
+    this.tabPanel = new TabPanel(tabPreviewPanel, this);
     this.tabGroupPanel = new TabGroupPanel(
       this.#win.document.getElementById("tabgroup-preview-panel"),
       this
     );
 
     this.#setExternalPopupListeners();
+    this.#win.gBrowser.tabContainer.addEventListener("dragstart", event => {
+      const target = event.target.closest?.("tab, .tab-group-label");
+      if (
+        target &&
+        (this.#win.gBrowser.isTab(target) ||
+          this.#win.gBrowser.isTabGroupLabel(target))
+      ) {
+        this.deactivate(null, { force: true });
+      }
+    });
   }
 
   /**
@@ -177,6 +201,7 @@ export default class TabHoverPanelSet {
     return (
       // All other popups are closed.
       !this.#openPopups.size &&
+      !this.#win.gBrowser.tabContainer.hasAttribute("movingtab") &&
       // TODO (bug 1899556): for now disable in background windows, as there are
       // issues with windows ordering on Linux (bug 1897475), plus intermittent
       // persistence of previews after session restore (bug 1888148).
@@ -274,8 +299,18 @@ class TabPanel extends HoverPanel {
 
     this.#tab = null;
     this.#thumbnailElement = null;
+
+    this.panelElement
+      .querySelector(".tab-preview-add-note")
+      .addEventListener("click", () => this.#openTabNotePanel());
+    this.panelElement
+      .querySelector(".tab-preview-note-expand")
+      .addEventListener("click", () => (this.#noteExpanded = true));
   }
 
+  /**
+   * @param {Event} e
+   */
   handleEvent(e) {
     switch (e.type) {
       case "popupshowing":
@@ -312,6 +347,8 @@ class TabPanel extends HoverPanel {
     // If the popup is closed this call will be ignored.
     this.#movePanel();
 
+    this.#noteExpanded = false;
+
     originalTab?.removeEventListener("TabAttrModified", this);
     this.#tab.addEventListener("TabAttrModified", this);
 
@@ -334,6 +371,11 @@ class TabPanel extends HoverPanel {
     }
   }
 
+  /**
+   * @param {MozTabbrowserTab} [leavingTab]
+   * @param {object} [options]
+   * @param {boolean} [options.force=false]
+   */
   deactivate(leavingTab = null, { force = false } = {}) {
     if (!this._prefUseTabNotes) {
       force = true;
@@ -475,6 +517,18 @@ class TabPanel extends HoverPanel {
       : "";
   }
 
+  /**
+   * Opens the tab note menu in the context of the current tab. Since only
+   * one panel should be open at a time, this also closes the tab hover preview
+   * panel.
+   */
+  #openTabNotePanel() {
+    this.win.gBrowser.tabNoteMenu.openPanel(this.#tab, {
+      telemetrySource: lazy.TabNotes.TELEMETRY_SOURCE.TAB_HOVER_PREVIEW_PANEL,
+    });
+    this.deactivate(this.#tab, { force: true });
+  }
+
   #updatePreview(tab = null) {
     if (tab) {
       this.#tab = tab;
@@ -496,10 +550,42 @@ class TabPanel extends HoverPanel {
         "";
     }
 
-    lazy.TabNotes.get(this.#tab).then(note => {
-      this.panelElement.querySelector(".tab-note-text-container").textContent =
-        note?.text || "";
-    });
+    const noteContainer = this.panelElement.querySelector(
+      ".tab-preview-note-container"
+    );
+    const noteTextContainer = noteContainer.querySelector(
+      ".tab-preview-note-text"
+    );
+    const addNoteButton = this.panelElement.querySelector(
+      ".tab-preview-add-note"
+    );
+
+    if (this._prefUseTabNotes && lazy.TabNotes.isEligible(this.#tab)) {
+      lazy.TabNotes.get(this.#tab).then(note => {
+        noteTextContainer.textContent = note?.text || "";
+
+        addNoteButton.toggleAttribute("hidden", !!note);
+        noteContainer.toggleAttribute("hidden", !note?.text);
+
+        // Allow CSS to see if the note is overflowing
+        this.#noteOverflow =
+          noteTextContainer.scrollHeight > noteTextContainer.clientHeight;
+
+        // Pass the width of the button to CSS so that
+        // they can be used to calculate the correct offset of the gradient mask
+        let button = this.panelElement.querySelector(
+          ".tab-preview-note-expand"
+        );
+        noteTextContainer.style.setProperty(
+          "--tab-note-expand-toggle-width",
+          `${button.offsetWidth}px`
+        );
+      });
+    } else {
+      noteTextContainer.textContent = "";
+      addNoteButton.setAttribute("hidden", "");
+      noteContainer.setAttribute("hidden", "");
+    }
 
     let thumbnailContainer = this.panelElement.querySelector(
       ".tab-preview-thumbnail-container"
@@ -536,6 +622,20 @@ class TabPanel extends HoverPanel {
     }
   }
 
+  /**
+   * @param {boolean} val
+   */
+  set #noteExpanded(val) {
+    this.panelElement.toggleAttribute("note-expanded", val);
+  }
+
+  /**
+   * @param {boolean} val
+   */
+  set #noteOverflow(val) {
+    this.panelElement.toggleAttribute("note-overflow", val);
+  }
+
   get popupOptions() {
     let tabContainer = this.win.gBrowser.tabContainer;
     // Popup anchors to the bottom edge of the tab in horizontal tabs mode
@@ -558,8 +658,8 @@ class TabPanel extends HoverPanel {
     // Popup anchors to the corner of tabs in the vertical pinned grid
     if (tabContainer.isContainerVerticalPinnedGrid(this.#tab)) {
       positionFromAnchor = sidebarAtStart ? "bottomright" : "bottomleft";
-      positionX = sidebarAtStart ? -20 : 20;
-      positionY = -15;
+      positionX = sidebarAtStart ? -6 : 6;
+      positionY = -10;
     }
 
     return {

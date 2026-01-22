@@ -324,13 +324,8 @@ newtab-custom-recent-subtitle = 近期访问的网站与内容精选
 newtab-custom-weather-toggle =
     .label = 天气
     .description = 速览今日天气预报
-newtab-custom-trending-search-toggle =
-    .label = 热门搜索
-    .description = 流行及常搜主题
 newtab-custom-widget-weather-toggle =
     .label = 天气
-newtab-custom-widget-trending-search-toggle =
-    .label = 热门搜索
 newtab-custom-widget-lists-toggle =
     .label = 清单
 newtab-custom-widget-timer-toggle =
@@ -591,7 +586,7 @@ newtab-download-mobile-highlight-image =
 newtab-shortcuts-highlight-title = 顺手就能打开常用网站
 newtab-shortcuts-highlight-subtitle = 添加快捷方式，一键打开常用网站。
 
-## Strings for reporting ads and content
+## Strings for reporting issues with ads and content
 
 newtab-report-content-why-reporting-this =
     .label = 此内容存在什么问题？
@@ -609,21 +604,13 @@ newtab-report-content-inappropriate-offensive =
     .label = 不适宜或具有冒犯性
 newtab-report-content-spam-misleading =
     .label = 垃圾信息或具有误导性
+newtab-report-content-requires-payment-subscription =
+    .label = 需要付款或订阅
+newtab-report-content-requires-payment-subscription-learn-more = 详细了解
 newtab-report-cancel = 取消
 newtab-report-submit = 提交
 newtab-toast-thanks-for-reporting =
     .message = 感谢反馈。
-
-## Strings for trending searches
-
-newtab-trending-searches-show-trending =
-    .title = 显示热门搜索
-newtab-trending-searches-hide-trending =
-    .title = 隐藏热门搜索
-newtab-trending-searches-learn-more = 详细了解
-newtab-trending-searches-dismiss = 隐藏热门搜索
-# "Trending searches refers to popular searches from search engines
-newtab-trending-searches-title = 热门搜索
 
 ## Strings for task / to-do list productivity widget
 

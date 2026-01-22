@@ -239,6 +239,13 @@ add_task(async function test_contextual_manager_toggle() {
   await SidebarController.waitUntilStable();
   const gleanEvent = Glean.contextualManager.sidebarToggle;
   await testSidebarToggle("viewCPMSidebar", gleanEvent);
+  for (const { extra } of gleanEvent.testGetValue()) {
+    Assert.equal(
+      extra.version,
+      getExpectedVersionString(),
+      "Event has the correct sidebar version."
+    );
+  }
   await testCustomizeToggle(
     "viewCPMSidebar",
     Glean.contextualManager.passwordsEnabled,
@@ -562,9 +569,27 @@ async function testIconClick(expanded) {
     set: [
       ["browser.ml.chat.enabled", true],
       [VERTICAL_TABS_PREF, true],
+      ["browser.contextual-password-manager.enabled", true],
     ],
   });
   await waitForTabstripOrientation("vertical");
+
+  await SidebarController.waitUntilStable();
+  await SidebarController.show("viewCustomizeSidebar");
+  const customizeComponent =
+    SidebarController.browser.contentDocument.querySelector(
+      "sidebar-customize"
+    );
+  const checkbox =
+    customizeComponent.shadowRoot.querySelector(`#viewCPMSidebar`);
+
+  EventUtils.synthesizeMouseAtCenter(
+    checkbox,
+    {},
+    SidebarController.browser.contentWindow
+  );
+
+  await SidebarController.waitUntilStable();
 
   const { sidebarMain } = SidebarController;
   const gleanEvents = new Map([
@@ -572,6 +597,7 @@ async function testIconClick(expanded) {
     ["viewTabsSidebar", Glean.sidebar.syncedTabsIconClick],
     ["viewHistorySidebar", Glean.sidebar.historyIconClick],
     ["viewBookmarksSidebar", Glean.sidebar.bookmarksIconClick],
+    ["viewCPMSidebar", Glean.sidebar.passwordsIconClick],
   ]);
 
   sidebarMain.updateComplete;

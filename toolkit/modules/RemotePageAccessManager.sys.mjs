@@ -62,6 +62,7 @@ export let RemotePageAccessManager = {
     "about:home": {
       RPMSendAsyncMessage: ["ActivityStream:ContentToMain"],
       RPMAddMessageListener: ["ActivityStream:MainToContent"],
+      RPMGetFormatURLPref: ["app.support.baseURL"],
     },
     "about:httpsonlyerror": {
       RPMGetFormatURLPref: ["app.support.baseURL"],
@@ -99,7 +100,12 @@ export let RemotePageAccessManager = {
         "OpenTRRPreferences",
       ],
       RPMCheckAlternateHostAvailable: ["*"],
-      RPMRecordGleanEvent: ["securityDohNeterror", "securityUiTlserror"],
+      RPMRecordGleanEvent: [
+        "securityDohNeterror",
+        "securityUiTlserror",
+        "securityUiCerterror",
+        "securityUiNeterror",
+      ],
       RPMAddMessageListener: ["*"],
       RPMRemoveMessageListener: ["*"],
       RPMGetFormatURLPref: [
@@ -107,6 +113,9 @@ export let RemotePageAccessManager = {
         "network.trr_ui.skip_reason_learn_more_url",
       ],
       RPMGetBoolPref: [
+        "security.certerrors.mitm.priming.enabled",
+        "security.certerrors.permanentOverride",
+        "security.enterprise_roots.auto-enabled",
         "security.certerror.hideAddException",
         "security.certerrors.felt-privacy-v1",
       ],
@@ -121,11 +130,12 @@ export let RemotePageAccessManager = {
       RPMSetTRRDisabledLoadFlags: ["*"],
       RPMShowOSXLocalNetworkPermissionWarning: ["*"],
       RPMSendQuery: ["Browser:AddTRRExcludedDomain"],
-      RPMGetIntPref: ["network.trr.mode"],
+      RPMGetIntPref: ["network.trr.mode", "security.dialog_enable_delay"],
     },
     "about:newtab": {
       RPMSendAsyncMessage: ["ActivityStream:ContentToMain"],
       RPMAddMessageListener: ["ActivityStream:MainToContent"],
+      RPMGetFormatURLPref: ["app.support.baseURL"],
     },
     "about:privatebrowsing": {
       RPMSendAsyncMessage: [

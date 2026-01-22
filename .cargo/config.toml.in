@@ -35,9 +35,14 @@ git = "https://github.com/franziskuskiefer/cose-rust"
 rev = "43c22248d136c8b38fe42ea709d08da6355cf04b"
 replace-with = "vendored-sources"
 
-[source."git+https://github.com/gfx-rs/wgpu?rev=9a975b24deb379b31a8a7cb999d2da5f3227a91a"]
+[source."git+https://github.com/gfx-rs/rspirv?rev=89ce4d0e64c91b0635f617409dc57cb031749a39"]
+git = "https://github.com/gfx-rs/rspirv"
+rev = "89ce4d0e64c91b0635f617409dc57cb031749a39"
+replace-with = "vendored-sources"
+
+[source."git+https://github.com/gfx-rs/wgpu?rev=87a3fda0d189f4280127939851f20655c71b1272"]
 git = "https://github.com/gfx-rs/wgpu"
-rev = "9a975b24deb379b31a8a7cb999d2da5f3227a91a"
+rev = "87a3fda0d189f4280127939851f20655c71b1272"
 replace-with = "vendored-sources"
 
 [source."git+https://github.com/glandium/allocator-api2?rev=ad5f3d56a5a4519eff52af4ff85293431466ef5c"]
@@ -68,11 +73,6 @@ replace-with = "vendored-sources"
 [source."git+https://github.com/jfkthame/mapped_hyph.git?rev=eff105f6ad7ec9b79816cfc1985a28e5340ad14b"]
 git = "https://github.com/jfkthame/mapped_hyph.git"
 rev = "eff105f6ad7ec9b79816cfc1985a28e5340ad14b"
-replace-with = "vendored-sources"
-
-[source."git+https://github.com/martinthomson/ohttp.git?rev=bf6a983845cc0b540effb3a615e92d914dfcfd0b"]
-git = "https://github.com/martinthomson/ohttp.git"
-rev = "bf6a983845cc0b540effb3a615e92d914dfcfd0b"
 replace-with = "vendored-sources"
 
 [source."git+https://github.com/mozilla/application-services?rev=0376c542e4a31cde8d33dd0e8da17dcfbc6c58b2"]

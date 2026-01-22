@@ -12,7 +12,7 @@ use xpcom::RefPtr;
 
 use log::trace;
 
-use crate::message::{FeltMessage, FELT_IPC_VERSION};
+use crate::message::{nsICookieWrapper, FeltMessage, FELT_IPC_VERSION};
 use crate::utils::{self, Tokens, TOKENS};
 
 #[derive(Default)]
@@ -158,7 +158,7 @@ impl FeltClientThread {
         // Define an observer
         #[xpcom(implement(nsIObserver), nonatomic)]
         struct Observer {
-            pending_cookies: Arc<Mutex<Vec<String>>>,
+            pending_cookies: Arc<Mutex<Vec<nsICookieWrapper>>>,
             profile_ready: Arc<AtomicBool>,
             thread_stop: ipc_channel::ipc::IpcSender<bool>,
             restart_tx: Option<ipc_channel::ipc::IpcSender<FeltMessage>>,
@@ -188,7 +188,10 @@ impl FeltClientThread {
                         trace!("FeltClientThread::start_thread::observe() xpcom-shutdown");
                         if let Err(err) = self.thread_stop.send(true) {
                             trace!("FeltClientThread::start_thread::observe() xpcom-shutdown thread_stop.send() error: {}", err);
-                            panic!("FeltClientThread failed to send stop on xpcom-shutdown. Error: {}", err);
+                            panic!(
+                                "FeltClientThread failed to send stop on xpcom-shutdown. Error: {}",
+                                err
+                            );
                         }
                     }
                     Ok("quit-application") => {
@@ -247,7 +250,7 @@ impl FeltClientThread {
 
         let profile_ready = Arc::new(AtomicBool::new(false));
 
-        let pending_cookies: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
+        let pending_cookies: Arc<Mutex<Vec<nsICookieWrapper>>> = Arc::new(Mutex::new(Vec::new()));
 
         // Clone tx for the observer to send restart messages directly
         let client = self.ipc_client.borrow_mut();
@@ -321,7 +324,7 @@ impl FeltClientThread {
                         ipc_channel::ipc::IpcSelectionResult::MessageReceived(id, data) if id == rx_client_id => {
                             match data.to() {
                                 Ok(FeltMessage::Cookie(felt_cookie)) => {
-                                    trace!("FeltClientThread::felt_client::ipc_loop(): received cookie: {}", felt_cookie.clone());
+                                    trace!("FeltClientThread::felt_client::ipc_loop(): received cookie: {:?}", felt_cookie.clone());
                                     if profile_ready_internal.load(Ordering::Relaxed) {
                                         utils::inject_one_cookie(felt_cookie);
                                     } else if let Ok(mut cookies) = pending_cookies.lock() {

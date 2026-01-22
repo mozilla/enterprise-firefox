@@ -325,13 +325,8 @@ newtab-custom-recent-subtitle = 近期造訪過的網站與內容精選
 newtab-custom-weather-toggle =
     .label = 天氣
     .description = 快速了解本日天氣
-newtab-custom-trending-search-toggle =
-    .label = 熱門搜尋
-    .description = 熱門與常見搜尋主題
 newtab-custom-widget-weather-toggle =
     .label = 天氣
-newtab-custom-widget-trending-search-toggle =
-    .label = 熱門搜尋
 newtab-custom-widget-lists-toggle =
     .label = 清單
 newtab-custom-widget-timer-toggle =
@@ -592,7 +587,7 @@ newtab-download-mobile-highlight-image =
 newtab-shortcuts-highlight-title = 手指輕鬆一點就開啟最愛網站
 newtab-shortcuts-highlight-subtitle = 新增捷徑，輕鬆一點就能開啟您的最愛網站。
 
-## Strings for reporting ads and content
+## Strings for reporting issues with ads and content
 
 newtab-report-content-why-reporting-this =
     .label = 為什麼您會如此回報？
@@ -610,21 +605,13 @@ newtab-report-content-inappropriate-offensive =
     .label = 不正當或者冒犯人
 newtab-report-content-spam-misleading =
     .label = 是垃圾內容或誤導性內容
+newtab-report-content-requires-payment-subscription =
+    .label = 必需付款或訂閱
+newtab-report-content-requires-payment-subscription-learn-more = 更多資訊
 newtab-report-cancel = 取消
 newtab-report-submit = 送出
 newtab-toast-thanks-for-reporting =
     .message = 感謝您回報此問題。
-
-## Strings for trending searches
-
-newtab-trending-searches-show-trending =
-    .title = 顯示熱門搜尋主題
-newtab-trending-searches-hide-trending =
-    .title = 隱藏熱門搜尋主題
-newtab-trending-searches-learn-more = 更多資訊
-newtab-trending-searches-dismiss = 隱藏熱門搜尋主題
-# "Trending searches refers to popular searches from search engines
-newtab-trending-searches-title = 熱門搜尋
 
 ## Strings for task / to-do list productivity widget
 

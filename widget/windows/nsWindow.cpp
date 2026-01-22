@@ -4265,10 +4265,10 @@ bool nsWindow::DispatchMouseEvent(EventMessage aEventMessage, WPARAM wParam,
   static BYTE sLastMouseButton = 0;
 
   bool insideMovementThreshold =
-      (DeprecatedAbs(sLastMousePoint.x - eventPoint.x.value) <
-       (short)::GetSystemMetrics(SM_CXDOUBLECLK)) &&
-      (DeprecatedAbs(sLastMousePoint.y - eventPoint.y.value) <
-       (short)::GetSystemMetrics(SM_CYDOUBLECLK));
+      (Abs(sLastMousePoint.x - eventPoint.x.value) <
+       (unsigned)::GetSystemMetrics(SM_CXDOUBLECLK)) &&
+      (Abs(sLastMousePoint.y - eventPoint.y.value) <
+       (unsigned)::GetSystemMetrics(SM_CYDOUBLECLK));
 
   BYTE eventButton;
   switch (aButton) {
@@ -6796,11 +6796,9 @@ bool nsWindow::OnGesture(WPARAM wParam, LPARAM lParam) {
 
     if (mDisplayPanFeedback) {
       mGesture.UpdatePanFeedbackX(
-          mWnd, DeprecatedAbs(RoundDown(wheelEvent.mOverflowDeltaX)),
-          endFeedback);
+          mWnd, RoundDown(wheelEvent.mOverflowDeltaX) != 0, endFeedback);
       mGesture.UpdatePanFeedbackY(
-          mWnd, DeprecatedAbs(RoundDown(wheelEvent.mOverflowDeltaY)),
-          endFeedback);
+          mWnd, RoundDown(wheelEvent.mOverflowDeltaY) != 0, endFeedback);
       mGesture.PanFeedbackFinalize(mWnd, endFeedback);
     }
 
@@ -8334,7 +8332,7 @@ bool nsWindow::InitTouchInjection() {
     }
 
     if (!func(TOUCH_INJECT_MAX_POINTS, TOUCH_FEEDBACK_DEFAULT)) {
-      WinUtils::Log("InitializeTouchInjection failure. GetLastError=%d",
+      WinUtils::Log("InitializeTouchInjection failure. GetLastError=%lu",
                     GetLastError());
       return false;
     }
@@ -8391,7 +8389,7 @@ bool nsWindow::InjectTouchPoint(uint32_t aId, LayoutDeviceIntPoint& aPoint,
       ::Sleep(i);
       continue;
     }
-    WinUtils::Log("InjectTouchInput failure. GetLastError=%d", error);
+    WinUtils::Log("InjectTouchInput failure. GetLastError=%lu", error);
     return false;
   }
   return true;

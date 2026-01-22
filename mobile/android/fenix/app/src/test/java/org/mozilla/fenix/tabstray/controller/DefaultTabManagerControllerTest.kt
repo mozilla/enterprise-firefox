@@ -107,7 +107,6 @@ class DefaultTabManagerControllerTest {
     @MockK(relaxed = true)
     private lateinit var accountManager: FxaAccountManager
 
-    private lateinit var addNewTabUseCase: TabsUseCases.AddNewTabUseCase
     private lateinit var loadUrlUseCase: SessionUseCases.DefaultLoadUrlUseCase
     private lateinit var searchUseCases: SearchUseCases
     private lateinit var homepageTitle: String
@@ -136,7 +135,6 @@ class DefaultTabManagerControllerTest {
     fun setup() {
         MockKAnnotations.init(this)
         context = spyk(testContext)
-        addNewTabUseCase = mockk(relaxed = true)
         loadUrlUseCase = mockk(relaxed = true)
         searchUseCases = mockk(relaxed = true)
         homepageTitle = testContext.getString(R.string.tab_tray_homepage_tab)
@@ -635,7 +633,7 @@ class DefaultTabManagerControllerTest {
         val appStore = AppStore(initialState = AppState(mode = BrowsingMode.Normal))
         fenixBrowserUseCases = FenixBrowserUseCases(
             appStore = appStore,
-            addNewTabUseCase = addNewTabUseCase,
+            tabsUseCases = tabsUseCases,
             loadUrlUseCase = loadUrlUseCase,
             searchUseCases = searchUseCases,
             homepageTitle = homepageTitle,
@@ -650,7 +648,7 @@ class DefaultTabManagerControllerTest {
         val url = "https://mozilla.org"
 
         verify {
-            addNewTabUseCase.invoke(
+            tabsUseCases.addTab.invoke(
                 url = url,
                 flags = EngineSession.LoadUrlFlags.none(),
                 private = false,

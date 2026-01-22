@@ -25,7 +25,6 @@
 #include <string.h>
 #include <type_traits>
 
-#include "jsnum.h"
 #include "jstypes.h"
 
 #include "builtin/Array.h"
@@ -36,6 +35,7 @@
 #  include "builtin/intl/GlobalIntlData.h"
 #  include "builtin/intl/LocaleNegotiation.h"
 #endif
+#include "builtin/Number.h"
 #include "builtin/RegExp.h"
 #include "gc/GC.h"
 #include "jit/InlinableNatives.h"
@@ -2667,7 +2667,7 @@ bool js::StringLastIndexOf(JSContext* cx, HandleString string,
 
 // ES2026 draft rev a562082b031d89d00ee667181ce8a6158656bd4b
 // 22.1.3.24 String.prototype.startsWith ( searchString [ , position ] )
-bool js::str_startsWith(JSContext* cx, unsigned argc, Value* vp) {
+static bool str_startsWith(JSContext* cx, unsigned argc, Value* vp) {
   AutoJSMethodProfilerEntry pseudoFrame(cx, "String.prototype", "startsWith");
   CallArgs args = CallArgsFromVp(argc, vp);
 
@@ -2742,7 +2742,7 @@ bool js::StringStartsWith(JSContext* cx, HandleString string,
 
 // ES2026 draft rev a562082b031d89d00ee667181ce8a6158656bd4b
 // 22.1.3.7 String.prototype.endsWith ( searchString [ , endPosition ] )
-bool js::str_endsWith(JSContext* cx, unsigned argc, Value* vp) {
+static bool str_endsWith(JSContext* cx, unsigned argc, Value* vp) {
   AutoJSMethodProfilerEntry pseudoFrame(cx, "String.prototype", "endsWith");
   CallArgs args = CallArgsFromVp(argc, vp);
 

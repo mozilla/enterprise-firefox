@@ -112,9 +112,9 @@ add_task(
 
     await SearchTestUtils.installSearchExtension();
 
-    let engine = Services.search.getEngineByName("Example");
-    let originalEngine = await Services.search.getDefault();
-    await Services.search.setDefault(
+    let engine = SearchService.getEngineByName("Example");
+    let originalEngine = await SearchService.getDefault();
+    await SearchService.setDefault(
       engine,
       Ci.nsISearchService.CHANGE_REASON_UNKNOWN
     );
@@ -124,7 +124,7 @@ add_task(
       Preferences.set("browser.urlbar.suggest.bookmark", suggestBookmarks);
       Preferences.set("browser.urlbar.suggest.openpage", suggestOpenPages);
 
-      await Services.search.setDefault(
+      await SearchService.setDefault(
         originalEngine,
         Ci.nsISearchService.CHANGE_REASON_UNKNOWN
       );

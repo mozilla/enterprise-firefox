@@ -325,13 +325,8 @@ newtab-custom-recent-subtitle = Elekto de ĵusaj retejoj kaj enhavoj
 newtab-custom-weather-toggle =
     .label = Vetero
     .description = Rapida rigardo al la veterprognozo hodiaŭa
-newtab-custom-trending-search-toggle =
-    .label = Popularaj serĉoj
-    .description = Popularaj kaj ofte serĉitaj temoj
 newtab-custom-widget-weather-toggle =
     .label = Vetero
-newtab-custom-widget-trending-search-toggle =
-    .label = Popularaj serĉoj
 newtab-custom-widget-lists-toggle =
     .label = Listoj
 newtab-custom-widget-timer-toggle =
@@ -592,7 +587,7 @@ newtab-download-mobile-highlight-image =
 newtab-shortcuts-highlight-title = Viaj plej ŝatataj retejoj ĉemane
 newtab-shortcuts-highlight-subtitle = Aldonu ŝparvojon por havi viajn plej ŝatatajn retejojn je unu alklako.
 
-## Strings for reporting ads and content
+## Strings for reporting issues with ads and content
 
 newtab-report-content-why-reporting-this =
     .label = Kial vi raportas tion ĉi?
@@ -610,21 +605,13 @@ newtab-report-content-inappropriate-offensive =
     .label = Neadekvata aŭ ofenda
 newtab-report-content-spam-misleading =
     .label = Truda aŭ trompa
+newtab-report-content-requires-payment-subscription =
+    .label = Postulata pago aŭ abono
+newtab-report-content-requires-payment-subscription-learn-more = Pli da informo
 newtab-report-cancel = Nuligi
 newtab-report-submit = Sendi
 newtab-toast-thanks-for-reporting =
     .message = Dankon pro via raporto.
-
-## Strings for trending searches
-
-newtab-trending-searches-show-trending =
-    .title = Montri popularajn serĉojn
-newtab-trending-searches-hide-trending =
-    .title = Kaŝi popularajn serĉojn
-newtab-trending-searches-learn-more = Pli da informo
-newtab-trending-searches-dismiss = Kaŝi popularajn serĉojn
-# "Trending searches refers to popular searches from search engines
-newtab-trending-searches-title = Popularaj serĉoj
 
 ## Strings for task / to-do list productivity widget
 

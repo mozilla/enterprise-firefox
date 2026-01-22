@@ -6,8 +6,6 @@
 
 #include "gc/WeakMap-inl.h"
 
-#include <string.h>
-
 #include "gc/PublicIterators.h"
 #include "vm/JSObject.h"
 

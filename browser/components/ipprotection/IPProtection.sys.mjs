@@ -2,9 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
-import { ERRORS } from "chrome://browser/content/ipprotection/ipprotection-constants.mjs";
-
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -12,13 +9,15 @@ ChromeUtils.defineESModuleGetters(lazy, {
   CustomizableUI:
     "moz-src:///browser/components/customizableui/CustomizableUI.sys.mjs",
   IPProtectionPanel:
-    "resource:///modules/ipprotection/IPProtectionPanel.sys.mjs",
+    "moz-src:///browser/components/ipprotection/IPProtectionPanel.sys.mjs",
   IPProtectionService:
-    "resource:///modules/ipprotection/IPProtectionService.sys.mjs",
+    "moz-src:///browser/components/ipprotection/IPProtectionService.sys.mjs",
   IPProtectionStates:
-    "resource:///modules/ipprotection/IPProtectionService.sys.mjs",
-  IPPProxyManager: "resource:///modules/ipprotection/IPPProxyManager.sys.mjs",
-  IPPProxyStates: "resource:///modules/ipprotection/IPPProxyManager.sys.mjs",
+    "moz-src:///browser/components/ipprotection/IPProtectionService.sys.mjs",
+  IPProtectionToolbarButton:
+    "moz-src:///browser/components/ipprotection/IPProtectionToolbarButton.sys.mjs",
+  IPPProxyManager:
+    "moz-src:///browser/components/ipprotection/IPPProxyManager.sys.mjs",
   requestIdleCallback: "resource://gre/modules/Timer.sys.mjs",
   cancelIdleCallback: "resource://gre/modules/Timer.sys.mjs",
 });
@@ -40,12 +39,12 @@ class IPProtectionWidget {
   static PANEL_ID = "PanelUI-ipprotection";
 
   static ENABLED_PREF = "browser.ipProtection.enabled";
-  static VARIANT_PREF = "browser.ipProtection.variant";
   static ADDED_PREF = "browser.ipProtection.added";
 
   #inited = false;
   created = false;
   #panels = new WeakMap();
+  #toolbarButtons = new WeakMap();
 
   constructor() {
     this.sendReadyTrigger = this.#sendReadyTrigger.bind(this);
@@ -88,31 +87,6 @@ class IPProtectionWidget {
    */
   get isInitialized() {
     return this.#inited;
-  }
-
-  /**
-   * Updates the toolbar icon to reflect the VPN connection status
-   *
-   * @param {XULElement} toolbaritem - toolbaritem to update
-   * @param {object} status - VPN connection status
-   */
-  updateIconStatus(toolbaritem, status = { isActive: false, isError: false }) {
-    let isActive = status.isActive;
-    let isError = status.isError;
-    let l10nId = isError ? "ipprotection-button-error" : "ipprotection-button";
-
-    if (isError) {
-      toolbaritem.classList.remove("ipprotection-on");
-      toolbaritem.classList.add("ipprotection-error");
-    } else if (isActive) {
-      toolbaritem.classList.remove("ipprotection-error");
-      toolbaritem.classList.add("ipprotection-on");
-    } else {
-      toolbaritem.classList.remove("ipprotection-error");
-      toolbaritem.classList.remove("ipprotection-on");
-    }
-
-    toolbaritem.setAttribute("data-l10n-id", l10nId);
   }
 
   /**
@@ -191,7 +165,7 @@ class IPProtectionWidget {
   }
 
   /**
-   * Get the IPProtectionPanel for q given window.
+   * Get the IPProtectionPanel for a given window.
    *
    * @param {Window} window - which window to get the panel for.
    * @returns {IPProtectionPanel}
@@ -218,14 +192,23 @@ class IPProtectionWidget {
   }
 
   /**
-   * Uninit all panels and clear the WeakMap.
+   * Uninit all panels and toolbar buttons and clear the WeakMaps.
    */
   #uninitPanels() {
     let panels = ChromeUtils.nondeterministicGetWeakMapKeys(this.#panels);
     for (let panel of panels) {
       this.#panels.get(panel).uninit();
     }
+
+    let toolbarButtons = ChromeUtils.nondeterministicGetWeakMapKeys(
+      this.#toolbarButtons
+    );
+    for (let toolbarButton of toolbarButtons) {
+      this.#toolbarButtons.get(toolbarButton).uninit();
+    }
+
     this.#panels = new WeakMap();
+    this.#toolbarButtons = new WeakMap();
   }
 
   /**
@@ -268,20 +251,21 @@ class IPProtectionWidget {
   }
 
   /**
-   * Gets the toolbaritem after the widget has been created and
-   * adds content to the panel.
+   * Gets the toolbaritem after the widget has been created,
+   * creates the toolbar button with initial state, and adds content to the panel.
    *
    * @param {XULElement} toolbaritem - the widget toolbaritem.
    */
   #onCreated(toolbaritem) {
-    let isActive = lazy.IPPProxyManager.state === lazy.IPPProxyStates.ACTIVE;
-    let isError =
-      lazy.IPPProxyManager.state === lazy.IPPProxyStates.ERROR &&
-      lazy.IPPProxyManager.errors.includes(ERRORS.GENERIC);
-    this.updateIconStatus(toolbaritem, {
-      isActive,
-      isError,
-    });
+    let window = toolbaritem.ownerGlobal;
+    if (window && !this.#toolbarButtons.has(window)) {
+      let toolbarButton = new lazy.IPProtectionToolbarButton(
+        window,
+        IPProtectionWidget.WIDGET_ID,
+        toolbaritem
+      );
+      this.#toolbarButtons.set(window, toolbarButton);
+    }
 
     this.readyTriggerIdleCallback = lazy.requestIdleCallback(
       this.sendReadyTrigger
@@ -341,33 +325,11 @@ class IPProtectionWidget {
         lazy.IPProtectionService.state === lazy.IPProtectionStates.OPTED_OUT
       ) {
         lazy.CustomizableUI.removeWidgetFromArea(IPProtectionWidget.WIDGET_ID);
-        return;
-      }
-
-      let status = {
-        isActive: lazy.IPPProxyManager.state === lazy.IPPProxyStates.ACTIVE,
-        isError:
-          lazy.IPPProxyManager.state === lazy.IPPProxyStates.ERROR &&
-          lazy.IPPProxyManager.errors.includes(ERRORS.GENERIC),
-      };
-
-      let widget = lazy.CustomizableUI.getWidget(IPProtectionWidget.WIDGET_ID);
-      let windows = ChromeUtils.nondeterministicGetWeakMapKeys(this.#panels);
-      for (let win of windows) {
-        let toolbaritem = widget.forWindow(win).node;
-        this.updateIconStatus(toolbaritem, status);
       }
     }
   }
 }
 
 const IPProtection = new IPProtectionWidget();
-
-XPCOMUtils.defineLazyPreferenceGetter(
-  IPProtection,
-  "variant",
-  IPProtectionWidget.VARIANT_PREF,
-  ""
-);
 
 export { IPProtection, IPProtectionWidget };

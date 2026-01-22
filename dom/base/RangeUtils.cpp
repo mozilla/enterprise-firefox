@@ -149,7 +149,11 @@ bool RangeUtils::IsValidPoints(
   }
 
   const Maybe<int32_t> order =
-      nsContentUtils::ComparePoints(aStartBoundary, aEndBoundary);
+      aStartBoundary.GetTreeKind() == TreeKind::Flat
+          ? nsContentUtils::ComparePoints<TreeKind::Flat>(aStartBoundary,
+                                                          aEndBoundary)
+          : nsContentUtils::ComparePoints<TreeKind::DOM>(aStartBoundary,
+                                                         aEndBoundary);
   if (!order) {
     MOZ_ASSERT_UNREACHABLE();
     return false;
@@ -240,8 +244,7 @@ nsresult RangeUtils::CompareNodeToRangeBoundaries(
     parent = aNode;
     nodeStart = 0;
     nodeEnd = aNode->GetChildCount();
-  } else if (const HTMLSlotElement* slotAsParent =
-                 HTMLSlotElement::FromNode(parent);
+  } else if (const auto* slotAsParent = HTMLSlotElement::FromNode(parent);
              slotAsParent && aKind == TreeKind::Flat) {
     // aNode is a slotted content, use the index in the assigned nodes
     // to represent this node.

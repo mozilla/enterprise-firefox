@@ -11,7 +11,6 @@
 #include "mozilla/Assertions.h"
 #include "mozilla/intl/Collator.h"
 #include "mozilla/intl/Locale.h"
-#include "mozilla/Span.h"
 
 #include "builtin/Array.h"
 #include "builtin/intl/CommonFunctions.h"
@@ -57,7 +56,7 @@ const JSClass CollatorObject::class_ = {
     "Intl.Collator",
     JSCLASS_HAS_RESERVED_SLOTS(CollatorObject::SLOT_COUNT) |
         JSCLASS_HAS_CACHED_PROTO(JSProto_Collator) |
-        JSCLASS_FOREGROUND_FINALIZE,
+        JSCLASS_BACKGROUND_FINALIZE,
     &CollatorObject::classOps_,
     &CollatorObject::classSpec_,
 };
@@ -176,69 +175,10 @@ CollatorObject* js::intl::GetOrCreateCollator(JSContext* cx,
 }
 
 void js::CollatorObject::finalize(JS::GCContext* gcx, JSObject* obj) {
-  MOZ_ASSERT(gcx->onMainThread());
-
   if (mozilla::intl::Collator* coll = obj->as<CollatorObject>().getCollator()) {
     intl::RemoveICUCellMemory(gcx, obj, CollatorObject::EstimatedMemoryUse);
     delete coll;
   }
-}
-
-bool js::intl_availableCollations(JSContext* cx, unsigned argc, Value* vp) {
-  CallArgs args = CallArgsFromVp(argc, vp);
-  MOZ_ASSERT(args.length() == 1);
-  MOZ_ASSERT(args[0].isString());
-
-  UniqueChars locale = intl::EncodeLocale(cx, args[0].toString());
-  if (!locale) {
-    return false;
-  }
-  auto keywords =
-      mozilla::intl::Collator::GetBcp47KeywordValuesForLocale(locale.get());
-  if (keywords.isErr()) {
-    ReportInternalError(cx, keywords.unwrapErr());
-    return false;
-  }
-
-  RootedObject collations(cx, NewDenseEmptyArray(cx));
-  if (!collations) {
-    return false;
-  }
-
-  // The first element of the collations array must be |null| per
-  // ES2017 Intl, 10.2.3 Internal Slots.
-  if (!NewbornArrayPush(cx, collations, NullValue())) {
-    return false;
-  }
-
-  for (auto result : keywords.unwrap()) {
-    if (result.isErr()) {
-      ReportInternalError(cx);
-      return false;
-    }
-    mozilla::Span<const char> collation = result.unwrap();
-
-    // Per ECMA-402, 10.2.3, we don't include standard and search:
-    // "The values 'standard' and 'search' must not be used as elements in
-    // any [[sortLocaleData]][locale].co and [[searchLocaleData]][locale].co
-    // array."
-    static constexpr auto standard = mozilla::MakeStringSpan("standard");
-    static constexpr auto search = mozilla::MakeStringSpan("search");
-    if (collation == standard || collation == search) {
-      continue;
-    }
-
-    JSString* jscollation = NewStringCopy<CanGC>(cx, collation);
-    if (!jscollation) {
-      return false;
-    }
-    if (!NewbornArrayPush(cx, collations, StringValue(jscollation))) {
-      return false;
-    }
-  }
-
-  args.rval().setObject(*collations);
-  return true;
 }
 
 /**

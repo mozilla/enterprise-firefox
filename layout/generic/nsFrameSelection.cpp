@@ -275,13 +275,13 @@ struct MOZ_RAII AutoPrepareFocusRange {
       mUserSelect.emplace(aSelection);
     }
 
-    nsTArray<StyledRange>& ranges = aSelection->mStyledRanges.mRanges;
+    Span ranges = aSelection->mStyledRanges.Ranges();
     if (!aSelection->mUserInitiated || aMultiRangeSelection) {
       // Scripted command or the user is starting a new explicit multi-range
       // selection.
-      for (StyledRange& entry : ranges) {
-        MOZ_ASSERT(entry.mRange->IsDynamicRange());
-        entry.mRange->AsDynamicRange()->SetIsGenerated(false);
+      for (const auto& range : ranges) {
+        MOZ_ASSERT(range->IsDynamicRange());
+        range->AsDynamicRange()->SetIsGenerated(false);
       }
       return;
     }
@@ -321,48 +321,43 @@ struct MOZ_RAII AutoPrepareFocusRange {
  private:
   static nsRange* FindGeneratedRangeMostDistantFromAnchor(
       const Selection& aSelection) {
-    const nsTArray<StyledRange>& ranges = aSelection.mStyledRanges.mRanges;
-    const size_t len = ranges.Length();
-    nsRange* result{nullptr};
+    const Span ranges = aSelection.mStyledRanges.Ranges();
+    // This function is only called for selections with type == eNormal.
+    // (see MOZ_ASSERT in constructor).
+    // Therefore, all ranges must be dynamic.
     if (aSelection.GetDirection() == eDirNext) {
-      for (size_t i = 0; i < len; ++i) {
-        // This function is only called for selections with type == eNormal.
-        // (see MOZ_ASSERT in constructor).
-        // Therefore, all ranges must be dynamic.
-        if (ranges[i].mRange->AsDynamicRange()->IsGenerated()) {
-          result = ranges[i].mRange->AsDynamicRange();
-          break;
+      for (const auto& range : ranges) {
+        if (range->AsDynamicRange()->IsGenerated()) {
+          return range->AsDynamicRange();
         }
       }
     } else {
-      size_t i = len;
-      while (i--) {
-        if (ranges[i].mRange->AsDynamicRange()->IsGenerated()) {
-          result = ranges[i].mRange->AsDynamicRange();
-          break;
+      for (const auto& range : Reversed(ranges)) {
+        if (range->AsDynamicRange()->IsGenerated()) {
+          return range->AsDynamicRange();
         }
       }
     }
 
-    return result;
+    return nullptr;
   }
 
   static void RemoveGeneratedRanges(Selection& aSelection) {
     RefPtr<nsPresContext> presContext = aSelection.GetPresContext();
-    nsTArray<StyledRange>& ranges = aSelection.mStyledRanges.mRanges;
+    Span ranges = aSelection.mStyledRanges.Ranges();
     size_t i = ranges.Length();
     while (i--) {
       // This function is only called for selections with type == eNormal.
       // (see MOZ_ASSERT in constructor).
       // Therefore, all ranges must be dynamic.
-      if (!ranges[i].mRange->IsDynamicRange()) {
+      if (!ranges[i]->IsDynamicRange()) {
         continue;
       }
-      nsRange* range = ranges[i].mRange->AsDynamicRange();
+      nsRange* range = ranges[i]->AsDynamicRange();
       if (range->IsGenerated()) {
         range->UnregisterSelection(aSelection);
         aSelection.SelectFrames(presContext, *range, false);
-        ranges.RemoveElementAt(i);
+        aSelection.mStyledRanges.mRanges.RemoveElementAt(i);
       }
     }
   }

@@ -16,6 +16,7 @@ from ctypes import c_wchar_p
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from multiprocessing import Manager, Process, Value
 
+import psutil
 import requests
 from base_test import EnterpriseTestsBase
 from selenium.webdriver.common.by import By
@@ -143,31 +144,27 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
 
         elif path == "/api/browser/hacks/default":
             # Browser prefs that can be applied live
-            m = json.dumps(
-                {
-                    "prefs": [
-                        ["browser.sessionstore.restore_on_demand", False],
-                        ["browser.sessionstore.resume_from_crash", False],
-                        ["browser.policies.live_polling.frequency", 500],
-                        [
-                            "identity.sync.tokenserver.uri",
-                            "https://ent-dev-tokenserver.sync.nonprod.webservices.mozgcp.net/1.0/sync/1.5",
-                        ],
-                    ]
-                }
-            )
+            m = json.dumps({
+                "prefs": [
+                    ["browser.sessionstore.restore_on_demand", False],
+                    ["browser.sessionstore.resume_from_crash", False],
+                    ["browser.policies.live_polling.frequency", 500],
+                    [
+                        "identity.sync.tokenserver.uri",
+                        "https://ent-dev-tokenserver.sync.nonprod.webservices.mozgcp.net/1.0/sync/1.5",
+                    ],
+                ]
+            })
         elif path == "/api/browser/hacks/startup":
             # Browser prefs that needs to be set in the prefs.js file
-            m = json.dumps(
-                {
-                    "prefs": [
-                        ["devtools.browsertoolbox.scope", "everything"],
-                        ["marionette.port", 0],
-                        ["enterprise.console.test_float", 1.5],
-                        ["enterprise.console.test_bool", True],
-                    ]
-                }
-            )
+            m = json.dumps({
+                "prefs": [
+                    ["devtools.browsertoolbox.scope", "everything"],
+                    ["marionette.port", 0],
+                    ["enterprise.console.test_float", 1.5],
+                    ["enterprise.console.test_bool", True],
+                ]
+            })
 
         elif path == "/api/browser/policies":
             self.check_auth()
@@ -199,19 +196,17 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
         elif path == "/api/browser/whoami":
             self.check_auth()
 
-            m = json.dumps(
-                {
-                    "id": str(uuid.uuid4()),
-                    "email": "nobody@mozilla.org",
-                    "name": "moz user",
-                    "picture": "https://s.gravatar.com/avatar/something",
-                    "is_active": True,
-                    "last_login_at": "2025-11-14T14:27:23.575030Z",
-                    "created_at": "2025-10-31T15:11:50.735175Z",
-                    "updated_at": "2025-11-14T14:27:23.602803Z",
-                    "policy_roles_id": None,
-                }
-            )
+            m = json.dumps({
+                "id": str(uuid.uuid4()),
+                "email": "nobody@mozilla.org",
+                "name": "moz user",
+                "picture": "https://s.gravatar.com/avatar/something",
+                "is_active": True,
+                "last_login_at": "2025-11-14T14:27:23.575030Z",
+                "created_at": "2025-10-31T15:11:50.735175Z",
+                "updated_at": "2025-11-14T14:27:23.602803Z",
+                "policy_roles_id": None,
+            })
 
         elif path == "/sso/callback":
             policy_access_token = self.server.policy_access_token.value
@@ -225,14 +220,12 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
                     policy_refresh_token = ""
             """
 
-            obj = json.dumps(
-                {
-                    "access_token": f"{policy_access_token}",
-                    "token_type": "bearer",
-                    "expires_in": 71999,
-                    "refresh_token": f"{policy_refresh_token}",
-                }
-            )
+            obj = json.dumps({
+                "access_token": f"{policy_access_token}",
+                "token_type": "bearer",
+                "expires_in": 71999,
+                "refresh_token": f"{policy_refresh_token}",
+            })
 
             m = f"""
 <html>
@@ -291,14 +284,12 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
         print("path: ", path)
         if path == "/sso/token":
             # Sending back the same session
-            m = json.dumps(
-                {
-                    "access_token": self.server.policy_access_token.value,
-                    "token_type": "Bearer",
-                    "expires_in": 71999,
-                    "refresh_token": self.server.policy_refresh_token.value,
-                }
-            )
+            m = json.dumps({
+                "access_token": self.server.policy_access_token.value,
+                "token_type": "Bearer",
+                "expires_in": 71999,
+                "refresh_token": self.server.policy_refresh_token.value,
+            })
 
         elif path == "/sso/device_posture":
             self.server.device_posture_payload = json.loads(
@@ -548,6 +539,31 @@ class FeltTests(EnterpriseTestsBase):
             return self._child_wait.until(
                 EC.visibility_of_element_located((By.CSS_SELECTOR, e))
             )
+
+    def wait_process_exit(self):
+        self._logger.info("Waiting a few seconds ...")
+        if sys.platform == "win32":
+            time.sleep(8)
+        else:
+            time.sleep(3)
+        self._logger.info(f"Checking PID {self._browser_pid}")
+
+        if not psutil.pid_exists(self._browser_pid):
+            self._logger.info(f"No more PID {self._browser_pid}")
+        else:
+            try:
+                process = psutil.Process(pid=self._browser_pid)
+                process_name = process.name()
+                process_exe = process.exe()
+                process_basename = os.path.basename(process_name)
+                process_cmdline = process.cmdline()
+                self._logger.info(
+                    f"Found PID {self._browser_pid}: EXE:{process_exe} :: NAME:{process_name} :: CMDLINE:{process_cmdline} :: BASENAME:'{process_basename}'"
+                )
+                assert process_basename != "firefox", "Process is not Firefox"
+            except psutil.ZombieProcess:
+                self._logger.info(f"Zombie found as {self._browser_pid}")
+                return True
 
     def test_felt_00_chrome_on_email_submit(self, exp):
         self._driver.set_context("chrome")

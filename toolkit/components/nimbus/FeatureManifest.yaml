@@ -2918,12 +2918,6 @@ networking:
       setPref:
         branch: default
         pref: "network.preconnect"
-    networkPredictor:
-      description: Whether the Necko predictor is enabled
-      type: boolean
-      setPref:
-        branch: default
-        pref: "network.predictor.enabled"
     http3CCalgorithm:
       description: The congestion control algorithm with which to configure neqo. 0 for NewReno, 1 for Cubic
       type: int
@@ -5409,13 +5403,6 @@ ipProtection:
         pref: browser.ipProtection.enabled
       description: >-
         Enables the IP Protection feature.
-    variant:
-      type: string
-      setPref:
-        branch: default
-        pref: browser.ipProtection.variant
-      description: >-
-        What variant of the feature to use.
 
 webApps:
   description: Enables or disables web apps.

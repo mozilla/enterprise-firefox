@@ -2,8 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef URLPatternGlue_h__
-#define URLPatternGlue_h__
+#ifndef URLPatternGlue_h_
+#define URLPatternGlue_h_
 
 #include "mozilla/net/urlpattern_glue.h"
 #include "nsTHashMap.h"
@@ -78,4 +78,4 @@ nsAutoCString UrlpGetHash(const UrlpPattern aPatternWrapper);
 
 }  // namespace mozilla::net
 
-#endif  // URLPatternGlue_h__
+#endif  // URLPatternGlue_h_

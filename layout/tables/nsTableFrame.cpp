@@ -14,7 +14,6 @@
 #include "mozilla/ComputedStyle.h"
 #include "mozilla/IntegerRange.h"
 #include "mozilla/Likely.h"
-#include "mozilla/MathAlgorithms.h"
 #include "mozilla/PresShell.h"
 #include "mozilla/PresShellInlines.h"
 #include "mozilla/Range.h"
@@ -6021,8 +6020,7 @@ BCPaintBorderIterator::BCPaintBorderIterator(nsTableFrame* aTable)
 bool BCPaintBorderIterator::SetDamageArea(const nsRect& aDirtyRect) {
   nsSize containerSize = mTable->GetSize();
   LogicalRect dirtyRect(mTableWM, aDirtyRect, containerSize);
-  uint32_t startRowIndex, endRowIndex, startColIndex, endColIndex;
-  startRowIndex = endRowIndex = startColIndex = endColIndex = 0;
+  uint32_t startRowIndex = 0, endRowIndex = 0;
   bool done = false;
   bool haveIntersect = false;
   // find startRowIndex, endRowIndex
@@ -6088,8 +6086,8 @@ bool BCPaintBorderIterator::SetDamageArea(const nsRect& aDirtyRect) {
   mInitialOffsetI = bp.IStart(mTableWM);
 
   nscoord x = 0;
-  int32_t colIdx;
-  for (colIdx = 0; colIdx != mNumTableCols; colIdx++) {
+  uint32_t startColIndex = 0, endColIndex = 0;
+  for (int32_t colIdx = 0; colIdx != mNumTableCols; colIdx++) {
     nsTableColFrame* colFrame = mTableFirstInFlow->GetColFrame(colIdx);
     if (!colFrame) ABORT1(false);
     const nscoord onePx = mTable->PresContext()->DevPixelsToAppUnits(1);
@@ -6118,9 +6116,9 @@ bool BCPaintBorderIterator::SetDamageArea(const nsRect& aDirtyRect) {
   if (!haveIntersect) {
     return false;
   }
+  MOZ_ASSERT(endColIndex >= startColIndex);
   mDamageArea =
-      TableArea(startColIndex, startRowIndex,
-                1 + DeprecatedAbs<int32_t>(endColIndex - startColIndex),
+      TableArea(startColIndex, startRowIndex, 1 + endColIndex - startColIndex,
                 1 + endRowIndex - startRowIndex);
 
   Reset();

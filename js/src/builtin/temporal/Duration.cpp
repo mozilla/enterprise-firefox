@@ -18,11 +18,11 @@
 #include <stdint.h>
 #include <type_traits>
 
-#include "jsnum.h"
 #include "jspubtd.h"
 #include "NamespaceImports.h"
 
 #include "builtin/intl/DurationFormat.h"
+#include "builtin/Number.h"
 #include "builtin/temporal/Calendar.h"
 #include "builtin/temporal/CalendarFields.h"
 #include "builtin/temporal/Instant.h"

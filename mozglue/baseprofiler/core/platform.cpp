@@ -39,15 +39,18 @@
 // #include "memory_hooks.h"
 #include "mozilla/AutoProfilerLabel.h"
 #include "mozilla/BaseAndGeckoProfilerDetail.h"
+#include "mozilla/BaseProfiler.h"
 #include "mozilla/BaseProfilerDetail.h"
+#include "mozilla/BaseProfilingCategory.h"
 #include "mozilla/DoubleConversion.h"
-#include "mozilla/Printf.h"
 #include "mozilla/PodOperations.h"
-#include "mozilla/ProfilerBufferSize.h"
+#include "mozilla/Printf.h"
 #include "mozilla/ProfileBufferChunkManagerSingle.h"
 #include "mozilla/ProfileBufferChunkManagerWithLocalLimit.h"
 #include "mozilla/ProfileChunkedBuffer.h"
+#include "mozilla/ProfilerBufferSize.h"
 #include "mozilla/Services.h"
+#include "mozilla/SharedLibraries.h"
 #include "mozilla/Span.h"
 #include "mozilla/StackWalk.h"
 #ifdef XP_WIN
@@ -63,14 +66,11 @@
 #include "prdtoa.h"
 #include "prtime.h"
 
-#include "BaseProfiler.h"
-#include "BaseProfilingCategory.h"
 #include "PageInformation.h"
 #include "ProfiledThreadData.h"
 #include "ProfilerBacktrace.h"
 #include "ProfileBuffer.h"
 #include "RegisteredThread.h"
-#include "SharedLibraries.h"
 #include "ThreadInfo.h"
 #include "VTuneProfiler.h"
 
@@ -3207,8 +3207,6 @@ void profiler_resume_sampling() {
 
 bool profiler_feature_active(uint32_t aFeature) {
   // This function runs both on and off the main thread.
-
-  MOZ_RELEASE_ASSERT(CorePS::Exists());
 
   // This function is hot enough that we use RacyFeatures, not ActivePS.
   return RacyFeatures::IsActiveWithFeature(aFeature);

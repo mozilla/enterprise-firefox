@@ -2735,7 +2735,7 @@ metrics:
     description: >
       This event records an attempt to show the Set as Default Browser native prompt.
     send_in_pings:
-      - metrics
+      - events
     bugs:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1923744
     data_reviews:
@@ -6806,6 +6806,50 @@ tabs_tray:
       - interaction
     expires: never
 
+tab_search:
+  tab_search_icon_clicked:
+    type: event
+    description: |
+      Recorded when the user clicked on the tab search icon to enter tab search mode.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1970705
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1994280
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1970705
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - android-probes@mozilla.com
+    expires: never
+  navigate_back_icon_clicked:
+    type: event
+    description: |
+      Recorded when the user clicked on the navigate back icon to exit tab search mode.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1970705
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1994277
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1970705
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - android-probes@mozilla.com
+    expires: never
+  result_clicked:
+    type: event
+    description: |
+      Recorded when a user clicked on a tab suggestion result
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1994284
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2005595
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1994284
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - android-probes@mozilla.com
+    expires: never
+
 tab_strip:
   enabled:
     type: boolean
@@ -7423,6 +7467,22 @@ tracking_protection:
     metadata:
       tags:
         - TrackingProtection
+
+trust_panel:
+  security_certificate:
+    type: event
+    description: |
+      A user pressed the secure connection button in the panel to view the certificate.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2006685
+    data_reviews:
+      - https://phabricator.services.mozilla.com/D278697
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - android-probes@mozilla.com
+    expires: never
+
 tab:
   media_play:
     type: event
@@ -7971,6 +8031,132 @@ logins:
       tags:
         - Logins
 
+email_mask:
+  prompt_shown:
+    type: event
+    description:
+      Triggered when the user highlights sign up email field for users who can use the Email Mask service.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1977933
+    data_reviews:
+      - https://phabricator.services.mozilla.com/D276942
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - android-probes@mozilla.com
+    expires: never
+    metadata:
+      tags:
+        - Autofill
+        - EmailMask
+  autofill_failed:
+    type: event
+    description:
+      Triggered when email mask autofill fails for any reason.
+    extra_keys:
+      error:
+        description:
+          The error causing email mask autofill to fail.
+        type: string
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1977933
+    data_reviews:
+      - https://phabricator.services.mozilla.com/D276942
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - android-probes@mozilla.com
+    expires: never
+    metadata:
+      tags:
+        - Autofill
+        - EmailMask
+  autofill_success:
+    type: event
+    description:
+      Triggered when the user successfully autofills an email field with a masked email from Email Mask service.
+    extra_keys:
+      is_new_email_mask:
+        description:
+          Returns true if a new email mask was generated for the user. Returns false if a previous email mask was reused.
+        type: boolean
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1977933
+    data_reviews:
+      - https://phabricator.services.mozilla.com/D276942
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - android-probes@mozilla.com
+    expires: never
+    metadata:
+      tags:
+        - Autofill
+        - EmailMask
+  setting_changed:
+    type: event
+    description:
+      Triggered when the user toggles the Email Mask setting on or off.
+    extra_keys:
+      setting:
+        type: string
+        description:
+          A unique settings key.
+      enabled:
+        type: boolean
+        description:
+          The set value.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1977933
+    data_reviews:
+      - https://phabricator.services.mozilla.com/D276942
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - android-probes@mozilla.com
+    expires: never
+    metadata:
+      tags:
+        - Autofill
+        - EmailMask
+        - Settings
+  learn_more_tapped:
+    type: event
+    description:
+      Triggered when the user taps the "learn more" button in Settings for email masks.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1977933
+    data_reviews:
+      - https://phabricator.services.mozilla.com/D276942
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - android-probes@mozilla.com
+    expires: never
+    metadata:
+      tags:
+        - Autofill
+        - EmailMask
+        - Settings
+  manage_tapped:
+    type: event
+    description:
+      Triggered when the user taps the external link in Settings to manage their email masks.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1977933
+    data_reviews:
+      - https://phabricator.services.mozilla.com/D276942
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - android-probes@mozilla.com
+    expires: never
+    metadata:
+      tags:
+        - Autofill
+        - EmailMask
+        - Settings
+
 voice_search:
   tapped:
     type: event
@@ -8464,20 +8650,6 @@ shortcuts_library:
       tags:
         - Shortcuts
 app_menu:
-  customize_homepage:
-    type: event
-    description: |
-      User has tapped on Customize Homepage in the app menu.
-    bugs:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1841156
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1932894
-    data_reviews:
-      - https://github.com/mozilla-mobile/firefox-android/pull/2726
-    data_sensitivity:
-      - interaction
-    notification_emails:
-      - android-probes@mozilla.com
-    expires: never
   sign_into_sync:
     type: counter
     description: |
@@ -11225,22 +11397,6 @@ android_autofill:
     expires: never
 
 home_menu:
-  help_tapped:
-    type: event
-    description: The user clicked the help button in home menu.
-    bugs:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1858771
-    data_reviews:
-      - https://github.com/mozilla-mobile/firefox-android/pull/4066
-    data_sensitivity:
-      - interaction
-    notification_emails:
-      - android-probes@mozilla.com
-    expires: never
-    metadata:
-      tags:
-        - Settings
-        - MainMenu
   settings_item_clicked:
     type: event
     description: The user clicked the settings option in home menu.
@@ -11337,20 +11493,6 @@ home_screen:
       - https://github.com/mozilla-mobile/fenix/pull/22377
       - https://github.com/mozilla-mobile/fenix/pull/27068#issuecomment-1251509973
       - https://github.com/mozilla-mobile/firefox-android/pull/3319
-    data_sensitivity:
-      - interaction
-    notification_emails:
-      - android-probes@mozilla.com
-    expires: never
-  customize_home_clicked:
-    type: event
-    description: A user clicked on Customize home button from the home screen.
-    bugs:
-      - https://github.com/mozilla-mobile/fenix/pull/21344
-    data_reviews:
-      - https://github.com/mozilla-mobile/fenix/pull/21344
-      - https://github.com/mozilla-mobile/fenix/pull/21344#issuecomment-923198787
-      - https://github.com/mozilla-mobile/firefox-android/pull/2597
     data_sensitivity:
       - interaction
     notification_emails:

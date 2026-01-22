@@ -328,13 +328,8 @@ newtab-custom-recent-subtitle = ਤਾਜ਼ਾ ਸਾਈਟਾਂ ਤੇ ਸਮੱ
 newtab-custom-weather-toggle =
     .label = ਮੌਸਮ
     .description = ਅੱਜ ਦੇ ਮੌਸਮ ਬਾਰੇ ਝਾਤ
-newtab-custom-trending-search-toggle =
-    .label = ਰੁਝਾਨ ਵਿੱਚ ਖੋਜਾਂ
-    .description = ਹਰਮਨਪਿਆਰੇ ਅਤੇ ਅਕਸਰ ਖੋਜੇ ਗਏ ਵਿਸ਼ੇ
 newtab-custom-widget-weather-toggle =
     .label = ਮੌਸਮ
-newtab-custom-widget-trending-search-toggle =
-    .label = ਰੁਝਾਨ ਵਿੱਚ ਖੋਜਾਂ
 newtab-custom-widget-lists-toggle =
     .label = ਸੂਚੀਆਂ
 newtab-custom-widget-timer-toggle =
@@ -595,7 +590,7 @@ newtab-download-mobile-highlight-image =
 newtab-shortcuts-highlight-title = ਤੁਹਾਡੇ ਮਨਪਸੰਦ ਤੁਹਾਡੀਆਂ ਉਂਗਲਾਂ ਉੱਤੇ
 newtab-shortcuts-highlight-subtitle = ਆਪਣੀਆਂ ਮਨਪਸੰਦ ਸਾਈਟਾਂ ਨੂੰ ਕਲਿੱਕ ਨਾਲ ਖੋਲ੍ਹਣ ਲਈ ਸ਼ਾਰਟਕੱਟ ਵਿੱਚ ਜੋੜੋ।
 
-## Strings for reporting ads and content
+## Strings for reporting issues with ads and content
 
 newtab-report-content-why-reporting-this =
     .label = ਤੁਸੀਂ ਇਸ ਬਾਰੇ ਰਿਪੋਰਟ ਕਿਉਂ ਕਰ ਰਹੇ ਹੋ?
@@ -613,21 +608,13 @@ newtab-report-content-inappropriate-offensive =
     .label = ਬੇਤੁਕੀ ਜਾਂ ਅਪਮਾਨਜਨਕ
 newtab-report-content-spam-misleading =
     .label = ਸਪੈਮ ਜਾਂ ਗੁੰਮਰਾਹਕੁੰਨ
+newtab-report-content-requires-payment-subscription =
+    .label = ਭੁਗਤਾਨ ਜਾਂ ਮੈਂਬਰੀ ਚਾਹੀਦੀ ਹੈ
+newtab-report-content-requires-payment-subscription-learn-more = ਹੋਰ ਜਾਣੋ
 newtab-report-cancel = ਰੱਦ ਕਰੋ
 newtab-report-submit = ਭੇਜੋ
 newtab-toast-thanks-for-reporting =
     .message = ਇਸ ਬਾਰੇ ਜਾਣਕਾਰੀ ਦੇਣ ਲਈ ਤੁਹਾਡਾ ਧੰਨਵਾਦ!
-
-## Strings for trending searches
-
-newtab-trending-searches-show-trending =
-    .title = ਰੁਝਾਨ ਵਿੱਚ ਖੋਜਾਂ ਨੂੰ ਵੇਖਾਓ
-newtab-trending-searches-hide-trending =
-    .title = ਰੁਝਾਨ ਵਿੱਚ ਖੋਜਾਂ ਨੂੰ ਲੁਕਾਓ
-newtab-trending-searches-learn-more = ਹੋਰ ਜਾਣੋ
-newtab-trending-searches-dismiss = ਰੁਝਾਨ ਵਿੱਚ ਖੋਜਾਂ ਨੂੰ ਲੁਕਾਓ
-# "Trending searches refers to popular searches from search engines
-newtab-trending-searches-title = ਰੁਝਾਨ ਵਿੱਚ ਖੋਜਾਂ
 
 ## Strings for task / to-do list productivity widget
 

@@ -24,6 +24,7 @@ buildscript {
 }
 
 plugins {
+    alias(libs.plugins.dependency.analysis)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.python.envs.plugin)
@@ -119,7 +120,7 @@ android {
 	// If building locally, just use debug signing. In official automation builds, the
 	// files are signed using a separate service and not within gradle.
         if (!gradle.mozconfig.substs.MOZ_AUTOMATION) {
-            signingConfig signingConfigs.debug
+            signingConfig = signingConfigs.debug
         }
 
         if (gradle.hasProperty("localProperties.debuggable") ||
@@ -542,15 +543,6 @@ nimbus {
 }
 
 dependencies {
-    // We pick up JNA transitively by way of Glean, which is currently on version 5.14.0.
-    // However, we need to force version 5.17.0 due to Google Play's 16KB page size requirement.
-    // JNA 5.15.0+ crashes on Android <7, however, so it can't be bumped in Glean at this time.
-    // Therefore, manually force the use of version 5.17.0 at the app level since we only support
-    // running on Android 8+ now anyway. This can be removed once Glean updates.
-    constraints {
-        implementation(libs.jna)
-    }
-
     implementation project(':components:browser-engine-gecko')
     implementation project(':components:compose-awesomebar')
     implementation project(':components:compose-base')
@@ -834,6 +826,32 @@ tasks.register('printVariants') {
     }
 }
 
+// Work around generated SafeArgs code hitting USELESS_CAST warnings with Kotlin 2.3+
+// https://issuetracker.google.com/issues/458082829
+def safeArgsSrc = fileTree(layout.buildDirectory.dir("generated/source/navigation-args")) {
+    include "**/*.kt"
+}
+
+tasks.register("suppressUselessCastInSafeArgs") {
+    inputs.files(safeArgsSrc)
+    outputs.upToDateWhen { false }
+
+    doLast {
+        safeArgsSrc.each { File f ->
+            if (!f.text.contains('@file:Suppress("USELESS_CAST")')) {
+                f.text =
+"""@file:Suppress("USELESS_CAST")
+
+${f.text}"""
+            }
+        }
+    }
+}
+
+tasks.matching { it.name.startsWith("generateSafeArgs") }.configureEach {
+    finalizedBy tasks.named("suppressUselessCastInSafeArgs")
+}
+
 afterEvaluate {
 
     // Format test output. Ported from AC #2401
@@ -920,4 +938,25 @@ tasks.withType(DependencyTask).configureEach { task ->
 
     // make the dependency task depend on its cleanup task.
     task.dependsOn(tasks.named(cleanUpTaskName))
+}
+
+tasks.register("ktlint", Exec) {
+    group = "verification"
+    description = "Check Kotlin code style."
+    workingDir file("${gradle.mozconfig.topsrcdir}")
+    commandLine "./mach", "gradle", "-p", "mobile/android/fenix", ":ktlint"
+}
+
+tasks.register("ktlintFormat", Exec) {
+    group = "formatting"
+    description = "Fix Kotlin code style deviations."
+    workingDir file("${gradle.mozconfig.topsrcdir}")
+    commandLine "./mach", "gradle", "-p", "mobile/android/fenix", ":ktlintFormat"
+}
+
+tasks.register("detekt", Exec) {
+    group = "verification"
+    description = "Run detekt static analysis."
+    workingDir file("${gradle.mozconfig.topsrcdir}")
+    commandLine "./mach", "gradle", "-p", "mobile/android/fenix", ":detekt"
 }

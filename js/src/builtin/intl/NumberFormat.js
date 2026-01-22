@@ -4,21 +4,6 @@
 
 /* Portions Copyright Norbert Lindenberg 2011-2012. */
 
-#include "NumberingSystemsGenerated.h"
-
-/**
- * NumberFormat internal properties.
- *
- * 9.1 Internal slots of Service Constructors
- * 15.2.3 Properties of the Intl.NumberFormat Constructor, Internal slots
- *
- * ES2024 Intl draft rev 74ca7099f103d143431b2ea422ae640c6f43e3e6
- */
-var numberFormatInternalProperties = {
-  localeData: numberFormatLocaleData,
-  relevantExtensionKeys: ["nu"],
-};
-
 /**
  * 15.1.1 Intl.NumberFormat ( [ locales [ , options ] ] )
  *
@@ -31,17 +16,13 @@ function resolveNumberFormatInternals(lazyNumberFormatData) {
 
   var internalProps = std_Object_create(null);
 
-  var NumberFormat = numberFormatInternalProperties;
-
   // Compute effective locale.
 
   // Step 11.
-  var r = ResolveLocale(
+  var r = intl_ResolveLocale(
     "NumberFormat",
     lazyNumberFormatData.requestedLocales,
     lazyNumberFormatData.opt,
-    NumberFormat.relevantExtensionKeys,
-    NumberFormat.localeData
   );
 
   // Steps 12-14. (Step 13 is not relevant to our implementation.)
@@ -922,28 +903,6 @@ function CurrencyDigits(currency) {
     return currencyDigits[currency];
   }
   return 2;
-}
-
-function getNumberingSystems(locale) {
-  // ICU doesn't have an API to determine the set of numbering systems
-  // supported for a locale; it generally pretends that any numbering system
-  // can be used with any locale. Supporting a decimal numbering system
-  // (where only the digits are replaced) is easy, so we offer them all here.
-  // Algorithmic numbering systems are typically tied to one locale, so for
-  // lack of information we don't offer them.
-  // The one thing we can find out from ICU is the default numbering system
-  // for a locale.
-  var defaultNumberingSystem = intl_numberingSystem(locale);
-  return [defaultNumberingSystem, NUMBERING_SYSTEMS_WITH_SIMPLE_DIGIT_MAPPINGS];
-}
-
-function numberFormatLocaleData() {
-  return {
-    nu: getNumberingSystems,
-    default: {
-      nu: intl_numberingSystem,
-    },
-  };
 }
 
 /**

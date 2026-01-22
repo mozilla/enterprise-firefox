@@ -23,6 +23,7 @@
 #include "MsaaRootAccessible.h"
 #include "nsAccessibilityService.h"
 #include "nsAccUtils.h"
+#include "nsIAccessibleAnnouncementEvent.h"
 #include "nsIAccessiblePivot.h"
 #include "nsTextEquivUtils.h"
 #include "Pivot.h"
@@ -278,6 +279,34 @@ void uiaRawElmProvider::RaiseUiaEventForStateChange(Accessible* aAcc,
   // We can't get the old value. Thankfully, clients don't seem to need it.
   _variant_t oldVal;
   ::UiaRaiseAutomationPropertyChangedEvent(uia, property, oldVal, newVal);
+}
+
+/* static */
+void uiaRawElmProvider::RaiseUiaNotificationEvent(
+    Accessible* aAcc, const nsAString& aAnnouncement, uint16_t aPriority) {
+  if (!Compatibility::IsUiaEnabled() || !::UiaClientsAreListening()) {
+    return;
+  }
+  // Find the nearest Accessible that is in the UIA control view.
+  uiaRawElmProvider* uia = nullptr;
+  for (Accessible* acc = aAcc; acc; acc = acc->Parent()) {
+    auto* maybeUia = MsaaAccessible::GetFrom(acc);
+    if (!maybeUia) {
+      break;
+    }
+    if (maybeUia->IsControl()) {
+      uia = maybeUia;
+      break;
+    }
+  }
+  if (uia) {
+    ::UiaRaiseNotificationEvent(
+        uia, NotificationKind_ActionCompleted,
+        aPriority == nsIAccessibleAnnouncementEvent::ASSERTIVE
+            ? NotificationProcessing_ImportantAll
+            : NotificationProcessing_All,
+        _bstr_t(PromiseFlatString(aAnnouncement).get()), _bstr_t(L""));
+  }
 }
 
 // IUnknown
@@ -601,6 +630,14 @@ uiaRawElmProvider::GetPropertyValue(PROPERTYID aPropertyId,
           ariaProperties += ';';
         }
         ariaProperties.AppendLiteral("hasactions=true");
+      }
+      nsAutoString current;
+      if (acc->GetStringARIAAttr(nsGkAtoms::aria_current, current)) {
+        if (!ariaProperties.IsEmpty()) {
+          ariaProperties += ';';
+        }
+        ariaProperties.AppendLiteral("current=");
+        ariaProperties.Append(current);
       }
       if (!ariaProperties.IsEmpty()) {
         aPropertyValue->vt = VT_BSTR;
@@ -1415,7 +1452,7 @@ long uiaRawElmProvider::GetControlType() const {
     return uiaControlType;                                                   \
     break;
   switch (acc->Role()) {
-#include "RoleMap.h"
+#include "RoleMap.inc"
   }
 #undef ROLE
   MOZ_CRASH("Unknown role.");

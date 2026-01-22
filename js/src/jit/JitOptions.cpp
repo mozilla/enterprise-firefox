@@ -117,6 +117,12 @@ DefaultJitOptions::DefaultJitOptions() {
   // Toggles whether CacheIR stubs are used.
   SET_DEFAULT(disableCacheIR, false);
 
+  // Toggles whether stubs are folded.
+  SET_DEFAULT(disableStubFolding, false);
+
+  // Toggles whether stubs with different offsets in Loads or Stores are folded.
+  SET_DEFAULT(disableStubFoldingLoadsAndStores, false);
+
   // Toggles whether sink code motion is globally disabled.
   SET_DEFAULT(disableSink, true);
 
@@ -274,7 +280,7 @@ DefaultJitOptions::DefaultJitOptions() {
   SET_DEFAULT(smallFunctionMaxBytecodeLength, 140);
 
   // The minimum entry count for an IC stub before it can be trial-inlined.
-  SET_DEFAULT(inliningEntryThreshold, 100);
+  SET_DEFAULT(inliningEntryThreshold, 90);
 
   // An artificial testing limit for the maximum supported offset of
   // pc-relative jump and call instructions.

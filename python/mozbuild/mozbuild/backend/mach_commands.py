@@ -21,7 +21,9 @@ from mozbuild.util import cpu_count
     description="Generate a project and launch an IDE.",
     virtualenv_name="ide",
 )
-@CommandArgument("ide", choices=["eclipse", "visualstudio", "vscode", "vscodium"])
+@CommandArgument(
+    "ide", choices=["eclipse", "visualstudio", "vscode", "vscodium", "zed"]
+)
 @CommandArgument(
     "--no-interactive",
     default=False,
@@ -47,7 +49,7 @@ def run(command_context, ide, no_interactive, args):
         )
         return 1
 
-    if ide == "vscode":
+    if ide in {"vscode", "vscodium", "zed"}:
         result = subprocess.run(
             [sys.executable, "mach", "configure"],
             check=False,
@@ -83,7 +85,7 @@ def run(command_context, ide, no_interactive, args):
         backend = "CppEclipse"
     elif ide == "visualstudio":
         backend = "VisualStudio"
-    elif ide in {"vscode", "vscodium"}:
+    elif ide in {"vscode", "vscodium", "zed"}:
         if not command_context.config_environment.is_artifact_build:
             backend = "Clangd"
 
@@ -105,6 +107,8 @@ def run(command_context, ide, no_interactive, args):
         subprocess.call(["explorer.exe", visual_studio_workspace_dir])
     elif ide in {"vscode", "vscodium"}:
         return setup_vscode_or_vscodium(ide, command_context, interactive)
+    elif ide == "zed":
+        return setup_zed(command_context, interactive)
 
 
 def get_eclipse_workspace_path(command_context):
@@ -119,6 +123,114 @@ def get_visualstudio_workspace_path(command_context):
     return os.path.normpath(
         os.path.join(command_context.topobjdir, "msvc", "mozilla.sln")
     )
+
+
+def find_zed_cmd():
+    # See https://github.com/zed-industries/zed/blob/816e5f5c7358bc2410ae1c7d3473ee43ce2ef92b/crates/install_cli/src/install_cli_binary.rs#L65
+    for variant in ["zed", "zeditor", "zedit", "zed-editor"]:
+        cmd = which(variant)
+        if cmd:
+            return cmd
+    return None
+
+
+def setup_zed(command_context, interactive):
+    try:
+        import json5 as json
+
+        dump_extra = {"quote_keys": True, "trailing_commas": False}
+    except ImportError:
+        import json
+
+    zed_cmd = find_zed_cmd()
+    if interactive and zed_cmd is None:
+        choice = prompt_bool("Zed cannot be found, and may not be installed. Proceed?")
+        if not choice:
+            return 1
+
+    print("Configuring Zed...")
+
+    new_settings = {}
+    if not command_context.config_environment.is_artifact_build:
+        lsp_settings = {}
+
+        # Generate settings for Zed based on the settings for VSCode.
+        for key, value in setup_clangd_rust_in_vscode(command_context).items():
+            key_chain = key.split(".")
+            # Most options go into initialization_options, except the ones that
+            # specify the LSP binary / arguments / env themselves, see:
+            # https://zed.dev/docs/configuring-languages#possible-configuration-options
+            last_key = key_chain[-1]
+            section = (
+                "binary"
+                if last_key in {"path", "arguments", "env"}
+                else "initialization_options"
+            )
+            key_chain.insert(1, section)
+            dest_dict = lsp_settings
+            for k in key_chain[:-1]:
+                dest_dict = dest_dict.setdefault(k, {})
+            # Now key_chain looks like ["clangd", "binary", "path"]
+            dest_dict[last_key] = value
+
+        # rust analyzer might not use the right cargo binary / sysroot by
+        # default, let's match the build.
+        rust_analyzer_binary_settings = lsp_settings["rust-analyzer"].setdefault(
+            "binary", {}
+        )
+        cargo_path = command_context.config_environment.substs.get("CARGO")
+        rust_analyzer_path = mozpath.join(mozpath.dirname(cargo_path), "rust-analyzer")
+        if os.path.exists(rust_analyzer_path):
+            rust_analyzer_binary_settings["path"] = rust_analyzer_path
+        rust_analyzer_binary_env_settings = rust_analyzer_binary_settings.setdefault(
+            "env", {}
+        )
+        for env in ["CARGO", "RUSTC"]:
+            rust_analyzer_binary_env_settings[env] = (
+                command_context.config_environment.substs.get(env)
+            )
+
+        new_settings["lsp"] = lsp_settings
+
+    # Our C/C++ tab size does not match the default
+    new_settings["languages"] = {"C": {"tab_size": 2}, "C++": {"tab_size": 2}}
+    # FIXME: Remove once modelines are supported:
+    # https://github.com/zed-industries/zed/issues/4762
+    new_settings["file_types"] = {
+        "Python": [
+            "**/moz.build",
+            "**/*.configure",
+        ],
+        "C++": [
+            "**/*.mm",
+        ],
+    }
+
+    zed_settings_dir = mozpath.join(command_context.topsrcdir, ".zed")
+    zed_settings_file = mozpath.join(zed_settings_dir, "settings.json")
+    if not os.path.isdir(zed_settings_dir):
+        os.mkdir(zed_settings_dir)
+
+    old_settings = {}
+    if os.path.exists(zed_settings_file):
+        try:
+            with open(zed_settings_file) as fh:
+                old_settings = json.load(fh)
+        except ValueError:
+            command_context.log(
+                logging.ERROR,
+                "ide",
+                {},
+                f"Failed to parse {zed_settings_file}, refusing to override",
+            )
+            return 1
+
+    settings = {**old_settings, **new_settings}
+    with open(zed_settings_file, "w") as fh:
+        json.dump(settings, fh, indent=4, **dump_extra)
+
+    if interactive and zed_cmd:
+        subprocess.call([zed_cmd, command_context.topsrcdir])
 
 
 def setup_vscode_or_vscodium(ide, command_context, interactive):
@@ -154,7 +266,6 @@ def setup_vscode_or_vscodium(ide, command_context, interactive):
     new_settings = {
         **new_settings,
         "files.associations": {
-            "*.jsm": "javascript",
             "*.sjs": "javascript",
         },
         "files.exclude": {"obj-*": True, relobjdir: True},

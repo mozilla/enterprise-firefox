@@ -1638,7 +1638,8 @@ export const LoginHelper = {
   },
 
   /**
-   * Shows OS auth dialog if enabled.
+   * Shows OS auth dialog if OS auth is enabled or the Primary Password dialog when
+   * the token is locked or OS auth is disabled.
    *
    * @param {Element} browser
    *        The <browser> that the prompt should be shown on
@@ -1691,9 +1692,8 @@ export const LoginHelper = {
         telemetryEvent,
       };
     }
-
-    // Use only OS auth dialog if primary password is already unlocked
-    // or no PrP is used.
+    // Use the OS auth dialog if there is no primary password
+    // or if primary password is already unlocked.
     if ((!token.hasPassword || token.isLoggedIn()) && OSReauthEnabled) {
       let result;
       try {

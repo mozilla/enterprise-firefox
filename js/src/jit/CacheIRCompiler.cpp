@@ -14,10 +14,8 @@
 #include <type_traits>
 #include <utility>
 
-#include "jslibmath.h"
-#include "jsmath.h"
-
 #include "builtin/DataViewObject.h"
+#include "builtin/Math.h"
 #include "builtin/Object.h"
 #include "gc/GCEnum.h"
 #include "jit/BaselineCacheIRCompiler.h"
@@ -37,6 +35,7 @@
 #include "proxy/Proxy.h"
 #include "proxy/ScriptedProxyHandler.h"
 #include "util/DifferentialTesting.h"
+#include "util/PortableMath.h"
 #include "vm/ArgumentsObject.h"
 #include "vm/ArrayBufferObject.h"
 #include "vm/ArrayBufferViewObject.h"
@@ -7687,7 +7686,7 @@ bool CacheIRCompiler::emitStoreTypedArrayElement(ObjOperandId objId,
 
     // Canonicalize floating point values for differential testing.
     if (js::SupportDifferentialTesting()) {
-      masm.canonicalizeDouble(floatScratch0);
+      masm.canonicalizeDoubleNaN(floatScratch0);
     }
 
     masm.storeToTypedFloatArray(elementType, floatScratch0, dest, temp,
@@ -8013,7 +8012,7 @@ bool CacheIRCompiler::emitLoadDataViewValueResult(
       FloatRegister scratchFloat32 = floatScratch0.get().asSingle();
       masm.moveGPRToFloat16(outputScratch, scratchFloat32, scratch2,
                             liveVolatileRegs());
-      masm.canonicalizeFloat(scratchFloat32);
+      masm.canonicalizeFloatNaN(scratchFloat32);
       masm.convertFloat32ToDouble(scratchFloat32, floatScratch0);
       masm.boxDouble(floatScratch0, output.valueReg(), floatScratch0);
       break;
@@ -8021,14 +8020,14 @@ bool CacheIRCompiler::emitLoadDataViewValueResult(
     case Scalar::Float32: {
       FloatRegister scratchFloat32 = floatScratch0.get().asSingle();
       masm.moveGPRToFloat32(outputScratch, scratchFloat32);
-      masm.canonicalizeFloat(scratchFloat32);
+      masm.canonicalizeFloatNaN(scratchFloat32);
       masm.convertFloat32ToDouble(scratchFloat32, floatScratch0);
       masm.boxDouble(floatScratch0, output.valueReg(), floatScratch0);
       break;
     }
     case Scalar::Float64:
       masm.moveGPR64ToDouble(outputReg64, floatScratch0);
-      masm.canonicalizeDouble(floatScratch0);
+      masm.canonicalizeDoubleNaN(floatScratch0);
       masm.boxDouble(floatScratch0, output.valueReg(), floatScratch0);
       break;
     case Scalar::BigInt64:
@@ -8207,7 +8206,7 @@ bool CacheIRCompiler::emitStoreDataViewValueResult(
 
   // Canonicalize floating point values for differential testing.
   if (Scalar::isFloatingType(elementType) && js::SupportDifferentialTesting()) {
-    masm.canonicalizeDouble(floatScratch0);
+    masm.canonicalizeDoubleNaN(floatScratch0);
   }
 
   // Load the value into a gpr register.
@@ -10307,9 +10306,7 @@ bool CacheIRCompiler::emitConcatStringsResult(StringOperandId lhsId,
     // code in CallRegExpStub.
     Label vmCall;
     Register temp = CallTempReg2;
-    masm.loadJSContext(temp);
-    masm.loadPtr(Address(temp, JSContext::offsetOfZone()), temp);
-    masm.loadPtr(Address(temp, Zone::offsetOfJitZone()), temp);
+    masm.movePtr(ImmPtr(cx_->zone()->jitZone()), temp);
     masm.loadPtr(Address(temp, JitZone::offsetOfStringConcatStub()), temp);
     masm.branchTestPtr(Assembler::Zero, temp, temp, &vmCall);
     masm.call(Address(temp, JitCode::offsetOfCode()));

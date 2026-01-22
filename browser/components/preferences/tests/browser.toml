@@ -23,6 +23,8 @@ run-if = [
   "updater",
 ]
 
+["browser_aiFeatures.js"]
+
 ["browser_application_xml_handle_internally.js"]
 
 ["browser_applications_selection.js"]
@@ -109,7 +111,9 @@ skip-if = [
 
 ["browser_etp_advanced.js"]
 
-["browser_etp_customize.js"]
+["browser_etp_customize_1.js"]
+
+["browser_etp_customize_2.js"]
 
 ["browser_etp_exceptions_dialog.js"]
 
@@ -176,6 +180,12 @@ fail-if = [
 
 ["browser_moreFromMozilla_locales.js"]
 
+["browser_moreFromMozilla_monitor.js"]
+
+["browser_moreFromMozilla_relay.js"]
+
+["browser_moreFromMozilla_vpn.js"]
+
 ["browser_newtab_menu.js"]
 
 ["browser_no_id_collision_between_categories_and_mainPane.js"]
@@ -239,20 +249,28 @@ skip-if = [
 
 ["browser_privacy_status_card.js"]
 
-["browser_privacy_syncDataClearing.js"]
-
 ["browser_privacy_syncDataClearing_v2.js"]
 
 ["browser_privacy_uploadEnabled.js"]
 
 ["browser_privacypane_2.js"]
 skip-if = [
-  "os == 'linux' && os_version == '24.04' && arch == 'x86_64' && display == 'x11' && a11y_checks && opt",
+  "os == 'linux' && os_version == '24.04' && arch == 'x86_64' && display == 'x11' && opt && a11y_checks",
+]
+
+["browser_privacypane_2_srd.js"]
+skip-if = [
+  "os == 'linux' && os_version == '24.04' && arch == 'x86_64' && display == 'x11' && opt && a11y_checks",
 ]
 
 ["browser_privacypane_3.js"]
 skip-if = [
-  "os == 'linux' && os_version == '24.04' && arch == 'x86_64' && display == 'x11' && a11y_checks && opt",
+  "os == 'linux' && os_version == '24.04' && arch == 'x86_64' && display == 'x11' && opt && a11y_checks",
+]
+
+["browser_privacypane_3_srd.js"]
+skip-if = [
+  "os == 'linux' && os_version == '24.04' && arch == 'x86_64' && display == 'x11' && opt && a11y_checks",
 ]
 
 ["browser_proxy_backup.js"]
@@ -365,7 +383,11 @@ support-files = [
 
 ["browser_usage_telemetry.js"]
 
+["browser_usage_telemetry_support_link.js"]
+
 ["browser_warning_permanent_private_browsing.js"]
+
+["browser_warning_permanent_private_browsing_srd.js"]
 
 ["browser_windows_launch_on_login.js"]
 run-if = [

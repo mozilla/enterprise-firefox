@@ -1254,6 +1254,7 @@ static uint32_t GetFirstFrameDelay(imgIRequest* req) {
 }
 
 static constexpr nsLiteralCString sRenderingPhaseNames[] = {
+    "Reveal"_ns,                                     // Reveal
     "Flush autofocus candidates"_ns,                 // FlushAutoFocusCandidates
     "Resize steps"_ns,                               // ResizeSteps
     "Scroll steps"_ns,                               // ScrollSteps
@@ -2396,6 +2397,12 @@ void nsRefreshDriver::Tick(VsyncId aId, TimeStamp aNowTime,
     return StopTimer();
   }
 
+  // Step 6, For each doc of docs, reveal doc.
+  RunRenderingPhase(RenderingPhase::Reveal,
+                    [](Document& aDoc) MOZ_CAN_RUN_SCRIPT_BOUNDARY_LAMBDA {
+                      MOZ_KnownLive(aDoc).Reveal();
+                    });
+
   // Step 7. For each doc of docs, flush autofocus candidates for doc if its
   // node navigable is a top-level traversable.
   // NOTE(emilio): Docs with autofocus candidates must be the top-level.
@@ -2628,11 +2635,11 @@ bool nsRefreshDriver::PaintIfNeeded() {
   {
     PaintTelemetry::AutoRecordPaint record;
     ps->SyncWindowPropertiesIfNeeded();
-    ps->PaintSynchronously();
     // Paint our popups.
     if (nsXULPopupManager* pm = nsXULPopupManager::GetInstance()) {
       pm->PaintPopups(this);
     }
+    ps->PaintSynchronously();
   }
   return true;
 }

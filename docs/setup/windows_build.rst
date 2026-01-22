@@ -118,7 +118,7 @@ Microsoft Defender Antivirus manually
 
     If you are using Git and you're already missing files (you'll see them listed in ``git status``), you can have them brought back by discarding changes in your source tree: ``git restore .``.
 
-1. Build
+3. Build
 --------
 
 Now that your system is bootstrapped, you should be able to build!

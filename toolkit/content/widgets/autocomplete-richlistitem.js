@@ -513,7 +513,9 @@
     [Ci.nsIDOMXULSelectControlItemElement]
   );
 
-  class MozAutocompleteRichlistitemInsecureWarning extends MozElements.MozAutocompleteRichlistitem {
+  class MozAutocompleteRichlistitemInsecureWarning
+    extends MozElements.MozAutocompleteRichlistitem
+  {
     constructor() {
       super();
 
@@ -597,9 +599,12 @@
     }
   }
 
-  class MozAutocompleteRichlistitemLoginsFooter extends MozElements.MozAutocompleteRichlistitem {}
+  class MozAutocompleteRichlistitemLoginsFooter
+    extends MozElements.MozAutocompleteRichlistitem {}
 
-  class MozAutocompleteImportableLearnMoreRichlistitem extends MozElements.MozAutocompleteRichlistitem {
+  class MozAutocompleteImportableLearnMoreRichlistitem
+    extends MozElements.MozAutocompleteRichlistitem
+  {
     constructor() {
       super();
       MozXULElement.insertFTLIfNeeded("toolkit/main-window/autocomplete.ftl");

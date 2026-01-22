@@ -8,6 +8,9 @@ prefs = ["dom.documentpip.enabled=true"]
 
 ["browser_pip_fullscreen_disallowed.js"]
 
+["browser_pip_remembers_position.js"]
+tags = "vertical-tabs" # Might collapse tabs toolbar, changing outer size
+
 ["browser_pip_ui.js"]
 
 ["browser_sessionstore_ignore_dpip.js"]

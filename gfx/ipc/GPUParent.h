@@ -3,8 +3,8 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
-#ifndef _include_gfx_ipc_GPUParent_h__
-#define _include_gfx_ipc_GPUParent_h__
+#ifndef _include_gfx_ipc_GPUParent_h_
+#define _include_gfx_ipc_GPUParent_h_
 
 #include "mozilla/RefPtr.h"
 #include "mozilla/gfx/PGPUParent.h"
@@ -48,6 +48,8 @@ class GPUParent final : public PGPUParent {
   void NotifySwapChainInfo(layers::SwapChainInfo aInfo);
   void NotifyDisableRemoteCanvas();
 
+  void ReportGLStrings(GfxInfoGLStrings&& aStrings);
+
   mozilla::ipc::IPCResult RecvInit(nsTArray<GfxVarUpdate>&& vars,
                                    const DevicePrefs& devicePrefs,
                                    nsTArray<LayerTreeIdMapping>&& mappings,
@@ -66,6 +68,12 @@ class GPUParent final : public PGPUParent {
   mozilla::ipc::IPCResult RecvInitVRManager(
       Endpoint<PVRManagerParent>&& aEndpoint);
   mozilla::ipc::IPCResult RecvInitVR(Endpoint<PVRGPUChild>&& aVRGPUChild);
+  mozilla::ipc::IPCResult RecvInitUiCompositorController(
+      const LayersId& aRootLayerTreeId,
+      Endpoint<PUiCompositorControllerParent>&& aEndpoint);
+  mozilla::ipc::IPCResult RecvInitAPZInputBridge(
+      const LayersId& aRootLayerTreeId,
+      Endpoint<PAPZInputBridgeParent>&& aEndpoint);
   mozilla::ipc::IPCResult RecvInitProfiler(
       Endpoint<PProfilerChild>&& aEndpoint);
   mozilla::ipc::IPCResult RecvUpdateVar(const nsTArray<GfxVarUpdate>& var);
@@ -129,4 +137,4 @@ class GPUParent final : public PGPUParent {
 }  // namespace gfx
 }  // namespace mozilla
 
-#endif  // _include_gfx_ipc_GPUParent_h__
+#endif  // _include_gfx_ipc_GPUParent_h_

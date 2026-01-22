@@ -468,7 +468,7 @@ def get_partner_url_config(parameters, graph_config):
     partner_url_config = deepcopy(graph_config["partner-urls"])
     substitutions = {
         "release-product": parameters["release_product"],
-        "release-level": release_level(parameters["project"]),
+        "release-level": release_level(parameters),
         "release-type": parameters["release_type"],
     }
     resolve_keyed_by(
@@ -551,10 +551,11 @@ def apply_partner_priority(config, jobs):
     # integration branches because we don't want to wait a lot for the graph to be done, but
     # for multiple releases the partner tasks always wait for non-partner.
     if (
-        config.kind.startswith(
-            ("release-partner-repack", "release-partner-attribution")
-        )
-        and release_level(config.params["project"]) == "production"
+        config.kind.startswith((
+            "release-partner-repack",
+            "release-partner-attribution",
+        ))
+        and release_level(config.params) == "production"
     ):
         priority = "medium"
     for job in jobs:
@@ -591,16 +592,14 @@ def build_macos_attribution_dmg_command(dmg_app_path, attributions):
             command.append(create_dir_command)
 
         command.append(
-            " ".join(
-                [
-                    dmg_app_path,
-                    "attribute",
-                    a["input"],
-                    a["output"],
-                    MACOS_ATTRIBUTION_SENTINEL,
-                    _build_macos_attribution_string(attribution_code=a["attribution"]),
-                ]
-            )
+            " ".join([
+                dmg_app_path,
+                "attribute",
+                a["input"],
+                a["output"],
+                MACOS_ATTRIBUTION_SENTINEL,
+                _build_macos_attribution_string(attribution_code=a["attribution"]),
+            ])
         )
     return " && ".join(command)
 

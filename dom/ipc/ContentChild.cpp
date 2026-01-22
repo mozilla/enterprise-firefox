@@ -15,7 +15,6 @@
 #include "Geolocation.h"
 #include "HandlerServiceChild.h"
 #include "ScrollingMetrics.h"
-#include "gfxUtils.h"
 #include "imgLoader.h"
 #include "mozilla/AppShutdown.h"
 #include "mozilla/Attributes.h"
@@ -98,6 +97,7 @@
 #include "mozilla/gfx/gfxVars.h"
 #include "mozilla/hal_sandbox/PHalChild.h"
 #include "mozilla/image/FetchDecodedImage.h"
+#include "mozilla/image/RemoteImageProtocolHandler.h"
 #include "mozilla/intl/L10nRegistry.h"
 #include "mozilla/intl/LocaleService.h"
 #include "mozilla/intl/OSPreferences.h"
@@ -1170,6 +1170,8 @@ nsresult ContentChild::ProvideWindowCommon(
   // Now change the principal to what it should be according to aOpenWindowInfo.
   // This creates a new document and the timing is quite fragile.
   NS_ENSURE_TRUE(browsingContext->GetDOMWindow(), NS_ERROR_ABORT);
+  NS_ENSURE_TRUE(browsingContext->GetDOMWindow()->GetExtantDoc(),
+                 NS_ERROR_ABORT);
   browsingContext->GetDOMWindow()->SetInitialPrincipal(
       aOpenWindowInfo->PrincipalToInheritForAboutBlank());
 
@@ -1499,31 +1501,22 @@ mozilla::ipc::IPCResult ContentChild::RecvRequestMemoryReport(
 
 mozilla::ipc::IPCResult ContentChild::RecvDecodeImage(
     NotNull<nsIURI*> aURI, const ImageIntSize& aSize,
-    DecodeImageResolver&& aResolver) {
+    const ColorScheme& aColorScheme, DecodeImageResolver&& aResolver) {
   auto size = aSize.ToUnknownSize();
   // TODO(Bug 1999930): Investigate using  a content-principal for
   // moz-remote-image: requests
   image::FetchDecodedImage(aURI, size, nsContentUtils::GetSystemPrincipal())
       ->Then(
           GetCurrentSerialEventTarget(), __func__,
-          [size, aResolver](already_AddRefed<imgIContainer> aImage) {
+          [size, aColorScheme,
+           aResolver](already_AddRefed<imgIContainer> aImage) {
             using Result = std::tuple<nsresult, mozilla::Maybe<IPCImage>>;
 
             nsCOMPtr<imgIContainer> image(std::move(aImage));
 
-            const int32_t flags = imgIContainer::FLAG_SYNC_DECODE |
-                                  imgIContainer::FLAG_ASYNC_NOTIFY;
-            RefPtr<gfx::SourceSurface> surface;
-            if (size.Width() && size.Height()) {
-              surface = image->GetFrameAtSize(size, imgIContainer::FRAME_FIRST,
-                                              flags);
-              if (surface && surface->GetSize() != size) {
-                surface = gfxUtils::ScaleSourceSurface(*surface, size);
-              }
-            } else {
-              surface = image->GetFrame(imgIContainer::FRAME_FIRST, flags);
-            }
-
+            RefPtr<gfx::SourceSurface> surface =
+                image::RemoteImageProtocolHandler::GetImageSurface(
+                    image, size, aColorScheme);
             if (!surface) {
               aResolver(Result(NS_ERROR_FAILURE, Nothing()));
               return;

@@ -9,6 +9,7 @@ pub mod client;
 pub mod command;
 pub mod error;
 pub mod server;
+pub mod telemetry;
 
 pub use wgc::command::ffi::Command as CommandEncoderAction;
 
@@ -127,6 +128,8 @@ pub struct AdapterInformation<S> {
     backend: wgt::Backend,
     support_use_shared_texture_in_swap_chain: bool,
     transient_saves_memory: bool,
+    subgroup_min_size: u32,
+    subgroup_max_size: u32,
 }
 
 #[repr(C)]
@@ -139,6 +142,7 @@ pub struct TextureViewDescriptor<'a> {
     mip_level_count: Option<&'a u32>,
     base_array_layer: u32,
     array_layer_count: Option<&'a u32>,
+    usage: wgt::TextureUsages,
 }
 
 // Declare an ID type for referring to external texture sources, and allow

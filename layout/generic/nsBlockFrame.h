@@ -9,8 +9,8 @@
  * boxes, also used for various anonymous boxes
  */
 
-#ifndef nsBlockFrame_h___
-#define nsBlockFrame_h___
+#ifndef nsBlockFrame_h_
+#define nsBlockFrame_h_
 
 #include "mozilla/IntrinsicISizesCache.h"
 #include "nsCSSPseudoElements.h"
@@ -660,7 +660,7 @@ class nsBlockFrame : public nsContainerFrame {
    * Determine if we have any pushed floats from a previous continuation.
    *
    * @returns true, if any of the floats at the beginning of our floats list
-   *          have the NS_FRAME_IS_PUSHED_FLOAT bit set; false otherwise.
+   *          have the NS_FRAME_IS_PUSHED_OUT_OF_FLOW bit set; false otherwise.
    */
   bool HasPushedFloatsFromPrevContinuation() const;
 
@@ -1171,4 +1171,4 @@ class nsBlockInFlowLineIterator {
   bool FindValidLine();
 };
 
-#endif /* nsBlockFrame_h___ */
+#endif /* nsBlockFrame_h_ */

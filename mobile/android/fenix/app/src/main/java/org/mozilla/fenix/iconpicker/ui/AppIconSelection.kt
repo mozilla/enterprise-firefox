@@ -34,6 +34,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -48,15 +49,15 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import mozilla.components.compose.base.annotation.FlexibleWindowLightDarkPreview
+import mozilla.components.compose.base.annotation.FlexibleWindowPreview
 import mozilla.components.compose.base.button.TextButton
 import mozilla.components.compose.base.snackbar.Snackbar
 import mozilla.components.compose.base.snackbar.displaySnackbar
-import mozilla.components.lib.state.ext.observeAsState
 import org.mozilla.fenix.R
 import org.mozilla.fenix.compose.button.RadioButton
 import org.mozilla.fenix.iconpicker.AppIcon
@@ -72,6 +73,7 @@ import org.mozilla.fenix.iconpicker.SystemAction
 import org.mozilla.fenix.iconpicker.UserAction
 import org.mozilla.fenix.theme.FirefoxTheme
 import org.mozilla.fenix.theme.Theme
+import org.mozilla.fenix.theme.ThemeProvider
 
 private val ListItemHeight = 56.dp
 private val AppIconSize = 40.dp
@@ -94,7 +96,7 @@ fun AppIconSelection(
     store: AppIconStore,
     shortcutRemovalWarning: () -> Boolean,
 ) {
-    val state by store.observeAsState(store.state) { it }
+    val state by store.stateFlow.collectAsState()
     val selectedIcon = state.userSelectedAppIcon ?: state.currentAppIcon
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -387,42 +389,32 @@ private fun AppIconSelectionPreview() {
     }
 }
 
-@FlexibleWindowLightDarkPreview
+@FlexibleWindowPreview
 @Composable
-private fun AppIconOptionPreview() {
-    FirefoxTheme {
+private fun AppIconOptionPreview(
+    @PreviewParameter(ThemeProvider::class) theme: Theme,
+) {
+    FirefoxTheme(theme) {
         AppIconOption(AppIcon.AppDefault, false) {}
     }
 }
 
-@Preview
+@FlexibleWindowPreview
 @Composable
-private fun AppIconOptionPrivatePreview() {
-    FirefoxTheme(theme = Theme.Private) {
-        AppIconOption(AppIcon.AppDefault, false) {}
-    }
-}
-
-@FlexibleWindowLightDarkPreview
-@Composable
-private fun AppIconOptionWithSubtitlePreview() {
-    FirefoxTheme {
+private fun AppIconOptionWithSubtitlePreview(
+    @PreviewParameter(ThemeProvider::class) theme: Theme,
+) {
+    FirefoxTheme(theme) {
         AppIconOption(AppIcon.AppMomo, false) {}
     }
 }
 
-@Preview
+@FlexibleWindowPreview
 @Composable
-private fun AppIconOptionWithSubtitlePrivatePreview() {
-    FirefoxTheme(theme = Theme.Private) {
-        AppIconOption(AppIcon.AppMomo, false) {}
-    }
-}
-
-@FlexibleWindowLightDarkPreview
-@Composable
-private fun RestartWarningDialogPreview() {
-    FirefoxTheme {
+private fun RestartWarningDialogPreview(
+    @PreviewParameter(ThemeProvider::class) theme: Theme,
+) {
+    FirefoxTheme(theme) {
         RestartWarningDialog(
             shortcutRemovalWarning = { false },
             onConfirmClicked = {},
@@ -432,36 +424,12 @@ private fun RestartWarningDialogPreview() {
     }
 }
 
-@Preview
+@FlexibleWindowPreview
 @Composable
-private fun RestartWarningDialogPrivatePreview() {
-    FirefoxTheme(theme = Theme.Private) {
-        RestartWarningDialog(
-            shortcutRemovalWarning = { false },
-            onConfirmClicked = {},
-            onDismissClicked = {},
-            onDismissed = {},
-        )
-    }
-}
-
-@FlexibleWindowLightDarkPreview
-@Composable
-private fun ShortcutRemovalWarningDialogPreview() {
-    FirefoxTheme {
-        RestartWarningDialog(
-            shortcutRemovalWarning = { true },
-            onConfirmClicked = {},
-            onDismissClicked = {},
-            onDismissed = {},
-        )
-    }
-}
-
-@Preview
-@Composable
-private fun ShortcutRemovalWarningDialogPrivatePreview() {
-    FirefoxTheme(theme = Theme.Private) {
+private fun ShortcutRemovalWarningDialogPreview(
+    @PreviewParameter(ThemeProvider::class) theme: Theme,
+) {
+    FirefoxTheme(theme) {
         RestartWarningDialog(
             shortcutRemovalWarning = { true },
             onConfirmClicked = {},

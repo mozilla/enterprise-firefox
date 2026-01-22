@@ -196,11 +196,8 @@ tab-split-view-wrapper[dragtarget] {
   position: absolute !important;
   pointer-events: none; /* avoid blocking dragover events on scroll buttons */
 
-  /* stylelint-disable-next-line media-query-no-invalid */
-  @media -moz-pref("browser.tabs.dragDrop.multiselectStacking") {
-    &[multiselected]:not([small-stack], [big-stack]) {
-      visibility: hidden;
-    }
+  &[multiselected]:not([small-stack], [big-stack]) {
+    visibility: hidden;
   }
 }
 
@@ -1331,7 +1328,7 @@ tab-group > tab-split-view-wrapper {
 
     @media (forced-colors) {
       border: 1px solid SelectedItem;
-      background: ButtonFace;
+      background: SelectedItemText;
     }
   }
 
@@ -1345,6 +1342,12 @@ tab-group > tab-split-view-wrapper {
 
     .tab-content {
       padding-inline: var(--space-medium);
+
+      @media (forced-colors) {
+        #tabbrowser-tabs tab-split-view-wrapper[hasactivetab] .tabbrowser-tab:not([selected]) & {
+          color: SelectedItem;
+        }
+      }
     }
 
     &:first-child {
@@ -1862,31 +1865,47 @@ tab-group {
 /* Tab Notes */
 .tab-note-editor-panel {
   --panel-width: 300px;
-  --arrowpanel-header-min-height: auto;
-  padding-inline: var(--space-xsmall);
-  padding-block: 0;
   font: menu;
 
-  .panel-header {
-    padding-block-start: 0;
-
-    & > h1 {
-      margin: var(--space-small);
-    }
+  > toolbarseparator {
+    padding-inline: var(--panel-padding);
   }
 
-  toolbarseparator {
-    padding-inline: 0;
+  > .panel-subview-body {
+    padding-top: var(--panel-subview-body-padding-block);
+    padding-inline: var(--panel-padding);
   }
 
-  .panel-body {
-    padding-block: var(--space-medium);
+  > .panel-action-row {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-large);
+  }
+}
+
+#tab-note-text {
+  padding: var(--space-medium);
+  resize: none;
+  min-height: 3lh;
+  max-height: 352px;
+  overflow-y: auto;
+}
+
+#tab-note-overflow-indicator {
+  font-size: 0.85em;
+  visibility: hidden;
+  color: var(--text-color-deemphasized);
+
+  /* This will apply to both the overflow=warn state (the user has almost
+   * overflowed the limit) and the overflow=overflow state (the user actually
+   * has overflowed the limit).
+   */
+  .tab-note-editor-panel[overflow] & {
+    visibility: inherit;
   }
 
-  #tab-note-text {
-    width: 100%;
-    box-sizing: border-box;
-    padding: var(--space-medium);
+  .tab-note-editor-panel[overflow="overflow"] & {
+    color: var(--text-color-error);
   }
 }
 

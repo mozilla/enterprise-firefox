@@ -4,19 +4,22 @@
 ---
 loader: taskgraph.loader.transform:loader
 
-only-for-build-platforms:
-    - linux64-enterprise-shippable/opt
-    - linux64-enterprise/debug
-    - macosx64-enterprise-shippable/opt
-    - macosx64-enterprise/debug
-    - win64-enterprise-shippable/opt
-    - win64-enterprise/debug
-
 transforms:
     - taskgraph.transforms.from_deps
     - gecko_taskgraph.transforms.enterprise_test:transforms
     - gecko_taskgraph.transforms.job:transforms
     - gecko_taskgraph.transforms.task:transforms
+
+only-for-build-platforms:
+    - linux64-enterprise-shippable/opt
+    - linux64-enterprise/opt
+    - linux64-enterprise/debug
+    - macosx64-enterprise-shippable/opt
+    - macosx64-enterprise/opt
+    - macosx64-enterprise/debug
+    - win64-enterprise-shippable/opt
+    - win64-enterprise/opt
+    - win64-enterprise/debug
 
 kind-dependencies:
     - build
@@ -166,6 +169,18 @@ tasks:
         attributes:
             enterprise_test_file: test_felt_browser_fxa.py
             enterprise_test_slug: feltFxa
+
+    felt-browser-crashAbortRestart:
+        description: Testing proper cancellation of restarts after too many crashes
+        attributes:
+            enterprise_test_file: test_felt_browser_crash_abort_restart.py
+            enterprise_test_slug: feltCrashAbortRestart
+
+    felt-browser-crashRestart:
+        description: Testing proper restart by FELT after crash of browser
+        attributes:
+            enterprise_test_file: test_felt_browser_crash_restart.py
+            enterprise_test_slug: feltCrashRestart
 
     felt-browser-safemode:
         description: Testing passing safe mode from FELT to Browser

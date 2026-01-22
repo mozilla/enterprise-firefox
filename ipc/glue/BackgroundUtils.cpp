@@ -611,7 +611,8 @@ nsresult LoadInfoToLoadInfoArgs(nsILoadInfo* aLoadInfo,
       aLoadInfo->GetIsMetaRefresh(), aLoadInfo->GetLoadingEmbedderPolicy(),
       aLoadInfo->GetIsOriginTrialCoepCredentiallessEnabledForTopLevel(),
       unstrippedURI, interceptionInfoArg, aLoadInfo->GetIsNewWindowTarget(),
-      aLoadInfo->GetUserNavigationInvolvement());
+      aLoadInfo->GetUserNavigationInvolvement(),
+      aLoadInfo->GetContainerFeaturePolicyInfo(), {});
 
   return NS_OK;
 }
@@ -762,6 +763,18 @@ nsresult LoadInfoArgsToLoadInfo(const LoadInfoArgs& loadInfoArgs,
       LoadInfo::ComputeAncestors(parentBC->Canonical(), ancestorPrincipals,
                                  ancestorBrowsingContextIDs);
     }
+  } else {
+    // Fill out (possibly redacted) ancestor principals for
+    // Location.ancestorOrigins
+    for (const auto& principalInfo : loadInfoArgs.ancestorOrigins()) {
+      if (principalInfo.isNothing()) {
+        ancestorPrincipals.AppendElement(nullptr);
+      } else {
+        auto principal = PrincipalInfoToPrincipal(principalInfo.value());
+        // If this operation fail, we censor the origin.
+        ancestorPrincipals.AppendElement(principal.unwrapOr(nullptr));
+      }
+    }
   }
 
   Maybe<ClientInfo> clientInfo;
@@ -860,10 +873,11 @@ nsresult LoadInfoArgsToLoadInfo(const LoadInfoArgs& loadInfoArgs,
   RefPtr<mozilla::net::LoadInfo> loadInfo = new mozilla::net::LoadInfo(
       loadingPrincipal, triggeringPrincipal, principalToInherit,
       topLevelPrincipal, resultPrincipalURI, cookieJarSettings,
-      policyContainerToInherit, triggeringRemoteType,
-      loadInfoArgs.sandboxedNullPrincipalID(), clientInfo, reservedClientInfo,
-      initialClientInfo, controller, loadInfoArgs.securityFlags(),
-      loadInfoArgs.sandboxFlags(), loadInfoArgs.contentPolicyType(),
+      policyContainerToInherit, loadInfoArgs.containerFeaturePolicyInfo(),
+      triggeringRemoteType, loadInfoArgs.sandboxedNullPrincipalID(), clientInfo,
+      reservedClientInfo, initialClientInfo, controller,
+      loadInfoArgs.securityFlags(), loadInfoArgs.sandboxFlags(),
+      loadInfoArgs.contentPolicyType(),
       static_cast<LoadTainting>(loadInfoArgs.tainting()),
 
 #define DEFINE_ARGUMENT(_t, _n, name, _d) loadInfoArgs.name(),

@@ -2,8 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef nsASocketHandler_h__
-#define nsASocketHandler_h__
+#ifndef nsASocketHandler_h_
+#define nsASocketHandler_h_
 
 #include "nsError.h"
 #include "nsINetAddr.h"
@@ -99,4 +99,4 @@ class nsASocketHandler : public nsISupports {
   virtual uint64_t ByteCountReceived() = 0;
 };
 
-#endif  // !nsASocketHandler_h__
+#endif  // !nsASocketHandler_h_

@@ -18,7 +18,7 @@
 .vpn-status-group {
   display: block;
   position: relative;
-  margin: var(--space-large);
+  margin: var(--space-xsmall) var(--space-large) var(--space-large);
   overflow: hidden;
 }
 

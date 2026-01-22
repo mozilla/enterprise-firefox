@@ -252,6 +252,12 @@ support-files = [
   "file_js_cache_large.js",
 ]
 
+["browser_script_loader_js_cache_too_large.js"]
+support-files = [
+  "empty.html",
+  "file_js_cache_too_large.js",
+]
+
 ["browser_set_focus_after_reuse_bcg.js"]
 
 ["browser_state_notifications.js"]

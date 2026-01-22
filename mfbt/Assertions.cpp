@@ -8,7 +8,6 @@
 #include "mozilla/Sprintf.h"
 
 #include <stdarg.h>
-#include <string.h>
 #include "fmt/format.h"
 
 MOZ_BEGIN_EXTERN_C

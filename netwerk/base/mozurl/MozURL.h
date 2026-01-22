@@ -2,8 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef mozURL_h__
-#define mozURL_h__
+#ifndef mozURL_h_
+#define mozURL_h_
 
 #include "mozilla/net/MozURL_ffi.h"
 #include "mozilla/RefPtr.h"
@@ -227,4 +227,4 @@ class MozURL final {
 }  // namespace net
 }  // namespace mozilla
 
-#endif  // mozURL_h__
+#endif  // mozURL_h_

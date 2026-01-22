@@ -8,12 +8,6 @@ import {
 } from "resource://newtab/common/Actions.mjs";
 import { Prefs } from "resource://newtab/lib/ActivityStreamPrefs.sys.mjs";
 
-// We use importESModule here instead of static import so that
-// the Karma test environment won't choke on this module. This
-// is because the Karma test environment already stubs out
-// AppConstants, and overrides importESModule to be a no-op (which
-// can't be done for a static import statement).
-
 // eslint-disable-next-line mozilla/use-static-import
 const { AppConstants } = ChromeUtils.importESModule(
   "resource://gre/modules/AppConstants.sys.mjs"
@@ -348,6 +342,8 @@ export class PrefsFeed {
     this._setStringPref(values, "discoverystream.spocs-endpoint", "");
     this._setStringPref(values, "discoverystream.spocs-endpoint-query", "");
     this._setStringPref(values, "newNewtabExperience.colors", "");
+    this._setBoolPref(values, "search.useHandoffComponent", false);
+    this._setBoolPref(values, "externalComponents.enabled", false);
 
     // Set the initial state of all prefs in redux
     this.store.dispatch(

@@ -6,7 +6,7 @@
  * succeeded.
  */
 
-const searchService = Services.search.wrappedJSObject;
+const searchService = SearchService.wrappedJSObject;
 
 add_setup(async () => {
   consoleAllowList.push("#init: failure initializing search:");
@@ -21,7 +21,7 @@ add_task(async function test_init_success_telemetry() {
     "Search Service should not be initialized."
   );
 
-  await Services.search.init();
+  await SearchService.init();
 
   Assert.equal(
     searchService.hasSuccessfullyInitialized,
@@ -100,7 +100,7 @@ add_task(async function test_corrupt_settings() {
     false,
     "Search Service should not be initialized."
   );
-  await Services.search.init();
+  await SearchService.init();
   Assert.equal(
     searchService.hasSuccessfullyInitialized,
     true,
@@ -132,13 +132,13 @@ async function startInitFailure(errorType, errorMessage) {
   );
 
   await Assert.rejects(
-    Services.search.init(),
+    SearchService.init(),
     messageRegex,
     "Should have thrown an error on init."
   );
 
   await Assert.rejects(
-    Services.search.promiseInitialized,
+    SearchService.promiseInitialized,
     messageRegex,
     "Should have rejected the promise."
   );

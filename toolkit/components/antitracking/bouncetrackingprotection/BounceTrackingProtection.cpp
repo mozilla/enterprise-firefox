@@ -101,6 +101,7 @@ BounceTrackingProtection::GetSingleton() {
     nsresult rv = sBounceTrackingProtection->Init();
     if (NS_WARN_IF(NS_FAILED(rv))) {
       sInitFailed = true;
+      sBounceTrackingProtection = nullptr;
       return nullptr;
     }
   }
@@ -1233,11 +1234,6 @@ nsresult BounceTrackingProtection::PurgeStateForHostAndOriginAttributes(
       do_GetService("@mozilla.org/clear-data-service;1", &rv);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  // nsIClearDataService expects a schemeless site which for IPV6 addresses
-  // includes brackets. Add them if needed.
-  nsAutoCString hostToPurge(aHost);
-  nsContentUtils::MaybeFixIPv6Host(hostToPurge);
-
   // When clearing data for a specific site host we need to ensure that we
   // only clear for matching OriginAttributes. For example if the current
   // state global is private browsing only we must not clear normal browsing
@@ -1258,7 +1254,7 @@ nsresult BounceTrackingProtection::PurgeStateForHostAndOriginAttributes(
   NS_ENSURE_TRUE(pattern.ToJSON(oaPatternString), NS_ERROR_FAILURE);
 
   rv = clearDataService->DeleteDataFromSiteAndOriginAttributesPatternString(
-      hostToPurge, oaPatternString, false,
+      aHost, oaPatternString, false,
       // Exempt purging our own state for the given tracker since we already
       // update it ourselves. Additionally a nested call to the
       // BounceTrackingProtectionCleaner while iterating over the candidate set

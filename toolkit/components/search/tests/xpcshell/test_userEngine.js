@@ -14,7 +14,7 @@ function getTestIconUrl(iconName) {
 
 add_setup(async function () {
   Services.fog.initializeFOG();
-  await Services.search.init();
+  await SearchService.init();
   useHttpServer();
 });
 
@@ -23,7 +23,7 @@ add_task(async function test_user_engine() {
     SearchUtils.MODIFIED_TYPE.ADDED,
     SearchUtils.TOPIC_ENGINE_MODIFIED
   );
-  await Services.search.addUserEngine({
+  await SearchService.addUserEngine({
     name: "user",
     url: "https://example.com/user?q={searchTerms}",
     suggestUrl: "https://example.com/suggest?q={searchTerms}",
@@ -31,7 +31,7 @@ add_task(async function test_user_engine() {
   });
   await promiseEngineAdded;
 
-  let engine = Services.search.getEngineByName("user");
+  let engine = SearchService.getEngineByName("user");
   Assert.ok(engine, "Should have installed the engine.");
 
   Assert.equal(engine.name, "user", "Should have the correct name");
@@ -52,7 +52,7 @@ add_task(async function test_user_engine() {
     "Should have the correct suggest url"
   );
 
-  await Services.search.setDefault(
+  await SearchService.setDefault(
     engine,
     Ci.nsISearchService.CHANGE_REASON_UNKNOWN
   );
@@ -68,11 +68,11 @@ add_task(async function test_user_engine() {
       submissionUrl: "blank:",
     },
   });
-  await Services.search.removeEngine(engine);
+  await SearchService.removeEngine(engine);
 });
 
 add_task(async function test_rename() {
-  let engine = await Services.search.addUserEngine({
+  let engine = await SearchService.addUserEngine({
     name: "user",
     url: "https://example.com/user?q={searchTerms}",
   });
@@ -88,22 +88,22 @@ add_task(async function test_rename() {
   Assert.ok(success, "Should have renamed the engine.");
   Assert.equal(engine.name, "user2", "Name was changed.");
   Assert.ok(
-    !!Services.search.getEngineByName("user2"),
+    !!SearchService.getEngineByName("user2"),
     "Should be found under the new name."
   );
   Assert.ok(
-    !Services.search.getEngineByName("user"),
+    !SearchService.getEngineByName("user"),
     "Should not be found under the old name."
   );
-  await Services.search.removeEngine(engine);
+  await SearchService.removeEngine(engine);
 });
 
 add_task(async function test_rename_duplicate() {
-  let engine = await Services.search.addUserEngine({
+  let engine = await SearchService.addUserEngine({
     name: "user",
     url: "https://example.com/user?q={searchTerms}",
   });
-  let engine2 = await Services.search.addUserEngine({
+  let engine2 = await SearchService.addUserEngine({
     name: "user2",
     url: "https://example.com/user?q={searchTerms}",
   });
@@ -113,17 +113,17 @@ add_task(async function test_rename_duplicate() {
   Assert.equal(engine.name, "user", "Should have kept the name.");
 
   Assert.notEqual(
-    Services.search.getEngineByName("user").id,
-    Services.search.getEngineByName("user2").id,
+    SearchService.getEngineByName("user").id,
+    SearchService.getEngineByName("user2").id,
     "Should both be available."
   );
 
-  await Services.search.removeEngine(engine);
-  await Services.search.removeEngine(engine2);
+  await SearchService.removeEngine(engine);
+  await SearchService.removeEngine(engine2);
 });
 
 add_task(async function test_changeUrl() {
-  let engine = await Services.search.addUserEngine({
+  let engine = await SearchService.addUserEngine({
     name: "user",
     url: "https://example.com/user?q={searchTerms}",
     alias: "u",
@@ -190,11 +190,11 @@ add_task(async function test_changeUrl() {
   submission = engine.getSubmission("foo", SearchUtils.URL_TYPE.SUGGEST_JSON);
   Assert.ok(!submission, "Suggest URL was removed");
 
-  await Services.search.removeEngine(engine);
+  await SearchService.removeEngine(engine);
 });
 
 add_task(async function test_changeIcon() {
-  let engine = await Services.search.addUserEngine({
+  let engine = await SearchService.addUserEngine({
     name: "user",
     url: "https://example.com/user?q={searchTerms}",
   });
@@ -246,13 +246,13 @@ add_task(async function test_duplicate_engine_error() {
     name: "Engine Name",
     url: "https://example.com/search?q={searchTerms}",
   };
-  let engine = await Services.search.addUserEngine(engineData);
+  let engine = await SearchService.addUserEngine(engineData);
   Assert.ok(engine, "User engine should be added successfully.");
   await Assert.rejects(
-    Services.search.addUserEngine(engineData),
+    SearchService.addUserEngine(engineData),
     ex => ex.result == Ci.nsISearchService.ERROR_DUPLICATE_ENGINE,
     "Adding a user engine with a duplicate name should throw ERROR_DUPLICATE_ENGINE."
   );
 
-  await Services.search.removeEngine(engine);
+  await SearchService.removeEngine(engine);
 });

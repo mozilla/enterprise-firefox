@@ -5,8 +5,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef __nsWindow_h__
-#define __nsWindow_h__
+#ifndef _nsWindow_h_
+#define _nsWindow_h_
 
 #include <gdk/gdk.h>
 #include <gtk/gtk.h>
@@ -60,10 +60,11 @@ extern mozilla::LazyLogModule gWidgetPopupLog;
 extern mozilla::LazyLogModule gWidgetVsync;
 extern mozilla::LazyLogModule gWidgetWaylandLog;
 
-#  define LOG(str, ...)                               \
-    MOZ_LOG(IsPopup() ? gWidgetPopupLog : gWidgetLog, \
-            mozilla::LogLevel::Debug,                 \
-            ("%s: " str, GetDebugTag().get(), ##__VA_ARGS__))
+#  define LOG_WIN(win, str, ...)                           \
+    MOZ_LOG(win->IsPopup() ? gWidgetPopupLog : gWidgetLog, \
+            mozilla::LogLevel::Debug,                      \
+            ("%s: " str, win->GetDebugTag().get(), ##__VA_ARGS__))
+#  define LOG(...) LOG_WIN(this, __VA_ARGS__)
 #  define LOGVERBOSE(str, ...)                        \
     MOZ_LOG(IsPopup() ? gWidgetPopupLog : gWidgetLog, \
             mozilla::LogLevel::Verbose,               \
@@ -88,6 +89,7 @@ extern mozilla::LazyLogModule gWidgetWaylandLog;
 #else
 
 #  define LOG(...)
+#  define LOG_WIN(...)
 #  define LOGVERBOSE(...)
 #  define LOGW(...)
 #  define LOGDRAG(...)
@@ -192,7 +194,6 @@ class nsWindow final : public nsIWidget {
   mozilla::DesktopToLayoutDeviceScale GetDesktopToDeviceScale() override;
   void SetModal(bool aModal) override;
   bool IsVisible() const override;
-  bool IsMapped() const override;
   void ConstrainPosition(DesktopIntPoint&) override;
   void SetSizeConstraints(const SizeConstraints&) override;
   void LockAspectRatio(bool aShouldLock) override;
@@ -202,6 +203,7 @@ class nsWindow final : public nsIWidget {
   void Resize(const DesktopRect&, bool aRepaint) override;
   bool IsEnabled() const override;
 
+  nsSizeMode GetSizeMode() const { return mSizeMode; }
   nsSizeMode SizeMode() override { return mSizeMode; }
   void SetSizeMode(nsSizeMode aMode) override;
   void GetWorkspaceID(nsAString& workspaceID) override;
@@ -224,12 +226,33 @@ class nsWindow final : public nsIWidget {
   // Recomputes the bounds according to our current window position. Dispatches
   // move / resizes as needed.
   void RecomputeBounds(bool aScaleChange = false);
+  // Window bounds (as in GetBounds()) are composed as
+  // mClientArea.Inflate(mClientMargin)*scale, i.e.:
+  //
+  // mBounds.x = (mClientArea.x - mClientMargin.left) * scale;
+  // mBounds.y = (mClientArea.y - mClientMargin.top) * scale;
+  // mBounds.width = (mClientArea.width +
+  //                 (mClientMargin.right + mClientMargin.left)) * scale;
+  // mBounds.height = (mClientArea.height +
+  //                  (mClientMargin.top + mClientMargin.bottom)) * scale;
+  //
+  // We use mClientMargin and mClientArea in Gdk (logical, widget) coordinates
+  // instead of device pixel coordinates to avoid rounding errors.
+  struct Bounds {
+    // mClientArea is window rendering area in global coordinates.
+    DesktopIntRect mClientArea;
+    // mClientMargin contains CSD decorations size on Wayland and
+    // CSD decorations and system titlebar size on X11.
+    DesktopIntMargin mClientMargin;
+
+    static Bounds Compute(const nsWindow*);
 #ifdef MOZ_X11
-  void RecomputeBoundsX11();
+    static Bounds ComputeX11(const nsWindow*);
 #endif
 #ifdef MOZ_WAYLAND
-  void RecomputeBoundsWayland();
+    static Bounds ComputeWayland(const nsWindow*);
 #endif
+  };
   void SchedulePendingBounds();
   void MaybeRecomputeBounds();
 
@@ -436,7 +459,7 @@ class nsWindow final : public nsIWidget {
 
   // HiDPI scale conversion
   gint GdkCeiledScaleFactor();
-  double FractionalScaleFactor();
+  double FractionalScaleFactor() const;
 
   LayoutDeviceIntPoint ToLayoutDevicePixels(const DesktopIntPoint&);
   LayoutDeviceIntSize ToLayoutDevicePixels(const DesktopIntSize&);
@@ -507,8 +530,6 @@ class nsWindow final : public nsIWidget {
   LayoutDeviceIntSize GetMoveToRectPopupSize() override;
 #endif
 
-  void ResumeCompositorImpl();
-
   bool ApplyEnterLeaveMutterWorkaround();
 
   void NotifyOcclusionState(mozilla::widget::OcclusionState aState) override;
@@ -553,8 +574,6 @@ class nsWindow final : public nsIWidget {
   bool DoTitlebarAction(mozilla::LookAndFeel::TitlebarEvent aEvent,
                         GdkEventButton* aButtonEvent);
 
-  void WaylandStartVsync();
-  void WaylandStopVsync();
   void DestroyChildWindows();
   GtkWidget* GetToplevelWidget() const;
   nsWindow* GetContainerWindow() const;
@@ -638,27 +657,9 @@ class nsWindow final : public nsIWidget {
   // Same but for positioning. Used to track move requests.
   DesktopIntPoint mLastMoveRequest;
 
-  // Window bounds (mBounds) are composed as
-  // mClientArea.Inflate(mClientMargin)*scale, i.e.:
-  //
-  // mBounds.x = (mClientArea.x - mClientMargin.left) * scale;
-  // mBounds.y = (mClientArea.y - mClientMargin.top) * scale;
-  // mBounds.width = (mClientArea.width +
-  //                 (mClientMargin.right + mClientMargin.left)) * scale;
-  // mBounds.height = (mClientArea.height +
-  //                  (mClientMargin.top + mClientMargin.bottom)) * scale;
-  //
-  // We use mClientMargin and mClientArea in Gdk (logical, widget) coordinates
-  // instead of mBounds i device pixel coordinates to avoid
-  // rounding errors.
-
-  // mClientMargin contains CSD decorations size on Wayland and
-  // CSD decorations and system titlebar size on X11.
-  DesktopIntMargin mClientMargin{};
-
-  // mClientArea is window rendering area. mClientArea.x, mClientArea.y are
-  // equal to mClientMargin.left, mClientMargin.top.
-  DesktopIntRect mClientArea{};
+  // See Bounds for these members.
+  DesktopIntRect mClientArea;
+  DesktopIntMargin mClientMargin;
 
   // This field omits duplicate scroll events caused by GNOME bug 726878.
   guint32 mLastScrollEventTime = GDK_CURRENT_TIME;
@@ -710,7 +711,7 @@ class nsWindow final : public nsIWidget {
 
   // This track real window visibility from OS perspective.
   // It's set by OnMap/OnUnmap which is based on Gtk events.
-  mozilla::Atomic<bool, mozilla::Relaxed> mIsMapped;
+  bool mIsMapped;
   // Has this widget been destroyed yet?
   mozilla::Atomic<bool, mozilla::Relaxed> mIsDestroyed;
   // mIsShown tracks requested visible status from browser perspective, i.e.
@@ -865,8 +866,6 @@ class nsWindow final : public nsIWidget {
 
   void DispatchMissedButtonReleases(GdkEventCrossing* aGdkEvent);
 
-  void ConfigureCompositor();
-
   bool IsAlwaysUndecoratedWindow() const;
 
   // nsIWidget
@@ -874,8 +873,6 @@ class nsWindow final : public nsIWidget {
   void DidGetNonBlankPaint() override;
 
   void SetCompositorWidgetDelegate(CompositorWidgetDelegate* delegate) override;
-
-  int32_t RoundsWidgetCoordinatesTo() override;
 
   void UpdateMozWindowActive();
 
@@ -1092,4 +1089,4 @@ class nsWindow final : public nsIWidget {
 #endif
 };
 
-#endif /* __nsWindow_h__ */
+#endif /* _nsWindow_h_ */

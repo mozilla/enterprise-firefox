@@ -3,8 +3,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef TelemetryScalar_h__
-#define TelemetryScalar_h__
+#ifndef TelemetryScalar_h_
+#define TelemetryScalar_h_
 
 #include <stdint.h>
 #include "mozilla/TelemetryProcessEnums.h"
@@ -96,4 +96,4 @@ void AddDynamicScalarDefinitions(
 nsresult GetAllStores(mozilla::Telemetry::Common::StringHashSet& set);
 }  // namespace TelemetryScalar
 
-#endif  // TelemetryScalar_h__
+#endif  // TelemetryScalar_h_

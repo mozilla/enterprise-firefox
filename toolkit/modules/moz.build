@@ -162,7 +162,6 @@ EXTRA_JS_MODULES += [
     "Console.sys.mjs",
     "ContentDOMReference.sys.mjs",
     "CreditCard.sys.mjs",
-    "DateTimePickerPanel.sys.mjs",
     "DeferredTask.sys.mjs",
     "E10SUtils.sys.mjs",
     "EventEmitter.sys.mjs",
@@ -213,6 +212,13 @@ EXTRA_JS_MODULES += [
     "UpdateUtils.sys.mjs",
     "UrlUtils.sys.mjs",
     "WebChannel.sys.mjs",
+]
+
+MOZ_SRC_FILES += [
+    "ColorPickerPanel.sys.mjs",
+    "DateTimePickerPanel.sys.mjs",
+    "FaviconUtils.sys.mjs",
+    "InputPickerPanelCommon.sys.mjs",
 ]
 
 if CONFIG["MOZ_ASAN_REPORTER"]:
@@ -339,7 +345,6 @@ for var in (
     "MOZ_SYSTEM_POLICIES",
     "MOZ_SELECTABLE_PROFILES",
     "MOZ_ENTERPRISE",
-    "BROWSER_NEWTAB_AS_ADDON",
     "USE_LIBZ_RS",
     "MOZ_ANDROID_CONTENT_SERVICE_ISOLATED_PROCESS",
 ):

@@ -7,15 +7,21 @@ package org.mozilla.fenix.settings.address.ui.edit
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.exclude
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -25,11 +31,12 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.flow.map
 import mozilla.components.browser.state.search.RegionState
 import mozilla.components.compose.base.Dropdown
-import mozilla.components.compose.base.annotation.FlexibleWindowLightDarkPreview
+import mozilla.components.compose.base.annotation.FlexibleWindowPreview
 import mozilla.components.compose.base.button.DestructiveButton
 import mozilla.components.compose.base.button.FilledButton
 import mozilla.components.compose.base.button.OutlinedButton
@@ -39,7 +46,6 @@ import mozilla.components.compose.base.textfield.TextField
 import mozilla.components.concept.engine.autofill.AddressStructure
 import mozilla.components.concept.storage.Address
 import mozilla.components.concept.storage.UpdatableAddressFields
-import mozilla.components.lib.state.ext.observeAsState
 import org.mozilla.fenix.R
 import org.mozilla.fenix.settings.address.store.AddressState
 import org.mozilla.fenix.settings.address.store.AddressStore
@@ -53,6 +59,7 @@ import org.mozilla.fenix.settings.address.store.isEditing
 import org.mozilla.fenix.settings.address.utils.generateAddress
 import org.mozilla.fenix.theme.FirefoxTheme
 import org.mozilla.fenix.theme.Theme
+import org.mozilla.fenix.theme.ThemeProvider
 import mozilla.components.compose.base.text.Text as DropdownText
 
 /**
@@ -67,7 +74,9 @@ fun EditAddressScreen(store: AddressStore) {
             EditAddressTopBar(store)
         },
     ) { paddingValues ->
-        val structureState by store.observeAsState(store.state.structureState) { it.structureState }
+        val structureState by remember {
+            store.stateFlow.map { it.structureState }
+        }.collectAsState(initial = store.state.structureState)
         var hasRequestedFocus by remember { mutableStateOf(false) }
         val focusRequester = remember { FocusRequester() }
 
@@ -89,11 +98,12 @@ fun EditAddressScreen(store: AddressStore) {
             state = rememberLazyListState(),
             modifier = Modifier
                 .padding(paddingValues)
+                .consumeWindowInsets(paddingValues)
                 .padding(
                     horizontal = FirefoxTheme.layout.space.static200,
                     vertical = FirefoxTheme.layout.space.static100,
                 )
-                .imePadding(),
+                .windowInsetsPadding(WindowInsets.ime.exclude(WindowInsets.navigationBars)),
         ) {
             val firstTextField = structureState.structure.fields.firstOrNull {
                 it is AddressStructure.Field.TextField
@@ -132,9 +142,8 @@ private fun TextField(
     field: AddressStructure.Field.TextField,
     modifier: Modifier = Modifier,
 ) {
-    val value by store.observeAsState(store.state.address.valueForID(field.id)) {
-        it.address.valueForID(field.id)
-    }
+    val value by remember { store.stateFlow.map { it.address.valueForID(field.id) } }
+        .collectAsState(initial = store.state.address.valueForID(field.id))
 
     TextField(
         value = value,
@@ -151,9 +160,8 @@ private fun SelectField(
     store: AddressStore,
     field: AddressStructure.Field.SelectField,
 ) {
-    val value by store.observeAsState(store.state.address.valueForID(field.id)) {
-        it.address.valueForID(field.id)
-    }
+    val value by remember { store.stateFlow.map { it.address.valueForID(field.id) } }
+        .collectAsState(store.state.address.valueForID(field.id))
 
     val items = field.options.map {
         MenuItem.CheckableItem(
@@ -312,46 +320,28 @@ private fun createStore(
     listOf(),
 ).also { it.dispatch(ViewAppeared) }
 
-@FlexibleWindowLightDarkPreview
+@FlexibleWindowPreview
 @Composable
-private fun AddAddressPreview() {
+private fun AddAddressPreview(
+    @PreviewParameter(ThemeProvider::class) theme: Theme,
+) {
     val store = createStore()
 
-    FirefoxTheme {
+    FirefoxTheme(theme) {
         EditAddressScreen(store)
     }
 }
 
-@Preview
+@FlexibleWindowPreview
 @Composable
-private fun AddAddressPrivatePreview() {
-    val store = createStore()
-
-    FirefoxTheme(theme = Theme.Private) {
-        EditAddressScreen(store)
-    }
-}
-
-@FlexibleWindowLightDarkPreview
-@Composable
-private fun EditAddressPreview() {
+private fun EditAddressPreview(
+    @PreviewParameter(ThemeProvider::class) theme: Theme,
+) {
     val store = createStore(
         address = generateAddress(),
     )
 
-    FirefoxTheme {
-        EditAddressScreen(store)
-    }
-}
-
-@Preview
-@Composable
-private fun EditAddressPrivatePreview() {
-    val store = createStore(
-        address = generateAddress(),
-    )
-
-    FirefoxTheme(theme = Theme.Private) {
+    FirefoxTheme(theme) {
         EditAddressScreen(store)
     }
 }

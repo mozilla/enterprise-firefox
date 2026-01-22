@@ -318,98 +318,14 @@ interface nsIDOMWindowUtils : nsISupports {
   const long MODIFIER_SYMBOL     = 0x0400;
   const long MODIFIER_SYMBOLLOCK = 0x0800;
 
-/**
- * AsyncEnabledOption is passed to functions to enable or disable
- * asynchronous event dispatching. Default is disabled.
- */
-cenum AsyncEnabledOption : 8 {
-  ASYNC_DISABLED = 0,
-  ASYNC_ENABLED = 1
-};
-
-  /** Synthesize a touch event. The event types supported are:
-   *    touchstart, touchend, touchmove, and touchcancel
-   *
-   * Events are sent in coordinates offset by aX and aY from the window.
-   *
-   * Cannot be accessed from unprivileged context (not content-accessible)
-   * Will throw a DOM security error if called without chrome privileges.
-   *
-   * The event is dispatched via the toplevel window, so it could go to any
-   * window under the toplevel window, in some cases it could never reach this
-   * window at all.
-   *
-   * @param aType event type
-   * @param aIdentifiers array of touch IDs
-   * @param aXs array of offsets in CSS pixels for each touch to be sent
-   * @param aYs array of offsets in CSS pixels for each touch to be sent
-   * @param aRxs array of radii in CSS pixels for each touch to be sent
-   * @param aRys array of radii in CSS pixels for each touch to be sent
-   * @param aRotationAngles array of angles in degrees for each touch to be sent
-   * @param aForces array of forces (floats from 0 to 1) for each touch to be sent
-   * @param aTiltXs array of tiltX for each touch to be sent
-   * @param aTiltYs array of tiltY for each touch to be sent
-   * @param aTwists array of twist for each touch to be sent
-   * @param aModifiers modifiers pressed, using constants defined as MODIFIER_*
-   * @param aAsyncEnabled Enable or disable asynchronous event dispatching
-   * through APZ without being injected into the OS event queue
-   *
-   * returns true if the page called prevent default on this touch event
-   */
-  [can_run_script]
-  boolean sendTouchEvent(in AString aType,
-                         in Array<uint32_t> aIdentifiers,
-                         in Array<int32_t> aXs,
-                         in Array<int32_t> aYs,
-                         in Array<uint32_t> aRxs,
-                         in Array<uint32_t> aRys,
-                         in Array<float> aRotationAngles,
-                         in Array<float> aForces,
-                         in Array<long> aTiltXs,
-                         in Array<long> aTiltYs,
-                         in Array<long> aTwists,
-                         in long aModifiers,
-                         [optional] in nsIDOMWindowUtils_AsyncEnabledOption aAsyncEnabled);
-
   /**
-   * The same as sendTouchEvent but sets input source to "pen" to mock Windows behavior.
-   *
-   * NOTE(krosylight):
-   * This is currently a separate function solely because of the PARAM_BUFFER_COUNT cap,
-   * but we might ultimately want to make this to a separate sendPenEvent that selects
-   * either sendMouseEvent or sendTouchEvent.
+   * AsyncEnabledOption is passed to functions to enable or disable
+   * asynchronous event dispatching. Default is disabled.
    */
-  [can_run_script]
-  boolean sendTouchEventAsPen(in AString aType,
-                              in uint32_t aIdentifier,
-                              in int32_t aX,
-                              in int32_t aY,
-                              in uint32_t aRx,
-                              in uint32_t aRy,
-                              in float aRotationAngle,
-                              in float aForce,
-                              in long aTiltX,
-                              in long aTiltY,
-                              in long aTwist,
-                              in long aModifier,
-                              [optional] in nsIDOMWindowUtils_AsyncEnabledOption aAsyncEnabled);
-
-  /** The same as sendTouchEvent but ensures that the event is dispatched to
-   *  this DOM window or one of its children.
-   */
-  [can_run_script]
-  boolean sendTouchEventToWindow(in AString aType,
-                                 in Array<uint32_t> aIdentifiers,
-                                 in Array<int32_t> aXs,
-                                 in Array<int32_t> aYs,
-                                 in Array<uint32_t> aRxs,
-                                 in Array<uint32_t> aRys,
-                                 in Array<float> aRotationAngles,
-                                 in Array<float> aForces,
-                                 in Array<long> aTiltXs,
-                                 in Array<long> aTiltYs,
-                                 in Array<long> aTwists,
-                                 in long aModifiers);
+  cenum AsyncEnabledOption : 8 {
+    ASYNC_DISABLED = 0,
+    ASYNC_ENABLED = 1
+  };
 
   /** Synthesize a wheel event for a window. The event types supported is only
    *  wheel.
@@ -1729,6 +1645,12 @@ cenum AsyncEnabledOption : 8 {
    * clears the display list flags if they have.
    */
   boolean checkAndClearDisplayListState(in Element aElement);
+
+  /**
+   * Check if WebRender rasterized any tiles during the last frame, and
+   * clear the state. Used by reftests with reftest-no-wr-raster class.
+   */
+  boolean checkAndClearWRDidRasterize();
 
   /**
    * Get internal id of the stored blob, file or file handle.

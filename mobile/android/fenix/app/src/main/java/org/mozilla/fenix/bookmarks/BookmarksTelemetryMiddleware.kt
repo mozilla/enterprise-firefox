@@ -63,8 +63,10 @@ internal class BookmarksTelemetryMiddleware : Middleware<BookmarksState, Bookmar
             is FolderLongClicked,
             is SelectFolderAction.FoldersLoaded,
             is SelectFolderAction.FilteredFoldersLoaded,
+            is SelectFolderAction.ExpandedFolderLoaded,
             Init,
             is SelectFolderAction.ItemClicked,
+            is SelectFolderAction.ChevronClicked,
             AddFolderAction.ParentFolderClicked,
             SignIntoSyncClicked,
             is AddFolderAction.FolderCreated,
@@ -167,6 +169,7 @@ internal class BookmarksTelemetryMiddleware : Middleware<BookmarksState, Bookmar
 
             is BookmarksListMenuAction.Bookmark.DeleteClicked,
             is BookmarksListMenuAction.Bookmark.EditClicked,
+            is BookmarksListMenuAction.Bookmark.SelectClicked,
                 -> Unit
         }
     }
@@ -191,6 +194,7 @@ internal class BookmarksTelemetryMiddleware : Middleware<BookmarksState, Bookmar
 
             is BookmarksListMenuAction.Folder.EditClicked,
             is BookmarksListMenuAction.Folder.DeleteClicked,
+            is BookmarksListMenuAction.Folder.SelectClicked,
                 -> Unit
         }
     }

@@ -3,14 +3,27 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-import { makeGuid } from "./ChatUtils.sys.mjs";
-import { CONVERSATION_STATUS, MESSAGE_ROLE } from "./ChatConstants.sys.mjs";
+import { assistantPrompt } from "moz-src:///browser/components/aiwindow/models/prompts/AssistantPrompts.sys.mjs";
+
+import {
+  constructRelevantMemoriesContextMessage,
+  constructRealTimeInfoInjectionMessage,
+} from "moz-src:///browser/components/aiwindow/models/ChatUtils.sys.mjs";
+
+import { makeGuid, getRoleLabel } from "./ChatUtils.sys.mjs";
+import {
+  CONVERSATION_STATUS,
+  MESSAGE_ROLE,
+  SYSTEM_PROMPT_TYPE,
+} from "./ChatConstants.sys.mjs";
 import {
   AssistantRoleOpts,
   ChatMessage,
   ToolRoleOpts,
   UserRoleOpts,
 } from "./ChatMessage.sys.mjs";
+
+const CHAT_ROLES = [MESSAGE_ROLE.USER, MESSAGE_ROLE.ASSISTANT];
 
 /**
  * A conversation containing messages.
@@ -65,6 +78,31 @@ export class ChatConversation {
   }
 
   /**
+   * Returns a filtered messages array consisting only of the messages
+   * that are meant to be rendered as the chat conversation.
+   *
+   * @returns {Array<ChatMessage>}
+   */
+  renderState() {
+    const messages = this.#messages.filter(message => {
+      return CHAT_ROLES.includes(message.role);
+    });
+
+    return messages;
+  }
+
+  /**
+   * Returns the current turn index for the conversation
+   *
+   * @returns {number}
+   */
+  currentTurnIndex() {
+    return this.#messages.reduce((turnIndex, message) => {
+      return Math.max(turnIndex, message.turnIndex);
+    }, 0);
+  }
+
+  /**
    * Adds a message to the conversation
    *
    * @param {ConversationRole} role - The type of conversation message
@@ -92,7 +130,7 @@ export class ChatConversation {
     const currentMessages = this?.messages || [];
     const ordinal = currentMessages.length ? currentMessages.length + 1 : 1;
 
-    const message_data = {
+    const messageData = {
       parentMessageId,
       content,
       ordinal,
@@ -103,7 +141,7 @@ export class ChatConversation {
       ...opts,
     };
 
-    const newMessage = new ChatMessage(message_data);
+    const newMessage = new ChatMessage(messageData);
 
     this.messages.push(newMessage);
   }
@@ -115,24 +153,26 @@ export class ChatConversation {
    * Limit/filter out data uris from message data
    *
    * @param {string} contentBody - The user message content
-   * @param {string?} [pageUrl=""] - The current page url when message was submitted
-   * @param {number?} [turnIndex=0] - The conversation turn/cycle
+   * @param {URL?} [pageUrl=null] - The current page url when message was submitted
    * @param {UserRoleOpts} [userOpts=new UserRoleOpts()] - User message options
    */
-  addUserMessage(
-    contentBody,
-    pageUrl = "",
-    turnIndex = 0,
-    userOpts = new UserRoleOpts()
-  ) {
+  addUserMessage(contentBody, pageUrl = null, userOpts = new UserRoleOpts()) {
     const content = {
       type: "text",
       body: contentBody,
     };
 
-    let url = URL.parse(pageUrl);
+    let currentTurn = this.currentTurnIndex();
+    const newTurnIndex =
+      this.#messages.length === 1 ? currentTurn : currentTurn + 1;
 
-    this.addMessage(MESSAGE_ROLE.USER, content, url, turnIndex, userOpts);
+    this.addMessage(
+      MESSAGE_ROLE.USER,
+      content,
+      pageUrl,
+      newTurnIndex,
+      userOpts
+    );
   }
 
   /**
@@ -140,25 +180,23 @@ export class ChatConversation {
    *
    * @param {string} type - The assistant message type: text|function
    * @param {string} contentBody - The assistant message content
-   * @param {number} turnIndex - The current conversation turn/cycle
    * @param {AssistantRoleOpts} [assistantOpts=new AssistantRoleOpts()] - ChatMessage options specific to assistant messages
    */
   addAssistantMessage(
     type,
     contentBody,
-    turnIndex,
     assistantOpts = new AssistantRoleOpts()
   ) {
     const content = {
-      type: "text",
+      type,
       body: contentBody,
     };
 
     this.addMessage(
       MESSAGE_ROLE.ASSISTANT,
       content,
-      "",
-      turnIndex,
+      null,
+      this.currentTurnIndex(),
       assistantOpts
     );
   }
@@ -167,24 +205,162 @@ export class ChatConversation {
    * Add a tool call message to the conversation
    *
    * @param {object} content - The tool call object to be saved as JSON
-   * @param {number} turnIndex - The current conversation turn/cycle
    * @param {ToolRoleOpts} [toolOpts=new ToolRoleOpts()] - Message opts for a tool role message
    */
-  addToolCallMessage(content, turnIndex, toolOpts = new ToolRoleOpts()) {
-    this.addMessage(MESSAGE_ROLE.TOOL, content, "", turnIndex, toolOpts);
+  addToolCallMessage(content, toolOpts = new ToolRoleOpts()) {
+    this.addMessage(
+      MESSAGE_ROLE.TOOL,
+      content,
+      null,
+      this.currentTurnIndex(),
+      toolOpts
+    );
   }
 
   /**
    * Add a system message to the conversation
    *
-   * @param {string} type - The assistant message type: text|injected_insights|injected_real_time_info
+   * @param {string} type - The assistant message type: text|injected_memories|injected_real_time_info
    * @param {string} contentBody - The system message object to be saved as JSON
-   * @param {number} turnIndex - The current conversation turn/cycle
    */
-  addSystemMessage(type, contentBody, turnIndex) {
+  addSystemMessage(type, contentBody) {
     const content = { type, body: contentBody };
 
-    this.addMessage(MESSAGE_ROLE.SYSTEM, content, "", turnIndex);
+    this.addMessage(
+      MESSAGE_ROLE.SYSTEM,
+      content,
+      null,
+      this.currentTurnIndex()
+    );
+  }
+
+  /**
+   * Takes a new prompt and generates LLM context messages before
+   * adding new user prompt to messages.
+   *
+   * @param {string} prompt - new user prompt
+   * @param {URL} pageUrl - The URL of the page when prompt was submitted
+   * @param {boolean} withMemories - Whether to generate memories for new prompt message
+   */
+  async generatePrompt(prompt, pageUrl, withMemories) {
+    this.#messages = this.#messages.filter(message => {
+      const isRealTimeInjection =
+        message.role === MESSAGE_ROLE.SYSTEM &&
+        message.content.type === SYSTEM_PROMPT_TYPE.REAL_TIME;
+
+      const isInsightsInjection =
+        message.role === MESSAGE_ROLE.SYSTEM &&
+        message.content.type === SYSTEM_PROMPT_TYPE.INSIGHTS;
+
+      return !isRealTimeInjection && !isInsightsInjection;
+    });
+
+    if (!this.#messages.length) {
+      // TODO: Bug 2008865
+      // switch to use remote settings prompt accessed via engine.loadPrompt(feature)
+      this.addSystemMessage(SYSTEM_PROMPT_TYPE.TEXT, assistantPrompt);
+    }
+
+    await this.getRealTimeInfo();
+
+    if (withMemories) {
+      await this.getMemoriesContext();
+    }
+
+    this.addUserMessage(prompt, pageUrl);
+
+    return this;
+  }
+
+  /**
+   * Retries a specified user message. Will remove the original message
+   * being retried as well as all messages that come after the message
+   * being retried.
+   *
+   * @param {ChatMessage} message
+   * @param {boolean} withMemories
+   *
+   * @returns {Array<ChatMessage>} - Array of messages removed from the conversation
+   */
+  async retryMessage(message, withMemories) {
+    if (message.role !== MESSAGE_ROLE.USER) {
+      throw new Error("Not a user message");
+    }
+
+    const retryMessageIndex = this.#messages.findIndex(
+      chatMessage => message.id === chatMessage.id
+    );
+
+    if (retryMessageIndex === -1) {
+      throw new Error("Unrelated message");
+    }
+
+    const toDeleteMessages = this.#messages.splice(retryMessageIndex);
+
+    await this.getRealTimeInfo();
+
+    if (withMemories) {
+      await this.getMemoriesContext();
+    }
+
+    this.addUserMessage(message.content.body, message.pageUrl);
+
+    return toDeleteMessages;
+  }
+
+  /**
+   * Gets the real time brower tab data for a new chat message and
+   * adds a system message if the real time data API function
+   * returns content.
+   *
+   * @typedef {
+   *   (depsOverride?: object) => Promise<{ role: string; content: string; }>
+   * } RealTimeApiFunction
+   *
+   * @param {RealTimeApiFunction} [constructRealTime=constructRealTimeInfoInjectionMessage]
+   * Function that returns promise that resolves with real time info
+   */
+  async getRealTimeInfo(
+    constructRealTime = constructRealTimeInfoInjectionMessage
+  ) {
+    const realTime = await constructRealTime();
+    if (!realTime.content) {
+      return;
+    }
+
+    this.addSystemMessage(SYSTEM_PROMPT_TYPE.REAL_TIME, realTime.content);
+  }
+
+  /**
+   * Gets the memories for a new chat message and adds
+   * a system message if the memories API function returns
+   * content.
+   *
+   * @todo Bug2009434
+   * Rename type and change enum to renamed values
+   *
+   * @typedef {{
+   *    role: string;
+   *    tool_call_id: string;
+   *    content: string;
+   *  }} MemoryApiFunctionReturn
+   *
+   *  @typedef {
+   *    (message: string) => Promise<null | MemoryApiFunctionReturn>
+   *  } MemoriesApiFunction
+   *
+   * @param {MemoriesApiFunction} [constructMemories=constructRelevantMemoriesContextMessage]
+   * Function that returns promise that resolves with memories data
+   */
+  async getMemoriesContext(
+    constructMemories = constructRelevantMemoriesContextMessage
+  ) {
+    const memoriesContext = await constructMemories();
+    if (!memoriesContext?.content) {
+      return;
+    }
+
+    this.addSystemMessage(SYSTEM_PROMPT_TYPE.MEMORIES, memoriesContext.content);
   }
 
   /**
@@ -228,6 +404,39 @@ export class ChatConversation {
     const sites = this.getSitesList();
 
     return sites.length ? sites.pop() : null;
+  }
+
+  /**
+   * Converts the persisted message data to OpenAI API format
+   *
+   * @returns {Array<{ role: string, content: string }>}
+   */
+  getMessagesInOpenAiFormat() {
+    return this.#messages
+      .filter(message => {
+        return !(
+          message.role === MESSAGE_ROLE.ASSISTANT && !message?.content?.body
+        );
+      })
+      .map(message => {
+        const msg = {
+          role: getRoleLabel(message.role).toLowerCase(),
+          content: message.content?.body ?? message.content,
+        };
+
+        if (msg.content.tool_calls) {
+          msg.tool_calls = msg.content.tool_calls;
+          msg.content = "";
+        }
+
+        if (msg.role === "tool") {
+          msg.tool_call_id = message.content.tool_call_id;
+          msg.name = message.content.name;
+          msg.content = JSON.stringify(message.content.body);
+        }
+
+        return msg;
+      });
   }
 
   #updateActiveBranchTipMessageId() {

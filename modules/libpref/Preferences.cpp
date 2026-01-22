@@ -4654,6 +4654,16 @@ nsresult Preferences::WritePrefFile(
     nsresult rv = NS_OK;
     bool writingToCurrent = false;
 
+    // The TaskQueue mAsyncTarget ensures that we'll only process one write at
+    // a time, so we won't run into a deadlock if a previous write blocks.
+    if (!mAsyncTarget) {
+      rv = NS_CreateBackgroundTaskQueue("WritePrefFile",
+                                        getter_AddRefs(mAsyncTarget));
+      if (NS_FAILED(rv)) {
+        REJECT_IF_PROMISE_HOLDER_EXISTS(rv);
+      }
+    }
+
     if (mCurrentFile) {
       rv = mCurrentFile->Equals(aFile, &writingToCurrent);
       if (NS_FAILED(rv)) {
@@ -4675,46 +4685,39 @@ nsresult Preferences::WritePrefFile(
 
     // There were no previous requests. Dispatch one since sPendingWriteData has
     // the up to date information.
-    nsCOMPtr<nsIEventTarget> target =
-        do_GetService(NS_STREAMTRANSPORTSERVICE_CONTRACTID, &rv);
-    if (NS_SUCCEEDED(rv)) {
-      bool async = aSaveMethod == SaveMethod::Asynchronous;
+    bool async = aSaveMethod == SaveMethod::Asynchronous;
 
-      // Increment sPendingWriteCount, even though it's redundant to track this
-      // in the case of a sync runnable; it just makes it easier to simply
-      // decrement this inside PWRunnable. We cannot use the constructor /
-      // destructor for increment/decrement, as on dispatch failure we might
-      // leak the runnable in order to not destroy it on the wrong thread, which
-      // would make us get stuck in an infinite SpinEventLoopUntil inside
-      // PreferencesWriter::Flush. Better that in future code we miss an
-      // increment of sPendingWriteCount and cause a simple crash due to it
-      // ending up negative.
-      //
-      // If aPromiseHolder is not null, ownership is transferred to PWRunnable.
-      // The PWRunnable will automatically reject the MozPromise if it is
-      // destroyed before being resolved or rejected by the Run method.
-      PreferencesWriter::sPendingWriteCount++;
-      if (async) {
-        rv = target->Dispatch(new PWRunnable(aFile, std::move(aPromiseHolder)),
-                              nsIEventTarget::DISPATCH_NORMAL);
-      } else {
-        rv = SyncRunnable::DispatchToThread(
-            target, new PWRunnable(aFile, std::move(aPromiseHolder)), true);
-      }
-      if (NS_FAILED(rv)) {
-        // If our dispatch failed, we should correct our bookkeeping to
-        // avoid shutdown hangs.
-        PreferencesWriter::sPendingWriteCount--;
-        // No need to reject the aPromiseHolder here, as the PWRunnable will
-        // have already done so.
-        return rv;
-      }
-      return NS_OK;
+    // Increment sPendingWriteCount, even though it's redundant to track this
+    // in the case of a sync runnable; it just makes it easier to simply
+    // decrement this inside PWRunnable. We cannot use the constructor /
+    // destructor for increment/decrement, as on dispatch failure we might
+    // leak the runnable in order to not destroy it on the wrong thread, which
+    // would make us get stuck in an infinite SpinEventLoopUntil inside
+    // PreferencesWriter::Flush. Better that in future code we miss an
+    // increment of sPendingWriteCount and cause a simple crash due to it
+    // ending up negative.
+    PreferencesWriter::sPendingWriteCount++;
+
+    // If aPromiseHolder is not null, ownership is transferred to PWRunnable.
+    // The PWRunnable will automatically reject the MozPromise if it is
+    // destroyed before being resolved or rejected by the Run method.
+    if (async) {
+      rv = mAsyncTarget->Dispatch(
+          new PWRunnable(aFile, std::move(aPromiseHolder)),
+          nsIEventTarget::DISPATCH_EVENT_MAY_BLOCK);
+    } else {
+      rv = SyncRunnable::DispatchToThread(
+          mAsyncTarget, new PWRunnable(aFile, std::move(aPromiseHolder)), true);
     }
-
-    // If we can't get the thread for writing, for whatever reason, do the main
-    // thread write after making some noise.
-    MOZ_ASSERT(false, "failed to get the target thread for OMT pref write");
+    if (NS_FAILED(rv)) {
+      // If our dispatch failed, we should correct our bookkeeping to
+      // avoid shutdown hangs.
+      PreferencesWriter::sPendingWriteCount--;
+      // No need to reject the aPromiseHolder here, as the PWRunnable will
+      // have already done so.
+      return rv;
+    }
+    return NS_OK;
   }
 
   // This will do a main thread write. It is safe to do it this way because

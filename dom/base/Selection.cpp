@@ -857,16 +857,13 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(Selection)
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(Selection)
   {
-    uint32_t i, count = tmp->mStyledRanges.Length();
-    for (i = 0; i < count; ++i) {
-      NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mStyledRanges.mRanges[i].mRange)
-    }
-    count = tmp->mStyledRanges.mInvalidStaticRanges.Length();
+    uint32_t i, count = tmp->mStyledRanges.mInvalidStaticRanges.Length();
     for (i = 0; i < count; ++i) {
       NS_IMPL_CYCLE_COLLECTION_TRAVERSE(
           mStyledRanges.mInvalidStaticRanges[i].mRange);
     }
   }
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mStyledRanges.mRanges)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mAnchorFocusRange)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mFrameSelection)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mHighlightData.mHighlight)
@@ -925,7 +922,7 @@ void Selection::SetAnchorFocusRange(size_t aIndex) {
   }
   // Highlight selections may contain static ranges.
   MOZ_ASSERT(mSelectionType != SelectionType::eHighlight);
-  AbstractRange* anchorFocusRange = mStyledRanges.mRanges[aIndex].mRange;
+  AbstractRange* anchorFocusRange = mStyledRanges.GetAbstractRangeAt(aIndex);
   mAnchorFocusRange = anchorFocusRange->AsDynamicRange();
 }
 
@@ -990,20 +987,43 @@ static int32_t CompareToRangeEnd(
       aCompareBoundary, ConstRawRangeBoundary{end, endOffset});
 }
 
+// Helper to extract AbstractRange* from array elements.
+// `FindInsertionPoint` is called with arrayish types that either hold a
+// `RefPtr<AbstractRange>` or a `StyledRange` (which holds a
+// `RefPtr<AbstractRange>`). The specializations below extract the
+// `AbstractRange*` from either type, to avoid needing to overload
+// `FindInsertionPoint` itself.
+template <typename T>
+static const AbstractRange* ExtractRange(const T& aElement) = delete;
+
+template <>
+const AbstractRange* ExtractRange<const StyledRange>(
+    const StyledRange& aElement) {
+  return aElement.mRange;
+}
+
+template <>
+const AbstractRange* ExtractRange<RefPtr<AbstractRange>>(
+    const RefPtr<AbstractRange>& aElement) {
+  return aElement.get();
+}
+
 // static
-template <typename PT, typename RT>
+template <typename PT, typename RT, typename ArrayType>
 size_t Selection::StyledRanges::FindInsertionPoint(
-    const nsTArray<StyledRange>* aElementArray,
-    const RangeBoundaryBase<PT, RT>& aBoundary,
+    const ArrayType& aElementArray, const RangeBoundaryBase<PT, RT>& aBoundary,
     int32_t (*aComparator)(const RangeBoundaryBase<PT, RT>&,
                            const AbstractRange&)) {
+  using ElementType = std::remove_reference_t<decltype(aElementArray[0])>;
+
   int32_t beginSearch = 0;
-  int32_t endSearch = aElementArray->Length();  // one beyond what to check
+  int32_t endSearch = aElementArray.Length();  // one beyond what to check
 
   if (endSearch) {
     int32_t center = endSearch - 1;  // Check last index, then binary search
     do {
-      const AbstractRange* range = (*aElementArray)[center].mRange;
+      const AbstractRange* range =
+          ExtractRange<ElementType>(aElementArray[center]);
 
       int32_t cmp{aComparator(aBoundary, *range)};
 
@@ -1411,14 +1431,14 @@ nsresult Selection::StyledRanges::MaybeAddRangeAndTruncateOverlaps(
   // between these indices are fully overlapped by the new range, and so can be
   // removed.
   AutoTArray<StyledRange, 2> overlaps;
-  overlaps.AppendElement(mRanges[startIndex]);
+  overlaps.AppendElement(GetStyledRangeAt(startIndex));
   if (endIndex - 1 != startIndex) {
-    overlaps.AppendElement(mRanges[endIndex - 1]);
+    overlaps.AppendElement(GetStyledRangeAt(endIndex - 1));
   }
 
   // Remove all the overlapping ranges
   for (size_t i = startIndex; i < endIndex; ++i) {
-    mRanges[i].mRange->UnregisterSelection(mSelection);
+    GetAbstractRangeAt(i)->UnregisterSelection(mSelection);
   }
   mRanges.RemoveElementsAt(startIndex, endIndex - startIndex);
 
@@ -1432,11 +1452,11 @@ nsresult Selection::StyledRanges::MaybeAddRangeAndTruncateOverlaps(
   // `aRange` is positioned, so it has to have a start container.
   size_t insertionPoint = [&temp, &aRange]() {
     if (StaticPrefs::dom_shadowdom_selection_across_boundary_enabled()) {
-      return FindInsertionPoint(&temp, aRange->StartRef(),
+      return FindInsertionPoint(temp, aRange->StartRef(),
                                 CompareToRangeStart<TreeKind::Flat>);
     };
     return FindInsertionPoint(
-        &temp, aRange->StartRef(),
+        temp, aRange->StartRef(),
         CompareToRangeStart<TreeKind::ShadowIncludingDOM>);
   }();
 
@@ -1464,17 +1484,11 @@ nsresult Selection::StyledRanges::RemoveRangeAndUnregisterSelection(
   // get O(log n) time, but that requires many expensive DOM comparisons.
   // For even several thousand items, this is probably faster because the
   // comparisons are so fast.
-  int32_t idx = -1;
-  uint32_t i;
-  for (i = 0; i < mRanges.Length(); i++) {
-    if (mRanges[i].mRange == &aRange) {
-      idx = (int32_t)i;
-      break;
-    }
+  const bool rangeExists = mRanges.RemoveElement(&aRange);
+  if (!rangeExists) {
+    return NS_ERROR_DOM_NOT_FOUND_ERR;
   }
-  if (idx < 0) return NS_ERROR_DOM_NOT_FOUND_ERR;
 
-  mRanges.RemoveElementAt(idx);
   aRange.UnregisterSelection(mSelection);
 #ifdef ACCESSIBILITY
   a11y::SelectionManager::SelectionRangeChanged(mSelection.GetType(), aRange);
@@ -1494,7 +1508,7 @@ nsresult Selection::RemoveCollapsedRanges() {
 nsresult Selection::StyledRanges::RemoveCollapsedRanges() {
   uint32_t i = 0;
   while (i < mRanges.Length()) {
-    const AbstractRange* range = mRanges[i].mRange;
+    RefPtr<AbstractRange> range = GetAbstractRangeAt(i);
     // If nsRange::mCrossShadowBoundaryRange exists, it means
     // there's a cross boundary selection, so obviously
     // we shouldn't remove this range.
@@ -1506,7 +1520,7 @@ nsresult Selection::StyledRanges::RemoveCollapsedRanges() {
         !range->AsDynamicRange()->CrossShadowBoundaryRangeCollapsed());
 
     if (collapsed) {
-      nsresult rv = RemoveRangeAndUnregisterSelection(*mRanges[i].mRange);
+      nsresult rv = RemoveRangeAndUnregisterSelection(*range);
       NS_ENSURE_SUCCESS(rv, rv);
     } else {
       ++i;
@@ -1520,7 +1534,7 @@ void Selection::Clear(nsPresContext* aPresContext, IsUnlinking aIsUnlinking) {
 
   mStyledRanges.UnregisterSelection();
   for (uint32_t i = 0; i < mStyledRanges.Length(); ++i) {
-    SelectFrames(aPresContext, *mStyledRanges.mRanges[i].mRange, false);
+    SelectFrames(aPresContext, *mStyledRanges.GetAbstractRangeAt(i), false);
   }
   mStyledRanges.Clear();
 
@@ -1537,7 +1551,7 @@ void Selection::Clear(nsPresContext* aPresContext, IsUnlinking aIsUnlinking) {
 bool Selection::StyledRanges::HasEqualRangeBoundariesAt(
     const AbstractRange& aRange, size_t aRangeIndex) const {
   if (aRangeIndex < mRanges.Length()) {
-    const AbstractRange* range = mRanges[aRangeIndex].mRange;
+    const AbstractRange* range = GetAbstractRangeAt(aRangeIndex);
     return range->HasEqualBoundaries(aRange);
   }
   return false;
@@ -1589,7 +1603,7 @@ nsresult Selection::GetAbstractRangesForIntervalArray(
   for (const size_t i : IntegerRange(*maybeStartIndex, *maybeEndIndex)) {
     // XXX(Bug 1631371) Check if this should use a fallible operation as it
     // pretended earlier.
-    aRanges->AppendElement(mStyledRanges.mRanges[i].mRange);
+    aRanges->AppendElement(mStyledRanges.GetAbstractRangeAt(i));
   }
 
   return NS_OK;
@@ -1627,19 +1641,17 @@ void Selection::StyledRanges::ReorderRangesIfNecessary() {
   if (domMutationHasHappened) {
     // After a DOM mutation, invalid static ranges might have become valid and
     // valid static ranges might have become invalid.
-    StyledRangeArray invalidStaticRanges;
-    for (StyledRangeArray::const_iterator iter = mRanges.begin();
-         iter != mRanges.end();) {
-      const AbstractRange* range = iter->mRange;
+    nsTArray<StyledRange> invalidStaticRanges;
+    for (size_t i = 0; i < Length();) {
+      AbstractRange* range = GetAbstractRangeAt(i);
       if (range->IsStaticRange() && !range->AsStaticRange()->IsValid()) {
-        invalidStaticRanges.AppendElement(*iter);
-        iter = mRanges.RemoveElementAt(iter);
+        invalidStaticRanges.AppendElement(mRanges.ExtractElementAt(i));
       } else {
-        ++iter;
+        ++i;
       }
     }
-    for (StyledRangeArray::const_iterator iter = mInvalidStaticRanges.begin();
-         iter != mInvalidStaticRanges.end();) {
+    for (auto iter = mInvalidStaticRanges.cbegin();
+         iter != mInvalidStaticRanges.cend();) {
       MOZ_ASSERT(iter->mRange->IsStaticRange());
       if (iter->mRange->AsStaticRange()->IsValid()) {
         mRanges.AppendElement(*iter);
@@ -1666,9 +1678,9 @@ void Selection::StyledRanges::ReorderRangesIfNecessary() {
     nsContentUtils::NodeIndexCache cache;
     bool rangeOrderHasChanged = false;
     RawRangeBoundary previousStartRef;
-    for (const StyledRange& range : mRanges) {
+    for (const auto& range : mRanges.Ranges()) {
       if (!previousStartRef.IsSet()) {
-        previousStartRef = range.mRange->StartRef().AsRaw();
+        previousStartRef = range->StartRef().AsRaw();
         continue;
       }
       // Calling ComparePoints here saves one call of
@@ -1677,9 +1689,9 @@ void Selection::StyledRanges::ReorderRangesIfNecessary() {
       const Maybe<int32_t> compareResult =
           StaticPrefs::dom_shadowdom_selection_across_boundary_enabled()
               ? nsContentUtils::ComparePoints<TreeKind::Flat>(
-                    range.mRange->StartRef(), previousStartRef, &cache)
+                    range->StartRef(), previousStartRef, &cache)
               : nsContentUtils::ComparePoints<TreeKind::ShadowIncludingDOM>(
-                    range.mRange->StartRef(), previousStartRef, &cache);
+                    range->StartRef(), previousStartRef, &cache);
       // If the nodes are in different subtrees, the Maybe is empty.
       // Since CompareToRangeStart pretends ranges to be ordered, this aligns
       // to that behavior.
@@ -1687,19 +1699,20 @@ void Selection::StyledRanges::ReorderRangesIfNecessary() {
         rangeOrderHasChanged = true;
         break;
       }
-      previousStartRef = range.mRange->StartRef().AsRaw();
+      previousStartRef = range->StartRef().AsRaw();
     }
     if (rangeOrderHasChanged) {
-      std::function<int32_t(const StyledRange&, const StyledRange&)> compare;
+      std::function<int32_t(const RefPtr<AbstractRange>&,
+                            const RefPtr<AbstractRange>&)>
+          compare;
       if (StaticPrefs::dom_shadowdom_selection_across_boundary_enabled()) {
-        compare = [&cache](const StyledRange& a, const StyledRange& b) {
-          return CompareToRangeStart<TreeKind::Flat>(a.mRange->StartRef(),
-                                                     *b.mRange, &cache);
+        compare = [&cache](const auto& a, const auto& b) {
+          return CompareToRangeStart<TreeKind::Flat>(a->StartRef(), *b, &cache);
         };
       } else {
-        compare = [&cache](const StyledRange& a, const StyledRange& b) {
+        compare = [&cache](const auto& a, const auto& b) {
           return CompareToRangeStart<TreeKind::ShadowIncludingDOM>(
-              a.mRange->StartRef(), *b.mRange, &cache);
+              a->StartRef(), *b, &cache);
         };
       }
       mRanges.Sort(compare);
@@ -1738,20 +1751,20 @@ nsresult Selection::StyledRanges::GetIndicesForInterval(
   size_t endsBeforeIndex = [this, &aEndNode, &aEndOffset]() {
     if (StaticPrefs::dom_shadowdom_selection_across_boundary_enabled()) {
       return FindInsertionPoint(
-          &mRanges,
+          mRanges.Ranges(),
           ConstRawRangeBoundary(aEndNode, aEndOffset,
                                 RangeBoundaryIsMutationObserved::No),
           &CompareToRangeStart<TreeKind::Flat>);
     }
     return FindInsertionPoint(
-        &mRanges,
+        mRanges.Ranges(),
         ConstRawRangeBoundary(aEndNode, aEndOffset,
                               RangeBoundaryIsMutationObserved::No),
         &CompareToRangeStart<TreeKind::ShadowIncludingDOM>);
   }();
 
   if (endsBeforeIndex == 0) {
-    const AbstractRange* endRange = mRanges[endsBeforeIndex].mRange;
+    const AbstractRange* endRange = GetAbstractRangeAt(endsBeforeIndex);
 
     // If the interval is strictly before the range at index 0, we can optimize
     // by returning now - all ranges start after the given interval
@@ -1772,13 +1785,13 @@ nsresult Selection::StyledRanges::GetIndicesForInterval(
   size_t beginsAfterIndex = [this, &aBeginNode, &aBeginOffset]() {
     if (StaticPrefs::dom_shadowdom_selection_across_boundary_enabled()) {
       return FindInsertionPoint(
-          &mRanges,
+          mRanges.Ranges(),
           ConstRawRangeBoundary(aBeginNode, aBeginOffset,
                                 RangeBoundaryIsMutationObserved::No),
           &CompareToRangeEnd<TreeKind::Flat>);
     }
     return FindInsertionPoint(
-        &mRanges,
+        mRanges.Ranges(),
         ConstRawRangeBoundary(aBeginNode, aBeginOffset,
                               RangeBoundaryIsMutationObserved::No),
         &CompareToRangeEnd<TreeKind::ShadowIncludingDOM>);
@@ -1800,7 +1813,7 @@ nsresult Selection::StyledRanges::GetIndicesForInterval(
     // order). For this final case, we need to increment endsBeforeIndex, until
     // one of the first two possibilities hold
     while (endsBeforeIndex < mRanges.Length()) {
-      const AbstractRange* endRange = mRanges[endsBeforeIndex].mRange;
+      const AbstractRange* endRange = GetAbstractRangeAt(endsBeforeIndex);
       if (!endRange->StartRef().Equals(aEndNode, aEndOffset)) {
         break;
       }
@@ -1818,10 +1831,10 @@ nsresult Selection::StyledRanges::GetIndicesForInterval(
     // order). For this final case, we only need to take action if both those
     // ranges exist, and we are pointing to the collapsed range - we need to
     // point to the adjacent range
-    const AbstractRange* beginRange = mRanges[beginsAfterIndex].mRange;
+    const AbstractRange* beginRange = GetAbstractRangeAt(beginsAfterIndex);
     if (beginsAfterIndex > 0 && beginRange->Collapsed() &&
         beginRange->EndRef().Equals(aBeginNode, aBeginOffset)) {
-      beginRange = mRanges[beginsAfterIndex - 1].mRange;
+      beginRange = GetAbstractRangeAt(beginsAfterIndex - 1);
       if (beginRange->EndRef().Equals(aBeginNode, aBeginOffset)) {
         beginsAfterIndex--;
       }
@@ -1831,7 +1844,7 @@ nsresult Selection::StyledRanges::GetIndicesForInterval(
     // need to take action is when the range at beginsAfterIndex ends on
     // the given interval's start point, but that range isn't collapsed (a
     // collapsed range should be included in the returned results).
-    const AbstractRange* beginRange = mRanges[beginsAfterIndex].mRange;
+    const AbstractRange* beginRange = GetAbstractRangeAt(beginsAfterIndex);
     if (beginRange->MayCrossShadowBoundaryEndRef().Equals(aBeginNode,
                                                           aBeginOffset) &&
         !beginRange->Collapsed()) {
@@ -1843,7 +1856,7 @@ nsresult Selection::StyledRanges::GetIndicesForInterval(
     // represents the point at the end of the interval - this range should be
     // included
     if (endsBeforeIndex < mRanges.Length()) {
-      const AbstractRange* endRange = mRanges[endsBeforeIndex].mRange;
+      const AbstractRange* endRange = GetAbstractRangeAt(endsBeforeIndex);
       if (endRange->MayCrossShadowBoundaryStartRef().Equals(aEndNode,
                                                             aEndOffset) &&
           endRange->Collapsed()) {
@@ -1935,7 +1948,7 @@ void Selection::SelectFramesInAllRanges(nsPresContext* aPresContext) {
   // and we only have to deal with nsRanges (no StaticRanges).
   MOZ_ASSERT(mSelectionType != SelectionType::eHighlight);
   for (size_t i = 0; i < mStyledRanges.Length(); ++i) {
-    nsRange* range = mStyledRanges.mRanges[i].mRange->AsDynamicRange();
+    nsRange* range = mStyledRanges.GetAbstractRangeAt(i)->AsDynamicRange();
     MOZ_ASSERT(range->IsInAnySelection());
     SelectFrames(aPresContext, *range, range->IsInAnySelection());
   }
@@ -2140,9 +2153,9 @@ UniquePtr<SelectionDetails> Selection::LookUpSelection(
       newHead->mEnd = AssertedCast<int32_t>(aContentLength);
       newHead->mSelectionType = aSelectionType;
       newHead->mHighlightData = mHighlightData;
-      StyledRange* rd = mStyledRanges.FindRangeData(GetAbstractRangeAt(0));
-      if (rd) {
-        newHead->mTextRangeStyle = rd->mTextRangeStyle;
+      if (const TextRangeStyle* style =
+              mStyledRanges.FindRangeData(GetAbstractRangeAt(0))) {
+        newHead->mTextRangeStyle = *style;
       }
       auto detailsHead = std::move(newHead);
 
@@ -2219,9 +2232,8 @@ UniquePtr<SelectionDetails> Selection::LookUpSelection(
     newHead->mEnd = AssertedCast<int32_t>(*end);
     newHead->mSelectionType = aSelectionType;
     newHead->mHighlightData = mHighlightData;
-    StyledRange* rd = mStyledRanges.FindRangeData(range);
-    if (rd) {
-      newHead->mTextRangeStyle = rd->mTextRangeStyle;
+    if (const TextRangeStyle* style = mStyledRanges.FindRangeData(range)) {
+      newHead->mTextRangeStyle = *style;
     }
     detailsHead = std::move(newHead);
   }
@@ -2237,9 +2249,9 @@ Selection::Repaint(nsPresContext* aPresContext) {
   int32_t i;
 
   for (i = 0; i < arrCount; i++) {
-    MOZ_ASSERT(mStyledRanges.mRanges[i].mRange);
+    MOZ_ASSERT(mStyledRanges.GetAbstractRangeAt(i));
     nsresult rv =
-        SelectFrames(aPresContext, *mStyledRanges.mRanges[i].mRange, true);
+        SelectFrames(aPresContext, *mStyledRanges.GetAbstractRangeAt(i), true);
 
     if (NS_FAILED(rv)) {
       return rv;
@@ -2314,17 +2326,16 @@ void Selection::SetAncestorLimiter(Element* aLimiter) {
 }
 
 void Selection::StyledRanges::UnregisterSelection(IsUnlinking aIsUnlinking) {
-  uint32_t count = mRanges.Length();
-  for (uint32_t i = 0; i < count; ++i) {
-    mRanges[i].mRange->UnregisterSelection(mSelection, aIsUnlinking);
+  for (const auto& range : Ranges()) {
+    range->UnregisterSelection(mSelection, aIsUnlinking);
   }
 }
 
 void Selection::StyledRanges::Clear() {
 #ifdef ACCESSIBILITY
-  for (auto& range : mRanges) {
+  for (auto& range : Ranges()) {
     if (!a11y::SelectionManager::SelectionRangeChanged(mSelection.GetType(),
-                                                       *range.mRange)) {
+                                                       *range)) {
       break;
     }
   }
@@ -2333,27 +2344,18 @@ void Selection::StyledRanges::Clear() {
   mInvalidStaticRanges.Clear();
 }
 
-StyledRange* Selection::StyledRanges::FindRangeData(AbstractRange* aRange) {
-  NS_ENSURE_TRUE(aRange, nullptr);
-  for (uint32_t i = 0; i < mRanges.Length(); i++) {
-    if (mRanges[i].mRange == aRange) {
-      return &mRanges[i];
-    }
-  }
-  return nullptr;
+TextRangeStyle* Selection::StyledRanges::FindRangeData(AbstractRange* aRange) {
+  return mRanges.FindStyleForRange(aRange);
 }
 
-Selection::StyledRanges::StyledRangeArray::size_type
-Selection::StyledRanges::Length() const {
-  return mRanges.Length();
-}
+size_t Selection::StyledRanges::Length() const { return mRanges.Length(); }
 
 nsresult Selection::SetTextRangeStyle(nsRange* aRange,
                                       const TextRangeStyle& aTextRangeStyle) {
   NS_ENSURE_ARG_POINTER(aRange);
-  StyledRange* rd = mStyledRanges.FindRangeData(aRange);
-  if (rd) {
-    rd->mTextRangeStyle = aTextRangeStyle;
+  TextRangeStyle* style = mStyledRanges.FindRangeData(aRange);
+  if (style) {
+    *style = aTextRangeStyle;
   }
   return NS_OK;
 }
@@ -2517,14 +2519,13 @@ void Selection::GetComposedRanges(
         aShadowRootOrGetComposedRangesOptions,
     const Sequence<OwningNonNull<ShadowRoot>>& aShadowRoots,
     nsTArray<RefPtr<StaticRange>>& aComposedRanges) {
-  aComposedRanges.SetCapacity(mStyledRanges.mRanges.Length());
+  aComposedRanges.SetCapacity(mStyledRanges.Length());
 
   auto GetComposedRangesForAllRanges =
       [this, &aComposedRanges](
           const Sequence<OwningNonNull<ShadowRoot>>& aShadowRoots) {
-        for (const auto& range : this->mStyledRanges.mRanges) {
-          aComposedRanges.AppendElement(
-              GetComposedRange(range.mRange, aShadowRoots));
+        for (const auto& range : this->mStyledRanges.Ranges()) {
+          aComposedRanges.AppendElement(GetComposedRange(range, aShadowRoots));
         }
       };
 
@@ -2937,7 +2938,7 @@ void Selection::CollapseToStart(ErrorResult& aRv) {
   }
 
   // Get the first range
-  const AbstractRange* firstRange = mStyledRanges.mRanges[0].mRange;
+  const AbstractRange* firstRange = mStyledRanges.GetAbstractRangeAt(0);
   if (!firstRange) {
     aRv.Throw(NS_ERROR_FAILURE);
     return;
@@ -2984,7 +2985,7 @@ void Selection::CollapseToEnd(ErrorResult& aRv) {
   }
 
   // Get the last range
-  const AbstractRange* lastRange = mStyledRanges.mRanges[cnt - 1].mRange;
+  const AbstractRange* lastRange = mStyledRanges.GetAbstractRangeAt(cnt - 1);
   if (!lastRange) {
     aRv.Throw(NS_ERROR_FAILURE);
     return;
@@ -3024,8 +3025,9 @@ nsRange* Selection::GetRangeAt(uint32_t aIndex, ErrorResult& aRv) {
 }
 
 AbstractRange* Selection::GetAbstractRangeAt(uint32_t aIndex) const {
-  StyledRange empty(nullptr);
-  return mStyledRanges.mRanges.SafeElementAt(aIndex, empty).mRange;
+  return aIndex < mStyledRanges.Length()
+             ? mStyledRanges.GetAbstractRangeAt(aIndex)
+             : nullptr;
 }
 
 // https://www.w3.org/TR/selection-api/#dom-selection-direction
@@ -3208,8 +3210,8 @@ void Selection::Extend(nsINode& aContainer, uint32_t aOffset,
     NS_ASSERTION(
         false,
         nsFmtCString(
-            FMT_STRING("mFrameSelection is {} which is expected as "
-                       "aContainer.GetFrameSelection() ({})"),
+            "mFrameSelection is {} which is expected as "
+            "aContainer.GetFrameSelection() ({})",
             mozilla::ToString(mFrameSelection).c_str(),
             mozilla::ToString(RefPtr{aContainer.GetFrameSelection()}).c_str())
             .get());
@@ -3903,8 +3905,7 @@ void Selection::RemoveSelectionListener(
 
 Element* Selection::StyledRanges::GetCommonEditingHost() const {
   Element* editingHost = nullptr;
-  for (const StyledRange& rangeData : mRanges) {
-    const AbstractRange* range = rangeData.mRange;
+  for (const RefPtr<AbstractRange>& range : Ranges()) {
     MOZ_ASSERT(range);
     nsINode* commonAncestorNode = range->GetClosestCommonInclusiveAncestor();
     if (!commonAncestorNode || !commonAncestorNode->IsContent()) {
@@ -4119,14 +4120,11 @@ void Selection::DeleteFromDocument(ErrorResult& aRv) {
   }
 
   // nsRange::DeleteContents() may run script, let's store all ranges first.
-  AutoTArray<RefPtr<nsRange>, 1> ranges;
-  MOZ_ASSERT(RangeCount() == mStyledRanges.mRanges.Length());
-  ranges.SetCapacity(RangeCount());
-  for (uint32_t index : IntegerRange(RangeCount())) {
-    ranges.AppendElement(mStyledRanges.mRanges[index].mRange->AsDynamicRange());
-  }
+  nsTArray<RefPtr<AbstractRange>> ranges{mStyledRanges.Ranges()};
   for (const auto& range : ranges) {
-    MOZ_KnownLive(range)->DeleteContents(aRv);
+    // This runs only for normal selections, therefore all ranges are guaranteed
+    // to be dynamic.
+    MOZ_KnownLive(range)->AsDynamicRange()->DeleteContents(aRv);
     if (aRv.Failed()) {
       return;
     }

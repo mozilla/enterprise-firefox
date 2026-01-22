@@ -74,7 +74,7 @@ const JSClass NumberFormatObject::class_ = {
     "Intl.NumberFormat",
     JSCLASS_HAS_RESERVED_SLOTS(NumberFormatObject::SLOT_COUNT) |
         JSCLASS_HAS_CACHED_PROTO(JSProto_NumberFormat) |
-        JSCLASS_FOREGROUND_FINALIZE,
+        JSCLASS_BACKGROUND_FINALIZE,
     &NumberFormatObject::classOps_,
     &NumberFormatObject::classSpec_,
 };
@@ -214,8 +214,6 @@ NumberFormatObject* js::intl::GetOrCreateNumberFormat(JSContext* cx,
 }
 
 void js::NumberFormatObject::finalize(JS::GCContext* gcx, JSObject* obj) {
-  MOZ_ASSERT(gcx->onMainThread());
-
   auto* numberFormat = &obj->as<NumberFormatObject>();
   mozilla::intl::NumberFormat* nf = numberFormat->getNumberFormatter();
   mozilla::intl::NumberRangeFormat* nrf =
@@ -234,38 +232,6 @@ void js::NumberFormatObject::finalize(JS::GCContext* gcx, JSObject* obj) {
     // delete here.
     delete nrf;
   }
-}
-
-bool js::intl_numberingSystem(JSContext* cx, unsigned argc, Value* vp) {
-  CallArgs args = CallArgsFromVp(argc, vp);
-  MOZ_ASSERT(args.length() == 1);
-  MOZ_ASSERT(args[0].isString());
-
-  UniqueChars locale = intl::EncodeLocale(cx, args[0].toString());
-  if (!locale) {
-    return false;
-  }
-
-  auto numberingSystem =
-      mozilla::intl::NumberingSystem::TryCreate(locale.get());
-  if (numberingSystem.isErr()) {
-    intl::ReportInternalError(cx, numberingSystem.unwrapErr());
-    return false;
-  }
-
-  auto name = numberingSystem.inspect()->GetName();
-  if (name.isErr()) {
-    intl::ReportInternalError(cx, name.unwrapErr());
-    return false;
-  }
-
-  JSString* jsname = NewStringCopy<CanGC>(cx, name.unwrap());
-  if (!jsname) {
-    return false;
-  }
-
-  args.rval().setString(jsname);
-  return true;
 }
 
 #if DEBUG || MOZ_SYSTEM_ICU

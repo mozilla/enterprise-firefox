@@ -3,8 +3,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef DnsAndConnectSocket_h__
-#define DnsAndConnectSocket_h__
+#ifndef DnsAndConnectSocket_h_
+#define DnsAndConnectSocket_h_
 
 #include "mozilla/TimeStamp.h"
 #include "nsAHttpConnection.h"
@@ -49,8 +49,7 @@ class DnsAndConnectSocket final : public nsIOutputStreamCallback,
   NS_DECL_NSIDNSLISTENER
 
   DnsAndConnectSocket(nsHttpConnectionInfo* ci, nsAHttpTransaction* trans,
-                      uint32_t caps, bool speculative, bool isFromPredictor,
-                      bool urgentStart);
+                      uint32_t caps, bool speculative, bool urgentStart);
 
   [[nodiscard]] nsresult Init(ConnectionEntry* ent);
   void Abandon();
@@ -236,11 +235,6 @@ class DnsAndConnectSocket final : public nsIOutputStreamCallback,
   // mark the connection as urgent rightaway it's created.
   bool mUrgentStart;
 
-  // mIsFromPredictor is set if the socket originated from the network
-  // Predictor. It is used to gather telemetry data on used speculative
-  // connections from the predictor.
-  bool mIsFromPredictor;
-
   bool mAllow1918 = true;
 
   // mHasConnected tracks whether one of the sockets has completed the
@@ -269,4 +263,4 @@ class DnsAndConnectSocket final : public nsIOutputStreamCallback,
 }  // namespace net
 }  // namespace mozilla
 
-#endif  // DnsAndConnectSocket_h__
+#endif  // DnsAndConnectSocket_h_

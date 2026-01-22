@@ -18,7 +18,7 @@
 /** @import MozButton from "chrome://global/content/elements/moz-button.mjs" */
 /** @import {SettingConfig, SettingEmitChange} from "chrome://global/content/preferences/Setting.mjs" */
 /** @import {SettingControlConfig} from "chrome://browser/content/preferences/widgets/setting-control.mjs" */
-/** @import {SettingGroup, SettingGroupConfig} from "chrome://browser/content/preferences/widgets/setting-group.mjs" */
+/** @import {SettingGroup} from "chrome://browser/content/preferences/widgets/setting-group.mjs" */
 /** @import {SettingPane, SettingPaneConfig} from "chrome://browser/content/preferences/widgets/setting-pane.mjs" */
 
 "use strict";
@@ -98,8 +98,6 @@ ChromeUtils.defineESModuleGetters(this, {
   LoginHelper: "resource://gre/modules/LoginHelper.sys.mjs",
   NimbusFeatures: "resource://nimbus/ExperimentAPI.sys.mjs",
   OSKeyStore: "resource://gre/modules/OSKeyStore.sys.mjs",
-  PlacesUtils: "resource://gre/modules/PlacesUtils.sys.mjs",
-  QuickSuggest: "moz-src:///browser/components/urlbar/QuickSuggest.sys.mjs",
   Region: "resource://gre/modules/Region.sys.mjs",
   SelectionChangedMenulist:
     "resource:///modules/SelectionChangedMenulist.sys.mjs",
@@ -108,8 +106,6 @@ ChromeUtils.defineESModuleGetters(this, {
   TransientPrefs: "resource:///modules/TransientPrefs.sys.mjs",
   UIState: "resource://services-sync/UIState.sys.mjs",
   UpdateUtils: "resource://gre/modules/UpdateUtils.sys.mjs",
-  UrlbarPrefs: "moz-src:///browser/components/urlbar/UrlbarPrefs.sys.mjs",
-  UrlbarUtils: "moz-src:///browser/components/urlbar/UrlbarUtils.sys.mjs",
 });
 
 ChromeUtils.defineLazyGetter(this, "gSubDialog", function () {
@@ -223,40 +219,12 @@ var SettingPaneManager = {
   },
 };
 
-var SettingGroupManager = {
-  /** @type {Map<string, SettingGroupConfig>} */
-  _data: new Map(),
-
-  /**
-   * @param {string} id
-   */
-  get(id) {
-    if (!this._data.has(id)) {
-      throw new Error(`Setting group "${id}" not found`);
-    }
-    return this._data.get(id);
-  },
-
-  /**
-   * @param {string} id
-   * @param {SettingGroupConfig} config
-   */
-  registerGroup(id, config) {
-    if (this._data.has(id)) {
-      throw new Error(`Setting group "${id}" already registered`);
-    }
-    this._data.set(id, config);
-  },
-
-  /**
-   * @param {Record<string, SettingGroupConfig>} groupConfigs
-   */
-  registerGroups(groupConfigs) {
-    for (let id in groupConfigs) {
-      this.registerGroup(id, groupConfigs[id]);
-    }
-  },
-};
+var SettingGroupManager = ChromeUtils.importESModule(
+  "chrome://browser/content/preferences/config/SettingGroupManager.mjs",
+  {
+    global: "current",
+  }
+).SettingGroupManager;
 
 /**
  * Register initial config-based setting panes here. If you need to register a
@@ -279,6 +247,7 @@ const CONFIG_PANES = Object.freeze({
     parent: "privacy",
     l10nId: "autofill-payment-methods-manage-payments-title",
     groupIds: ["managePayments"],
+    iconSrc: "chrome://browser/skin/payment-methods-16.svg",
   },
   paneProfiles: {
     parent: "general",
@@ -299,6 +268,7 @@ const CONFIG_PANES = Object.freeze({
     parent: "privacy",
     l10nId: "autofill-addresses-manage-addresses-title",
     groupIds: ["manageAddresses"],
+    iconSrc: "chrome://browser/skin/notification-icons/geo.svg",
   },
   translations: {
     parent: "general",
@@ -308,6 +278,36 @@ const CONFIG_PANES = Object.freeze({
       "translationsDownloadLanguages",
     ],
     iconSrc: "chrome://browser/skin/translations.svg",
+  },
+  ai: {
+    l10nId: "preferences-ai-controls-header",
+    groupIds: ["debugModelManagement", "aiFeatures", "aiWindowFeatures"],
+    module: "chrome://browser/content/preferences/config/aiFeatures.mjs",
+    visible: () => srdSectionEnabled("aiFeatures"),
+  },
+  history: {
+    parent: "privacy",
+    l10nId: "history-header2",
+    groupIds: ["historyAdvanced"],
+  },
+  customHomepage: {
+    parent: "home",
+    l10nId: "home-custom-homepage-subpage",
+    groupIds: ["customHomepage"],
+  },
+  personalizeSmartWindow: {
+    parent: "aiFeatures",
+    l10nId: "ai-window-personalize-header",
+    iconSrc: "chrome://devtools/skin/images/globe.svg",
+    groupIds: ["memoriesGroup"],
+    module: "chrome://browser/content/preferences/config/aiFeatures.mjs",
+  },
+  manageMemories: {
+    parent: "personalizeSmartWindow",
+    l10nId: "ai-window-manage-memories-header",
+    groupIds: ["manageMemories"],
+    module: "chrome://browser/content/preferences/config/aiFeatures.mjs",
+    supportPage: "smart-window-memories",
   },
 });
 
@@ -644,16 +644,20 @@ function spotlight(subcategory, category) {
 }
 
 function scrollAndHighlight(subcategory) {
-  let element = document.querySelector(`[data-subcategory="${subcategory}"]`);
-  if (!element) {
+  let elements = document.querySelectorAll(
+    `[data-subcategory~="${subcategory}"]`
+  );
+  if (!elements.length) {
     return;
   }
 
-  element.scrollIntoView({
+  elements[0].scrollIntoView({
     behavior: "smooth",
     block: "center",
   });
-  element.classList.add("spotlight");
+  for (let element of elements) {
+    element.classList.add("spotlight");
+  }
 }
 
 function friendlyPrefCategoryNameToInternalName(aName) {

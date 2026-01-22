@@ -30,6 +30,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   DEFAULT_SITES: "resource://newtab/lib/DefaultSites.sys.mjs",
   DefaultPrefs: "resource://newtab/lib/ActivityStreamPrefs.sys.mjs",
   DiscoveryStreamFeed: "resource://newtab/lib/DiscoveryStreamFeed.sys.mjs",
+  ExternalComponentsFeed:
+    "resource://newtab/lib/ExternalComponentsFeed.sys.mjs",
   FaviconFeed: "resource://newtab/lib/FaviconFeed.sys.mjs",
   HighlightsFeed: "resource://newtab/lib/HighlightsFeed.sys.mjs",
   ListsFeed: "resource://newtab/lib/Widgets/ListsFeed.sys.mjs",
@@ -115,6 +117,9 @@ const PREF_IMAGE_PROXY_ENABLED =
   "browser.newtabpage.activity-stream.discoverystream.imageProxy.enabled";
 
 const PREF_IMAGE_PROXY_ENABLED_STORE = "discoverystream.imageProxy.enabled";
+
+const PREF_SHOULD_ENABLE_EXTERNAL_COMPONENTS_FEED =
+  "browser.newtabpage.activity-stream.externalComponents.enabled";
 
 export const WEATHER_OPTIN_REGIONS = [
   "AT", // Austria
@@ -1124,6 +1129,28 @@ export const PREFS_CONFIG = new Map([
     },
   ],
   [
+    "widgets.weatherForecast.enabled",
+    {
+      title: "Enables the weather forecast widget",
+      value: true,
+    },
+  ],
+  [
+    "widgets.system.weatherForecast.enabled",
+    {
+      title: "Enables the weather forecast widget experiment in Nimbus",
+      value: false,
+    },
+  ],
+  [
+    "widgets.weatherForecast.interaction",
+    {
+      title:
+        "Boolean flag for determining if a user has interacted with the weather forecast widget",
+      value: false,
+    },
+  ],
+  [
     "improvesearch.noDefaultSearchTile",
     {
       title: "Remove tiles that are the same as the default search",
@@ -1595,6 +1622,20 @@ const FEEDS_DATA = [
     factory: () => new lazy.TimerFeed(),
     title: "Handles the data for the Timer widget",
     value: true,
+  },
+  {
+    name: "externalcomponentsfeed",
+    factory: () => new lazy.ExternalComponentsFeed(),
+    title: "Handles updating the registry of external components",
+    getValue() {
+      // This feed should only be enabled on versions of the app that have the
+      // AboutNewTabComponents module. Those versions of the app have this
+      // preference set to true.
+      return Services.prefs.getBoolPref(
+        PREF_SHOULD_ENABLE_EXTERNAL_COMPONENTS_FEED,
+        false
+      );
+    },
   },
 ];
 

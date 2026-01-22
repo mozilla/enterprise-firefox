@@ -748,6 +748,14 @@ class FullParseHandler {
                                  singleArg);
   }
 
+#ifdef ENABLE_SOURCE_PHASE_IMPORTS
+  BinaryNodeResult newCallImportSource(NullaryNodeType importHolder,
+                                       Node singleArg) {
+    return newResult<BinaryNode>(ParseNodeKind::CallImportSourceExpr,
+                                 importHolder, singleArg);
+  }
+#endif
+
   BinaryNodeResult newCallImportSpec(Node specifierArg, Node optionalArg) {
     return newResult<BinaryNode>(ParseNodeKind::CallImportSpec, specifierArg,
                                  optionalArg);

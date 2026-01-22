@@ -34,7 +34,6 @@ function templateHTML(options) {
   const debugString = options.debug ? "-dev" : "";
   // This list must match any similar ones in AboutNewTabChild.sys.mjs
   const scripts = [
-    "chrome://browser/content/contentSearchHandoffUI.js",
     "chrome://browser/content/contentTheme.js",
     `${options.baseVendorUrl}vendor/react${debugString}.js`,
     `${options.baseVendorUrl}vendor/react-dom${debugString}.js`,
@@ -140,6 +139,11 @@ function templateHTML(options) {
       async
       type="module"
       src="chrome://global/content/elements/panel-list.js"
+    ></script>
+    <script
+      async
+      type="module"
+      src="chrome://global/content/elements/moz-support-link.mjs"
     ></script>
   </body>
 </html>

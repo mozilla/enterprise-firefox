@@ -1092,14 +1092,9 @@ main section {
   border: 1px solid var(--border-color);
 }
 .edit-topsites-wrapper .modal {
-  box-shadow: 0 1px 4px 0 rgba(12, 12, 13, 0.2);
-  inset-inline-start: 0;
-  margin: 0 auto;
-  max-height: calc(100% - 40px);
-  position: fixed;
-  inset-inline-end: 0;
+  border: 0;
+  min-height: fit-content;
   inset-block-start: var(--space-xxlarge);
-  width: 274px;
 }
 @media (min-width: 610px) {
   .edit-topsites-wrapper .modal {
@@ -1253,10 +1248,7 @@ main section {
 }
 .topsite-form .actions {
   justify-content: flex-end;
-}
-.topsite-form .actions button {
-  margin-inline-start: var(--space-small);
-  margin-inline-end: 0;
+  padding: var(--space-large) var(--space-xlarge);
 }
 @media (max-width: 610px) {
   .topsite-form .fields-and-preview {
@@ -1444,12 +1436,7 @@ main section {
 }
 .top-stories-bottom-container a {
   color: var(--newtab-primary-action-background);
-  /**
-   * @backward-compat { version 146 }
-   *
-   * Replace this with `--font-weight-semibold` once 146 hits release.
-   */
-  font-weight: var(--heading-font-weight);
+  font-weight: var(--font-weight-semibold);
 }
 .top-stories-bottom-container a.more-recommendations {
   font-weight: var(--font-weight);
@@ -1483,6 +1470,33 @@ main section {
   padding: 0;
   margin-block: var(--space-xxlarge);
   margin-block-start: 0;
+  /**
+   * @backward-compat { version 148 }
+   *
+   * Temporary dual implementation to support train hopping. The old handoff UI
+   * is kept alongside the new contentSearchHandoffUI.mjs custom element until
+   * the module lands on all channels. Controlled by the pref
+   * browser.newtabpage.activity-stream.search.useHandoffComponent.
+   * Remove the old implementation and the pref once this ships to Release.
+   */
+  /**
+   * @backward-compat { version 148 }
+   *
+   * Temporary dual implementation to support train hopping. The old handoff UI
+   * is kept alongside the new contentSearchHandoffUI.mjs custom element until
+   * the module lands on all channels. Controlled by the pref
+   * browser.newtabpage.activity-stream.search.useHandoffComponent.
+   * Remove the old implementation and the pref once this ships to Release.
+   */
+  /**
+   * @backward-compat { version 148 }
+   *
+   * Temporary dual implementation to support train hopping. The old handoff UI
+   * is kept alongside the new contentSearchHandoffUI.mjs custom element until
+   * the module lands on all channels. Controlled by the pref
+   * browser.newtabpage.activity-stream.search.useHandoffComponent.
+   * Remove the old implementation and the pref once this ships to Release.
+   */
 }
 .search-wrapper .logo-and-wordmark {
   margin-block-end: var(--space-xxlarge);
@@ -1567,6 +1581,15 @@ main section {
 }
 .search-wrapper .search-handoff-button .fake-caret:dir(rtl) {
   background-position-x: right 16px;
+}
+.search-wrapper content-search-handoff-ui {
+  --content-search-handoff-ui-background-color: var(--newtab-background-color-secondary);
+  --content-search-handoff-ui-color: var(--newtab-text-primary-color);
+  --content-search-handoff-ui-fill: var(--newtab-text-secondary-color);
+  --content-search-handoff-ui-caret-color: var(--newtab-text-primary-color);
+  --content-search-handoff-ui-fakefocus-border-color: var(--newtab-primary-action-background);
+  --content-search-handoff-ui-fakefocus-box-shadow-inner: var(--newtab-primary-action-background-dimmed);
+  --content-search-handoff-ui-fakefocus-box-shadow-outer: transparent;
 }
 .search-wrapper.visible-logo .logo-and-wordmark .wordmark {
   fill: var(--newtab-wordmark-color);
@@ -1829,14 +1852,16 @@ main section {
   pointer-events: none;
 }
 
-.confirmation-dialog .modal {
-  box-shadow: 0 1px 4px 0 rgba(12, 12, 13, 0.2);
-  inset-inline-start: 0;
-  margin: auto;
-  position: fixed;
-  inset-inline-end: 0;
-  inset-block-start: 20%;
+.confirmation-dialog {
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-small);
+  padding: 0;
   width: 400px;
+  box-shadow: var(--box-shadow-popup);
+  background: var(--newtab-background-color-secondary);
+}
+.confirmation-dialog::backdrop {
+  background: var(--newtab-overlay-color);
 }
 .confirmation-dialog section {
   margin: 0;
@@ -1850,41 +1875,12 @@ main section {
   margin: 0;
   margin-block-end: var(--space-large);
 }
-.confirmation-dialog .actions {
+.confirmation-dialog .button-group {
   border: 0;
-  display: flex;
-  flex-wrap: nowrap;
-  padding: 0 var(--space-large);
-}
-.confirmation-dialog .actions button {
-  margin-inline-end: var(--space-large);
-  padding-inline: var(--space-large);
-  white-space: normal;
-  width: 50%;
-}
-.confirmation-dialog .actions button.done {
-  margin-inline-end: 0;
-  margin-inline-start: 0;
+  padding: var(--space-large);
 }
 .confirmation-dialog .icon {
   margin-inline-end: var(--space-large);
-}
-
-.modal-overlay {
-  background: var(--newtab-overlay-color);
-  height: 100%;
-  inset-inline-start: 0;
-  position: fixed;
-  inset-block-start: 0;
-  width: 100%;
-  z-index: 11001;
-}
-
-.modal {
-  background: var(--newtab-background-color-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: var(--border-radius-small);
-  z-index: 11002;
 }
 
 .personalizeButtonWrapper {
@@ -3084,12 +3080,7 @@ dialog:dir(rtl)::after {
 
 .weatherForecastRow {
   text-transform: uppercase;
-  /**
-   * @backward-compat { version 146 }
-   *
-   * Replace this with `--font-weight-semibold` once 146 hits release.
-   */
-  font-weight: var(--heading-font-weight);
+  font-weight: var(--font-weight-semibold);
 }
 
 .weatherCityRow {
@@ -4139,106 +4130,20 @@ dialog:dir(rtl)::after {
 }
 .collapsible-section.ds-layout .section-top-bar .learn-more-link a {
   color: var(--newtab-primary-action-background);
-  /**
-   * @backward-compat { version 146 }
-   *
-   * Replace this with `--font-weight-semibold` once 146 hits release.
-   */
-  font-weight: var(--heading-font-weight);
+  font-weight: var(--font-weight-semibold);
 }
 .collapsible-section.ds-layout .section-top-bar .learn-more-link a:is(:focus, :hover) {
   text-decoration: none;
 }
 
-.activity-stream.modal-open {
-  overflow: hidden;
-}
-
 .modalOverlayOuter {
+  border: none;
+  box-shadow: var(--box-shadow-popup);
+  padding: 0;
+  border-radius: var(--border-radius-medium);
+}
+.modalOverlayOuter::backdrop {
   background: var(--newtab-overlay-color);
-  height: 100%;
-  position: fixed;
-  inset-block-start: 0;
-  inset-inline-start: 0;
-  width: 100%;
-  display: none;
-  z-index: 1100;
-  overflow: auto;
-}
-.modalOverlayOuter.active {
-  display: flex;
-}
-
-.modalOverlayInner {
-  min-width: min-content;
-  width: 100%;
-  max-width: 960px;
-  position: relative;
-  margin: auto;
-  background: var(--newtab-background-color-secondary);
-  box-shadow: 0 2px 14px 0 rgba(0, 0, 0, 0.2);
-  border-radius: var(--border-radius-small);
-  display: none;
-  z-index: 1100;
-}
-@media (width <= 960px) {
-  .modalOverlayInner {
-    height: 100%;
-    inset-block-start: 0;
-    inset-inline-start: 0;
-    box-shadow: none;
-    border-radius: 0;
-  }
-}
-.modalOverlayInner.active {
-  display: block;
-}
-.modalOverlayInner h2 {
-  color: var(--newtab-text-primary-color);
-  text-align: center;
-  margin-block-start: var(--space-xxlarge);
-  font-size: var(--font-size-xxlarge);
-}
-@media (width <= 960px) {
-  .modalOverlayInner h2 {
-    margin-block-start: calc(var(--space-xlarge) * 4);
-  }
-}
-@media (width <= 850px) {
-  .modalOverlayInner h2 {
-    margin-block-start: var(--space-xxlarge);
-  }
-}
-.modalOverlayInner .footer {
-  border-block-start: 1px solid var(--border-color);
-  border-radius: var(--border-radius-small);
-  height: 70px;
-  width: 100%;
-  position: absolute;
-  inset-block-end: 0;
-  text-align: center;
-  background-color: var(--color-white);
-}
-@media (width <= 850px) and (height <= 730px) {
-  .modalOverlayInner .footer {
-    position: sticky;
-  }
-}
-@media (width <= 650px) and (height <= 600px) {
-  .modalOverlayInner .footer {
-    position: sticky;
-  }
-}
-.modalOverlayInner .footer .modalButton {
-  margin-block-start: var(--space-large);
-  min-width: 150px;
-  height: 30px;
-  padding: var(--space-xsmall) var(--space-xxlarge);
-  font-size: inherit;
-}
-.modalOverlayInner .footer .modalButton:focus, .modalOverlayInner .footer .modalButton.active, .modalOverlayInner .footer .modalButton:hover {
-  box-shadow: 0 0 0 5px var(--newtab-element-secondary-color);
-  transition: box-shadow 150ms;
 }
 
 .notification-wrapper {
@@ -4318,7 +4223,7 @@ dialog:dir(rtl)::after {
 
 .widgets-container {
   --widgets-card-width: var(--newtab-card-grid-layout-width);
-  --widgets-max-cols: 2;
+  --widgets-max-cols: 3;
   --widgets-grid-gap: var(--space-large);
 }
 .has-sections-grid .widgets-container {
@@ -4750,12 +4655,7 @@ dialog:dir(rtl)::after {
   color: var(--text-color);
   display: flex;
   font-size: calc(var(--font-size-large) * 2);
-  /**
-   * @backward-compat { version 146 }
-   *
-   * Replace this with `--font-weight-semibold` once 146 hits release.
-   */
-  font-weight: var(--heading-font-weight);
+  font-weight: var(--font-weight-semibold);
   font-variant-numeric: tabular-nums;
   height: 100%;
   inset-block-start: 0;
@@ -4782,6 +4682,255 @@ dialog:dir(rtl)::after {
   color: var(--text-color-deemphasized);
   font-size: var(--font-size-small);
   margin-block-start: var(--space-small);
+}
+
+.weather-forecast-widget {
+  background: var(--newtab-background-card);
+  transition: opacity 0.2s ease;
+  grid-column: span 1;
+  width: var(--newtab-card-grid-layout-width);
+  border-radius: var(--border-radius-large);
+  padding: var(--space-medium);
+  height: var(--newtab-card-height);
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--box-shadow-card);
+  --weather-sunny-background-color: light-dark(var(--color-yellow-0), var(--color-yellow-90));
+  --weather-cloudy-background-color: light-dark(var(--color-gray-20), var(--color-gray-80));
+  --weather-rainy-background-color: light-dark(var(--color-blue-0), var(--color-blue-90));
+  --weather-snowy-background-color: light-dark(var(--color-violet-0), var(--color-violet-90));
+  --weather-hot-background-color: light-dark(var(--color-orange-0), var(--color-orange-90));
+}
+.weather-forecast-widget:hover {
+  background: var(--newtab-background-color-secondary);
+}
+.has-sections-grid .weather-forecast-widget {
+  width: var(--newtab-card-width-medium);
+}
+.weather-forecast-widget .city-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.weather-forecast-widget .city-wrapper .city-name {
+  width: 100%;
+}
+.weather-forecast-widget .city-wrapper h3 {
+  margin-block: 0;
+  font-weight: var(--font-weight-semibold);
+}
+.weather-forecast-widget .city-wrapper .location-input-wrapper {
+  padding-block: 0;
+}
+.weather-forecast-widget .city-wrapper .location-input-wrapper input {
+  width: 100%;
+}
+.weather-forecast-widget .weather-forecast-context-menu-wrapper {
+  opacity: 0;
+  pointer-events: none;
+}
+.weather-forecast-widget:hover .weather-forecast-context-menu-wrapper, .weather-forecast-widget:focus-within .weather-forecast-context-menu-wrapper {
+  opacity: 1;
+  pointer-events: auto;
+}
+.weather-forecast-widget .current-weather-wrapper {
+  display: flex;
+  align-items: center;
+  margin-block: var(--space-small);
+  padding: var(--space-medium);
+  border-radius: var(--border-radius-medium);
+  width: 100%;
+}
+.weather-forecast-widget .current-weather-wrapper:has(.iconId1, .iconId2, .iconId3, .iconId4, .iconId5, .iconId6, .iconId33) {
+  background-color: var(--weather-sunny-background-color);
+}
+.weather-forecast-widget .current-weather-wrapper:has(.iconId7, .iconId8, .iconI11, .iconId32, .iconId34, .iconId35, .iconId36, .iconId37, .iconId38) {
+  background-color: var(--weather-cloudy-background-color);
+}
+.weather-forecast-widget .current-weather-wrapper:has(.iconId12, .iconId13, .iconId14, .iconId15, .iconId16, .iconId17, .iconId18, .iconId39, .iconId40, .iconId41, .iconId42) {
+  background-color: var(--weather-rainy-background-color);
+}
+.weather-forecast-widget .current-weather-wrapper:has(.iconId19, .iconId20, .iconId21, .iconId22, .iconId23, .iconId24, .iconId25, .iconId26, .iconId29, .iconId31, .iconId43, .iconId44) {
+  background-color: var(--weather-snowy-background-color);
+}
+.weather-forecast-widget .current-weather-wrapper:has(.iconId30) {
+  background-color: var(--weather-hot-background-color);
+}
+.weather-forecast-widget .weather-icon-column {
+  width: var(--size-item-large);
+  height: var(--size-item-large);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+}
+.weather-forecast-widget .weather-icon {
+  width: var(--size-item-large);
+  height: auto;
+  vertical-align: middle;
+}
+@media (prefers-contrast) {
+  .weather-forecast-widget .weather-icon {
+    -moz-context-properties: fill, stroke;
+    fill: currentColor;
+    stroke: currentColor;
+  }
+}
+.weather-forecast-widget .weather-icon.iconId1 {
+  content: url("chrome://browser/skin/weather/sunny.svg");
+}
+.weather-forecast-widget .weather-icon.iconId2 {
+  content: url("chrome://browser/skin/weather/mostly-sunny.svg");
+}
+.weather-forecast-widget .weather-icon:is(.iconId3, .iconId4, .iconId6) {
+  content: url("chrome://browser/skin/weather/partly-sunny.svg");
+}
+.weather-forecast-widget .weather-icon.iconId5 {
+  content: url("chrome://browser/skin/weather/hazy-sunshine.svg");
+}
+.weather-forecast-widget .weather-icon:is(.iconId7, .iconId8) {
+  content: url("chrome://browser/skin/weather/cloudy.svg");
+}
+.weather-forecast-widget .weather-icon.iconId11 {
+  content: url("chrome://browser/skin/weather/fog.svg");
+}
+.weather-forecast-widget .weather-icon.iconId12 {
+  content: url("chrome://browser/skin/weather/showers.svg");
+}
+.weather-forecast-widget .weather-icon:is(.iconId13, .iconId14) {
+  content: url("chrome://browser/skin/weather/mostly-cloudy-with-showers.svg");
+}
+.weather-forecast-widget .weather-icon.iconId15 {
+  content: url("chrome://browser/skin/weather/thunderstorms.svg");
+}
+.weather-forecast-widget .weather-icon:is(.iconId16, .iconId17) {
+  content: url("chrome://browser/skin/weather/mostly-cloudy-with-thunderstorms.svg");
+}
+.weather-forecast-widget .weather-icon.iconId18 {
+  content: url("chrome://browser/skin/weather/rain.svg");
+}
+.weather-forecast-widget .weather-icon:is(.iconId19, .iconId20, .iconId25) {
+  content: url("chrome://browser/skin/weather/flurries.svg");
+}
+.weather-forecast-widget .weather-icon.iconId21 {
+  content: url("chrome://browser/skin/weather/partly-sunny-with-flurries.svg");
+}
+.weather-forecast-widget .weather-icon:is(.iconId22, .iconId23) {
+  content: url("chrome://browser/skin/weather/snow.svg");
+}
+.weather-forecast-widget .weather-icon:is(.iconId24, .iconId31) {
+  content: url("chrome://browser/skin/weather/ice.svg");
+}
+.weather-forecast-widget .weather-icon:is(.iconId26, .iconId29) {
+  content: url("chrome://browser/skin/weather/freezing-rain.svg");
+}
+.weather-forecast-widget .weather-icon.iconId30 {
+  content: url("chrome://browser/skin/weather/hot.svg");
+}
+.weather-forecast-widget .weather-icon.iconId32 {
+  content: url("chrome://browser/skin/weather/windy.svg");
+}
+.weather-forecast-widget .weather-icon.iconId33 {
+  content: url("chrome://browser/skin/weather/night-clear.svg");
+}
+.weather-forecast-widget .weather-icon:is(.iconId34, .iconId35, .iconId36, .iconId38) {
+  content: url("chrome://browser/skin/weather/night-mostly-clear.svg");
+}
+.weather-forecast-widget .weather-icon.iconId37 {
+  content: url("chrome://browser/skin/weather/night-hazy-moonlight.svg");
+}
+.weather-forecast-widget .weather-icon:is(.iconId39, .iconId40) {
+  content: url("chrome://browser/skin/weather/night-partly-cloudy-with-showers.svg");
+  height: var(--size-item-large);
+}
+.weather-forecast-widget .weather-icon:is(.iconId41, .iconId42) {
+  content: url("chrome://browser/skin/weather/night-partly-cloudy-with-thunderstorms.svg");
+}
+.weather-forecast-widget .weather-icon:is(.iconId43, .iconId44) {
+  content: url("chrome://browser/skin/weather/night-mostly-cloudy-with-flurries.svg");
+}
+
+.weather-info-column {
+  display: flex;
+  flex-direction: column;
+  margin-inline: var(--space-medium);
+}
+.weather-info-column .temperature-unit {
+  text-transform: uppercase;
+  font-weight: var(--font-weight-semibold);
+}
+.weather-info-column .temperature-description {
+  font-size: var(--font-size-small);
+  color: var(--text-color-deemphasized);
+}
+
+.high-low-column {
+  display: flex;
+  align-items: flex-end;
+  align-self: flex-start;
+  margin-inline-start: auto;
+  color: var(--text-color-deemphasized);
+}
+.high-low-column .high-temperature {
+  margin-inline-end: var(--space-small);
+}
+.high-low-column .arrow-icon {
+  display: inline-block;
+  width: var(--size-item-xsmall);
+  height: var(--size-item-xsmall);
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  -moz-context-properties: fill, fill-opacity;
+  fill: currentColor;
+}
+.high-low-column .arrow-icon.arrow-up {
+  background-image: url("chrome://global/skin/icons/shaft-arrow-up.svg");
+}
+.high-low-column .arrow-icon.arrow-down {
+  background-image: url("chrome://global/skin/icons/shaft-arrow-down.svg");
+}
+
+hr {
+  border: 0;
+  border-block-start: 1px solid var(--border-color);
+  width: 100%;
+}
+
+.forecast-row .today-forecast {
+  margin-block-start: 0;
+  font-weight: var(--font-weight-semibold);
+}
+.forecast-row .forecast-row-items {
+  list-style: none;
+  display: flex;
+  justify-content: center;
+  padding: 0;
+  margin-block-start: var(--space-small);
+}
+.forecast-row .forecast-row-items li {
+  background: var(--newtab-background-color);
+  border-radius: var(--border-radius-small);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-inline: var(--space-xsmall);
+  padding-inline: var(--space-small);
+  padding-block: var(--space-xsmall);
+  font-size: var(--font-size-small);
+}
+
+.weather-forecast-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-block-start: auto;
+}
+.weather-forecast-footer a {
+  font-size: var(--font-size-small);
+}
+.weather-forecast-footer span {
+  font-size: var(--font-size-xsmall);
 }
 
 .ds-card-grid .ds-card {
@@ -5312,9 +5461,6 @@ dialog:dir(rtl)::after {
     height: 32px;
     width: 32px;
   }
-  .ds-section-grid.ds-card-grid .col-1-small.refined-cards:hover .meta .source-wrapper .source, .ds-section-grid.ds-card-grid .col-1-small.refined-cards:active .meta .source-wrapper .source, .ds-section-grid.ds-card-grid .col-1-small.refined-cards:focus-within .meta .source-wrapper .source, .ds-section-grid.ds-card-grid .col-1-small.refined-cards.active .meta .source-wrapper .source {
-    display: none;
-  }
   .ds-section-grid.ds-card-grid .col-1-small.ds-card.sections-card-ui {
     padding: unset;
   }
@@ -5671,9 +5817,6 @@ dialog:dir(rtl)::after {
   .ds-section-grid.ds-card-grid .col-2-small.refined-cards .context-menu-position-container .context-menu-button {
     height: 32px;
     width: 32px;
-  }
-  .ds-section-grid.ds-card-grid .col-2-small.refined-cards:hover .meta .source-wrapper .source, .ds-section-grid.ds-card-grid .col-2-small.refined-cards:active .meta .source-wrapper .source, .ds-section-grid.ds-card-grid .col-2-small.refined-cards:focus-within .meta .source-wrapper .source, .ds-section-grid.ds-card-grid .col-2-small.refined-cards.active .meta .source-wrapper .source {
-    display: none;
   }
   .ds-section-grid.ds-card-grid .col-2-small.ds-card.sections-card-ui {
     padding: unset;
@@ -6041,9 +6184,6 @@ dialog:dir(rtl)::after {
     height: 32px;
     width: 32px;
   }
-  .ds-section-grid.ds-card-grid .col-3-small.refined-cards:hover .meta .source-wrapper .source, .ds-section-grid.ds-card-grid .col-3-small.refined-cards:active .meta .source-wrapper .source, .ds-section-grid.ds-card-grid .col-3-small.refined-cards:focus-within .meta .source-wrapper .source, .ds-section-grid.ds-card-grid .col-3-small.refined-cards.active .meta .source-wrapper .source {
-    display: none;
-  }
   .ds-section-grid.ds-card-grid .col-3-small.ds-card.sections-card-ui {
     padding: unset;
   }
@@ -6409,9 +6549,6 @@ dialog:dir(rtl)::after {
     height: 32px;
     width: 32px;
   }
-  .ds-section-grid.ds-card-grid .col-4-small.refined-cards:hover .meta .source-wrapper .source, .ds-section-grid.ds-card-grid .col-4-small.refined-cards:active .meta .source-wrapper .source, .ds-section-grid.ds-card-grid .col-4-small.refined-cards:focus-within .meta .source-wrapper .source, .ds-section-grid.ds-card-grid .col-4-small.refined-cards.active .meta .source-wrapper .source {
-    display: none;
-  }
   .ds-section-grid.ds-card-grid .col-4-small.ds-card.sections-card-ui {
     padding: unset;
   }
@@ -6739,12 +6876,7 @@ dialog:dir(rtl)::after {
 .ds-navigation {
   color: var(--newtab-contextual-text-primary-color);
   font-size: var(--font-size-small);
-  /**
-   * @backward-compat { version 146 }
-   *
-   * Replace this with `--font-weight-semibold` once 146 hits release.
-   */
-  font-weight: var(--heading-font-weight);
+  font-weight: var(--font-weight-semibold);
   padding: var(--space-xsmall) 0;
 }
 @media (min-width: 1122px) {
@@ -6849,12 +6981,7 @@ dialog:dir(rtl)::after {
   border-block-start: 1px solid var(--border-color);
   line-height: 24px;
   font-size: var(--font-size-small);
-  /**
-   * @backward-compat { version 146 }
-   *
-   * Replace this with `--font-weight-semibold` once 146 hits release.
-   */
-  font-weight: var(--heading-font-weight);
+  font-weight: var(--font-weight-semibold);
 }
 .ds-navigation.ds-navigation-new-topics ul li::after {
   content: "";
@@ -7335,12 +7462,7 @@ dialog:dir(rtl)::after {
   border: none;
   padding: var(--space-xsmall) var(--space-large);
   font-size: var(--font-size-small);
-  /**
-   * @backward-compat { version 146 }
-   *
-   * Replace this with `--font-weight-semibold` once 146 hits release.
-   */
-  font-weight: var(--heading-font-weight);
+  font-weight: var(--font-weight-semibold);
   min-height: var(--size-item-large);
   min-width: 97px;
   color: var(--newtab-text-primary-color);
@@ -7872,12 +7994,7 @@ dialog:dir(rtl)::after {
 .ds-privacy-link {
   text-align: center;
   font-size: var(--font-size-small);
-  /**
-   * @backward-compat { version 146 }
-   *
-   * Replace this with `--font-weight-semibold` once 146 hits release.
-   */
-  font-weight: var(--heading-font-weight);
+  font-weight: var(--font-weight-semibold);
 }
 .ds-privacy-link a:hover {
   text-decoration: none;
@@ -8321,15 +8438,9 @@ dialog:dir(rtl)::after {
 }
 
 /* stylelint-disable max-nesting-depth */
-.modalOverlayOuter.active:has(.topic-selection-container) {
-  background-color: rgba(21, 20, 26, 0.5);
-}
-
 .topic-selection-container {
   --transition: 0.6s opacity, 0.6s scale, 0.6s rotate, 0.6s translate;
   position: relative;
-  border-radius: var(--border-radius-medium);
-  box-shadow: 0 2px 14px 0 rgba(0, 0, 0, 0.2);
   padding: var(--space-xxlarge);
   max-width: 745px;
   height: auto;
@@ -8377,18 +8488,6 @@ dialog:dir(rtl)::after {
   justify-content: space-between;
   align-items: center;
 }
-.topic-selection-container .modal-footer > a {
-  color: var(--link-color);
-}
-.topic-selection-container .modal-footer > a:hover {
-  color: var(--link-color-hover);
-}
-.topic-selection-container .modal-footer > a:hover:active {
-  color: var(--link-color-active);
-}
-.topic-selection-container .modal-footer > a:visited {
-  color: var(--link-color-visited);
-}
 .topic-selection-container .modal-footer .button-group {
   gap: var(--space-medium);
   display: flex;
@@ -8422,21 +8521,11 @@ dialog:dir(rtl)::after {
   background-color: var(--button-background-color-active);
 }
 .topic-list .topic-item:has(input:checked) {
-  /**
-   * @backward-compat { version 147 }
-   *
-   * Replace this with `--border-color-selected` once 147 hits release.
-   */
-  border-color: var(--color-accent-primary);
+  border-color: var(--border-color-selected);
 }
 .topic-list .topic-item:focus-within {
   outline-offset: 2px;
-  /**
-   * @backward-compat { version 147 }
-   *
-   * Replace this with `--border-color-selected` once 147 hits release.
-   */
-  outline: 2px solid var(--color-accent-primary);
+  outline: 2px solid var(--border-color-selected);
 }
 .topic-list .topic-item .topic-item-label {
   margin-inline-end: var(--space-small);
@@ -8780,12 +8869,7 @@ dialog:dir(rtl)::after {
 }
 .inline-selection-wrapper.ds-section .topic-list li > label:has(input:checked) {
   background-color: var(--color-accent-primary);
-  /**
-   * @backward-compat { version 147 }
-   *
-   * Replace this with `--border-color-selected` once 147 hits release.
-   */
-  border-color: var(--color-accent-primary);
+  border-color: var(--border-color-selected);
   color: var(--button-text-color-primary);
 }
 .inline-selection-wrapper.ds-section .topic-list li > label:has(input:checked) .topic-item-icon {
@@ -8798,7 +8882,7 @@ dialog:dir(rtl)::after {
 
 .report-content-form {
   width: 500px;
-  height: 230px;
+  height: 270px;
   box-shadow: var(--box-shadow-level-4);
   border-radius: var(--border-radius-medium);
   border: 1px solid var(--border-color);

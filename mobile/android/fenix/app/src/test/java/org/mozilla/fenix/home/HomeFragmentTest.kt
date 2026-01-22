@@ -8,7 +8,6 @@ import android.content.Context
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.spyk
-import io.mockk.verify
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -20,7 +19,6 @@ import org.mozilla.fenix.HomeActivity
 import org.mozilla.fenix.components.Core
 import org.mozilla.fenix.ext.application
 import org.mozilla.fenix.ext.components
-import org.mozilla.fenix.home.toolbar.HomeToolbarView
 import org.mozilla.fenix.utils.Settings
 
 class HomeFragmentTest {
@@ -132,16 +130,5 @@ class HomeFragmentTest {
 
         assertFalse(cfrShown)
         assertFalse(exposureRecorded)
-    }
-
-    @Test
-    fun `WHEN configuration changed THEN menu is dismissed`() {
-        val toolbarView: HomeToolbarView = mockk(relaxed = true)
-
-        homeFragment.nullableToolbarView = toolbarView
-
-        homeFragment.onConfigurationChanged(mockk(relaxed = true))
-
-        verify(exactly = 1) { toolbarView.dismissMenu() }
     }
 }

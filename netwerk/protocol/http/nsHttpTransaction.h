@@ -3,8 +3,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef nsHttpTransaction_h__
-#define nsHttpTransaction_h__
+#ifndef nsHttpTransaction_h_
+#define nsHttpTransaction_h_
 
 #include "ARefBase.h"
 #include "EventTokenBucket.h"
@@ -614,4 +614,4 @@ class nsHttpTransaction final : public nsAHttpTransaction,
 
 }  // namespace mozilla::net
 
-#endif  // nsHttpTransaction_h__
+#endif  // nsHttpTransaction_h_

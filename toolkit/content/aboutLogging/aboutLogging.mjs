@@ -179,6 +179,14 @@ const gLoggingPresets = {
       description: "about-logging-preset-web-compat-description",
     },
   },
+  navigation: {
+    modules:
+      "SHIPBFCache:5,PageCache:5,nsSHistory:5,SessionHistory:5,DocumentChannel:5,nsDocShell:5,NavigationAPI:5",
+    l10nIds: {
+      label: "about-logging-preset-navigation",
+      description: "about-logging-preset-navigation-description",
+    },
+  },
   ...gOsSpecificLoggingPresets,
   custom: {
     modules: "",
@@ -654,9 +662,8 @@ async function captureProfile() {
       throw profileCaptureResult.error;
     }
     if (!gProfileSaveOrUpload) {
-      const { ProfileSaveOrUploadDialog } = await import(
-        "chrome://global/content/aboutLogging/profileSaveUploadLogic.mjs"
-      );
+      const { ProfileSaveOrUploadDialog } =
+        await import("chrome://global/content/aboutLogging/profileSaveUploadLogic.mjs");
       gProfileSaveOrUpload = new ProfileSaveOrUploadDialog();
     }
     gProfileSaveOrUpload.init(new Uint8Array(profileCaptureResult.profile));

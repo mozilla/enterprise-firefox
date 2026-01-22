@@ -59,6 +59,7 @@ import mozilla.components.support.ktx.kotlin.isGeoLocation
 import mozilla.components.support.ktx.kotlin.isPhone
 import mozilla.components.support.ktx.kotlin.sanitizeFileName
 import mozilla.components.support.ktx.kotlin.tryGetHostFromUrl
+import mozilla.components.support.utils.CertificateUtils
 import mozilla.components.support.utils.DownloadUtils
 import mozilla.components.support.utils.DownloadUtils.RESPONSE_CODE_SUCCESS
 import mozilla.components.support.utils.DownloadUtils.makePdfContentDisposition
@@ -1083,7 +1084,7 @@ class GeckoEngineSession(
                 onSecurityChange(
                     securityInfo.isSecure,
                     securityInfo.host,
-                    securityInfo.getIssuerName(),
+                    CertificateUtils.issuerOrganization(securityInfo.certificate),
                     securityInfo.certificate,
                 )
             }
@@ -1464,10 +1465,6 @@ class GeckoEngineSession(
         }
 
         return cookiesPolicies
-    }
-
-    internal fun GeckoSession.ProgressDelegate.SecurityInformation.getIssuerName(): String? {
-        return certificate?.issuerDN?.name?.substringAfterLast("O=")?.substringBeforeLast(",C=")
     }
 
     private operator fun Int.contains(mask: Int): Boolean {

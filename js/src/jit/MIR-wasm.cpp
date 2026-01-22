@@ -1024,6 +1024,11 @@ MDefinition* MWasmRefCastConcrete::foldsTo(TempAllocator& alloc) {
   return this;
 }
 
+bool MWasmRefCastInfallible::congruentTo(const MDefinition* ins) const {
+  return congruentIfOperandsEqual(ins) &&
+         destType() == ins->toWasmRefCastInfallible()->destType();
+}
+
 MDefinition* MWasmRefAsNonNull::foldsTo(TempAllocator& alloc) {
   wasm::MaybeRefType inputType = ref()->wasmRefType();
   if (inputType.isSome() && !inputType.value().isNullable()) {

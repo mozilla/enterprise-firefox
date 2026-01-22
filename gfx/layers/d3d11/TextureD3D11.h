@@ -69,8 +69,7 @@ class D3D11TextureData final : public TextureData {
       ID3D11Texture2D* aTexture, uint32_t aIndex, gfx::IntSize aSize,
       gfx::SurfaceFormat aFormat, gfx::ColorSpace2 aColorSpace,
       gfx::ColorRange aColorRange, KnowsCompositor* aKnowsCompositor,
-      RefPtr<ZeroCopyUsageInfo> aUsageInfo,
-      const RefPtr<FenceD3D11> aWriteFence);
+      ZeroCopyUsageInfo* aUsageInfo, const RefPtr<FenceD3D11> aWriteFence);
 
   virtual ~D3D11TextureData();
 
@@ -391,6 +390,10 @@ class DXGITextureHostD3D11 : public TextureHost {
 
   DXGITextureHostD3D11* AsDXGITextureHostD3D11() override { return this; }
 
+  void NotifyNotUsed() override;
+
+  void SetReadFence(Fence* aReadFence) override;
+
   const RefPtr<gfx::FileHandleWrapper> mHandle;
   const Maybe<GpuProcessTextureId> mGpuProcessTextureId;
   const uint32_t mArrayIndex;
@@ -400,6 +403,9 @@ class DXGITextureHostD3D11 : public TextureHost {
   const Maybe<CompositeProcessFencesHolderId> mFencesHolderId;
   const gfx::ColorSpace2 mColorSpace;
   const gfx::ColorRange mColorRange;
+
+ protected:
+  RefPtr<FenceD3D11> mReadFence;
 };
 
 class DXGIYCbCrTextureHostD3D11 : public TextureHost {
@@ -451,7 +457,7 @@ class DXGIYCbCrTextureHostD3D11 : public TextureHost {
     return this;
   }
 
-  void SetReadFence(RefPtr<FenceD3D11> aReadFence);
+  void SetReadFence(Fence* aReadFence) override;
 
   // Handles will be closed automatically when `UniqueFileHandle` gets
   // destroyed.

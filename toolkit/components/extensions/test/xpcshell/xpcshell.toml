@@ -67,6 +67,9 @@ skip-if = [
 
 ["test_ext_contexts.js"]
 
+["test_ext_dnr_cache.js"]
+requesttimeoutfactor = 2 # Test has multiple long wait to absorb slow execution
+
 ["test_ext_experiments_glean.js"]
 
 ["test_ext_geckoProfiler_schema.js"]

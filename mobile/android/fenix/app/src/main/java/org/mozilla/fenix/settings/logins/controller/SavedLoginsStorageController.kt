@@ -6,14 +6,8 @@ package org.mozilla.fenix.settings.logins.controller
 
 import android.util.Log
 import androidx.navigation.NavController
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Deferred
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import mozilla.components.concept.storage.Login
 import mozilla.components.concept.storage.LoginEntry
 import mozilla.components.service.sync.logins.InvalidRecordException
@@ -37,26 +31,15 @@ open class SavedLoginsStorageController(
     private val lifecycleScope: CoroutineScope,
     private val navController: NavController,
     private val loginsFragmentStore: LoginsFragmentStore,
-    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val clipboardHandler: ClipboardHandler,
 ) {
 
     fun delete(loginId: String) {
-        var deleteLoginJob: Deferred<Boolean>? = null
-        val deleteJob = lifecycleScope.launch(ioDispatcher) {
-            deleteLoginJob = async {
-                passwordsStorage.delete(loginId)
-            }
-            deleteLoginJob.await()
+        lifecycleScope.launch {
+            passwordsStorage.delete(loginId)
+
             deleteLoginFromState(loginId)
-            withContext(Dispatchers.Main) {
-                navController.popBackStack(R.id.savedLoginsFragment, false)
-            }
-        }
-        deleteJob.invokeOnCompletion {
-            if (it is CancellationException) {
-                deleteLoginJob?.cancel()
-            }
+            navController.popBackStack(R.id.savedLoginsFragment, false)
         }
     }
 
@@ -70,26 +53,15 @@ open class SavedLoginsStorageController(
     )
 
     fun add(originText: String, usernameText: String, passwordText: String) {
-        var saveLoginJob: Deferred<Unit>? = null
-        var id: String? = null
-        lifecycleScope.launch(ioDispatcher) {
-            saveLoginJob = async {
-                id = add(loginEntryForAdd(originText, usernameText, passwordText))
-            }
-            saveLoginJob.await()
-            withContext(Dispatchers.Main) {
-                if (id.isNullOrEmpty()) {
-                    navController.popBackStack(R.id.savedLoginsFragment, false)
-                } else {
-                    val directions =
-                        AddLoginFragmentDirections.actionAddLoginFragmentToLoginDetailFragment(id.toString())
-                    navController.navigate(directions)
-                }
-            }
-        }
-        saveLoginJob?.invokeOnCompletion {
-            if (it is CancellationException) {
-                saveLoginJob.cancel()
+        lifecycleScope.launch {
+            val id = add(loginEntryForAdd(originText, usernameText, passwordText))
+
+            if (id.isNullOrEmpty()) {
+                navController.popBackStack(R.id.savedLoginsFragment, false)
+            } else {
+                val directions =
+                    AddLoginFragmentDirections.actionAddLoginFragmentToLoginDetailFragment(id)
+                navController.navigate(directions)
             }
         }
     }
@@ -125,24 +97,15 @@ open class SavedLoginsStorageController(
     }
 
     fun save(loginId: String, usernameText: String, passwordText: String) {
-        var saveLoginJob: Deferred<Unit>? = null
-        lifecycleScope.launch(ioDispatcher) {
-            saveLoginJob = async {
-                save(loginId, loginEntryForSave(loginId, usernameText, passwordText))
-            }
-            saveLoginJob.await()
-            withContext(Dispatchers.Main) {
-                val directions =
-                    EditLoginFragmentDirections.actionEditLoginFragmentToLoginDetailFragment(
-                        loginId,
-                    )
-                navController.navigate(directions)
-            }
-        }
-        saveLoginJob?.invokeOnCompletion {
-            if (it is CancellationException) {
-                saveLoginJob.cancel()
-            }
+        lifecycleScope.launch {
+            val entry = loginEntryForSave(loginId, usernameText, passwordText)
+            save(loginId, entry)
+
+            val directions =
+                EditLoginFragmentDirections.actionEditLoginFragmentToLoginDetailFragment(
+                    loginId,
+                )
+            navController.navigate(directions)
         }
     }
 
@@ -191,7 +154,7 @@ open class SavedLoginsStorageController(
     }
 
     fun findDuplicateForAdd(originText: String, usernameText: String, passwordText: String) {
-        lifecycleScope.launch(ioDispatcher) {
+        lifecycleScope.launch {
             findDuplicate(
                 loginEntryForAdd(originText, usernameText, passwordText),
             )
@@ -199,7 +162,7 @@ open class SavedLoginsStorageController(
     }
 
     fun findDuplicateForSave(loginId: String, usernameText: String, passwordText: String) {
-        lifecycleScope.launch(ioDispatcher) {
+        lifecycleScope.launch {
             findDuplicate(
                 loginEntryForSave(loginId, usernameText, passwordText),
                 loginId,
@@ -226,18 +189,16 @@ open class SavedLoginsStorageController(
         loginsFragmentStore.dispatch(LoginsAction.DuplicateLogin(dupe))
     }
 
-    fun fetchLoginDetails(loginId: String) = lifecycleScope.launch(ioDispatcher) {
+    fun fetchLoginDetails(loginId: String) = lifecycleScope.launch {
         val fetchedLogin = passwordsStorage.get(loginId)
-        withContext(Dispatchers.Main) {
-            if (fetchedLogin != null) {
-                loginsFragmentStore.dispatch(
-                    LoginsAction.UpdateCurrentLogin(
-                        fetchedLogin.mapToSavedLogin(),
-                    ),
-                )
-            } else {
-                navController.popBackStack()
-            }
+        if (fetchedLogin != null) {
+            loginsFragmentStore.dispatch(
+                LoginsAction.UpdateCurrentLogin(
+                    fetchedLogin.mapToSavedLogin(),
+                ),
+            )
+        } else {
+            navController.popBackStack()
         }
     }
 
@@ -246,31 +207,16 @@ open class SavedLoginsStorageController(
         // This has a slight downside of possibly being out of date with the storage if, say, Sync
         // ran in the meantime, but that's fairly unlikely and the speedy UI is worth it.
         if (loginsFragmentStore.state.loginList.isNotEmpty()) {
-            lifecycleScope.launch(Dispatchers.Main) {
-                loginsFragmentStore.dispatch(LoginsAction.LoginsListUpToDate)
-            }
+            loginsFragmentStore.dispatch(LoginsAction.LoginsListUpToDate)
             return
         }
-        var deferredLogins: Deferred<List<Login>>? = null
-        val fetchLoginsJob = lifecycleScope.launch(ioDispatcher) {
-            deferredLogins = async {
-                passwordsStorage.list()
-            }
-            val logins = deferredLogins.await()
-            logins.let {
-                withContext(Dispatchers.Main) {
-                    loginsFragmentStore.dispatch(
-                        LoginsAction.UpdateLoginsList(
-                            logins.map { it.mapToSavedLogin() },
-                        ),
-                    )
-                }
-            }
-        }
-        fetchLoginsJob.invokeOnCompletion {
-            if (it is CancellationException) {
-                deferredLogins?.cancel()
-            }
+        lifecycleScope.launch {
+            val logins = passwordsStorage.list()
+            loginsFragmentStore.dispatch(
+                LoginsAction.UpdateLoginsList(
+                    logins.map { it.mapToSavedLogin() },
+                ),
+            )
         }
     }
 

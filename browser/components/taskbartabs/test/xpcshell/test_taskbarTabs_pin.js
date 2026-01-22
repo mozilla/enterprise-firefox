@@ -21,18 +21,10 @@ XPCOMUtils.defineLazyServiceGetters(this, {
 // We want to mock the native XPCOM interfaces of the initialized
 // `ShellService.shellService`, but those interfaces are frozen. Instead we
 // proxy `ShellService.shellService` and mock it.
-let gCreateWindowsIcon = ShellService.shellService.createWindowsIcon;
+let gCreateWindowsIcon = ShellService.createWindowsIcon;
 let gOverrideWindowsIconFileOnce;
 const kMockNativeShellService = {
   ...ShellService.shellService,
-  createWindowsIcon: sinon
-    .stub()
-    .callsFake(async (aIconFile, aImgContainer) => {
-      if (gOverrideWindowsIconFileOnce) {
-        await gCreateWindowsIcon(gOverrideWindowsIconFileOnce, aImgContainer);
-        gOverrideWindowsIconFileOnce = null;
-      }
-    }),
   createShortcut: sinon.stub().resolves("dummy_path"),
   deleteShortcut: sinon.stub().resolves("dummy_path"),
   pinShortcutToTaskbar: sinon.stub().resolves(),
@@ -43,6 +35,15 @@ const kMockNativeShellService = {
 };
 
 sinon.stub(ShellService, "shellService").value(kMockNativeShellService);
+
+sinon
+  .stub(ShellService, "createWindowsIcon")
+  .callsFake(async (aIconFile, aImgContainer) => {
+    if (gOverrideWindowsIconFileOnce) {
+      await gCreateWindowsIcon(gOverrideWindowsIconFileOnce, aImgContainer);
+      gOverrideWindowsIconFileOnce = null;
+    }
+  });
 
 sinon.stub(TaskbarTabsPin, "_getLocalization").returns({
   formatValue(msg) {
@@ -93,7 +94,7 @@ const kDefaultIconSpy = sinon.spy(kMockFaviconService, "defaultFavicon", [
 
 function shellPinCalled(aTaskbarTab) {
   ok(
-    kMockNativeShellService.createWindowsIcon.calledOnce,
+    ShellService.createWindowsIcon.calledOnce,
     `Icon creation should have been called.`
   );
   ok(
@@ -159,7 +160,7 @@ const url = Services.io.newURI("https://www.test.com");
 const userContextId = 0;
 
 const registry = new TaskbarTabsRegistry();
-const taskbarTab = registry.findOrCreateTaskbarTab(url, userContextId);
+const taskbarTab = createTaskbarTab(registry, url, userContextId);
 
 const patchedSpy = sinon.stub();
 registry.on(TaskbarTabsRegistry.events.patched, patchedSpy);
@@ -184,8 +185,7 @@ add_task(async function test_pin_existing_favicon_raster() {
     kMockFaviconService.getFaviconForPage.calledOnce,
     "The favicon for the page should have attempted to be retrieved."
   );
-  const imgContainer =
-    kMockNativeShellService.createWindowsIcon.firstCall.args[1];
+  const imgContainer = ShellService.createWindowsIcon.firstCall.args[1];
   equal(imgContainer.width, 256, "Image should be scaled to 256px width.");
   equal(imgContainer.height, 256, "Image should be scaled to 256px height.");
   ok(
@@ -261,7 +261,7 @@ add_task(async function test_pin_location() {
 
 add_task(async function test_pin_location_dos_name() {
   const parsedURI = Services.io.newURI("https://aux.test");
-  const invalidTaskbarTab = registry.findOrCreateTaskbarTab(parsedURI, 0);
+  const invalidTaskbarTab = createTaskbarTab(registry, parsedURI, 0);
   sinon.resetHistory();
 
   await TaskbarTabsPin.pinTaskbarTab(invalidTaskbarTab, registry);
@@ -291,7 +291,7 @@ add_task(async function test_pin_location_dos_name() {
 
 add_task(async function test_pin_location_bad_characters() {
   const parsedURI = Services.io.newURI("https://another.test");
-  const invalidTaskbarTab = registry.findOrCreateTaskbarTab(parsedURI, 0, {
+  const invalidTaskbarTab = createTaskbarTab(registry, parsedURI, 0, {
     manifest: {
       name: "** :\t\r\n \\\\ >> Not a valid. filename??! << // |||: **.",
     },
@@ -316,7 +316,7 @@ add_task(async function test_pin_location_bad_characters() {
 
 add_task(async function test_pin_location_lnk_extension() {
   const parsedURI = Services.io.newURI("https://another.test");
-  const invalidTaskbarTab = registry.findOrCreateTaskbarTab(parsedURI, 0, {
+  const invalidTaskbarTab = createTaskbarTab(registry, parsedURI, 0, {
     manifest: {
       name: "coolstartup.lnk",
     },

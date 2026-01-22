@@ -20,6 +20,7 @@
         <item name="switchStyle">@style/App.Widget.Switch</item>
         <item name="checkboxStyle">@style/App.Widget.CompoundButton.CheckBox</item>
         <item name="radioButtonStyle">@style/App.Widget.CompoundButton.RadioButton</item>
+        <item name="textInputStyle">@style/Widget.App.TextInputLayout</item>
 
         <!-- Use the same colors for both themes until light theme it will be implemented -->
         <item name="primaryText">@color/primaryText</item>
@@ -345,6 +346,18 @@
         <item name="fontFamily">@font/metropolis</item>
         <item name="android:letterSpacing">0.04</item>
         <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="Widget.App.TextInputLayout" parent="Widget.Material3.TextInputLayout.OutlinedBox">
+        <!-- This controls the floating hint color when the field is focused -->
+        <item name="hintTextColor">@color/accentBright</item>
+        <item name="boxStrokeColor">@color/accentBright</item>
+        <item name="cursorColor">@color/accentBright</item>
+
+        <!-- This controls the hint color when the field is NOT focused (resting) -->
+        <item name="android:textColorHint">@color/secondaryText</item>
+
+        <item name="boxStrokeWidthFocused">1dp</item>
     </style>
 
     <style name="MetropolisButton">

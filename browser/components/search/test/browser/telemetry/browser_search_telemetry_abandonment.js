@@ -65,16 +65,6 @@ add_task(async function test_tab_close_before_page_load() {
 
   assertSERPTelemetry([
     {
-      impression: {
-        provider: "example",
-        tagged: "true",
-        partner_code: "ff",
-        source: "unknown",
-        is_shopping_page: "false",
-        is_private: "false",
-        shopping_tab_displayed: "false",
-        is_signed_in: "false",
-      },
       abandonment: {
         reason: SearchSERPTelemetryUtils.ABANDONMENTS.TAB_CLOSE,
       },
@@ -110,16 +100,6 @@ add_task(async function test_tab_close_after_page_load() {
 
   assertSERPTelemetry([
     {
-      impression: {
-        provider: "example",
-        tagged: "true",
-        partner_code: "ff",
-        source: "unknown",
-        is_shopping_page: "false",
-        is_private: "false",
-        shopping_tab_displayed: "false",
-        is_signed_in: "false",
-      },
       abandonment: {
         reason: SearchSERPTelemetryUtils.ABANDONMENTS.TAB_CLOSE,
       },
@@ -147,16 +127,6 @@ add_task(async function test_window_close() {
 
   assertSERPTelemetry([
     {
-      impression: {
-        provider: "example",
-        tagged: "true",
-        partner_code: "ff",
-        source: "unknown",
-        is_shopping_page: "false",
-        is_private: "false",
-        shopping_tab_displayed: "false",
-        is_signed_in: "false",
-      },
       abandonment: {
         reason: SearchSERPTelemetryUtils.ABANDONMENTS.WINDOW_CLOSE,
       },
@@ -183,16 +153,6 @@ add_task(async function test_navigation_via_urlbar() {
 
   assertSERPTelemetry([
     {
-      impression: {
-        provider: "example",
-        tagged: "true",
-        partner_code: "ff",
-        source: "unknown",
-        is_shopping_page: "false",
-        is_private: "false",
-        shopping_tab_displayed: "false",
-        is_signed_in: "false",
-      },
       abandonment: {
         reason: SearchSERPTelemetryUtils.ABANDONMENTS.NAVIGATION,
       },
@@ -235,16 +195,6 @@ add_task(async function test_navigation_via_back_button() {
 
   assertSERPTelemetry([
     {
-      impression: {
-        provider: "example",
-        tagged: "true",
-        partner_code: "ff",
-        source: "unknown",
-        is_shopping_page: "false",
-        is_private: "false",
-        shopping_tab_displayed: "false",
-        is_signed_in: "false",
-      },
       abandonment: {
         reason: SearchSERPTelemetryUtils.ABANDONMENTS.NAVIGATION,
       },

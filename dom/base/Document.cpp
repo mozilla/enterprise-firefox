@@ -207,6 +207,7 @@
 #include "mozilla/dom/PContentChild.h"
 #include "mozilla/dom/PWindowGlobalChild.h"
 #include "mozilla/dom/PageLoadEventUtils.h"
+#include "mozilla/dom/PageRevealEvent.h"
 #include "mozilla/dom/PageTransitionEvent.h"
 #include "mozilla/dom/PageTransitionEventBinding.h"
 #include "mozilla/dom/Performance.h"
@@ -574,7 +575,7 @@ void IdentifierMapEntry::Traverse(
 }
 
 bool IdentifierMapEntry::IsEmpty() {
-  return mIdContentList->IsEmpty() && !mNameContentList &&
+  return mIdContentList.IsEmpty() && !mNameContentList &&
          !mDocumentNameContentList && !mChangeCallbacks && !mImageElement;
 }
 
@@ -623,11 +624,11 @@ void IdentifierMapEntry::FireChangeCallbacks(Element* aOldElement,
 
 void IdentifierMapEntry::AddIdElement(Element* aElement) {
   MOZ_ASSERT(aElement, "Must have element");
-  MOZ_ASSERT(!mIdContentList->Contains(nullptr), "Why is null in our list?");
+  MOZ_ASSERT(!mIdContentList.Contains(nullptr), "Why is null in our list?");
 
   size_t index = mIdContentList.Insert(*aElement);
   if (index == 0) {
-    Element* oldElement = mIdContentList->SafeElementAt(1);
+    Element* oldElement = mIdContentList.SafeElementAt(1, nullptr);
     FireChangeCallbacks(oldElement, aElement);
   }
 }
@@ -642,15 +643,16 @@ void IdentifierMapEntry::RemoveIdElement(Element* aElement) {
   // Only assert this in HTML documents for now as XUL does all sorts of weird
   // crap.
   NS_ASSERTION(!aElement->OwnerDoc()->IsHTMLDocument() ||
-                   mIdContentList->Contains(aElement),
+                   mIdContentList.Contains(aElement),
                "Removing id entry that doesn't exist");
 
   // XXXbz should this ever Compact() I guess when all the content is gone
   // we'll just get cleaned up in the natural order of things...
-  Element* currentElement = mIdContentList->SafeElementAt(0);
+  Element* currentElement = mIdContentList.SafeElementAt(0, nullptr);
   mIdContentList.RemoveElement(*aElement);
   if (currentElement == aElement) {
-    FireChangeCallbacks(currentElement, mIdContentList->SafeElementAt(0));
+    FireChangeCallbacks(currentElement,
+                        mIdContentList.SafeElementAt(0, nullptr));
   }
 }
 
@@ -664,7 +666,7 @@ void IdentifierMapEntry::SetImageElement(Element* aElement) {
 }
 
 void IdentifierMapEntry::ClearAndNotify() {
-  Element* currentElement = mIdContentList->SafeElementAt(0);
+  Element* currentElement = mIdContentList.SafeElementAt(0, nullptr);
   mIdContentList.Clear();
   if (currentElement) {
     FireChangeCallbacks(currentElement, nullptr);
@@ -1475,6 +1477,7 @@ Document::Document(const char* aContentType,
       mSuppressNotifyingDevToolsOfNodeRemovals(false),
       mHasPolicyWithRequireTrustedTypesForDirective(false),
       mClipboardCopyTriggered(false),
+      mHasBeenRevealed(false),
       mXMLDeclarationBits(0),
       mOnloadBlockCount(0),
       mWriteLevel(0),
@@ -1887,29 +1890,25 @@ void Document::GetFailedCertSecurityInfo(FailedCertSecurityInfo& aInfo,
   }
 
   rv = cert->GetValidity(getter_AddRefs(validity));
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    aRv.Throw(rv);
-    return;
-  }
-  if (NS_WARN_IF(!validity)) {
-    aRv.Throw(NS_ERROR_DOM_INVALID_STATE_ERR);
-    return;
-  }
+  if (NS_WARN_IF(NS_FAILED(rv)) || NS_WARN_IF(!validity)) {
+    aInfo.mValidNotBefore = 0;
+    aInfo.mValidNotAfter = 0;
+  } else {
+    PRTime validityResult;
+    rv = validity->GetNotBefore(&validityResult);
+    if (NS_WARN_IF(NS_FAILED(rv))) {
+      aInfo.mValidNotBefore = 0;
+    } else {
+      aInfo.mValidNotBefore = DOMTimeStamp(validityResult / PR_USEC_PER_MSEC);
+    }
 
-  PRTime validityResult;
-  rv = validity->GetNotBefore(&validityResult);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    aRv.Throw(rv);
-    return;
+    rv = validity->GetNotAfter(&validityResult);
+    if (NS_WARN_IF(NS_FAILED(rv))) {
+      aInfo.mValidNotAfter = 0;
+    } else {
+      aInfo.mValidNotAfter = DOMTimeStamp(validityResult / PR_USEC_PER_MSEC);
+    }
   }
-  aInfo.mValidNotBefore = DOMTimeStamp(validityResult / PR_USEC_PER_MSEC);
-
-  rv = validity->GetNotAfter(&validityResult);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    aRv.Throw(rv);
-    return;
-  }
-  aInfo.mValidNotAfter = DOMTimeStamp(validityResult / PR_USEC_PER_MSEC);
 
   nsAutoString issuerCommonName;
   nsAutoString certChainPEMString;
@@ -1937,25 +1936,18 @@ void Document::GetFailedCertSecurityInfo(FailedCertSecurityInfo& aInfo,
     }
 
     rv = certificate->GetValidity(getter_AddRefs(validity));
-    if (NS_WARN_IF(NS_FAILED(rv))) {
-      aRv.Throw(rv);
-      return;
-    }
-    if (NS_WARN_IF(!validity)) {
-      aRv.Throw(NS_ERROR_DOM_INVALID_STATE_ERR);
-      return;
-    }
-
-    rv = validity->GetNotBefore(&notBefore);
-    if (NS_WARN_IF(NS_FAILED(rv))) {
-      aRv.Throw(rv);
-      return;
-    }
-
-    rv = validity->GetNotAfter(&notAfter);
-    if (NS_WARN_IF(NS_FAILED(rv))) {
-      aRv.Throw(rv);
-      return;
+    if (NS_WARN_IF(NS_FAILED(rv)) || NS_WARN_IF(!validity)) {
+      notBefore = 0;
+      notAfter = 0;
+    } else {
+      rv = validity->GetNotBefore(&notBefore);
+      if (NS_WARN_IF(NS_FAILED(rv))) {
+        notBefore = 0;
+      }
+      rv = validity->GetNotAfter(&notAfter);
+      if (NS_WARN_IF(NS_FAILED(rv))) {
+        notAfter = 0;
+      }
     }
 
     notBefore = std::max(minValidity, notBefore);
@@ -3673,6 +3665,12 @@ nsresult Document::StartDocumentLoad(const char* aCommand, nsIChannel* aChannel,
 
   // If this is an error page, don't inherit sandbox flags
   nsCOMPtr<nsILoadInfo> loadInfo = aChannel->LoadInfo();
+
+  if (!IsTopLevelContentDocument()) {
+    SetAncestorOriginsList(
+        ProduceAncestorOriginsList(loadInfo->AncestorPrincipals()));
+  }
+
   if (docShell && !loadInfo->GetLoadErrorPage()) {
     mSandboxFlags = loadInfo->GetSandboxFlags();
     WarnIfSandboxIneffective(docShell, mSandboxFlags, GetChannel());
@@ -3741,6 +3739,9 @@ nsresult Document::StartDocumentLoad(const char* aCommand, nsIChannel* aChannel,
 
   // Initialize FeaturePolicy
   rv = InitFeaturePolicy(aChannel);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  rv = InitTLSCertificateBinding(aChannel);
   NS_ENSURE_SUCCESS(rv, rv);
 
   rv = loadInfo->GetCookieJarSettings(getter_AddRefs(mCookieJarSettings));
@@ -4079,6 +4080,46 @@ nsresult Document::InitIntegrityPolicy(nsIChannel* aChannel) {
   NS_ENSURE_SUCCESS(rv, rv);
 
   mPolicyContainer->SetIntegrityPolicy(integrityPolicy);
+  return NS_OK;
+}
+
+nsresult Document::InitTLSCertificateBinding(nsIChannel* aChannel) {
+  mTLSCertificateBindingURI = nullptr;
+  nsCOMPtr<nsIHttpChannel> httpChannel;
+  nsresult rv = GetHttpChannelHelper(aChannel, getter_AddRefs(httpChannel));
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    return rv;
+  }
+
+  if (!httpChannel) {
+    return NS_OK;
+  }
+
+  nsAutoCString linkHeader;
+  rv = httpChannel->GetResponseHeader("link"_ns, linkHeader);
+  if (NS_FAILED(rv) || linkHeader.IsEmpty()) {
+    return NS_OK;
+  }
+  nsTArray<LinkHeader> linkHeaders(
+      ParseLinkHeader(NS_ConvertUTF8toUTF16(linkHeader)));
+  for (const auto& linkHeader : linkHeaders) {
+    // According to ETSI TS 119 411-5 V2.1.1 Section 5.2, "When using a 2-QWAC,
+    // website operators shall... Configure their website to serve... an HTTP
+    // 'Link' response header (as defined in IETF RFC 8288 [6]) with a relative
+    // reference to the TLS Certificate Binding, and a rel value of
+    // tls-certificate-binding".
+    if (linkHeader.mRel.EqualsIgnoreCase("tls-certificate-binding") &&
+        !net_IsAbsoluteURL(NS_ConvertUTF16toUTF8(linkHeader.mHref)) &&
+        !net_IsAbsoluteURL(NS_ConvertUTF16toUTF8(linkHeader.mAnchor))) {
+      if (NS_SUCCEEDED(linkHeader.NewResolveHref(
+              getter_AddRefs(mTLSCertificateBindingURI), mDocumentURI))) {
+        break;
+      } else {
+        mTLSCertificateBindingURI = nullptr;
+      }
+    }
+  }
+
   return NS_OK;
 }
 
@@ -7596,10 +7637,8 @@ bool Document::ShouldThrottleFrameRequests() const {
   // document that previously wasn't visible scrolls into view. This is
   // acceptable / unlikely to be human-perceivable, though we could improve on
   // it if needed by adding an intersection margin or something of that sort.
-  auto margin = DOMIntersectionObserver::LazyLoadingRootMargin();
-  const IntersectionInput input = DOMIntersectionObserver::ComputeInput(
-      *el->OwnerDoc(), /* aRoot = */ nullptr, &margin,
-      /* aScrollMargin = */ nullptr);
+  const IntersectionInput input =
+      DOMIntersectionObserver::ComputeInputForIframeThrottling(*el->OwnerDoc());
   const IntersectionOutput output = DOMIntersectionObserver::Intersect(
       input, *el, DOMIntersectionObserver::BoxToUse::Content);
   return !output.Intersects();
@@ -8247,11 +8286,12 @@ nsISupports* Document::GetContainer() const {
 
 void Document::SetScriptGlobalObject(
     nsIScriptGlobalObject* aScriptGlobalObject) {
-  MOZ_ASSERT(aScriptGlobalObject || !mAnimationController ||
-                 mAnimationController->IsPausedByType(
-                     SMILTimeContainer::PAUSE_PAGEHIDE |
-                     SMILTimeContainer::PAUSE_BEGIN),
-             "Clearing window pointer while animations are unpaused");
+  MOZ_ASSERT(
+      aScriptGlobalObject || !mAnimationController ||
+          mAnimationController->IsPausedByType(SMILTimeContainer::PauseTypes(
+              SMILTimeContainer::PauseType::PageHide,
+              SMILTimeContainer::PauseType::Begin)),
+      "Clearing window pointer while animations are unpaused");
 
   if (mScriptGlobalObject && !aScriptGlobalObject) {
     // We're detaching from the window.  We need to grab a pointer to
@@ -9934,6 +9974,7 @@ nsresult Document::InitializeFrameLoader(nsFrameLoader* aLoader) {
     return NS_ERROR_FAILURE;
   }
 
+  MOZ_RELEASE_ASSERT(aLoader, "Loader to initialize must not be null");
   mInitializableFrameLoaders.AppendElement(aLoader);
   if (!mFrameLoaderRunner) {
     mFrameLoaderRunner =
@@ -9992,7 +10033,7 @@ void Document::MaybeInitializeFinalizeFrameLoaders() {
   while (mInitializableFrameLoaders.Length()) {
     RefPtr<nsFrameLoader> loader = mInitializableFrameLoaders[0];
     mInitializableFrameLoaders.RemoveElementAt(0);
-    NS_ASSERTION(loader, "null frameloader in the array?");
+    MOZ_RELEASE_ASSERT(loader, "null frameloader in the array?");
     loader->ReallyStartLoading();
   }
 
@@ -10061,7 +10102,7 @@ SMILAnimationController* Document::GetAnimationController() {
   nsPresContext* context = GetPresContext();
   if (mAnimationController && context &&
       context->ImageAnimationMode() == imgIContainer::kDontAnimMode) {
-    mAnimationController->Pause(SMILTimeContainer::PAUSE_USERPREF);
+    mAnimationController->Pause(SMILTimeContainer::PauseType::UserPref);
   }
 
   // If we're hidden (or being hidden), notify the newly-created animation
@@ -11665,8 +11706,7 @@ void Document::RemoveColorSchemeMeta(HTMLMetaElement& aMeta) {
 void Document::RecomputeColorScheme() {
   auto oldColorScheme = mColorSchemeBits;
   mColorSchemeBits = 0;
-  const nsTArray<HTMLMetaElement*>& elements = mColorSchemeMetaTags;
-  for (const HTMLMetaElement* el : elements) {
+  for (const HTMLMetaElement* el : mColorSchemeMetaTags.AsSpan()) {
     nsAutoString content;
     if (!el->GetAttr(nsGkAtoms::content, content)) {
       continue;
@@ -12563,6 +12603,13 @@ void Document::OnPageShow(bool aPersisted, EventTarget* aDispatchStartTarget,
                           nullptr);
     }
 
+    if (aPersisted) {
+      // We're coming out of bfcache, clear the revealed flag per
+      // https://html.spec.whatwg.org/#reactivate-a-document 4.2.
+      mHasBeenRevealed = false;
+      MaybeScheduleRenderingPhases({RenderingPhase::Reveal});
+    }
+
     nsCOMPtr<EventTarget> target = aDispatchStartTarget;
     if (!target) {
       target = do_QueryInterface(GetWindow());
@@ -12621,7 +12668,10 @@ void Document::OnPageHide(bool aPersisted, EventTarget* aDispatchStartTarget,
   }
 
   // https://wicg.github.io/document-picture-in-picture/#close-on-destroy
-  CloseAnyAssociatedDocumentPiPWindows();
+  // If chrome window is destroyed, content will take care of PiP windows.
+  if (GetBrowsingContext() && GetBrowsingContext()->IsContent()) {
+    CloseAnyAssociatedDocumentPiPWindows();
+  }
 
   PointerLockManager::Unlock("Document::OnPageHide", this);
 
@@ -14332,13 +14382,13 @@ nsContentList* Document::ImageMapList() {
 
 #define DEPRECATED_OPERATION(_op) #_op "Warning",
 static const char* kDeprecationWarnings[] = {
-#include "nsDeprecatedOperationList.h"
+#include "nsDeprecatedOperationList.inc"
     nullptr};
 #undef DEPRECATED_OPERATION
 
 #define DOCUMENT_WARNING(_op) #_op "Warning",
 static const char* kDocumentWarnings[] = {
-#include "nsDocumentWarningList.h"
+#include "nsDocumentWarningList.inc"
     nullptr};
 #undef DOCUMENT_WARNING
 
@@ -14347,7 +14397,7 @@ static UseCounter OperationToUseCounter(DeprecatedOperations aOperation) {
 #define DEPRECATED_OPERATION(_op)    \
   case DeprecatedOperations::e##_op: \
     return eUseCounter_##_op;
-#include "nsDeprecatedOperationList.h"
+#include "nsDeprecatedOperationList.inc"
 #undef DEPRECATED_OPERATION
     default:
       MOZ_CRASH();
@@ -16961,6 +17011,42 @@ void Document::PostVisibilityUpdateEvent() {
   Dispatch(event.forget());
 }
 
+// https://html.spec.whatwg.org/#reveal
+void Document::Reveal() {
+  // Step 1
+  if (mHasBeenRevealed) {
+    return;
+  }
+
+  // Step 2
+  mHasBeenRevealed = true;
+
+  if (!StaticPrefs::dom_viewTransitions_cross_document_enabled()) {
+    return;
+  }
+
+  RefPtr<nsGlobalWindowInner> win = nsGlobalWindowInner::Cast(GetInnerWindow());
+  if (!win) {
+    return;
+  }
+
+  // Step 3, Let transition be the result of resolving inbound cross-document
+  // view-transition for document.
+  // TODO
+
+  // Step 4
+  PageRevealEventInit init;
+  // init.mViewTransition = TODO
+
+  RefPtr<PageRevealEvent> event =
+      PageRevealEvent::Constructor(win, u"pagereveal"_ns, init);
+  event->SetTrusted(true);
+  win->DispatchEvent(*event);
+
+  // Step 5, If transition is not null, then:
+  // TODO
+}
+
 void Document::MaybeActiveMediaComponents() {
   auto* window = GetWindow();
   if (!window || !window->ShouldDelayMediaFromStart()) {
@@ -17653,13 +17739,13 @@ void Document::RecordCanvasUsage(CanvasUsage& aUsage) {
   uint64_t now = PR_Now();
 
   nsCString originNoSuffix;
-  nsCString uri;
   if (NS_FAILED(NodePrincipal()->GetOriginNoSuffix(originNoSuffix))) {
     MOZ_LOG(gFingerprinterDetection, LogLevel::Error,
             ("Document:: %p Could not get originsuffix", this));
     return;
   }
-  if (NS_FAILED(NodePrincipal()->GetSpec(uri))) {
+  nsCOMPtr<nsIURI> uri = NodePrincipal()->GetURI();
+  if (!uri) {
     MOZ_LOG(gFingerprinterDetection, LogLevel::Error,
             ("Document:: %p Could not get uri", this));
     return;
@@ -17680,11 +17766,14 @@ void Document::RecordCanvasUsage(CanvasUsage& aUsage) {
       }
     }
 
+    nsAutoCString uriString;
+    (void)uri->GetSpec(uriString);
+
     MOZ_LOG(gFingerprinterDetection, LogLevel::Debug,
             ("Document:: %p %s recording canvas usage of type %s on %s in %s",
              this, originNoSuffix.get(),
-             CanvasUsageSourceToString(aUsage.mUsageSource).get(), uri.get(),
-             filename.get()));
+             CanvasUsageSourceToString(aUsage.mUsageSource).get(),
+             uriString.get(), filename.get()));
   }
 
   // Check if we need to clear the usage data for this source.
@@ -17762,12 +17851,12 @@ void Document::RecordCanvasUsage(CanvasUsage& aUsage) {
 }
 
 void Document::RecordFontFingerprinting() {
-  nsCString uri;
   nsCString originNoSuffix;
   if (NS_FAILED(NodePrincipal()->GetOriginNoSuffix(originNoSuffix))) {
     return;
   }
-  if (NS_FAILED(NodePrincipal()->GetSpec(uri))) {
+  nsCOMPtr<nsIURI> uri = NodePrincipal()->GetURI();
+  if (!uri) {
     return;
   }
 
@@ -17895,9 +17984,8 @@ static void UpdateEffectsOnBrowsingContext(BrowsingContext* aBc,
 }
 
 void Document::UpdateRemoteFrameEffects(bool aIncludeInactive) {
-  auto margin = DOMIntersectionObserver::LazyLoadingRootMargin();
-  const IntersectionInput input = DOMIntersectionObserver::ComputeInput(
-      *this, /* aRoot = */ nullptr, &margin, /* aScrollMargin = */ nullptr);
+  const IntersectionInput input =
+      DOMIntersectionObserver::ComputeInputForIframeThrottling(*this);
   if (auto* wc = GetWindowContext()) {
     for (const RefPtr<BrowsingContext>& child : wc->Children()) {
       UpdateEffectsOnBrowsingContext(child, input, aIncludeInactive);
@@ -18017,6 +18105,23 @@ void Document::UpdateLastRememberedSizes() {
       element->SetLastRememberedISize(iSize);
     }
   }
+}
+
+void Document::SetAncestorOriginsList(
+    nsTArray<nsString>&& aAncestorOriginsList) {
+  mAncestorOriginsList = std::move(aAncestorOriginsList);
+}
+
+Span<const nsString> Document::GetAncestorOriginsList() const {
+  return mAncestorOriginsList;
+}
+
+already_AddRefed<DOMStringList> Document::AncestorOrigins() const {
+  RefPtr<DOMStringList> list = new DOMStringList();
+  for (const auto& origin : mAncestorOriginsList) {
+    list->Add(origin);
+  }
+  return list.forget();
 }
 
 void Document::NotifyLayerManagerRecreated() {
@@ -18339,7 +18444,10 @@ static void PropagateUserGestureActivationBetweenPiP(
     // this means activation in a cross-origin subframe in the opener will
     // cause the PIP window to get activation.
     nsPIDOMWindowOuter* outer = currentBC->Top()->GetDOMWindow();
-    NS_ENSURE_TRUE_VOID(outer);
+    if (!outer) {
+      // We don't warn on failure due to the frequency. See bug 2008394.
+      return;
+    }
     nsPIDOMWindowInner* inner = outer->GetCurrentInnerWindow();
     NS_ENSURE_TRUE_VOID(inner);
     DocumentPictureInPicture* dpip = inner->GetExtantDocumentPictureInPicture();
@@ -18868,10 +18976,9 @@ void Document::DetermineProximityToViewportAndNotifyResizeObservers() {
     // https://github.com/whatwg/html/issues/11210 for the timing of this.
     UpdateLastRememberedSizes();
 
-    const bool evaluateAllFallbacksIfNeeded = !initialAnchorOverflowDone;
+    const bool firstTime = !initialAnchorOverflowDone;
     initialAnchorOverflowDone = true;
-    if (AnchorPositioningUtils::TriggerLayoutOnOverflow(
-            ps, evaluateAllFallbacksIfNeeded)) {
+    if (AnchorPositioningUtils::TriggerLayoutOnOverflow(ps, firstTime)) {
       // If any of the anchor positioned items overflow its cb, then we trigger
       // a layout for them. If we triggered for any item, we have to restart the
       // loop to flush all layouts.

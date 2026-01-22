@@ -125,7 +125,11 @@ function runTests(ui, frameNames, tests) {
       async function waitForEventFromFrame(frameName, type, timeout = 100) {
         await ContentTaskUtils.waitForCondition(
           () => body.dataset[frameName]?.split(" ").includes(type),
-          `Waiting for ${type} event from ${frameName}`,
+          {
+            toString() {
+              return `Waiting for ${type} event from ${frameName} (events: ${body.dataset[frameName]})`;
+            },
+          },
           10,
           timeout / 10
         );

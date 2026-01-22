@@ -1672,3 +1672,131 @@ contextual_services:
     expires: never
     send_in_pings:
       - context-id-deletion-request
+
+web_notification_permission:
+  icon_shown:
+    type: event
+    description: >
+      Recorded when the notification permission icon is shown and displays the
+      shaking animation in the URL bar
+    extra_keys:
+      site_category:
+        description: Category of the site requesting notification permissions
+        type: string
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1998053
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1998053
+    notification_emails:
+      - jhan@mozilla.com
+    expires: never
+
+  icon_clicked:
+    type: event
+    description: >
+      Recorded when the user clicks the notification permission icon in the URL bar
+    extra_keys:
+      site_category:
+        description: Category of the site requesting notification permissions
+        type: string
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1998053
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1998053
+    notification_emails:
+      - jhan@mozilla.com
+    expires: never
+
+  prompt_shown:
+    type: event
+    description: >
+      Recorded when the notification permission prompt is shown to the user
+    extra_keys:
+      site_category:
+        description: Category of the site requesting notification permissions
+        type: string
+      trigger:
+        description: How the prompt was triggered (user click vs automatic)
+        type: string
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1998053
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1998053
+    notification_emails:
+      - jhan@mozilla.com
+    expires: never
+
+  prompt_blocked:
+    type: event
+    description: >
+      Recorded when the notification permission prompt is blocked (auto-denied)
+    extra_keys:
+      site_category:
+        description: Category of the site requesting notification permissions
+        type: string
+      reason:
+        description: Why the prompt was blocked (user action or through previous browser config)
+        type: string
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1998053
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1998053
+    notification_emails:
+      - jhan@mozilla.com
+    expires: never
+
+  prompt_interaction:
+    type: event
+    description: >
+      Recorded when the user interacts with the notification permission prompt
+    extra_keys:
+      site_category:
+        description: Category of the site requesting notification permissions
+        type: string
+      action:
+        description: The action the user took
+        type: string
+      is_persistent:
+        description: Whether the user's choice will be remembered
+        type: boolean
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1998053
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1998053
+    notification_emails:
+      - jhan@mozilla.com
+    expires: never
+
+  permission_revoked_toolbar:
+    type: event
+    description: >
+      Recorded when the user revokes notification permission via the toolbar
+      permission panel (clicking the X button to remove the permission)
+    extra_keys:
+      site_category:
+        description: Category of the site whose notification permission was revoked
+        type: string
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1998053
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1998053
+    notification_emails:
+      - jhan@mozilla.com
+    expires: never
+
+  permission_revoked_preferences:
+    type: event
+    description: >
+      Recorded when the user revokes notification permission via the
+      preferences/settings panel
+    extra_keys:
+      site_category:
+        description: Category of the site whose notification permission was revoked
+        type: string
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1998053
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1998053
+    notification_emails:
+      - jhan@mozilla.com
+    expires: never

@@ -68,10 +68,10 @@ SVGSVGElement* SVGContentUtils::GetOuterSVGElement(SVGElement* aSVGElement) {
   return SVGSVGElement::FromNodeOrNull(element);
 }
 
-enum DashState {
-  eDashedStroke,
-  eContinuousStroke,  //< all dashes, no gaps
-  eNoStroke           //< all gaps, no dashes
+enum class DashState {
+  DashedStroke,
+  ContinuousStroke,  //< all dashes, no gaps
+  NoStroke           //< all gaps, no dashes
 };
 
 static DashState GetStrokeDashData(
@@ -83,20 +83,20 @@ static DashState GetStrokeDashData(
 
   if (aStyleSVG->mStrokeDasharray.IsContextValue()) {
     if (!aContextPaint) {
-      return eContinuousStroke;
+      return DashState::ContinuousStroke;
     }
     const FallibleTArray<Float>& dashSrc = aContextPaint->GetStrokeDashArray();
     dashArrayLength = dashSrc.Length();
     if (dashArrayLength <= 0) {
-      return eContinuousStroke;
+      return DashState::ContinuousStroke;
     }
     Float* dashPattern = aStrokeOptions->InitDashPattern(dashArrayLength);
     if (!dashPattern) {
-      return eContinuousStroke;
+      return DashState::ContinuousStroke;
     }
     for (size_t i = 0; i < dashArrayLength; i++) {
       if (dashSrc[i] < 0.0) {
-        return eContinuousStroke;  // invalid
+        return DashState::ContinuousStroke;  // invalid
       }
       dashPattern[i] = Float(dashSrc[i]);
       (i % 2 ? totalLengthOfGaps : totalLengthOfDashes) += dashSrc[i];
@@ -105,24 +105,24 @@ static DashState GetStrokeDashData(
     const auto dasharray = aStyleSVG->mStrokeDasharray.AsValues().AsSpan();
     dashArrayLength = dasharray.Length();
     if (dashArrayLength <= 0) {
-      return eContinuousStroke;
+      return DashState::ContinuousStroke;
     }
     if (auto* shapeElement = SVGGeometryElement::FromNode(aElement)) {
-      pathScale =
-          shapeElement->GetPathLengthScale(SVGGeometryElement::eForStroking);
+      pathScale = shapeElement->GetPathLengthScale(
+          SVGGeometryElement::PathLengthScaleUsageType::Stroking);
       if (pathScale <= 0 || !std::isfinite(pathScale)) {
-        return eContinuousStroke;
+        return DashState::ContinuousStroke;
       }
     }
     Float* dashPattern = aStrokeOptions->InitDashPattern(dashArrayLength);
     if (!dashPattern) {
-      return eContinuousStroke;
+      return DashState::ContinuousStroke;
     }
     for (uint32_t i = 0; i < dashArrayLength; i++) {
       Float dashLength =
           SVGContentUtils::CoordToFloat(aElement, dasharray[i]) * pathScale;
       if (dashLength < 0.0) {
-        return eContinuousStroke;  // invalid
+        return DashState::ContinuousStroke;  // invalid
       }
       dashPattern[i] = dashLength;
       (i % 2 ? totalLengthOfGaps : totalLengthOfDashes) += dashLength;
@@ -136,9 +136,9 @@ static DashState GetStrokeDashData(
   if ((dashArrayLength % 2) == 1) {
     // If we have a dash pattern with an odd number of lengths the pattern
     // repeats a second time, per the SVG spec., and as implemented by Moz2D.
-    // When deciding whether to return eNoStroke or eContinuousStroke below we
-    // need to take into account that in the repeat pattern the dashes become
-    // gaps, and the gaps become dashes.
+    // When deciding whether to return DashState::NoStroke or
+    // DashState::ContinuousStroke below we need to take into account that in
+    // the repeat pattern the dashes become gaps, and the gaps become dashes.
     Float origTotalLengthOfDashes = totalLengthOfDashes;
     totalLengthOfDashes += totalLengthOfGaps;
     totalLengthOfGaps += origTotalLengthOfDashes;
@@ -151,13 +151,13 @@ static DashState GetStrokeDashData(
   // we can avoid expensive stroking operations (the underlying platform
   // graphics libraries don't seem to optimize for this).
   if (totalLengthOfGaps <= 0) {
-    return eContinuousStroke;
+    return DashState::ContinuousStroke;
   }
-  // We can only return eNoStroke if the value of stroke-linecap isn't
+  // We can only return DashState::NoStroke if the value of stroke-linecap isn't
   // adding caps to zero length dashes.
   if (totalLengthOfDashes <= 0 &&
       aStyleSVG->mStrokeLinecap == StyleStrokeLinecap::Butt) {
-    return eNoStroke;
+    return DashState::NoStroke;
   }
 
   if (aStyleSVG->mStrokeDashoffset.IsContextValue()) {
@@ -170,7 +170,7 @@ static DashState GetStrokeDashData(
         pathScale;
   }
 
-  return eDashedStroke;
+  return DashState::DashedStroke;
 }
 
 void SVGContentUtils::GetStrokeOptions(AutoStrokeOptions* aStrokeOptions,
@@ -182,21 +182,22 @@ void SVGContentUtils::GetStrokeOptions(AutoStrokeOptions* aStrokeOptions,
     const nsStyleSVG* styleSVG = computedStyle->StyleSVG();
 
     bool checkedDashAndStrokeIsDashed = false;
-    if (aFlags != eIgnoreStrokeDashing) {
+    if (!aFlags.contains(StrokeOptionFlag::IgnoreStrokeDashing)) {
       DashState dashState =
           GetStrokeDashData(aStrokeOptions, aElement, styleSVG, aContextPaint);
 
-      if (dashState == eNoStroke) {
+      if (dashState == DashState::NoStroke) {
         // Hopefully this will shortcircuit any stroke operations:
         aStrokeOptions->mLineWidth = 0;
         return;
       }
-      if (dashState == eContinuousStroke && aStrokeOptions->mDashPattern) {
+      if (dashState == DashState::ContinuousStroke &&
+          aStrokeOptions->mDashPattern) {
         // Prevent our caller from wasting time looking at a pattern without
         // gaps:
         aStrokeOptions->DiscardDashPattern();
       }
-      checkedDashAndStrokeIsDashed = (dashState == eDashedStroke);
+      checkedDashAndStrokeIsDashed = (dashState == DashState::DashedStroke);
     }
 
     aStrokeOptions->mLineWidth =

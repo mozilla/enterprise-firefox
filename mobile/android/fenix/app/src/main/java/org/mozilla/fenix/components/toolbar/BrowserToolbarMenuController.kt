@@ -35,7 +35,6 @@ import mozilla.components.support.utils.BuildManufacturerChecker
 import mozilla.components.ui.widgets.withCenterAlignedButtons
 import mozilla.telemetry.glean.private.NoExtras
 import org.mozilla.fenix.BrowserDirection
-import org.mozilla.fenix.GleanMetrics.AppMenu
 import org.mozilla.fenix.GleanMetrics.Collections
 import org.mozilla.fenix.GleanMetrics.Events
 import org.mozilla.fenix.GleanMetrics.ReaderMode
@@ -50,8 +49,6 @@ import org.mozilla.fenix.browser.readermode.ReaderModeController
 import org.mozilla.fenix.collections.SaveCollectionStep
 import org.mozilla.fenix.components.AppStore
 import org.mozilla.fenix.components.TabCollectionStorage
-import org.mozilla.fenix.components.accounts.AccountState
-import org.mozilla.fenix.components.accounts.FenixFxAEntryPoint
 import org.mozilla.fenix.components.appstate.AppAction.ShortcutAction
 import org.mozilla.fenix.ext.components
 import org.mozilla.fenix.ext.nav
@@ -249,24 +246,6 @@ class DefaultBrowserToolbarMenuController(
             is ToolbarMenu.Item.Settings -> browserAnimator.captureEngineViewAndDrawStatically {
                 val directions = BrowserFragmentDirections.actionBrowserFragmentToSettingsFragment()
                 navController.nav(R.id.browserFragment, directions)
-            }
-            is ToolbarMenu.Item.SyncAccount -> {
-                val directions = when (item.accountState) {
-                    AccountState.AUTHENTICATED ->
-                        BrowserFragmentDirections.actionGlobalAccountSettingsFragment()
-                    AccountState.NEEDS_REAUTHENTICATION ->
-                        BrowserFragmentDirections.actionGlobalAccountProblemFragment(
-                            entrypoint = FenixFxAEntryPoint.BrowserToolbar,
-                        )
-                    AccountState.NO_ACCOUNT ->
-                        BrowserFragmentDirections.actionGlobalTurnOnSync(entrypoint = FenixFxAEntryPoint.BrowserToolbar)
-                }
-                browserAnimator.captureEngineViewAndDrawStatically {
-                    navController.nav(
-                        R.id.browserFragment,
-                        directions,
-                    )
-                }
             }
             is ToolbarMenu.Item.RequestDesktop -> {
                 currentSession?.let {
@@ -568,10 +547,6 @@ class DefaultBrowserToolbarMenuController(
                 Events.browserMenuAction.record(Events.BrowserMenuActionExtra("print_content"))
             is ToolbarMenu.Item.AddToHomeScreen ->
                 Events.browserMenuAction.record(Events.BrowserMenuActionExtra("add_to_homescreen"))
-            is ToolbarMenu.Item.SyncAccount -> {
-                Events.browserMenuAction.record(Events.BrowserMenuActionExtra("sync_account"))
-                AppMenu.signIntoSync.add()
-            }
             is ToolbarMenu.Item.Bookmark ->
                 Events.browserMenuAction.record(Events.BrowserMenuActionExtra("bookmark"))
             is ToolbarMenu.Item.AddonsManager ->

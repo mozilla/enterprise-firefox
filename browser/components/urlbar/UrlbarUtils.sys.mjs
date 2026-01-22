@@ -14,9 +14,7 @@
 
 import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
-const lazy = {};
-
-ChromeUtils.defineESModuleGetters(lazy, {
+const lazy = XPCOMUtils.declareLazy({
   ContextualIdentityService:
     "resource://gre/modules/ContextualIdentityService.sys.mjs",
   DEFAULT_FORM_HISTORY_PARAM:
@@ -26,6 +24,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   PlacesUIUtils: "moz-src:///browser/components/places/PlacesUIUtils.sys.mjs",
   PlacesUtils: "resource://gre/modules/PlacesUtils.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
+  SearchEngine: "moz-src:///toolkit/components/search/SearchEngine.sys.mjs",
+  SearchService: "moz-src:///toolkit/components/search/SearchService.sys.mjs",
   SearchSuggestionController:
     "moz-src:///toolkit/components/search/SearchSuggestionController.sys.mjs",
   UrlbarPrefs: "moz-src:///browser/components/urlbar/UrlbarPrefs.sys.mjs",
@@ -41,14 +41,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///browser/components/urlbar/UrlbarTokenizer.sys.mjs",
   BrowserUIUtils: "resource:///modules/BrowserUIUtils.sys.mjs",
   UrlUtils: "resource://gre/modules/UrlUtils.sys.mjs",
+  parserUtils: {
+    service: "@mozilla.org/parserutils;1",
+    iid: Ci.nsIParserUtils,
+  },
 });
-
-XPCOMUtils.defineLazyServiceGetter(
-  lazy,
-  "parserUtils",
-  "@mozilla.org/parserutils;1",
-  Ci.nsIParserUtils
-);
 
 export var UrlbarUtils = {
   // Results are categorized into groups to help the muxer compose them.  See
@@ -238,7 +235,24 @@ export var UrlbarUtils = {
   // Search mode objects corresponding to the local shortcuts in the view, in
   // order they appear.  Pref names are relative to the `browser.urlbar` branch.
   get LOCAL_SEARCH_MODES() {
-    return [
+    /**
+     * @typedef {object} LocalSearchMode
+     * @property {Values<typeof this.RESULT_SOURCE>} source
+     *   The source which the search mode will search.
+     * @property {Values<typeof lazy.UrlbarTokenizer.RESTRICT>} restrict
+     *   The restrict token that is associated with the search (*, %, $ etc).
+     * @property {string} icon
+     *   The URL of the icon associated with the search mode in preferences.
+     * @property {string} pref
+     *   The suffix of the preference associated with if the mode is displayed
+     *   in the lists or not (prefix with `browser.urlbar.`).
+     * @property {string} telemetryLabel
+     *   The telemetry label for recording searches in this mode.
+     * @property {string} uiLabel
+     *   The string to use for the UI label.
+     */
+
+    return /** @type {LocalSearchMode[]} */ ([
       {
         source: this.RESULT_SOURCE.BOOKMARKS,
         restrict: lazy.UrlbarTokenizer.RESTRICT.BOOKMARK,
@@ -271,7 +285,7 @@ export var UrlbarUtils = {
         telemetryLabel: "actions",
         uiLabel: "urlbar-searchmode-actions",
       },
-    ];
+    ]);
   },
 
   /**
@@ -325,7 +339,7 @@ export var UrlbarUtils = {
     }
 
     /** @type {nsISearchEngine} */
-    let engine = await Services.search.getEngineByAlias(keyword);
+    let engine = await lazy.SearchService.getEngineByAlias(keyword);
     if (engine) {
       let submission = engine.getSubmission(param, null);
       return {
@@ -647,7 +661,9 @@ export var UrlbarUtils = {
         result.payload.suggestion ||
         result.payload.query;
       if (query) {
-        const engine = Services.search.getEngineByName(result.payload.engine);
+        const engine = lazy.SearchService.getEngineByName(
+          result.payload.engine
+        );
         let [url, postData] = this.getSearchQueryUrl(engine, query);
         return { url, postData };
       }
@@ -749,15 +765,19 @@ export var UrlbarUtils = {
    * Note: This is not infallible, if a speculative connection cannot be
    *       initialized, it will be a no-op.
    *
-   * @param {nsISearchEngine|nsIURI|URL|string} urlOrEngine entity to initiate
-   *        a speculative connection for.
-   * @param {window} window the window from where the connection is initialized.
+   * @param {typeof lazy.SearchEngine.prototype|nsISearchEngine|nsIURI|URL|string} urlOrEngine
+   *   The entity to initiate a speculative connection for.
+   * @param {window} window
+   *   The window from where the connection is initialized.
    */
   setupSpeculativeConnection(urlOrEngine, window) {
     if (!lazy.UrlbarPrefs.get("speculativeConnect.enabled")) {
       return;
     }
-    if (urlOrEngine instanceof Ci.nsISearchEngine) {
+    if (
+      urlOrEngine instanceof Ci.nsISearchEngine ||
+      urlOrEngine instanceof lazy.SearchEngine
+    ) {
       try {
         urlOrEngine.speculativeConnect({
           window,
@@ -1510,11 +1530,14 @@ export var UrlbarUtils = {
 
     // Appends subtype to certain result types.
     function checkForSubType(type, res) {
-      if (res.providerName == "UrlbarProviderSemanticHistorySearch") {
+      if (res.providerName == "UrlbarProviderInputHistory") {
+        type += "_adaptive";
+      } else if (res.providerName == "UrlbarProviderSemanticHistorySearch") {
         type += "_semantic";
       }
       if (
         lazy.UrlbarSearchUtils.resultIsSERP(res, [
+          UrlbarUtils.RESULT_SOURCE.BOOKMARKS,
           UrlbarUtils.RESULT_SOURCE.HISTORY,
           UrlbarUtils.RESULT_SOURCE.TABS,
         ])
@@ -1611,7 +1634,7 @@ export var UrlbarUtils = {
           return "clipboard";
         }
         if (result.source === this.RESULT_SOURCE.BOOKMARKS) {
-          return "bookmark";
+          return checkForSubType("bookmark", result);
         }
         return checkForSubType("history", result);
       case this.RESULT_TYPE.RESTRICT:
@@ -2462,7 +2485,7 @@ export class UrlbarQueryContext {
   /**
    * @type {string[]}
    *   List of registered provider names. Providers can be registered through
-   *   the UrlbarProvidersManager.
+   *   the ProvidersManager.
    */
   providers;
 

@@ -40,6 +40,7 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.Observer
 import androidx.lifecycle.lifecycleScope
+import androidx.navigation.NavController
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import com.google.android.material.appbar.AppBarLayout
@@ -160,7 +161,6 @@ import org.mozilla.fenix.search.SearchDialogFragment
 import org.mozilla.fenix.search.awesomebar.AwesomeBarComposable
 import org.mozilla.fenix.search.toolbar.DefaultSearchSelectorController
 import org.mozilla.fenix.search.toolbar.SearchSelectorMenu
-import org.mozilla.fenix.settings.deletebrowsingdata.DefaultDeleteBrowsingDataController
 import org.mozilla.fenix.snackbar.FenixSnackbarDelegate
 import org.mozilla.fenix.snackbar.SnackbarBinding
 import org.mozilla.fenix.tabstray.Page
@@ -283,6 +283,13 @@ class HomeFragment : Fragment() {
             voiceSearchFeature?.get()?.handleVoiceSearchResult(result.resultCode, result.data)
         }
     private val showReviewPromptBinding = ViewBoundFeatureWrapper<ShowReviewPromptBinding>()
+
+    private val destinationChangedListener =
+        NavController.OnDestinationChangedListener { _, destination, _ ->
+            if (destination.id != R.id.homeFragment) {
+                privacyNoticeBannerStore.dispatch(PrivacyNoticeBannerAction.OnNavigatedAwayFromHome)
+            }
+        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // DO NOT ADD ANYTHING ABOVE THIS getProfilerTime CALL!
@@ -668,23 +675,6 @@ class HomeFragment : Fragment() {
                 interactor = sessionControlInteractor,
                 homeFragment = this,
                 homeActivity = activity,
-                deleteBrowsingDataController = DefaultDeleteBrowsingDataController(
-                    deleteDataUseCases = DefaultDeleteBrowsingDataController.DeleteDataUseCases(
-                        removeAllTabs = activity.components.useCases.tabsUseCases.removeAllTabs,
-                        removeAllDownloads = activity.components.useCases.downloadUseCases.removeAllDownloads,
-                    ),
-                    dataStorage = DefaultDeleteBrowsingDataController.DataStorage(
-                        history = activity.components.core.historyStorage,
-                        permissions = activity.components.core.permissionStorage,
-                    ),
-                    stores = DefaultDeleteBrowsingDataController.Stores(
-                        appStore = activity.components.appStore,
-                        browserStore = activity.components.core.store,
-                    ),
-                    engine = activity.components.core.engine,
-                    settings = activity.components.settings,
-                    coroutineContext = activity.lifecycleScope.coroutineContext,
-                ),
             )
         }
 
@@ -699,8 +689,6 @@ class HomeFragment : Fragment() {
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
-
-        (toolbarView as? HomeToolbarView)?.dismissMenu()
 
         // If the microsurvey feature is visible, we should update it's state.
         if (shouldShowMicrosurveyPrompt(requireContext())) {
@@ -1210,6 +1198,8 @@ class HomeFragment : Fragment() {
     override fun onStart() {
         super.onStart()
 
+        findNavController().addOnDestinationChangedListener(destinationChangedListener)
+
         subscribeToTabCollections()
 
         requireComponents.backgroundServices.accountManagerAvailableQueue.runIfReadyOrQueue {
@@ -1317,7 +1307,7 @@ class HomeFragment : Fragment() {
     override fun onStop() {
         super.onStop()
 
-        privacyNoticeBannerStore.dispatch(PrivacyNoticeBannerAction.OnFragmentStopped)
+        findNavController().removeOnDestinationChangedListener(destinationChangedListener)
     }
 
     private fun subscribeToTabCollections(): Observer<List<TabCollection>> {

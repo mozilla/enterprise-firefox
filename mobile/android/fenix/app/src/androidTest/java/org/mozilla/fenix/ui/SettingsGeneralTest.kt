@@ -68,7 +68,7 @@ class SettingsGeneralTest : TestSetup() {
         }
     }
 
-    // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/344213
+    // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/3135005
     @SmokeTest
     @Test
     fun verifyFontSizingChangeTest() {
@@ -83,21 +83,27 @@ class SettingsGeneralTest : TestSetup() {
         }.openThreeDotMenu {
         }.clickSettingsButton {
         }.openAccessibilitySubMenu {
+            verifyFontSizingMenuItems(
+                composeTestRule,
+                isTheAutomaticFontSizingToggleChecked = true,
+                isTheFontSizingSliderEnabled = false,
+                isTheZoomOnAllWbsitesToggleChecked = false,
+            )
             clickFontSizingSwitch()
-            verifyEnabledMenuItems()
-            changeTextSizeSlider(textSizePercentage)
-            verifyTextSizePercentage(textSizePercentage)
+            verifyFontSizingMenuItems(
+                composeTestRule,
+                isTheAutomaticFontSizingToggleChecked = false,
+                isTheFontSizingSliderEnabled = true,
+                isTheZoomOnAllWbsitesToggleChecked = false,
+            )
+            changeTextSizeSlider(textSizePercentage, composeTestRule)
+            verifyTextSizePercentage(textSizePercentage, composeTestRule)
         }.goBack {
         }.goBack(composeTestRule) {
         }
         navigationToolbar(composeTestRule) {
         }.enterURLAndEnterToBrowser(webpage) {
             checkTextSizeOnWebsite(textSizePercentage, fenixApp.components)
-        }.openThreeDotMenu {
-        }.clickSettingsButton {
-        }.openAccessibilitySubMenu {
-            clickFontSizingSwitch()
-            verifyMenuItemsAreDisabled()
         }
     }
 

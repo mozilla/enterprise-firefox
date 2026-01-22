@@ -17,8 +17,6 @@
 
 .tab-preview-title {
   overflow: hidden;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   font-weight: var(--heading-font-weight);
 }
@@ -38,8 +36,6 @@
 
 .tab-preview-thumbnail-container {
   width: 264px;
-  border: 1px solid var(--border-color-deemphasized);
-  border-radius: var(--border-radius-medium);
   margin: 0 auto var(--space-small);
   overflow: hidden;
 
@@ -53,15 +49,75 @@
     display: block;
     width: 100%;
     animation: tab-hover-preview-fadein 0.2s ease;
+    border: 1px solid var(--border-color-deemphasized);
+    border-radius: var(--border-radius-medium);
+    box-sizing: border-box;
   }
 }
 
-.tab-note-text-container:not(:empty) {
+.tab-preview-add-note {
+  --box-border-color: transparent;
+  --box-padding: var(--space-medium);
+  margin: 0 var(--space-small) var(--space-small);
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+.tab-preview-note-container {
+  font: menu;
+  position: relative;
   margin: 0 var(--space-large) var(--space-large);
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 10;
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+.tab-preview-note-text {
+  overflow-wrap: break-word;
+
+  #tab-preview-panel:not([note-expanded]) & {
+    /* Set by Javascript */
+    --tab-note-expand-toggle-width: 0;
+
+    --gradient-width: 40px;
+    --gradient-offset: 10px;
+    --gradient-direction: right;
+
+    overflow: hidden;
+    -webkit-line-clamp: 10;
+
+    mask:
+      /* Mask 1: make all lines except the last visible (by default,
+       * unmasked portions of an element are invisible, which is why
+       * this is needed). Mask 2: Fade out the end of the last line */
+      linear-gradient(black) 0 0 / 100% calc(100% - 1lh) no-repeat,
+      linear-gradient(
+          to var(--gradient-direction),
+          black calc(100% - var(--tab-note-expand-toggle-width) - var(--gradient-width) - var(--gradient-offset)),
+          transparent calc(100% - var(--tab-note-expand-toggle-width) - var(--gradient-offset))
+        )
+        0 100% / 100% 1lh no-repeat;
+
+    &:dir(rtl) {
+      --gradient-direction: left;
+    }
+  }
+}
+
+.tab-preview-note-expand {
+  display: none;
+  text-decoration: underline;
+  cursor: pointer;
+  position: absolute;
+  inset-block-end: 0;
+  inset-inline-end: 0;
+
+  #tab-preview-panel[note-overflow]:not([note-expanded]) & {
+    display: block;
+  }
 }
 
 @keyframes tab-hover-preview-fadein {

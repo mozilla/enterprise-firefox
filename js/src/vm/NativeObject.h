@@ -1331,6 +1331,14 @@ class NativeObject : public JSObject {
     fixedSlots()[slot].set(this, HeapSlot::Slot, slot, value);
   }
 
+  // If a fixed slot never stores a GC thing then we can avoid
+  // barrier cost by doing unbarriered sets.
+  void setNeverGCThingFixedSlot(uint32_t slot, const Value& value) {
+    MOZ_ASSERT(!value.isGCThing());
+    MOZ_ASSERT(!fixedSlots()[slot].get().isGCThing());
+    fixedSlots()[slot].unbarrieredSet(value);
+  }
+
   void setDynamicSlot(uint32_t numFixed, uint32_t slot, const Value& value) {
     MOZ_ASSERT(numFixedSlots() == numFixed);
     MOZ_ASSERT(slot >= numFixed);

@@ -32,7 +32,6 @@ class AutoSlowOperation;
 
 class CycleCollectedJSContext;
 class CycleCollectedJSRuntime;
-class PromiseJobRunnable;
 
 namespace dom {
 class Exception;
@@ -90,20 +89,6 @@ class MicroTaskRunnable : public LinkedListElement<MicroTaskRunnable> {
       remove();
     }
   }
-};
-
-// Store the suppressed mictotasks in another microtask so that operations
-// for the microtask queue as a whole keep working.
-class SuppressedMicroTasks : public MicroTaskRunnable {
- public:
-  explicit SuppressedMicroTasks(CycleCollectedJSContext* aContext);
-
-  MOZ_CAN_RUN_SCRIPT_BOUNDARY void Run(AutoSlowOperation& aAso) final {}
-  virtual bool Suppressed();
-
-  CycleCollectedJSContext* mContext;
-  uint64_t mSuppressionGeneration;
-  std::deque<RefPtr<MicroTaskRunnable>> mSuppressedMicroTaskRunnables;
 };
 
 // A gecko wrapper for the JS::MicroTask type. Used to enforce both
@@ -373,9 +358,6 @@ class CycleCollectedJSContext : dom::PerThreadAtomCache, public JS::JobQueue {
   already_AddRefed<dom::Exception> GetPendingException() const;
   void SetPendingException(dom::Exception* aException);
 
-  std::deque<RefPtr<MicroTaskRunnable>>& GetMicroTaskQueue();
-  std::deque<RefPtr<MicroTaskRunnable>>& GetDebuggerMicroTaskQueue();
-
   void TraceMicroTasks(JSTracer* aTracer);
 
   JSContext* Context() const {
@@ -560,10 +542,6 @@ class CycleCollectedJSContext : dom::PerThreadAtomCache, public JS::JobQueue {
 
   uint32_t mSyncOperations;
 
-  std::deque<RefPtr<MicroTaskRunnable>> mPendingMicroTaskRunnables;
-  std::deque<RefPtr<MicroTaskRunnable>> mDebuggerMicroTaskQueue;
-  RefPtr<SuppressedMicroTasks> mSuppressedMicroTasks;
-
   RefPtr<SuppressedMicroTaskList> mSuppressedMicroTaskList;
 
   uint64_t mSuppressionGeneration;
@@ -572,9 +550,6 @@ class CycleCollectedJSContext : dom::PerThreadAtomCache, public JS::JobQueue {
   mozilla::LinkedList<MicroTaskRunnable> mMicrotasksToTrace;
 
  private:
-  friend class PromiseJobRunnable;
-  RefPtr<PromiseJobRunnable> mRecycledPromiseJob;
-
   // How many times the debugger has interrupted execution, possibly creating
   // microtask checkpoints in places that they would not normally occur.
   uint32_t mDebuggerRecursionDepth;

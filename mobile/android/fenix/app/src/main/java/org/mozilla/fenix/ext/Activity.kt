@@ -9,13 +9,13 @@ import android.app.role.RoleManager
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.os.Bundle
 import android.provider.Settings
 import android.view.View
 import android.view.WindowManager
 import androidx.annotation.DrawableRes
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.content.res.AppCompatResources
-import androidx.core.os.bundleOf
 import androidx.navigation.NavDestination
 import androidx.navigation.NavDirections
 import androidx.navigation.findNavController
@@ -183,7 +183,7 @@ private fun Activity.navigateToDefaultBrowserAppsSettings(
         putExtra(SETTINGS_SELECT_OPTION_KEY, DEFAULT_BROWSER_APP_OPTION)
         putExtra(
             SETTINGS_SHOW_FRAGMENT_ARGS,
-            bundleOf(SETTINGS_SELECT_OPTION_KEY to DEFAULT_BROWSER_APP_OPTION),
+            Bundle().apply { putString(SETTINGS_SELECT_OPTION_KEY, DEFAULT_BROWSER_APP_OPTION) },
         )
     }
     startExternalActivitySafe(

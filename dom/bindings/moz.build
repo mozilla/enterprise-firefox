@@ -32,7 +32,7 @@ EXPORTS.mozilla.dom += [
     "CallbackFunction.h",
     "CallbackInterface.h",
     "CallbackObject.h",
-    "DOMExceptionNames.h",
+    "DOMExceptionNames.inc",
     "DOMJSClass.h",
     "DOMJSProxyHandler.h",
     "DOMString.h",

@@ -335,6 +335,8 @@ class WebRenderAPI final {
 
   wr::WebRenderAPI* GetRootAPI();
 
+  bool CheckAndClearDidRasterize();
+
  protected:
   WebRenderAPI(wr::DocumentHandle* aHandle, wr::WindowId aId,
                layers::WebRenderBackend aBackend,

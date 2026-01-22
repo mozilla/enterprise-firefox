@@ -18,7 +18,6 @@ import android.view.ViewGroup
 import androidx.activity.addCallback
 import androidx.activity.result.ActivityResultLauncher
 import androidx.appcompat.app.AlertDialog
-import androidx.core.os.bundleOf
 import androidx.core.view.MenuProvider
 import androidx.core.view.isVisible
 import androidx.fragment.app.setFragmentResult
@@ -288,7 +287,7 @@ class LoginDetailFragment : SecureFragment(R.layout.fragment_login_detail), Menu
 
                     setFragmentResult(
                         LOGIN_REQUEST_KEY,
-                        bundleOf(LOGIN_BUNDLE_ARGS to args.savedLoginId),
+                        Bundle().apply { putString(LOGIN_BUNDLE_ARGS, args.savedLoginId) },
                     )
 
                     dialog.dismiss()

@@ -26,7 +26,7 @@ enum UseCounter : int16_t {
 #undef USE_COUNTER_CUSTOM
 
 #define DEPRECATED_OPERATION(op_) eUseCounter_##op_,
-#include "nsDeprecatedOperationList.h"
+#include "nsDeprecatedOperationList.inc"
 #undef DEPRECATED_OPERATION
 
   eUseCounter_FirstCSSProperty,

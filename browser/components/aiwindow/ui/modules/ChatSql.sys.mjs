@@ -56,9 +56,9 @@ CREATE TABLE message (
   usage_jsonb BLOB,
   page_url TEXT,
   turn_index INTEGER,
-  insights_enabled BOOLEAN,
-  insights_flag_source INTEGER,
-  insights_applied_jsonb BLOB,
+  memories_enabled BOOLEAN,
+  memories_flag_source INTEGER,
+  memories_applied_jsonb BLOB,
   web_search_queries_jsonb BLOB
 ) WITHOUT ROWID;
 `;
@@ -75,6 +75,10 @@ CREATE INDEX message_url_idx ON message(page_url);
 
 export const MESSAGE_CREATED_DATE_INDEX = `
 CREATE INDEX message_created_date_idx ON message(created_date);
+`;
+
+export const MESSAGE_CONV_ID_INDEX = `
+CREATE INDEX IF NOT EXISTS message_conv_id_idx ON message(conv_id);
 `;
 
 export const CONVERSATION_INSERT = `
@@ -97,13 +101,13 @@ INSERT INTO message (
   message_id, conv_id, created_date, parent_message_id,
   revision_root_message_id, ordinal, is_active_branch, role,
   model_id, params_jsonb, content_jsonb, usage_jsonb, page_url, turn_index,
-  insights_enabled, insights_flag_source, insights_applied_jsonb,
+  memories_enabled, memories_flag_source, memories_applied_jsonb,
   web_search_queries_jsonb
 ) VALUES (
   :message_id, :conv_id, :created_date, :parent_message_id,
   :revision_root_message_id, :ordinal, :is_active_branch, :role,
   :model_id, jsonb(:params), jsonb(:content), jsonb(:usage), :page_url, :turn_index,
-  :insights_enabled, :insights_flag_source, jsonb(:insights_applied_jsonb),
+  :memories_enabled, :memories_flag_source, jsonb(:memories_applied_jsonb),
   jsonb(:web_search_queries_jsonb)
 )
 ON CONFLICT(message_id) DO UPDATE SET
@@ -165,13 +169,31 @@ export function getConversationMessagesSql(amount) {
       message_id, created_date, parent_message_id, revision_root_message_id,
       ordinal, is_active_branch, role, model_id, conv_id,
       json(params_jsonb) AS params, json(usage_jsonb) AS usage,
-      page_url, turn_index, insights_enabled, insights_flag_source, 
-      json(insights_applied_jsonb) AS insights_applied,
+      page_url, turn_index, memories_enabled, memories_flag_source, 
+      json(memories_applied_jsonb) AS memories_applied,
       json(web_search_queries_jsonb) AS web_search_queries,
       json(content_jsonb) AS content
       FROM message
       WHERE conv_id IN(${new Array(amount).fill("?").join(",")})
       ORDER BY ordinal ASC;
+  `;
+}
+
+export function getDeleteMessagesByIdsSql(amount) {
+  return `
+    DELETE FROM message WHERE message.message_id IN(${new Array(amount).fill("?").join(",")})
+  `;
+}
+
+export function getDeleteEmptyConversationsSql(amount) {
+  return `
+    DELETE FROM conversation
+    WHERE conversation.conv_id IN(${new Array(amount).fill("?").join(",")})
+      AND NOT EXISTS(
+        SELECT 1
+        FROM message m
+        WHERE m.conv_id = conversation.conv_id
+      )
   `;
 }
 
@@ -213,8 +235,8 @@ SELECT
   message_id, created_date, parent_message_id, revision_root_message_id,
   ordinal, is_active_branch, role, model_id, conv_id,
   json(params_jsonb) AS params, json(usage_jsonb) AS usage,
-  page_url, turn_index, insights_enabled, insights_flag_source,
-  json(insights_applied_jsonb) AS insights_applied,
+  page_url, turn_index, memories_enabled, memories_flag_source,
+  json(memories_applied_jsonb) AS memories_applied,
   json(web_search_queries_jsonb) AS web_search_queries,
   json(content_jsonb) AS content
 FROM message
@@ -228,8 +250,8 @@ SELECT
   message_id, created_date, parent_message_id, revision_root_message_id,
   ordinal, is_active_branch, role, model_id, conv_id,
   json(params_jsonb) AS params, json(usage_jsonb) AS usage,
-  page_url, turn_index, insights_enabled, insights_flag_source,
-  json(insights_applied_jsonb) AS insights_applied,
+  page_url, turn_index, memories_enabled, memories_flag_source,
+  json(memories_applied_jsonb) AS memories_applied,
   json(web_search_queries_jsonb) AS web_search_queries,
   json(content_jsonb) AS content
 FROM message
@@ -241,4 +263,27 @@ LIMIT :limit OFFSET :offset;
 
 export const DELETE_CONVERSATION_BY_ID = `
 DELETE FROM conversation WHERE conv_id = :conv_id;
+`;
+
+export const CONVERSATION_HISTORY = `
+SELECT c.conv_id, c.title, c.created_date, c.updated_date, (
+  SELECT group_concat(t.page_url)
+  FROM (
+    SELECT
+      m.page_url
+    FROM message m
+    WHERE m.conv_id = c.conv_id
+      AND m.page_url IS NOT NULL
+    GROUP BY m.page_url
+    ORDER BY MAX(m.created_date) ASC
+  ) AS t
+) AS urls
+FROM conversation c
+WHERE EXISTS (
+  SELECT 1
+  FROM message AS m
+  WHERE m.conv_id = c.conv_id
+)
+ORDER BY c.updated_date {sort}
+LIMIT :limit OFFSET :offset;
 `;

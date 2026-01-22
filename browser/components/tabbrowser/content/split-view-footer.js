@@ -82,6 +82,7 @@
       this.#updateIconElement();
       this.#updateUriElement();
 
+      this.addEventListener("click", this);
       this.menuButtonElement.addEventListener("command", this);
 
       this.#initialized = true;
@@ -93,6 +94,9 @@
 
     handleEvent(e) {
       switch (e.type) {
+        case "click":
+          e.stopPropagation();
+          break;
         case "command":
           gBrowser.openSplitViewMenu(this.menuButtonElement);
           break;

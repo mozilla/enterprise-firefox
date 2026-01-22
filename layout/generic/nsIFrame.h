@@ -6,8 +6,8 @@
 
 /* interface for all rendering objects */
 
-#ifndef nsIFrame_h___
-#define nsIFrame_h___
+#ifndef nsIFrame_h_
+#define nsIFrame_h_
 
 #ifndef MOZILLA_INTERNAL_API
 #error This header/class should only be used within Mozilla code. It should not be used by extensions.
@@ -4506,8 +4506,8 @@ class nsIFrame : public nsQueryFrame {
   }
 
   template <typename T>
-  void RemoveProperty(FrameProperties::Descriptor<T> aProperty) {
-    mProperties.Remove(aProperty, this);
+  bool RemoveProperty(FrameProperties::Descriptor<T> aProperty) {
+    return mProperties.Remove(aProperty, this);
   }
 
   /**
@@ -4780,13 +4780,17 @@ class nsIFrame : public nsQueryFrame {
   inline bool HasAnchorPosReference() const;
 
   /**
-   * Returns the vertical-align value to be used for layout, if it is one
-   * of the enumerated values.  If this is an SVG text frame, it returns a value
-   * that corresponds to the value of dominant-baseline.  If the
-   * vertical-align property has length or percentage value, this returns
-   * Nothing().
+   * Returns the alignment-baseline value to be used for layout. If this is an
+   * SVG text frame, it returns a value that corresponds to the value of
+   * dominant-baseline.
    */
-  Maybe<mozilla::StyleVerticalAlignKeyword> VerticalAlignEnum() const;
+  mozilla::StyleAlignmentBaseline AlignmentBaseline() const;
+
+  /**
+   * Returns the baseline-shift value to be used for layout. If this is an
+   * SVG text frame, it returns an initial zero value.
+   */
+  const mozilla::StyleBaselineShift& BaselineShift() const;
 
   /**
    * Adds the NS_FRAME_IN_POPUP state bit to aFrame, and
@@ -5915,4 +5919,4 @@ inline AnchorPosResolutionParams AnchorPosResolutionParams::From(
           AutoResolutionOverrideParams{aFrame, aAnchorPosResolutionCache}};
 }
 
-#endif /* nsIFrame_h___ */
+#endif /* nsIFrame_h_ */

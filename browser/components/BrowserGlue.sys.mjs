@@ -58,6 +58,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   SafeBrowsing: "resource://gre/modules/SafeBrowsing.sys.mjs",
   Sanitizer: "resource:///modules/Sanitizer.sys.mjs",
   ScreenshotsUtils: "resource:///modules/ScreenshotsUtils.sys.mjs",
+  SearchService: "moz-src:///toolkit/components/search/SearchService.sys.mjs",
   SearchSERPTelemetry:
     "moz-src:///browser/components/search/SearchSERPTelemetry.sys.mjs",
   SessionStartup: "resource:///modules/sessionstore/SessionStartup.sys.mjs",
@@ -273,7 +274,7 @@ BrowserGlue.prototype = {
         // URI that it's been asked to load into a keyword search.
         let engine = null;
         try {
-          engine = Services.search.getEngineByName(
+          engine = lazy.SearchService.getEngineByName(
             subject.QueryInterface(Ci.nsISupportsString).data
           );
         } catch (ex) {
@@ -706,6 +707,10 @@ BrowserGlue.prototype = {
     docElt.setAttribute("screenX", getValue("screenX"));
     docElt.setAttribute("screenY", getValue("screenY"));
 
+    let appWin = win.docShell.treeOwner
+      .QueryInterface(Ci.nsIInterfaceRequestor)
+      .getInterface(Ci.nsIAppWindow);
+
     // The sizemode="maximized" attribute needs to be set before first paint.
     let sizemode = getValue("sizemode");
     let width = getValue("width") || 500;
@@ -716,9 +721,6 @@ BrowserGlue.prototype = {
       // Set the size to use when the user leaves the maximized mode.
       // The persisted size is the outer size, but the height/width
       // attributes set the inner size.
-      let appWin = win.docShell.treeOwner
-        .QueryInterface(Ci.nsIInterfaceRequestor)
-        .getInterface(Ci.nsIAppWindow);
       height -= appWin.outerToInnerHeightDifferenceInCSSPixels;
       width -= appWin.outerToInnerWidthDifferenceInCSSPixels;
       docElt.setAttribute("height", height);
@@ -733,8 +735,8 @@ BrowserGlue.prototype = {
     // decide to skip some expensive code paths (eg. starting the GPU process).
     docElt.setAttribute("windowtype", "navigator:blank");
 
-    // The window becomes visible after OnStopRequest, so make this happen now.
-    win.stop();
+    // Show a blank window as soon as possible after start-up
+    appWin.showInitialViewer();
 
     ChromeUtils.addProfilerMarker("earlyBlankFirstPaint", startTime);
     win.openTime = ChromeUtils.now();
@@ -1445,7 +1447,7 @@ BrowserGlue.prototype = {
       }.bind(this),
 
       function searchBackgroundChecks() {
-        Services.search.runBackgroundChecks();
+        lazy.SearchService.runBackgroundChecks();
       },
     ];
 

@@ -309,6 +309,16 @@ void IntegrityPolicy::PolicyContains(DestinationType aDestination,
   }
 }
 
+void IntegrityPolicy::Endpoints(nsTArray<nsCString>& aEnforcement,
+                                nsTArray<nsCString>& aReportOnly) const {
+  if (mEnforcement) {
+    aEnforcement = mEnforcement->mEndpoints.Clone();
+  }
+  if (mReportOnly) {
+    aReportOnly = mReportOnly->mEndpoints.Clone();
+  }
+}
+
 void IntegrityPolicy::ToArgs(const IntegrityPolicy* aPolicy,
                              mozilla::ipc::IntegrityPolicyArgs& aArgs) {
   aArgs.enforcement() = Nothing();

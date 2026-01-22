@@ -235,8 +235,7 @@ bool GMPProcessParent::Launch(int32_t aTimeoutMs) {
   // any overriding, and it only lives on the stack.
   bool launched = SyncLaunch(std::move(args), aTimeoutMs);
   if (launched) {
-    nsFmtString name{FMT_STRING(u"GMPProcessParent {}"),
-                     static_cast<void*>(this)};
+    nsFmtString name{u"GMPProcessParent {}", static_cast<void*>(this)};
     mShutdownBlocker = media::ShutdownBlockingTicket::Create(
         name, NS_LITERAL_STRING_FROM_CSTRING(__FILE__), __LINE__);
   }

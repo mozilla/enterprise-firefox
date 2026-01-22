@@ -115,14 +115,12 @@ def generate_beetmover_upstream_artifacts(
         if not paths:
             continue
 
-        upstream_artifacts.append(
-            {
-                "taskId": {"task-reference": f"<{dep}>"},
-                "taskType": map_config["tasktype_map"].get(dep),
-                "paths": sorted(paths),
-                "locale": current_locale,
-            }
-        )
+        upstream_artifacts.append({
+            "taskId": {"task-reference": f"<{dep}>"},
+            "taskType": map_config["tasktype_map"].get(dep),
+            "paths": sorted(paths),
+            "locale": current_locale,
+        })
 
     upstream_artifacts.sort(key=lambda u: u["paths"])
     return upstream_artifacts
@@ -173,7 +171,7 @@ def generate_beetmover_artifact_map(config, job, **kwargs):
 
     resolve_keyed_by(
         map_config,
-        "s3_bucket_paths",
+        "bucket_paths",
         job["label"],
         **{"build-type": job["attributes"]["build-type"]},
     )
@@ -220,13 +218,13 @@ def generate_beetmover_artifact_map(config, job, **kwargs):
             # This format string should ideally be in the configuration file,
             # but this would mean keeping variable names in sync between code + config.
             destinations = [
-                "{s3_bucket_path}/{dest_path}/{filename}".format(
-                    s3_bucket_path=bucket_path,
+                "{bucket_path}/{dest_path}/{filename}".format(
+                    bucket_path=bucket_path,
                     dest_path=dest_path,
                     filename=file_config.get("pretty_name", filename),
                 )
                 for dest_path, bucket_path in itertools.product(
-                    file_config["destinations"], map_config["s3_bucket_paths"]
+                    file_config["destinations"], map_config["bucket_paths"]
                 )
             ]
             # Creating map entries
@@ -271,17 +269,17 @@ def generate_beetmover_artifact_map(config, job, **kwargs):
         else:
             folder_prefix = f"{version}-candidates/build{build_number}/android/"
 
-        kwargs.update(
-            {"locale": locale, "version": version, "folder_prefix": folder_prefix}
-        )
+        kwargs.update({
+            "locale": locale,
+            "version": version,
+            "folder_prefix": folder_prefix,
+        })
         kwargs.update(**platforms)
         paths = jsone.render(paths, kwargs)
-        artifacts.append(
-            {
-                "taskId": {"task-reference": f"<{dep}>"},
-                "locale": locale,
-                "paths": paths,
-            }
-        )
+        artifacts.append({
+            "taskId": {"task-reference": f"<{dep}>"},
+            "locale": locale,
+            "paths": paths,
+        })
 
     return artifacts

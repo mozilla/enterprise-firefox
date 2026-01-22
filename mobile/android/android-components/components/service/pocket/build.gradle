@@ -19,6 +19,10 @@ buildscript {
     }
 }
 
+plugins {
+    alias(libs.plugins.dependency.analysis)
+}
+
 apply plugin: 'com.android.library'
 apply plugin: 'com.google.devtools.ksp'
 apply plugin: 'kotlin-android'

@@ -14,7 +14,7 @@
 
 #include "unicode/timezone.h"
 
-#include "diplomat_runtime.hpp"
+#include "icu4x/diplomat_runtime.hpp"
 #include "icu4x/CalendarError.hpp"
 
 namespace mozilla::intl::calendar {
@@ -47,9 +47,10 @@ static UniqueICU4XDate CreateDateFromCodes(
     int32_t eraYear, MonthCode monthCode, int32_t day) {
   auto monthCodeView = std::string_view{monthCode};
   auto date = icu4x::capi::icu4x_Date_from_codes_in_calendar_mv1(
-      diplomat::capi::DiplomatStringView{era.data(), era.length()}, eraYear,
-      diplomat::capi::DiplomatStringView{monthCodeView.data(),
-                                         monthCodeView.length()},
+      icu4x::diplomat::capi::DiplomatStringView{era.data(), era.length()},
+      eraYear,
+      icu4x::diplomat::capi::DiplomatStringView{monthCodeView.data(),
+                                                monthCodeView.length()},
       day, calendar);
   if (date.is_ok) {
     return UniqueICU4XDate{date.ok};
@@ -216,7 +217,7 @@ MonthCode ICU4XCalendar::monthCodeFrom(const icu4x::capi::Date* date) {
   // DiplomatWrite doesn't have std::span version.
   // https://github.com/rust-diplomat/diplomat/issues/866
   std::string buf;
-  auto writable = diplomat::WriteFromString(buf);
+  auto writable = icu4x::diplomat::WriteFromString(buf);
 
   icu4x::capi::icu4x_Date_month_code_mv1(date, &writable);
 

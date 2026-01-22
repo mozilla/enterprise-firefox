@@ -202,9 +202,9 @@
   <!-- Browser menu button that opens account settings -->
   <string name="browser_menu_account_settings">Impormasyon ng account</string>
   <!-- Browser menu button that sends a user to help articles -->
-  <string name="browser_menu_help">Tulong</string>
+  <string name="browser_menu_help" tools:ignore="UnusedResources" moz:removedIn="149">Tulong</string>
   <!-- Browser menu button that sends a to a the what's new article -->
-  <string name="browser_menu_whats_new">Ano ang Bago</string>
+  <string name="browser_menu_whats_new" tools:ignore="UnusedResources" moz:removedIn="149">Ano ang Bago</string>
   <!-- Browser menu button that opens the settings menu -->
   <string name="browser_menu_settings">Mga Setting</string>
   <!-- Browser menu button that opens a user's library -->
@@ -212,7 +212,7 @@
   <!-- Browser menu toggle that requests a desktop site -->
   <string name="browser_menu_desktop_site">Desktop site</string>
   <!-- Browser menu button that reopens a private tab as a regular tab -->
-  <string name="browser_menu_open_in_regular_tab">Buksan sa regular na tab</string>
+  <string name="browser_menu_open_in_regular_tab" tools:ignore="UnusedResources" moz:removedIn="149">Buksan sa regular na tab</string>
   <!-- Browser menu toggle that adds a shortcut to the site on the device home screen. -->
   <string name="browser_menu_add_to_homescreen">Idagdag sa Home screen</string>
   <!-- Browser menu toggle that adds a PWA of the site on the device home screen. -->
@@ -238,7 +238,7 @@
     Browser menu text shown in custom tabs to indicate this is a Fenix tab
     %1$s is the name of the app (for example "Firefox").
   -->
-  <string name="browser_menu_powered_by">PINATATAKBO NG %1$s</string>
+  <string name="browser_menu_powered_by" tools:ignore="UnusedResources" moz:removedIn="149">PINATATAKBO NG %1$s</string>
   <!--
     Browser menu text shown in custom tabs to indicate this is a Fenix tab
     %1$s is the name of the app (for example "Firefox").
@@ -251,15 +251,15 @@
   <!-- Browser menu button to open the current page in an external app -->
   <string name="browser_menu_open_app_link">Buksan sa app</string>
   <!-- Browser menu button to show reader view appearance controls e.g. the used font type and size -->
-  <string name="browser_menu_customize_reader_view">Customize reader view</string>
+  <string name="browser_menu_customize_reader_view" tools:ignore="UnusedResources" moz:removedIn="149">Customize reader view</string>
   <!-- Browser menu button to show reader view appearance controls e.g. the used font type and size -->
   <string name="browser_menu_customize_reader_view_2">Ipasadya ang Reader View</string>
   <!-- Browser menu label for adding a bookmark -->
-  <string name="browser_menu_add">Idagdag</string>
+  <string name="browser_menu_add" tools:ignore="UnusedResources" moz:removedIn="149">Idagdag</string>
   <!-- Browser menu label for editing a bookmark -->
-  <string name="browser_menu_edit">Baguhin</string>
+  <string name="browser_menu_edit" tools:ignore="UnusedResources" moz:removedIn="149">Baguhin</string>
   <!-- Button shown on the home page that opens the Customize home settings -->
-  <string name="browser_menu_customize_home_1">Ipasadya ang homepage</string>
+  <string name="browser_menu_customize_home_1" tools:ignore="UnusedResources" moz:removedIn="149">Ipasadya ang homepage</string>
   <!-- Browser menu label to sign in to sync on the device using Mozilla accounts -->
   <string name="browser_menu_sign_in">Mag-sign in</string>
   <!-- Browser menu label to sign back in to sync on the device when the user's account needs to be reauthenticated -->
@@ -270,10 +270,6 @@
   <string name="browser_menu_new_private_tab">Bagong pribadong tab</string>
   <!-- Browser menu label that navigates to the Password screen -->
   <string name="browser_menu_passwords">Mga password</string>
-  <!-- Content description (not visible, for screen readers etc.) for main menu help button. -->
-  <string name="browser_main_menu_content_description_help_button" tools:ignore="UnusedResources" moz:removedIn="146">Tulong</string>
-  <!-- Content description (not visible, for screen readers etc.) for main menu settings button. -->
-  <string name="browser_main_menu_content_description_settings_button" tools:ignore="UnusedResources" moz:removedIn="146">Mga setting</string>
   <!-- Content description (not visible, for screen readers etc.) for bottom sheet handlebar extensions menu. -->
   <string name="browser_extensions_menu_handlebar_content_description">Isara ang extension menu sheet</string>
   <!-- Content description (not visible, for screen readers etc.) for bottom sheet handlebar save menu. -->
@@ -285,7 +281,7 @@
   <!-- Browser menu label that navigates to the edit bookmark screen for the current bookmarked page -->
   <string name="browser_menu_edit_bookmark">Baguhin ang bookmark</string>
   <!-- Browser menu label for navigating to the Web Compat Reporter feature, which provides users the ability to send bug reports for broken sites. -->
-  <string name="browser_menu_webcompat_reporter">Mag-ulat ng sirang site…</string>
+  <string name="browser_menu_webcompat_reporter" tools:ignore="UnusedResources" moz:removedIn="149">Mag-ulat ng sirang site…</string>
   <!--
     Browser menu label for the Delete browsing data on quit feature.
     %1$s is the name of the app (for example "Firefox").
@@ -382,19 +378,8 @@
   <string name="juno_onboarding_privacy_notice_text" tools:ignore="BrandUsage">Abiso sa Pribasiya ng Firefox</string>
   <!-- Title for set firefox as default browser screen used by Nimbus experiments. -->
   <string name="juno_onboarding_default_browser_title_nimbus_2">Nais naming panatilihin kang ligtas</string>
-  <!--
-    Title for set firefox as default browser screen used by Nimbus experiments.
-    Note: The word "Firefox" should NOT be translated
-  -->
-  <string name="juno_onboarding_default_browser_title_nimbus_3" tools:ignore="BrandUsage,UnusedResources" moz:removedIn="146">Alamin kung bakit milyun-milyon ang mahilig sa Firefox</string>
-  <!-- Title for set firefox as default browser screen used by Nimbus experiments. -->
-  <string name="juno_onboarding_default_browser_title_nimbus_4" tools:ignore="UnusedResources" moz:removedIn="146">Ligtas na pag-browse nang may karagdagang mga pagpipilian</string>
   <!-- Description for set firefox as default browser screen used by Nimbus experiments. -->
   <string name="juno_onboarding_default_browser_description_nimbus_3">Ang browser namin na suportado ng isang non-profit ay tumutulong para pigilan ng mga kumpanya na manmanan ka online.</string>
-  <!-- Description for set firefox as default browser screen used by Nimbus experiments. -->
-  <string name="juno_onboarding_default_browser_description_nimbus_4" tools:ignore="UnusedResources" moz:removedIn="146">Napoprotektahan ng higit sa 100 milyong tao ang kanilang pribasiya sa pagpili ng browser na suportado ng isang nonprofit.</string>
-  <!-- Description for set firefox as default browser screen used by Nimbus experiments. -->
-  <string name="juno_onboarding_default_browser_description_nimbus_5" tools:ignore="UnusedResources" moz:removedIn="146">Kilalang mga tracker? Kusang hinaharang. Mga extension? Subukan mo lahat ng 700 extension. Mga PDF? Mas madali gamit ang aming built-in reader.</string>
   <!-- Text for the button to set firefox as default browser on the device -->
   <string name="juno_onboarding_default_browser_positive_button" tools:ignore="UnusedResources">Itakda bilang default browser</string>
   <!-- Text for the button dismiss the screen and move on with the flow -->
@@ -489,6 +474,10 @@
   <string name="onboarding_marketing_body_1" tools:ignore="BrandUsage,UnusedResources">Ibahagi kung paano mo natuklasan ang Firefox, na ginagamit mo ito kaakibat ang mga marketing partner ng Mozilla. Ang data na ito ay di-kailanman ibebenta.</string>
   <!-- Marketing onboarding page button label variant. Button to confirm choice and start browsing. -->
   <string name="onboarding_marketing_positive_button_1" tools:ignore="UnusedResources">Sumang-ayon at magsimulang mag-browse</string>
+  <!-- ==== Project "Nova" onboarding strings ==== -->
+
+  <!-- ==== End of Project "Nova" onboarding strings ==== -->
+
   <!-- Onboarding header for the toolbar selection card, used by Nimbus experiments. -->
   <string name="onboarding_customize_toolbar_title" tools:ignore="UnusedResources">Pilin ang paglalagyan ng toolbar</string>
   <!-- Onboarding sub header for toolbar selection card, used by Nimbus experiments. -->
@@ -1130,9 +1119,9 @@
   <!-- Title of the active section on the studies list -->
   <string name="studies_active">Aktibo</string>
   <!-- Description for studies -->
-  <string name="studies_description_3">Subukan ang mga feature at ideya bago pa ito mailabas sa lahat.</string>
+  <string name="studies_description_3" moz:removedIn="148" tools:ignore="UnusedResources">Subukan ang mga feature at ideya bago pa ito mailabas sa lahat.</string>
   <!-- Title of the Studies data preference -->
-  <string name="studies_title">Mag-install at magpatakbo ng mga study</string>
+  <string name="studies_title" moz:removedIn="148" tools:ignore="UnusedResources">Mag-install at magpatakbo ng mga study</string>
   <!-- Learn more link for studies, links to an article for more information about studies. -->
   <string name="studies_learn_more">Alamin</string>
   <!--
@@ -1798,7 +1787,7 @@
   <!-- Summary for the Delete browsing data on quit preference. "Quit" translation should match delete_browsing_data_on_quit_action translation. -->
   <string name="preference_summary_delete_browsing_data_on_quit_2">Kusang magbubura ng browsing data kapag pinili mo ang \"Umalis\" mula sa main menu</string>
   <!-- Action item in menu for the Delete browsing data on quit feature -->
-  <string name="delete_browsing_data_on_quit_action">Umalis</string>
+  <string name="delete_browsing_data_on_quit_action" tools:ignore="UnusedResources" moz:removedIn="149">Umalis</string>
   <!-- Title text of a delete browsing data dialog. -->
   <string name="delete_history_prompt_title">Saklaw ng oras upang burahin</string>
   <!-- Body text of a delete browsing data dialog. -->
@@ -3221,4 +3210,9 @@
   <string name="private_tab_cfr_negative">Salamat na lang</string>
   <!-- Positive button text for the contextual feature recommendation (CFR) enabling screen lock for private tabs -->
   <string name="private_tab_cfr_positive">I-lock ang mga tab</string>
+  <!-- ==== Terms of use pop up prompt ==== -->
+
+  <!-- ==== Experiment strings. ==== -->
+
+  <!-- ==== End of Terms of use popup prompt. ==== -->
 </resources>

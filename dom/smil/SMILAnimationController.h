@@ -49,8 +49,8 @@ class SMILAnimationController final : public SMILTimeContainer {
   void Disconnect();
 
   // SMILContainer
-  void Pause(uint32_t aType) override;
-  void Resume(uint32_t aType) override;
+  void Pause(PauseType aType) override;
+  void Resume(PauseType aType) override;
   SMILTime GetParentTime() const override;
 
   // Returns mDocument's refresh driver, if it's got one.

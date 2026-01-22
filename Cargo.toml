@@ -66,7 +66,7 @@ exclude = [
 resolver = "2"
 
 [workspace.package]
-rust-version = "1.82.0"
+rust-version = "1.87.0"
 
 [workspace.dependencies]
 # Shared across multiple UniFFI consumers.
@@ -76,7 +76,7 @@ uniffi_pipeline = "0.29.3"
 # Shared across multiple application-services consumers.
 rusqlite = "0.37"
 # Shared across multiple glean consumers.
-glean = "=66.2.0"
+glean = "=66.3.0"
 
 # Explicitly specify what our profiles use.  The opt-level setting here is
 # a total fiction; see the setup of MOZ_RUST_DEFAULT_FLAGS for what the
@@ -223,6 +223,8 @@ web-sys = { path = "build/rust/dummy-web/web-sys" }
 core-foundation = { path = "build/rust/core-foundation" }
 # Patch `core-graphics-types` 0.1.* to 0.2.
 core-graphics-types = { path = "build/rust/core-graphics-types" }
+# Patch `dispatch2` to an empty crate that cannot be built.
+dispatch2 = { path = "build/rust/dispatch2" }
 
 # Patch `half` 1.* to 2.
 half = { path = "build/rust/half" }
@@ -265,12 +267,6 @@ objc = { git = "https://github.com/glandium/rust-objc", rev = "4de89f5aa9851ceca
 
 # allocator-api2 + f95e3419ce41883904fcb2279b52aa35b5f04d76 + fdd92751afa7ce34408b677004b429d597e72c90
 allocator-api2 = { git = "https://github.com/glandium/allocator-api2", rev = "ad5f3d56a5a4519eff52af4ff85293431466ef5c" }
-
-# patch ohttp - app-services relies on a version yet to be released. However, even if a new version was released it
-# will have bumped the `toml` crate to a version which would cause dupes here. We should remove this and revert back
-# to a published version when we can upgrade both a-s and m-c to the same version.
-ohttp = { git = "https://github.com/martinthomson/ohttp.git", rev = "bf6a983845cc0b540effb3a615e92d914dfcfd0b" }
-bhttp = { git = "https://github.com/martinthomson/ohttp.git", rev = "bf6a983845cc0b540effb3a615e92d914dfcfd0b" }
 
 # application-services overrides to make updating them all simpler.
 context_id = { git = "https://github.com/mozilla/application-services", rev = "0376c542e4a31cde8d33dd0e8da17dcfbc6c58b2" }

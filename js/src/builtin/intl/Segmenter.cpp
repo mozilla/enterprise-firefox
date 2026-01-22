@@ -323,7 +323,7 @@ struct GraphemeClusterSegmenterBreakIteratorLatin1 {
   using BreakIterator = icu4x::capi::GraphemeClusterBreakIteratorLatin1;
   using Segmenter = icu4x::capi::GraphemeClusterSegmenter;
   using Char = JS::Latin1Char;
-  using StringView = diplomat::capi::DiplomatU8View;
+  using StringView = icu4x::diplomat::capi::DiplomatU8View;
 
   static constexpr auto& create =
       icu4x::capi::icu4x_GraphemeClusterSegmenter_segment_latin1_mv1;
@@ -339,7 +339,7 @@ struct GraphemeClusterSegmenterBreakIteratorTwoByte {
   using BreakIterator = icu4x::capi::GraphemeClusterBreakIteratorUtf16;
   using Segmenter = icu4x::capi::GraphemeClusterSegmenter;
   using Char = char16_t;
-  using StringView = diplomat::capi::DiplomatString16View;
+  using StringView = icu4x::diplomat::capi::DiplomatString16View;
 
   static constexpr auto& create =
       icu4x::capi::icu4x_GraphemeClusterSegmenter_segment_utf16_mv1;
@@ -368,7 +368,7 @@ struct WordSegmenterBreakIteratorLatin1 {
   using BreakIterator = icu4x::capi::WordBreakIteratorLatin1;
   using Segmenter = icu4x::capi::WordSegmenter;
   using Char = JS::Latin1Char;
-  using StringView = diplomat::capi::DiplomatU8View;
+  using StringView = icu4x::diplomat::capi::DiplomatU8View;
 
   static constexpr auto& create =
       icu4x::capi::icu4x_WordSegmenter_segment_latin1_mv1;
@@ -384,7 +384,7 @@ struct WordSegmenterBreakIteratorTwoByte {
   using BreakIterator = icu4x::capi::WordBreakIteratorUtf16;
   using Segmenter = icu4x::capi::WordSegmenter;
   using Char = char16_t;
-  using StringView = diplomat::capi::DiplomatString16View;
+  using StringView = icu4x::diplomat::capi::DiplomatString16View;
 
   static constexpr auto& create =
       icu4x::capi::icu4x_WordSegmenter_segment_utf16_mv1;
@@ -412,7 +412,7 @@ struct SentenceSegmenterBreakIteratorLatin1 {
   using BreakIterator = icu4x::capi::SentenceBreakIteratorLatin1;
   using Segmenter = icu4x::capi::SentenceSegmenter;
   using Char = JS::Latin1Char;
-  using StringView = diplomat::capi::DiplomatU8View;
+  using StringView = icu4x::diplomat::capi::DiplomatU8View;
 
   static constexpr auto& create =
       icu4x::capi::icu4x_SentenceSegmenter_segment_latin1_mv1;
@@ -428,7 +428,7 @@ struct SentenceSegmenterBreakIteratorTwoByte {
   using BreakIterator = icu4x::capi::SentenceBreakIteratorUtf16;
   using Segmenter = icu4x::capi::SentenceSegmenter;
   using Char = char16_t;
-  using StringView = diplomat::capi::DiplomatString16View;
+  using StringView = icu4x::diplomat::capi::DiplomatString16View;
 
   static constexpr auto& create =
       icu4x::capi::icu4x_SentenceSegmenter_segment_utf16_mv1;

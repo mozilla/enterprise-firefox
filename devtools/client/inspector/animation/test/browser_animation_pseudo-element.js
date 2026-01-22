@@ -27,6 +27,10 @@ const TEST_DATA = [
     expectedAnimationNameLabel: "div-after",
   },
   {
+    expectedTargetLabel: "::backdrop",
+    expectedAnimationNameLabel: "dialog-backdrop",
+  },
+  {
     expectedTargetLabel: "::marker",
     expectedAnimationNameLabel: "div-marker",
   },
@@ -228,7 +232,7 @@ add_task(async function () {
   );
 
   info("Reload the page");
-  await reloadBrowser();
+  await reloadSelectedTab();
 
   info("Waiting for expected animations to be displayed");
   // No need to check for view transition this time, we want to assert that we do get

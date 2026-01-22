@@ -108,6 +108,9 @@ add_task(async function test_turn_on_custom_location_filepicker() {
   Services.fog.testResetFOG();
 
   await BrowserTestUtils.withNewTab("about:preferences#sync", async browser => {
+    let sandbox = sinon.createSandbox();
+    sandbox.stub(BackupService.prototype, "createBackup").resolves(true);
+
     const mockCustomParentDir = await IOUtils.createUniqueDirectory(
       PathUtils.tempDir,
       "settings-custom-dir-test"
@@ -235,6 +238,7 @@ add_task(async function test_turn_on_custom_location_filepicker() {
 
     // Reset scheduled backups again for subsequent tests.
     Services.prefs.clearUserPref(SCHEDULED_BACKUPS_ENABLED_PREF);
+    sandbox.restore();
   });
 });
 
@@ -644,6 +648,71 @@ add_task(async function test_embedded_component_persistent_data_filepicker() {
       {},
       "Our persistent path should be flushed"
     );
+  });
+
+  await SpecialPowers.popPrefEnv();
+});
+
+add_task(async function test_create_backup_on_enable() {
+  await SpecialPowers.pushPrefEnv({
+    set: [[SCHEDULED_BACKUPS_ENABLED_PREF, false]],
+  });
+
+  await BrowserTestUtils.withNewTab("about:preferences#sync", async browser => {
+    await waitInitialRequestStateSettled();
+    let sandbox = sinon.createSandbox();
+    let createBackupStub = sandbox.stub(
+      BackupService.prototype,
+      "createBackup"
+    );
+
+    let { promise: backupCreatedPromise, resolve } = Promise.withResolvers();
+
+    createBackupStub.callsFake(async args => {
+      if (args?.reason === "first") {
+        resolve();
+      }
+      return true;
+    });
+
+    let settings = browser.contentDocument.querySelector("backup-settings");
+    let turnOnButton = settings.scheduledBackupsButtonEl;
+
+    Assert.ok(
+      turnOnButton,
+      "Button to turn on scheduled backups should be found"
+    );
+
+    turnOnButton.click();
+
+    await settings.updateComplete;
+
+    let turnOnScheduledBackups = settings.turnOnScheduledBackupsEl;
+
+    Assert.ok(
+      turnOnScheduledBackups,
+      "turn-on-scheduled-backups should be found"
+    );
+
+    let confirmButton = turnOnScheduledBackups.confirmButtonEl;
+    let enableScheduledPromise = BrowserTestUtils.waitForEvent(
+      window,
+      "BackupUI:EnableScheduledBackups"
+    );
+
+    Assert.ok(confirmButton, "Confirm button should be found");
+
+    confirmButton.click();
+
+    await enableScheduledPromise;
+    await backupCreatedPromise;
+    await settings.updateComplete;
+    Assert.ok(
+      true,
+      "createBackup was triggered immediately with reason 'first'"
+    );
+
+    sandbox.restore();
   });
 
   await SpecialPowers.popPrefEnv();

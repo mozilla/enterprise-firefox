@@ -22,9 +22,9 @@ class FeltStartsBrowser(FeltTests):
                 self._child_driver.get_cookies(),
             )
         )
-        assert (
-            len(expected_cookie) == 1
-        ), f"Cookie {self.cookie_name} was properly set on Firefox started by FELT"
+        assert len(expected_cookie) == 1, (
+            f"Cookie {self.cookie_name} was properly set on Firefox started by FELT"
+        )
 
         return True
 
@@ -32,8 +32,8 @@ class FeltStartsBrowser(FeltTests):
         assert len(exp["prefs"]) > 0
         for pref in exp["prefs"]:
             value = self.get_pref_child(pref[0], pref[2])
-            assert (
-                value == pref[1]
-            ), f"Mismatching pref {pref[0]} value {value} instead of {pref[1]}"
+            assert value == pref[1], (
+                f"Mismatching pref {pref[0]} value {value} instead of {pref[1]}"
+            )
 
         return True

@@ -88,7 +88,7 @@ pub struct GpuBufferHandle(u32);
 
 impl GpuBufferHandle {
     pub const INVALID: GpuBufferHandle = GpuBufferHandle(u32::MAX - 1);
-    const EPOCH_MASK: u32 = 0xFF000000;
+    const EPOCH_MASK: u32 = 0xFC000000; // Leading 6 bits
 
     fn new(addr: u32, epoch: u32) -> Self {
         Self(addr | epoch)
@@ -102,7 +102,7 @@ impl GpuBufferHandle {
 impl std::fmt::Debug for GpuBufferHandle {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let addr = self.0 & !Self::EPOCH_MASK;
-        let epoch = (self.0 & Self::EPOCH_MASK) >> 24;
+        let epoch = (self.0 & Self::EPOCH_MASK) >> 26;
         write!(f, "#{addr}@{epoch}")
     }
 }
@@ -363,6 +363,7 @@ impl<'a, T> GpuBufferWriter<'a, T> where T: Texel {
     /// Close this writer, returning the GPU address of this set of block(s).
     pub fn finish_with_handle(self) -> GpuBufferHandle {
         assert!(self.buffer.len() <= self.index + self.max_block_count);
+        assert_eq!(self.index & (GpuBufferHandle::EPOCH_MASK as usize), 0);
 
         GpuBufferHandle::new(self.index as u32, self.epoch)
     }
@@ -403,7 +404,7 @@ impl<T> GpuBufferBuilderImpl<T> where T: Texel + std::convert::From<DeviceIntRec
     pub fn new(memory: &FrameMemory, capacity: usize, frame_id: FrameId) -> Self {
         // Pick the first 8 bits of the frame id and store them in the upper bits
         // of the handles.
-        let epoch = ((frame_id.as_u64() % 254) as u32 + 1) << 24;
+        let epoch = ((frame_id.as_u64() % 62) as u32 + 1) << 26;
         GpuBufferBuilderImpl {
             data: memory.new_vec_with_capacity(capacity),
             deferred: Vec::new(),

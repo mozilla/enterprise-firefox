@@ -131,8 +131,7 @@ from mozbuild.base import MachCommandConditions as conditions
     default=None,
     type=str,
     dest="p12_password_file_arg",
-    help="The rcodesign pkcs12 password file, passed to rcodesign without "
-    "validation.",
+    help="The rcodesign pkcs12 password file, passed to rcodesign without validation.",
 )
 def macos_sign(
     command_context,
@@ -175,7 +174,7 @@ def macos_sign(
                 logging.ERROR,
                 "macos-sign",
                 {},
-                "ERROR: p12 password file with no p12 file, " "use both or neither",
+                "ERROR: p12 password file with no p12 file, use both or neither",
             )
             sys.exit(1)
         if p12_file_arg is not None and p12_password_file_arg is None:
@@ -183,7 +182,7 @@ def macos_sign(
                 logging.ERROR,
                 "macos-sign",
                 {},
-                "ERROR: p12 file with no p12 password file, " "use both or neither",
+                "ERROR: p12 file with no p12 password file, use both or neither",
             )
             sys.exit(1)
         if p12_file_arg is not None and p12_password_file_arg is not None:
@@ -197,8 +196,7 @@ def macos_sign(
             logging.ERROR,
             "macos-sign",
             {},
-            "ERROR: pkcs12 signing not supported with "
-            "native codesign, only rcodesign",
+            "ERROR: pkcs12 signing not supported with native codesign, only rcodesign",
         )
         sys.exit(1)
 
@@ -218,7 +216,7 @@ def macos_sign(
                     logging.ERROR,
                     "macos-sign",
                     {},
-                    "ERROR: rcodesign requires pkcs12 or " "ad-hoc signing",
+                    "ERROR: rcodesign requires pkcs12 or ad-hoc signing",
                 )
                 sys.exit(1)
 
@@ -228,7 +226,7 @@ def macos_sign(
                 logging.ERROR,
                 "macos-sign",
                 {},
-                "ERROR: both ad-hoc and pkcs12 signing " "requested",
+                "ERROR: both ad-hoc and pkcs12 signing requested",
             )
             sys.exit(1)
 
@@ -242,7 +240,7 @@ def macos_sign(
             logging.ERROR,
             "macos-sign",
             {},
-            "ERROR: " "Production entitlements and self-signing are " "not compatible",
+            "ERROR: Production entitlements and self-signing are not compatible",
         )
         sys.exit(1)
 
@@ -461,6 +459,16 @@ def auto_detect_channel(ctx, app):
         sys.exit(1)
 
 
+# Simulate the resolution of the 'only-if-milestone-is-nightly' attribute in
+# 'hardened-sign-config' by taskgraph.
+def should_skip_on_channel(signing_group, channel):
+    if "only-if-milestone-is-nightly" not in signing_group:
+        return False
+    if not isinstance(signing_group["only-if-milestone-is-nightly"], bool):
+        raise ("Unexpected type for 'only-if-milestone-is-nightly'")
+    return signing_group["only-if-milestone-is-nightly"] and channel != "nightly"
+
+
 def sign_with_codesign(
     ctx,
     verbose_arg,
@@ -478,6 +486,9 @@ def sign_with_codesign(
     ctx.log(logging.INFO, "macos-sign", {}, "Signing with codesign")
 
     for signing_group in signing_groups:
+        if should_skip_on_channel(signing_group, channel):
+            continue
+
         cs_cmd = ["codesign"]
         cs_cmd.append("--sign")
         cs_cmd.append(signing_identity)
@@ -627,6 +638,9 @@ def sign_with_rcodesign(
     temp_files_to_cleanup = []
 
     for signing_group in signing_groups:
+        if should_skip_on_channel(signing_group, channel):
+            continue
+
         # Ignore the 'deep' and 'force' setting for rcodesign
         group_runtime = "runtime" in signing_group and signing_group["runtime"]
 

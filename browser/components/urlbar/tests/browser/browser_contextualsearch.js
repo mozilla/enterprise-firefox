@@ -11,6 +11,10 @@ const { ActionsProviderQuickActions } = ChromeUtils.importESModule(
   "moz-src:///browser/components/urlbar/ActionsProviderQuickActions.sys.mjs"
 );
 
+const { CustomizableUITestUtils } = ChromeUtils.importESModule(
+  "resource://testing-common/CustomizableUITestUtils.sys.mjs"
+);
+
 const CONFIG = [
   {
     identifier: "default-engine",
@@ -38,6 +42,16 @@ const CONFIG = [
     },
     // Only enable in particular locale so it is not installed by default.
     variants: [{ environment: { locales: ["sl"] } }],
+  },
+  {
+    identifier: "de-engine",
+    base: {
+      urls: {
+        search: { base: "https://mochi.test/", searchTermParamName: "q" },
+      },
+    },
+    // Only enable in particular locale so it is not installed by default.
+    variants: [{ environment: { locales: ["de"] } }],
   },
 ];
 
@@ -149,6 +163,14 @@ add_task(async function test_actions() {
 
   Assert.equal(testActionCalled, 1, "Test action was called");
 
+  info("Check whether the URI on the original tab is not changed");
+  // eslint-disable-next-line mozilla/no-arbitrary-setTimeout
+  await new Promise(r => setTimeout(r, 100));
+  Assert.equal(
+    gBrowser.selectedBrowser.currentURI.spec,
+    "https://example.net/"
+  );
+
   ActionsProviderQuickActions.removeAction("testaction");
 });
 
@@ -162,7 +184,7 @@ add_task(async function test_selectContextualSearchResult_already_installed() {
   await loadUri("https://example.com/");
 
   const query = "search";
-  let engine = Services.search.getEngineByName("Contextual");
+  let engine = SearchService.getEngineByName("Contextual");
   const [expectedUrl] = UrlbarUtils.getSearchQueryUrl(engine, query);
 
   Assert.ok(
@@ -257,14 +279,72 @@ add_task(async function test_tab_to_search_engine() {
   await SearchTestUtils.updateRemoteSettingsConfig(CONFIG);
 });
 
-add_task(async function test_onboarding_default_engine() {
+add_task(async function test_dont_suggest_default_engine() {
+  await UrlbarTestUtils.promiseAutocompleteResultPopup({
+    window,
+    value: "default",
+  });
+
+  Assert.ok(
+    await hasActions(1),
+    "Default engine is suggested when it matches the query"
+  );
+
+  // Load a URI from the host of the default engine.
+  await loadUri("https://example.com/");
+
+  await UrlbarTestUtils.promiseAutocompleteResultPopup({
+    window,
+    value: "something",
+  });
+
+  Assert.ok(
+    !(await hasActions(1)),
+    "Default engine is not suggested based on current host"
+  );
+
+  await UrlbarTestUtils.promisePopupClose(window, () => {
+    EventUtils.synthesizeKey("KEY_Escape");
+  });
+});
+
+add_task(async function test_dont_suggest_default_engine() {
+  await UrlbarTestUtils.promiseAutocompleteResultPopup({
+    window,
+    value: "default",
+  });
+
+  Assert.ok(
+    await hasActions(1),
+    "Default engine is suggested when it matches the query"
+  );
+
+  // Load a URI from the host of the default engine.
+  await loadUri("https://example.com/");
+
+  await UrlbarTestUtils.promiseAutocompleteResultPopup({
+    window,
+    value: "something",
+  });
+
+  Assert.ok(
+    !(await hasActions(1)),
+    "Default engine is not suggested based on current host"
+  );
+
+  await UrlbarTestUtils.promisePopupClose(window, () => {
+    EventUtils.synthesizeKey("KEY_Escape");
+  });
+});
+
+add_task(async function test_onboarding() {
   await SpecialPowers.pushPrefEnv({
     set: [["browser.urlbar.quickactions.timesToShowOnboardingLabel", 3]],
   });
 
   await UrlbarTestUtils.promiseAutocompleteResultPopup({
     window,
-    value: "default",
+    value: "non-default",
   });
 
   Assert.ok(
@@ -277,6 +357,41 @@ add_task(async function test_onboarding_default_engine() {
   await UrlbarTestUtils.promisePopupClose(window, () => {
     EventUtils.synthesizeKey("KEY_Escape");
   });
+});
+
+add_task(async function keep_search_query_searchbar() {
+  await SpecialPowers.pushPrefEnv({
+    set: [["browser.search.widget.new", true]],
+  });
+
+  let gCUITestUtils = new CustomizableUITestUtils(window);
+  let searchbar = await gCUITestUtils.addSearchBar();
+
+  // Visit page where de-engine will be suggested.
+  await BrowserTestUtils.loadURIString({
+    browser: gBrowser.selectedBrowser,
+    uriString: "https://mochi.test/",
+  });
+
+  await SearchbarTestUtils.promiseAutocompleteResultPopup({
+    window,
+    value: "kitten",
+  });
+
+  EventUtils.synthesizeKey("KEY_Tab");
+  EventUtils.synthesizeKey("KEY_Enter"); // Select "Seach with de-engine"
+  await BrowserTestUtils.browserLoaded(gBrowser.selectedBrowser, {
+    wantLoad: "https://mochi.test/?q=kitten",
+  });
+
+  Assert.equal(
+    searchbar.value,
+    "kitten",
+    "Search query should stay after contextual search was executed"
+  );
+
+  gCUITestUtils.removeSearchBar();
+  await SpecialPowers.popPrefEnv();
 });
 
 async function hasActions(index) {

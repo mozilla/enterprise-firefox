@@ -1362,8 +1362,8 @@ JSObject* GetSuspendingPromiseResult(Instance* instance, void* result,
       results->storeVal(val, 0);
     } else {
       // The multi-value result is wrapped into ArrayObject/Iterable.
-      Rooted<ArrayObject*> array(cx);
-      if (!IterableToArray(cx, jsValue, &array)) {
+      Rooted<ArrayObject*> array(cx, IterableToArray(cx, jsValue));
+      if (!array) {
         return nullptr;
       }
       if (fields.length() != array->length()) {

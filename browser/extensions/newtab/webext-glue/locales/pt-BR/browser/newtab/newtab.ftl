@@ -325,13 +325,8 @@ newtab-custom-recent-subtitle = Uma seleção de sites e conteúdos recentes
 newtab-custom-weather-toggle =
     .label = Tempo
     .description = Visão geral da previsão para hoje
-newtab-custom-trending-search-toggle =
-    .label = Pesquisas em alta
-    .description = Tópicos populares e pesquisados com frequência
 newtab-custom-widget-weather-toggle =
     .label = Tempo
-newtab-custom-widget-trending-search-toggle =
-    .label = Pesquisas em alta
 newtab-custom-widget-lists-toggle =
     .label = Listas
 newtab-custom-widget-timer-toggle =
@@ -592,7 +587,7 @@ newtab-download-mobile-highlight-image =
 newtab-shortcuts-highlight-title = Seus preferidos na ponta dos dedos.
 newtab-shortcuts-highlight-subtitle = Adicione um atalho para manter seus sites preferidos a um clique de distância.
 
-## Strings for reporting ads and content
+## Strings for reporting issues with ads and content
 
 newtab-report-content-why-reporting-this =
     .label = Por que você está relatando isto?
@@ -610,21 +605,13 @@ newtab-report-content-inappropriate-offensive =
     .label = Impróprio ou ofensivo
 newtab-report-content-spam-misleading =
     .label = Spam ou enganoso
+newtab-report-content-requires-payment-subscription =
+    .label = Requer pagamento ou assinatura
+newtab-report-content-requires-payment-subscription-learn-more = Saiba mais
 newtab-report-cancel = Cancelar
 newtab-report-submit = Enviar
 newtab-toast-thanks-for-reporting =
     .message = Obrigado por informar isto.
-
-## Strings for trending searches
-
-newtab-trending-searches-show-trending =
-    .title = Mostrar pesquisas em alta
-newtab-trending-searches-hide-trending =
-    .title = Ocultar pesquisas em alta
-newtab-trending-searches-learn-more = Saiba mais
-newtab-trending-searches-dismiss = Ocultar pesquisas em alta
-# "Trending searches refers to popular searches from search engines
-newtab-trending-searches-title = Pesquisas em alta
 
 ## Strings for task / to-do list productivity widget
 

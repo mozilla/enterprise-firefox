@@ -20,6 +20,8 @@ prefs = [
 
 ["browser_ipprotection_content_signedout.js"]
 
+["browser_ipprotection_content_site_exclusion.js"]
+
 ["browser_ipprotection_header.js"]
 
 ["browser_ipprotection_keyboard_navigation.js"]
@@ -32,7 +34,7 @@ prefs = [
 
 ["browser_ipprotection_proxy_errors.js"]
 
-["browser_ipprotection_site_settings_control.js"]
+["browser_ipprotection_status_box.js"]
 
 ["browser_ipprotection_status_card.js"]
 
@@ -42,7 +44,5 @@ prefs = [
 skip-if = [
   "devedition",
 ]
-
-["browser_ipprotection_upgrade.js"]
 
 ["browser_ipprotection_usage.js"]

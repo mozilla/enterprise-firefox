@@ -159,8 +159,6 @@ export var AppConstants = Object.freeze({
 
   MOZ_GECKO_PROFILER: @MOZ_GECKO_PROFILER_BOOL@,
 
-  BROWSER_NEWTAB_AS_ADDON: @BROWSER_NEWTAB_AS_ADDON_BOOL@,
-
   DLL_PREFIX: "@DLL_PREFIX@",
   DLL_SUFFIX: "@DLL_SUFFIX@",
 
@@ -214,11 +212,11 @@ export var AppConstants = Object.freeze({
 
   ENABLE_WEBDRIVER: @ENABLE_WEBDRIVER_BOOL@,
 
-  REMOTE_SETTINGS_SERVER_URL:
+  REMOTE_SETTINGS_SERVER_URLS:
 #ifdef MOZ_THUNDERBIRD
-    "https://thunderbird-settings.thunderbird.net/v1",
+    [ "https://thunderbird-settings.thunderbird.net/v1" ],
 #else
-    "https://firefox.settings.services.mozilla.com/v1",
+    [ "https://firefox.settings.services.mozilla.com/v1", "https://firefox.settings.services.mozilla.com/v2" ],
 #endif
 
   REMOTE_SETTINGS_VERIFY_SIGNATURE:

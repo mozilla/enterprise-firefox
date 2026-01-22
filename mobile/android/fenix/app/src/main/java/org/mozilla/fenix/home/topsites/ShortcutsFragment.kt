@@ -8,12 +8,14 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.fragment.app.Fragment
 import androidx.fragment.compose.content
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
-import mozilla.components.lib.state.ext.observeAsState
+import kotlinx.coroutines.flow.map
 import org.mozilla.fenix.HomeActivity
 import org.mozilla.fenix.components.components
 import org.mozilla.fenix.ext.requireComponents
@@ -62,9 +64,8 @@ class ShortcutsFragment : Fragment() {
     ): View? = content {
         FirefoxTheme {
             val appStore = components.appStore
-            val topSites by appStore.observeAsState(initialValue = emptyList()) { state ->
-                state.topSites
-            }
+            val topSites by remember { appStore.stateFlow.map { state -> state.topSites } }
+                .collectAsState(initial = emptyList())
 
             ShortcutsScreen(
                 state = ShortcutsState(topSites = topSites),

@@ -9,14 +9,14 @@ use crate::composite::{CompositeFeatures, CompositorClip};
 use crate::pattern::PatternShaderInput;
 use crate::quad::LayoutOrDeviceRect;
 use crate::segment::EdgeAaSegmentMask;
-use crate::spatial_tree::{SpatialTree, SpatialNodeIndex};
-use crate::internal_types::{FastHashMap, FrameVec, FrameMemory};
+use crate::transform::GpuTransformId;
+use crate::internal_types::{FrameVec, FrameMemory};
 use crate::prim_store::{ClipData, VECS_PER_SEGMENT};
 use crate::render_task::RenderTaskAddress;
 use crate::render_task_graph::RenderTaskId;
 use crate::renderer::{GpuBufferAddress, GpuBufferBuilderF, GpuBufferHandle, GpuBufferWriterF, GpuBufferDataF, GpuBufferDataI, GpuBufferWriterI, ShaderColorMode};
 use std::i32;
-use crate::util::{MatrixHelpers, ScaleOffset, TransformedRectKind};
+use crate::util::ScaleOffset;
 use glyph_rasterizer::SubpixelDirection;
 use crate::util::pack_as_float;
 
@@ -217,8 +217,8 @@ pub struct ClipMaskInstanceCommon {
     pub task_origin: DevicePoint,
     pub screen_origin: DevicePoint,
     pub device_pixel_scale: f32,
-    pub clip_transform_id: TransformPaletteId,
-    pub prim_transform_id: TransformPaletteId,
+    pub clip_transform_id: GpuTransformId,
+    pub prim_transform_id: GpuTransformId,
 }
 
 #[derive(Clone, Debug)]
@@ -509,7 +509,7 @@ pub struct PrimitiveHeader {
     pub local_rect: LayoutRect,
     pub local_clip_rect: LayoutRect,
     pub specific_prim_address: i32,
-    pub transform_id: TransformPaletteId,
+    pub transform_id: GpuTransformId,
     pub z: ZBufferId,
     pub render_task_address: RenderTaskAddress,
     pub user_data: [i32; 4],
@@ -534,7 +534,7 @@ pub struct PrimitiveHeaderF {
 pub struct PrimitiveHeaderI {
     pub z: ZBufferId,
     pub specific_prim_address: i32,
-    pub transform_id: TransformPaletteId,
+    pub transform_id: GpuTransformId,
     pub render_task_address: RenderTaskAddress,
     pub user_data: [i32; 4],
 }
@@ -646,7 +646,7 @@ impl From<QuadInstance> for PrimitiveInstanceData {
 
 /// Matches QuadHeader in ps_quad.glsl
 pub struct QuadHeader {
-    pub transform_id: TransformPaletteId,
+    pub transform_id: GpuTransformId,
     pub z_id: ZBufferId,
     pub pattern_input: PatternShaderInput,
 }
@@ -756,7 +756,7 @@ impl ClipSpace {
 #[cfg_attr(feature = "replay", derive(Deserialize))]
 pub struct MaskInstance {
     pub prim: PrimitiveInstanceData,
-    pub clip_transform_id: TransformPaletteId,
+    pub clip_transform_id: GpuTransformId,
     pub clip_address: i32,
     pub clip_space: u32,
     pub unused: i32,
@@ -859,192 +859,6 @@ impl ImageBrushUserData {
             get_shader_opacity(self.opacity),
             0,
         ]
-    }
-}
-
-// Represents the information about a transform palette
-// entry that is passed to shaders. It includes an index
-// into the transform palette, and a set of flags. The
-// only flag currently used determines whether the
-// transform is axis-aligned (and this should have
-// pixel snapping applied).
-#[derive(Copy, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "capture", derive(Serialize))]
-#[cfg_attr(feature = "replay", derive(Deserialize))]
-#[repr(C)]
-pub struct TransformPaletteId(pub u32);
-
-impl TransformPaletteId {
-    /// Identity transform ID.
-    pub const IDENTITY: Self = TransformPaletteId(0);
-
-    /// Extract the transform kind from the id.
-    pub fn transform_kind(&self) -> TransformedRectKind {
-        if (self.0 >> 23) == 0 {
-            TransformedRectKind::AxisAligned
-        } else {
-            TransformedRectKind::Complex
-        }
-    }
-
-    /// Override the kind of transform stored in this id. This can be useful in
-    /// cases where we don't want shaders to consider certain transforms axis-
-    /// aligned (i.e. perspective warp) even though we may still want to for the
-    /// general case.
-    pub fn override_transform_kind(&self, kind: TransformedRectKind) -> Self {
-        TransformPaletteId((self.0 & 0x7FFFFFu32) | ((kind as u32) << 23))
-    }
-}
-
-/// The GPU data payload for a transform palette entry.
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "capture", derive(Serialize))]
-#[cfg_attr(feature = "replay", derive(Deserialize))]
-#[repr(C)]
-pub struct TransformData {
-    transform: LayoutToPictureTransform,
-    inv_transform: PictureToLayoutTransform,
-}
-
-impl TransformData {
-    fn invalid() -> Self {
-        TransformData {
-            transform: LayoutToPictureTransform::identity(),
-            inv_transform: PictureToLayoutTransform::identity(),
-        }
-    }
-}
-
-// Extra data stored about each transform palette entry.
-#[derive(Clone)]
-pub struct TransformMetadata {
-    transform_kind: TransformedRectKind,
-}
-
-impl TransformMetadata {
-    pub fn invalid() -> Self {
-        TransformMetadata {
-            transform_kind: TransformedRectKind::AxisAligned,
-        }
-    }
-}
-
-#[derive(Debug, Hash, Eq, PartialEq)]
-struct RelativeTransformKey {
-    from_index: SpatialNodeIndex,
-    to_index: SpatialNodeIndex,
-}
-
-// Stores a contiguous list of TransformData structs, that
-// are ready for upload to the GPU.
-// TODO(gw): For now, this only stores the complete local
-//           to world transform for each spatial node. In
-//           the future, the transform palette will support
-//           specifying a coordinate system that the transform
-//           should be relative to.
-pub struct TransformPalette {
-    transforms: FrameVec<TransformData>,
-    metadata: Vec<TransformMetadata>,
-    map: FastHashMap<RelativeTransformKey, usize>,
-}
-
-impl TransformPalette {
-    pub fn new(
-        count: usize,
-        memory: &FrameMemory,
-    ) -> Self {
-        let _ = VECS_PER_TRANSFORM;
-
-        let mut transforms = memory.new_vec_with_capacity(count);
-        let mut metadata = Vec::with_capacity(count);
-
-        transforms.push(TransformData::invalid());
-        metadata.push(TransformMetadata::invalid());
-
-        TransformPalette {
-            transforms,
-            metadata,
-            map: FastHashMap::default(),
-        }
-    }
-
-    pub fn finish(self) -> FrameVec<TransformData> {
-        self.transforms
-    }
-
-    fn get_index(
-        &mut self,
-        child_index: SpatialNodeIndex,
-        parent_index: SpatialNodeIndex,
-        spatial_tree: &SpatialTree,
-    ) -> usize {
-        if child_index == parent_index {
-            0
-        } else {
-            let key = RelativeTransformKey {
-                from_index: child_index,
-                to_index: parent_index,
-            };
-
-            let metadata = &mut self.metadata;
-            let transforms = &mut self.transforms;
-
-            *self.map
-                .entry(key)
-                .or_insert_with(|| {
-                    let transform = spatial_tree.get_relative_transform(
-                        child_index,
-                        parent_index,
-                    )
-                    .into_transform()
-                    .with_destination::<PicturePixel>();
-
-                    register_transform(
-                        metadata,
-                        transforms,
-                        transform,
-                    )
-                })
-        }
-    }
-
-    // Get a transform palette id for the given spatial node.
-    // TODO(gw): In the future, it will be possible to specify
-    //           a coordinate system id here, to allow retrieving
-    //           transforms in the local space of a given spatial node.
-    pub fn get_id(
-        &mut self,
-        from_index: SpatialNodeIndex,
-        to_index: SpatialNodeIndex,
-        spatial_tree: &SpatialTree,
-    ) -> TransformPaletteId {
-        let index = self.get_index(
-            from_index,
-            to_index,
-            spatial_tree,
-        );
-        let transform_kind = self.metadata[index].transform_kind as u32;
-        TransformPaletteId(
-            (index as u32) |
-            (transform_kind << 23)
-        )
-    }
-
-    pub fn get_custom(
-        &mut self,
-        transform: LayoutToPictureTransform,
-    ) -> TransformPaletteId {
-        let index = register_transform(
-            &mut self.metadata,
-            &mut self.transforms,
-            transform,
-        );
-
-        let transform_kind = self.metadata[index].transform_kind as u32;
-        TransformPaletteId(
-            (index as u32) |
-            (transform_kind << 23)
-        )
     }
 }
 
@@ -1171,34 +985,6 @@ impl GpuBufferDataF for YuvPrimitive {
             0.0
         ]);
     }
-}
-
-// Set the local -> world transform for a given spatial
-// node in the transform palette.
-fn register_transform(
-    metadatas: &mut Vec<TransformMetadata>,
-    transforms: &mut FrameVec<TransformData>,
-    transform: LayoutToPictureTransform,
-) -> usize {
-    // TODO: refactor the calling code to not even try
-    // registering a non-invertible transform.
-    let inv_transform = transform
-        .inverse()
-        .unwrap_or_else(PictureToLayoutTransform::identity);
-
-    let metadata = TransformMetadata {
-        transform_kind: transform.transform_kind()
-    };
-    let data = TransformData {
-        transform,
-        inv_transform,
-    };
-
-    let index = transforms.len();
-    metadatas.push(metadata);
-    transforms.push(data);
-
-    index
 }
 
 pub fn get_shader_opacity(opacity: f32) -> i32 {

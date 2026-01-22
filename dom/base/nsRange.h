@@ -8,8 +8,8 @@
  * Implementation of the DOM Range object.
  */
 
-#ifndef nsRange_h___
-#define nsRange_h___
+#ifndef nsRange_h_
+#define nsRange_h_
 
 #include "mozilla/Attributes.h"
 #include "mozilla/ErrorResult.h"
@@ -624,4 +624,4 @@ inline const nsRange* AbstractRange::AsDynamicRange() const {
   return static_cast<const nsRange*>(this);
 }
 }  // namespace mozilla::dom
-#endif /* nsRange_h___ */
+#endif /* nsRange_h_ */

@@ -4,8 +4,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef nsTextPaintStyle_h__
-#define nsTextPaintStyle_h__
+#ifndef nsTextPaintStyle_h_
+#define nsTextPaintStyle_h_
 
 #include "mozilla/Attributes.h"
 #include "mozilla/ComputedStyle.h"
@@ -171,4 +171,4 @@ class MOZ_STACK_CLASS nsTextPaintStyle {
                                nscolor aBackColor);
 };
 
-#endif  // nsTextPaintStyle_h__
+#endif  // nsTextPaintStyle_h_

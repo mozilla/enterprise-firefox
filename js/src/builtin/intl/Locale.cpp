@@ -141,9 +141,9 @@ static LocaleObject* CreateLocaleObject(JSContext* cx, HandleObject prototype,
     return nullptr;
   }
 
-  locale->setFixedSlot(LocaleObject::LANGUAGE_TAG_SLOT, StringValue(tagStr));
-  locale->setFixedSlot(LocaleObject::BASENAME_SLOT, StringValue(baseName));
-  locale->setFixedSlot(LocaleObject::UNICODE_EXTENSION_SLOT, unicodeExtension);
+  locale->initFixedSlot(LocaleObject::LANGUAGE_TAG_SLOT, StringValue(tagStr));
+  locale->initFixedSlot(LocaleObject::BASENAME_SLOT, StringValue(baseName));
+  locale->initFixedSlot(LocaleObject::UNICODE_EXTENSION_SLOT, unicodeExtension);
 
   return locale;
 }
@@ -1487,62 +1487,6 @@ bool js::intl_ValidateAndCanonicalizeLanguageTag(JSContext* cx, unsigned argc,
   }
 
   auto* resultStr = ValidateAndCanonicalizeLanguageTag(cx, tagValue);
-  if (!resultStr) {
-    return false;
-  }
-  args.rval().setString(resultStr);
-  return true;
-}
-
-bool js::intl_TryValidateAndCanonicalizeLanguageTag(JSContext* cx,
-                                                    unsigned argc, Value* vp) {
-  CallArgs args = CallArgsFromVp(argc, vp);
-  MOZ_ASSERT(args.length() == 1);
-
-  Rooted<JSLinearString*> linear(cx, args[0].toString()->ensureLinear(cx));
-  if (!linear) {
-    return false;
-  }
-
-  mozilla::intl::Locale tag;
-  {
-    if (!StringIsAscii(linear)) {
-      // The caller handles invalid inputs.
-      args.rval().setNull();
-      return true;
-    }
-
-    intl::StringAsciiChars chars(linear);
-    if (!chars.init(cx)) {
-      return false;
-    }
-
-    if (mozilla::intl::LocaleParser::TryParse(chars, tag).isErr()) {
-      // The caller handles invalid inputs.
-      args.rval().setNull();
-      return true;
-    }
-  }
-
-  auto result = tag.Canonicalize();
-  if (result.isErr()) {
-    if (result.unwrapErr() ==
-        mozilla::intl::Locale::CanonicalizationError::DuplicateVariant) {
-      JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr,
-                                JSMSG_DUPLICATE_VARIANT_SUBTAG);
-    } else {
-      intl::ReportInternalError(cx);
-    }
-    return false;
-  }
-
-  intl::FormatBuffer<char, intl::INITIAL_CHAR_BUFFER_SIZE> buffer(cx);
-  if (auto result = tag.ToString(buffer); result.isErr()) {
-    intl::ReportInternalError(cx, result.unwrapErr());
-    return false;
-  }
-
-  JSString* resultStr = buffer.toAsciiString(cx);
   if (!resultStr) {
     return false;
   }

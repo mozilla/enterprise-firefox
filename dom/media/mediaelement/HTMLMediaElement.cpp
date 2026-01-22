@@ -3802,14 +3802,16 @@ void HTMLMediaElement::AddOutputTrackSourceToOutputStream(
     // Cycle detected. This can happen since tracks are added async.
     // We avoid forwarding it to the output here or we'd get into an infloop.
     LOG(LogLevel::Warning,
-        ("NOT adding output track source %p to output stream "
+        ("%p NOT adding output track source %p to output stream "
          "%p -- cycle detected",
-         aSource, aOutputStream.mStream.get()));
+         this, aSource, aOutputStream.mStream.get()));
     return;
   }
 
-  LOG(LogLevel::Debug, ("Adding output track source %p to output stream %p",
-                        aSource, aOutputStream.mStream.get()));
+  LOG(LogLevel::Debug,
+      ("%p Adding output track source %p to output stream %p (mode=%s)", this,
+       aSource, aOutputStream.mStream.get(),
+       aMode == AddTrackMode::ASYNC ? "async" : "sync"));
 
   RefPtr<MediaStreamTrack> domTrack;
   if (aSource->Track()->mType == MediaSegment::AUDIO) {
@@ -3839,8 +3841,13 @@ void HTMLMediaElement::AddOutputTrackSourceToOutputStream(
   }
 
   LOG(LogLevel::Debug,
-      ("Created capture %s track %p",
+      ("%p Created capture %s track %p", this,
        domTrack->AsAudioStreamTrack() ? "audio" : "video", domTrack.get()));
+}
+
+bool HTMLMediaElement::ShouldHaveTrackSources() const {
+  return mTracksCaptured.Ref() && !IsPlaybackEnded() &&
+         mReadyState >= HAVE_METADATA;
 }
 
 void HTMLMediaElement::UpdateOutputTrackSources() {
@@ -3856,10 +3863,7 @@ void HTMLMediaElement::UpdateOutputTrackSources() {
   //   remove any OutputMediaStreams that have the finish-when-ended flag set
   // - Create track sources for, and add to OutputMediaStreams, the tracks in
   //   tracks-to-add
-
-  const bool shouldHaveTrackSources = mTracksCaptured.Ref() &&
-                                      !IsPlaybackEnded() &&
-                                      mReadyState >= HAVE_METADATA;
+  const bool shouldHaveTrackSources = ShouldHaveTrackSources();
 
   // Add track sources for all enabled/selected MediaTracks.
   nsPIDOMWindowInner* window = OwnerDoc()->GetInnerWindow();
@@ -3869,13 +3873,17 @@ void HTMLMediaElement::UpdateOutputTrackSources() {
 
   if (mDecoder) {
     if (!mTracksCaptured.Ref()) {
-      mDecoder->SetOutputCaptureState(MediaDecoder::OutputCaptureState::None);
+      mDecoder->SetOutputCaptureState(MediaDecoder::OutputCaptureInfo(
+          MediaDecoder::OutputCaptureState::None));
     } else if (!AudioTracks() || !VideoTracks() || !shouldHaveTrackSources) {
       // We've been unlinked, or tracks are not yet known.
-      mDecoder->SetOutputCaptureState(MediaDecoder::OutputCaptureState::Halt);
+      mDecoder->SetOutputCaptureState(MediaDecoder::OutputCaptureInfo(
+          MediaDecoder::OutputCaptureState::Halt));
     } else {
-      mDecoder->SetOutputCaptureState(MediaDecoder::OutputCaptureState::Capture,
-                                      mTracksCaptured.Ref().get());
+      mDecoder->SetOutputCaptureState(MediaDecoder::OutputCaptureInfo(
+          MediaDecoder::OutputCaptureState::Capture,
+          mTracksCaptured.Ref().get(),
+          mAudioOutputConfig == AudioOutputConfig::Needed, mSink.second));
     }
   }
 
@@ -4088,17 +4096,46 @@ bool HTMLMediaElement::CanBeCaptured(StreamCaptureType aCaptureType) {
 
 already_AddRefed<DOMMediaStream> HTMLMediaElement::CaptureStreamInternal(
     StreamCaptureBehavior aFinishBehavior, StreamCaptureType aStreamCaptureType,
-    MediaTrackGraph* aGraph) {
+    AudioOutputConfig aAudioOutputConfig, MediaTrackGraph* aGraph) {
   MOZ_ASSERT(CanBeCaptured(aStreamCaptureType));
 
   LogVisibility(CallerAPI::CAPTURE_STREAM);
   MarkAsTainted();
+
+  // Once the audio output configuration is set to NotNeeded, the state remains
+  // permanent.
+  bool shouldRemoveAudioConfig =
+      mAudioOutputConfig != aAudioOutputConfig &&
+      aAudioOutputConfig == AudioOutputConfig::NotNeeded;
+  mAudioOutputConfig = (mAudioOutputConfig == AudioOutputConfig::NotNeeded ||
+                        aAudioOutputConfig == AudioOutputConfig::NotNeeded)
+                           ? AudioOutputConfig::NotNeeded
+                           : AudioOutputConfig::Needed;
+
+  LOG(LogLevel::Debug,
+      ("%p CaptureStreamInternal, behavior=%hhu, type=%hhu, needAudioConfig=%d",
+       this, static_cast<uint8_t>(aFinishBehavior),
+       static_cast<uint8_t>(aStreamCaptureType),
+       aAudioOutputConfig == AudioOutputConfig::Needed));
 
   if (mTracksCaptured.Ref()) {
     // Already have an output stream.  Check whether the graph rate matches if
     // specified.
     if (aGraph && aGraph != mTracksCaptured.Ref()->mTrack->Graph()) {
       return nullptr;
+    }
+    // Audio output was configured already but now we need to remove it. Eg.
+    // MediaElementAudioSourceNode is connected so audio should be heard from
+    // WebAudio's graph.
+    if (shouldRemoveAudioConfig && (AudioTracks() || VideoTracks()) &&
+        ShouldHaveTrackSources() && mDecoder) {
+      MOZ_ASSERT(mAudioOutputConfig == AudioOutputConfig::NotNeeded);
+      LOG(LogLevel::Debug,
+          ("%p Update decoder capture state to remove audio output", this));
+      mDecoder->SetOutputCaptureState(MediaDecoder::OutputCaptureInfo(
+          MediaDecoder::OutputCaptureState::Capture,
+          mTracksCaptured.Ref().get(), /*aShouldConfigAudioOutput=*/false,
+          mSink.second));
     }
   } else {
     // This is the first output stream, or there are no tracks. If the former,
@@ -4192,9 +4229,13 @@ already_AddRefed<DOMMediaStream> HTMLMediaElement::CaptureAudio(
     return nullptr;
   }
 
-  RefPtr<DOMMediaStream> stream =
-      CaptureStreamInternal(StreamCaptureBehavior::CONTINUE_WHEN_ENDED,
-                            StreamCaptureType::CAPTURE_AUDIO, aGraph);
+  mozilla::glean::media::capture_stream_usage
+      .EnumGet(mozilla::glean::media::CaptureStreamUsageLabel::
+                   eAudiosourcenodecaptured)
+      .Add();
+  RefPtr<DOMMediaStream> stream = CaptureStreamInternal(
+      StreamCaptureBehavior::CONTINUE_WHEN_ENDED,
+      StreamCaptureType::CAPTURE_AUDIO, AudioOutputConfig::NotNeeded, aGraph);
   if (!stream) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
@@ -4217,14 +4258,28 @@ RefPtr<GenericNonExclusivePromise> HTMLMediaElement::GetAllowedToPlayPromise() {
 
 already_AddRefed<DOMMediaStream> HTMLMediaElement::MozCaptureStream(
     ErrorResult& aRv) {
+  if (StaticPrefs::media_captureStream_enabled()) {
+    ReportToConsole(nsIScriptError::warningFlag,
+                    "MozCaptureStreamDeprecatedWarning");
+  }
   if (!CanBeCaptured(StreamCaptureType::CAPTURE_ALL_TRACKS)) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
   }
 
+  mozilla::glean::media::capture_stream_usage
+      .EnumGet(
+          mozilla::glean::media::CaptureStreamUsageLabel::eMozcapturestream)
+      .Add();
+  // TODO : our mozCaptureStreamXXX implementation doesn't render audio
+  // output, which is not spec compliant. A proper implementation will be
+  // implemented in CaptureStream() which will allow audio playback. We don't
+  // want to change its behavior as that might be breaking for existing
+  // sites which are already using a workaround for audio playback.
   RefPtr<DOMMediaStream> stream =
       CaptureStreamInternal(StreamCaptureBehavior::CONTINUE_WHEN_ENDED,
-                            StreamCaptureType::CAPTURE_ALL_TRACKS, nullptr);
+                            StreamCaptureType::CAPTURE_ALL_TRACKS,
+                            AudioOutputConfig::NotNeeded, nullptr);
   if (!stream) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
@@ -4235,14 +4290,52 @@ already_AddRefed<DOMMediaStream> HTMLMediaElement::MozCaptureStream(
 
 already_AddRefed<DOMMediaStream> HTMLMediaElement::MozCaptureStreamUntilEnded(
     ErrorResult& aRv) {
+  if (StaticPrefs::media_captureStream_enabled()) {
+    ReportToConsole(nsIScriptError::warningFlag,
+                    "MozCaptureStreamDeprecatedWarning");
+  }
   if (!CanBeCaptured(StreamCaptureType::CAPTURE_ALL_TRACKS)) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
   }
 
+  mozilla::glean::media::capture_stream_usage
+      .EnumGet(mozilla::glean::media::CaptureStreamUsageLabel::
+                   eMozcapturestreamuntilended)
+      .Add();
+  // TODO : our mozCaptureStreamXXX implementation doesn't render audio
+  // output, which is not spec compliant. A proper implementation will be
+  // implemented in CaptureStream() which will allow audio playback. We don't
+  // want to change its behavior as that might be breaking for existing
+  // sites which are already using a workaround for audio playback.
   RefPtr<DOMMediaStream> stream =
       CaptureStreamInternal(StreamCaptureBehavior::FINISH_WHEN_ENDED,
-                            StreamCaptureType::CAPTURE_ALL_TRACKS, nullptr);
+                            StreamCaptureType::CAPTURE_ALL_TRACKS,
+                            AudioOutputConfig::NotNeeded, nullptr);
+  if (!stream) {
+    aRv.Throw(NS_ERROR_FAILURE);
+    return nullptr;
+  }
+
+  return stream.forget();
+}
+
+already_AddRefed<DOMMediaStream> HTMLMediaElement::CaptureStream(
+    ErrorResult& aRv) {
+  // Spec issue https://github.com/w3c/mediacapture-fromelement/issues/20
+  // We began blocking the capture of encrypted playback in bug 1071482.
+  if (!CanBeCaptured(StreamCaptureType::CAPTURE_ALL_TRACKS)) {
+    aRv.Throw(NS_ERROR_FAILURE);
+    return nullptr;
+  }
+
+  mozilla::glean::media::capture_stream_usage
+      .EnumGet(mozilla::glean::media::CaptureStreamUsageLabel::eCapturestream)
+      .Add();
+  RefPtr<DOMMediaStream> stream =
+      CaptureStreamInternal(StreamCaptureBehavior::FINISH_WHEN_ENDED,
+                            StreamCaptureType::CAPTURE_ALL_TRACKS,
+                            AudioOutputConfig::Needed, nullptr);
   if (!stream) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
@@ -7581,6 +7674,16 @@ void HTMLMediaElement::ResetSetMediaKeysTempVariables() {
   mIncomingMediaKeys = nullptr;
 }
 
+bool HTMLMediaElement::MozAudioCaptured() const {
+  ReportToConsole(nsIScriptError::warningFlag,
+                  "MozAudioCapturedDeprecatedWarning");
+  mozilla::glean::media::capture_stream_usage
+      .EnumGet(
+          mozilla::glean::media::CaptureStreamUsageLabel::eMozaudiocaptured)
+      .Add();
+  return mAudioCaptured;
+}
+
 already_AddRefed<Promise> HTMLMediaElement::SetMediaKeys(
     mozilla::dom::MediaKeys* aMediaKeys, ErrorResult& aRv) {
   LOG(LogLevel::Debug, ("%p SetMediaKeys(%p) mMediaKeys=%p mDecoder=%p", this,
@@ -7842,19 +7945,25 @@ void HTMLMediaElement::AudioCaptureTrackChange(bool aCapture) {
     return;
   }
 
+  LOG(LogLevel::Debug, ("%p AudioCaptureTrackChange=%d", this, aCapture));
+
   if (aCapture && !mStreamWindowCapturer) {
     nsPIDOMWindowInner* window = OwnerDoc()->GetInnerWindow();
     if (!window) {
       return;
     }
 
+    mozilla::glean::media::capture_stream_usage
+        .EnumGet(mozilla::glean::media::CaptureStreamUsageLabel::
+                     eWindowaudiocaptured)
+        .Add();
     MediaTrackGraph* mtg = MediaTrackGraph::GetInstance(
         MediaTrackGraph::AUDIO_THREAD_DRIVER, window,
         MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE,
         MediaTrackGraph::DEFAULT_OUTPUT_DEVICE);
-    RefPtr<DOMMediaStream> stream =
-        CaptureStreamInternal(StreamCaptureBehavior::CONTINUE_WHEN_ENDED,
-                              StreamCaptureType::CAPTURE_AUDIO, mtg);
+    RefPtr<DOMMediaStream> stream = CaptureStreamInternal(
+        StreamCaptureBehavior::CONTINUE_WHEN_ENDED,
+        StreamCaptureType::CAPTURE_AUDIO, AudioOutputConfig::Needed, mtg);
     mStreamWindowCapturer =
         new MediaStreamWindowCapturer(stream, window->WindowID());
     mStreamWindowCapturer->mStream->RegisterTrackListener(
@@ -8026,6 +8135,7 @@ void HTMLMediaElement::ConstructMediaTracks(const MediaInfo* aInfo) {
 
   AudioTrackList* audioList = AudioTracks();
   if (audioList && aInfo->HasAudio()) {
+    LOG(LogLevel::Debug, ("%p ConstructMediaTracks, add an audio track", this));
     const TrackInfo& info = aInfo->mAudio;
     RefPtr<AudioTrack> track = MediaTrackList::CreateAudioTrack(
         audioList->GetOwnerGlobal(), info.mId, info.mKind, info.mLabel,
@@ -8036,6 +8146,7 @@ void HTMLMediaElement::ConstructMediaTracks(const MediaInfo* aInfo) {
 
   VideoTrackList* videoList = VideoTracks();
   if (videoList && aInfo->HasVideo()) {
+    LOG(LogLevel::Debug, ("%p ConstructMediaTracks, add a video track", this));
     const TrackInfo& info = aInfo->mVideo;
     RefPtr<VideoTrack> track = MediaTrackList::CreateVideoTrack(
         videoList->GetOwnerGlobal(), info.mId, info.mKind, info.mLabel,

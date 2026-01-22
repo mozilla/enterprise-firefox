@@ -59,11 +59,11 @@ body {
 .felt-login__email-pane {
   display: flex;
   flex-direction: column;
-  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-space-tokens */
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
   padding: 128px 50px;
   align-items: center;
   align-self: stretch;
-  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-space-tokens */
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
   gap: 36px;
   flex: 1 0 0;
 }
@@ -88,10 +88,10 @@ body {
 
 .felt-form__title {
   color: var(--text-color, #fbfbfe);
-  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-font-size-tokens */
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
   font-size: 42px;
   font-style: normal;
-  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-font-weight-tokens */
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
   font-weight: 274;
   line-height: normal;
 }
@@ -116,7 +116,7 @@ moz-input-text::part(label) {
   display: flex;
   /* stylelint-disable-next-line stylelint-plugin-mozilla/use-size-tokens */
   width: 400px;
-  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-space-tokens */
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
   padding: 60px 5px;
 }
 
@@ -146,4 +146,29 @@ moz-input-text::part(label) {
 
 .is-hidden {
   display: none !important;
+}
+
+#notification-popup-box {
+  position: absolute;
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  top: 50%;
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  left: 50%;
+}
+
+body:has(#notification-popup-box[open]) .felt:not(#notification-popup-box .felt) {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.felt-browser-error {
+  position: absolute;
+  /* stylelint-disable-next-line */
+  bottom: 32px;
+  /* stylelint-disable-next-line */
+  left: 8px;
+  font-size: medium;
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  color: var(--icon-color-critical);
+  font-weight: var(--font-weight-bold);
 }

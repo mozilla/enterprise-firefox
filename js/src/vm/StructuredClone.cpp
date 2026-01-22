@@ -39,9 +39,8 @@
 #include <memory>
 #include <utility>
 
-#include "jsdate.h"
-
 #include "builtin/DataViewObject.h"
+#include "builtin/Date.h"
 #include "builtin/MapObject.h"
 #include "gc/GC.h"           // AutoSelectGCHeap
 #include "js/Array.h"        // JS::GetArrayLength, JS::IsArrayObject
@@ -3670,7 +3669,13 @@ JSObject* JSStructuredCloneReader::readSavedFrameHeader(
     }
 
     if (mutedErrors.isBoolean()) {
-      if (!startRead(&source, AtomizeStrings) || !source.isString()) {
+      if (!startRead(&source, AtomizeStrings)) {
+        return nullptr;
+      }
+      if (!source.isString()) {
+        JS_ReportErrorNumberASCII(context(), GetErrorMessage, nullptr,
+                                  JSMSG_SC_BAD_SERIALIZED_DATA,
+                                  "bad source string");
         return nullptr;
       }
     } else if (mutedErrors.isString()) {
@@ -3679,7 +3684,9 @@ JSObject* JSStructuredCloneReader::readSavedFrameHeader(
       source = mutedErrors;
       mutedErrors.setBoolean(true);  // Safe default value.
     } else {
-      // Invalid type.
+      JS_ReportErrorNumberASCII(context(), GetErrorMessage, nullptr,
+                                JSMSG_SC_BAD_SERIALIZED_DATA,
+                                "invalid mutedErrors");
       return nullptr;
     }
   }

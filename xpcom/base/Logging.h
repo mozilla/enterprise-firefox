@@ -272,13 +272,13 @@ void log_print(const LogModule* aModule, LogLevel aLevel, TimeStamp* aStart,
                                    MOZ_LOG_EXPAND_ARGS _args);     \
       }                                                            \
     } while (0)
-#  define MOZ_LOG_FMT(_module, _level, _fmt, ...)                        \
-    do {                                                                 \
-      const ::mozilla::LogModule* moz_real_module = _module;             \
-      if (MOZ_LOG_TEST(moz_real_module, _level)) {                       \
-        mozilla::detail::log_print_fmt(moz_real_module, _level,          \
-                                       FMT_STRING(_fmt), ##__VA_ARGS__); \
-      }                                                                  \
+#  define MOZ_LOG_FMT(_module, _level, _fmt, ...)                     \
+    do {                                                              \
+      const ::mozilla::LogModule* moz_real_module = _module;          \
+      if (MOZ_LOG_TEST(moz_real_module, _level)) {                    \
+        mozilla::detail::log_print_fmt(moz_real_module, _level, _fmt, \
+                                       ##__VA_ARGS__);                \
+      }                                                               \
     } while (0)
 #else
 #  define MOZ_LOG(_module, _level, _args)                      \
@@ -295,12 +295,11 @@ void log_print(const LogModule* aModule, LogLevel aLevel, TimeStamp* aStart,
                                    MOZ_LOG_EXPAND_ARGS _args); \
       }                                                        \
     } while (0)
-#  define MOZ_LOG_FMT(_module, _level, _fmt, ...)                         \
-    do {                                                                  \
-      if (MOZ_LOG_TEST(_module, _level)) {                                \
-        mozilla::detail::log_print_fmt(_module, _level, FMT_STRING(_fmt), \
-                                       ##__VA_ARGS__);                    \
-      }                                                                   \
+#  define MOZ_LOG_FMT(_module, _level, _fmt, ...)                             \
+    do {                                                                      \
+      if (MOZ_LOG_TEST(_module, _level)) {                                    \
+        mozilla::detail::log_print_fmt(_module, _level, _fmt, ##__VA_ARGS__); \
+      }                                                                       \
     } while (0)
 #endif
 

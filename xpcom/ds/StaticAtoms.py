@@ -110,6 +110,7 @@ STATIC_ATOMS = [
     Atom("allowtopnavigationbyuseractivation", "allow-top-navigation-by-user-activation"),
     Atom("allowtopnavigationcustomprotocols", "allow-top-navigation-to-custom-protocols"),
     Atom("allowuntrusted", "allowuntrusted"),
+    Atom("alpha", "alpha"),
     Atom("alt", "alt"),
     Atom("alternate", "alternate"),
     Atom("always", "always"),
@@ -298,6 +299,7 @@ STATIC_ATOMS = [
     Atom("headerContentScriptType", "content-script-type"),
     Atom("headerContentStyleType", "content-style-type"),
     Atom("headerContentType", "content-type"),
+    Atom("colorspace", "colorspace"),
     Atom("consumeanchor", "consumeanchor"),
     Atom("context", "context"),
     Atom("contextmenu", "contextmenu"),
@@ -590,6 +592,7 @@ STATIC_ATOMS = [
     Atom("insertion", "insertion"),
     Atom("integer", "integer"),
     Atom("integrity", "integrity"),
+    Atom("integrity_violation", "integrity-violation"),
     Atom("interactive_widget", "interactive-widget"),
     Atom("internal", "internal"),
     Atom("internals", "internals"),
@@ -807,7 +810,6 @@ STATIC_ATOMS = [
     Atom("onchargingchange", "onchargingchange"),
     Atom("onchargingtimechange", "onchargingtimechange"),
     Atom("onchecking", "onchecking"),
-    Atom("onCheckboxStateChange", "onCheckboxStateChange"),
     Atom("onCheckKeyPressEventModel", "onCheckKeyPressEventModel"),
     Atom("onclick", "onclick"),
     Atom("onclose", "onclose"),
@@ -907,6 +909,7 @@ STATIC_ATOMS = [
     Atom("onorientationchange", "onorientationchange"),
     Atom("onoverflow", "onoverflow"),
     Atom("onpagehide", "onpagehide"),
+    Atom("onpagereveal", "onpagereveal"),
     Atom("onpageshow", "onpageshow"),
     Atom("onpaste", "onpaste"),
     Atom("onpayerdetailchange", "onpayerdetailchange"),
@@ -922,7 +925,6 @@ STATIC_ATOMS = [
     Atom("onprioritychange", "onprioritychange"),
     Atom("onpush", "onpush"),
     Atom("onpushsubscriptionchange", "onpushsubscriptionchange"),
-    Atom("onRadioStateChange", "onRadioStateChange"),
     Atom("onreadystatechange", "onreadystatechange"),
     Atom("onrejectionhandled", "onrejectionhandled"),
     Atom("onremove", "onremove"),
@@ -2538,7 +2540,7 @@ STATIC_ATOMS = [
     # CSS anchor positioning implicit anchor
     Atom("AnchorPosImplicitAnchor", "AnchorPosImplicitAnchor"),
     # CSS pseudo-elements -- these must appear in the same order as
-    # in nsCSSPseudoElementList.h
+    # in nsCSSPseudoElementList.inc
     PseudoElementAtom("PseudoElement_after", ":after"),
     PseudoElementAtom("PseudoElement_before", ":before"),
     PseudoElementAtom("PseudoElement_marker", ":marker"),
@@ -2662,20 +2664,18 @@ def generate_nsgkatomlist_h(output, *ignore):
         "#undef small\n"
         "#endif\n\n"
         "// GK_ATOM(identifier, string, hash, is_ascii_lower, gecko_type, atom_type)\n"
-        + "".join(
-            [
-                'GK_ATOM(%s, "%s", 0x%08x, %s, %s, %s)\n'
-                % (
-                    a.ident,
-                    a.string,
-                    a.hash,
-                    str(a.is_ascii_lowercase).lower(),
-                    a.ty,
-                    a.atom_type,
-                )
-                for a in STATIC_ATOMS
-            ]
-        )
+        + "".join([
+            'GK_ATOM(%s, "%s", 0x%08x, %s, %s, %s)\n'
+            % (
+                a.ident,
+                a.string,
+                a.hash,
+                str(a.is_ascii_lowercase).lower(),
+                a.ty,
+                a.atom_type,
+            )
+            for a in STATIC_ATOMS
+        ])
     )
 
 

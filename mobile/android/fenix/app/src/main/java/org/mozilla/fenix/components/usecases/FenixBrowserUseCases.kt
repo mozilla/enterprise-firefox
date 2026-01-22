@@ -15,13 +15,14 @@ import mozilla.components.feature.session.SessionUseCases
 import mozilla.components.feature.tabs.TabsUseCases
 import mozilla.components.support.ktx.kotlin.isUrl
 import mozilla.components.support.ktx.kotlin.toNormalizedUrl
+import org.mozilla.fenix.TabPartitionTags
 import org.mozilla.fenix.components.AppStore
 
 /**
  * Use cases for handling loading a URL and performing a search.
  *
  * @param appStore [AppStore] used to fetch the appstore
- * @param addNewTabUseCase [TabsUseCases.AddNewTabUseCase] used for adding new tabs.
+ * @param tabsUseCases [TabsUseCases] used for adding new tabs.
  * @param loadUrlUseCase [SessionUseCases.DefaultLoadUrlUseCase] used for loading a URL.
  * @param searchUseCases [SearchUseCases] used for performing a search.
  * @param homepageTitle The title of the new homepage tab.
@@ -29,7 +30,7 @@ import org.mozilla.fenix.components.AppStore
  */
 class FenixBrowserUseCases(
     private val appStore: AppStore,
-    private val addNewTabUseCase: TabsUseCases.AddNewTabUseCase,
+    private val tabsUseCases: TabsUseCases,
     private val loadUrlUseCase: SessionUseCases.DefaultLoadUrlUseCase,
     private val searchUseCases: SearchUseCases,
     private val homepageTitle: String,
@@ -66,7 +67,7 @@ class FenixBrowserUseCases(
         // and let it try to load whatever was entered.
         if (searchEngine == null || (!forceSearch && searchTermOrURL.isUrl())) {
             if (newTab) {
-                addNewTabUseCase.invoke(
+                tabsUseCases.addTab.invoke(
                     url = searchTermOrURL.toNormalizedUrl(),
                     flags = flags,
                     private = private,
@@ -124,10 +125,28 @@ class FenixBrowserUseCases(
      * @return The ID of the created tab.
      */
     fun addNewHomepageTab(private: Boolean = appStore.state.mode.isPrivate): String {
-        return addNewTabUseCase.invoke(
+        return tabsUseCases.addTab.invoke(
             url = ABOUT_HOME_URL,
             title = homepageTitle,
             private = private,
+        )
+    }
+
+    /**
+     * Adds a new homepage ("about:home") tab to the provided group.
+     *
+     * @param partition The ID of the partition the group belongs to.
+     * @param group The ID of the group.
+     */
+    fun addNewHomepageTabInGroup(
+        partition: String = TabPartitionTags.TAB_GROUPS,
+        group: String,
+    ) {
+        val tabId = addNewHomepageTab()
+        tabsUseCases.addTabsInGroup(
+            partition = partition,
+            group = group,
+            tabId = tabId,
         )
     }
 

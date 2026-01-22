@@ -16,6 +16,19 @@
   --toolbarbutton-outline: 1px solid var(--toolbarbutton-outline-color);
   --toolbarbutton-outline-offset: -1px;
 
+  /* AI window properties */
+  --aiwindow-ask-btn-bg: linear-gradient(
+    117deg,
+    rgba(50, 27, 253, 0.3) -17.87%,
+    rgba(207, 48, 226, 0.3) 52.93%,
+    rgba(255, 153, 0, 0.3) 89.02%,
+    rgba(245, 196, 81, 0.3) 109.44%
+  );
+  --aiwindow-ask-btn-text-color: var(--color-violet-80);
+  --aiwindow-ask-btn-icon-height: var(--size-item-small);
+  --aiwindow-ask-btn-icon-width: var(--size-item-small);
+  --aiwindow-ask-btn-border-color: var(--color-white);
+
   @media (prefers-contrast) {
     --toolbarbutton-hover-outline-color: currentColor;
     --toolbarbutton-active-outline-color: currentColor;
@@ -676,7 +689,65 @@ toolbar[keyNav]:not([collapsed], [customizing]) toolbartabstop,
 }
 
 /* IP Protection */
-#ipprotection-button.toolbarbutton-1 > .toolbarbutton-icon {
+#ipprotection-button > .toolbarbutton-icon {
   width: calc(2 * var(--toolbarbutton-inner-padding) + 35px);
   padding-block: 0;
+}
+
+toolbarpaletteitem[place="palette"] > #ipprotection-button > .toolbarbutton-icon {
+  max-height: 16px;
+}
+
+/* AI Window toolbar ask button */
+#aiwindow-ask-button {
+  align-self: center;
+  background: var(--aiwindow-ask-btn-bg);
+  border: 1px solid var(--aiwindow-ask-btn-border-color);
+  border-radius: var(--border-radius-circle);
+  color: var(--aiwindow-ask-btn-text-color);
+  flex-direction: row-reverse;
+  font-weight: var(--font-weight-semibold);
+  height: var(--size-item-medium);
+  list-style-image: url("chrome://global/skin/icons/chevron.svg");
+  --toolbarbutton-outer-padding: var(--space-small);
+  --toolbarbutton-hover-outline-color: none;
+  --toolbarbutton-hover-background: transparent;
+
+  &:hover > :is(.toolbarbutton-icon, .toolbarbutton-text) {
+    background-color: transparent;
+    outline-color: transparent;
+  }
+
+  &:focus-visible {
+    outline: var(--focus-outline);
+  }
+
+  & > .toolbarbutton-icon {
+    height: var(--aiwindow-ask-btn-icon-height);
+    width: var(--aiwindow-ask-btn-icon-width);
+    --toolbarbutton-inner-padding: 0;
+    --focus-outline: none;
+  }
+
+  & > .toolbarbutton-text {
+    display: block;
+    padding-inline-end: var(--space-xsmall);
+    --focus-outline: none;
+    --toolbarbutton-inner-padding: 0;
+  }
+
+  &.sidebar-is-open {
+    list-style-image: url("chrome://global/skin/icons/close.svg");
+    --aiwindow-ask-btn-bg:
+      linear-gradient(0deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.2) 100%),
+      linear-gradient(
+        117deg,
+        rgba(50, 27, 253, 0.05) -17.87%,
+        rgba(207, 48, 226, 0.05) 52.93%,
+        rgba(255, 153, 0, 0.05) 89.02%,
+        rgba(245, 196, 81, 0.05) 109.44%
+      );
+    --aiwindow-ask-btn-icon-height: var(--size-item-xsmall);
+    --aiwindow-ask-btn-icon-width: var(--size-item-xsmall);
+  }
 }

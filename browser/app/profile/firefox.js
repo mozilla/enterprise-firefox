@@ -424,11 +424,7 @@ pref("browser.urlbar.deduplication.thresholdDays", 0);
 
 pref("browser.urlbar.scotchBonnet.enableOverride", true);
 
-#ifdef NIGHTLY_BUILD
 pref("browser.urlbar.trustPanel.featureGate", true);
-#else
-pref("browser.urlbar.trustPanel.featureGate", false);
-#endif
 
 // Once Perplexity has entered search mode at least once,
 // we no longer show the Perplexity onboarding callout.
@@ -611,10 +607,6 @@ pref("browser.urlbar.decodeURLsOnCopy", false);
 // Tab" feature of the awesomebar.
 pref("browser.urlbar.switchTabs.adoptIntoActiveWindow", false);
 
-// Controls whether searching for open tabs returns tabs from any container
-// or only from the current container.
-pref("browser.urlbar.switchTabs.searchAllContainers", true);
-
 // Whether addresses and search results typed into the address bar
 // should be opened in new tabs by default.
 pref("browser.urlbar.openintab", false);
@@ -681,7 +673,7 @@ pref("browser.urlbar.merino.ohttpConfigURL", "");
 pref("browser.urlbar.merino.ohttpRelayURL", "");
 
 // OHTTP hpke for DAP
-pref("dap.ohttp.hpke", "https://dap-09-3.api.divviup.org/ohttp-configs");
+pref("dap.ohttp.hpke", "gAAgJSO22Y3HKzRSese15JtQVuuFfOIcTrZ56lQ5kDQwS0oABAABAAE");
 
 // OHTTP relay URL for DAP
 pref("dap.ohttp.relayURL", "https://mozilla-ohttp-dap.mozilla.fastly-edge.com/");
@@ -943,6 +935,10 @@ pref("permissions.default.shortcuts", 0);
 pref("permissions.desktop-notification.postPrompt.enabled", true);
 pref("permissions.desktop-notification.notNow.enabled", false);
 
+// Site categories for notification permission telemetry
+// Maps domains to categories for analyzing permission behavior by site type
+pref("permissions.desktop-notification.telemetry.siteCategories", '{"facebook.com":"social","instagram.com":"social","twitter.com":"social","x.com":"social","tiktok.com":"social","linkedin.com":"social","reddit.com":"social","pinterest.com":"social","snapchat.com":"social","tumblr.com":"social","slack.com":"chat_communication","discord.com":"chat_communication","teams.microsoft.com":"chat_communication","zoom.us":"chat_communication","whatsapp.com":"chat_communication","telegram.org":"chat_communication","messenger.com":"chat_communication","skype.com":"chat_communication","signal.org":"chat_communication","viber.com":"chat_communication","mail.google.com":"email","gmail.com":"email","outlook.com":"email","outlook.live.com":"email","mail.yahoo.com":"email","yahoo.com":"email","protonmail.com":"email","aol.com":"email","icloud.com":"email","zoho.com":"email","youtube.com":"media_streaming","netflix.com":"media_streaming","twitch.tv":"media_streaming","hulu.com":"media_streaming","disneyplus.com":"media_streaming","hbomax.com":"media_streaming","primevideo.com":"media_streaming","crunchyroll.com":"media_streaming","paramountplus.com":"media_streaming","spotify.com":"media_streaming","soundcloud.com":"media_streaming","pandora.com":"media_streaming","tv.apple.com":"media_streaming","steampowered.com":"gaming","steamcommunity.com":"gaming","store.epicgames.com":"gaming","roblox.com":"gaming","playstation.com":"gaming","xbox.com":"gaming","nintendo.com":"gaming","battle.net":"gaming","itch.io":"gaming","chess.com":"gaming","calendar.google.com":"calendar","outlook.live.com":"calendar","calendar.yahoo.com":"calendar","calendar.com":"calendar","drive.google.com":"productivity_collaboration","docs.google.com":"productivity_collaboration","sheets.google.com":"productivity_collaboration","office.com":"productivity_collaboration","onedrive.live.com":"productivity_collaboration","dropbox.com":"productivity_collaboration","box.com":"productivity_collaboration","notion.so":"productivity_collaboration","trello.com":"productivity_collaboration","asana.com":"productivity_collaboration","monday.com":"productivity_collaboration","atlassian.com":"productivity_collaboration","gitlab.com":"productivity_collaboration","bitbucket.org":"productivity_collaboration","miro.com":"productivity_collaboration","figma.com":"productivity_collaboration","cnn.com":"news_publishers","nytimes.com":"news_publishers","bbc.com":"news_publishers","theguardian.com":"news_publishers","washingtonpost.com":"news_publishers","foxnews.com":"news_publishers","reuters.com":"news_publishers","apnews.com":"news_publishers","bloomberg.com":"news_publishers","wsj.com":"news_publishers","usatoday.com":"news_publishers","nbcnews.com":"news_publishers","abcnews.go.com":"news_publishers","cbsnews.com":"news_publishers","npr.org":"news_publishers","time.com":"news_publishers","newsweek.com":"news_publishers","politico.com":"news_publishers","huffpost.com":"news_publishers","buzzfeednews.com":"news_publishers"}');
+
 pref("permissions.fullscreen.allowed", false);
 
 #ifdef MOZ_WEBRTC
@@ -1083,7 +1079,6 @@ pref("browser.tabs.dragDrop.expandGroup.delayMS", 350);
 pref("browser.tabs.dragDrop.selectTab.delayMS", 350);
 pref("browser.tabs.dragDrop.pinInteractionCue.delayMS", 500);
 pref("browser.tabs.dragDrop.moveOverThresholdPercent", 80);
-pref("browser.tabs.dragDrop.multiselectStacking", true);
 
 pref("browser.tabs.firefox-view.logLevel", "Warn");
 
@@ -1243,8 +1238,6 @@ pref("privacy.history.custom",              false);
 // 5 - Last 5 minutes
 // 6 - Last 24 hours
 pref("privacy.sanitize.timeSpan", 1);
-
-pref("privacy.sanitize.useOldClearHistoryDialog", false);
 
 pref("privacy.sanitize.clearOnShutdown.hasMigratedToNewPrefs2", false);
 pref("privacy.sanitize.clearOnShutdown.hasMigratedToNewPrefs3", false);
@@ -1744,6 +1737,7 @@ pref("services.sync.prefs.sync.media.eme.enabled", true);
 pref("services.sync.prefs.sync-seen.media.eme.enabled", false);
 pref("services.sync.prefs.sync.media.videocontrols.picture-in-picture.video-toggle.enabled", true);
 pref("services.sync.prefs.sync.network.cookie.cookieBehavior", true);
+pref("services.sync.prefs.sync.nimbus.rollouts.enabled", true);
 pref("services.sync.prefs.sync.permissions.default.image", true);
 pref("services.sync.prefs.sync.pref.downloads.disable_button.edit_actions", true);
 pref("services.sync.prefs.sync.pref.privacy.disable_button.cookie_exceptions", true);
@@ -1862,6 +1856,18 @@ pref("browser.newtabpage.activity-stream.mobileDownloadModal.variant-c", false);
 
 // Show refined card layout on newtab
 pref("browser.newtabpage.activity-stream.discoverystream.refinedCardsLayout.enabled", true);
+
+/**
+ * @backward-compat { version 148 }
+ *
+ * Temporary dual implementation to support train hopping. The old handoff UI
+ * is kept alongside the new contentSearchHandoffUI.mjs custom element until
+ * the module lands on all channels. Controlled by the pref
+ * browser.newtabpage.activity-stream.search.useHandoffComponent.
+ * Remove the old implementation and the pref once this ships to Release.
+ */
+pref("browser.newtabpage.activity-stream.search.useHandoffComponent", true);
+pref("browser.newtabpage.activity-stream.externalComponents.enabled", true);
 
 // Mozilla Ad Routing Service (MARS) unified ads service
 pref("browser.newtabpage.activity-stream.unifiedAds.tiles.enabled", true);
@@ -2152,6 +2158,9 @@ pref("nimbus.profilesdatastoreservice.sync.enabled", false);
   pref("nimbus.telemetry.targetingContextEnabled", true);
 #endif
 
+// Enable Rollouts by default.
+pref("nimbus.rollouts.enabled", true);
+
 // Nimbus QA prefs. Used to monitor pref-setting test experiments.
 pref("nimbus.qa.pref-1", "default");
 pref("nimbus.qa.pref-2", "default");
@@ -2177,11 +2186,12 @@ pref("pdfjs.handleOctetStream", true);
 
 // Is the sidebar positioned ahead of the content browser
 pref("sidebar.position_start", true);
-pref("sidebar.revamp", false);
-// This is nightly only for now, as we need to address bug 1933527 and bug 1934039.
 #ifdef NIGHTLY_BUILD
+pref("sidebar.revamp", true);
+// This is nightly only for now, as we need to address bug 1933527 and bug 1934039.
 pref("sidebar.revamp.round-content-area", true);
 #else
+pref("sidebar.revamp", false);
 pref("sidebar.revamp.round-content-area", false);
 #endif
 pref("sidebar.animation.enabled", true);
@@ -2253,9 +2263,13 @@ pref("browser.aiwindow.apiKey", '');
 pref("browser.aiwindow.chatStore.loglevel", "Error");
 pref("browser.aiwindow.enabled", false);
 pref("browser.aiwindow.endpoint", "https://mlpa-prod-prod-mozilla.global.ssl.fastly.net/v1");
-pref("browser.aiwindow.insights", false);
-pref("browser.aiwindow.insightsLogLevel", "Warn");
-pref("browser.aiwindow.model", "");
+pref("browser.aiwindow.memories", true);
+pref("browser.aiwindow.memoriesLogLevel", "Warn");
+pref("browser.aiwindow.firstrun.autoAdvanceMS", 3000);
+pref("browser.aiwindow.firstrun.hasCompleted", false);
+pref("browser.aiwindow.firstrun.modelChoice", "");
+pref("browser.aiwindow.model", "qwen3-235b-a22b-instruct-2507-maas");
+pref("browser.aiwindow.preferences.enabled", false);
 
 // Block insecure active content on https pages
 pref("security.mixed_content.block_active_content", true);
@@ -2307,6 +2321,9 @@ pref("identity.fxaccounts.autoconfig.uri", "");
 
 // URL for help link about Send Tab.
 pref("identity.sendtabpromo.url", "https://support.mozilla.org/1/firefox/%VERSION%/%OS%/%LOCALE%/send-tab");
+
+// Whether synced tabs should be loaded using the moz-remote-image: protocol.
+pref("identity.tabs.remoteSVGIconDecoding", false);
 
 // URLs for promo links to mobile browsers. Note that consumers are expected to
 // append a value for utm_campaign.
@@ -2629,6 +2646,10 @@ pref("privacy.webrtc.deviceGracePeriodTimeoutMs", 3600000);
 // the pref to hide the icons
 pref("privacy.webrtc.showIndicatorsOnMacos14AndAbove", true);
 
+// Testing pref: adds artificial delay (in ms) to gUM requests in webrtc-preview.
+// Used for testing abort logic. 0 means no delay.
+pref("privacy.webrtc.preview.testGumDelayMs", 0);
+
 // Enable Smartblock embed placeholders
 pref("extensions.webcompat.smartblockEmbeds.enabled", true);
 
@@ -2678,7 +2699,7 @@ pref("browser.tabs.fadeOutUnloadedTabs", false);
 #endif
 
 // Whether SVG favicons should be safely re-encoded using the moz-remote-image:// protocol.
-pref("browser.tabs.remoteSVGIconDecoding", false);
+pref("browser.tabs.remoteSVGIconDecoding", true);
 
 // If true, unprivileged extensions may use experimental APIs on
 // nightly and developer edition.
@@ -2911,7 +2932,12 @@ pref("browser.toolbars.bookmarks.showOtherBookmarks", true);
 
 // Felt Privacy pref to control simplified private browsing UI
 pref("browser.privatebrowsing.felt-privacy-v1", false);
-pref("security.certerrors.felt-privacy-v1", false);
+#if defined(NIGHTLY_BUILD)
+  pref("security.certerrors.felt-privacy-v1", true);
+#else
+  pref("security.certerrors.felt-privacy-v1", false);
+#endif
+
 
 // Prefs to control the Firefox Account toolbar menu.
 // This pref will surface existing Firefox Account information
@@ -3536,10 +3562,11 @@ pref("browser.ipProtection.features.autoStart", false);
 // Prefs to track the user turning on autostart preference
 pref("browser.ipProtection.autoStartEnabled", false);
 pref("browser.ipProtection.autoStartPrivateEnabled", false);
+pref("browser.ipProtection.autoRestoreEnabled", true);
 // Pref to track whether the user has turned IP protection on
 pref("browser.ipProtection.userEnabled", false);
-// Pref to track which experiment version the user is enrolled in
-pref("browser.ipProtection.variant", "");
+// Pref to track the number of times the user has enabled IP protection (max 3)
+pref("browser.ipProtection.userEnableCount", 0);
 // Pref to track number of times the VPN panel is opened
 pref("browser.ipProtection.panelOpenCount", 0);
 // Pref to enable support for site exceptions

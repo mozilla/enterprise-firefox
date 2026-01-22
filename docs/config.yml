@@ -82,6 +82,8 @@ categories:
         - testing/perfdocs
         - tools/code-coverage
         - testing-rust-code
+    ai_agent_tools_doc:
+        - ai-agent-tools
     release_doc:
         - update-infrastructure
         - tools/update-verify

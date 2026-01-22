@@ -4,8 +4,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef mozilla_Selection_h__
-#define mozilla_Selection_h__
+#ifndef mozilla_Selection_h_
+#define mozilla_Selection_h_
 
 #include "mozilla/AutoRestore.h"
 #include "mozilla/EventForwards.h"
@@ -448,7 +448,7 @@ class Selection final : public nsSupportsWeakReference,
       return false;
     }
 
-    return mStyledRanges.mRanges[0].mRange->Collapsed();
+    return mStyledRanges.GetAbstractRangeAt(0)->Collapsed();
   }
 
   // Returns whether both normal range and cross-shadow-boundary
@@ -466,7 +466,7 @@ class Selection final : public nsSupportsWeakReference,
       return true;
     }
 
-    AbstractRange* range = mStyledRanges.mRanges[0].mRange;
+    AbstractRange* range = mStyledRanges.GetAbstractRangeAt(0);
     if (range->MayCrossShadowBoundary()) {
       return range->AsDynamicRange()->CrossShadowBoundaryRangeCollapsed();
     }
@@ -971,11 +971,33 @@ class Selection final : public nsSupportsWeakReference,
     explicit StyledRanges(Selection& aSelection) : mSelection(aSelection) {}
     void Clear();
 
-    StyledRange* FindRangeData(AbstractRange* aRange);
+    TextRangeStyle* FindRangeData(AbstractRange* aRange);
 
-    using StyledRangeArray = AutoTArray<StyledRange, 1>;
+    size_t Length() const;
 
-    StyledRangeArray::size_type Length() const;
+    /** Returns a span of strong references to the AbstractRanges. */
+    mozilla::Span<RefPtr<AbstractRange>> Ranges() { return mRanges.Ranges(); }
+    mozilla::Span<const RefPtr<AbstractRange>> Ranges() const {
+      return mRanges.Ranges();
+    }
+
+    /**
+     * Returns an `AbstractRange` at `aIndex`. This MOZ_RELEASE_ASSERTs if
+     * `aIndex` is out of bounds.
+     */
+    AbstractRange* GetAbstractRangeAt(uint32_t aIndex) const {
+      return mRanges.GetAbstractRangeAt(aIndex);
+    }
+
+    /**
+     * Returns a `StyledRange` at `aIndex`. This MOZ_RELEASE_ASSERTs if
+     * `aIndex` is out of bounds.
+     * Note that each call creates a new object, which increments the refcount
+     * of the underlying `AbstractRange` and copies the `TextRangeStyle`.
+     */
+    StyledRange GetStyledRangeAt(uint32_t aIndex) {
+      return mRanges.GetStyledRangeAt(aIndex);
+    }
 
     nsresult RemoveCollapsedRanges();
 
@@ -985,16 +1007,19 @@ class Selection final : public nsSupportsWeakReference,
      * Binary searches the given sorted array of ranges for the insertion point
      * for the given aBoundary. The given comparator is used, and the index
      * where the point should appear in the array is returned.
-
-     * If there is an item in the array equal to aBoundary, we will return the
-     index of this item.
      *
+     * If there is an item in the array equal to aBoundary, we will return the
+     * index of this item.
+     *
+     * @param aElementArray Can be any array-like container (`nsTArray`,
+     *                      `AutoTArray`, `Span`) containing either
+     *                      `StyledRange` or `RefPtr<AbstractRange>`
      * @return the index where the point should appear in the array. In
      *         [0, `aElementArray->Length()`].
      */
-    template <typename PT, typename RT>
+    template <typename PT, typename RT, typename ArrayType>
     static size_t FindInsertionPoint(
-        const nsTArray<StyledRange>* aElementArray,
+        const ArrayType& aElementArray,
         const RangeBoundaryBase<PT, RT>& aBoundary,
         int32_t (*aComparator)(const RangeBoundaryBase<PT, RT>&,
                                const AbstractRange&));
@@ -1100,7 +1125,7 @@ class Selection final : public nsSupportsWeakReference,
     // If this proves to be a performance concern, then an interval tree may be
     // a possible solution, allowing the calculation of the overlap interval in
     // O(log n) time, though this would require rebalancing and other overhead.
-    StyledRangeArray mRanges;
+    StyledRangeCollection mRanges;
 
     // With introduction of the custom highlight API, Selection must be able to
     // hold `StaticRange`s as well. If they become invalid (eg. end is before
@@ -1108,7 +1133,7 @@ class Selection final : public nsSupportsWeakReference,
     // mRanges needs to contain valid ranges sorted correctly only. Therefore,
     // invalid static ranges are being stored in this array, which is being kept
     // up to date in `ReorderRangesIfNecessary()`.
-    StyledRangeArray mInvalidStaticRanges;
+    nsTArray<StyledRange> mInvalidStaticRanges;
 
     Selection& mSelection;
 
@@ -1297,4 +1322,4 @@ inline nsresult nsISelectionController::ScrollSelectionIntoView(
                                  mozilla::ScrollFlags::None, aMode);
 }
 
-#endif  // mozilla_Selection_h__
+#endif  // mozilla_Selection_h_

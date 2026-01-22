@@ -182,6 +182,10 @@ perf:
         description:
           "For android navigations, the time from application launch (i.e parent process start) to navigation start. Only meaningful with android_app_link_launch_type = COLD"
         unit: ms
+      android_isolation_category:
+        description: |
+          Process isolation category: shared_web, site_isolated, coop_isolated, or other
+        type: string
     send_in_pings:
       - pageload
   page_load_domain:

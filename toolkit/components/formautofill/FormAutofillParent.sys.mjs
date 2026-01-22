@@ -35,8 +35,6 @@ const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
   AddressComponent: "resource://gre/modules/shared/AddressComponent.sys.mjs",
-  // eslint-disable-next-line mozilla/no-browser-refs-in-toolkit
-  BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
   FormAutofillAddressSection:
     "resource://gre/modules/shared/FormAutofillSection.sys.mjs",
   FormAutofillCreditCardSection:
@@ -1029,11 +1027,13 @@ export class FormAutofillParent extends JSWindowActorParent {
    */
   async onAutoCompleteEntrySelected(message, data) {
     switch (message) {
-      case "FormAutofill:OpenPreferences": {
-        const win = lazy.BrowserWindowTracker.getTopWindow({
-          allowFromInactiveWorkspace: true,
-        });
-        win.openPreferences("privacy-form-autofill");
+      case "FormAutofill:OpenPaymentPreferences": {
+        lazy.FormAutofillPreferences.openPaymentPreference();
+        break;
+      }
+
+      case "FormAutofill:OpenAddressPreferences": {
+        lazy.FormAutofillPreferences.openAddressPreference();
         break;
       }
 
@@ -1078,7 +1078,13 @@ export class FormAutofillParent extends JSWindowActorParent {
   #FIELDS_FILLED_WHEN_SAME_ORIGIN = ["cc-number"];
 
   /**
-   * Determines if the field should be autofilled based on its origin.
+   * Determines whether a field is eligible for autofill based on its origin.
+   *
+   * The rules for autofill eligibility are as follows:
+   * 1. Autofill is permitted if the field resides in a frame that shares the same origin
+   *    as the field that triggered the autofill action.
+   * 2. Autofill is also allowed if the field is same-origin with the top-level frame
+   *    and is not designated as a credit card number field.
    *
    * @param {BorwsingContext} bc
    *        The browsing context the field is in.

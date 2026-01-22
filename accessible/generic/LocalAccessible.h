@@ -3,8 +3,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef _LocalAccessible_H_
-#define _LocalAccessible_H_
+#ifndef LocalAccessible_H_
+#define LocalAccessible_H_
 
 #include "mozilla/ComputedStyle.h"
 #include "mozilla/a11y/Accessible.h"

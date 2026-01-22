@@ -17,6 +17,7 @@
 #include "mozilla/glean/AntitrackingMetrics.h"
 #include "mozilla/glean/NetwerkMetrics.h"
 #include "mozilla/glean/NetwerkProtocolHttpMetrics.h"
+#include "mozilla/net/CaptivePortalService.h"
 #include "mozilla/net/CookieServiceParent.h"
 #include "mozilla/StoragePrincipalHelper.h"
 
@@ -115,7 +116,6 @@
 #include "nsCORSListenerProxy.h"
 #include "nsISocketProvider.h"
 #include "mozilla/extensions/StreamFilterParent.h"
-#include "mozilla/net/Predictor.h"
 #include "mozilla/net/SFVService.h"
 #include "mozilla/NullPrincipal.h"
 #include "CacheControlParser.h"
@@ -2087,6 +2087,28 @@ LNAPermission nsHttpChannel::UpdateLocalNetworkAccessPermissions(
 
   MOZ_ASSERT(mLoadInfo->TriggeringPrincipal(), "need triggering principal");
 
+  // Skip LNA checks if the triggering principal and target are same origin
+  // Note: This could be a case where there is a network change or device
+  // migration to a private or corporate network
+  bool isSameOrigin = false;
+  nsresult rv =
+      mLoadInfo->TriggeringPrincipal()->IsSameOrigin(mURI, &isSameOrigin);
+  if (NS_SUCCEEDED(rv) && isSameOrigin) {
+    userPerms = LNAPermission::Granted;
+    return userPerms;
+  }
+
+  // Skip LNA checks if captive portal is active
+  nsCOMPtr<nsICaptivePortalService> cps = CaptivePortalService::GetSingleton();
+  if (cps) {
+    int32_t state = cps->State();
+    if (state == nsICaptivePortalService::LOCKED_PORTAL &&
+        aPermissionType == LOCAL_NETWORK_PERMISSION_KEY) {
+      userPerms = LNAPermission::Granted;
+      return userPerms;
+    }
+  }
+
   // Step 1. Check for  Existing Allow or Deny permission
   if (nsContentUtils::IsExactSitePermAllow(mLoadInfo->TriggeringPrincipal(),
                                            aPermissionType)) {
@@ -3029,26 +3051,9 @@ nsresult nsHttpChannel::ProcessResponse(nsHttpConnectionInfo* aConnInfo) {
     }
   }
 
-  // Let the predictor know whether this was a cacheable response or not so
-  // that it knows whether or not to possibly prefetch this resource in the
-  // future.
   // We use GetReferringPage because mReferrerInfo may not be set at all(this is
   // especially useful in xpcshell tests, where we don't have an actual pageload
   // to get a referrer from).
-  if (StaticPrefs::network_predictor_enabled()) {
-    nsCOMPtr<nsIURI> referrer = GetReferringPage();
-    if (!referrer && mReferrerInfo) {
-      referrer = mReferrerInfo->GetOriginalReferrer();
-    }
-
-    if (referrer) {
-      nsCOMPtr<nsILoadContextInfo> lci = GetLoadContextInfo(this);
-      mozilla::net::Predictor::UpdateCacheability(
-          referrer, mURI, httpStatus, mRequestHead, mResponseHead.get(), lci,
-          IsThirdPartyTrackingResource());
-    }
-  }
-
   // Only allow 407 (authentication required) to continue
   if (mTransaction && mTransaction->ProxyConnectFailed() && httpStatus != 407) {
     return ProcessFailedProxyConnect(httpStatus);
@@ -3171,6 +3176,14 @@ nsresult nsHttpChannel::ContinueProcessResponse1(
   }
 
   gHttpHandler->OnAfterExamineResponse(this);
+
+  if (mResponseHead && mResponseHead->HasHeader(nsHttp::Clear_Site_Data)) {
+    if (nsCOMPtr<nsIObserverService> obsService =
+            services::GetObserverService()) {
+      obsService->NotifyObservers(static_cast<nsIHttpChannel*>(this),
+                                  "clear-site-data", nullptr);
+    }
+  }
 
   // No process switch needed, continue as normal.
   return ContinueProcessResponse2(rv);
@@ -5190,7 +5203,6 @@ nsHttpChannel::OnCacheEntryCheck(nsICacheEntry* entry, uint32_t* aResult) {
 
   bool isForcedValid = false;
   entry->GetIsForcedValid(&isForcedValid);
-  auto prefetchStatus = glean::predictor::PrefetchUseStatusLabel::eUsed;
 
   bool weaklyFramed, isImmutable;
   nsHttp::DetermineFramingAndImmutability(entry, mCachedResponseHead.get(),
@@ -5201,11 +5213,9 @@ nsHttpChannel::OnCacheEntryCheck(nsICacheEntry* entry, uint32_t* aResult) {
     LOG(("Validating based on Vary headers returning TRUE\n"));
     canAddImsHeader = false;
     doValidation = true;
-    prefetchStatus = glean::predictor::PrefetchUseStatusLabel::eWouldvary;
   } else {
     if (mCachedResponseHead->ExpiresInPast() ||
         mCachedResponseHead->MustValidateIfExpired()) {
-      prefetchStatus = glean::predictor::PrefetchUseStatusLabel::eExpired;
     }
     doValidation = nsHttp::ValidationRequired(
         isForcedValid, mCachedResponseHead.get(), mLoadFlags,
@@ -5248,9 +5258,6 @@ nsHttpChannel::OnCacheEntryCheck(nsICacheEntry* entry, uint32_t* aResult) {
     doValidation =
         (fromPreviousSession && !buf.IsEmpty()) ||
         (buf.IsEmpty() && mRequestHead.HasHeader(nsHttp::Authorization));
-    if (doValidation) {
-      prefetchStatus = glean::predictor::PrefetchUseStatusLabel::eAuth;
-    }
   }
 
   // Bug #561276: We maintain a chain of cache-keys which returns cached
@@ -5278,8 +5285,6 @@ nsHttpChannel::OnCacheEntryCheck(nsICacheEntry* entry, uint32_t* aResult) {
     // Append cacheKey if not in the chain already
     if (!doValidation) {
       ref->AppendElement(cacheKey);
-    } else {
-      prefetchStatus = glean::predictor::PrefetchUseStatusLabel::eRedirect;
     }
   }
 
@@ -5291,11 +5296,8 @@ nsHttpChannel::OnCacheEntryCheck(nsICacheEntry* entry, uint32_t* aResult) {
     if (!doValidation) {
       // Could have gotten to a funky state with some of the if chain above
       // and in nsHttp::ValidationRequired. Make sure we get it right here.
-      prefetchStatus = glean::predictor::PrefetchUseStatusLabel::eUsed;
-
       entry->MarkForcedValidUse();
     }
-    glean::predictor::prefetch_use_status.EnumGet(prefetchStatus).Add();
   }
 
   if (doValidation) {
@@ -6282,7 +6284,7 @@ bool nsHttpChannel::ParseDictionary(nsICacheEntry* aEntry,
 
     // Verify if the matchVal has regexp groups.  If so, reject it
     UrlpPattern pattern;
-    UrlpOptions options;
+    UrlpOptions options{};
     if (!urlp_parse_pattern_from_string(&matchVal, &mSpec, options, &pattern)) {
       LOG_DICTIONARIES(
           ("Failed to parse dictionary pattern %s", matchVal.get()));
@@ -8835,20 +8837,36 @@ nsresult nsHttpChannel::ProcessLNAActions() {
       UpdateLocalNetworkAccessPermissions(permissionKey);
 
   if (LNAPermission::Granted == permissionUpdateResult) {
-    // permission granted
+    // permission granted (auto-allow via permanent permission)
+    mLNAPromptAction.AssignLiteral("auto_allow");
     return OnPermissionPromptResult(true, permissionKey);
   }
 
   if (LNAPermission::Denied == permissionUpdateResult) {
-    // permission denied
+    // permission denied (auto-deny via permanent permission)
+    mLNAPromptAction.AssignLiteral("auto_deny");
     return OnPermissionPromptResult(false, permissionKey);
   }
 
   // If we get here, we don't have any permission to access the local
   // host/network. We need to prompt the user for action
-  auto permissionPromptCallback = [self = RefPtr{this}](
-                                      bool aPermissionGranted,
-                                      const nsACString& aType) -> void {
+  auto permissionPromptCallback =
+      [self = RefPtr{this}](bool aPermissionGranted, const nsACString& aType,
+                            bool aPromptShown) -> void {
+    // Set mLNAPromptAction based on whether prompt was shown and user response
+    if (aPromptShown) {
+      if (aPermissionGranted) {
+        self->mLNAPromptAction.AssignLiteral("prompt_allow");
+      } else {
+        self->mLNAPromptAction.AssignLiteral("prompt_deny");
+      }
+    } else {
+      if (aPermissionGranted) {
+        self->mLNAPromptAction.AssignLiteral("auto_allow");
+      } else {
+        self->mLNAPromptAction.AssignLiteral("auto_deny");
+      }
+    }
     self->OnPermissionPromptResult(aPermissionGranted, aType);
   };
 
@@ -9218,13 +9236,6 @@ void nsHttpChannel::MaybeUpdateDocumentIPAddressSpaceFromCache() {
 nsresult nsHttpChannel::OnPermissionPromptResult(bool aGranted,
                                                  const nsACString& aType) {
   mWaitingForLNAPermission = false;
-
-  // Set prompt action for telemetry
-  if (aGranted) {
-    mLNAPromptAction.AssignLiteral("allow");
-  } else {
-    mLNAPromptAction.AssignLiteral("deny");
-  }
 
   if (aGranted) {
     LOG(

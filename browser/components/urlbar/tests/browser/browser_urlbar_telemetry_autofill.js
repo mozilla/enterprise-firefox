@@ -292,7 +292,8 @@ add_task(async function other() {
   let searchString = "exam";
   let autofilledValue = "example.com/";
   let provider = createOtherAutofillProvider(searchString, autofilledValue);
-  UrlbarProvidersManager.registerProvider(provider);
+  let providersManager = ProvidersManager.getInstanceForSap("urlbar");
+  providersManager.registerProvider(provider);
 
   let histograms = snapshotHistograms();
   await triggerAutofillAndPickResult(searchString, autofilledValue);
@@ -300,7 +301,7 @@ add_task(async function other() {
   assertSearchTelemetryEmpty(histograms.search_hist);
 
   await PlacesUtils.history.clear();
-  UrlbarProvidersManager.unregisterProvider(provider);
+  providersManager.unregisterProvider(provider);
 });
 
 // Checks autofill deletion telemetry.

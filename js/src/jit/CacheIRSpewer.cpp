@@ -8,11 +8,9 @@
 
 #include "mozilla/Sprintf.h"
 
-#include <stdarg.h>
-
 #include "jsapi.h"
-#include "jsmath.h"
 
+#include "builtin/Math.h"
 #include "js/ColumnNumber.h"  // JS::LimitedColumnNumberOneOrigin
 #include "js/Printer.h"       // js::GenericPrinter
 #include "js/ScalarType.h"    // js::Scalar::Type

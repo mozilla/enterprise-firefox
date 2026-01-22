@@ -99,6 +99,7 @@ void DebugScriptObject::finalize(JS::GCContext* gcx, JSObject* obj) {
 
 /* static */
 DebugScript* DebugScript::get(JSScript* script) {
+  MOZ_ASSERT(!IsAboutToBeFinalizedUnbarriered(script));
   MOZ_ASSERT(script->hasDebugScript());
   DebugScriptMap* map = script->zone()->debugScriptMap;
   MOZ_ASSERT(map);
@@ -109,6 +110,7 @@ DebugScript* DebugScript::get(JSScript* script) {
 
 /* static */
 DebugScript* DebugScript::getUnbarriered(JSScript* script) {
+  MOZ_ASSERT(!IsAboutToBeFinalizedUnbarriered(script));
   MOZ_ASSERT(script->hasDebugScript());
   DebugScriptMap* map = script->zone()->debugScriptMap;
   MOZ_ASSERT(map);
@@ -178,6 +180,9 @@ DebugScript* DebugScript::getOrCreate(JSContext* cx, HandleScript script) {
 
 /* static */
 bool DebugScript::hasBreakpointSite(JSScript* script, jsbytecode* pc) {
+  if (IsAboutToBeFinalizedUnbarriered(script)) {
+    return false;
+  }
   if (!script->hasDebugScript()) {
     return false;
   }
@@ -225,6 +230,10 @@ JSBreakpointSite* DebugScript::getOrCreateBreakpointSite(JSContext* cx,
 /* static */
 void DebugScript::destroyBreakpointSite(JS::GCContext* gcx, JSScript* script,
                                         jsbytecode* pc) {
+  if (IsAboutToBeFinalizedUnbarriered(script)) {
+    return;
+  }
+
   // Avoid barriers during sweeping. |debug| does not escape.
   DebugScript* debug = getUnbarriered(script);
 
@@ -305,6 +314,10 @@ bool DebugScript::incrementStepperCount(JSContext* cx, HandleScript script) {
 
 /* static */
 void DebugScript::decrementStepperCount(JS::GCContext* gcx, JSScript* script) {
+  if (IsAboutToBeFinalizedUnbarriered(script)) {
+    return;
+  }
+
   // Avoid barriers during sweeping. |debug| does not escape.
   DebugScript* debug = getUnbarriered(script);
   MOZ_ASSERT(debug);
@@ -351,6 +364,10 @@ bool DebugScript::incrementGeneratorObserverCount(JSContext* cx,
 /* static */
 void DebugScript::decrementGeneratorObserverCount(JS::GCContext* gcx,
                                                   JSScript* script) {
+  if (IsAboutToBeFinalizedUnbarriered(script)) {
+    return;
+  }
+
   // Avoid barriers during sweeping. |debug| does not escape.
   DebugScript* debug = getUnbarriered(script);
   MOZ_ASSERT(debug);
@@ -416,6 +433,10 @@ void DebugAPI::checkDebugScriptAfterMovingGC(DebugScript* ds) {
 
 /* static */
 bool DebugAPI::stepModeEnabledSlow(JSScript* script) {
+  if (IsAboutToBeFinalizedUnbarriered(script)) {
+    return false;
+  }
+
   return DebugScript::getUnbarriered(script)->stepperCount > 0;
 }
 

@@ -6,6 +6,7 @@
 ChromeUtils.defineESModuleGetters(this, {
   CustomizableUITestUtils:
     "resource://testing-common/CustomizableUITestUtils.sys.mjs",
+  SearchService: "moz-src:///toolkit/components/search/SearchService.sys.mjs",
   SearchUITestUtils: "resource://testing-common/SearchUITestUtils.sys.mjs",
   SearchUtils: "moz-src:///toolkit/components/search/SearchUtils.sys.mjs",
   TelemetryTestUtils: "resource://testing-common/TelemetryTestUtils.sys.mjs",

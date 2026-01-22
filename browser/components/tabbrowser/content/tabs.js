@@ -71,6 +71,10 @@
       this.pinnedTabsContainer = document.getElementById(
         "pinned-tabs-container"
       );
+      this.pinnedTabsContainer.setAttribute(
+        "orient",
+        this.getAttribute("orient")
+      );
 
       // Override arrowscrollbox.js method, since our scrollbox's children are
       // inherited from the scrollbox binding parent (this).
@@ -154,6 +158,7 @@
       this._fullscreenMutationObserver.observe(document.documentElement, {
         attributeFilter: ["inFullscreen", "inDOMFullscreen"],
       });
+      window.addEventListener("uidensitychanged", this);
 
       this.boundObserve = (...args) => this.observe(...args);
       Services.prefs.addObserver("privacy.userContext", this.boundObserve);
@@ -223,42 +228,18 @@
 
       this.tooltip = "tabbrowser-tab-tooltip";
 
-      Services.prefs.addObserver(
-        "browser.tabs.dragDrop.multiselectStacking",
-        this.boundObserve
-      );
-      this.observe(
-        null,
-        "nsPref:changed",
-        "browser.tabs.dragDrop.multiselectStacking"
-      );
-    }
-
-    #initializeDragAndDrop() {
-      this.tabDragAndDrop = Services.prefs.getBoolPref(
-        "browser.tabs.dragDrop.multiselectStacking",
-        true
-      )
-        ? new window.TabStacking(this)
-        : new window.TabDragAndDrop(this);
+      this.tabDragAndDrop = new window.TabDragAndDrop(this);
       this.tabDragAndDrop.init();
     }
 
     attributeChangedCallback(name, oldValue, newValue) {
-      if (name != "orient") {
-        return;
-      }
-
-      if (this.overflowing) {
-        // reset this value so we don't have incorrect styling for vertical tabs
+      if (name == "orient") {
+        // reset this attribute so we don't have incorrect styling for vertical tabs
         this.removeAttribute("overflow");
+        this.#updateTabMinWidth();
+        this.#updateTabMinHeight();
+        this.pinnedTabsContainer?.setAttribute("orient", newValue);
       }
-
-      this.#updateTabMinWidth();
-      this.#updateTabMinHeight();
-
-      this.pinnedTabsContainer.setAttribute("orient", newValue);
-
       super.attributeChangedCallback(name, oldValue, newValue);
     }
 
@@ -808,6 +789,12 @@
       }
     }
 
+    on_uidensitychanged() {
+      this._updateCloseButtons();
+      this.#updateTabMinHeight();
+      this._handleTabSelect(true);
+    }
+
     // Utilities
 
     get emptyTabTitle() {
@@ -1239,12 +1226,9 @@
       }
     }
 
-    observe(aSubject, aTopic, aData) {
+    observe(aSubject, aTopic) {
       switch (aTopic) {
         case "nsPref:changed": {
-          if (aData == "browser.tabs.dragDrop.multiselectStacking") {
-            this.#initializeDragAndDrop();
-          }
           // This is has to deal with changes in
           // privacy.userContext.enabled and
           // privacy.userContext.newTabContainerOnLeftClick.enabled.
@@ -1497,12 +1481,6 @@
       }
     }
 
-    uiDensityChanged() {
-      this._updateCloseButtons();
-      this.#updateTabMinHeight();
-      this._handleTabSelect(true);
-    }
-
     _notifyBackgroundTab(aTab) {
       if (aTab.pinned || !aTab.visible || !this.overflowing) {
         return;
@@ -1719,10 +1697,6 @@
     destroy() {
       if (this.boundObserve) {
         Services.prefs.removeObserver("privacy.userContext", this.boundObserve);
-        Services.prefs.removeObserver(
-          "browser.tabs.dragDrop.multiselectStacking",
-          this.boundObserve
-        );
       }
       CustomizableUI.removeListener(this);
     }

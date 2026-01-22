@@ -19,6 +19,7 @@
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
+  SearchService: "moz-src:///toolkit/components/search/SearchService.sys.mjs",
   SearchUtils: "moz-src:///toolkit/components/search/SearchUtils.sys.mjs",
 });
 
@@ -97,7 +98,7 @@ class EngineDialog {
       return;
     }
 
-    let existingEngine = Services.search.getEngineByName(name);
+    let existingEngine = lazy.SearchService.getEngineByName(name);
     if (existingEngine && !this.allowedNames.includes(name)) {
       this.setValidity(this._name, "add-engine-name-exists");
       return;
@@ -113,7 +114,7 @@ class EngineDialog {
       return;
     }
 
-    let existingEngine = await Services.search.getEngineByAlias(alias);
+    let existingEngine = await lazy.SearchService.getEngineByAlias(alias);
     if (existingEngine && !this.allowedAliases.includes(alias)) {
       this.setValidity(this._alias, "add-engine-keyword-exists");
       return;
@@ -283,7 +284,7 @@ class NewEngineDialog extends EngineDialog {
     );
     let url = this._url.value.trim().replace(/%s/, "{searchTerms}");
 
-    Services.search.addUserEngine({
+    lazy.SearchService.addUserEngine({
       name: this._name.value.trim(),
       url,
       method: params.size ? "POST" : "GET",

@@ -13,11 +13,12 @@ use crate::pattern::{PatternKind, PatternShaderInput};
 use crate::profiler::{add_text_marker};
 use crate::spatial_tree::SpatialNodeIndex;
 use crate::frame_builder::FrameBuilderConfig;
-use crate::gpu_types::{BorderInstance, UvRectKind, TransformPaletteId, BlurEdgeMode};
+use crate::gpu_types::{BorderInstance, UvRectKind, BlurEdgeMode};
 use crate::internal_types::{CacheTextureId, FastHashMap, TextureSource, Swizzle};
 use crate::svg_filter::{FilterGraphNode, FilterGraphOp, FilterGraphPictureReference, SVGFE_CONVOLVE_VALUES_LIMIT};
 use crate::picture::ResolvedSurfaceTexture;
 use crate::tile_cache::MAX_SURFACE_SIZE;
+use crate::transform::GpuTransformId;
 use crate::prim_store::ClipData;
 use crate::prim_store::gradient::{
     FastLinearGradientTask, RadialGradientTask,
@@ -202,7 +203,7 @@ pub struct PrimTask {
     pub content_origin: DevicePoint,
     pub prim_address_f: GpuBufferAddress,
     pub raster_spatial_node_index: SpatialNodeIndex,
-    pub transform_id: TransformPaletteId,
+    pub transform_id: GpuTransformId,
     pub edge_flags: EdgeAaSegmentMask,
     pub quad_flags: QuadFlags,
     pub prim_needs_scissor_rect: bool,
@@ -526,7 +527,7 @@ impl RenderTaskKind {
         device_pixel_scale: DevicePixelScale,
         content_origin: DevicePoint,
         prim_address_f: GpuBufferAddress,
-        transform_id: TransformPaletteId,
+        transform_id: GpuTransformId,
         edge_flags: EdgeAaSegmentMask,
         quad_flags: QuadFlags,
         prim_needs_scissor_rect: bool,

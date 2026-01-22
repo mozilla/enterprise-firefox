@@ -38,7 +38,6 @@ const exposeDeleteResult = async () => {
 
 const proxyNativeShellService = {
   ...ShellService.shellService,
-  createWindowsIcon: sinon.stub().resolves(),
   createShortcut: sinon.stub().resolves("dummy_path"),
   deleteShortcut: sinon.stub().callsFake(exposeDeleteResult),
   pinShortcutToTaskbar: sinon.stub().callsFake(exposePinResult),
@@ -46,6 +45,7 @@ const proxyNativeShellService = {
 };
 
 sinon.stub(ShellService, "shellService").value(proxyNativeShellService);
+sinon.stub(ShellService, "createWindowsIcon").resolves();
 
 registerCleanupFunction(() => {
   sinon.restore();
@@ -63,7 +63,7 @@ add_task(async function testInstallAndUninstallMetric() {
   Services.fog.testResetFOG();
   let snapshot;
 
-  const taskbarTab = gRegistry.findOrCreateTaskbarTab(PARSED_URL, 0);
+  const taskbarTab = createTaskbarTab(gRegistry, PARSED_URL, 0);
 
   snapshot = Glean.webApp.install.testGetValue();
   is(snapshot.length, 1, "Should have recorded an 'install' event");
@@ -76,7 +76,7 @@ add_task(async function testInstallAndUninstallMetric() {
 async function testPinMetricCustom(aPinResult, aPinMessage = null) {
   let snapshot;
 
-  const taskbarTab = gRegistry.findOrCreateTaskbarTab(PARSED_URL, 0);
+  const taskbarTab = createTaskbarTab(gRegistry, PARSED_URL, 0);
   Services.fog.testResetFOG();
 
   gShortcutPinResult = aPinResult;
@@ -113,7 +113,7 @@ async function testUnpinMetricCustom(
 ) {
   let snapshot;
 
-  const taskbarTab = gRegistry.findOrCreateTaskbarTab(PARSED_URL, 0);
+  const taskbarTab = createTaskbarTab(gRegistry, PARSED_URL, 0);
   Services.fog.testResetFOG();
 
   gShortcutPinResult = aUnpinResult;
@@ -163,7 +163,7 @@ add_task(async function testPinAndUnpinMetric_DeleteInvalid() {
 });
 
 add_task(async function testActivateWhenWindowOpened() {
-  const taskbarTab = gRegistry.findOrCreateTaskbarTab(PARSED_URL, 0);
+  const taskbarTab = createTaskbarTab(gRegistry, PARSED_URL, 0);
   Services.fog.testResetFOG();
 
   const win1 = await gWindowManager.openWindow(taskbarTab);
@@ -182,7 +182,7 @@ add_task(async function testActivateWhenWindowOpened() {
 
 add_task(async function testMoveToTaskbarLowLevelMetric() {
   Services.fog.testResetFOG();
-  const taskbarTab = gRegistry.findOrCreateTaskbarTab(PARSED_URL, 0);
+  const taskbarTab = createTaskbarTab(gRegistry, PARSED_URL, 0);
   is(
     Glean.webApp.moveToTaskbar.testGetValue(),
     null,
@@ -241,7 +241,7 @@ add_task(async function testMoveToTaskbarHighLevelMetric() {
 });
 
 add_task(async function testEjectMetric() {
-  const taskbarTab = gRegistry.findOrCreateTaskbarTab(PARSED_URL, 0);
+  const taskbarTab = createTaskbarTab(gRegistry, PARSED_URL, 0);
   Services.fog.testResetFOG();
 
   const win = await gWindowManager.openWindow(taskbarTab);
@@ -262,7 +262,7 @@ add_task(async function testEjectMetric() {
 });
 
 add_task(async function testUsageTimeMetricSingleWindow() {
-  const taskbarTab = gRegistry.findOrCreateTaskbarTab(PARSED_URL, 0);
+  const taskbarTab = createTaskbarTab(gRegistry, PARSED_URL, 0);
   Services.fog.testResetFOG();
 
   const win = await gWindowManager.openWindow(taskbarTab);

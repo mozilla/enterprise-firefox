@@ -76,13 +76,6 @@ XPCOMUtils.defineLazyPreferenceGetter(
   false
 );
 
-XPCOMUtils.defineLazyPreferenceGetter(
-  this,
-  "useOldClearHistoryDialog",
-  "privacy.sanitize.useOldClearHistoryDialog",
-  false
-);
-
 ChromeUtils.defineESModuleGetters(this, {
   AppUpdater: "resource://gre/modules/AppUpdater.sys.mjs",
   DoHConfigController: "moz-src:///toolkit/components/doh/DoHConfig.sys.mjs",
@@ -118,6 +111,13 @@ const SANITIZE_ON_SHUTDOWN_PREFS_ONLY_V2 = [
   "privacy.clearOnShutdown_v2.browsingHistoryAndDownloads",
   "privacy.clearOnShutdown_v2.siteSettings",
 ];
+
+const SECURITY_PRIVACY_STATUS_CARD_ENABLED =
+  Services.prefs.getBoolPref("browser.settings-redesign.enabled", false) ||
+  Services.prefs.getBoolPref(
+    "browser.settings-redesign.securityPrivacyStatus.enabled",
+    false
+  );
 
 Preferences.addAll([
   // Content blocking / Tracking Protection
@@ -195,12 +195,14 @@ Preferences.addAll([
   // Do not track and Global Privacy Control
   { id: "privacy.donottrackheader.enabled", type: "bool" },
   { id: "privacy.globalprivacycontrol.functionality.enabled", type: "bool" },
-
-  // Global Privacy Control
   { id: "privacy.globalprivacycontrol.enabled", type: "bool" },
+  {
+    id: "browser.preferences.config_warning.donottrackheader.dismissed",
+    type: "bool",
+  },
 
   // Firefox VPN
-  { id: "browser.ipProtection.variant", type: "string" },
+  { id: "browser.ipProtection.enabled", type: "bool" },
   { id: "browser.ipProtection.features.siteExceptions", type: "bool" },
   { id: "browser.ipProtection.features.autoStart", type: "bool" },
   { id: "browser.ipProtection.autoStartEnabled", type: "bool" },
@@ -268,10 +270,6 @@ Preferences.addAll([
   // Windows SSO
   { id: "network.http.windows-sso.enabled", type: "bool" },
 
-  // Quick Actions
-  { id: "browser.urlbar.quickactions.showPrefs", type: "bool" },
-  { id: "browser.urlbar.suggest.quickactions", type: "bool" },
-
   // Cookie Banner Handling
   { id: "cookiebanners.ui.desktop.enabled", type: "bool" },
   { id: "cookiebanners.service.mode.privateBrowsing", type: "int" },
@@ -291,9 +289,10 @@ Preferences.addAll([
   { id: "media.setsinkid.enabled", type: "bool" },
 ]);
 
-if (Services.prefs.getBoolPref("privacy.ui.status_card", false)) {
+if (SECURITY_PRIVACY_STATUS_CARD_ENABLED) {
   Preferences.addAll([
     // Security and Privacy Warnings
+    { id: "browser.preferences.config_warning.dismissAll", type: "bool" },
     { id: "privacy.ui.status_card.testing.show_issue", type: "bool" },
     {
       id: "browser.preferences.config_warning.warningTest.dismissed",
@@ -356,7 +355,7 @@ if (Services.prefs.getBoolPref("privacy.ui.status_card", false)) {
       type: "bool",
     },
     {
-      id: "browser.preferences.config_warning.warningPrivelegedConstraint.dismissed",
+      id: "browser.preferences.config_warning.warningPrivilegedConstraint.dismissed",
       type: "bool",
     },
     {
@@ -453,10 +452,6 @@ if (Services.prefs.getBoolPref("privacy.ui.status_card", false)) {
     },
     {
       id: "security.fileuri.strict_origin_policy",
-      type: "bool",
-    },
-    {
-      id: "security.disallow_privilegedabout_remote_script_loads",
       type: "bool",
     },
     {
@@ -811,6 +806,8 @@ class WarningSettingConfig {
     if (isDismissable) {
       this.dismissedPrefId = `browser.preferences.config_warning.${this.id}.dismissed`;
       this.prefMapping.dismissed = this.dismissedPrefId;
+      this.dismissAllPrefId = `browser.preferences.config_warning.dismissAll`;
+      this.prefMapping.dismissAll = this.dismissAllPrefId;
     }
     this.problematic = problematic;
   }
@@ -822,7 +819,11 @@ class WarningSettingConfig {
    * @returns {boolean} Whether or not to show this configuration as a warning to the user
    */
   visible() {
-    return !this.dismissed?.value && this.problematic(this);
+    return (
+      !this.dismissAll?.value &&
+      !this.dismissed?.value &&
+      this.problematic(this)
+    );
   }
 
   /**
@@ -877,17 +878,19 @@ class WarningSettingConfig {
     switch (event.target.id) {
       case "reset": {
         this.reset();
+        Glean.securityPreferencesWarnings.warningFixed.record();
         break;
       }
       case "dismiss": {
         this.dismiss();
+        Glean.securityPreferencesWarnings.warningDismissed.record();
         break;
       }
     }
   }
 }
 
-if (Services.prefs.getBoolPref("privacy.ui.status_card", false)) {
+if (SECURITY_PRIVACY_STATUS_CARD_ENABLED) {
   Preferences.addSetting(
     new WarningSettingConfig(
       "warningTest",
@@ -1160,9 +1163,8 @@ if (Services.prefs.getBoolPref("privacy.ui.status_card", false)) {
 
   Preferences.addSetting(
     new WarningSettingConfig(
-      "warningPrivelegedConstraint",
+      "warningPrivilegedConstraint",
       {
-        rsl: "security.disallow_privilegedabout_remote_script_loads",
         shfa: "dom.security.skip_html_fragment_assertion",
         xhtmlcsp: "security.browser_xhtml_csp.enabled",
         allowUDPEE: "security.allow_unsafe_dangerous_privileged_evil_eval",
@@ -1175,7 +1177,6 @@ if (Services.prefs.getBoolPref("privacy.ui.status_card", false)) {
           "dom.security.skip_remote_script_assertion_in_system_priv_context",
       },
       ({
-        rsl,
         shfa,
         xhtmlcsp,
         allowUDPEE,
@@ -1185,7 +1186,6 @@ if (Services.prefs.getBoolPref("privacy.ui.status_card", false)) {
         allowParentUnrestrictedJSLoads,
         skipRemoteScriptAssertionInSystem,
       }) =>
-        (!rsl.value && !rsl.locked) ||
         (!xhtmlcsp.value && !xhtmlcsp.locked) ||
         (shfa.value && !shfa.locked) ||
         (allowUDPEE.value && !allowUDPEE.locked) ||
@@ -1271,154 +1271,168 @@ if (Services.prefs.getBoolPref("privacy.ui.status_card", false)) {
       true
     )
   );
-}
 
-/** @type {SettingControlConfig[]} */
-const SECURITY_WARNINGS = [
-  {
-    l10nId: "security-privacy-issue-warning-test",
-    id: "warningTest",
-  },
-  {
-    l10nId: "security-privacy-issue-warning-fingerprinters",
-    id: "warningAllowFingerprinters",
-  },
-  {
-    l10nId: "security-privacy-issue-warning-third-party-cookies",
-    id: "warningThirdPartyCookies",
-  },
-  {
-    l10nId: "security-privacy-issue-warning-password-manager",
-    id: "warningPasswordManager",
-  },
-  {
-    l10nId: "security-privacy-issue-warning-popup-blocker",
-    id: "warningPopupBlocker",
-  },
-  {
-    l10nId: "security-privacy-issue-warning-extension-install",
-    id: "warningExtensionInstall",
-  },
-  {
-    l10nId: "security-privacy-issue-warning-safe-browsing",
-    id: "warningSafeBrowsing",
-  },
-  {
-    l10nId: "security-privacy-issue-warning-doh",
-    id: "warningDoH",
-  },
-  {
-    l10nId: "security-privacy-issue-warning-ech",
-    id: "warningECH",
-  },
-  {
-    l10nId: "security-privacy-issue-warning-ct",
-    id: "warningCT",
-  },
-  {
-    l10nId: "security-privacy-issue-warning-crlite",
-    id: "warningCRLite",
-  },
-  {
-    l10nId: "security-privacy-issue-warning-certificate-pinning",
-    id: "warningCertificatePinning",
-  },
-  {
-    l10nId: "security-privacy-issue-warning-tlsmin",
-    id: "warningTLSMin",
-  },
-  {
-    l10nId: "security-privacy-issue-warning-tlsmax",
-    id: "warningTLSMax",
-  },
-  {
-    l10nId: "security-privacy-issue-warning-proxy-autodetection",
-    id: "warningProxyAutodetection",
-  },
-  {
-    l10nId: "security-privacy-issue-warning-content-resource-uri",
-    id: "warningContentResourceURI",
-  },
-  {
-    l10nId: "security-privacy-issue-warning-worker-mime",
-    id: "warningWorkerMIME",
-  },
-  {
-    l10nId: "security-privacy-issue-warning-top-level-data-uri",
-    id: "warningTopLevelDataURI",
-  },
-  {
-    l10nId: "security-privacy-issue-warning-active-mixed-content",
-    id: "warningActiveMixedContent",
-  },
-  {
-    l10nId: "security-privacy-issue-warning-inner-html-ltgt",
-    id: "warningInnerHTMLltgt",
-  },
-  {
-    l10nId: "security-privacy-issue-warning-file-uri-origin",
-    id: "warningFileURIOrigin",
-  },
-  {
-    l10nId: "security-privacy-issue-warning-priveleged-constraint",
-    id: "warningPrivelegedConstraint",
-  },
-  {
-    l10nId: "security-privacy-issue-warning-process-sandbox",
-    id: "warningProcessSandbox",
-  },
-];
+  /** @type {SettingControlConfig[]} */
+  const SECURITY_WARNINGS = [
+    {
+      l10nId: "security-privacy-issue-warning-test",
+      id: "warningTest",
+    },
+    {
+      l10nId: "security-privacy-issue-warning-fingerprinters",
+      id: "warningAllowFingerprinters",
+    },
+    {
+      l10nId: "security-privacy-issue-warning-third-party-cookies",
+      id: "warningThirdPartyCookies",
+    },
+    {
+      l10nId: "security-privacy-issue-warning-password-manager",
+      id: "warningPasswordManager",
+    },
+    {
+      l10nId: "security-privacy-issue-warning-popup-blocker",
+      id: "warningPopupBlocker",
+    },
+    {
+      l10nId: "security-privacy-issue-warning-extension-install",
+      id: "warningExtensionInstall",
+    },
+    {
+      l10nId: "security-privacy-issue-warning-safe-browsing",
+      id: "warningSafeBrowsing",
+    },
+    {
+      l10nId: "security-privacy-issue-warning-doh",
+      id: "warningDoH",
+    },
+    {
+      l10nId: "security-privacy-issue-warning-ech",
+      id: "warningECH",
+    },
+    {
+      l10nId: "security-privacy-issue-warning-ct",
+      id: "warningCT",
+    },
+    {
+      l10nId: "security-privacy-issue-warning-crlite",
+      id: "warningCRLite",
+    },
+    {
+      l10nId: "security-privacy-issue-warning-certificate-pinning",
+      id: "warningCertificatePinning",
+    },
+    {
+      l10nId: "security-privacy-issue-warning-tlsmin",
+      id: "warningTLSMin",
+    },
+    {
+      l10nId: "security-privacy-issue-warning-tlsmax",
+      id: "warningTLSMax",
+    },
+    {
+      l10nId: "security-privacy-issue-warning-proxy-autodetection",
+      id: "warningProxyAutodetection",
+    },
+    {
+      l10nId: "security-privacy-issue-warning-content-resource-uri",
+      id: "warningContentResourceURI",
+    },
+    {
+      l10nId: "security-privacy-issue-warning-worker-mime",
+      id: "warningWorkerMIME",
+    },
+    {
+      l10nId: "security-privacy-issue-warning-top-level-data-uri",
+      id: "warningTopLevelDataURI",
+    },
+    {
+      l10nId: "security-privacy-issue-warning-active-mixed-content",
+      id: "warningActiveMixedContent",
+    },
+    {
+      l10nId: "security-privacy-issue-warning-inner-html-ltgt",
+      id: "warningInnerHTMLltgt",
+    },
+    {
+      l10nId: "security-privacy-issue-warning-file-uri-origin",
+      id: "warningFileURIOrigin",
+    },
+    {
+      l10nId: "security-privacy-issue-warning-privileged-constraint",
+      id: "warningPrivilegedConstraint",
+    },
+    {
+      l10nId: "security-privacy-issue-warning-process-sandbox",
+      id: "warningProcessSandbox",
+    },
+  ];
 
-Preferences.addSetting(
-  /** @type {{ makeSecurityWarningItems: () => SettingControlConfig[] } & SettingConfig} */ ({
-    id: "securityWarningsGroup",
-    makeSecurityWarningItems() {
-      return SECURITY_WARNINGS.map(({ id, l10nId }) => ({
-        id,
-        l10nId,
-        control: "moz-box-item",
-        options: [
-          {
-            control: "moz-button",
-            l10nId: "issue-card-reset-button",
-            controlAttrs: { slot: "actions", size: "small", id: "reset" },
-          },
-          {
-            control: "moz-button",
-            l10nId: "issue-card-dismiss-button",
-            controlAttrs: {
-              slot: "actions",
-              size: "small",
-              iconsrc: "chrome://global/skin/icons/close.svg",
-              id: "dismiss",
+  Preferences.addSetting(
+    /** @type {{ makeSecurityWarningItems: () => SettingControlConfig[] } & SettingConfig} */ ({
+      id: "securityWarningsGroup",
+      makeSecurityWarningItems() {
+        return SECURITY_WARNINGS.map(({ id, l10nId }) => ({
+          id,
+          l10nId,
+          control: "moz-box-item",
+          options: [
+            {
+              control: "moz-button",
+              l10nId: "issue-card-reset-button",
+              controlAttrs: { slot: "actions", size: "small", id: "reset" },
             },
-          },
-        ],
-      }));
-    },
-    getControlConfig(config) {
-      if (!config.items) {
-        return { ...config, items: this.makeSecurityWarningItems() };
-      }
-      return config;
-    },
-  })
-);
+            {
+              control: "moz-button",
+              l10nId: "issue-card-dismiss-button",
+              controlAttrs: {
+                slot: "actions",
+                size: "small",
+                iconsrc: "chrome://global/skin/icons/close.svg",
+                id: "dismiss",
+              },
+            },
+          ],
+        }));
+      },
+      getControlConfig(config) {
+        if (!config.items) {
+          return { ...config, items: this.makeSecurityWarningItems() };
+        }
+        return config;
+      },
+    })
+  );
 
-Preferences.addSetting({
-  id: "privacyCard",
-  deps: [
-    "appUpdateStatus",
-    "trackerCount",
-    "etpStrictEnabled",
-    ...SECURITY_WARNINGS.map(warning => warning.id),
-  ],
-});
+  Preferences.addSetting({
+    id: "privacyCard",
+    deps: [
+      "appUpdateStatus",
+      "trackerCount",
+      "etpStrictEnabled",
+      ...SECURITY_WARNINGS.map(warning => warning.id),
+    ],
+  });
+
+  Preferences.addSetting({
+    id: "warningCard",
+    deps: SECURITY_WARNINGS.map(warning => warning.id),
+    visible: deps => {
+      const count = Object.values(deps).filter(
+        depSetting => depSetting.visible
+      ).length;
+      if (!this._telemetrySent) {
+        Glean.securityPreferencesWarnings.warningsShown.record({ count });
+        this._telemetrySent = true;
+      }
+      return count > 0;
+    },
+  });
+}
 
 Preferences.addSetting({
   id: "ipProtectionVisible",
-  pref: "browser.ipProtection.variant",
-  get: prefVal => prefVal == "beta",
+  pref: "browser.ipProtection.enabled",
 });
 Preferences.addSetting({
   id: "ipProtectionSiteExceptionsFeatureEnabled",
@@ -1437,6 +1451,22 @@ Preferences.addSetting({
 Preferences.addSetting({
   id: "ipProtectionExceptionAllListButton",
   deps: ["ipProtectionVisible", "ipProtectionSiteExceptionsFeatureEnabled"],
+  setup(emitChange) {
+    let permObserver = {
+      observe(subject, topic, _data) {
+        if (subject && topic === "perm-changed") {
+          let permission = subject.QueryInterface(Ci.nsIPermission);
+          if (permission.type === "ipp-vpn") {
+            emitChange();
+          }
+        }
+      },
+    };
+    Services.obs.addObserver(permObserver, "perm-changed");
+    return () => {
+      Services.obs.removeObserver(permObserver, "perm-changed");
+    };
+  },
   visible: ({
     ipProtectionVisible,
     ipProtectionSiteExceptionsFeatureEnabled,
@@ -1456,6 +1486,24 @@ Preferences.addSetting({
       { features: "resizable=yes" },
       params
     );
+  },
+  getControlConfig(config) {
+    let l10nId = "ip-protection-site-exceptions-all-sites-button";
+
+    let savedExceptions = Services.perms.getAllByTypes(["ipp-vpn"]);
+    let numberOfExclusions = savedExceptions.filter(
+      perm => perm.capability === Ci.nsIPermissionManager.DENY_ACTION
+    ).length;
+
+    let l10nArgs = {
+      count: numberOfExclusions,
+    };
+
+    return {
+      ...config,
+      l10nId,
+      l10nArgs,
+    };
   },
 });
 Preferences.addSetting({
@@ -1482,7 +1530,7 @@ Preferences.addSetting({
   visible: ({ ipProtectionVisible }) => ipProtectionVisible.value,
 });
 Preferences.addSetting({
-  id: "ipProtectionAdditionalLinks",
+  id: "ipProtectionLinks",
   deps: ["ipProtectionVisible"],
   visible: ({ ipProtectionVisible }) => ipProtectionVisible.value,
 });
@@ -1525,14 +1573,56 @@ Preferences.addSetting({
   },
 });
 Preferences.addSetting({
+  id: "relayFeature",
+  pref: "signon.firefoxRelay.feature",
+});
+Preferences.addSetting({
+  id: "relayIntegration",
+  deps: ["savePasswords", "relayFeature"],
+  visible: () => {
+    return FirefoxRelay.isAvailable;
+  },
+  disabled: ({ savePasswords, relayFeature }) => {
+    return !savePasswords.value || relayFeature.pref.locked;
+  },
+  get() {
+    return FirefoxRelay.isAvailable && !FirefoxRelay.isDisabled;
+  },
+  set(checked) {
+    if (checked) {
+      FirefoxRelay.markAsAvailable();
+    } else {
+      FirefoxRelay.markAsDisabled();
+    }
+  },
+  onUserChange(checked) {
+    if (checked) {
+      Glean.relayIntegration.enabledPrefChange.record();
+    } else {
+      Glean.relayIntegration.disabledPrefChange.record();
+    }
+  },
+});
+Preferences.addSetting({
   id: "dntHeaderEnabled",
   pref: "privacy.donottrackheader.enabled",
 });
 Preferences.addSetting({
   id: "dntRemoval",
+  pref: "browser.preferences.config_warning.donottrackheader.dismissed",
   deps: ["dntHeaderEnabled"],
-  visible: ({ dntHeaderEnabled }) => {
-    return dntHeaderEnabled.value;
+  visible: ({ dntHeaderEnabled }, setting) => {
+    return dntHeaderEnabled.value && !setting.value;
+  },
+  onUserClick: (event, _deps, setting) => {
+    let dismissButton = event.target?.shadowRoot?.querySelector(".close");
+    if (
+      dismissButton?.shadowRoot &&
+      event.originalTarget &&
+      dismissButton.shadowRoot.contains(event.originalTarget)
+    ) {
+      setting.value = true;
+    }
   },
 });
 
@@ -1808,16 +1898,8 @@ Preferences.addSetting(
       };
     },
     onUserClick() {
-      let uri;
-      if (useOldClearHistoryDialog) {
-        uri =
-          "chrome://browser/content/preferences/dialogs/clearSiteData.xhtml";
-      } else {
-        uri = "chrome://browser/content/sanitize_v2.xhtml";
-      }
-
       gSubDialog.open(
-        uri,
+        "chrome://browser/content/sanitize_v2.xhtml",
         {
           features: "resizable=no",
         },
@@ -1891,16 +1973,6 @@ Preferences.addSetting({
 });
 
 function isCookiesAndStorageClearingOnShutdown() {
-  // We have to branch between the old clear on shutdown prefs and new prefs after the clear history revamp (Bug 1853996)
-  // Once the old dialog is deprecated, we can remove these branches.
-  if (useOldClearHistoryDialog) {
-    return (
-      Preferences.get("privacy.sanitize.sanitizeOnShutdown").value &&
-      Preferences.get("privacy.clearOnShutdown.cookies").value &&
-      Preferences.get("privacy.clearOnShutdown.cache").value &&
-      Preferences.get("privacy.clearOnShutdown.offlineApps").value
-    );
-  }
   return (
     Preferences.get("privacy.sanitize.sanitizeOnShutdown").value &&
     Preferences.get("privacy.clearOnShutdown_v2.cookiesAndStorage").value &&
@@ -1912,32 +1984,22 @@ function isCookiesAndStorageClearingOnShutdown() {
  * Unsets cleaning prefs that do not belong to DeleteOnClose
  */
 function resetCleaningPrefs() {
-  let sanitizeOnShutdownPrefsArray = useOldClearHistoryDialog
-    ? SANITIZE_ON_SHUTDOWN_PREFS_ONLY
-    : SANITIZE_ON_SHUTDOWN_PREFS_ONLY_V2;
-
-  return sanitizeOnShutdownPrefsArray.forEach(
+  return SANITIZE_ON_SHUTDOWN_PREFS_ONLY_V2.forEach(
     pref => (Preferences.get(pref).value = false)
   );
 }
 
 Preferences.addSetting({
   id: "clearOnCloseCookies",
-  pref: useOldClearHistoryDialog
-    ? "privacy.clearOnShutdown.cookies"
-    : "privacy.clearOnShutdown_v2.cookiesAndStorage",
+  pref: "privacy.clearOnShutdown_v2.cookiesAndStorage",
 });
 Preferences.addSetting({
   id: "clearOnCloseCache",
-  pref: useOldClearHistoryDialog
-    ? "privacy.clearOnShutdown.cache"
-    : "privacy.clearOnShutdown_v2.cache",
+  pref: "privacy.clearOnShutdown_v2.cache",
 });
 Preferences.addSetting({
   id: "clearOnCloseStorage",
-  pref: useOldClearHistoryDialog
-    ? "privacy.clearOnShutdown.offlineApps"
-    : "privacy.clearOnShutdown_v2.cookiesAndStorage",
+  pref: "privacy.clearOnShutdown_v2.cookiesAndStorage",
 });
 Preferences.addSetting({
   id: "sanitizeOnShutdown",
@@ -2130,12 +2192,14 @@ Preferences.addSetting({
   },
   getControlConfig(config, { privateBrowsingAutoStart }, setting) {
     let l10nId = null;
-    if (setting.value == "remember") {
-      l10nId = "history-remember-description3";
-    } else if (setting.value == "dontremember") {
-      l10nId = "history-dontremember-description3";
-    } else if (setting.value == "custom") {
-      l10nId = "history-custom-description3";
+    if (!srdSectionEnabled("history2")) {
+      if (setting.value == "remember") {
+        l10nId = "history-remember-description4";
+      } else if (setting.value == "dontremember") {
+        l10nId = "history-dontremember-description4";
+      } else if (setting.value == "custom") {
+        l10nId = "history-custom-description4";
+      }
     }
 
     let dontRememberOption = config.options.find(
@@ -2154,6 +2218,14 @@ Preferences.addSetting({
       ...config,
       l10nId,
     };
+  },
+});
+
+Preferences.addSetting({
+  id: "customHistoryButton",
+  onUserClick(e) {
+    e.preventDefault();
+    gotoPref("paneHistory");
   },
 });
 
@@ -2215,12 +2287,8 @@ Preferences.addSetting({
     return !alwaysClear.value || alwaysClear.disabled;
   },
   onUserClick() {
-    let dialogFile = useOldClearHistoryDialog
-      ? "chrome://browser/content/preferences/dialogs/sanitize.xhtml"
-      : "chrome://browser/content/sanitize_v2.xhtml";
-
     gSubDialog.open(
-      dialogFile,
+      "chrome://browser/content/sanitize_v2.xhtml",
       {
         features: "resizable=no",
       },
@@ -2880,6 +2948,9 @@ Preferences.addSetting({
 Preferences.addSetting({
   id: "etpAllowListConvenienceEnabled",
   pref: "privacy.trackingprotection.allow_list.convenience.enabled",
+  onUserChange() {
+    gPrivacyPane.maybeNotifyUserToReload();
+  },
 });
 
 Preferences.addSetting({
@@ -2887,6 +2958,24 @@ Preferences.addSetting({
   onUserClick(e) {
     e.preventDefault();
     gotoPref("etpCustomize");
+  },
+});
+
+Preferences.addSetting({
+  id: "reloadTabsHint",
+  _showHint: false,
+  set(value, _, setting) {
+    this._showHint = value;
+    setting.emit("change");
+  },
+  get() {
+    return this._showHint;
+  },
+  visible(_, setting) {
+    return setting.value;
+  },
+  onUserClick() {
+    gPrivacyPane.reloadAllOtherTabs();
   },
 });
 
@@ -2976,6 +3065,9 @@ Preferences.addSetting({
 Preferences.addSetting({
   id: "etpAllowListConvenienceEnabledCustom",
   pref: "privacy.trackingprotection.allow_list.convenience.enabled",
+  onUserChange() {
+    gPrivacyPane.maybeNotifyUserToReload();
+  },
 });
 
 Preferences.addSetting({
@@ -3184,11 +3276,10 @@ function dataCollectionCheckboxHandler({
     );
 
     if (collectionEnabled && matchPref()) {
-      if (Services.prefs.getBoolPref(pref, false)) {
-        checkbox.setAttribute("checked", "true");
-      } else {
-        checkbox.removeAttribute("checked");
-      }
+      checkbox.toggleAttribute(
+        "checked",
+        Services.prefs.getBoolPref(pref, false)
+      );
       checkbox.setAttribute("preference", pref);
     } else {
       checkbox.removeAttribute("preference");
@@ -3700,15 +3791,17 @@ var gPrivacyPane = {
    */
   init() {
     initSettingGroup("nonTechnicalPrivacy");
-    if (Services.prefs.getBoolPref("privacy.ui.status_card", false)) {
-      initSettingGroup("securityPrivacyStatus");
-    }
+    initSettingGroup("nonTechnicalPrivacy2");
+    initSettingGroup("securityPrivacyStatus");
+    initSettingGroup("securityPrivacyWarnings");
     initSettingGroup("httpsOnly");
     initSettingGroup("browsingProtection");
     initSettingGroup("cookiesAndSiteData");
+    initSettingGroup("cookiesAndSiteData2");
     initSettingGroup("certificates");
     initSettingGroup("ipprotection");
     initSettingGroup("history");
+    initSettingGroup("history2");
     initSettingGroup("permissions");
     initSettingGroup("dnsOverHttps");
     initSettingGroup("dnsOverHttpsAdvanced");
@@ -3826,7 +3919,7 @@ var gPrivacyPane = {
         let notificationsDoNotDisturb = document.getElementById(
           "notificationsDoNotDisturb"
         );
-        notificationsDoNotDisturb.setAttribute("checked", true);
+        notificationsDoNotDisturb.toggleAttribute("checked", true);
       }
     }
 
@@ -4528,9 +4621,7 @@ var gPrivacyPane = {
    * Displays the Clear Private Data settings dialog.
    */
   showClearPrivateDataSettings() {
-    let dialogFile = useOldClearHistoryDialog
-      ? "chrome://browser/content/preferences/dialogs/sanitize.xhtml"
-      : "chrome://browser/content/sanitize_v2.xhtml";
+    let dialogFile = "chrome://browser/content/sanitize_v2.xhtml";
 
     gSubDialog.open(
       dialogFile,
@@ -4555,10 +4646,7 @@ var gPrivacyPane = {
       ts.value = 0;
     }
 
-    // Bug 1856418 We intend to remove the old dialog box
-    let dialogFile = useOldClearHistoryDialog
-      ? "chrome://browser/content/sanitize.xhtml"
-      : "chrome://browser/content/sanitize_v2.xhtml";
+    let dialogFile = "chrome://browser/content/sanitize_v2.xhtml";
 
     gSubDialog.open(dialogFile, {
       features: "resizable=no",
@@ -4577,9 +4665,7 @@ var gPrivacyPane = {
    Checks if the user set cleaning prefs that do not belong to DeleteOnClose
    */
   _isCustomCleaningPrefPresent() {
-    let sanitizeOnShutdownPrefsArray = useOldClearHistoryDialog
-      ? SANITIZE_ON_SHUTDOWN_PREFS_ONLY
-      : SANITIZE_ON_SHUTDOWN_PREFS_ONLY_V2;
+    let sanitizeOnShutdownPrefsArray = SANITIZE_ON_SHUTDOWN_PREFS_ONLY_V2;
 
     return sanitizeOnShutdownPrefsArray.some(
       pref => Preferences.get(pref).value
@@ -4708,6 +4794,8 @@ var gPrivacyPane = {
     for (let notification of document.querySelectorAll(".reload-tabs")) {
       notification.hidden = true;
     }
+
+    Preferences.getSetting("reloadTabsHint").value = false;
   },
 
   /**
@@ -4729,6 +4817,8 @@ var gPrivacyPane = {
         notification.hidden = false;
       }
     }
+
+    Preferences.getSetting("reloadTabsHint").value = true;
   },
 
   /**
@@ -5284,7 +5374,7 @@ var gPrivacyPane = {
       return;
     }
 
-    osReauthCheckbox.setAttribute("checked", LoginHelper.getOSAuthEnabled());
+    osReauthCheckbox.toggleAttribute("checked", LoginHelper.getOSAuthEnabled());
 
     setEventListener(
       "osReauthCheckbox",
@@ -5506,11 +5596,10 @@ var gPrivacyPane = {
         Services.prefs.getBoolPref(PREF_UPLOAD_ENABLED, false) &&
         Services.prefs.getBoolPref(PREF_NORMANDY_ENABLED, false)
       ) {
-        if (Services.prefs.getBoolPref(PREF_OPT_OUT_STUDIES_ENABLED, false)) {
-          checkbox.setAttribute("checked", "true");
-        } else {
-          checkbox.removeAttribute("checked");
-        }
+        checkbox.toggleAttribute(
+          "checked",
+          Services.prefs.getBoolPref(PREF_OPT_OUT_STUDIES_ENABLED, false)
+        );
         checkbox.setAttribute("preference", PREF_OPT_OUT_STUDIES_ENABLED);
         checkbox.removeAttribute("disabled");
       } else {

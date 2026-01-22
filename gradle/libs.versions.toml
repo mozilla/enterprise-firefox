@@ -1,11 +1,11 @@
 [versions]
 # AGP
-android-gradle-plugin = "8.13.1" # Keep lint version in sync
-android-lint = "31.13.1"
+android-gradle-plugin = "8.13.2" # Keep lint version in sync
+android-lint = "31.13.2"
 
 # Kotlin
 coroutines = "1.10.2"
-kotlin = "2.2.21"
+kotlin = "2.3.0"
 serialization = "1.9.0"
 
 # AndroidX
@@ -42,8 +42,8 @@ profileinstaller = "1.4.0"
 recyclerview = "1.4.0"
 room = "2.8.4"
 savedstate = "1.4.0"
-swiperefreshlayout = "1.1.0"
-transition = "1.6.0"
+swiperefreshlayout = "1.2.0"
+transition = "1.7.0"
 viewpager2 = "1.1.0"
 window = "1.5.1"
 work = "2.11.0"
@@ -57,17 +57,18 @@ material = "1.13.0"
 osslicenses-plugin = "0.10.10"
 play-review = "2.0.2"
 play-services-ads-id = "18.2.0"
-play-services-base = "18.9.0"
+play-services-base = "18.10.0"
 play-services-fido = "21.2.0"
-protobuf = "4.33.0" # Keep Protobuf in sync with the version used by AppServices.
+protobuf = "4.33.2" # Keep Protobuf in sync with the version used by AppServices.
 
 # Gradle plugins
+dependency-analysis = "3.5.1"
 jacoco = "0.8.14"
 kotlin-dsl = "6.4.1"
 protobuf-plugin = "0.9.6"
 python-envs-plugin = "0.0.31"
 semanticdb-javac = "0.11.1"
-semanticdb-kotlinc = "0.7.0"
+semanticdb-kotlinc = "0.8.2"
 tomlj = "1.1.1"
 
 # Linters
@@ -77,7 +78,7 @@ ktlint = "1.8.0"
 spotless = "8.1.0"
 
 # Mozilla
-glean = "66.2.0"
+glean = "66.3.0"
 
 # Testing libraries
 androidx-test = "1.7.0"
@@ -88,7 +89,7 @@ androidx-test-orchestrator = "1.6.1"
 androidx-test-runner = "1.7.0"
 androidx-test-uiautomator = "2.3.0"
 junit4 = "4.13.2"
-junit6 = "6.0.1"
+junit6 = "6.0.2"
 leakcanary = "2.14"
 mockito = "5.21.0"
 mockk = "1.14.7"
@@ -277,6 +278,7 @@ sentry = { group = "io.sentry", name = "sentry-android", version.ref = "sentry" 
 zxing = { group = "com.google.zxing", name = "core", version.ref = "zxing" }
 
 [plugins]
+dependency-analysis = { id = "com.autonomousapps.dependency-analysis", version.ref = "dependency-analysis" }
 detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }

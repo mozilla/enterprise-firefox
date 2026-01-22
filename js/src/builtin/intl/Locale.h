@@ -50,9 +50,6 @@ class LocaleObject : public NativeObject {
                                                                   unsigned argc,
                                                                   Value* vp);
 
-[[nodiscard]] extern bool intl_TryValidateAndCanonicalizeLanguageTag(
-    JSContext* cx, unsigned argc, Value* vp);
-
 [[nodiscard]] extern bool intl_ValidateAndCanonicalizeUnicodeExtensionType(
     JSContext* cx, unsigned argc, Value* vp);
 

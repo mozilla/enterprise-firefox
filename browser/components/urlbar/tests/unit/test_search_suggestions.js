@@ -102,29 +102,27 @@ function makeRemoteSuggestionResults(
 
 function setResultGroups(groups) {
   sandbox.restore();
-  sandbox.stub(UrlbarPrefs, "resultGroups").get(() => {
-    return {
-      children: [
-        // heuristic
-        {
-          maxResultCount: 1,
-          children: [
-            { group: UrlbarUtils.RESULT_GROUP.HEURISTIC_TEST },
-            { group: UrlbarUtils.RESULT_GROUP.HEURISTIC_EXTENSION },
-            { group: UrlbarUtils.RESULT_GROUP.HEURISTIC_SEARCH_TIP },
-            { group: UrlbarUtils.RESULT_GROUP.HEURISTIC_OMNIBOX },
-            { group: UrlbarUtils.RESULT_GROUP.HEURISTIC_AUTOFILL },
-            { group: UrlbarUtils.RESULT_GROUP.HEURISTIC_TOKEN_ALIAS_ENGINE },
-            { group: UrlbarUtils.RESULT_GROUP.HEURISTIC_FALLBACK },
-          ],
-        },
-        // extensions using the omnibox API
-        {
-          group: UrlbarUtils.RESULT_GROUP.OMNIBOX,
-        },
-        ...groups,
-      ],
-    };
+  sandbox.stub(UrlbarPrefs, "getResultGroups").returns({
+    children: [
+      // heuristic
+      {
+        maxResultCount: 1,
+        children: [
+          { group: UrlbarUtils.RESULT_GROUP.HEURISTIC_TEST },
+          { group: UrlbarUtils.RESULT_GROUP.HEURISTIC_EXTENSION },
+          { group: UrlbarUtils.RESULT_GROUP.HEURISTIC_SEARCH_TIP },
+          { group: UrlbarUtils.RESULT_GROUP.HEURISTIC_OMNIBOX },
+          { group: UrlbarUtils.RESULT_GROUP.HEURISTIC_AUTOFILL },
+          { group: UrlbarUtils.RESULT_GROUP.HEURISTIC_TOKEN_ALIAS_ENGINE },
+          { group: UrlbarUtils.RESULT_GROUP.HEURISTIC_FALLBACK },
+        ],
+      },
+      // extensions using the omnibox API
+      {
+        group: UrlbarUtils.RESULT_GROUP.OMNIBOX,
+      },
+      ...groups,
+    ],
   });
 }
 
@@ -142,9 +140,9 @@ add_setup(async function () {
   });
 
   // Install the test engine.
-  let oldDefaultEngine = await Services.search.getDefault();
+  let oldDefaultEngine = await SearchService.getDefault();
   registerCleanupFunction(async () => {
-    Services.search.setDefault(
+    SearchService.setDefault(
       oldDefaultEngine,
       Ci.nsISearchService.CHANGE_REASON_UNKNOWN
     );
@@ -154,7 +152,7 @@ add_setup(async function () {
     Services.prefs.clearUserPref(TAB_TO_SEARCH_PREF);
     sandbox.restore();
   });
-  Services.search.setDefault(engine, Ci.nsISearchService.CHANGE_REASON_UNKNOWN);
+  SearchService.setDefault(engine, Ci.nsISearchService.CHANGE_REASON_UNKNOWN);
   Services.prefs.setBoolPref(PRIVATE_SEARCH_PREF, false);
   Services.prefs.setBoolPref(TRENDING_PREF, false);
   Services.prefs.setBoolPref(QUICKACTIONS_PREF, false);
@@ -1902,7 +1900,7 @@ add_task(async function formHistory() {
   // "foobar" and "fooquux" form history should be included; the "food" SERP
   // should be included since it doesn't dupe either form history result; and
   // the "foobar" and "fooBAR " SERPs depend on the result groups, see below.
-  let engine = await Services.search.getDefault();
+  let engine = await SearchService.getDefault();
   let serpURLs = ["foobar", "fooBAR ", "food"].map(
     term => UrlbarUtils.getSearchQueryUrl(engine, term)[0]
   );
@@ -2099,7 +2097,7 @@ add_task(async function hideHeuristic_formHistory() {
   //   form history
   // * "foo foo" and "foo bar" remote suggestions should be included because
   //   they don't dupe anything
-  let engine = await Services.search.getDefault();
+  let engine = await SearchService.getDefault();
   let serpURLs = ["foo", "food"].map(
     term => UrlbarUtils.getSearchQueryUrl(engine, term)[0]
   );

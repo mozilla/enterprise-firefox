@@ -9,15 +9,12 @@
 
 #include "mozilla/DOMEventTargetHelper.h"
 #include "mozilla/dom/DocumentPictureInPictureBinding.h"
-#include "nsIDOMEventListener.h"
 
 namespace mozilla::dom {
 
 class DocumentPictureInPicture final : public DOMEventTargetHelper,
-                                       public nsIObserver,
-                                       public nsIDOMEventListener {
+                                       public nsIObserver {
  public:
-  NS_DECL_NSIDOMEVENTLISTENER
   NS_DECL_NSIOBSERVER
 
   NS_DECL_ISUPPORTS_INHERITED

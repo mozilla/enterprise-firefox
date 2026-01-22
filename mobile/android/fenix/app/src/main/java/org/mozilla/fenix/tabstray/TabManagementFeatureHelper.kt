@@ -70,5 +70,5 @@ data object DefaultTabManagementFeatureHelper : TabManagementFeatureHelper {
         get() = Config.channel.isDebug || FxNimbus.features.tabManagementEnhancements.value().openingAnimationEnabled
 
     override val tabSearchEnabled: Boolean
-        get() = Config.channel.isDebug
+        get() = Config.channel.isNightlyOrDebug
 }

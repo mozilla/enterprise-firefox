@@ -29,6 +29,7 @@ import androidx.compose.ui.tooling.preview.PreviewParameterProvider
 import androidx.compose.ui.unit.dp
 import mozilla.components.compose.base.annotation.FlexibleWindowLightDarkPreview
 import mozilla.components.compose.base.button.FilledButton
+import mozilla.components.compose.base.theme.layout.AcornElevation
 import mozilla.components.compose.base.theme.layout.AcornLayout
 import org.mozilla.fenix.R
 import org.mozilla.fenix.components.appstate.setup.checklist.ChecklistItem
@@ -40,7 +41,7 @@ import org.mozilla.fenix.home.sessioncontrol.SetupChecklistInteractor
 import org.mozilla.fenix.theme.FirefoxTheme
 import mozilla.components.ui.icons.R as iconsR
 
-private val elevation = AcornLayout.AcornElevation.xLarge
+private val elevation = AcornElevation.level4
 private val shapeChecklist = RoundedCornerShape(size = AcornLayout.AcornCorner.large)
 
 /**

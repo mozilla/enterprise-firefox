@@ -16,30 +16,6 @@ namespace js {
 extern const JSClass IntlClass;
 
 /**
- * Returns a plain object with calendar information for a single valid locale
- * (callers must perform this validation).  The object will have these
- * properties:
- *
- *   firstDayOfWeek
- *     an integer in the range 1=Monday to 7=Sunday indicating the day
- *     considered the first day of the week in calendars, e.g. 7 for en-US,
- *     1 for en-GB, 7 for bn-IN
- *   minDays
- *     an integer in the range of 1 to 7 indicating the minimum number
- *     of days required in the first week of the year, e.g. 1 for en-US,
- *     4 for de
- *   weekend
- *     an array with values in the range 1=Monday to 7=Sunday indicating the
- *     days of the week considered as part of the weekend, e.g. [6, 7] for en-US
- *     and en-GB, [7] for bn-IN (note that "weekend" is *not* necessarily two
- *     days)
- *
- * NOTE: "calendar" and "locale" properties are *not* added to the object.
- */
-[[nodiscard]] extern bool intl_GetCalendarInfo(JSContext* cx, unsigned argc,
-                                               JS::Value* vp);
-
-/**
  * Compares a BCP 47 language tag against the locales in availableLocales and
  * returns the best available match -- or |undefined| if no match was found.
  * Uses the fallback mechanism of RFC 4647, section 3.4.
@@ -57,6 +33,23 @@ extern const JSClass IntlClass;
  */
 [[nodiscard]] extern bool intl_BestAvailableLocale(JSContext* cx, unsigned argc,
                                                    JS::Value* vp);
+
+/**
+ * Compares a BCP 47 language priority list against the set of locales in
+ * availableLocales and determines the best available language to meet the
+ * request. Options specified through Unicode extension subsequences are
+ * ignored in the lookup, but information about such subsequences is returned
+ * separately.
+ *
+ * This variant is based on the Lookup algorithm of RFC 4647 section 3.4.
+ *
+ * Spec: ECMAScript Internationalization API Specification, 9.2.3.
+ * Spec: RFC 4647, section 3.4.
+ *
+ * Usage: result = intl_LookupMatcher(constructor, requestedLocales, options)
+ */
+[[nodiscard]] extern bool intl_ResolveLocale(JSContext* cx, unsigned argc,
+                                             JS::Value* vp);
 }  // namespace js
 
 #endif /* builtin_intl_IntlObject_h */

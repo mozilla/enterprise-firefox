@@ -103,7 +103,10 @@ export class UrlbarProviderRecentSearches extends UrlbarProvider {
       source: engine.name,
     });
 
-    let expiration = parseInt(lazy.UrlbarPrefs.get(EXPIRATION_PREF), 10);
+    let expiration =
+      queryContext.sapName == "searchbar"
+        ? Infinity
+        : parseInt(lazy.UrlbarPrefs.get(EXPIRATION_PREF), 10);
     let lastDefaultChanged = parseInt(
       lazy.UrlbarPrefs.get(LASTDEFAULTCHANGED_PREF),
       10

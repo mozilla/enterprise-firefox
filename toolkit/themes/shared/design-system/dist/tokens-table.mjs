@@ -137,6 +137,25 @@ export const tokensTable = {
     { value: "oklch(27% 0.1 360)", name: "--color-pink-100" },
     { value: "oklch(20% 0.05 360)", name: "--color-pink-110" },
     { value: "#ffffff", name: "--color-white" },
+    { value: "oklch(1 0 0 / 10%)", name: "--color-white-alpha-10" },
+    { value: "oklch(1 0 0 / 20%)", name: "--color-white-alpha-20" },
+    { value: "oklch(1 0 0 / 30%)", name: "--color-white-alpha-30" },
+    { value: "oklch(1 0 0 / 40%)", name: "--color-white-alpha-40" },
+    { value: "oklch(1 0 0 / 50%)", name: "--color-white-alpha-50" },
+    { value: "oklch(1 0 0 / 60%)", name: "--color-white-alpha-60" },
+    { value: "oklch(1 0 0 / 70%)", name: "--color-white-alpha-70" },
+    { value: "oklch(1 0 0 / 80%)", name: "--color-white-alpha-80" },
+    { value: "oklch(1 0 0 / 90%)", name: "--color-white-alpha-90" },
+    { value: "#000000", name: "--color-black" },
+    { value: "oklch(0 0 0 / 10%)", name: "--color-black-alpha-10" },
+    { value: "oklch(0 0 0 / 20%)", name: "--color-black-alpha-20" },
+    { value: "oklch(0 0 0 / 30%)", name: "--color-black-alpha-30" },
+    { value: "oklch(0 0 0 / 40%)", name: "--color-black-alpha-40" },
+    { value: "oklch(0 0 0 / 50%)", name: "--color-black-alpha-50" },
+    { value: "oklch(0 0 0 / 60%)", name: "--color-black-alpha-60" },
+    { value: "oklch(0 0 0 / 70%)", name: "--color-black-alpha-70" },
+    { value: "oklch(0 0 0 / 80%)", name: "--color-black-alpha-80" },
+    { value: "oklch(0 0 0 / 90%)", name: "--color-black-alpha-90" },
     {
       value: {
         forcedColors: "ButtonText",
@@ -209,7 +228,7 @@ export const tokensTable = {
           default: "light-dark(var(--color-gray-20), var(--color-gray-80))",
         },
         platform: {
-          default: "color-mix(in srgb, currentColor 20%, transparent)",
+          default: "color-mix(in srgb, currentColor 6%, transparent)",
         },
       },
       name: "--background-color-box-info",
@@ -261,6 +280,23 @@ export const tokensTable = {
         default: "light-dark(var(--color-yellow-0), var(--color-yellow-90))",
       },
       name: "--background-color-warning",
+    },
+    {
+      value: "var(--color-black-alpha-50)",
+      name: "--background-color-overlay",
+    },
+    {
+      value: {
+        brand: {
+          default:
+            "color-mix(in srgb, var(--color-accent-primary) 20%, transparent)",
+        },
+        platform: {
+          default: "color-mix(in srgb, currentColor 20%, transparent)",
+        },
+        prefersContrast: "SelectedItem",
+      },
+      name: "--background-color-list-item-hover",
     },
     {
       value: {
@@ -759,6 +795,8 @@ export const tokensTable = {
     { value: "24px", name: "--size-item-medium" },
     { value: "32px", name: "--size-item-large" },
     { value: "48px", name: "--size-item-xlarge" },
+    { value: "280px", name: "--size-sidebar" },
+    { value: "118px", name: "--size-sidebar-narrow" },
   ],
   opacity: [
     {
@@ -1004,6 +1042,13 @@ export const tokensTable = {
       },
       name: "--text-color-accent-primary-selected",
     },
+    {
+      value: {
+        default: "var(--text-color)",
+        prefersContrast: "SelectedItemText",
+      },
+      name: "--text-color-list-item-hover",
+    },
   ],
   outline: [
     {
@@ -1100,6 +1145,47 @@ export const tokensTable = {
       name: "--box-shadow-color-lighter-layer-2",
     },
   ],
+  "table-background": [
+    {
+      value: {
+        light: "#f8f8fa",
+        dark: "rgb(35, 34, 43)",
+        forcedColors: "Canvas",
+        default: "light-dark(#f8f8fa, rgb(35, 34, 43))",
+      },
+      name: "--table-background-color",
+    },
+  ],
+  "table-border": [
+    {
+      value: {
+        default: "color-mix(in srgb, currentColor 41%, transparent)",
+        forcedColors: "CanvasText",
+      },
+      name: "--table-border-color",
+    },
+  ],
+  "table-header": [
+    {
+      value: {
+        default: "var(--color-accent-primary)",
+        forcedColors: "AccentColor",
+      },
+      name: "--table-header-background-color",
+    },
+    {
+      value: {
+        forcedColors: "AccentColorText",
+        brand: {
+          light: "var(--color-white)",
+          dark: "var(--color-gray-100)",
+          default: "light-dark(var(--color-white), var(--color-gray-100))",
+        },
+        platform: { default: "AccentColorText" },
+      },
+      name: "--table-header-text-color",
+    },
+  ],
 };
 
 export const variableLookupTable = {
@@ -1125,7 +1211,7 @@ export const variableLookupTable = {
       dark: "var(--color-gray-80)",
       default: "light-dark(var(--color-gray-20), var(--color-gray-80))",
     },
-    platform: { default: "color-mix(in srgb, currentColor 20%, transparent)" },
+    platform: { default: "color-mix(in srgb, currentColor 6%, transparent)" },
   },
   "background-color-canvas": {
     prefersContrast: "Canvas",
@@ -1159,6 +1245,15 @@ export const variableLookupTable = {
     dark: "var(--color-yellow-90)",
     prefersContrast: "var(--background-color-canvas)",
     default: "light-dark(var(--color-yellow-0), var(--color-yellow-90))",
+  },
+  "background-color-overlay": "var(--color-black-alpha-50)",
+  "background-color-list-item-hover": {
+    brand: {
+      default:
+        "color-mix(in srgb, var(--color-accent-primary) 20%, transparent)",
+    },
+    platform: { default: "color-mix(in srgb, currentColor 20%, transparent)" },
+    prefersContrast: "SelectedItem",
   },
   "border-color": {
     brand: {
@@ -1570,6 +1665,25 @@ export const variableLookupTable = {
   "color-pink-100": "oklch(27% 0.1 360)",
   "color-pink-110": "oklch(20% 0.05 360)",
   "color-white": "#ffffff",
+  "color-white-alpha-10": "oklch(1 0 0 / 10%)",
+  "color-white-alpha-20": "oklch(1 0 0 / 20%)",
+  "color-white-alpha-30": "oklch(1 0 0 / 30%)",
+  "color-white-alpha-40": "oklch(1 0 0 / 40%)",
+  "color-white-alpha-50": "oklch(1 0 0 / 50%)",
+  "color-white-alpha-60": "oklch(1 0 0 / 60%)",
+  "color-white-alpha-70": "oklch(1 0 0 / 70%)",
+  "color-white-alpha-80": "oklch(1 0 0 / 80%)",
+  "color-white-alpha-90": "oklch(1 0 0 / 90%)",
+  "color-black": "#000000",
+  "color-black-alpha-10": "oklch(0 0 0 / 10%)",
+  "color-black-alpha-20": "oklch(0 0 0 / 20%)",
+  "color-black-alpha-30": "oklch(0 0 0 / 30%)",
+  "color-black-alpha-40": "oklch(0 0 0 / 40%)",
+  "color-black-alpha-50": "oklch(0 0 0 / 50%)",
+  "color-black-alpha-60": "oklch(0 0 0 / 60%)",
+  "color-black-alpha-70": "oklch(0 0 0 / 70%)",
+  "color-black-alpha-80": "oklch(0 0 0 / 80%)",
+  "color-black-alpha-90": "oklch(0 0 0 / 90%)",
   "color-accent-primary": {
     forcedColors: "ButtonText",
     brand: {
@@ -1729,6 +1843,8 @@ export const variableLookupTable = {
   "size-item-medium": "24px",
   "size-item-large": "32px",
   "size-item-xlarge": "48px",
+  "size-sidebar": "280px",
+  "size-sidebar-narrow": "118px",
   "space-xxsmall": "calc(0.5 * var(--space-xsmall))",
   "space-xsmall": "0.267rem",
   "space-small": "calc(2 * var(--space-xsmall))",
@@ -1767,6 +1883,29 @@ export const variableLookupTable = {
     light: "rgba(0, 0, 0, 0.1)",
     dark: "rgba(0, 0, 0, 0.4)",
     default: "light-dark(rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.4))",
+  },
+  "table-background-color": {
+    light: "#f8f8fa",
+    dark: "rgb(35, 34, 43)",
+    forcedColors: "Canvas",
+    default: "light-dark(#f8f8fa, rgb(35, 34, 43))",
+  },
+  "table-border-color": {
+    default: "color-mix(in srgb, currentColor 41%, transparent)",
+    forcedColors: "CanvasText",
+  },
+  "table-header-background-color": {
+    default: "var(--color-accent-primary)",
+    forcedColors: "AccentColor",
+  },
+  "table-header-text-color": {
+    forcedColors: "AccentColorText",
+    brand: {
+      light: "var(--color-white)",
+      dark: "var(--color-gray-100)",
+      default: "light-dark(var(--color-white), var(--color-gray-100))",
+    },
+    platform: { default: "AccentColorText" },
   },
   "table-row-background-color": { default: "var(--background-color-canvas)" },
   "table-row-background-color-alternate": {
@@ -1813,5 +1952,9 @@ export const variableLookupTable = {
       default: "light-dark(var(--color-white), var(--color-gray-100))",
     },
     platform: { default: "SelectedItemText" },
+  },
+  "text-color-list-item-hover": {
+    default: "var(--text-color)",
+    prefersContrast: "SelectedItemText",
   },
 };

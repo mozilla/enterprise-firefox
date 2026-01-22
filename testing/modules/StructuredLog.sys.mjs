@@ -46,10 +46,6 @@ export class StructuredLogger {
       status,
     };
 
-    // handle case: known fail
-    if (expected === status && status != "SKIP") {
-      data.status = "PASS";
-    }
     if (expected != status && status != "SKIP") {
       data.expected = expected;
     }
@@ -69,17 +65,13 @@ export class StructuredLogger {
   testEnd(
     test,
     status,
-    expected = "OK",
+    expected = "PASS",
     message = null,
     stack = null,
     extra = null
   ) {
     var data = { test: this.#testId(test), status };
 
-    // handle case: known fail
-    if (expected === status && status != "SKIP") {
-      data.status = "OK";
-    }
     if (expected != status && status != "SKIP") {
       data.expected = expected;
     }
@@ -215,10 +207,18 @@ export class StructuredLogger {
     }
 
     if (this.#dumpScope) {
-      this.#dumpFun(Cu.cloneInto(allData, this.#dumpScope));
-    } else {
-      this.#dumpFun(allData);
+      try {
+        allData = Cu.cloneInto(allData, this.#dumpScope);
+      } catch (e) {
+        try {
+          this.error(`Failed to cloneInto: ${e}`);
+          this.warning(`Tried to clone: ${uneval(allData)}`);
+        } catch (e2) {
+          console.error("Failed to handle clone error", e, e2);
+        }
+      }
     }
+    this.#dumpFun(allData);
   }
 
   #testId(test) {

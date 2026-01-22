@@ -30,12 +30,15 @@ task-defaults:
     # the files that sccache optimizes away compilation for.
     use-sccache: false
     run:
+        using: mozharness
+        actions: [build]
         extra-config:
             max_build_output_timeout: 3600
     worker-type: b-linux
     worker:
         env:
             MACH_BUILD_PYTHON_NATIVE_PACKAGE_SOURCE: system
+            PERFHERDER_EXTRA_OPTIONS: searchfox
 
 tasks:
     linux64-searchfox/opt:
@@ -47,11 +50,8 @@ tasks:
         worker:
             max-run-time: 10800
             env:
-                PERFHERDER_EXTRA_OPTIONS: searchfox
-                MOZSEARCH_PLATFORM: "linux"
+                MOZSEARCH_PLATFORM: "linux64-opt"
         run:
-            using: mozharness
-            actions: [build]
             config:
                 - builds/releng_base_firefox.py
                 - builds/releng_sub_linux_configs/64_searchfox_and_opt.py
@@ -79,11 +79,8 @@ tasks:
         worker:
             max-run-time: 10800
             env:
-                PERFHERDER_EXTRA_OPTIONS: searchfox
-                MOZSEARCH_PLATFORM: "linux"
+                MOZSEARCH_PLATFORM: "linux64"
         run:
-            using: mozharness
-            actions: [build]
             config:
                 - builds/releng_base_firefox.py
                 - builds/releng_sub_linux_configs/64_searchfox_and_debug.py
@@ -111,17 +108,13 @@ tasks:
         worker:
             max-run-time: 10800
             env:
-                PERFHERDER_EXTRA_OPTIONS: searchfox
-                MOZSEARCH_PLATFORM: "macosx"
+                MOZSEARCH_PLATFORM: "macosx64"
         run:
-            using: mozharness
-            actions: [get-secrets, build]
             config:
                 - builds/releng_base_firefox.py
                 - builds/releng_base_mac_64_cross_builds.py
             script: "mozharness/scripts/fx_desktop_build.py"
             custom-build-variant-cfg: cross-debug-searchfox
-            secrets: true
             keep-artifacts: false
         fetches:
             toolchain:
@@ -146,11 +139,8 @@ tasks:
         worker:
             max-run-time: 10800
             env:
-                PERFHERDER_EXTRA_OPTIONS: searchfox
-                MOZSEARCH_PLATFORM: "macosx"
+                MOZSEARCH_PLATFORM: "macosx64-aarch64-opt"
         run:
-            using: mozharness
-            actions: [get-secrets, build]
             config:
                 - builds/releng_base_firefox.py
                 - builds/releng_base_mac_64_cross_builds.py
@@ -159,7 +149,6 @@ tasks:
                     - ac_add_options --target=aarch64-apple-darwin
             script: "mozharness/scripts/fx_desktop_build.py"
             custom-build-variant-cfg: cross-opt-searchfox
-            secrets: true
             keep-artifacts: false
         fetches:
             toolchain:
@@ -184,11 +173,8 @@ tasks:
         worker:
             max-run-time: 10800
             env:
-                PERFHERDER_EXTRA_OPTIONS: searchfox
-                MOZSEARCH_PLATFORM: "macosx"
+                MOZSEARCH_PLATFORM: "macosx64-aarch64"
         run:
-            using: mozharness
-            actions: [get-secrets, build]
             config:
                 - builds/releng_base_firefox.py
                 - builds/releng_base_mac_64_cross_builds.py
@@ -197,7 +183,6 @@ tasks:
                     - ac_add_options --target=aarch64-apple-darwin
             script: "mozharness/scripts/fx_desktop_build.py"
             custom-build-variant-cfg: cross-debug-searchfox
-            secrets: true
             keep-artifacts: false
         fetches:
             toolchain:
@@ -222,15 +207,11 @@ tasks:
         worker:
             max-run-time: 10800
             env:
-                PERFHERDER_EXTRA_OPTIONS: searchfox
                 MOZSEARCH_PLATFORM: "ios"
         run:
-            using: mozharness
-            actions: [get-secrets, build]
             config:
                 - builds/releng_base_firefox.py
             script: "mozharness/scripts/fx_desktop_build.py"
-            secrets: true
             keep-artifacts: false
             extra-config:
                 app_name: mobile/ios
@@ -262,14 +243,10 @@ tasks:
         worker:
             max-run-time: 10800
             env:
-                PERFHERDER_EXTRA_OPTIONS: searchfox
-                MOZSEARCH_PLATFORM: "windows"
+                MOZSEARCH_PLATFORM: "win64-opt"
         run:
-            using: mozharness
             options: [append-env-variables-from-configs]
-            actions: [get-secrets, build]
             script: mozharness/scripts/fx_desktop_build.py
-            secrets: true
             config:
                 - builds/releng_base_firefox.py
                 - builds/releng_base_linux_64_builds.py
@@ -306,14 +283,10 @@ tasks:
         worker:
             max-run-time: 10800
             env:
-                PERFHERDER_EXTRA_OPTIONS: searchfox
-                MOZSEARCH_PLATFORM: "windows"
+                MOZSEARCH_PLATFORM: "win64"
         run:
-            using: mozharness
             options: [append-env-variables-from-configs]
-            actions: [get-secrets, build]
             script: mozharness/scripts/fx_desktop_build.py
-            secrets: true
             config:
                 - builds/releng_base_firefox.py
                 - builds/releng_base_linux_64_builds.py
@@ -351,17 +324,13 @@ tasks:
             docker-image: {in-tree: android-build}
             max-run-time: 14400
             env:
-                PERFHERDER_EXTRA_OPTIONS: searchfox
                 MOZSEARCH_PLATFORM: "android-aarch64"
                 GRADLE_USER_HOME: "/builds/worker/checkouts/gecko/mobile/android/gradle/dotgradle-offline"
                 TOOLTOOL_MANIFEST: "mobile/android/config/tooltool-manifests/android/releng.manifest"
         run:
-            using: mozharness
-            actions: [get-secrets, build]
             config:
                 - builds/releng_base_android_64_builds.py
             script: "mozharness/scripts/fx_desktop_build.py"
-            secrets: true
             custom-build-variant-cfg: aarch64-debug-searchfox
             tooltool-downloads: internal
         fetches:

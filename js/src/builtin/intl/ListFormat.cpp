@@ -45,7 +45,7 @@ const JSClass ListFormatObject::class_ = {
     "Intl.ListFormat",
     JSCLASS_HAS_RESERVED_SLOTS(ListFormatObject::SLOT_COUNT) |
         JSCLASS_HAS_CACHED_PROTO(JSProto_ListFormat) |
-        JSCLASS_FOREGROUND_FINALIZE,
+        JSCLASS_BACKGROUND_FINALIZE,
     &ListFormatObject::classOps_,
     &ListFormatObject::classSpec_,
 };
@@ -131,8 +131,6 @@ static bool ListFormat(JSContext* cx, unsigned argc, Value* vp) {
 }
 
 void js::ListFormatObject::finalize(JS::GCContext* gcx, JSObject* obj) {
-  MOZ_ASSERT(gcx->onMainThread());
-
   mozilla::intl::ListFormat* lf =
       obj->as<ListFormatObject>().getListFormatSlot();
   if (lf) {

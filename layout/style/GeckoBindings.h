@@ -55,6 +55,15 @@ const bool GECKO_IS_NIGHTLY = true;
 const bool GECKO_IS_NIGHTLY = false;
 #endif
 
+template <typename T>
+struct RustSpan {
+  T* begin;
+  size_t length;
+};
+
+template struct RustSpan<const mozilla::dom::Element* const>;
+template struct RustSpan<const nsINode* const>;
+
 #define NS_DECL_THREADSAFE_FFI_REFCOUNTING(class_, name_)  \
   void Gecko_AddRef##name_##ArbitraryThread(class_* aPtr); \
   void Gecko_Release##name_##ArbitraryThread(class_* aPtr);
@@ -83,7 +92,7 @@ const nsINode* Gecko_GetFlattenedTreeParentNode(const nsINode*);
 void Gecko_GetAnonymousContentForElement(const mozilla::dom::Element*,
                                          nsTArray<nsIContent*>*);
 
-const nsTArray<RefPtr<nsINode>>* Gecko_GetAssignedNodes(
+RustSpan<const nsINode* const> Gecko_GetAssignedNodes(
     const mozilla::dom::Element*);
 
 void Gecko_GetQueryContainerSize(const mozilla::dom::Element*,
@@ -332,6 +341,7 @@ void Gecko_CopyListStyleImageFrom(nsStyleList* dest, const nsStyleList* src);
 void Gecko_NoteDirtyElement(const mozilla::dom::Element*);
 void Gecko_NoteDirtySubtreeForInvalidation(const mozilla::dom::Element*);
 void Gecko_NoteAnimationOnlyDirtyElement(const mozilla::dom::Element*);
+void Gecko_InvalidatePositionTry(const mozilla::dom::Element*);
 
 bool Gecko_AnimationNameMayBeReferencedFromStyle(const nsPresContext*,
                                                  nsAtom* name);
@@ -526,7 +536,7 @@ void Gecko_SetJemallocThreadLocalArena(bool enabled);
 // Pseudo-element flags.
 #define CSS_PSEUDO_ELEMENT(name_, value_, flags_) \
   const uint32_t SERVO_CSS_PSEUDO_ELEMENT_FLAGS_##name_ = flags_;
-#include "nsCSSPseudoElementList.h"
+#include "nsCSSPseudoElementList.inc"
 #undef CSS_PSEUDO_ELEMENT
 
 bool Gecko_ErrorReportingEnabled(const mozilla::StyleSheet* sheet,
@@ -547,10 +557,10 @@ void Gecko_ContentList_AppendAll(nsSimpleContentList* aContentList,
 // FIXME(emilio): These two below should be a single function that takes a
 // `const DocumentOrShadowRoot*`, but that doesn't make MSVC builds happy for a
 // reason I haven't really dug into.
-const nsTArray<mozilla::dom::Element*>* Gecko_Document_GetElementsWithId(
+RustSpan<const mozilla::dom::Element* const> Gecko_Document_GetElementsWithId(
     const mozilla::dom::Document*, nsAtom* aId);
 
-const nsTArray<mozilla::dom::Element*>* Gecko_ShadowRoot_GetElementsWithId(
+RustSpan<const mozilla::dom::Element* const> Gecko_ShadowRoot_GetElementsWithId(
     const mozilla::dom::ShadowRoot*, nsAtom* aId);
 
 bool Gecko_EvalMozPrefFeature(nsAtom*,

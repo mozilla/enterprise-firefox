@@ -24,7 +24,7 @@
 
       // nsIDOMXULSelectControlItemElement
       get selected() {
-        return this.getAttribute("selected") == "true";
+        return this.hasAttribute("selected");
       }
 
       // nsIDOMXULSelectControlItemElement
@@ -172,7 +172,7 @@
     }
 
     attributeChangedCallback(name, oldValue, newValue) {
-      if (name == "acceltext") {
+      if (name == "acceltext" && this.renderedOnce) {
         if (this._ignoreAccelTextChange) {
           this._ignoreAccelTextChange = false;
         } else {
@@ -180,7 +180,7 @@
           this._computeAccelTextFromKeyIfNeeded();
         }
       }
-      if (name == "key") {
+      if (name == "key" && this.renderedOnce) {
         this._computeAccelTextFromKeyIfNeeded();
       }
       super.attributeChangedCallback(name, oldValue, newValue);

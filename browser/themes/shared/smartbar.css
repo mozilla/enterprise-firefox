@@ -1,0 +1,64 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+/* TODO (Bug 2008938): Make in-page Smartbar styling not dependent on chrome styles */
+@import url("chrome://browser/skin/urlbar-searchbar.css");
+:root {
+  --smartbar-border-style-gradient: var(--border-width) solid;
+  --smartbar-border-color-gradient: linear-gradient(172deg, #321bfd -18%, #cf30e2 53%, #ff9900 89%, #f5c451 109%);
+  --smartbar-max-width: calc(var(--size-item-xlarge) * 12);
+  --smartbar-shadow-color: color-mix(in srgb, var(--color-violet-40) 30%, transparent);
+  --smartbar-shadow: 0 2px 14px var(--smartbar-shadow-color);
+}
+
+.smartbar {
+  display: block;
+  height: auto;
+  max-width: var(--smartbar-max-width);
+  width: 100%;
+}
+
+.smartbar > .urlbar-background {
+  background-color: white;
+  background-clip: padding-box, border-box;
+  background-image: linear-gradient(white, white), var(--smartbar-border-color-gradient);
+  background-origin: border-box;
+  border-radius: var(--border-radius-large);
+  border: var(--smartbar-border-style-gradient) transparent;
+
+  .smartbar[open] > & {
+    /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+    box-shadow: var(--smartbar-shadow);
+  }
+}
+
+.smartbar .urlbar-input-box {
+  align-items: stretch;
+}
+
+.smartbar .urlbar-input {
+  box-sizing: border-box;
+  height: auto;
+  white-space: pre-wrap;
+  width: 100%;
+}
+
+.smartbar moz-multiline-editor {
+  --multiline-editor-border: none;
+  --multiline-editor-focus-outline: none;
+  padding: var(--space-medium) var(--space-large);
+}
+
+.smartbar .urlbar-go-button {
+  display: none;
+}
+
+.smartbar-button-container {
+  padding: 0 var(--space-large) var(--space-medium);
+  position: relative;
+}
+
+.smartbar-button-container input-cta {
+  margin-inline-start: auto;
+}

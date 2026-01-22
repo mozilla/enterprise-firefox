@@ -4,8 +4,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-#ifndef DOM_Arena_h___
-#define DOM_Arena_h___
+#ifndef DOM_Arena_h_
+#define DOM_Arena_h_
 #include "mozilla/mozalloc_oom.h"  // for mozalloc_handle_oom
 #include "mozmemory.h"
 #include "nsISupportsImpl.h"

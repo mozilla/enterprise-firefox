@@ -74,11 +74,11 @@ const CONFIG = [
 
 add_setup(async function () {
   SearchTestUtils.setRemoteSettingsConfig(CONFIG);
-  await Services.search.init();
+  await SearchService.init();
 });
 
 add_task(async function test_get_extension() {
-  let engine = Services.search.getEngineByName("get-engine");
+  let engine = SearchService.getEngineByName("get-engine");
   Assert.notEqual(engine, null, "Should have found an engine");
 
   let url = engine.wrappedJSObject.getURLOfType(SearchUtils.URL_TYPE.SEARCH);
@@ -109,7 +109,7 @@ add_task(async function test_get_extension() {
 });
 
 add_task(async function test_post_extension() {
-  let engine = Services.search.getEngineByName("post-engine");
+  let engine = SearchService.getEngineByName("post-engine");
   Assert.ok(!!engine, "Should have found an engine");
 
   let url = engine.wrappedJSObject.getURLOfType(SearchUtils.URL_TYPE.SEARCH);
@@ -146,7 +146,7 @@ add_task(async function test_post_extension() {
 add_task(async function test_enterprise_params() {
   await enableEnterprise();
 
-  let engine = Services.search.getEngineByName("get-engine");
+  let engine = SearchService.getEngineByName("get-engine");
   Assert.notEqual(engine, null, "Should have found an engine");
 
   let url = engine.wrappedJSObject.getURLOfType(SearchUtils.URL_TYPE.SEARCH);

@@ -166,7 +166,7 @@ static const char kIconFontsPref[] =
 // xxx - this can probably be eliminated by reworking pref font handling code
 static const char* gPrefLangNames[] = {
 #define FONT_PREF_LANG(enum_id_, str_, atom_id_) str_
-#include "gfxFontPrefLangList.h"
+#include "gfxFontPrefLangList.inc"
 #undef FONT_PREF_LANG
 };
 
@@ -2284,7 +2284,7 @@ static nsAtom* PrefLangToLangGroups(uint32_t aIndex) {
   // static array here avoids static constructor
   static nsAtom* gPrefLangToLangGroups[] = {
 #define FONT_PREF_LANG(enum_id_, str_, atom_id_) nsGkAtoms::atom_id_
-#include "gfxFontPrefLangList.h"
+#include "gfxFontPrefLangList.inc"
 #undef FONT_PREF_LANG
   };
 

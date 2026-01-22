@@ -6,8 +6,8 @@
 
 /* State that is passed down to UnbindToTree. */
 
-#ifndef mozilla_dom_UnbindContext_h__
-#define mozilla_dom_UnbindContext_h__
+#ifndef mozilla_dom_UnbindContext_h_
+#define mozilla_dom_UnbindContext_h_
 
 #include "mozilla/Attributes.h"
 #include "nsINode.h"

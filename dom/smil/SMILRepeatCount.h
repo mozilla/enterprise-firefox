@@ -7,8 +7,6 @@
 #ifndef DOM_SMIL_SMILREPEATCOUNT_H_
 #define DOM_SMIL_SMILREPEATCOUNT_H_
 
-#include <math.h>
-
 #include "nsDebug.h"
 
 namespace mozilla {

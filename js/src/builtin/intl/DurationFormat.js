@@ -3,22 +3,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 /**
- * DurationFormat internal properties.
- */
-function durationFormatLocaleData() {
-  return {
-    nu: getNumberingSystems,
-    default: {
-      nu: intl_numberingSystem,
-    },
-  };
-}
-var durationFormatInternalProperties = {
-  localeData: durationFormatLocaleData,
-  relevantExtensionKeys: ["nu"],
-};
-
-/**
  * Intl.DurationFormat ( [ locales [ , options ] ] )
  *
  * Compute an internal properties object from |lazyDurationFormatData|.
@@ -28,17 +12,13 @@ function resolveDurationFormatInternals(lazyDurationFormatData) {
 
   var internalProps = std_Object_create(null);
 
-  var DurationFormat = durationFormatInternalProperties;
-
   // Compute effective locale.
 
   // Step 9.
-  var r = ResolveLocale(
+  var r = intl_ResolveLocale(
     "DurationFormat",
     lazyDurationFormatData.requestedLocales,
     lazyDurationFormatData.opt,
-    DurationFormat.relevantExtensionKeys,
-    DurationFormat.localeData
   );
 
   // Steps 10-11.

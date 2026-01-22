@@ -30,15 +30,11 @@ extern bool str_includes(JSContext* cx, unsigned argc, Value* vp);
 
 extern bool str_indexOf(JSContext* cx, unsigned argc, Value* vp);
 
-extern bool str_startsWith(JSContext* cx, unsigned argc, Value* vp);
-
 extern bool str_toString(JSContext* cx, unsigned argc, Value* vp);
 
 extern bool str_charCodeAt(JSContext* cx, unsigned argc, Value* vp);
 
 extern bool str_codePointAt(JSContext* cx, unsigned argc, Value* vp);
-
-extern bool str_endsWith(JSContext* cx, unsigned argc, Value* vp);
 
 ArrayObject* StringSplitString(JSContext* cx, HandleString str,
                                HandleString sep, uint32_t limit);

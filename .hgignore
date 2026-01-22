@@ -324,6 +324,9 @@ tps_result\.json$
 \.vscode/
 \.user$
 
+# Ignore Zed editor configuration files.
+\.zed/
+
 # Thunderbird source tree
 ^comm/
 
@@ -392,3 +395,4 @@ toolkit/themes/shared/design-system/node_modules/
 
 # Ignore personal preferences files
 ^CLAUDE\.local\.md
+.claude/settings.local.json

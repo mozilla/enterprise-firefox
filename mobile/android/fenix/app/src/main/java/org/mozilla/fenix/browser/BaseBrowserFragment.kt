@@ -661,7 +661,6 @@ abstract class BaseBrowserFragment :
                     browserLayout = getSwipeRefreshLayout(),
                     engineView = getEngineView(),
                     toolbar = browserToolbarView,
-                    navbar = browserNavigationBar,
                     topToolbarHeight = {
                         getTopToolbarHeight(
                             includeTabStripIfAvailable = customTabSessionId == null,
@@ -1438,10 +1437,8 @@ abstract class BaseBrowserFragment :
                 context = activity,
                 container = binding.browserLayout,
                 toolbarStore = toolbarStore,
-                browserStore = store,
                 settings = activity.settings(),
                 hideWhenKeyboardShown = true,
-                customTabSession = customTabSessionId?.let { store.state.findCustomTab(it) },
             )
 
         return BrowserToolbarComposable(
@@ -2392,7 +2389,6 @@ abstract class BaseBrowserFragment :
         }
 
         browserNavigationBar?.apply {
-            collapse()
             gone()
         }
 
@@ -2423,7 +2419,6 @@ abstract class BaseBrowserFragment :
             _bottomToolbarContainerView?.toolbarContainerView?.isVisible = true
             reinitializeEngineView()
             browserToolbarView.expand()
-            browserNavigationBar?.expand()
             _bottomToolbarContainerView?.toolbarContainerView?.expand()
         }
     }

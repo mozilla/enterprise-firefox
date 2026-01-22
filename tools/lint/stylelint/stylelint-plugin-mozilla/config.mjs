@@ -5,14 +5,19 @@
  */
 
 import { createRawValuesObject } from "./helpers.mjs";
+import { SYSTEM_COLORS } from "./referenceColors.mjs";
 
 /**
  * @typedef {object} PropertyTypeConfig
  * @property {string[]} allow Allowed keyword values (e.g., "auto", "none", "transparent")
+ * @property {string[]} allowAlias Allowed keyword values that should only be used via local variables
  * @property {string[]} [tokenTypes] Token categories from tokens-table.mjs whose tokens are valid
+ * @property {string[]} [aliasTokenTypes] Token categories from tokens-table.mjs whose tokens are valid only when used through local custom properties
  * @property {string[]} [allowFunctions] Allowed CSS function names (e.g., "url", "linear-gradient")
  * @property {boolean} [allowUnits] Whether values with CSS units (e.g., "10px", "50%") are allowed
+ * @property {string[]} [allowedUnits] Specific unit types allowed (e.g., ["em", "ch", "%"]). If provided, only these units are allowed when allowUnits is true
  * @property {Record<string, string>} [customFixes] Map of raw values to their token replacements for autofix
+ * @property {Record<string, string>} [customSuggestions] Map of raw values to their token replacements for suggested fixes
  */
 
 const customColorFixes = {
@@ -20,6 +25,52 @@ const customColorFixes = {
   "#000000": "black",
   "#fff": "white",
   "#ffffff": "white",
+};
+
+const systemColorSuggestions = {
+  accentcolor: "var(--color-accent-primary)",
+  accentcolortext: "var(--button-text-color-primary)",
+  activetext: "var(--link-color-active)",
+  buttonborder: "var(--button-border-color)",
+  buttonface: "var(--button-background-color)",
+  buttontext: "var(--button-text-color)",
+  canvas: "var(--background-color-canvas)",
+  canvastext: "var(--text-color)",
+  field: null,
+  fieldtext: null,
+  graytext: "var(--text-color-disabled)",
+  highlight: null,
+  highlighttext: null,
+  linktext: "var(--link-color)",
+  mark: null,
+  marktext: null,
+  selecteditem: "var(--color-accent-primary-selected)",
+  selecteditemtext: "var(--text-color-accent-primary-selected)",
+  visitedtext: "var(--link-color-visited)",
+  // deprecated system colors, point to the same tokens as their modern equivalents
+  activeborder: "var(--button-border-color)",
+  activecaption: "var(--background-color-canvas)",
+  appworkspace: "var(--background-color-canvas)",
+  background: "var(--background-color-canvas)",
+  buttonhighlight: "var(--button-background-color)",
+  buttonshadow: "var(--button-background-color)",
+  captiontext: "var(--text-color)",
+  inactiveborder: "var(--button-border-color)",
+  inactivecaption: "var(--background-color-canvas)",
+  inactivecaptiontext: "var(--text-color-disabled)",
+  infobackground: "var(--background-color-canvas)",
+  infotext: "var(--text-color)",
+  menu: "var(--background-color-canvas)",
+  menutext: "var(--text-color)",
+  scrollbar: "var(--background-color-canvas)",
+  threeddarkshadow: "var(--button-border-color)",
+  threedface: "var(--button-background-color)",
+  threedhighlight: "var(--button-border-color)",
+  threedlightshadow: "var(--button-border-color)",
+  threedshadow: "var(--button-border-color)",
+  window: "var(--background-color-canvas)",
+  windowframe: "var(--button-border-color)",
+  windowtext: "var(--text-color)",
 };
 
 /** @type {PropertyTypeConfig} */
@@ -33,8 +84,11 @@ const BackgroundColor = {
     "white",
     "black",
   ],
+  allowAlias: [...SYSTEM_COLORS],
   tokenTypes: ["background-color"],
+  aliasTokenTypes: ["color", "text-color", "border-color"],
   customFixes: customColorFixes,
+  customSuggestions: systemColorSuggestions,
 };
 
 /** @type {PropertyTypeConfig} */
@@ -134,8 +188,11 @@ const BorderColor = {
     "none",
     "0",
   ],
+  allowAlias: [...SYSTEM_COLORS],
   tokenTypes: ["border-color", "border", "outline"],
+  aliasTokenTypes: ["color", "background-color", "text-color"],
   customFixes: customColorFixes,
+  customSuggestions: systemColorSuggestions,
 };
 
 /** @type {PropertyTypeConfig} */
@@ -171,8 +228,11 @@ const BorderRadius = {
 /** @type {PropertyTypeConfig} */
 const TextColor = {
   allow: ["currentColor", "white", "black"],
+  allowAlias: [...SYSTEM_COLORS],
   tokenTypes: ["text-color"],
+  aliasTokenTypes: ["color", "background-color", "border-color"],
   customFixes: customColorFixes,
+  customSuggestions: systemColorSuggestions,
 };
 
 /** @type {PropertyTypeConfig} */
@@ -190,9 +250,25 @@ const Space = {
   },
 };
 
+/** @type {PropertyTypeConfig} */
+const Size = {
+  allow: ["0", "auto", "none", "fit-content", "min-content", "max-content"],
+  tokenTypes: ["size", "icon-size"],
+  allowUnits: true,
+  allowedUnits: ["em", "ch", "%", "vh", "vw"],
+  customFixes: {
+    ...createRawValuesObject(["size", "icon-size"]),
+    "0.75rem": "var(--size-item-xsmall)",
+    "1rem": "var(--size-item-small)",
+    "1.5rem": "var(--size-item-medium)",
+    "2rem": "var(--size-item-large)",
+    "3rem": "var(--size-item-xlarge)",
+  },
+};
+
 /**
  * @typedef {object} PropertyConfig
- * @property {PropertyTypeConfig[]} validTypes Valid type configurations for this property
+ * @property {PropertyTypeConfig[]} validTypes Valid type configurations for this property, ordered by precedence (first item is highest precedence)
  * @property {boolean} [shorthand] Whether this property accepts multiple space-separated values
  * @property {boolean} [multiple] Whether this property accepts comma-separated value groups
  * @property {boolean} [slash] Whether this property accepts slash-separated values (e.g., position/size)
@@ -206,16 +282,20 @@ export const propertyConfig = {
   background: {
     validTypes: [
       BackgroundColor,
-      BackgroundImage,
-      BackgroundPosition,
-      BackgroundSize,
-      BackgroundRepeat,
-      BackgroundAttachment,
       BackgroundClip,
+      BackgroundAttachment,
+      BackgroundRepeat,
+      BackgroundSize,
+      BackgroundPosition,
+      BackgroundImage,
     ],
     shorthand: true,
     multiple: true,
     slash: true,
+  },
+  "background-size": {
+    validTypes: [BackgroundSize],
+    shorthand: true,
   },
   "box-shadow": {
     validTypes: [BoxShadow],
@@ -424,40 +504,76 @@ export const propertyConfig = {
   "row-gap": {
     validTypes: [Space],
   },
+  width: {
+    validTypes: [Size],
+  },
+  "min-width": {
+    validTypes: [Size],
+  },
+  "max-width": {
+    validTypes: [Size],
+  },
+  height: {
+    validTypes: [Size],
+  },
+  "min-height": {
+    validTypes: [Size],
+  },
+  "max-height": {
+    validTypes: [Size],
+  },
+  "inline-size": {
+    validTypes: [Size],
+  },
+  "min-inline-size": {
+    validTypes: [Size],
+  },
+  "max-inline-size": {
+    validTypes: [Size],
+  },
+  "block-size": {
+    validTypes: [Size],
+  },
+  "min-block-size": {
+    validTypes: [Size],
+  },
+  "max-block-size": {
+    validTypes: [Size],
+  },
   inset: {
-    validTypes: [Space],
+    validTypes: [Space, Size],
     shorthand: true,
   },
   "inset-block": {
-    validTypes: [Space],
+    validTypes: [Space, Size],
     shorthand: true,
   },
   "inset-block-end": {
-    validTypes: [Space],
+    validTypes: [Space, Size],
   },
   "inset-block-start": {
-    validTypes: [Space],
+    validTypes: [Space, Size],
   },
   "inset-inline": {
-    validTypes: [Space],
+    validTypes: [Space, Size],
     shorthand: true,
   },
   "inset-inline-end": {
-    validTypes: [Space],
+    validTypes: [Space, Size],
   },
   "inset-inline-start": {
-    validTypes: [Space],
-  },
-  top: {
-    validTypes: [Space],
-  },
-  right: {
-    validTypes: [Space],
-  },
-  bottom: {
-    validTypes: [Space],
+    validTypes: [Space, Size],
   },
   left: {
-    validTypes: [Space],
+    validTypes: [Space, Size],
+  },
+  right: {
+    validTypes: [Space, Size],
+  },
+  top: {
+    validTypes: [Space, Size],
+  },
+  bottom: {
+    validTypes: [Space, Size],
   },
 };

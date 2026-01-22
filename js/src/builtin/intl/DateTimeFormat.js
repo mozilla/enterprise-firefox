@@ -54,20 +54,13 @@ function resolveDateTimeFormatInternals(lazyDateTimeFormatData) {
 
   var internalProps = std_Object_create(null);
 
-  var DateTimeFormat = dateTimeFormatInternalProperties;
-
   // Compute effective locale.
 
-  // Step 17.
-  var localeData = DateTimeFormat.localeData;
-
-  // Step 18.
-  var r = ResolveLocale(
+  // Steps 17-18.
+  var r = intl_ResolveLocale(
     "DateTimeFormat",
     lazyDateTimeFormatData.requestedLocales,
     lazyDateTimeFormatData.localeOpt,
-    DateTimeFormat.relevantExtensionKeys,
-    localeData
   );
 
   // Changes from "Intl era and monthCode" proposal.
@@ -613,33 +606,6 @@ function InitializeDateTimeFormat(
   return dateTimeFormat;
 }
 /* eslint-enable complexity */
-
-/**
- * DateTimeFormat internal properties.
- *
- * Spec: ECMAScript Internationalization API Specification, 9.1 and 12.3.3.
- */
-var dateTimeFormatInternalProperties = {
-  localeData: dateTimeFormatLocaleData,
-  relevantExtensionKeys: ["ca", "hc", "nu"],
-};
-
-function dateTimeFormatLocaleData() {
-  return {
-    ca: intl_availableCalendars,
-    nu: getNumberingSystems,
-    hc: () => {
-      return [null, "h11", "h12", "h23", "h24"];
-    },
-    default: {
-      ca: intl_defaultCalendar,
-      nu: intl_numberingSystem,
-      hc: () => {
-        return null;
-      },
-    },
-  };
-}
 
 /**
  * Create function to be cached and returned by Intl.DateTimeFormat.prototype.format.

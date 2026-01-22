@@ -168,7 +168,6 @@ class CustomTabsIntegrationTest {
         toolbar: BrowserToolbar = this.toolbar,
     ): CustomTabsIntegration {
         return CustomTabsIntegration(
-            context = testContext,
             store = browserStore,
             interactor = mockk(),
             useCases = mockk(),
@@ -176,9 +175,7 @@ class CustomTabsIntegrationTest {
             sessionId = sessionId,
             activity = activity,
             isPrivate = false,
-            shouldReverseItems = false,
             isSandboxCustomTab = false,
-            isMenuRedesignEnabled = false,
         )
     }
 }

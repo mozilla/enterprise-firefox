@@ -205,11 +205,11 @@ using StyleMatrixTransformOperator =
     nsStyleTransformMatrix::MatrixTransformOperator;
 
 #  define SERVO_LOCKED_ARC_TYPE(name_) struct StyleLocked##type_;
-#  include "mozilla/ServoLockedArcTypeList.h"
+#  include "mozilla/ServoLockedArcTypeList.inc"
 #  undef SERVO_LOCKED_ARC_TYPE
 
 #  define SERVO_BOXED_TYPE(name_, type_) struct Style##type_;
-#  include "mozilla/ServoBoxedTypeList.h"
+#  include "mozilla/ServoBoxedTypeList.inc"
 #  undef SERVO_BOXED_TYPE
 
 using StyleAtomicUsize = std::atomic<size_t>;

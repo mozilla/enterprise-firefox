@@ -681,6 +681,8 @@ pub struct CompositeState {
     low_quality_pinch_zoom: bool,
     /// List of registered clips used by picture cache and/or external surfaces
     pub clips: FrameVec<CompositorClip>,
+    /// Set to true when any tile is rasterized (has is_valid = false)
+    pub did_rasterize_any_tile: bool,
 }
 
 impl CompositeState {
@@ -713,6 +715,7 @@ impl CompositeState {
             transforms: memory.new_vec(),
             low_quality_pinch_zoom,
             clips,
+            did_rasterize_any_tile: false,
         }
     }
 

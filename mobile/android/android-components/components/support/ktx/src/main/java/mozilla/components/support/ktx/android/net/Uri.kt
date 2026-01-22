@@ -147,12 +147,15 @@ fun Uri.toFileUri(context: Context, dirToCopy: String = "/temps"): Uri {
     }
 
     val temporalFile = File(cacheUploadDirectory, getFileName(contentResolver))
+    @Suppress("TooGenericExceptionCaught")
     try {
         contentResolver.openInputStream(this)!!.use { inStream ->
             copyFile(temporalFile, inStream)
         }
     } catch (e: IOException) {
         Logger("Uri.kt").warn("Could not convert uri to file uri", e)
+    } catch (e: RuntimeException) {
+        Logger("Uri.kt").warn("Could not access file from uri", e)
     }
     return "file:///${Uri.encode(temporalFile.absolutePath)}".toUri()
 }

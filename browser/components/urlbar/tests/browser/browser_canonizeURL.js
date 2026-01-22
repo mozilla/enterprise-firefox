@@ -26,7 +26,7 @@ add_task(async function checkCanonizeWorks() {
     set: [["dom.security.https_first_schemeless", false]],
   });
 
-  let defaultEngine = await Services.search.getDefault();
+  let defaultEngine = await SearchService.getDefault();
   let testcases = [
     ["example", "https://www.example.com/", CANONIZE_MODIFIERS],
     // Check that a direct load is not overwritten by a previous canonization.

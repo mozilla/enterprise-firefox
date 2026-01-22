@@ -15,9 +15,13 @@ support-files = ["topstories.json"]
 
 ["test_AdsFeed.js"]
 
+["test_ExternalComponentsFeed.js"]
+
 ["test_HighlightsFeed.js"]
 
 ["test_InferredFeatureModel.js"]
+
+["test_InferredPersonalizationFeed.js"]
 
 ["test_ListsFeed.js"]
 
@@ -51,6 +55,8 @@ support-files = ["../schemas/*.schema.json"]
 ["test_TimerFeed.js"]
 
 ["test_TopSitesFeed.js"]
+
+["test_TopSitesFeed_frecencyDeduping.js"]
 
 ["test_TopSitesFeed_frecencyRanking.js"]
 

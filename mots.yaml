@@ -8,7 +8,7 @@
 # documentation and how to modify this file.
 repo: mozilla-central
 created_at: '2021-10-14T12:50:40.073465'
-updated_at: '2025-12-09T16:35:16.409486+00:00'
+updated_at: '2026-01-16T11:46:32.948561+00:00'
 export:
   path: ./docs/mots/index.rst
   format: rst
@@ -861,6 +861,10 @@ people:
     bmo_id: 690738
     name: Niklas Baumgardner
     nick: niklas
+  - &ninapy
+    bmo_id: 731746
+    name: Nina Pypchenko
+    nick: nina-py
   - &nlapre
     bmo_id: 711793
     name: Nathan LaPré
@@ -873,10 +877,6 @@ people:
     bmo_id: 651777
     name: Erik Nordin
     nick: nordzilla
-  - &npypchenko
-    bmo_id: 731746
-    name: Nina Pypchenko
-    nick: npypchenko
   - &nrishel
     bmo_id: 697005
     name: Nick Rishel
@@ -989,6 +989,10 @@ people:
     bmo_id: 691597
     name: Sergey Galich
     nick: serg
+  - &sergesanspaille
+    bmo_id: 715495
+    name: Serge Guelton
+    nick: sergesanspaille
   - &sfink
     bmo_id: 359004
     name: Steve Fink
@@ -1037,6 +1041,10 @@ people:
     bmo_id: 263117
     name: Martin Stránský
     nick: stransky
+  - &suhaib
+    bmo_id: 702054
+    name: Suhaib Mujahid
+    nick: suhaib
   - bmo_id: 468136
     name: Dan Gohman
     nick: sunfish
@@ -1171,7 +1179,7 @@ modules:
     description: The top level directory for the Firefox/Gecko tree. Owned by the
       TLMC
     includes:
-      - README.txt
+      - README.md
     meta:
       owners_emeritus:
         - Ben Bangert
@@ -1218,6 +1226,28 @@ modules:
           - *sfriedberger
         machine_name: security_architecture
 
+  - machine_name: ai_for_development
+    name: AI for Development
+    description: Integration of AI tools for Firefox development, including AI coding
+      assistants.
+    includes:
+      - AGENTS.md
+      - docs/ai-agent-tools/**/*
+      - CLAUDE.md
+      - .claude/**/*
+      - .codex/**/*
+      - .mcp.json
+      - https://github.com/mozilla/bugbug
+    excludes: []
+    owners:
+      - *marco
+      - *padenot
+      - *suhaib
+    peers: []
+    meta:
+      group: ai4dev-reviewers
+      components:
+        - Developer Infrastructure::AI for Development
   - machine_name: android_components
     name: Android Components
     description: A collection of independent, reusable Android library components
@@ -1393,6 +1423,7 @@ modules:
         - Ricky Stewart
         - David Major
         - Mitchell Hentges
+        - *andi
       group: dev-builds
       url: :ref:`Build System`
       components:
@@ -1400,8 +1431,8 @@ modules:
     owners:
       - *glandium
     peers:
-      - *andi
       - *ahochheiden
+      - *sergesanspaille
     submodules:
 
       - name: 'Core: Build Config - Fennec'
@@ -2810,6 +2841,8 @@ modules:
       - tools/rewriting/**/*
       # TODO among other out of tree tools
     meta:
+      owners_emeritus:
+        - *andi
       peers_emeritus:
         - Birunthan Mohanathas
         - Ehsan Akhgari
@@ -2818,7 +2851,7 @@ modules:
         - Core::Rewriting & Analysis
       review_group: static-analysis-reviewers
     owners:
-      - *andi
+      - *sergesanspaille
     peers:
       - *nika
       - *sfink
@@ -3759,7 +3792,7 @@ modules:
           - *maxx
           - *mconley
           - *nbarrett
-          - *npypchenko
+          - *ninapy
           - *rhamoui
         machine_name: new_tab_page
 
@@ -4152,6 +4185,7 @@ modules:
       - *glandium
       - *marco
       - *Sylvestre
+      - *ahochheiden
     meta:
       components:
         - 'Developer Infrastructure :: Lint and Formatting'
@@ -4607,9 +4641,9 @@ modules:
       - browser/components/translations/**/*
     excludes: []
     owners:
-      - *gregtatum
-    peers:
       - *nordzilla
+    peers:
+      - *gregtatum
       - *epavlov
       - *marco
     meta:
@@ -4668,5 +4702,5 @@ modules:
         - Ryan Tilder
       group: dev-platform
 hashes:
-  config: 88462bf39de24dc604fae1158124862f9e3b2071
-  export: 409f256c0f690b6b5d21c6e9819069134c5a9429
+  config: 9d84d2bfd82f9297ad5259a5977bf6a7815b3d74
+  export: 9c759f9fbc101c0e4c89cf45c371661a21ce04f7

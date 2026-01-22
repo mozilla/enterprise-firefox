@@ -48,8 +48,9 @@
 #include "nsINodeList.h"
 
 #include "mozilla/dom/Document.h"
-#include "mozilla/dom/HTMLFormElement.h"
 #include "mozilla/dom/HTMLAnchorElement.h"
+#include "mozilla/dom/HTMLFormElement.h"
+#include "mozilla/dom/HTMLInputElement.h"
 #include "mozilla/gfx/Matrix.h"
 #include "nsIContent.h"
 #include "nsIFormControl.h"
@@ -426,9 +427,8 @@ uint64_t LocalAccessible::NativeLinkState() const { return 0; }
 bool LocalAccessible::NativelyUnavailable() const {
   if (mContent->IsHTMLElement()) return mContent->AsElement()->IsDisabled();
 
-  return mContent->IsElement() && mContent->AsElement()->AttrValueIs(
-                                      kNameSpaceID_None, nsGkAtoms::disabled,
-                                      nsGkAtoms::_true, eCaseMatters);
+  return mContent->IsElement() &&
+         mContent->AsElement()->GetBoolAttr(nsGkAtoms::disabled);
 }
 
 Accessible* LocalAccessible::ChildAtPoint(int32_t aX, int32_t aY,
@@ -944,14 +944,12 @@ nsresult LocalAccessible::HandleAccEvent(AccEvent* aEvent) {
               scrollingEvent->MaxScrollY());
           break;
         }
-#if !defined(XP_WIN)
         case nsIAccessibleEvent::EVENT_ANNOUNCEMENT: {
           AccAnnouncementEvent* announcementEvent = downcast_accEvent(aEvent);
           ipcDoc->SendAnnouncementEvent(id, announcementEvent->Announcement(),
                                         announcementEvent->Priority());
           break;
         }
-#endif  // !defined(XP_WIN)
         case nsIAccessibleEvent::EVENT_TEXT_SELECTION_CHANGED: {
           AccTextSelChangeEvent* textSelChangeEvent = downcast_accEvent(aEvent);
           AutoTArray<TextRange, 1> ranges;
@@ -1070,13 +1068,13 @@ nsresult LocalAccessible::HandleAccEvent(AccEvent* aEvent) {
           scrollingEvent->MaxScrollY());
       break;
     }
+#endif  // defined(ANDROID)
     case nsIAccessibleEvent::EVENT_ANNOUNCEMENT: {
       AccAnnouncementEvent* announcementEvent = downcast_accEvent(aEvent);
       PlatformAnnouncementEvent(target, announcementEvent->Announcement(),
                                 announcementEvent->Priority());
       break;
     }
-#endif  // defined(ANDROID)
 #if defined(MOZ_WIDGET_COCOA)
     case nsIAccessibleEvent::EVENT_TEXT_SELECTION_CHANGED: {
       AccTextSelChangeEvent* textSelChangeEvent = downcast_accEvent(aEvent);
@@ -2071,7 +2069,7 @@ Relation LocalAccessible::RelationByType(RelationType aType) const {
       Relation rel(new AssociatedElementsIterator(mDoc, mContent,
                                                   nsGkAtoms::aria_labelledby));
       if (mContent->IsHTMLElement()) {
-        rel.AppendIter(new HTMLLabelIterator(Document(), this));
+        rel.AppendIter(new HTMLLabelIterator(mDoc, this));
       }
       rel.AppendIter(new XULLabelIterator(Document(), mContent));
 
@@ -2302,7 +2300,7 @@ Relation LocalAccessible::RelationByType(RelationType aType) const {
       if (mContent->IsHTMLElement()) {
         // HTML form controls implements nsIFormControl interface.
         if (auto* control = nsIFormControl::FromNode(mContent)) {
-          if (dom::HTMLFormElement* form = control->GetForm()) {
+          if (dom::HTMLFormElement* form = control->GetFormInternal()) {
             return Relation(mDoc, form->GetDefaultSubmitElement());
           }
         }
@@ -3440,11 +3438,12 @@ already_AddRefed<AccAttributes> LocalAccessible::BundleFieldsForCache(
   }
 
   if (aCacheDomain & CacheDomain::Value) {
-    // We cache the text value in 3 cases:
+    // We cache the text value in 5 cases:
     // 1. Accessible is an HTML input type that holds a number.
     // 2. Accessible has a numeric value and an aria-valuetext.
     // 3. Accessible is an HTML input type that holds text.
     // 4. Accessible is a link, in which case value is the target URL.
+    // 5. Accessible is an HTML input type that holds a color.
     // ... for all other cases we divine the value remotely.
     bool cacheValueText = false;
     if (HasNumericValue()) {
@@ -3456,8 +3455,10 @@ already_AddRefed<AccAttributes> LocalAccessible::BundleFieldsForCache(
                        (mContent->IsElement() &&
                         nsAccUtils::HasARIAAttr(mContent->AsElement(),
                                                 nsGkAtoms::aria_valuetext));
-    } else {
-      cacheValueText = IsTextField() || IsHTMLLink();
+    } else if (IsTextField() || IsHTMLLink()) {
+      cacheValueText = true;
+    } else if (auto* input = dom::HTMLInputElement::FromNodeOrNull(mContent)) {
+      cacheValueText = input->IsInputColor();
     }
 
     if (cacheValueText) {
@@ -4128,11 +4129,11 @@ already_AddRefed<AccAttributes> LocalAccessible::BundleFieldsForCache(
       if (data.mType == RelationType::LABEL_FOR) {
         // Labels are a special case -- we need to validate that the target of
         // their `for` attribute is in fact labelable. DOM checks this when we
-        // call GetControl(). If a label contains an element we will return it
-        // here.
+        // call GetLabeledElementInternal(). If a label contains an element we
+        // will return it here.
         if (dom::HTMLLabelElement* labelEl =
                 dom::HTMLLabelElement::FromNode(mContent)) {
-          rel.AppendTarget(mDoc, labelEl->GetControl());
+          rel.AppendTarget(mDoc, labelEl->GetLabeledElementInternal());
         }
       } else if (data.mType == RelationType::DETAILS) {
         if (relAtom == nsGkAtoms::aria_details) {

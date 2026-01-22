@@ -9,13 +9,16 @@ import mozilla.components.browser.session.storage.RecoverableBrowserState
 import mozilla.components.browser.session.storage.SessionStorage
 import mozilla.components.browser.state.action.DefaultDesktopModeAction
 import mozilla.components.browser.state.action.EngineAction
+import mozilla.components.browser.state.action.TabGroupAction
 import mozilla.components.browser.state.action.TabListAction
 import mozilla.components.browser.state.engine.EngineMiddleware
 import mozilla.components.browser.state.selector.findNormalOrPrivateTabByUrl
 import mozilla.components.browser.state.selector.findTab
 import mozilla.components.browser.state.selector.selectedTab
+import mozilla.components.browser.state.state.TabGroup
 import mozilla.components.browser.state.state.TabSessionState
 import mozilla.components.browser.state.state.createTab
+import mozilla.components.browser.state.state.getGroupById
 import mozilla.components.browser.state.state.recover.RecoverableTab
 import mozilla.components.browser.state.state.recover.toRecoverableTab
 import mozilla.components.browser.state.store.BrowserStore
@@ -684,5 +687,96 @@ class TabsUseCasesTest {
         assertThrows(IllegalStateException::class.java) {
             tabsUseCases.migratePrivateTabUseCase("invalid-tab-id")
         }
+    }
+
+    @Test
+    fun `WHEN AddTabGroupUseCase is invoked THEN group is added`() {
+        val tab = createTab("https://mozilla.org")
+        store.dispatch(TabListAction.AddTabAction(tab))
+
+        val group = TabGroup(id = "group1", name = "Group 1", tabIds = listOf(tab.id))
+        tabsUseCases.addTabGroup(partition = "partition1", group = group)
+
+        val partition = store.state.tabPartitions["partition1"]
+        assertNotNull(partition)
+        assertEquals(group, partition?.getGroupById("group1"))
+    }
+
+    @Test
+    fun `WHEN CloseTabGroupUseCase is invoked THEN group and tabs are removed`() {
+        val tab = createTab("https://mozilla.org")
+        store.dispatch(TabListAction.AddTabAction(tab))
+        val group = TabGroup(id = "group1", name = "Group 1", tabIds = listOf(tab.id))
+        store.dispatch(TabGroupAction.AddTabGroupAction(partition = "partition1", group = group))
+
+        assertEquals(1, store.state.tabs.size)
+        assertNotNull(store.state.tabPartitions["partition1"])
+
+        tabsUseCases.closeTabGroup(
+            partition = "partition1",
+            group = "group1",
+            tabIds = listOf(tab.id),
+        )
+
+        assertEquals(0, store.state.tabs.size)
+        assertNull(store.state.tabPartitions["partition1"])
+    }
+
+    @Test
+    fun `WHEN RemoveTabGroupUseCase is invoked THEN group is removed`() {
+        val tab = createTab("https://mozilla.org")
+        store.dispatch(TabListAction.AddTabAction(tab))
+        val group = TabGroup(id = "group1", name = "Group 1", tabIds = listOf(tab.id))
+        store.dispatch(TabGroupAction.AddTabGroupAction(partition = "partition1", group = group))
+
+        assertEquals(1, store.state.tabs.size)
+        assertNotNull(store.state.tabPartitions["partition1"])
+
+        tabsUseCases.removeTabGroup(
+            partition = "partition1",
+            group = "group1",
+        )
+
+        assertEquals(1, store.state.tabs.size)
+        assertEquals(tab, store.state.tabs.first())
+        assertNull(store.state.tabPartitions["partition1"])
+    }
+
+    @Test
+    fun `WHEN AddTabsInGroupUseCase is invoked THEN tabs are added to group`() {
+        val tab1 = createTab("https://mozilla.org")
+        val tab2 = createTab("https://firefox.com")
+        store.dispatch(TabListAction.AddMultipleTabsAction(tabs = listOf(tab1, tab2)))
+
+        tabsUseCases.addTabsInGroup(partition = "partition1", group = "group1", tabId = tab1.id)
+        var group = store.state.tabPartitions["partition1"]?.getGroupById("group1")
+        assertNotNull(group)
+        assertEquals(listOf(tab1.id), group?.tabIds)
+
+        tabsUseCases.addTabsInGroup("partition1", "group1", tabIds = listOf(tab2.id))
+        group = store.state.tabPartitions["partition1"]?.getGroupById("group1")
+        assertEquals(listOf(tab1.id, tab2.id), group?.tabIds)
+    }
+
+    @Test
+    fun `WHEN RemoveTabsInGroupUseCase is invoked THEN tabs are removed from group`() {
+        val tab1 = createTab("https://mozilla.org")
+        val tab2 = createTab("https://firefox.com")
+        store.dispatch(TabListAction.AddMultipleTabsAction(tabs = listOf(tab1, tab2)))
+        store.dispatch(
+            TabGroupAction.AddTabsAction(
+                partition = "partition1",
+                group = "group1",
+                tabIds = listOf(tab1.id, tab2.id),
+            ),
+        )
+
+        tabsUseCases.removeTabsInGroup(partition = "partition1", group = "group1", tabId = tab1.id)
+        var group = store.state.tabPartitions["partition1"]?.getGroupById("group1")
+        assertEquals(listOf(tab2.id), group?.tabIds)
+
+        tabsUseCases.removeTabsInGroup(partition = "partition1", group = "group1", tabIds = listOf(tab2.id))
+        group = store.state.tabPartitions["partition1"]?.getGroupById("group1")
+        assertTrue(group?.tabIds?.isEmpty() == true)
     }
 }

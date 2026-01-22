@@ -711,6 +711,26 @@ TEST(MoofParser, test_case_mp4_subsets) {
 }
 #endif
 
+// Bug 2004835: check values too big to fit in an int64_t will result in
+// RebuildFragmentedIndex correctly returning false because we can't handle
+// them, instead of causing an overflow.
+TEST(MoofParser, overflow_tfdt)
+{
+  static const char* kTestFilename = "test_case_2004835-overflow-tfdt.mp4";
+  nsTArray<uint8_t> buffer = ReadTestFile(kTestFilename);
+
+  ASSERT_FALSE(buffer.IsEmpty());
+  RefPtr<ByteStream> stream =
+      new TestStream(buffer.Elements(), buffer.Length());
+
+  // File has only one track (video), whose ID is 1
+  const uint32_t videoTrackId = 1;
+  MoofParser parser(stream, AsVariant(videoTrackId), false);
+  const MediaByteRangeSet byteRanges(
+      MediaByteRange(0, int64_t(buffer.Length())));
+  EXPECT_FALSE(parser.RebuildFragmentedIndex(byteRanges));
+}
+
 uint8_t media_gtest_video_init_mp4[] = {
     0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d,
     0x00, 0x00, 0x00, 0x01, 0x69, 0x73, 0x6f, 0x6d, 0x61, 0x76, 0x63, 0x31,

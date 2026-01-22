@@ -16,9 +16,9 @@ include protocol PWindowsUtils;
 include protocol PWinFileDialog;
 #endif
 
-#ifndef MOZ_NO_SMART_CARDS
+#if defined(NIGHTLY_BUILD) && !defined(MOZ_NO_SMART_CARDS)
 include protocol PPKCS11Module;
-#endif  // !MOZ_NO_SMART_CARDS
+#endif  // NIGHTLY_BUILD && !MOZ_NO_SMART_CARDS
 
 #if defined(MOZ_SANDBOX) && defined(MOZ_DEBUG) && defined(ENABLE_TESTS)
 include protocol PSandboxTesting;
@@ -111,9 +111,9 @@ child:
 
   async StartJSOracleService(Endpoint<PJSOracleChild> aEndpoint);
 
-#ifndef MOZ_NO_SMART_CARDS
+#if defined(NIGHTLY_BUILD) && !defined(MOZ_NO_SMART_CARDS)
   async StartPKCS11ModuleService(Endpoint<PPKCS11ModuleChild> aEndpoint);
-#endif  // !MOZ_NO_SMART_CARDS
+#endif  // NIGHTLY_BUILD && !MOZ_NO_SMART_CARDS
 
 #if defined(XP_WIN)
   async StartWindowsUtilsService(Endpoint<PWindowsUtilsChild> aEndpoint);

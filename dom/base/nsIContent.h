@@ -3,8 +3,8 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
-#ifndef nsIContent_h___
-#define nsIContent_h___
+#ifndef nsIContent_h_
+#define nsIContent_h_
 
 #include "mozilla/FlushType.h"
 #include "nsINode.h"
@@ -301,13 +301,6 @@ class nsIContent : public nsINode {
   virtual IMEState GetDesiredIMEState();
 
   /**
-   * Gets the ShadowRoot binding for this element.
-   *
-   * @return The ShadowRoot currently bound to this element.
-   */
-  inline mozilla::dom::ShadowRoot* GetShadowRoot() const;
-
-  /**
    * Gets the root of the node tree for this content if it is in a shadow tree.
    *
    * @return The ShadowRoot that is the root of the node tree.
@@ -388,8 +381,7 @@ class nsIContent : public nsINode {
   // Handles Shadow-DOM related state tracking. Meant to be called near the
   // beginning of UnbindFromTree(), before the node has lost the reference to
   // its parent.
-  inline void HandleShadowDOMRelatedRemovalSteps(bool aNullParent,
-                                                 bool aInBatch);
+  inline void HandleShadowDOMRelatedRemovalSteps(bool aNullParent);
 
  public:
   /**
@@ -790,4 +782,4 @@ class nsIContent : public nsINode {
 
 NON_VIRTUAL_ADDREF_RELEASE(nsIContent)
 
-#endif /* nsIContent_h___ */
+#endif /* nsIContent_h_ */

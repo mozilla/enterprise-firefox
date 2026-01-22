@@ -611,6 +611,7 @@ extensions.counters:
         - reset_parentapicall
         - permissions_request
         - launchWebAuthFlow
+        - downloads_saveAs
       lifetime: application
       notification_emails:
         - addons-dev-internal@mozilla.com
@@ -649,6 +650,7 @@ extensions.counters:
             - reset_parentapicall
             - permissions_request
             - launchWebAuthFlow
+            - downloads_saveAs
           description: Labels of the keyed categorical legacy telemetry histogram
             WEBEXT_EVENTPAGE_IDLE_RESULT_COUNT_BY_ADDONID.
       bugs:

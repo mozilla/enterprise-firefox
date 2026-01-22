@@ -52,12 +52,12 @@ already_AddRefed<DOMSVGAnimatedNumber> SVGFEDropShadowElement::Dy() {
 
 already_AddRefed<DOMSVGAnimatedNumber> SVGFEDropShadowElement::StdDeviationX() {
   return mNumberPairAttributes[STD_DEV].ToDOMAnimatedNumber(
-      SVGAnimatedNumberPair::eFirst, this);
+      SVGAnimatedNumberPairWhichOne::First, this);
 }
 
 already_AddRefed<DOMSVGAnimatedNumber> SVGFEDropShadowElement::StdDeviationY() {
   return mNumberPairAttributes[STD_DEV].ToDOMAnimatedNumber(
-      SVGAnimatedNumberPair::eSecond, this);
+      SVGAnimatedNumberPairWhichOne::Second, this);
 }
 
 void SVGFEDropShadowElement::SetStdDeviation(float stdDeviationX,
@@ -70,12 +70,12 @@ FilterPrimitiveDescription SVGFEDropShadowElement::GetPrimitiveDescription(
     SVGFilterInstance* aInstance, const IntRect& aFilterSubregion,
     const nsTArray<bool>& aInputsAreTainted,
     nsTArray<RefPtr<SourceSurface>>& aInputImages) {
-  float stdX = aInstance->GetPrimitiveNumber(SVGContentUtils::X,
-                                             &mNumberPairAttributes[STD_DEV],
-                                             SVGAnimatedNumberPair::eFirst);
-  float stdY = aInstance->GetPrimitiveNumber(SVGContentUtils::Y,
-                                             &mNumberPairAttributes[STD_DEV],
-                                             SVGAnimatedNumberPair::eSecond);
+  float stdX = aInstance->GetPrimitiveNumber(
+      SVGContentUtils::X, &mNumberPairAttributes[STD_DEV],
+      SVGAnimatedNumberPairWhichOne::First);
+  float stdY = aInstance->GetPrimitiveNumber(
+      SVGContentUtils::Y, &mNumberPairAttributes[STD_DEV],
+      SVGAnimatedNumberPairWhichOne::Second);
   if (stdX < 0 || stdY < 0) {
     return FilterPrimitiveDescription();
   }

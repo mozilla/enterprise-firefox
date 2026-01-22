@@ -3,8 +3,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef nsGUIEventIPC_h__
-#define nsGUIEventIPC_h__
+#ifndef nsGUIEventIPC_h_
+#define nsGUIEventIPC_h_
 
 #include "ipc/EnumSerializer.h"
 #include "ipc/IPCMessageUtils.h"
@@ -1412,4 +1412,4 @@ struct ParamTraits<mozilla::KeyboardInput> {
 
 }  // namespace IPC
 
-#endif  // nsGUIEventIPC_h__
+#endif  // nsGUIEventIPC_h_

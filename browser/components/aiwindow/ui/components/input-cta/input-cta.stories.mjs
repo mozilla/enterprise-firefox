@@ -10,14 +10,14 @@ export default {
   component: "input-cta",
   parameters: {
     fluent: `
-aiwindow-input-cta-label-chat = Chat
+aiwindow-input-cta-label-chat = Ask
 aiwindow-input-cta-label-search = Search
-aiwindow-input-cta-label-navigate = Navigate
+aiwindow-input-cta-label-navigate = Go
     `,
   },
   argTypes: {
     action: {
-      options: [null, "chat", "search", "navigate"],
+      options: ["", "chat", "search", "navigate"],
       control: { type: "select" },
     },
   },

@@ -152,6 +152,26 @@ set_config("ENABLE_EXPLICIT_RESOURCE_MANAGEMENT", enable_explicit_resource_manag
 set_define("ENABLE_EXPLICIT_RESOURCE_MANAGEMENT", enable_explicit_resource_management)
 
 
+# Enable source phase imports
+# ===================================================
+option(
+    "--enable-source-phase-imports",
+    default=False,
+    help="Enable experimental source phase imports support",
+)
+
+
+@depends("--enable-source-phase-imports")
+def enable_source_phase_imports(value):
+    if value:
+        return True
+
+
+set_config("ENABLE_SOURCE_PHASE_IMPORTS", enable_source_phase_imports)
+set_define("ENABLE_SOURCE_PHASE_IMPORTS", enable_source_phase_imports)
+
+
+
 # Portable Baseline Intepreter
 # =======================================================
 option(
@@ -1083,22 +1103,33 @@ set_config("ENABLE_WASM_CUSTOM_PAGE_SIZES", wasm_custom_page_sizes)
 set_define("ENABLE_WASM_CUSTOM_PAGE_SIZES", wasm_custom_page_sizes)
 
 
-# Enable static checking using sixgill
-# ====================================
-
-option("--with-sixgill", nargs=1, help="Enable static checking of code using sixgill")
+# Support for WebAssembly compact imports.
+# ===========================
 
 
-@depends_if("--with-sixgill")
-@imports("os")
-def sixgill(value):
-    for f in ("bin/xdbfind", "gcc/xgill.so", "scripts/wrap_gcc/g++"):
-        if not os.path.exists(os.path.join(value[0], f)):
-            die("The sixgill plugin and binaries are not at the specified path")
-    return value[0]
+@depends(milestone.is_nightly)
+def default_wasm_compact_imports(is_nightly):
+    if is_nightly:
+        return True
 
 
-set_config("SIXGILL_PATH", sixgill)
+option(
+    "--enable-wasm-compact-imports",
+    default=default_wasm_compact_imports,
+    help="{Enable|Disable} WebAssembly compact import section support",
+)
+
+
+@depends("--enable-wasm-compact-imports", "--wasm-no-experimental")
+def wasm_compact_imports(value, no_experimental):
+    if no_experimental or not value:
+        return
+
+    return True
+
+
+set_config("ENABLE_WASM_COMPACT_IMPORTS", wasm_compact_imports)
+set_define("ENABLE_WASM_COMPACT_IMPORTS", wasm_compact_imports)
 
 
 # Support for readline
@@ -1349,7 +1380,7 @@ with only_when(compile_environment):
     configured_moz_optimize_flags,
     when="--enable-compile-environment",
 )
-@imports(_from="mozbuild.shellutil", _import="split")
+@imports(_from="mozshellutil", _import="split")
 def moz_js_optimize_flags(target, compiler, configured_moz_optimize_flags):
     if configured_moz_optimize_flags:
         return configured_moz_optimize_flags
@@ -1434,7 +1465,6 @@ with only_when(compile_environment & depends(target.os)(lambda os: os != "WINNT"
     set_define("HAVE_GETC_UNLOCKED", check_symbol("getc_unlocked"))
     set_define("HAVE_PTHREAD_GETNAME_NP", check_symbol("pthread_getname_np"))
     set_define("HAVE_PTHREAD_GET_NAME_NP", check_symbol("pthread_get_name_np"))
-    set_define("HAVE_STRERROR", check_symbol("strerror"))
 
     set_config(
         "HAVE_LANGINFO_CODESET",

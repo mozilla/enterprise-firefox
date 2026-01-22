@@ -11,7 +11,6 @@
 #include "mozilla/TimeStamp.h"
 
 #include "jsapi.h"
-#include "jsexn.h"
 #include "jsfriendapi.h"
 
 #include "js/CallAndConstruct.h"      // JS::Construct, JS::IsCallable
@@ -1127,12 +1126,13 @@ ThenableJob* NewThenableJob(JSContext* cx, ThenableJob::TargetFunction target,
 
 static void AddPromiseFlags(PromiseObject& promise, int32_t flag) {
   int32_t flags = promise.flags();
-  promise.setFixedSlot(PromiseSlot_Flags, Int32Value(flags | flag));
+  promise.setNeverGCThingFixedSlot(PromiseSlot_Flags, Int32Value(flags | flag));
 }
 
 static void RemovePromiseFlags(PromiseObject& promise, int32_t flag) {
   int32_t flags = promise.flags();
-  promise.setFixedSlot(PromiseSlot_Flags, Int32Value(flags & ~flag));
+  promise.setNeverGCThingFixedSlot(PromiseSlot_Flags,
+                                   Int32Value(flags & ~flag));
 }
 
 static bool PromiseHasAnyFlag(PromiseObject& promise, int32_t flag) {
@@ -1518,6 +1518,8 @@ void ReportThenable(JSContext* cx, bool isOnProto, bool isOnStandardProto,
   cx->check(promise, resolutionVal);
   MOZ_ASSERT(!IsSettledMaybeWrappedPromise(promise));
 
+  RootedTuple<JSObject*, Value, SavedFrame*, Value, Value> roots(cx);
+
   // (reordered)
   // Step 8. If Type(resolution) is not Object, then
   if (!resolutionVal.isObject()) {
@@ -1525,15 +1527,15 @@ void ReportThenable(JSContext* cx, bool isOnProto, bool isOnStandardProto,
     return FulfillMaybeWrappedPromise(cx, promise, resolutionVal);
   }
 
-  RootedObject resolution(cx, &resolutionVal.toObject());
+  RootedField<JSObject*, 0> resolution(roots, &resolutionVal.toObject());
 
   // Step 7. If SameValue(resolution, promise) is true, then
   if (resolution == promise) {
     // Step 7.a. Let selfResolutionError be a newly created TypeError object.
     JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr,
                               JSMSG_CANNOT_RESOLVE_PROMISE_WITH_ITSELF);
-    RootedValue selfResolutionError(cx);
-    Rooted<SavedFrame*> stack(cx);
+    RootedField<Value, 1> selfResolutionError(roots);
+    RootedField<SavedFrame*, 2> stack(roots);
     if (!MaybeGetAndClearExceptionAndStack(cx, &selfResolutionError, &stack)) {
       return false;
     }
@@ -1543,15 +1545,15 @@ void ReportThenable(JSContext* cx, bool isOnProto, bool isOnStandardProto,
   }
 
   // Step 9. Let then be Get(resolution, "then").
-  RootedValue thenVal(cx);
+  RootedField<Value, 1> thenVal(roots);
   bool isOnProto = false;
   bool isOnStandardProto = false;
   bool isOnObjectProto = false;
   bool status = GetThenValue(cx, resolution, resolutionVal, &thenVal,
                              &isOnProto, &isOnStandardProto, &isOnObjectProto);
 
-  RootedValue error(cx);
-  Rooted<SavedFrame*> errorStack(cx);
+  RootedField<Value, 3> error(roots);
+  RootedField<SavedFrame*, 2> errorStack(roots);
 
   // Step 10. If then is an abrupt completion, then
   if (!status) {
@@ -1608,7 +1610,7 @@ void ReportThenable(JSContext* cx, bool isOnProto, bool isOnStandardProto,
   if (!isBuiltinThen) {
     ReportThenable(cx, isOnProto, isOnStandardProto, isOnObjectProto);
 
-    RootedValue promiseVal(cx, ObjectValue(*promise));
+    RootedField<Value, 4> promiseVal(roots, ObjectValue(*promise));
     if (!EnqueuePromiseResolveThenableJob(cx, promiseVal, resolutionVal,
                                           thenVal)) {
       return false;
@@ -1730,7 +1732,7 @@ static bool PromiseReactionJob(JSContext* cx, unsigned argc, Value* vp);
   // To properly handle that case here, unwrap it and enter its
   // compartment, where the job creation should take place anyway.
   RootedTuple<PromiseReactionRecord*, Value, Value, Value, JSObject*,
-              JSFunction*, JSObject*, JSObject*>
+              JSFunction*, JSObject*, JSObject*, JSObject*>
       roots(cx);
   RootedField<PromiseReactionRecord*, 0> reaction(roots);
   RootedField<Value, 1> handlerArg(roots, handlerArg_);
@@ -1842,7 +1844,7 @@ static bool PromiseReactionJob(JSContext* cx, unsigned argc, Value* vp);
   // If after all this we do have an object, wrap it in case we entered the
   // handler's compartment above, because we should pass objects from a
   // single compartment to the enqueuePromiseJob callback.
-  RootedField<JSObject*, 6> promise(roots, reaction->promise());
+  RootedField<JSObject*, 4> promise(roots, reaction->promise());
   if (promise) {
     if (promise->is<PromiseObject>()) {
       if (!cx->compartment()->wrap(cx, &promise)) {
@@ -1876,7 +1878,8 @@ static bool PromiseReactionJob(JSContext* cx, unsigned argc, Value* vp);
     //
     // So instead we simply store Object.prototype from the target global,
     // an object which always exists.
-    RootedObject globalRepresentative(cx, &cx->global()->getObjectPrototype());
+    RootedField<JSObject*, 6> globalRepresentative(
+        roots, &cx->global()->getObjectPrototype());
 
     // PromiseReactionJob job will use the existence of a CCW as a signal
     // to change to the reactionVal's realm for execution. I believe
@@ -1886,8 +1889,8 @@ static bool PromiseReactionJob(JSContext* cx, unsigned argc, Value* vp);
     {
       AutoRealm ar(cx, reaction);
 
-      RootedObject stack(
-          cx,
+      RootedField<JSObject*, 7> stack(
+          roots,
           JS::MaybeGetPromiseAllocationSiteFromPossiblyWrappedPromise(promise));
       if (!cx->compartment()->wrap(cx, &stack)) {
         return false;
@@ -1897,7 +1900,7 @@ static bool PromiseReactionJob(JSContext* cx, unsigned argc, Value* vp);
       if (!reaction->getHostDefinedData().isObject()) {
         // We do need to still provide an incumbentGlobal here
         // MG:XXX: I'm pretty sure this can be appreciably more elegant later.
-        RootedObject hostGlobal(cx);
+        RootedField<JSObject*, 8> hostGlobal(roots);
         if (!cx->jobQueue->getHostDefinedGlobal(cx, &hostGlobal)) {
           return false;
         }
@@ -1929,7 +1932,7 @@ static bool PromiseReactionJob(JSContext* cx, unsigned argc, Value* vp);
     return EnqueueJob(cx, &reactionVal.toObject());
   }
 
-  RootedField<JSObject*, 7> hostDefinedData(roots);
+  RootedField<JSObject*, 6> hostDefinedData(roots);
   if (JSObject* hostDefined = reaction->getAndClearHostDefinedData()) {
     hostDefined = CheckedUnwrapStatic(hostDefined);
     MOZ_ASSERT(hostDefined);
@@ -2016,7 +2019,7 @@ static bool PromiseReactionJob(JSContext* cx, unsigned argc, Value* vp);
   if (state == JS::PromiseState::Fulfilled) {
     flags |= PROMISE_FLAG_FULFILLED;
   }
-  promise->setFixedSlot(PromiseSlot_Flags, Int32Value(flags));
+  promise->setNeverGCThingFixedSlot(PromiseSlot_Flags, Int32Value(flags));
 
   // Also null out the resolve/reject functions so they can be GC'd.
   promise->setFixedSlot(PromiseSlot_RejectFunction, UndefinedValue());
@@ -2058,8 +2061,9 @@ static bool PromiseReactionJob(JSContext* cx, unsigned argc, Value* vp);
 [[nodiscard]] static bool FulfillMaybeWrappedPromise(JSContext* cx,
                                                      HandleObject promiseObj,
                                                      HandleValue value_) {
-  Rooted<PromiseObject*> promise(cx);
-  RootedValue value(cx, value_);
+  RootedTuple<PromiseObject*, Value> roots(cx);
+  RootedField<PromiseObject*, 0> promise(roots);
+  RootedField<Value, 1> value(roots, value_);
 
   mozilla::Maybe<AutoRealm> ar;
   if (!IsProxy(promiseObj)) {
@@ -2429,8 +2433,10 @@ static bool ForEachReaction(JSContext* cx, HandleValue reactionsVal, F f) {
     JSContext* cx, Handle<PromiseReactionRecord*> reaction) {
   MOZ_ASSERT(reaction->targetState() != JS::PromiseState::Pending);
 
-  Rooted<PromiseObject*> promiseToResolve(cx,
-                                          reaction->defaultResolvingPromise());
+  RootedTuple<PromiseObject*, Value, SavedFrame*, Value, JSObject*, JSObject*>
+      roots(cx);
+  RootedField<PromiseObject*, 0> promiseToResolve(
+      roots, reaction->defaultResolvingPromise());
 
   // Testing functions allow to directly settle a promise without going
   // through the resolving functions. In that case the normal bookkeeping to
@@ -2438,10 +2444,10 @@ static bool ForEachReaction(JSContext* cx, HandleValue reactionsVal, F f) {
   // to manually check for already settled promises. We still call
   // Run{Fulfill,Reject}Function for consistency with PromiseReactionJob.
   ResolutionMode resolutionMode = ResolveMode;
-  RootedValue handlerResult(cx, UndefinedValue());
-  Rooted<SavedFrame*> unwrappedRejectionStack(cx);
+  RootedField<Value, 1> handlerResult(roots, UndefinedValue());
+  RootedField<SavedFrame*, 2> unwrappedRejectionStack(roots);
   if (promiseToResolve->state() == JS::PromiseState::Pending) {
-    RootedValue argument(cx, reaction->handlerArg());
+    RootedField<Value, 3> argument(roots, reaction->handlerArg());
 
     // Step 1.e. Else, let handlerResult be
     //           Completion(HostCallJobCallback(handler, undefined,
@@ -2463,8 +2469,8 @@ static bool ForEachReaction(JSContext* cx, HandleValue reactionsVal, F f) {
   }
 
   // Steps 1.f-i.
-  RootedObject promiseObj(cx, reaction->promise());
-  RootedObject callee(cx);
+  RootedField<JSObject*, 4> promiseObj(roots, reaction->promise());
+  RootedField<JSObject*, 5> callee(roots);
   if (resolutionMode == ResolveMode) {
     callee =
         reaction->getFixedSlot(PromiseReactionRecord::Resolve).toObjectOrNull();
@@ -2528,7 +2534,10 @@ static bool ForEachReaction(JSContext* cx, HandleValue reactionsVal, F f) {
  * execution stored in in a reaction record in its first extended slot.
  */
 static bool PromiseReactionJob(JSContext* cx, HandleObject reactionObjIn) {
-  RootedObject reactionObj(cx, reactionObjIn);
+  RootedTuple<JSObject*, PromiseReactionRecord*, Value, AsyncGeneratorObject*,
+              Value, Value, SavedFrame*, JSObject*, JSObject*>
+      roots(cx);
+  RootedField<JSObject*, 0> reactionObj(roots, reactionObjIn);
   // To ensure that the embedding ends up with the right entry global, we're
   // guaranteeing that the reaction job function gets created in the same
   // compartment as the handler function. That's not necessarily the global
@@ -2554,8 +2563,8 @@ static bool PromiseReactionJob(JSContext* cx, HandleObject reactionObjIn) {
   }
 
   // Optimized/special cases.
-  Handle<PromiseReactionRecord*> reaction =
-      reactionObj.as<PromiseReactionRecord>();
+  RootedField<PromiseReactionRecord*, 1> reaction(
+      roots, &reactionObj.get()->as<PromiseReactionRecord>());
   if (reaction->isDefaultResolvingHandler()) {
     return DefaultResolvingPromiseReactionJob(cx, reaction);
   }
@@ -2565,8 +2574,9 @@ static bool PromiseReactionJob(JSContext* cx, HandleObject reactionObjIn) {
     return AsyncFunctionPromiseReactionJob(cx, reaction);
   }
   if (reaction->isAsyncGenerator()) {
-    RootedValue argument(cx, reaction->handlerArg());
-    Rooted<AsyncGeneratorObject*> generator(cx, reaction->asyncGenerator());
+    RootedField<Value, 2> argument(roots, reaction->handlerArg());
+    RootedField<AsyncGeneratorObject*, 3> generator(roots,
+                                                    reaction->asyncGenerator());
     auto handler = static_cast<PromiseHandler>(reaction->handler().toInt32());
     return AsyncGeneratorPromiseReactionJob(cx, handler, generator, argument);
   }
@@ -2578,14 +2588,14 @@ static bool PromiseReactionJob(JSContext* cx, HandleObject reactionObjIn) {
   // (implicit)
 
   // Step 1.c. Let handler be reaction.[[Handler]].
-  RootedValue handlerVal(cx, reaction->handler());
+  RootedField<Value, 2> handlerVal(roots, reaction->handler());
 
-  RootedValue argument(cx, reaction->handlerArg());
+  RootedField<Value, 4> argument(roots, reaction->handlerArg());
 
-  RootedValue handlerResult(cx);
+  RootedField<Value, 5> handlerResult(roots);
   ResolutionMode resolutionMode = ResolveMode;
 
-  Rooted<SavedFrame*> unwrappedRejectionStack(cx);
+  RootedField<SavedFrame*, 6> unwrappedRejectionStack(roots);
 
   // Step 1.d. If handler is empty, then
   if (handlerVal.isInt32()) {
@@ -2623,7 +2633,8 @@ static bool PromiseReactionJob(JSContext* cx, HandleObject reactionObjIn) {
       //              ThrowCompletion(error)).
       //
       // https://tc39.es/ecma262/#sec-asyncfromsynciteratorcontinuation
-      Rooted<JSObject*> iter(cx, reaction->asyncFromSyncIterator()->iterator());
+      RootedField<JSObject*, 8> iter(
+          roots, reaction->asyncFromSyncIterator()->iterator());
       MOZ_ALWAYS_TRUE(CloseIterOperation(cx, iter, CompletionKind::Throw));
 
       resolutionMode = RejectMode;
@@ -2668,8 +2679,8 @@ static bool PromiseReactionJob(JSContext* cx, HandleObject reactionObjIn) {
   }
 
   // Steps 1.f-i.
-  RootedObject promiseObj(cx, reaction->promise());
-  RootedObject callee(cx);
+  RootedField<JSObject*, 8> promiseObj(roots, reaction->promise());
+  RootedField<JSObject*, 7> callee(roots);
   if (resolutionMode == ResolveMode) {
     callee =
         reaction->getFixedSlot(PromiseReactionRecord::Resolve).toObjectOrNull();
@@ -2714,8 +2725,9 @@ static bool PromiseResolveThenableJob(JSContext* cx, HandleObject promise,
                                       HandleValue thenable, HandleObject then) {
   // Step 1.a. Let resolvingFunctions be
   //           CreateResolvingFunctions(promiseToResolve).
-  RootedObject resolveFn(cx);
-  RootedObject rejectFn(cx);
+  RootedTuple<JSObject*, JSObject*, Value, SavedFrame*, Value> roots(cx);
+  RootedField<JSObject*, 0> resolveFn(roots);
+  RootedField<JSObject*, 1> rejectFn(roots);
   if (!CreateResolvingFunctions(cx, promise, &resolveFn, &rejectFn)) {
     return false;
   }
@@ -2729,7 +2741,7 @@ static bool PromiseResolveThenableJob(JSContext* cx, HandleObject promise,
   args2[1].setObject(*rejectFn);
 
   // In difference to the usual pattern, we return immediately on success.
-  RootedValue rval(cx);
+  RootedField<Value, 2> rval(roots);
   if (Call(cx, thenable, then, args2, &rval)) {
     // Step 1.d. Return Completion(thenCallResult).
     return true;
@@ -2737,7 +2749,7 @@ static bool PromiseResolveThenableJob(JSContext* cx, HandleObject promise,
 
   // Step 1.c. If thenCallResult is an abrupt completion, then
 
-  Rooted<SavedFrame*> stack(cx);
+  RootedField<SavedFrame*, 3> stack(roots);
   if (!MaybeGetAndClearExceptionAndStack(cx, &rval, &stack)) {
     return false;
   }
@@ -2746,7 +2758,7 @@ static bool PromiseResolveThenableJob(JSContext* cx, HandleObject promise,
   //             Call(resolvingFunctions.[[Reject]], undefined,
   //                  « thenCallResult.[[Value]] »).
   // Step 1.c.ii. Return Completion(status).
-  RootedValue rejectVal(cx, ObjectValue(*rejectFn));
+  RootedField<Value, 4> rejectVal(roots, ObjectValue(*rejectFn));
   return Call(cx, rejectVal, UndefinedHandleValue, rval, &rval);
 }
 
@@ -2757,12 +2769,14 @@ static bool PromiseResolveThenableJob(JSContext* cx, HandleObject promise,
 static bool PromiseResolveThenableJob(JSContext* cx, unsigned argc, Value* vp) {
   CallArgs args = CallArgsFromVp(argc, vp);
 
-  RootedFunction job(cx, &args.callee().as<JSFunction>());
-  RootedObject promise(
-      cx, &job->getExtendedSlot(ThenableJobSlot_Promise).toObject());
-  RootedValue thenable(cx, job->getExtendedSlot(ThenableJobSlot_Thenable));
-  RootedObject then(cx,
-                    &job->getExtendedSlot(ThenableJobSlot_Handler).toObject());
+  RootedTuple<JSFunction*, JSObject*, Value, JSObject*> roots(cx);
+  RootedField<JSFunction*, 0> job(roots, &args.callee().as<JSFunction>());
+  RootedField<JSObject*, 1> promise(
+      roots, &job->getExtendedSlot(ThenableJobSlot_Promise).toObject());
+  RootedField<Value, 2> thenable(
+      roots, job->getExtendedSlot(ThenableJobSlot_Thenable));
+  RootedField<JSObject*, 3> then(
+      roots, &job->getExtendedSlot(ThenableJobSlot_Handler).toObject());
 
   return PromiseResolveThenableJob(cx, promise, thenable, then);
 }
@@ -2870,8 +2884,11 @@ static bool PromiseResolveBuiltinThenableJob(JSContext* cx, unsigned argc,
     JSContext* cx, HandleValue promiseToResolve_, HandleValue thenable_,
     HandleValue thenVal) {
   // Need to re-root these to enable wrapping them below.
-  RootedValue promiseToResolve(cx, promiseToResolve_);
-  RootedValue thenable(cx, thenable_);
+  RootedTuple<Value, Value, JSObject*, JSObject*, JSObject*, JSObject*,
+              JSFunction*>
+      roots(cx);
+  RootedField<Value, 0> promiseToResolve(roots, promiseToResolve_);
+  RootedField<Value, 1> thenable(roots, thenable_);
 
   // Step 2. Let getThenRealmResult be GetFunctionRealm(then.[[Callback]]).
   // Step 3. If getThenRealmResult is a normal completion, let thenRealm be
@@ -2892,7 +2909,7 @@ static bool PromiseResolveBuiltinThenableJob(JSContext* cx, unsigned argc,
   //
   // NOTE: If `thenable` is also from chrome realm, accessing `then` silently
   //       fails and it returns `undefined`, and that case doesn't reach here.
-  RootedObject then(cx, &thenVal.toObject());
+  RootedField<JSObject*, 2> then(roots, &thenVal.toObject());
   AutoFunctionOrCurrentRealm ar(cx, then);
   if (then->maybeCCWRealm() != cx->realm()) {
     if (!cx->compartment()->wrap(cx, &then)) {
@@ -2912,12 +2929,12 @@ static bool PromiseResolveBuiltinThenableJob(JSContext* cx, unsigned argc,
 
   // At this point the promise is guaranteed to be wrapped into the job's
   // compartment.
-  RootedObject promise(cx, &promiseToResolve.toObject());
+  RootedField<JSObject*, 3> promise(roots, &promiseToResolve.toObject());
 
   if (JS::Prefs::use_js_microtask_queue()) {
-    RootedObject hostDefinedGlobalRepresentative(cx);
+    RootedField<JSObject*, 4> hostDefinedGlobalRepresentative(roots);
     {
-      RootedObject hostDefinedGlobal(cx);
+      RootedField<JSObject*, 5> hostDefinedGlobal(roots);
       if (!cx->jobQueue->getHostDefinedGlobal(cx, &hostDefinedGlobal)) {
         return false;
       }
@@ -2950,9 +2967,10 @@ static bool PromiseResolveBuiltinThenableJob(JSContext* cx, unsigned argc,
   //         captures promiseToResolve, thenable, and then and performs the
   //         following steps when called:
   Handle<PropertyName*> funName = cx->names().empty_;
-  RootedFunction job(
-      cx, NewNativeFunction(cx, PromiseResolveThenableJob, 0, funName,
-                            gc::AllocKind::FUNCTION_EXTENDED, GenericObject));
+  RootedField<JSFunction*, 6> job(
+      roots,
+      NewNativeFunction(cx, PromiseResolveThenableJob, 0, funName,
+                        gc::AllocKind::FUNCTION_EXTENDED, GenericObject));
   if (!job) {
     return false;
   }
@@ -5775,9 +5793,12 @@ static bool PromiseThenNewPromiseCapability(
                                                      HandleObject onRejected) {
   cx->check(promiseObj, onFulfilled, onRejected);
 
-  RootedValue promiseVal(cx, ObjectValue(*promiseObj));
-  Rooted<PromiseObject*> unwrappedPromise(
-      cx,
+  RootedTuple<Value, PromiseObject*, PromiseObject*, PromiseCapability, Value,
+              Value>
+      roots(cx);
+  RootedField<Value, 0> promiseVal(roots, ObjectValue(*promiseObj));
+  RootedField<PromiseObject*, 1> unwrappedPromise(
+      roots,
       UnwrapAndTypeCheckValue<PromiseObject>(cx, promiseVal, [cx, promiseObj] {
         JS_ReportErrorNumberLatin1(cx, GetErrorMessage, nullptr,
                                    JSMSG_INCOMPATIBLE_PROTO, "Promise", "then",
@@ -5789,21 +5810,21 @@ static bool PromiseThenNewPromiseCapability(
 
   // Step 3. Let C be ? SpeciesConstructor(promise, %Promise%).
   // Step 4. Let resultCapability be ? NewPromiseCapability(C).
-  Rooted<PromiseObject*> newPromise(
-      cx, CreatePromiseObjectWithoutResolutionFunctions(cx));
+  RootedField<PromiseObject*, 2> newPromise(
+      roots, CreatePromiseObjectWithoutResolutionFunctions(cx));
   if (!newPromise) {
     return nullptr;
   }
   newPromise->copyUserInteractionFlagsFrom(*unwrappedPromise);
 
-  Rooted<PromiseCapability> resultCapability(cx);
+  RootedField<PromiseCapability, 3> resultCapability(roots);
   resultCapability.promise().set(newPromise);
 
   // Step 5. Return PerformPromiseThen(promise, onFulfilled, onRejected,
   //                                   resultCapability).
   {
-    RootedValue onFulfilledVal(cx, ObjectOrNullValue(onFulfilled));
-    RootedValue onRejectedVal(cx, ObjectOrNullValue(onRejected));
+    RootedField<Value, 4> onFulfilledVal(roots, ObjectOrNullValue(onFulfilled));
+    RootedField<Value, 5> onRejectedVal(roots, ObjectOrNullValue(onRejected));
     if (!PerformPromiseThen(cx, unwrappedPromise, onFulfilledVal, onRejectedVal,
                             resultCapability)) {
       return nullptr;
@@ -5854,15 +5875,15 @@ static bool PromiseThenNewPromiseCapability(
   MOZ_ASSERT_IF(onFulfilled_, IsCallable(onFulfilled_));
   MOZ_ASSERT_IF(onRejected_, IsCallable(onRejected_));
 
-  RootedValue onFulfilled(
-      cx, onFulfilled_ ? ObjectValue(*onFulfilled_)
-                       : Int32Value(int32_t(PromiseHandler::Identity)));
-
-  RootedValue onRejected(
-      cx, onRejected_ ? ObjectValue(*onRejected_)
-                      : Int32Value(int32_t(PromiseHandler::Thrower)));
-
-  Rooted<PromiseCapability> resultCapability(cx);
+  RootedTuple<Value, Value, PromiseCapability, PromiseReactionRecord*> roots(
+      cx);
+  RootedField<Value, 0> onFulfilled(
+      roots, onFulfilled_ ? ObjectValue(*onFulfilled_)
+                          : Int32Value(int32_t(PromiseHandler::Identity)));
+  RootedField<Value, 1> onRejected(
+      roots, onRejected_ ? ObjectValue(*onRejected_)
+                         : Int32Value(int32_t(PromiseHandler::Thrower)));
+  RootedField<PromiseCapability, 2> resultCapability(roots);
   MOZ_ASSERT(!resultCapability.promise());
 
   auto hostDefinedDataObjectOption =
@@ -5870,9 +5891,9 @@ static bool PromiseThenNewPromiseCapability(
           ? HostDefinedDataObjectOption::Allocate
           : HostDefinedDataObjectOption::OptimizeOut;
 
-  Rooted<PromiseReactionRecord*> reaction(
-      cx, NewReactionRecord(cx, resultCapability, onFulfilled, onRejected,
-                            hostDefinedDataObjectOption));
+  RootedField<PromiseReactionRecord*, 3> reaction(
+      roots, NewReactionRecord(cx, resultCapability, onFulfilled, onRejected,
+                               hostDefinedDataObjectOption));
   if (!reaction) {
     return false;
   }
@@ -5943,15 +5964,16 @@ static bool OriginalPromiseThenBuiltin(JSContext* cx, HandleValue promiseVal,
   cx->check(promiseVal, onFulfilled, onRejected);
   MOZ_ASSERT(CanCallOriginalPromiseThenBuiltin(cx, promiseVal));
 
-  Rooted<PromiseObject*> promise(cx,
-                                 &promiseVal.toObject().as<PromiseObject>());
+  RootedTuple<PromiseObject*, PromiseCapability> roots(cx);
+  RootedField<PromiseObject*, 0> promise(
+      roots, &promiseVal.toObject().as<PromiseObject>());
 
   bool rvalUsed = rvalExplicitlyUsed ||
                   IsPromiseThenOrCatchRetValImplicitlyUsed(cx, promise);
 
   // Step 3. Let C be ? SpeciesConstructor(promise, %Promise%).
   // Step 4. Let resultCapability be ? NewPromiseCapability(C).
-  Rooted<PromiseCapability> resultCapability(cx);
+  RootedField<PromiseCapability, 1> resultCapability(roots);
   if (rvalUsed) {
     PromiseObject* resultPromise =
         CreatePromiseObjectWithoutResolutionFunctions(cx);
@@ -6101,8 +6123,13 @@ template <typename T>
                                         PromiseHandler onFulfilled,
                                         PromiseHandler onRejected,
                                         T extraStep) {
+  RootedTuple<JSObject*, PromiseObject*, Value, Value, PromiseCapability,
+              PromiseReactionRecord*>
+      roots(cx);
+
   // Step 2. Let promise be ? PromiseResolve(%Promise%, value).
-  RootedObject promise(cx, PromiseObject::unforgeableResolve(cx, value));
+  RootedField<JSObject*, 0> promise(
+      roots, PromiseObject::unforgeableResolve(cx, value));
   if (!promise) {
     return false;
   }
@@ -6110,8 +6137,8 @@ template <typename T>
   // This downcast is safe because unforgeableResolve either returns `value`
   // (only if it is already a possibly-wrapped promise) or creates a new
   // promise using the Promise constructor.
-  Rooted<PromiseObject*> unwrappedPromise(
-      cx, UnwrapAndDowncastObject<PromiseObject>(cx, promise));
+  RootedField<PromiseObject*, 1> unwrappedPromise(
+      roots, UnwrapAndDowncastObject<PromiseObject>(cx, promise));
   if (!unwrappedPromise) {
     return false;
   }
@@ -6119,9 +6146,10 @@ template <typename T>
   // Steps 3-6 for creating onFulfilled/onRejected are done by caller.
 
   // Step 7. Perform ! PerformPromiseThen(promise, onFulfilled, onRejected).
-  RootedValue onFulfilledValue(cx, Int32Value(int32_t(onFulfilled)));
-  RootedValue onRejectedValue(cx, Int32Value(int32_t(onRejected)));
-  Rooted<PromiseCapability> resultCapability(cx);
+  RootedField<Value, 2> onFulfilledValue(roots,
+                                         Int32Value(int32_t(onFulfilled)));
+  RootedField<Value, 3> onRejectedValue(roots, Int32Value(int32_t(onRejected)));
+  RootedField<PromiseCapability, 4> resultCapability(roots);
   resultCapability.promise().set(resultPromise);
 
   auto hostDefinedDataObjectOption =
@@ -6129,9 +6157,9 @@ template <typename T>
           ? HostDefinedDataObjectOption::Allocate
           : HostDefinedDataObjectOption::OptimizeOut;
 
-  Rooted<PromiseReactionRecord*> reaction(
-      cx, NewReactionRecord(cx, resultCapability, onFulfilledValue,
-                            onRejectedValue, hostDefinedDataObjectOption));
+  RootedField<PromiseReactionRecord*, 5> reaction(
+      roots, NewReactionRecord(cx, resultCapability, onFulfilledValue,
+                               onRejectedValue, hostDefinedDataObjectOption));
   if (!reaction) {
     return false;
   }
@@ -6216,15 +6244,19 @@ bool js::AsyncFromSyncIteratorMethod(JSContext* cx, CallArgs& args,
   MOZ_ASSERT(thisVal.isObject());
   MOZ_ASSERT(thisVal.toObject().is<AsyncFromSyncIteratorObject>());
 
+  RootedTuple<PromiseObject*, AsyncFromSyncIteratorObject*, JSObject*, Value,
+              Value, Value, JSObject*, Value, Value, Value>
+      roots(cx);
+
   // Step 3. Let promiseCapability be ! NewPromiseCapability(%Promise%).
-  Rooted<PromiseObject*> resultPromise(
-      cx, CreatePromiseObjectWithoutResolutionFunctions(cx));
+  RootedField<PromiseObject*, 0> resultPromise(
+      roots, CreatePromiseObjectWithoutResolutionFunctions(cx));
   if (!resultPromise) {
     return false;
   }
 
-  Rooted<AsyncFromSyncIteratorObject*> asyncIter(
-      cx, &thisVal.toObject().as<AsyncFromSyncIteratorObject>());
+  RootedField<AsyncFromSyncIteratorObject*, 1> asyncIter(
+      roots, &thisVal.toObject().as<AsyncFromSyncIteratorObject>());
 
   // next():
   // Step 4. Let syncIteratorRecord be O.[[SyncIteratorRecord]].
@@ -6234,9 +6266,9 @@ bool js::AsyncFromSyncIteratorMethod(JSContext* cx, CallArgs& args,
   // return() / throw():
   // Step 4. Let syncIteratorRecord be O.[[SyncIteratorRecord]].
   // Step 5. Let syncIterator be syncIteratorRecord.[[Iterator]].
-  RootedObject iter(cx, asyncIter->iterator());
+  RootedField<JSObject*, 2> iter(roots, asyncIter->iterator());
 
-  RootedValue func(cx);
+  RootedField<Value, 3> func(roots);
   if (completionKind == CompletionKind::Normal) {
     // next() preparing for steps 5-6.
     func.set(asyncIter->nextMethod());
@@ -6258,7 +6290,7 @@ bool js::AsyncFromSyncIteratorMethod(JSContext* cx, CallArgs& args,
         return AbruptRejectPromise(cx, args, resultPromise, nullptr);
       }
 
-      RootedValue resultVal(cx, ObjectValue(*resultObj));
+      RootedField<Value, 4> resultVal(roots, ObjectValue(*resultObj));
 
       // Step 8.b. Perform ! Call(promiseCapability.[[Resolve]], undefined,
       //                          « iterResult »).
@@ -6303,7 +6335,7 @@ bool js::AsyncFromSyncIteratorMethod(JSContext* cx, CallArgs& args,
       //           promise.
       // Step 8.g. Perform ! Call(_promiseCapability_.[[Reject]], *undefined*,
       //           « a newly created *TypeError* object »).
-      Rooted<Value> noThrowMethodError(cx);
+      RootedField<Value, 4> noThrowMethodError(roots);
       if (!GetTypeError(cx, JSMSG_ITERATOR_NO_THROW, &noThrowMethodError)) {
         return AbruptRejectPromise(cx, args, resultPromise, nullptr);
       }
@@ -6339,8 +6371,8 @@ bool js::AsyncFromSyncIteratorMethod(JSContext* cx, CallArgs& args,
   //                                         « value »)).
   // Step 10. Else,
   // Step 10.a. Let result be Completion(Call(throw, syncIterator)).
-  RootedValue iterVal(cx, ObjectValue(*iter));
-  RootedValue resultVal(cx);
+  RootedField<Value, 4> iterVal(roots, ObjectValue(*iter));
+  RootedField<Value, 5> resultVal(roots);
   bool ok;
   if (args.length() == 0) {
     ok = Call(cx, func, iterVal, &resultVal);
@@ -6385,7 +6417,7 @@ bool js::AsyncFromSyncIteratorMethod(JSContext* cx, CallArgs& args,
     return AbruptRejectPromise(cx, args, resultPromise, nullptr);
   }
 
-  RootedObject resultObj(cx, &resultVal.toObject());
+  RootedField<JSObject*, 6> resultObj(roots, &resultVal.toObject());
 
   // next():
   // Step 8. Return AsyncFromSyncIteratorContinuation(result,
@@ -6416,7 +6448,7 @@ bool js::AsyncFromSyncIteratorMethod(JSContext* cx, CallArgs& args,
   //         the use IfAbruptRejectPromise below are guaranteed not to throw.
   // Step 2. Let done be Completion(IteratorComplete(result)).
   // Step 3. IfAbruptRejectPromise(done, promiseCapability).
-  RootedValue doneVal(cx);
+  RootedField<Value, 7> doneVal(roots);
   if (!GetProperty(cx, resultObj, resultObj, cx->names().done, &doneVal)) {
     return AbruptRejectPromise(cx, args, resultPromise, nullptr);
   }
@@ -6424,7 +6456,7 @@ bool js::AsyncFromSyncIteratorMethod(JSContext* cx, CallArgs& args,
 
   // Step 4. Let value be Completion(IteratorValue(result)).
   // Step 5. IfAbruptRejectPromise(value, promiseCapability).
-  RootedValue value(cx);
+  RootedField<Value, 8> value(roots);
   if (!GetProperty(cx, resultObj, resultObj, cx->names().value, &value)) {
     return AbruptRejectPromise(cx, args, resultPromise, nullptr);
   }
@@ -7020,7 +7052,11 @@ bool PromiseObject::forEachReactionRecord(
     return true;
   }
 
-  RootedValue reactionsVal(cx, reactions());
+  RootedTuple<Value, PromiseReactionRecord*, AsyncFunctionGeneratorObject*,
+              AsyncGeneratorObject*, PromiseObject*, JSObject*, JSObject*,
+              JSObject*>
+      roots(cx);
+  RootedField<Value, 0> reactionsVal(roots, reactions());
   if (reactionsVal.isNullOrUndefined()) {
     // No reaction records are attached to this promise.
     return true;
@@ -7037,30 +7073,32 @@ bool PromiseObject::forEachReactionRecord(
       return false;
     }
 
-    Rooted<PromiseReactionRecord*> reaction(cx,
-                                            &obj->as<PromiseReactionRecord>());
+    RootedField<PromiseReactionRecord*, 1> reaction(
+        roots, &obj->as<PromiseReactionRecord>());
     MOZ_ASSERT(reaction->targetState() == JS::PromiseState::Pending);
 
     if (reaction->isAsyncFunction()) {
-      Rooted<AsyncFunctionGeneratorObject*> generator(
-          cx, reaction->asyncFunctionGenerator());
+      RootedField<AsyncFunctionGeneratorObject*, 2> generator(
+          roots, reaction->asyncFunctionGenerator());
       if (!builder.asyncFunction(cx, generator)) {
         return false;
       }
     } else if (reaction->isAsyncGenerator()) {
-      Rooted<AsyncGeneratorObject*> generator(cx, reaction->asyncGenerator());
+      RootedField<AsyncGeneratorObject*, 3> generator(
+          roots, reaction->asyncGenerator());
       if (!builder.asyncGenerator(cx, generator)) {
         return false;
       }
     } else if (reaction->isDefaultResolvingHandler()) {
-      Rooted<PromiseObject*> promise(cx, reaction->defaultResolvingPromise());
+      RootedField<PromiseObject*, 4> promise(
+          roots, reaction->defaultResolvingPromise());
       if (!builder.direct(cx, promise)) {
         return false;
       }
     } else {
-      RootedObject resolve(cx);
-      RootedObject reject(cx);
-      RootedObject result(cx, reaction->promise());
+      RootedField<JSObject*, 5> resolve(roots);
+      RootedField<JSObject*, 6> reject(roots);
+      RootedField<JSObject*, 7> result(roots, reaction->promise());
 
       Value v = reaction->getFixedSlot(PromiseReactionRecord::OnFulfilled);
       if (v.isObject()) {
@@ -7882,8 +7920,13 @@ JS::AutoDebuggerJobQueueInterruption::AutoDebuggerJobQueueInterruption()
     : cx(nullptr) {}
 
 JS::AutoDebuggerJobQueueInterruption::~AutoDebuggerJobQueueInterruption() {
-  MOZ_ASSERT_IF(initialized() && !cx->jobQueue->isDrainingStopped(),
-                cx->jobQueue->empty());
+#ifdef DEBUG
+  if (initialized() && !cx->jobQueue->isDrainingStopped()) {
+    MOZ_ASSERT_IF(JS::Prefs::use_js_microtask_queue(),
+                  !JS::HasRegularMicroTasks(cx));
+    MOZ_ASSERT_IF(!JS::Prefs::use_js_microtask_queue(), cx->jobQueue->empty());
+  }
+#endif
 }
 
 bool JS::AutoDebuggerJobQueueInterruption::init(JSContext* cx) {

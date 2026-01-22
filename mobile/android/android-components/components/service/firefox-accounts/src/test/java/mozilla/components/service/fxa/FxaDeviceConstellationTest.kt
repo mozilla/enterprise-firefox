@@ -45,6 +45,7 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.mockito.Mockito.anyBoolean
 import org.mockito.Mockito.atLeast
 import org.mockito.Mockito.doAnswer
 import org.mockito.Mockito.never
@@ -218,14 +219,14 @@ class FxaDeviceConstellationTest {
             ),
         )
 
-        verify(account).sendSingleTab("targetID", "Mozilla", "https://www.mozilla.org")
+        verify(account).sendSingleTab("targetID", "Mozilla", "https://www.mozilla.org", false)
     }
 
     @Test
     fun `send command to device will report exceptions`() = runTestOnMain {
         val exception = FxaException.Other("")
         val exceptionCaptor = argumentCaptor<SendCommandException.Other>()
-        doAnswer { throw exception }.`when`(account).sendSingleTab(any(), any(), any())
+        doAnswer { throw exception }.`when`(account).sendSingleTab(any(), any(), any(), anyBoolean())
 
         val success = constellation.sendCommandToDevice(
             "targetID",
@@ -240,7 +241,7 @@ class FxaDeviceConstellationTest {
     @Test
     fun `send command to device won't report network exceptions`() = runTestOnMain {
         val exception = FxaException.Network("timeout!")
-        doAnswer { throw exception }.`when`(account).sendSingleTab(any(), any(), any())
+        doAnswer { throw exception }.`when`(account).sendSingleTab(any(), any(), any(), anyBoolean())
 
         val success = constellation.sendCommandToDevice(
             "targetID",

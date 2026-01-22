@@ -98,6 +98,7 @@ ARCHIVE_FILES = {
                 "jittest/**",  # To make the ignore checker happy
                 "perftests/**",
                 "fuzztest/**",
+                "enterprise/**",
                 "trainhop/**",
             ],
         },
@@ -706,16 +707,15 @@ ARCHIVE_FILES = {
             "dest": "bin",
         },
     ],
+    "enterprise": [],
 }
 
 if buildconfig.substs.get("MOZ_CODE_COVERAGE"):
-    ARCHIVE_FILES["common"].append(
-        {
-            "source": buildconfig.topsrcdir,
-            "base": "python/mozbuild/",
-            "patterns": ["mozpack/**", "mozbuild/codecoverage/**"],
-        }
-    )
+    ARCHIVE_FILES["common"].append({
+        "source": buildconfig.topsrcdir,
+        "base": "python/mozbuild/",
+        "patterns": ["mozpack/**", "mozbuild/codecoverage/**"],
+    })
 
 
 if (
@@ -754,6 +754,13 @@ if buildconfig.substs.get("commtopsrcdir"):
     }
     ARCHIVE_FILES["common"].append(thunderbirdinstance)
 
+
+if buildconfig.substs.get("MOZ_ENTERPRISE"):
+    ARCHIVE_FILES["enterprise"].append({
+        "source": buildconfig.topsrcdir,
+        "base": "testing/enterprise/",
+        "patterns": ["**"],
+    })
 
 # "common" is our catch all archive and it ignores things from other archives.
 # Verify nothing sneaks into ARCHIVE_FILES without a corresponding exclusion

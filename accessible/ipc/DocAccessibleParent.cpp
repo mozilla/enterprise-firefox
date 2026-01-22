@@ -756,7 +756,6 @@ mozilla::ipc::IPCResult DocAccessibleParent::RecvAccessiblesWillMove(
   return IPC_OK();
 }
 
-#if !defined(XP_WIN)
 mozilla::ipc::IPCResult DocAccessibleParent::RecvAnnouncementEvent(
     const uint64_t& aID, const nsAString& aAnnouncement,
     const uint16_t& aPriority) {
@@ -771,9 +770,7 @@ mozilla::ipc::IPCResult DocAccessibleParent::RecvAnnouncementEvent(
     return IPC_OK();
   }
 
-#  if defined(ANDROID)
   PlatformAnnouncementEvent(target, aAnnouncement, aPriority);
-#  endif
 
   if (!nsCoreUtils::AccEventObserversExist()) {
     return IPC_OK();
@@ -788,7 +785,6 @@ mozilla::ipc::IPCResult DocAccessibleParent::RecvAnnouncementEvent(
 
   return IPC_OK();
 }
-#endif  // !defined(XP_WIN)
 
 mozilla::ipc::IPCResult DocAccessibleParent::RecvTextSelectionChangeEvent(
     const uint64_t& aID, nsTArray<TextRangeData>&& aSelection) {

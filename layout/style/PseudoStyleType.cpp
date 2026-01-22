@@ -16,7 +16,7 @@ std::ostream& operator<<(std::ostream& aStream, PseudoStyleType aType) {
   case PseudoStyleType::_name:                    \
     aStream << _value;                            \
     break;
-#include "nsCSSPseudoElementList.h"
+#include "nsCSSPseudoElementList.inc"
 #undef CSS_PSEUDO_ELEMENT
 
 #define CSS_ANON_BOX(_name, _str) \

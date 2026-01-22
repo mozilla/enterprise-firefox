@@ -4,8 +4,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef nsIGlobalObject_h__
-#define nsIGlobalObject_h__
+#ifndef nsIGlobalObject_h_
+#define nsIGlobalObject_h_
 
 #include "js/TypeDecls.h"
 #include "mozilla/LinkedList.h"
@@ -406,9 +406,14 @@ class nsIGlobalObject : public nsISupports {
   size_t ShallowSizeOfExcludingThis(mozilla::MallocSizeOf aSizeOf) const;
 
  private:
+  void ClearReports();
+
+ private:
   // List of Report objects for ReportingObservers.
   nsTArray<RefPtr<mozilla::dom::ReportingObserver>> mReportingObservers;
-  nsTArray<RefPtr<mozilla::dom::Report>> mReportRecords;
+  // https://w3c.github.io/reporting/#windoworworkerglobalscope-report-buffer
+  nsTArray<RefPtr<mozilla::dom::Report>> mReportBuffer;
+  nsTHashMap<nsString, uint32_t> mReportPerTypeCount;
 
   // https://streams.spec.whatwg.org/#count-queuing-strategy-size-function
   RefPtr<mozilla::dom::Function> mCountQueuingStrategySizeFunction;
@@ -417,4 +422,4 @@ class nsIGlobalObject : public nsISupports {
   RefPtr<mozilla::dom::Function> mByteLengthQueuingStrategySizeFunction;
 };
 
-#endif  // nsIGlobalObject_h__
+#endif  // nsIGlobalObject_h_

@@ -426,19 +426,19 @@ async function withSuggestions(callback, enableSuggestions = true) {
   let engine = await SearchTestUtils.installOpenSearchEngine({
     url: getRootDirectory(gTestPath) + TEST_ENGINE_BASENAME,
   });
-  let oldDefaultEngine = await Services.search.getDefault();
-  await Services.search.setDefault(
+  let oldDefaultEngine = await SearchService.getDefault();
+  await SearchService.setDefault(
     engine,
     Ci.nsISearchService.CHANGE_REASON_UNKNOWN
   );
   try {
     await callback(engine);
   } finally {
-    await Services.search.setDefault(
+    await SearchService.setDefault(
       oldDefaultEngine,
       Ci.nsISearchService.CHANGE_REASON_UNKNOWN
     );
-    await Services.search.removeEngine(engine);
+    await SearchService.removeEngine(engine);
     await SpecialPowers.popPrefEnv();
   }
 }
@@ -453,7 +453,8 @@ async function withSuggestions(callback, enableSuggestions = true) {
 async function doSuggestedIndexTest(expectedProps) {
   await addHistory();
   let provider = new TestProvider();
-  UrlbarProvidersManager.registerProvider(provider);
+  let providersManager = ProvidersManager.getInstanceForSap("urlbar");
+  providersManager.registerProvider(provider);
 
   let context = await UrlbarTestUtils.promiseAutocompleteResultPopup({
     window,
@@ -462,7 +463,7 @@ async function doSuggestedIndexTest(expectedProps) {
   checkResults(context.results, expectedProps);
   await UrlbarTestUtils.promisePopupClose(window);
 
-  UrlbarProvidersManager.unregisterProvider(provider);
+  providersManager.unregisterProvider(provider);
   await PlacesUtils.history.clear();
 }
 

@@ -584,10 +584,11 @@ nsresult nsCocoaUtils::CreateNSImageFromImageContainer(
       aSVGContext = svgContext.get();
     }
 
-    mozilla::image::ImgDrawResult res =
-        aImage->Draw(&context, scaledSize, ImageRegion::Create(scaledSize),
-                     aWhichFrame, SamplingFilter::POINT, *aSVGContext,
-                     imgIContainer::FLAG_SYNC_DECODE, 1.0);
+    mozilla::image::ImgDrawResult res = aImage->Draw(
+        &context, scaledSize, ImageRegion::Create(scaledSize), aWhichFrame,
+        SamplingFilter::POINT, *aSVGContext,
+        imgIContainer::FLAG_SYNC_DECODE | imgIContainer::FLAG_ASYNC_NOTIFY,
+        1.0);
 
     if (res != mozilla::image::ImgDrawResult::SUCCESS) {
       return NS_ERROR_FAILURE;

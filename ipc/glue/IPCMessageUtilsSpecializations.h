@@ -4,11 +4,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef __IPC_GLUE_IPCMESSAGEUTILSSPECIALIZATIONS_H__
-#define __IPC_GLUE_IPCMESSAGEUTILSSPECIALIZATIONS_H__
+#ifndef IPC_GLUE_IPCMESSAGEUTILSSPECIALIZATIONS_H_
+#define IPC_GLUE_IPCMESSAGEUTILSSPECIALIZATIONS_H_
 
 #include <cstdint>
-#include <cstdlib>
 #include <limits>
 #include <set>
 #include <type_traits>
@@ -906,4 +905,4 @@ struct ParamTraits<PromptResult>
 
 } /* namespace IPC */
 
-#endif /* __IPC_GLUE_IPCMESSAGEUTILSSPECIALIZATIONS_H__ */
+#endif /* IPC_GLUE_IPCMESSAGEUTILSSPECIALIZATIONS_H_ */

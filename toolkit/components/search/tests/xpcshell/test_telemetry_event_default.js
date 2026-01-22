@@ -268,13 +268,13 @@ add_setup(async () => {
 
   Services.fog.initializeFOG();
   sinon.stub(
-    Services.search.wrappedJSObject,
+    SearchService.wrappedJSObject,
     "_showRemovalOfSearchEngineNotificationBox"
   );
 
   SearchTestUtils.setRemoteSettingsConfig(BASE_CONFIG);
 
-  await Services.search.init();
+  await SearchService.init();
 
   registerCleanupFunction(async () => {
     sinon.restore();
@@ -359,14 +359,14 @@ add_task(async function test_user_changes_separate_private_pref() {
     true
   );
 
-  await Services.search.setDefaultPrivate(
-    Services.search.getEngineById("newDefault"),
+  await SearchService.setDefaultPrivate(
+    SearchService.getEngineById("newDefault"),
     Ci.nsISearchService.CHANGE_REASON_UNKNOWN
   );
 
   Assert.notEqual(
-    await Services.search.getDefault(),
-    await Services.search.getDefaultPrivate(),
+    await SearchService.getDefault(),
+    await SearchService.getDefaultPrivate(),
     "Should have different engines for the pre-condition"
   );
 
@@ -448,11 +448,11 @@ add_task(async function test_default_engine_update() {
     },
     { skipUnload: true }
   );
-  let engine = Services.search.getEngineByName("engine");
+  let engine = SearchService.getEngineByName("engine");
 
   Assert.ok(!!engine, "Should have loaded the engine");
 
-  await Services.search.setDefault(
+  await SearchService.setDefault(
     engine,
     Ci.nsISearchService.CHANGE_REASON_UNKNOWN
   );

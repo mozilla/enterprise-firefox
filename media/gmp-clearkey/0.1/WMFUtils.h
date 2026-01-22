@@ -133,7 +133,7 @@ inline bool STATUS_FAILED(cdm::Status status) {
 }
 
 #define MFPLAT_FUNC(_func, _dllname) extern decltype(::_func)* _func;
-#include "WMFSymbols.h"
+#include "WMFSymbols.inc"
 #undef MFPLAT_FUNC
 
 bool EnsureLibs();

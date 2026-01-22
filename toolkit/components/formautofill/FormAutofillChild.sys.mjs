@@ -281,10 +281,8 @@ export class FormAutofillChild extends JSWindowActorChild {
         handler.getFieldDetailByElement(element)?.fieldName ?? "";
       this.showPopupIfEmpty(element, fieldName);
     } else {
-      const includeIframe = this.browsingContext == this.browsingContext.top;
       let detectedFields = lazy.FormAutofillHandler.collectFormFieldDetails(
-        handler.form,
-        includeIframe
+        handler.form
       );
 
       // If none of the detected fields are credit card or address fields,
@@ -353,10 +351,8 @@ export class FormAutofillChild extends JSWindowActorChild {
     // We don't have to call 'updateFormIfNeeded' like we do in
     // 'identifyFieldsWhenFocused' because 'collectFormFieldDetails' doesn't use cached
     // result.
-    const includeIframe = isTop;
     const detectedFields = lazy.FormAutofillHandler.collectFormFieldDetails(
-      handler.form,
-      includeIframe
+      handler.form
     );
 
     if (detectedFields.length) {
@@ -364,6 +360,7 @@ export class FormAutofillChild extends JSWindowActorChild {
       // `idenitfyFields` is called
       this.#handlerWaitingForDetectedComplete.set(handler, null);
     }
+
     return detectedFields;
   }
 
@@ -925,13 +922,13 @@ export class FormAutofillChild extends JSWindowActorChild {
     this.showPopupIfEmpty(focusedElement, fieldName);
   }
 
-  async fillFields(focusedId, elementIds, profile) {
+  async fillFields(focusedId, elementIds, profile, isFormChange) {
     let result = new Map();
     let handler;
     try {
       Services.obs.notifyObservers(null, "autofill-fill-starting");
       handler = this.#getHandlerByElementId(elementIds[0]);
-      handler.fillFields(focusedId, elementIds, profile);
+      handler.fillFields(focusedId, elementIds, profile, isFormChange);
 
       // Return the autofilled result to the parent. The result
       // is used by both tests and telemetry.
@@ -1023,10 +1020,8 @@ export class FormAutofillChild extends JSWindowActorChild {
       const handler = new lazy.FormAutofillHandler(formLike);
 
       // Fields that cannot be recognized will still be reported with this API.
-      const includeIframe = isTop;
       const fields = lazy.FormAutofillHandler.collectFormFieldDetails(
         handler.form,
-        includeIframe,
         false
       );
       fieldDetails.push(...fields);
@@ -1116,7 +1111,8 @@ export class FormAutofillChild extends JSWindowActorChild {
     // temporarily excluding "address-housenumber" until it is added to the savedFieldNames set properly
     if (
       !lazy.FormAutofillContent.savedFieldNames.has(fieldName) &&
-      fieldName != "address-housenumber"
+      fieldName != "address-housenumber" &&
+      fieldName != "address-extra-housesuffix"
     ) {
       return false;
     }

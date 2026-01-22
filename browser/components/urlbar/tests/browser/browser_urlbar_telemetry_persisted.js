@@ -26,7 +26,7 @@ add_setup(async () => {
   });
 
   let cleanup = await installPersistTestEngines();
-  testEngine = Services.search.getEngineByName("Example");
+  testEngine = SearchService.getEngineByName("Example");
 
   registerCleanupFunction(async function () {
     await PlacesUtils.history.clear();

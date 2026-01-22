@@ -148,14 +148,11 @@
         <item name="toolbarCenterGradient">@color/fx_mobile_surface</item>
         <item name="toolbarEndGradient">@color/fx_mobile_surface</item>
         <item name="fillLinkFromClipboard">@color/fill_link_from_clipboard_normal_theme</item>
-        <item name="syncDisconnected">@color/sync_disconnected_icon_fill_normal_theme</item>
-        <item name="syncDisconnectedBackground">@color/sync_disconnected_background_normal_theme</item>
         <item name="addOnPrivateBrowsingExteriorCircleBackground">@color/add_on_private_browsing_exterior_circle_background_normal_theme</item>
         <item name="mozacPromptLoginEditTextCursorColor">@color/prompt_login_edit_text_cursor_color_normal_theme</item>
         <item name="awesomeBarIndicatorColor">@color/search_suggestion_indicator_icon_color_normal_theme</item>
         <item name="awesomeBarIndicatorBookmarkColor">@color/search_suggestion_indicator_icon_bookmark_color_normal_theme</item>
         <item name="selectPromptHeaderTextColor">@color/fx_mobile_text_color_accent</item>
-        <item name="menuItemButtonTintColor">@color/fx_mobile_text_color_accent</item>
 
         <!-- Shared widget colors -->
         <item name="mozac_primary_text_color">@color/fx_mobile_text_color_primary</item>
@@ -428,14 +425,11 @@
         <item name="toolbarCenterGradient">@color/fx_mobile_private_surface</item>
         <item name="toolbarEndGradient">@color/fx_mobile_private_surface</item>
         <item name="fillLinkFromClipboard">@color/accent_high_contrast_private_theme</item>
-        <item name="syncDisconnected">@color/sync_disconnected_icon_fill_private_theme</item>
-        <item name="syncDisconnectedBackground">@color/sync_disconnected_background_private_theme</item>
         <item name="addOnPrivateBrowsingExteriorCircleBackground">@color/accent_private_theme</item>
         <item name="mozacPromptLoginEditTextCursorColor">@color/prompt_login_edit_text_cursor_color_private_theme</item>
         <item name="awesomeBarIndicatorColor">@color/photonGreen60</item>
         <item name="awesomeBarIndicatorBookmarkColor">@color/photonBlue40</item>
         <item name="selectPromptHeaderTextColor">@color/accent_high_contrast_private_theme</item>
-        <item name="menuItemButtonTintColor">@color/accent_high_contrast_private_theme</item>
 
         <!-- Shared widget colors -->
         <item name="mozac_primary_text_color">@color/fx_mobile_private_text_color_primary</item>

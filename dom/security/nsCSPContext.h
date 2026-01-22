@@ -4,8 +4,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef nsCSPContext_h___
-#define nsCSPContext_h___
+#ifndef nsCSPContext_h_
+#define nsCSPContext_h_
 
 #include "mozilla/StaticPrefs_security.h"
 #include "mozilla/dom/CSPViolationData.h"
@@ -285,4 +285,4 @@ class CSPReportRedirectSink final : public nsIChannelEventSink,
   nsCOMPtr<nsINetworkInterceptController> mInterceptController;
 };
 
-#endif /* nsCSPContext_h___ */
+#endif /* nsCSPContext_h_ */

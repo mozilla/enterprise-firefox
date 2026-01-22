@@ -115,6 +115,7 @@
               // tab is "1 of 2" in the split view, for example.
               tab.setAttribute("aria-posinset", index + 1);
               tab.setAttribute("aria-setsize", this.tabs.length);
+              tab.updateSplitViewAriaLabel(index);
             });
           } else {
             this.remove();
@@ -226,6 +227,17 @@
     }
 
     /**
+     * Reset custom width on the right panel, allowing it to fill the rest of
+     * the available space.
+     */
+    resetRightPanelWidth() {
+      const panel = this.panels[1];
+      this.#storedPanelWidths.delete(panel);
+      panel.removeAttribute("width");
+      panel.style.removeProperty("width");
+    }
+
+    /**
      * add tabs to the split view wrapper
      *
      * @param {MozTabbrowserTab[]} tabs
@@ -296,7 +308,7 @@
       this.hasActiveTab = event.target.splitview === this;
       gBrowser.setIsSplitViewActive(this.hasActiveTab, this.#tabs);
       if (this.hasActiveTab) {
-        this.#activate(true);
+        this.#activate();
       } else {
         this.#deactivate(true);
       }

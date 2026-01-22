@@ -237,6 +237,7 @@ export class WeatherSuggestions extends SuggestProvider {
     return new lazy.UrlbarResult({
       type: lazy.UrlbarUtils.RESULT_TYPE.URL,
       source: lazy.UrlbarUtils.RESULT_SOURCE.SEARCH,
+      isBestMatch: true,
       suggestedIndex: 1,
       isRichSuggestion: true,
       richSuggestionIconVariation: String(
@@ -281,7 +282,6 @@ export class WeatherSuggestions extends SuggestProvider {
         forecast: suggestion.forecast.summary,
         high: suggestion.forecast.high[unit],
         low: suggestion.forecast.low[unit],
-        showRowLabel: true,
         helpUrl: lazy.QuickSuggest.HELP_URL,
       },
     });
@@ -400,7 +400,7 @@ export class WeatherSuggestions extends SuggestProvider {
       {
         name: RESULT_MENU_COMMAND.HELP,
         l10n: {
-          id: "urlbar-result-menu-learn-more-about-firefox-suggest",
+          id: "urlbar-result-menu-learn-more",
         },
       }
     );

@@ -70,33 +70,21 @@
 #  include "mozilla/widget/AudioSession.h"
 #endif
 #include "CubebUtils.h"
-#include "WebAudioUtils.h"
-#include "mozilla/EventDispatcher.h"
-#include "mozilla/IMEStateManager.h"
-#include "mozilla/PermissionManager.h"
-#include "mozilla/ProcessPriorityManager.h"
-#include "mozilla/dom/ContentParent.h"
-#include "mozilla/dom/CustomElementRegistry.h"
-#include "nsContentSink.h"
-#include "nsDOMMutationObserver.h"
-#include "nsError.h"
-#include "nsFrameMessageManager.h"
-#include "nsHyphenationManager.h"
-#include "nsJSEnvironment.h"
-#include "nsWindowMemoryReporter.h"
-#ifndef MOZ_WIDGET_ANDROID
-#  include "mozilla/Viaduct.h"
-#endif
 #include "DecoderDoctorLogger.h"
 #include "MediaDecoder.h"
 #include "RLBoxWOFF2Types.h"
 #include "RestoreTabContentObserver.h"
 #include "ThirdPartyUtil.h"
 #include "TouchManager.h"
+#include "WebAudioUtils.h"
 #include "gfxUserFontSet.h"
 #include "mozilla/ClearSiteData.h"
 #include "mozilla/EditorController.h"
+#include "mozilla/EventDispatcher.h"
 #include "mozilla/HTMLEditorController.h"
+#include "mozilla/IMEStateManager.h"
+#include "mozilla/PermissionManager.h"
+#include "mozilla/ProcessPriorityManager.h"
 #include "mozilla/RemoteLazyInputStreamStorage.h"
 #include "mozilla/ServoBindings.h"
 #include "mozilla/StaticPresData.h"
@@ -104,6 +92,8 @@
 #include "mozilla/dom/AbstractRange.h"
 #include "mozilla/dom/BlobURLProtocolHandler.h"
 #include "mozilla/dom/BrowserParent.h"
+#include "mozilla/dom/ContentParent.h"
+#include "mozilla/dom/CustomElementRegistry.h"
 #include "mozilla/dom/Document.h"
 #include "mozilla/dom/HTMLVideoElement.h"
 #include "mozilla/dom/MIDIPlatformService.h"
@@ -117,9 +107,16 @@
 #include "mozilla/intl/LineBreakCache.h"
 #include "mozilla/intl/LineBreaker.h"
 #include "mozilla/net/UrlClassifierFeatureFactory.h"
+#include "nsContentSink.h"
+#include "nsDOMMutationObserver.h"
+#include "nsError.h"
+#include "nsFrameMessageManager.h"
+#include "nsHyphenationManager.h"
+#include "nsJSEnvironment.h"
 #include "nsLayoutUtils.h"
 #include "nsRLBoxExpatDriver.h"
 #include "nsThreadManager.h"
+#include "nsWindowMemoryReporter.h"
 
 using namespace mozilla;
 using namespace mozilla::net;
@@ -287,12 +284,6 @@ nsresult nsLayoutStatics::Initialize() {
   if (XRE_IsParentProcess()) {
     MIDIPlatformService::InitStatics();
   }
-
-#ifndef MOZ_WIDGET_ANDROID
-  if (XRE_IsParentProcess()) {
-    InitializeViaduct();
-  }
-#endif
 
   mozilla::intl::EncodingToLang::Initialize();
 

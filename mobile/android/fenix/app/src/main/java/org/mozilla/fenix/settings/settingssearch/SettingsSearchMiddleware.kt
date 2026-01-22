@@ -4,7 +4,7 @@
 
 package org.mozilla.fenix.settings.settingssearch
 
-import androidx.core.os.bundleOf
+import android.os.Bundle
 import androidx.navigation.NavController
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -58,10 +58,10 @@ class SettingsSearchMiddleware(
             }
             is SettingsSearchAction.ResultItemClicked -> {
                 val searchItem = action.item
-                val bundle = bundleOf(
-                    "preference_to_scroll_to" to searchItem.preferenceKey,
-                    "search_in_progress" to true,
-                )
+                val bundle = Bundle().apply {
+                    putString("preference_to_scroll_to", searchItem.preferenceKey)
+                    putBoolean("search_in_progress", true)
+                }
                 val fragmentId = searchItem.preferenceFileInformation.fragmentId
                 CoroutineScope(dispatcher).launch {
                     recentSettingsSearchesRepository.addRecentSearchItem(searchItem)

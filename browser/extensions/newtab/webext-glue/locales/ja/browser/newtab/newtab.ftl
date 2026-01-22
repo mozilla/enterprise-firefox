@@ -590,7 +590,7 @@ newtab-download-mobile-highlight-image =
 newtab-shortcuts-highlight-title = 指先一つでお気に入りに追加
 newtab-shortcuts-highlight-subtitle = ショートカットを追加してお気に入りのサイトに 1 クリックでアクセスできます。
 
-## Strings for reporting ads and content
+## Strings for reporting issues with ads and content
 
 newtab-report-content-why-reporting-this =
     .label = この広告を報告した理由を教えてください。
@@ -608,6 +608,9 @@ newtab-report-content-inappropriate-offensive =
     .label = 不適切または攻撃的
 newtab-report-content-spam-misleading =
     .label = スパムまたはミスリード
+newtab-report-content-requires-payment-subscription =
+    .label = 支払いまたは購読が必要
+newtab-report-content-requires-payment-subscription-learn-more = 詳細情報
 newtab-report-cancel = キャンセル
 newtab-report-submit = 送信
 newtab-toast-thanks-for-reporting =
@@ -695,8 +698,6 @@ newtab-widget-timer-menu-notifications = 通知をオフにする
 newtab-widget-timer-menu-notifications-on = 通知をオンにする
 newtab-widget-timer-menu-hide = タイマーを隠す
 newtab-widget-timer-menu-learn-more = 詳細情報
-# Message that appears when widgets are full-height. This reminds users that there is more New Tab content to see if they scroll
-newtab-widget-keep-scrolling = 続きはスクロールしてください
 newtab-widget-message-title = リストへの集中と組み込みタイマー
 # to-dos stands for "things to do".
 newtab-widget-message-copy = クイック通知から毎日の ToDo リストまで、時間内によく集中して休憩を取れるように、あなたの作業を支援します。

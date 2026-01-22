@@ -210,8 +210,8 @@ inline void js::Scope::traceChildren(JSTracer* trc) {
     if (data != rawData()) {
       setHeaderPtr(data);
     }
+    applyScopeDataTyped([trc](auto data) { data->trace(trc); });
   }
-  applyScopeDataTyped([trc](auto data) { data->trace(trc); });
 }
 
 template <uint32_t opts>

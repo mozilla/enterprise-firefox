@@ -14,7 +14,7 @@ import zipfile
 import mozpack.path as mozpath
 from mach.decorators import Command, CommandArgument, SubCommand
 from mozbuild.base import MachCommandConditions as conditions
-from mozbuild.shellutil import split as shell_split
+from mozshellutil import split as shell_split
 
 # Mach's conditions facility doesn't support subcommands.  Print a
 # deprecation message ourselves instead.
@@ -569,15 +569,13 @@ def gradle(command_context, args, verbose=False, gradle_path=None, topsrcdir=Non
 
     env = os.environ.copy()
 
-    env.update(
-        {
-            "GRADLE_OPTS": "-Dfile.encoding=utf-8",
-            "JAVA_HOME": java_home,
-            "JAVA_TOOL_OPTIONS": "-Dfile.encoding=utf-8",
-            # Let Gradle get the right Python path on Windows
-            "GRADLE_MACH_PYTHON": sys.executable,
-        }
-    )
+    env.update({
+        "GRADLE_OPTS": "-Dfile.encoding=utf-8",
+        "JAVA_HOME": java_home,
+        "JAVA_TOOL_OPTIONS": "-Dfile.encoding=utf-8",
+        # Let Gradle get the right Python path on Windows
+        "GRADLE_MACH_PYTHON": sys.executable,
+    })
     # Set ANDROID_SDK_ROOT if --with-android-sdk was set.
     # See https://bugzilla.mozilla.org/show_bug.cgi?id=1576471
     android_sdk_root = command_context.substs.get("ANDROID_SDK_ROOT", "")

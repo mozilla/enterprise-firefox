@@ -693,8 +693,7 @@ browser.backup:
             - "encryption" if the password was added, changed, or removed;
             - "location" if the location changed (not implemented yet, see
               bug 1996377);
-            - "first" if scheduled backups were just enabled (not implemented
-              yet, see bug 1900125);
+            - "first" if scheduled backups were just enabled;
             - or "unknown" if the reason wasn't specified.
 
   backup_throttled:

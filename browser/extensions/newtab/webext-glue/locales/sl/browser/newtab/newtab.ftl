@@ -330,13 +330,8 @@ newtab-custom-recent-subtitle = Izbor nedavnih spletnih mest in vsebin
 newtab-custom-weather-toggle =
     .label = Vreme
     .description = Današnja napoved vedno na očeh
-newtab-custom-trending-search-toggle =
-    .label = Trenutno iskano
-    .description = Priljubljene in pogosto iskane teme
 newtab-custom-widget-weather-toggle =
     .label = Vreme
-newtab-custom-widget-trending-search-toggle =
-    .label = Trenutno iskano
 newtab-custom-widget-lists-toggle =
     .label = Seznami
 newtab-custom-widget-timer-toggle =
@@ -596,7 +591,7 @@ newtab-download-mobile-highlight-image =
 newtab-shortcuts-highlight-title = Vaša priljubljena mesta na dosegu roke
 newtab-shortcuts-highlight-subtitle = Dodajte bližnjico in obdržite priljubljena spletna mesta le klik stran.
 
-## Strings for reporting ads and content
+## Strings for reporting issues with ads and content
 
 newtab-report-content-why-reporting-this =
     .label = Zakaj to prijavljate?
@@ -618,17 +613,6 @@ newtab-report-cancel = Prekliči
 newtab-report-submit = Pošlji
 newtab-toast-thanks-for-reporting =
     .message = Hvala za prijavo.
-
-## Strings for trending searches
-
-newtab-trending-searches-show-trending =
-    .title = Prikaži trenutno priljubljena iskanja
-newtab-trending-searches-hide-trending =
-    .title = Skrij trenutno priljubljena iskanja
-newtab-trending-searches-learn-more = Več o tem
-newtab-trending-searches-dismiss = Skrij trenutno priljubljena iskanja
-# "Trending searches refers to popular searches from search engines
-newtab-trending-searches-title = Trenutno iskano
 
 ## Strings for task / to-do list productivity widget
 

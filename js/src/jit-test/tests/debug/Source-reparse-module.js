@@ -1,0 +1,37 @@
+// reparsing modules should work.
+
+const g = newGlobal({newCompartment: true});
+const dbg = new Debugger;
+dbg.addDebuggee(g);
+
+const scripts = [];
+dbg.onNewScript = script => scripts.push(script);
+
+f = g.eval(`
+  let m1 = registerModule('m1', parseModule(\`
+          export var a = 1;
+          export let b = 2;
+          export default 3;
+      \`));
+  let m2 = registerModule('m2', parseModule(\`
+          export * from "m1";
+          export { a, b as c } from "m1";
+          export { default } from "m1";
+      \`));
+  let m3 = registerModule('m3', parseModule(\`\`));
+  let m4 = registerModule('m4', parseModule(\`
+          import defaultExport, { a, b as c } from "m1";
+          import * as name from "m2";
+          import "m3";
+      \`));
+  moduleLink(m4);
+`);
+
+for (const script of scripts) {
+  // Try to compile scripts either normally or as modules.
+  try {
+    script.source.reparse();
+  } catch (e) {
+    script.source.reparse(/* asModule */ true);
+  }
+}

@@ -21,9 +21,11 @@ ChromeUtils.defineESModuleGetters(this, {
   NimbusTestUtils: "resource://testing-common/NimbusTestUtils.sys.mjs",
   PlacesTestUtils: "resource://testing-common/PlacesTestUtils.sys.mjs",
   PlacesUtils: "resource://gre/modules/PlacesUtils.sys.mjs",
+  PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   ProfileAge: "resource://gre/modules/ProfileAge.sys.mjs",
   QueryCache: "resource:///modules/asrouter/ASRouterTargeting.sys.mjs",
   Region: "resource://gre/modules/Region.sys.mjs",
+  SearchService: "moz-src:///toolkit/components/search/SearchService.sys.mjs",
   SelectableProfileService:
     "resource:///modules/profiles/SelectableProfileService.sys.mjs",
   ShellService: "moz-src:///browser/components/shell/ShellService.sys.mjs",
@@ -503,7 +505,7 @@ add_task(async function check_needsUpdate() {
 
 add_task(async function checksearchEngines() {
   const result = await ASRouterTargeting.Environment.searchEngines;
-  const expectedInstalled = (await Services.search.getAppProvidedEngines())
+  const expectedInstalled = (await SearchService.getAppProvidedEngines())
     .map(engine => engine.id)
     .sort()
     .join(",");
@@ -522,14 +524,14 @@ add_task(async function checksearchEngines() {
   );
   is(
     result.current,
-    (await Services.search.getDefault()).id,
+    (await SearchService.getDefault()).id,
     "searchEngines.current should be the current engine name"
   );
 
   const message = {
     id: "foo",
     targeting: `searchEngines[.current == ${
-      (await Services.search.getDefault()).id
+      (await SearchService.getDefault()).id
     }]`,
   };
   is(
@@ -541,7 +543,7 @@ add_task(async function checksearchEngines() {
   const message2 = {
     id: "foo",
     targeting: `searchEngines[${
-      (await Services.search.getAppProvidedEngines())[0].id
+      (await SearchService.getAppProvidedEngines())[0].id
     } in .installed]`,
   };
   is(
@@ -569,6 +571,53 @@ add_task(async function checkisDefaultBrowser() {
     message,
     "should select correct item by isDefaultBrowser"
   );
+});
+
+add_task(async function checkisPrivateWindow_false() {
+  const win = await BrowserTestUtils.openNewBrowserWindow();
+  const expected = PrivateBrowsingUtils.isContentWindowPrivate(win);
+  const result = await ASRouterTargeting.Environment.isPrivateWindow;
+  is(typeof result, "boolean", "isPrivateWindow should be a boolean value");
+  is(
+    result,
+    expected,
+    "isPrivateWindow should be equal to PrivateBrowsingUtils.isContentWindowPrivate()"
+  );
+  const message = {
+    id: "foo",
+    targeting: `isPrivateWindow == ${expected.toString()}`,
+  };
+  is(
+    await ASRouterTargeting.findMatchingMessage({ messages: [message] }),
+    message,
+    "should select correct item by isPrivateWindow"
+  );
+  await BrowserTestUtils.closeWindow(win);
+});
+
+add_task(async function checkisPrivateWindow_true() {
+  // Open a new private window
+  const privateWin = await BrowserTestUtils.openNewBrowserWindow({
+    private: true,
+  });
+  const expected = PrivateBrowsingUtils.isContentWindowPrivate(privateWin);
+  const result = await ASRouterTargeting.Environment.isPrivateWindow;
+  is(typeof result, "boolean", "isPrivateWindow should be a boolean value");
+  is(
+    result,
+    expected,
+    "isPrivateWindow should be equal to PrivateBrowsingUtils.isContentWindowPrivate()"
+  );
+  const message = {
+    id: "foo",
+    targeting: `isPrivateWindow == ${expected.toString()}`,
+  };
+  is(
+    await ASRouterTargeting.findMatchingMessage({ messages: [message] }),
+    message,
+    "should select correct item by isPrivateWindow"
+  );
+  await BrowserTestUtils.closeWindow(privateWin);
 });
 
 add_task(async function checkdevToolsOpenedCount() {
@@ -1000,7 +1049,7 @@ add_task(async function check_current_tab_installed_as_web_app() {
       "no taskbar tab exists yet"
     );
 
-    const tt = await TaskbarTabs.findOrCreateTaskbarTab(
+    const { taskbarTab } = await TaskbarTabs.findOrCreateTaskbarTab(
       Services.io.newURI(kUri),
       0
     );
@@ -1018,7 +1067,7 @@ add_task(async function check_current_tab_installed_as_web_app() {
       );
     });
 
-    await TaskbarTabs.removeTaskbarTab(tt.id);
+    await TaskbarTabs.removeTaskbarTab(taskbarTab.id);
     is(
       await ASRouterTargeting.Environment.currentTabInstalledAsWebApp,
       false,
@@ -1205,7 +1254,7 @@ add_task(async function check_isChinaRepack() {
     "should select the message for non China repack users"
   );
 
-  prefDefaultBranch.deleteBranch("");
+  prefDefaultBranch.setCharPref("id", "");
 });
 
 add_task(async function check_userId() {
@@ -1464,22 +1513,29 @@ add_task(async function check_userPrefersReducedMotion() {
 });
 
 add_task(async function test_distributionId() {
+  let expectedDefault = Services.prefs
+    .getDefaultBranch(null)
+    .getCharPref("distribution.id", "");
   is(
     ASRouterTargeting.Environment.distributionId,
-    "",
-    "Should return an empty distribution Id"
+    expectedDefault,
+    "Should return the expected default distribution Id"
   );
 
   Services.prefs.getDefaultBranch(null).setCharPref("distribution.id", "test");
-
   is(
     ASRouterTargeting.Environment.distributionId,
     "test",
     "Should return the correct distribution Id"
   );
-
-  // clean up default branch distribution.id
-  Services.prefs.getDefaultBranch(null).deleteBranch("distribution.id");
+  // Clean up by restoring the original value or delete if there wasn't one
+  if (expectedDefault) {
+    Services.prefs
+      .getDefaultBranch(null)
+      .setCharPref("distribution.id", expectedDefault);
+  } else {
+    Services.prefs.getDefaultBranch(null).deleteBranch("distribution.id");
+  }
 });
 
 add_task(async function test_fxViewButtonAreaType_default() {

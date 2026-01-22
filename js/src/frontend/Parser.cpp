@@ -32,9 +32,9 @@
 #include <new>
 #include <type_traits>
 
-#include "jsnum.h"
 #include "jstypes.h"
 
+#include "builtin/Number.h"
 #include "frontend/FoldConstants.h"
 #include "frontend/FunctionSyntaxKind.h"  // FunctionSyntaxKind
 #include "frontend/ModuleSharedContext.h"
@@ -12418,23 +12418,38 @@ GeneralParser<ParseHandler, Unit>::importExpr(YieldHandling yieldHandling,
     return errorResult();
   }
 
+#ifdef ENABLE_SOURCE_PHASE_IMPORTS
+  bool isSourcePhaseImport = false;
+#endif
+
   if (next == TokenKind::Dot) {
     if (!tokenStream.getToken(&next)) {
       return errorResult();
     }
-    if (next != TokenKind::Meta) {
-      error(JSMSG_UNEXPECTED_TOKEN, "meta", TokenKindToDesc(next));
-      return errorResult();
+    if (next == TokenKind::Meta) {
+      if (parseGoal() != ParseGoal::Module) {
+        errorAt(pos().begin, JSMSG_IMPORT_META_OUTSIDE_MODULE);
+        return errorResult();
+      }
+
+      NullaryNodeType metaHolder = MOZ_TRY(handler_.newPosHolder(pos()));
+
+      return handler_.newImportMeta(importHolder, metaHolder);
     }
 
-    if (parseGoal() != ParseGoal::Module) {
-      errorAt(pos().begin, JSMSG_IMPORT_META_OUTSIDE_MODULE);
+#ifdef ENABLE_SOURCE_PHASE_IMPORTS
+    if (next != TokenKind::Source) {
+      error(JSMSG_UNEXPECTED_TOKEN, "meta or source", TokenKindToDesc(next));
       return errorResult();
     }
-
-    NullaryNodeType metaHolder = MOZ_TRY(handler_.newPosHolder(pos()));
-
-    return handler_.newImportMeta(importHolder, metaHolder);
+    isSourcePhaseImport = true;
+    if (!tokenStream.getToken(&next)) {
+      return errorResult();
+    }
+#else
+    error(JSMSG_UNEXPECTED_TOKEN, "meta", TokenKindToDesc(next));
+    return errorResult();
+#endif
   }
 
   if (next == TokenKind::LeftParen && allowCallSyntax) {
@@ -12446,7 +12461,12 @@ GeneralParser<ParseHandler, Unit>::importExpr(YieldHandling yieldHandling,
     }
 
     Node optionalArg;
-    if (next == TokenKind::Comma) {
+    if (next == TokenKind::Comma
+#ifdef ENABLE_SOURCE_PHASE_IMPORTS
+        // Unlike `import`, `import.source` does not have an optional parameter.
+        && !isSourcePhaseImport
+#endif
+    ) {
       tokenStream.consumeKnownToken(TokenKind::Comma,
                                     TokenStream::SlashIsRegExp);
 
@@ -12481,6 +12501,11 @@ GeneralParser<ParseHandler, Unit>::importExpr(YieldHandling yieldHandling,
 
     Node spec = MOZ_TRY(handler_.newCallImportSpec(arg, optionalArg));
 
+#ifdef ENABLE_SOURCE_PHASE_IMPORTS
+    if (isSourcePhaseImport) {
+      return handler_.newCallImportSource(importHolder, spec);
+    }
+#endif
     return handler_.newCallImport(importHolder, spec);
   }
 

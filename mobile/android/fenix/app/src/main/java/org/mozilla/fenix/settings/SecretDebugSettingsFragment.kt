@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -22,9 +23,9 @@ import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
 import androidx.fragment.app.Fragment
 import androidx.fragment.compose.content
+import kotlinx.coroutines.flow.map
 import mozilla.components.browser.state.search.RegionState
 import mozilla.components.compose.base.button.FilledButton
-import mozilla.components.lib.state.ext.observeAsState
 import org.mozilla.fenix.R
 import org.mozilla.fenix.components.components
 import org.mozilla.fenix.components.metrics.MarketingAttributionService
@@ -54,15 +55,14 @@ class SecretDebugSettingsFragment : Fragment() {
 @Composable
 private fun SecretDebugSettingsScreen() {
     val context = LocalContext.current
-    val regionState: RegionState by components.core.store.observeAsState(
-        initialValue = RegionState.Default,
-        map = { it.search.region ?: RegionState.Default },
-    )
+    val stateFlow = components.core.store.stateFlow
+    val regionState: RegionState by remember {
+        stateFlow.map { it.search.region ?: RegionState.Default }
+    }.collectAsState(initial = RegionState.Default)
 
-    val distributionId: String by components.core.store.observeAsState(
-        initialValue = "",
-        map = { it.distributionId ?: "" },
-    )
+    val distributionId: String by remember {
+        stateFlow.map { it.distributionId ?: "" }
+    }.collectAsState(initial = "")
 
     val settings = components.settings
 

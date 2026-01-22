@@ -411,12 +411,6 @@ int32_t PointerEvent::PersistentDeviceId(CallerType aCallerType) {
   return mPersistentDeviceId.value();
 }
 
-bool PointerEvent::EnableGetCoalescedEvents(JSContext* aCx, JSObject* aGlobal) {
-  return !StaticPrefs::
-             dom_w3c_pointer_events_getcoalescedevents_only_in_securecontext() ||
-         nsContentUtils::IsSecureContextOrWebExtension(aCx, aGlobal);
-}
-
 void PointerEvent::GetCoalescedEvents(
     nsTArray<RefPtr<PointerEvent>>& aPointerEvents) {
   WidgetPointerEvent* widgetEvent = mEvent->AsPointerEvent();

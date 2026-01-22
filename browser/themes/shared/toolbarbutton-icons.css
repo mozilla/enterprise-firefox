@@ -328,6 +328,11 @@
     list-style-image: url("chrome://browser/content/logos/ipprotection-error.svg");
     stroke: var(--icon-color-critical);
   }
+
+  &.ipprotection-excluded {
+    list-style-image: url("chrome://browser/content/logos/ipprotection-excluded.svg");
+    stroke: var(--icon-color-success);
+  }
 }
 
 #taskbar-tabs-favicon {

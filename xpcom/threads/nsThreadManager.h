@@ -4,8 +4,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef nsThreadManager_h__
-#define nsThreadManager_h__
+#ifndef nsThreadManager_h_
+#define nsThreadManager_h_
 
 #include "nsIThreadManager.h"
 #include "nsThread.h"
@@ -153,4 +153,4 @@ class nsThreadManager : public nsIThreadManager {
    0x4c37,                                    \
    {0x8e, 0xbb, 0x67, 0x09, 0xa2, 0x2c, 0x91, 0x7c}}
 
-#endif  // nsThreadManager_h__
+#endif  // nsThreadManager_h_

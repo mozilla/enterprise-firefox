@@ -4,8 +4,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef DOM_WEBTRANSPORT_API_WEBTRANSPORT__H_
-#define DOM_WEBTRANSPORT_API_WEBTRANSPORT__H_
+#ifndef DOM_WEBTRANSPORT_API_WEBTRANSPORT_H_
+#define DOM_WEBTRANSPORT_API_WEBTRANSPORT_H_
 
 #include "mozilla/dom/Promise.h"
 #include "mozilla/dom/WebTransportBinding.h"
@@ -14,6 +14,7 @@
 #include "mozilla/dom/WebTransportSendStream.h"
 #include "mozilla/dom/WebTransportStreams.h"
 #include "mozilla/ipc/DataPipe.h"
+#include "mozilla/net/WebTransportEventService.h"
 #include "nsCOMPtr.h"
 #include "nsISupports.h"
 #include "nsPIDOMWindow.h"
@@ -149,6 +150,10 @@ class WebTransport final : public nsISupports, public nsWrapperCache {
 
   WebTransportState mState;
   RefPtr<Promise> mReady;
+  uint64_t mInnerWindowID = 0;
+  uint64_t mHttpChannelID = 0;
+  uint64_t mBrowsingContextID = 0;
+  RefPtr<mozilla::net::WebTransportEventService> mService;
   // XXX may not need to be a RefPtr, since we own it through the Streams
   RefPtr<WebTransportIncomingStreamsAlgorithms> mIncomingBidirectionalAlgorithm;
   RefPtr<WebTransportIncomingStreamsAlgorithms>
@@ -171,4 +176,4 @@ class WebTransport final : public nsISupports, public nsWrapperCache {
 
 }  // namespace mozilla::dom
 
-#endif  // DOM_WEBTRANSPORT_API_WEBTRANSPORT__H_
+#endif  // DOM_WEBTRANSPORT_API_WEBTRANSPORT_H_

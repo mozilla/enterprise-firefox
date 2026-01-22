@@ -9,7 +9,6 @@
 // found in the LICENSE file.
 #include "jit/riscv64/MacroAssembler-riscv64.h"
 
-#include "jsmath.h"
 #include "jit/Bailouts.h"
 #include "jit/BaselineFrame.h"
 #include "jit/JitFrames.h"
@@ -18,6 +17,7 @@
 #include "jit/MoveEmitter.h"
 #include "jit/riscv64/SharedICRegisters-riscv64.h"
 #include "util/Memory.h"
+#include "util/PortableMath.h"
 #include "vm/JitActivation.h"  // jit::JitActivation
 #include "vm/JSContext.h"
 #include "wasm/WasmStubs.h"
@@ -2597,11 +2597,10 @@ static void AtomicExchange(MacroAssembler& masm,
                            const T& mem, Register value, Register valueTemp,
                            Register offsetTemp, Register maskTemp,
                            Register output) {
-  UseScratchRegisterScope temps(&masm);
-  Register scratch = temps.Acquire();
-  Register scratch2 = temps.Acquire();
   bool signExtend = Scalar::isSignedIntType(type);
   unsigned nbytes = Scalar::byteSize(type);
+
+  UseScratchRegisterScope temps(&masm);
 
   switch (nbytes) {
     case 1:
@@ -2618,7 +2617,10 @@ static void AtomicExchange(MacroAssembler& masm,
 
   Label again;
 
+  Register scratch = temps.Acquire();
   masm.computeEffectiveAddress(mem, scratch);
+
+  Register scratch2 = temps.Acquire();
 
   if (nbytes == 4) {
     masm.memoryBarrierBefore(sync);
@@ -2791,8 +2793,6 @@ static void AtomicEffectOp(MacroAssembler& masm,
                            const T& mem, Register value, Register valueTemp,
                            Register offsetTemp, Register maskTemp) {
   UseScratchRegisterScope temps(&masm);
-  Register scratch = temps.Acquire();
-  Register scratch2 = temps.Acquire();
   unsigned nbytes = Scalar::byteSize(type);
 
   switch (nbytes) {
@@ -2810,7 +2810,10 @@ static void AtomicEffectOp(MacroAssembler& masm,
 
   Label again;
 
+  Register scratch = temps.Acquire();
   masm.computeEffectiveAddress(mem, scratch);
+
+  Register scratch2 = temps.Acquire();
 
   if (nbytes == 4) {
     masm.memoryBarrierBefore(sync);
@@ -2921,8 +2924,6 @@ static void AtomicFetchOp(MacroAssembler& masm,
                           Register offsetTemp, Register maskTemp,
                           Register output) {
   UseScratchRegisterScope temps(&masm);
-  Register scratch = temps.Acquire();
-  Register scratch2 = temps.Acquire();
   bool signExtend = Scalar::isSignedIntType(type);
   unsigned nbytes = Scalar::byteSize(type);
 
@@ -2941,7 +2942,10 @@ static void AtomicFetchOp(MacroAssembler& masm,
 
   Label again;
 
+  Register scratch = temps.Acquire();
   masm.computeEffectiveAddress(mem, scratch);
+
+  Register scratch2 = temps.Acquire();
 
   if (nbytes == 4) {
     masm.memoryBarrierBefore(sync);
@@ -3442,8 +3446,9 @@ static void CompareExchange64(MacroAssembler& masm,
   MOZ_ASSERT(expect != output && replace != output);
   UseScratchRegisterScope temps(&masm);
   Register scratch = temps.Acquire();
-  Register scratch2 = temps.Acquire();
   masm.computeEffectiveAddress(mem, scratch);
+
+  Register scratch2 = temps.Acquire();
 
   Label tryAgain;
   Label exit;
@@ -6621,15 +6626,13 @@ void MacroAssemblerRiscv64::ma_mod_mask(Register src, Register dest,
   // Check the hold to see if we need to negate the result.
   ma_b(hold, hold, &done, NotSigned, ShortJump);
 
-  // If the hold was non-zero, negate the result to be in line with
-  // what JS wants
   if (negZero != nullptr) {
     // Jump out in case of negative zero.
-    ma_b(hold, hold, negZero, Zero);
-    negw(dest, dest);
-  } else {
-    negw(dest, dest);
+    ma_b(dest, dest, negZero, Zero);
   }
+  // If the hold was non-zero, negate the result to be in line with
+  // what JS wants
+  negw(dest, dest);
 
   bind(&done);
 }

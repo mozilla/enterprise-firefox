@@ -19,6 +19,10 @@ buildscript {
     }
 }
 
+plugins {
+    alias(libs.plugins.dependency.analysis)
+}
+
 apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
 apply plugin: 'kotlinx-serialization'

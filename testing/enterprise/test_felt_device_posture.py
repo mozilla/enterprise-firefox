@@ -40,9 +40,10 @@ class FeltDevicePosture(FeltTests):
         device_posture = self.get_device_posture()
         assert "name" in device_posture["os"], "Device posture reports OS name"
         assert "version" in device_posture["os"], "Device posture reports OS version"
-        assert (
-            device_posture["build"]["applicationName"] == "FirefoxEnterprise"
-        ), "Device posture reports proper applicationName"
+        assert device_posture["build"]["applicationName"] == "FirefoxEnterprise", (
+            "Device posture reports proper applicationName"
+        )
+        assert "secureBootEnabled" in device_posture
         return True
 
     def test_felt_3_access(self, exp):

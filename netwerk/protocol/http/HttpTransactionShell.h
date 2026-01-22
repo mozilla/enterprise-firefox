@@ -2,8 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef HttpTransactionShell_h__
-#define HttpTransactionShell_h__
+#ifndef HttpTransactionShell_h_
+#define HttpTransactionShell_h_
 
 #include <functional>
 
@@ -246,4 +246,4 @@ class HttpTransactionShell : public nsISupports {
 
 }  // namespace mozilla::net
 
-#endif  // HttpTransactionShell_h__
+#endif  // HttpTransactionShell_h_

@@ -22,7 +22,7 @@ class CompositorWidgetChild final : public PCompositorWidgetChild,
                         RefPtr<CompositorWidgetVsyncObserver> aVsyncObserver,
                         const CompositorWidgetInitData&);
 
-  bool Initialize();
+  bool Initialize(const layers::CompositorOptions& aOptions);
 
   mozilla::ipc::IPCResult RecvObserveVsync() override;
   mozilla::ipc::IPCResult RecvUnobserveVsync() override;
@@ -30,7 +30,6 @@ class CompositorWidgetChild final : public PCompositorWidgetChild,
   void NotifyClientSizeChanged(const LayoutDeviceIntSize& aClientSize) override;
   void NotifyFullscreenChanged(bool aIsFullscreen) override {};
   void CleanupResources() override;
-  void SetRenderingSurface(const uintptr_t aXWindow) override;
 
  private:
   ~CompositorWidgetChild() override;

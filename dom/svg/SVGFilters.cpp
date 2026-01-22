@@ -123,15 +123,17 @@ Size SVGFilterPrimitiveElement::GetKernelUnitLength(
                 aInstance->GetPrimitiveUserSpaceUnitValue(SVGContentUtils::Y));
   }
 
-  float kernelX = aInstance->GetPrimitiveNumber(
-      SVGContentUtils::X, aKernelUnitLength, SVGAnimatedNumberPair::eFirst);
+  float kernelX =
+      aInstance->GetPrimitiveNumber(SVGContentUtils::X, aKernelUnitLength,
+                                    SVGAnimatedNumberPairWhichOne::First);
   if (kernelX <= 0.0f) {
     kernelX = aInstance->GetPrimitiveUserSpaceUnitValue(SVGContentUtils::X);
   } else {
     kernelX = std::min(kernelX, float(kReasonableSurfaceSize));
   }
-  float kernelY = aInstance->GetPrimitiveNumber(
-      SVGContentUtils::Y, aKernelUnitLength, SVGAnimatedNumberPair::eSecond);
+  float kernelY =
+      aInstance->GetPrimitiveNumber(SVGContentUtils::Y, aKernelUnitLength,
+                                    SVGAnimatedNumberPairWhichOne::Second);
   if (kernelY <= 0.0f) {
     kernelY = aInstance->GetPrimitiveUserSpaceUnitValue(SVGContentUtils::Y);
   } else {

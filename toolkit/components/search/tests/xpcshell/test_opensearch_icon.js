@@ -27,7 +27,7 @@ add_setup(async function () {
   let server = useHttpServer("");
   server.registerContentType("sjs", "sjs");
   ENGINE_NO_ICONS = `${gHttpURL}/opensearch/fr-domain-iso8859-1.xml`;
-  await Services.search.init();
+  await SearchService.init();
 });
 
 add_task(async function test_icon_types() {
@@ -102,7 +102,7 @@ add_task(async function test_icon_not_in_opensearch_file_invalid_svg() {
     SearchUtils.MODIFIED_TYPE.ICON_CHANGED,
     SearchUtils.TOPIC_ENGINE_MODIFIED
   );
-  let engine = await Services.search.addOpenSearchEngine(
+  let engine = await SearchService.addOpenSearchEngine(
     ENGINE_NO_ICONS,
     // We still add the icon even if we cannot determine the size.
     "data:image/svg+xml;base64,invalid+svg"
@@ -112,7 +112,7 @@ add_task(async function test_icon_not_in_opensearch_file_invalid_svg() {
   let sizes = Object.keys(engine.wrappedJSObject._iconMapObj);
   Assert.deepEqual(sizes, ["16"], "Defaulted to 16x16");
 
-  await Services.search.removeEngine(engine);
+  await SearchService.removeEngine(engine);
 });
 
 add_task(async function test_icon_not_in_opensearch_file_invalid_ico() {
@@ -120,7 +120,7 @@ add_task(async function test_icon_not_in_opensearch_file_invalid_ico() {
     SearchUtils.MODIFIED_TYPE.ICON_CHANGED,
     SearchUtils.TOPIC_ENGINE_MODIFIED
   );
-  let engine = await Services.search.addOpenSearchEngine(
+  let engine = await SearchService.addOpenSearchEngine(
     ENGINE_NO_ICONS,
     // We still add the icon even if we cannot determine the size.
     "data:image/x-icon;base64,invalid+ico"
@@ -130,7 +130,7 @@ add_task(async function test_icon_not_in_opensearch_file_invalid_ico() {
   let sizes = Object.keys(engine.wrappedJSObject._iconMapObj);
   Assert.deepEqual(sizes, ["16"], "Defaulted to 16x16");
 
-  await Services.search.removeEngine(engine);
+  await SearchService.removeEngine(engine);
 });
 
 add_task(async function test_icon_not_in_opensearch_file_svg() {
@@ -142,7 +142,7 @@ add_task(async function test_icon_not_in_opensearch_file_svg() {
     `${gHttpURL}/icons/svgIcon.svg`
   );
 
-  let engine = await Services.search.addOpenSearchEngine(
+  let engine = await SearchService.addOpenSearchEngine(
     ENGINE_NO_ICONS,
     icoIconDataUrl
   );
@@ -151,7 +151,7 @@ add_task(async function test_icon_not_in_opensearch_file_svg() {
   let sizes = Object.keys(engine.wrappedJSObject._iconMapObj);
   Assert.deepEqual(sizes, ["16"], "Icon size was correctly detected.");
   Assert.equal(await engine.getIconURL(16), icoIconDataUrl, "Correct icon");
-  await Services.search.removeEngine(engine);
+  await SearchService.removeEngine(engine);
 });
 
 add_task(async function test_icon_not_in_opensearch_file_ico() {
@@ -163,7 +163,7 @@ add_task(async function test_icon_not_in_opensearch_file_ico() {
     `${gHttpURL}/icons/multipleSizes.ico`
   );
 
-  let engine = await Services.search.addOpenSearchEngine(
+  let engine = await SearchService.addOpenSearchEngine(
     ENGINE_NO_ICONS,
     icoIconDataUrl
   );
@@ -172,5 +172,5 @@ add_task(async function test_icon_not_in_opensearch_file_ico() {
   let sizes = Object.keys(engine.wrappedJSObject._iconMapObj);
   Assert.deepEqual(sizes, ["32"], "Icon size was correctly detected.");
   Assert.equal(await engine.getIconURL(32), icoIconDataUrl, "Correct icon");
-  await Services.search.removeEngine(engine);
+  await SearchService.removeEngine(engine);
 });

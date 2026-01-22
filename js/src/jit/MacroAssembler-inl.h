@@ -869,18 +869,56 @@ void MacroAssembler::branchFloat32NotInUInt64Range(Address src, Register temp,
 
 // ========================================================================
 // Canonicalization primitives.
-void MacroAssembler::canonicalizeFloat(FloatRegister reg) {
+void MacroAssembler::canonicalizeFloatNaN(FloatRegister reg) {
   Label notNaN;
   branchFloat(DoubleOrdered, reg, reg, &notNaN);
   loadConstantFloat32(float(JS::GenericNaN()), reg);
   bind(&notNaN);
 }
 
-void MacroAssembler::canonicalizeDouble(FloatRegister reg) {
+void MacroAssembler::canonicalizeDoubleNaN(FloatRegister reg) {
   Label notNaN;
   branchDouble(DoubleOrdered, reg, reg, &notNaN);
   loadConstantDouble(JS::GenericNaN(), reg);
   bind(&notNaN);
+}
+
+void MacroAssembler::canonicalizeDoubleZero(FloatRegister reg,
+                                            FloatRegister scratch) {
+  // If denormals are disabled, then operations on them will flush denormal
+  // values to zero (FTZ flag). We need the cheapest operation that is the
+  // identity function.
+  //
+  // Unfortunately, just moving the float register doesn't trigger FTZ. Adding
+  // '+-0' isn't an identity function, because it can toggle the sign bit.
+  //
+  // Therefore we choose to multiply by 1.0, which won't change the result.
+  loadConstantDouble(1.0, scratch);
+  mulDouble(scratch, reg);
+}
+
+void MacroAssembler::canonicalizeValueZero(ValueOperand value,
+                                           FloatRegister scratch) {
+  // Don't do anything if this isn't a double value.
+  Label notDouble;
+  branchTestDouble(Assembler::NotEqual, value, &notDouble);
+
+  // Unbox the double.
+  unboxDouble(value, scratch);
+
+  {
+    // Minimize the duration of using the scratch double to avoid
+    // conflict with unboxDouble.
+    ScratchDoubleScope tmpD(*this);
+
+    // Canonicalize the double.
+    canonicalizeDoubleZero(scratch, tmpD);
+
+    // Box the double back into value.
+    boxDouble(scratch, value, tmpD);
+  }
+
+  bind(&notDouble);
 }
 
 // ========================================================================

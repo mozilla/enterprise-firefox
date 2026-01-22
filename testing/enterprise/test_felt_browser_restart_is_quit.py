@@ -26,9 +26,9 @@ class BrowserRestartIsQuit(FeltTests):
 
         process = psutil.Process(pid=self._browser_pid)
         self._logger.info(f"PID {self._browser_pid}: {process.name()}")
-        assert os.path.basename(process.name()).startswith(
-            "firefox"
-        ), "Process is Firefox"
+        assert os.path.basename(process.name()).startswith("firefox"), (
+            "Process is Firefox"
+        )
 
         try:
             self._logger.info("Issuing restart, expecting quit being done")
@@ -65,9 +65,9 @@ class BrowserRestartIsQuit(FeltTests):
                 self._logger.info(
                     f"Found PID {self._browser_pid}: EXE:{process.exe()} :: NAME:{process.name()} :: CMDLINE:{process.cmdline()}"
                 )
-                assert (
-                    os.path.basename(process.name()) != "firefox"
-                ), "Process is not Firefox"
+                assert os.path.basename(process.name()) != "firefox", (
+                    "Process is not Firefox"
+                )
                 return True
             except psutil.ZombieProcess:
                 self._logger.info(f"Zombie found as {self._browser_pid}")

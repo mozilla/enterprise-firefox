@@ -11,6 +11,7 @@
 #include "nsIWeakReferenceUtils.h"
 #include "nsTArray.h"
 #include "nsCycleCollectionNoteChild.h"
+#include "xpcpublic.h"
 
 // nsMaybeWeakPtr is a helper object to hold a strong-or-weak reference
 // to the template class.  It's pretty minimal, but sufficient.
@@ -81,6 +82,17 @@ class nsMaybeWeakPtrArray : public CopyableTArray<nsMaybeWeakPtr<T>> {
     nsMaybeWeakPtr<T> ref;
     MOZ_TRY(SetMaybeWeakPtr(ref, aElement, aOwnsWeak));
 
+#if (defined(MOZ_DIAGNOSTIC_ASSERT_ENABLED) && !defined(MOZ_THUNDERBIRD))
+    // Checking for duplicates is expensive, so we enforce callers to avoid
+    // this with a diagnostic assertion. See bug 2000788 for Thunderbird.
+    if (IsAssertOnDoubleAdd()) {
+      if (MaybeWeakArray::Contains(aElement)) {
+        xpc_DumpJSStack(true, true, false);
+        MOZ_DIAGNOSTIC_ASSERT(false, "Element already in array.");
+      }
+    }
+#endif
+
     MaybeWeakArray::AppendElement(ref);
     return NS_OK;
   }
@@ -119,6 +131,21 @@ class nsMaybeWeakPtrArray : public CopyableTArray<nsMaybeWeakPtr<T>> {
 
     return NS_ERROR_INVALID_ARG;
   }
+
+ private:
+#if (defined(MOZ_DIAGNOSTIC_ASSERT_ENABLED) && !defined(MOZ_THUNDERBIRD))
+  // Until we have bug 2005466, a plain diagnostic assert would only yield us
+  // unactionable crash reports from official Nightly builds in case JS was
+  // adding an observer (which is common enough). But we want developers using
+  // non-DEBUG builds to catch this locally and on CI when testing.
+  static inline bool IsAssertOnDoubleAdd() {
+#  if defined(DEBUG) || defined(FUZZING)
+    return true;
+#  else
+    return xpc::IsInAutomation();
+#  endif
+  }
+#endif
 };
 
 template <class T>

@@ -9,6 +9,7 @@
 #include "DisplayPortUtils.h"
 #include "ScrollContainerFrame.h"
 #include "mozilla/Maybe.h"
+#include "mozilla/OverflowChangedTracker.h"
 #include "mozilla/PresShell.h"
 #include "mozilla/StaticPrefs_apz.h"
 #include "mozilla/dom/DOMIntersectionObserver.h"
@@ -875,8 +876,42 @@ bool AnchorPositioningUtils::FitsInContainingBlock(
     const nsIFrame* aPositioned, const AnchorPosReferenceData& aReferenceData) {
   MOZ_ASSERT(aPositioned->GetProperty(nsIFrame::AnchorPosReferences()) ==
              &aReferenceData);
-  return aReferenceData.mOriginalContainingBlockRect.Contains(
-      aPositioned->GetMarginRect());
+
+  const auto& scrollShift = aReferenceData.mDefaultScrollShift;
+  const auto scrollCompensatedSides = aReferenceData.mScrollCompensatedSides;
+  nsSize checkSize = [&]() {
+    const auto& adjustedCB = aReferenceData.mAdjustedContainingBlock;
+    if (scrollShift == nsPoint{} || scrollCompensatedSides == SideBits::eNone) {
+      return adjustedCB.Size();
+    }
+
+    // We now know that this frame's anchor has moved in relation to
+    // the original containing block, and that at least one side of our
+    // IMCB is attached to it.
+
+    // Scroll shift the adjusted containing block.
+    const auto shifted = aReferenceData.mAdjustedContainingBlock - scrollShift;
+    const auto& originalCB = aReferenceData.mOriginalContainingBlockRect;
+
+    // Now, move edges that are not attached to the anchors and pin it
+    // to the original containing block.
+    const nsPoint pt{
+        scrollCompensatedSides & SideBits::eLeft ? shifted.X() : originalCB.X(),
+        scrollCompensatedSides & SideBits::eTop ? shifted.Y() : originalCB.Y()};
+    const nsPoint ptMost{
+        scrollCompensatedSides & SideBits::eRight ? shifted.XMost()
+                                                  : originalCB.XMost(),
+        scrollCompensatedSides & SideBits::eBottom ? shifted.YMost()
+                                                   : originalCB.YMost()};
+
+    return nsSize{ptMost.x - pt.x, ptMost.y - pt.y};
+  }();
+
+  // Finally, reduce by inset.
+  checkSize -= nsSize{aReferenceData.mInsets.LeftRight(),
+                      aReferenceData.mInsets.TopBottom()};
+
+  return aPositioned->GetMarginRectRelativeToSelf().Size() <= checkSize;
 }
 
 nsIFrame* AnchorPositioningUtils::GetAnchorThatFrameScrollsWith(
@@ -927,6 +962,112 @@ nsIFrame* AnchorPositioningUtils::GetAnchorThatFrameScrollsWith(
              : nullptr;
 }
 
+using AffectedAnchor = AnchorPosDefaultAnchorCache;
+using AppliedShifts = nsTHashMap<nsIFrame*, nsPoint>;
+struct ScrollShifts {
+  nsPoint mScrollCompensatedDelta;
+  nsPoint mChainedDelta;
+
+  nsPoint Sum() const { return mChainedDelta + mScrollCompensatedDelta; }
+};
+static ScrollShifts FindScrollCompensatedAnchorShift(
+    const PresShell* aPresShell, const nsIFrame* aPositioned,
+    const AnchorPosReferenceData& aReferenceData,
+    const AppliedShifts& aAppliedShifts) {
+  MOZ_ASSERT(aPositioned->IsAbsolutelyPositioned(),
+             "Anchor positioned frame is not absolutely positioned?");
+  const auto* defaultAnchorName = aReferenceData.mDefaultAnchorName.get();
+  if (!defaultAnchorName) {
+    return {};
+  }
+  auto* defaultAnchor =
+      aPresShell->GetAnchorPosAnchor(defaultAnchorName, aPositioned);
+  if (!defaultAnchor) {
+    return {};
+  }
+  const auto compensatingForScroll = aReferenceData.CompensatingForScrollAxes();
+  // HACK(dshin, Bug 1999954): This is a workaround. While we try to lay out
+  // against the scroll-ignored position of an anchor, chain anchored frames
+  // end up containing scroll offset in their position. For now, walk the chain
+  // to account for those deltas too.
+  const nsPoint chainedDelta = [&]() -> nsPoint {
+    if (defaultAnchor->StylePosition()->mPositionAnchor.IsNone()) {
+      return {};
+    }
+    const auto* referenceData =
+        defaultAnchor->GetProperty(nsIFrame::AnchorPosReferences());
+    if (!referenceData) {
+      return {};
+    }
+    if (auto delta = aAppliedShifts.Lookup(defaultAnchor)) {
+      // If we've gone through this anchor already, grab the delta we've
+      // applied already (if any), since otherwise
+      // FindScrollCompensatedAnchorShift will end up being zero anyways.
+      return *delta;
+    }
+    return FindScrollCompensatedAnchorShift(aPresShell, defaultAnchor,
+                                            *referenceData, aAppliedShifts)
+        .Sum();
+  }();
+
+  const nsPoint scrollCompensatedDelta = [&]() -> nsPoint {
+    if (compensatingForScroll.isEmpty()) {
+      return {};
+    }
+    const auto* scrollContainer =
+        AnchorPositioningUtils::GetNearestScrollFrame(defaultAnchor)
+            .mScrollContainer;
+    if (!scrollContainer) {
+      return nsPoint();
+    }
+    const auto offset = AnchorPositioningUtils::GetScrollOffsetFor(
+        compensatingForScroll, aPositioned,
+        AffectedAnchor{defaultAnchor, scrollContainer});
+    return offset - aReferenceData.mDefaultScrollShift;
+  }();
+  return {scrollCompensatedDelta, chainedDelta};
+}
+
+// https://drafts.csswg.org/css-anchor-position-1/#default-scroll-shift
+static void UpdateScrollShift(PresShell* aPresShell, nsIFrame* aPositioned,
+                              AnchorPosReferenceData& aReferenceData,
+                              OverflowChangedTracker& aOct,
+                              AppliedShifts& aAppliedShifts) {
+  const auto scrollShifts = FindScrollCompensatedAnchorShift(
+      aPresShell, aPositioned, aReferenceData, aAppliedShifts);
+  auto delta = scrollShifts.Sum();
+  if (delta == nsPoint()) {
+    return;
+  }
+  aAppliedShifts.InsertOrUpdate(aPositioned, delta);
+  // APZ-handled scrolling may skip scheduling of paint for the relevant
+  // scroll container - We need to ensure that we schedule a paint for this
+  // positioned frame. Could theoretically do this when deciding to skip
+  // painting in `ScrollContainerFrame::ScrollToImpl`, that'd be conditional
+  // on finding a dependent anchor anyway, we should be as specific as
+  // possible as to what gets scheduled to paint.
+  aPositioned->SchedulePaint();
+  if (!aReferenceData.CompensatingForScrollAxes().isEmpty()) {
+    aReferenceData.mDefaultScrollShift += scrollShifts.mScrollCompensatedDelta;
+  }
+#ifdef ACCESSIBILITY
+  if (nsAccessibilityService* accService = GetAccService()) {
+    accService->NotifyAnchorPositionedScrollUpdate(aPresShell, aPositioned);
+  }
+#endif
+  // NOTE(emilio): It might be tempting to call MarkPositionedFrameForReflow(),
+  // but we don't want to trigger a full reflow as a response to scrolling, and
+  // it seems to match other browsers and test expectations, see bug 1950251.
+  aPositioned->SetPosition(aPositioned->GetPosition() - delta);
+  aPositioned->UpdateOverflow();
+  // Ensure that we propagate the overflow change up
+  // the ancestor chain.
+  // TODO: I think we can just use aPositioned, TRANSFORM_CHANGED and remove the
+  // explicit UpdateOverflow() call above.
+  aOct.AddFrame(aPositioned->GetParent(),
+                OverflowChangedTracker::CHILDREN_CHANGED);
+}
+
 static bool TriggerFallbackReflow(PresShell* aPresShell, nsIFrame* aPositioned,
                                   AnchorPosReferenceData& aReferencedAnchors,
                                   bool aEvaluateAllFallbacksIfNeeded) {
@@ -952,9 +1093,6 @@ static bool TriggerFallbackReflow(PresShell* aPresShell, nsIFrame* aPositioned,
   if (!needsRetry) {
     return false;
   }
-  // We want to retry from the first position; remove the last position
-  // property so all potential positions are re-evaluated.
-  aPositioned->RemoveProperty(nsIFrame::LastSuccessfulPositionFallback());
   aPresShell->MarkPositionedFrameForReflow(aPositioned);
   return true;
 }
@@ -1046,10 +1184,12 @@ static bool ComputePositionVisibility(
   return true;
 }
 
-bool AnchorPositioningUtils::TriggerLayoutOnOverflow(
-    PresShell* aPresShell, bool aEvaluateAllFallbacksIfNeeded) {
+bool AnchorPositioningUtils::TriggerLayoutOnOverflow(PresShell* aPresShell,
+                                                     bool aFirstIteration) {
   bool didLayoutPositionedItems = false;
 
+  OverflowChangedTracker oct;
+  AppliedShifts appliedShifts;
   for (auto* positioned : aPresShell->GetAnchorPosPositioned()) {
     AnchorPosReferenceData* referencedAnchors =
         positioned->GetProperty(nsIFrame::AnchorPosReferences());
@@ -1057,8 +1197,13 @@ bool AnchorPositioningUtils::TriggerLayoutOnOverflow(
       continue;
     }
 
+    if (aFirstIteration) {
+      UpdateScrollShift(aPresShell, positioned, *referencedAnchors, oct,
+                        appliedShifts);
+    }
+
     if (TriggerFallbackReflow(aPresShell, positioned, *referencedAnchors,
-                              aEvaluateAllFallbacksIfNeeded)) {
+                              aFirstIteration)) {
       didLayoutPositionedItems = true;
     }
 
@@ -1076,6 +1221,7 @@ bool AnchorPositioningUtils::TriggerLayoutOnOverflow(
       positioned->InvalidateFrameSubtree();
     }
   }
+  oct.Flush();
   return didLayoutPositionedItems;
 }
 

@@ -13,6 +13,7 @@
 #include "mozilla/intl/LocaleService.h"
 #include "mozilla/intl/OSPreferences.h"
 #include "mozilla/java/GeckoAppShellWrappers.h"
+#include "mozilla/java/HardwareCodecCapabilityUtilsWrappers.h"
 #include "mozilla/jni/Utils.h"
 #include "mozilla/layers/AndroidHardwareBuffer.h"
 #include "mozilla/Preferences.h"
@@ -136,6 +137,25 @@ void gfxAndroidPlatform::WaitForInitializeFontAPI() {
   }
 }
 
+// static
+bool gfxAndroidPlatform::IsHwCodecSupported(media::MediaCodec aCodec,
+                                            bool aEncoder) {
+  switch (aCodec) {
+    case media::MediaCodec::H264:
+      return java::HardwareCodecCapabilityUtils::HasHWH264(aEncoder);
+    case media::MediaCodec::VP8:
+      return java::HardwareCodecCapabilityUtils::HasHWVP8(aEncoder);
+    case media::MediaCodec::VP9:
+      return java::HardwareCodecCapabilityUtils::HasHWVP9(aEncoder);
+    case media::MediaCodec::AV1:
+      return java::HardwareCodecCapabilityUtils::HasHWAV1(aEncoder);
+    case media::MediaCodec::HEVC:
+      return java::HardwareCodecCapabilityUtils::HasHWHEVC(aEncoder);
+    default:
+      return false;
+  }
+}
+
 gfxAndroidPlatform::gfxAndroidPlatform() {
   // A custom allocator.  It counts allocations, enabling memory reporting.
   sFreetypeMemoryRecord.user = nullptr;
@@ -164,7 +184,6 @@ gfxAndroidPlatform::~gfxAndroidPlatform() {
   FT_Done_Library(gPlatformFTLibrary);
   gPlatformFTLibrary = nullptr;
   layers::AndroidHardwareBufferManager::Shutdown();
-  layers::AndroidHardwareBufferApi::Shutdown();
 }
 
 void gfxAndroidPlatform::InitAcceleration() { gfxPlatform::InitAcceleration(); }

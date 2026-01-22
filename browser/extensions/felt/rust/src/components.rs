@@ -71,9 +71,9 @@ impl FeltXPCOM {
 
         cookies.iter().flatten().for_each(|x| {
             trace!("FeltXPCOM::SendCookies: oneCookie ....");
-            let cookie = crate::utils::nsICookie_to_Cookie(x);
-            trace!("FeltXPCOM::SendCookies: oneCookie: {}", cookie.name());
-            rv = self.send(FeltMessage::Cookie(cookie.to_string()));
+            let cookie = crate::utils::nsICookie_wrap(x);
+            trace!("FeltXPCOM::SendCookies: oneCookie: {}", cookie.name);
+            rv = self.send(FeltMessage::Cookie(cookie));
         });
 
         rv

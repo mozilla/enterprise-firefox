@@ -2,8 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/* eslint-env commonjs */
-
 /**
  * A wrapper around `self` with extended capabilities designed
  * to simplify main thread-to-worker thread asynchronous function calls.
@@ -48,7 +46,7 @@ importScripts("resource://gre/modules/workers/require.js");
  * - {Array} transfers An array of objects that should be transferred
  *   instead of being copied.
  *
- * @constructor
+ * @class
  */
 function Meta(data, meta) {
   this.data = data;

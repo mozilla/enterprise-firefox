@@ -68,13 +68,13 @@ class InvocableRunnable final : public nsIRunnable, public nsINamed {
 
     mName.emplace();
     if (mLocation.mFunction && fileName && mLocation.mLine) {
-      mName->AppendFmt(FMT_STRING("{} - {} ({}:{})"), mTaskQueueName,
-                       mLocation.mFunction, *fileName, mLocation.mLine);
+      mName->AppendFmt("{} - {} ({}:{})", mTaskQueueName, mLocation.mFunction,
+                       *fileName, mLocation.mLine);
     } else if (fileName && mLocation.mLine) {
-      mName->AppendFmt(FMT_STRING("{} - InvocableRunnable ({}:{})"),
-                       mTaskQueueName, *fileName, mLocation.mLine);
+      mName->AppendFmt("{} - InvocableRunnable ({}:{})", mTaskQueueName,
+                       *fileName, mLocation.mLine);
     } else {
-      mName->AppendFmt(FMT_STRING("{} - InvocableRunnable"), mTaskQueueName);
+      mName->AppendFmt("{} - InvocableRunnable", mTaskQueueName);
     }
     aName = *mName;
 
@@ -176,12 +176,11 @@ class WebrtcTaskQueueWrapper : public webrtc::TaskQueueBase {
                with NS_DISPATCH_NORMAL, which is what
                DelayedDispatch below results in. */
             NS_DISPATCH_FALLIBLE))) {
-      NS_WARNING(
-          nsFmtCString(
-              FMT_STRING(
-                  "TaskQueue '{}' failed to dispatch a task from {} ({}:{})"),
-              mName, aLocation.mFunction, aLocation.mFile, aLocation.mLine)
-              .get());
+      NS_WARNING(nsFmtCString(
+                     "TaskQueue '{}' failed to dispatch a task from {} ({}:{})",
+                     mName, aLocation.mFunction, aLocation.mFile,
+                     aLocation.mLine)
+                     .get());
     };
   }
 
@@ -196,8 +195,8 @@ class WebrtcTaskQueueWrapper : public webrtc::TaskQueueBase {
     }
     if (NS_FAILED(mTaskQueue->DelayedDispatch(
             WrapInvocable(std::move(aTask), aLocation), aDelay.ms()))) {
-      NS_WARNING(nsFmtCString(FMT_STRING("TaskQueue '{}' failed to dispatch a "
-                                         "delayed task from {} ({}:{})"),
+      NS_WARNING(nsFmtCString("TaskQueue '{}' failed to dispatch a "
+                              "delayed task from {} ({}:{})",
                               mName, aLocation.mFunction, aLocation.mFile,
                               aLocation.mLine)
                      .get());

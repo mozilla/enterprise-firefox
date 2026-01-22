@@ -652,6 +652,9 @@ AbortReasonOr<WarpScriptSnapshot*> WarpScriptOracle::createScriptSnapshot() {
       case JSOp::Goto:
       case JSOp::DebugCheckSelfHosted:
       case JSOp::DynamicImport:
+#ifdef ENABLE_SOURCE_PHASE_IMPORTS
+      case JSOp::DynamicImportSource:
+#endif
       case JSOp::ToString:
       case JSOp::GlobalOrEvalDeclInstantiation:
       case JSOp::BindVar:

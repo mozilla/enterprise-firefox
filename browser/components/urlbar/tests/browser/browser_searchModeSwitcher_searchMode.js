@@ -6,7 +6,7 @@ add_setup(async function setup() {
     set: [["browser.urlbar.scotchBonnet.enableOverride", true]],
   });
 
-  let oldDefaultEngine = await Services.search.getDefault();
+  let oldDefaultEngine = await SearchService.getDefault();
 
   await SearchTestUtils.installSearchExtension(
     {
@@ -24,7 +24,7 @@ add_setup(async function setup() {
   });
 
   registerCleanupFunction(async function () {
-    await Services.search.setDefault(
+    await SearchService.setDefault(
       oldDefaultEngine,
       Ci.nsISearchService.CHANGE_REASON_UNKNOWN
     );

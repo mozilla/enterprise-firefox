@@ -297,6 +297,13 @@ module.exports = function (config) {
               functions: 31.2,
               branches: 31.2,
             },
+            "content-src/components/Widgets/WeatherForecast/WeatherForecast.jsx":
+              {
+                statements: 0,
+                lines: 0,
+                functions: 0,
+                branches: 0,
+              },
             "content-src/components/Weather/LocationSearch.jsx": {
               statements: 0,
               lines: 0,
@@ -353,6 +360,12 @@ module.exports = function (config) {
               statements: 51.1,
               functions: 31.2,
               branches: 31.2,
+            },
+            "content-src/components/Search/Search.jsx": {
+              statements: 38,
+              lines: 39,
+              functions: 28,
+              branches: 25,
             },
             "content-src/components/**/*.jsx": {
               statements: 51.1,

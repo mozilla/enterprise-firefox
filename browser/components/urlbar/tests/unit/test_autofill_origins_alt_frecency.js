@@ -91,7 +91,7 @@ add_task(
     await PlacesTestUtils.addVisits([url, `http://${origin}/`]);
     await PlacesFrecencyRecalculator.recalculateAnyOutdatedFrecencies();
 
-    let engine = Services.search.defaultEngine;
+    let engine = SearchService.defaultEngine;
     let context = createContext(origin.substring(0, 2), { isPrivate: false });
     await check_results({
       context,
@@ -146,7 +146,7 @@ add_task(async function test_autofill_threshold() {
     "Check the threshold has been calculared correctly"
   );
 
-  let engine = Services.search.defaultEngine;
+  let engine = SearchService.defaultEngine;
   let context = createContext("so", { isPrivate: false });
   await check_results({
     context,
@@ -181,7 +181,7 @@ add_task(async function test_autofill_cutoff() {
     "Check example.com has a NULL frecency"
   );
 
-  let engine = Services.search.defaultEngine;
+  let engine = SearchService.defaultEngine;
   let context = createContext("ex", { isPrivate: false });
   await check_results({
     context,

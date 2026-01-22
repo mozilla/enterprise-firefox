@@ -3,8 +3,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef NSFONTMETRICS__H__
-#define NSFONTMETRICS__H__
+#ifndef NSFONTMETRICS_H_
+#define NSFONTMETRICS_H_
 
 #include <stdint.h>          // for uint32_t
 #include <sys/types.h>       // for int32_t
@@ -291,4 +291,4 @@ class nsFontMetrics final {
   mozilla::StyleTextOrientation mTextOrientation;
 };
 
-#endif /* NSFONTMETRICS__H__ */
+#endif /* NSFONTMETRICS_H_ */

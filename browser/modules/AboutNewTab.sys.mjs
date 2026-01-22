@@ -75,9 +75,7 @@ export const AboutNewTab = {
 
     // Make sure to register newtab resource mapping as early as possible
     // on startup.
-    if (AppConstants.BROWSER_NEWTAB_AS_ADDON) {
-      lazy.AboutNewTabResourceMapping.init();
-    }
+    lazy.AboutNewTabResourceMapping.init();
 
     // More initialization happens here
     this.toggleActivityStream(true);
@@ -165,21 +163,14 @@ export const AboutNewTab = {
       return;
     }
 
-    if (AppConstants.BROWSER_NEWTAB_AS_ADDON) {
-      // Wait until the built-in addon has reported that it has finished
-      // initializing.
-      let redirector = Cc[
-        "@mozilla.org/network/protocol/about;1?what=newtab"
-      ].getService(Ci.nsIAboutModule).wrappedJSObject;
+    // Wait until the built-in addon has reported that it has finished
+    // initializing.
+    let redirector = Cc[
+      "@mozilla.org/network/protocol/about;1?what=newtab"
+    ].getService(Ci.nsIAboutModule).wrappedJSObject;
 
-      await redirector.promiseBuiltInAddonInitialized;
-      lazy.AboutNewTabResourceMapping.scheduleUpdateTrainhopAddonState();
-    } else {
-      // We may have had the built-in addon installed in the past. Since the
-      // flag is false, let's go ahead and remove it. We don't need to await on
-      // this since the extension should be inert if the build flag is false.
-      lazy.AboutNewTabResourceMapping.uninstallAddon();
-    }
+    await redirector.promiseBuiltInAddonInitialized;
+    lazy.AboutNewTabResourceMapping.scheduleUpdateTrainhopAddonState();
 
     try {
       this.activityStream = new lazy.ActivityStream();

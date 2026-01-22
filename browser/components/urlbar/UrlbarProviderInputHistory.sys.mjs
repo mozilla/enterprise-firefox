@@ -241,12 +241,11 @@ export class UrlbarProviderInputHistory extends UrlbarProvider {
         search_string: queryContext.lowerCaseSearchString,
         matchBehavior: Ci.mozIPlacesAutoComplete.MATCH_ANYWHERE,
         searchBehavior: lazy.UrlbarPrefs.get("defaultBehavior"),
-        userContextId: lazy.UrlbarPrefs.get("switchTabs.searchAllContainers")
-          ? lazy.UrlbarProviderOpenTabs.getUserContextIdForOpenPagesTable(
-              null,
-              queryContext.isPrivate
-            )
-          : queryContext.userContextId,
+        userContextId:
+          lazy.UrlbarProviderOpenTabs.getUserContextIdForOpenPagesTable(
+            null,
+            queryContext.isPrivate
+          ),
         maxResults: queryContext.maxResults,
       },
     ];

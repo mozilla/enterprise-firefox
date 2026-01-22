@@ -4,8 +4,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#if !defined(__nsHTTPCompressConv__h__)
-#  define __nsHTTPCompressConv__h__ 1
+#if !defined(_nsHTTPCompressConv_h_)
+#  define _nsHTTPCompressConv_h_ 1
 
 #  include "nsIStreamConverter.h"
 #  include "nsICompressConvStats.h"
@@ -104,7 +104,7 @@ class nsHTTPCompressConv : public nsIStreamConverter,
   bool mStreamInitialized{false};
   bool mDummyStreamInitialised{false};
   bool mFailUncleanStops;
-  bool mDispatchToMainThread{false};
+  Atomic<bool> mDispatchToMainThread{false};
 
   z_stream d_stream{};
   unsigned mLen{0}, hMode{0}, mSkipCount{0}, mFlags{0};

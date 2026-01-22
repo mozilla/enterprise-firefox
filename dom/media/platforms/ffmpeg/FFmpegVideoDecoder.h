@@ -4,8 +4,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef __FFmpegVideoDecoder_h__
-#define __FFmpegVideoDecoder_h__
+#ifndef FFmpegVideoDecoder_h_
+#define FFmpegVideoDecoder_h_
 
 #include <atomic>
 
@@ -66,7 +66,7 @@ class FFmpegVideoDecoder<LIBAV_VER>
   typedef mozilla::layers::KnowsCompositor KnowsCompositor;
 
  public:
-  FFmpegVideoDecoder(FFmpegLibWrapper* aLib, const VideoInfo& aConfig,
+  FFmpegVideoDecoder(const FFmpegLibWrapper* aLib, const VideoInfo& aConfig,
                      KnowsCompositor* aAllocator,
                      ImageContainer* aImageContainer, bool aLowLatency,
                      bool aDisableHardwareDecoding, bool a8BitOutput,
@@ -162,11 +162,13 @@ class FFmpegVideoDecoder<LIBAV_VER>
 #endif
 
   RefPtr<KnowsCompositor> mImageAllocator;
+  RefPtr<ImageContainer> mImageContainer;
+  VideoInfo mInfo;
 
 #ifdef MOZ_USE_HWDECODE
  public:
   static AVCodec* FindVideoHardwareAVCodec(
-      FFmpegLibWrapper* aLib, AVCodecID aCodec,
+      const FFmpegLibWrapper* aLib, AVCodecID aCodec,
       AVHWDeviceType aDeviceType = AV_HWDEVICE_TYPE_NONE);
 
  private:
@@ -202,6 +204,9 @@ class FFmpegVideoDecoder<LIBAV_VER>
 #endif
 
 #ifdef MOZ_WIDGET_ANDROID
+#  ifdef USING_MOZFFVPX
+  MediaResult AllocateExtraData();
+#  endif
   MediaResult InitMediaCodecDecoder();
   MediaResult CreateImageMediaCodec(int64_t aOffset, int64_t aPts,
                                     int64_t aTimecode, int64_t aDuration,
@@ -239,9 +244,6 @@ class FFmpegVideoDecoder<LIBAV_VER>
   UniquePtr<VideoFramePool<LIBAV_VER>> mVideoFramePool;
   static nsTArray<AVCodecID> mAcceleratedFormats;
 #endif
-
-  RefPtr<ImageContainer> mImageContainer;
-  VideoInfo mInfo;
 
 #if LIBAVCODEC_VERSION_MAJOR >= 58
   class DecodeStats {
@@ -422,4 +424,4 @@ class ImageBufferWrapper final {
 
 }  // namespace mozilla
 
-#endif  // __FFmpegVideoDecoder_h__
+#endif  // FFmpegVideoDecoder_h_

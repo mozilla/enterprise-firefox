@@ -263,7 +263,7 @@ static KeyNameIndex ConvertAndroidKeyCodeToKeyNameIndex(
   case aNativeKey:                                                     \
     return aKeyNameIndex;
 
-#include "NativeKeyToDOMKeyName.h"
+#include "NativeKeyToDOMKeyName.inc"
 
 #undef NS_NATIVE_KEY_TO_DOM_KEY_NAME_INDEX
 
@@ -374,7 +374,7 @@ static CodeNameIndex ConvertAndroidScanCodeToCodeNameIndex(int32_t scanCode) {
   case aNativeKey:                                                       \
     return aCodeNameIndex;
 
-#include "NativeKeyToDOMCodeName.h"
+#include "NativeKeyToDOMCodeName.inc"
 
 #undef NS_NATIVE_KEY_TO_DOM_CODE_NAME_INDEX
 

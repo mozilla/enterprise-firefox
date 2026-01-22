@@ -2010,7 +2010,8 @@ bool wasm::ValidateOps(ValidatingOpIter& iter, T& dumper,
       }
       case uint16_t(Op::RefIsNull): {
         Nothing nothing;
-        if (!iter.readRefIsNull(&nothing)) {
+        RefType unusedRefType;
+        if (!iter.readRefIsNull(&nothing, &unusedRefType)) {
           return false;
         }
         break;
@@ -3027,25 +3028,9 @@ static bool DecodeTag(Decoder& d, CodeMetadata* codeMeta, TagKind* tagKind,
   return true;
 }
 
-static bool DecodeImport(Decoder& d, CodeMetadata* codeMeta,
-                         ModuleMetadata* moduleMeta) {
-  CacheableName moduleName;
-  if (!DecodeName(d, &moduleName)) {
-    return d.fail("expected valid import module name");
-  }
-
-  CacheableName fieldName;
-  if (!DecodeName(d, &fieldName)) {
-    return d.fail("expected valid import field name");
-  }
-
-  uint8_t rawImportKind;
-  if (!d.readFixedU8(&rawImportKind)) {
-    return d.fail("failed to read import kind");
-  }
-
-  DefinitionKind importKind = DefinitionKind(rawImportKind);
-
+static bool DecodeImportType(Decoder& d, DefinitionKind importKind,
+                             CodeMetadata* codeMeta,
+                             ModuleMetadata* moduleMeta) {
   switch (importKind) {
     case DefinitionKind::Function: {
       uint32_t funcTypeIndex;
@@ -3113,8 +3098,155 @@ static bool DecodeImport(Decoder& d, CodeMetadata* codeMeta,
       return d.fail("unsupported import kind");
   }
 
+  return true;
+}
+
+static bool DecodeImportGroup(Decoder& d, CodeMetadata* codeMeta,
+                              ModuleMetadata* moduleMeta) {
+  CacheableName moduleName;
+  if (!DecodeName(d, &moduleName)) {
+    return d.fail("expected valid import module name");
+  }
+  CacheableName itemName;
+  if (!DecodeName(d, &itemName)) {
+    return d.fail("expected valid import name");
+  }
+  uint8_t rawImportKind;
+  if (!d.readFixedU8(&rawImportKind)) {
+    return d.fail("failed to read import kind");
+  }
+
+#ifdef ENABLE_WASM_COMPACT_IMPORTS
+  // Compact encoding 1: one module name, many (item name, externtype) pairs
+  if (codeMeta->compactImportsEnabled() && itemName.isEmpty() &&
+      rawImportKind == uint8_t(CompactImportKind::ModuleName)) {
+    uint32_t numImports;
+    if (!d.readVarU32(&numImports)) {
+      return d.fail("failed to read number of compact imports");
+    }
+
+    mozilla::CheckedUint32 numImportsSoFar(moduleMeta->imports.length());
+    numImportsSoFar += numImports;
+    if (!numImportsSoFar.isValid() || numImportsSoFar.value() > MaxImports) {
+      return d.fail("too many imports");
+    }
+
+    for (uint32_t i = 0; i < numImports; i++) {
+      CacheableName clonedModuleName;
+      if (!moduleName.clone(&clonedModuleName)) {
+        return false;
+      }
+
+      CacheableName compactItemName;
+      if (!DecodeName(d, &compactItemName)) {
+        return d.fail("expected valid import name");
+      }
+
+      uint8_t importKind;
+      if (!d.readFixedU8(&importKind)) {
+        return d.fail("failed to read import kind");
+      }
+      if (!DecodeImportType(d, DefinitionKind(importKind), codeMeta,
+                            moduleMeta)) {
+        MOZ_ASSERT(
+            !d.error(),
+            "at this point, DecodeImportType should only fail due to OOM");
+        return false;
+      }
+
+      if (!moduleMeta->imports.emplaceBack(std::move(clonedModuleName),
+                                           std::move(compactItemName),
+                                           DefinitionKind(importKind))) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  // Compact encoding 2: one module name and externtype, many item names
+  if (codeMeta->compactImportsEnabled() && itemName.isEmpty() &&
+      rawImportKind == uint8_t(CompactImportKind::ModuleNameAndExternType)) {
+    uint8_t importKind;
+    if (!d.readFixedU8(&importKind)) {
+      return d.fail("failed to read import kind");
+    }
+
+    // Decode the import type that will be used for all imports in this group.
+    // Record the decoder state before and after so we can repeatedly
+    // re-decode the type throughout the group, as DecodeImportType has side
+    // effects.
+    const uint8_t* posBeforeType = d.currentPosition();
+    const size_t offsetBeforeType = d.currentOffset();
+    if (!DecodeImportType(d, DefinitionKind(importKind), codeMeta,
+                          moduleMeta)) {
+      return false;
+    }
+    const uint8_t* posAfterType = d.currentPosition();
+
+    uint32_t numImports;
+    if (!d.readVarU32(&numImports)) {
+      return d.fail("failed to read number of compact imports");
+    }
+
+    // TODO: We cannot handle zero imports because parsing the import type
+    // earlier has side effects. We need to rework import type parsing to avoid
+    // these side effects.
+    if (numImports == 0) {
+      return d.fail("must have at least one import in the group");
+    }
+
+    mozilla::CheckedUint32 numImportsSoFar(moduleMeta->imports.length());
+    numImportsSoFar += numImports;
+    if (!numImportsSoFar.isValid() || numImportsSoFar.value() > MaxImports) {
+      return d.fail("too many imports");
+    }
+
+    for (uint32_t i = 0; i < numImports; i++) {
+      CacheableName clonedModuleName;
+      if (!moduleName.clone(&clonedModuleName)) {
+        return false;
+      }
+
+      CacheableName compactItemName;
+      if (!DecodeName(d, &compactItemName)) {
+        return d.fail("expected valid import name");
+      }
+
+      // Re-decode the import type to trigger the side effects - but only
+      // after the first import item, since we already triggered the side
+      // effects once when parsing the group's type before.
+      if (i > 0) {
+        Decoder typeDecoder(posBeforeType, posAfterType, offsetBeforeType,
+                            d.error());
+        if (!DecodeImportType(typeDecoder, DefinitionKind(importKind), codeMeta,
+                              moduleMeta)) {
+          return false;
+        }
+      }
+
+      if (!moduleMeta->imports.emplaceBack(std::move(clonedModuleName),
+                                           std::move(compactItemName),
+                                           DefinitionKind(importKind))) {
+        return false;
+      }
+    }
+    return true;
+  }
+#endif
+
+  // Single-item encoding
+  mozilla::CheckedUint32 numImportsSoFar(moduleMeta->imports.length());
+  numImportsSoFar += 1;
+  if (!numImportsSoFar.isValid() || numImportsSoFar.value() > MaxImports) {
+    return d.fail("too many imports");
+  }
+  if (!DecodeImportType(d, DefinitionKind(rawImportKind), codeMeta,
+                        moduleMeta)) {
+    return false;
+  }
   return moduleMeta->imports.emplaceBack(std::move(moduleName),
-                                         std::move(fieldName), importKind);
+                                         std::move(itemName),
+                                         DefinitionKind(rawImportKind));
 }
 
 static bool CheckImportsAgainstBuiltinModules(Decoder& d,
@@ -3209,17 +3341,12 @@ static bool DecodeImportSection(Decoder& d, CodeMetadata* codeMeta,
     return true;
   }
 
-  uint32_t numImports;
-  if (!d.readVarU32(&numImports)) {
+  uint32_t numImportGroups;
+  if (!d.readVarU32(&numImportGroups)) {
     return d.fail("failed to read number of imports");
   }
-
-  if (numImports > MaxImports) {
-    return d.fail("too many imports");
-  }
-
-  for (uint32_t i = 0; i < numImports; i++) {
-    if (!DecodeImport(d, codeMeta, moduleMeta)) {
+  for (uint32_t i = 0; i < numImportGroups; i++) {
+    if (!DecodeImportGroup(d, codeMeta, moduleMeta)) {
       return false;
     }
   }

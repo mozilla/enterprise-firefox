@@ -59,7 +59,7 @@ const JSClass DurationFormatObject::class_ = {
     "Intl.DurationFormat",
     JSCLASS_HAS_RESERVED_SLOTS(DurationFormatObject::SLOT_COUNT) |
         JSCLASS_HAS_CACHED_PROTO(JSProto_DurationFormat) |
-        JSCLASS_FOREGROUND_FINALIZE,
+        JSCLASS_BACKGROUND_FINALIZE,
     &DurationFormatObject::classOps_,
     &DurationFormatObject::classSpec_,
 };
@@ -124,8 +124,6 @@ const ClassSpec DurationFormatObject::classSpec_ = {
 };
 
 void js::DurationFormatObject::finalize(JS::GCContext* gcx, JSObject* obj) {
-  MOZ_ASSERT(gcx->onMainThread());
-
   auto* durationFormat = &obj->as<DurationFormatObject>();
 
   for (auto unit : durationUnits) {

@@ -13,7 +13,6 @@
 #include "mozilla/Maybe.h"
 #include "mozilla/MemoryReporting.h"
 
-#include <string.h>
 #include <type_traits>
 
 #include "jstypes.h"

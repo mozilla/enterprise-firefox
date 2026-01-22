@@ -6,8 +6,6 @@
 
 #include "LauncherProcessWin.h"
 
-#include <string.h>
-
 #include "mozilla/CmdLineAndEnvUtils.h"
 #include "mozilla/DebugOnly.h"
 #include "mozilla/glue/Debug.h"

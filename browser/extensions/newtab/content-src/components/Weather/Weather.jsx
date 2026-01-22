@@ -272,6 +272,22 @@ export class _Weather extends React.PureComponent {
 
     const WEATHER_SUGGESTION = Weather.suggestions?.[0];
 
+    const nimbusWeatherDisplay = Prefs.values.trainhopConfig?.weather?.display;
+    const showDetailedView =
+      nimbusWeatherDisplay === "detailed" ||
+      Prefs.values["weather.display"] === "detailed";
+
+    const nimbusWeatherForecastTrainhopEnabled =
+      Prefs.values.trainhopConfig?.widgets?.weatherForecastEnabled;
+
+    const weatherForecastWidgetEnabled =
+      nimbusWeatherForecastTrainhopEnabled ||
+      Prefs.values["widgets.system.weatherForecast.enabled"];
+
+    if (showDetailedView && weatherForecastWidgetEnabled) {
+      return null;
+    }
+
     const outerClassName = [
       "weather",
       Weather.searchActive && "search",
@@ -280,11 +296,17 @@ export class _Weather extends React.PureComponent {
       .filter(v => v)
       .join(" ");
 
-    const showDetailedView = Prefs.values["weather.display"] === "detailed";
-
     const weatherOptIn = Prefs.values["system.showWeatherOptIn"];
     const nimbusWeatherOptInEnabled =
       Prefs.values.trainhopConfig?.weather?.weatherOptInEnabled;
+    // Bug 2009484: Controls button order in opt-in dialog for A/B testing.
+    // When true, "Not now" gets slot="primary";
+    // when false/undefined, "Yes" gets slot="primary".
+    // Also note the primary button's position varies by platform:
+    // on Windows, it appears on the left,
+    // while on Linux and macOS, it appears on the right.
+    const reverseOptInButtons =
+      Prefs.values.trainhopConfig?.weather?.reverseOptInButtons;
 
     const optInDisplayed = Prefs.values["weather.optInDisplayed"];
     const optInUserChoice = Prefs.values["weather.optInAccepted"];
@@ -385,8 +407,9 @@ export class _Weather extends React.PureComponent {
               </div>
             ) : (
               <a
-                data-l10n-id="newtab-weather-see-forecast"
+                data-l10n-id="newtab-weather-see-forecast-description"
                 data-l10n-args='{"provider": "AccuWeather®"}'
+                data-l10n-attrs="aria-description"
                 href={WEATHER_SUGGESTION.forecast.url}
                 className="weatherInfoLink"
                 onClick={this.onProviderClick}
@@ -412,10 +435,9 @@ export class _Weather extends React.PureComponent {
                       {Weather.locationData.city}
                     </span>
                   </div>
-                  {showDetailedView ? (
+                  {showDetailedView && !weatherForecastWidgetEnabled ? (
                     <div className="weatherDetailedSummaryRow">
                       <div className="weatherHighLowTemps">
-                        {/* Low Forecasted Temperature */}
                         <span>
                           {
                             WEATHER_SUGGESTION.forecast.high[
@@ -425,9 +447,7 @@ export class _Weather extends React.PureComponent {
                           &deg;
                           {Prefs.values["weather.temperatureUnits"]}
                         </span>
-                        {/* Spacer / Bullet */}
                         <span>&bull;</span>
-                        {/* Low Forecasted Temperature */}
                         <span>
                           {
                             WEATHER_SUGGESTION.forecast.low[
@@ -453,7 +473,7 @@ export class _Weather extends React.PureComponent {
                 : WEATHER_SOURCE_CONTEXT_MENU_OPTIONS
             )}
           </div>
-          <span className="weatherSponsorText">
+          <span className="weatherSponsorText" aria-hidden="true">
             <span
               data-l10n-id="newtab-weather-sponsored"
               data-l10n-args='{"provider": "AccuWeather®"}'
@@ -470,16 +490,18 @@ export class _Weather extends React.PureComponent {
                     <moz-button
                       size="small"
                       type="default"
-                      data-l10n-id="newtab-weather-opt-in-not-now"
-                      onClick={this.handleRejectOptIn}
-                      id="reject-opt-in"
+                      data-l10n-id="newtab-weather-opt-in-yes"
+                      onClick={this.handleAcceptOptIn}
+                      id="accept-opt-in"
+                      slot={reverseOptInButtons ? "" : "primary"}
                     />
                     <moz-button
                       size="small"
                       type="default"
-                      data-l10n-id="newtab-weather-opt-in-yes"
-                      onClick={this.handleAcceptOptIn}
-                      id="accept-opt-in"
+                      data-l10n-id="newtab-weather-opt-in-not-now"
+                      onClick={this.handleRejectOptIn}
+                      id="reject-opt-in"
+                      slot={reverseOptInButtons ? "primary" : ""}
                     />
                   </moz-button-group>
                 </div>

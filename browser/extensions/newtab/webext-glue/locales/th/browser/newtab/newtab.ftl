@@ -328,13 +328,8 @@ newtab-custom-recent-subtitle = ไซต์และเนื้อหาล่
 newtab-custom-weather-toggle =
     .label = พยากรณ์อากาศ
     .description = ดูพยากรณ์อากาศประจำวันนี้ได้อย่างรวดเร็ว
-newtab-custom-trending-search-toggle =
-    .label = การค้นหาที่กำลังมาแรง
-    .description = หัวข้อที่มีการค้นหาซึ่งได้รับความนิยมและพบบ่อย
 newtab-custom-widget-weather-toggle =
     .label = พยากรณ์อากาศ
-newtab-custom-widget-trending-search-toggle =
-    .label = การค้นหาที่กำลังนิยม
 newtab-custom-widget-lists-toggle =
     .label = รายการ
 newtab-custom-widget-timer-toggle =
@@ -595,7 +590,7 @@ newtab-download-mobile-highlight-image =
 newtab-shortcuts-highlight-title = รายการโปรดของคุณอยู่แค่ปลายนิ้ว
 newtab-shortcuts-highlight-subtitle = เพิ่มทางลัดเพื่อให้เข้าถึงไซต์โปรดของคุณได้ในคลิกเดียว
 
-## Strings for reporting ads and content
+## Strings for reporting issues with ads and content
 
 newtab-report-content-why-reporting-this =
     .label = ทำไมคุณถึงรายงานสิ่งนี้?
@@ -613,21 +608,13 @@ newtab-report-content-inappropriate-offensive =
     .label = ไม่เหมาะสมหรือก้าวร้าว
 newtab-report-content-spam-misleading =
     .label = สแปมหรือทำให้เข้าใจผิด
+newtab-report-content-requires-payment-subscription =
+    .label = ต้องชำระเงินหรือสมัครสมาชิก
+newtab-report-content-requires-payment-subscription-learn-more = เรียนรู้เพิ่มเติม
 newtab-report-cancel = ยกเลิก
 newtab-report-submit = ส่ง
 newtab-toast-thanks-for-reporting =
     .message = ขอบคุณที่รายงานสิ่งนี้
-
-## Strings for trending searches
-
-newtab-trending-searches-show-trending =
-    .title = แสดงการค้นหาที่กำลังมาแรง
-newtab-trending-searches-hide-trending =
-    .title = ซ่อนการค้นหาที่กำลังมาแรง
-newtab-trending-searches-learn-more = เรียนรู้เพิ่มเติม
-newtab-trending-searches-dismiss = ซ่อนการค้นหาที่กำลังมาแรง
-# "Trending searches refers to popular searches from search engines
-newtab-trending-searches-title = การค้นหาที่กำลังมาแรง
 
 ## Strings for task / to-do list productivity widget
 

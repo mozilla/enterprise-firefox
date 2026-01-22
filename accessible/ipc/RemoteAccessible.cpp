@@ -1652,13 +1652,6 @@ bool RemoteAccessible::IsEditable() const {
   return false;
 }
 
-#if !defined(XP_WIN)
-void RemoteAccessible::Announce(const nsString& aAnnouncement,
-                                uint16_t aPriority) {
-  (void)mDoc->SendAnnounce(mID, aAnnouncement, aPriority);
-}
-#endif  // !defined(XP_WIN)
-
 int32_t RemoteAccessible::ValueRegion() const {
   MOZ_ASSERT(TagName() == nsGkAtoms::meter,
              "Accessing value region on non-meter element?");
