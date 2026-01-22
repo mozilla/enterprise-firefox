@@ -13,28 +13,28 @@ const customSchema = {
       type: "string",
     },
   },
-}
+};
 
 let policy_value0 = POLICY_PARAM_STATE.DEFAULT;
 let policy_value1 = POLICY_PARAM_STATE.DEFAULT;
 
 const simple_policy0 = {
-  onBeforeUIStartup : (_manager, param) => {
+  onBeforeUIStartup: (_manager, param) => {
     policy_value0 = param;
   },
-  onRemove : (_manager, _oldParam) => {
+  onRemove: (_manager, _oldParam) => {
     policy_value0 = POLICY_PARAM_STATE.REMOVED;
-  }
-}
+  },
+};
 
 const simple_policy1 = {
-  onBeforeUIStartup : (_manager, param) => {
+  onBeforeUIStartup: (_manager, param) => {
     policy_value1 = param;
   },
-  onRemove : (_manager, _oldParam) => {
+  onRemove: (_manager, _oldParam) => {
     policy_value1 = POLICY_PARAM_STATE.REMOVED;
-  }
-}
+  },
+};
 
 add_setup(() => {
   Policies.simple_policy0 = simple_policy0;
@@ -55,7 +55,7 @@ add_task(async function test_remote_policy_overrides_local_policy() {
     policies: {
       simple_policy0: POLICY_PARAM_STATE.APPLIED_LOCAL_POLICY,
     },
-  }
+  };
   let remotePolicies = {
     policies: {},
   };
@@ -118,7 +118,7 @@ add_task(async function test_remote_and_local_policy_merged() {
     policies: {
       simple_policy0: POLICY_PARAM_STATE.APPLIED_LOCAL_POLICY,
     },
-  }
+  };
   let remotePolicies = {
     policies: {
       simple_policy1: POLICY_PARAM_STATE.APPLIED_REMOTE_POLICY,
@@ -133,7 +133,10 @@ add_task(async function test_remote_and_local_policy_merged() {
 
   Assert.deepEqual(
     Services.policies.getActivePolicies(),
-    { simple_policy0: POLICY_PARAM_STATE.APPLIED_LOCAL_POLICY, simple_policy1: POLICY_PARAM_STATE.APPLIED_REMOTE_POLICY },
+    {
+      simple_policy0: POLICY_PARAM_STATE.APPLIED_LOCAL_POLICY,
+      simple_policy1: POLICY_PARAM_STATE.APPLIED_REMOTE_POLICY,
+    },
     "Expected local and remote policy to be merged."
   );
   Assert.equal(

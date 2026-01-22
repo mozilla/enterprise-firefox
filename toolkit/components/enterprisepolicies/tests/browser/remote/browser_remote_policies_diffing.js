@@ -22,12 +22,10 @@ const TestPolicy = {
   },
 };
 
-
 add_setup(async () => {
   Policies.TestPolicy = TestPolicy;
 
   registerCleanupFunction(async () => {
-    dump("In cleanup")
     delete Policies.TestPolicy;
   });
 });
@@ -66,7 +64,6 @@ add_task(async function test_policy_update_apply_new_policy() {
     { TestPolicy: POLICY_PARAM_STATE.APPLIED },
     "Expected remote policy TestPolicy with parameter APPLIED."
   );
-
 });
 
 add_task(async function test_policy_update_apply_policy_param_update() {
