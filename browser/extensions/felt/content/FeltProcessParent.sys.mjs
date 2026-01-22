@@ -354,6 +354,7 @@ export class FeltProcessParent extends JSProcessActorParent {
 
       for (let profile of profileService.profiles) {
         if (profile.name === profileName) {
+          foundProfile = profile;
           break;
         }
       }
