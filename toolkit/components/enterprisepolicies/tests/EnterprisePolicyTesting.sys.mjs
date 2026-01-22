@@ -11,11 +11,14 @@ ChromeUtils.defineESModuleGetters(lazy, {
   FileTestUtils: "resource://testing-common/FileTestUtils.sys.mjs",
   modifySchemaForTests: "resource:///modules/policies/schema.sys.mjs",
   sinon: "resource://testing-common/Sinon.sys.mjs",
+  ConsoleClient: "resource:///modules/enterprise/ConsoleClient.sys.mjs",
 });
 
 export const REMOTE_POLICIES_TESTING_PREF = "browser.policies.remote.enabled";
 
 export const EnterprisePolicyTesting = {
+
+  /* The stub wrapping ConsoleClient.getRemotePolicies to control which remote policies are fetched */
   get remotePoliciesStub() {
     return this._remotePoliciesStub;
   },
@@ -24,6 +27,12 @@ export const EnterprisePolicyTesting = {
     this._remotePoliciesStub = stub;
   },
 
+  /**
+   * Observe for all policies to be applied. This notification 
+   * is sent when the policy engine is started up or reseted.
+   * 
+   * @param {Promise} resolve Promise that resolves once all policies are applied.
+   */
   resolveOnceAllPoliciesApplied(resolve) {
     Services.obs.addObserver(function observer() {
       Services.obs.removeObserver(
@@ -32,6 +41,22 @@ export const EnterprisePolicyTesting = {
       );
       resolve();
     }, "EnterprisePolicies:AllPoliciesApplied");
+  },
+
+  /**
+   * Observe for a policy update. This notification is sent once 
+   * we check the console for updated policies.
+   * 
+   * @param {Promise} resolve Promise that resolves once the policy update is handled.
+   */
+  resolveOnceAllPolicyUpdatesApplied(resolve) {
+    Services.obs.addObserver(function observer() {
+      Services.obs.removeObserver(
+        observer,
+        "EnterprisePolicies:PolicyUpdatesApplied"
+      );
+      resolve();
+    }, "EnterprisePolicies:PolicyUpdatesApplied");
   },
 
   // |json| must be an object representing the desired policy configuration, OR a
@@ -63,32 +88,39 @@ export const EnterprisePolicyTesting = {
     return promise;
   },
 
-  resolveOnceAllPolicyUpdatesApplied(resolve) {
-    Services.obs.addObserver(function observer() {
-      Services.obs.removeObserver(
-        observer,
-        "EnterprisePolicies:PolicyUpdatesApplied"
-      );
-      resolve();
-    }, "EnterprisePolicies:PolicyUpdatesApplied");
-  },
 
-  nextPolicyUpdatesApplied() {
+  awaitNextPolicyUpdate() {
     const { promise, resolve } = Promise.withResolvers();
     this.resolveOnceAllPolicyUpdatesApplied(resolve);
     return promise;
   },
 
-  async servePolicyWithRemoteJson(json, customSchema) {
+  /**
+   * Apply the custom schema, setup the remote policies stub and 
+   * trigger a restart of the policy engine.
+   * 
+   * @param {object} policies 
+   * @param {object} customSchema 
+   * @returns {Promise} Promise that resolves once the set of policies are applied
+   */
+  async servePolicyWithRemoteJson(policies, customSchema) {
     lazy.modifySchemaForTests(customSchema || null);
 
-    const policiesAppliedPromise = this.applyRemotePolicies(json, false);
+    const policiesAppliedPromise = this.applyRemotePolicies(policies, false);
 
     Services.obs.notifyObservers(null, "EnterprisePolicies:Restart");
 
     return policiesAppliedPromise;
   },
 
+  /**
+   * Listen for the policies to be applied and stub the remote policies.
+   * 
+   * @param {object} policies 
+   * @param {boolean} isUpdate Whether the promise resolves once all policies are 
+   *                           applied on startup or once the policy update is complete
+   * @returns {Promise} Promise that resolves once the set of policies are applied
+   */
   async applyRemotePolicies(policies, isUpdate = true) {
     const { promise, resolve } = Promise.withResolvers();
     if (isUpdate) {
@@ -99,15 +131,11 @@ export const EnterprisePolicyTesting = {
       this.resolveOnceAllPoliciesApplied(resolve);
     }
 
-    const { ConsoleClient } = ChromeUtils.importESModule(
-      "resource:///modules/enterprise/ConsoleClient.sys.mjs"
-    );
-
     if (this.remotePoliciesStub) {
       this.remotePoliciesStub.restore();
     }
     this.remotePoliciesStub = lazy.sinon.stub(
-      ConsoleClient,
+      lazy.ConsoleClient,
       "getRemotePolicies"
     );
 

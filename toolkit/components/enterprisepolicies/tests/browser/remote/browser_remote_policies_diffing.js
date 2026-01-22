@@ -179,7 +179,7 @@ add_task(async function test_policy_update_no_changes() {
   policyValue = POLICY_PARAM_STATE.DEFAULT;
 
   // Wait for next policy update to complete
-  await EnterprisePolicyTesting.nextPolicyUpdatesApplied();
+  await EnterprisePolicyTesting.awaitNextPolicyUpdate();
 
   // Verify that the policy's callback wasn't called a second time.
   Assert.deepEqual(
