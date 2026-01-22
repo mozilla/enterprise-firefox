@@ -350,7 +350,6 @@ export class FeltProcessParent extends JSProcessActorParent {
       ].getService(Ci.nsIToolkitProfileService);
 
       let profileName = await this.profileName();
-      let legacyProfileName = lazy.FeltCommon.ENTERPRISE_PROFILE;
       let foundProfile = null;
 
       for (let profile of profileService.profiles) {
@@ -359,7 +358,9 @@ export class FeltProcessParent extends JSProcessActorParent {
         }
       }
 
+      /* Remove once we finished foxfooding */
       if (!foundProfile) {
+        let legacyProfileName = lazy.FeltCommon.ENTERPRISE_PROFILE;
         for (let profile of profileService.profiles) {
           if (profile.name === legacyProfileName) {
             foundProfile = profile;
