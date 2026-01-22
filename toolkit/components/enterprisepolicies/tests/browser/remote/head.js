@@ -28,3 +28,36 @@ add_setup(async () => {
     }
   });
 });
+
+/**
+ * Set up a policy engine that combined local and regularly fetched remote policies.
+ *
+ * @param {object} localPolicies Policies to be read from a local policies.json
+ * @param {object} remotePolicies Policies to be fetched from a stubed ConsoleClient endpoint
+ * @param {object} customSchema
+ *
+ * @returns {Promise} Promise that resolves once local and remote policies are applied after a policy engine restart.
+ */
+async function setupPolicyEngineWithCombinedPolicyProvider(
+  localPolicies,
+  remotePolicies,
+  customSchema
+) {
+  PoliciesPrefTracker.restoreDefaultValues();
+
+  // Stub remote policies endpoint
+  const remotePoliciesAppliedPromise =
+    EnterprisePolicyTesting.applyRemotePolicies(remotePolicies, false);
+
+  // Put local policies in place (local policies.json file)
+  const localPoliciesAppliedPromise = setupPolicyWithJsonFile(
+    localPolicies,
+    customSchema
+  );
+
+  // Waiting for the "EnterprisePolicies:PolicyUpdatesApplied" notification
+  return Promise.all([
+    localPoliciesAppliedPromise,
+    remotePoliciesAppliedPromise,
+  ]);
+}

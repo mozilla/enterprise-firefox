@@ -11,6 +11,8 @@ environment = [
   "MOZ_AUTOMATION=1",
 ]
 
+["browser_remote_and_local_policies_merging.js"]
+
 ["browser_remote_policies_basic.js"]
 
 ["browser_remote_policies_diffing.js"]
