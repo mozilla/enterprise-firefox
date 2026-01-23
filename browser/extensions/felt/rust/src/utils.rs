@@ -5,7 +5,6 @@
 use nserror::NS_OK;
 use nsstring::nsCString;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 use std::sync::{Arc, LazyLock, OnceLock, RwLock};
 use std::{ffi::CString, future::Future};
 use xpcom::interfaces::{nsICookie, nsICookieManager, nsIObserverService, nsIPrefBranch};
@@ -171,7 +170,7 @@ pub fn open_url_in_firefox(url: String, disposition: i32) {
         url,
         disposition
     );
-    let payload = json!({
+    let payload = serde_json::json!({
         "url": url,
         "disposition": disposition,
     })

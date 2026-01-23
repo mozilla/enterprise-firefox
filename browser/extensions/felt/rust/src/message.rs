@@ -62,4 +62,4 @@ pub enum FeltMessage {
     LogoutShutdown,
 }
 
-pub const FELT_IPC_VERSION: u32 = 3;
+pub const FELT_IPC_VERSION: u32 = 4;

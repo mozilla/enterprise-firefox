@@ -15,10 +15,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
 
 console.debug(`FeltExtension: FeltParentProcess.sys.mjs`);
 
-// Import the shared pending URLs queue from BrowserContentHandler
-// This queue is shared between BrowserContentHandler (which fills it early during command-line
-// processing) and FeltProcessParent (which forwards URLs after Firefox is ready)
-import { gFeltPendingURLs } from "resource:///modules/BrowserContentHandler.sys.mjs";
+// Import the shared pending URLs queue
+import { gFeltPendingURLs } from "resource:///modules/FeltURLHandler.sys.mjs";
 
 export function queueURL(payload) {
   // If Firefox AND extension are both ready, forward immediately

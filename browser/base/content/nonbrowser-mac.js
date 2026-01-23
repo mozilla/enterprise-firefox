@@ -3,18 +3,22 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+var { AppConstants } = ChromeUtils.importESModule(
+  "resource://gre/modules/AppConstants.sys.mjs"
+);
+
 function queueFeltDockAction(isPrivate) {
-  const FELT_OPEN_DISPOSITION_NEW_WINDOW = 1;
-  const FELT_OPEN_DISPOSITION_NEW_PRIVATE_WINDOW = 2;
+  if (!AppConstants.MOZ_ENTERPRISE) {
+    return;
+  }
+  const { queueFeltURL, FELT_OPEN_WINDOW_DISPOSITION } =
+    ChromeUtils.importESModule("resource:///modules/FeltURLHandler.sys.mjs");
   let payload = {
     url: "",
     disposition: isPrivate
-      ? FELT_OPEN_DISPOSITION_NEW_PRIVATE_WINDOW
-      : FELT_OPEN_DISPOSITION_NEW_WINDOW,
+      ? FELT_OPEN_WINDOW_DISPOSITION.NEW_PRIVATE_WINDOW
+      : FELT_OPEN_WINDOW_DISPOSITION.NEW_WINDOW,
   };
-  const { queueFeltURL } = ChromeUtils.importESModule(
-    "resource:///modules/BrowserContentHandler.sys.mjs"
-  );
   queueFeltURL(payload);
 }
 
@@ -24,7 +28,7 @@ var NonBrowserWindow = {
   MAC_HIDDEN_WINDOW: "chrome://browser/content/hiddenWindowMac.xhtml",
 
   openBrowserWindowFromDockMenu(options = {}) {
-    if (Services.felt.isFeltUI()) {
+    if (AppConstants.MOZ_ENTERPRISE && Services.felt.isFeltUI()) {
       queueFeltDockAction(options.private);
       return null;
     }
@@ -130,7 +134,7 @@ var NonBrowserWindow = {
       }
 
       // In Felt mode, disable dock menu items until Firefox is ready
-      if (Services.felt.isFeltUI()) {
+      if (AppConstants.MOZ_ENTERPRISE && Services.felt.isFeltUI()) {
         this.setupFeltDockMenuState();
       }
     }
@@ -208,7 +212,7 @@ var NonBrowserWindow = {
       this.dockSupport.dockMenu = null;
 
       // Clean up Felt observer if still registered
-      if (this.feltReadyObserver) {
+      if (AppConstants.MOZ_ENTERPRISE && this.feltReadyObserver) {
         Services.obs.removeObserver(
           this.feltReadyObserver,
           "felt-firefox-window-ready"

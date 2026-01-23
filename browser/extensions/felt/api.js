@@ -7,11 +7,9 @@
 /* globals ExtensionAPI, Services, XPCOMUtils */
 
 const lazy = {};
-const FELT_OPEN_DISPOSITION_DEFAULT = 0;
-const FELT_OPEN_DISPOSITION_NEW_WINDOW = 1;
-const FELT_OPEN_DISPOSITION_NEW_PRIVATE_WINDOW = 2;
 
 ChromeUtils.defineESModuleGetters(lazy, {
+  FELT_OPEN_WINDOW_DISPOSITION: "resource:///modules/FeltURLHandler.sys.mjs",
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
   FeltStorage: "resource:///modules/FeltStorage.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
@@ -87,11 +85,11 @@ this.felt = class extends ExtensionAPI {
     async _handleFeltExternalUrl(data) {
       let { url, disposition } = this._parseOpenURLData(data);
       if (
-        disposition === FELT_OPEN_DISPOSITION_NEW_WINDOW ||
-        disposition === FELT_OPEN_DISPOSITION_NEW_PRIVATE_WINDOW
+        disposition === lazy.FELT_OPEN_WINDOW_DISPOSITION.NEW_WINDOW ||
+        disposition === lazy.FELT_OPEN_WINDOW_DISPOSITION.NEW_PRIVATE_WINDOW
       ) {
         let wantsPrivate =
-          disposition === FELT_OPEN_DISPOSITION_NEW_PRIVATE_WINDOW;
+          disposition === lazy.FELT_OPEN_WINDOW_DISPOSITION.NEW_PRIVATE_WINDOW;
         this._openFeltWindow(url, wantsPrivate);
         return;
       }
@@ -140,7 +138,8 @@ this.felt = class extends ExtensionAPI {
       let parsed = JSON.parse(data);
       return {
         url: parsed.url ?? "",
-        disposition: parsed.disposition ?? FELT_OPEN_DISPOSITION_DEFAULT,
+        disposition:
+          parsed.disposition ?? lazy.FELT_OPEN_WINDOW_DISPOSITION.DEFAULT,
       };
     },
 

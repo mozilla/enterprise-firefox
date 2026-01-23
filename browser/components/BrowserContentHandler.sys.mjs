@@ -448,7 +448,10 @@ nsBrowserContentHandler.prototype = {
 
   /* nsICommandLineHandler */
   handle: function bch_handle(cmdLine) {
-    const isFeltUI = Services.felt.isFeltUI();
+    const isFeltUI =
+      AppConstants.MOZ_ENTERPRISE && Services.felt?.isFeltUI();
+    // XXX: The following flags are not forwarded to Firefox in Felt mode:
+    // --new-tab, --chrome, --search, --file, and Windows "? searchterm"
     if (
       cmdLine.handleFlag("kiosk", false) ||
       cmdLine.handleFlagWithParam("kiosk-monitor", false)
@@ -473,7 +476,7 @@ nsBrowserContentHandler.prototype = {
       if (isFeltUI) {
         queueFeltURL({
           url: "",
-          disposition: FELT_OPEN_DISPOSITION_NEW_WINDOW,
+          disposition: FELT_OPEN_WINDOW_DISPOSITION.NEW_WINDOW,
         });
       } else {
         openBrowserWindow(cmdLine, lazy.gSystemPrincipal);
@@ -491,7 +494,7 @@ nsBrowserContentHandler.prototype = {
         if (isFeltUI) {
           queueFeltURL({
             url: uri.spec,
-            disposition: FELT_OPEN_DISPOSITION_NEW_WINDOW,
+            disposition: FELT_OPEN_WINDOW_DISPOSITION.NEW_WINDOW,
           });
         } else {
           openBrowserWindow(cmdLine, principal, uri.spec);
@@ -584,7 +587,7 @@ nsBrowserContentHandler.prototype = {
           if (shouldLoadURI(resolvedInfo.uri)) {
             queueFeltURL({
               url: resolvedInfo.uri.spec,
-              disposition: FELT_OPEN_DISPOSITION_NEW_PRIVATE_WINDOW,
+              disposition: FELT_OPEN_WINDOW_DISPOSITION.NEW_PRIVATE_WINDOW,
             });
           }
         } else {
@@ -620,7 +623,7 @@ nsBrowserContentHandler.prototype = {
         if (isFeltUI) {
           queueFeltURL({
             url: "",
-            disposition: FELT_OPEN_DISPOSITION_NEW_PRIVATE_WINDOW,
+            disposition: FELT_OPEN_WINDOW_DISPOSITION.NEW_PRIVATE_WINDOW,
           });
         } else {
           openBrowserWindow(
@@ -1242,73 +1245,18 @@ nsBrowserContentHandler.prototype = {
 };
 var gBrowserContentHandler = new nsBrowserContentHandler();
 
-// Module-level queue for Felt external link handling
-// URL requests are stored here when they arrive via command line (before Felt extension loads)
-// FeltProcessParent imports this module and manages forwarding from this queue
+// Re-export Felt URL handling from centralized module (MOZ_ENTERPRISE only)
 export let gFeltPendingURLs = [];
-const FELT_OPEN_DISPOSITION_DEFAULT = 0;
-const FELT_OPEN_DISPOSITION_NEW_WINDOW = 1;
-const FELT_OPEN_DISPOSITION_NEW_PRIVATE_WINDOW = 2;
+export let FELT_OPEN_WINDOW_DISPOSITION = {};
+export let queueFeltURL = () => {};
 
-export function queueFeltURL(payload) {
-  let isReady = false;
-  try {
-    const { queueURL, isFeltFirefoxReady } = ChromeUtils.importESModule(
-      "chrome://felt/content/FeltProcessParent.sys.mjs"
-    );
-    isReady = isFeltFirefoxReady();
-    queueURL(payload);
-  } catch {
-    gFeltPendingURLs.push(payload);
-  }
-
-  // On Linux (and as fallback for other platforms), show a notification
-  // if the action was queued before Firefox is ready
-  if (!isReady && payload.disposition !== FELT_OPEN_DISPOSITION_DEFAULT) {
-    showFeltPendingActionNotification();
-  }
-}
-
-function showFeltPendingActionNotification() {
-  try {
-    let now = Cu.now();
-    // Throttle notifications to avoid spam if user clicks multiple times
-    if (
-      showFeltPendingActionNotification._lastShown &&
-      now - showFeltPendingActionNotification._lastShown < 5000
-    ) {
-      return;
-    }
-    showFeltPendingActionNotification._lastShown = now;
-
-    let alertsService = Cc["@mozilla.org/alerts-service;1"]?.getService(
-      Ci.nsIAlertsService
-    );
-    if (!alertsService) {
-      return;
-    }
-
-    let alert = Cc["@mozilla.org/alert-notification;1"].createInstance(
-      Ci.nsIAlertNotification
-    );
-    alert.init(
-      "felt-pending-action",
-      "chrome://branding/content/icon64.png",
-      "Firefox",
-      "Please wait while Firefox starts...",
-      false,
-      "",
-      null,
-      null,
-      null,
-      null,
-      null,
-      false
-    );
-    alertsService.showAlert(alert);
-  } catch {
-    // Notification service may not be available on all platforms
-  }
+if (AppConstants.MOZ_ENTERPRISE) {
+  const FeltURLHandler = ChromeUtils.importESModule(
+    "resource:///modules/FeltURLHandler.sys.mjs"
+  );
+  gFeltPendingURLs = FeltURLHandler.gFeltPendingURLs;
+  FELT_OPEN_WINDOW_DISPOSITION = FeltURLHandler.FELT_OPEN_WINDOW_DISPOSITION;
+  queueFeltURL = FeltURLHandler.queueFeltURL;
 }
 
 function handURIToExistingBrowser(
@@ -1594,7 +1542,6 @@ nsDefaultCommandLineHandler.prototype = {
 
   /* nsICommandLineHandler */
   handle: function dch_handle(cmdLine) {
-    const isFeltUI = Services.felt.isFeltUI();
     var urilist = [];
     var principalList = [];
 
@@ -1692,7 +1639,7 @@ nsDefaultCommandLineHandler.prototype = {
 
     // Make sure that when FeltUI is requested, we do not try to open another
     // window. Instead, forward any URLs to be opened in the real Firefox.
-    if (isFeltUI) {
+    if (Services.felt.isFeltUI()) {
       console.debug(`Felt: Found FeltUI in BrowserContentHandler.`);
       cmdLine.preventDefault = true;
 
@@ -1733,7 +1680,7 @@ nsDefaultCommandLineHandler.prototype = {
           for (let urlSpec of urlSpecs) {
             queueFeltURL({
               url: urlSpec,
-              disposition: FELT_OPEN_DISPOSITION_DEFAULT,
+              disposition: FELT_OPEN_WINDOW_DISPOSITION.DEFAULT,
             });
           }
         }
