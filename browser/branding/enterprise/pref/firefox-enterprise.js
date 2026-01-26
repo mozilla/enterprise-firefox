@@ -10,3 +10,20 @@ pref("browser.profiles.enabled", false);
 pref("extensions.activeThemeID", "firefox-enterprise-light@mozilla.org");
 
 pref("enterprise.loglevel", "Error");
+
+pref(
+  "security.certerrors.mitm.priming.endpoint",
+  "https://console.enterfox.eu/api/misc/mitm/"
+);
+pref(
+  "captivedetect.canonicalURL",
+  "https://console.enterfox.eu/api/misc/protal/canonical.html"
+);
+pref(
+  "network.connectivity-service.IPv4.url",
+  "https://console.enterfox.eu/api/misc/connectivity?ipv4"
+);
+pref(
+  "network.connectivity-service.IPv6.url",
+  "https://console.enterfox.eu/api/misc/connectivity?ipv6"
+);
