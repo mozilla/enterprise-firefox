@@ -351,7 +351,7 @@ def serve(
     )
 
 
-class FeltTests(EnterpriseTestsBase):
+class FeltTestsBase(EnterpriseTestsBase):
     def __init__(
         self,
         json,
@@ -588,6 +588,8 @@ class FeltTests(EnterpriseTestsBase):
         btn.click()
         self._driver.set_context("content")
 
+
+class FeltTests(FeltTestsBase):
     def test_felt_00_chrome_on_email_submit(self, exp):
         self.submit_email()
 

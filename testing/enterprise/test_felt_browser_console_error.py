@@ -5,10 +5,10 @@
 
 import sys
 
-from felt_tests import FeltTests
+from felt_tests import FeltTestsBase
 
 
-class FeltConsoleError(FeltTests):
+class FeltConsoleError(FeltTestsBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
