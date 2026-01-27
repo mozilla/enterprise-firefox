@@ -18,18 +18,52 @@ export const FELT_OPEN_WINDOW_DISPOSITION = {
 export let gFeltPendingURLs = [];
 
 let lastNotificationShown = 0;
+let gFeltFirefoxReadyNotified = false;
+
+export function isFeltFirefoxWindowReady() {
+  if (gFeltFirefoxReadyNotified) {
+    return true;
+  }
+  try {
+    const { isFeltFirefoxWindowReady: isReady } = ChromeUtils.importESModule(
+      "chrome://felt/content/FeltProcessParent.sys.mjs"
+    );
+    if (isReady()) {
+      gFeltFirefoxReadyNotified = true;
+      return true;
+    }
+  } catch {
+    // Extension not loaded yet.
+  }
+  return false;
+}
+
+export function waitForFeltFirefoxWindowReady() {
+  if (isFeltFirefoxWindowReady()) {
+    return Promise.resolve();
+  }
+  return new Promise(resolve => {
+    let observer = {
+      observe: () => {
+        gFeltFirefoxReadyNotified = true;
+        Services.obs.removeObserver(observer, "felt-firefox-window-ready");
+        resolve();
+      },
+    };
+    Services.obs.addObserver(observer, "felt-firefox-window-ready");
+  });
+}
 
 // Queue a URL to be opened in Firefox via Felt IPC.
 // Note: We don't pass triggeringPrincipal because all command-line URLs use
 // gSystemPrincipal (see resolveURIInternal), and the receiving Firefox side
 // should use system principal for externally-triggered URLs.
 export function queueFeltURL(payload) {
-  let isReady = false;
+  let isReady = isFeltFirefoxWindowReady();
   try {
-    const { queueURL, isFeltFirefoxReady } = ChromeUtils.importESModule(
+    const { queueURL } = ChromeUtils.importESModule(
       "chrome://felt/content/FeltProcessParent.sys.mjs"
     );
-    isReady = isFeltFirefoxReady();
     queueURL(payload);
   } catch {
     console.warn(`Retrying to queue url ${payload.url} after initial failure.`);

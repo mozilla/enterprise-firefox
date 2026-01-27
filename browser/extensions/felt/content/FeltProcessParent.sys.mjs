@@ -44,7 +44,7 @@ function extractURLPayload(payload) {
 
 let gFeltFirefoxReadyNotified = false;
 
-export function isFeltFirefoxReady() {
+export function isFeltFirefoxWindowReady() {
   return (
     gFeltProcessParentInstance?.firefoxReady &&
     gFeltProcessParentInstance?.extensionReady
@@ -55,7 +55,7 @@ function notifyFirefoxReady() {
   if (gFeltFirefoxReadyNotified) {
     return;
   }
-  if (!isFeltFirefoxReady()) {
+  if (!isFeltFirefoxWindowReady()) {
     return;
   }
   gFeltFirefoxReadyNotified = true;

@@ -147,19 +147,11 @@ var NonBrowserWindow = {
     let privateWindowItem = document.getElementById(
       "macDockMenuNewPrivateWindow"
     );
+    const { isFeltFirefoxWindowReady, waitForFeltFirefoxWindowReady } =
+      ChromeUtils.importESModule("resource:///modules/FeltURLHandler.sys.mjs");
 
     // Check if Firefox is already ready (e.g., after restart)
-    let isReady = false;
-    try {
-      const { isFeltFirefoxReady } = ChromeUtils.importESModule(
-        "chrome://felt/content/FeltProcessParent.sys.mjs"
-      );
-      isReady = isFeltFirefoxReady();
-    } catch {
-      // Extension not loaded yet
-    }
-
-    if (isReady) {
+    if (isFeltFirefoxWindowReady()) {
       return;
     }
 
@@ -171,26 +163,16 @@ var NonBrowserWindow = {
       privateWindowItem.setAttribute("disabled", "true");
     }
 
-    // Listen for Firefox ready notification
-    this.feltReadyObserver = {
-      observe: () => {
-        if (newWindowItem && !newWindowItem.hidden) {
-          newWindowItem.removeAttribute("disabled");
-        }
-        if (privateWindowItem && !privateWindowItem.hidden) {
-          privateWindowItem.removeAttribute("disabled");
-        }
-        Services.obs.removeObserver(
-          NonBrowserWindow.feltReadyObserver,
-          "felt-firefox-window-ready"
-        );
-        NonBrowserWindow.feltReadyObserver = null;
-      },
-    };
-    Services.obs.addObserver(
-      this.feltReadyObserver,
-      "felt-firefox-window-ready"
-    );
+    this.feltReadyObserver = true;
+    waitForFeltFirefoxWindowReady().then(() => {
+      if (newWindowItem && !newWindowItem.hidden) {
+        newWindowItem.removeAttribute("disabled");
+      }
+      if (privateWindowItem && !privateWindowItem.hidden) {
+        privateWindowItem.removeAttribute("disabled");
+      }
+      NonBrowserWindow.feltReadyObserver = null;
+    });
   },
 
   delayedStartup() {
@@ -213,10 +195,6 @@ var NonBrowserWindow = {
 
       // Clean up Felt observer if still registered
       if (AppConstants.MOZ_ENTERPRISE && this.feltReadyObserver) {
-        Services.obs.removeObserver(
-          this.feltReadyObserver,
-          "felt-firefox-window-ready"
-        );
         this.feltReadyObserver = null;
       }
     }

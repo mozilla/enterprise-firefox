@@ -1245,19 +1245,19 @@ nsBrowserContentHandler.prototype = {
 };
 var gBrowserContentHandler = new nsBrowserContentHandler();
 
-// Re-export Felt URL handling from centralized module (MOZ_ENTERPRISE only)
-export let gFeltPendingURLs = [];
-export let FELT_OPEN_WINDOW_DISPOSITION = {};
-export let queueFeltURL = () => {};
+const {
+  gFeltPendingURLs,
+  FELT_OPEN_WINDOW_DISPOSITION,
+  queueFeltURL,
+} = AppConstants.MOZ_ENTERPRISE
+  ? ChromeUtils.importESModule("resource:///modules/FeltURLHandler.sys.mjs")
+  : {
+      gFeltPendingURLs: [],
+      FELT_OPEN_WINDOW_DISPOSITION: {},
+      queueFeltURL: () => {},
+    };
 
-if (AppConstants.MOZ_ENTERPRISE) {
-  const FeltURLHandler = ChromeUtils.importESModule(
-    "resource:///modules/FeltURLHandler.sys.mjs"
-  );
-  gFeltPendingURLs = FeltURLHandler.gFeltPendingURLs;
-  FELT_OPEN_WINDOW_DISPOSITION = FeltURLHandler.FELT_OPEN_WINDOW_DISPOSITION;
-  queueFeltURL = FeltURLHandler.queueFeltURL;
-}
+export { gFeltPendingURLs, FELT_OPEN_WINDOW_DISPOSITION, queueFeltURL };
 
 function handURIToExistingBrowser(
   uri,
