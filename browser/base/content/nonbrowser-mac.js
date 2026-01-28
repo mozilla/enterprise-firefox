@@ -24,11 +24,10 @@ function queueFeltDockAction(isPrivate) {
 
 var NonBrowserWindow = {
   delayedStartupTimeoutId: null,
-  feltReadyObserver: null,
   MAC_HIDDEN_WINDOW: "chrome://browser/content/hiddenWindowMac.xhtml",
 
   openBrowserWindowFromDockMenu(options = {}) {
-    if (AppConstants.MOZ_ENTERPRISE && Services.felt.isFeltUI()) {
+    if (AppConstants.MOZ_ENTERPRISE && Services.felt?.isFeltUI()) {
       queueFeltDockAction(options.private);
       return null;
     }
@@ -134,7 +133,7 @@ var NonBrowserWindow = {
       }
 
       // In Felt mode, disable dock menu items until Firefox is ready
-      if (AppConstants.MOZ_ENTERPRISE && Services.felt.isFeltUI()) {
+      if (AppConstants.MOZ_ENTERPRISE && Services.felt?.isFeltUI()) {
         this.setupFeltDockMenuState();
       }
     }
@@ -163,7 +162,6 @@ var NonBrowserWindow = {
       privateWindowItem.setAttribute("disabled", "true");
     }
 
-    this.feltReadyObserver = true;
     waitForFeltFirefoxWindowReady().then(() => {
       if (newWindowItem && !newWindowItem.hidden) {
         newWindowItem.removeAttribute("disabled");
@@ -171,7 +169,6 @@ var NonBrowserWindow = {
       if (privateWindowItem && !privateWindowItem.hidden) {
         privateWindowItem.removeAttribute("disabled");
       }
-      NonBrowserWindow.feltReadyObserver = null;
     });
   },
 
@@ -192,11 +189,6 @@ var NonBrowserWindow = {
     // the dock menu element to prevent leaks on shutdown
     if (window.location.href == this.MAC_HIDDEN_WINDOW) {
       this.dockSupport.dockMenu = null;
-
-      // Clean up Felt observer if still registered
-      if (AppConstants.MOZ_ENTERPRISE && this.feltReadyObserver) {
-        this.feltReadyObserver = null;
-      }
     }
 
     // If nonBrowserWindowDelayedStartup hasn't run yet, we have no work to do -

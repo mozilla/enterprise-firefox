@@ -2,10 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-const lazy = {};
-
-ChromeUtils.defineLazyGetter(lazy, "Cu", () => Components.utils);
-
 export const FELT_OPEN_WINDOW_DISPOSITION = {
   DEFAULT: 0,
   NEW_WINDOW: 1,
@@ -65,8 +61,11 @@ export function queueFeltURL(payload) {
       "chrome://felt/content/FeltProcessParent.sys.mjs"
     );
     queueURL(payload);
-  } catch {
-    console.warn(`Retrying to queue url ${payload.url} after initial failure.`);
+  } catch (e) {
+    console.warn(
+      `Retrying to queue url ${payload.url} after initial failure:`,
+      e
+    );
     gFeltPendingURLs.push(payload);
   }
 
@@ -82,7 +81,7 @@ export function queueFeltURL(payload) {
 
 function showFeltPendingActionNotification() {
   try {
-    let now = lazy.Cu.now();
+    let now = Cu.now();
     // Throttle notifications to avoid spam if user clicks multiple times
     if (lastNotificationShown && now - lastNotificationShown < 5000) {
       return;

@@ -448,8 +448,7 @@ nsBrowserContentHandler.prototype = {
 
   /* nsICommandLineHandler */
   handle: function bch_handle(cmdLine) {
-    const isFeltUI =
-      AppConstants.MOZ_ENTERPRISE && Services.felt?.isFeltUI();
+    const isFeltUI = AppConstants.MOZ_ENTERPRISE && Services.felt?.isFeltUI();
     // XXX: The following flags are not forwarded to Firefox in Felt mode:
     // --new-tab, --chrome, --search, --file, and Windows "? searchterm"
     if (
@@ -1245,17 +1244,14 @@ nsBrowserContentHandler.prototype = {
 };
 var gBrowserContentHandler = new nsBrowserContentHandler();
 
-const {
-  gFeltPendingURLs,
-  FELT_OPEN_WINDOW_DISPOSITION,
-  queueFeltURL,
-} = AppConstants.MOZ_ENTERPRISE
-  ? ChromeUtils.importESModule("resource:///modules/FeltURLHandler.sys.mjs")
-  : {
-      gFeltPendingURLs: [],
-      FELT_OPEN_WINDOW_DISPOSITION: {},
-      queueFeltURL: () => {},
-    };
+const { gFeltPendingURLs, FELT_OPEN_WINDOW_DISPOSITION, queueFeltURL } =
+  AppConstants.MOZ_ENTERPRISE
+    ? ChromeUtils.importESModule("resource:///modules/FeltURLHandler.sys.mjs")
+    : {
+        gFeltPendingURLs: [],
+        FELT_OPEN_WINDOW_DISPOSITION: {},
+        queueFeltURL: () => {},
+      };
 
 export { gFeltPendingURLs, FELT_OPEN_WINDOW_DISPOSITION, queueFeltURL };
 
@@ -1639,7 +1635,7 @@ nsDefaultCommandLineHandler.prototype = {
 
     // Make sure that when FeltUI is requested, we do not try to open another
     // window. Instead, forward any URLs to be opened in the real Firefox.
-    if (Services.felt.isFeltUI()) {
+    if (Services.felt && Services.felt.isFeltUI()) {
       console.debug(`Felt: Found FeltUI in BrowserContentHandler.`);
       cmdLine.preventDefault = true;
 
