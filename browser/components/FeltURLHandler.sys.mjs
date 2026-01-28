@@ -50,6 +50,10 @@ export function waitForFeltFirefoxWindowReady() {
   });
 }
 
+export function resetFeltFirefoxWindowReady() {
+  gFeltFirefoxReadyNotified = false;
+}
+
 // Queue a URL to be opened in Firefox via Felt IPC.
 // Note: We don't pass triggeringPrincipal because all command-line URLs use
 // gSystemPrincipal (see resolveURIInternal), and the receiving Firefox side

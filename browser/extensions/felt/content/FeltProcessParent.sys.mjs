@@ -16,7 +16,10 @@ ChromeUtils.defineESModuleGetters(lazy, {
 console.debug(`FeltExtension: FeltParentProcess.sys.mjs`);
 
 // Import the shared pending URLs queue
-import { gFeltPendingURLs } from "resource:///modules/FeltURLHandler.sys.mjs";
+import {
+  gFeltPendingURLs,
+  resetFeltFirefoxWindowReady,
+} from "resource:///modules/FeltURLHandler.sys.mjs";
 
 export function queueURL(payload) {
   // If Firefox AND extension are both ready, forward immediately
@@ -252,6 +255,7 @@ export class FeltProcessParent extends JSProcessActorParent {
     this.logoutReported = false;
     this.firefoxReady = false;
     this.extensionReady = false;
+    resetFeltFirefoxWindowReady();
     gFeltFirefoxReadyNotified = false;
     Services.cpmm.sendAsyncMessage("FeltParent:FirefoxStarting", {});
     this.firefox = this.startFirefoxProcess();
