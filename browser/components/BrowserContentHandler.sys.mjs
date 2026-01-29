@@ -474,7 +474,6 @@ nsBrowserContentHandler.prototype = {
     if (cmdLine.handleFlag("browser", false)) {
       if (isFeltUI) {
         queueFeltURL({
-          url: "",
           disposition: FELT_OPEN_WINDOW_DISPOSITION.NEW_WINDOW,
         });
       } else {
@@ -621,7 +620,6 @@ nsBrowserContentHandler.prototype = {
       if (cmdLine.handleFlag("private-window", false)) {
         if (isFeltUI) {
           queueFeltURL({
-            url: "",
             disposition: FELT_OPEN_WINDOW_DISPOSITION.NEW_PRIVATE_WINDOW,
           });
         } else {

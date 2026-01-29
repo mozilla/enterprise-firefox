@@ -12,6 +12,9 @@ from felt_tests import FeltTests
 
 class FeltNewWindowFromCli(FeltTests):
     def _get_child_windows(self):
+        # We use execute_script rather than Selenium/Marionette's window APIs because
+        # WebDriver doesn't expose whether a window is private. PrivateBrowsingUtils
+        # is the only reliable way to check this.
         self._child_driver.set_context("chrome")
         windows = self._child_driver.execute_script(
             """

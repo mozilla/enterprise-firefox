@@ -19,6 +19,7 @@ console.debug(`FeltExtension: FeltParentProcess.sys.mjs`);
 import {
   gFeltPendingURLs,
   resetFeltFirefoxWindowReady,
+  FELT_OPEN_WINDOW_DISPOSITION,
 } from "resource:///modules/FeltURLHandler.sys.mjs";
 
 export function queueURL(payload) {
@@ -41,7 +42,7 @@ let gFeltProcessParentInstance = null;
 function extractURLPayload(payload) {
   return {
     url: payload.url ?? "",
-    disposition: payload.disposition ?? 0,
+    disposition: payload.disposition ?? FELT_OPEN_WINDOW_DISPOSITION.DEFAULT,
   };
 }
 
