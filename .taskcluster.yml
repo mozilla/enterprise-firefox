@@ -56,7 +56,7 @@ tasks:
     # takes place, and only the first task is included in the `in_tree_action` hook.
     - $switch:
           # Decision task for events originating from hg.mozilla.org
-          'tasks_for in ["hg-push", "cron"] || (tasks_for == "action" && parameters["repository_type"] == "hg") || (tasks_for == "cron" && repository["type"] == "hg")':
+          'tasks_for == "hg-push" || (tasks_for == "action" && parameters["repository_type"] == "hg") || (tasks_for == "cron" && repository["type"] == "hg")':
               $let:
                   # sometimes the push user is just `ffxbld` or the like, but we want an email-like field..
                   ownerEmail: {$if: '"@" in push.owner', then: '${push.owner}', else: '${push.owner}@noreply.mozilla.org'}
