@@ -599,7 +599,7 @@ endif # HOST_RUST_LIBRARY_FILE
 
 ifdef RUST_PROGRAMS
 
-program_features_flag := --features mozilla-central-workspace-hack
+program_features_flag := --features '$(if $(RUST_PROGRAM_FEATURES),$(RUST_PROGRAM_FEATURES) )mozilla-central-workspace-hack'
 
 force-cargo-program-build: $(call resfile,module)
 	$(call BUILDSTATUS,START_Rust $(RUST_CARGO_PROGRAMS))
@@ -622,7 +622,7 @@ force-cargo-program-%:
 endif # RUST_PROGRAMS
 ifdef HOST_RUST_PROGRAMS
 
-host_program_features_flag := --features mozilla-central-workspace-hack
+host_program_features_flag := --features '$(if $(HOST_RUST_PROGRAM_FEATURES),$(HOST_RUST_PROGRAM_FEATURES) )mozilla-central-workspace-hack'
 
 force-cargo-host-program-build:
 	$(call BUILDSTATUS,START_Rust $(HOST_RUST_CARGO_PROGRAMS))
