@@ -708,7 +708,17 @@ class TreeMetadataEmitter(LoggingMixin):
                         )
 
                     check_unique_binary(program, kind)
-                    self._binaries[program] = cls(context, program, cargo_file)
+                    features = context.get(cls.FEATURES_VAR, [])
+                    unique_features = set(features)
+                    if len(features) != len(unique_features):
+                        raise SandboxValidationError(
+                            "features for %s should not contain duplicates: %s"
+                            % (program, features),
+                            context,
+                        )
+                    self._binaries[program] = cls(
+                        context, program, cargo_file, features
+                    )
                     self._linkage.append((
                         context,
                         self._binaries[program],
