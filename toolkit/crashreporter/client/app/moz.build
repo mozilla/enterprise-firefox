@@ -4,7 +4,12 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-RustProgram("crashreporter")
+crashreporter_features = []
+
+if CONFIG["MOZ_ENTERPRISE"]:
+    crashreporter_features += ["enterprise"]
+
+RustProgram("crashreporter", crashreporter_features)
 
 COMPILE_FLAGS["BASE_INCLUDES"] = []
 HOST_COMPILE_FLAGS["BASE_INCLUDES"] = []
