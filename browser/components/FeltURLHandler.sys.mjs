@@ -93,7 +93,7 @@ export function queueFeltURL(payload) {
 
 function showFeltPendingActionNotification() {
   try {
-    let now = Cu.now();
+    let now = Date.now();
     // Throttle notifications to avoid spam if user clicks multiple times
     if (lastNotificationShown && now - lastNotificationShown < 5000) {
       return;
