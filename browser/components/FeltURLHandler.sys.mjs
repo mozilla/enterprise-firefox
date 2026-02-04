@@ -7,7 +7,7 @@ const lazy = {};
 ChromeUtils.defineLazyGetter(
   lazy,
   "feltL10n",
-  () => new Localization(["browser/felt.ftl", "branding/brand.ftl"], true)
+  () => new Localization(["browser/enterprise/felt.ftl", "branding/brand.ftl"], true)
 );
 
 export const FELT_OPEN_WINDOW_DISPOSITION = {
