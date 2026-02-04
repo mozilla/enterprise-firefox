@@ -2,6 +2,14 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+const lazy = {};
+
+ChromeUtils.defineLazyGetter(
+  lazy,
+  "feltL10n",
+  () => new Localization(["browser/felt.ftl", "branding/brand.ftl"], true)
+);
+
 export const FELT_OPEN_WINDOW_DISPOSITION = {
   DEFAULT: 0,
   NEW_WINDOW: 1,
@@ -102,11 +110,14 @@ function showFeltPendingActionNotification() {
     let alert = Cc["@mozilla.org/alert-notification;1"].createInstance(
       Ci.nsIAlertNotification
     );
+    let body = lazy.feltL10n.formatValueSync(
+      "felt-pending-action-notification"
+    );
     alert.init(
       "felt-pending-action",
       "chrome://branding/content/icon64.png",
-      "Firefox",
-      "Please wait while Firefox starts...",
+      "",
+      body,
       false,
       "",
       null,
