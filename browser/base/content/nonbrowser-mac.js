@@ -136,10 +136,6 @@ var NonBrowserWindow = {
   },
 
   setupFeltDockMenuState() {
-    let newWindowItem = document.getElementById("macDockMenuNewWindow");
-    let privateWindowItem = document.getElementById(
-      "macDockMenuNewPrivateWindow"
-    );
     const { isFeltFirefoxWindowReady, waitForFeltFirefoxWindowReady } =
       ChromeUtils.importESModule("resource:///modules/FeltURLHandler.sys.mjs");
 
@@ -148,19 +144,24 @@ var NonBrowserWindow = {
       return;
     }
 
+    let newWindowItem = document.getElementById("macDockMenuNewWindow");
+    let privateWindowItem = document.getElementById(
+      "macDockMenuNewPrivateWindow"
+    );
+
     // Disable dock menu items until Firefox is ready
-    if (newWindowItem && !newWindowItem.hidden) {
+    if (newWindowItem) {
       newWindowItem.setAttribute("disabled", "true");
     }
-    if (privateWindowItem && !privateWindowItem.hidden) {
+    if (privateWindowItem) {
       privateWindowItem.setAttribute("disabled", "true");
     }
 
     waitForFeltFirefoxWindowReady().then(() => {
-      if (newWindowItem && !newWindowItem.hidden) {
+      if (newWindowItem) {
         newWindowItem.removeAttribute("disabled");
       }
-      if (privateWindowItem && !privateWindowItem.hidden) {
+      if (privateWindowItem) {
         privateWindowItem.removeAttribute("disabled");
       }
     });
