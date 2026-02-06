@@ -248,7 +248,7 @@ win64-enterprise/debug:
             mozconfig_platform: win64
     run-on-projects: ["enterprise-firefox"]
     run-on-repo-type: ["git"]
-    use-sccache: false
+    use-sccache: true
     use-python: "3.11"
     fetches:
         toolchain:
@@ -565,7 +565,7 @@ win64-enterprise/opt:
             mozconfig_platform: win64
     run-on-projects: ["enterprise-firefox"]
     run-on-repo-type: ["git"]
-    use-sccache: false
+    use-sccache: true
     fetches:
         toolchain:
             - linux64-clang

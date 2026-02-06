@@ -34,7 +34,7 @@ linux64/opt:
         secrets: true
         tooltool-downloads: public
     run-on-projects: ['integration']
-    use-sccache: false
+    use-sccache: true
     use-python: "3.11"
     fetches:
         toolchain:
@@ -140,7 +140,7 @@ linux64-enterprise/opt:
         tooltool-downloads: public
     run-on-projects: ["enterprise-firefox"]
     run-on-repo-type: ["git"]
-    use-sccache: false
+    use-sccache: true
     use-python: "3.11"
     fetches:
         toolchain:
@@ -484,7 +484,7 @@ linux64/debug:
         custom-build-variant-cfg: debug
         mozconfig-variant: debug
         tooltool-downloads: public
-    use-sccache: false
+    use-sccache: true
     use-python: "3.11"
     fetches:
         toolchain:
@@ -534,7 +534,7 @@ linux64-enterprise/debug:
         tooltool-downloads: public
     run-on-projects: ["enterprise-firefox"]
     run-on-repo-type: ["git"]
-    use-sccache: false
+    use-sccache: true
     use-python: "3.11"
     fetches:
         toolchain:
