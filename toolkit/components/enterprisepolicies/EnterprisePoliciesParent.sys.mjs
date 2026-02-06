@@ -508,7 +508,7 @@ EnterprisePoliciesManager.prototype = {
 
     this._status = Ci.nsIEnterprisePolicies.UNINITIALIZED;
     this._parsedPolicies = {};
-    if (this.isRemotePoliciesSupported) {
+    if (this.isRemotePoliciesSupported()) {
       RemotePoliciesProvider.dropInstance();
     }
     this._provider = null;
