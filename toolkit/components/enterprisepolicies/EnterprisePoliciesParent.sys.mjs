@@ -204,7 +204,6 @@ EnterprisePoliciesManager.prototype = {
    * Activates the policies that are provided during initialization.
    */
   _activatePolicies() {
-    
     for (const [policyName, policyParams] of Object.entries(
       this._provider.policies || {}
     )) {
@@ -212,18 +211,18 @@ EnterprisePoliciesManager.prototype = {
         policyName,
         policyParams
       );
-      
+
       if (!isValid) {
         console.warn(`Parameters for policy ${policyName} are invalid`);
         continue;
       }
-      
+
       this._parsedPolicies[policyName] = parsedParams;
-      
+
       const policyImpl = lazy.Policies[policyName];
       this._scheduleActivationPolicyCallbacks(policyImpl, parsedParams);
     }
-    
+
     if (this.hasActivePolicies()) {
       this._status = Ci.nsIEnterprisePolicies.ACTIVE;
     }
@@ -651,7 +650,7 @@ EnterprisePoliciesManager.prototype = {
   },
 
   hasActivePolicies() {
-    return !!Object.keys(this._parsedPolicies || {}).length
+    return !!Object.keys(this._parsedPolicies || {}).length;
   },
 
   setSupportMenu(supportMenu) {
