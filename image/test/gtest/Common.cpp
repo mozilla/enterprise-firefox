@@ -39,13 +39,9 @@ AutoInitializeImageLib::AutoInitializeImageLib() {
   EXPECT_TRUE(NS_IsMainThread());
   sImageLibInitialized = true;
 
-  // Ensure AVIF sequence is enabled to run decoder tests.
-  nsresult rv = Preferences::SetBool("image.avif.sequence.enabled", true);
-  EXPECT_TRUE(rv == NS_OK);
-
 #ifdef MOZ_JXL
   // Ensure JXL is enabled to run decoder tests.
-  rv = Preferences::SetBool("image.jxl.enabled", true);
+  nsresult rv = Preferences::SetBool("image.jxl.enabled", true);
   EXPECT_TRUE(rv == NS_OK);
 #endif
 

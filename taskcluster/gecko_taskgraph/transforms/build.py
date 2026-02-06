@@ -276,6 +276,9 @@ def add_signing_artifacts(config, jobs):
         elif "mozilla-central" == config.params["project"]:
             # Nightly
             browser_entitlement = "nightly.browser"
+        elif "enterprise-firefox" == config.params["project"]:
+            # Firefox Enterprise
+            browser_entitlement = "firefoxenterprise.browser"
         else:
             # Release and Beta
             browser_entitlement = "firefox.browser"

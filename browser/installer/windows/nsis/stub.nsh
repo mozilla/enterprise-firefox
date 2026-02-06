@@ -409,26 +409,6 @@ Function getUIString
   ${EndSelect}
 FunctionEnd
 
-Function createProfileCleanup
-  ${If} $AbortInstallation != "false"
-    ; Abort in this context skips the "page"
-    Abort
-  ${EndIf}
-  Call ShouldPromptForProfileCleanup
-
-  ${If} $ProfileCleanupPromptType == 0
-    StrCpy $CheckboxCleanupProfile 0
-    Abort ; Skip this page
-  ${EndIf}
-
-  ${RegisterAllCustomFunctions}
-
-  File /oname=$PLUGINSDIR\profile_cleanup.html "profile_cleanup.html"
-  File /oname=$PLUGINSDIR\profile_cleanup_page.css "profile_cleanup_page.css"
-  File /oname=$PLUGINSDIR\profile_cleanup.js "profile_cleanup.js"
-  WebBrowser::ShowPage "$PLUGINSDIR\profile_cleanup.html"
-FunctionEnd
-
 Function createInstall
   ${If} $AbortInstallation != "false"
     ; Skip the installation, but first send the telemetry
@@ -1565,6 +1545,8 @@ Function CommonOnInit
   System::Call 'kernel32::SetDllDirectoryW(w "")'
   StrCpy $PingAlreadySent "false"
   StrCpy $AbortInstallation "false"
+  ; Initialize PostSigningData to detect case of not being set at all
+  StrCpy $PostSigningData "stub_installer:unset"
   StrCpy $LANGUAGE 0
   ; This macro is used to set the brand name variables but the ini file method
   ; isn't supported for the stub installer.

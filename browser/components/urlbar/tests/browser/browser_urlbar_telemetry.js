@@ -78,7 +78,7 @@ async function withNewSearchEngine(taskFn) {
   let previousEngine = await SearchService.getDefault();
   await SearchService.setDefault(
     suggestionEngine,
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+    SearchService.CHANGE_REASON.UNKNOWN
   );
 
   try {
@@ -86,7 +86,7 @@ async function withNewSearchEngine(taskFn) {
   } finally {
     await SearchService.setDefault(
       previousEngine,
-      Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+      SearchService.CHANGE_REASON.UNKNOWN
     );
     await SearchService.removeEngine(suggestionEngine);
   }

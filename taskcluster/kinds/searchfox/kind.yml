@@ -69,6 +69,7 @@ tasks:
                 - linux64-pkgconf
                 - sysroot-x86_64-linux-gnu
                 - sysroot-wasm32-wasi
+                - terser
 
     linux64-searchfox/debug:
         description: "Linux64 Debug Searchfox"
@@ -163,6 +164,7 @@ tasks:
                 - macosx64-sdk
                 - sysroot-x86_64-linux-gnu
                 - sysroot-wasm32-wasi
+                - terser
 
     macosx64-aarch64-searchfox/debug:
         description: "MacOS X aarch64 Debug Cross-compile Searchfox"
@@ -267,6 +269,7 @@ tasks:
                 - nsis
                 - sysroot-x86_64-linux-gnu
                 - sysroot-wasm32-wasi
+                - terser
                 - vs
                 - dxc-x86_64-pc-windows-msvc
                 - winappsdk-x86_64-pc-windows-msvc

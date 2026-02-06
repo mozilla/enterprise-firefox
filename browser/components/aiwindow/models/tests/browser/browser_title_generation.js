@@ -10,7 +10,7 @@ const { generateChatTitle } = ChromeUtils.importESModule(
 add_task(async function test_title_generation_with_mock_server() {
   const { server, port } = startTitleGenerationServer("fake title");
   await SpecialPowers.pushPrefEnv({
-    set: [["browser.aiwindow.endpoint", `http://localhost:${port}/v1`]],
+    set: [["browser.smartwindow.endpoint", `http://localhost:${port}/v1`]],
   });
 
   try {

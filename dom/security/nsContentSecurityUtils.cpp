@@ -1599,8 +1599,14 @@ class ImgSrcVisitor : public AllowBuiltinSrcVisitor {
     nsAutoString scheme;
     src.getScheme(scheme);
 
-    // moz-icon is used for loading known favicons.
+    // moz-icon is used for loading icons from the platform.
     if (scheme == u"moz-icon"_ns) {
+      return true;
+    }
+
+    // page-icon is used for loading favicons that are already stored by the
+    // favicon service.
+    if (scheme == u"page-icon"_ns) {
       return true;
     }
 

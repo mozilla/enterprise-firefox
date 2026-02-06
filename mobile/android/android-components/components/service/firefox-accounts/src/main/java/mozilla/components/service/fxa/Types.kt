@@ -18,6 +18,7 @@ import mozilla.components.concept.sync.DeviceCapability
 import mozilla.components.concept.sync.DeviceType
 import mozilla.components.concept.sync.OAuthScopedKey
 import mozilla.components.concept.sync.SyncAuthInfo
+import mozilla.components.concept.sync.TabPrivacy
 import mozilla.components.concept.sync.UserData
 import mozilla.appservices.fxaclient.DeviceCapability as RustDeviceCapability
 import mozilla.appservices.fxaclient.DevicePushSubscription as RustDevicePushSubscription
@@ -223,6 +224,7 @@ fun TabHistoryEntry.into(): mozilla.components.concept.sync.TabData {
     return mozilla.components.concept.sync.TabData(
         title = this.title,
         url = this.url,
+        privacy = if (this.isPrivate) TabPrivacy.Private else TabPrivacy.Normal,
     )
 }
 
@@ -230,6 +232,7 @@ fun mozilla.components.concept.sync.TabData.into(): TabHistoryEntry {
     return TabHistoryEntry(
         title = this.title,
         url = this.url,
+        isPrivate = this.privacy == TabPrivacy.Private,
     )
 }
 

@@ -391,14 +391,15 @@ Maybe<StyleStructID> ComputedStyle::LookupStruct(const nsACString& aName) {
 #endif  // DEBUG
 
 ComputedStyle* ComputedStyle::GetCachedLazyPseudoStyle(
-    PseudoStyleType aPseudo) const {
-  MOZ_ASSERT(PseudoStyle::IsPseudoElement(aPseudo));
+    const PseudoStyleRequest& aRequest) const {
+  MOZ_ASSERT(PseudoStyle::IsPseudoElement(aRequest.mType));
 
-  if (nsCSSPseudoElements::PseudoElementSupportsUserActionState(aPseudo)) {
+  if (nsCSSPseudoElements::PseudoElementSupportsUserActionState(
+          aRequest.mType)) {
     return nullptr;
   }
 
-  return mCachedInheritingStyles.Lookup(aPseudo);
+  return mCachedInheritingStyles.Lookup(aRequest);
 }
 
 MOZ_DEFINE_MALLOC_ENCLOSING_SIZE_OF(ServoComputedValuesMallocEnclosingSizeOf)
@@ -432,14 +433,14 @@ void ComputedStyle::DumpMatchedRules() const {
 
 bool ComputedStyle::HasAnchorPosReference() const {
   const auto* pos = StylePosition();
-  if (pos->mPositionAnchor.IsIdent()) {
+  if (pos->mPositionAnchor.value.IsIdent()) {
     // Short circuit if there's an explicit default anchor defined,
     // even if it may not end up being referenced. If this early return is
     // removed, we'll need to handle mPositionArea explicitly.
     return true;
   }
 
-  if (pos->mPositionAnchor.IsAuto()) {
+  if (pos->mPositionAnchor.value.IsAuto()) {
     if (!pos->mPositionArea.IsNone()) {
       // Position area is relative to an anchor.
       return true;

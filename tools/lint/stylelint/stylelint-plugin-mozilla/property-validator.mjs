@@ -54,11 +54,12 @@ export class PropertyValidator {
         .concat(...this.allowedWords)
     );
     this.validTokenNames = new Set(
-      this.config.validTypes.flatMap(propType =>
-        (propType.tokenTypes || []).flatMap(tokenType =>
+      this.config.validTypes.flatMap(propType => [
+        ...(propType.allowedTokens || []),
+        ...(propType.tokenTypes || []).flatMap(tokenType =>
           tokensTable[tokenType].map(token => token.name)
-        )
-      )
+        ),
+      ])
     );
     this.validAliasTokenNames = new Set(
       this.config.validTypes.flatMap(propType =>

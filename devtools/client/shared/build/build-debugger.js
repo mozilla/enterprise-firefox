@@ -57,7 +57,7 @@ function transformMC({ types: t }) {
             // Select the devtools portion of the path
             // e.g. devtools\client\debugger\src\utils\source-queue
             if (!newValue.startsWith("devtools")) {
-              newValue = newValue.match(/^(.*?)(devtools.*)/)[2];
+              newValue = newValue.match(/.*(devtools.*)/)[1];
             }
 
             // Replace forward slashes with back slashes

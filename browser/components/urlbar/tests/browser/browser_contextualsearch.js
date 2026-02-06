@@ -32,7 +32,6 @@ const CONFIG = [
       },
     },
   },
-
   {
     identifier: "config-engine",
     base: {
@@ -137,6 +136,47 @@ add_task(async function test_engine_match() {
   EventUtils.synthesizeMouseAtCenter(btn, {}, window);
   EventUtils.sendString("test");
   EventUtils.synthesizeKey("KEY_Enter");
+
+  await onLoad;
+});
+
+add_task(async function test_alias_match() {
+  let newConfig = [CONFIG[0]].concat([
+    {
+      identifier: "alias-engine",
+      base: {
+        urls: {
+          search: { base: "https://example.net", searchTermParamName: "q" },
+        },
+        aliases: ["test"],
+      },
+    },
+  ]);
+  await SearchTestUtils.updateRemoteSettingsConfig(newConfig);
+
+  await UrlbarTestUtils.promiseAutocompleteResultPopup({
+    window,
+    value: "test",
+  });
+
+  let onLoad = BrowserTestUtils.browserLoaded(
+    gBrowser.selectedBrowser,
+    false,
+    "https://example.net/?q=test"
+  );
+
+  EventUtils.synthesizeKey("KEY_Tab");
+  await UrlbarTestUtils.assertSearchMode(window, {
+    engineName: "alias-engine",
+    entry: "keywordoffer",
+    isPreview: true,
+    source: 3,
+  });
+
+  await UrlbarTestUtils.promisePopupClose(window, () => {
+    EventUtils.sendString("test");
+    EventUtils.synthesizeKey("KEY_Enter");
+  });
 
   await onLoad;
 });

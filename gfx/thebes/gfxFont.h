@@ -1642,9 +1642,22 @@ class gfxFont {
   struct Baselines {
     gfxFloat mAlphabetic;
     gfxFloat mHanging;
-    gfxFloat mIdeographic;
+    gfxFloat mIdeographicUnder;
+    gfxFloat mIdeographicOver;
+    gfxFloat mIdeographicInkUnder;
+    gfxFloat mIdeographicInkOver;
+    gfxFloat mCentral;
+    gfxFloat mMath;
   };
-  Baselines GetBaselines(Orientation aOrientation);
+  const Baselines& GetBaselines(Orientation aOrientation) {
+    if (aOrientation == nsFontMetrics::eHorizontal) {
+      return mHorizontalBaselines;
+    }
+    if (!mVerticalBaselines) {
+      CreateVerticalBaselines();
+    }
+    return *mVerticalBaselines;
+  }
 
   /**
    * We let layout specify spacing on either side of any
@@ -1950,6 +1963,8 @@ class gfxFont {
   virtual const Metrics& GetHorizontalMetrics() const = 0;
 
   void CreateVerticalMetrics();
+  void CreateVerticalBaselines();
+  void InitBaselines(Baselines& aBaselines, Orientation aOrientation);
 
   bool MeasureGlyphs(const gfxTextRun* aTextRun, uint32_t aStart, uint32_t aEnd,
                      BoundingBoxType aBoundingBoxType,
@@ -2214,8 +2229,11 @@ class gfxFont {
 
   mozilla::Atomic<mozilla::gfx::ScaledFont*> mAzureScaledFont;
 
+  Baselines mHorizontalBaselines;
+
   // For vertical metrics, created on demand.
   mozilla::Atomic<Metrics*> mVerticalMetrics;
+  mozilla::Atomic<Baselines*> mVerticalBaselines;
 
   // Table used for MathML layout.
   mozilla::Atomic<gfxMathTable*> mMathTable;

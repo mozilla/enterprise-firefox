@@ -63,3 +63,4 @@ testChangeParam("semispaceNurseryEnabled");
 testChangeParam("nurseryMaxTimeGoalMS");
 testChangeParam("storeBufferEntries");
 testChangeParam("storeBufferScaling");
+testChangeParam("incrementalWeakMapMarkingEnabled");

@@ -26,6 +26,9 @@
       "chrome://browser/content/aiwindow/components/ai-chat-search-button.mjs": [
         "browser/components/aiwindow/ui/components/ai-chat-search-button/ai-chat-search-button.mjs"
       ],
+      "chrome://browser/content/aiwindow/components/ai-website-chip.mjs": [
+        "browser/components/aiwindow/ui/components/ai-website-chip/ai-website-chip.mjs"
+      ],
       "chrome://browser/content/aiwindow/components/applied-memories-button.mjs": [
         "browser/components/aiwindow/ui/components/ai-chat-content/chat-assistant-footer/applied-memories-button.mjs"
       ],
@@ -34,6 +37,18 @@
       ],
       "chrome://browser/content/aiwindow/components/input-cta.mjs": [
         "browser/components/aiwindow/ui/components/input-cta/input-cta.mjs"
+      ],
+      "chrome://browser/content/aiwindow/components/memories-icon-button.mjs": [
+        "browser/components/aiwindow/ui/components/memories-icon-button/memories-icon-button.mjs"
+      ],
+      "chrome://browser/content/aiwindow/components/suggestions-panel-list.mjs": [
+        "browser/components/aiwindow/ui/components/suggestions-panel-list/suggestions-panel-list.mjs"
+      ],
+      "chrome://browser/content/aiwindow/components/website-chip-container.mjs": [
+        "browser/components/aiwindow/ui/components/website-chip-container/website-chip-container.mjs"
+      ],
+      "chrome://browser/content/aiwindow/modules/TokenStreamParser.mjs": [
+        "browser/components/aiwindow/ui/modules/TokenStreamParser.mjs"
       ],
       "chrome://browser/content/asrouter/components/menu-message.mjs": [
         "browser/components/asrouter/content/components/menu-message/menu-message.mjs"
@@ -71,6 +86,12 @@
       "chrome://browser/content/firefoxview/card-container.mjs": [
         "browser/components/firefoxview/card-container.mjs"
       ],
+      "chrome://browser/content/firefoxview/chats-tab-list.mjs": [
+        "browser/components/firefoxview/chats-tab-list.mjs"
+      ],
+      "chrome://browser/content/firefoxview/chats.mjs": [
+        "browser/components/firefoxview/chats.mjs"
+      ],
       "chrome://browser/content/firefoxview/fxview-empty-state.mjs": [
         "browser/components/firefoxview/fxview-empty-state.mjs"
       ],
@@ -80,14 +101,29 @@
       "chrome://browser/content/firefoxview/helpers.mjs": [
         "browser/components/firefoxview/helpers.mjs"
       ],
+      "chrome://browser/content/firefoxview/history.mjs": [
+        "browser/components/firefoxview/history.mjs"
+      ],
       "chrome://browser/content/firefoxview/opentabs-tab-list.mjs": [
         "browser/components/firefoxview/opentabs-tab-list.mjs"
+      ],
+      "chrome://browser/content/firefoxview/opentabs.mjs": [
+        "browser/components/firefoxview/opentabs.mjs"
+      ],
+      "chrome://browser/content/firefoxview/recentbrowsing.mjs": [
+        "browser/components/firefoxview/recentbrowsing.mjs"
+      ],
+      "chrome://browser/content/firefoxview/recentlyclosed.mjs": [
+        "browser/components/firefoxview/recentlyclosed.mjs"
       ],
       "chrome://browser/content/firefoxview/search-helpers.mjs": [
         "browser/components/firefoxview/search-helpers.mjs"
       ],
       "chrome://browser/content/firefoxview/syncedtabs-tab-list.mjs": [
         "browser/components/firefoxview/syncedtabs-tab-list.mjs"
+      ],
+      "chrome://browser/content/firefoxview/syncedtabs.mjs": [
+        "browser/components/firefoxview/syncedtabs.mjs"
       ],
       "chrome://browser/content/genai/content/link-preview-card-onboarding.mjs": [
         "browser/components/genai/content/link-preview-card-onboarding.mjs"
@@ -98,20 +134,23 @@
       "chrome://browser/content/genai/content/model-optin.mjs": [
         "browser/components/genai/content/model-optin.mjs"
       ],
+      "chrome://browser/content/ipprotection/bandwidth-usage.mjs": [
+        "browser/components/ipprotection/content/bandwidth-usage.mjs"
+      ],
       "chrome://browser/content/ipprotection/ipprotection-constants.mjs": [
         "browser/components/ipprotection/content/ipprotection-constants.mjs"
       ],
       "chrome://browser/content/ipprotection/ipprotection-message-bar.mjs": [
         "browser/components/ipprotection/content/ipprotection-message-bar.mjs"
       ],
-      "chrome://browser/content/ipprotection/ipprotection-signedout.mjs": [
-        "browser/components/ipprotection/content/ipprotection-signedout.mjs"
-      ],
-      "chrome://browser/content/ipprotection/ipprotection-site-settings-control.mjs": [
-        "browser/components/ipprotection/content/ipprotection-site-settings-control.mjs"
+      "chrome://browser/content/ipprotection/ipprotection-status-box.mjs": [
+        "browser/components/ipprotection/content/ipprotection-status-box.mjs"
       ],
       "chrome://browser/content/ipprotection/ipprotection-status-card.mjs": [
         "browser/components/ipprotection/content/ipprotection-status-card.mjs"
+      ],
+      "chrome://browser/content/ipprotection/ipprotection-unauthenticated.mjs": [
+        "browser/components/ipprotection/content/ipprotection-unauthenticated.mjs"
       ],
       "chrome://browser/content/migration/migration-wizard-constants.mjs": [
         "browser/components/migration/content/migration-wizard-constants.mjs"
@@ -121,6 +160,9 @@
       ],
       "chrome://browser/content/multilineeditor/multiline-editor.mjs": [
         "browser/components/multilineeditor/multiline-editor.mjs"
+      ],
+      "chrome://browser/content/multilineeditor/plugins/MentionsPlugin.mjs": [
+        "browser/components/multilineeditor/plugins/MentionsPlugin.mjs"
       ],
       "chrome://browser/content/multilineeditor/prosemirror.bundle.mjs": [
         "third_party/js/prosemirror/prosemirror.bundle.mjs"
@@ -187,6 +229,12 @@
       ],
       "chrome://browser/content/sidebar/sidebar-panel-header.mjs": [
         "browser/components/sidebar/sidebar-panel-header.mjs"
+      ],
+      "chrome://browser/content/sidebar/sidebar-permissions-ui.mjs": [
+        "browser/components/sidebar/sidebar-permissions-ui.mjs"
+      ],
+      "chrome://browser/content/sidebar/sidebar-permissions.mjs": [
+        "browser/components/sidebar/sidebar-permissions.mjs"
       ],
       "chrome://browser/content/sidebar/sidebar-pins-promo.mjs": [
         "browser/components/sidebar/sidebar-pins-promo.mjs"
@@ -272,6 +320,9 @@
       "chrome://global/content/elements/browser-custom-element.mjs": [
         "toolkit/content/widgets/browser-custom-element.mjs"
       ],
+      "chrome://global/content/elements/moz-badge.mjs": [
+        "toolkit/content/widgets/moz-badge/moz-badge.mjs"
+      ],
       "chrome://global/content/elements/moz-box-group.mjs": [
         "toolkit/content/widgets/moz-box-group/moz-box-group.mjs"
       ],
@@ -305,6 +356,9 @@
       "chrome://global/content/elements/moz-message-bar.mjs": [
         "toolkit/content/widgets/moz-message-bar/moz-message-bar.mjs"
       ],
+      "chrome://global/content/elements/moz-page-nav.mjs": [
+        "toolkit/content/widgets/moz-page-nav/moz-page-nav.mjs"
+      ],
       "chrome://global/content/elements/moz-support-link.mjs": [
         "toolkit/content/widgets/moz-support-link/moz-support-link.mjs"
       ],
@@ -334,6 +388,9 @@
       ],
       "chrome://global/content/megalist/components/virtual-passwords-list/virtual-passwords-list.mjs": [
         "toolkit/components/satchel/megalist/content/components/virtual-passwords-list/virtual-passwords-list.mjs"
+      ],
+      "chrome://global/content/ml/AIFeature.sys.mjs": [
+        "toolkit/components/ml/AIFeature.sys.mjs"
       ],
       "chrome://global/content/ml/BlockWords.sys.mjs": [
         "toolkit/components/ml/content/BlockWords.sys.mjs"
@@ -433,6 +490,9 @@
       ],
       "chrome://global/content/reader/moz-slider.mjs": [
         "toolkit/components/reader/moz-slider.mjs"
+      ],
+      "chrome://global/content/translations/TranslationsFeature.sys.mjs": [
+        "toolkit/components/translations/TranslationsFeature.sys.mjs"
       ],
       "chrome://global/content/translations/TranslationsTelemetry.sys.mjs": [
         "toolkit/components/translations/TranslationsTelemetry.sys.mjs"
@@ -845,6 +905,9 @@
       "chrome://remote/content/webdriver-bidi/RemoteValue.sys.mjs": [
         "remote/webdriver-bidi/RemoteValue.sys.mjs"
       ],
+      "chrome://remote/content/webdriver-bidi/UserPromptHandlerManager.sys.mjs": [
+        "remote/webdriver-bidi/UserPromptHandlerManager.sys.mjs"
+      ],
       "chrome://remote/content/webdriver-bidi/WebDriverBiDi.sys.mjs": [
         "remote/webdriver-bidi/WebDriverBiDi.sys.mjs"
       ],
@@ -859,6 +922,9 @@
       ],
       "chrome://remote/content/webdriver-bidi/modules/WindowGlobalBiDiModule.sys.mjs": [
         "remote/webdriver-bidi/modules/WindowGlobalBiDiModule.sys.mjs"
+      ],
+      "chrome://remote/content/webdriver-bidi/modules/root/_configuration.sys.mjs": [
+        "remote/webdriver-bidi/modules/root/_configuration.sys.mjs"
       ],
       "chrome://remote/content/webdriver-bidi/modules/root/browser.sys.mjs": [
         "remote/webdriver-bidi/modules/root/browser.sys.mjs"
@@ -1009,6 +1075,9 @@
       ],
       "resource:///modules/BuiltInThemes.sys.mjs": [
         "browser/themes/BuiltInThemes.sys.mjs"
+      ],
+      "resource:///modules/ChatsController.sys.mjs": [
+        "browser/components/firefoxview/ChatsController.sys.mjs"
       ],
       "resource:///modules/ChromeMacOSLoginCrypto.sys.mjs": [
         "browser/components/migration/ChromeMacOSLoginCrypto.sys.mjs"
@@ -4529,6 +4598,9 @@
       "resource://devtools/server/actors/string.js": [
         "devtools/server/actors/string.js"
       ],
+      "resource://devtools/server/actors/stylesheets/style-utils.js": [
+        "devtools/server/actors/stylesheets/style-utils.js"
+      ],
       "resource://devtools/server/actors/targets/base-target-actor.js": [
         "devtools/server/actors/targets/base-target-actor.js"
       ],
@@ -4594,9 +4666,6 @@
       ],
       "resource://devtools/server/actors/utils/stack.js": [
         "devtools/server/actors/utils/stack.js"
-      ],
-      "resource://devtools/server/actors/utils/style-utils.js": [
-        "devtools/server/actors/utils/style-utils.js"
       ],
       "resource://devtools/server/actors/utils/walker-search.js": [
         "devtools/server/actors/utils/walker-search.js"
@@ -6566,32 +6635,11 @@
       "resource://newtab/lib/PersistentCache.sys.mjs": [
         "browser/extensions/newtab/lib/PersistentCache.sys.mjs"
       ],
-      "resource://newtab/lib/PersonalityProvider/NaiveBayesTextTagger.mjs": [
-        "browser/extensions/newtab/lib/PersonalityProvider/NaiveBayesTextTagger.mjs"
-      ],
-      "resource://newtab/lib/PersonalityProvider/NmfTextTagger.mjs": [
-        "browser/extensions/newtab/lib/PersonalityProvider/NmfTextTagger.mjs"
-      ],
-      "resource://newtab/lib/PersonalityProvider/PersonalityProvider.sys.mjs": [
-        "browser/extensions/newtab/lib/PersonalityProvider/PersonalityProvider.sys.mjs"
-      ],
-      "resource://newtab/lib/PersonalityProvider/PersonalityProviderWorkerClass.mjs": [
-        "browser/extensions/newtab/lib/PersonalityProvider/PersonalityProviderWorkerClass.mjs"
-      ],
-      "resource://newtab/lib/PersonalityProvider/RecipeExecutor.mjs": [
-        "browser/extensions/newtab/lib/PersonalityProvider/RecipeExecutor.mjs"
-      ],
-      "resource://newtab/lib/PersonalityProvider/Tokenize.mjs": [
-        "browser/extensions/newtab/lib/PersonalityProvider/Tokenize.mjs"
-      ],
       "resource://newtab/lib/PlacesFeed.sys.mjs": [
         "browser/extensions/newtab/lib/PlacesFeed.sys.mjs"
       ],
       "resource://newtab/lib/PrefsFeed.sys.mjs": [
         "browser/extensions/newtab/lib/PrefsFeed.sys.mjs"
-      ],
-      "resource://newtab/lib/RecommendationProvider.sys.mjs": [
-        "browser/extensions/newtab/lib/RecommendationProvider.sys.mjs"
       ],
       "resource://newtab/lib/Screenshots.sys.mjs": [
         "browser/extensions/newtab/lib/Screenshots.sys.mjs"
@@ -6790,6 +6838,9 @@
       ],
       "resource://pdf.js/PdfJs.sys.mjs": [
         "toolkit/components/pdfjs/content/PdfJs.sys.mjs"
+      ],
+      "resource://pdf.js/PdfJsAIFeature.sys.mjs": [
+        "toolkit/components/pdfjs/content/PdfJsAIFeature.sys.mjs"
       ],
       "resource://pdf.js/PdfJsNetwork.sys.mjs": [
         "toolkit/components/pdfjs/content/PdfJsNetwork.sys.mjs"

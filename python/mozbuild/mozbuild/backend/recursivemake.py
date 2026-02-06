@@ -803,7 +803,8 @@ class RecursiveMakeBackend(MakeBackend):
                 # builds.
                 for prior_target, target in pairwise(
                     sorted(
-                        [t for t in rust_roots], key=lambda t: t != self._gkrust_target
+                        [t for t in reversed(rust_roots)],
+                        key=lambda t: t != self._gkrust_target,
                     )
                 ):
                     r = root_deps_mk.create_rule([target])

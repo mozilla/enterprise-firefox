@@ -1577,7 +1577,6 @@ rlbox/rlbox_sandbox.hpp
 ##############################################################################
 
 .gradle/
-build/vs/vs2022.yaml
 browser/components/aboutwelcome/content/aboutwelcome.bundle.js
 browser/components/aboutwelcome/logs/
 browser/components/aboutwelcome/node_modules/

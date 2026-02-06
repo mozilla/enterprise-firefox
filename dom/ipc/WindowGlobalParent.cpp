@@ -419,7 +419,7 @@ IPCResult WindowGlobalParent::RecvUpdateDocumentURI(NotNull<nsIURI*> aURI) {
                     "principal URI");
   }
 
-  mDocumentURI = aURI;
+  mDocumentURI = std::move(aURI);
   return IPC_OK();
 }
 

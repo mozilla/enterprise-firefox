@@ -122,7 +122,9 @@ class TestTaskclusterYml(unittest.TestCase):
                 "cb_name": "test_action",
             },
             "input": {},
-            "parameters": {},
+            "parameters": {
+                "repository_type": "hg",
+            },
             "now": current_json_time(),
             "taskId": slugid.nice(),
             "ownTaskId": slugid.nice(),

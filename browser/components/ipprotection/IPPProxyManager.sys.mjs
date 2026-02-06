@@ -59,6 +59,8 @@ ChromeUtils.defineLazyGetter(lazy, "logConsole", function () {
  *  The proxy is active.
  * @property {string} ERROR
  *  Error
+ * @property {string} PAUSED
+ *  The VPN is paused i.e when the bandwidth limit is reached.
  *
  * Note: If you update this list of states, make sure to update the
  * corresponding documentation in the `docs` folder as well.
@@ -69,6 +71,7 @@ export const IPPProxyStates = Object.freeze({
   ACTIVATING: "activating",
   ACTIVE: "active",
   ERROR: "error",
+  PAUSED: "paused",
 });
 
 /**

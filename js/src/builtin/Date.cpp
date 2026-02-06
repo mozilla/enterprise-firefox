@@ -488,15 +488,14 @@ static double MakeDay(double year, double month, double date) {
     static constexpr int32_t maxYearMonths = maxYears + (maxMonths / 12);
     static constexpr int32_t maxYearDay = DayFromYear(maxYearMonths);
     static constexpr int32_t minYearDay = DayFromYear(-maxYearMonths);
-    static constexpr int32_t daysInLeapYear = 366;
-    static constexpr int32_t maxDay = maxYearDay + daysInLeapYear + maxDate;
-    static constexpr int32_t minDay = minYearDay + daysInLeapYear - maxDate;
+    static constexpr int32_t maxDay = maxYearDay + maxDate - 1;
+    static constexpr int32_t minDay = minYearDay - maxDate - 1;
 
     static_assert(maxYearMonths == 2'000'000);
     static_assert(maxYearDay == 729'765'472);
     static_assert(minYearDay == -731'204'528);
-    static_assert(maxDay == maxYearDay + daysInLeapYear + maxDate);
-    static_assert(minDay == minYearDay + daysInLeapYear - maxDate);
+    static_assert(maxDay == 829'765'471);
+    static_assert(minDay == -831'204'529);
 
     // Step 5.
     int32_t ym = year + FloorDiv(month, 12);

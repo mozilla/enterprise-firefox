@@ -17,18 +17,24 @@ import mozilla.components.support.test.mock
 import mozilla.components.support.test.robolectric.testContext
 import mozilla.components.support.test.rule.MainCoroutineRule
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertSame
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.mozilla.fenix.downloads.listscreen.middleware.DownloadDeleteMiddleware
 import org.mozilla.fenix.downloads.listscreen.middleware.DownloadUIMapperMiddleware
+import org.mozilla.fenix.downloads.listscreen.middleware.DownloadUIRenameMiddleware
 import org.mozilla.fenix.downloads.listscreen.middleware.FakeFileItemDescriptionProvider
 import org.mozilla.fenix.ext.settings
 import org.mozilla.fenix.utils.Settings
 import org.mozilla.fenix.utils.getUndoDelay
+import java.io.File
+import java.nio.file.Files
 import java.time.LocalDate
 import java.time.ZoneId
 import kotlin.time.Duration.Companion.milliseconds
@@ -38,6 +44,10 @@ class DownloadUIStoreTest {
 
     @get:Rule
     val coroutineTestRule = MainCoroutineRule()
+
+    @Rule @JvmField
+    val folder = TemporaryFolder()
+
     private val dispatcher = coroutineTestRule.testDispatcher
     private val scope = coroutineTestRule.scope
 
@@ -999,6 +1009,275 @@ class DownloadUIStoreTest {
 
         store.dispatch(DownloadUIAction.RetryDownload("1"))
         assertEquals(initialState, store.state)
+    }
+
+    @Test
+    fun `WHEN the RenameFileClicked action is dispatched THEN fileToRename is set`() {
+        val initialState = oneItemDefaultState()
+        val store = DownloadUIStore(initialState)
+
+        store.dispatch(DownloadUIAction.RenameFileClicked(fileItem1))
+
+        assertEquals(fileItem1, store.state.fileToRename)
+    }
+
+    @Test
+    fun `GIVEN InvalidFileName WHEN the RenameFileClicked action is dispatched THEN fileToRename and renameFileError are cleared`() {
+        val initialState = DownloadUIState(
+            items = listOf(fileItem1),
+            mode = DownloadUIState.Mode.Normal,
+            pendingDeletionIds = emptySet(),
+            fileToRename = fileItem1,
+            renameFileError = RenameFileError.InvalidFileName,
+        )
+        val store = DownloadUIStore(initialState)
+
+        store.dispatch(DownloadUIAction.RenameFileDismissed)
+
+        assertEquals(null, store.state.fileToRename)
+        assertEquals(null, store.state.renameFileError)
+    }
+
+    @Test
+    fun `GIVEN the state has a file to rename WHEN RenameFileFailed THEN renameFileError is set and fileToRename remains the same`() {
+        val initialState = DownloadUIState(
+            items = listOf(fileItem1),
+            mode = DownloadUIState.Mode.Normal,
+            pendingDeletionIds = emptySet(),
+            fileToRename = fileItem1,
+        )
+        val store = DownloadUIStore(initialState)
+
+        val error = RenameFileError.InvalidFileName
+        store.dispatch(DownloadUIAction.RenameFileFailed(error))
+
+        assertEquals(fileItem1, store.state.fileToRename)
+        assertEquals(error, store.state.renameFileError)
+    }
+
+    @Test
+    fun `GIVEN the state has a rename file error WHEN RenameFileFailureDismissed THEN renameFileError is cleared and fileToRename remains the same`() {
+        val initialState = DownloadUIState(
+            items = listOf(fileItem1),
+            mode = DownloadUIState.Mode.Normal,
+            pendingDeletionIds = emptySet(),
+            fileToRename = fileItem1,
+            renameFileError = RenameFileError.CannotRename,
+        )
+        val store = DownloadUIStore(initialState)
+
+        store.dispatch(DownloadUIAction.RenameFileFailureDismissed)
+
+        assertEquals(null, store.state.renameFileError)
+        assertEquals(fileItem1, store.state.fileToRename)
+    }
+
+    @Test
+    fun `GIVEN any state WHEN RenameFileConfirmed THEN DownloadUIState is updated with the new file state`() {
+        val fileName = "1.pdf"
+        val filePath = folder.newFile(fileName).path
+
+        val fileItem = FileItem(
+            id = "1",
+            url = "https://www.mozilla.com",
+            fileName = fileName,
+            filePath = filePath,
+            description = "Completed",
+            contentType = "application/pdf",
+            displayedShortUrl = "mozilla.com",
+            status = FileItem.Status.Completed,
+            timeCategory = TimeCategory.TODAY,
+        )
+        val downloadState = DownloadState(
+            id = "1",
+            url = "https://www.mozilla.com",
+            createdTime = today.toEpochMilli(zoneId),
+            fileName = fileName,
+            status = DownloadState.Status.COMPLETED,
+            contentLength = 77,
+            destinationDirectory = folder.root.path,
+            directoryPath = folder.root.path,
+            contentType = "application/pdf",
+        )
+
+        val browserStore = BrowserStore(
+            initialState = BrowserState(downloads = mapOf(downloadState.id to downloadState)),
+        )
+
+        val store = DownloadUIStore(
+            initialState = DownloadUIState.INITIAL,
+            middleware = listOf(
+                DownloadUIRenameMiddleware(browserStore = browserStore, scope = scope),
+                DownloadUIMapperMiddleware(
+                    browserStore = browserStore,
+                    scope = scope,
+                    fileItemDescriptionProvider = FakeFileItemDescriptionProvider(),
+                    dateTimeProvider = fakeDateTimeProvider,
+                ),
+            ),
+        )
+
+        store.dispatch(
+            DownloadUIAction.RenameFileConfirmed(
+                item = fileItem1,
+                newName = "renamed.pdf",
+            ),
+        )
+
+        val fileItemRenamed = fileItem.copy(
+            fileName = "renamed.pdf",
+            filePath = "${folder.root.path}/renamed.pdf",
+        )
+        val expectedState = DownloadUIState(
+            items = listOf(fileItemRenamed),
+            mode = DownloadUIState.Mode.Normal,
+            pendingDeletionIds = emptySet(),
+            fileToRename = null,
+            renameFileError = null,
+        )
+
+        assertEquals(expectedState, store.state)
+    }
+
+    @Test
+    fun `GIVEN download not found in BrowserStore WHEN RenameFileConfirmed THEN renameFileError is CannotRename`() {
+        val browserStore = BrowserStore(
+            initialState = BrowserState(downloads = emptyMap()),
+        )
+
+        val store = DownloadUIStore(
+            initialState = DownloadUIState(
+                items = listOf(fileItem1),
+                mode = DownloadUIState.Mode.Normal,
+                pendingDeletionIds = emptySet(),
+                fileToRename = fileItem1,
+            ),
+            middleware = listOf(
+                DownloadUIRenameMiddleware(
+                    browserStore = browserStore,
+                    scope = scope,
+                ),
+            ),
+        )
+
+        store.dispatch(
+            DownloadUIAction.RenameFileConfirmed(
+                item = fileItem1,
+                newName = "renamed.pdf",
+            ),
+        )
+
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(RenameFileError.CannotRename, store.state.renameFileError)
+        assertEquals(fileItem1, store.state.fileToRename)
+    }
+
+    @Test
+    fun `GIVEN another download with same file name exists WHEN RenameFileConfirmed THEN renameFileError is NameAlreadyExists`() {
+        val dirFile = Files.createTempDirectory("downloads-rename").toFile()
+        val dirPath = dirFile.absolutePath
+
+        val newName = "title"
+        File(dirFile, newName).writeText("conflicting file")
+
+        val browserStore = BrowserStore(
+            initialState = BrowserState(
+                downloads = mapOf(
+                    "1" to downloadState1.copy(
+                        directoryPath = dirPath,
+                        fileName = fileItem1.fileName,
+                    ),
+                ),
+            ),
+        )
+
+        val store = DownloadUIStore(
+            initialState = DownloadUIState(
+                items = listOf(fileItem1),
+                mode = DownloadUIState.Mode.Normal,
+                pendingDeletionIds = emptySet(),
+                fileToRename = fileItem1,
+            ),
+            middleware = listOf(
+                DownloadUIRenameMiddleware(
+                    browserStore = browserStore,
+                    scope = scope,
+                ),
+            ),
+        )
+
+        store.dispatch(
+            DownloadUIAction.RenameFileConfirmed(
+                item = fileItem1,
+                newName = newName,
+            ),
+        )
+
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(
+            RenameFileError.NameAlreadyExists(proposedFileName = newName),
+            store.state.renameFileError,
+        )
+    }
+
+    @Test
+    fun `GIVEN file rename succeeds WHEN RenameFileConfirmed THEN BrowserStore updates and rename dialog is dismissed`() {
+        val dirFile = Files.createTempDirectory("downloads-rename").toFile()
+        val dirPath = dirFile.absolutePath
+
+        val currentName = "1.pdf"
+        val newName = "renamed.pdf"
+
+        val from = File(dirFile, currentName).apply { writeText("data") }
+        val to = File(dirFile, newName)
+
+        assertTrue(from.exists())
+        assertFalse(to.exists())
+
+        val browserStore = BrowserStore(
+            initialState = BrowserState(
+                downloads = mapOf(
+                    "1" to downloadState1.copy(
+                        directoryPath = dirPath,
+                        fileName = currentName,
+                    ),
+                ),
+            ),
+        )
+
+        val store = DownloadUIStore(
+            initialState = DownloadUIState(
+                items = listOf(fileItem1),
+                mode = DownloadUIState.Mode.Normal,
+                pendingDeletionIds = emptySet(),
+                fileToRename = fileItem1,
+            ),
+            middleware = listOf(
+                DownloadUIRenameMiddleware(
+                    browserStore = browserStore,
+                    scope = scope,
+                ),
+            ),
+        )
+
+        store.dispatch(
+            DownloadUIAction.RenameFileConfirmed(
+                item = fileItem1,
+                newName = newName,
+            ),
+        )
+
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertFalse(from.exists())
+        assertTrue(to.exists())
+
+        assertEquals(newName, browserStore.state.downloads["1"]?.fileName)
+
+        assertEquals(null, store.state.fileToRename)
+        assertEquals(null, store.state.renameFileError)
     }
 
     private fun provideDownloadUIStore(

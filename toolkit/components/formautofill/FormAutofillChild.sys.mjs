@@ -336,10 +336,7 @@ export class FormAutofillChild extends JSWindowActorChild {
     } else {
       // Ignore form as long as the frame is not the top-level, which means
       // we can just pick any of the eligible elements to identify.
-      element = lazy.FormAutofillUtils.queryEligibleElements(
-        this.document,
-        true
-      )[0];
+      element = lazy.FormAutofillUtils.queryEligibleElements(this.document)[0];
     }
 
     if (!element) {
@@ -1000,10 +997,8 @@ export class FormAutofillChild extends JSWindowActorChild {
    * This function is only used by the autofill developer tool extension.
    */
   inspectFields() {
-    const isTop = this.browsingContext == this.browsingContext.top;
     const elements = lazy.FormAutofillUtils.queryEligibleElements(
-      this.document,
-      isTop
+      this.document
     );
 
     // Unlike the case when users click on a field and we only run our heuristic

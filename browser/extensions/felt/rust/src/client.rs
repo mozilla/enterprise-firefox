@@ -368,9 +368,13 @@ impl FeltClientThread {
                                         trace!("FeltClientThread::felt_client::ipc_loop(): ERROR setting RefreshToken({})", refresh_token);
                                     }
                                 }
-                                Ok(FeltMessage::OpenURL(url)) => {
-                                    trace!("FeltClientThread::felt_client::ipc_loop(): OpenURL({})", url);
-                                    utils::open_url_in_firefox(url);
+                                Ok(FeltMessage::OpenURL((url, disposition))) => {
+                                    trace!(
+                                        "FeltClientThread::felt_client::ipc_loop(): OpenURL({}, {})",
+                                        url,
+                                        disposition
+                                    );
+                                    utils::open_url_in_firefox(url, disposition);
                                 },
                                 Ok(msg) => {
                                     trace!("FeltClientThread::felt_client::ipc_loop(): UNEXPECTED MSG {:?}", msg);

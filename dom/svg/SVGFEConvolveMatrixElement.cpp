@@ -30,13 +30,13 @@ SVGElement::NumberInfo SVGFEConvolveMatrixElement::sNumberInfo[2] = {
     {nsGkAtoms::divisor, 1}, {nsGkAtoms::bias, 0}};
 
 SVGElement::NumberPairInfo SVGFEConvolveMatrixElement::sNumberPairInfo[1] = {
-    {nsGkAtoms::kernelUnitLength, 0, 0}};
+    {nsGkAtoms::kernelUnitLength, 0}};
 
 SVGElement::IntegerInfo SVGFEConvolveMatrixElement::sIntegerInfo[2] = {
     {nsGkAtoms::targetX, 0}, {nsGkAtoms::targetY, 0}};
 
 SVGElement::IntegerPairInfo SVGFEConvolveMatrixElement::sIntegerPairInfo[1] = {
-    {nsGkAtoms::order, 3, 3}};
+    {nsGkAtoms::order, 3}};
 
 SVGElement::BooleanInfo SVGFEConvolveMatrixElement::sBooleanInfo[1] = {
     {nsGkAtoms::preserveAlpha, false}};

@@ -170,8 +170,20 @@ export const ContentTiles = props => {
 
   const toggleTile = (index, tile) => {
     const tileId = `${tile.type}${tile.id ? "_" : ""}${tile.id ?? ""}_header`;
-    setExpandedTileIndex(prevIndex => (prevIndex === index ? null : index));
     AboutWelcomeUtils.sendActionTelemetry(props.messageId, tileId);
+
+    if (tile.type === "link" && tile.action) {
+      props.handleAction(
+        {
+          currentTarget: {
+            value: tileId,
+          },
+        },
+        tile.action
+      );
+    } else {
+      setExpandedTileIndex(prevIndex => (prevIndex === index ? null : index));
+    }
   };
 
   const toggleTiles = () => {
@@ -194,6 +206,14 @@ export const ContentTiles = props => {
     const isExpanded = expandedTileIndex === index;
     const { header, title, subtitle } = tile;
 
+    const tileHeaderProps =
+      tile.type === "link"
+        ? { role: "link" }
+        : {
+            "aria-expanded": isExpanded,
+            "aria-controls": `tile-content-${index}`,
+          };
+
     return (
       <div
         key={index}
@@ -204,8 +224,7 @@ export const ContentTiles = props => {
           <button
             className="tile-header secondary"
             onClick={() => toggleTile(index, tile)}
-            aria-expanded={isExpanded}
-            aria-controls={`tile-content-${index}`}
+            {...tileHeaderProps}
             style={AboutWelcomeUtils.getValidStyle(header.style, HEADER_STYLES)}
           >
             <div className="header-text-container">
@@ -218,7 +237,11 @@ export const ContentTiles = props => {
                 </Localized>
               )}
             </div>
-            <div className="arrow-icon"></div>
+            <div
+              className={
+                tile.type === "link" ? "external-link-icon" : "arrow-icon"
+              }
+            ></div>
           </button>
         )}
         {(title || subtitle) && (
@@ -241,7 +264,7 @@ export const ContentTiles = props => {
             )}
           </div>
         )}
-        {isExpanded || !header ? (
+        {tile.type !== "link" && (isExpanded || !header) ? (
           <div className="tile-content" id={`tile-content-${index}`}>
             {tile.type === "addons-picker" && tile.data && (
               <AddonsPicker

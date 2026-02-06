@@ -206,8 +206,7 @@ void WithSingleChunkDecode(const ImageTestCase& aTestCase,
   // Create a decoder.
   DecoderType decoderType = DecoderFactory::GetDecoderType(aTestCase.mMimeType);
   DecoderFlags decoderFlags =
-      DecoderFactory::GetDefaultDecoderFlagsForType(decoderType) |
-      DecoderFlags::FIRST_FRAME_ONLY;
+      DefaultDecoderFlags() | DecoderFlags::FIRST_FRAME_ONLY;
   RefPtr<image::Decoder> decoder = DecoderFactory::CreateAnonymousDecoder(
       decoderType, sourceBuffer, aOutputSize, decoderFlags,
       aTestCase.mSurfaceFlags);
@@ -297,8 +296,7 @@ static void CheckDecoderMultiChunk(const ImageTestCase& aTestCase,
   sourceBuffer->ExpectLength(length);
   DecoderType decoderType = DecoderFactory::GetDecoderType(aTestCase.mMimeType);
   DecoderFlags decoderFlags =
-      DecoderFactory::GetDefaultDecoderFlagsForType(decoderType) |
-      DecoderFlags::FIRST_FRAME_ONLY;
+      DefaultDecoderFlags() | DecoderFlags::FIRST_FRAME_ONLY;
   RefPtr<image::Decoder> decoder = DecoderFactory::CreateAnonymousDecoder(
       decoderType, sourceBuffer, Nothing(), decoderFlags,
       aTestCase.mSurfaceFlags);
@@ -447,8 +445,7 @@ static void WithSingleChunkAnimationDecode(const ImageTestCase& aTestCase,
   // Create a metadata decoder first, because otherwise RasterImage will get
   // unhappy about finding out the image is animated during a full decode.
   DecoderType decoderType = DecoderFactory::GetDecoderType(aTestCase.mMimeType);
-  DecoderFlags decoderFlags =
-      DecoderFactory::GetDefaultDecoderFlagsForType(decoderType);
+  DecoderFlags decoderFlags = DefaultDecoderFlags();
   RefPtr<IDecodingTask> task = DecoderFactory::CreateMetadataDecoder(
       decoderType, rasterImage, decoderFlags, sourceBuffer);
   ASSERT_TRUE(task != nullptr);
@@ -747,6 +744,7 @@ IMAGE_GTEST_DECODER_BASE_F(BMP)
 IMAGE_GTEST_DECODER_BASE_F(ICO)
 IMAGE_GTEST_DECODER_BASE_F(Icon)
 IMAGE_GTEST_DECODER_BASE_F(WebP)
+IMAGE_GTEST_DECODER_BASE_F(AVIF)
 #ifdef MOZ_JXL
 IMAGE_GTEST_DECODER_BASE_F(JXL)
 #endif
@@ -769,10 +767,6 @@ TEST_F(ImageDecoders, WebPTransparentSingleChunk) {
 
 TEST_F(ImageDecoders, WebPTransparentNoAlphaHeaderSingleChunk) {
   CheckDecoderSingleChunk(TransparentNoAlphaHeaderWebPTestCase());
-}
-
-TEST_F(ImageDecoders, AVIFSingleChunk) {
-  CheckDecoderSingleChunk(GreenAVIFTestCase());
 }
 
 TEST_F(ImageDecoders, AVIFSingleChunkNonzeroReserved) {
@@ -926,20 +920,8 @@ TEST_F(ImageDecoders, AVIFStackCheck) {
   CheckDecoderSingleChunk(StackCheckAVIFTestCase(), /* aUseDecodePool */ true);
 }
 
-TEST_F(ImageDecoders, AVIFDelayedChunk) {
-  CheckDecoderDelayedChunk(GreenAVIFTestCase());
-}
-
-TEST_F(ImageDecoders, AVIFMultiChunk) {
-  CheckDecoderMultiChunk(GreenAVIFTestCase());
-}
-
 TEST_F(ImageDecoders, AVIFLargeMultiChunk) {
   CheckDecoderMultiChunk(LargeAVIFTestCase(), /* aChunkSize */ 64);
-}
-
-TEST_F(ImageDecoders, AVIFDownscaleDuringDecode) {
-  CheckDownscaleDuringDecode(DownscaledAVIFTestCase());
 }
 
 #ifdef MOZ_JXL

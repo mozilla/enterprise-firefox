@@ -21,15 +21,30 @@ const TEST_PROVIDER_INFO = [
     ],
     nonAdsLinkQueryParamNames: ["url"],
     extraAdServersRegexps: [/^https:\/\/example\.com\/ad/],
-    shoppingTab: {
-      regexp: "&page=shopping",
-      selector: "nav a",
-      inspectRegexpInSERP: true,
-    },
     components: [
       {
         type: SearchSERPTelemetryUtils.COMPONENTS.AD_LINK,
         default: true,
+      },
+    ],
+    impressionAttributes: [
+      {
+        key: "is_shopping_page",
+        url: {
+          regexp: "&page=shopping",
+        },
+      },
+      {
+        key: "shopping_tab_displayed",
+        element: {
+          selector: "nav a",
+          attributeName: "href",
+          regexp: "&page=shopping",
+          component: {
+            type: "shopping_tab",
+            countImpressions: true,
+          },
+        },
       },
     ],
   },
@@ -69,6 +84,7 @@ add_task(async function test_click_absolute_url_in_query_param() {
   assertSERPTelemetry([
     {
       impression: {
+        is_shopping_page: "false",
         shopping_tab_displayed: "true",
       },
       engagements: [
@@ -80,8 +96,8 @@ add_task(async function test_click_absolute_url_in_query_param() {
       adImpressions: [
         {
           component: SearchSERPTelemetryUtils.COMPONENTS.SHOPPING_TAB,
-          ads_loaded: "1",
-          ads_visible: "1",
+          ads_loaded: "2",
+          ads_visible: "2",
           ads_hidden: "0",
         },
       ],
@@ -133,6 +149,7 @@ add_task(async function test_click_relative_href_in_query_param() {
   assertSERPTelemetry([
     {
       impression: {
+        is_shopping_page: "false",
         shopping_tab_displayed: "true",
       },
       engagements: [
@@ -144,8 +161,8 @@ add_task(async function test_click_relative_href_in_query_param() {
       adImpressions: [
         {
           component: SearchSERPTelemetryUtils.COMPONENTS.SHOPPING_TAB,
-          ads_loaded: "1",
-          ads_visible: "1",
+          ads_loaded: "2",
+          ads_visible: "2",
           ads_hidden: "0",
         },
       ],
@@ -197,6 +214,7 @@ add_task(async function test_click_irrelevant_href_in_query_param() {
   assertSERPTelemetry([
     {
       impression: {
+        is_shopping_page: "false",
         shopping_tab_displayed: "true",
       },
       engagements: [
@@ -208,8 +226,8 @@ add_task(async function test_click_irrelevant_href_in_query_param() {
       adImpressions: [
         {
           component: SearchSERPTelemetryUtils.COMPONENTS.SHOPPING_TAB,
-          ads_loaded: "1",
-          ads_visible: "1",
+          ads_loaded: "2",
+          ads_visible: "2",
           ads_hidden: "0",
         },
       ],

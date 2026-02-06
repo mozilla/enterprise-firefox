@@ -1157,8 +1157,8 @@ bool TexUnpackSurface::TexOrSubImage(bool isSubImage, bool needsRespec,
       surf = mDesc.sourceSurf->GetDataSurface();
     }
     if (!surf) {
-      gfxCriticalError() << "TexUnpackSurface failed to create wrapping "
-                            "DataSourceSurface for Shmem.";
+      gfxCriticalNote << "TexUnpackSurface failed to create wrapping "
+                         "DataSourceSurface.";
       return false;
     }
   } else if (mDesc.sourceSurf) {

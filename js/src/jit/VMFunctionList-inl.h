@@ -140,6 +140,7 @@ namespace jit {
   IF_EXPLICIT_RESOURCE_MANAGEMENT(                                             \
       _(CreateSuppressedError, js::CreateSuppressedError))                     \
   _(CreateThisFromIC, js::jit::CreateThisFromIC)                               \
+  _(CreateThisFromICWithAllocSite, js::jit::CreateThisFromICWithAllocSite)     \
   _(CreateThisFromIon, js::jit::CreateThisFromIon)                             \
   _(DebugAfterYield, js::jit::DebugAfterYield)                                 \
   _(DebugEpilogueOnBaselineReturn, js::jit::DebugEpilogueOnBaselineReturn)     \

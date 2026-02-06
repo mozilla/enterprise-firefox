@@ -249,6 +249,8 @@ static constexpr nsLiteralCString kNoDocumentTypeNodeError =
     "DocumentType nodes are not supported"_ns;
 static constexpr nsLiteralCString kNoRangeExistsError =
     "No selection range exists"_ns;
+static constexpr nsLiteralCString kIndexSizeError =
+    "The offset is out of range."_ns;
 
 namespace mozilla {
 
@@ -1753,13 +1755,12 @@ nsresult Selection::StyledRanges::GetIndicesForInterval(
       return FindInsertionPoint(
           mRanges.Ranges(),
           ConstRawRangeBoundary(aEndNode, aEndOffset,
-                                RangeBoundaryIsMutationObserved::No),
+                                RangeBoundarySetBy::Offset),
           &CompareToRangeStart<TreeKind::Flat>);
     }
     return FindInsertionPoint(
         mRanges.Ranges(),
-        ConstRawRangeBoundary(aEndNode, aEndOffset,
-                              RangeBoundaryIsMutationObserved::No),
+        ConstRawRangeBoundary(aEndNode, aEndOffset, RangeBoundarySetBy::Offset),
         &CompareToRangeStart<TreeKind::ShadowIncludingDOM>);
   }();
 
@@ -1787,14 +1788,13 @@ nsresult Selection::StyledRanges::GetIndicesForInterval(
       return FindInsertionPoint(
           mRanges.Ranges(),
           ConstRawRangeBoundary(aBeginNode, aBeginOffset,
-                                RangeBoundaryIsMutationObserved::No),
+                                RangeBoundarySetBy::Offset),
           &CompareToRangeEnd<TreeKind::Flat>);
     }
-    return FindInsertionPoint(
-        mRanges.Ranges(),
-        ConstRawRangeBoundary(aBeginNode, aBeginOffset,
-                              RangeBoundaryIsMutationObserved::No),
-        &CompareToRangeEnd<TreeKind::ShadowIncludingDOM>);
+    return FindInsertionPoint(mRanges.Ranges(),
+                              ConstRawRangeBoundary(aBeginNode, aBeginOffset,
+                                                    RangeBoundarySetBy::Offset),
+                              &CompareToRangeEnd<TreeKind::ShadowIncludingDOM>);
   }();
 
   if (beginsAfterIndex == mRanges.Length()) {
@@ -2154,7 +2154,8 @@ UniquePtr<SelectionDetails> Selection::LookUpSelection(
       newHead->mSelectionType = aSelectionType;
       newHead->mHighlightData = mHighlightData;
       if (const TextRangeStyle* style =
-              mStyledRanges.FindRangeData(GetAbstractRangeAt(0))) {
+              mStyledRanges.GetNonDefaultTextRangeStyle(
+                  GetAbstractRangeAt(0))) {
         newHead->mTextRangeStyle = *style;
       }
       auto detailsHead = std::move(newHead);
@@ -2232,7 +2233,8 @@ UniquePtr<SelectionDetails> Selection::LookUpSelection(
     newHead->mEnd = AssertedCast<int32_t>(*end);
     newHead->mSelectionType = aSelectionType;
     newHead->mHighlightData = mHighlightData;
-    if (const TextRangeStyle* style = mStyledRanges.FindRangeData(range)) {
+    if (const TextRangeStyle* style =
+            mStyledRanges.GetNonDefaultTextRangeStyle(range)) {
       newHead->mTextRangeStyle = *style;
     }
     detailsHead = std::move(newHead);
@@ -2344,8 +2346,9 @@ void Selection::StyledRanges::Clear() {
   mInvalidStaticRanges.Clear();
 }
 
-TextRangeStyle* Selection::StyledRanges::FindRangeData(AbstractRange* aRange) {
-  return mRanges.FindStyleForRange(aRange);
+const TextRangeStyle* Selection::StyledRanges::GetNonDefaultTextRangeStyle(
+    const AbstractRange* aRange) {
+  return mRanges.GetTextRangeStyleIfNotDefault(aRange);
 }
 
 size_t Selection::StyledRanges::Length() const { return mRanges.Length(); }
@@ -2353,10 +2356,10 @@ size_t Selection::StyledRanges::Length() const { return mRanges.Length(); }
 nsresult Selection::SetTextRangeStyle(nsRange* aRange,
                                       const TextRangeStyle& aTextRangeStyle) {
   NS_ENSURE_ARG_POINTER(aRange);
-  TextRangeStyle* style = mStyledRanges.FindRangeData(aRange);
-  if (style) {
-    *style = aTextRangeStyle;
-  }
+  MOZ_ASSERT(
+      mStyledRanges.Ranges().IndexOf(aRange) != Span<AbstractRange>::npos,
+      "Range is not part of this Selection?");
+  mStyledRanges.mRanges.SetTextRangeStyle(aRange, aTextRangeStyle);
   return NS_OK;
 }
 
@@ -2511,6 +2514,8 @@ already_AddRefed<StaticRange> Selection::GetComposedRange(
 
   RefPtr<StaticRange> composedRange = StaticRange::Create(
       startNode, startOffset, endNode, endOffset, IgnoreErrors());
+  NS_WARNING(mozilla::ToString(composedRange->StartRef()).c_str());
+  NS_WARNING(mozilla::ToString(composedRange->EndRef()).c_str());
   return composedRange.forget();
 }
 
@@ -2792,6 +2797,21 @@ void Selection::RemoveRangeAndUnselectFramesAndNotifyListeners(
   NotifySelectionListeners();
 }
 
+// static
+bool Selection::IsValidNodeAndOffsetForBoundary(const nsINode& aContainer,
+                                                uint32_t aOffset,
+                                                ErrorResult& aRv) {
+  if (MOZ_UNLIKELY(aContainer.NodeType() == nsINode::DOCUMENT_TYPE_NODE)) {
+    aRv.ThrowInvalidNodeTypeError(kNoDocumentTypeNodeError);
+    return false;
+  }
+  if (MOZ_UNLIKELY(aOffset > aContainer.Length())) {
+    aRv.ThrowIndexSizeError(kIndexSizeError);
+    return false;
+  }
+  return true;
+}
+
 /*
  * Collapse sets the whole selection to be one point.
  */
@@ -2809,6 +2829,10 @@ void Selection::CollapseJS(nsINode* aContainer, uint32_t aOffset,
     RemoveAllRangesInternal(aRv);
     return;
   }
+  if (MOZ_UNLIKELY(
+          !IsValidNodeAndOffsetForBoundary(*aContainer, aOffset, aRv))) {
+    return;
+  }
   CollapseInternal(InLimiter::eNo, RawRangeBoundary(aContainer, aOffset), aRv);
 }
 
@@ -2818,34 +2842,20 @@ void Selection::CollapseInLimiter(const RawRangeBoundary& aPoint,
     LogSelectionAPI(this, __FUNCTION__, "aPoint", aPoint);
     LogStackForSelectionAPI();
   }
-
+  if (!aPoint.IsSetAndValid()) {
+    aRv.Throw(NS_ERROR_INVALID_ARG);
+    return;
+  }
   CollapseInternal(InLimiter::eYes, aPoint, aRv);
 }
 
 void Selection::CollapseInternal(InLimiter aInLimiter,
                                  const RawRangeBoundary& aPoint,
                                  ErrorResult& aRv) {
+  MOZ_ASSERT(aPoint.IsSetAndValid());
+
   if (!mFrameSelection) {
     aRv.Throw(NS_ERROR_NOT_INITIALIZED);  // Can't do selection
-    return;
-  }
-
-  if (!aPoint.IsSet()) {
-    aRv.Throw(NS_ERROR_INVALID_ARG);
-    return;
-  }
-
-  if (aPoint.GetContainer()->NodeType() == nsINode::DOCUMENT_TYPE_NODE) {
-    aRv.ThrowInvalidNodeTypeError(kNoDocumentTypeNodeError);
-    return;
-  }
-
-  // RawRangeBoundary::IsSetAndValid() checks if the point actually refers
-  // a child of the container when IsSet() is true.  If its offset hasn't been
-  // computed yet, this just checks it with its mRef.  So, we can avoid
-  // computing offset here.
-  if (!aPoint.IsSetAndValid()) {
-    aRv.ThrowIndexSizeError("The offset is out of range.");
     return;
   }
 
@@ -2953,8 +2963,11 @@ void Selection::CollapseToStart(ErrorResult& aRv) {
     aRv.Throw(NS_ERROR_FAILURE);
     return;
   }
-  CollapseInternal(InLimiter::eNo,
-                   RawRangeBoundary(container, firstRange->StartOffset()), aRv);
+  const uint32_t offset = firstRange->StartOffset();
+  if (MOZ_UNLIKELY(!IsValidNodeAndOffsetForBoundary(*container, offset, aRv))) {
+    return;
+  }
+  CollapseInternal(InLimiter::eNo, RawRangeBoundary(container, offset), aRv);
 }
 
 /*
@@ -3000,8 +3013,11 @@ void Selection::CollapseToEnd(ErrorResult& aRv) {
     aRv.Throw(NS_ERROR_FAILURE);
     return;
   }
-  CollapseInternal(InLimiter::eNo,
-                   RawRangeBoundary(container, lastRange->EndOffset()), aRv);
+  const uint32_t offset = lastRange->EndOffset();
+  if (MOZ_UNLIKELY(!IsValidNodeAndOffsetForBoundary(*container, offset, aRv))) {
+    return;
+  }
+  CollapseInternal(InLimiter::eNo, RawRangeBoundary(container, offset), aRv);
 }
 
 void Selection::GetType(nsAString& aOutType) const {
@@ -3142,7 +3158,7 @@ void Selection::ExtendJS(nsINode& aContainer, uint32_t aOffset,
 
   AutoRestore<bool> calledFromJSRestorer(mCalledByJS);
   mCalledByJS = true;
-  Extend(aContainer, aOffset, aRv);
+  ExtendInternal(aContainer, aOffset, aRv);
 }
 
 nsresult Selection::Extend(nsINode* aContainer, uint32_t aOffset) {
@@ -3157,12 +3173,12 @@ nsresult Selection::Extend(nsINode* aContainer, uint32_t aOffset) {
   }
 
   ErrorResult result;
-  Extend(*aContainer, aOffset, result);
+  ExtendInternal(*aContainer, aOffset, result);
   return result.StealNSResult();
 }
 
-void Selection::Extend(nsINode& aContainer, uint32_t aOffset,
-                       ErrorResult& aRv) {
+void Selection::ExtendInternal(nsINode& aContainer, uint32_t aOffset,
+                               ErrorResult& aRv) {
   /*
     Notes which might come in handy for extend:
 
@@ -3542,8 +3558,11 @@ void Selection::SelectAllChildren(nsINode& aNode, ErrorResult& aRv) {
 
   // Chrome moves focus when aNode is outside of active editing host.
   // So, we don't need to respect the limiter with this method.
-  SetStartAndEndInternal(InLimiter::eNo, RawRangeBoundary(&aNode, 0u),
-                         RawRangeBoundary(&aNode, aNode.GetChildCount()),
+  const RawRangeBoundary startOfNode = RawRangeBoundary::StartOfParent(aNode);
+  SetStartAndEndInternal(InLimiter::eNo, startOfNode,
+                         aNode.IsContainerNode()
+                             ? RawRangeBoundary::EndOfParent(aNode)
+                             : startOfNode,
                          eDirNext, aRv);
 }
 
@@ -4282,9 +4301,17 @@ void Selection::SetBaseAndExtentJS(nsINode& aAnchorNode, uint32_t aAnchorOffset,
     LogStackForSelectionAPI();
   }
 
+  if (MOZ_UNLIKELY(
+          !IsValidNodeAndOffsetForBoundary(aAnchorNode, aAnchorOffset, aRv) ||
+          !IsValidNodeAndOffsetForBoundary(aFocusNode, aFocusOffset, aRv))) {
+    return;
+  }
+
   AutoRestore<bool> calledFromJSRestorer(mCalledByJS);
   mCalledByJS = true;
-  SetBaseAndExtent(aAnchorNode, aAnchorOffset, aFocusNode, aFocusOffset, aRv);
+  SetBaseAndExtentInternal(InLimiter::eNo,
+                           RawRangeBoundary(&aAnchorNode, aAnchorOffset),
+                           RawRangeBoundary(&aFocusNode, aFocusOffset), aRv);
   if (StaticPrefs::dom_selection_mimic_chrome_tostring_enabled() &&
       !aRv.Failed()) {
     if (auto* presShell = GetPresShell()) {
@@ -4296,19 +4323,15 @@ void Selection::SetBaseAndExtentJS(nsINode& aAnchorNode, uint32_t aAnchorOffset,
 void Selection::SetBaseAndExtent(nsINode& aAnchorNode, uint32_t aAnchorOffset,
                                  nsINode& aFocusNode, uint32_t aFocusOffset,
                                  ErrorResult& aRv) {
-  if (aAnchorOffset > aAnchorNode.Length()) {
-    aRv.ThrowIndexSizeError(nsPrintfCString(
-        "The anchor offset value %u is out of range", aAnchorOffset));
-    return;
-  }
-  if (aFocusOffset > aFocusNode.Length()) {
-    aRv.ThrowIndexSizeError(nsPrintfCString(
-        "The focus offset value %u is out of range", aFocusOffset));
+  if (MOZ_UNLIKELY(
+          !IsValidNodeAndOffsetForBoundary(aAnchorNode, aAnchorOffset, aRv) ||
+          !IsValidNodeAndOffsetForBoundary(aFocusNode, aFocusOffset, aRv))) {
     return;
   }
 
-  SetBaseAndExtent(RawRangeBoundary{&aAnchorNode, aAnchorOffset},
-                   RawRangeBoundary{&aFocusNode, aFocusOffset}, aRv);
+  SetBaseAndExtentInternal(InLimiter::eNo,
+                           RawRangeBoundary(&aAnchorNode, aAnchorOffset),
+                           RawRangeBoundary(&aFocusNode, aFocusOffset), aRv);
 }
 
 void Selection::SetBaseAndExtent(const RawRangeBoundary& aAnchorRef,
@@ -4318,6 +4341,12 @@ void Selection::SetBaseAndExtent(const RawRangeBoundary& aAnchorRef,
     LogSelectionAPI(this, __FUNCTION__, "aAnchorRef", aAnchorRef, "aFocusRef",
                     aFocusRef);
     LogStackForSelectionAPI();
+  }
+
+  if (NS_WARN_IF(!aAnchorRef.IsSetAndValid()) ||
+      NS_WARN_IF(!aFocusRef.IsSetAndValid())) {
+    aRv.Throw(NS_ERROR_INVALID_ARG);
+    return;
   }
 
   SetBaseAndExtentInternal(InLimiter::eNo, aAnchorRef, aFocusRef, aRv);
@@ -4332,6 +4361,12 @@ void Selection::SetBaseAndExtentInLimiter(const RawRangeBoundary& aAnchorRef,
     LogStackForSelectionAPI();
   }
 
+  if (NS_WARN_IF(!aAnchorRef.IsSetAndValid()) ||
+      NS_WARN_IF(!aFocusRef.IsSetAndValid())) {
+    aRv.Throw(NS_ERROR_INVALID_ARG);
+    return;
+  }
+
   SetBaseAndExtentInternal(InLimiter::eYes, aAnchorRef, aFocusRef, aRv);
 }
 
@@ -4339,13 +4374,11 @@ void Selection::SetBaseAndExtentInternal(InLimiter aInLimiter,
                                          const RawRangeBoundary& aAnchorRef,
                                          const RawRangeBoundary& aFocusRef,
                                          ErrorResult& aRv) {
+  MOZ_ASSERT(aAnchorRef.IsSetAndValid());
+  MOZ_ASSERT(aFocusRef.IsSetAndValid());
+
   if (!mFrameSelection) {
     aRv.Throw(NS_ERROR_NOT_INITIALIZED);
-    return;
-  }
-
-  if (NS_WARN_IF(!aAnchorRef.IsSet()) || NS_WARN_IF(!aFocusRef.IsSet())) {
-    aRv.Throw(NS_ERROR_INVALID_ARG);
     return;
   }
 
@@ -4385,6 +4418,12 @@ void Selection::SetStartAndEndInLimiter(const RawRangeBoundary& aStartRef,
     LogStackForSelectionAPI();
   }
 
+  if (NS_WARN_IF(!aStartRef.IsSetAndValid()) ||
+      NS_WARN_IF(!aEndRef.IsSetAndValid())) {
+    aRv.Throw(NS_ERROR_INVALID_ARG);
+    return;
+  }
+
   SetStartAndEndInternal(InLimiter::eYes, aStartRef, aEndRef, eDirNext, aRv);
 }
 
@@ -4405,6 +4444,13 @@ Result<Ok, nsresult> Selection::SetStartAndEndInLimiter(
   }
 
   ErrorResult error;
+  if (MOZ_UNLIKELY(
+          !IsValidNodeAndOffsetForBoundary(aStartContainer, aStartOffset,
+                                           error) ||
+          !IsValidNodeAndOffsetForBoundary(aEndContainer, aEndOffset, error))) {
+    return Err(error.StealNSResult());
+  }
+
   SetStartAndEndInternal(
       InLimiter::eYes, RawRangeBoundary(&aStartContainer, aStartOffset),
       RawRangeBoundary(&aEndContainer, aEndOffset), aDirection, error);
@@ -4421,6 +4467,12 @@ void Selection::SetStartAndEnd(const RawRangeBoundary& aStartRef,
     LogStackForSelectionAPI();
   }
 
+  if (NS_WARN_IF(!aStartRef.IsSetAndValid()) ||
+      NS_WARN_IF(!aEndRef.IsSetAndValid())) {
+    aRv.Throw(NS_ERROR_INVALID_ARG);
+    return;
+  }
+
   SetStartAndEndInternal(InLimiter::eNo, aStartRef, aEndRef, eDirNext, aRv);
 }
 
@@ -4429,10 +4481,8 @@ void Selection::SetStartAndEndInternal(InLimiter aInLimiter,
                                        const RawRangeBoundary& aEndRef,
                                        nsDirection aDirection,
                                        ErrorResult& aRv) {
-  if (NS_WARN_IF(!aStartRef.IsSet()) || NS_WARN_IF(!aEndRef.IsSet())) {
-    aRv.Throw(NS_ERROR_INVALID_ARG);
-    return;
-  }
+  MOZ_ASSERT(aStartRef.IsSetAndValid());
+  MOZ_ASSERT(aEndRef.IsSetAndValid());
 
   // Don't fire "selectionchange" event until everything done.
   SelectionBatcher batch(this, __FUNCTION__);
@@ -4656,7 +4706,7 @@ AutoHideSelectionChanges::AutoHideSelectionChanges(
     const nsFrameSelection* aFrame)
     : AutoHideSelectionChanges(aFrame ? &aFrame->NormalSelection() : nullptr) {}
 
-bool Selection::HasSameRootOrSameComposedDoc(const nsINode& aNode) {
+bool Selection::HasSameRootOrSameComposedDoc(const nsINode& aNode) const {
   nsINode* root = aNode.SubtreeRoot();
   Document* doc = GetDocument();
   return doc == root || (root && doc == root->GetComposedDoc());

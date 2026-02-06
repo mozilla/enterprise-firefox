@@ -62,6 +62,8 @@ import mozilla.components.support.test.eq
 import mozilla.components.support.test.mock
 import mozilla.components.support.test.robolectric.testContext
 import mozilla.components.support.test.rule.MainCoroutineRule
+import mozilla.components.support.utils.DownloadFileUtils
+import mozilla.components.support.utils.FakeDownloadFileUtils
 import mozilla.components.support.utils.ext.stopForegroundCompat
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -121,6 +123,8 @@ class AbstractFetchDownloadServiceTest {
     private val fakeFileSizeFormatter: FileSizeFormatter = FakeFileSizeFormatter()
     private val fakeDateTimeProvider: DateTimeProvider = FakeDateTimeProvider()
     private val fakeDownloadEstimator: DownloadEstimator = DownloadEstimator(fakeDateTimeProvider)
+
+    private val fakeDownloadFileUtils: DownloadFileUtils = FakeDownloadFileUtils()
     private val fakePackageNameProvider: PackageNameProvider =
         FakePackageNameProvider("mozilla.components.feature.downloads.test")
 
@@ -145,6 +149,7 @@ class AbstractFetchDownloadServiceTest {
             override val notificationsDelegate = this@AbstractFetchDownloadServiceTest.notificationsDelegate
             override val fileSizeFormatter = fakeFileSizeFormatter
             override val downloadEstimator = fakeDownloadEstimator
+            override val downloadFileUtils = fakeDownloadFileUtils
             override val packageNameProvider = fakePackageNameProvider
             override val context: Context = testContext
         },

@@ -116,6 +116,9 @@ fun TabSearchScreen(
                 leadingIcon = {
                     IconButton(
                         onClick = {
+                            expanded = false
+                            focusManager.clearFocus(force = true)
+                            keyboardController?.hide()
                             store.dispatch(TabsTrayAction.NavigateBackInvoked)
                         },
                     ) {

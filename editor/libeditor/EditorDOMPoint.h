@@ -1335,7 +1335,7 @@ class EditorDOMPointBase final {
       // nullptr.
       return RawRangeBoundary(mParent, mOffset.value(),
                               // Avoid immediately to compute the child node.
-                              RangeBoundaryIsMutationObserved::No);
+                              RangeBoundarySetBy::Offset);
     }
     if (mIsChildInitialized && mOffset.isSome()) {
       // If we've already set both child and offset, we should create
@@ -1350,19 +1350,19 @@ class EditorDOMPointBase final {
 #endif  // #ifdef DEBUG
       return RawRangeBoundary(mParent, mOffset.value(),
                               // Avoid immediately to compute the child node.
-                              RangeBoundaryIsMutationObserved::No);
+                              RangeBoundarySetBy::Offset);
     }
     // Otherwise, we should create RangeBoundaryBase only with available
     // information.
     if (mOffset.isSome()) {
       return RawRangeBoundary(mParent, mOffset.value(),
                               // Avoid immediately to compute the child node.
-                              RangeBoundaryIsMutationObserved::No);
+                              RangeBoundarySetBy::Offset);
     }
     if (mChild) {
-      return RawRangeBoundary(mParent, mChild->GetPreviousSibling());
+      return RawRangeBoundary::FromChild(*mChild);
     }
-    return RawRangeBoundary(mParent, mParent->GetLastChild());
+    return RawRangeBoundary::EndOfParent(*mParent);
   }
 
   already_AddRefed<nsRange> CreateCollapsedRange(ErrorResult& aRv) const {

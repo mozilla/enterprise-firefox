@@ -6,9 +6,6 @@
 import sys
 
 import requests
-from gecko_taskgraph.util.taskgraph import find_existing_tasks
-from taskgraph.parameters import Parameters
-from taskgraph.util.taskcluster import find_task_id, get_artifact, get_session
 
 from ..cli import BaseTryParser
 from ..push import push_to_try
@@ -84,6 +81,8 @@ def get_release_graph(release):
 
 
 def get_nightly_graph():
+    from taskgraph.util.taskcluster import find_task_id
+
     return find_task_id(
         "gecko.v2.mozilla-central.latest.taskgraph.decision-nightly-all"
     )
@@ -98,6 +97,8 @@ def print_available_task_types():
 
 
 def get_hg_file(parameters, path):
+    from taskgraph.util.taskcluster import get_session
+
     session = get_session()
     response = session.get(parameters.file_url(path))
     response.raise_for_status()
@@ -120,6 +121,10 @@ def run(
         sys.exit(0)
 
     metrics.mach_try.remote_data_fetching_duration.start()
+    from gecko_taskgraph.util.taskgraph import find_existing_tasks
+    from taskgraph.parameters import Parameters
+    from taskgraph.util.taskcluster import get_artifact
+
     if release_type == "nightly":
         previous_graph = get_nightly_graph()
     else:

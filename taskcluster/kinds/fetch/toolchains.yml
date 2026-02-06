@@ -670,11 +670,11 @@ pkgconf:
         add-prefix: pkgconf/
 
 afl-plus-plus-4.0:
-    description: AFL++ 4.0x source
+    description: AFL++ 4.x source
     fetch:
         type: git
         repo: https://github.com/AFLplusplus/AFLplusplus
-        revision: 10db3a35cf17600594946edb6662d606bd4e4207
+        revision: ada0855022ac6e77de74622d0ab61ca7a37b9a9c
 
 cargo-vet:
     description: cargo-vet source
@@ -688,7 +688,7 @@ symbol-scrapers:
     fetch:
         type: git
         repo: https://github.com/mozilla/symbol-scrapers
-        revision: 4a589bc872995b76fa18b5f8746715e5c86fa4bb
+        revision: 0865390a85567ec04e1a31b5188141ecf5b64849
 
 xz-5.8.1:
     description: xz 5.8.1 source code

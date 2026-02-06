@@ -37,6 +37,8 @@ extern crate idna_glue;
 extern crate ipdl_utils;
 extern crate jog;
 extern crate jsrust_shared;
+#[cfg(feature = "jxl_decoder")]
+extern crate jxl_decoder;
 extern crate kvstore;
 extern crate mapped_hyph;
 extern crate mozurl;
@@ -90,6 +92,7 @@ extern crate l10nregistry_ffi;
 extern crate localization_ffi;
 
 extern crate ipcclientcerts;
+extern crate pdf_trust_anchors;
 extern crate qwac_trust_anchors;
 extern crate trust_anchors;
 

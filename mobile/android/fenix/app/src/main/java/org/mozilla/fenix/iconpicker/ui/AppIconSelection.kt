@@ -72,8 +72,8 @@ import org.mozilla.fenix.iconpicker.IconGroupTitle
 import org.mozilla.fenix.iconpicker.SystemAction
 import org.mozilla.fenix.iconpicker.UserAction
 import org.mozilla.fenix.theme.FirefoxTheme
+import org.mozilla.fenix.theme.PreviewThemeProvider
 import org.mozilla.fenix.theme.Theme
-import org.mozilla.fenix.theme.ThemeProvider
 
 private val ListItemHeight = 56.dp
 private val AppIconSize = 40.dp
@@ -392,7 +392,7 @@ private fun AppIconSelectionPreview() {
 @FlexibleWindowPreview
 @Composable
 private fun AppIconOptionPreview(
-    @PreviewParameter(ThemeProvider::class) theme: Theme,
+    @PreviewParameter(PreviewThemeProvider::class) theme: Theme,
 ) {
     FirefoxTheme(theme) {
         AppIconOption(AppIcon.AppDefault, false) {}
@@ -402,7 +402,7 @@ private fun AppIconOptionPreview(
 @FlexibleWindowPreview
 @Composable
 private fun AppIconOptionWithSubtitlePreview(
-    @PreviewParameter(ThemeProvider::class) theme: Theme,
+    @PreviewParameter(PreviewThemeProvider::class) theme: Theme,
 ) {
     FirefoxTheme(theme) {
         AppIconOption(AppIcon.AppMomo, false) {}
@@ -412,7 +412,7 @@ private fun AppIconOptionWithSubtitlePreview(
 @FlexibleWindowPreview
 @Composable
 private fun RestartWarningDialogPreview(
-    @PreviewParameter(ThemeProvider::class) theme: Theme,
+    @PreviewParameter(PreviewThemeProvider::class) theme: Theme,
 ) {
     FirefoxTheme(theme) {
         RestartWarningDialog(
@@ -427,7 +427,7 @@ private fun RestartWarningDialogPreview(
 @FlexibleWindowPreview
 @Composable
 private fun ShortcutRemovalWarningDialogPreview(
-    @PreviewParameter(ThemeProvider::class) theme: Theme,
+    @PreviewParameter(PreviewThemeProvider::class) theme: Theme,
 ) {
     FirefoxTheme(theme) {
         RestartWarningDialog(

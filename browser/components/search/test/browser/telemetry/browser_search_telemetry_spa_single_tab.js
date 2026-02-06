@@ -630,11 +630,26 @@ add_task(async function test_load_serp_and_click_shopping_tab() {
           },
         ],
       },
-      shoppingTab: {
-        selector: "nav a",
-        regexp: "&page=shopping",
-        inspectRegexpInSERP: true,
-      },
+      impressionAttributes: [
+        {
+          key: "is_shopping_page",
+          url: {
+            regexp: "&page=shopping",
+          },
+        },
+        {
+          key: "shopping_tab_displayed",
+          element: {
+            selector: "nav a",
+            attributeName: "href",
+            regexp: "&page=shopping",
+            component: {
+              type: "shopping_tab",
+              countImpressions: true,
+            },
+          },
+        },
+      ],
     },
   ];
   SearchSERPTelemetry.overrideSearchTelemetryForTests(PROVIDERS);
@@ -655,6 +670,7 @@ add_task(async function test_load_serp_and_click_shopping_tab() {
     {
       impression: {
         provider: "example1",
+        is_shopping_page: "false",
         shopping_tab_displayed: "true",
       },
       engagements: [

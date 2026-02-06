@@ -197,6 +197,7 @@ treeherder:
         'Tent': 'Enterprise specific selenium tests'
         'TentChaos': 'Enterprise specific selenium tests (MOZ_CHAOSMODE)'
         'Rpk-Ent': 'Enterprise repacks'
+        'Rpk-Ent-Rpk': 'Enterprise repacks repackage'
         'Rpk': 'Classic repacks'
         'MSI-Ent': "MSI Enterprise repacks"
         'MSIs-Ent': "MSI signed Enterprise repacks"
@@ -242,12 +243,14 @@ treeherder:
         'compose-browser-toolbar': 'awesomebar-browser-toolbar'
         'compose-engine': 'compose-engine'
         'compose-tabstray': 'compose-tabstray'
+        'concept-accelerometer': 'concept-accelerometer'
         'concept-awesomebar': 'concept-awesomebar'
         'concept-base': 'concept-base'
         'compose-base': 'compose-base'
         'compose-cfr': 'compose-cfr'
         'concept-engine': 'concept-engine'
         'concept-fetch': 'concept-fetch'
+        'concept-llm': 'concept-llm'
         'concept-menu': 'concept-menu'
         'concept-push': 'concept-push'
         'concept-storage': 'concept-storage'
@@ -282,6 +285,7 @@ treeherder:
         'feature-screendetection': 'feature-screendetection'
         'feature-share': 'feature-share'
         'feature-sitepermissions': 'feature-sitepermissions'
+        'feature-summarize': 'feature-summarize'
         'feature-syncedtabs': 'feature-syncedtabs'
         'feature-tab-collections': 'feature-tab-collections'
         'feature-tabs': 'feature-tabs'
@@ -297,6 +301,9 @@ treeherder:
         'lib-dataprotect': 'lib-dataprotect'
         'lib-fetch-okhttp': 'lib-fetch-okhttp'
         'lib-jexl': 'lib-jexl'
+        'lib-llm-gemininano': 'lib-llm-gemininano'
+        'lib-llm-mlpa': 'lib-llm-mlpa'
+        'lib-shake': 'lib-shake'
         'lib-publicsuffixlist': 'lib-publicsuffixlist'
         'lib-push-firebase': 'lib-push-firebase'
         'lib-state': 'lib-state'
@@ -352,6 +359,7 @@ treeherder:
         'ui-widgets': 'ui-widgets'
 
         # These ones are too long to fit in 25 chars
+        'lib-accelerometer-sensorm': 'lib-accelerometer-sensormanager'
         'lib-fetch-httpurlconnecti': 'lib-fetch-httpurlconnection'
         'feature-webcompat-reporte': 'feature-webcompat-reporter'
 
@@ -840,11 +848,16 @@ workers:
             implementation: generic-worker
             os: windows
             worker-type: '{alias}'
-        win11-64-24h2(|-gpu|-source|-large|-webgpu):
+        win11-64-24h2(|-gpu|-large|-webgpu):
             provisioner: '{trust-domain}-t'
             implementation: generic-worker
             os: windows
             worker-type: '{alias}'
+        win11-64-24h2-source:
+            provisioner: '{trust-domain}-t'
+            implementation: generic-worker
+            os: windows
+            worker-type: '{alias}-alpha'
         win11-a64-24h2:
             provisioner: '{trust-domain}-t'
             implementation: generic-worker
@@ -929,6 +942,7 @@ mac-signing:
                   entitlements:
                       by-build-platform:
                           .*devedition.*: public/build/security/firefoxdeveloperedition.browser.xml
+                          .*enterprise.*: public/build/security/firefoxenterprise.browser.xml
                           default:
                               by-project:
                                   mozilla-central: public/build/security/nightly.browser.xml

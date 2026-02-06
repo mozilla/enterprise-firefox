@@ -25,7 +25,7 @@ import org.mozilla.fenix.compose.InfoCard
 import org.mozilla.fenix.compose.InfoType
 import org.mozilla.fenix.compose.LinkText
 import org.mozilla.fenix.compose.LinkTextState
-import org.mozilla.fenix.compose.SwitchWithLabel
+import org.mozilla.fenix.compose.list.SwitchListItem
 import org.mozilla.fenix.compose.list.TextListItem
 import org.mozilla.fenix.compose.settings.SettingsSectionHeader
 import org.mozilla.fenix.theme.FirefoxTheme
@@ -252,12 +252,15 @@ private fun AllSitesToggle(
     onAddAllSitesPermissions: () -> Unit,
     onRemoveAllSitesPermissions: () -> Unit,
 ) {
-    SwitchWithLabel(
+    SwitchListItem(
         label = stringResource(R.string.addons_permissions_allow_for_all_sites),
         checked = enabledAllowForAll,
         modifier = Modifier
             .padding(horizontal = 16.dp, vertical = 6.dp),
+        maxLabelLines = Int.MAX_VALUE,
         description = stringResource(R.string.addons_permissions_allow_for_all_sites_subtitle),
+        maxDescriptionLines = Int.MAX_VALUE,
+        showSwitchAfter = true,
     ) { enabled ->
         if (enabled) {
             onAddAllSitesPermissions()
@@ -319,11 +322,12 @@ private fun OptionalPermissionSwitch(
     addOptionalPermission: (AddonPermissionsUpdateRequest) -> Unit,
     removeOptionalPermission: (AddonPermissionsUpdateRequest) -> Unit,
 ) {
-    SwitchWithLabel(
+    SwitchListItem(
         label = localizedPermission.localizedName,
         checked = localizedPermission.permission.granted,
         modifier = modifier,
         enabled = isEnabled,
+        showSwitchAfter = true,
     ) { enabled ->
         val request = AddonPermissionsUpdateRequest(
             optionalPermissions = when (type) {

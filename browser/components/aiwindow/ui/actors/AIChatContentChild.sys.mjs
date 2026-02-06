@@ -15,7 +15,10 @@ export class AIChatContentChild extends JSWindowActorChild {
     },
   };
 
-  static #VALID_EVENTS_FROM_CONTENT = new Set(["AIChatContent:DispatchSearch"]);
+  static #VALID_EVENTS_FROM_CONTENT = new Set([
+    "AIChatContent:DispatchSearch",
+    "AIChatContent:Ready",
+  ]);
 
   /**
    *  Receives event from the content process and sends to the parent.
@@ -31,6 +34,10 @@ export class AIChatContentChild extends JSWindowActorChild {
     switch (event.type) {
       case "AIChatContent:DispatchSearch":
         this.#handleSearchDispatch(event);
+        break;
+
+      case "AIChatContent:Ready":
+        this.sendAsyncMessage("AIChatContent:Ready");
         break;
 
       default:

@@ -1347,7 +1347,7 @@ LoadInfo::ResetPrincipalToInheritToNullPrincipal() {
   nsCOMPtr<nsIPrincipal> newNullPrincipal =
       NullPrincipal::Create(mOriginAttributes);
 
-  mPrincipalToInherit = newNullPrincipal;
+  mPrincipalToInherit = std::move(newNullPrincipal);
 
   // setting SEC_FORCE_INHERIT_PRINCIPAL_OVERRULE_OWNER will overrule
   // any non null owner set on the channel and will return the principal

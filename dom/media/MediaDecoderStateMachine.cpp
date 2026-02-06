@@ -1044,7 +1044,9 @@ class MediaDecoderStateMachine::LoopingDecodingState
         "audioLoopingOffset=[%" PRId64 "], mAudioTrackDecodedDuration=[%" PRId64
         "]",
         AudioQueue().GetOffset().ToMicroseconds(),
-        mMaster->mAudioTrackDecodedDuration->ToMicroseconds());
+        mMaster->mAudioTrackDecodedDuration
+            ? mMaster->mAudioTrackDecodedDuration->ToMicroseconds()
+            : 0);
     if (!IsRequestingDataFromStartPosition(MediaData::Type::AUDIO_DATA)) {
       RequestDataFromStartPosition(TrackInfo::TrackType::kAudioTrack);
     }
@@ -1068,7 +1070,9 @@ class MediaDecoderStateMachine::LoopingDecodingState
         "videoLoopingOffset=[%" PRId64 "], mVideoTrackDecodedDuration=[%" PRId64
         "]",
         VideoQueue().GetOffset().ToMicroseconds(),
-        mMaster->mVideoTrackDecodedDuration->ToMicroseconds());
+        mMaster->mVideoTrackDecodedDuration
+            ? mMaster->mVideoTrackDecodedDuration->ToMicroseconds()
+            : 0);
     if (!IsRequestingDataFromStartPosition(MediaData::Type::VIDEO_DATA)) {
       RequestDataFromStartPosition(TrackInfo::TrackType::kVideoTrack);
     }

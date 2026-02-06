@@ -84,11 +84,7 @@ inline constexpr auto availableCalendars = {
     CalendarId::Indian,
     CalendarId::IslamicCivil,
     CalendarId::IslamicTabular,
-// See Bug 1950425, this calendar is only available on Nightly due to
-// inconsistencies between ICU4X and ICU4C.
-#ifdef NIGHTLY_BUILD
     CalendarId::IslamicUmmAlQura,
-#endif
     CalendarId::Japanese,
     CalendarId::Persian,
     CalendarId::ROC,

@@ -31,10 +31,6 @@ const gPromptFactory = {
   getPrompt: () => gPrompt,
 };
 
-const gModuleDB = Cc["@mozilla.org/security/pkcs11moduledb;1"].getService(
-  Ci.nsIPKCS11ModuleDB
-);
-
 const gCertDB = Cc["@mozilla.org/security/x509certdb;1"].getService(
   Ci.nsIX509CertDB
 );
@@ -113,6 +109,9 @@ add_task(async function test_pkcs11_module() {
   checkPKCS11ModuleNotPresent("PKCS11 Test Module", "pkcs11testmodule");
 
   // Check miscellaneous module DB methods and attributes.
-  ok(!gModuleDB.canToggleFIPS, "It should NOT be possible to toggle FIPS");
-  ok(!gModuleDB.isFIPSEnabled, "FIPS should not be enabled");
+  const fipsUtils = Cc["@mozilla.org/security/fipsutils;1"].getService(
+    Ci.nsIFIPSUtils
+  );
+  ok(!fipsUtils.canToggleFIPS, "It should NOT be possible to toggle FIPS");
+  ok(!fipsUtils.isFIPSEnabled, "FIPS should not be enabled");
 });

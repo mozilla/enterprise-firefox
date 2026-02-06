@@ -56,7 +56,10 @@ moz-box-button-footer =
 };
 
 function basicTemplate({ type, hasHeader, hasFooter, wrapped }) {
-  return html`<moz-box-group type=${ifDefined(type)}>
+  return html`<moz-box-group
+      type=${ifDefined(type)}
+      @reorder=${handleReorderEvent}
+    >
       ${hasHeader
         ? html`<moz-box-item
             slot="header"
@@ -165,6 +168,31 @@ const appendItem = event => {
   boxItem.append(actionButton);
 
   group.prepend(boxItem);
+};
+
+/**
+ * Handles the reorder event from moz-box-group. Since we're not using
+ * Lit for updates in this case, we need to manually reorder the elements.
+ *
+ * @param {CustomEvent} event - The reorder event.
+ * @param {object} event.detail - Detail object containing reorder information.
+ * @param {Element} event.detail.draggedElement - The element being reordered.
+ * @param {Element} event.detail.targetElement - The target element to reorder relative to.
+ * @param {number} event.detail.position - Position relative to target (-1 for before, 0 for after).
+ */
+const handleReorderEvent = event => {
+  let group = event.target.getRootNode().querySelector("moz-box-group");
+  let { draggedElement, targetElement, position } = event.detail;
+  let moveBefore = position === -1;
+
+  if (moveBefore) {
+    group.insertBefore(draggedElement, targetElement);
+  } else {
+    group.insertBefore(draggedElement, targetElement.nextElementSibling);
+  }
+
+  draggedElement.focus();
+  group.updateItems();
 };
 
 // Example with all child elements wrapped in setting-control/setting-group,
@@ -304,7 +332,7 @@ function getSetting() {
   };
 }
 
-const Template = ({ type, hasHeader, hasFooter, scrollable, wrapped }) => html`
+const standardTemplateHtml = ({ scrollable }) => html`
   <style>
     moz-box-group {
       --box-group-max-height: ${scrollable ? "250px" : "unset"};
@@ -314,9 +342,23 @@ const Template = ({ type, hasHeader, hasFooter, scrollable, wrapped }) => html`
       margin-top: var(--space-medium);
     }
   </style>
+`;
+
+const Template = ({ type, hasHeader, hasFooter, scrollable, wrapped }) => html`
+  ${standardTemplateHtml({ scrollable })}
   ${wrapped
     ? wrappedTemplate({ type, hasHeader, hasFooter })
     : basicTemplate({ type, hasHeader, hasFooter, wrapped })}
+`;
+
+const ReorderableTemplate = ({
+  type,
+  hasHeader,
+  hasFooter,
+  scrollable,
+}) => html`
+  ${standardTemplateHtml({ scrollable })}
+  ${basicTemplate({ type, hasHeader, hasFooter })}
 `;
 
 export const Default = Template.bind({});
@@ -334,10 +376,12 @@ List.args = {
   type: "list",
 };
 
-export const Reorderable = Template.bind({});
+export const Reorderable = ReorderableTemplate.bind({});
 Reorderable.args = {
-  ...Default.args,
   type: "reorderable",
+  hasHeader: false,
+  hasFooter: false,
+  scrollable: false,
 };
 
 export const ListWithHeaderAndFooter = Template.bind({});

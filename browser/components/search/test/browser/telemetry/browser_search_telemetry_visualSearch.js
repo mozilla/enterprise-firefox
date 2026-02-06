@@ -140,7 +140,7 @@ add_setup(async function () {
     search_url_get_params: "q={searchTerms}",
   });
   let nonconfigEngine = SearchService.getEngineByName(NONCONFIG_ENGINE_NAME);
-  nonconfigEngine.wrappedJSObject._urls.push(
+  nonconfigEngine._urls.push(
     new EngineURL({
       type: SearchUtils.URL_TYPE.VISUAL_SEARCH,
       template: "https://example.com/nonconfig-engine-visual",
@@ -334,16 +334,13 @@ add_task(async function nonconfigEngine() {
 
   let engine = SearchService.getEngineByName(NONCONFIG_ENGINE_NAME);
   Assert.ok(
-    engine.wrappedJSObject.getURLOfType(SearchUtils.URL_TYPE.VISUAL_SEARCH),
+    engine.getURLOfType(SearchUtils.URL_TYPE.VISUAL_SEARCH),
     "Sanity check: Nonconfig engine has a visual search URL"
   );
 
   // Make the nonconfig engine the default so that it handles visual searches.
   let previousEngine = await SearchService.getDefault();
-  await SearchService.setDefault(
-    engine,
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
-  );
+  await SearchService.setDefault(engine, SearchService.CHANGE_REASON.UNKNOWN);
 
   await openAndCheckMenu({
     shouldBeShown: true,
@@ -364,7 +361,7 @@ add_task(async function nonconfigEngine() {
 
   await SearchService.setDefault(
     previousEngine,
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+    SearchService.CHANGE_REASON.UNKNOWN
   );
   await SpecialPowers.popPrefEnv();
 });

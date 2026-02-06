@@ -22,11 +22,21 @@ export class AIChatContentParent extends JSWindowActorParent {
         this.#handleSearchFromChild(data);
         break;
 
+      case "AIChatContent:Ready":
+        this.#notifyContentReady();
+        break;
+
       default:
         console.warn(`AIChatContentParent received unknown message: ${name}`);
         break;
     }
     return undefined;
+  }
+
+  #notifyContentReady() {
+    const browser = this.browsingContext.embedderElement;
+    const aiWindow = browser.ownerDocument.querySelector("ai-window");
+    aiWindow.onContentReady();
   }
 
   #handleSearchFromChild(data) {

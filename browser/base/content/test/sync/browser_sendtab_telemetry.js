@@ -198,7 +198,13 @@ add_task(async function test_sendtab_tab_context_menu() {
   // Open tab context menu
   let contextMenu = document.getElementById("tabContextMenu");
   let popupShown = BrowserTestUtils.waitForEvent(contextMenu, "popupshown");
-  EventUtils.synthesizeMouseAtCenter(tab, { type: "contextmenu", button: 2 });
+
+  // Initialize TabContextMenu
+  let evt = new Event("");
+  tab.dispatchEvent(evt);
+  gBrowser.selectedTab.focus();
+  contextMenu.openPopup(tab, "end_after", 0, 0, true, false, evt);
+
   await popupShown;
 
   await Services.fog.testFlushAllChildren();

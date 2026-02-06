@@ -2626,6 +2626,16 @@ bool TextLeafRange::WalkLineRects(LineRectCallback aCallback) const {
   return true;
 }
 
+void TextLeafRange::GetFlattenedText(nsAString& aText) const {
+  for (TextLeafRange segment : *this) {
+    if (segment.mStart.mAcc->IsText()) {
+      segment.mStart.mAcc->AppendTextTo(
+          aText, segment.mStart.mOffset,
+          segment.mEnd.mOffset - segment.mStart.mOffset);
+    }
+  }
+}
+
 TextLeafRange::Iterator TextLeafRange::Iterator::BeginIterator(
     const TextLeafRange& aRange) {
   Iterator result(aRange);

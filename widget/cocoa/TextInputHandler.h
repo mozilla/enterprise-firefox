@@ -1072,6 +1072,7 @@ class IMEInputHandler : public TextInputHandlerBase {
   NSTextCheckingResult* mCandidatedTextSubstitutionResult;
   bool mProcessTextSubstitution;
   bool mBlockDismissTextSubstitutionPanel = false;
+  bool mPendingDismissTextSubstitution = false;
 
   IMEInputHandler(nsCocoaWindow* aWidget, NSView<mozView>* aNativeView);
   virtual ~IMEInputHandler();

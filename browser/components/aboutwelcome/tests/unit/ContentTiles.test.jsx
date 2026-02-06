@@ -1122,4 +1122,98 @@ describe("ContentTiles component", () => {
 
     mountedWrapper.unmount();
   });
+
+  it("should render link tiles with external-link-icon and no aria-expanded", () => {
+    const LINK_TILE = {
+      type: "link",
+      header: {
+        title: "link title",
+      },
+      action: {
+        type: "OPEN_URL",
+        data: { url: "https://example.com" },
+      },
+    };
+
+    const linkWrapper = mount(
+      <ContentTiles
+        content={{ tiles: [LINK_TILE] }}
+        handleAction={handleAction}
+        setActiveMultiSelect={setActiveMultiSelect}
+      />
+    );
+
+    const tileButton = linkWrapper.find(".tile-header");
+
+    assert.strictEqual(
+      tileButton.prop("aria-expanded"),
+      undefined,
+      "Should not have aria-expanded since links don't expand content"
+    );
+
+    assert.strictEqual(
+      tileButton.prop("aria-controls"),
+      undefined,
+      "Should not have aria-controls"
+    );
+
+    assert.ok(
+      linkWrapper.find(".external-link-icon").exists(),
+      "Should show external-link-icon"
+    );
+    assert.ok(
+      !linkWrapper.find(".arrow-icon").exists(),
+      "Should not show arrow-icon"
+    );
+
+    linkWrapper.unmount();
+  });
+
+  it("should call handleAction when link tile is clicked", () => {
+    const LINK_TILE = {
+      type: "link",
+      id: "test-link",
+      header: {
+        title: "link tile",
+      },
+      action: {
+        type: "OPEN_URL",
+        data: { url: "https://example.com" },
+      },
+    };
+
+    let telemetrySpy = sandbox.spy(AboutWelcomeUtils, "sendActionTelemetry");
+    const linkWrapper = mount(
+      <ContentTiles
+        content={{ tiles: [LINK_TILE] }}
+        handleAction={handleAction}
+        setActiveMultiSelect={setActiveMultiSelect}
+      />
+    );
+
+    const tileButton = linkWrapper.find(".tile-header");
+    tileButton.simulate("click");
+
+    sinon.assert.calledOnce(handleAction);
+    const callArgs = handleAction.firstCall.args;
+    assert.equal(
+      callArgs[1].type,
+      "OPEN_URL",
+      "Should call handleAction with tile action"
+    );
+
+    sinon.assert.calledOnce(telemetrySpy);
+    assert.equal(
+      telemetrySpy.firstCall.args[1],
+      "link_test-link_header",
+      "Telemetry should be sent for link tile click"
+    );
+
+    assert.ok(
+      !linkWrapper.find(".tile-content").exists(),
+      "Link tiles should not render tile-content"
+    );
+
+    linkWrapper.unmount();
+  });
 });

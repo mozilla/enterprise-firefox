@@ -432,11 +432,12 @@ bool GlobalObject::resolveConstructor(JSContext* cx,
   // how standard protos are linked together and the properties we want to
   // enforce. Generally, it's fine if we don't watch for mutations on protos
   // until they get exposed to user code.
-  if (proto && !JSObject::setFlag(cx, proto, ObjectFlag::IsUsedAsPrototype)) {
+  if (proto && !JSObject::setIsUsedAsPrototype(cx, proto)) {
     return false;
   }
 
-  if (JS::Prefs::objectfuse_for_js_builtin_ctors_protos()) {
+  if (ShouldUseObjectFuses() &&
+      JS::Prefs::objectfuse_for_js_builtin_ctors_protos()) {
     if (proto &&
         !NativeObject::setHasObjectFuse(cx, proto.as<NativeObject>())) {
       return false;

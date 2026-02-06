@@ -35,6 +35,8 @@ BACKGROUND_TABS = [
     "https://www.temu.com",
     "https://www.espn.com/nfl/game/_/gameId/401671793/chiefs-falcons",
 ]
+SUPPORTED_DEVICES = {"SM-A556E": "a55", "Pixel 6": "p6", "SM-S921B": "s24"}
+VALID_IMAGES_DIR = "testing/performance/mobile-startup/expected_startup_screenshots"
 ERROR_THRESHOLD = 8  # This is the lower bound for the high pass filter to remove noise
 ITERATIONS = 5
 MAX_STARTUP_TIME = 25000  # 25000ms = 25 seconds
@@ -76,6 +78,7 @@ class ImageAnalzer:
         self.device.shell("settings put global transition_animation_scale 1")
         self.device.shell("settings put global animator_duration_scale 1")
         self.device.disable_notifications("com.topjohnwu.magisk")
+        self.device_model = self.device.shell_output("getprop ro.product.model")
 
     def app_setup(self):
         if ON_TRY:
@@ -88,6 +91,8 @@ class ImageAnalzer:
         if self.test != "homeview_startup":
             self.create_background_tabs()
         self.device.shell(f"am force-stop {self.package_name}")
+        # Extra delay needed to avoid shutdown thread active during startup
+        time.sleep(3)
 
     def skip_onboarding(self):
         # Skip onboarding for chrome and fenix
@@ -275,6 +280,28 @@ class ImageAnalzer:
                 + '-cpu-time", "shouldAlert": true }'
             )
 
+    def validate_end_frame(self, frame_to_check):
+        if SUPPORTED_DEVICES.get(self.device_model, False):
+            device = SUPPORTED_DEVICES.get(self.device_model)
+            filename = f"{self.browser}-{self.test}"
+            if self.test == "cold_view_nav_end":
+                if "shopify" in self.test_url:
+                    filename += "-shopify"
+                elif "localhost" in self.test_url:
+                    filename += "-newssite"
+            filename += f"-{device}.png"
+            validated_image = cv2.imread(str(pathlib.Path(VALID_IMAGES_DIR, filename)))
+            cropped_image = validated_image[
+                100 : int(self.height) - 100, 0 : int(self.width) - 20
+            ]
+            cropped_image = cv2.cvtColor(cropped_image, cv2.COLOR_BGR2GRAY)
+            diff = self.error(self.get_image(frame_to_check), cropped_image)
+            print(f"Error we found in images: {diff}")
+            if diff > 0.5:
+                raise Exception(
+                    "Difference in Images is too high, suspected faulty run"
+                )
+
 
 if __name__ == "__main__":
     if len(sys.argv) != 4:
@@ -295,6 +322,7 @@ if __name__ == "__main__":
         ImageObject.app_setup()
         ImageObject.get_video(iteration)
         nav_done_frame = ImageObject.get_page_loaded_time(iteration)
+        ImageObject.validate_end_frame(nav_done_frame)
         start_video_timestamp += [ImageObject.get_time_from_frame_num(nav_done_frame)]
     print(
         'perfMetrics: {"values": '

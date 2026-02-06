@@ -83,6 +83,6 @@ add_task(async function test_migration() {
     "Second engine stayed app-provided"
   );
 
-  let settings = await SearchService.wrappedJSObject._settings.get();
+  let settings = await SearchService._settings.get();
   Assert.deepEqual(settings.engines, EXPECTED_ENGINES);
 });

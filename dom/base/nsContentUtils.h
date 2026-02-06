@@ -519,6 +519,8 @@ class nsContentUtils {
    *
    * When the current content is a ShadowRoot, the offset of it from
    * its ancestor (the host element) will be Nothing().
+   *
+   * The UAWidget won't be included in the ancestor list.
    */
   static nsresult GetFlattenedTreeAncestorsAndOffsets(
       nsINode* aNode, uint32_t aOffset, nsTArray<nsIContent*>& aAncestorNodes,

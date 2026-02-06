@@ -8,6 +8,7 @@ import {
   generateProfileInputs,
   aggregateSessions,
   topkAggregates,
+  countRecentVisits,
 } from "moz-src:///browser/components/aiwindow/models/memories/MemoriesHistorySource.sys.mjs";
 import { getRecentChats } from "./MemoriesChatSource.sys.mjs";
 import {
@@ -30,10 +31,6 @@ import {
   parseAndExtractJSON,
   generateMemories,
 } from "moz-src:///browser/components/aiwindow/models/memories/Memories.sys.mjs";
-import {
-  messageMemoryClassificationSystemPrompt,
-  messageMemoryClassificationPrompt,
-} from "moz-src:///browser/components/aiwindow/models/prompts/MemoriesPrompts.sys.mjs";
 import { MEMORIES_MESSAGE_CLASSIFY_SCHEMA } from "moz-src:///browser/components/aiwindow/models/memories/MemoriesSchemas.sys.mjs";
 import { AIWindow } from "moz-src:///browser/components/aiwindow/ui/modules/AIWindow.sys.mjs";
 import { EveryWindow } from "resource:///modules/EveryWindow.sys.mjs";
@@ -58,52 +55,84 @@ const LAST_CONVERSATION_MEMORY_TS_ATTRIBUTE = "last_chat_memory_ts";
  * MemoriesManager class
  */
 export class MemoriesManager {
-  static #openAIEnginePromise = null;
-
   // Exposed to be stubbed for testing
   static _getRecentChats = getRecentChats;
 
+  // openaiEngine for memory generation
+  static #openAIEngineGenerationPromise = null;
+
+  // openAIEngine for memory usage
+  static #openAIEngineUsagePromise = null;
+
   /**
-   * Creates and returns an class-level openAIEngine instance if one has not already been created.
-   * This current pulls from the general browser.aiwindow.* prefs, but will likely pull from memories-specific ones in the future
+   * Creates and returns an openAIEngine instance for memory generation.
+   * This engine loads prompts for: initial generation, deduplication, sensitivity filter.
    *
    * @returns {Promise<openAIEngine>}  openAIEngine instance
    */
-  static async ensureOpenAIEngine() {
-    // Helper to build a new engine and cache the in-flight promise.
+  static async ensureOpenAIEngineForGeneration() {
     const buildFresh = () => {
-      this.#openAIEnginePromise = openAIEngine.build(
-        MODEL_FEATURES.MEMORIES,
+      this.#openAIEngineGenerationPromise = openAIEngine.build(
+        MODEL_FEATURES.MEMORIES_INITIAL_GENERATION_SYSTEM,
         DEFAULT_ENGINE_ID,
         SERVICE_TYPES.MEMORIES
       );
-      return this.#openAIEnginePromise;
+      return this.#openAIEngineGenerationPromise;
     };
 
-    // If we don't have one yet, build it.
-    if (!this.#openAIEnginePromise) {
+    if (!this.#openAIEngineGenerationPromise) {
       return await buildFresh();
     }
 
-    // Otherwise, await the existing one and validate.
     let engine;
     try {
-      engine = await this.#openAIEnginePromise;
+      engine = await this.#openAIEngineGenerationPromise;
     } catch (e) {
-      // Previous build failed; clear cache and retry once.
-      this.#openAIEnginePromise = null;
+      this.#openAIEngineGenerationPromise = null;
       return await buildFresh();
     }
 
-    // validate engine health
     const status = engine?.engineInstance?.engineStatus;
-
-    // If the engine is closed or not in ready state then rebuild.
     if (status !== "ready") {
-      this.#openAIEnginePromise = null;
+      this.#openAIEngineGenerationPromise = null;
+      return await buildFresh();
+    }
+    return engine;
+  }
+
+  /**
+   * Creates and returns an openAIEngine instance for memory usage.
+   * This engine loads prompts for: message classification, relevant context.
+   *
+   * @returns {Promise<openAIEngine>}  openAIEngine instance
+   */
+  static async ensureOpenAIEngineForUsage() {
+    const buildFresh = () => {
+      this.#openAIEngineUsagePromise = openAIEngine.build(
+        MODEL_FEATURES.MEMORIES_MESSAGE_CLASSIFICATION_SYSTEM,
+        DEFAULT_ENGINE_ID,
+        SERVICE_TYPES.MEMORIES
+      );
+      return this.#openAIEngineUsagePromise;
+    };
+
+    if (!this.#openAIEngineUsagePromise) {
       return await buildFresh();
     }
 
+    let engine;
+    try {
+      engine = await this.#openAIEngineUsagePromise;
+    } catch (e) {
+      this.#openAIEngineUsagePromise = null;
+      return await buildFresh();
+    }
+
+    const status = engine?.engineInstance?.engineStatus;
+    if (status !== "ready") {
+      this.#openAIEngineUsagePromise = null;
+      return await buildFresh();
+    }
     return engine;
   }
 
@@ -123,7 +152,7 @@ export class MemoriesManager {
     const existingMemoriesSummaries = existingMemories.map(
       i => i.memory_summary
     );
-    const engine = await this.ensureOpenAIEngine();
+    const engine = await this.ensureOpenAIEngineForGeneration();
     const memories = await generateMemories(
       engine,
       sources,
@@ -452,38 +481,29 @@ export class MemoriesManager {
   }
 
   /**
-   * Builds the prompt to classify a user message into memory categories and intents.
-   *
-   * @param {string} message          User message to classify
-   * @returns {Promise<string>}       Prompt string to send to LLM for classifying the message
-   */
-  static async buildMessageMemoryClassificationPrompt(message) {
-    const categories = getFormattedMemoryAttributeList(CATEGORIES);
-    const intents = getFormattedMemoryAttributeList(INTENTS);
-
-    return await renderPrompt(messageMemoryClassificationPrompt, {
-      message,
-      categories,
-      intents,
-    });
-  }
-
-  /**
    * Classifies a user message into memory categories and intents.
    *
    * @param {string} message                                                        User message to classify
    * @returns {Promise<Map<{categories: Array<string>, intents: Array<string>}>>}}  Categories and intents into which the message was classified
    */
   static async memoryClassifyMessage(message) {
-    const messageClassifPrompt =
-      await this.buildMessageMemoryClassificationPrompt(message);
-
-    const engine = await this.ensureOpenAIEngine();
+    const engine = await this.ensureOpenAIEngineForUsage();
+    const systemPrompt = await engine.loadPrompt(
+      MODEL_FEATURES.MEMORIES_MESSAGE_CLASSIFICATION_SYSTEM
+    );
+    const userPromptTemplate = await engine.loadPrompt(
+      MODEL_FEATURES.MEMORIES_MESSAGE_CLASSIFICATION_USER
+    );
+    const userPrompt = await renderPrompt(userPromptTemplate, {
+      message,
+      categories: getFormattedMemoryAttributeList(CATEGORIES),
+      intents: getFormattedMemoryAttributeList(INTENTS),
+    });
 
     const response = await engine.run({
       args: [
-        { role: "system", content: messageMemoryClassificationSystemPrompt },
-        { role: "user", content: messageClassifPrompt },
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
       ],
       responseFormat: {
         type: "json_schema",
@@ -496,10 +516,10 @@ export class MemoriesManager {
       categories: [],
       intents: [],
     });
+
     if (!parsed.categories || !parsed.intents) {
       return { categories: [], intents: [] };
     }
-
     return parsed;
   }
 
@@ -540,7 +560,7 @@ export class MemoriesManager {
    * Helper returns true if memories generation should be enabled.
    *
    * Gating logic for all schedulers:
-   * - browser.aiwindow.enabled pref
+   * - browser.smartwindow.enabled pref
    * - memories-specific pref
    * - and whether any AIWindow is currently active
    *
@@ -568,5 +588,16 @@ export class MemoriesManager {
       // If we cannot check window state, do NOT enable schedulers.
       return false;
     }
+  }
+
+  /**
+   * Count recent history visits.
+   * Thin wrapper around MemoriesHistorySource.countRecentVisits for callers/tests.
+   *
+   * @param {object} opts
+   * @returns {Promise<number>}
+   */
+  static async countRecentVisits(opts = {}) {
+    return await countRecentVisits(opts);
   }
 }

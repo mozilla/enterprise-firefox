@@ -10,6 +10,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.runTest
 import mozilla.components.browser.state.action.WebExtensionAction
 import mozilla.components.browser.state.state.BrowserState
 import mozilla.components.browser.state.state.WebExtensionState
@@ -36,8 +38,6 @@ import mozilla.components.support.test.argumentCaptor
 import mozilla.components.support.test.eq
 import mozilla.components.support.test.mock
 import mozilla.components.support.test.robolectric.testContext
-import mozilla.components.support.test.rule.MainCoroutineRule
-import mozilla.components.support.test.rule.runTestOnMain
 import mozilla.components.support.test.whenever
 import mozilla.components.support.webextensions.WebExtensionSupport
 import org.junit.After
@@ -48,7 +48,6 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
-import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.ArgumentMatchers.anyBoolean
@@ -62,10 +61,7 @@ import org.mockito.Mockito.verify
 
 @RunWith(AndroidJUnit4::class)
 class AddonManagerTest {
-
-    @get:Rule
-    val coroutinesTestRule = MainCoroutineRule()
-    private val dispatcher = coroutinesTestRule.testDispatcher
+    private val dispatcher = StandardTestDispatcher()
 
     @Before
     fun setup() {
@@ -78,7 +74,7 @@ class AddonManagerTest {
     }
 
     @Test
-    fun `getAddons - queries addons from provider and updates installation state`() = runTestOnMain {
+    fun `getAddons - queries addons from provider and updates installation state`() = runTest(dispatcher) {
         // Prepare addons provider
         // addon1 (ext1) is a featured extension that is already installed.
         // addon2 (ext2) is a featured extension that is not installed.
@@ -221,7 +217,7 @@ class AddonManagerTest {
     }
 
     @Test
-    fun `getAddons - returns temporary add-ons as supported`() = runTestOnMain {
+    fun `getAddons - returns temporary add-ons as supported`() = runTest(dispatcher) {
         val addonsProvider: AddonsProvider = mock()
         whenever(addonsProvider.getFeaturedAddons(anyBoolean(), eq(null), language = anyString())).thenReturn(listOf())
 
@@ -264,7 +260,7 @@ class AddonManagerTest {
     }
 
     @Test
-    fun `getAddons - filters unneeded locales on featured add-ons`() = runTestOnMain {
+    fun `getAddons - filters unneeded locales on featured add-ons`() = runTest(dispatcher) {
         val addon = Addon(
             id = "addon1",
             translatableName = mapOf(Addon.DEFAULT_LOCALE to "name", "invalid1" to "Name", "invalid2" to "nombre"),
@@ -294,7 +290,7 @@ class AddonManagerTest {
     }
 
     @Test
-    fun `getAddons - filters unneeded locales on non-featured installed add-ons`() = runTestOnMain {
+    fun `getAddons - filters unneeded locales on non-featured installed add-ons`() = runTest(dispatcher) {
         val addon = Addon(
             id = "addon1",
             translatableName = mapOf(Addon.DEFAULT_LOCALE to "name", "invalid1" to "Name", "invalid2" to "nombre"),
@@ -329,7 +325,7 @@ class AddonManagerTest {
     }
 
     @Test
-    fun `getAddons - suspends until pending actions are completed`() = runTestOnMain {
+    fun `getAddons - suspends until pending actions are completed`() = runTest(dispatcher) {
         val addon = Addon(
             id = "ext1",
             installedState = Addon.InstalledState("ext1", "1.0", "", true),
@@ -378,7 +374,7 @@ class AddonManagerTest {
     }
 
     @Test
-    fun `getAddons - passes on allowCache parameter`() = runTestOnMain {
+    fun `getAddons - passes on allowCache parameter`() = runTest(dispatcher) {
         val store = BrowserStore()
 
         val engine: Engine = mock()
@@ -401,7 +397,7 @@ class AddonManagerTest {
     }
 
     @Test
-    fun `getAddons - passes readTimeoutInSeconds parameter dependent on installed extensions`() = runTestOnMain {
+    fun `getAddons - passes readTimeoutInSeconds parameter dependent on installed extensions`() = runTest(dispatcher) {
         val store = BrowserStore()
 
         val engine: Engine = mock()
@@ -993,7 +989,7 @@ class AddonManagerTest {
     }
 
     @Test
-    fun `loadIcon try to load the icon from extension`() = runTestOnMain {
+    fun `loadIcon try to load the icon from extension`() = runTest(dispatcher) {
         val extension: WebExtension = mock()
 
         val manager = spy(AddonManager(mock(), mock(), mock(), mock(), mock()))
@@ -1007,7 +1003,7 @@ class AddonManagerTest {
 
     @Test
     fun `loadIcon calls tryLoadIconInBackground when TimeoutCancellationException`() =
-        runTestOnMain {
+        runTest {
             val extension: WebExtension = mock()
 
             val manager = spy(AddonManager(mock(), mock(), mock(), mock(), mock()))

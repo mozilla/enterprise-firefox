@@ -458,7 +458,7 @@ add_task(async function test_moving_tabs() {
   );
 
   // Create a tabgroup with tabs and a splitview
-  gBrowser.addTabGroup([tab1, tab2, tab3], { insertBefore: tab3 });
+  let group = gBrowser.addTabGroup([tab1, tab2, tab3], { insertBefore: tab3 });
   Assert.deepEqual(
     gBrowser.tabs,
     [startingTab, tab1, tab2, tab3, tab4],
@@ -502,6 +502,28 @@ add_task(async function test_moving_tabs() {
     tab3.splitview && tab4.splitview && !splitview2.group,
     "Tab 3 and tab 4 are still in a splitview but no longer in a tab group"
   );
+
+  group.addTabs([startingTab]);
+  Assert.deepEqual(
+    gBrowser.tabs,
+    [tab3, tab4, tab1, tab2, startingTab],
+    "StartingTab is moved to the end of the tabstrip"
+  );
+  ok(
+    !startingTab.splitview && startingTab.group,
+    "Starting tab was added to the group but not the splitview"
+  );
+  gBrowser.moveTabsBefore([startingTab], tab1);
+  Assert.deepEqual(
+    gBrowser.tabs,
+    [tab3, tab4, startingTab, tab1, tab2],
+    "StartingTab is moved in front of tab1"
+  );
+  ok(
+    !startingTab.splitview && startingTab.group,
+    "Starting tab is still in the group but not added to the splitview"
+  );
+
   for (let tab of [tab1, tab2, tab3, tab4]) {
     BrowserTestUtils.removeTab(tab);
   }

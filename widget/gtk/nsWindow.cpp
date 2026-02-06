@@ -1980,12 +1980,21 @@ void nsWindow::UpdateWaylandPopupHierarchy() {
       return true;
     }();
 
+    // We can't move popup type from xdg_popup to wl_subsurface one
+    // as it causes issues on Ubuntu 22.04 (Bug 2003045).
+    if (!popup->mPopupUseMoveToRect) {
+      popup->mPopupUseMoveToRect = useMoveToRect;
+    }
+
     LOG("  popup [%p] matches layout [%d] anchored [%d] first popup [%d] use "
         "move-to-rect %d\n",
         popup, popup->mPopupMatchesLayout, popup->mPopupAnchored,
-        popup->WaylandPopupIsFirst(), useMoveToRect);
+        popup->WaylandPopupIsFirst(), popup->mPopupUseMoveToRect);
 
-    popup->mPopupUseMoveToRect = useMoveToRect;
+    if (popup->mPopupUseMoveToRect && !popup->mPopupMatchesLayout) {
+      gfxCriticalNote << "Wayland: Positioned popup with missing anchor!";
+    }
+
     popup->WaylandPopupMoveImpl();
     popup->mPopupChanged = false;
     popup = popup->mWaylandPopupNext;
@@ -8911,6 +8920,13 @@ void nsWindow::SetCompositorWidgetDelegate(CompositorWidgetDelegate* delegate) {
   MOZ_RELEASE_ASSERT(NS_IsMainThread());
   mCompositorWidgetDelegate =
       delegate ? delegate->AsPlatformSpecificDelegate() : nullptr;
+
+  if (mCompositorWidgetDelegate && GdkIsX11Display()) {
+    CompositorBridgeChild* remoteRenderer = GetRemoteRenderer();
+    MOZ_RELEASE_ASSERT(remoteRenderer);
+    remoteRenderer->SendResume();
+    remoteRenderer->SendForcePresent(wr::RenderReasons::WIDGET);
+  }
 }
 
 bool nsWindow::IsAlwaysUndecoratedWindow() const {
@@ -8932,7 +8948,7 @@ void nsWindow::SetCustomTitlebar(bool aState) {
       aState, (int)mGtkWindowDecoration);
 
   if (mGtkWindowDecoration == GTK_DECORATION_NONE ||
-      aState == mDrawInTitlebar) {
+      aState == mDrawInTitlebar || mIsDestroyed) {
     LOG("  already set, quit");
     return;
   }
@@ -8950,12 +8966,13 @@ void nsWindow::SetCustomTitlebar(bool aState) {
   } else if (mGtkWindowDecoration == GTK_DECORATION_CLIENT) {
     LOG("    Using CSD mode\n");
 
-    if (!gtk_widget_get_realized(GTK_WIDGET(mShell))) {
-      LOG("    Using CSD mode fast path\n");
-      gtk_window_set_titlebar(GTK_WINDOW(mShell),
-                              aState ? gtk_fixed_new() : nullptr);
-      return;
+    // We need to disable/enable VSync as WaylandSurface unmap
+    // removes all callbacks. Will be fixed by Bug 2000840.
+#ifdef MOZ_WAYLAND
+    if (mWaylandVsyncSource) {
+      mWaylandVsyncSource->DisableVSyncSource();
     }
+#endif
 
     /* Window manager does not support GDK_DECOR_BORDER,
      * emulate it by CSD.
@@ -9021,6 +9038,12 @@ void nsWindow::SetCustomTitlebar(bool aState) {
       mNeedsShow = true;
       NativeShow(true);
     }
+
+#ifdef MOZ_WAYLAND
+    if (mWaylandVsyncSource) {
+      mWaylandVsyncSource->EnableVSyncSource();
+    }
+#endif
 
     gtk_widget_destroy(tmpWindow);
   }
@@ -9810,6 +9833,13 @@ void nsWindow::OnMap() {
   }
 
   RefreshWindowClass();
+
+  if (GdkIsX11Display()) {
+    if (CompositorBridgeChild* remoteRenderer = GetRemoteRenderer()) {
+      remoteRenderer->SendResume();
+      remoteRenderer->SendForcePresent(wr::RenderReasons::WIDGET);
+    }
+  }
 
   LOG("  finished, GdkWindow %p XID 0x%lx\n", mGdkWindow, GetX11Window());
 }

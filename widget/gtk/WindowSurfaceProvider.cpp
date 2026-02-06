@@ -11,6 +11,7 @@
 #include "mozilla/gfx/Logging.h"
 #include "mozilla/layers/LayersTypes.h"
 #include "nsWindow.h"
+#include "mozilla/ScopeExit.h"
 #include "WidgetUtilsGtk.h"
 
 #ifdef MOZ_WAYLAND
@@ -41,7 +42,9 @@ namespace widget {
 using namespace mozilla::layers;
 
 WindowSurfaceProvider::WindowSurfaceProvider()
-    : mWindowSurface(nullptr)
+    : mWindowSurface(nullptr),
+      mMutex("WindowSurfaceProvider"),
+      mWindowSurfaceValid(false)
 #ifdef MOZ_X11
       ,
       mXDepth(0),
@@ -63,10 +66,12 @@ WindowSurfaceProvider::~WindowSurfaceProvider() {
 
 #ifdef MOZ_WAYLAND
 bool WindowSurfaceProvider::Initialize(RefPtr<nsWindow> aWidget) {
+  mWindowSurfaceValid = false;
   mWidget = std::move(aWidget);
   return true;
 }
 bool WindowSurfaceProvider::Initialize(GtkCompositorWidget* aCompositorWidget) {
+  mWindowSurfaceValid = false;
   mCompositorWidget = aCompositorWidget;
   mWidget = static_cast<nsWindow*>(aCompositorWidget->RealWidget());
   return true;
@@ -74,6 +79,8 @@ bool WindowSurfaceProvider::Initialize(GtkCompositorWidget* aCompositorWidget) {
 #endif
 #ifdef MOZ_X11
 bool WindowSurfaceProvider::Initialize(Window aWindow) {
+  mWindowSurfaceValid = false;
+
   // Grab the window's visual and depth
   XWindowAttributes windowAttrs;
   if (!XGetWindowAttributes(DefaultXDisplay(), aWindow, &windowAttrs)) {
@@ -89,7 +96,8 @@ bool WindowSurfaceProvider::Initialize(Window aWindow) {
 #endif
 
 void WindowSurfaceProvider::CleanupResources() {
-  mWindowSurface = nullptr;
+  MutexAutoLock lock(mMutex);
+  mWindowSurfaceValid = false;
 #ifdef MOZ_WAYLAND
   mWidget = nullptr;
 #endif
@@ -138,11 +146,29 @@ RefPtr<WindowSurface> WindowSurfaceProvider::CreateWindowSurface() {
   MOZ_RELEASE_ASSERT(false);
 }
 
+// We need to ignore thread safety checks here. We need to hold mMutex
+// between StartRemoteDrawingInRegion()/EndRemoteDrawingInRegion() calls
+// which confuses it.
+MOZ_PUSH_IGNORE_THREAD_SAFETY
+
 already_AddRefed<gfx::DrawTarget>
 WindowSurfaceProvider::StartRemoteDrawingInRegion(
     const LayoutDeviceIntRegion& aInvalidRegion) {
   if (aInvalidRegion.IsEmpty()) {
     return nullptr;
+  }
+
+  // We return a reference to mWindowSurface inside draw target so we need to
+  // hold the mutex untill EndRemoteDrawingInRegion() call where draw target
+  // is returned.
+  // If we return null dt, EndRemoteDrawingInRegion() won't be called to
+  // release mutex.
+  mMutex.Lock();
+  auto unlockMutex = MakeScopeExit([&] { mMutex.Unlock(); });
+
+  if (!mWindowSurfaceValid) {
+    mWindowSurface = nullptr;
+    mWindowSurfaceValid = true;
   }
 
   if (!mWindowSurface) {
@@ -164,13 +190,28 @@ WindowSurfaceProvider::StartRemoteDrawingInRegion(
     dt = mWindowSurface->Lock(aInvalidRegion);
   }
 #endif
+  if (dt) {
+    // We have valid dt, mutex will be released in EndRemoteDrawingInRegion().
+    unlockMutex.release();
+  }
+
   return dt.forget();
 }
 
 void WindowSurfaceProvider::EndRemoteDrawingInRegion(
     gfx::DrawTarget* aDrawTarget, const LayoutDeviceIntRegion& aInvalidRegion) {
+  // Unlock mutex from StartRemoteDrawingInRegion().
+  mMutex.AssertCurrentThreadOwns();
+  auto unlockMutex = MakeScopeExit([&] { mMutex.Unlock(); });
+
+  // Commit to mWindowSurface only if we have a valid one.
+  if (!mWindowSurface || !mWindowSurfaceValid) {
+    return;
+  }
   mWindowSurface->Commit(aInvalidRegion);
 }
+
+MOZ_POP_THREAD_SAFETY
 
 }  // namespace widget
 }  // namespace mozilla

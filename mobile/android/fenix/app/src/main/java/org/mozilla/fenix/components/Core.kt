@@ -6,6 +6,7 @@ package org.mozilla.fenix.components
 
 import android.content.Context
 import android.content.res.Configuration
+import android.os.Environment
 import androidx.core.content.ContextCompat
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.CoroutineScope
@@ -84,6 +85,8 @@ import mozilla.components.service.digitalassetlinks.local.StatementApi
 import mozilla.components.service.digitalassetlinks.local.StatementRelationChecker
 import mozilla.components.service.location.LocationService
 import mozilla.components.service.location.MozillaLocationService
+import mozilla.components.service.mars.MacTopSitesProvider
+import mozilla.components.service.mars.MacTopSitesRequestConfig
 import mozilla.components.service.mars.MarsTopSitesProvider
 import mozilla.components.service.mars.MarsTopSitesRequestConfig
 import mozilla.components.service.mars.NEW_TAB_TILE_1_PLACEMENT_KEY
@@ -103,6 +106,7 @@ import mozilla.components.support.base.worker.Frequency
 import mozilla.components.support.ktx.android.content.appVersionName
 import mozilla.components.support.ktx.android.content.res.readJSONObject
 import mozilla.components.support.locale.LocaleManager
+import mozilla.components.support.utils.DefaultDownloadFileUtils
 import mozilla.components.support.utils.RunWhenReadyQueue
 import org.mozilla.fenix.AppRequestInterceptor
 import org.mozilla.fenix.BuildConfig
@@ -233,9 +237,17 @@ class Core(
         }
 
         GeckoEngine(
-            context,
-            defaultSettings,
-            geckoRuntime,
+            context = context,
+            defaultSettings = defaultSettings,
+            runtime = geckoRuntime,
+            downloadFileUtils = DefaultDownloadFileUtils(
+                context = context,
+                downloadLocationGetter = {
+                    Environment.getExternalStoragePublicDirectory(
+                        Environment.DIRECTORY_DOWNLOADS,
+                    ).path
+                },
+                ),
         ).also {
             WebCompatFeature.install(it)
         }
@@ -611,11 +623,28 @@ class Core(
         )
     }
 
+    val macTopSitesProvider by lazyMonitored {
+        MacTopSitesProvider(
+            adsClientProvider = context.components.ads.lazyAdsClientProvider,
+            requestConfig = MacTopSitesRequestConfig(
+                placements = listOf(
+                    NEW_TAB_TILE_1_PLACEMENT_KEY,
+                    NEW_TAB_TILE_2_PLACEMENT_KEY,
+                ),
+            ),
+            crashReporter = crashReporter,
+        )
+    }
+
     @Suppress("MagicNumber")
     val contileTopSitesUpdater by lazyMonitored {
         ContileTopSitesUpdater(
             context = context,
-            provider = marsTopSitesProvider,
+            provider = if (context.settings().enableMozillaAdsClient) {
+                macTopSitesProvider
+            } else {
+                marsTopSitesProvider
+            },
             frequency = Frequency(3, TimeUnit.HOURS),
         )
     }
@@ -624,7 +653,11 @@ class Core(
         DefaultTopSitesStorage(
             pinnedSitesStorage = pinnedSiteStorage,
             historyStorage = historyStorage,
-            topSitesProvider = marsTopSitesProvider,
+            topSitesProvider = if (context.settings().enableMozillaAdsClient) {
+                macTopSitesProvider
+            } else {
+                marsTopSitesProvider
+            },
         )
     }
 

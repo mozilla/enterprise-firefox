@@ -6,8 +6,6 @@
 import sys
 from pathlib import PurePath
 
-from gecko_taskgraph.target_tasks import filter_by_uncommon_try_tasks
-
 from ..cli import BaseTryParser
 from ..push import check_working_directory, generate_try_task_config, push_to_try
 from ..tasks import filter_tasks_by_paths, filter_tasks_by_worker_type, generate_tasks
@@ -140,6 +138,8 @@ def run(
     **kwargs,
 ):
     metrics.mach_try.fzf_bootstrap_duration.start()
+    from gecko_taskgraph.target_tasks import filter_by_uncommon_try_tasks
+
     fzf = fzf_bootstrap(update)
     metrics.mach_try.fzf_bootstrap_duration.stop()
 

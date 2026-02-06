@@ -903,6 +903,8 @@ export const URILoadingHelper = {
    * @param aUserContextId
    *        If not null, will switch to the first found tab having the provided
    *        userContextId.
+   * @param aSplitView
+   *        If not null, will move the tab to the active split view instead of switching to tab
    * @return True if an existing tab was found, false otherwise
    */
   switchToTabHavingURI(
@@ -910,7 +912,8 @@ export const URILoadingHelper = {
     aURI,
     aOpenNew,
     aOpenParams = {},
-    aUserContextId = null
+    aUserContextId = null,
+    aSplitView = null
   ) {
     // Certain URLs can be switched to irrespective of the source or destination
     // window being in private browsing mode:
@@ -1017,7 +1020,14 @@ export const URILoadingHelper = {
           }
 
           if (!doAdopt) {
-            aWindow.gBrowser.tabContainer.selectedIndex = i;
+            if (aSplitView) {
+              aSplitView.replaceTab(
+                aWindow.gBrowser.selectedTab,
+                aWindow.gBrowser.visibleTabs[i]
+              );
+            } else {
+              aWindow.gBrowser.tabContainer.selectedIndex = i;
+            }
           }
 
           return true;

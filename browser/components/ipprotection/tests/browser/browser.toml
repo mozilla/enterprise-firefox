@@ -5,7 +5,9 @@ support-files = [
 
 prefs = [
   "browser.ipProtection.log=true",
+  "browser.ipProtection.features.siteExceptions=true",
   "dom.security.https_first=false",
+  "browser.ipProtection.bandwidth.enabled=true",
 ]
 
 ["browser_IPPChannelFilter.js"]
@@ -16,11 +18,15 @@ prefs = [
 
 ["browser_guardian_client.js"]
 
+["browser_ipprotection_alert_manager.js"]
+
+["browser_ipprotection_confirmation_hints_site_exclusion.js"]
+
 ["browser_ipprotection_content.js"]
 
-["browser_ipprotection_content_signedout.js"]
-
 ["browser_ipprotection_content_site_exclusion.js"]
+
+["browser_ipprotection_content_unauthenticated.js"]
 
 ["browser_ipprotection_header.js"]
 

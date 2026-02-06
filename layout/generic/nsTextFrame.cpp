@@ -776,6 +776,8 @@ static void InvalidateFrameDueToGlyphsChanged(nsIFrame* aFrame) {
       // we should probably do lazily here since there could be a lot
       // of text frames affected and we'd like to coalesce the work. So that's
       // not easy to do well.
+      // TODO(emilio): If we allow text to store changes or so, this could use
+      // PostRestyleEvent(..., UpdateOverflow);
       presShell->FrameNeedsReflow(f, IntrinsicDirty::None, NS_FRAME_IS_DIRTY);
     }
   }
@@ -2000,7 +2002,7 @@ static bool HasDefaultVerticalAlignment(const nsIFrame* aFrame) {
     return false;
   }
 
-  const auto& baselineShift = aFrame->BaselineShift();
+  const auto& baselineShift = aFrame->StyleDisplay()->mBaselineShift;
   if (baselineShift.IsKeyword() ||
       !baselineShift.AsLength().IsDefinitelyZero()) {
     return false;
@@ -5149,8 +5151,7 @@ nsresult nsTextFrame::CharacterDataChanged(
       if (!areAncestorsAwareOfReflowRequest) {
         // Ask the parent frame to reflow me.
         presShell->FrameNeedsReflow(
-            textFrame, IntrinsicDirty::FrameAncestorsAndDescendants,
-            NS_FRAME_IS_DIRTY);
+            textFrame, IntrinsicDirty::FrameAndAncestors, NS_FRAME_IS_DIRTY);
       } else {
         // We already called FrameNeedsReflow on behalf of an earlier sibling,
         // so we can just mark this frame as dirty and don't need to bother
@@ -6381,8 +6382,9 @@ void nsTextFrame::DrawSelectionDecorations(
       }
       params.style =
           computedStyleFromPseudo->StyleTextReset()->mTextDecorationStyle;
-      params.color = computedStyleFromPseudo->StyleTextReset()
-                         ->mTextDecorationColor.CalcColor(this);
+      params.color =
+          computedStyleFromPseudo->StyleTextReset()
+              ->mTextDecorationColor.CalcColor(*computedStyleFromPseudo);
       params.decoration =
           computedStyleFromPseudo->StyleTextReset()->mTextDecorationLine;
       params.descentLimit = -1.f;
@@ -6609,13 +6611,19 @@ bool nsTextFrame::GetSelectionTextColors(SelectionType aSelectionType,
  * type of selection.
  * If text-shadow was not specified, *aShadows is left untouched.
  */
-void nsTextFrame::GetSelectionTextShadow(
+mozilla::Span<const StyleSimpleShadow> nsTextFrame::GetSelectionTextShadow(
     SelectionType aSelectionType, nsTextPaintStyle& aTextPaintStyle,
-    Span<const StyleSimpleShadow>* aShadows) {
-  if (aSelectionType != SelectionType::eNormal) {
-    return;
+    nsAtom* aHighlightName) {
+  if (aSelectionType == SelectionType::eNormal) {
+    return aTextPaintStyle.GetSelectionShadow();
   }
-  aTextPaintStyle.GetSelectionShadow(aShadows);
+  if (aSelectionType == SelectionType::eTargetText) {
+    return aTextPaintStyle.GetTargetTextShadow();
+  }
+  if (aSelectionType == SelectionType::eHighlight && aHighlightName) {
+    return aTextPaintStyle.GetCustomHighlightTextShadow(aHighlightName);
+  }
+  return {};
 }
 
 /**
@@ -7190,9 +7198,34 @@ bool nsTextFrame::PaintTextWithSelectionColors(
 
     // Determine what shadow, if any, to draw - either from textStyle
     // or from the ::-moz-selection pseudo-class if specified there
-    Span<const StyleSimpleShadow> shadows = textStyle->mTextShadow.AsSpan();
-    for (auto selectionType : selectionTypes) {
-      GetSelectionTextShadow(selectionType, *aParams.textPaintStyle, &shadows);
+    AutoTArray<Span<const StyleSimpleShadow>, 1> shadows;
+    bool hasSelectionShadow = false;
+
+    // Collect all selection/highlight shadows first
+    for (size_t index = 0; index < selectionTypes.Length(); ++index) {
+      nsAtom* highlightName = index < highlightNames.Length()
+                                  ? highlightNames[index].get()
+                                  : nullptr;
+      RefPtr<ComputedStyle> selectionStyle =
+          aParams.textPaintStyle->GetComputedStyleForSelectionPseudo(
+              selectionTypes[index], highlightName);
+      if (selectionStyle && selectionStyle->HasAuthorSpecifiedTextShadow()) {
+        // text-shadow was explicitly specified (including "none")
+        hasSelectionShadow = true;
+        Span<const StyleSimpleShadow> shadowSpan =
+            selectionStyle->StyleText()->mTextShadow.AsSpan();
+        if (!shadowSpan.IsEmpty()) {
+          shadows.AppendElement(shadowSpan);
+        }
+      }
+    }
+
+    // Only use element shadow if no selection shadow was explicitly specified
+    // See https://github.com/w3c/csswg-drafts/issues/13376 for context.
+    if (!hasSelectionShadow) {
+      if (auto sh = textStyle->mTextShadow.AsSpan(); !sh.IsEmpty()) {
+        shadows.AppendElement(sh);
+      }
     }
     if (!shadows.IsEmpty()) {
       nscoord startEdge = iOffset;
@@ -7200,11 +7233,14 @@ bool nsTextFrame::PaintTextWithSelectionColors(
         startEdge -=
             hyphenWidth + mTextRun->GetAdvanceWidth(range, aParams.provider);
       }
-      shadowParams.range = range;
-      shadowParams.textBaselinePt = textBaselinePt;
       shadowParams.foregroundColor = foreground;
+      shadowParams.textBaselinePt = textBaselinePt;
+      shadowParams.framePt = aParams.framePt;
       shadowParams.leftSideOffset = startEdge;
-      PaintShadows(shadows, shadowParams);
+      shadowParams.range = range;
+      for (const Span<const StyleSimpleShadow>& shadowSpan : shadows) {
+        PaintShadows(shadowSpan, shadowParams);
+      }
     }
 
     // Draw text segment
@@ -8424,17 +8460,21 @@ void nsTextFrame::SelectionStateChanged(uint32_t aStart, uint32_t aEnd,
 
   nsPresContext* presContext = PresContext();
   while (f && f->GetContentOffset() < int32_t(aEnd)) {
-    // We may need to reflow to recompute the overflow area for
-    // spellchecking or IME underline if their underline is thicker than
-    // the normal decoration line.
-    if (ToSelectionTypeMask(aSelectionType) & kSelectionTypesWithDecorations) {
-      bool didHaveOverflowingSelection =
+    // We may need to reflow to recompute the overflow area for spellchecking or
+    // IME underline if their underline is thicker than the normal decoration
+    // line.
+    // FIXME(emilio): Text shadows would need similar treatment, wouldn't they?
+    if (ToSelectionTypeMask(aSelectionType) & kSelectionTypesWithDecorations &&
+        !f->HasAnyStateBits(NS_FRAME_IS_DIRTY)) {
+      const bool didHaveOverflowingSelection =
           f->HasAnyStateBits(TEXT_SELECTION_UNDERLINE_OVERFLOWED);
-      nsRect r(nsPoint(0, 0), GetSize());
+      nsRect r(nsPoint(), GetSize());
       if (didHaveOverflowingSelection ||
           (aSelected && f->CombineSelectionUnderlineRect(presContext, r))) {
-        presContext->PresShell()->FrameNeedsReflow(
-            f, IntrinsicDirty::FrameAncestorsAndDescendants, NS_FRAME_IS_DIRTY);
+        // TODO(emilio): If we allow text to store changes or so, this could use
+        // PostRestyleEvent(..., UpdateOverflow);
+        presContext->PresShell()->FrameNeedsReflow(f, IntrinsicDirty::None,
+                                                   NS_FRAME_IS_DIRTY);
       }
     }
     // Selection might change anything. Invalidate the overflow area.

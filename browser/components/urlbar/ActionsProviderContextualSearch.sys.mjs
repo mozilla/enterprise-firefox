@@ -228,8 +228,15 @@ class ProviderContextualSearch extends ActionsProvider {
     let searchStr = queryContext.trimmedSearchString.toLocaleLowerCase();
 
     for (let engine of await lazy.SearchService.getVisibleEngines()) {
+      let engineName = engine.name.toLocaleLowerCase();
+      let engineAliases = engine.aliases.map(a => a.toLocaleLowerCase());
+
+      const matches = (search, name) =>
+        search.length < 3 ? name.startsWith(search) : name.includes(search);
+
       if (
-        engine.name.toLocaleLowerCase().startsWith(searchStr) &&
+        (matches(searchStr, engineName) ||
+          engineAliases.some(alias => matches(searchStr, alias))) &&
         ((await this.#shouldskipRecentVisitCheck(searchStr)) ||
           (await this.#engineDomainHasRecentVisits(engine.searchUrlDomain)))
       ) {

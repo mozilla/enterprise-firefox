@@ -81,7 +81,7 @@ add_setup(async function () {
 
 add_task(async function test_icon_migration() {
   let engine = SearchService.getEngineByName("IconsTest");
-  let sizes = Object.keys(engine.wrappedJSObject._iconMapObj);
+  let sizes = Object.keys(engine._iconMapObj);
 
   Assert.equal(
     sizes.length,

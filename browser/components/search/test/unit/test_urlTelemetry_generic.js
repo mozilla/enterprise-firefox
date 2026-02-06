@@ -24,9 +24,6 @@ const TEST_PROVIDER_INFO = [
     organicCodes: ["foo"],
     followOnParamNames: ["a"],
     extraAdServersRegexps: [/^https:\/\/www\.example\.com\/ad2/],
-    shoppingTab: {
-      regexp: "&site=shop",
-    },
     searchMode: {
       mode: "image_search",
     },
@@ -34,6 +31,18 @@ const TEST_PROVIDER_INFO = [
       {
         type: SearchSERPTelemetryUtils.COMPONENTS.AD_LINK,
         default: true,
+      },
+    ],
+    impressionAttributes: [
+      {
+        key: "is_shopping_page",
+        url: {
+          regexp: "&site=shop",
+        },
+      },
+      {
+        key: "shopping_tab_displayed",
+        value: "false",
       },
     ],
   },
@@ -51,6 +60,16 @@ const TEST_PROVIDER_INFO = [
       {
         type: SearchSERPTelemetryUtils.COMPONENTS.AD_LINK,
         default: true,
+      },
+    ],
+    impressionAttributes: [
+      {
+        key: "is_shopping_page",
+        value: "false",
+      },
+      {
+        key: "shopping_tab_displayed",
+        value: "false",
       },
     ],
   },
@@ -79,6 +98,16 @@ const TEST_PROVIDER_INFO = [
         default: true,
       },
     ],
+    impressionAttributes: [
+      {
+        key: "is_shopping_page",
+        value: "false",
+      },
+      {
+        key: "shopping_tab_displayed",
+        value: "false",
+      },
+    ],
   },
   {
     telemetryId: "example4",
@@ -103,6 +132,16 @@ const TEST_PROVIDER_INFO = [
       {
         type: SearchSERPTelemetryUtils.COMPONENTS.AD_LINK,
         default: true,
+      },
+    ],
+    impressionAttributes: [
+      {
+        key: "is_shopping_page",
+        value: "false",
+      },
+      {
+        key: "shopping_tab_displayed",
+        value: "false",
       },
     ],
   },
@@ -130,6 +169,16 @@ const TEST_PROVIDER_INFO = [
       {
         type: SearchSERPTelemetryUtils.COMPONENTS.AD_LINK,
         default: true,
+      },
+    ],
+    impressionAttributes: [
+      {
+        key: "is_shopping_page",
+        value: "false",
+      },
+      {
+        key: "shopping_tab_displayed",
+        value: "false",
       },
     ],
   },

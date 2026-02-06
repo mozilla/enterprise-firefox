@@ -54,6 +54,7 @@ import mozilla.components.concept.storage.CreditCardEntry
 import mozilla.components.concept.storage.CreditCardValidationDelegate
 import mozilla.components.concept.storage.Login
 import mozilla.components.concept.storage.LoginEntry
+import mozilla.components.concept.storage.LoginHint
 import mozilla.components.concept.storage.LoginValidationDelegate
 import mozilla.components.feature.prompts.address.AddressDelegate
 import mozilla.components.feature.prompts.address.AddressPicker
@@ -677,25 +678,33 @@ class PromptFeature private constructor(
                     return
                 }
 
-                if (promptRequest.generatedPassword != null) {
-                    if (shouldAutomaticallyShowSuggestedPassword.invoke()) {
-                        onFirstTimeEngagedWithSignup.invoke()
-                        handleDialogsRequest(
-                            promptRequest,
-                            session,
-                        )
-                    } else {
-                        strongPasswordPromptViewListener?.onGeneratedPasswordPromptClick = {
+                val loginsByHint = promptRequest.logins.groupBy { it.hint }
+                when {
+                    LoginHint.GENERATED in loginsByHint -> {
+                        if (shouldAutomaticallyShowSuggestedPassword.invoke()) {
+                            onFirstTimeEngagedWithSignup.invoke()
                             handleDialogsRequest(
                                 promptRequest,
                                 session,
                             )
+                        } else {
+                            strongPasswordPromptViewListener?.onGeneratedPasswordPromptClick = {
+                                handleDialogsRequest(
+                                    promptRequest,
+                                    session,
+                                )
+                            }
+                            strongPasswordPromptViewListener?.handleSuggestStrongPasswordRequest()
                         }
-                        strongPasswordPromptViewListener?.handleSuggestStrongPasswordRequest()
                     }
-                } else {
-                    loginPicker?.handleSelectLoginRequest(promptRequest)
+                    LoginHint.EMAIL_MASK in loginsByHint -> {
+                        // no-op; implemented with Bug 2012397.
+                    }
+                    else -> {
+                        loginPicker?.handleSelectLoginRequest(promptRequest)
+                    }
                 }
+
                 emitPromptDisplayedFact(promptName = "SelectLoginPrompt")
             }
 

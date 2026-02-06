@@ -11,13 +11,16 @@
       content="default-src resource: chrome:; object-src 'none'; img-src chrome: blob:;"
     />
     <meta name="color-scheme" content="light dark" />
-    <title>AI Window</title>
+    <title data-l10n-id="smartwindow-document-title"></title>
     <!-- TODO (Bug 2008938): Make in-page Smartbar styling not dependent on chrome styles -->
-    <link rel="stylesheet" href="chrome://browser/skin/browser-shared.css" />
     <link rel="stylesheet" href="chrome://global/skin/in-content/common.css" />
     <link
       rel="stylesheet"
       href="chrome://browser/content/sidebar/sidebar.css"
+    />
+    <link
+      rel="stylesheet"
+      href="chrome://browser/content/aiwindow/ai-window-overrides.css"
     />
     <script
       type="module"
@@ -27,9 +30,17 @@
       type="module"
       src="chrome://browser/content/aiwindow/components/ai-window.mjs"
     ></script>
+    <link rel="localization" href="branding/brand.ftl" />
     <link rel="localization" href="browser/browser.ftl" />
     <link rel="localization" href="browser/search.ftl" />
     <link rel="localization" href="preview/aiWindow.ftl" />
+    <link rel="localization" href="preview/aiWindowContent.ftl" />
+    <link rel="localization" href="preview/enUS-searchFeatures.ftl" />
+    <link rel="localization" href="toolkit/branding/brandings.ftl" />
+    <script
+      type="module"
+      src="chrome://browser/content/aiwindow/smartwindow-init.mjs"
+    ></script>
   </head>
   <body>
     <ai-window></ai-window>

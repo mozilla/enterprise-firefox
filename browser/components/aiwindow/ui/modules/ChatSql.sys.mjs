@@ -111,7 +111,10 @@ INSERT INTO message (
   jsonb(:web_search_queries_jsonb)
 )
 ON CONFLICT(message_id) DO UPDATE SET
-  is_active_branch = :is_active_branch;
+  is_active_branch = :is_active_branch,
+  memories_applied_jsonb = jsonb(:memories_applied_jsonb),
+  content_jsonb = jsonb(:content),
+  web_search_queries_jsonb = jsonb(:web_search_queries_jsonb);
 `;
 
 export const CONVERSATIONS_MOST_RECENT = `

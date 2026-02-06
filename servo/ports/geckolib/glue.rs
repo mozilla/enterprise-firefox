@@ -34,7 +34,7 @@ use style::context::{CascadeInputs, QuirksMode, SharedStyleContext, StyleContext
 use style::counter_style;
 use style::custom_properties::DeferFontRelativeCustomPropertyResolution;
 use style::data::{self, ElementStyles};
-use style::dom::{ShowSubtreeData, TDocument, TElement, TNode, TShadowRoot};
+use style::dom::{AttributeTracker, ShowSubtreeData, TDocument, TElement, TNode, TShadowRoot};
 use style::driver;
 use style::error_reporting::{ParseErrorReporter, SelectorWarningKind};
 use style::font_face::{self, FontFaceSourceFormat, FontFaceSourceListComponent, Source};
@@ -7074,6 +7074,7 @@ pub extern "C" fn Servo_GetComputedKeyframeValues(
     let global_style_data = &*GLOBAL_STYLE_DATA;
     let guard = global_style_data.shared_lock.read();
     let default_values = data.default_computed_values();
+    let mut attribute_tracker = AttributeTracker::new(&element);
 
     for (index, keyframe) in keyframes.iter().enumerate() {
         let ref mut animation_values = computed_keyframes[index];
@@ -7105,12 +7106,15 @@ pub extern "C" fn Servo_GetComputedKeyframeValues(
                 let guard = declarations.read_with(&guard);
                 for decl in guard.normal_declaration_iter() {
                     if let PropertyDeclaration::Custom(ref declaration) = *decl {
-                        builder.cascade(declaration, priority, &element);
+                        builder.cascade(declaration, priority, &mut attribute_tracker);
                     }
                 }
             }
             iter.reset();
-            let _deferred = builder.build(DeferFontRelativeCustomPropertyResolution::No, &element);
+            let _deferred = builder.build(
+                DeferFontRelativeCustomPropertyResolution::No,
+                &mut AttributeTracker::new(&element),
+            );
             debug_assert!(
                 _deferred.is_none(),
                 "Custom property processing deferred despite specifying otherwise?"
@@ -7264,7 +7268,7 @@ pub extern "C" fn Servo_AnimationValue_Compute(
                 &mut context,
                 style,
                 default_values,
-                &element,
+                &mut AttributeTracker::new(&element),
             );
             animation.map_or(Strong::null(), |value| Arc::new(value).into())
         },
@@ -9787,12 +9791,14 @@ pub extern "C" fn Servo_InterpolateColor(
     end_color: &AbsoluteColor,
     progress: f32,
 ) -> AbsoluteColor {
-    style::color::mix::mix(
+    use style::color::mix;
+
+    mix::mix_many(
         interpolation,
-        start_color,
-        1.0 - progress,
-        end_color,
-        progress,
+        [
+            mix::ColorMixItem::new(*start_color, 1.0 - progress),
+            mix::ColorMixItem::new(*end_color, progress),
+        ],
         ColorMixFlags::empty(),
     )
 }

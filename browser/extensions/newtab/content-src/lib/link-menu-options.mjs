@@ -377,7 +377,7 @@ export const LinkMenuOptions = {
     }),
   }),
   HideWeather: () => ({
-    id: "newtab-weather-menu-hide-weather",
+    id: "newtab-weather-menu-hide-weather-v2",
     action: ac.OnlyToMain({
       type: at.SET_PREF,
       data: {

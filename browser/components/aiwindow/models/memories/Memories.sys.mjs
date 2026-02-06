@@ -24,26 +24,16 @@
  *
  */
 
-import { renderPrompt, openAIEngine } from "../Utils.sys.mjs";
+import { renderPrompt, openAIEngine, MODEL_FEATURES } from "../Utils.sys.mjs";
 
 import {
   HISTORY,
   CONVERSATION,
-  ALL_SOURCES,
   CATEGORIES,
   CATEGORIES_LIST,
   INTENTS,
   INTENTS_LIST,
 } from "./MemoriesConstants.sys.mjs";
-
-import {
-  initialMemoriesGenerationSystemPrompt,
-  initialMemoriesGenerationPrompt,
-  memoriesDeduplicationSystemPrompt,
-  memoriesDeduplicationPrompt,
-  memoriesSensitivityFilterSystemPrompt,
-  memoriesSensitivityFilterPrompt,
-} from "moz-src:///browser/components/aiwindow/models/prompts/MemoriesPrompts.sys.mjs";
 
 import {
   INITIAL_MEMORIES_SCHEMA,
@@ -202,77 +192,6 @@ export async function renderRecentConversationForPrompt(conversationMessages) {
 }
 
 /**
- * Builds the initial memories generation prompt, pulling profile information based on given source
- *
- * @param {object} sources      User data source type to aggregrated records (i.e., {history: [domainItems, titleItems, searchItems]})
- * @returns {Promise<string>}   Promise resolving the generated memories generation prompt with profile records injected
- */
-export async function buildInitialMemoriesGenerationPrompt(sources) {
-  if (ALL_SOURCES.intersection(new Set(Object.keys(sources))).size === 0) {
-    throw new Error(
-      `No valid sources provided to build memories generation prompt: ${Object.keys(sources).join(", ")}`
-    );
-  }
-
-  let profileRecordsRenderedStr = "";
-
-  // Allow for multiple sources in the future
-  if (sources.hasOwnProperty(HISTORY)) {
-    const [domainItems, titleItems, searchItems] = sources[HISTORY];
-    profileRecordsRenderedStr += await renderRecentHistoryForPrompt(
-      domainItems,
-      titleItems,
-      searchItems
-    );
-  }
-  if (sources.hasOwnProperty(CONVERSATION)) {
-    profileRecordsRenderedStr += await renderRecentConversationForPrompt(
-      sources[CONVERSATION]
-    );
-  }
-
-  return await renderPrompt(initialMemoriesGenerationPrompt, {
-    categoriesList: getFormattedMemoryAttributeList(CATEGORIES),
-    intentsList: getFormattedMemoryAttributeList(INTENTS),
-    profileRecordsRenderedStr,
-  });
-}
-
-/**
- * Builds the memories deduplication prompt
- *
- * @param {Array<string>} existingMemoriesList  List of existing memories
- * @param {Array<string>} newMemoriesList       List of newly generated memories
- * @returns {Promise<string>}                   Promise resolving the generated deduplication prompt with existing and new memories lists injected
- */
-export async function buildMemoriesDeduplicationPrompt(
-  existingMemoriesList,
-  newMemoriesList
-) {
-  const existingMemoriesListStr = formatListForPrompt(existingMemoriesList);
-  const newMemoriesListStr = formatListForPrompt(newMemoriesList);
-
-  return await renderPrompt(memoriesDeduplicationPrompt, {
-    existingMemoriesList: existingMemoriesListStr,
-    newMemoriesList: newMemoriesListStr,
-  });
-}
-
-/**
- * Builds the memories sensitivity filter prompt
- *
- * @param {Array<string>} memoriesList  List of memories to filter
- * @returns {Promise<string>}           Promise resolving the generated sensitivity filter prompt with memories list injected
- */
-export async function buildMemoriesSensitivityFilterPrompt(memoriesList) {
-  const memoriesListStr = formatListForPrompt(memoriesList);
-
-  return await renderPrompt(memoriesSensitivityFilterPrompt, {
-    memoriesList: memoriesListStr,
-  });
-}
-
-/**
  * Sanitizes a single memory object from LLM output, checking required fields and normalizing score
  *
  * @param {*} memory               Raw memory object from LLM
@@ -358,14 +277,41 @@ function normalizeMemoryList(parsed) {
  * }>>>}                            Promise resolving the list of generated memories
  */
 export async function generateInitialMemoriesList(engine, sources) {
-  const promptText = await buildInitialMemoriesGenerationPrompt(sources);
+  const systemPrompt = await engine.loadPrompt(
+    MODEL_FEATURES.MEMORIES_INITIAL_GENERATION_SYSTEM
+  );
+
+  const userPromptTemplate = await engine.loadPrompt(
+    MODEL_FEATURES.MEMORIES_INITIAL_GENERATION_USER
+  );
+
+  // Build sources string
+  let profileRecordsRenderedStr = "";
+  if (sources.hasOwnProperty(HISTORY)) {
+    const [domainItems, titleItems, searchItems] = sources[HISTORY];
+    profileRecordsRenderedStr += await renderRecentHistoryForPrompt(
+      domainItems,
+      titleItems,
+      searchItems
+    );
+  }
+  if (sources.hasOwnProperty(CONVERSATION)) {
+    profileRecordsRenderedStr += await renderRecentConversationForPrompt(
+      sources[CONVERSATION]
+    );
+  }
+
+  // Render user prompt with dynamic values
+  const userPrompt = await renderPrompt(userPromptTemplate, {
+    categoriesList: getFormattedMemoryAttributeList(CATEGORIES),
+    intentsList: getFormattedMemoryAttributeList(INTENTS),
+    profileRecordsRenderedStr,
+  });
+
   const response = await engine.run({
     args: [
-      {
-        role: "system",
-        content: initialMemoriesGenerationSystemPrompt,
-      },
-      { role: "user", content: promptText },
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt },
     ],
     responseFormat: { type: "json_schema", schema: INITIAL_MEMORIES_SCHEMA },
     fxAccountToken: await openAIEngine.getFxAccountToken(),
@@ -388,18 +334,23 @@ export async function deduplicateMemories(
   existingMemoriesList,
   newMemoriesList
 ) {
-  const dedupPrompt = await buildMemoriesDeduplicationPrompt(
-    existingMemoriesList,
-    newMemoriesList
+  const systemPrompt = await engine.loadPrompt(
+    MODEL_FEATURES.MEMORIES_DEDUPLICATION_SYSTEM
   );
+
+  const userPromptTemplate = await engine.loadPrompt(
+    MODEL_FEATURES.MEMORIES_DEDUPLICATION_USER
+  );
+
+  const userPrompt = await renderPrompt(userPromptTemplate, {
+    existingMemoriesList: formatListForPrompt(existingMemoriesList),
+    newMemoriesList: formatListForPrompt(newMemoriesList),
+  });
 
   const response = await engine.run({
     args: [
-      {
-        role: "system",
-        content: memoriesDeduplicationSystemPrompt,
-      },
-      { role: "user", content: dedupPrompt },
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt },
     ],
     responseFormat: {
       type: "json_schema",
@@ -435,15 +386,22 @@ export async function deduplicateMemories(
  * @returns {Promise<Array<string>>}    Promise resolving the final list of non-sensitive memory summary strings
  */
 export async function filterSensitiveMemories(engine, memoriesList) {
-  const sensitivityFilterPrompt =
-    await buildMemoriesSensitivityFilterPrompt(memoriesList);
+  const systemPrompt = await engine.loadPrompt(
+    MODEL_FEATURES.MEMORIES_SENSITIVITY_FILTER_SYSTEM
+  );
+
+  const userPromptTemplate = await engine.loadPrompt(
+    MODEL_FEATURES.MEMORIES_SENSITIVITY_FILTER_USER
+  );
+
+  const userPrompt = await renderPrompt(userPromptTemplate, {
+    memoriesList: formatListForPrompt(memoriesList),
+  });
+
   const response = await engine.run({
     args: [
-      {
-        role: "system",
-        content: memoriesSensitivityFilterSystemPrompt,
-      },
-      { role: "user", content: sensitivityFilterPrompt },
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt },
     ],
     responseFormat: {
       type: "json_schema",

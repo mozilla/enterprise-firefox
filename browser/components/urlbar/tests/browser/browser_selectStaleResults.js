@@ -189,10 +189,7 @@ add_task(async function staleReplacedWithFresh() {
   });
   let oldDefaultEngine = await SearchService.getDefault();
   await SearchService.moveEngine(engine, 0);
-  await SearchService.setDefault(
-    engine,
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
-  );
+  await SearchService.setDefault(engine, SearchService.CHANGE_REASON.UNKNOWN);
 
   let maxResults = UrlbarPrefs.get("maxRichResults");
 
@@ -325,6 +322,6 @@ add_task(async function staleReplacedWithFresh() {
   await SpecialPowers.popPrefEnv();
   await SearchService.setDefault(
     oldDefaultEngine,
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+    SearchService.CHANGE_REASON.UNKNOWN
   );
 });

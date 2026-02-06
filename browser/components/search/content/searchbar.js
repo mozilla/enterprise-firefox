@@ -22,6 +22,10 @@
   });
 
   /**
+   * @import {SearchEngine} from "moz-src:///toolkit/components/search/SearchEngine.sys.mjs"
+   */
+
+  /**
    * Defines the search bar element.
    */
   class MozSearchbar extends MozXULElement {
@@ -55,7 +59,7 @@
       this._setupEventListeners();
       let searchbar = this;
       this.observer = {
-        observe(aEngine, aTopic, aData) {
+        observe(_aSubject, aTopic, aData) {
           if (aTopic == "browser-search-engine-modified") {
             // Make sure the engine list is refetched next time it's needed
             searchbar._engines = null;
@@ -194,12 +198,12 @@
       if (PrivateBrowsingUtils.isWindowPrivate(window)) {
         lazy.SearchService.setDefaultPrivate(
           val,
-          Ci.nsISearchService.CHANGE_REASON_USER_SEARCHBAR
+          lazy.SearchService.CHANGE_REASON.USER_SEARCHBAR
         );
       } else {
         lazy.SearchService.setDefault(
           val,
-          Ci.nsISearchService.CHANGE_REASON_USER_SEARCHBAR
+          lazy.SearchService.CHANGE_REASON.USER_SEARCHBAR
         );
       }
     }
@@ -520,7 +524,7 @@
      *
      * @param {event} aEvent
      *        The event causing the searchForm to be opened.
-     * @param {nsISearchEngine} [aEngine]
+     * @param {SearchEngine} [aEngine]
      *        The search engine or undefined to use the current engine.
      * @param {string} where
      *        Where the search form should be opened.

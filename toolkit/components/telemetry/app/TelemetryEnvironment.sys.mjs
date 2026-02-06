@@ -1012,9 +1012,7 @@ EnvironmentCache.prototype = {
         }
         if (
           aData == "engine-changed" &&
-          aSubject.QueryInterface(Ci.nsISearchEngine) &&
-          lazy.SearchService.defaultEngine !=
-            (aSubject?.wrappedJSObject ?? aSubject)
+          lazy.SearchService.defaultEngine != aSubject.wrappedJSObject
         ) {
           return;
         }
@@ -1550,7 +1548,7 @@ EnvironmentCache.prototype = {
   _getPartner() {
     let defaults = Services.prefs.getDefaultBranch(null);
     let partnerData = {
-      distributionId: defaults.getCharPref(PREF_DISTRIBUTION_ID, null),
+      distributionId: defaults.getStringPref(PREF_DISTRIBUTION_ID, null),
       distributionVersion: defaults.getCharPref(
         PREF_DISTRIBUTION_VERSION,
         null

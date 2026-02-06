@@ -10,6 +10,7 @@ Add the following line to your `.mozconfig` depending on the platform you're dev
 - unix: `. "$topsrcdir/build/unix/mozconfig.enterprise"`
 - win64: `. "$topsrcdir/build/win64/mozconfig.enterprise"`
 
+Note that this may strip debug symbols in spite of other settings in your .mozconfig. Have a look at [build/mozconfig.common.enterprise](build/mozconfig.common.enterprise) if you need to change that.
 
 #### Run:
 `./mach run -feltUI`

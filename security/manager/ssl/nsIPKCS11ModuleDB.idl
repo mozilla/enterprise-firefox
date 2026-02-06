@@ -28,13 +28,4 @@ interface nsIPKCS11ModuleDB : nsISupports
 
   [must_use]
   nsISimpleEnumerator listModules();
-
-  [must_use]
-  readonly attribute boolean canToggleFIPS;
-
-  [must_use]
-  void toggleFIPSMode();
-
-  [must_use]
-  readonly attribute boolean isFIPSEnabled;
 };

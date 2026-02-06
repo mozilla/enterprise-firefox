@@ -111,6 +111,7 @@ class BookmarkFragment : Fragment() {
                                 BookmarksSyncMiddleware(requireComponents.backgroundServices.syncStore, lifecycleScope),
                                 BrowserToolbarSyncToBookmarksMiddleware(toolbarStore, lifecycleScope),
                                 BookmarksMiddleware(
+                                    lifecycleScope = lifecycleScope,
                                     bookmarksStorage = requireContext().bookmarkStorage,
                                     clipboardManager = requireActivity().getSystemService(),
                                     addNewTabUseCase = requireComponents.useCases.tabsUseCases.addTab,
@@ -284,23 +285,13 @@ class BookmarkFragment : Fragment() {
     }
 
     private fun showTabTray(openInPrivate: Boolean = false) {
-        val directions = if (requireContext().settings().tabManagerEnhancementsEnabled) {
-            BookmarkFragmentDirections.actionGlobalTabManagementFragment(
-                page = if (openInPrivate) {
-                    Page.PrivateTabs
-                } else {
-                    Page.NormalTabs
-                },
-            )
-        } else {
-            BookmarkFragmentDirections.actionGlobalTabsTrayFragment(
-                page = if (openInPrivate) {
-                    Page.PrivateTabs
-                } else {
-                    Page.NormalTabs
-                },
-            )
-        }
+        val directions = BookmarkFragmentDirections.actionGlobalTabManagementFragment(
+            page = if (openInPrivate) {
+                Page.PrivateTabs
+            } else {
+                Page.NormalTabs
+            },
+        )
         navigateToBookmarkFragment(directions = directions)
     }
 

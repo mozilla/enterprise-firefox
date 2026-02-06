@@ -177,6 +177,8 @@ const AD_COMPONENTS = [
  * @property {string[]} followOnParamNames
  *   An array of query parameter names that are used when a follow-on search
  *   occurs.
+ * @property {ImpressionAttribute[]} impressionAttributes
+ *  An array of conditions to check and report to the impression.
  * @property {boolean} isSPA
  *   Whether the provider is a single page app. This was deprecated in Fx 142
  *   and should no longer be used.
@@ -191,13 +193,58 @@ const AD_COMPONENTS = [
  * @property {SignedInCookies[]} signedInCookies
  *   An array of cookie details that are used to determine whether a client is
  *   signed in to a provider's account.
+ * @property {string} searchMode
+ *  The mode which the search page is in. If it is in the normal search mode,
+ *  then no value is reported. Possible values are: `image_search`.
  * @property {ShoppingTab} shoppingTab
- *   Shopping page parameter.
+ *   Shopping page parameter. Deprecated but still in use for older versions.
  * @property {string[]} taggedCodes
  *   An array of partner codes to match against the parameters in the url.
  *   Matching one of these codes will report the SERP as tagged.
  * @property {string} telemetryId
  *   The telemetry identifier for the provider.
+ */
+
+/**
+ * @typedef {object} ImpressionAttributeUrlPattern
+ *
+ * @property {RegExp} regexp
+ *   The regular expression to match against the URL.
+ */
+
+/**
+ * @typedef {object} ImpressionAttributeElementPattern
+ *
+ * @property {string} selector
+ *   The CSS selector to find the element.
+ * @property {string} attribute
+ *   The attribute of the element to check.
+ * @property {RegExp} regexp
+ *   The regular expression to match against the attribute's value.
+ */
+
+/**
+ * @typedef {object} ImpressionAttributeComponent
+ *
+ * @property {string} type
+ *   The type of component to report to telemetry.
+ * @property {boolean} countImpressions
+ *   Whether to count the number of impressions for this component.
+ * @property {boolean} trackEngagement
+ *   Whether to track engagements for this component.
+ */
+
+/**
+ * @typedef {object} ImpressionAttribute
+ *
+ * @property {string} key
+ *   The key used to store the result in telemetry. e.g. `is_shopping_`
+ * @property {ImpressionAttributeUrlPattern} [url]
+ *   The metadata to use to check against the URL in the parent process.
+ * @property {ImpressionAttributeElementPattern} [element]
+ *   The metadata to use to check against an element in the content process.
+ * @property {string} [value]
+ *   The value to use directly without any checking.
  */
 
 /**
@@ -516,6 +563,19 @@ class TelemetryHandler {
           this.#subframeRegexps.push(regexp);
           return { ...obj, regexp };
         }) ?? [];
+
+      if (provider.impressionAttributes?.length) {
+        newProvider.impressionAttributes = provider.impressionAttributes.map(
+          attribute => {
+            if (attribute.url?.regexp) {
+              let newAttribute = structuredClone(attribute);
+              newAttribute.url.regexp = new RegExp(attribute.url.regexp);
+              return newAttribute;
+            }
+            return attribute;
+          }
+        );
+      }
 
       return newProvider;
     });
@@ -1360,9 +1420,18 @@ class TelemetryHandler {
       partnerCode = info.code;
     }
 
-    let isShoppingPage = false;
-    if (searchProviderInfo.shoppingTab?.regexp) {
-      isShoppingPage = searchProviderInfo.shoppingTab.regexp.test(url);
+    let urlBasedAttributes = {};
+    if (searchProviderInfo.impressionAttributes?.length) {
+      for (let attribute of searchProviderInfo.impressionAttributes) {
+        // If the provider has a value, we always set it.
+        if (attribute.value) {
+          urlBasedAttributes[attribute.key] = attribute.value;
+        }
+
+        if (attribute.url?.regexp) {
+          urlBasedAttributes[attribute.key] = attribute.url.regexp.test(url);
+        }
+      }
     }
 
     let isPrivate =
@@ -1388,9 +1457,9 @@ class TelemetryHandler {
       partnerCode,
       source,
       searchMode: info.searchMode,
-      isShoppingPage,
       isPrivate,
       isSignedIn,
+      urlBasedAttributes,
     };
 
     return data;
@@ -2038,6 +2107,7 @@ class ContentHandler {
     let impressionId = telemetryState.impressionId;
     if (impressionId && !telemetryState.impressionRecorded) {
       let impressionInfo = telemetryState.impressionInfo;
+
       Glean.serp.impression.record({
         impression_id: impressionId,
         provider: impressionInfo.provider,
@@ -2045,10 +2115,10 @@ class ContentHandler {
         partner_code: impressionInfo.partnerCode,
         search_mode: impressionInfo.searchMode,
         source: impressionInfo.source,
-        shopping_tab_displayed: info.shoppingTabDisplayed,
-        is_shopping_page: impressionInfo.isShoppingPage,
         is_private: impressionInfo.isPrivate,
         is_signed_in: impressionInfo.isSignedIn,
+        ...impressionInfo.urlBasedAttributes,
+        ...info.elementBasedAttributes,
       });
 
       telemetryState.impressionRecorded = true;
@@ -2056,7 +2126,8 @@ class ContentHandler {
       lazy.logConsole.debug(`Reported Impression:`, {
         impressionId,
         ...impressionInfo,
-        shoppingTabDisplayed: info.shoppingTabDisplayed,
+        ...impressionInfo.urlBasedAttributes,
+        ...info.elementBasedAttributes,
         searchMode: impressionInfo.searchMode,
       });
       Services.obs.notifyObservers(null, "reported-page-with-impression");
@@ -2079,10 +2150,9 @@ class ContentHandler {
       partner_code: impressionInfo.partnerCode,
       search_mode: impressionInfo.searchMode,
       source: impressionInfo.source,
-      shopping_tab_displayed: false,
-      is_shopping_page: impressionInfo.isShoppingPage,
       is_private: impressionInfo.isPrivate,
       is_signed_in: impressionInfo.isSignedIn,
+      ...impressionInfo.urlBasedAttributes,
     });
 
     telemetryState.impressionRecorded = true;
@@ -2090,7 +2160,6 @@ class ContentHandler {
     lazy.logConsole.debug(`Reported Impression:`, {
       impressionId: telemetryState.impressionId,
       ...impressionInfo,
-      shoppingTabDisplayed: false,
       search_mode: impressionInfo.searchMode,
     });
     Services.obs.notifyObservers(null, "reported-page-with-impression");
@@ -2131,7 +2200,11 @@ class ContentHandler {
             partner_code: impressionInfo.partnerCode,
             provider: impressionInfo.provider,
             tagged: impressionInfo.tagged,
-            is_shopping_page: impressionInfo.isShoppingPage,
+            // Default to false. Page categorization should only use
+            // specific parts of the impression info hence we explicitly
+            // check for the attribute.
+            is_shopping_page:
+              impressionInfo.urlBasedAttributes?.is_shopping_page || false,
             num_ads_clicked: telemetryState.adsClicked,
             num_ads_hidden: telemetryState.adsHidden,
             num_ads_loaded: telemetryState.adsLoaded,

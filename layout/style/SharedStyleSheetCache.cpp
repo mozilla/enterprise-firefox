@@ -241,8 +241,8 @@ void SharedStyleSheetCache::ClearInProcess(
 
   for (auto iter = mInlineSheets.Iter(); !iter.Done(); iter.Next()) {
     if (SharedSubResourceCacheUtils::ShouldClearEntry(
-            nullptr, iter.Key(), iter.Key(), aChrome, aPrincipal,
-            aSchemelessSite, aPattern, aURL)) {
+            nullptr, iter.Key(), aChrome, aPrincipal, aSchemelessSite, aPattern,
+            aURL)) {
       iter.Remove();
     }
   }

@@ -935,8 +935,11 @@ tasks:
                     default: true
             extra-options:
                 by-test-platform:
+                    android-hw.*:
+                        - --setpref=network.socket.allowed_nonlocal_domains='www.googleapis.com'
                     android-em.*:
                         - --setpref=gfx.canvas.accelerated=false
+                        - --setpref=network.socket.allowed_nonlocal_domains='www.googleapis.com'
                     default: []
         tier:
             by-variant:

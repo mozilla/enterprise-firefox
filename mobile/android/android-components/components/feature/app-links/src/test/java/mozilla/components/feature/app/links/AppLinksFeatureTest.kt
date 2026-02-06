@@ -186,76 +186,6 @@ class AppLinksFeatureTest {
     }
 
     @Test
-    fun `WHEN custom tab and caller is the same as external app THEN an external app dialog is not shown`() {
-        feature = spy(
-            AppLinksFeature(
-                context = mockContext,
-                store = store,
-                fragmentManager = mockFragmentManager,
-                useCases = mockUseCases,
-                dialog = mockDialog,
-                loadUrlUseCase = mockLoadUrlUseCase,
-                shouldPrompt = { true },
-            ),
-        ).also {
-            it.start()
-        }
-
-        val tab =
-            createCustomTab(
-                id = "c",
-                url = webUrl,
-                source = SessionState.Source.External.CustomTab(
-                    ExternalPackage("com.zxing.app", PackageCategory.PRODUCTIVITY),
-                ),
-            )
-
-        val appIntent: Intent = mock()
-        val componentName: ComponentName = mock()
-        doReturn(componentName).`when`(appIntent).component
-        doReturn("com.zxing.app").`when`(componentName).packageName
-
-        feature.handleAppIntent(tab, intentUrl, appIntent, null, null)
-
-        verify(mockDialog, never()).showNow(eq(mockFragmentManager), anyString())
-    }
-
-    @Test
-    fun `WHEN tab have action view and caller is the same as external app THEN an external app dialog is not shown`() {
-        feature = spy(
-            AppLinksFeature(
-                context = mockContext,
-                store = store,
-                fragmentManager = mockFragmentManager,
-                useCases = mockUseCases,
-                dialog = mockDialog,
-                loadUrlUseCase = mockLoadUrlUseCase,
-                shouldPrompt = { true },
-            ),
-        ).also {
-            it.start()
-        }
-
-        val tab =
-            createCustomTab(
-                id = "d",
-                url = webUrl,
-                source = SessionState.Source.External.ActionView(
-                    ExternalPackage("com.zxing.app", PackageCategory.PRODUCTIVITY),
-                ),
-            )
-
-        val appIntent: Intent = mock()
-        val componentName: ComponentName = mock()
-        doReturn(componentName).`when`(appIntent).component
-        doReturn("com.zxing.app").`when`(componentName).packageName
-
-        feature.handleAppIntent(tab, intentUrl, appIntent, null, null)
-
-        verify(mockDialog, never()).showNow(eq(mockFragmentManager), anyString())
-    }
-
-    @Test
     fun `WHEN tab have action send and caller is the same as external app THEN an external app dialog is shown`() {
         feature = spy(
             AppLinksFeature(
@@ -499,5 +429,59 @@ class AppLinksFeatureTest {
             data = "eudi-wallet://open".toUri()
         }
         assertTrue(feature.isWalletLink("openid-credential-offer://init", appIntent))
+    }
+
+    @Test
+    fun `WHEN shouldPrompt is false regardless of private or wallet THEN shouldBypassPrompt returns true`() {
+        feature = AppLinksFeature(
+            context = mockContext,
+            store = store,
+            fragmentManager = mockFragmentManager,
+            useCases = mockUseCases,
+            shouldPrompt = { false },
+        )
+
+        assertTrue(
+            feature.shouldBypassPrompt(
+                isPrivate = false,
+                isWallet = false,
+            ),
+        )
+    }
+
+    @Test
+    fun `WHEN isPrivate is true THEN shouldBypassPrompt returns false`() {
+        feature = AppLinksFeature(
+            context = mockContext,
+            store = store,
+            fragmentManager = mockFragmentManager,
+            useCases = mockUseCases,
+            shouldPrompt = { true },
+        )
+
+        assertFalse(
+            feature.shouldBypassPrompt(
+                isPrivate = true,
+                isWallet = false,
+            ),
+        )
+    }
+
+    @Test
+    fun `WHEN isWallet is true THEN shouldBypassPrompt returns false`() {
+        feature = AppLinksFeature(
+            context = mockContext,
+            store = store,
+            fragmentManager = mockFragmentManager,
+            useCases = mockUseCases,
+            shouldPrompt = { false },
+        )
+
+        assertFalse(
+            feature.shouldBypassPrompt(
+                isPrivate = false,
+                isWallet = true,
+            ),
+        )
     }
 }

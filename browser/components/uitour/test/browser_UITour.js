@@ -509,21 +509,15 @@ var tests = [
         "undefined",
         "Check distribution isn't undefined."
       );
-      // distribution id defaults to "default" for most builds,
-      // "mozilla-MSIX" for MSIX builds, or MOZ_DISTRIBUTION_ID if set.
-      let expectedDefault = "default";
-      if (
-        AppConstants.platform === "win" &&
-        Services.sysinfo.getProperty("hasWinPackageId")
-      ) {
-        expectedDefault = "mozilla-MSIX";
-      } else if (Services.appinfo.distributionID) {
-        expectedDefault = Services.appinfo.distributionID;
-      }
+      // distribution id defaults to "default" for most builds, and
+      // "mozilla-MSIX" for MSIX builds.
       is(
         result.distribution,
-        expectedDefault,
-        "distribution has expected default value"
+        AppConstants.platform === "win" &&
+          Services.sysinfo.getProperty("hasWinPackageId")
+          ? "mozilla-MSIX"
+          : "default",
+        'Should be "default" without preference set.'
       );
 
       let defaults = Services.prefs.getDefaultBranch("distribution.");
@@ -654,7 +648,7 @@ var tests = [
       registerCleanupFunction(async () => {
         await SearchService.setDefault(
           defaultEngine,
-          Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+          SearchService.CHANGE_REASON.UNKNOWN
         );
       });
 
@@ -679,7 +673,7 @@ var tests = [
           previous_engine_id: defaultEngine.telemetryId,
           new_engine_id: engine.telemetryId,
           new_display_name: engine.name,
-          new_load_path: engine.wrappedJSObject._loadPath,
+          new_load_path: engine._loadPath,
           // Glean has a limit of 100 characters.
           new_submission_url: submissionUrl.slice(0, 100),
         },

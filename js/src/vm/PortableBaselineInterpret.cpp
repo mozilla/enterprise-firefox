@@ -666,7 +666,7 @@ uint64_t ICInterpretOps(uint64_t arg0, uint64_t arg1, ICStub* stub,
     DECLARE_CACHEOP_CASE(CallInt32ToString);
     DECLARE_CACHEOP_CASE(CallScriptedFunction);
     DECLARE_CACHEOP_CASE(CallNativeFunction);
-    DECLARE_CACHEOP_CASE(MetaScriptedThisShape);
+    DECLARE_CACHEOP_CASE(MetaCreateThis);
     DECLARE_CACHEOP_CASE(LoadFixedSlotResult);
     DECLARE_CACHEOP_CASE(LoadDynamicSlotResult);
     DECLARE_CACHEOP_CASE(LoadDenseElementResult);
@@ -2611,10 +2611,10 @@ uint64_t ICInterpretOps(uint64_t arg0, uint64_t arg1, ICStub* stub,
         DISPATCH_CACHEOP();
       }
 
-      CACHEOP_CASE(MetaScriptedThisShape) {
+      CACHEOP_CASE(MetaCreateThis) {
         // This op is only metadata for the Warp Transpiler and should be
         // ignored.
-        cacheIRReader.argsForMetaScriptedThisShape();
+        cacheIRReader.argsForMetaCreateThis();
         PREDICT_NEXT(CallScriptedFunction);
         DISPATCH_CACHEOP();
       }

@@ -38,14 +38,11 @@ add_setup(async function () {
   let oldDefaultEngine = await SearchService.getDefault();
   await SearchService.moveEngine(gEngine2, 0);
   await SearchService.moveEngine(gEngine, 0);
-  await SearchService.setDefault(
-    gEngine,
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
-  );
+  await SearchService.setDefault(gEngine, SearchService.CHANGE_REASON.UNKNOWN);
   registerCleanupFunction(async function () {
     await SearchService.setDefault(
       oldDefaultEngine,
-      Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+      SearchService.CHANGE_REASON.UNKNOWN
     );
 
     await PlacesUtils.history.clear();

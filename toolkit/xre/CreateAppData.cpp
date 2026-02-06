@@ -6,6 +6,7 @@
 #include "nsXULAppAPI.h"
 #include "nsINIParser.h"
 #include "nsIFile.h"
+#include "nsURLHelper.h"
 #include "mozilla/XREAppData.h"
 
 // This include must appear early in the unified cpp file for toolkit/xre to
@@ -75,3 +76,35 @@ nsresult XRE_ParseAppData(nsIFile* aINIFile, XREAppData& aAppData) {
 
   return NS_OK;
 }
+
+#if defined(MOZ_ENTERPRISE)
+static nsresult ParseConsoleUrlFromDistribution(XREAppData& aAppData,
+                                                nsACString& consoleUrl) {
+  nsCOMPtr<nsIFile> distributionFile;
+  nsresult rv = aAppData.xreDirectory->Clone(getter_AddRefs(distributionFile));
+  NS_ENSURE_SUCCESS(rv, rv);
+  rv = distributionFile->Append(u"distribution"_ns);
+  NS_ENSURE_SUCCESS(rv, rv);
+  rv = distributionFile->Append(u"distribution.ini"_ns);
+  NS_ENSURE_SUCCESS(rv, rv);
+  nsINIParser parser;
+  rv = parser.Init(distributionFile);
+  NS_ENSURE_SUCCESS(rv, rv);
+  rv =
+      parser.GetString("Preferences", "enterprise.console.address", consoleUrl);
+  return rv;
+}
+
+nsresult XRE_ParseEnterpriseServerURL(XREAppData& aAppData) {
+  nsCString serverUrl;
+  nsresult rv = ParseConsoleUrlFromDistribution(aAppData, serverUrl);
+  NS_ENSURE_SUCCESS(rv, rv);
+  if (serverUrl.Last() != '/') {
+    serverUrl.Append('/');
+  }
+  serverUrl.Append("api/browser/crash-reports/submit");
+  aAppData.crashReporterURL = serverUrl.get();
+
+  return NS_OK;
+}
+#endif

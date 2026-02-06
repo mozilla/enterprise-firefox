@@ -25,6 +25,13 @@ add_setup(async () => {
 
 registerCleanupFunction(() => {
   cleanUpExtraTabs();
+
+  // SidebarPopupNotifications is created when chat sidebar opens.
+  // Clean up here as sidebar may close before content fully loads.
+  if (window.SidebarPopupNotifications) {
+    window.SidebarPopupNotifications._currentAnchorElement = null;
+    delete window.SidebarPopupNotifications;
+  }
 });
 
 function getExpectedVersionString() {

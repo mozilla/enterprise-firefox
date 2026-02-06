@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import { ERRORS } from "chrome://browser/content/ipprotection/ipprotection-constants.mjs";
+import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
 const lazy = {};
 
@@ -19,6 +20,20 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///browser/components/ipprotection/IPPProxyManager.sys.mjs",
 });
 
+XPCOMUtils.defineLazyPreferenceGetter(
+  lazy,
+  "siteExceptionsFeaturePref",
+  "browser.ipProtection.features.siteExceptions",
+  false
+);
+
+XPCOMUtils.defineLazyPreferenceGetter(
+  lazy,
+  "siteExceptionsHintsPref",
+  "browser.ipProtection.siteExceptionsHintsEnabled",
+  true
+);
+
 /**
  * IPProtectionToolbarButton manages the IP Protection toolbar button
  * for a single browser window.
@@ -32,6 +47,10 @@ export class IPProtectionToolbarButton {
   #window = null;
   #progressListener = null;
   #widgetId = null;
+  #previousIsExcluded = null;
+
+  static CONFIRMATION_HINT_MESSAGE_ID =
+    "confirmation-hint-ipprotection-navigated-to-excluded-site";
 
   /**
    * Gets the gBrowser from the weak reference to the window.
@@ -42,6 +61,42 @@ export class IPProtectionToolbarButton {
   get gBrowser() {
     const win = this.#window.get();
     return win?.gBrowser;
+  }
+  /**
+   * Gets the value of the pref
+   * browser.ipProtection.features.siteExceptions.
+   *
+   * @returns {boolean}
+   *  True if site exceptions support is enabled, false otherwise.
+   */
+  get isExceptionsFeatureEnabled() {
+    return lazy.siteExceptionsFeaturePref;
+  }
+
+  /**
+   * Gets the value of the pref
+   * browser.ipProtection.siteExceptionsHintsEnabled.
+   *
+   * @returns {boolean}
+   *  True if confirmation hints for site exceptions are enabled, false otherwise.
+   */
+  get isExceptionsHintsEnabled() {
+    return lazy.siteExceptionsHintsPref;
+  }
+
+  /**
+   * Gets the toolbaritem for this window.
+   *
+   * @returns {XULElement|null}
+   *  The toolbaritem element, or null if not available.
+   */
+  get toolbaritem() {
+    const win = this.#window.get();
+    if (!win) {
+      return null;
+    }
+
+    return lazy.CustomizableUI.getWidget(this.#widgetId)?.forWindow(win).node;
   }
 
   constructor(window, widgetId, toolbaritem = null) {
@@ -82,7 +137,7 @@ export class IPProtectionToolbarButton {
         aWebProgress,
         _aRequest,
         aLocationURI,
-        _aFlags
+        aFlags
       ) => {
         if (!aWebProgress.isTopLevel) {
           return;
@@ -97,7 +152,10 @@ export class IPProtectionToolbarButton {
           return;
         }
 
-        this.updateState();
+        const isReload =
+          aFlags & Ci.nsIWebProgressListener.LOCATION_CHANGE_RELOAD;
+
+        this.updateState(null, { showConfirmationHint: !isReload });
       },
     };
 
@@ -136,16 +194,18 @@ export class IPProtectionToolbarButton {
    *  Optional toolbaritem to update directly.
    *  If not provided, looks up the toolbaritem via CustomizableUI.
    *  If provided, but toolbaritem is null, this means the toolbaritem isn't available yet.
+   * @param {object} [options]
+   *  Optional options object
+   * @param {boolean} [options.showConfirmationHint=true]
+   *  Whether to show confirmation hints for navigation to excluded sites
    */
-  updateState(toolbaritem = null) {
+  updateState(toolbaritem = null, options = { showConfirmationHint: true }) {
     const win = this.#window.get();
     if (!win) {
       return;
     }
 
-    toolbaritem ??= lazy.CustomizableUI.getWidget(this.#widgetId)?.forWindow(
-      win
-    ).node;
+    toolbaritem ??= this.toolbaritem;
 
     if (!toolbaritem) {
       return;
@@ -160,11 +220,71 @@ export class IPProtectionToolbarButton {
       lazy.IPPProxyManager.state === lazy.IPPProxyStates.ERROR &&
       lazy.IPPProxyManager.errors.includes(ERRORS.GENERIC);
 
+    const showConfirmationHint = options.showConfirmationHint ?? true;
+    if (showConfirmationHint) {
+      this.updateConfirmationHint(win.ConfirmationHint, toolbaritem, {
+        isActive,
+        isError,
+        isExcluded,
+      });
+    }
+
+    // Null principals reset the previous state to false if
+    // the state was initially true. To avoid this, only set
+    // the previous state if not a null principal.
+    if (principal && !principal.isNullPrincipal) {
+      this.#previousIsExcluded = isExcluded;
+    }
+
     this.updateIconStatus(toolbaritem, {
       isActive,
       isError,
       isExcluded,
     });
+  }
+
+  /**
+   * Shows a confirmation hint after navigating from a
+   * protected site to an excluded site while the VPN is on.
+   * Ignore the message if there is an error or the VPN is off.
+   *
+   * @param {object} confirmationHint
+   *  The current window's confirmation hint instance
+   * @param {XULElement} toolbaritem
+   *  The toolbaritem to anchor the confirmation hint to
+   * @param {object} status
+   *  VPN connection status
+   */
+  updateConfirmationHint(
+    confirmationHint,
+    toolbaritem,
+    status = { isActive: false, isError: false, isExcluded: false }
+  ) {
+    if (!confirmationHint) {
+      return;
+    }
+
+    let exceptionsPrefsEnabled =
+      this.isExceptionsFeatureEnabled && this.isExceptionsHintsEnabled;
+
+    const canShowConfirmationHint =
+      exceptionsPrefsEnabled &&
+      !status.isError &&
+      status.isActive &&
+      status.isExcluded &&
+      !this.#previousIsExcluded;
+
+    if (!canShowConfirmationHint) {
+      return;
+    }
+
+    confirmationHint.show(
+      toolbaritem,
+      IPProtectionToolbarButton.CONFIRMATION_HINT_MESSAGE_ID,
+      {
+        position: "bottomright topright", // panel anchor, message anchor
+      }
+    );
   }
 
   /**
@@ -179,9 +299,13 @@ export class IPProtectionToolbarButton {
     toolbaritem,
     status = { isActive: false, isError: false, isExcluded: false }
   ) {
+    if (!toolbaritem) {
+      return;
+    }
+
     let isActive = status.isActive;
     let isError = status.isError;
-    let isExcluded = status.isExcluded;
+    let isExcluded = status.isExcluded && this.isExceptionsFeatureEnabled;
     let l10nId = isError ? "ipprotection-button-error" : "ipprotection-button";
 
     toolbaritem.classList.remove(

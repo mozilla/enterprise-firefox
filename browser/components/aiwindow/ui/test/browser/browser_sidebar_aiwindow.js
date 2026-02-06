@@ -11,7 +11,7 @@ add_task(async function test_aichat_sidebar_hidden_in_aiwindow() {
     set: [
       ["sidebar.revamp", true],
       ["browser.ml.chat.enabled", true],
-      ["browser.aiwindow.enabled", true],
+      ["browser.smartwindow.enabled", true],
     ],
   });
 
@@ -30,7 +30,7 @@ add_task(async function test_aichat_sidebar_not_restored_in_aiwindow() {
     set: [
       ["sidebar.revamp", true],
       ["browser.ml.chat.enabled", true],
-      ["browser.aiwindow.enabled", true],
+      ["browser.smartwindow.enabled", true],
     ],
   });
 
@@ -57,7 +57,7 @@ add_task(async function test_other_sidebars_work_in_aiwindow() {
     set: [
       ["sidebar.revamp", true],
       ["browser.ml.chat.enabled", true],
-      ["browser.aiwindow.enabled", true],
+      ["browser.smartwindow.enabled", true],
     ],
   });
 
@@ -82,7 +82,7 @@ add_task(async function test_aichat_hidden_in_vertical_tabs_aiwindow() {
     set: [
       ["sidebar.revamp", true],
       ["browser.ml.chat.enabled", true],
-      ["browser.aiwindow.enabled", true],
+      ["browser.smartwindow.enabled", true],
       ["sidebar.verticalTabs", true],
     ],
   });

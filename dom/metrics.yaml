@@ -756,6 +756,7 @@ dom.contentprocess:
       - https://bugzil.la/1817104
       - https://bugzil.la/1866197
       - https://bugzil.la/1928259
+      - https://bugzil.la/2010454
     data_reviews:
       - https://bugzil.la/1651133
       - https://bugzil.la/1730045
@@ -764,9 +765,10 @@ dom.contentprocess:
       - https://bugzil.la/1817104
       - https://bugzil.la/1866197
       - https://bugzil.la/1928259
+      - https://bugzil.la/2010454
     notification_emails:
       - alissy@mozilla.com
-    expires: 150
+    expires: 170
     telemetry_mirror: DOM_CONTENTPROCESS_BUILDID_MISMATCH_FALSE_POSITIVE
 
   os_priority_lowered:

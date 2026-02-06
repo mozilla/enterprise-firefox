@@ -16,7 +16,15 @@ import {
   getOpenTabs,
   searchBrowsingHistory,
   GetPageContent,
+  RunSearch,
 } from "moz-src:///browser/components/aiwindow/models/Tools.sys.mjs";
+
+const lazy = {};
+ChromeUtils.defineESModuleGetters(lazy, {
+  AIWindow:
+    "moz-src:///browser/components/aiwindow/ui/modules/AIWindow.sys.mjs",
+  BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
+});
 
 /**
  * Chat
@@ -26,7 +34,7 @@ export const Chat = {};
 XPCOMUtils.defineLazyPreferenceGetter(
   Chat,
   "modelId",
-  "browser.aiwindow.model",
+  "browser.smartwindow.model",
   "qwen3-235b-a22b-instruct-2507-maas"
 );
 
@@ -34,7 +42,8 @@ Object.assign(Chat, {
   toolMap: {
     get_open_tabs: getOpenTabs,
     search_browsing_history: searchBrowsingHistory,
-    get_page_content: GetPageContent.getPageContent.bind(GetPageContent),
+    get_page_content: GetPageContent.getPageContent,
+    run_search: RunSearch.runSearch.bind(RunSearch),
   },
 
   /**
@@ -44,9 +53,11 @@ Object.assign(Chat, {
    * streaming the model’s follow-up answer. Repeats until no more tool calls.
    *
    * @param {ChatConversation} conversation
+   * @param {object} [context]
+   * @param {Window} [context.win]
    * @yields {string} Assistant text chunks
    */
-  async *fetchWithHistory(conversation) {
+  async *fetchWithHistory(conversation, context = {}) {
     // Note FXA token fetching disabled for now - this is still in progress
     // We can flip this switch on when more realiable
     const fxAccountToken = await openAIEngine.getFxAccountToken();
@@ -106,6 +117,9 @@ Object.assign(Chat, {
       }));
       conversation.addAssistantMessage("function", { tool_calls });
 
+      // Persist conversation state before executing tools
+      lazy.AIWindow.chatStore?.updateConversation(conversation).catch(() => {});
+
       // 4) Execute each tool locally and create a tool message with the result
       // TODO: Temporarily only execute the first tool call, will run all later
       for (const toolCall of pendingToolCalls) {
@@ -124,6 +138,10 @@ Object.assign(Chat, {
           };
           conversation.addToolCallMessage(content, currentTurn, toolRoleOpts);
           continue;
+        }
+
+        if (name === "run_search") {
+          yield { searching: true, query: toolParams.query };
         }
 
         let result;
@@ -147,6 +165,21 @@ Object.assign(Chat, {
           result = { error: `Tool execution failed: ${String(e)}` };
           const content = { tool_call_id: id, body: result };
           conversation.addToolCallMessage(content, currentTurn, toolRoleOpts);
+        }
+
+        // Persist after each tool result
+        lazy.AIWindow.chatStore
+          ?.updateConversation(conversation)
+          .catch(() => {});
+
+        // run_search navigates away from the AI page; hand off to the sidebar
+        // to continue streaming after the search results are captured.
+        if (name === "run_search") {
+          const win = context.win || lazy.BrowserWindowTracker.getTopWindow();
+          if (win) {
+            lazy.AIWindow.openSidebarAndContinue(win, conversation);
+          }
+          return;
         }
 
         // Bug 	2006159 - Implement parallel tool calling, remove after implemented

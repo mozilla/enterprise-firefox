@@ -298,10 +298,7 @@ add_task(async function editedView() {
 add_task(async function searchWith() {
   // Enable suggestions for this subtest so we can check non-heuristic results.
   let oldDefaultEngine = await SearchService.getDefault();
-  await SearchService.setDefault(
-    engine,
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
-  );
+  await SearchService.setDefault(engine, SearchService.CHANGE_REASON.UNKNOWN);
   await SpecialPowers.pushPrefEnv({
     set: [["browser.urlbar.suggest.searches", true]],
   });
@@ -374,7 +371,7 @@ add_task(async function searchWith() {
   await SpecialPowers.popPrefEnv();
   await SearchService.setDefault(
     oldDefaultEngine,
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+    SearchService.CHANGE_REASON.UNKNOWN
   );
   await hidePopup();
 });
@@ -720,10 +717,7 @@ add_task(async function avoidWillHideRace() {
 
   info("Hide all engines but the test engine.");
   let oldDefaultEngine = await SearchService.getDefault();
-  await SearchService.setDefault(
-    engine,
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
-  );
+  await SearchService.setDefault(engine, SearchService.CHANGE_REASON.UNKNOWN);
   let engines = (await SearchService.getVisibleEngines()).filter(
     e => e.name != engine.name
   );
@@ -786,7 +780,7 @@ add_task(async function avoidWillHideRace() {
   await SpecialPowers.popPrefEnv();
   await SearchService.setDefault(
     oldDefaultEngine,
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+    SearchService.CHANGE_REASON.UNKNOWN
   );
   await SpecialPowers.popPrefEnv();
   engines.forEach(e => {

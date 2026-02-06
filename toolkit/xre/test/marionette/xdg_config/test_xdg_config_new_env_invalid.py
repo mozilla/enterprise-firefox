@@ -17,6 +17,6 @@ class TestXdgConfigHomeNewEnvInvalid(XdgConfigHomeTestCase):
 
         profile_subdir = self.get_asserted_profile_subdir()
         self.assertTrue(
-            profile_subdir.startswith(".config/mozilla/firefox"),
-            "Profile is under '.config/mozilla/firefox'",
+            profile_subdir.startswith(f".config/mozilla/{self._product_name}"),
+            f"Profile is under '.config/mozilla/{self._product_name}'",
         )

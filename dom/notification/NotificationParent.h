@@ -72,6 +72,12 @@ class NotificationParent final : public PNotificationParent,
   // either because it's closed or denied permission. We don't have to call
   // CloseAlert if this is the case.
   bool mDangling = false;
+
+  // State tracking for async SafeBrowsing checks (bug 1986300).
+  // When a SafeBrowsing classification is in progress, we track whether a
+  // close was requested before the check completes.
+  bool mShowPending = false;
+  bool mClosePending = false;
 };
 
 }  // namespace mozilla::dom::notification

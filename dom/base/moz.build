@@ -631,7 +631,10 @@ GeneratedFile(
         "UseCounters.conf",
         "UseCountersWorker.conf",
         "nsDeprecatedOperationList.inc",
-        "!/layout/style/ServoCSSPropList.py",
+        "/servo/components/style/properties/counted_unknown_properties.py",
+        "/servo/components/style/properties/data.py",
+        "/servo/components/style/properties/longhands.toml",
+        "/servo/components/style/properties/shorthands.toml",
         "/servo/components/style/properties/counted_unknown_properties.py",
     ],
 )

@@ -32,9 +32,9 @@
   <!-- Placeholder text shown in the search bar when using application search engines -->
   <string name="application_search_hint">عبارت جست‌وجو را وارد کنید</string>
   <!-- No Open Tabs Message Description -->
-  <string name="no_open_tabs_description">زبانه‌های باز شما در اینجا نشان داده می‌شوند.</string>
+  <string name="no_open_tabs_description" tools:ignore="UnusedResources" moz:removedIn="149">زبانه‌های باز شما در اینجا نشان داده می‌شوند.</string>
   <!-- No Private Tabs Message Description -->
-  <string name="no_private_tabs_description">زبانه‌های خصوصی شما در اینجا نشان داده می‌شوند.</string>
+  <string name="no_private_tabs_description" tools:ignore="UnusedResources" moz:removedIn="149">زبانه‌های خصوصی شما در اینجا نشان داده می‌شوند.</string>
   <!-- The header text displayed on the private tabs page when no private tabs are open -->
   <string name="tab_manager_empty_private_tabs_page_header">مرور ناشناس</string>
   <!-- The supplementary text displayed on the private tabs page when no private tabs are open. %1$s is the name of the app (for example "Firefox") -->
@@ -54,7 +54,7 @@
   <!-- Content description for close button while in multiselect mode in tab tray -->
   <string name="tab_tray_close_multiselect_content_description">از حالت چند انتخابی خارج شوید</string>
   <!-- Content description for save to collection button while in multiselect mode in tab tray -->
-  <string name="tab_tray_collection_button_multiselect_content_description">ذخیره‌سازی زبانه‌های انتخاب شده داخل مجموعه</string>
+  <string name="tab_tray_collection_button_multiselect_content_description" tools:ignore="UnusedResources" moz:removedIn="149">ذخیره‌سازی زبانه‌های انتخاب شده داخل مجموعه</string>
   <!-- The header text displayed on the synced tabs page when the user is not logged into an account. -->
   <string name="tab_manager_empty_synced_tabs_page_header">از هر دستگاه‌ی به زبانه‌ها دسترسی داشته باشید</string>
   <!-- The supplementary text displayed on the synced tabs page when the user is not logged into an account. -->
@@ -206,7 +206,7 @@
   <!-- Browser menu button that opens the extensions manager -->
   <string name="browser_menu_extensions">افزونه‌ها</string>
   <!-- Browser menu banner header text for extensions onboarding when all installed extensions have been disabled. -->
-  <string name="browser_menu_disabled_extensions_banner_onboarding_header">شما افزونه‌هایی نصب کرده‌اید، اما فعال نیستند</string>
+  <string name="browser_menu_disabled_extensions_banner_onboarding_header" tools:ignore="UnusedResources" moz:removedIn="149">شما افزونه‌هایی نصب کرده‌اید، اما فعال نیستند</string>
   <!-- Browser menu button that opens the extensions manager -->
   <string name="browser_menu_manage_extensions">مدیریت افزونه‌ها</string>
   <!-- Browser menu group that contains additional settings in collapsed state -->
@@ -304,11 +304,11 @@
   <!-- Content description (not visible, for screen readers etc.) for main menu navigation header. -->
   <string name="browser_main_menu_content_description_navigation_header">پیمایش</string>
   <!-- Content description (not visible, for screen readers etc.) for bottom sheet handlebar extensions menu. -->
-  <string name="browser_extensions_menu_handlebar_content_description">بستن برگه منوی افزونه‌ها</string>
+  <string name="browser_extensions_menu_handlebar_content_description" tools:ignore="UnusedResources" moz:removedIn="149">بستن برگه منوی افزونه‌ها</string>
   <!-- Content description (not visible, for screen readers etc.) for bottom sheet handlebar save menu. -->
-  <string name="browser_save_menu_handlebar_content_description">بستن برگه منوی ذخیره</string>
+  <string name="browser_save_menu_handlebar_content_description" tools:ignore="UnusedResources" moz:removedIn="149">بستن برگه منوی ذخیره</string>
   <!-- Content description (not visible, for screen readers etc.) for bottom sheet handlebar tools menu. -->
-  <string name="browser_tools_menu_handlebar_content_description">بستن برگه منوی ابزارها</string>
+  <string name="browser_tools_menu_handlebar_content_description" tools:ignore="UnusedResources" moz:removedIn="149">بستن برگه منوی ابزارها</string>
   <!-- Content description (not visible, for screen readers etc.) for bottom sheet handlebar custom tab menu. -->
   <string name="browser_custom_tab_menu_handlebar_content_description">بستن برگه منوی زبانه سفارشی</string>
   <!-- Browser menu label that bookmarks the currently visited page -->
@@ -535,28 +535,28 @@
   <!-- Used as text for the link in onboarding_term_of_service_line_three. -->
   <string name="onboarding_term_of_service_line_three_link_text">مدیریت</string>
   <!-- Terms of use (ToU) onboarding redesign title. -->
-  <string name="onboarding_redesign_tou_title">راه‌اندازی مرورگر نهایی اندروید</string>
+  <string name="onboarding_redesign_tou_title" tools:ignore="UnusedResources">راه‌اندازی مرورگر نهایی اندروید</string>
   <!--
     Terms of use (ToU) first body text. %1$s is replaced by an active link,
     using onboarding_redesign_tou_body_one_link_text as text (“Firefox Terms of Use”).
   -->
-  <string name="onboarding_redesign_tou_body_one">با ادامه دادن، شما با %1$s موافقت می‌کنید.</string>
+  <string name="onboarding_redesign_tou_body_one" tools:ignore="UnusedResources">با ادامه دادن، شما با %1$s موافقت می‌کنید.</string>
   <!-- Used as text for the link in onboarding_redesign_tou_body_one. -->
-  <string name="onboarding_redesign_tou_body_one_link_text" tools:ignore="BrandUsage">شرایط استفاده از Firefox</string>
+  <string name="onboarding_redesign_tou_body_one_link_text" tools:ignore="BrandUsage,UnusedResources">شرایط استفاده از Firefox</string>
   <!-- Used as text for the link in onboarding_redesign_tou_body_three. -->
-  <string name="onboarding_redesign_tou_body_three_link_text">مدیریت تنظیمات</string>
+  <string name="onboarding_redesign_tou_body_three_link_text" tools:ignore="UnusedResources">مدیریت تنظیمات</string>
   <!-- Terms of use (ToU) onboarding page continue button label. -->
-  <string name="onboarding_redesign_tou_agree_and_continue_button_label">ادامه</string>
+  <string name="onboarding_redesign_tou_agree_and_continue_button_label" tools:ignore="UnusedResources">ادامه</string>
   <!-- Onboarding header for the toolbar selection card. -->
-  <string name="onboarding_redesign_customize_toolbar_title">می‌خواهید نوار آدرس شما کجا باشد؟</string>
+  <string name="onboarding_redesign_customize_toolbar_title" tools:ignore="UnusedResources">می‌خواهید نوار آدرس شما کجا باشد؟</string>
   <!-- Onboarding label for 'Continue' button. -->
-  <string name="onboarding_redesign_continue_button">ادامه</string>
+  <string name="onboarding_redesign_continue_button" tools:ignore="UnusedResources">ادامه</string>
   <!-- Marketing onboarding page button label. Button to confirm choice and start browsing. -->
-  <string name="onboarding_marketing_redesign_positive_button">تایید</string>
+  <string name="onboarding_marketing_redesign_positive_button" tools:ignore="UnusedResources">تایید</string>
   <!-- Sync onboarding redesign positive button text. -->
-  <string name="onboarding_redesign_sync_positive_button">آغاز همگام‌سازی</string>
+  <string name="onboarding_redesign_sync_positive_button" tools:ignore="UnusedResources">آغاز همگام‌سازی</string>
   <!-- Sync onboarding redesign negative button text. -->
-  <string name="onboarding_redesign_sync_negative_button">اکنون نه</string>
+  <string name="onboarding_redesign_sync_negative_button" tools:ignore="UnusedResources">اکنون نه</string>
   <!-- Marketing onboarding page title. 'Firefox' is intentionally hardcoded. -->
   <string name="onboarding_marketing_title" tools:ignore="BrandUsage,UnusedResources">به ما در رشد Firefox کمک کنید</string>
   <!-- Marketing onboarding page body. 'Firefox' is intentionally hardcoded. -->
@@ -1314,15 +1314,15 @@
   <!-- Content description (not visible, for screen readers etc.): Add tab button. Adds a news tab when pressed -->
   <string name="add_private_tab">افزودن زبانه خصوصی</string>
   <!-- Text for the new tab button to indicate adding a new private tab in the tab -->
-  <string name="tab_drawer_fab_content">خصوصی</string>
+  <string name="tab_drawer_fab_content" tools:ignore="UnusedResources" moz:removedIn="149">خصوصی</string>
   <!-- Text for the new tab button to indicate syncing command on the synced tabs page -->
-  <string name="tab_drawer_fab_sync">هم‌گام‌سازی</string>
+  <string name="tab_drawer_fab_sync" tools:ignore="UnusedResources" moz:removedIn="149">هم‌گام‌سازی</string>
   <!-- Text shown in the menu for sharing all tabs -->
-  <string name="tab_tray_menu_item_share">به اشتراک‌گذار همه‌ی زبانه‌ها</string>
+  <string name="tab_tray_menu_item_share" tools:ignore="UnusedResources" moz:removedIn="149">به اشتراک‌گذار همه‌ی زبانه‌ها</string>
   <!-- Text shown in the menu to view recently closed tabs -->
   <string name="tab_tray_menu_recently_closed">زبانه‌های تازه بسته شده</string>
   <!-- Text shown in the tabs tray inactive tabs section -->
-  <string name="tab_tray_inactive_recently_closed" tools:ignore="UnusedResources">به تازگی بسته شده است</string>
+  <string name="tab_tray_inactive_recently_closed" tools:ignore="UnusedResources" moz:removedIn="149">به تازگی بسته شده است</string>
   <!-- Text shown in the menu to view account settings -->
   <string name="tab_tray_menu_account_settings">تنظیمات حساب</string>
   <!-- Text shown in the menu to view tab settings -->
@@ -1330,11 +1330,11 @@
   <!-- Text shown in the menu for closing all tabs -->
   <string name="tab_tray_menu_item_close">بستن همه‌ی زبانه‌ها</string>
   <!-- Text shown in the multiselect menu for bookmarking selected tabs. -->
-  <string name="tab_tray_multiselect_menu_item_bookmark">نشانک‌گذاری</string>
+  <string name="tab_tray_multiselect_menu_item_bookmark" tools:ignore="UnusedResources" moz:removedIn="149">نشانک‌گذاری</string>
   <!-- Content description (not visible, for screen readers etc.): Bookmarks selected tabs. -->
   <string name="tab_manager_multiselect_menu_item_bookmark_content_description">نشانک‌گذاری زبانه‌های انتخاب شده</string>
   <!-- Text shown in the multiselect menu for closing selected tabs. -->
-  <string name="tab_tray_multiselect_menu_item_close">بستن</string>
+  <string name="tab_tray_multiselect_menu_item_close" tools:ignore="UnusedResources" moz:removedIn="149">بستن</string>
   <!-- Content description (not visible, for screen readers etc.): Closes selected tabs. -->
   <string name="tab_manager_multiselect_menu_item_close_content_description">بستن زبانه‌های انتخاب شده</string>
   <!-- Text shown in the multiselect menu for sharing selected tabs. -->
@@ -1342,7 +1342,7 @@
   <!-- Text shown in the multiselect menu for adding selected tabs to collections. -->
   <string name="tab_manager_multiselect_menu_item_add_to_collection">افزودن به مجموعه</string>
   <!-- Content description for tabs tray multiselect share button -->
-  <string name="tab_tray_multiselect_share_content_description">هم‌رسانی زبانه‌های انتخاب شده</string>
+  <string name="tab_tray_multiselect_share_content_description" tools:ignore="UnusedResources" moz:removedIn="149">هم‌رسانی زبانه‌های انتخاب شده</string>
   <!-- Content description for tabs tray multiselect menu -->
   <string name="tab_tray_multiselect_menu_content_description">منوی زبانه‌های انتخاب شده</string>
   <!-- Title text displayed for a homepage tab in the tabs tray. -->
@@ -2626,9 +2626,9 @@
   -->
   <string name="certificate_info_verified_by">تایید شده توسط:%1$s</string>
   <!-- Login overflow menu delete button -->
-  <string name="login_menu_delete_button">حذف</string>
+  <string name="login_menu_delete_button" tools:ignore="UnusedResources" moz:removedIn="149">حذف</string>
   <!-- Login overflow menu edit button -->
-  <string name="login_menu_edit_button">ویرایش</string>
+  <string name="login_menu_edit_button" tools:ignore="UnusedResources" moz:removedIn="149">ویرایش</string>
   <!-- Message in delete confirmation dialog for password -->
   <string name="login_deletion_confirmation_2">آیا مطمئن هستید که می‌خواهید این گذرواژه را حذف کنید؟</string>
   <!-- Positive action of a dialog asking to delete -->
@@ -2636,15 +2636,15 @@
   <!-- Negative action of a dialog asking to delete login -->
   <string name="dialog_delete_negative">لغو</string>
   <!-- The saved password options menu description. -->
-  <string name="login_options_menu_2">گزینه‌های گذرواژه</string>
+  <string name="login_options_menu_2" tools:ignore="UnusedResources" moz:removedIn="149">گزینه‌های گذرواژه</string>
   <!-- The editable text field for a website address. -->
-  <string name="saved_login_hostname_description_3">زمینه متنی قابل ویرایش برای نشانی وبگاه.</string>
+  <string name="saved_login_hostname_description_3" tools:ignore="UnusedResources" moz:removedIn="149">زمینه متنی قابل ویرایش برای نشانی وبگاه.</string>
   <!-- The editable text field for a username. -->
-  <string name="saved_login_username_description_3">زمینه متنی قابل ویرایش برای نام‌کاربری.</string>
+  <string name="saved_login_username_description_3" tools:ignore="UnusedResources" moz:removedIn="149">زمینه متنی قابل ویرایش برای نام‌کاربری.</string>
   <!-- The editable text field for a login's password. -->
-  <string name="saved_login_password_description_2">زمینه متنی قابل ویرایش برای گذرواژه.</string>
+  <string name="saved_login_password_description_2" tools:ignore="UnusedResources" moz:removedIn="149">زمینه متنی قابل ویرایش برای گذرواژه.</string>
   <!-- The button description to save changes to an edited password. -->
-  <string name="save_changes_to_login_2">ذخیره تغییرات.</string>
+  <string name="save_changes_to_login_2" tools:ignore="UnusedResources" moz:removedIn="149">ذخیره تغییرات.</string>
   <!-- The page title for editing a saved password. -->
   <string name="edit_2">ویرایش گذرواژه</string>
   <!-- The page title for adding new password. -->

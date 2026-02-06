@@ -138,8 +138,8 @@ addMessageListener("promptShown", async function () {
   });
 });
 
-addMessageListener("cleanup", () => {
-  Services.logins.removeAllUserFacingLogins();
+addMessageListener("cleanup", async () => {
+  await Services.logins.removeAllUserFacingLoginsAsync();
 });
 
 // Begin message listeners

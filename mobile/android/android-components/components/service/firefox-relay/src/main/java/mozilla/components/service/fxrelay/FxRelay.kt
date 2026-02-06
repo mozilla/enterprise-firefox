@@ -6,23 +6,43 @@ package mozilla.components.service.fxrelay
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import mozilla.appservices.relay.RelayAddress
 import mozilla.appservices.relay.RelayApiException
 import mozilla.appservices.relay.RelayClient
 import mozilla.appservices.relay.RelayProfile
 import mozilla.components.concept.sync.OAuthAccount
+import mozilla.components.service.fxrelay.eligibility.RelayPlanTier
 import mozilla.components.support.base.log.logger.Logger
 
-const val RELAY_SCOPE_URL = "https://identity.mozilla.com/apps/relay"
-const val RELAY_BASE_URL = "https://relay.firefox.com"
+private const val FREE_MAX_MASKS = 5
+private const val RELAY_SCOPE_URL = "https://identity.mozilla.com/apps/relay"
+private const val RELAY_BASE_URL = "https://relay.firefox.com"
+
+/**
+ * Public API for Firefox Relay.
+ */
+interface FxRelay {
+    /**
+     * Fetches a list of email masks.
+     *
+     * @return a list of email masks or `null` if the operation fails.
+     */
+    suspend fun fetchEmailMasks(): List<EmailMask>?
+
+    /**
+     * Retrieves the Relay account details or `null` if the operation failed.
+     *
+     * @return The user's [RelayAccountDetails].
+     */
+    suspend fun fetchAccountDetails(): RelayAccountDetails?
+}
 
 /**
  * Service wrapper for Firefox Relay APIs.
  *
  * @param account An [OAuthAccount] used to obtain and manage FxA access tokens scoped for Firefox Relay.
  */
-class FxRelay(
-    private val account: OAuthAccount,
-) {
+internal class FxRelayImpl(private val account: OAuthAccount) : FxRelay {
     private val logger = Logger("FxRelay")
 
     /**
@@ -36,9 +56,7 @@ class FxRelay(
      * Defines supported Relay operations for logging and error handling.
      */
     enum class RelayOperation {
-        CREATE_ADDRESS,
-        ACCEPT_TERMS,
-        FETCH_ALL_ADDRESSES,
+        FETCH_ADDRESSES,
         FETCH_PROFILE,
     }
 
@@ -98,38 +116,21 @@ class FxRelay(
         }
     }
 
-    /**
-     * Accept the Relay terms of service.
-     */
-    suspend fun acceptTerms() = withContext(Dispatchers.IO) {
-        handleRelayExceptions(RelayOperation.ACCEPT_TERMS, { false }) {
-            val client = getOrCreateClient()
-            client.acceptTerms()
-            true
-        }
-    }
-
-    /**
-     * Fetch all Relay addresses.
-     *
-     * This returns `null` when the operation failed with a known Relay API error.
-     */
-    suspend fun fetchAllAddresses(): List<RelayAddress> = withContext(Dispatchers.IO) {
+    override suspend fun fetchEmailMasks(): List<EmailMask>? = withContext(Dispatchers.IO) {
         handleRelayExceptions(
-            RelayOperation.FETCH_ALL_ADDRESSES,
-            { emptyList() },
+            RelayOperation.FETCH_ADDRESSES,
+            { null },
         ) {
-            val client = getOrCreateClient()
-            client.fetchAddresses().map { it.into() }
+            getOrCreateClient().fetchAddresses().map { it.asEmailMask() }
         }
     }
 
-    /**
-     * Retrieves the [RelayProfile] for the authenticated user.
-     *
-     * @return The user's [RelayProfile] or `null` if the operation failed.
-     */
-    suspend fun fetchProfile(): RelayProfile? = withContext(Dispatchers.IO) {
+    override suspend fun fetchAccountDetails(): RelayAccountDetails? = withContext(Dispatchers.IO) {
+        val profile = fetchProfile() ?: return@withContext null
+        mapProfileToDetails(profile)
+    }
+
+    private suspend fun fetchProfile(): RelayProfile? = withContext(Dispatchers.IO) {
         handleRelayExceptions(
             RelayOperation.FETCH_PROFILE,
             { null },
@@ -138,4 +139,44 @@ class FxRelay(
             client.fetchProfile()
         }
     }
+
+    private fun mapProfileToDetails(profile: RelayProfile): RelayAccountDetails {
+        val relayPlanTier = when {
+            profile.hasPremium || profile.hasMegabundle -> RelayPlanTier.PREMIUM
+            else -> RelayPlanTier.FREE
+        }
+
+        val remainingMasks = when (relayPlanTier) {
+            RelayPlanTier.PREMIUM -> null
+            RelayPlanTier.FREE -> FREE_MAX_MASKS
+            else -> 0
+        }
+
+        return RelayAccountDetails(
+            relayPlanTier = relayPlanTier,
+            remainingMasksForFreeUsers = remainingMasks,
+        )
+    }
+}
+
+/**
+ * Represents the Relay account details for the currently signed-in user.
+ *
+ * @param relayPlanTier The user’s current Relay plan (e.g., FREE or PREMIUM).
+ * @param remainingMasksForFreeUsers The number of remaining free aliases for FREE users.
+ */
+data class RelayAccountDetails(
+    val relayPlanTier: RelayPlanTier,
+    val remainingMasksForFreeUsers: Int?,
+)
+
+/**
+ * A reduced [RelayAddress] intended for client use.
+ */
+data class EmailMask(
+    val fullAddress: String,
+)
+
+internal fun RelayAddress.asEmailMask(): EmailMask {
+    return EmailMask(fullAddress = this.fullAddress)
 }

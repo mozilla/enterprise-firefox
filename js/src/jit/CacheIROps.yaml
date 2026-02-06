@@ -2064,7 +2064,7 @@
     receiver: ObjId
     callee: ObjId
     rhs: ValId
-    icScript: RawPointerField
+    icScript: ICScriptField
     sameRealm: BoolImm
     nargsAndFlags: RawInt32Field
 
@@ -2257,7 +2257,7 @@
   args:
     callee: ObjId
     argc: Int32Id
-    icScript: RawPointerField
+    icScript: ICScriptField
     flags: CallFlagsImm
     argcFixed: UInt32Imm
 
@@ -2289,14 +2289,18 @@
     nargsAndFlags: UInt32Imm
   #endif
 
-# Meta ops generate no code, but contain data for the Warp Transpiler.
-- name: MetaScriptedThisShape
-  shared: true
+# This op generates no code itself, but contains data used by a subsequent
+# Call(Scripted|Inlined|Bound)Function op.
+- name: MetaCreateThis
+  shared: false
   transpile: true
   cost_estimate: 0
-  custom_writer: true
   args:
+    numFixedSlots: UInt32Imm
+    numDynamicSlots: UInt32Imm
+    allocKind: AllocKindImm
     thisShape: ShapeField
+    site: AllocSiteField
 
 - name: BindFunctionResult
   shared: true
@@ -2700,7 +2704,7 @@
   args:
     receiver: ValId
     callee: ObjId
-    icScript: RawPointerField
+    icScript: ICScriptField
     sameRealm: BoolImm
     nargsAndFlags: RawInt32Field
 

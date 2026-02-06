@@ -66,13 +66,13 @@ add_setup(async function () {
   registerCleanupFunction(async () => {
     SearchService.setDefault(
       oldDefaultEngine,
-      Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+      SearchService.CHANGE_REASON.UNKNOWN
     );
     Services.prefs.clearUserPref(PRIVATE_SEARCH_PREF);
     Services.prefs.clearUserPref(TAIL_SUGGESTIONS_PREF);
     Services.prefs.clearUserPref(SUGGEST_ENABLED_PREF);
   });
-  SearchService.setDefault(engine, Ci.nsISearchService.CHANGE_REASON_UNKNOWN);
+  SearchService.setDefault(engine, SearchService.CHANGE_REASON.UNKNOWN);
   Services.prefs.setBoolPref(PRIVATE_SEARCH_PREF, false);
   Services.prefs.setBoolPref(TAIL_SUGGESTIONS_PREF, true);
   Services.prefs.setBoolPref(SUGGEST_ENABLED_PREF, true);
@@ -85,7 +85,7 @@ add_setup(async function () {
 add_task(async function normal_suggestions_provider() {
   let engine = await addTestSuggestionsEngine();
   let tailEngine = await SearchService.getDefault();
-  SearchService.setDefault(engine, Ci.nsISearchService.CHANGE_REASON_UNKNOWN);
+  SearchService.setDefault(engine, SearchService.CHANGE_REASON.UNKNOWN);
 
   const query = "hello world";
   let context = createContext(query, { isPrivate: false });
@@ -107,10 +107,7 @@ add_task(async function normal_suggestions_provider() {
     ],
   });
 
-  SearchService.setDefault(
-    tailEngine,
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
-  );
+  SearchService.setDefault(tailEngine, SearchService.CHANGE_REASON.UNKNOWN);
   await cleanUpSuggestions();
 });
 

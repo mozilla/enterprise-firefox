@@ -443,6 +443,14 @@ class nsPresContext : public nsISupports,
   nscoord GetBimodalDynamicToolbarHeightInAppUnits() const;
 
   /**
+   * Returns the maximum height of the dynamic toolbar if the toolbar state is
+   * `DynamicToolbarState::Collapsed`, otherwise returns zero.
+   * The maximum height is based on the fixed viewport scale for elements with
+   * position:fixed.
+   */
+  nscoord GetBimodalDynamicToolbarHeightForFixedPosInAppUnits() const;
+
+  /**
    * Returns the state of the dynamic toolbar.
    */
   mozilla::DynamicToolbarState GetDynamicToolbarState() const;

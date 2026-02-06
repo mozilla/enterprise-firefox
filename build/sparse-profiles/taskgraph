@@ -46,6 +46,9 @@ path:browser/components/asrouter/package.json
 path:browser/components/asrouter/package-lock.json
 path:tools/terser/package.json
 path:tools/terser/package-lock.json
+path:remote/test/puppeteer/package.json
+path:remote/test/puppeteer/package-lock.json
+path:remote/test/puppeteer/test/package.json
 
 # for new-style try pushes
 path:try_task_config.json

@@ -1020,14 +1020,14 @@ class nsTextFrame : public nsIFrame {
   bool CombineSelectionUnderlineRect(nsPresContext* aPresContext,
                                      nsRect& aRect);
 
-  // This sets *aShadows to the appropriate shadows, if any, for the given
+  // Returns the appropriate shadows, if any, for the given
   // type of selection.
-  // If text-shadow was not specified, *aShadows is left untouched.
+  // Returns an empty span if text-shadow was not specified..
   // Note that the returned shadow(s) will only be valid as long as the
   // textPaintStyle remains in scope.
-  void GetSelectionTextShadow(
+  mozilla::Span<const mozilla::StyleSimpleShadow> GetSelectionTextShadow(
       SelectionType aSelectionType, nsTextPaintStyle& aTextPaintStyle,
-      mozilla::Span<const mozilla::StyleSimpleShadow>* aShadows);
+      nsAtom* aHighlightName = nullptr);
 
   /**
    * Utility methods to paint selection.

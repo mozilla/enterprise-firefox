@@ -122,15 +122,6 @@ class AtomicSafeRefCounted
 
 struct AcquireStrongRefFromRawPtr {};
 
-// XXX for Apple, clang::trivial_abi is probably also supported, but we need to
-// find out the correct version number
-#if defined(__clang__) && !defined(__apple_build_version__) && \
-    __clang_major__ >= 7
-#  define MOZ_TRIVIAL_ABI [[clang::trivial_abi]]
-#else
-#  define MOZ_TRIVIAL_ABI
-#endif
-
 // A restricted variant of mozilla::RefPtr<T>, which prohibits some unsafe or
 // unperformant misuses, in particular:
 // * It is not implicitly convertible from a raw pointer. Unsafe acquisitions

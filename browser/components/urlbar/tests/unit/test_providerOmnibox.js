@@ -808,7 +808,7 @@ add_task(async function conflicting_alias() {
   let keyword = "test";
   engine.alias = keyword;
   let oldDefaultEngine = await SearchService.getDefault();
-  SearchService.setDefault(engine, Ci.nsISearchService.CHANGE_REASON_UNKNOWN);
+  SearchService.setDefault(engine, SearchService.CHANGE_REASON.UNKNOWN);
 
   let extensionName = "Omnibox Example";
 
@@ -879,7 +879,7 @@ add_task(async function conflicting_alias() {
 
   SearchService.setDefault(
     oldDefaultEngine,
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+    SearchService.CHANGE_REASON.UNKNOWN
   );
   Services.prefs.setBoolPref(SUGGEST_PREF, false);
   Services.prefs.setBoolPref(SUGGEST_ENABLED_PREF, false);

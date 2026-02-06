@@ -1264,7 +1264,8 @@ JSString* js::ComputeStackString(JSContext* cx) {
   return str.get();
 }
 
-JSErrorReport* js::ErrorFromException(JSContext* cx, HandleObject objArg) {
+bool js::ErrorFromException(JSContext* cx, HandleObject objArg,
+                            JS::BorrowedErrorReport& errorReport) {
   // It's ok to UncheckedUnwrap here, since all we do is get the
   // JSErrorReport, and consumers are careful with the information they get
   // from that anyway.  Anyone doing things that would expose anything in the
@@ -1273,16 +1274,21 @@ JSErrorReport* js::ErrorFromException(JSContext* cx, HandleObject objArg) {
   // will fail if they can't unwrap it.
   RootedObject obj(cx, UncheckedUnwrap(objArg));
   if (!obj->is<ErrorObject>()) {
-    return nullptr;
+    return false;
   }
 
   JSErrorReport* report = obj->as<ErrorObject>().getOrCreateErrorReport(cx);
   if (!report) {
     MOZ_ASSERT(cx->isThrowingOutOfMemory());
     cx->recoverFromOutOfMemory();
+    return false;
   }
 
-  return report;
+  // Note: it's important to use the unwrapped object here. CCWs can be cut when
+  // nuking wrappers so they're not guaranteed to keep the target object and its
+  // JSErrorReport alive.
+  errorReport.init(obj, report);
+  return true;
 }
 
 JS_PUBLIC_API JSObject* JS::ExceptionStackOrNull(HandleObject objArg) {
@@ -1502,7 +1508,7 @@ static JSString* ErrorReportToString(JSContext* cx, HandleObject exn,
 }
 
 JS::ErrorReportBuilder::ErrorReportBuilder(JSContext* cx)
-    : reportp(nullptr), exnObject(cx) {}
+    : reportp(nullptr), borrowedReport(cx) {}
 
 JS::ErrorReportBuilder::~ErrorReportBuilder() = default;
 
@@ -1566,14 +1572,20 @@ bool JS::ErrorReportBuilder::init(JSContext* cx,
   MOZ_ASSERT(!cx->isExceptionPending());
   MOZ_ASSERT(!reportp);
 
+  Rooted<JSObject*> exnObject(cx);
+
   if (exnStack.exception().isObject()) {
     // Because ToString below could error and an exception object could become
     // unrooted, we must root our exception object, if any.
     exnObject = &exnStack.exception().toObject();
-    reportp = ErrorFromException(cx, exnObject);
 
-    if (reportp && reportp->isMuted) {
-      sniffingBehavior = SniffingBehavior::NoSideEffects;
+    if (ErrorFromException(cx, exnObject, borrowedReport)) {
+      reportp = borrowedReport.get();
+      if (reportp->isMuted) {
+        sniffingBehavior = SniffingBehavior::NoSideEffects;
+      }
+    } else {
+      reportp = nullptr;
     }
   }
 

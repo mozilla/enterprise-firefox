@@ -8,8 +8,8 @@
 
 #include <math.h>
 
-#include "SVGAnimatedLengthList.h"
 #include "mozilla/SMILValue.h"
+#include "mozilla/dom/SVGAnimatedLength.h"
 #include "nsDebug.h"
 
 namespace mozilla {

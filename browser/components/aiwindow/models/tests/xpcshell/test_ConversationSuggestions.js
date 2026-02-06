@@ -32,9 +32,9 @@ const { sinon } = ChromeUtils.importESModule(
 /**
  * Constants for preference keys and test values
  */
-const PREF_API_KEY = "browser.aiwindow.apiKey";
-const PREF_ENDPOINT = "browser.aiwindow.endpoint";
-const PREF_MODEL = "browser.aiwindow.model";
+const PREF_API_KEY = "browser.smartwindow.apiKey";
+const PREF_ENDPOINT = "browser.smartwindow.endpoint";
+const PREF_MODEL = "browser.smartwindow.model";
 const PREF_HISTORY_ENABLED = "places.history.enabled";
 const PREF_PRIVATE_BROWSING = "browser.privatebrowsing.autostart";
 

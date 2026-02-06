@@ -137,6 +137,9 @@ inline mozilla::ProfileBufferBlockIndex AddMarkerToBuffer(
 
 // ETW collects on all threads. So when it is collecting these should always
 // return true.
+// This implementation must be kept in sync with
+// `gecko_profiler::current_thread_is_being_profiled_for_markers` in the
+// Profiler Rust API.
 [[nodiscard]] inline bool profiler_thread_is_being_profiled_for_markers() {
   return profiler_thread_is_being_profiled(ThreadProfilingFeatures::Markers) ||
          profiler_is_etw_collecting_markers() || profiler_is_perfetto_tracing();
@@ -603,6 +606,7 @@ class MOZ_RAII AutoProfilerTracing {
           profiler_get_inner_window_id_from_docshell(docShell))
 
 #ifdef MOZ_GECKO_PROFILER
+
 extern template mozilla::ProfileBufferBlockIndex AddMarkerToBuffer(
     mozilla::ProfileChunkedBuffer&, const mozilla::ProfilerString8View&,
     const mozilla::MarkerCategory&, mozilla::MarkerOptions&&,
@@ -627,6 +631,17 @@ extern template mozilla::ProfileBufferBlockIndex profiler_add_marker_impl(
     const mozilla::ProfilerString8View&, const mozilla::MarkerCategory&,
     mozilla::MarkerOptions&&, mozilla::baseprofiler::markers::Tracing,
     const mozilla::ProfilerString8View&);
+
+// Register a custom marker schema from JavaScript.
+// This stores the schema so it can be included in profile output.
+void profiler_register_marker_schema(const nsCString& aSchemaName,
+                                     const nsString& aSchemaJSON);
+
+#else
+
+inline void profiler_register_marker_schema(const nsCString& aSchemaName,
+                                            const nsString& aSchemaJSON) {}
+
 #endif  // MOZ_GECKO_PROFILER
 
 namespace mozilla {

@@ -10,7 +10,6 @@
 
 #include "mozilla/gfx/2D.h"
 #include "mozilla/Maybe.h"
-#include "mozilla/ipc/Shmem.h"
 #include "mozilla/layers/UiCompositorControllerParent.h"
 #include "mozilla/RefPtr.h"
 #include "nsThread.h"
@@ -46,12 +45,10 @@ class UiCompositorControllerChild final
   bool SetFixedBottomOffset(int32_t aOffset);
   bool ToolbarAnimatorMessageFromUI(const int32_t& aMessage);
   bool SetDefaultClearColor(const uint32_t& aColor);
-  bool RequestScreenPixels();
+  bool RequestScreenPixels(gfx::IntRect aSourceRect, gfx::IntSize aDestSize);
   bool EnableLayerUpdateNotifications(const bool& aEnable);
 
   void Destroy();
-
-  bool DeallocPixelBuffer(Shmem& aMem);
 
 #ifdef MOZ_WIDGET_ANDROID
   // Set mCompositorSurfaceManager. Must be called straight after initialization
@@ -81,9 +78,9 @@ class UiCompositorControllerChild final
       const int32_t& aMessage);
   mozilla::ipc::IPCResult RecvNotifyCompositorScrollUpdate(
       const CompositorScrollUpdate& aUpdate);
-  mozilla::ipc::IPCResult RecvScreenPixels(Shmem&& aMem,
-                                           const ScreenIntSize& aSize,
-                                           bool aNeedsYFlip);
+  mozilla::ipc::IPCResult RecvScreenPixels(
+      Maybe<ipc::FileDescriptor>&& aHardwareBuffer,
+      Maybe<ipc::FileDescriptor>&& aAcquireFence);
 
  private:
   explicit UiCompositorControllerChild(const uint64_t& aProcessToken,

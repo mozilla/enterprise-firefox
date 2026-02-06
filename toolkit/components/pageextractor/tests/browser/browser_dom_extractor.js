@@ -17,21 +17,21 @@ add_task(async function test_dom_extractor_default_options() {
   `;
 
   is(
-    await actor.getText(),
+    (await actor.getText()).text,
     ["Hello World", "This is a paragraph"].join("\n"),
     "Text can be extracted from the page."
   );
 
   is(
-    await actor.getReaderModeContent(true /* force */),
+    (await actor.getReaderModeContent(true /* force */)).text,
     "Hello World\nThis is a paragraph",
     "Reader mode can extract page content."
   );
 
-  is(
+  Assert.deepEqual(
     await actor.getReaderModeContent(),
-    null,
-    "Nothing is returned on non-reader mode content."
+    { text: "", links: [] },
+    "Empty result is returned on non-reader mode content."
   );
   return cleanup();
 });
@@ -52,7 +52,7 @@ add_task(async function test_dom_extractor_sufficient_length_option() {
   );
 
   is(
-    await actor.getText(),
+    (await actor.getText()).text,
     allText,
     "All text is returned with the default options."
   );
@@ -75,7 +75,7 @@ add_task(async function test_dom_extractor_sufficient_length_option() {
     }
 
     is(
-      await actor.getText({ sufficientLength }),
+      (await actor.getText({ sufficientLength })).text,
       expectedValue,
       `The text, given sufficientLength of ${sufficientLength}, matches the expectation.`
     );
@@ -169,7 +169,7 @@ add_task(
     ].join("\n");
 
     is(
-      await actor.getText(),
+      (await actor.getText()).text,
       expected,
       "The extractor returns only visible text."
     );
@@ -189,12 +189,160 @@ add_task(async function test_dom_extractor_inline_batching() {
   `;
 
   is(
-    await actor.getText(),
+    (await actor.getText()).text,
     [
       "This is a simple section.",
-      "This entire section continues in a batch.",
+      "[This entire](http://example.com/) section continues in a batch.",
     ].join("\n"),
     "Inline content is grouped within block elements."
+  );
+
+  return cleanup();
+});
+
+// Tests comprehensive anchor element handling per the HTML specification.
+// https://html.spec.whatwg.org/multipage/links.html
+// https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/a
+
+add_task(async function test_dom_extractor_link_anchors() {
+  const { actor, cleanup } = await html`
+    <article>
+      <h1>Comprehensive Anchor Test</h1>
+
+      <p>Reach us via <a href="mailto:user@mozilla.org">Email</a>.</p>
+      <p>
+        <a href="https://example.com/external" target="_blank">New Tab Link</a>
+      </p>
+      <p>
+        <a href="https://example.com/files/report.pdf" download
+          >Download Attribute</a
+        >
+      </p>
+
+      <a href="https://example.com/card" id="card-link">
+        <div class="card">
+          <h2>Card Title</h2>
+          <p>Card description.</p>
+        </div>
+      </a>
+
+      <p>
+        <a href="https://example.com/mixed">
+          Read <strong>bold text</strong> and <em>italic text</em> inside.
+        </a>
+      </p>
+
+      <p>
+        <a href="https://example.com/no-alt"><img src="decoration.png" /></a>
+      </p>
+
+      <p>
+        <a href="https://example.com/with-alt"
+          ><img src="logo.png" alt="Company Logo"
+        /></a>
+      </p>
+    </article>
+  `;
+
+  const result = await actor.getText();
+  const { text, links } = result;
+
+  const actualLines = text
+    .split("\n")
+    .map(line => line.trim())
+    .filter(line => !!line.length);
+
+  Assert.deepEqual(
+    actualLines,
+    [
+      "Comprehensive Anchor Test",
+      "Reach us via [Email](mailto:user@mozilla.org).",
+      "[New Tab Link](https://example.com/external)",
+      "[Download Attribute](https://example.com/files/report.pdf)",
+      "Card Title",
+      "Card description.",
+      "[Read bold text and italic text inside.](https://example.com/mixed)",
+      "[Company Logo](https://example.com/with-alt)",
+    ],
+    "Text output matches expected markdown format with various anchor types"
+  );
+
+  Assert.deepEqual(
+    links,
+    [
+      "mailto:user@mozilla.org",
+      "https://example.com/external",
+      "https://example.com/files/report.pdf",
+      "https://example.com/card",
+      "https://example.com/mixed",
+      "https://example.com/no-alt",
+      "https://example.com/with-alt",
+    ],
+    "Links array contains all extracted href values"
+  );
+
+  await cleanup();
+});
+
+// Test that empty href resolves to current page URL via .href property
+add_task(async function test_dom_extractor_empty_href() {
+  const { actor, cleanup } = await html`
+    <article>
+      <p><a href="">Empty Href Link</a></p>
+    </article>
+  `;
+
+  const result = await actor.getText();
+  const { text, links } = result;
+
+  // Empty href resolves to current page URL via .href property
+  Assert.ok(
+    text.includes("[Empty Href Link](http"),
+    `Empty href formatted as markdown with resolved URL: ${text}`
+  );
+  Assert.equal(links.length, 1, "One link extracted");
+  Assert.ok(
+    links[0].startsWith("http"),
+    `Empty href resolves to page URL: ${links[0]}`
+  );
+
+  await cleanup();
+});
+
+// Original test case from Bug 1995618 - validates the core requirement
+add_task(async function test_dom_extractor_links() {
+  const { actor, cleanup } = await html`
+    <article>
+      <h1>Example of Links</h1>
+      <ul>
+        <li>
+          Here is the
+          <a href="https://example.com/first">First link</a>
+        </li>
+        <li>
+          Now this is an <a href="https://example.com/link">external link</a>
+        </li>
+      </ul>
+    </article>
+  `;
+  const { text, links } = await actor.getText();
+
+  const lines = text.split("\n").filter(l => l.trim());
+
+  Assert.deepEqual(
+    lines,
+    [
+      "Example of Links",
+      "Here is the [First link](https://example.com/first)",
+      "Now this is an [external link](https://example.com/link)",
+    ],
+    "Text output matches expected markdown format"
+  );
+
+  Assert.deepEqual(
+    links,
+    ["https://example.com/first", "https://example.com/link"],
+    "Links array contains extracted href values"
   );
 
   return cleanup();
@@ -211,7 +359,7 @@ add_task(async function test_dom_extractor_inline_block_styling() {
   `;
 
   is(
-    await actor.getText(),
+    (await actor.getText()).text,
     [
       "Bare text is sent in a batch.",
       "Inline text at the root is sent in a batch.",
@@ -222,4 +370,116 @@ add_task(async function test_dom_extractor_inline_block_styling() {
   );
 
   return cleanup();
+});
+
+add_task(async function test_extractor_edge_cases() {
+  const { actor, cleanup } = await html`
+    <article>
+      <p>
+        <a href="https://example.com/1">Link with [Brackets]</a>
+        <a href="https://example.com/2">Link with (Parens)</a>
+        <a href="https://en.wikipedia.org/wiki/HTML_(standard)"
+          >URL with Parens</a
+        >
+      </p>
+
+      <p>
+        <a
+          href="
+          https://example.com/messy
+        "
+          >Multiline Href</a
+        >
+      </p>
+
+      <a href="https://example.com/card">
+        <div class="card">
+          <h3>Card Title</h3>
+          <span>Description</span>
+        </div>
+      </a>
+    </article>
+  `;
+
+  const result = await actor.getText();
+  const { text, links } = result;
+
+  const lines = text
+    .split("\n")
+    .map(l => l.trim())
+    .filter(l => l.length);
+
+  // Assert on the entire text output - markdown-formatted with escaped special characters
+  // and block-level elements extracted as separate lines
+  Assert.deepEqual(
+    lines,
+    [
+      "[Link with \\[Brackets\\]](https://example.com/1) [Link with \\(Parens\\)](https://example.com/2) [URL with Parens](https://en.wikipedia.org/wiki/HTML_%28standard%29)",
+      "[Multiline Href](https://example.com/messy)",
+      "Card Title",
+      "Description",
+    ],
+    "Text output matches expected markdown format with escaped characters"
+  );
+
+  // Assert on the entire links array - .href provides normalized absolute URLs
+  Assert.deepEqual(
+    links,
+    [
+      "https://example.com/1",
+      "https://example.com/2",
+      "https://en.wikipedia.org/wiki/HTML_(standard)",
+      "https://example.com/messy",
+      "https://example.com/card",
+    ],
+    "Links array contains all extracted href values"
+  );
+
+  await cleanup();
+});
+
+// Test nested anchors - invalid HTML but browsers handle it by closing outer anchor.
+// Per HTML5 spec, nested <a> tags are invalid. Browsers handle them by closing
+// the outer anchor when the inner anchor is encountered:
+//   <a href="outer">text1<a href="inner">text2</a></a>
+// becomes effectively:
+//   <a href="outer">text1</a><a href="inner">text2</a>
+add_task(async function test_extractor_nested_anchors() {
+  const { actor, cleanup } = await html`
+    <article>
+      <div>
+        <a href="https://example.com/outer-link">
+          An outer link.
+          <a href="https://example.com/inner-link"> An inner link.</a>
+        </a>
+      </div>
+    </article>
+  `;
+
+  const result = await actor.getText();
+  const { text, links } = result;
+
+  const lines = text
+    .split("\n")
+    .map(l => l.trim())
+    .filter(l => l.length);
+
+  // Browser closes outer anchor when inner anchor is encountered, so we get two
+  // separate anchors. Since both are inline elements within the same block (div),
+  // they are extracted together on the same line.
+  Assert.deepEqual(
+    lines,
+    [
+      "[An outer link.](https://example.com/outer-link)[An inner link.](https://example.com/inner-link)",
+    ],
+    "Nested anchors are parsed as separate inline anchors by the browser"
+  );
+
+  Assert.deepEqual(
+    links,
+    ["https://example.com/outer-link", "https://example.com/inner-link"],
+    "Both links are extracted from nested anchor structure"
+  );
+
+  await cleanup();
 });

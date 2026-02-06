@@ -20,6 +20,7 @@ import org.mozilla.fenix.components.Core
 import org.mozilla.fenix.ext.application
 import org.mozilla.fenix.ext.components
 import org.mozilla.fenix.utils.Settings
+import org.mozilla.fenix.wallpapers.Wallpaper
 
 class HomeFragmentTest {
 
@@ -130,5 +131,29 @@ class HomeFragmentTest {
 
         assertFalse(cfrShown)
         assertFalse(exposureRecorded)
+    }
+
+    @Test
+    fun `GIVEN edge to edge background is enabled and default wallpaper is set WHEN isEdgeToEdgeBackgroundEnabled is called THEN return false`() {
+        every { settings.enableHomepageEdgeToEdgeBackgroundFeature } returns true
+        every { settings.currentWallpaperName } returns Wallpaper.DEFAULT
+
+        assertFalse(homeFragment.isEdgeToEdgeBackgroundEnabled())
+    }
+
+    @Test
+    fun `GIVEN edge to edge background is enabled and wallpaper is EdgeToEdge WHEN isEdgeToEdgeBackgroundEnabled is called THEN return true`() {
+        every { settings.enableHomepageEdgeToEdgeBackgroundFeature } returns true
+        every { settings.currentWallpaperName } returns Wallpaper.EDGE_TO_EDGE
+
+        assertTrue(homeFragment.isEdgeToEdgeBackgroundEnabled())
+    }
+
+    @Test
+    fun `GIVEN edge to edge background is disabled and wallpaper is EdgeToEdge WHEN isEdgeToEdgeBackgroundEnabled is called THEN return false`() {
+        every { settings.enableHomepageEdgeToEdgeBackgroundFeature } returns false
+        every { settings.currentWallpaperName } returns Wallpaper.EDGE_TO_EDGE
+
+        assertFalse(homeFragment.isEdgeToEdgeBackgroundEnabled())
     }
 }

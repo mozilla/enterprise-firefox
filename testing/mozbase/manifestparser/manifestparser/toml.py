@@ -380,8 +380,6 @@ def idiomatic_condition(cond: str, condition: str) -> TupleOptStrListStr:
                     op = f"os_version == '{os_version}'"
                     i += 1
                     ops.insert(i, op)
-            elif os_version == "18.04":  # no longer used
-                return (None, new_conds)
             else:
                 i = ops.index(f"os_version == '{os_version}'")
             if arch is None:

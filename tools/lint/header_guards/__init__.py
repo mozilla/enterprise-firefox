@@ -10,7 +10,9 @@ from mozlint import result
 from mozlint.pathutils import expand_exclusions
 
 comment_remover = re.compile(r"((?://[^\r\n]*)|(?:/\*.*?\*/)|\s)", re.DOTALL)
-header_guard = re.compile(r"^\s*#\s*((ifndef)|(if\s+\!\s*defined)|(pragma\s+once)).*")
+header_guard = re.compile(
+    r"^\s*#\s*(?:(?:ifndef\s(\w+))|(?:if\s+\!\s*defined\(\s*(\w+)\s*\))|(?:pragma\s+once)).*"
+)
 
 
 def check_missing_header_guards(results, topsrcdir, path, raw_content, config, fix):
@@ -20,9 +22,32 @@ def check_missing_header_guards(results, topsrcdir, path, raw_content, config, f
         offset += len(comment_prelude.group(1))
         comment_prelude = re.match(comment_remover, raw_content[offset:])
     stripped_content = raw_content[offset:]
-    if re.match(header_guard, stripped_content):
-        return
     lineno = raw_content.count("\n", 0, offset)
+    if m := re.match(header_guard, stripped_content):
+        groups = m.groups()
+        if any(groups):
+            existing_guard = groups[0] or groups[1]
+            if "__" in existing_guard:
+                results["results"].append(
+                    result.from_config(
+                        config,
+                        path=path,
+                        message=f"invalid header guard {existing_guard}, using '__' in a macro name is reserved",
+                        level="error",
+                        line=lineno,
+                    )
+                )
+            if re.match("^_[A-Z]", existing_guard):
+                results["results"].append(
+                    result.from_config(
+                        config,
+                        path=path,
+                        message=f"invalid header guard {existing_guard}, leading underscore followed by a capital letter in a macro name is reserved",
+                        level="error",
+                        line=lineno,
+                    )
+                )
+        return
     guard = make_guard(topsrcdir, path)
     if fix:
         fix_guard(guard, path, raw_content, lineno)

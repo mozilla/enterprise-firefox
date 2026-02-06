@@ -1756,10 +1756,11 @@ void LocalAccessible::Value(nsString& aValue) const {
 
   const nsRoleMapEntry* roleMapEntry = ARIARoleMap();
 
-  // Value of textbox is a textified subtree.
-  if ((roleMapEntry && roleMapEntry->Is(nsGkAtoms::textbox)) ||
+  // The value of a textbox is the text content from its subtree.
+  if (IsTextField() || (roleMapEntry && roleMapEntry->Is(nsGkAtoms::textbox)) ||
       (IsGeneric() && IsEditableRoot())) {
-    nsTextEquivUtils::GetTextEquivFromSubtree(this, aValue);
+    TextLeafRange::FromAccessible(const_cast<LocalAccessible*>(this))
+        .GetFlattenedText(aValue);
     return;
   }
 
@@ -3438,12 +3439,11 @@ already_AddRefed<AccAttributes> LocalAccessible::BundleFieldsForCache(
   }
 
   if (aCacheDomain & CacheDomain::Value) {
-    // We cache the text value in 5 cases:
+    // We cache the text value in 4 cases:
     // 1. Accessible is an HTML input type that holds a number.
     // 2. Accessible has a numeric value and an aria-valuetext.
-    // 3. Accessible is an HTML input type that holds text.
-    // 4. Accessible is a link, in which case value is the target URL.
-    // 5. Accessible is an HTML input type that holds a color.
+    // 3. Accessible is a link, in which case value is the target URL.
+    // 4. Accessible is an HTML input type that holds a color.
     // ... for all other cases we divine the value remotely.
     bool cacheValueText = false;
     if (HasNumericValue()) {
@@ -3455,7 +3455,7 @@ already_AddRefed<AccAttributes> LocalAccessible::BundleFieldsForCache(
                        (mContent->IsElement() &&
                         nsAccUtils::HasARIAAttr(mContent->AsElement(),
                                                 nsGkAtoms::aria_valuetext));
-    } else if (IsTextField() || IsHTMLLink()) {
+    } else if (IsHTMLLink()) {
       cacheValueText = true;
     } else if (auto* input = dom::HTMLInputElement::FromNodeOrNull(mContent)) {
       cacheValueText = input->IsInputColor();

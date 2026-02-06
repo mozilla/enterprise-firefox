@@ -14,6 +14,9 @@ import org.mozilla.fenix.R
 import org.mozilla.fenix.ext.settings
 import org.mozilla.fenix.ext.showToolbar
 import org.mozilla.fenix.settings.SupportUtils
+import org.mozilla.fenix.settings.emailmasks.middleware.EmailMasksNavigationMiddleware
+import org.mozilla.fenix.settings.emailmasks.middleware.EmailMasksPreferencesMiddleware
+import org.mozilla.fenix.settings.emailmasks.middleware.EmailMasksTelemetryMiddleware
 import org.mozilla.fenix.theme.FirefoxTheme
 
 /**
@@ -57,6 +60,7 @@ class EmailMasksSettingsFragment : Fragment() {
                     requireContext().settings().isEmailMaskSuggestionEnabled = enabled
                 },
             ),
+            EmailMasksTelemetryMiddleware(),
         ),
     )
 }

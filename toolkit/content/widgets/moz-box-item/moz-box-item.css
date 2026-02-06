@@ -2,9 +2,15 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+:host([layout="medium-icon"]) {
+  --box-icon-size: var(--icon-size-large);
+}
+
 :host([layout="large-icon"]) {
   --box-icon-size: var(--icon-size-xlarge);
+}
 
+:host([layout$="-icon"]) {
   .text-content.has-icon.has-description {
     grid-template-areas:
       "icon label"
@@ -68,6 +74,7 @@ slot[name="actions-start"] {
   border-radius: var(--button-border-radius);
   -moz-context-properties: fill;
   fill: currentColor;
+  flex-shrink: 0;
 }
 
 .actions:has(> slot:not(:has-slotted)) {

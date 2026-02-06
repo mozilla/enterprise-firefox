@@ -81,6 +81,10 @@ const EDIT_CREDITCARD_L10N_IDS = [
   "autofill-card-expires-month",
   "autofill-card-expires-year",
   "autofill-card-network",
+
+  // This string isn't ever displayed, but is used to make the payment methods
+  // section easier to find via the search input in about:settings.
+  "autofill-card-search-term-credit-cards",
 ];
 const FIELD_STATES = {
   NORMAL: "",
@@ -225,7 +229,7 @@ FormAutofillUtils = {
     return fields.size >= this.AUTOFILL_FIELDS_THRESHOLD;
   },
 
-  queryEligibleElements(element, includeIframe = false) {
+  queryEligibleElements(element, includeIframe = true) {
     const types = includeIframe
       ? [...ELIGIBLE_ELEMENT_TYPES, "iframe"]
       : ELIGIBLE_ELEMENT_TYPES;

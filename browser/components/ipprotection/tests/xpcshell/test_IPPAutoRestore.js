@@ -124,8 +124,8 @@ add_task(async function test_IPPAutoRestore_if_notReady() {
 
   Assert.equal(
     IPProtectionService.state,
-    IPProtectionStates.UNAVAILABLE,
-    "State is UNAVAILABLE when user is not signed in"
+    IPProtectionStates.UNAUTHENTICATED,
+    "State is UNAUTHENTICATED when user is not signed in"
   );
 
   let autoRestore = new IPPAutoRestoreSingleton();

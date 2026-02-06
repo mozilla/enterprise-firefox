@@ -14,7 +14,8 @@ import { createEngine } from "chrome://global/content/ml/EngineProcess.sys.mjs";
 import { getFxAccountsSingleton } from "resource://gre/modules/FxAccounts.sys.mjs";
 import {
   OAUTH_CLIENT_ID,
-  SCOPE_PROFILE,
+  SCOPE_PROFILE_UID,
+  SCOPE_SMART_WINDOW,
 } from "resource://gre/modules/FxAccountsCommon.sys.mjs";
 import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
@@ -22,8 +23,9 @@ const lazy = XPCOMUtils.declareLazy({
   RemoteSettings: "resource://services-settings/remote-settings.sys.mjs",
 });
 
-const MODEL_PREF = "browser.aiwindow.model";
-const ENDPOINT_PREF = "browser.aiwindow.endpoint";
+const APIKEY_PREF = "browser.smartwindow.apiKey";
+const MODEL_PREF = "browser.smartwindow.model";
+const ENDPOINT_PREF = "browser.smartwindow.endpoint";
 
 /**
  * Default engine ID used for all AI Window features
@@ -68,8 +70,18 @@ export const MODEL_FEATURES = Object.freeze({
   CONVERSATION_SUGGESTIONS_ASSISTANT_LIMITATIONS:
     "conversation-suggestions-assistant-limitations",
   CONVERSATION_SUGGESTIONS_MEMORIES: "conversation-suggestions-memories",
-  // TODO: update with actual memories prompts identifiers
-  MEMORIES: "memories",
+  // memories generation features
+  MEMORIES_INITIAL_GENERATION_SYSTEM: "memories-initial-generation-system",
+  MEMORIES_INITIAL_GENERATION_USER: "memories-initial-generation-user",
+  MEMORIES_DEDUPLICATION_SYSTEM: "memories-deduplication-system",
+  MEMORIES_DEDUPLICATION_USER: "memories-deduplication-user",
+  MEMORIES_SENSITIVITY_FILTER_SYSTEM: "memories-sensitivity-filter-system",
+  MEMORIES_SENSITIVITY_FILTER_USER: "memories-sensitivity-filter-user",
+  // memories usage features
+  MEMORIES_MESSAGE_CLASSIFICATION_SYSTEM:
+    "memories-message-classification-system",
+  MEMORIES_MESSAGE_CLASSIFICATION_USER: "memories-message-classification-user",
+  MEMORIES_RELEVANT_CONTEXT: "memories-relevant-context",
 });
 
 /**
@@ -88,8 +100,20 @@ export const DEFAULT_MODEL = Object.freeze({
     "qwen3-235b-a22b-instruct-2507-maas",
   [MODEL_FEATURES.CONVERSATION_SUGGESTIONS_INSIGHTS]:
     "qwen3-235b-a22b-instruct-2507-maas",
-  // TODO: pin gemini as default memories model
-  [MODEL_FEATURES.MEMORIES]: "qwen3-235b-a22b-instruct-2507-maas",
+  // memories generation flow
+  [MODEL_FEATURES.MEMORIES_INITIAL_GENERATION_SYSTEM]: "gemini-2.5-flash-lite",
+  [MODEL_FEATURES.MEMORIES_INITIAL_GENERATION_USER]: "gemini-2.5-flash-lite",
+  [MODEL_FEATURES.MEMORIES_DEDUPLICATION_SYSTEM]: "gemini-2.5-flash-lite",
+  [MODEL_FEATURES.MEMORIES_DEDUPLICATION_USER]: "gemini-2.5-flash-lite",
+  [MODEL_FEATURES.MEMORIES_SENSITIVITY_FILTER_SYSTEM]: "gemini-2.5-flash-lite",
+  [MODEL_FEATURES.MEMORIES_SENSITIVITY_FILTER_USER]: "gemini-2.5-flash-lite",
+  // memories usage flow
+  [MODEL_FEATURES.MEMORIES_MESSAGE_CLASSIFICATION_SYSTEM]:
+    "qwen3-235b-a22b-instruct-2507-maas",
+  [MODEL_FEATURES.MEMORIES_MESSAGE_CLASSIFICATION_USER]:
+    "qwen3-235b-a22b-instruct-2507-maas",
+  [MODEL_FEATURES.MEMORIES_RELEVANT_CONTEXT]:
+    "qwen3-235b-a22b-instruct-2507-maas",
 });
 
 /**
@@ -106,7 +130,17 @@ export const FEATURE_MAJOR_VERSIONS = Object.freeze({
   [MODEL_FEATURES.CONVERSATION_SUGGESTIONS_FOLLOWUP]: 1,
   [MODEL_FEATURES.CONVERSATION_SUGGESTIONS_ASSISTANT_LIMITATIONS]: 1,
   [MODEL_FEATURES.CONVERSATION_SUGGESTIONS_INSIGHTS]: 1,
-  // TODO: add major version for memories prompts
+  // memories generation feature versions
+  [MODEL_FEATURES.MEMORIES_INITIAL_GENERATION_SYSTEM]: 1,
+  [MODEL_FEATURES.MEMORIES_INITIAL_GENERATION_USER]: 1,
+  [MODEL_FEATURES.MEMORIES_DEDUPLICATION_SYSTEM]: 1,
+  [MODEL_FEATURES.MEMORIES_DEDUPLICATION_USER]: 1,
+  [MODEL_FEATURES.MEMORIES_SENSITIVITY_FILTER_SYSTEM]: 1,
+  [MODEL_FEATURES.MEMORIES_SENSITIVITY_FILTER_USER]: 1,
+  // memories usage feature versions
+  [MODEL_FEATURES.MEMORIES_MESSAGE_CLASSIFICATION_SYSTEM]: 1,
+  [MODEL_FEATURES.MEMORIES_MESSAGE_CLASSIFICATION_USER]: 1,
+  [MODEL_FEATURES.MEMORIES_RELEVANT_CONTEXT]: 1,
 });
 
 /**
@@ -123,13 +157,13 @@ export const FEATURE_MAJOR_VERSIONS = Object.freeze({
  */
 
 /**
- * Parses a version string in the format "v{major}.{minor}".
+ * Parses a version string in the format "v{major}.{minor}" or "{major}.{minor}".
  *
- * @param {string} versionString - Version string to parse (e.g., "v1.2")
+ * @param {string} versionString - Version string to parse (e.g., "v1.2" or "1.2")
  * @returns {object|null} Parsed version with major and minor numbers, or null if invalid
  */
-function parseVersion(versionString) {
-  const match = /^v(\d+)\.(\d+)$/.exec(versionString || "");
+export function parseVersion(versionString) {
+  const match = /^v?(\d+)\.(\d+)$/.exec(versionString || "");
   if (!match) {
     return null;
   }
@@ -164,6 +198,7 @@ function selectMainConfig(featureConfigs, { majorVersion, userModel }) {
   });
 
   if (sameMajor.length === 0) {
+    console.warn(`Missing featureConfigs for major version ${majorVersion}`);
     return null;
   }
 
@@ -323,6 +358,39 @@ export class openAIEngine {
     this.feature = feature;
     this.model = mainConfig.model;
 
+    // Parse JSON string fields if needed
+    if (typeof mainConfig.additional_components === "string") {
+      try {
+        mainConfig.additional_components = JSON.parse(
+          mainConfig.additional_components
+        );
+      } catch (e) {
+        // Fallback: parse malformed array string like "[item1, item2, item3]"
+        const match = /^\[(.*)\]$/.exec(
+          mainConfig.additional_components.trim()
+        );
+        if (match) {
+          mainConfig.additional_components = match[1]
+            .split(",")
+            .map(s => s.trim())
+            .filter(s => !!s.length);
+        } else {
+          console.warn(
+            `Failed to parse additional_components for ${feature}, setting to empty array`
+          );
+          mainConfig.additional_components = [];
+        }
+      }
+    }
+    if (typeof mainConfig.parameters === "string") {
+      try {
+        mainConfig.parameters = JSON.parse(mainConfig.parameters);
+      } catch (e) {
+        console.warn(`Failed to parse parameters for ${feature}:`, e);
+        mainConfig.parameters = {};
+      }
+    }
+
     // Build configsMap for looking up additional_components
     const configsMap = new Map(allRecords.map(r => [r.feature, r]));
 
@@ -462,7 +530,56 @@ export class openAIEngine {
           await import("moz-src:///browser/components/aiwindow/models/prompts/ConversationSuggestionsPrompts.sys.mjs");
         return conversationMemoriesPrompt;
       }
-      // TODO: add local memories prompts imports for each feature
+
+      // Memories generation flow
+      case MODEL_FEATURES.MEMORIES_INITIAL_GENERATION_SYSTEM: {
+        const { initialMemoriesGenerationSystemPrompt } =
+          await import("moz-src:///browser/components/aiwindow/models/prompts/MemoriesPrompts.sys.mjs");
+        return initialMemoriesGenerationSystemPrompt;
+      }
+      case MODEL_FEATURES.MEMORIES_INITIAL_GENERATION_USER: {
+        const { initialMemoriesGenerationPrompt } =
+          await import("moz-src:///browser/components/aiwindow/models/prompts/MemoriesPrompts.sys.mjs");
+        return initialMemoriesGenerationPrompt;
+      }
+      case MODEL_FEATURES.MEMORIES_DEDUPLICATION_SYSTEM: {
+        const { memoriesDeduplicationSystemPrompt } =
+          await import("moz-src:///browser/components/aiwindow/models/prompts/MemoriesPrompts.sys.mjs");
+        return memoriesDeduplicationSystemPrompt;
+      }
+      case MODEL_FEATURES.MEMORIES_DEDUPLICATION_USER: {
+        const { memoriesDeduplicationPrompt } =
+          await import("moz-src:///browser/components/aiwindow/models/prompts/MemoriesPrompts.sys.mjs");
+        return memoriesDeduplicationPrompt;
+      }
+      case MODEL_FEATURES.MEMORIES_SENSITIVITY_FILTER_SYSTEM: {
+        const { memoriesSensitivityFilterSystemPrompt } =
+          await import("moz-src:///browser/components/aiwindow/models/prompts/MemoriesPrompts.sys.mjs");
+        return memoriesSensitivityFilterSystemPrompt;
+      }
+      case MODEL_FEATURES.MEMORIES_SENSITIVITY_FILTER_USER: {
+        const { memoriesSensitivityFilterPrompt } =
+          await import("moz-src:///browser/components/aiwindow/models/prompts/MemoriesPrompts.sys.mjs");
+        return memoriesSensitivityFilterPrompt;
+      }
+
+      // memories usage flow
+      case MODEL_FEATURES.MEMORIES_MESSAGE_CLASSIFICATION_SYSTEM: {
+        const { messageMemoryClassificationSystemPrompt } =
+          await import("moz-src:///browser/components/aiwindow/models/prompts/MemoriesPrompts.sys.mjs");
+        return messageMemoryClassificationSystemPrompt;
+      }
+      case MODEL_FEATURES.MEMORIES_MESSAGE_CLASSIFICATION_USER: {
+        const { messageMemoryClassificationPrompt } =
+          await import("moz-src:///browser/components/aiwindow/models/prompts/MemoriesPrompts.sys.mjs");
+        return messageMemoryClassificationPrompt;
+      }
+      case MODEL_FEATURES.MEMORIES_RELEVANT_CONTEXT: {
+        const { relevantMemoriesContextPrompt } =
+          await import("moz-src:///browser/components/aiwindow/models/prompts/MemoriesPrompts.sys.mjs");
+        return relevantMemoriesContextPrompt;
+      }
+
       default:
         throw new Error(`No local prompt found for feature: ${feature}`);
     }
@@ -508,8 +625,7 @@ export class openAIEngine {
     try {
       const fxAccounts = getFxAccountsSingleton();
       return await fxAccounts.getOAuthToken({
-        // Scope needs to be updated in accordance with https://bugzilla.mozilla.org/show_bug.cgi?id=2005290
-        scope: SCOPE_PROFILE,
+        scope: [SCOPE_SMART_WINDOW, SCOPE_PROFILE_UID],
         client_id: OAUTH_CLIENT_ID,
       });
     } catch (error) {
@@ -528,7 +644,7 @@ export class openAIEngine {
    */
   static async #createOpenAIEngine(engineId, serviceType, modelId = null) {
     const extraHeadersPref = Services.prefs.getStringPref(
-      "browser.aiwindow.extraHeaders",
+      "browser.smartwindow.extraHeaders",
       "{}"
     );
     let extraHeaders = {};
@@ -536,14 +652,14 @@ export class openAIEngine {
       extraHeaders = JSON.parse(extraHeadersPref);
     } catch (e) {
       console.error("Failed to parse extra headers from prefs:", e);
-      Services.prefs.clearUserPref("browser.aiwindow.extraHeaders");
+      Services.prefs.clearUserPref("browser.smartwindow.extraHeaders");
     }
 
     try {
       const engineInstance = await openAIEngine._createEngine({
-        apiKey: Services.prefs.getStringPref("browser.aiwindow.apiKey", ""),
+        apiKey: Services.prefs.getStringPref(APIKEY_PREF, ""),
         backend: "openai",
-        baseURL: Services.prefs.getStringPref("browser.aiwindow.endpoint", ""),
+        baseURL: Services.prefs.getStringPref(ENDPOINT_PREF, ""),
         engineId,
         modelId,
         modelRevision: "main",

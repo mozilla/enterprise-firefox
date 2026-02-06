@@ -2614,6 +2614,43 @@ const MESSAGES = () => [
     groups: [],
   },
   {
+    id: "TEST_ACTIVATION_WINDOW_ENTER_MESSAGE",
+    template: "newtab_message",
+    content: {
+      messageType: "ActivationWindowMessage",
+      heading: "On your terms, from the start",
+      message:
+        "Every tab you open helps supports an independent internet—powered by people like you. Settle in and make Firefox your own.",
+      primaryButton: {
+        label: "Begin Customizing",
+        action: { type: "SHOW_PERSONALIZE" },
+      },
+    },
+    trigger: {
+      id: "newtabMessageCheck",
+    },
+    groups: [],
+  },
+  {
+    id: "TEST_ACTIVATION_WINDOW_EXIT_MESSAGE",
+    template: "newtab_message",
+    content: {
+      messageType: "ActivationWindowMessage",
+      heading:
+        "We've updated your New Tab with more content we think you'll like",
+      message:
+        "To make changes, select the pencil icon in the bottom right corner.",
+      primaryButton: {
+        label: "Got It",
+        action: { dismiss: true },
+      },
+    },
+    trigger: {
+      id: "newtabMessageCheck",
+    },
+    groups: [],
+  },
+  {
     id: "UNIVERSAL_INFOBAR_WITH_EMBEDDED_LINKS",
     content: {
       text: [

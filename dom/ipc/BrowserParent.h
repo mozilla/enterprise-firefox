@@ -689,7 +689,7 @@ class BrowserParent final : public PBrowserParent,
                              LayoutDeviceIntRect* aDragRect);
 
   mozilla::ipc::IPCResult RecvEnsureLayersConnected(
-      CompositorOptions* aCompositorOptions);
+      Maybe<CompositorOptions>* aCompositorOptions);
 
   // LiveResizeListener implementation
   void LiveResizeStarted() override;

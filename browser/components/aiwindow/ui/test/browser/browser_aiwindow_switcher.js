@@ -6,7 +6,7 @@
 // Ensure Window Switcher button is visible when AI Window is enabled in prefs
 add_task(async function test_window_switcher_button_visibility() {
   await SpecialPowers.pushPrefEnv({
-    set: [["browser.aiwindow.enabled", false]],
+    set: [["browser.smartwindow.enabled", false]],
   });
 
   let button = document.getElementById("ai-window-toggle");
@@ -18,7 +18,7 @@ add_task(async function test_window_switcher_button_visibility() {
   await SpecialPowers.popPrefEnv();
 
   await SpecialPowers.pushPrefEnv({
-    set: [["browser.aiwindow.enabled", true]],
+    set: [["browser.smartwindow.enabled", true]],
   });
 
   button = document.getElementById("ai-window-toggle");
@@ -30,11 +30,13 @@ add_task(async function test_window_switcher_button_visibility() {
   await SpecialPowers.popPrefEnv();
 });
 
-// if (browser.aiwindow.enabled) Classic Window should switch to AI Window on click
+// if (browser.smartwindow.enabled) Classic Window should switch to AI Window on click
 add_task(async function test_switch_to_ai_window() {
   await SpecialPowers.pushPrefEnv({
-    set: [["browser.aiwindow.enabled", true]],
+    set: [["browser.smartwindow.enabled", true]],
   });
+
+  const restoreSignIn = skipSignIn();
 
   if (document.documentElement.hasAttribute("ai-window")) {
     document.documentElement.removeAttribute("ai-window");
@@ -71,13 +73,14 @@ add_task(async function test_switch_to_ai_window() {
     "Panel should close after switching"
   );
 
+  restoreSignIn();
   await SpecialPowers.popPrefEnv();
 });
 
-// if (browser.aiwindow.enabled) AI Window should switch to Classic Window on click
+// if (browser.smartwindow.enabled) AI Window should switch to Classic Window on click
 add_task(async function test_switch_to_classic_window() {
   await SpecialPowers.pushPrefEnv({
-    set: [["browser.aiwindow.enabled", true]],
+    set: [["browser.smartwindow.enabled", true]],
   });
 
   if (!document.documentElement.hasAttribute("ai-window")) {
@@ -122,7 +125,7 @@ add_task(async function test_switch_to_classic_window() {
 add_task(async function test_switcher_position_horizontal_tabs() {
   await SpecialPowers.pushPrefEnv({
     set: [
-      ["browser.aiwindow.enabled", true],
+      ["browser.smartwindow.enabled", true],
       ["sidebar.verticalTabs", false],
     ],
   });
@@ -151,7 +154,7 @@ add_task(async function test_switcher_position_horizontal_tabs() {
 add_task(async function test_switcher_position_vertical_tabs() {
   await SpecialPowers.pushPrefEnv({
     set: [
-      ["browser.aiwindow.enabled", true],
+      ["browser.smartwindow.enabled", true],
       ["sidebar.verticalTabs", true],
     ],
   });
@@ -183,7 +186,7 @@ add_task(async function test_switcher_position_vertical_tabs() {
 add_task(async function test_switcher_repositions_on_pref_change() {
   await SpecialPowers.pushPrefEnv({
     set: [
-      ["browser.aiwindow.enabled", true],
+      ["browser.smartwindow.enabled", true],
       ["sidebar.verticalTabs", false],
     ],
   });
@@ -231,4 +234,30 @@ add_task(async function test_switcher_repositions_on_pref_change() {
   );
 
   await SpecialPowers.flushPrefEnv();
+});
+
+// Test that _onAccountLogout switches AI windows to classic mode
+add_task(async function test_onAccountLogout_switches_windows() {
+  const { AIWindow } = ChromeUtils.importESModule(
+    "moz-src:///browser/components/aiwindow/ui/modules/AIWindow.sys.mjs"
+  );
+
+  await SpecialPowers.pushPrefEnv({
+    set: [["browser.aiwindow.enabled", true]],
+  });
+
+  document.documentElement.setAttribute("ai-window", "");
+  Assert.ok(
+    AIWindow.isAIWindowActive(window),
+    "Window should start in AI mode"
+  );
+
+  AIWindow._onAccountLogout();
+
+  Assert.ok(
+    !AIWindow.isAIWindowActive(window),
+    "Window should switch to classic mode after logout"
+  );
+
+  await SpecialPowers.popPrefEnv();
 });

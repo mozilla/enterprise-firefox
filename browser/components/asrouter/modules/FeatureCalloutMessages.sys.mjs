@@ -1103,165 +1103,6 @@ const MESSAGES = () => {
       targeting: `'cookiebanners.ui.desktop.enabled'|preferenceValue == true && 'cookiebanners.ui.desktop.showCallout'|preferenceValue == true && 'browser.newtabpage.activity-stream.asrouter.userprefs.cfr.features' | preferenceValue != false`,
     },
     {
-      id: "FX_VIEW_DISCOVERABILITY_ALL_USERS",
-      template: "feature_callout",
-      groups: ["cfr"],
-      content: {
-        id: "FX_VIEW_DISCOVERABILITY_ALL_USERS",
-        template: "multistage",
-        backdrop: "transparent",
-        transitions: false,
-        screens: [
-          {
-            id: "FX_VIEW_DISCOVERABILITY_ALL_USERS_SCREEN",
-            anchors: [
-              {
-                selector: "#firefox-view-button",
-                panel_position: {
-                  anchor_attachment: "bottomcenter",
-                  callout_attachment: "topleft",
-                },
-                no_open_on_anchor: true,
-                arrow_width: "15.5563",
-              },
-            ],
-            content: {
-              position: "callout",
-              width: "342px",
-              padding: 16,
-              page_event_listeners: [
-                {
-                  params: {
-                    type: "click",
-                    selectors: "#firefox-view-button",
-                  },
-                  action: {
-                    dismiss: true,
-                  },
-                },
-              ],
-              title_logo: {
-                imageURL:
-                  "chrome://browser/content/asrouter/assets/fox-question-mark-icon.svg",
-                width: "25px",
-                height: "29px",
-                marginInline: "4px 14px",
-                alignment: "top",
-              },
-              title: {
-                string_id: "fx-view-discoverability-title",
-                marginInline: "0 16px",
-              },
-              subtitle: {
-                string_id: "fx-view-discoverability-subtitle",
-                paddingInline: "34px 0",
-                marginBlock: "-8px -4px",
-              },
-              additional_button: {
-                label: {
-                  string_id: "fx-view-discoverability-secondary-button-label",
-                },
-                style: "secondary",
-                action: {
-                  type: "BLOCK_MESSAGE",
-                  data: {
-                    id: "FX_VIEW_DISCOVERABILITY_ALL_USERS",
-                  },
-                  dismiss: true,
-                },
-              },
-              secondary_button: {
-                label: {
-                  string_id: "fx-view-discoverability-primary-button-label",
-                },
-                style: "primary",
-                action: {
-                  type: "OPEN_FIREFOX_VIEW",
-                  navigate: true,
-                },
-              },
-              submenu_button: {
-                submenu: [
-                  {
-                    type: "action",
-                    label: {
-                      string_id: "split-dismiss-button-dont-show-option",
-                    },
-                    action: {
-                      type: "BLOCK_MESSAGE",
-                      data: {
-                        id: "FX_VIEW_DISCOVERABILITY_ALL_USERS",
-                      },
-                      dismiss: true,
-                    },
-                    id: "block_recommendation",
-                  },
-                  {
-                    type: "action",
-                    label: {
-                      string_id: "split-dismiss-button-show-fewer-option",
-                    },
-                    action: {
-                      type: "MULTI_ACTION",
-                      dismiss: true,
-                      data: {
-                        actions: [
-                          {
-                            type: "SET_PREF",
-                            data: {
-                              pref: {
-                                name: "messaging-system-action.firefox-view-recommendations",
-                                value: true,
-                              },
-                            },
-                          },
-                          {
-                            type: "BLOCK_MESSAGE",
-                            data: {
-                              id: "FX_VIEW_DISCOVERABILITY_ALL_USERS",
-                            },
-                          },
-                        ],
-                      },
-                    },
-                    id: "show_fewer_recommendations",
-                  },
-                  {
-                    type: "separator",
-                  },
-                  {
-                    type: "action",
-                    label: {
-                      string_id: "split-dismiss-button-manage-settings-option",
-                    },
-                    action: {
-                      type: "OPEN_ABOUT_PAGE",
-                      data: {
-                        args: "preferences#general-cfrfeatures",
-                        where: "tab",
-                      },
-                      dismiss: true,
-                    },
-                    id: "manage_settings",
-                  },
-                ],
-                attached_to: "additional_button",
-              },
-            },
-          },
-        ],
-      },
-      frequency: {
-        lifetime: 1,
-      },
-      skip_in_tests: "it's not tested in automation",
-      targeting:
-        "!isMajorUpgrade && !willShowDefaultPrompt && !activeNotifications && previousSessionEnd && fxViewButtonAreaType != null && tabsClosedCount >= 5 && (currentDate|date - profileAgeCreated|date) / 86400000 >= 7 && 'browser.newtabpage.activity-stream.asrouter.userprefs.cfr.features' | preferenceValue != false",
-      trigger: {
-        id: "nthTabClosed",
-      },
-    },
-    {
       id: "NEW_PROFILE_APP_MENU_TOUR",
       groups: [],
       profileScope: "single",
@@ -1331,6 +1172,62 @@ const MESSAGES = () => {
             },
           },
         ],
+      },
+    },
+    {
+      id: "SMARTWINDOW_NEWTAB_CALLOUT",
+      template: "feature_callout",
+      groups: ["cfr"],
+      content: {
+        id: "SMARTWINDOW_NEWTAB_CALLOUT",
+        template: "multistage",
+        backdrop: "transparent",
+        transitions: false,
+        screens: [
+          {
+            id: "SMARTWINDOW_SWITCHER_BUTTON_CALLOUT",
+            anchors: [
+              {
+                selector: "#ai-window-toggle > .toolbarbutton-icon",
+                panel_position: {
+                  anchor_attachment: "bottomcenter",
+                  callout_attachment: "topright",
+                },
+                arrow_width: 23,
+                arrow_corner_distance: 4,
+              },
+            ],
+            content: {
+              padding: 12,
+              position: "callout",
+              width: "248px",
+              title: {
+                string_id: "smartwindow-switcher-callout",
+                fontSize: "15px",
+                fontWeight: "400",
+                letterSpacing: "normal",
+                lineHeight: "normal",
+                marginInline: "0 18px",
+              },
+              dismiss_button: {
+                size: "x-small",
+                marginBlock: "8px 0",
+                marginInline: "0 8px",
+                action: {
+                  dismiss: true,
+                },
+              },
+            },
+          },
+        ],
+      },
+      targeting:
+        "isAIWindow && 'browser.smartwindow.firstrun.hasCompleted' | preferenceValue",
+      trigger: {
+        id: "smartWindowNewTab",
+      },
+      frequency: {
+        lifetime: 1,
       },
     },
   ];

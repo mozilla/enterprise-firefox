@@ -539,6 +539,44 @@ add_task(async function test_tabGroupContextMenuMoveTabToExistingGroup() {
 });
 
 /*
+ * Tests that the "move tab to group > [group name]" option moves a splitview to the selected
+ * group in another window
+ */
+add_task(
+  async function test_tabGroupContextMenuMoveSplitViewToExistingGroupInOtherWindow() {
+    const tab1 = await addTab();
+    const tab2 = await addTab();
+    gBrowser.addTabSplitView([tab1, tab2]);
+
+    const win = await BrowserTestUtils.openNewBrowserWindow();
+    let otherTab = BrowserTestUtils.addTab(win.gBrowser, "about:blank", {
+      skipAnimation: true,
+    });
+    let group = win.gBrowser.addTabGroup([otherTab]);
+    Assert.ok(
+      !group.tabsAndSplitViews.some(
+        node => node.tagName == "tab-split-view-wrapper"
+      ),
+      "No splitview is currently in the group"
+    );
+
+    await withTabMenu(tab1, async (_, moveTabToGroupItem) => {
+      moveTabToGroupItem.querySelector(`[tab-group-id="${group.id}"]`).click();
+    });
+
+    Assert.ok(
+      group.tabsAndSplitViews.some(
+        node => node.tagName == "tab-split-view-wrapper"
+      ),
+      "Splitview has been moved to group in other window"
+    );
+
+    await removeTabGroup(group);
+    await BrowserTestUtils.closeWindow(win);
+  }
+);
+
+/*
  * Same as above, but for groups in different windows
  */
 add_task(

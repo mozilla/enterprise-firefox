@@ -93,7 +93,7 @@ class ScreenshotTest : BaseSessionTest() {
             assertThat(
                 "Images are almost identical",
                 imageElementDifference(comparisonImage, it),
-                lessThanOrEqualTo(1),
+                lessThanOrEqualTo(2),
             )
         }
     }

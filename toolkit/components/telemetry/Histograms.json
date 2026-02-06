@@ -3649,15 +3649,6 @@
     "releaseChannelCollection": "opt-out",
     "description": "Time spent waiting for off-thread compiles in the script preloader."
   },
-  "NETWORK_DISK_CACHE_SHUTDOWN_V2": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "expires_in_version": "never",
-    "kind": "exponential",
-    "high": 10000,
-    "n_buckets": 10,
-    "description": "Total Time spent (ms) during disk cache showdown [cache2]"
-  },
   "NETWORK_DISK_CACHE2_SHUTDOWN_CLEAR_PRIVATE": {
     "record_in_processes": ["main", "content"],
     "products": ["firefox", "fennec"],
@@ -5946,22 +5937,6 @@
     "expires_in_version": "never",
     "kind": "boolean",
     "description": "Type of XMLHttpRequest, async or sync"
-  },
-  "LOCALDOMSTORAGE_SHUTDOWN_DATABASE_MS": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "expires_in_version": "default",
-    "kind": "exponential",
-    "high": 3000,
-    "n_buckets": 10,
-    "description": "Time to flush and close the localStorage database (ms)"
-  },
-  "LOCALDOMSTORAGE_PRELOAD_PENDING_ON_FIRST_ACCESS": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "expires_in_version": "default",
-    "kind": "boolean",
-    "description": "True when we had to wait for a pending preload on first access to localStorage data, false otherwise"
   },
   "TELEMETRY_ARCHIVE_DIRECTORIES_COUNT": {
     "record_in_processes": ["main"],

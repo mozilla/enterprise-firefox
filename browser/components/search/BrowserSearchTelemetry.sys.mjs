@@ -129,7 +129,7 @@ class BrowserSearchTelemetryHandler {
    *
    * @param {MozBrowser} browser
    *        The browser where the search originated.
-   * @param {nsISearchEngine} engine
+   * @param {SearchEngine} engine
    *        The engine handling the search.
    * @param {string} source
    *        Where the search originated from. See KNOWN_SEARCH_SOURCES for allowed
@@ -198,10 +198,6 @@ class BrowserSearchTelemetryHandler {
       let searchUrlType =
         details.searchUrlType ?? lazy.SearchUtils.URL_TYPE.SEARCH;
 
-      let unwrappedEngine = /** @type {SearchEngine} */ (
-        engine.wrappedJSObject
-      );
-
       // Strict equality is used because we want to only match against the
       // empty string and not other values. We would have `engine.partnerCode`
       // return `undefined`, but the XPCOM interfaces force us to return an
@@ -209,8 +205,7 @@ class BrowserSearchTelemetryHandler {
       let reportPartnerCode =
         !isOverridden &&
         engine.partnerCode !== "" &&
-        !unwrappedEngine.getURLOfType(searchUrlType)
-          ?.excludePartnerCodeFromTelemetry;
+        !engine.getURLOfType(searchUrlType)?.excludePartnerCodeFromTelemetry;
 
       Glean.sap.counts.record({
         source: this.KNOWN_SEARCH_SOURCES.get(source),
@@ -260,7 +255,7 @@ class BrowserSearchTelemetryHandler {
   /**
    * Records visits to a search engine's search form.
    *
-   * @param {nsISearchEngine} engine
+   * @param {SearchEngine} engine
    *   The engine whose search form is being visited.
    * @param {string} source
    *   Where the search form was opened from.
@@ -278,7 +273,7 @@ class BrowserSearchTelemetryHandler {
    *
    * @param {MozBrowser} browser
    *   The browser associated with the SAP.
-   * @param {nsISearchEngine|null} engine
+   * @param {SearchEngine|null} engine
    *   The engine handling the search, or null if this doesn't apply to the SAP
    *   (e.g., the engine isn't known or selected yet). The counter's label will
    *   be `engine.id` if `engine` is a non-null, app-provided engine. Otherwise
@@ -307,7 +302,7 @@ class BrowserSearchTelemetryHandler {
    *
    * @param {MozBrowser} browser
    *   The browser where the search originated.
-   * @param {nsISearchEngine} engine
+   * @param {SearchEngine} engine
    *   The engine handling the search.
    * @param {string} source
    *   Where the search originated from.

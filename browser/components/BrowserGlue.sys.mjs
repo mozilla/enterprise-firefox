@@ -386,7 +386,11 @@ BrowserGlue.prototype = {
     lazy.SessionStartup.init();
 
     // check if we're in safe mode
-    if (Services.appinfo.inSafeMode && !Services.felt.isFeltUI()) {
+    if (
+      Services.appinfo.inSafeMode &&
+      Services.felt &&
+      !Services.felt.isFeltUI()
+    ) {
       Services.ww.openWindow(
         null,
         "chrome://browser/content/safeMode.xhtml",
@@ -611,7 +615,7 @@ BrowserGlue.prototype = {
     let shouldCreateWindow = isPrivateWindow => {
       // Make sure that when FeltUI is requested, we do not try to open another
       // window.
-      if (Services.felt.isFeltUI()) {
+      if (Services.felt && Services.felt.isFeltUI()) {
         Services.startup.enterLastWindowClosingSurvivalArea();
         return false;
       }
@@ -1704,7 +1708,7 @@ BrowserGlue.prototype = {
     // Use an increasing number to keep track of the current state of the user's
     // profile, so we can move data around as needed as the browser evolves.
     // Completely unrelated to the current Firefox release number.
-    const APP_DATA_VERSION = 163;
+    const APP_DATA_VERSION = 164;
     const PREF = "browser.migration.version";
 
     let profileDataVersion = Services.prefs.getIntPref(PREF, -1);

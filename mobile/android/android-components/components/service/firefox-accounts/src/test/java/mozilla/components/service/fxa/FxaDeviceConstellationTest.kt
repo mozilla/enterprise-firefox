@@ -28,6 +28,7 @@ import mozilla.components.concept.sync.DeviceConstellationObserver
 import mozilla.components.concept.sync.DevicePushSubscription
 import mozilla.components.concept.sync.DeviceType
 import mozilla.components.concept.sync.TabData
+import mozilla.components.concept.sync.TabPrivacy
 import mozilla.components.support.test.any
 import mozilla.components.support.test.argumentCaptor
 import mozilla.components.support.test.expectException
@@ -215,7 +216,7 @@ class FxaDeviceConstellationTest {
         assertTrue(
             constellation.sendCommandToDevice(
                 "targetID",
-                DeviceCommandOutgoing.SendTab("Mozilla", "https://www.mozilla.org"),
+                DeviceCommandOutgoing.SendTab("Mozilla", "https://www.mozilla.org", TabPrivacy.Normal),
             ),
         )
 
@@ -230,7 +231,7 @@ class FxaDeviceConstellationTest {
 
         val success = constellation.sendCommandToDevice(
             "targetID",
-            DeviceCommandOutgoing.SendTab("Mozilla", "https://www.mozilla.org"),
+            DeviceCommandOutgoing.SendTab("Mozilla", "https://www.mozilla.org", TabPrivacy.Normal),
         )
 
         assertFalse(success)
@@ -245,7 +246,7 @@ class FxaDeviceConstellationTest {
 
         val success = constellation.sendCommandToDevice(
             "targetID",
-            DeviceCommandOutgoing.SendTab("Mozilla", "https://www.mozilla.org"),
+            DeviceCommandOutgoing.SendTab("Mozilla", "https://www.mozilla.org", TabPrivacy.Normal),
         )
 
         assertFalse(success)

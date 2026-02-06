@@ -10,10 +10,10 @@ ChromeUtils.defineESModuleGetters(lazy, {
   AIWindow:
     "moz-src:///browser/components/aiwindow/ui/modules/AIWindow.sys.mjs",
 });
-const MODEL_PREF = "browser.aiwindow.firstrun.modelChoice";
-const AUTO_ADVANCE_PREF = "browser.aiwindow.firstrun.autoAdvanceMS";
-const FIRST_RUN_COMPLETE_PREF = "browser.aiwindow.firstrun.hasCompleted";
-const EXPLAINER_PAGE_PREF = "browser.aiwindow.firstrun.explainerURL";
+const MODEL_PREF = "browser.smartwindow.firstrun.modelChoice";
+const AUTO_ADVANCE_PREF = "browser.smartwindow.firstrun.autoAdvanceMS";
+const FIRST_RUN_COMPLETE_PREF = "browser.smartwindow.firstrun.hasCompleted";
+const EXPLAINER_PAGE_PREF = "browser.smartwindow.firstrun.explainerURL";
 const BRAND_DARK_PURPLE = "#210340";
 
 const autoAdvanceMS = Services.prefs.getIntPref(AUTO_ADVANCE_PREF);

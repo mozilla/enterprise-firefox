@@ -108,19 +108,23 @@ tasks:
                   workerType: "decision"
 
                   tags:
-                      $if: 'tasks_for == "hg-push"'
-                      then:
-                          createdForUser: "${ownerEmail}"
-                          kind: decision-task
-                      else:
-                          $if: 'tasks_for == "action"'
-                          then:
-                              createdForUser: '${ownerEmail}'
-                              kind: 'action-callback'
-                          else:
-                              $if: 'tasks_for == "cron"'
-                              then:
-                                  kind: cron-task
+                      $merge:
+                          - project: ${repository.project}
+                            trust-domain: ${trustDomain}
+                            worker-implementation: docker-worker
+                          - $if: 'tasks_for == "hg-push"'
+                            then:
+                                createdForUser: "${ownerEmail}"
+                                kind: decision-task
+                            else:
+                                $if: 'tasks_for == "action"'
+                                then:
+                                    createdForUser: '${ownerEmail}'
+                                    kind: 'action-callback'
+                                else:
+                                    $if: 'tasks_for == "cron"'
+                                    then:
+                                        kind: cron-task
 
                   routes:
                       $flattenDeep:
@@ -178,21 +182,29 @@ tasks:
                   requires: all-completed
 
                   priority:
-                      # Most times, there is plenty of worker capacity so everything runs
-                      # quickly, but sometimes a storm of action tasks lands.  Then we
-                      # want, from highest to lowest:
-                      # - cron tasks (time-sensitive) (low)
-                      # - action tasks (avoid interfering with the other two) (very-low)
-                      # - decision tasks (minimize user-visible delay) (lowest)
+                      # There are (typically) 3 types of decision tasks that can run:
+                      # cron, action, and on-push. We always treat cron as highest priority
+                      # because it schedules things like nightlies, releases, etc. and are
+                      # fairly few and far between.
+                      #
+                      # After that comes on-push decision tasks. These are in the critical
+                      # path of all tasks the push will run, and are critical to run quickly
+                      # to get quick results.
+                      #
+                      # Finally, action tasks are used to add tasks to a push, rerun tasks,
+                      # start release automation, and other things. They are sometimes
+                      # very numerous, and are treated as lowest priority to avoid interfering
+                      # with fast scheduling of regular push tasks.
+                      #
                       # SCM levels all use different workerTypes, so there is no need for priority
                       # between levels; "low" is the highest priority available at all levels, and
                       # nothing runs at any higher priority on these workerTypes.
                       $if: "tasks_for == 'cron'"
                       then: low
                       else:
-                          $if: "tasks_for == 'action'"
+                          $if: "tasks_for == 'hg-push'"
                           then: very-low
-                          else: lowest  # tasks_for == 'hg-push'
+                          else: lowest  # tasks_for == 'action'
                   retries:
                       $if: "tasks_for == 'hg-push' && repository.level != '1'"
                       then: 0
@@ -217,7 +229,6 @@ tasks:
                                 # This causes cached_task digest generation to be random for
                                 # some tasks. Disable bytecode generation to work around that.
                                 PYTHONDONTWRITEBYTECODE: '1'
-                                MACH_BUILD_PYTHON_NATIVE_PACKAGE_SOURCE: 'system'
                               - $if: 'tasks_for == "action"'
                                 then:
                                     ACTION_TASK_GROUP_ID: '${action.taskGroupId}'  # taskGroupId of the target task
@@ -359,7 +370,8 @@ tasks:
                                 baseRepoUrl: '${repository.url}'
                                 repoUrl: '${repository.url}'
                                 project: '${repository.project}'
-                                ref: '${push.branch}'
+                                # Prepending 'refs/heads' ensures `run-task` won't attempt to fetch tags.
+                                ref: "refs/heads/${push.branch}"
                                 baseRev: '${push.revision}'
                                 headRev: '${push.revision}'
                       - $switch:
@@ -441,6 +453,9 @@ tasks:
                               tags:
                                   $merge:
                                       - createdForUser: "${ownerEmail}"
+                                        project: ${project}
+                                        trust-domain: ${trustDomain}
+                                        worker-implementation: docker-worker
                                       - $switch:
                                             'eventType == "action"':
                                                 kind: action-callback
@@ -476,16 +491,35 @@ tasks:
                                       'eventType == "push"':
                                           - 'assume:repo:${repoUrl[8:]}:branch:${shortRef}'
                                       'eventType == "action"':
-                                          - 'assume:repo:${repoUrl[8:]}:action:${action.action_perm}'
+                                          - 'assume:repo:${baseRepoUrl[8:]}:${tasks_for}:${action.action_perm}'
                                       'eventType == "cron"':
                                           - 'assume:repo:${repoUrl[8:]}:cron:${cron.job_name}'
                               dependencies: []
                               requires: all-completed
                               priority:
-                                  $switch:
-                                      'eventType == "cron"': "low"
-                                      'eventType == "action"': "lowest"
-                                      $default: "very-low"
+                                  # There are (typically) 3 types of decision tasks that can run:
+                                  # cron, action, and on-push. We always treat cron as highest priority
+                                  # because it schedules things like nightlies, releases, etc. and are
+                                  # fairly few and far between.
+                                  #
+                                  # After that comes on-push decision tasks. These are in the critical
+                                  # path of all tasks the push will run, and are critical to run quickly
+                                  # to get quick results.
+                                  #
+                                  # Finally, action tasks are used to add tasks to a push, rerun tasks,
+                                  # start release automation, and other things. They are sometimes
+                                  # very numerous, and are treated as lowest priority to avoid interfering
+                                  # with fast scheduling of regular push tasks.
+                                  #
+                                  # SCM levels all use different workerTypes, so there is no need for priority
+                                  # between levels; "low" is the highest priority available at all levels, and
+                                  # nothing runs at any higher priority on these workerTypes.
+                                  $if: "tasks_for == 'cron'"
+                                  then: low
+                                  else:
+                                      $if: "tasks_for == 'github-push'"
+                                      then: very-low
+                                      else: lowest  # tasks_for == 'action'
                               retries: 5
 
                               payload:
@@ -506,7 +540,6 @@ tasks:
                                             # This causes cached_task digest generation to be random for
                                             # some tasks. Disable bytecode generation to work around that.
                                             PYTHONDONTWRITEBYTECODE: '1'
-                                            MACH_BUILD_PYTHON_NATIVE_PACKAGE_SOURCE: 'system'
                                           - $if: 'isPullRequest'
                                             then:
                                                 GECKO_PULL_REQUEST_NUMBER: '${event.pull_request.number}'
@@ -555,7 +588,8 @@ tasks:
                                                --base-rev='${baseRev}' \
                                                --head-repository='${repoUrl}' \
                                                --head-ref='${ref}' \
-                                               --head-rev='${headRev}'
+                                               --head-rev='${headRev}' \
+                                               ${extraArgs}
 
                                   artifacts:
                                       'public':

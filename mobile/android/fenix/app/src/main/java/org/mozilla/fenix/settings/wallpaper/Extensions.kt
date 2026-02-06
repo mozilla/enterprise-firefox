@@ -14,27 +14,17 @@ import org.mozilla.fenix.wallpapers.Wallpaper
  **/
 fun List<Wallpaper>.groupByDisplayableCollection(): Map<Wallpaper.Collection, List<Wallpaper>> =
     groupBy {
-        it.collection
-    }.filter {
-        it.key.name != "default"
+        if (it.collection == Wallpaper.DefaultCollection) {
+            Wallpaper.ClassicFirefoxCollection
+        } else {
+            it.collection
+        }
     }.map {
         val wallpapers = it.value.filter { wallpaper ->
             wallpaper.thumbnailFileState == Wallpaper.ImageFileState.Downloaded
         }
-        if (it.key.name == Wallpaper.CLASSIC_FIREFOX_COLLECTION) {
-            it.key to listOf(Wallpaper.Default) + wallpapers
-        } else {
-            it.key to wallpapers
-        }
-    }.toMap().let { result ->
-        // Ensure the default is shown in the classic firefox collection even if those wallpapers are
-        // missing
-        if (result.keys.any { it.name == Wallpaper.CLASSIC_FIREFOX_COLLECTION }) {
-            result
-        } else {
-            result.plus(Wallpaper.ClassicFirefoxCollection to listOf(Wallpaper.Default))
-        }
-    }
+        it.key to wallpapers
+    }.toMap()
 
 /**
  * Returns a list of wallpapers to display in the wallpaper onboarding.

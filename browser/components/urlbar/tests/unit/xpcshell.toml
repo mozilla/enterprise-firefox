@@ -16,6 +16,8 @@ support-files = ["data/engine.xml"]
 
 ["test_UrlbarPrefs.js"]
 
+["test_UrlbarProviderAiChat.js"]
+
 ["test_UrlbarProviderSearchSuggestions.js"]
 
 ["test_UrlbarProviderSemanticHistorySearch.js"]
@@ -62,6 +64,8 @@ prefs = [
   "places.frecency.origins.alternative.featureGate=true",
   "browser.urlbar.suggest.quickactions=false",
 ]
+
+["test_autofill_origins_typed_frecency.js"]
 
 ["test_autofill_prefix_fallback.js"]
 
@@ -180,6 +184,8 @@ skip-if = [
 ]
 
 ["test_resultGroups.js"]
+
+["test_result_highlights.js"]
 
 ["test_richsuggestions.js"]
 

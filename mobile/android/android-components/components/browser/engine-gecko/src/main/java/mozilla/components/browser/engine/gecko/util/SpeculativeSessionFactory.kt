@@ -8,6 +8,7 @@ import androidx.annotation.VisibleForTesting
 import mozilla.components.browser.engine.gecko.GeckoEngineSession
 import mozilla.components.concept.engine.EngineSession
 import mozilla.components.concept.engine.Settings
+import mozilla.components.support.utils.DownloadFileUtils
 import org.mozilla.geckoview.GeckoRuntime
 
 /**
@@ -29,6 +30,7 @@ internal class SpeculativeSessionFactory {
         private: Boolean,
         contextId: String?,
         defaultSettings: Settings?,
+        downloadFileUtils: DownloadFileUtils,
     ) {
         if (speculativeEngineSession?.matches(private, contextId) == true) {
             // We already have a speculative engine session for this configuration. Nothing to do here.
@@ -39,11 +41,12 @@ internal class SpeculativeSessionFactory {
         clear()
 
         speculativeEngineSession = SpeculativeEngineSession.create(
-            this,
-            runtime,
-            private,
-            contextId,
-            defaultSettings,
+            factory = this,
+            runtime = runtime,
+            private = private,
+            contextId = contextId,
+            downloadFileUtils = downloadFileUtils,
+            defaultSettings = defaultSettings,
         )
     }
 
@@ -124,10 +127,17 @@ internal class SpeculativeEngineSession constructor(
             factory: SpeculativeSessionFactory,
             runtime: GeckoRuntime,
             private: Boolean,
+            downloadFileUtils: DownloadFileUtils,
             contextId: String?,
             defaultSettings: Settings?,
         ): SpeculativeEngineSession {
-            val engineSession = GeckoEngineSession(runtime, private, defaultSettings, contextId)
+            val engineSession = GeckoEngineSession(
+                runtime = runtime,
+                privateMode = private,
+                downloadFileUtils = downloadFileUtils,
+                defaultSettings = defaultSettings,
+                contextId = contextId,
+            )
             val observer = SpeculativeSessionObserver(factory)
             engineSession.register(observer)
 

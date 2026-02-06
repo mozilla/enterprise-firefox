@@ -22,14 +22,18 @@ add_task(async function test_invalid_path_fails() {
       null
     ),
     error => {
+      Assert.ok(
+        error instanceof SearchEngineInstallError,
+        "Should have raised an install error"
+      );
       Assert.equal(
-        error.result,
-        Ci.nsISearchService.ERROR_DOWNLOAD_FAILURE,
-        "Should have returned download failure."
+        error.type,
+        "download-failure",
+        "Should have returned download failure"
       );
       return true;
     },
-    "Should fail to install an engine with an invalid path."
+    "Should fail to install an engine with an invalid path"
   );
 });
 
@@ -38,7 +42,7 @@ add_task(async function test_install_duplicate_fails() {
     `${gHttpURL}/opensearch/simple.xml`,
     null
   );
-  Assert.equal(engine.name, "simple", "Should have installed the engine.");
+  Assert.equal(engine.name, "simple", "Should have installed the engine");
 
   await Assert.rejects(
     SearchService.addOpenSearchEngine(
@@ -46,14 +50,18 @@ add_task(async function test_install_duplicate_fails() {
       null
     ),
     error => {
+      Assert.ok(
+        error instanceof SearchEngineInstallError,
+        "Should have raised an install error"
+      );
       Assert.equal(
-        error.result,
-        Ci.nsISearchService.ERROR_DUPLICATE_ENGINE,
-        "Should have returned duplicate failure."
+        error.type,
+        "duplicate-title",
+        "Should have returned duplicate failure"
       );
       return true;
     },
-    "Should fail to install a duplicate engine."
+    "Should fail to install a duplicate engine"
   );
 });
 
@@ -64,13 +72,17 @@ add_task(async function test_invalid_engine_from_dir() {
       null
     ),
     error => {
+      Assert.ok(
+        error instanceof SearchEngineInstallError,
+        "Should have raised an install error"
+      );
       Assert.equal(
-        error.result,
-        Ci.nsISearchService.ERROR_ENGINE_CORRUPTED,
-        "Should have returned corruption failure."
+        error.type,
+        "corrupted",
+        "Should have returned corruption failure"
       );
       return true;
     },
-    "Should fail to install an invalid engine."
+    "Should fail to install an invalid engine"
   );
 });

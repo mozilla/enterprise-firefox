@@ -174,27 +174,15 @@ class BrowserToolbarMiddleware(
             }
 
             is TabCounterClicked -> {
-                if (settings.tabManagerEnhancementsEnabled) {
-                    navController.nav(
-                        R.id.homeFragment,
-                        NavGraphDirections.actionGlobalTabManagementFragment(
-                            page = when (browsingModeManager.mode) {
-                                Normal -> Page.NormalTabs
-                                Private -> Page.PrivateTabs
-                            },
-                        ),
-                    )
-                } else {
-                    navController.nav(
-                        R.id.homeFragment,
-                        NavGraphDirections.actionGlobalTabsTrayFragment(
-                            page = when (browsingModeManager.mode) {
-                                Normal -> Page.NormalTabs
-                                Private -> Page.PrivateTabs
-                            },
-                        ),
-                    )
-                }
+                navController.nav(
+                    R.id.homeFragment,
+                    NavGraphDirections.actionGlobalTabManagementFragment(
+                        page = when (browsingModeManager.mode) {
+                            Normal -> Page.NormalTabs
+                            Private -> Page.PrivateTabs
+                        },
+                    ),
+                )
                 next(action)
             }
             is AddNewTab -> {

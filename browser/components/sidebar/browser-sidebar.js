@@ -15,7 +15,6 @@ const { DeferredTask } = ChromeUtils.importESModule(
 const toolsNameMap = {
   viewGenaiChatSidebar: "aichat",
   viewGenaiPageAssistSidebar: "aipageassist",
-  viewGenaiSmartAssistSidebar: "aismartassist",
   viewTabsSidebar: "syncedtabs",
   viewHistorySidebar: "history",
   viewBookmarksSidebar: "bookmarks",
@@ -189,6 +188,7 @@ var SidebarController = {
           iconUrl: "chrome://global/skin/icons/highlights.svg",
           gleanClickEvent: Glean.sidebar.chatbotIconClick,
           toolContextMenuId: "aichat",
+          permissions: true,
         }
       );
     }
@@ -204,20 +204,6 @@ var SidebarController = {
         menuL10nId: "menu-view-genai-page-assist",
         revampL10nId: "sidebar-menu-genai-page-assist-label",
         iconUrl: "chrome://browser/skin/reader-mode.svg",
-      }
-    );
-
-    this.registerPrefSidebar(
-      "browser.ml.smartAssist.enabled",
-      "viewGenaiSmartAssistSidebar",
-      {
-        name: "aismartassist",
-        elementId: "sidebar-switcher-genai-smart-assist",
-        url: "chrome://browser/content/genai/smartAssist.html",
-        menuId: "menu_genaiSmartAssistSidebar",
-        menuL10nId: "menu-view-genai-smart-assist",
-        revampL10nId: "sidebar-menu-genai-smart-assist-label",
-        iconUrl: "chrome://browser/skin/trending.svg",
       }
     );
 
@@ -2011,6 +1997,15 @@ var SidebarController = {
               // Now that the currentId is updated, fire a show event.
               this._fireShowEvent();
               this._recordBrowserSize();
+
+              const sidebar = this.sidebars.get(commandID);
+              // Initialize sidebar permissions UI
+              if (sidebar?.permissions) {
+                if (!this._permissions) {
+                  this._permissions = new this.SidebarPermissions(window);
+                }
+                this._permissions.init(this.browser);
+              }
             }, 0);
           },
           { capture: true, once: true }
@@ -2412,6 +2407,8 @@ ChromeUtils.defineESModuleGetters(SidebarController, {
   SidebarManager:
     "moz-src:///browser/components/sidebar/SidebarManager.sys.mjs",
   SidebarState: "moz-src:///browser/components/sidebar/SidebarState.sys.mjs",
+  SidebarPermissions:
+    "chrome://browser/content/sidebar/sidebar-permissions.mjs",
 });
 
 // Add getters related to the position here, since we will want them

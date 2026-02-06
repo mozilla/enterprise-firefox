@@ -24,6 +24,7 @@ import mozilla.components.browser.state.state.createTab
 import mozilla.components.browser.state.store.BrowserStore
 import mozilla.components.feature.downloads.DownloadsUseCases.CancelDownloadRequestUseCase
 import mozilla.components.feature.downloads.DownloadsUseCases.ConsumeDownloadUseCase
+import mozilla.components.feature.downloads.ext.getRealFilenameOrGuessed
 import mozilla.components.feature.downloads.fake.FakeFileSystemHelper
 import mozilla.components.feature.downloads.manager.DownloadManager
 import mozilla.components.feature.downloads.ui.DownloadAppChooserDialog
@@ -36,6 +37,7 @@ import mozilla.components.support.test.robolectric.grantPermission
 import mozilla.components.support.test.robolectric.testContext
 import mozilla.components.support.test.rule.MainCoroutineRule
 import mozilla.components.support.test.whenever
+import mozilla.components.support.utils.FakeDownloadFileUtils
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -233,7 +235,7 @@ class DownloadsFeatureTest {
     fun `When starting a download an existing dialog is reused`() {
         grantPermissions()
 
-        val download = DownloadState(url = "https://www.mozilla.org", sessionId = "test-tab")
+        val download = DownloadState(url = "https://www.mozilla.org", sessionId = "test-tab", fileName = "fileName")
         store.dispatch(ContentAction.UpdateDownloadAction("test-tab", download))
 
         val dialogFragment: DownloadDialogFragment = mock()
@@ -254,11 +256,14 @@ class DownloadsFeatureTest {
         )
 
         val tab = store.state.findTab("test-tab")
-        feature.showDownloadDialog(tab!!, download)
+        feature.showDownloadDialog(
+            tab = tab!!,
+            download = download,
+        )
 
         verify(dialogFragment).onStartDownload = any()
         verify(dialogFragment).onCancelDownload = any()
-        verify(dialogFragment).setDownload(download)
+        verify(dialogFragment).setDownload(any(), eq(download.getRealFilenameOrGuessed(FakeDownloadFileUtils())))
         verify(dialogFragment, never()).showNow(any(), any())
     }
 
@@ -286,7 +291,10 @@ class DownloadsFeatureTest {
 
         val tab = store.state.findTab("test-tab")
 
-        feature.showDownloadDialog(tab!!, download)
+        feature.showDownloadDialog(
+            tab = tab!!,
+            download = download,
+        )
 
         dialogFragment.onCancelDownload()
         verify(closeDownloadResponseUseCase).invoke(anyString(), anyString())
@@ -534,7 +542,11 @@ class DownloadsFeatureTest {
         doReturn(false).`when`(feature).isAlreadyADownloadDialog()
         doReturn(true).`when`(fragmentManager).isDestroyed
 
-        feature.showDownloadDialog(mock(), mock(), dialog)
+        feature.showDownloadDialog(
+            tab = mock(),
+            download = mock(),
+            dialog = dialog,
+        )
 
         verify(dialog, never()).showNow(fragmentManager, DownloadDialogFragment.FRAGMENT_TAG)
     }

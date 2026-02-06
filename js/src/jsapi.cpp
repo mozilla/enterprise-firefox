@@ -4121,12 +4121,12 @@ JS::AutoSaveExceptionState::~AutoSaveExceptionState() {
   }
 }
 
-JS_PUBLIC_API JSErrorReport* JS_ErrorFromException(JSContext* cx,
-                                                   HandleObject obj) {
+JS_PUBLIC_API bool JS_ErrorFromException(JSContext* cx, HandleObject obj,
+                                         JS::BorrowedErrorReport& errorReport) {
   AssertHeapIsIdle();
   CHECK_THREAD(cx);
   cx->check(obj);
-  return ErrorFromException(cx, obj);
+  return ErrorFromException(cx, obj, errorReport);
 }
 
 void JSErrorReport::initBorrowedLinebuf(const char16_t* linebufArg,

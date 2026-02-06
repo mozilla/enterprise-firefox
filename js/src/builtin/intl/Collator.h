@@ -7,11 +7,15 @@
 #ifndef builtin_intl_Collator_h
 #define builtin_intl_Collator_h
 
+#include "mozilla/Maybe.h"
+
+#include <stddef.h>
 #include <stdint.h>
 
-#include "builtin/SelfHostingDefines.h"
 #include "js/Class.h"
+#include "js/Value.h"
 #include "vm/NativeObject.h"
+#include "vm/StringType.h"
 
 namespace mozilla::intl {
 class Collator;
@@ -19,23 +23,87 @@ class Collator;
 
 namespace js {
 
-/******************** Collator ********************/
+namespace intl {
+struct CollatorOptions {
+  enum class Usage : int8_t { Sort, Search };
+  Usage usage = Usage::Sort;
+
+  enum class Sensitivity : int8_t { Base, Accent, Case, Variant };
+  mozilla::Maybe<Sensitivity> sensitivity{};
+
+  mozilla::Maybe<bool> ignorePunctuation{};
+
+  mozilla::Maybe<bool> numeric{};
+
+  enum class CaseFirst : int8_t { Upper, Lower, False };
+  mozilla::Maybe<CaseFirst> caseFirst{};
+};
+}  // namespace intl
 
 class CollatorObject : public NativeObject {
  public:
   static const JSClass class_;
   static const JSClass& protoClass_;
 
-  static constexpr uint32_t INTERNALS_SLOT = 0;
-  static constexpr uint32_t INTL_COLLATOR_SLOT = 1;
-  static constexpr uint32_t SLOT_COUNT = 2;
-
-  static_assert(INTERNALS_SLOT == INTL_INTERNALS_OBJECT_SLOT,
-                "INTERNALS_SLOT must match self-hosting define for internals "
-                "object slot");
+  static constexpr uint32_t LOCALE_SLOT = 0;
+  static constexpr uint32_t COLLATION_SLOT = 1;
+  static constexpr uint32_t OPTIONS_SLOT = 2;
+  static constexpr uint32_t INTL_COLLATOR_SLOT = 3;
+  static constexpr uint32_t BOUND_COMPARE_SLOT = 4;
+  static constexpr uint32_t SLOT_COUNT = 5;
 
   // Estimated memory use for UCollator (see IcuMemoryUsage).
   static constexpr size_t EstimatedMemoryUse = 1128;
+
+  bool isLocaleResolved() const { return getFixedSlot(LOCALE_SLOT).isString(); }
+
+  JSObject* getRequestedLocales() const {
+    const auto& slot = getFixedSlot(LOCALE_SLOT);
+    if (slot.isUndefined()) {
+      return nullptr;
+    }
+    return &slot.toObject();
+  }
+
+  void setRequestedLocales(JSObject* requestedLocales) {
+    setFixedSlot(LOCALE_SLOT, JS::ObjectValue(*requestedLocales));
+  }
+
+  JSLinearString* getLocale() const {
+    const auto& slot = getFixedSlot(LOCALE_SLOT);
+    if (slot.isUndefined()) {
+      return nullptr;
+    }
+    return &slot.toString()->asLinear();
+  }
+
+  void setLocale(JSLinearString* locale) {
+    setFixedSlot(LOCALE_SLOT, JS::StringValue(locale));
+  }
+
+  JSLinearString* getCollation() const {
+    const auto& slot = getFixedSlot(COLLATION_SLOT);
+    if (slot.isUndefined()) {
+      return nullptr;
+    }
+    return &slot.toString()->asLinear();
+  }
+
+  void setCollation(JSLinearString* collation) {
+    setFixedSlot(COLLATION_SLOT, JS::StringValue(collation));
+  }
+
+  intl::CollatorOptions* getOptions() const {
+    const auto& slot = getFixedSlot(OPTIONS_SLOT);
+    if (slot.isUndefined()) {
+      return nullptr;
+    }
+    return static_cast<intl::CollatorOptions*>(slot.toPrivate());
+  }
+
+  void setOptions(intl::CollatorOptions* options) {
+    setFixedSlot(OPTIONS_SLOT, JS::PrivateValue(options));
+  }
 
   mozilla::intl::Collator* getCollator() const {
     const auto& slot = getFixedSlot(INTL_COLLATOR_SLOT);
@@ -46,7 +114,19 @@ class CollatorObject : public NativeObject {
   }
 
   void setCollator(mozilla::intl::Collator* collator) {
-    setFixedSlot(INTL_COLLATOR_SLOT, PrivateValue(collator));
+    setFixedSlot(INTL_COLLATOR_SLOT, JS::PrivateValue(collator));
+  }
+
+  JSObject* getBoundCompare() const {
+    const auto& slot = getFixedSlot(BOUND_COMPARE_SLOT);
+    if (slot.isUndefined()) {
+      return nullptr;
+    }
+    return &slot.toObject();
+  }
+
+  void setBoundCompare(JSObject* boundCompare) {
+    setFixedSlot(BOUND_COMPARE_SLOT, JS::ObjectValue(*boundCompare));
   }
 
  private:
@@ -55,36 +135,6 @@ class CollatorObject : public NativeObject {
 
   static void finalize(JS::GCContext* gcx, JSObject* obj);
 };
-
-/**
- * Compares x and y (which must be String values), and returns a number less
- * than 0 if x < y, 0 if x = y, or a number greater than 0 if x > y according
- * to the sort order for the locale and collation options of the given
- * Collator.
- *
- * Spec: ECMAScript Internationalization API Specification, 10.3.2.
- *
- * Usage: result = intl_CompareStrings(collator, x, y)
- */
-[[nodiscard]] extern bool intl_CompareStrings(JSContext* cx, unsigned argc,
-                                              JS::Value* vp);
-
-/**
- * Returns true if the given locale sorts upper-case before lower-case
- * characters.
- *
- * Usage: result = intl_isUpperCaseFirst(locale)
- */
-[[nodiscard]] extern bool intl_isUpperCaseFirst(JSContext* cx, unsigned argc,
-                                                JS::Value* vp);
-
-/**
- * Returns true if the given locale ignores punctuation by default.
- *
- * Usage: result = intl_isIgnorePunctuation(locale)
- */
-[[nodiscard]] extern bool intl_isIgnorePunctuation(JSContext* cx, unsigned argc,
-                                                   JS::Value* vp);
 
 namespace intl {
 
@@ -103,6 +153,11 @@ namespace intl {
     JSContext* cx, JS::Handle<JS::Value> locales,
     JS::Handle<JS::Value> options);
 
+/**
+ * Compares x and y, and returns a number less than 0 if x < y, 0 if x = y, or a
+ * number greater than 0 if x > y according to the sort order for the locale and
+ * collation options of the given Collator.
+ */
 [[nodiscard]] extern bool CompareStrings(JSContext* cx,
                                          JS::Handle<CollatorObject*> collator,
                                          JS::Handle<JSString*> str1,

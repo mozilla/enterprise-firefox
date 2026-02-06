@@ -161,7 +161,7 @@ JS_FOR_EACH_PUBLIC_TAGGED_GC_POINTER_TYPE(JS_DECLARE_IS_HEAP_CONSTRUCTIBLE_TYPE)
 // be used with Heap<>.
 
 namespace gc {
-struct Cell;
+class Cell;
 } /* namespace gc */
 
 // Important: Return a reference so passing a Rooted<T>, etc. to

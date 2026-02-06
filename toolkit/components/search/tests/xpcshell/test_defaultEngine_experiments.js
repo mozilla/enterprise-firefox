@@ -112,7 +112,7 @@ async function switchExperiment(newExperiment) {
 }
 
 function getSettingsAttribute(setting, engine) {
-  return SearchService.wrappedJSObject._settings.getVerifiedMetaDataAttribute(
+  return SearchService._settings.getVerifiedMetaDataAttribute(
     setting,
     engine.isConfigEngine
   );
@@ -152,7 +152,7 @@ add_task(async function test_experiment_setting() {
 add_task(async function test_experiment_setting_to_same_as_user() {
   await SearchService.setDefault(
     SearchService.getEngineByName("engine2"),
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+    SearchService.CHANGE_REASON.UNKNOWN
   );
 
   Assert.equal(
@@ -206,7 +206,7 @@ add_task(async function test_experiment_setting_to_same_as_user() {
 add_task(async function test_experiment_setting_user_changed_back_during() {
   await SearchService.setDefault(
     SearchService.getEngineByName("engine1"),
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+    SearchService.CHANGE_REASON.UNKNOWN
   );
 
   Assert.equal(
@@ -237,7 +237,7 @@ add_task(async function test_experiment_setting_user_changed_back_during() {
   // User resets to the original default engine.
   await SearchService.setDefault(
     SearchService.getEngineByName("engine1"),
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+    SearchService.CHANGE_REASON.UNKNOWN
   );
   Assert.equal(
     SearchService.defaultEngine.name,
@@ -273,7 +273,7 @@ add_task(async function test_experiment_setting_user_changed_back_during() {
 add_task(async function test_experiment_setting_user_changed_back_private() {
   await SearchService.setDefaultPrivate(
     SearchService.getEngineByName("engine1"),
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+    SearchService.CHANGE_REASON.UNKNOWN
   );
 
   Assert.equal(
@@ -307,7 +307,7 @@ add_task(async function test_experiment_setting_user_changed_back_private() {
   // User resets to the original default engine.
   await SearchService.setDefaultPrivate(
     SearchService.getEngineByName("engine1"),
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+    SearchService.CHANGE_REASON.UNKNOWN
   );
   Assert.equal(
     SearchService.defaultPrivateEngine.name,
@@ -345,7 +345,7 @@ add_task(async function test_experiment_setting_user_changed_back_private() {
 add_task(async function test_experiment_setting_user_changed_to_other_during() {
   await SearchService.setDefault(
     SearchService.getEngineByName("engine1"),
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+    SearchService.CHANGE_REASON.UNKNOWN
   );
 
   Assert.equal(
@@ -376,7 +376,7 @@ add_task(async function test_experiment_setting_user_changed_to_other_during() {
   // User changes to a different default engine
   await SearchService.setDefault(
     SearchService.getEngineByName("engine2"),
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+    SearchService.CHANGE_REASON.UNKNOWN
   );
   Assert.equal(
     SearchService.defaultEngine.name,
@@ -417,7 +417,7 @@ add_task(async function test_experiment_setting_user_hid_app_default_during() {
   );
   await SearchService.setDefault(
     SearchService.getEngineByName("engine1"),
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+    SearchService.CHANGE_REASON.UNKNOWN
   );
 
   Assert.equal(

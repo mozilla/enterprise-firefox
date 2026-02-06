@@ -254,7 +254,7 @@ static void WriteValTo(WasmGcObject* owner, const Val& val, StorageType ty,
 
 /* static */
 size_t js::WasmArrayObject::sizeOfExcludingThis() const {
-  if (!isDataInline()) {
+  if (isDataInline()) {
     return 0;
   }
   OOLDataHeader* oolHeader = oolDataHeaderFromDataPointer(data_);

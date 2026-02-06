@@ -12,6 +12,15 @@ felt-sso-input-email =
 felt-sso-continue-btn =
     .label = Continue
 felt-browser-error-multiple-crashes = { -brand-short-name } crashed multiple times
+felt-browser-error-connection = Unable to connect to the console. Please contact your administrator.
+
+# Network error details
+felt-error-unknown-host = Server not found
+felt-error-connection-refused = Connection refused
+felt-error-net-timeout = Connection timed out
+felt-error-net-reset = Connection was reset
+felt-error-net-interrupt = Connection was interrupted
+felt-error-offline = Host is offline
 felt-powered-by =
     Powered by { -vendor-short-name }
 # $version is the version of Felt, not Firefox/Enterprise Browser.

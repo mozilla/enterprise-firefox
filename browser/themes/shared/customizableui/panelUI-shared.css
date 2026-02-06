@@ -2463,6 +2463,16 @@ radiogroup:focus-visible > .subviewradio[focused="true"] {
   list-style-image: url(chrome://global/skin/icons/help.svg);
 }
 
+#confirmation-hint[data-message-id="confirmation-hint-ipprotection-navigated-to-excluded-site"] {
+  #confirmation-hint-checkmark-animation-container {
+    display: none;
+  }
+
+  #confirmation-hint-message {
+    margin-inline-start: 0;
+  }
+}
+
 /* ----- Enterprise panel ----- */
 .panelUI-enterprise__main-frame {
   gap: 8px;

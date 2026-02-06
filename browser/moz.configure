@@ -40,6 +40,8 @@ imply_option("--with-app-name", "firefox", when="--enable-enterprise")
 imply_option(
     "--with-branding", "browser/branding/enterprise", when="--enable-enterprise"
 )
+# Clear the default value to avoid mozilla.com url compiled into product
+imply_option("--with-crashreporter-url", "", when="--enable-enterprise")
 
 # Set UA name to "Firefox" for enterprise builds
 imply_option("MOZ_APP_UA_NAME", "Firefox", when="--enable-enterprise")

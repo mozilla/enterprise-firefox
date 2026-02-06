@@ -599,10 +599,10 @@ void nsRange::CharacterDataChanged(nsIContent* aContent,
 
   if (newStart.IsSet() || newEnd.IsSet()) {
     if (!newStart.IsSet()) {
-      newStart.CopyFrom(mStart, RangeBoundaryIsMutationObserved::Yes);
+      newStart.CopyFrom(mStart, RangeBoundarySetBy::Ref);
     }
     if (!newEnd.IsSet()) {
-      newEnd.CopyFrom(mEnd, RangeBoundaryIsMutationObserved::Yes);
+      newEnd.CopyFrom(mEnd, RangeBoundarySetBy::Ref);
     }
     DoSetRange(newStart, newEnd, newRoot ? newRoot : mRoot.get(),
                !newEnd.GetContainer()->GetParentNode() ||
@@ -659,8 +659,8 @@ void nsRange::ContentInserted(nsIContent* aChild, const ContentInsertInfo&) {
   bool updateBoundaries = false;
   nsINode* container = aChild->GetParentNode();
   MOZ_ASSERT(container);
-  RawRangeBoundary newStart(mStart, RangeBoundaryIsMutationObserved::Yes);
-  RawRangeBoundary newEnd(mEnd, RangeBoundaryIsMutationObserved::Yes);
+  RawRangeBoundary newStart(mStart, RangeBoundarySetBy::Ref);
+  RawRangeBoundary newEnd(mEnd, RangeBoundarySetBy::Ref);
   MOZ_ASSERT(aChild->GetParentNode() == container);
 
   // Invalidate boundary offsets if a child that may have moved them was
@@ -726,7 +726,7 @@ void nsRange::ContentWillBeRemoved(nsIContent* aChild,
     if (aChild == mStart.Ref()) {
       newStart = {container, aChild->GetPreviousSibling()};
     } else {
-      newStart.CopyFrom(mStart, RangeBoundaryIsMutationObserved::Yes);
+      newStart.CopyFrom(mStart, RangeBoundarySetBy::Ref);
       newStart.InvalidateOffset();
     }
   } else {
@@ -741,7 +741,7 @@ void nsRange::ContentWillBeRemoved(nsIContent* aChild,
     if (aChild == mEnd.Ref()) {
       newEnd = {container, aChild->GetPreviousSibling()};
     } else {
-      newEnd.CopyFrom(mEnd, RangeBoundaryIsMutationObserved::Yes);
+      newEnd.CopyFrom(mEnd, RangeBoundarySetBy::Ref);
       newEnd.InvalidateOffset();
     }
   } else {
@@ -882,8 +882,7 @@ int16_t nsRange::ComparePoint(const nsINode& aContainer, uint32_t aOffset,
       aAllowCrossShadowBoundary ? MayCrossShadowBoundaryStartRef() : StartRef();
 
   const RawRangeBoundary point{const_cast<nsINode*>(&aContainer), aOffset,
-                               RangeBoundaryIsMutationObserved::Yes,
-                               startRef.GetTreeKind()};
+                               RangeBoundarySetBy::Ref, startRef.GetTreeKind()};
 
   MOZ_ASSERT(point.IsSetAndValid());
 
@@ -1095,8 +1094,8 @@ void nsRange::
   // GetClosestCommonInclusiveAncestor is unreliable while we're unlinking
   // (could return null if our start/end have already been unlinked), so make
   // sure to not use it here to determine our "old" current ancestor.
-  mStart.CopyFrom(aStartBoundary, RangeBoundaryIsMutationObserved::Yes);
-  mEnd.CopyFrom(aEndBoundary, RangeBoundaryIsMutationObserved::Yes);
+  mStart.CopyFrom(aStartBoundary, RangeBoundarySetBy::Ref);
+  mEnd.CopyFrom(aEndBoundary, RangeBoundarySetBy::Ref);
 
   if (aRangeBehaviour ==
       RangeBehaviour::CollapseDefaultRangeAndCrossShadowBoundaryRanges) {
@@ -1142,12 +1141,6 @@ void nsRange::Reset() {
  * public functionality
  ******************************************************/
 
-void nsRange::SetStartJS(nsINode& aNode, uint32_t aOffset, ErrorResult& aErr) {
-  AutoCalledByJSRestore calledByJSRestorer(*this);
-  mCalledByJS = true;
-  SetStart(aNode, aOffset, aErr);
-}
-
 bool nsRange::CanAccess(const nsINode& aNode) const {
   if (nsContentUtils::LegacyIsCallerNativeCode()) {
     return true;
@@ -1155,23 +1148,83 @@ bool nsRange::CanAccess(const nsINode& aNode) const {
   return nsContentUtils::CanCallerAccess(&aNode);
 }
 
-void nsRange::SetStart(
-    nsINode& aNode, uint32_t aOffset, ErrorResult& aRv,
-    AllowRangeCrossShadowBoundary aAllowCrossShadowBoundary) {
-  if (!CanAccess(aNode)) {
+bool nsRange::IsValidNodeAndOffsetForBoundary(
+    const nsINode& aContainer, uint32_t aOffset,
+    CheckNodeAccessible aCheckNodeAccessible, ErrorResult& aRv) const {
+  if (aCheckNodeAccessible == CheckNodeAccessible::Yes &&
+      MOZ_UNLIKELY(!CanAccess(aContainer))) {
     aRv.Throw(NS_ERROR_DOM_SECURITY_ERR);
-    return;
+    return false;
   }
 
-  AutoInvalidateSelection atEndOfBlock(this);
-  SetStart(RawRangeBoundary(&aNode, aOffset), aRv, aAllowCrossShadowBoundary);
+  // https://dom.spec.whatwg.org/#concept-range-bp-set
+
+  // step1
+  if (MOZ_UNLIKELY(aContainer.NodeType() == nsINode::DOCUMENT_TYPE_NODE)) {
+    aRv.Throw(NS_ERROR_DOM_INVALID_NODE_TYPE_ERR);
+    return false;
+  }
+
+  // step2
+  if (MOZ_UNLIKELY(aOffset > aContainer.Length())) {
+    aRv.Throw(NS_ERROR_DOM_INDEX_SIZE_ERR);
+    return false;
+  }
+
+  // FYI: The above checks guarantee that the caller can create a
+  // RangeBoundaryBase instance with a valid point to RangeBoundaryBase.
+  // Therefore, this is not called by SetStart(), SetEnd() nor SetStartAndEnd()
+  // which takes RawRangeBoundary, instead, they use
+  // RawRangeBoundary::IsSetAndValid().
+
+  return true;
 }
 
-void nsRange::SetStart(
-    const RawRangeBoundary& aPoint, ErrorResult& aRv,
-    AllowRangeCrossShadowBoundary aAllowCrossShadowBoundary) {
+bool nsRange::IsValidNodeToSetBeforeOrAfterOf(
+    const nsINode& aChild, CheckNodeAccessible aCheckNodeAccessible,
+    ErrorResult& aRv) const {
+  if (aCheckNodeAccessible == CheckNodeAccessible::Yes &&
+      MOZ_UNLIKELY(!CanAccess(aChild))) {
+    aRv.Throw(NS_ERROR_DOM_SECURITY_ERR);
+    return false;
+  }
+
+  if (MOZ_UNLIKELY(!aChild.IsContent() || aChild.IsBeingRemoved())) {
+    aRv.Throw(NS_ERROR_DOM_INVALID_NODE_TYPE_ERR);
+    return false;
+  }
+
+  if (MOZ_UNLIKELY(!aChild.GetParentNode())) {
+    aRv.Throw(NS_ERROR_DOM_INVALID_NODE_TYPE_ERR);
+    return false;
+  }
+
+  MOZ_ASSERT(aChild.GetParentNode()->NodeType() != nsINode::DOCUMENT_TYPE_NODE);
+
+  return true;
+}
+
+void nsRange::SetStartJS(nsINode& aNode, uint32_t aOffset, ErrorResult& aErr) {
+  if (MOZ_UNLIKELY(!IsValidNodeAndOffsetForBoundary(
+          aNode, aOffset, CheckNodeAccessible::No, aErr))) {
+    return;
+  }
+  AutoCalledByJSRestore calledByJSRestorer(*this);
+  mCalledByJS = true;
+  SetStartInternal(RawRangeBoundary(&aNode, aOffset),
+                   AllowRangeCrossShadowBoundary::No, aErr);
+}
+
+void nsRange::SetStartInternal(
+    const RawRangeBoundary& aPoint,
+    AllowRangeCrossShadowBoundary aAllowCrossShadowBoundary, ErrorResult& aRv) {
+  MOZ_ASSERT(aPoint.IsSetAndValid());
+  MOZ_ASSERT(CanAccess(*aPoint.GetContainer()));
+
+  AutoInvalidateSelection atEndOfBlock(this);
+
   nsINode* newRoot = RangeUtils::ComputeRootNode(aPoint.GetContainer());
-  if (!newRoot) {
+  if (MOZ_UNLIKELY(!newRoot)) {
     aRv.Throw(NS_ERROR_DOM_INVALID_NODE_TYPE_ERR);
     return;
   }
@@ -1190,16 +1243,10 @@ void nsRange::SetStart(
   // versus Flat RangeBoundary.
   auto pointInFlat =
       aAllowCrossShadowBoundary == AllowRangeCrossShadowBoundary::Yes
-          ? Some(aPoint.AsRangeBoundaryInFlatTree())
+          ? Some(aPoint.AsRangeBoundaryInFlatTree(RangeBoundaryFor::Start))
           : Nothing();
+  MOZ_ASSERT_IF(pointInFlat.isSome(), pointInFlat->IsSetAndValid());
 
-  if (!aPoint.IsSetAndValid() &&
-      (!pointInFlat || !pointInFlat->IsSetAndValid())) {
-    aRv.Throw(NS_ERROR_DOM_INDEX_SIZE_ERR);
-    return;
-  }
-
-  MOZ_ASSERT_IF(pointInFlat, aPoint.IsSet());
   RangeBehaviour behaviour =
       GetRangeBehaviour(this, newRoot, aPoint, pointInFlat,
                         true /* aIsSetStart= */, aAllowCrossShadowBoundary);
@@ -1213,7 +1260,8 @@ void nsRange::SetStart(
         if (MayCrossShadowBoundaryEndRef() != mEnd) {
           CreateOrUpdateCrossShadowBoundaryRangeIfNeeded(
               pointInFlat.ref(),
-              MayCrossShadowBoundaryEndRef().AsRangeBoundaryInFlatTree());
+              MayCrossShadowBoundaryEndRef().AsRangeBoundaryInFlatTree(
+                  RangeBoundaryFor::End));
         }
       }
       if (aPoint.IsSetAndValid()) {
@@ -1230,7 +1278,8 @@ void nsRange::SetStart(
                  AllowRangeCrossShadowBoundary::Yes);
       CreateOrUpdateCrossShadowBoundaryRangeIfNeeded(
           pointInFlat.ref(),
-          MayCrossShadowBoundaryEndRef().AsRangeBoundaryInFlatTree());
+          MayCrossShadowBoundaryEndRef().AsRangeBoundaryInFlatTree(
+              RangeBoundaryFor::End));
       if (aPoint.IsSetAndValid()) {
         DoSetRange(aPoint, aPoint, newRoot, false, behaviour);
       }
@@ -1256,17 +1305,12 @@ void nsRange::SetStartBeforeJS(nsINode& aNode, ErrorResult& aErr) {
 void nsRange::SetStartBefore(
     nsINode& aNode, ErrorResult& aRv,
     AllowRangeCrossShadowBoundary aAllowCrossShadowBoundary) {
-  if (!CanAccess(aNode)) {
-    aRv.Throw(NS_ERROR_DOM_SECURITY_ERR);
+  if (MOZ_UNLIKELY(!IsValidNodeToSetBeforeOrAfterOf(
+          aNode, CheckNodeAccessible::Yes, aRv))) {
     return;
   }
-
-  AutoInvalidateSelection atEndOfBlock(this);
-  // If the node is being removed from its parent, GetRawRangeBoundaryBefore()
-  // returns unset instance.  Then, SetStart() will throw
-  // NS_ERROR_DOM_INVALID_NODE_TYPE_ERR.
-  SetStart(RangeUtils::GetRawRangeBoundaryBefore(&aNode), aRv,
-           aAllowCrossShadowBoundary);
+  SetStartInternal(RawRangeBoundary::FromChild(*aNode.AsContent()),
+                   aAllowCrossShadowBoundary, aRv);
 }
 
 void nsRange::SetStartAfterJS(nsINode& aNode, ErrorResult& aErr) {
@@ -1276,38 +1320,34 @@ void nsRange::SetStartAfterJS(nsINode& aNode, ErrorResult& aErr) {
 }
 
 void nsRange::SetStartAfter(nsINode& aNode, ErrorResult& aRv) {
-  if (!CanAccess(aNode)) {
-    aRv.Throw(NS_ERROR_DOM_SECURITY_ERR);
+  if (MOZ_UNLIKELY(!IsValidNodeToSetBeforeOrAfterOf(
+          aNode, CheckNodeAccessible::Yes, aRv))) {
     return;
   }
-
-  AutoInvalidateSelection atEndOfBlock(this);
-  // If the node is being removed from its parent, GetRawRangeBoundaryAfter()
-  // returns unset instance.  Then, SetStart() will throw
-  // NS_ERROR_DOM_INVALID_NODE_TYPE_ERR.
-  SetStart(RangeUtils::GetRawRangeBoundaryAfter(&aNode), aRv);
+  SetStartInternal(RawRangeBoundary::After(*aNode.AsContent()),
+                   AllowRangeCrossShadowBoundary::No, aRv);
 }
 
 void nsRange::SetEndJS(nsINode& aNode, uint32_t aOffset, ErrorResult& aErr) {
+  if (MOZ_UNLIKELY(!IsValidNodeAndOffsetForBoundary(
+          aNode, aOffset, CheckNodeAccessible::No, aErr))) {
+    return;
+  }
   AutoCalledByJSRestore calledByJSRestorer(*this);
   mCalledByJS = true;
   SetEnd(aNode, aOffset, aErr);
 }
 
-void nsRange::SetEnd(nsINode& aNode, uint32_t aOffset, ErrorResult& aRv,
-                     AllowRangeCrossShadowBoundary aAllowCrossShadowBoundary) {
-  if (!CanAccess(aNode)) {
-    aRv.Throw(NS_ERROR_DOM_SECURITY_ERR);
-    return;
-  }
-  AutoInvalidateSelection atEndOfBlock(this);
-  SetEnd(RawRangeBoundary(&aNode, aOffset), aRv, aAllowCrossShadowBoundary);
-}
+void nsRange::SetEndInternal(
+    const RawRangeBoundary& aPoint,
+    AllowRangeCrossShadowBoundary aAllowCrossShadowBoundary, ErrorResult& aRv) {
+  MOZ_ASSERT(aPoint.IsSetAndValid());
+  MOZ_ASSERT(CanAccess(*aPoint.GetContainer()));
 
-void nsRange::SetEnd(const RawRangeBoundary& aPoint, ErrorResult& aRv,
-                     AllowRangeCrossShadowBoundary aAllowCrossShadowBoundary) {
+  AutoInvalidateSelection atEndOfBlock(this);
+
   nsINode* newRoot = RangeUtils::ComputeRootNode(aPoint.GetContainer());
-  if (!newRoot) {
+  if (MOZ_UNLIKELY(!newRoot)) {
     aRv.Throw(NS_ERROR_DOM_INVALID_NODE_TYPE_ERR);
     return;
   }
@@ -1324,18 +1364,15 @@ void nsRange::SetEnd(const RawRangeBoundary& aPoint, ErrorResult& aRv,
   // that we care about, and we care it in Flat tree.
   // It's error prone if we mix the usage of DOM RangeBoundary
   // versus Flat RangeBoundary.
-  auto pointInFlat =
+  const Maybe<RawRangeBoundary> pointInFlat =
       aAllowCrossShadowBoundary == AllowRangeCrossShadowBoundary::Yes
-          ? Some(aPoint.AsRangeBoundaryInFlatTree())
+          ? Some(aPoint.AsRangeBoundaryInFlatTree(RangeBoundaryFor::End))
           : Nothing();
-
-  if (!aPoint.IsSetAndValid() &&
-      (!pointInFlat || !pointInFlat->IsSetAndValid())) {
+  if (NS_WARN_IF(pointInFlat && !pointInFlat->IsSetAndValid())) {
     aRv.Throw(NS_ERROR_DOM_INDEX_SIZE_ERR);
     return;
   }
 
-  MOZ_ASSERT_IF(pointInFlat, aPoint.IsSet());
   RangeBehaviour policy =
       GetRangeBehaviour(this, newRoot, aPoint, pointInFlat,
                         false /* aIsStartStart */, aAllowCrossShadowBoundary);
@@ -1348,7 +1385,8 @@ void nsRange::SetEnd(const RawRangeBoundary& aPoint, ErrorResult& aRv,
       if (aAllowCrossShadowBoundary == AllowRangeCrossShadowBoundary::Yes) {
         if (MayCrossShadowBoundaryStartRef() != mStart) {
           CreateOrUpdateCrossShadowBoundaryRangeIfNeeded(
-              MayCrossShadowBoundaryStartRef().AsRangeBoundaryInFlatTree(),
+              MayCrossShadowBoundaryStartRef().AsRangeBoundaryInFlatTree(
+                  RangeBoundaryFor::Start),
               pointInFlat.ref());
         }
       }
@@ -1365,7 +1403,8 @@ void nsRange::SetEnd(const RawRangeBoundary& aPoint, ErrorResult& aRv,
       MOZ_ASSERT(aAllowCrossShadowBoundary ==
                  AllowRangeCrossShadowBoundary::Yes);
       CreateOrUpdateCrossShadowBoundaryRangeIfNeeded(
-          MayCrossShadowBoundaryStartRef().AsRangeBoundaryInFlatTree(),
+          MayCrossShadowBoundaryStartRef().AsRangeBoundaryInFlatTree(
+              RangeBoundaryFor::Start),
           pointInFlat.ref());
       if (aPoint.IsSetAndValid()) {
         DoSetRange(aPoint, aPoint, newRoot, false, policy);
@@ -1380,8 +1419,7 @@ void nsRange::SetEndAllowCrossShadowBoundary(nsINode& aNode, uint32_t aOffset,
                                              ErrorResult& aErr) {
   AutoCalledByJSRestore calledByJSRestorer(*this);
   mCalledByJS = true;
-  SetEnd(aNode, aOffset, aErr,
-         AllowRangeCrossShadowBoundary::Yes /* aAllowCrossShadowBoundary */);
+  SetEnd(aNode, aOffset, aErr, AllowRangeCrossShadowBoundary::Yes);
 }
 
 void nsRange::SelectNodesInContainer(nsINode* aContainer,
@@ -1414,17 +1452,14 @@ void nsRange::SetEndBeforeJS(nsINode& aNode, ErrorResult& aErr) {
 void nsRange::SetEndBefore(
     nsINode& aNode, ErrorResult& aRv,
     AllowRangeCrossShadowBoundary aAllowCrossShadowBoundary) {
-  if (!CanAccess(aNode)) {
-    aRv.Throw(NS_ERROR_DOM_SECURITY_ERR);
+  if (MOZ_UNLIKELY(!IsValidNodeToSetBeforeOrAfterOf(
+          aNode, CheckNodeAccessible::Yes, aRv))) {
     return;
   }
 
   AutoInvalidateSelection atEndOfBlock(this);
-  // If the node is being removed from its parent, GetRawRangeBoundaryBefore()
-  // returns unset instance.  Then, SetEnd() will throw
-  // NS_ERROR_DOM_INVALID_NODE_TYPE_ERR.
-  SetEnd(RangeUtils::GetRawRangeBoundaryBefore(&aNode), aRv,
-         aAllowCrossShadowBoundary);
+  SetEndInternal(RawRangeBoundary::FromChild(*aNode.AsContent()),
+                 aAllowCrossShadowBoundary, aRv);
 }
 
 void nsRange::SetEndAfterJS(nsINode& aNode, ErrorResult& aErr) {
@@ -1434,16 +1469,13 @@ void nsRange::SetEndAfterJS(nsINode& aNode, ErrorResult& aErr) {
 }
 
 void nsRange::SetEndAfter(nsINode& aNode, ErrorResult& aRv) {
-  if (!CanAccess(aNode)) {
-    aRv.Throw(NS_ERROR_DOM_SECURITY_ERR);
+  if (MOZ_UNLIKELY(!IsValidNodeToSetBeforeOrAfterOf(
+          aNode, CheckNodeAccessible::Yes, aRv))) {
     return;
   }
 
-  AutoInvalidateSelection atEndOfBlock(this);
-  // If the node is being removed from its parent, GetRawRangeBoundaryAfter()
-  // returns unset instance.  Then, SetEnd() will throw
-  // NS_ERROR_DOM_INVALID_NODE_TYPE_ERR.
-  SetEnd(RangeUtils::GetRawRangeBoundaryAfter(&aNode), aRv);
+  SetEndInternal(RawRangeBoundary::After(*aNode.AsContent()),
+                 AllowRangeCrossShadowBoundary::No, aRv);
 }
 
 void nsRange::Collapse(bool aToStart) {
@@ -1516,8 +1548,8 @@ void nsRange::SelectNodeContents(nsINode& aNode, ErrorResult& aRv) {
   }
 
   AutoInvalidateSelection atEndOfBlock(this);
-  DoSetRange(RawRangeBoundary(&aNode, 0u),
-             RawRangeBoundary(&aNode, aNode.Length()), newRoot);
+  DoSetRange(RawRangeBoundary::StartOfParent(aNode),
+             RawRangeBoundary::EndOfParent(aNode), newRoot);
 }
 
 // The Subtree Content Iterator only returns subtrees that are

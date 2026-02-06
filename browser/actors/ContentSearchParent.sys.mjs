@@ -11,6 +11,10 @@ ChromeUtils.defineESModuleGetters(lazy, {
   UrlbarPrefs: "moz-src:///browser/components/urlbar/UrlbarPrefs.sys.mjs",
 });
 
+/**
+ * @import {SearchEngine} from "moz-src:///toolkit/components/search/SearchEngine.sys.mjs"
+ */
+
 const SEARCH_ENGINE_PLACEHOLDER_ICON =
   "chrome://browser/skin/search-engine-placeholder.png";
 
@@ -292,7 +296,7 @@ export let ContentSearch = {
    * Converts the engine's icon into a URL or an ArrayBuffer for passing to the
    * content process.
    *
-   * @param {nsISearchEngine} engine
+   * @param {SearchEngine} engine
    *   The engine to get the icon for.
    * @returns {Promise<string|iconData>}
    *   The icon's URL or an iconData object containing the icon data.

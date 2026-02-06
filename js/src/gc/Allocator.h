@@ -18,7 +18,7 @@ namespace js {
 namespace gc {
 
 class AllocSite;
-struct Cell;
+class Cell;
 class BufferAllocator;
 class TenuredCell;
 class TenuringTracer;

@@ -56,7 +56,6 @@ class TRRServiceBase : public nsIProxyConfigChangedCallback {
   void OnTRRModeChange();
   void OnTRRURIChange();
 
-  void DoReadEtcHostsFile(ParsingCallback aCallback);
   virtual void ReadEtcHostsFile() = 0;
   // Called to create a connection info that will be used by TRRServiceChannel.
   // Note that when this function is called, mDefaultTRRConnectionInfo will be

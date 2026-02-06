@@ -49,18 +49,18 @@ add_setup(async function () {
   let engineDefault = SearchService.getEngineByName("MozSearch1");
   await SearchService.setDefault(
     engineDefault,
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+    SearchService.CHANGE_REASON.UNKNOWN
   );
 
   registerCleanupFunction(async function () {
     gCUITestUtils.removeSearchBar();
     await SearchService.setDefault(
       originalEngine,
-      Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+      SearchService.CHANGE_REASON.UNKNOWN
     );
     await SearchService.setDefaultPrivate(
       originalPrivateEngine,
-      Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+      SearchService.CHANGE_REASON.UNKNOWN
     );
   });
 });
@@ -116,7 +116,7 @@ add_task(async function test_default_search_private_no_separate() {
 
   await SearchService.setDefaultPrivate(
     SearchService.getEngineByName("MozSearch2"),
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+    SearchService.CHANGE_REASON.UNKNOWN
   );
 
   const win = await BrowserTestUtils.openNewBrowserWindow({ private: true });

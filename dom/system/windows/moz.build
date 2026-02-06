@@ -20,6 +20,12 @@ IPDL_SOURCES += [
 LOCAL_INCLUDES += [
     "/dom/system/windows/location",
 ]
+if CONFIG["MOZ_ENTERPRISE"]:
+    UNIFIED_SOURCES += ["MobileBroadbandImeiProvider.cpp"]
+
+    XPCOM_MANIFESTS += [
+        "components.conf",
+    ]
 
 DIRS += ["location"]
 

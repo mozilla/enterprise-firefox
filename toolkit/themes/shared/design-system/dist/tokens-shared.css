@@ -20,6 +20,14 @@
     --promo-background-color: var(--background-color-box-info);
     --table-row-background-color: var(--background-color-canvas);
 
+    /** Badge **/
+    --badge-background-color: transparent;
+    --badge-background-color-filled: light-dark(var(--color-green-70), var(--color-green-40));
+    --badge-border-color: var(--border-color);
+    --badge-border-color-filled: light-dark(rgba(251, 251, 254, 0.4), rgba(21, 20, 26, 0.4));
+    --badge-text-color: var(--text-color);
+    --badge-text-color-filled: light-dark(var(--color-white), var(--color-gray-100));
+
     /** Border **/
     --border-color-card: color-mix(in srgb, currentColor 10%, transparent);
     --border-color-interactive-hover: var(--border-color-interactive);
@@ -60,6 +68,10 @@
     --button-background-color-ghost-active: var(--button-background-color-active);
     --button-background-color-ghost-disabled: var(--button-background-color-ghost);
     --button-background-color-ghost-selected: var(--button-background-color-ghost-active);
+    --button-background-color-menu: var(--button-background-color-ghost);
+    --button-background-color-menu-hover: var(--button-background-color-ghost-hover);
+    --button-background-color-menu-active: var(--button-background-color-ghost-active);
+    --button-background-color-menu-disabled: var(--button-background-color-ghost-disabled);
     --button-background-color-primary: var(--color-accent-primary);
     --button-background-color-primary-hover: var(--color-accent-primary-hover);
     --button-background-color-primary-active: var(--color-accent-primary-active);
@@ -113,6 +125,10 @@
     --button-text-color-ghost-active: inherit;
     --button-text-color-ghost-disabled: inherit;
     --button-text-color-ghost-selected: var(--button-text-color-ghost-active);
+    --button-text-color-menu: var(--button-text-color-ghost);
+    --button-text-color-menu-hover: var(--button-text-color-ghost-hover);
+    --button-text-color-menu-active: var(--button-text-color-ghost-active);
+    --button-text-color-menu-disabled: var(--button-text-color-ghost-disabled);
     --button-text-color-primary-hover: var(--button-text-color-primary);
     --button-text-color-primary-active: var(--button-text-color-primary-hover);
     --button-text-color-primary-disabled: var(--button-text-color-primary);
@@ -397,6 +413,13 @@
       /** Background Color **/
       --table-row-background-color-alternate: var(--background-color-canvas); /* TODO Bug 1821203 - Gray use needs to be consolidated */
 
+      /** Badge **/
+      --badge-background-color: Canvas;
+      --badge-background-color-filled: AccentColor;
+      --badge-border-color-filled: CanvasText;
+      --badge-text-color: CanvasText;
+      --badge-text-color-filled: AccentColorText;
+
       /** Border **/
       --border-color-card: CanvasText;
       --border-color-deemphasized: ButtonText;
@@ -415,6 +438,8 @@
       --button-background-color-destructive-hover: var(--button-background-color-primary-hover);
       --button-background-color-destructive-active: var(--button-background-color-primary-active);
       --button-background-color-destructive-disabled: var(--button-background-color-primary-disabled);
+      --button-background-color-menu-hover: var(--button-background-color-primary);
+      --button-background-color-menu-active: var(--button-background-color-primary);
       --button-background-color-primary-disabled: var(--button-text-color-disabled);
       --button-border-color: var(--border-color-interactive);
       --button-border-color-hover: var(--border-color-interactive-hover);
@@ -438,6 +463,8 @@
       --button-text-color-destructive-disabled: var(--button-text-color-primary-disabled);
       --button-text-color-ghost-hover: var(--button-text-color-hover);
       --button-text-color-ghost-active: var(--button-text-color-active);
+      --button-text-color-menu-hover: var(--button-text-color-primary);
+      --button-text-color-menu-active: var(--button-text-color-primary);
       --button-text-color-primary: ButtonFace;
       --button-text-color-primary-hover: SelectedItemText;
 

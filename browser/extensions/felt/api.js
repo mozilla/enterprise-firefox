@@ -9,8 +9,10 @@
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
+  FELT_OPEN_WINDOW_DISPOSITION: "resource:///modules/FeltURLHandler.sys.mjs",
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
   FeltStorage: "resource:///modules/FeltStorage.sys.mjs",
+  PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
 });
 
 this.felt = class extends ExtensionAPI {
@@ -49,6 +51,21 @@ this.felt = class extends ExtensionAPI {
       matches,
     });
 
+    // We use a much simpler version of the context menu so replace the default actor with our own.
+    ChromeUtils.unregisterWindowActor("ContextMenu");
+    ChromeUtils.registerWindowActor("ContextMenu", {
+      parent: {
+        esModuleURI: "chrome://felt/content/ContextMenuParent.sys.mjs",
+      },
+      child: {
+        esModuleURI: "chrome://felt/content/ContextMenuChild.sys.mjs",
+        events: {
+          contextmenu: { mozSystemGroup: true },
+        },
+      },
+      allFrames: true,
+    });
+
     ChromeUtils.registerProcessActor(this.FELT_PROCESS_ACTOR, {
       parent: {
         esModuleURI: "chrome://felt/content/FeltProcessParent.sys.mjs",
@@ -65,7 +82,17 @@ this.felt = class extends ExtensionAPI {
       }
     },
 
-    async _handleFeltExternalUrl(url) {
+    async _handleFeltExternalUrl(data) {
+      let { url, disposition } = this._parseOpenURLData(data);
+      if (
+        disposition === lazy.FELT_OPEN_WINDOW_DISPOSITION.NEW_WINDOW ||
+        disposition === lazy.FELT_OPEN_WINDOW_DISPOSITION.NEW_PRIVATE_WINDOW
+      ) {
+        let wantsPrivate =
+          disposition === lazy.FELT_OPEN_WINDOW_DISPOSITION.NEW_PRIVATE_WINDOW;
+        this._openFeltWindow(url, wantsPrivate);
+        return;
+      }
       let win = lazy.BrowserWindowTracker.getTopWindow({
         private: false,
       });
@@ -104,6 +131,38 @@ this.felt = class extends ExtensionAPI {
         win.openTrustedLinkIn(url, "tab");
       } catch (err) {
         console.error("FeltExtension: Failed to open forwarded URL", url, err);
+      }
+    },
+
+    _parseOpenURLData(data) {
+      let parsed = JSON.parse(data);
+      return {
+        url: parsed.url ?? "",
+        disposition:
+          parsed.disposition ?? lazy.FELT_OPEN_WINDOW_DISPOSITION.DEFAULT,
+      };
+    },
+
+    _openFeltWindow(url, wantsPrivate) {
+      if (wantsPrivate && !lazy.PrivateBrowsingUtils.enabled) {
+        wantsPrivate = false;
+        url = "about:privatebrowsing";
+      }
+
+      try {
+        let args = null;
+        if (url) {
+          args = Cc["@mozilla.org/supports-string;1"].createInstance(
+            Ci.nsISupportsString
+          );
+          args.data = url;
+        }
+        lazy.BrowserWindowTracker.openWindow({
+          private: wantsPrivate,
+          args,
+        });
+      } catch (err) {
+        console.error("FeltExtension: Failed to open forwarded window", err);
       }
     },
   };

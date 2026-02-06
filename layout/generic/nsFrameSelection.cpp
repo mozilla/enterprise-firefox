@@ -137,9 +137,21 @@ MOZ_CAN_RUN_SCRIPT_BOUNDARY static nsresult CreateAndAddRange(
 static nsresult SelectCellElement(nsIContent* aCellElement,
                                   Selection& aNormalSelection);
 
-#ifdef XP_MACOSX
-static nsresult UpdateSelectionCacheOnRepaintSelection(Selection* aSel);
-#endif  // XP_MACOSX
+// On macOS, we need to update the selection cache when we repaint a selection.
+// This runs nsHTMLCopyEncoder to serialize the selection ranges, which is
+// really complicated especially when shadow DOM selection. Therefore, that may
+// cause some assertion failures. Unfortunately, our macOS machines in the CI
+// are always busy and we need one or two days to check the result on trysever.
+// Therefore, we should run nsHTMLCopyEncoder part in all desktop platforms if
+// it's a debug build. Thus, we can check the result on Linux machines in
+// tryserver.
+#if defined(XP_MACOSX) || (defined(DEBUG) && !defined(ANDROID))
+#  define RUN_MAYBE_UPDATE_SELECTION_CACHE_REPAINT_SELECTION
+#endif
+
+#ifdef RUN_MAYBE_UPDATE_SELECTION_CACHE_REPAINT_SELECTION
+static nsresult MaybeUpdateSelectionCacheOnRepaintSelection(Selection* aSel);
+#endif  // RUN_MAYBE_UPDATE_SELECTION_CACHE_REPAINT_SELECTION
 
 #ifdef PRINT_RANGE
 static void printRange(nsRange* aDomRange);
@@ -1162,9 +1174,8 @@ void nsFrameSelection::MaintainedRange::AdjustContentOffsets(
   // Adjust offsets according to maintained amount
   if (mRange && mAmount != eSelectNoAmount) {
     const Maybe<int32_t> relativePosition = nsContentUtils::ComparePoints(
-        mRange->StartRef(),
-        RawRangeBoundary(aOffsets.content, aOffsets.offset,
-                         RangeBoundaryIsMutationObserved::No));
+        mRange->StartRef(), RawRangeBoundary(aOffsets.content, aOffsets.offset,
+                                             RangeBoundarySetBy::Offset));
     if (NS_WARN_IF(!relativePosition)) {
       // Potentially handle this properly when Selection across Shadow DOM
       // boundary is implemented
@@ -1730,14 +1741,21 @@ nsresult nsFrameSelection::RepaintSelection(SelectionType aSelectionType) {
 
 // On macOS, update the selection cache to the new active selection
 // aka the current selection.
-#ifdef XP_MACOSX
+// NOTE: On Linux and Windows, we don't need to run this because this just runs
+// nsHTMLCopyEncorder without updating the selection cache.  However, we run
+// this in the debug builds on Linux and Windows. See the comment of this macro
+// definition for the detail.
+#ifdef RUN_MAYBE_UPDATE_SELECTION_CACHE_REPAINT_SELECTION
   // Check that we're in the an active window and, if this is Web content,
   // in the frontmost tab.
+  // XXX This is called when the selection blurs, see
+  // PresShell::FrameSelectionWillLoseFocus(). Cannot we skip doing this in that
+  // case?
   Document* doc = mPresShell->GetDocument();
   if (doc && IsInActiveTab(doc) && aSelectionType == SelectionType::eNormal) {
-    UpdateSelectionCacheOnRepaintSelection(sel);
+    MaybeUpdateSelectionCacheOnRepaintSelection(sel);
   }
-#endif
+#endif  // #ifdef RUN_MAYBE_UPDATE_SELECTION_CACHE_REPAINT_SELECTION
   return sel->Repaint(mPresShell->GetPresContext());
 }
 
@@ -3122,7 +3140,7 @@ void nsFrameSelection::DisconnectFromPresShell() {
   }
 }
 
-#ifdef XP_MACOSX
+#ifdef RUN_MAYBE_UPDATE_SELECTION_CACHE_REPAINT_SELECTION
 /**
  * See Bug 1288453.
  *
@@ -3142,7 +3160,7 @@ void nsFrameSelection::DisconnectFromPresShell() {
  * If the current selection is empty. The current selection cache
  * would be cleared by AutoCopyListener::OnSelectionChange().
  */
-static nsresult UpdateSelectionCacheOnRepaintSelection(Selection* aSel) {
+static nsresult MaybeUpdateSelectionCacheOnRepaintSelection(Selection* aSel) {
   PresShell* presShell = aSel->GetPresShell();
   if (!presShell) {
     return NS_OK;
@@ -3151,12 +3169,21 @@ static nsresult UpdateSelectionCacheOnRepaintSelection(Selection* aSel) {
 
   if (aDoc && aSel && !aSel->IsCollapsed()) {
     return nsCopySupport::EncodeDocumentWithContextAndPutToClipboard(
-        aSel, aDoc, nsIClipboard::kSelectionCache, false);
+        aSel, aDoc, nsIClipboard::kSelectionCache, false,
+#  ifdef XP_MACOSX
+        // Update the selection cache on macOS
+        nsCopySupport::UpdateClipboard::Yes
+#  else
+        // Do not update the clipboard on the other platforms, just run the
+        // serializer to detect assertion failures.
+        nsCopySupport::UpdateClipboard::No
+#  endif
+    );
   }
 
   return NS_OK;
 }
-#endif  // XP_MACOSX
+#endif  // RUN_MAYBE_UPDATE_SELECTION_CACHE_REPAINT_SELECTION
 
 // mozilla::AutoCopyListener
 

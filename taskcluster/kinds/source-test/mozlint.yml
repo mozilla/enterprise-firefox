@@ -452,7 +452,9 @@ test-manifest:
         files-changed:
             - '**/*.toml'
             - 'python/mozlint/**'
-            - 'tools/lint/**'
+            - 'tools/lint/test/files/test_manifest_toml/**'
+            - 'tools/lint/test/test_manifest_toml.py'
+            - 'tools/lint/test-manifest-toml/**'
 
 wptlint-gecko:
     description: web-platform-tests linter

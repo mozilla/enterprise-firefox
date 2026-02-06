@@ -5,31 +5,53 @@
 
 "use strict";
 
+const lazy = {};
+
+const { sinon } = ChromeUtils.importESModule(
+  "resource://testing-common/Sinon.sys.mjs"
+);
+
+ChromeUtils.defineESModuleGetters(lazy, {
+  SpecialMessageActions:
+    "resource://messaging-system/lib/SpecialMessageActions.sys.mjs",
+});
+
 const FEATURE_PREF = "browser.ipProtection.enabled";
 const SITE_EXCEPTIONS_FEATURE_PREF =
   "browser.ipProtection.features.siteExceptions";
 const AUTOSTART_FEATURE_ENABLED_PREF =
   "browser.ipProtection.features.autoStart";
+const BANDWIDTH_FEATURE_ENABLED_PREF = "browser.ipProtection.bandwidth.enabled";
 const AUTOSTART_PREF = "browser.ipProtection.autoStartEnabled";
 const AUTOSTART_PRIVATE_PREF = "browser.ipProtection.autoStartPrivateEnabled";
 const ONBOARDING_MESSAGE_MASK_PREF =
   "browser.ipProtection.onboardingMessageMask";
+const ENTITLEMENT_CACHE_PREF = "browser.ipProtection.entitlementCache";
 
 async function setupVpnPrefs({
   feature = false,
   siteExceptions = false,
   autostartFeatureEnabled = false,
+  bandwidth = false,
   autostart = false,
   autostartprivate = false,
+  entitlementCache = undefined,
 }) {
+  let prefs = [
+    [FEATURE_PREF, feature],
+    [SITE_EXCEPTIONS_FEATURE_PREF, siteExceptions],
+    [AUTOSTART_FEATURE_ENABLED_PREF, autostartFeatureEnabled],
+    [BANDWIDTH_FEATURE_ENABLED_PREF, bandwidth],
+    [AUTOSTART_PREF, autostart],
+    [AUTOSTART_PRIVATE_PREF, autostartprivate],
+  ];
+
+  if (entitlementCache !== undefined) {
+    prefs.push([ENTITLEMENT_CACHE_PREF, entitlementCache]);
+  }
+
   return SpecialPowers.pushPrefEnv({
-    set: [
-      [FEATURE_PREF, feature],
-      [SITE_EXCEPTIONS_FEATURE_PREF, siteExceptions],
-      [AUTOSTART_FEATURE_ENABLED_PREF, autostartFeatureEnabled],
-      [AUTOSTART_PREF, autostart],
-      [AUTOSTART_PRIVATE_PREF, autostartprivate],
-    ],
+    set: prefs,
   });
 }
 
@@ -346,6 +368,192 @@ add_task(async function test_additional_links() {
       is_element_visible(
         ipProtectionLinks,
         "VPN upgrade link section is shown"
+      );
+    }
+  );
+});
+
+// Test that the "not opted in" section is shown when entitlementCache is "null"
+add_task(async function test_not_opted_in_section_visible_when_null() {
+  await setupVpnPrefs({
+    feature: true,
+    entitlementCache: "null",
+  });
+
+  await BrowserTestUtils.withNewTab(
+    { gBrowser, url: "about:preferences#privacy" },
+    async function (browser) {
+      let settingGroup = testSettingsGroupVisible(browser);
+      let notOptedInSection = settingGroup?.querySelector(
+        "#ipProtectionNotOptedInSection"
+      );
+      is_element_visible(
+        notOptedInSection,
+        "Not opted in section is shown when entitlementCache is null"
+      );
+
+      let getStartedButton = settingGroup?.querySelector("#getStartedButton");
+      is_element_visible(
+        getStartedButton,
+        "Get started button is shown when entitlementCache is null"
+      );
+    }
+  );
+});
+
+// Test that clicking the "Get started" button calls fxaSignInFlow
+add_task(async function test_get_started_button() {
+  let sandbox = sinon.createSandbox();
+  sandbox
+    .stub(lazy.SpecialMessageActions, "fxaSignInFlow")
+    .callsFake(async function () {
+      return true;
+    });
+
+  await setupVpnPrefs({
+    feature: true,
+    entitlementCache: "null",
+  });
+
+  await BrowserTestUtils.withNewTab(
+    { gBrowser, url: "about:preferences#privacy" },
+    async function (browser) {
+      let settingGroup = testSettingsGroupVisible(browser);
+      let getStartedButton = settingGroup?.querySelector("#getStartedButton");
+      is_element_visible(
+        getStartedButton,
+        "Get started button is shown when entitlementCache is null"
+      );
+
+      getStartedButton.click();
+
+      Assert.ok(
+        lazy.SpecialMessageActions.fxaSignInFlow.calledOnce,
+        "fxaSignInFlow should be called once when Get started button is clicked"
+      );
+    }
+  );
+
+  sandbox.restore();
+});
+
+// Test that the "not opted in" section is hidden when entitlementCache has a value
+add_task(async function test_not_opted_in_section_hidden_when_opted_in() {
+  await setupVpnPrefs({
+    feature: true,
+    entitlementCache: '{"some":"data"}',
+  });
+
+  await BrowserTestUtils.withNewTab(
+    { gBrowser, url: "about:preferences#privacy" },
+    async function (browser) {
+      let settingGroup = testSettingsGroupVisible(browser);
+      let notOptedInSection = settingGroup?.querySelector(
+        "#ipProtectionNotOptedInSection"
+      );
+      is_element_hidden(
+        notOptedInSection,
+        "Not opted in section is hidden when entitlementCache has a value"
+      );
+
+      let getStartedButton = settingGroup?.querySelector("#getStartedButton");
+      is_element_hidden(
+        getStartedButton,
+        "Get started button is hidden when entitlementCache has a value"
+      );
+    }
+  );
+});
+
+// Test that VPN sections are hidden when entitlementCache is "null"
+add_task(async function test_vpn_sections_hidden_when_not_opted_in() {
+  await setupVpnPrefs({
+    feature: true,
+    siteExceptions: true,
+    autostartFeatureEnabled: true,
+    entitlementCache: "null",
+  });
+
+  await BrowserTestUtils.withNewTab(
+    { gBrowser, url: "about:preferences#privacy" },
+    async function (browser) {
+      let settingGroup = testSettingsGroupVisible(browser);
+
+      let siteExceptionsGroup = settingGroup?.querySelector(
+        "#ipProtectionExceptions"
+      );
+      is_element_hidden(
+        siteExceptionsGroup,
+        "Site exceptions group is hidden when entitlementCache is null"
+      );
+
+      let autoStartSettings = settingGroup?.querySelector(
+        "#ipProtectionAutoStart"
+      );
+      is_element_hidden(
+        autoStartSettings,
+        "Autostart settings group is hidden when entitlementCache is null"
+      );
+
+      let ipProtectionLinks = settingGroup?.querySelector("#ipProtectionLinks");
+      is_element_hidden(
+        ipProtectionLinks,
+        "VPN links section is hidden when entitlementCache is null"
+      );
+
+      let bandwidthSettings = settingGroup?.querySelector(
+        "#ipProtectionBandwidth"
+      );
+      is_element_hidden(
+        bandwidthSettings,
+        "Bandwidth settings are hidden when entitlementCache is null"
+      );
+    }
+  );
+});
+
+// Test that VPN sections are shown when entitlementCache has a value
+add_task(async function test_vpn_sections_shown_when_opted_in() {
+  await setupVpnPrefs({
+    feature: true,
+    siteExceptions: true,
+    autostartFeatureEnabled: true,
+    entitlementCache: '{"some":"data"}',
+  });
+
+  await BrowserTestUtils.withNewTab(
+    { gBrowser, url: "about:preferences#privacy" },
+    async function (browser) {
+      let settingGroup = testSettingsGroupVisible(browser);
+
+      let siteExceptionsGroup = settingGroup?.querySelector(
+        "#ipProtectionExceptions"
+      );
+      is_element_visible(
+        siteExceptionsGroup,
+        "Site exceptions group is shown when entitlementCache has a value"
+      );
+
+      let autoStartSettings = settingGroup?.querySelector(
+        "#ipProtectionAutoStart"
+      );
+      is_element_visible(
+        autoStartSettings,
+        "Autostart settings group is shown when entitlementCache has a value"
+      );
+
+      let ipProtectionLinks = settingGroup?.querySelector("#ipProtectionLinks");
+      is_element_visible(
+        ipProtectionLinks,
+        "VPN links section is shown when entitlementCache has a value"
+      );
+
+      let bandwidthSettings = settingGroup?.querySelector(
+        "#ipProtectionBandwidth"
+      );
+      is_element_hidden(
+        bandwidthSettings,
+        "Bandwidth settings are hidden when bandwidth feature is not enabled"
       );
     }
   );

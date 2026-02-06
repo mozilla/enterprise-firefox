@@ -1963,7 +1963,7 @@ size_t MarkStack::moveWork(GCMarker* marker, MarkStack& dst, MarkStack& src,
       // pair of entries moving to different stacks.
       MOZ_ASSERT(randomBitCount != 0);
       bool whichStack = (randomBits & 1) ^ (i & 1);
-      randomBits <<= i & 1;
+      randomBits >>= i & 1;
       randomBitCount -= i & 1;
 
       MarkStack& stack = whichStack ? dst : src;

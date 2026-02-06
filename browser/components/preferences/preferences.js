@@ -17,7 +17,7 @@
 
 /** @import MozButton from "chrome://global/content/elements/moz-button.mjs" */
 /** @import {SettingConfig, SettingEmitChange} from "chrome://global/content/preferences/Setting.mjs" */
-/** @import {SettingControlConfig} from "chrome://browser/content/preferences/widgets/setting-control.mjs" */
+/** @import {SettingControlConfig, SettingOptionConfig} from "chrome://browser/content/preferences/widgets/setting-control.mjs" */
 /** @import {SettingGroup} from "chrome://browser/content/preferences/widgets/setting-group.mjs" */
 /** @import {SettingPane, SettingPaneConfig} from "chrome://browser/content/preferences/widgets/setting-pane.mjs" */
 
@@ -233,11 +233,6 @@ var SettingGroupManager = ChromeUtils.importESModule(
  * @type {Record<string, SettingPaneConfig>}
  */
 const CONFIG_PANES = Object.freeze({
-  containers2: {
-    parent: "general",
-    l10nId: "containers-section-header",
-    groupIds: ["containers"],
-  },
   dnsOverHttps: {
     parent: "privacy",
     l10nId: "preferences-doh-header2",
@@ -262,7 +257,7 @@ const CONFIG_PANES = Object.freeze({
   etpCustomize: {
     parent: "etp",
     l10nId: "preferences-etp-customize-header",
-    groupIds: ["etpReset", "etpCustomize"],
+    groupIds: ["etpCustomize", "etpReset"],
   },
   manageAddresses: {
     parent: "privacy",
@@ -281,9 +276,11 @@ const CONFIG_PANES = Object.freeze({
   },
   ai: {
     l10nId: "preferences-ai-controls-header",
-    groupIds: ["debugModelManagement", "aiFeatures", "aiWindowFeatures"],
+    iconSrc: "chrome://global/skin/icons/highlights.svg",
+    groupIds: ["aiControlsDescription", "aiFeatures", "aiStatesDescription"],
     module: "chrome://browser/content/preferences/config/aiFeatures.mjs",
-    visible: () => srdSectionEnabled("aiFeatures"),
+    visible: () =>
+      Services.prefs.getBoolPref("browser.preferences.aiControls", false),
   },
   history: {
     parent: "privacy",

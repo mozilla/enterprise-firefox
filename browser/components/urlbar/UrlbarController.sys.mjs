@@ -1106,6 +1106,13 @@ class TelemetryEvent {
       sap = "handoff";
     } else if (searchSource === "searchbar") {
       sap = "searchbar";
+    } else if (browserWindow.closed) {
+      // If the browser window has already started closing, then we bail-out.
+      // We would rather return no telemetry than have telemetry with an
+      // incorrect SAP. Generally, this should only happen in tests, since
+      // the timing would need to be very close for the code not to have got
+      // here before the user started closing the window.
+      return;
     } else if (
       browserWindow.isBlankPageURL(browserWindow.gBrowser.currentURI.spec)
     ) {
@@ -1629,21 +1636,20 @@ class TelemetryEvent {
     this.#previousSearchWordsSet = null;
   }
 
+  /**
+   * Prefs to record in telemetry.
+   *
+   * If a pref is a `fallbackPref` for a Nimbus variable, list the variable
+   * instead of the pref. That way, the metric will record the variable value
+   * when the variable is defined and the pref value otherwise.
+   */
   #PING_PREFS = {
     maxRichResults: Glean.urlbar.prefMaxResults,
-    "quicksuggest.online.available": Glean.urlbar.prefSuggestOnlineAvailable,
+    quickSuggestOnlineAvailable: Glean.urlbar.prefSuggestOnlineAvailable,
     "quicksuggest.online.enabled": Glean.urlbar.prefSuggestOnlineEnabled,
     "suggest.quicksuggest.all": Glean.urlbar.prefSuggestAll,
     "suggest.quicksuggest.sponsored": Glean.urlbar.prefSuggestSponsored,
     "suggest.topsites": Glean.urlbar.prefSuggestTopsites,
-  };
-
-  // Used to record telemetry for prefs that are fallbacks for Nimbus variables.
-  // `onNimbusChanged` is called for these variables rather than `onPrefChanged`
-  // but we want to record telemetry as if the prefs themselves changed. This
-  // object maps Nimbus variable names to their fallback prefs.
-  #PING_NIMBUS_VARIABLES = {
-    quickSuggestOnlineAvailable: "quicksuggest.online.available",
   };
 
   #readPingPrefs() {
@@ -1652,19 +1658,20 @@ class TelemetryEvent {
     }
   }
 
-  #recordPref(pref, newValue = undefined) {
+  #recordPref(pref) {
     const metric = this.#PING_PREFS[pref];
-    const prefValue = newValue ?? lazy.UrlbarPrefs.get(pref);
     if (metric) {
-      metric.set(prefValue);
+      metric.set(lazy.UrlbarPrefs.get(pref));
     }
+
     switch (pref) {
       case "suggest.quicksuggest.all":
       case "suggest.quicksuggest.sponsored":
       case "quicksuggest.enabled":
-        if (!prefValue) {
+        if (!lazy.UrlbarPrefs.get(pref)) {
           this.handleDisableSuggest();
         }
+        break;
     }
   }
 
@@ -1672,10 +1679,8 @@ class TelemetryEvent {
     this.#recordPref(pref);
   }
 
-  onNimbusChanged(name, newValue) {
-    if (this.#PING_NIMBUS_VARIABLES.hasOwnProperty(name)) {
-      this.#recordPref(this.#PING_NIMBUS_VARIABLES[name], newValue);
-    }
+  onNimbusChanged(variable) {
+    this.#recordPref(variable);
   }
 
   // Used to avoid re-entering `record()`.

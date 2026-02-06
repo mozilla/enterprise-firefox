@@ -127,6 +127,8 @@ const TAB_EVENTS = [
   "TabGroupCollapse",
   "TabGroupExpand",
   "TabSplitViewActivate",
+  "SplitViewRemoved",
+  "SplitViewCreated",
 ];
 
 const XUL_NS = "http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul";
@@ -1948,6 +1950,8 @@ var SessionStoreInternal = {
       case "TabUngrouped":
       case "TabGroupCollapse":
       case "TabGroupExpand":
+      case "SplitViewRemoved":
+      case "SplitViewCreated":
         this.saveStateDelayed(win);
         break;
       case "TabGroupRemoveRequested":
@@ -1960,6 +1964,7 @@ var SessionStoreInternal = {
         for (const tab of aEvent.detail.tabs) {
           this.maybeRestoreTabContent(tab);
         }
+        this.saveStateDelayed(win);
         break;
       case "oop-browser-crashed":
       case "oop-browser-buildid-mismatch":
@@ -3335,6 +3340,9 @@ var SessionStoreInternal = {
     let closedGroups = this._windows[win.__SSi].closedGroups;
     let tabGroupState = lazy.TabGroupState.closed(tabGroup, win.__SSi);
     tabGroupState.tabs = this._collectClosedTabsForTabGroup(tabGroup.tabs, win);
+    tabGroupState.splitViews = this._collectSplitViewDataForTabGroup(
+      tabGroup.tabs
+    );
 
     // TODO(jswinarton) it's unclear if updating lastClosedTabGroupCount is
     // necessary when restoring tab groups — it largely depends on how we
@@ -3379,6 +3387,22 @@ var SessionStoreInternal = {
       });
     });
     return closedTabs;
+  },
+
+  /**
+   * @param {MozTabbrowserTab[]} tabs
+   * @returns {TabSplitViewStateData[]}
+   */
+  _collectSplitViewDataForTabGroup(tabs) {
+    let splitViewData = new Map();
+    tabs.forEach(tab => {
+      if (tab.splitview) {
+        if (!splitViewData.get(tab.splitview.splitViewId)) {
+          splitViewData.set(tab.splitview.splitViewId, tab.splitview.state);
+        }
+      }
+    });
+    return Array.from(splitViewData.values());
   },
 
   /**
@@ -5216,7 +5240,15 @@ var SessionStoreInternal = {
       // the state we're trying to restore and then fallback to the last selected
       // window.
       let windowToUse = windows[lastSessionWindowID];
-      if (!windowToUse && canUseLastWindow) {
+      let lastWindowIsAIWindow =
+        lastWindow && lazy.AIWindow.isAIWindowActive(lastWindow);
+      let thisWindowIsAIWindow =
+        !!winState.isAIWindow && lazy.AIWindow.isAIWindowEnabled();
+      if (
+        !windowToUse &&
+        canUseLastWindow &&
+        lastWindowIsAIWindow == thisWindowIsAIWindow
+      ) {
         windowToUse = lastWindow;
         canUseLastWindow = false;
       }
@@ -5511,7 +5543,7 @@ var SessionStoreInternal = {
       winData.workspaceID = workspaceID;
     }
 
-    winData.isAIWindow = lazy.AIWindow.isAIWindowActiveAndEnabled(aWindow);
+    winData.isAIWindow = lazy.AIWindow.isAIWindowActive(aWindow);
   },
 
   /**
@@ -5723,7 +5755,11 @@ var SessionStoreInternal = {
       let tabGroupData = lazy.TabGroupState.collect(tabGroup);
       winData.groups.push(tabGroupData);
     }
-
+    winData.splitViews = [];
+    for (let splitView of aWindow.gBrowser.splitViews) {
+      let splitViewData = splitView.state;
+      winData.splitViews.push(splitViewData);
+    }
     let selectedIndex = tabbrowser.tabbox.selectedIndex + 1;
     // We don't store the Firefox View tab in Session Store, so if it was the last selected "tab" when
     // a window is closed, point to the first item in the tab strip instead (it will never be the Firefox View tab,
@@ -5879,14 +5915,15 @@ var SessionStoreInternal = {
     this._log.debug(
       `restoreWindow, will restore ${winData.tabs.length} tabs and ${
         winData.groups?.length ?? 0
-      } tab groups, restoreTabsLazily: ${restoreTabsLazily}`
+      } tab groups and ${winData.splitViews?.length ?? 0} splitviews, restoreTabsLazily: ${restoreTabsLazily}`
     );
     if (winData.tabs.length) {
       var tabs = tabbrowser.createTabsForSessionRestore(
         restoreTabsLazily,
         selectTab,
         winData.tabs,
-        winData.groups ?? []
+        winData.groups ?? [],
+        winData.splitViews ?? []
       );
       this._log.debug(
         `restoreWindow, createTabsForSessionRestore returned ${tabs.length} tabs`
@@ -6301,8 +6338,9 @@ var SessionStoreInternal = {
     let isRemotenessUpdate = options.isRemotenessUpdate;
 
     let willRestoreImmediately =
-      options.restoreImmediately || tabbrowser.selectedBrowser == browser;
-
+      options.restoreImmediately ||
+      tabbrowser.selectedBrowser == browser ||
+      (tab.splitview && tab.splitview == tabbrowser.selectedTab.splitview);
     let isBrowserInserted = browser.isConnected;
 
     // Increase the busy state counter before modifying the tab.
@@ -8280,6 +8318,9 @@ var SessionStoreInternal = {
       tabGroup.tabs,
       tabGroup.ownerGlobal
     );
+    tabGroupState.splitViews = this._collectSplitViewDataForTabGroup(
+      tabGroup.tabs
+    );
     this._recordSavedTabGroupState(tabGroupState);
   },
 
@@ -8310,6 +8351,8 @@ var SessionStoreInternal = {
       updateTabGroupId: tabGroupId,
     });
     tabGroupState.tabs.push(...newTabState);
+    let newSplitViewData = this._collectSplitViewDataForTabGroup(tabs);
+    tabGroupState.splitViews.push(...newSplitViewData);
 
     let isVerticalMode = win.gBrowser.tabContainer.verticalMode;
     Glean.tabgroup.addTab.record({
@@ -8496,7 +8539,8 @@ var SessionStoreInternal = {
       true,
       0, // TODO Bug 1933113 - Save tab group position and selected tab with saved tab group data
       tabDataList,
-      [tabGroupData]
+      [tabGroupData],
+      tabGroupData.splitViews
     );
 
     this.restoreTabs(targetWindow, tabs, tabDataList, 0);

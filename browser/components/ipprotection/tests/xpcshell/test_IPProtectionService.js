@@ -77,7 +77,7 @@ add_task(async function test_IPProtectionService_updateState_signedOut() {
   let signedOutEventPromise = waitForEvent(
     IPProtectionService,
     "IPProtectionService:StateChanged",
-    () => IPProtectionService.state === IPProtectionStates.UNAVAILABLE
+    () => IPProtectionService.state === IPProtectionStates.UNAUTHENTICATED
   );
 
   IPProtectionService.updateState();

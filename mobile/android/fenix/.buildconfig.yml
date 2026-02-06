@@ -52,6 +52,7 @@ projects:
     - components:feature-session
     - components:feature-share
     - components:feature-sitepermissions
+    - components:feature-summarize
     - components:feature-syncedtabs
     - components:feature-tab-collections
     - components:feature-tabs
@@ -69,6 +70,7 @@ projects:
     - components:lib-state
     - components:service-digitalassetlinks
     - components:service-firefox-accounts
+    - components:service-firefox-relay
     - components:service-glean
     - components:service-location
     - components:service-mars

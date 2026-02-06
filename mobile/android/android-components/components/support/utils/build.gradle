@@ -15,6 +15,9 @@ android {
         compose = true
     }
     namespace = 'mozilla.components.support.utils'
+    testFixtures {
+        enable = true
+    }
 }
 
 dependencies {
@@ -27,11 +30,13 @@ dependencies {
     implementation libs.androidx.activity.compose
     implementation libs.androidx.annotation
     implementation platform(libs.androidx.compose.bom)
+    implementation libs.androidx.compose.runtime.saveable
     implementation libs.androidx.compose.foundation
     implementation libs.androidx.compose.ui
     implementation libs.androidx.core
     implementation libs.androidx.core.ktx
     implementation libs.kotlinx.coroutines
+    implementation libs.androidx.documentfile
 
     testImplementation project(":components:support-test")
 
@@ -39,6 +44,9 @@ dependencies {
     testImplementation libs.androidx.test.junit
     testImplementation libs.kotlinx.coroutines.test
     testImplementation libs.robolectric
+
+    testFixturesImplementation platform(libs.androidx.compose.bom)
+    testFixturesImplementation libs.androidx.compose.runtime.saveable
 }
 
 apply from: '../../../common-config.gradle'

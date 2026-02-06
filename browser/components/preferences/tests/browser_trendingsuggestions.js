@@ -33,7 +33,7 @@ add_setup(async function () {
   registerCleanupFunction(async () => {
     await SearchService.setDefault(
       defaultEngine,
-      Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+      SearchService.CHANGE_REASON.UNKNOWN
     );
   });
 });
@@ -63,7 +63,7 @@ add_task(async function testSuggestionsDisabled() {
 add_task(async function testNonTrendingEngine() {
   // Set engine that does not support trending suggestions as default.
   const engine1 = SearchService.getEngineByName("engine1");
-  SearchService.setDefault(engine1, Ci.nsISearchService.CHANGE_REASON_UNKNOWN);
+  SearchService.setDefault(engine1, SearchService.CHANGE_REASON.UNKNOWN);
   await openPreferencesViaOpenPreferencesAPI("search", { leaveOpen: true });
   let doc = gBrowser.selectedBrowser.contentDocument;
   let trendingCheckbox = doc.getElementById(TRENDING_CHECKBOX_ID);
@@ -77,7 +77,7 @@ add_task(async function testNonTrendingEngine() {
 
 add_task(async function testEnabledTrendingEngine() {
   const engine1 = SearchService.getEngineByName("Google");
-  SearchService.setDefault(engine1, Ci.nsISearchService.CHANGE_REASON_UNKNOWN);
+  SearchService.setDefault(engine1, SearchService.CHANGE_REASON.UNKNOWN);
   await openPreferencesViaOpenPreferencesAPI("search", { leaveOpen: true });
   let doc = gBrowser.selectedBrowser.contentDocument;
   let trendingCheckbox = doc.getElementById(TRENDING_CHECKBOX_ID);

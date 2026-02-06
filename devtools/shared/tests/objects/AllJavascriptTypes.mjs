@@ -299,6 +299,17 @@ const DOMAPIs = [
       ["h", 11],
     ])`,
   },
+  {
+    context: CONTEXTS.PAGE,
+    expression: `
+      const el = document.createElement("h1");
+      el.setAttribute("class", "test-class-a test-class-b");
+      el.setAttribute("id", "my-element");
+      el.setAttribute("aria-collapsed", "false");
+      el.setAttribute("hidden", "");
+      el;
+    `,
+  },
 ];
 
 const Errors = [

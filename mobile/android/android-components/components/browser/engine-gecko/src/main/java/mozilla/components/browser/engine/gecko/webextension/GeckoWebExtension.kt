@@ -20,6 +20,7 @@ import mozilla.components.concept.engine.webextension.Port
 import mozilla.components.concept.engine.webextension.TabHandler
 import mozilla.components.concept.engine.webextension.WebExtension
 import mozilla.components.support.base.log.logger.Logger
+import mozilla.components.support.utils.DownloadFileUtils
 import org.json.JSONObject
 import org.mozilla.geckoview.AllowOrDeny
 import org.mozilla.geckoview.GeckoResult
@@ -35,6 +36,7 @@ import org.mozilla.geckoview.WebExtension.Action as GeckoNativeWebExtensionActio
 class GeckoWebExtension(
     val nativeExtension: GeckoNativeWebExtension,
     val runtime: GeckoRuntime,
+    val downloadFileUtils: DownloadFileUtils,
 ) : WebExtension(nativeExtension.id, nativeExtension.location, true) {
 
     private val connectedPorts: MutableMap<PortId, GeckoPort> = mutableMapOf()
@@ -261,7 +263,8 @@ class GeckoWebExtension(
                 tabDetails: GeckoNativeWebExtension.CreateTabDetails,
             ): GeckoResult<GeckoSession>? {
                 val geckoEngineSession = GeckoEngineSession(
-                    runtime,
+                    runtime = runtime,
+                    downloadFileUtils = downloadFileUtils,
                     defaultSettings = defaultSettings,
                     openGeckoSession = false,
                 )
@@ -280,7 +283,8 @@ class GeckoWebExtension(
                     tabHandler.onNewTab(
                         this@GeckoWebExtension,
                         GeckoEngineSession(
-                            runtime,
+                            runtime = runtime,
+                            downloadFileUtils = downloadFileUtils,
                             defaultSettings = defaultSettings,
                         ),
                         false,

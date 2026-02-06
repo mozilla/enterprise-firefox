@@ -194,6 +194,8 @@ include = [
   "NonNegativeLengthPercentageOrNormal",
   "LengthOrAuto",
   "NonNegativeLengthOrAuto",
+  "TextBoxEdge",
+  "TextBoxTrim",
   "TextDecorationSkipInk",
   "TextDecorationLength",
   "TextDecorationInset",
@@ -534,6 +536,7 @@ renaming_overrides_prefixing = true
   inline bool BehavesLikeInitialValue(LogicalAxis) const;
   inline bool HasAnchorPositioningFunction() const;
   inline explicit StyleGenericSize(const LengthPercent &);
+  static inline StyleGenericSize FromAppUnits(nscoord);
 """
 
 "GenericFlexBasis" = """
@@ -1255,4 +1258,23 @@ renaming_overrides_prefixing = true
     : first(StylePositionAreaKeyword::None),
       second(StylePositionAreaKeyword::None)
   {}
+"""
+
+"CascadeLevel" = """
+  inline static StyleCascadeLevel Default() {
+    return AuthorNormal(0);
+  }
+"""
+
+"TreeScoped" = """
+  inline StyleTreeScoped()
+    : value(T()),
+      scope(StyleCascadeLevel::Default())
+  {}
+  inline explicit StyleTreeScoped(T&& aValue)
+    : value(std::move(aValue)),
+      scope(StyleCascadeLevel::Default())
+  {}
+  inline bool IsEmpty() const;
+  inline Span<const mozilla::StyleAtom> AsSpan() const;
 """

@@ -3499,6 +3499,7 @@ TEST(TestAudioTrackGraph, DefaultOutputDeviceIDTracking)
 #endif
 }
 
-#undef Invoke
+#undef InvokeAsync
 #undef DispatchFunction
 #undef DispatchMethod
+#undef ProcessEventQueue

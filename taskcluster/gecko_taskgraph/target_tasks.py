@@ -52,9 +52,6 @@ UNCOMMON_TRY_TASK_LABELS = [
     # Windows tasks
     r"windows11-64-24h2-hw-ref",
     r"windows10-aarch64-qr",
-    # Linux tasks
-    r"linux-",  # hide all linux32 tasks by default - bug 1599197
-    r"linux1804-32",  # hide linux32 tests - bug 1599197
     # Test tasks
     r"web-platform-tests.*backlog",  # hide wpt jobs that are not implemented yet - bug 1572820
     r"-ccov",
@@ -1194,11 +1191,8 @@ def target_tasks_searchfox(full_task_graph, parameters, graph_config):
         "searchfox-macosx64-aarch64-searchfox/debug",
         "searchfox-win64-searchfox/opt",
         "searchfox-win64-searchfox/debug",
-        "searchfox-android-aarch64-searchfox/debug",
-        "searchfox-ios-searchfox/debug",
         "source-test-file-metadata-bugzilla-components",
         "source-test-file-metadata-test-info-all",
-        "source-test-wpt-metadata-summary",
     ]
 
 
@@ -1819,8 +1813,9 @@ def target_tasks_weekly_test_info(full_task_graph, parameters, graph_config):
     return ["source-test-file-metadata-test-info-all"]
 
 
-@register_target_task("test-info-xpcshell-timings-daily")
-def target_tasks_test_info_xpcshell_timings_daily(
-    full_task_graph, parameters, graph_config
-):
-    return ["source-test-file-metadata-test-info-xpcshell-timings-daily"]
+@register_target_task("test-info-timings-periodic")
+def target_tasks_test_info_timings_periodic(full_task_graph, parameters, graph_config):
+    return [
+        "source-test-file-metadata-test-info-xpcshell-timings-periodic",
+        "source-test-file-metadata-test-info-mochitest-timings-periodic",
+    ]

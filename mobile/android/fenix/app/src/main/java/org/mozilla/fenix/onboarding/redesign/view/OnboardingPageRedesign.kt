@@ -4,6 +4,7 @@
 
 package org.mozilla.fenix.onboarding.redesign.view
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,6 +24,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTag
@@ -31,12 +33,8 @@ import androidx.compose.ui.unit.dp
 import mozilla.components.compose.base.button.FilledButton
 import mozilla.components.compose.base.button.TextButton
 import org.mozilla.fenix.R
-import org.mozilla.fenix.onboarding.notification.NotificationMainImage
-import org.mozilla.fenix.onboarding.redesign.view.defaultbrowser.SetToDefaultMainImage
-import org.mozilla.fenix.onboarding.redesign.view.sync.SyncMainImage
 import org.mozilla.fenix.onboarding.view.Action
 import org.mozilla.fenix.onboarding.view.OnboardingPageState
-import org.mozilla.fenix.onboarding.widget.SetSearchWidgetMainImage
 import org.mozilla.fenix.theme.FirefoxTheme
 
 const val TITLE_TOP_SPACER_WEIGHT = 0.1f
@@ -48,17 +46,12 @@ val CONTENT_IMAGE_HEIGHT = 176.dp
  * A composable for displaying onboarding page content.
  *
  * @param pageState [OnboardingPageState] The page content that's displayed.
- * @param mainImage A [Composable] for displaying the main image.
  */
 @Composable
 fun OnboardingPageRedesign(
     pageState: OnboardingPageState,
-    mainImage: @Composable () -> Unit = {},
 ) {
-    CardView(
-        pageState = pageState,
-        mainImage = mainImage,
-    )
+    CardView(pageState)
 
     LaunchedEffect(pageState) {
         pageState.onRecordImpressionEvent()
@@ -82,13 +75,10 @@ private fun SecondaryButton(
 }
 
 @Composable
-private fun CardView(
-    pageState: OnboardingPageState,
-    mainImage: @Composable () -> Unit,
-) {
+private fun CardView(pageState: OnboardingPageState) {
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+        elevation = CardDefaults.cardElevation(if (pageState.shouldShowElevation) 6.dp else 0.dp),
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 24.dp),
@@ -96,7 +86,7 @@ private fun CardView(
         ) {
             Spacer(modifier = Modifier.weight(TITLE_TOP_SPACER_WEIGHT))
 
-            Content(pageState) { mainImage() }
+            Content(pageState)
 
             FilledButton(
                 modifier = Modifier
@@ -116,10 +106,7 @@ private fun CardView(
 }
 
 @Composable
-private fun ColumnScope.Content(
-    pageState: OnboardingPageState,
-    mainImage: @Composable () -> Unit,
-) {
+private fun ColumnScope.Content(pageState: OnboardingPageState) {
     Column(
         modifier = Modifier
             .padding(horizontal = 20.dp)
@@ -138,7 +125,10 @@ private fun ColumnScope.Content(
                 .fillMaxWidth(),
             contentAlignment = Alignment.Center,
         ) {
-            mainImage()
+            Image(
+                painter = painterResource(pageState.imageRes),
+                contentDescription = null, // Decorative only
+            )
         }
 
         Text(
@@ -155,20 +145,19 @@ private fun OnboardingPageSetToDefaultPreview() {
     FirefoxTheme {
         OnboardingPageRedesign(
             pageState = OnboardingPageState(
-                imageRes = R.drawable.ic_notification_permission,
-                title = stringResource(R.string.onboarding_redesign_set_default_browser_title),
-                description = stringResource(R.string.onboarding_redesign_set_default_browser_body),
+                imageRes = R.drawable.nova_onboarding_set_to_default,
+                title = stringResource(R.string.nova_onboarding_set_to_default_title_2),
+                description = stringResource(R.string.nova_onboarding_set_to_default_subtitle),
                 primaryButton = Action(
-                    text = stringResource(R.string.juno_onboarding_default_browser_positive_button),
+                    text = stringResource(R.string.nova_onboarding_set_to_default_button),
                     onClick = {},
                 ),
                 secondaryButton = Action(
-                    text = stringResource(R.string.juno_onboarding_default_browser_negative_button),
+                    text = stringResource(R.string.nova_onboarding_negative_button),
                     onClick = {},
                 ),
                 onRecordImpressionEvent = {},
             ),
-            mainImage = { SetToDefaultMainImage() },
         )
     }
 }
@@ -179,20 +168,19 @@ private fun OnboardingPageSyncPreview() {
     FirefoxTheme {
         OnboardingPageRedesign(
             pageState = OnboardingPageState(
-                imageRes = R.drawable.ic_notification_permission, // Unused in the redesign.
-                title = stringResource(R.string.onboarding_redesign_sync_title),
-                description = stringResource(R.string.onboarding_redesign_sync_body),
+                imageRes = R.drawable.nova_onboarding_sync,
+                title = stringResource(R.string.nova_onboarding_sync_title),
+                description = stringResource(R.string.nova_onboarding_sync_subtitle),
                 primaryButton = Action(
-                    text = stringResource(R.string.onboarding_redesign_sync_positive_button),
+                    text = stringResource(R.string.nova_onboarding_sync_button),
                     onClick = {},
                 ),
                 secondaryButton = Action(
-                    text = stringResource(R.string.onboarding_redesign_sync_negative_button),
+                    text = stringResource(R.string.nova_onboarding_negative_button),
                     onClick = {},
                 ),
                 onRecordImpressionEvent = {},
             ),
-            mainImage = { SyncMainImage() },
         )
     }
 }
@@ -203,20 +191,19 @@ private fun OnboardingPageNotificationPreview() {
     FirefoxTheme {
         OnboardingPageRedesign(
             pageState = OnboardingPageState(
-                imageRes = R.drawable.ic_notification_permission, // Unused in the redesign.
-                title = stringResource(R.string.juno_onboarding_enable_notifications_title_nimbus_2),
-                description = stringResource(R.string.juno_onboarding_enable_notifications_description_nimbus_2),
+                imageRes = R.drawable.nova_onboarding_notifications,
+                title = stringResource(R.string.nova_onboarding_add_search_widget_title),
+                description = stringResource(R.string.nova_onboarding_add_search_widget_subtitle),
                 primaryButton = Action(
-                    text = stringResource(R.string.juno_onboarding_enable_notifications_positive_button),
+                    text = stringResource(R.string.nova_onboarding_notifications_button),
                     onClick = {},
                 ),
                 secondaryButton = Action(
-                    text = stringResource(R.string.juno_onboarding_enable_notifications_negative_button),
+                    text = stringResource(R.string.nova_onboarding_negative_button),
                     onClick = {},
                 ),
                 onRecordImpressionEvent = {},
             ),
-            mainImage = { NotificationMainImage() },
         )
     }
 }
@@ -227,20 +214,19 @@ private fun OnboardingPageSearchWidgetPreview() {
     FirefoxTheme {
         OnboardingPageRedesign(
             pageState = OnboardingPageState(
-                imageRes = R.drawable.ic_notification_permission, // Unused in the redesign.
-                title = stringResource(R.string.juno_onboarding_add_search_widget_title),
-                description = stringResource(R.string.juno_onboarding_add_search_widget_description),
+                imageRes = R.drawable.nova_onboarding_widget,
+                title = stringResource(R.string.nova_onboarding_add_search_widget_title),
+                description = stringResource(R.string.nova_onboarding_add_search_widget_subtitle),
                 primaryButton = Action(
-                    text = stringResource(R.string.juno_onboarding_add_search_widget_positive_button),
+                    text = stringResource(R.string.nova_onboarding_add_search_widget_button),
                     onClick = {},
                 ),
                 secondaryButton = Action(
-                    text = stringResource(R.string.juno_onboarding_add_search_widget_negative_button),
+                    text = stringResource(R.string.nova_onboarding_negative_button),
                     onClick = {},
                 ),
                 onRecordImpressionEvent = {},
             ),
-            mainImage = { SetSearchWidgetMainImage() },
         )
     }
 }

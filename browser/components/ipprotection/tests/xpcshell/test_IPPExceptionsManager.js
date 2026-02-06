@@ -136,6 +136,29 @@ add_task(async function test_IPPExceptionsManager_setExclusion() {
     "Site should not exist in ipp-vpn with shouldExclude=false"
   );
 
+  const baseDomain = "https://example.com";
+  const contentPrincipalBaseDomain =
+    Services.scriptSecurityManager.createContentPrincipalFromOrigin(baseDomain);
+
+  // Add exclusion with shouldExclude=true
+  setTrueExChangePromise = waitForEvent(
+    IPPExceptionsManager,
+    EXCLUSION_CHANGED_EVENT
+  );
+
+  IPPExceptionsManager.setExclusion(contentPrincipalBaseDomain, true);
+
+  await setTrueExChangePromise;
+
+  Assert.ok(
+    true,
+    `${EXCLUSION_CHANGED_EVENT} event was dispatched after calling setExclusion with shouldExclude=true on the base domain`
+  );
+  Assert.ok(
+    IPPExceptionsManager.hasExclusion(contentPrincipal),
+    "Site should exist in ipp-vpn with shouldExclude=true"
+  );
+
   Services.prefs.clearUserPref(ONBOARDING_MESSAGE_MASK_PREF);
   IPPExceptionsManager.uninit();
   Services.perms.removeByType(PERM_NAME);

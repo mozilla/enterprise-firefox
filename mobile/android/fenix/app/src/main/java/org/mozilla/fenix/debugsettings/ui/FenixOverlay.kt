@@ -48,8 +48,8 @@ import org.mozilla.fenix.debugsettings.store.DebugDrawerNavigationMiddleware
 import org.mozilla.fenix.debugsettings.store.DebugDrawerStore
 import org.mozilla.fenix.debugsettings.store.DrawerStatus
 import org.mozilla.fenix.ext.components
+import org.mozilla.fenix.theme.DefaultThemeProvider
 import org.mozilla.fenix.theme.FirefoxTheme
-import org.mozilla.fenix.theme.Theme
 
 /**
  * Overlay for presenting Fenix-wide debugging content.
@@ -164,7 +164,7 @@ private fun FenixOverlay(
         debugDrawerStore.stateFlow.map { state -> state.drawerStatus }
     }.collectAsState(initial = DrawerStatus.Closed)
 
-    FirefoxTheme(theme = Theme.getTheme(allowPrivateTheme = false)) {
+    FirefoxTheme(theme = DefaultThemeProvider.provideTheme()) {
         DebugOverlay(
             navController = navController,
             drawerStatus = drawerStatus,

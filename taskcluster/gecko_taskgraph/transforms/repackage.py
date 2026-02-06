@@ -524,7 +524,9 @@ def make_job_description(config, jobs):
         # TODO: Hack because we loose the platform that was from enterprise-repack
         if not dep_th_platform and "enterprise-repack-repackage" in dep_job.kind:
             build_platform = attributes.get("build_platform")
-            if "linux64" in build_platform:
+            if "linux64" in build_platform and "aarch64" in build_platform:
+                dep_th_platform = "linux64-aarch64-enterprise/opt"
+            elif "linux64" in build_platform:
                 dep_th_platform = "linux64-enterprise/opt"
             elif "macosx64" in build_platform:
                 dep_th_platform = "osx-cross-enterprise/opt"

@@ -237,6 +237,9 @@ class MOZ_RAII CacheIRWriter : public JS::CustomAutoRooter {
   void writeRawPointerField(const void* ptr) {
     addStubField(uintptr_t(ptr), StubField::Type::RawPointer);
   }
+  void writeICScriptField(const ICScript* icScript) {
+    addStubField(uintptr_t(icScript), StubField::Type::ICScript);
+  }
   void writeIdField(jsid id) {
     addStubField(id.asRawBits(), StubField::Type::Id);
   }
@@ -720,10 +723,6 @@ class MOZ_RAII CacheIRWriter : public JS::CustomAutoRooter {
                                        trapId, nargsAndFlags);
   }
 #endif
-
-  void metaScriptedThisShape(Shape* thisShape) {
-    metaScriptedThisShape_(thisShape);
-  }
 
   void guardMultipleShapes(ObjOperandId obj, ListObject* shapes) {
     MOZ_ASSERT(shapes->length() > 0);

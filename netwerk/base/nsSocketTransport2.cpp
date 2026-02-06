@@ -1232,7 +1232,7 @@ nsresult nsSocketTransport::BuildSocket(PRFileDesc*& fd, bool& proxyTransparent,
   return rv;
 }
 
-static bool ShouldBlockAddress(const NetAddr& aAddr) {
+static bool ShouldBlockAddress(const NetAddr& aAddr, const nsCString& aHost) {
   if (!xpc::AreNonLocalConnectionsDisabled()) {
     return false;
   }
@@ -1241,8 +1241,26 @@ static bool ShouldBlockAddress(const NetAddr& aAddr) {
   bool hasOverride = FindNetAddrOverride(aAddr, overrideAddr);
   const NetAddr& addrToCheck = hasOverride ? overrideAddr : aAddr;
 
-  return !(addrToCheck.IsIPAddrAny() || addrToCheck.IsIPAddrLocal() ||
-           addrToCheck.IsIPAddrShared() || addrToCheck.IsLoopbackAddr());
+  if (addrToCheck.IsIPAddrAny() || addrToCheck.IsIPAddrLocal() ||
+      addrToCheck.IsIPAddrShared() || addrToCheck.IsLoopbackAddr()) {
+    return false;
+  }
+
+  nsAutoCString allowlist;
+  {
+    const auto prefLock =
+        mozilla::StaticPrefs::network_socket_allowed_nonlocal_domains();
+    allowlist = *prefLock;
+  }
+
+  for (const nsACString& host :
+       nsCCharSeparatedTokenizer(allowlist, ',').ToRange()) {
+    if (aHost == host) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 nsresult nsSocketTransport::InitiateSocket() {
@@ -1279,7 +1297,7 @@ nsresult nsSocketTransport::InitiateSocket() {
     }
 #endif
 
-    if (NS_SUCCEEDED(mCondition) && ShouldBlockAddress(mNetAddr)) {
+    if (NS_SUCCEEDED(mCondition) && ShouldBlockAddress(mNetAddr, mHost)) {
       nsAutoCString ipaddr;
       RefPtr<nsNetAddr> netaddr = new nsNetAddr(&mNetAddr);
       netaddr->GetAddress(ipaddr);

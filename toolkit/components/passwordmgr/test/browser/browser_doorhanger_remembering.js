@@ -1152,7 +1152,7 @@ add_task(async function test_recipeCaptureFields_ExistingLogin() {
   Assert.equal(login.password, "notifyp1", "Check the password unchanged");
   Assert.equal(login.timesUsed, 2, "Check times used incremented");
 
-  Services.logins.removeAllUserFacingLogins();
+  await Services.logins.removeAllUserFacingLoginsAsync();
 });
 
 add_task(async function test_saveUsingEnter() {
@@ -1209,7 +1209,7 @@ add_task(async function test_saveUsingEnter() {
     );
     Assert.equal(login.timesUsed, 1, "Check times used on new entry");
 
-    Services.logins.removeAllUserFacingLogins();
+    await Services.logins.removeAllUserFacingLoginsAsync();
   }
 
   await testWithTextboxSelector("#password-notification-password");

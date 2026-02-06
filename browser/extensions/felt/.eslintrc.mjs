@@ -8,4 +8,12 @@ export default [
       "no-console": "off",
     },
   },
+  {
+    files: ["content/window.js"],
+    languageOptions: {
+      globals: {
+        goUpdateGlobalEditMenuItems: "readonly",
+      },
+    },
+  },
 ];

@@ -79,7 +79,7 @@ class WeakMapBase;
 namespace gc {
 
 class AutoGCSession;
-struct Cell;
+class Cell;
 class GCSchedulingTunables;
 struct LargeBuffer;
 class StoreBuffer;

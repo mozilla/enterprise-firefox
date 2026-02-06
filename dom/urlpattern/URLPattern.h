@@ -59,6 +59,8 @@ class URLPattern final : public nsISupports, public nsWrapperCache {
  private:
   ~URLPattern();
   nsCOMPtr<nsISupports> mParent;
+
+  // dom holds onto opaque pointer to urlpattern::UrlPattern (lib.rs)
   UrlpPattern mPattern;
   bool mIgnoreCase;
 };

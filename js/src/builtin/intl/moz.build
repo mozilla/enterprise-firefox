@@ -30,6 +30,7 @@ UNIFIED_SOURCES += [
     "Locale.cpp",
     "LocaleNegotiation.cpp",
     "NumberFormat.cpp",
+    "ParameterNegotiation.cpp",
     "PluralRules.cpp",
     "RelativeTimeFormat.cpp",
     "Segmenter.cpp",

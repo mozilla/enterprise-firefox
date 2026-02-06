@@ -340,7 +340,8 @@ bool UniqueStacks::FrameKey::NormalFrameData::operator==(
 bool UniqueStacks::FrameKey::JITFrameData::operator==(
     const JITFrameData& aOther) const {
   return mCanonicalAddress == aOther.mCanonicalAddress &&
-         mDepth == aOther.mDepth && mRangeIndex == aOther.mRangeIndex;
+         mDepth == aOther.mDepth && mRangeIndex == aOther.mRangeIndex &&
+         mLine == aOther.mLine && mColumn == aOther.mColumn;
 }
 
 // Consume aJITFrameInfo by stealing its string table and its JIT frame info
@@ -417,7 +418,8 @@ UniqueStacks::LookupFramesForJITAddressFromBufferPos(void* aJITAddress,
   MOZ_RELEASE_ASSERT(frameKeys.initCapacity(jitFrameKeys->value().length()));
   for (const JITFrameKey& jitFrameKey : jitFrameKeys->value()) {
     FrameKey frameKey(jitFrameKey.mCanonicalAddress, jitFrameKey.mDepth,
-                      rangeIter - mJITInfoRanges.begin());
+                      rangeIter - mJITInfoRanges.begin(), jitFrameKey.mLine,
+                      jitFrameKey.mColumn);
     uint32_t index = mFrameToIndexMap.count();
     auto entry = mFrameToIndexMap.lookupForAdd(frameKey);
     if (!entry) {
@@ -592,6 +594,12 @@ static void StreamJITFrame(JSContext* aContext, SpliceableJSONWriter& aWriter,
                            ? MakeStringSpan("ion")
                            : MakeStringSpan("baseline"));
 
+  // Output line and column information if available.
+  if (aJITFrame.line() != 0) {
+    writer.IntElement(LINE, aJITFrame.line());
+    writer.IntElement(COLUMN, aJITFrame.column());
+  }
+
   const JS::ProfilingCategoryPairInfo& info = JS::GetProfilingCategoryPairInfo(
       frameKind == JS::ProfilingFrameIterator::Frame_Ion
           ? JS::ProfilingCategoryPair::JS_IonMonkey
@@ -647,7 +655,8 @@ void JITFrameInfo::AddInfoForRange(
       for (JS::ProfiledFrameHandle handle :
            JS::GetProfiledFrames(aCx, aJITAddress)) {
         uint32_t depth = jitFrameKeys.length();
-        JITFrameKey jitFrameKey{handle.canonicalAddress(), depth};
+        JITFrameKey jitFrameKey{handle.canonicalAddress(), depth, handle.line(),
+                                handle.column()};
         auto frameEntry = jitFrameToFrameJSONMap.lookupForAdd(jitFrameKey);
         if (!frameEntry) {
           if (!jitFrameToFrameJSONMap.add(

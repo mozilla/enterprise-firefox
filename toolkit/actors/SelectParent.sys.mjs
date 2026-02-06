@@ -399,7 +399,6 @@ export var SelectParentHelper = {
         break;
 
       case "popuphidden": {
-        this._actor.sendAsyncMessage("Forms:DismissedDropDown", {});
         let popup = event.target;
         this._unregisterListeners(popup);
         popup.parentNode.hidden = true;
@@ -410,7 +409,11 @@ export var SelectParentHelper = {
         this._currentMenulist = null;
         this._selectRect = null;
         this._currentZoom = 1;
-        this._actor = null;
+        try {
+          this._actor.sendAsyncMessage("Forms:DismissedDropDown", {});
+        } finally {
+          this._actor = null;
+        }
         break;
       }
     }

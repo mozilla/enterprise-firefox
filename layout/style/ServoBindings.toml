@@ -145,7 +145,7 @@ rusty-enums = [
     "mozilla::StyleTopLayer",
     "mozilla::StyleIsolation",
     "mozilla::StyleTextOrientation",
-    "mozilla::StyleMozBoxCollapse",
+    "mozilla::StyleBoxCollapse",
     "mozilla::StyleMozBoxLayout",
     "mozilla::StyleTextCombineUpright",
     "mozilla::StyleUnicodeBidi",
@@ -318,8 +318,6 @@ opaque-types = [
     "mozilla::external::AtomicRefCounted",
     "RefPtr_Proxy",
     "RefPtr_Proxy_member_function",
-    "nsAutoPtr_Proxy",
-    "nsAutoPtr_Proxy_member_function",
     "nsRegion_.*",
     "mozilla::detail::HashTable", # <- We should be able to remove this and
                                   # HashSet below once
@@ -445,6 +443,8 @@ cbindgen-types = [
     { gecko = "StyleTextAlign", servo = "crate::values::computed::TextAlign" },
     { gecko = "StyleTextAlignLast", servo = "crate::values::computed::text::TextAlignLast" },
     { gecko = "StyleTextAutospace", servo = "crate::values::computed::text::TextAutospace" },
+    { gecko = "StyleTextBoxEdge", servo = "crate::values::computed::TextBoxEdge" },
+    { gecko = "StyleTextBoxTrim", servo = "crate::values::computed::TextBoxTrim" },
     { gecko = "StyleTextIndent", servo = "crate::values::computed::text::TextIndent" },
     { gecko = "StyleTextOverflow", servo = "crate::values::computed::TextOverflow" },
     { gecko = "StyleOverflow", servo = "crate::values::computed::Overflow" },
@@ -656,6 +656,9 @@ cbindgen-types = [
     { gecko = "StyleGenericAnchorSide", servo = "crate::values::generics::position::GenericAnchorSide" },
     { gecko = "StyleTypedValue", servo = "style_traits::TypedValue" },
     { gecko = "StylePropertyTypedValue", servo = "crate::properties::declaration_block::PropertyTypedValue" },
+    { gecko = "StyleAnchorNameIdent", servo = "crate::values::specified::position::AnchorNameIdent" },
+    { gecko = "StyleCascadeLevel", servo = "crate::rule_tree::level::CascadeLevel" },
+    { gecko = "StyleShadowCascadeOrder", servo = "crate::rule_tree::level::ShadowCascadeOrder" },
 ]
 
 mapped-generic-types = [
@@ -663,6 +666,7 @@ mapped-generic-types = [
     { generic = false, gecko = "ServoNodeData", servo = "atomic_refcell::AtomicRefCell<crate::data::ElementData>" },
     { generic = false, gecko = "mozilla::ServoWritingMode", servo = "crate::logical_geometry::WritingMode" },
     { generic = false, gecko = "mozilla::ServoComputedCustomProperties", servo = "crate::custom_properties::ComputedCustomProperties" },
+    { generic = false, gecko = "mozilla::ServoUsedAttributes", servo = "crate::dom::AttributeReferences" },
     { generic = false, gecko = "mozilla::ServoRuleNode", servo = "Option<crate::rule_tree::StrongRuleNode>" },
     { generic = false, gecko = "nsACString", servo = "nsstring::nsACString" },
     { generic = false, gecko = "nsAString", servo = "nsstring::nsAString" },

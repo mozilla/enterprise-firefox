@@ -960,6 +960,8 @@ class MDefinition : public MNode {
     return AliasType::MayAlias;
   }
 
+  bool dominates(const MDefinition* other) const;
+
   virtual bool canRecoverOnBailout() const { return false; }
 };
 

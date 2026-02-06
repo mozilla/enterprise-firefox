@@ -160,10 +160,7 @@ add_task(async function test_upgrade_default_position_engine() {
   await AddonTestUtils.waitForSearchProviderStartup(ext1);
 
   let engine = SearchService.getEngineByName("MozSearch");
-  await SearchService.setDefault(
-    engine,
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
-  );
+  await SearchService.setDefault(engine, SearchService.CHANGE_REASON.UNKNOWN);
   await SearchService.moveEngine(engine, 1);
 
   await ext1.upgrade({
@@ -228,7 +225,7 @@ add_task(async function test_extension_get_params() {
   let engine = SearchService.getEngineByName("MozSearch");
   ok(engine, "Engine should exist.");
 
-  let url = engine.wrappedJSObject.getURLOfType("text/html");
+  let url = engine.getURLOfType("text/html");
   equal(url.method, "GET", "Search URLs method is GET");
 
   let expectedURL = kSearchEngineURL.replace("{searchTerms}", kSearchTerm);
@@ -279,7 +276,7 @@ add_task(async function test_extension_post_params() {
   let engine = SearchService.getEngineByName("MozSearch");
   ok(engine, "Engine should exist.");
 
-  let url = engine.wrappedJSObject.getURLOfType("text/html");
+  let url = engine.getURLOfType("text/html");
   equal(url.method, "POST", "Search URLs method is POST");
 
   let expectedURL = kSearchEngineURL.replace("{searchTerms}", kSearchTerm);
@@ -396,7 +393,7 @@ add_task(async function test_extension_empty_suggestUrl() {
   let engine = SearchService.getEngineByName("MozSearch");
   ok(engine, "Engine should exist.");
 
-  let url = engine.wrappedJSObject.getURLOfType("text/html");
+  let url = engine.getURLOfType("text/html");
   equal(url.method, "POST", "Search URLs method is POST");
 
   let expectedURL = kSearchEngineURL.replace("{searchTerms}", kSearchTerm);
@@ -452,7 +449,7 @@ add_task(async function test_extension_empty_suggestUrl_with_params() {
   let engine = SearchService.getEngineByName("MozSearch");
   ok(engine, "Engine should exist.");
 
-  let url = engine.wrappedJSObject.getURLOfType("text/html");
+  let url = engine.getURLOfType("text/html");
   equal(url.method, "POST", "Search URLs method is POST");
 
   let expectedURL = kSearchEngineURL.replace("{searchTerms}", kSearchTerm);

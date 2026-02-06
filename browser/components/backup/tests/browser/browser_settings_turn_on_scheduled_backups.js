@@ -731,6 +731,11 @@ add_task(
       "about:preferences#sync",
       async browser => {
         await waitInitialRequestStateSettled();
+        // Since we also a trigger a createBackup, there might be a bunch of state updates that we don't
+        // want to wait for, let's just stub the createBackup calls to avoid unexpected testing behavior
+        let sandbox = sinon.createSandbox();
+        sandbox.stub(BackupService.prototype, "createBackup").resolves(true);
+
         const mockCustomParentDir = await IOUtils.createUniqueDirectory(
           PathUtils.tempDir,
           "our-dummy-folder"
@@ -790,6 +795,8 @@ add_task(
           {},
           "Our persistent path should be flushed"
         );
+
+        sandbox.restore();
       }
     );
 

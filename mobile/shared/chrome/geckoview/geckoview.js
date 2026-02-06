@@ -856,6 +856,12 @@ function startup() {
         resource: "resource://gre/modules/GeckoViewTranslations.sys.mjs",
       },
     },
+    {
+      name: "GeckoViewPageExtractor",
+      onInit: {
+        resource: "resource://gre/modules/GeckoViewPageExtractor.sys.mjs",
+      },
+    },
   ]);
 
   if (!Services.appinfo.sessionHistoryInParent) {

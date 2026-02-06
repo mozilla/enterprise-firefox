@@ -8,6 +8,7 @@
 #define DOM_SMIL_SMILTIMEDELEMENT_H_
 
 #include <limits>
+#include <memory>
 #include <utility>
 
 #include "mozilla/EventForwards.h"
@@ -17,7 +18,6 @@
 #include "mozilla/SMILRepeatCount.h"
 #include "mozilla/SMILTimeValueSpec.h"
 #include "mozilla/SMILTypes.h"
-#include "mozilla/UniquePtr.h"
 #include "nsAttrValue.h"
 #include "nsHashKeys.h"
 #include "nsTArray.h"
@@ -349,9 +349,9 @@ class SMILTimedElement {
 
  protected:
   // Typedefs
-  using TimeValueSpecList = nsTArray<UniquePtr<SMILTimeValueSpec>>;
+  using TimeValueSpecList = nsTArray<std::unique_ptr<SMILTimeValueSpec>>;
   using InstanceTimeList = nsTArray<RefPtr<SMILInstanceTime>>;
-  using IntervalList = nsTArray<UniquePtr<SMILInterval>>;
+  using IntervalList = nsTArray<std::unique_ptr<SMILInterval>>;
   using TimeValueSpecPtrKey = nsPtrHashKey<SMILTimeValueSpec>;
   using TimeValueSpecHashSet = nsTHashtable<TimeValueSpecPtrKey>;
 
@@ -585,7 +585,7 @@ class SMILTimedElement {
   uint32_t mInstanceSerialIndex;
 
   SMILAnimationFunction* mClient;
-  UniquePtr<SMILInterval> mCurrentInterval;
+  std::unique_ptr<SMILInterval> mCurrentInterval;
   IntervalList mOldIntervals;
   uint32_t mCurrentRepeatIteration;
   SMILMilestone mPrevRegisteredMilestone;

@@ -138,7 +138,7 @@ class IPProtectionServiceSingleton extends EventTarget {
 
   async initOnStartupCompleted() {
     await Promise.allSettled(
-      this.#helpers.map(helper => helper.initOnStartupCompleted())
+      this.#helpers.map(helper => helper.initOnStartupCompleted?.())
     );
   }
 

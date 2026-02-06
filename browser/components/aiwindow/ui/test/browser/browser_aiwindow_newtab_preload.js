@@ -16,7 +16,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 add_task(async function test_preloaded_browser_removed_on_toggle() {
   await SpecialPowers.pushPrefEnv({
     set: [
-      ["browser.aiwindow.enabled", true],
+      ["browser.smartwindow.enabled", true],
       ["browser.newtab.preload", true],
     ],
   });
@@ -47,7 +47,7 @@ add_task(async function test_preloaded_browser_removed_on_toggle() {
 
 add_task(async function test_classic_to_ai_newtab_reloads() {
   await SpecialPowers.pushPrefEnv({
-    set: [["browser.aiwindow.enabled", true]],
+    set: [["browser.smartwindow.enabled", true]],
   });
 
   let win = await BrowserTestUtils.openNewBrowserWindow();
@@ -81,7 +81,7 @@ add_task(async function test_ai_to_classic_newtab_reloads() {
   const AIWINDOW_URL = lazy.AIWindow.newTabURL;
 
   await SpecialPowers.pushPrefEnv({
-    set: [["browser.aiwindow.enabled", true]],
+    set: [["browser.smartwindow.enabled", true]],
   });
 
   let win = await BrowserTestUtils.openNewBrowserWindow({ aiWindow: true });

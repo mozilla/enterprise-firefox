@@ -3429,25 +3429,25 @@ nsCSSFrameConstructor::FindHTMLData(const Element& aElement,
                    aParentFrame->GetParent()->IsFieldSetFrame(),
                "Unexpected parent for fieldset content anon box");
 
-  if (aElement.IsInNativeAnonymousSubtree()) {
-    if (aElement.NodeInfo()->NameAtom() == nsGkAtoms::label && aParentFrame) {
-      if (aParentFrame->IsFileControlFrame()) {
-        static constexpr FrameConstructionData sFileLabelData(
-            NS_NewFileControlLabelFrame);
-        return &sFileLabelData;
-      }
-      if (aParentFrame->IsComboboxControlFrame()) {
-        static constexpr FrameConstructionData sComboboxLabelData(
-            NS_NewComboboxLabelFrame);
-        return &sComboboxLabelData;
-      }
-    }
-    if (aStyle.GetPseudoType() == PseudoStyleType::viewTransitionOld ||
-        aStyle.GetPseudoType() == PseudoStyleType::viewTransitionNew) {
+  switch (aStyle.GetPseudoType()) {
+    case PseudoStyleType::viewTransitionOld:
+    case PseudoStyleType::viewTransitionNew: {
       static constexpr FrameConstructionData sViewTransitionData(
           NS_NewImageFrameForViewTransition);
       return &sViewTransitionData;
     }
+    case PseudoStyleType::mozSelectContent: {
+      static constexpr FrameConstructionData sComboboxLabelData(
+          NS_NewComboboxLabelFrame);
+      return &sComboboxLabelData;
+    }
+    case PseudoStyleType::mozFileContent: {
+      static constexpr FrameConstructionData sFileLabelData(
+          NS_NewFileControlLabelFrame);
+      return &sFileLabelData;
+    }
+    default:
+      break;
   }
 
   static constexpr FrameConstructionDataByTag sHTMLData[] = {
@@ -4964,11 +4964,16 @@ void nsCSSFrameConstructor::AddFrameConstructionItems(
 //
 // Never create frames for non-option/optgroup kids of <select> and non-option
 // kids of <optgroup> inside a <select>.
-static bool ShouldSuppressFrameInSelect(const nsIContent* aParent,
-                                        const nsIContent& aChild) {
+static bool ShouldSuppressFrameInListboxSelect(const nsIContent* aParent,
+                                               const nsIContent& aChild) {
   if (!aParent ||
       !aParent->IsAnyOfHTMLElements(nsGkAtoms::select, nsGkAtoms::optgroup,
                                     nsGkAtoms::option)) {
+    return false;
+  }
+
+  if (const auto* select = HTMLSelectElement::FromNode(aParent);
+      select && select->IsCombobox()) {
     return false;
   }
 
@@ -5150,7 +5155,7 @@ void nsCSSFrameConstructor::AddFrameConstructionItemsInternal(
   }
 
   nsIContent* parent = aParentFrame ? aParentFrame->GetContent() : nullptr;
-  if (ShouldSuppressFrameInSelect(parent, *aContent)) {
+  if (ShouldSuppressFrameInListboxSelect(parent, *aContent)) {
     return;
   }
 

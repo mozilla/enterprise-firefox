@@ -28,8 +28,8 @@ use firefox_on_glean::{
 use libc::{c_int, AF_INET, AF_INET6};
 use libc::{c_uchar, size_t};
 use neqo_common::{
-    event::Provider as _, qdebug, qerror, qlog::Qlog, qwarn, Datagram, DatagramBatch, Decoder,
-    Encoder, Header, Role, Tos,
+    datagram, event::Provider as _, qdebug, qerror, qlog::Qlog, qwarn, Datagram, Decoder, Encoder,
+    Header, Role, Tos,
 };
 use neqo_crypto::{agent::CertificateCompressor, init, PRErrorCode};
 use neqo_http3::{
@@ -114,7 +114,7 @@ pub struct NeqoHttp3Conn {
     socket: Option<neqo_udp::Socket<BorrowedSocket>>,
     /// Buffered outbound datagram from previous send that failed with
     /// WouldBlock. To be sent once UDP socket has write-availability again.
-    buffered_outbound_datagram: Option<DatagramBatch>,
+    buffered_outbound_datagram: Option<datagram::Batch>,
 
     datagram_segment_size_sent: LocalMemoryDistribution<'static>,
     datagram_segment_size_received: LocalMemoryDistribution<'static>,

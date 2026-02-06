@@ -2610,7 +2610,6 @@ interface nsIDOMWindowUtils extends nsISupports, Enums<typeof nsIDOMWindowUtils_
   sendSimpleGestureEvent(aType: string, aX: float, aY: float, aDirection: u32, aDelta: double, aModifiers: i32, aClickCount?: u32): void;
   elementFromPoint(aX: float, aY: float, aIgnoreRootScrollFrame: boolean, aFlushLayout: boolean): Element;
   nodesFromRect(aX: float, aY: float, aTopSize: float, aRightSize: float, aBottomSize: float, aLeftSize: float, aIgnoreRootScrollFrame: boolean, aFlushLayout: boolean, aOnlyVisible: boolean, aTransparencyThreshold?: float): NodeList;
-  getTranslationNodes(aRoot: Node): nsITranslationNodeList;
   compareCanvases(aCanvas1: nsISupports, aCanvas2: nsISupports, aMaxDifference: OutParam<u32>): u32;
   readonly isMozAfterPaintPending: boolean;
   readonly isWindowFullyOccluded: boolean;
@@ -2767,12 +2766,6 @@ interface nsIDOMWindowUtils extends nsISupports, Enums<typeof nsIDOMWindowUtils_
   getWheelScrollTarget(): Element;
   readonly dragSession: nsIDragSession;
   microTaskLevel: u32;
-}
-
-interface nsITranslationNodeList extends nsISupports {
-  readonly length: u32;
-  item(index: u32): Node;
-  isTranslationRootAtIndex(index: u32): boolean;
 }
 
 interface nsIJSRAIIHelper extends nsISupports {
@@ -11620,119 +11613,6 @@ interface nsIUserCharacteristicsPageService extends nsISupports {
   pageLoaded(browsingContext: BrowsingContext, data: any): void;
 }
 
-// https://searchfox.org/mozilla-central/source/toolkit/components/search/nsISearchService.idl
-
-interface nsISearchSubmission extends nsISupports {
-  readonly postData: nsIInputStream;
-  readonly uri: nsIURI;
-}
-
-interface nsISearchEngine extends nsISupports {
-  getSubmission(searchTerms: string, responseType?: string): nsISearchSubmission;
-  readonly searchURLWithNoTerms: nsIURI;
-  searchTermFromResult(uri: nsIURI): string;
-  readonly searchUrlQueryParamName: string;
-  readonly searchUrlPublicSuffix: string;
-  supportsResponseType(responseType: string): boolean;
-  getIconURL(preferredWidth?: u16): Promise<any>;
-  speculativeConnect(options: any): void;
-  alias: string;
-  readonly aliases: string[];
-  hidden: boolean;
-  hideOneOffButton: boolean;
-  readonly name: string;
-  readonly id: string;
-  readonly telemetryId: string;
-  readonly loadPath: string;
-  readonly isAppProvided: boolean;
-  readonly isConfigEngine: boolean;
-  readonly inMemory: boolean;
-  readonly overriddenById: string;
-  readonly isGeneralPurposeEngine: boolean;
-  readonly searchUrlDomain: string;
-  readonly clickUrl: string;
-  readonly searchForm: string;
-  readonly partnerCode: string;
-}
-
-interface nsISearchParseSubmissionResult extends nsISupports {
-  readonly engine: nsISearchEngine;
-  readonly terms: string;
-  readonly termsParameterName: string;
-}
-
-}  // global
-
-declare enum nsISearchService_OpenSearchInstallErrors {
-  ERROR_DOWNLOAD_FAILURE = 1,
-  ERROR_DUPLICATE_ENGINE = 2,
-  ERROR_ENGINE_CORRUPTED = 3,
-}
-
-declare enum nsISearchService_DefaultEngineChangeReason {
-  CHANGE_REASON_UNKNOWN = 0,
-  CHANGE_REASON_USER = 1,
-  CHANGE_REASON_USER_PRIVATE_SPLIT = 2,
-  CHANGE_REASON_USER_SEARCHBAR = 3,
-  CHANGE_REASON_USER_SEARCHBAR_CONTEXT = 4,
-  CHANGE_REASON_ADDON_INSTALL = 5,
-  CHANGE_REASON_ADDON_UNINSTALL = 6,
-  CHANGE_REASON_CONFIG = 7,
-  CHANGE_REASON_LOCALE = 8,
-  CHANGE_REASON_REGION = 9,
-  CHANGE_REASON_EXPERIMENT = 10,
-  CHANGE_REASON_ENTERPRISE = 11,
-  CHANGE_REASON_UITOUR = 12,
-  CHANGE_REASON_ENGINE_UPDATE = 13,
-  CHANGE_REASON_USER_PRIVATE_PREF_ENABLED = 14,
-  CHANGE_REASON_ENGINE_IGNORE_LIST_UPDATED = 15,
-  CHANGE_REASON_NO_EXISTING_DEFAULT_ENGINE = 16,
-}
-
-declare global {
-
-namespace nsISearchService {
-  type OpenSearchInstallErrors = nsISearchService_OpenSearchInstallErrors;
-  type DefaultEngineChangeReason = nsISearchService_DefaultEngineChangeReason;
-}
-
-interface nsISearchService extends nsISupports, Enums<typeof nsISearchService_OpenSearchInstallErrors & typeof nsISearchService_DefaultEngineChangeReason> {
-  init(): Promise<any>;
-  readonly promiseInitialized: Promise<any>;
-  readonly isInitialized: boolean;
-  readonly hasSuccessfullyInitialized: boolean;
-  runBackgroundChecks(): Promise<any>;
-  resetToAppDefaultEngine(): void;
-  addOpenSearchEngine(engineURL: string, iconURL: string, originAttributes?: any): Promise<any>;
-  addUserEngine(formInfo: any): Promise<any>;
-  addEnginesFromExtension(extension: any): Promise<any>;
-  restoreDefaultEngines(): void;
-  getEngineByAlias(alias: string): Promise<any>;
-  getEngineByName(aEngineName: string): nsISearchEngine;
-  getEngineById(aEngineId: string): nsISearchEngine;
-  getEngines(): Promise<any>;
-  getVisibleEngines(): Promise<any>;
-  getAppProvidedEngines(): Promise<any>;
-  findContextualSearchEngineByHost(host: string): Promise<any>;
-  shouldShowInstallPrompt(engine: any): Promise<any>;
-  addSearchEngine(engine: any): Promise<any>;
-  moveEngine(engine: nsISearchEngine, newIndex: i32): Promise<any>;
-  removeEngine(engine: nsISearchEngine, changeReason?: u16): Promise<any>;
-  removeWebExtensionEngine(id: string): Promise<any>;
-  readonly appDefaultEngine: nsISearchEngine;
-  readonly appPrivateDefaultEngine: nsISearchEngine;
-  readonly defaultEngine: nsISearchEngine;
-  getDefault(): Promise<any>;
-  setDefault(engine: nsISearchEngine, changeReason: u16): Promise<any>;
-  readonly defaultPrivateEngine: nsISearchEngine;
-  getDefaultPrivate(): Promise<any>;
-  setDefaultPrivate(engine: nsISearchEngine, changeReason: u16): Promise<any>;
-  readonly separatePrivateDefaultUrlbarResultEnabled: boolean;
-  maybeSetAndOverrideDefault(extension: any): Promise<any>;
-  getDefaultEngineInfo(): any;
-  parseSubmissionURL(url: string): nsISearchParseSubmissionResult;
-}
-
 // https://searchfox.org/mozilla-central/source/toolkit/components/shell/nsIToolkitShellService.idl
 
 interface nsIToolkitShellService extends nsISupports {
@@ -15632,7 +15512,6 @@ interface nsIXPCComponents_Interfaces {
   nsIDOMWindow: nsJSIID<nsIDOMWindow>;
   nsISynthesizedEventCallback: nsJSIID<nsISynthesizedEventCallback>;
   nsIDOMWindowUtils: nsJSIID<nsIDOMWindowUtils, typeof nsIDOMWindowUtils_AsyncEnabledOption>;
-  nsITranslationNodeList: nsJSIID<nsITranslationNodeList>;
   nsIJSRAIIHelper: nsJSIID<nsIJSRAIIHelper>;
   nsIFocusManager: nsJSIID<nsIFocusManager>;
   nsIGeckoViewServiceWorker: nsJSIID<nsIGeckoViewServiceWorker>;
@@ -16322,10 +16201,6 @@ interface nsIXPCComponents_Interfaces {
   nsIRFPService: nsJSIID<nsIRFPService>;
   nsIRFPTargetSetIDL: nsJSIID<nsIRFPTargetSetIDL>;
   nsIUserCharacteristicsPageService: nsJSIID<nsIUserCharacteristicsPageService>;
-  nsISearchSubmission: nsJSIID<nsISearchSubmission>;
-  nsISearchEngine: nsJSIID<nsISearchEngine>;
-  nsISearchParseSubmissionResult: nsJSIID<nsISearchParseSubmissionResult>;
-  nsISearchService: nsJSIID<nsISearchService, typeof nsISearchService_OpenSearchInstallErrors & typeof nsISearchService_DefaultEngineChangeReason>;
   nsIToolkitShellService: nsJSIID<nsIToolkitShellService>;
   nsITerminatorTest: nsJSIID<nsITerminatorTest>;
   nsIXULStore: nsJSIID<nsIXULStore>;

@@ -21,7 +21,11 @@ export const GROUP_TYPES = {
  * @slot default - Slot for rendering various moz-box-* elements.
  * @slot <index> - Slots used to assign moz-box-* elements to <li> elements when
  *   the group is type="list".
+ * @fires reorder
+ *  Fired when items are reordered via drag-and-drop or keyboard shortcuts.
+ *  The detail object contains draggedElement, targetElement, position, draggedIndex, and targetIndex.
  */
+
 export default class MozBoxGroup extends MozLitElement {
   #tabbable = true;
 
@@ -88,24 +92,41 @@ export default class MozBoxGroup extends MozLitElement {
         </${listTag}>
         <slot hidden></slot>`;
     }
-    return html`<div class="scroll-container">
+    return html`<div class="scroll-container" tabindex="-1">
       <slot></slot>
     </div>`;
   }
 
+  /**
+   * Handles reordering of items in the list.
+   *
+   * @param {object} event - Event object or wrapper containing detail from moz-reorderable-list.
+   * @param {object} event.detail - Detail object from moz-reorderable-list.evaluateKeyDownEvent or drag-and-drop event.
+   * @param {Element} event.detail.draggedElement - The element being reordered.
+   * @param {Element} event.detail.targetElement - The target element to reorder relative to.
+   * @param {number} event.detail.position - Position relative to target (-1 for before, 0 for after).
+   * @param {number} event.detail.draggedIndex - The index of the element being reordered.
+   * @param {number} event.detail.targetIndex - The new index of the draggedElement.
+   */
   handleReorder(event) {
-    let { draggedElement, targetElement, position } = event.detail;
-    let parent = targetElement.parentNode;
-    let moveBefore = position === -1;
+    let { targetIndex } = event.detail;
 
-    if (moveBefore) {
-      parent.insertBefore(draggedElement, targetElement);
-    } else {
-      parent.insertBefore(draggedElement, targetElement.nextElementSibling);
-    }
+    this.dispatchEvent(
+      new CustomEvent("reorder", {
+        bubbles: true,
+        detail: event.detail,
+      })
+    );
 
-    draggedElement.focus();
-    this.updateItems();
+    /**
+     * Without requesting an animation frame, we will lose focus within
+     * the box group when using Ctrl + Shift + ArrowDown. The focus will
+     * move to the browser chrome which is unexpected.
+     *
+     */
+    requestAnimationFrame(() => {
+      this.listItems[targetIndex]?.focus();
+    });
   }
 
   handleKeydown(event) {

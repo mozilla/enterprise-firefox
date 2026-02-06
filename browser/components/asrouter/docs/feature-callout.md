@@ -217,6 +217,9 @@ interface FeatureCallout {
           // default (this corresponds to a triangle with 24px edges). This
           // also affects the height of the arrow.
           arrow_width?: number;
+          // The desired distance between the arrow and the corner of the parent
+          // box element. A number of pixels. Default is 12px.
+          arrow_corner_distance?: number;
           // By default, callouts are not focused when they are shown. The user
           // must use a mouse or the F6 shortcut to interact with the callout.
           // This property allows you to force an element inside the callout to
@@ -304,8 +307,8 @@ interface FeatureCallout {
           // This can be used to control the ARIA attributes and tooltip.
           // Usually it's omitted, since it has a correct default value.
           label?: Label;
-          // The button can be 32px or 24px. Defaults to 32px.
-          size?: "small" | "large";
+          // The button can be 20px, 24px or 32px. Defaults to 32px.
+          size?: "x-small" | "small" | "large";
           action: Action;
           // CSS overrides.
           marginBlock?: string;

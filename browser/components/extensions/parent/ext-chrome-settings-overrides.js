@@ -193,8 +193,8 @@ this.chrome_settings_overrides = class extends ExtensionAPI {
           await SearchService.setDefault(
             engine,
             action == "enable"
-              ? Ci.nsISearchService.CHANGE_REASON_ADDON_INSTALL
-              : Ci.nsISearchService.CHANGE_REASON_ADDON_UNINSTALL
+              ? SearchService.CHANGE_REASON.ADDON_INSTALL
+              : SearchService.CHANGE_REASON.ADDON_UNINSTALL
           );
         }
       } catch (e) {
@@ -371,7 +371,7 @@ this.chrome_settings_overrides = class extends ExtensionAPI {
             );
             await SearchService.setDefault(
               SearchService.getEngineByName(engineName),
-              Ci.nsISearchService.CHANGE_REASON_ADDON_INSTALL
+              SearchService.CHANGE_REASON.ADDON_INSTALL
             );
           }
           // For testing
@@ -440,7 +440,7 @@ this.chrome_settings_overrides = class extends ExtensionAPI {
       let item = await this.ensureSetting(engineName);
       await SearchService.setDefault(
         SearchService.getEngineByName(item.value),
-        Ci.nsISearchService.CHANGE_REASON_ADDON_INSTALL
+        SearchService.CHANGE_REASON.ADDON_INSTALL
       );
     } else if (
       ["ADDON_UPGRADE", "ADDON_DOWNGRADE", "ADDON_ENABLE"].includes(
@@ -488,7 +488,7 @@ this.chrome_settings_overrides = class extends ExtensionAPI {
       if (control === "controlled_by_this_extension") {
         await SearchService.setDefault(
           SearchService.getEngineByName(engineName),
-          Ci.nsISearchService.CHANGE_REASON_ADDON_INSTALL
+          SearchService.CHANGE_REASON.ADDON_INSTALL
         );
       } else if (control === "controllable_by_this_extension") {
         if (skipEnablePrompt) {
@@ -500,7 +500,7 @@ this.chrome_settings_overrides = class extends ExtensionAPI {
           );
           await SearchService.setDefault(
             SearchService.getEngineByName(engineName),
-            Ci.nsISearchService.CHANGE_REASON_ADDON_INSTALL
+            SearchService.CHANGE_REASON.ADDON_INSTALL
           );
         } else if (extension.startupReason == "ADDON_ENABLE") {
           // This extension has precedence, but is not in control.  Ask the user.

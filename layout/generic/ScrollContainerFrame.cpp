@@ -292,7 +292,7 @@ ScrollContainerFrame::ScrollContainerFrame(ComputedStyle* aStyle,
       mVelocityQueue(PresContext()) {
   AppendScrollUpdate(ScrollPositionUpdate::NewScrollframe(nsPoint()));
 
-  if (UsesOverlayScrollbars()) {
+  if (UseOverlayScrollbars()) {
     mScrollbarActivity = new ScrollbarActivity(this);
   }
 
@@ -528,7 +528,7 @@ ScrollReflowInput::ScrollReflowInput(ScrollContainerFrame* aFrame,
   ScrollStyles styles = aFrame->GetScrollStyles();
   mHScrollbar = ShouldShowScrollbar(styles.mHorizontal);
   mVScrollbar = ShouldShowScrollbar(styles.mVertical);
-  mOverlayScrollbars = aFrame->UsesOverlayScrollbars();
+  mOverlayScrollbars = aFrame->UseOverlayScrollbars();
 
   if (nsScrollbarFrame* scrollbar = aFrame->GetScrollbarBox(false)) {
     mHScrollbarPrefSize = scrollbar->ScrollbarMinSize();
@@ -708,7 +708,7 @@ bool ScrollContainerFrame::TryLayout(ScrollReflowInput& aState,
   // becomes a bit bigger than before, then the vertical scrollbar is no longer
   // needed, which means the content width becomes the original width, then the
   // minimum-scale is changed to the original one, and so forth.
-  if (UsesOverlayScrollbars() && mIsUsingMinimumScaleSize &&
+  if (UseOverlayScrollbars() && mIsUsingMinimumScaleSize &&
       mMinimumScaleSize.height > overflowRect.YMost()) {
     overflowRect.height += mMinimumScaleSize.height - overflowRect.YMost();
   }
@@ -1145,7 +1145,7 @@ nscoord ScrollContainerFrame::IntrinsicScrollbarGutterSizeAtInlineEdges()
 }
 
 nsMargin ScrollContainerFrame::IntrinsicScrollbarGutterSize() const {
-  if (PresContext()->UseOverlayScrollbars()) {
+  if (UseOverlayScrollbars()) {
     // Overlay scrollbars do not consume space per spec.
     return {};
   }
@@ -1184,7 +1184,7 @@ nsMargin ScrollContainerFrame::IntrinsicScrollbarGutterSize() const {
 nsMargin ScrollContainerFrame::ComputeStableScrollbarGutter(
     const StyleScrollbarWidth& aStyleScrollbarWidth,
     const StyleScrollbarGutter& aStyleScrollbarGutter) const {
-  if (PresContext()->UseOverlayScrollbars()) {
+  if (UseOverlayScrollbars()) {
     // Overlay scrollbars do not consume space per spec.
     return {};
   }
@@ -1636,8 +1636,7 @@ NS_QUERYFRAME_HEAD(ScrollContainerFrame)
 NS_QUERYFRAME_TAIL_INHERITING(nsContainerFrame)
 
 nsMargin ScrollContainerFrame::GetDesiredScrollbarSizes() const {
-  nsPresContext* pc = PresContext();
-  if (pc->UseOverlayScrollbars()) {
+  if (UseOverlayScrollbars()) {
     return {};
   }
 
@@ -1650,7 +1649,7 @@ nsMargin ScrollContainerFrame::GetDesiredScrollbarSizes() const {
   ScrollStyles styles = GetScrollStyles();
   nsMargin result(0, 0, 0, 0);
 
-  auto size = GetNonOverlayScrollbarSize(pc, scrollbarWidth);
+  auto size = GetNonOverlayScrollbarSize(PresContext(), scrollbarWidth);
   if (styles.mVertical != StyleOverflow::Hidden) {
     if (IsScrollbarOnRight()) {
       result.right = size;
@@ -1677,10 +1676,10 @@ nscoord ScrollContainerFrame::GetNonOverlayScrollbarSize(
 
 void ScrollContainerFrame::HandleScrollbarStyleSwitching() {
   // Check if we switched between scrollbar styles.
-  if (mScrollbarActivity && !UsesOverlayScrollbars()) {
+  if (mScrollbarActivity && !UseOverlayScrollbars()) {
     mScrollbarActivity->Destroy();
     mScrollbarActivity = nullptr;
-  } else if (!mScrollbarActivity && UsesOverlayScrollbars()) {
+  } else if (!mScrollbarActivity && UseOverlayScrollbars()) {
     mScrollbarActivity = new ScrollbarActivity(this);
   }
 }
@@ -3367,7 +3366,7 @@ void ScrollContainerFrame::AppendScrollPartsTo(nsDisplayListBuilder* aBuilder,
                                                bool aCreateLayer,
                                                bool aPositioned) {
   MOZ_ASSERT(!HidesContent());
-  const bool overlayScrollbars = UsesOverlayScrollbars();
+  const bool overlayScrollbars = UseOverlayScrollbars();
 
   AutoTArray<nsIFrame*, 3> scrollParts;
   for (nsIFrame* kid : PrincipalChildList()) {
@@ -4140,9 +4139,9 @@ void ScrollContainerFrame::BuildDisplayList(nsDisplayListBuilder* aBuilder,
                                     &copyOfDirtyRect,
                                     /* aSetBase = */ false, nullptr);
         if (mWillBuildScrollableLayer) {
-#ifndef MOZ_WIDGET_ANDROID
-          gfxCriticalNoteOnce << "inserted scroll frame";
-#endif
+          if (ShouldActivateAllScrollFrames(aBuilder, this)) {
+            gfxCriticalNoteOnce << "inserted scroll frame";
+          }
           MOZ_ASSERT(!ShouldActivateAllScrollFrames(aBuilder, this));
           asrSetter.InsertScrollFrame(this);
           aBuilder->SetDisablePartialUpdates(true);
@@ -6076,7 +6075,7 @@ bool ScrollContainerFrame::ReflowFinished() {
       mMinimumScaleSizeChanged = false;
     }
 
-    if (!UsesOverlayScrollbars()) {
+    if (!UseOverlayScrollbars()) {
       // Layout scrollbars may have added or removed during reflow, so let's
       // update the visual viewport accordingly. Note that this may be a no-op
       // because we might have recomputed the visual viewport size during the
@@ -6418,7 +6417,7 @@ void ScrollContainerFrame::LayoutScrollbars(ScrollReflowInput& aState,
                                             const nsRect& aInsideBorderArea,
                                             const nsRect& aOldScrollPort) {
   const bool scrollbarOnLeft = !IsScrollbarOnRight();
-  const bool overlayScrollbars = UsesOverlayScrollbars();
+  const bool overlayScrollbars = UseOverlayScrollbars();
   const bool overlayScrollBarsOnRoot = overlayScrollbars && mIsRoot;
   const bool showVScrollbar = mVScrollbarBox && mHasVerticalScrollbar;
   const bool showHScrollbar = mHScrollbarBox && mHasHorizontalScrollbar;
@@ -6859,7 +6858,7 @@ nsMargin ScrollContainerFrame::GetActualScrollbarSizes(
              r.YMost() - mScrollPort.YMost(), mScrollPort.x - r.x);
 
   if (aOptions == ScrollbarSizesOptions::INCLUDE_VISUAL_VIEWPORT_SCROLLBARS &&
-      !UsesOverlayScrollbars()) {
+      !UseOverlayScrollbars()) {
     // If we are using layout scrollbars and they only exist to scroll the
     // visual viewport then they do not take up any layout space (so the
     // scrollport is the same as the padding rect) but they do cover everything
@@ -7621,7 +7620,7 @@ ScrollContainerFrame::GetScrollSnapAlignFor(const nsIFrame* aFrame) const {
   return {alignForX, alignForY};
 }
 
-bool ScrollContainerFrame::UsesOverlayScrollbars() const {
+bool ScrollContainerFrame::UseOverlayScrollbars() const {
   return PresContext()->UseOverlayScrollbars();
 }
 

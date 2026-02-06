@@ -65,6 +65,22 @@ known_errors = [
         # the warning can be removed.
         "message": 'JavaScript Warning: "Window.fullScreen attribute is deprecated and will be removed in the future."',
     },
+    # Enterprise specific errors due to running without FELT
+    {
+        "message": "ReauthRequiredError: No refresh token available",
+    },
+    {
+        "message": "EnterpriseHandler: Unable to initialize enterprise user: , InvalidAuthError: Unhandled reauthentication",
+    },
+    {
+        "message": "Error in processing browser-window-domcontentloaded for EnterpriseHandler.init",
+    },
+    {
+        "message": 'TypeError: can\'t access property "gSync", window is undefined',
+    },
+    {
+        "message": "Error updating FxA account info:, InvalidAuthError: Unhandled reauthentication",
+    },
 ]
 
 # Same rules apply here - please don't add anything! - but headless runs

@@ -161,7 +161,6 @@ internal class HomeToolbarView(
         navController = homeFragment.findNavController(),
         tabCounter = toolbarBinding.tabButton,
         showLongPressMenu = !context.isLargeWindow(),
-        settings = context.settings(),
     )
 
     private fun initLayoutParameters() {

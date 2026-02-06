@@ -1493,6 +1493,7 @@ bool nsLineLayout::NotifyOptionalBreakPosition(nsIFrame* aFrame,
 #define VALIGN_OTHER 0
 #define VALIGN_TOP 1
 #define VALIGN_BOTTOM 2
+#define VALIGN_CENTER 3
 
 void nsLineLayout::SetSpanForEmptyLine(PerSpanData* aPerSpanData,
                                        WritingMode aWM,
@@ -1595,7 +1596,7 @@ void nsLineLayout::VerticalAlignLine() {
 
   // Now position all of the frames in the root span. We will also
   // recurse over the child spans and place any frames we find with
-  // vertical-align: top or bottom.
+  // vertical-align: top/bottom/center.
   // XXX PERFORMANCE: set a bit per-span to avoid the extra work
   // (propagate it upward too)
   WritingMode lineWM = psd->mWritingMode;
@@ -1605,7 +1606,7 @@ void nsLineLayout::VerticalAlignLine() {
       pfd->mFrame->SetRect(lineWM, pfd->mBounds, ContainerSize());
     }
   }
-  PlaceTopBottomFrames(psd, -mBStartEdge, lineBSize);
+  PlaceTopBottomCenterFrames(psd, -mBStartEdge, lineBSize);
 
   mFinalLineBSize = lineBSize;
   if (mGotLineBox) {
@@ -1626,10 +1627,34 @@ void nsLineLayout::VerticalAlignLine() {
   }
 }
 
-// Place frames with CSS property vertical-align: top or bottom.
-void nsLineLayout::PlaceTopBottomFrames(PerSpanData* psd,
-                                        nscoord aDistanceFromStart,
-                                        nscoord aLineBSize) {
+nscoord nsLineLayout::ComputeTopAlignFrameStart(const PerFrameData* pfd,
+                                                const WritingMode& aWM,
+                                                nscoord aDistanceFromStart,
+                                                nscoord aLineBSize) {
+  if (PerSpanData* span = pfd->mSpan) {
+    return -aDistanceFromStart - span->mMinBCoord;
+  } else {
+    return -aDistanceFromStart + pfd->mMargin.BStart(aWM);
+  }
+}
+
+nscoord nsLineLayout::ComputeBottomAlignFrameStart(const PerFrameData* pfd,
+                                                   const WritingMode& aWM,
+                                                   nscoord aDistanceFromStart,
+                                                   nscoord aLineBSize) {
+  if (PerSpanData* span = pfd->mSpan) {
+    // Compute bottom leading
+    return -aDistanceFromStart + aLineBSize - span->mMaxBCoord;
+  } else {
+    return -aDistanceFromStart + aLineBSize - pfd->mMargin.BEnd(aWM) -
+           pfd->mBounds.BSize(aWM);
+  }
+}
+
+// Place frames with CSS property vertical-align: top/bottom/center.
+void nsLineLayout::PlaceTopBottomCenterFrames(PerSpanData* psd,
+                                              nscoord aDistanceFromStart,
+                                              nscoord aLineBSize) {
   for (PerFrameData* pfd = psd->mFirstFrame; pfd; pfd = pfd->mNext) {
     PerSpanData* span = pfd->mSpan;
 #ifdef DEBUG
@@ -1639,12 +1664,8 @@ void nsLineLayout::PlaceTopBottomFrames(PerSpanData* psd,
     nsSize containerSize = ContainerSizeForSpan(psd);
     switch (pfd->mBlockDirAlign) {
       case VALIGN_TOP:
-        if (span) {
-          pfd->mBounds.BStart(lineWM) = -aDistanceFromStart - span->mMinBCoord;
-        } else {
-          pfd->mBounds.BStart(lineWM) =
-              -aDistanceFromStart + pfd->mMargin.BStart(lineWM);
-        }
+        pfd->mBounds.BStart(lineWM) = ComputeTopAlignFrameStart(
+            pfd, lineWM, aDistanceFromStart, aLineBSize);
         pfd->mFrame->SetRect(lineWM, pfd->mBounds, containerSize);
 #ifdef NOISY_BLOCKDIR_ALIGN
         printf("    ");
@@ -1656,15 +1677,8 @@ void nsLineLayout::PlaceTopBottomFrames(PerSpanData* psd,
 #endif
         break;
       case VALIGN_BOTTOM:
-        if (span) {
-          // Compute bottom leading
-          pfd->mBounds.BStart(lineWM) =
-              -aDistanceFromStart + aLineBSize - span->mMaxBCoord;
-        } else {
-          pfd->mBounds.BStart(lineWM) = -aDistanceFromStart + aLineBSize -
-                                        pfd->mMargin.BEnd(lineWM) -
-                                        pfd->mBounds.BSize(lineWM);
-        }
+        pfd->mBounds.BStart(lineWM) = ComputeBottomAlignFrameStart(
+            pfd, lineWM, aDistanceFromStart, aLineBSize);
         pfd->mFrame->SetRect(lineWM, pfd->mBounds, containerSize);
 #ifdef NOISY_BLOCKDIR_ALIGN
         printf("    ");
@@ -1672,10 +1686,18 @@ void nsLineLayout::PlaceTopBottomFrames(PerSpanData* psd,
         printf(": y=%d\n", pfd->mBounds.BStart(lineWM));
 #endif
         break;
+      case VALIGN_CENTER:
+        nscoord startTop = ComputeTopAlignFrameStart(
+            pfd, lineWM, aDistanceFromStart, aLineBSize);
+        nscoord startBottom = ComputeBottomAlignFrameStart(
+            pfd, lineWM, aDistanceFromStart, aLineBSize);
+        pfd->mBounds.BStart(lineWM) = (startTop + startBottom) / 2;
+        pfd->mFrame->SetRect(lineWM, pfd->mBounds, containerSize);
+        break;
     }
     if (span) {
       nscoord fromStart = aDistanceFromStart + pfd->mBounds.BStart(lineWM);
-      PlaceTopBottomFrames(span, fromStart, aLineBSize);
+      PlaceTopBottomCenterFrames(span, fromStart, aLineBSize);
     }
   }
 }
@@ -1795,7 +1817,7 @@ bool nsLineLayout::ShouldApplyLineHeightInPreserveWhiteSpace(
 
 // Place frames in the block direction within a given span (CSS property
 // vertical-align) Note: this doesn't place frames with vertical-align:
-// top or bottom as those have to wait until the entire line box block
+// top/bottom/center as those have to wait until the entire line box block
 // size is known. This is called after the span frame has finished being
 // reflowed so that we know its block size.
 void nsLineLayout::VerticalAlignFrames(PerSpanData* psd) {
@@ -2027,7 +2049,8 @@ void nsLineLayout::VerticalAlignFrames(PerSpanData* psd) {
 
     // Get block-direction alignment values
     StyleAlignmentBaseline alignmentBaseline = frame->AlignmentBaseline();
-    const StyleBaselineShift& baselineShift = frame->BaselineShift();
+    const StyleBaselineShift& baselineShift =
+        frame->StyleDisplay()->mBaselineShift;
     Maybe<StyleBaselineShiftKeyword> baselineShiftEnum =
         baselineShift.IsKeyword() ? Some(baselineShift.AsKeyword()) : Nothing();
 
@@ -2194,6 +2217,22 @@ void nsLineLayout::VerticalAlignFrames(PerSpanData* psd) {
           }
           break;
         }
+
+        case StyleBaselineShiftKeyword::Center:
+          pfd->mBlockDirAlign = VALIGN_CENTER;
+          nscoord subtreeBSize = logicalBSize;
+          if (frameSpan) {
+            subtreeBSize = frameSpan->mMaxBCoord - frameSpan->mMinBCoord;
+            NS_ASSERTION(subtreeBSize >= logicalBSize,
+                         "unexpected subtree block size");
+          }
+          if (subtreeBSize > maxStartBoxBSize) {
+            maxStartBoxBSize = subtreeBSize;
+          }
+          if (subtreeBSize > maxEndBoxBSize) {
+            maxEndBoxBSize = subtreeBSize;
+          }
+          break;
       }
     } else {
       // We have either a coord, a percent, or a calc().
@@ -3037,7 +3076,7 @@ void nsLineLayout::ExpandRubyBoxWithAnnotations(PerFrameData* aFrame,
       // It is necessary to set the rect again because the container
       // width was unknown, and zero was used instead when we reflow
       // them. The corresponding base containers were repositioned in
-      // VerticalAlignFrames and PlaceTopBottomFrames.
+      // VerticalAlignFrames and PlaceTopBottomCenterFrames.
       MOZ_ASSERT(rtcFrame->GetLogicalSize(lineWM) ==
                  annotation->mBounds.Size(lineWM));
       rtcFrame->SetPosition(lineWM, annotation->mBounds.Origin(lineWM),

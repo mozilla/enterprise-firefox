@@ -509,6 +509,10 @@ nsThreadPool::UnregisterShutdownTask(nsITargetShutdownTask* aTask) {
   return mShutdownTasks.RemoveTask(aTask);
 }
 
+nsIEventTarget::FeatureFlags nsThreadPool::GetFeatures() {
+  return SUPPORTS_SHUTDOWN_TASKS | SUPPORTS_SHUTDOWN_TASK_DISPATCH;
+}
+
 NS_IMETHODIMP_(bool)
 nsThreadPool::IsOnCurrentThreadInfallible() {
   return gCurrentThreadPool.get() == this;

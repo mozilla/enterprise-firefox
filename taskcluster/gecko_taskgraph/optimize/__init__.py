@@ -39,6 +39,11 @@ def split_bugbug_arg(arg, substrategies):
 
 # Register composite strategies.
 register_strategy("build", args=("skip-unless-schedules",))(Alias)
+register_strategy(
+    "docs",
+    args=("skip-unless-schedules", "skip-unless-sphinx-js"),
+    kwargs={"split_args": lambda *args: (["docs"], None)},
+)(All)
 register_strategy("test", args=("skip-unless-schedules",))(Alias)
 register_strategy("test-inclusive", args=("skip-unless-schedules",))(Alias)
 register_strategy("test-verify", args=("skip-unless-schedules",))(Alias)

@@ -144,8 +144,8 @@ export class BasePopup {
     }
     browser.removeEventListener("pagetitlechanged", this);
     browser.removeEventListener("DOMWindowClose", this);
-    browser.removeEventListener("DoZoomEnlargeBy10", this);
-    browser.removeEventListener("DoZoomReduceBy10", this);
+    browser.removeEventListener("DoZoomEnlarge", this);
+    browser.removeEventListener("DoZoomReduce", this);
   }
 
   // Returns the name of the event fired on `viewNode` when the popup is being
@@ -241,7 +241,7 @@ export class BasePopup {
         this.closePopup();
         break;
 
-      case "DoZoomEnlargeBy10": {
+      case "DoZoomEnlarge": {
         const browser = event.target;
         let { ZoomManager } = browser.ownerGlobal;
         let zoom = this.browser.fullZoom;
@@ -253,7 +253,7 @@ export class BasePopup {
         break;
       }
 
-      case "DoZoomReduceBy10": {
+      case "DoZoomReduce": {
         const browser = event.target;
         let { ZoomManager } = browser.ownerGlobal;
         let zoom = browser.fullZoom;
@@ -335,8 +335,8 @@ export class BasePopup {
       mm.addMessageListener("Extension:BrowserResized", this);
       browser.addEventListener("pagetitlechanged", this);
       browser.addEventListener("DOMWindowClose", this);
-      browser.addEventListener("DoZoomEnlargeBy10", this, true); // eslint-disable-line mozilla/balanced-listeners
-      browser.addEventListener("DoZoomReduceBy10", this, true); // eslint-disable-line mozilla/balanced-listeners
+      browser.addEventListener("DoZoomEnlarge", this, true); // eslint-disable-line mozilla/balanced-listeners
+      browser.addEventListener("DoZoomReduce", this, true); // eslint-disable-line mozilla/balanced-listeners
 
       lazy.ExtensionParent.apiManager.emit(
         "extension-browser-inserted",

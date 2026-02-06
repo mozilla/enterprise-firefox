@@ -9,10 +9,10 @@
 
 #include <stdint.h>
 
-#include "builtin/SelfHostingDefines.h"
 #include "builtin/temporal/TemporalUnit.h"
 #include "js/Class.h"
 #include "vm/NativeObject.h"
+#include "vm/StringType.h"
 
 namespace mozilla::intl {
 class ListFormat;
@@ -24,15 +24,13 @@ namespace js {
 namespace intl {
 enum class DurationDisplay : uint8_t { Auto, Always };
 enum class DurationStyle : uint8_t { Long, Short, Narrow, Numeric, TwoDigit };
+enum class DurationBaseStyle : uint8_t { Long, Short, Narrow, Digital };
 
 struct DurationFormatOptions {
-  // Packed representation to keep the unit options as small as possible.
-  //
-  // Use |uint8_t| instead of the actual enum type to avoid GCC warnings:
-  // https://gcc.gnu.org/bugzilla/show_bug.cgi?id=61414
-#define DECLARE_DURATION_UNIT(name)                \
-  /* DurationDisplay */ uint8_t name##Display : 1; \
-  /* DurationStyle */ uint8_t name##Style : 3;
+// Packed representation to keep the unit options as small as possible.
+#define DECLARE_DURATION_UNIT(name)                          \
+  DurationDisplay name##Display : 1 = DurationDisplay::Auto; \
+  DurationStyle name##Style : 3 = DurationStyle::Short;
 
   DECLARE_DURATION_UNIT(years);
   DECLARE_DURATION_UNIT(months);
@@ -47,17 +45,14 @@ struct DurationFormatOptions {
 
 #undef DECLARE_DURATION_UNIT
 
-  int8_t fractionalDigits;
+  DurationBaseStyle style = DurationBaseStyle::Short;
+  int8_t fractionalDigits = -1;
 };
 
 struct DurationUnitOptions {
   // Use the same bit-widths for fast extraction from DurationFormatOptions.
-  /* DurationDisplay */ uint8_t display_ : 1;
-  /* DurationStyle */ uint8_t style_ : 3;
-
-  auto display() const { return static_cast<DurationDisplay>(display_); }
-
-  auto style() const { return static_cast<DurationStyle>(style_); }
+  DurationDisplay display : 1;
+  DurationStyle style : 3;
 };
 
 }  // namespace intl
@@ -67,8 +62,8 @@ class DurationFormatObject : public NativeObject {
   static const JSClass class_;
   static const JSClass& protoClass_;
 
-  static constexpr uint32_t INTERNALS_SLOT = 0;
-  static constexpr uint32_t LIST_FORMAT_SLOT = 1;
+  static constexpr uint32_t LOCALE_SLOT = 0;
+  static constexpr uint32_t NUMBERING_SYSTEM = 1;
   static constexpr uint32_t NUMBER_FORMAT_YEARS_SLOT = 2;
   static constexpr uint32_t NUMBER_FORMAT_MONTHS_SLOT = 3;
   static constexpr uint32_t NUMBER_FORMAT_WEEKS_SLOT = 4;
@@ -79,13 +74,10 @@ class DurationFormatObject : public NativeObject {
   static constexpr uint32_t NUMBER_FORMAT_MILLISECONDS_SLOT = 9;
   static constexpr uint32_t NUMBER_FORMAT_MICROSECONDS_SLOT = 10;
   static constexpr uint32_t NUMBER_FORMAT_NANOSECONDS_SLOT = 11;
-  static constexpr uint32_t OPTIONS_SLOT = 12;
-  static constexpr uint32_t TIME_SEPARATOR_SLOT = 13;
-  static constexpr uint32_t SLOT_COUNT = 14;
-
-  static_assert(INTERNALS_SLOT == INTL_INTERNALS_OBJECT_SLOT,
-                "INTERNALS_SLOT must match self-hosting define for internals "
-                "object slot");
+  static constexpr uint32_t LIST_FORMAT_SLOT = 12;
+  static constexpr uint32_t OPTIONS_SLOT = 13;
+  static constexpr uint32_t TIME_SEPARATOR_SLOT = 14;
+  static constexpr uint32_t SLOT_COUNT = 15;
 
  private:
   static constexpr uint32_t numberFormatSlot(temporal::TemporalUnit unit) {
@@ -101,30 +93,42 @@ class DurationFormatObject : public NativeObject {
   }
 
  public:
-  mozilla::intl::NumberFormat* getNumberFormat(
-      temporal::TemporalUnit unit) const {
-    const auto& slot = getFixedSlot(numberFormatSlot(unit));
+  bool isLocaleResolved() const { return getFixedSlot(LOCALE_SLOT).isString(); }
+
+  JSObject* getRequestedLocales() const {
+    const auto& slot = getFixedSlot(LOCALE_SLOT);
     if (slot.isUndefined()) {
       return nullptr;
     }
-    return static_cast<mozilla::intl::NumberFormat*>(slot.toPrivate());
+    return &slot.toObject();
   }
 
-  void setNumberFormat(temporal::TemporalUnit unit,
-                       mozilla::intl::NumberFormat* numberFormat) {
-    setFixedSlot(numberFormatSlot(unit), PrivateValue(numberFormat));
+  void setRequestedLocales(JSObject* requestedLocales) {
+    setFixedSlot(LOCALE_SLOT, JS::ObjectValue(*requestedLocales));
   }
 
-  mozilla::intl::ListFormat* getListFormat() const {
-    const auto& slot = getFixedSlot(LIST_FORMAT_SLOT);
+  JSLinearString* getLocale() const {
+    const auto& slot = getFixedSlot(LOCALE_SLOT);
     if (slot.isUndefined()) {
       return nullptr;
     }
-    return static_cast<mozilla::intl::ListFormat*>(slot.toPrivate());
+    return &slot.toString()->asLinear();
   }
 
-  void setListFormat(mozilla::intl::ListFormat* listFormat) {
-    setFixedSlot(LIST_FORMAT_SLOT, PrivateValue(listFormat));
+  void setLocale(JSLinearString* locale) {
+    setFixedSlot(LOCALE_SLOT, JS::StringValue(locale));
+  }
+
+  JSLinearString* getNumberingSystem() const {
+    const auto& slot = getFixedSlot(NUMBERING_SYSTEM);
+    if (slot.isUndefined()) {
+      return nullptr;
+    }
+    return &slot.toString()->asLinear();
+  }
+
+  void setNumberingSystem(JSLinearString* numberingSystem) {
+    setFixedSlot(NUMBERING_SYSTEM, JS::StringValue(numberingSystem));
   }
 
   intl::DurationFormatOptions* getOptions() const {
@@ -136,7 +140,33 @@ class DurationFormatObject : public NativeObject {
   }
 
   void setOptions(intl::DurationFormatOptions* options) {
-    setFixedSlot(OPTIONS_SLOT, PrivateValue(options));
+    setFixedSlot(OPTIONS_SLOT, JS::PrivateValue(options));
+  }
+
+  mozilla::intl::NumberFormat* getNumberFormat(
+      temporal::TemporalUnit unit) const {
+    const auto& slot = getFixedSlot(numberFormatSlot(unit));
+    if (slot.isUndefined()) {
+      return nullptr;
+    }
+    return static_cast<mozilla::intl::NumberFormat*>(slot.toPrivate());
+  }
+
+  void setNumberFormat(temporal::TemporalUnit unit,
+                       mozilla::intl::NumberFormat* numberFormat) {
+    setFixedSlot(numberFormatSlot(unit), JS::PrivateValue(numberFormat));
+  }
+
+  mozilla::intl::ListFormat* getListFormat() const {
+    const auto& slot = getFixedSlot(LIST_FORMAT_SLOT);
+    if (slot.isUndefined()) {
+      return nullptr;
+    }
+    return static_cast<mozilla::intl::ListFormat*>(slot.toPrivate());
+  }
+
+  void setListFormat(mozilla::intl::ListFormat* listFormat) {
+    setFixedSlot(LIST_FORMAT_SLOT, JS::PrivateValue(listFormat));
   }
 
   JSString* getTimeSeparator() const {
@@ -148,7 +178,7 @@ class DurationFormatObject : public NativeObject {
   }
 
   void setTimeSeparator(JSString* timeSeparator) {
-    setFixedSlot(TIME_SEPARATOR_SLOT, StringValue(timeSeparator));
+    setFixedSlot(TIME_SEPARATOR_SLOT, JS::StringValue(timeSeparator));
   }
 
  private:

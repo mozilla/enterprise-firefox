@@ -141,7 +141,8 @@ class HeaderWord {
 // During moving GC operation a Cell may be marked as forwarded. This indicates
 // that a gc::RelocationOverlay is currently stored in the Cell's memory and
 // should be used to find the new location of the Cell.
-struct Cell {
+class Cell {
+ protected:
   // Cell header word. Stores GC flags and derived class data.
   HeaderWord header_;
 

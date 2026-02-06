@@ -67,7 +67,6 @@
 #include "memory_hooks.h"
 #include "memory_markers.h"
 #include "mozilla/ArrayAlgorithm.h"
-#include "mozilla/AutoProfilerLabel.h"
 #include "mozilla/BaseAndGeckoProfilerDetail.h"
 #include "mozilla/BaseProfiler.h"
 #include "mozilla/CycleCollectedJSContext.h"
@@ -3195,6 +3194,43 @@ static void StreamCategories(SpliceableJSONWriter& aWriter) {
   }
 }
 
+static mozilla::StaticMutex sCustomMarkerSchemasMutex;
+static mozilla::StaticAutoPtr<nsTHashMap<nsCStringHashKey, nsString>>
+    sCustomMarkerSchemas;
+
+void profiler_register_marker_schema(const nsCString& aSchemaName,
+                                     const nsString& aSchemaJSON) {
+  mozilla::StaticMutexAutoLock lock(sCustomMarkerSchemasMutex);
+  if (!sCustomMarkerSchemas) {
+    sCustomMarkerSchemas = new nsTHashMap<nsCStringHashKey, nsString>();
+  }
+
+  sCustomMarkerSchemas->InsertOrUpdate(aSchemaName, aSchemaJSON);
+}
+
+static void StreamCustomMarkerSchemas(
+    baseprofiler::SpliceableJSONWriter& aWriter) {
+  mozilla::StaticMutexAutoLock lock(sCustomMarkerSchemasMutex);
+  if (!sCustomMarkerSchemas) {
+    return;
+  }
+
+  for (auto iter = sCustomMarkerSchemas->Iter(); !iter.Done(); iter.Next()) {
+    const nsString& jsonSchema = iter.Data();
+    NS_ConvertUTF16toUTF8 utf8Schema(jsonSchema);
+
+    aWriter.Splice(utf8Schema.get(), utf8Schema.Length());
+  }
+}
+
+static void ClearCustomMarkerSchemas() {
+  mozilla::StaticMutexAutoLock lock(sCustomMarkerSchemasMutex);
+  if (sCustomMarkerSchemas) {
+    sCustomMarkerSchemas->Clear();
+    sCustomMarkerSchemas = nullptr;
+  }
+}
+
 static void StreamMarkerSchema(SpliceableJSONWriter& aWriter) {
   // Get an array view with all registered marker-type-specific functions.
   base_profiler_markers_detail::Streaming::LockedMarkerTypeFunctionsList
@@ -3205,6 +3241,11 @@ static void StreamMarkerSchema(SpliceableJSONWriter& aWriter) {
   // from the same code potentially living in different libraries.)
   for (const auto& markerTypeFunctions : markerTypeFunctionsArray) {
     auto name = markerTypeFunctions.mMarkerTypeNameFunction();
+    // Skip markers with empty names (used for wrapper types like
+    // JSCustomMarker)
+    if (name.empty()) {
+      continue;
+    }
     // std::set.insert(T&&) returns a pair, its `second` is true if the element
     // was actually inserted (i.e., it was not there yet.)
     const bool didInsert =
@@ -3424,6 +3465,7 @@ static void StreamMetaJSCustomObject(
 
   aWriter.StartArrayProperty("markerSchema");
   StreamMarkerSchema(aWriter);
+  StreamCustomMarkerSchemas(aWriter);
   aWriter.EndArray();
 
   ActivePS::WriteActiveConfiguration(aLock, aWriter,
@@ -5689,28 +5731,6 @@ static void locked_profiler_start(PSLockRef aLock, PowerOfTwo32 aCapacity,
                                   uint64_t aActiveTabID,
                                   const Maybe<double>& aDuration);
 
-// This basically duplicates AutoProfilerLabel's constructor.
-static void* MozGlueLabelEnter(const char* aLabel, const char* aDynamicString,
-                               void* aSp) {
-  ThreadRegistration::OnThreadPtr onThreadPtr =
-      ThreadRegistration::GetOnThreadPtr();
-  if (!onThreadPtr) {
-    return nullptr;
-  }
-  ProfilingStack& profilingStack =
-      onThreadPtr->UnlockedConstReaderAndAtomicRWRef().ProfilingStackRef();
-  profilingStack.pushLabelFrame(aLabel, aDynamicString, aSp,
-                                JS::ProfilingCategoryPair::OTHER);
-  return &profilingStack;
-}
-
-// This basically duplicates AutoProfilerLabel's destructor.
-static void MozGlueLabelExit(void* aProfilingStack) {
-  if (aProfilingStack) {
-    reinterpret_cast<ProfilingStack*>(aProfilingStack)->pop();
-  }
-}
-
 static Vector<const char*> SplitAtCommas(const char* aString,
                                          UniquePtr<char[]>& aStorage) {
   size_t len = strlen(aString);
@@ -6318,6 +6338,10 @@ void profiler_shutdown(IsFastShutdown aIsFastShutdown) {
     delete samplerThread;
   }
 
+  // Clear custom marker schemas to avoid StringBuffer leaks at shutdown.
+  // This is done after all profiling operations and notifications are complete.
+  ClearCustomMarkerSchemas();
+
   // Reverse the registration done in profiler_init.
   ThreadRegistration::UnregisterThread();
 }
@@ -6783,9 +6807,6 @@ static void locked_profiler_start(PSLockRef aLock, PowerOfTwo32 aCapacity,
     }
   }
 
-  // Setup support for pushing/popping labels in mozglue.
-  RegisterProfilerLabelEnterExit(MozGlueLabelEnter, MozGlueLabelExit);
-
 #if defined(GP_OS_android)
   if (ActivePS::FeatureJava(aLock)) {
     int javaInterval = interval;
@@ -6970,9 +6991,6 @@ void profiler_ensure_started(PowerOfTwo32 aCapacity, double aInterval,
     java::GeckoJavaSampler::Stop();
   }
 #endif
-
-  // Remove support for pushing/popping labels in mozglue.
-  RegisterProfilerLabelEnterExit(nullptr, nullptr);
 
   // Stop sampling live threads.
   ThreadRegistry::LockedRegistry lockedRegistry;
@@ -7970,9 +7988,11 @@ void profiler_set_js_context(CycleCollectedJSContext* aCx) {
                   profiledThreadData) {
                 profiledThreadData->NotifyReceivedJSContext(
                     ActivePS::Buffer(lock).BufferRangeEnd());
+#ifdef MOZ_EXECUTION_TRACING
                 if (ActivePS::FeatureTracing(lock)) {
-                  aCx->BeginExecutionTracingAsync();
+                  JS_TracerBeginTracing(aCx->Context());
                 }
+#endif
               }
             });
       });
@@ -8015,9 +8035,11 @@ void profiler_clear_js_context() {
           profiledThreadData->NotifyAboutToLoseJSContext(
               cx, CorePS::ProcessStartTime(), ActivePS::Buffer(lock));
 
+#ifdef MOZ_EXECUTION_TRACING
           if (ActivePS::FeatureTracing(lock)) {
-            cccx->EndExecutionTracingAsync();
+            JS_TracerEndTracing(cx);
           }
+#endif
 
           // Notify the JS context that profiling for this context has
           // stopped. Do this by calling StopJSSampling and PollJSSampling

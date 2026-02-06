@@ -7,12 +7,13 @@
 #ifndef DOM_SVG_SVGMARKERELEMENT_H_
 #define DOM_SVG_SVGMARKERELEMENT_H_
 
+#include <memory>
+
 #include "SVGAnimatedEnumeration.h"
 #include "SVGAnimatedLength.h"
 #include "SVGAnimatedOrient.h"
 #include "SVGAnimatedPreserveAspectRatio.h"
 #include "SVGAnimatedViewBox.h"
-#include "mozilla/UniquePtr.h"
 #include "mozilla/dom/SVGElement.h"
 #include "mozilla/dom/SVGMarkerElementBinding.h"
 
@@ -89,7 +90,7 @@ class SVGMarkerElement final : public SVGMarkerElementBase {
   SVGAnimatedPreserveAspectRatio mPreserveAspectRatio;
 
   SVGViewportElement* mCoordCtx;
-  UniquePtr<gfx::Matrix> mViewBoxToViewportTransform;
+  std::unique_ptr<gfx::Matrix> mViewBoxToViewportTransform;
 };
 
 }  // namespace dom

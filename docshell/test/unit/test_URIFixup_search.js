@@ -121,11 +121,11 @@ add_task(async function setup() {
 
   await SearchService.setDefault(
     SearchService.getEngineByName(kSearchEngineID),
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+    SearchService.CHANGE_REASON.UNKNOWN
   );
   await SearchService.setDefaultPrivate(
     SearchService.getEngineByName(kPrivateSearchEngineID),
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+    SearchService.CHANGE_REASON.UNKNOWN
   );
 });
 

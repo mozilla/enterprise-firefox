@@ -52,15 +52,16 @@ void SVGAnimatedString::SetAnimValue(const nsAString& aValue,
       return;
     }
     if (!mAnimVal) {
-      mAnimVal = MakeUnique<nsString>();
+      mAnimVal = std::make_unique<nsString>();
     }
     *mAnimVal = aValue;
     aSVGElement->DidAnimateString(mAttrEnum);
   }
 }
 
-UniquePtr<SMILAttr> SVGAnimatedString::ToSMILAttr(SVGElement* aSVGElement) {
-  return MakeUnique<SMILString>(this, aSVGElement);
+std::unique_ptr<SMILAttr> SVGAnimatedString::ToSMILAttr(
+    SVGElement* aSVGElement) {
+  return std::make_unique<SMILString>(this, aSVGElement);
 }
 
 nsresult SVGAnimatedString::SMILString::ValueFromString(

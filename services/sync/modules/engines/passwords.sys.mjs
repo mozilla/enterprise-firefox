@@ -429,7 +429,7 @@ PasswordStore.prototype = {
   },
 
   async wipe() {
-    this.storage.removeAllUserFacingLogins(true);
+    await this.storage.removeAllUserFacingLoginsAsync(true);
   },
 };
 Object.setPrototypeOf(PasswordStore.prototype, Store.prototype);

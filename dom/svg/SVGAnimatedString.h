@@ -7,10 +7,11 @@
 #ifndef DOM_SVG_SVGANIMATEDSTRING_H_
 #define DOM_SVG_SVGANIMATEDSTRING_H_
 
+#include <memory>
+
 #include "mozilla/Attributes.h"
 #include "mozilla/SMILAttr.h"
 #include "mozilla/SVGAnimatedClassOrString.h"
-#include "mozilla/UniquePtr.h"
 #include "mozilla/dom/SVGElement.h"
 #include "nsError.h"
 
@@ -62,7 +63,7 @@ class SVGAnimatedString : public SVGAnimatedClassOrString {
   // usable, and represents the default base value of the attribute.
   bool IsExplicitlySet() const { return !!mAnimVal || mIsBaseSet; }
 
-  UniquePtr<SMILAttr> ToSMILAttr(SVGElement* aSVGElement);
+  std::unique_ptr<SMILAttr> ToSMILAttr(SVGElement* aSVGElement);
 
   SVGAnimatedString() = default;
 
@@ -70,7 +71,7 @@ class SVGAnimatedString : public SVGAnimatedClassOrString {
     mAttrEnum = aOther.mAttrEnum;
     mIsBaseSet = aOther.mIsBaseSet;
     if (aOther.mAnimVal) {
-      mAnimVal = MakeUnique<nsString>(*aOther.mAnimVal);
+      mAnimVal = std::make_unique<nsString>(*aOther.mAnimVal);
     }
     return *this;
   }
@@ -80,8 +81,9 @@ class SVGAnimatedString : public SVGAnimatedClassOrString {
   }
 
  private:
-  // FIXME: Should probably use void string rather than UniquePtr<nsString>.
-  UniquePtr<nsString> mAnimVal;
+  // FIXME: Should probably use void string rather than
+  // std::unique_ptr<nsString>.
+  std::unique_ptr<nsString> mAnimVal;
   uint8_t mAttrEnum = 0;  // element specified tracking for attribute
   bool mIsBaseSet = false;
 

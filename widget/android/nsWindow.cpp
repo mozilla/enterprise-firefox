@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <android/bitmap.h>
 #include <android/log.h>
 #include <android/native_window.h>
 #include <android/native_window_jni.h>
@@ -67,6 +68,7 @@
 #include "mozilla/MiscEvents.h"
 #include "mozilla/MouseEvents.h"
 #include "mozilla/Preferences.h"
+#include "mozilla/ScopeExit.h"
 #include "mozilla/StaticPrefs_android.h"
 #include "mozilla/StaticPrefs_ui.h"
 #include "mozilla/StaticPrefs_widget.h"
@@ -95,6 +97,7 @@
 #include "mozilla/java/SessionAccessibilityWrappers.h"
 #include "mozilla/java/SurfaceControlManagerWrappers.h"
 #include "mozilla/jni/NativesInlines.h"
+#include "mozilla/layers/AndroidHardwareBuffer.h"
 #include "mozilla/layers/APZEventState.h"
 #include "mozilla/layers/APZInputBridge.h"
 #include "mozilla/layers/APZThreadUtils.h"
@@ -120,6 +123,7 @@ using namespace mozilla::ipc;
 using mozilla::dom::ContentChild;
 using mozilla::dom::ContentParent;
 using mozilla::gfx::DataSourceSurface;
+using mozilla::gfx::IntRect;
 using mozilla::gfx::IntSize;
 using mozilla::gfx::Matrix;
 using mozilla::gfx::SurfaceFormat;
@@ -1096,8 +1100,7 @@ class LayerViewSupport final
     explicit CaptureRequest() : mResult(nullptr) {}
     explicit CaptureRequest(java::GeckoResult::GlobalRef aResult,
                             java::sdk::Bitmap::GlobalRef aBitmap,
-                            const ScreenRect& aSource,
-                            const IntSize& aOutputSize)
+                            const IntRect& aSource, const IntSize& aOutputSize)
         : mResult(aResult),
           mBitmap(aBitmap),
           mSource(aSource),
@@ -1109,7 +1112,7 @@ class LayerViewSupport final
     // where to store the pixels
     java::sdk::Bitmap::GlobalRef mBitmap;
 
-    ScreenRect mSource;
+    IntRect mSource;
 
     IntSize mOutputSize;
   };
@@ -1265,36 +1268,6 @@ class LayerViewSupport final
   }
 
   java::sdk::Surface::Param GetSurface() { return mSurface; }
-
- private:
-  already_AddRefed<DataSourceSurface> FlipScreenPixels(
-      Shmem& aMem, const ScreenIntSize& aInSize, const ScreenRect& aInRegion,
-      const IntSize& aOutSize) {
-    RefPtr<gfx::DataSourceSurface> image =
-        gfx::Factory::CreateWrappingDataSourceSurface(
-            aMem.get<uint8_t>(),
-            StrideForFormatAndWidth(SurfaceFormat::B8G8R8A8, aInSize.width),
-            IntSize(aInSize.width, aInSize.height), SurfaceFormat::B8G8R8A8);
-    RefPtr<gfx::DrawTarget> drawTarget =
-        gfxPlatform::GetPlatform()->CreateOffscreenContentDrawTarget(
-            aOutSize, SurfaceFormat::B8G8R8A8);
-    if (!drawTarget) {
-      return nullptr;
-    }
-
-    drawTarget->SetTransform(Matrix::Scaling(1.0, -1.0) *
-                             Matrix::Translation(0, aOutSize.height));
-
-    gfx::Rect srcRect(aInRegion.x,
-                      (aInSize.height - aInRegion.height) - aInRegion.y,
-                      aInRegion.width, aInRegion.height);
-    gfx::Rect destRect(0, 0, aOutSize.width, aOutSize.height);
-    drawTarget->DrawSurface(image, destRect, srcRect);
-
-    RefPtr<gfx::SourceSurface> snapshot = drawTarget->Snapshot();
-    RefPtr<gfx::DataSourceSurface> data = snapshot->GetDataSurface();
-    return data.forget();
-  }
 
   /**
    * Compositor methods
@@ -1689,18 +1662,20 @@ class LayerViewSupport final
       mCapturePixelsResults.push(CaptureRequest(
           java::GeckoResult::GlobalRef(result),
           java::sdk::Bitmap::GlobalRef(java::sdk::Bitmap::LocalRef(aTarget)),
-          ScreenRect(aXOffset, aYOffset, aSrcWidth, aSrcHeight),
+          IntRect(aXOffset, aYOffset, aSrcWidth, aSrcHeight),
           IntSize(aOutWidth, aOutHeight)));
       size = mCapturePixelsResults.size();
     }
 
     if (size == 1) {
-      mUiCompositorControllerChild->RequestScreenPixels();
+      mUiCompositorControllerChild->RequestScreenPixels(
+          IntRect(aXOffset, aYOffset, aSrcWidth, aSrcHeight),
+          IntSize(aOutWidth, aOutHeight));
     }
   }
 
-  void RecvScreenPixels(Shmem&& aMem, const ScreenIntSize& aSize,
-                        bool aNeedsYFlip) {
+  void RecvScreenPixels(
+      RefPtr<mozilla::layers::AndroidHardwareBuffer> aHardwareBuffer) {
     MOZ_ASSERT(AndroidBridge::IsJavaUiThread());
     CaptureRequest request;
     java::GeckoResult::LocalRef result = nullptr;
@@ -1714,51 +1689,105 @@ class LayerViewSupport final
         bitmap = java::sdk::Bitmap::LocalRef(request.mBitmap);
         mCapturePixelsResults.pop();
       }
-    }
 
-    if (result) {
-      if (bitmap) {
-        RefPtr<DataSourceSurface> surf;
-        if (aNeedsYFlip) {
-          surf = FlipScreenPixels(aMem, aSize, request.mSource,
-                                  request.mOutputSize);
-        } else {
-          surf = gfx::Factory::CreateWrappingDataSourceSurface(
-              aMem.get<uint8_t>(),
-              StrideForFormatAndWidth(SurfaceFormat::B8G8R8A8, aSize.width),
-              IntSize(aSize.width, aSize.height), SurfaceFormat::B8G8R8A8);
-        }
-        if (surf) {
-          DataSourceSurface::ScopedMap smap(surf, DataSourceSurface::READ);
-          auto pixels = mozilla::jni::ByteBuffer::New(
-              reinterpret_cast<int8_t*>(smap.GetData()),
-              smap.GetStride() * request.mOutputSize.height);
-          bitmap->CopyPixelsFromBuffer(pixels);
-          result->Complete(bitmap);
-        } else {
-          result->CompleteExceptionally(
-              java::sdk::IllegalStateException::New(
-                  "Failed to create flipped snapshot surface (probably out "
-                  "of memory)")
-                  .Cast<jni::Throwable>());
-        }
-      } else {
-        result->CompleteExceptionally(java::sdk::IllegalArgumentException::New(
-                                          "No target bitmap argument provided")
-                                          .Cast<jni::Throwable>());
-      }
-    }
-
-    // Pixels have been copied, so Dealloc Shmem
-    if (mUiCompositorControllerChild) {
-      mUiCompositorControllerChild->DeallocPixelBuffer(aMem);
-
-      if (auto window = mWindow.Access()) {
-        if (!mCapturePixelsResults.empty()) {
-          mUiCompositorControllerChild->RequestScreenPixels();
+      // If there are still outstanding requests then send the next request to
+      // the compositor.
+      if (!mCapturePixelsResults.empty()) {
+        // If the compositor was lost we should have already rejected all the
+        // results.
+        MOZ_ASSERT(mUiCompositorControllerChild);
+        if (mUiCompositorControllerChild) {
+          mUiCompositorControllerChild->RequestScreenPixels(
+              mCapturePixelsResults.front().mSource,
+              mCapturePixelsResults.front().mOutputSize);
         }
       }
     }
+
+    if (!result) {
+      return;
+    }
+
+    if (!aHardwareBuffer) {
+      result->CompleteExceptionally(
+          java::sdk::IllegalStateException::New(
+              "Failed to capture screen pixels (probably out of memory)")
+              .Cast<jni::Throwable>());
+      return;
+    }
+
+    if (!bitmap) {
+      result->CompleteExceptionally(java::sdk::IllegalArgumentException::New(
+                                        "No target bitmap argument provided")
+                                        .Cast<jni::Throwable>());
+      return;
+    }
+
+    JNIEnv* const env = jni::GetEnvForThread();
+    AndroidBitmapInfo info;
+    int res = AndroidBitmap_getInfo(env, bitmap.Get(), &info);
+    if (res < 0) {
+      result->CompleteExceptionally(
+          java::sdk::IllegalStateException::New(
+              "Failed to get Bitmap info for screen pixels")
+              .Cast<jni::Throwable>());
+      return;
+    }
+
+    MOZ_RELEASE_ASSERT(IntSize(info.width, info.height) ==
+                       aHardwareBuffer->mSize);
+    MOZ_RELEASE_ASSERT(info.format == ANDROID_BITMAP_FORMAT_RGBA_8888);
+    MOZ_RELEASE_ASSERT(aHardwareBuffer->mFormat == SurfaceFormat::R8G8B8A8);
+
+    UniqueFileHandle acquireFence = aHardwareBuffer->GetAndResetAcquireFence();
+    uint8_t* srcBuf;
+    res = AHardwareBuffer_lock(aHardwareBuffer->GetNativeBuffer(),
+                               AHARDWAREBUFFER_USAGE_CPU_READ_OFTEN,
+                               acquireFence.release(), nullptr,
+                               reinterpret_cast<void**>(&srcBuf));
+    if (res < 0) {
+      result->CompleteExceptionally(
+          java::sdk::IllegalStateException::New(
+              "Failed to lock screen pixels HardwareBuffer")
+              .Cast<jni::Throwable>());
+      return;
+    }
+    auto hardwareBufferUnlock = MakeScopeExit([&]() {
+      AHardwareBuffer_unlock(aHardwareBuffer->GetNativeBuffer(), nullptr);
+    });
+
+    uint8_t* destBuf;
+    res = AndroidBitmap_lockPixels(env, bitmap.Get(),
+                                   reinterpret_cast<void**>(&destBuf));
+    if (res < 0) {
+      result->CompleteExceptionally(
+          java::sdk::IllegalStateException::New(
+              "Failed to get lock Bitmap for screen pixels")
+              .Cast<jni::Throwable>());
+      return;
+    }
+    auto bitmapUnlock =
+        MakeScopeExit([&]() { AndroidBitmap_unlockPixels(env, bitmap.Get()); });
+
+    // If the source and dest strides are equal we can do a single memcpy(),
+    // else we must copy row-by-row. It appears common for Hardware Buffers to
+    // have strides aligned to a certain value, whereas as bitmaps appear to be
+    // tightly packed. Note that AndroidBitmapInfo::stride is in bytes and
+    // AndroidHardwareBuffer::mStride is in pixels.
+    const int bpp = gfx::BytesPerPixel(aHardwareBuffer->mFormat);
+    if (info.stride == aHardwareBuffer->mStride * bpp) {
+      memcpy(destBuf, srcBuf, info.stride * info.height);
+    } else {
+      uint8_t* srcRow = srcBuf;
+      uint8_t* dstRow = destBuf;
+      for (uint32_t i = 0; i < info.height; i++) {
+        memcpy(dstRow, srcRow, info.width * bpp);
+        srcRow += aHardwareBuffer->mStride * bpp;
+        dstRow += info.stride;
+      }
+    }
+
+    result->Complete(bitmap);
   }
 
   void EnableLayerUpdateNotifications(bool aEnable) {
@@ -3291,12 +3320,12 @@ void nsWindow::NotifyCompositorScrollUpdate(
   }
 }
 
-void nsWindow::RecvScreenPixels(Shmem&& aMem, const ScreenIntSize& aSize,
-                                bool aNeedsYFlip) {
+void nsWindow::RecvScreenPixels(
+    RefPtr<mozilla::layers::AndroidHardwareBuffer> aHardwareBuffer) {
   MOZ_ASSERT(AndroidBridge::IsJavaUiThread());
   if (::mozilla::jni::NativeWeakPtr<LayerViewSupport>::Accessor lvs{
           mLayerViewSupport.Access()}) {
-    lvs->RecvScreenPixels(std::move(aMem), aSize, aNeedsYFlip);
+    lvs->RecvScreenPixels(aHardwareBuffer);
   }
 }
 

@@ -7,6 +7,15 @@ const { XPCOMUtils } = ChromeUtils.importESModule(
   "resource://gre/modules/XPCOMUtils.sys.mjs"
 );
 
+const lazy = {};
+
+XPCOMUtils.defineLazyServiceGetter(
+  lazy,
+  "FIPSUtils",
+  "@mozilla.org/security/fipsutils;1",
+  Ci.nsIFIPSUtils
+);
+
 var secmoddb;
 var skip_enable_buttons = false;
 
@@ -72,13 +81,13 @@ function RefreshDeviceList() {
 
 function SetFIPSButton() {
   var fipsButton = document.getElementById("fipsbutton");
-  if (secmoddb.isFIPSEnabled) {
+  if (lazy.FIPSUtils.isFIPSEnabled) {
     document.l10n.setAttributes(fipsButton, "devmgr-button-disable-fips");
   } else {
     document.l10n.setAttributes(fipsButton, "devmgr-button-enable-fips");
   }
 
-  var can_toggle = secmoddb.canToggleFIPS;
+  var can_toggle = lazy.FIPSUtils.canToggleFIPS;
   if (can_toggle) {
     fipsButton.removeAttribute("disabled");
   } else {
@@ -434,7 +443,7 @@ function showTokenInfo() {
 }
 
 function toggleFIPS() {
-  if (!secmoddb.isFIPSEnabled) {
+  if (!lazy.FIPSUtils.isFIPSEnabled) {
     // A restriction of FIPS mode is, the password must be set
     // In FIPS mode the password must be non-empty.
     // This is different from what we allow in NON-Fips mode.
@@ -451,7 +460,7 @@ function toggleFIPS() {
   }
 
   try {
-    secmoddb.toggleFIPSMode();
+    lazy.FIPSUtils.toggleFIPSMode();
   } catch (e) {
     doPrompt("unable-to-toggle-fips");
     return;

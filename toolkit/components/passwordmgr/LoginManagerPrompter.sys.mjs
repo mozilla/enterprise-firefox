@@ -300,6 +300,7 @@ export class LoginManagerPrompter {
       );
       // Ensure the type is reset so the field is masked.
       passwordField.type = "password";
+      passwordField.revealPassword = false;
       passwordField.value = login.password;
 
       updateButtonLabel();

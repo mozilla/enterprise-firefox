@@ -527,7 +527,13 @@ mod tests {
     use std::fs::File;
     use std::io::{Read, Write};
     use std::path::Path;
+    use std::sync::Mutex;
     use tempfile::TempDir;
+
+    // Mutex used to run environment variable–related tests sequentially.
+    lazy_static::lazy_static! {
+        static ref ENV_MUTEX: Mutex<()> = Mutex::new(());
+    }
 
     fn example_profile() -> Value {
         let mut profile_data = Vec::with_capacity(1024);
@@ -736,6 +742,8 @@ mod tests {
 
     #[test]
     fn test_copy_minidumps() {
+        let _lock = ENV_MUTEX.lock().unwrap();
+
         let tmp_dir_profile = TempDir::new().unwrap();
         let profile_path = tmp_dir_profile.path();
 
@@ -757,6 +765,8 @@ mod tests {
 
     #[test]
     fn test_copy_multiple_minidumps() {
+        let _lock = ENV_MUTEX.lock().unwrap();
+
         let tmp_dir_profile = TempDir::new().unwrap();
         let profile_path = tmp_dir_profile.path();
 
@@ -782,6 +792,8 @@ mod tests {
 
     #[test]
     fn test_copy_minidumps_with_non_existent_manifest_path() {
+        let _lock = ENV_MUTEX.lock().unwrap();
+
         let tmp_dir_profile = TempDir::new().unwrap();
         let profile_path = tmp_dir_profile.path();
 
@@ -796,6 +808,8 @@ mod tests {
 
     #[test]
     fn test_copy_minidumps_with_non_existent_profile_path() {
+        let _lock = ENV_MUTEX.lock().unwrap();
+
         let tmp_dir_profile = TempDir::new().unwrap();
         let profile_path = tmp_dir_profile.path();
 
@@ -808,6 +822,8 @@ mod tests {
 
     #[test]
     fn test_copy_minidumps_with_no_minidump_files() {
+        let _lock = ENV_MUTEX.lock().unwrap();
+
         let tmp_dir_profile = TempDir::new().unwrap();
         let profile_path = tmp_dir_profile.path();
 

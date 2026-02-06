@@ -7,6 +7,7 @@ import {
   SettingElement,
   spread,
 } from "chrome://browser/content/preferences/widgets/setting-element.mjs";
+import { SettingControl } from "chrome://browser/content/preferences/widgets/setting-control.mjs";
 
 /**
  * @import { SettingElementConfig } from "chrome://browser/content/preferences/widgets/setting-element.mjs"
@@ -22,6 +23,8 @@ import {
  * @property {boolean} [inProgress]
  * Hide this section unless the browser.settings-redesign.enabled or
  * browser.settings-redesign.<groupid>.enabled prefs are true.
+ * @property {"default"|"always"|"never"} [card]
+ * Whether to use a card. Default: use a card after SRD or in a sub-pane.
  */
 /** @typedef {SettingElementConfig & SettingGroupConfigExtensions} SettingGroupConfig */
 
@@ -34,6 +37,8 @@ const CLICK_HANDLERS = new Set([
   "moz-box-group",
   "moz-message-bar",
 ]);
+const DISMISS_HANDLERS = new Set(["moz-message-bar"]);
+const REORDER_HANDLERS = new Set(["moz-box-group"]);
 
 /**
  * Enumish of attribute names used for changing setting-group and groupbox
@@ -56,8 +61,20 @@ export class SettingGroup extends SettingElement {
   };
 
   static queries = {
-    controlEls: { all: "setting-control" },
+    allControlEls: { all: "setting-control" },
+    fieldsetEl: "moz-fieldset",
   };
+
+  /**
+   * Immediate child control elements. See {@link SettingGroup.allControlEls} to
+   * get all ancestors.
+   */
+  get childControlEls() {
+    // @ts-expect-error bug 1997478
+    return [...this.fieldsetEl.children].filter(
+      child => child instanceof SettingControl
+    );
+  }
 
   constructor() {
     super();
@@ -94,8 +111,7 @@ export class SettingGroup extends SettingElement {
 
   async handleVisibilityChange() {
     await this.updateComplete;
-    // @ts-expect-error bug 1997478
-    let hasVisibleControls = [...this.controlEls].some(el => !el.hidden);
+    let hasVisibleControls = this.childControlEls.some(el => !el.hidden);
     let groupbox = /** @type {XULElement} */ (this.closest("groupbox"));
     if (hasVisibleControls) {
       if (this.hasAttribute(HiddenAttr.Self)) {
@@ -119,7 +135,7 @@ export class SettingGroup extends SettingElement {
   async getUpdateComplete() {
     let result = await super.getUpdateComplete();
     // @ts-expect-error bug 1997478
-    await Promise.all([...this.controlEls].map(el => el.updateComplete));
+    await Promise.all([...this.allControlEls].map(el => el.updateComplete));
     return result;
   }
 
@@ -151,6 +167,45 @@ export class SettingGroup extends SettingElement {
   }
 
   /**
+   * Notify child controls when message bar has been dismissed. When controls
+   * are nested the parent receives events for the nested controls, so this is
+   * actually easier to manage here; it also registers fewer listeners.
+   *
+   * @param {SettingControlEvent<CustomEvent>} e
+   */
+  onMessageBarDismiss(e) {
+    let inputEl = e.target;
+    if (!DISMISS_HANDLERS.has(inputEl.localName)) {
+      return;
+    }
+    inputEl.control?.onMessageBarDismiss(e);
+  }
+
+  /**
+   * Notify child controls when items have been reordered. The reorder event is
+   * a CustomEvent that bubbles from reorderable moz-box-group elements when
+   * items are reordered via drag-and-drop or keyboard shortcuts.
+   *
+   * The detail object of the reorder event contains the following properties:
+   *
+   * - `draggedElement`: The element that was reordered.
+   * - `targetElement`: The element that the dragged element was reordered relative to.
+   * - `position`: The position of the drop relative to the target element. -1
+   *   means before, 0 means after.
+   * - `draggedIndex`: The original index of the element being reordered.
+   * - `targetIndex`: The new index of the draggedElement after reordering.
+   *
+   * @param {SettingControlEvent<CustomEvent>} e
+   */
+  onReorder(e) {
+    let inputEl = e.target;
+    if (!REORDER_HANDLERS.has(inputEl.localName)) {
+      return;
+    }
+    inputEl.control?.onReorder(e);
+  }
+
+  /**
    * @param {SettingControlConfig} item
    */
   itemTemplate(item) {
@@ -166,7 +221,10 @@ export class SettingGroup extends SettingElement {
    * @param {TemplateResult} content The content to render in a container.
    */
   containerTemplate(content) {
-    if (this.srdEnabled || this.inSubPane) {
+    if (
+      (this.srdEnabled || this.inSubPane || this.config.card == "always") &&
+      this.config.card != "never"
+    ) {
       return html`<moz-card>${content}</moz-card>`;
     }
     return content;
@@ -182,6 +240,8 @@ export class SettingGroup extends SettingElement {
         @change=${this.onChange}
         @toggle=${this.onChange}
         @click=${this.onClick}
+        @message-bar:user-dismissed=${this.onMessageBarDismiss}
+        @reorder=${this.onReorder}
         @visibility-change=${this.handleVisibilityChange}
         ${spread(this.getCommonPropertyMapping(this.config))}
         >${this.config.items.map(item => this.itemTemplate(item))}</moz-fieldset

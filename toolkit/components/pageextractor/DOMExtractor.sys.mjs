@@ -12,6 +12,11 @@
  * @import { GetTextOptions } from './PageExtractor.d.ts'
  */
 
+const WHITESPACE_REGEX = /\s+/g;
+const MARKDOWN_TEXT_ESCAPE_REGEX = /[\[\]()]/g;
+const OPEN_PAREN_REGEX = /\(/g;
+const CLOSE_PAREN_REGEX = /\)/g;
+
 /**
  * The context for extracting text content from the DOM.
  */
@@ -36,6 +41,11 @@ class ExtractionContext {
    * @type {string}
    */
   #textContent = "";
+
+  /**
+   * @type {Set<string>}
+   */
+  #links = new Set();
 
   /**
    * When extracting content just from the viewport, this value will be set.
@@ -72,6 +82,88 @@ class ExtractionContext {
    */
   get textContent() {
     return this.#textContent;
+  }
+
+  /**
+   * @returns {string[]}
+   */
+  get links() {
+    return Array.from(this.#links);
+  }
+
+  /**
+   * @param {string} href
+   */
+  maybeAddLink(href) {
+    this.#links.add(href);
+  }
+
+  /**
+   * If this node is an anchor element, add its href to the links set.
+   * Used for container nodes that will be subdivided, to capture anchors
+   * that wrap block-level content.
+   *
+   * @param {Node} node
+   */
+  addLinkIfAnchor(node) {
+    const element = asElement(node);
+    if (element?.nodeName === "A") {
+      const href = /** @type {HTMLAnchorElement} */ (element).href;
+      if (href) {
+        this.maybeAddLink(href);
+      }
+    }
+  }
+
+  /**
+   * Extract all links from a node using querySelector.
+   * Should only be called on leaf/accepted blocks, not on containers
+   * that will be subdivided.
+   *
+   * @param {Node} node
+   */
+  extractLinksFromBlock(node) {
+    const element = asElement(node);
+    if (!element) {
+      return;
+    }
+
+    // If the node itself is an anchor, add its href
+    if (element.nodeName === "A") {
+      // Check raw attribute first to avoid URL resolution if not needed
+      if (element.hasAttribute("href")) {
+        const href = /** @type {HTMLAnchorElement} */ (element).href;
+        if (href) {
+          this.maybeAddLink(href);
+        }
+      }
+    } else {
+      // Check ancestor anchors (for anchors wrapping block content)
+      // Skip for top-level elements that can't be inside anchors
+      const { nodeName } = element;
+      if (nodeName !== "BODY" && nodeName !== "HTML") {
+        const ancestorAnchor = element.closest("a");
+        if (ancestorAnchor?.hasAttribute("href")) {
+          const href = ancestorAnchor.href;
+          if (href) {
+            this.maybeAddLink(href);
+          }
+        }
+      }
+    }
+
+    // Extract links from anchor descendants
+    const anchors = element.getElementsByTagName("a");
+    for (let i = 0, len = anchors.length; i < len; i++) {
+      const anchor = anchors[i];
+      // Check raw attribute first to avoid URL resolution if not needed
+      if (anchor.hasAttribute("href")) {
+        const href = anchor.href;
+        if (href) {
+          this.maybeAddLink(href);
+        }
+      }
+    }
   }
 
   /**
@@ -167,7 +259,11 @@ class ExtractionContext {
     let innerText = "";
 
     if (element) {
-      innerText = element.innerText.trim();
+      if (this.#hasInlineAnchors(element)) {
+        innerText = this.#extractTextWithMarkdownLinks(element);
+      } else {
+        innerText = element.innerText.trim();
+      }
     } else if (text?.nodeValue) {
       innerText = text.nodeValue.trim();
     }
@@ -175,6 +271,157 @@ class ExtractionContext {
     if (innerText) {
       this.#textContent += "\n" + innerText;
     }
+  }
+
+  /**
+   * Check if a block contains any inline anchors that should be formatted as markdown.
+   * Anchors that wrap block content are excluded since they will be handled by
+   * the block splitting strategy.
+   *
+   * @param {HTMLElement} element
+   * @returns {boolean}
+   */
+  #hasInlineAnchors(element) {
+    if (element.nodeName === "A") {
+      return !this.#wrapsBlockContent(element);
+    }
+
+    const anchors = element.querySelectorAll("a");
+    for (const anchor of anchors) {
+      if (!this.#wrapsBlockContent(anchor)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * Extract text from an element, formatting inline anchors as markdown.
+   * Uses a TreeWalker to traverse the content in document order without
+   * cloning or modifying the DOM.
+   *
+   * @param {HTMLElement} element
+   * @returns {string}
+   */
+  #extractTextWithMarkdownLinks(element) {
+    // Handle the simple case where the element itself is an inline anchor
+    if (element.nodeName === "A" && !this.#wrapsBlockContent(element)) {
+      return this.#formatAnchorAsMarkdown(element);
+    }
+
+    const parts = [];
+    this.#walkAndExtract(element, parts);
+    // Normalize whitespace for clean output
+    return parts.join("").replace(WHITESPACE_REGEX, " ").trim();
+  }
+
+  /**
+   * Recursively walk the DOM and extract text, formatting inline anchors as markdown.
+   *
+   * @param {Node} node
+   * @param {string[]} parts
+   */
+  #walkAndExtract(node, parts) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const text = node.nodeValue ?? "";
+      if (text) {
+        parts.push(text);
+      }
+      return;
+    }
+
+    const element = asElement(node);
+    if (!element) {
+      return;
+    }
+
+    // If this is an anchor, check if it wraps block content
+    if (element.nodeName === "A") {
+      if (this.#wrapsBlockContent(element)) {
+        // Anchor wraps block content - extract children normally without markdown
+        for (const child of element.childNodes) {
+          this.#walkAndExtract(child, parts);
+        }
+      } else {
+        // Inline anchor - format as markdown
+        parts.push(this.#formatAnchorAsMarkdown(element));
+      }
+      return;
+    }
+
+    // For other elements, recurse into children
+    for (const child of element.childNodes) {
+      this.#walkAndExtract(child, parts);
+    }
+  }
+
+  /**
+   * Format an anchor element as markdown [text](url).
+   * Uses the resolved href property for the URL to get absolute URLs.
+   *
+   * @param {HTMLAnchorElement} anchor
+   * @returns {string}
+   */
+  #formatAnchorAsMarkdown(anchor) {
+    // Normalize whitespace in link text for clean markdown output
+    // e.g., <a>Some \n  text</a> becomes [Some text](url)
+    let linkText = (anchor.textContent ?? "")
+      .replace(WHITESPACE_REGEX, " ")
+      .trim();
+
+    // For image-only anchors, use alt text if available
+    if (!linkText) {
+      const img = anchor.querySelector("img");
+      if (img) {
+        linkText = (img.alt ?? "").trim();
+      }
+    }
+
+    // No text means we can't produce meaningful markdown
+    if (!linkText) {
+      return "";
+    }
+
+    // Use anchor.href which provides the resolved (absolute) URL.
+    // Empty href resolves to the current document URL, which is valid.
+    const href = anchor.href;
+    if (!href) {
+      return linkText;
+    }
+
+    // Escape brackets and parentheses in link text, and parentheses in URL for valid markdown
+    const escapedText = linkText.replace(MARKDOWN_TEXT_ESCAPE_REGEX, "\\$&");
+    const escapedHref = href
+      .replace(OPEN_PAREN_REGEX, "%28")
+      .replace(CLOSE_PAREN_REGEX, "%29");
+    return `[${escapedText}](${escapedHref})`;
+  }
+
+  /**
+   * Check if an anchor element wraps block-level content.
+   * Such anchors should not be formatted as markdown since their
+   * content will be extracted separately by the block splitting strategy.
+   * Checks recursively to handle cases like <a><span><div>...</div></span></a>.
+   *
+   * @param {Element} element
+   * @returns {boolean}
+   */
+  #wrapsBlockContent(element) {
+    for (const child of element.childNodes) {
+      const childElement = asElement(child);
+      if (!childElement) {
+        continue;
+      }
+      if (getIsBlockLike(childElement)) {
+        return true;
+      }
+      // Recursively check inline children for nested block content
+      if (this.#wrapsBlockContent(childElement)) {
+        return true;
+      }
+    }
+    return false;
   }
 }
 
@@ -188,7 +435,7 @@ class ExtractionContext {
  * @param {Document} document
  * @param {GetTextOptions} options
  *
- * @returns {string}
+ * @returns {{ text: string, links: string[] }}
  *
  * In-depth documentation:
  *
@@ -243,7 +490,10 @@ export function extractTextFromDOM(document, options) {
 
   subdivideAndExtractText(document.body, context);
 
-  return context.textContent.trim();
+  return {
+    text: context.textContent.trim(),
+    links: context.links,
+  };
 }
 
 /**
@@ -334,6 +584,16 @@ function determineBlockStatus(node) {
 
   // This textContent call is fairly expensive.
   if (!node.textContent?.trim().length) {
+    // Check if this is an anchor with an image.
+    // Accept these anchors so their links are captured, even without alt text.
+    const element = asElement(node);
+    if (element?.nodeName === "A") {
+      const img = element.querySelector("img");
+      if (img) {
+        return NodeFilter.FILTER_ACCEPT;
+      }
+    }
+
     // Do not use subtrees that are empty of text.
     return !node.hasChildNodes()
       ? NodeFilter.FILTER_REJECT
@@ -396,7 +656,10 @@ function isNodeHidden(node) {
   const element = getHTMLElementForStyle(node);
 
   if (!element) {
-    return true;
+    // If we cannot get an HTMLElement to check visibility, we should not
+    // consider the node hidden. This can happen with cross-compartment
+    // elements where HTMLElement.isInstance fails.
+    return false;
   }
 
   // This is a cheap and easy check that will not compute style or force reflow.
@@ -566,6 +829,7 @@ function subdivideAndExtractText(node, context) {
       if (shadowRoot) {
         processSubdivide(shadowRoot, context);
       } else {
+        context.extractLinksFromBlock(node);
         context.maybeAppendTextContent(node);
       }
       break;
@@ -575,6 +839,9 @@ function subdivideAndExtractText(node, context) {
       // This node may have text to extract, but it needs to be subdivided into smaller
       // pieces. Create a TreeWalker to walk the subtree, and find the subtrees/nodes
       // that contain enough inline elements to extract.
+      // Only check if this node itself is an anchor (for anchors wrapping block content).
+      // Don't scan descendants here - they'll be processed when child blocks are accepted.
+      context.addLinkIfAnchor(node);
       processSubdivide(node, context);
       break;
     }
@@ -612,6 +879,7 @@ function processSubdivide(node, context) {
     if (shadowRoot) {
       processSubdivide(shadowRoot, context);
     } else {
+      context.extractLinksFromBlock(currentNode);
       context.maybeAppendTextContent(currentNode);
     }
     if (context.shouldStopExtraction()) {

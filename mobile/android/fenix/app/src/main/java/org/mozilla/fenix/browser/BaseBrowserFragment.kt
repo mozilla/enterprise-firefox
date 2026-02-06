@@ -11,6 +11,7 @@ import android.content.Intent
 import android.content.res.Configuration
 import android.os.Build
 import android.os.Bundle
+import android.os.Environment
 import android.os.storage.StorageManager
 import android.provider.Settings
 import android.util.Log
@@ -125,7 +126,11 @@ import mozilla.components.feature.webauthn.WebAuthnFeature
 import mozilla.components.lib.state.ext.consumeFlow
 import mozilla.components.lib.state.ext.consumeFrom
 import mozilla.components.lib.state.ext.flowScoped
+import mozilla.components.lib.state.helpers.StoreProvider.Companion.activityStore
 import mozilla.components.lib.state.helpers.StoreProvider.Companion.fragmentStore
+import mozilla.components.service.fxrelay.eligibility.RelayEligibilityStore
+import mozilla.components.service.fxrelay.eligibility.RelayFeature
+import mozilla.components.service.fxrelay.eligibility.RelayState
 import mozilla.components.service.sync.autofill.DefaultCreditCardValidationDelegate
 import mozilla.components.service.sync.logins.DefaultLoginValidationDelegate
 import mozilla.components.service.sync.logins.LoginsApiException
@@ -141,6 +146,7 @@ import mozilla.components.support.ktx.android.view.hideKeyboard
 import mozilla.components.support.ktx.kotlin.getOrigin
 import mozilla.components.support.ktx.kotlinx.coroutines.flow.ifAnyChanged
 import mozilla.components.support.locale.ActivityContextWrapper
+import mozilla.components.support.utils.DefaultDownloadFileUtils
 import mozilla.components.ui.widgets.behavior.EngineViewClippingBehavior
 import mozilla.components.ui.widgets.withCenterAlignedButtons
 import mozilla.telemetry.glean.private.NoExtras
@@ -168,6 +174,7 @@ import org.mozilla.fenix.browser.store.BrowserScreenMiddleware
 import org.mozilla.fenix.browser.store.BrowserScreenState
 import org.mozilla.fenix.browser.store.BrowserScreenStore
 import org.mozilla.fenix.browser.tabstrip.TabStrip
+import org.mozilla.fenix.components.AppStore
 import org.mozilla.fenix.components.Components
 import org.mozilla.fenix.components.FenixAutocompletePrompt
 import org.mozilla.fenix.components.FenixSuggestStrongPasswordPrompt
@@ -324,6 +331,7 @@ abstract class BaseBrowserFragment :
     private val shareResourceFeature = ViewBoundFeatureWrapper<ShareResourceFeature>()
     private val copyDownloadsFeature = ViewBoundFeatureWrapper<CopyDownloadFeature>()
     private val promptsFeature = ViewBoundFeatureWrapper<PromptFeature>()
+    private val relayFeature = ViewBoundFeatureWrapper<RelayFeature>()
 
     @VisibleForTesting
     internal val findInPageIntegration = ViewBoundFeatureWrapper<FindInPageIntegration>()
@@ -422,8 +430,7 @@ abstract class BaseBrowserFragment :
 
         _binding = FragmentBrowserBinding.inflate(inflater, container, false)
 
-        val activity = activity as HomeActivity
-        val originalContext = ActivityContextWrapper.getOriginalContext(activity)
+        val originalContext = ActivityContextWrapper.getOriginalContext(requireActivity())
         binding.engineView.setActivityContext(originalContext)
 
         startForResult = registerForActivityResult { result ->
@@ -454,8 +461,8 @@ abstract class BaseBrowserFragment :
             feature = AppLinksFeature(
                 context = requireContext(),
                 store = requireComponents.core.store,
-                sessionId = customTabSessionId,
                 fragmentManager = parentFragmentManager,
+                sessionId = customTabSessionId,
                 launchInApp = { requireContext().settings().shouldOpenLinksInApp(customTabSessionId != null) },
                 loadUrlUseCase = requireComponents.useCases.sessionUseCases.loadUrl,
                 shouldPrompt = { requireContext().settings().shouldPromptOpenLinksInApp() },
@@ -537,6 +544,7 @@ abstract class BaseBrowserFragment :
         val context = requireContext()
         val store = context.components.core.store
         val activity = requireActivity() as HomeActivity
+        val appStore = context.components.appStore
 
         browserAnimator = BrowserAnimator(
             fragment = WeakReference(this),
@@ -555,7 +563,7 @@ abstract class BaseBrowserFragment :
         val readerMenuController = DefaultReaderModeController(
             readerViewFeature,
             binding.readerViewControlsBar,
-            isPrivate = activity.browsingModeManager.mode.isPrivate,
+            isPrivate = appStore.state.mode.isPrivate,
             onReaderModeChanged = { activity.finishActionMode() },
         )
         val browserToolbarController = DefaultBrowserToolbarController(
@@ -572,7 +580,7 @@ abstract class BaseBrowserFragment :
             customTabSessionId = customTabSessionId,
             browserAnimator = browserAnimator,
             onTabCounterClicked = {
-                onTabCounterClicked(activity.browsingModeManager.mode)
+                onTabCounterClicked(appStore.state.mode)
             },
             onCloseTab = { closedSession ->
                 val closedTab = store.state.findTab(closedSession.id) ?: return@DefaultBrowserToolbarController
@@ -606,7 +614,6 @@ abstract class BaseBrowserFragment :
             fragment = this,
             store = store,
             appStore = requireComponents.appStore,
-            activity = activity,
             navController = findNavController(),
             settings = context.settings(),
             readerModeController = readerMenuController,
@@ -796,6 +803,14 @@ abstract class BaseBrowserFragment :
             useCases = context.components.useCases.downloadUseCases,
             fragmentManager = childFragmentManager,
             tabId = customTabSessionId,
+            downloadFileUtils = DefaultDownloadFileUtils(
+                context = context.applicationContext,
+                downloadLocationGetter = {
+                    Environment.getExternalStoragePublicDirectory(
+                        Environment.DIRECTORY_DOWNLOADS,
+                    ).path
+                },
+            ),
             downloadManager = FetchDownloadManager(
                 context.applicationContext,
                 store,
@@ -1198,6 +1213,21 @@ abstract class BaseBrowserFragment :
             view = view,
         )
 
+        if (context.settings().isEmailMaskFeatureEnabled && context.settings().isEmailMaskSuggestionEnabled) {
+            relayFeature.set(
+                feature = RelayFeature(
+                    accountManager = requireComponents.backgroundServices.accountManager,
+                    store = activityStore(RelayState()) {
+                        RelayEligibilityStore(
+                            initialState = it,
+                        )
+                    }.value,
+                ),
+                owner = this,
+                view = view,
+            )
+        }
+
         sessionFeature.set(
             feature = SessionFeature(
                 requireComponents.core.store,
@@ -1431,13 +1461,15 @@ abstract class BaseBrowserFragment :
         readerModeController: DefaultReaderModeController,
     ): BrowserToolbarComposable {
         val toolbarStore by buildToolbarStore(activity, readerModeController)
-
+        val components = requireComponents
+        val settings = components.settings
+        val appStore = components.appStore
         browserNavigationBar =
              BrowserNavigationBar(
                 context = activity,
                 container = binding.browserLayout,
                 toolbarStore = toolbarStore,
-                settings = activity.settings(),
+                settings = settings,
                 hideWhenKeyboardShown = true,
             )
 
@@ -1446,11 +1478,11 @@ abstract class BaseBrowserFragment :
             container = binding.browserLayout,
             toolbarStore = toolbarStore,
             browserScreenStore = browserScreenStore,
-            appStore = requireComponents.appStore,
+            appStore = appStore,
             browserStore = store,
-            settings = activity.settings(),
+            settings = settings,
             customTabSession = customTabSessionId?.let { store.state.findCustomTab(it) },
-            tabStripContent = buildTabStrip(activity),
+            tabStripContent = buildTabStrip(appStore, settings),
             searchSuggestionsContent = { modifier ->
                 (awesomeBarComposable ?: buildAwesomeBar(activity, toolbarStore, modifier)).SearchSuggestions()
             },
@@ -1461,29 +1493,33 @@ abstract class BaseBrowserFragment :
     private fun initializeBrowserToolbarView(
         activity: HomeActivity,
         store: BrowserStore,
-    ) = BrowserToolbarView(
-        context = activity,
-        container = binding.browserLayout,
-        snackbarParent = binding.dynamicSnackbarContainer,
-        settings = activity.settings(),
-        interactor = browserToolbarInteractor,
-        customTabSession = customTabSessionId?.let { store.state.findCustomTab(it) },
-        lifecycleOwner = viewLifecycleOwner,
-        tabStripContent = buildTabStrip(activity),
-    )
+    ): BrowserToolbarView {
+        val settings = activity.settings()
+        return BrowserToolbarView(
+            context = activity,
+            container = binding.browserLayout,
+            snackbarParent = binding.dynamicSnackbarContainer,
+            settings = settings,
+            interactor = browserToolbarInteractor,
+            customTabSession = customTabSessionId?.let { store.state.findCustomTab(it) },
+            lifecycleOwner = viewLifecycleOwner,
+            tabStripContent = buildTabStrip(activity.components.appStore, settings),
+        )
+    }
 
     private fun buildTabStrip(
-        activity: HomeActivity,
+        appStore: AppStore,
+        settings: org.mozilla.fenix.utils.Settings,
     ): @Composable () -> Unit = {
         FirefoxTheme {
             TabStrip(
                 // Show action buttons only if composable toolbar is not enabled.
                 showActionButtons =
-                    context?.settings()?.shouldUseComposableToolbar == false,
+                    !settings.shouldUseComposableToolbar,
                 onAddTabClick = {
-                    if (activity.settings().enableHomepageAsNewTab) {
+                    if (settings.enableHomepageAsNewTab) {
                         requireComponents.useCases.fenixBrowserUseCases.addNewHomepageTab(
-                            private = activity.browsingModeManager.mode.isPrivate,
+                            private = appStore.state.mode.isPrivate,
                         )
                     } else {
                         findNavController().navigate(
@@ -1503,9 +1539,9 @@ abstract class BaseBrowserFragment :
                 },
                 onSelectedTabClick = {},
                 onCloseTabClick = { isPrivate ->
-                    showUndoSnackbar(activity.tabClosedUndoMessage(isPrivate))
+                    showUndoSnackbar(requireContext().tabClosedUndoMessage(isPrivate))
                 },
-                onTabCounterClick = { onTabCounterClicked(activity.browsingModeManager.mode) },
+                onTabCounterClick = { onTabCounterClicked(appStore.state.mode) },
             )
         }
     }
@@ -1721,27 +1757,15 @@ abstract class BaseBrowserFragment :
 
     private fun onTabCounterClicked(browsingMode: BrowsingMode) {
         thumbnailsFeature.get()?.requestScreenshot()
-        if (requireContext().settings().tabManagerEnhancementsEnabled) {
-            findNavController().nav(
-                R.id.browserFragment,
-                BrowserFragmentDirections.actionGlobalTabManagementFragment(
-                    page = when (browsingMode) {
-                        BrowsingMode.Normal -> Page.NormalTabs
-                        BrowsingMode.Private -> Page.PrivateTabs
-                    },
-                ),
-            )
-        } else {
-            findNavController().nav(
-                R.id.browserFragment,
-                BrowserFragmentDirections.actionGlobalTabsTrayFragment(
-                    page = when (browsingMode) {
-                        BrowsingMode.Normal -> Page.NormalTabs
-                        BrowsingMode.Private -> Page.PrivateTabs
-                    },
-                ),
-            )
-        }
+        findNavController().nav(
+            R.id.browserFragment,
+            BrowserFragmentDirections.actionGlobalTabManagementFragment(
+                page = when (browsingMode) {
+                    BrowsingMode.Normal -> Page.NormalTabs
+                    BrowsingMode.Private -> Page.PrivateTabs
+                },
+            ),
+        )
     }
 
     @VisibleForTesting
@@ -1895,17 +1919,15 @@ abstract class BaseBrowserFragment :
 
     @VisibleForTesting
     internal fun observeRestoreComplete(store: BrowserStore, navController: NavController) {
-        val activity = activity as HomeActivity
         consumeFlow(store) { flow ->
             flow.map { state -> state.restoreComplete }
                 .distinctUntilChanged()
                 .collect { restored ->
                     if (restored) {
                         // Once tab restoration is complete, if there are no tabs to show in the browser, go home
+                        val isPrivate = requireComponents.appStore.state.mode.isPrivate
                         val tabs =
-                            store.state.getNormalOrPrivateTabs(
-                                activity.browsingModeManager.mode.isPrivate,
-                            )
+                            store.state.getNormalOrPrivateTabs(isPrivate)
                         if (tabs.isEmpty() || store.state.selectedTabId == null) {
                             navController.popBackStack(R.id.homeFragment, false)
                         }

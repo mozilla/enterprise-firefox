@@ -26,7 +26,7 @@ class WeakMapBase;
 
 namespace gc {
 
-struct Cell;
+class Cell;
 
 /*** Liveness ***/
 

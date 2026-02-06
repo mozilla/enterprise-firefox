@@ -8,11 +8,18 @@ use nsstring::nsACString;
 use nsstring::nsCString;
 use thin_vec::ThinVec;
 
+use std::ptr;
 use url::Url;
+use urlpattern::parser::RegexSyntax;
 use urlpattern::quirks as Uq;
+use urlpattern::regexp::RegExp;
 use urlpattern::{UrlPatternInit, UrlPatternOptions};
 
 use crate::base::*;
+
+pub type Component = urlpattern::component::Component<SpiderMonkeyRegexp>;
+pub type Matcher = urlpattern::matcher::Matcher<SpiderMonkeyRegexp>;
+pub type InnerMatcher = urlpattern::matcher::InnerMatcher<SpiderMonkeyRegexp>;
 
 pub fn init_from_string_and_base_url(
     input: *const nsACString,
@@ -68,50 +75,127 @@ pub fn option_to_maybe_string(os: Option<String>) -> MaybeString {
     }
 }
 
-// creates the regex object with the desired flags
-// this function was adapted from
-// https://github.com/denoland/rust-urlpattern/blob/main/src/regexp.rs
-pub fn parse_regex(pattern: &str, flags: &str) -> Result<regex::Regex, ()> {
-    regex::Regex::new(&format!("(?{flags}){pattern}")).map_err(|_| ())
+pub struct SpiderMonkeyRegexp(String, *mut RegExpObjWrapper);
+
+// Implement drop so that when dom::URLPattern goes out of scope
+// urlp_pattern_free() also triggers urlpattern::URLPattern<R> to drop.
+// When the pattern's inner regexp goes with it, this drop will cleanup the
+// spidermonkey regexp obj
+impl Drop for SpiderMonkeyRegexp {
+    fn drop(&mut self) {
+        if !self.1.is_null() {
+            unsafe {
+                free_regexp_ffi(self.1);
+            }
+        }
+    }
 }
 
-// returns the list of regex capture groups contained in the text input
-// this function was adapted from
-// https://github.com/denoland/rust-urlpattern/blob/main/src/regexp.rs
-pub fn regex_matches<'a>(regexp: regex::Regex, text: &'a str) -> Option<Vec<Option<String>>> {
-    let captures = regexp.captures(text)?;
-    let captures = captures
-        .iter()
-        .skip(1)
-        .map(|c| c.map(|m| m.as_str().to_string()))
-        .collect();
-    Some(captures)
+impl RegExp for SpiderMonkeyRegexp {
+    fn syntax() -> RegexSyntax {
+        RegexSyntax::EcmaScript
+    }
+
+    fn parse(pattern: &str, flags: &str, _force_eval: bool) -> Result<Self, ()> {
+        spidermonkey_regexp_parse(pattern, flags)
+    }
+
+    fn matches<'a>(&self, text: &'a str) -> Option<Vec<Option<&'a str>>> {
+        // bit of a hack because protocol_component_matches_special_scheme
+        // needs to know if the result of spidermonkey_matches is none or some
+        // during pattern construction to check if protocol matches special schemes.
+        // as such this method is not used in firefox for actual matching
+        // actual URL matching uses matcher_matches
+        let matches = spidermonkey_regexp_matches(self, text, false);
+        if matches.is_some() {
+            let dummy_vec = vec![None];
+            return Some(dummy_vec);
+        }
+        None
+    }
+
+    fn pattern_string(&self) -> String {
+        self.0.clone()
+    }
 }
 
-// creates a regex object and returns the list of capture groups from a given input string
-// this function was adapted from
-// https://github.com/denoland/rust-urlpattern/blob/main/src/quirks.rs
-pub fn regexp_parse_and_matches<'a>(
-    regexp: &'a str,
-    input: &'a str,
-    ignore_case: bool,
+pub fn spidermonkey_regexp_parse(pattern: &str, flags: &str) -> Result<SpiderMonkeyRegexp, ()> {
+    let pattern16: Vec<u16> = pattern.encode_utf16().collect();
+    let flags16: Vec<u16> = flags.encode_utf16().collect();
+    let mut regexp_wrapper: *mut RegExpObjWrapper = ptr::null_mut();
+    let success = unsafe {
+        parse_regexp_ffi(
+            pattern16.as_ptr(),
+            pattern16.len(),
+            flags16.as_ptr(),
+            flags16.len(),
+            &mut regexp_wrapper,
+        )
+    };
+
+    if !success {
+        return Err(());
+    }
+
+    Ok(SpiderMonkeyRegexp(pattern.to_string(), regexp_wrapper))
+}
+
+pub fn spidermonkey_regexp_matches<'a>(
+    regexp: &SpiderMonkeyRegexp,
+    text: &'a str,
+    match_only: bool,
 ) -> Option<Vec<Option<String>>> {
-    let flags = if ignore_case { "ui" } else { "u" };
-    let regexp = parse_regex(regexp, flags).ok()?;
-    regex_matches(regexp, input)
+    let mut regexp_wrapper = regexp.1;
+    let mut match_result = false;
+    let mut results: ThinVec<MaybeString> = ThinVec::new();
+    let success = unsafe {
+        matches_regexp_ffi(
+            &mut regexp_wrapper,
+            text.as_ptr(),
+            text.len(),
+            match_only,
+            &mut match_result,
+            &mut results,
+        )
+    };
+
+    if !success {
+        return None;
+    }
+
+    // Check if the regex actually matched
+    if !match_result {
+        return None;
+    }
+
+    // copy strings to rust-interface type
+    let mut rust_results = Vec::new();
+    for i in 0..results.len() {
+        let maybe_str = &results[i];
+        // Check if this capture group matched (valid == true)
+        if maybe_str.valid {
+            rust_results.push(Some(maybe_str.string.to_owned().to_string()));
+        } else {
+            rust_results.push(None);
+        }
+    }
+    Some(rust_results)
 }
 
 // performs the match on the inner matcher of a component with a given input string
 // this function was adapted from
 // https://github.com/denoland/rust-urlpattern/blob/main/src/matcher.rs
 pub fn matcher_matches<'a>(
-    matcher: &Uq::Matcher,
+    matcher: *mut UrlpMatcherPtr,
     mut input: &'a str,
-    ignore_case: bool,
+    match_only: bool,
 ) -> Option<Vec<Option<String>>> {
+    let matcher: &Matcher = unsafe { &*(matcher as *const _ as *const Matcher) };
     let prefix_len = matcher.prefix.len();
     let suffix_len = matcher.suffix.len();
     let input_len = input.len();
+    let ignore_case = matcher.ignore_case;
+
     if prefix_len + suffix_len > 0 {
         // The input must be at least as long as the prefix and suffix combined,
         // because these must both be present, and not overlap.
@@ -129,7 +213,7 @@ pub fn matcher_matches<'a>(
     }
 
     match &matcher.inner {
-        Uq::InnerMatcher::Literal { literal } => {
+        InnerMatcher::Literal { literal } => {
             if ignore_case {
                 (input.to_lowercase() == literal.to_lowercase()).then(Vec::new)
             } else {
@@ -137,7 +221,7 @@ pub fn matcher_matches<'a>(
             }
         }
 
-        Uq::InnerMatcher::SingleCapture {
+        InnerMatcher::SingleCapture {
             filter,
             allow_empty,
         } => {
@@ -158,8 +242,20 @@ pub fn matcher_matches<'a>(
             }
             Some(vec![Some(input.to_string())])
         }
-        Uq::InnerMatcher::RegExp { regexp, .. } => {
-            regexp_parse_and_matches(regexp.as_str(), input, ignore_case)
+        InnerMatcher::RegExp { regexp, .. } => {
+            if regexp.is_err() {
+                return None;
+            }
+            // ignore_case not needed here because the regexp was already
+            // compiled with the correct flags. spidermonkey_matches uses the
+            // pre-compiled regexp which has the flags baked in.
+            let matches = spidermonkey_regexp_matches(regexp.as_ref().unwrap(), input, match_only)?;
+            Some(
+                matches
+                    .into_iter()
+                    .map(|opt| opt.map(|s| s.to_string()))
+                    .collect(),
+            )
         }
     }
 }
@@ -308,109 +404,35 @@ impl From<Uq::UrlPatternInit> for UrlpInit {
     }
 }
 
-impl From<UrlpInnerMatcher> for Uq::InnerMatcher {
-    fn from(wrapper: UrlpInnerMatcher) -> Uq::InnerMatcher {
-        match wrapper.inner_type {
-            UrlpInnerMatcherType::Literal => Uq::InnerMatcher::Literal {
-                literal: wrapper.literal.to_string().to_owned(),
-            },
-            UrlpInnerMatcherType::SingleCapture => {
-                let maybe_filter = if wrapper.filter_exists {
-                    Some(wrapper.filter)
-                } else {
-                    None
-                };
-                Uq::InnerMatcher::SingleCapture {
-                    allow_empty: wrapper.allow_empty,
-                    filter: maybe_filter,
-                }
-            }
-            UrlpInnerMatcherType::RegExp => Uq::InnerMatcher::RegExp {
-                regexp: wrapper.regexp.to_string().to_owned(),
-            },
-        }
-    }
-}
-
-impl From<Uq::InnerMatcher> for UrlpInnerMatcher {
-    fn from(inner: Uq::InnerMatcher) -> UrlpInnerMatcher {
-        match inner {
-            Uq::InnerMatcher::Literal { literal } => {
-                UrlpInnerMatcher {
-                    inner_type: UrlpInnerMatcherType::Literal,
-                    literal: nsCString::from(literal).to_owned(),
-                    allow_empty: false, // maybe should be an optional
-                    filter_exists: false,
-                    filter: 'x'.to_owned(),
-                    regexp: nsCString::from("").to_owned(),
-                }
-            }
-            Uq::InnerMatcher::SingleCapture {
-                filter,
-                allow_empty,
-            } => {
-                UrlpInnerMatcher {
-                    inner_type: UrlpInnerMatcherType::SingleCapture,
-                    literal: nsCString::from("").to_owned(),
-                    allow_empty, // maybe should be an optional
-                    filter_exists: filter.is_some(),
-                    filter: filter.unwrap_or('\0'),
-                    regexp: nsCString::from("").to_owned(),
-                }
-            }
-            Uq::InnerMatcher::RegExp { regexp } => UrlpInnerMatcher {
-                inner_type: UrlpInnerMatcherType::RegExp,
-                literal: nsCString::from("").to_owned(),
-                allow_empty: false,
-                filter_exists: false,
-                filter: 'x'.to_owned(),
-                regexp: nsCString::from(regexp).to_owned(),
-            },
-        }
-    }
-}
-
-impl From<UrlpMatcher> for Uq::Matcher {
-    fn from(wrapper: UrlpMatcher) -> Uq::Matcher {
-        Uq::Matcher {
-            prefix: wrapper.prefix.to_string().to_owned(),
-            suffix: wrapper.suffix.to_string().to_owned(),
-            inner: wrapper.inner.into(),
-        }
-    }
-}
-
-impl From<Uq::Matcher> for UrlpMatcher {
-    fn from(matcher: Uq::Matcher) -> UrlpMatcher {
-        UrlpMatcher {
-            prefix: nsCString::from(matcher.prefix).to_owned(),
-            suffix: nsCString::from(matcher.suffix).to_owned(),
-            inner: matcher.inner.into(),
-        }
-    }
-}
-
-impl From<Uq::UrlPatternComponent> for UrlpComponent {
-    fn from(comp: Uq::UrlPatternComponent) -> UrlpComponent {
-        UrlpComponent {
-            pattern_string: nsCString::from(comp.pattern_string).to_owned(),
-            regexp_string: nsCString::from(comp.regexp_string).to_owned(),
-            matcher: comp.matcher.into(),
-            group_name_list: comp
-                .group_name_list
-                .into_iter()
-                .map(nsCString::from)
-                .collect::<ThinVec<_>>(),
-        }
-    }
-}
-
 // easily convert from OptionsWrapper to internal type
 // used by parse_pattern
 impl Into<UrlPatternOptions> for UrlpOptions {
     fn into(self) -> UrlPatternOptions {
         UrlPatternOptions {
             ignore_case: self.ignore_case,
+            regex_syntax: RegexSyntax::Rust,
         }
     }
+}
+
+// FFI declarations for calling C++ RegexEval
+extern "C" {
+    fn parse_regexp_ffi(
+        pattern: *const u16,
+        pattern_len: usize,
+        flags: *const u16,
+        flags_len: usize,
+        res: *mut *mut RegExpObjWrapper,
+    ) -> bool;
+
+    fn matches_regexp_ffi(
+        regexp_wrapper: *const *mut RegExpObjWrapper,
+        string: *const u8,
+        string_len: usize,
+        match_only: bool,
+        match_result: *mut bool,
+        res: &mut ThinVec<MaybeString>,
+    ) -> bool;
+
+    fn free_regexp_ffi(regexp_wrapper: *mut RegExpObjWrapper);
 }

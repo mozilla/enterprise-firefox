@@ -27,6 +27,8 @@ browser.engagement:
       - rtestard@mozilla.com
     expires: never
     telemetry_mirror: BROWSER_ENGAGEMENT_TAB_UNLOAD_COUNT
+    no_lint:
+      - COMMON_PREFIX
 
   tab_reload_count:
     type: counter
@@ -43,6 +45,8 @@ browser.engagement:
       - rtestard@mozilla.com
     expires: never
     telemetry_mirror: BROWSER_ENGAGEMENT_TAB_RELOAD_COUNT
+    no_lint:
+      - COMMON_PREFIX
 
   tab_explicit_unload:
     type: event
@@ -78,6 +82,8 @@ browser.engagement:
         description: Time to unload tabs (in ms)
         type: quantity
     expires: never
+    no_lint:
+      - COMMON_PREFIX
 
   tab_unload_to_reload:
     type: timing_distribution
@@ -95,6 +101,8 @@ browser.engagement:
       - tkikuchi@mozilla.com
     expires: never
     telemetry_mirror: TAB_UNLOAD_TO_RELOAD
+    no_lint:
+      - COMMON_PREFIX
 
 browser.ui.interaction:
   all_tabs_panel_dragstart_tab_event_count:
@@ -865,3 +873,21 @@ link.handling:
         type: boolean
     no_lint:
       - COMMON_PREFIX
+
+splitview:
+  uri_count:
+    type: labeled_counter
+    description: >
+      Records how many URIs were loaded on each side of the splitview.
+    bugs:
+      - https://bugzil.la/2013097
+    data_reviews:
+      - https://bugzil.la/2013097
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - sfoster@mozilla.com
+    expires: never
+    labels:
+      - "1"  # left side
+      - "2"  # right side

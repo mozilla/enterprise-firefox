@@ -35,70 +35,72 @@ class AdjustMetricsService(
 
     @Suppress("CognitiveComplexMethod")
     override fun start() {
-        val settings = application.components.settings
+        CoroutineScope(Dispatchers.IO).launch {
+            val settings = application.components.settings
 
-        if ((BuildConfig.ADJUST_TOKEN.isNullOrBlank())) {
-            logger.info("No adjust token defined")
+            if ((BuildConfig.ADJUST_TOKEN.isNullOrBlank())) {
+                logger.info("No adjust token defined")
 
-            if (Config.channel.isReleased) {
-                throw IllegalStateException("No adjust token defined for release build")
+                if (Config.channel.isReleased) {
+                    throw IllegalStateException("No adjust token defined for release build")
+                }
+
+                return@launch
             }
 
-            return
+            if (alreadyKnown(settings)) {
+                logger.info("Attribution already retrieved")
+                return@launch
+            }
+
+            System.setProperty(ADJUST_PREINSTALL_SYSTEM_PROPERTY_PATH, "/preload/etc/adjust.preinstall")
+
+            val config = AdjustConfig(
+                application,
+                BuildConfig.ADJUST_TOKEN,
+                AdjustConfig.ENVIRONMENT_PRODUCTION,
+                true,
+            )
+            config.enablePreinstallTracking()
+
+            val distributionIdManager = application.components.distributionIdManager
+
+            // If we skipped the marketing consent screen, enable COPPA compliance to prevent
+            // personal identifiers from being shared with Adjust.
+            if (distributionIdManager.shouldSkipMarketingConsentScreen()) {
+                config.enableCoppaCompliance()
+            }
+
+            val timerId = AdjustAttribution.adjustAttributionTime.start()
+            config.setOnAttributionChangedListener {
+                AdjustAttribution.adjustAttributionTime.stopAndAccumulate(timerId)
+
+                if (!it.network.isNullOrEmpty()) {
+                    settings.adjustNetwork = it.network
+                    AdjustAttribution.network.set(it.network)
+                }
+                if (!it.adgroup.isNullOrEmpty()) {
+                    settings.adjustAdGroup = it.adgroup
+                    AdjustAttribution.adgroup.set(it.adgroup)
+                }
+                if (!it.creative.isNullOrEmpty()) {
+                    settings.adjustCreative = it.creative
+                    AdjustAttribution.creative.set(it.creative)
+                }
+                if (!it.campaign.isNullOrEmpty()) {
+                    settings.adjustCampaignId = it.campaign
+                    AdjustAttribution.campaign.set(it.campaign)
+                }
+
+                triggerPing()
+            }
+
+            config.setLogLevel(LogLevel.SUPPRESS)
+
+            Adjust.initSdk(config)
+            Adjust.enable()
+            logger.info("Adjust SDK enabled")
         }
-
-        if (alreadyKnown(settings)) {
-            logger.info("Attribution already retrieved")
-            return
-        }
-
-        System.setProperty(ADJUST_PREINSTALL_SYSTEM_PROPERTY_PATH, "/preload/etc/adjust.preinstall")
-
-        val config = AdjustConfig(
-            application,
-            BuildConfig.ADJUST_TOKEN,
-            AdjustConfig.ENVIRONMENT_PRODUCTION,
-            true,
-        )
-        config.enablePreinstallTracking()
-
-        val distributionIdManager = application.components.distributionIdManager
-
-        // If we skipped the marketing consent screen, enable COPPA compliance to prevent
-        // personal identifiers from being shared with Adjust.
-        if (distributionIdManager.shouldSkipMarketingConsentScreen()) {
-            config.enableCoppaCompliance()
-        }
-
-        val timerId = AdjustAttribution.adjustAttributionTime.start()
-        config.setOnAttributionChangedListener {
-            AdjustAttribution.adjustAttributionTime.stopAndAccumulate(timerId)
-
-            if (!it.network.isNullOrEmpty()) {
-                settings.adjustNetwork = it.network
-                AdjustAttribution.network.set(it.network)
-            }
-            if (!it.adgroup.isNullOrEmpty()) {
-                settings.adjustAdGroup = it.adgroup
-                AdjustAttribution.adgroup.set(it.adgroup)
-            }
-            if (!it.creative.isNullOrEmpty()) {
-                settings.adjustCreative = it.creative
-                AdjustAttribution.creative.set(it.creative)
-            }
-            if (!it.campaign.isNullOrEmpty()) {
-                settings.adjustCampaignId = it.campaign
-                AdjustAttribution.campaign.set(it.campaign)
-            }
-
-            triggerPing()
-        }
-
-        config.setLogLevel(LogLevel.SUPPRESS)
-
-        Adjust.initSdk(config)
-        Adjust.enable()
-        logger.info("Adjust SDK enabled")
     }
 
     override fun stop() {

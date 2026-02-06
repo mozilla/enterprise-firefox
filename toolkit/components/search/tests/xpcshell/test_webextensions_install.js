@@ -54,7 +54,7 @@ add_task(async function basic_install_test() {
 
   let engine = await SearchService.getEngineByName("Example");
   Assert.equal(
-    engine.wrappedJSObject.queryCharset,
+    engine.queryCharset,
     "windows-1252",
     "Should have the correct charset"
   );
@@ -204,7 +204,7 @@ add_task(async function test_load_icon_extension_url_ico() {
 
   let engine = SearchService.getEngineByName("Example");
   await promiseIconChanged;
-  let iconMapObj = engine.wrappedJSObject._iconMapObj;
+  let iconMapObj = engine._iconMapObj;
 
   Assert.deepEqual(
     Object.keys(iconMapObj).toSorted(),
@@ -263,7 +263,7 @@ add_task(async function test_load_icon_extension_url_svg() {
 
   let engine = SearchService.getEngineByName("Example");
   await promiseIconChanged;
-  let iconMapObj = engine.wrappedJSObject._iconMapObj;
+  let iconMapObj = engine._iconMapObj;
 
   Assert.deepEqual(
     Object.keys(iconMapObj).toSorted(),
@@ -303,7 +303,7 @@ add_task(async function test_load_icon_http_url_ico() {
 
   let engine = SearchService.getEngineByName("Example");
   await promiseIconChanged;
-  let iconMapObj = engine.wrappedJSObject._iconMapObj;
+  let iconMapObj = engine._iconMapObj;
 
   Assert.deepEqual(
     Object.keys(iconMapObj).toSorted(),

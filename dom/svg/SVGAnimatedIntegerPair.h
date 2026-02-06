@@ -7,10 +7,11 @@
 #ifndef DOM_SVG_SVGANIMATEDINTEGERPAIR_H_
 #define DOM_SVG_SVGANIMATEDINTEGERPAIR_H_
 
+#include <memory>
+
 #include "DOMSVGAnimatedInteger.h"
 #include "mozilla/EnumeratedArray.h"
 #include "mozilla/SMILAttr.h"
-#include "mozilla/UniquePtr.h"
 #include "nsCycleCollectionParticipant.h"
 #include "nsError.h"
 
@@ -39,9 +40,8 @@ class SVGAnimatedIntegerPair {
   using WhichOneOfPair = SVGAnimatedIntegerPairWhichOne;
   using PairValues = EnumeratedArray<WhichOneOfPair, int32_t>;
 
-  void Init(uint8_t aAttrEnum = 0xff, int32_t aValue1 = 0,
-            int32_t aValue2 = 0) {
-    mAnimVal = mBaseVal = PairValues(aValue1, aValue2);
+  void Init(uint8_t aAttrEnum = 0xff, int32_t aValue = 0) {
+    mAnimVal = mBaseVal = PairValues(aValue, aValue);
     mAttrEnum = aAttrEnum;
     mIsAnimated = false;
     mIsBaseSet = false;
@@ -69,7 +69,7 @@ class SVGAnimatedIntegerPair {
 
   already_AddRefed<dom::DOMSVGAnimatedInteger> ToDOMAnimatedInteger(
       WhichOneOfPair aWhichOneOfPair, SVGElement* aSVGElement);
-  UniquePtr<SMILAttr> ToSMILAttr(SVGElement* aSVGElement);
+  std::unique_ptr<SMILAttr> ToSMILAttr(SVGElement* aSVGElement);
 
  private:
   PairValues mAnimVal;

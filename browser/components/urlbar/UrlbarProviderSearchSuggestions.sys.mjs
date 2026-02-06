@@ -32,6 +32,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 });
 
 /**
+ * @import {SearchEngine} from "moz-src:///toolkit/components/search/SearchEngine.sys.mjs"
  * @import {SearchSuggestionController} from "moz-src:///toolkit/components/search/SearchSuggestionController.sys.mjs"
  */
 
@@ -421,6 +422,11 @@ export class UrlbarProviderSearchSuggestions extends UrlbarProvider {
       }
     }
 
+    // Show local results of all engines in search bar.
+    let restrictToEngine =
+      queryContext.sapName != "searchbar" &&
+      this._isTokenOrRestrictionPresent(queryContext);
+
     // See `SearchSuggestionsController.fetch` documentation for a description
     // of `fetchData`.
     let fetchData = await this.#suggestionsController.fetch({
@@ -428,7 +434,7 @@ export class UrlbarProviderSearchSuggestions extends UrlbarProvider {
       inPrivateBrowsing: queryContext.isPrivate,
       engine,
       userContextId: queryContext.userContextId,
-      restrictToEngine: this._isTokenOrRestrictionPresent(queryContext),
+      restrictToEngine,
       dedupeRemoteAndLocal: false,
       fetchTrending: this.#shouldFetchTrending(queryContext),
       maxLocalResults,
@@ -495,10 +501,13 @@ export class UrlbarProviderSearchSuggestions extends UrlbarProvider {
         let query = searchString.trim();
         let suggestion = entry.value;
         let title;
+        let titleHighlight;
         if (tail && entry.tailOffsetIndex >= 0) {
           title = tail;
+          titleHighlight = UrlbarUtils.HIGHLIGHT.SUGGESTED;
         } else if (suggestion) {
           title = suggestion;
+          titleHighlight = UrlbarUtils.HIGHLIGHT.SUGGESTED;
         } else {
           title = query;
         }
@@ -524,10 +533,7 @@ export class UrlbarProviderSearchSuggestions extends UrlbarProvider {
               helpUrl: entry.trending ? TRENDING_HELP_URL : undefined,
             },
             highlights: {
-              engine: UrlbarUtils.HIGHLIGHT.TYPED,
-              suggestion: UrlbarUtils.HIGHLIGHT.SUGGESTED,
-              tail: UrlbarUtils.HIGHLIGHT.SUGGESTED,
-              keyword: UrlbarUtils.HIGHLIGHT.TYPED,
+              title: titleHighlight,
             },
           })
         );
@@ -544,7 +550,7 @@ export class UrlbarProviderSearchSuggestions extends UrlbarProvider {
   /**
    * @typedef {object} EngineAlias
    *
-   * @property {nsISearchEngine} engine
+   * @property {SearchEngine} engine
    *   The search engine
    * @property {string} alias
    *   The search engine's alias

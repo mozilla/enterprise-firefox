@@ -60,9 +60,9 @@ async function clearAndAddMemories() {
 /**
  * Constants for preference keys and test values
  */
-const PREF_API_KEY = "browser.aiwindow.apiKey";
-const PREF_ENDPOINT = "browser.aiwindow.endpoint";
-const PREF_MODEL = "browser.aiwindow.model";
+const PREF_API_KEY = "browser.smartwindow.apiKey";
+const PREF_ENDPOINT = "browser.smartwindow.endpoint";
+const PREF_MODEL = "browser.smartwindow.model";
 
 const API_KEY = "fake-key";
 const ENDPOINT = "https://api.fake-endpoint.com/v1";
@@ -265,6 +265,9 @@ add_task(async function test_constructRelevantMemoriesContextMessage() {
   const sb = sinon.createSandbox();
   try {
     const fakeEngine = {
+      loadPrompt() {
+        return "fake prompt";
+      },
       run() {
         return {
           finalOutput: `{
@@ -275,14 +278,17 @@ add_task(async function test_constructRelevantMemoriesContextMessage() {
       },
     };
 
-    // Stub the `ensureOpenAIEngine` method in MemoriesManager
+    // Stub the `ensureOpenAIEngineForUsage` method in MemoriesManager
     const stub = sb
-      .stub(MemoriesManager, "ensureOpenAIEngine")
-      .returns(fakeEngine);
+      .stub(MemoriesManager, "ensureOpenAIEngineForUsage")
+      .resolves(fakeEngine);
 
     const relevantMemoriesContextMessage =
       await constructRelevantMemoriesContextMessage("I love drinking coffee");
-    Assert.ok(stub.calledOnce, "ensureOpenAIEngine should be called once");
+    Assert.ok(
+      stub.calledOnce,
+      "ensureOpenAIEngineForUsage should be called once"
+    );
 
     // Check relevantMemoriesContextMessage's top level structure
     Assert.strictEqual(
@@ -335,6 +341,9 @@ add_task(
     const sb = sinon.createSandbox();
     try {
       const fakeEngine = {
+        loadPrompt() {
+          return "fake prompt";
+        },
         run() {
           return {
             finalOutput: `{
@@ -345,14 +354,17 @@ add_task(
         },
       };
 
-      // Stub the `ensureOpenAIEngine` method in MemoriesManager
+      // Stub the `ensureOpenAIEngineForUsage` method in MemoriesManager
       const stub = sb
-        .stub(MemoriesManager, "ensureOpenAIEngine")
-        .returns(fakeEngine);
+        .stub(MemoriesManager, "ensureOpenAIEngineForUsage")
+        .resolves(fakeEngine);
 
       const relevantMemoriesContextMessage =
         await constructRelevantMemoriesContextMessage("I love drinking coffee");
-      Assert.ok(stub.calledOnce, "ensureOpenAIEngine should be called once");
+      Assert.ok(
+        stub.calledOnce,
+        "ensureOpenAIEngineForUsage should be called once"
+      );
 
       // No relevant memories, so returned value should be null
       Assert.equal(

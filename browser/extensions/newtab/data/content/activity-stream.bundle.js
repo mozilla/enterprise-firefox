@@ -140,12 +140,6 @@ for (const type of [
   "DISCOVERY_STREAM_LAYOUT_UPDATE",
   "DISCOVERY_STREAM_LINK_BLOCKED",
   "DISCOVERY_STREAM_LOADED_CONTENT",
-  "DISCOVERY_STREAM_PERSONALIZATION_INIT",
-  "DISCOVERY_STREAM_PERSONALIZATION_LAST_UPDATED",
-  "DISCOVERY_STREAM_PERSONALIZATION_OVERRIDE",
-  "DISCOVERY_STREAM_PERSONALIZATION_RESET",
-  "DISCOVERY_STREAM_PERSONALIZATION_TOGGLE",
-  "DISCOVERY_STREAM_PERSONALIZATION_UPDATED",
   "DISCOVERY_STREAM_PREFS_SETUP",
   "DISCOVERY_STREAM_RETRY_FEED",
   "DISCOVERY_STREAM_SPOCS_CAPS",
@@ -679,34 +673,6 @@ class TogglePrefCheckbox extends (external_React_default()).PureComponent {
     }), " ", this.props.pref, " ");
   }
 }
-class Personalization extends (external_React_default()).PureComponent {
-  constructor(props) {
-    super(props);
-    this.togglePersonalization = this.togglePersonalization.bind(this);
-  }
-  togglePersonalization() {
-    this.props.dispatch(actionCreators.OnlyToMain({
-      type: actionTypes.DISCOVERY_STREAM_PERSONALIZATION_TOGGLE
-    }));
-  }
-  render() {
-    const {
-      lastUpdated,
-      initialized
-    } = this.props.state.Personalization;
-    return /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, /*#__PURE__*/external_React_default().createElement("table", null, /*#__PURE__*/external_React_default().createElement("tbody", null, /*#__PURE__*/external_React_default().createElement(Row, null, /*#__PURE__*/external_React_default().createElement("td", {
-      colSpan: "2"
-    }, /*#__PURE__*/external_React_default().createElement(TogglePrefCheckbox, {
-      checked: this.props.personalized,
-      pref: "personalized",
-      onChange: this.togglePersonalization
-    }))), /*#__PURE__*/external_React_default().createElement(Row, null, /*#__PURE__*/external_React_default().createElement("td", {
-      className: "min"
-    }, "Personalization Last Updated"), /*#__PURE__*/external_React_default().createElement("td", null, relativeTime(lastUpdated) || "(no data)")), /*#__PURE__*/external_React_default().createElement(Row, null, /*#__PURE__*/external_React_default().createElement("td", {
-      className: "min"
-    }, "Personalization Initialized"), /*#__PURE__*/external_React_default().createElement("td", null, initialized ? "true" : "false")))));
-  }
-}
 class DiscoveryStreamAdminUI extends (external_React_default()).PureComponent {
   constructor(props) {
     super(props);
@@ -1106,7 +1072,6 @@ class DiscoveryStreamAdminUI extends (external_React_default()).PureComponent {
       config,
       layout
     } = this.props.state.DiscoveryStream;
-    const personalized = this.props.otherPrefs["discoverystream.personalization.enabled"];
     const sectionsEnabled = this.props.otherPrefs[PREF_SECTIONS_ENABLED];
 
     // Prefs for IAB Banners
@@ -1188,13 +1153,7 @@ class DiscoveryStreamAdminUI extends (external_React_default()).PureComponent {
     }, row.components.map((component, componentIndex) => /*#__PURE__*/external_React_default().createElement("div", {
       key: `component-${componentIndex}`,
       className: "ds-component"
-    }, this.renderComponent(row.width, component))))), /*#__PURE__*/external_React_default().createElement("h3", null, "Personalization"), /*#__PURE__*/external_React_default().createElement(Personalization, {
-      personalized: personalized,
-      dispatch: this.props.dispatch,
-      state: {
-        Personalization: this.props.state.Personalization
-      }
-    }), /*#__PURE__*/external_React_default().createElement("h3", null, "Spocs"), this.renderSpocs(), /*#__PURE__*/external_React_default().createElement("h3", null, "Feeds Data"), /*#__PURE__*/external_React_default().createElement("div", {
+    }, this.renderComponent(row.width, component))))), /*#__PURE__*/external_React_default().createElement("h3", null, "Spocs"), this.renderSpocs(), /*#__PURE__*/external_React_default().createElement("h3", null, "Feeds Data"), /*#__PURE__*/external_React_default().createElement("div", {
       className: "large-data-container"
     }, this.renderFeedsData()), /*#__PURE__*/external_React_default().createElement("h3", null, "Impressions Data"), /*#__PURE__*/external_React_default().createElement("div", {
       className: "large-data-container"
@@ -1223,7 +1182,6 @@ class DiscoveryStreamAdminInner extends (external_React_default()).PureComponent
     }, "Click here"))), /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, /*#__PURE__*/external_React_default().createElement(DiscoveryStreamAdminUI, {
       state: {
         DiscoveryStream: this.props.DiscoveryStream,
-        Personalization: this.props.Personalization,
         Weather: this.props.Weather,
         InferredPersonalization: this.props.InferredPersonalization
       },
@@ -1265,7 +1223,6 @@ const _DiscoveryStreamAdmin = props => /*#__PURE__*/external_React_default().cre
 const DiscoveryStreamAdmin = (0,external_ReactRedux_namespaceObject.connect)(state => ({
   Sections: state.Sections,
   DiscoveryStream: state.DiscoveryStream,
-  Personalization: state.Personalization,
   InferredPersonalization: state.InferredPersonalization,
   Prefs: state.Prefs,
   Weather: state.Weather
@@ -2155,7 +2112,7 @@ const LinkMenuOptions = {
     }),
   }),
   HideWeather: () => ({
-    id: "newtab-weather-menu-hide-weather",
+    id: "newtab-weather-menu-hide-weather-v2",
     action: actionCreators.OnlyToMain({
       type: actionTypes.SET_PREF,
       data: {
@@ -2985,7 +2942,7 @@ class ImpressionStats_ImpressionStats extends (external_React_default()).PureCom
       }
     }
     if (this._needsImpressionStats(cards)) {
-      props.dispatch(actionCreators.DiscoveryStreamImpressionStats({
+      const impressionData = {
         source: props.source.toUpperCase(),
         window_inner_width: window.innerWidth,
         window_inner_height: window.innerHeight,
@@ -3018,7 +2975,8 @@ class ImpressionStats_ImpressionStats extends (external_React_default()).PureCom
           } : {})
         })),
         firstVisibleTimestamp: props.firstVisibleTimestamp
-      }));
+      };
+      props.dispatch(actionCreators.DiscoveryStreamImpressionStats(impressionData));
       this.impressionCardGuids = cards.map(link => link.id);
     }
   }
@@ -3457,7 +3415,6 @@ const READING_WPM = 220;
 const PREF_OHTTP_MERINO = "discoverystream.merino-provider.ohttp.enabled";
 const PREF_OHTTP_UNIFIED_ADS = "unifiedAds.ohttp.enabled";
 const DSCard_PREF_SECTIONS_ENABLED = "discoverystream.sections.enabled";
-const PREF_FAVICONS_ENABLED = "discoverystream.publisherFavicon.enabled";
 
 /**
  * READ TIME FROM WORD COUNT
@@ -3478,11 +3435,9 @@ const DSSource = ({
   context,
   sponsor,
   sponsored_by_override,
-  icon_src,
-  refinedCardsLayout
+  icon_src
 }) => {
-  // refinedCard styles will have a larger favicon size
-  const faviconSize = refinedCardsLayout ? 20 : 16;
+  const faviconSize = 20;
 
   // First try to display sponsored label or time to read here.
   if (newSponsoredLabel) {
@@ -3538,18 +3493,22 @@ const DefaultMeta = ({
   dispatch,
   mayHaveSectionsCards,
   format,
-  topic,
-  isSectionsCard,
-  showTopics,
-  icon_src,
-  refinedCardsLayout
+  icon_src
 }) => {
-  const shouldHaveFooterSection = isSectionsCard && showTopics;
+  const shouldShowFooter = format !== "rectangle" && format !== "spoc";
   return /*#__PURE__*/external_React_default().createElement("div", {
     className: "meta"
   }, /*#__PURE__*/external_React_default().createElement("div", {
     className: "info-wrap"
-  }, ctaButtonVariant !== "variant-b" && format !== "rectangle" && !refinedCardsLayout && /*#__PURE__*/external_React_default().createElement(DSSource, {
+  }, /*#__PURE__*/external_React_default().createElement("h3", {
+    className: "title clamp"
+  }, format === "rectangle" ? "Sponsored" : title), format === "rectangle" ? /*#__PURE__*/external_React_default().createElement("p", {
+    className: "excerpt clamp"
+  }, "Sponsored content supports our mission to build a better web.") : excerpt && /*#__PURE__*/external_React_default().createElement("p", {
+    className: "excerpt clamp"
+  }, excerpt)), shouldShowFooter && /*#__PURE__*/external_React_default().createElement("div", {
+    className: "sections-card-footer"
+  }, format !== "rectangle" && format !== "spoc" && /*#__PURE__*/external_React_default().createElement(DSSource, {
     source: source,
     timeToRead: timeToRead,
     newSponsoredLabel: newSponsoredLabel,
@@ -3557,26 +3516,6 @@ const DefaultMeta = ({
     sponsor: sponsor,
     sponsored_by_override: sponsored_by_override,
     icon_src: icon_src
-  }), /*#__PURE__*/external_React_default().createElement("h3", {
-    className: "title clamp"
-  }, format === "rectangle" ? "Sponsored" : title), format === "rectangle" ? /*#__PURE__*/external_React_default().createElement("p", {
-    className: "excerpt clamp"
-  }, "Sponsored content supports our mission to build a better web.") : excerpt && /*#__PURE__*/external_React_default().createElement("p", {
-    className: "excerpt clamp"
-  }, excerpt)), (shouldHaveFooterSection || refinedCardsLayout) && /*#__PURE__*/external_React_default().createElement("div", {
-    className: "sections-card-footer"
-  }, refinedCardsLayout && format !== "rectangle" && format !== "spoc" && /*#__PURE__*/external_React_default().createElement(DSSource, {
-    source: source,
-    timeToRead: timeToRead,
-    newSponsoredLabel: newSponsoredLabel,
-    context: context,
-    sponsor: sponsor,
-    sponsored_by_override: sponsored_by_override,
-    icon_src: icon_src,
-    refinedCardsLayout: refinedCardsLayout
-  }), showTopics && /*#__PURE__*/external_React_default().createElement("span", {
-    className: "ds-card-topic",
-    "data-l10n-id": `newtab-topic-label-${topic}`
   })), !newSponsoredLabel && /*#__PURE__*/external_React_default().createElement(DSContextFooter, {
     context_type: context_type,
     context: context,
@@ -3598,7 +3537,6 @@ class _DSCard extends (external_React_default()).PureComponent {
     this.doesLinkTopicMatchSelectedTopic = this.doesLinkTopicMatchSelectedTopic.bind(this);
     this.onMenuUpdate = this.onMenuUpdate.bind(this);
     this.onMenuShow = this.onMenuShow.bind(this);
-    const refinedCardsLayout = this.props.Prefs.values["discoverystream.refinedCardsLayout.enabled"];
     this.setContextMenuButtonHostRef = element => {
       this.contextMenuButtonHostElement = element;
     };
@@ -3626,7 +3564,7 @@ class _DSCard extends (external_React_default()).PureComponent {
     this.standardCardImageSizes = [{
       mediaMatcher: "default",
       width: 296,
-      height: refinedCardsLayout ? 160 : 148
+      height: 160
     }];
     this.listCardImageSizes = [{
       mediaMatcher: "(min-width: 1122px)",
@@ -3644,7 +3582,7 @@ class _DSCard extends (external_React_default()).PureComponent {
       },
       medium: {
         width: 300,
-        height: refinedCardsLayout ? 160 : 150
+        height: 160
       },
       large: {
         width: 190,
@@ -3834,9 +3772,8 @@ class _DSCard extends (external_React_default()).PureComponent {
   }
   getFaviconSrc() {
     let faviconSrc = "";
-    const faviconEnabled = this.props.Prefs.values[PREF_FAVICONS_ENABLED];
     // There is no point in fetching favicons for startup cache.
-    if (!this.props.App.isForStartupCache.App && faviconEnabled && this.props.icon_src) {
+    if (!this.props.App.isForStartupCache.App && this.props.icon_src) {
       faviconSrc = this.props.icon_src;
       if (this.secureImage) {
         faviconSrc = this.secureImageURL(this.props.icon_src);
@@ -3909,8 +3846,6 @@ class _DSCard extends (external_React_default()).PureComponent {
       mayHaveSectionsCards,
       format
     } = this.props;
-    const refinedCardsLayout = Prefs.values["discoverystream.refinedCardsLayout.enabled"];
-    const refinedCardsClassName = refinedCardsLayout ? `refined-cards` : ``;
     if (this.props.placeholder || !this.state.isSeen) {
       // placeholder-seen is used to ensure the loading animation is only used if the card is visible.
       const placeholderClassName = this.state.isSeen ? `placeholder-seen` : ``;
@@ -3923,17 +3858,15 @@ class _DSCard extends (external_React_default()).PureComponent {
       }), /*#__PURE__*/external_React_default().createElement("div", {
         className: "placeholder-description placeholder-fill"
       }));
-      if (refinedCardsLayout) {
-        placeholderElements = /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, /*#__PURE__*/external_React_default().createElement("div", {
-          className: "placeholder-image placeholder-fill"
-        }), /*#__PURE__*/external_React_default().createElement("div", {
-          className: "placeholder-description placeholder-fill"
-        }), /*#__PURE__*/external_React_default().createElement("div", {
-          className: "placeholder-header placeholder-fill"
-        }));
-      }
+      placeholderElements = /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, /*#__PURE__*/external_React_default().createElement("div", {
+        className: "placeholder-image placeholder-fill"
+      }), /*#__PURE__*/external_React_default().createElement("div", {
+        className: "placeholder-description placeholder-fill"
+      }), /*#__PURE__*/external_React_default().createElement("div", {
+        className: "placeholder-header placeholder-fill"
+      }));
       return /*#__PURE__*/external_React_default().createElement("div", {
-        className: `ds-card placeholder ${placeholderClassName} ${refinedCardsClassName}`,
+        className: `ds-card placeholder ${placeholderClassName}`,
         ref: this.setPlaceholderRef
       }, placeholderElements);
     }
@@ -3953,9 +3886,8 @@ class _DSCard extends (external_React_default()).PureComponent {
       readTime: displayReadTime
     } = DiscoveryStream;
     const sectionsEnabled = Prefs.values[DSCard_PREF_SECTIONS_ENABLED];
-    // Refined cards have their own excerpt hiding logic.
-    // We can ignore hideDescriptions if we are in sections and refined cards.
-    const excerpt = !hideDescriptions || sectionsEnabled && refinedCardsLayout ? this.props.excerpt : "";
+    // We can ignore hideDescriptions if we are in sections.
+    const excerpt = !hideDescriptions || sectionsEnabled ? this.props.excerpt : "";
     let timeToRead;
     if (displayReadTime) {
       timeToRead = this.props.time_to_read || readTimeFromWordCount(this.props.word_count);
@@ -3984,7 +3916,7 @@ class _DSCard extends (external_React_default()).PureComponent {
       images = this.renderSectionCardImages();
     }
     return /*#__PURE__*/external_React_default().createElement("article", {
-      className: `ds-card ${sectionsCardsClassName} ${compactImagesClassName} ${imageGradientClassName} ${titleLinesName} ${descLinesClassName} ${spocFormatClassName} ${ctaButtonClassName} ${ctaButtonVariantClassName} ${refinedCardsClassName}`,
+      className: `ds-card ${sectionsCardsClassName} ${compactImagesClassName} ${imageGradientClassName} ${titleLinesName} ${descLinesClassName} ${spocFormatClassName} ${ctaButtonClassName} ${ctaButtonVariantClassName}`,
       ref: this.setContextMenuButtonHostRef,
       "data-position-one": this.props["data-position-one"],
       "data-position-two": this.props["data-position-one"],
@@ -3999,12 +3931,12 @@ class _DSCard extends (external_React_default()).PureComponent {
       isSponsored: !!this.props.flightId,
       tabIndex: this.props.tabIndex,
       onFocus: this.props.onFocus
-    }, this.props.showTopics && !this.props.mayHaveSectionsCards && this.props.topic && !refinedCardsLayout && /*#__PURE__*/external_React_default().createElement("span", {
-      className: "ds-card-topic",
-      "data-l10n-id": `newtab-topic-label-${this.props.topic}`
-    }), /*#__PURE__*/external_React_default().createElement("div", {
+    }, /*#__PURE__*/external_React_default().createElement("div", {
       className: "img-wrapper"
-    }, images), /*#__PURE__*/external_React_default().createElement(ImpressionStats_ImpressionStats, {
+    }, images, this.props.isDailyBriefV2 && this.props.topic && /*#__PURE__*/external_React_default().createElement("span", {
+      className: "ds-card-daily-brief-topic",
+      "data-l10n-id": `newtab-topic-label-${this.props.topic}`
+    })), /*#__PURE__*/external_React_default().createElement(ImpressionStats_ImpressionStats, {
       flightId: this.props.flightId,
       rows: [{
         id: this.props.id,
@@ -4056,12 +3988,8 @@ class _DSCard extends (external_React_default()).PureComponent {
       dispatch: this.props.dispatch,
       mayHaveSectionsCards: this.props.mayHaveSectionsCards,
       state: this.state,
-      showTopics: !refinedCardsLayout && this.props.showTopics,
-      isSectionsCard: this.props.mayHaveSectionsCards && this.props.topic,
       format: format,
-      topic: this.props.topic,
       icon_src: faviconSrc,
-      refinedCardsLayout: refinedCardsLayout,
       tabIndex: this.props.tabIndex
     })), /*#__PURE__*/external_React_default().createElement("div", {
       className: "card-stp-button-hover-background"
@@ -6550,10 +6478,6 @@ const INITIAL_STATE = {
     // For can be a queue in the future, but for now is one item
     toastQueue: [],
   },
-  Personalization: {
-    lastUpdated: null,
-    initialized: false,
-  },
   InferredPersonalization: {
     initialized: false,
     lastUpdated: null,
@@ -7020,7 +6944,7 @@ function Messages(prevState = INITIAL_STATE.Messages, action) {
         portID: action.data.portID || "",
       };
     case actionTypes.MESSAGE_TOGGLE_VISIBILITY:
-      return { ...prevState, isVisible: action.data };
+      return { ...prevState, isVisible: action.data.isVisible };
     default:
       return prevState;
   }
@@ -7040,25 +6964,6 @@ function Pocket(prevState = INITIAL_STATE.Pocket, action) {
           useCta: action.data.use_cta,
         },
       };
-    default:
-      return prevState;
-  }
-}
-
-function Reducers_sys_Personalization(prevState = INITIAL_STATE.Personalization, action) {
-  switch (action.type) {
-    case actionTypes.DISCOVERY_STREAM_PERSONALIZATION_LAST_UPDATED:
-      return {
-        ...prevState,
-        lastUpdated: action.data.lastUpdated,
-      };
-    case actionTypes.DISCOVERY_STREAM_PERSONALIZATION_INIT:
-      return {
-        ...prevState,
-        initialized: true,
-      };
-    case actionTypes.DISCOVERY_STREAM_PERSONALIZATION_RESET:
-      return { ...INITIAL_STATE.Personalization };
     default:
       return prevState;
   }
@@ -7624,7 +7529,6 @@ const reducers = {
   Messages,
   Notifications,
   Pocket,
-  Personalization: Reducers_sys_Personalization,
   InferredPersonalization,
   DiscoveryStream,
   Search,
@@ -8173,10 +8077,10 @@ class TopSiteLink extends (external_React_default()).PureComponent {
   /*
    * Helper to determine whether the drop zone should allow a drop. We only allow
    * dropping top sites for now. We don't allow dropping on sponsored top sites
-   * as their position is fixed.
+   * or the add shortcut button as their position is fixed.
    */
   _allowDrop(e) {
-    return (this.dragged || !isSponsored(this.props.link)) && e.dataTransfer.types.includes("text/topsite-index");
+    return (this.dragged || !isSponsored(this.props.link) && !this.props.isAddButton) && e.dataTransfer.types.includes("text/topsite-index");
   }
   onDragEvent(event) {
     switch (event.type) {
@@ -8882,16 +8786,29 @@ class _TopSiteList extends (external_React_default()).PureComponent {
     topSites.length = this.props.TopSitesRows * TOP_SITES_MAX_SITES_PER_ROW;
     // if topSites do not fill an entire row add 'Add shortcut' button to array of topSites
     // (there should only be one of these)
-    let firstPlaceholder = topSites.findIndex(Object.is.bind(null, undefined));
-    // make sure placeholder exists and there already isnt a add button
-    if (firstPlaceholder && !topSites.includes(site => site.isAddButton)) {
-      topSites[firstPlaceholder] = {
-        isAddButton: true
-      };
-    } else if (topSites.includes(site => site.isAddButton)) {
-      topSites.push(topSites.splice(topSites.indexOf({
-        isAddButton: true
-      }), 1)[0]);
+    const addButtonIndex = topSites.findIndex(site => site?.isAddButton);
+
+    // Find the position right after the last regular shortcut
+    let targetPosition = topSites.length - 1;
+    for (let i = topSites.length - 1; i >= 0; i--) {
+      if (topSites[i] && !topSites[i].isAddButton) {
+        targetPosition = i + 1;
+        break;
+      }
+    }
+    if (addButtonIndex === -1) {
+      // No add button exists yet, insert it at target position if it's within bounds
+      if (targetPosition < topSites.length) {
+        topSites[targetPosition] = {
+          isAddButton: true
+        };
+      }
+    } else if (addButtonIndex !== targetPosition) {
+      // Add button exists but not at the end, move it
+      const [button] = topSites.splice(addButtonIndex, 1);
+      // Adjust target if we removed something before it
+      const adjustedTarget = addButtonIndex < targetPosition ? targetPosition - 1 : targetPosition;
+      topSites[adjustedTarget] = button;
     }
     return topSites;
   }
@@ -8903,8 +8820,8 @@ class _TopSiteList extends (external_React_default()).PureComponent {
   _makeTopSitesPreview(index) {
     const topSites = this._getTopSites();
     topSites[this.state.draggedIndex] = null;
-    const preview = topSites.map(site => site && (site.isPinned || isSponsored(site)) ? site : null);
-    const unpinned = topSites.filter(site => site && !site.isPinned && !isSponsored(site));
+    const preview = topSites.map(site => site && (site.isPinned || isSponsored(site) || site.isAddButton) ? site : null);
+    const unpinned = topSites.filter(site => site && !site.isPinned && !isSponsored(site) && !site.isAddButton);
     const siteToInsert = Object.assign({}, this.state.draggedSite, {
       isPinned: true,
       isDragged: true
@@ -8924,7 +8841,7 @@ class _TopSiteList extends (external_React_default()).PureComponent {
       const shiftingStep = index > this.state.draggedIndex ? 1 : -1;
       while (index > this.state.draggedIndex ? holeIndex < index : holeIndex > index) {
         let nextIndex = holeIndex + shiftingStep;
-        while (isSponsored(preview[nextIndex])) {
+        while (preview[nextIndex] && (isSponsored(preview[nextIndex]) || preview[nextIndex].isAddButton)) {
           nextIndex += shiftingStep;
         }
         preview[holeIndex] = preview[nextIndex];
@@ -10181,7 +10098,8 @@ const selectLayoutRender = ({ state = {}, prefs = {} }) => {
 
     result.forEach(section => {
       const { sectionKey } = section;
-      section.data = sectionsMap[sectionKey];
+      const sectionRecs = sectionsMap[sectionKey] || [];
+      section.data = sectionRecs.filter(rec => !rec.isHeadline);
     });
 
     return result;
@@ -10249,15 +10167,23 @@ const selectLayoutRender = ({ state = {}, prefs = {} }) => {
             sections: handleSections(data.sections, data.recommendations).map(
               section => {
                 const sectionsSpocsPositions = [];
-                section.layout.responsiveLayouts
-                  // Initial position for spocs is going to be for the smallest breakpoint.
-                  // We can then move it from there via breakpoints.
-                  .find(item => item.columnCount === 1)
-                  .tiles.forEach(tile => {
-                    if (tile.hasAd) {
-                      sectionsSpocsPositions.push({ index: tile.position });
-                    }
-                  });
+                const smallestBreakpointLayout =
+                  section.layout.responsiveLayouts
+                    // Initial position for spocs is going to be for the smallest breakpoint.
+                    // We can then move it from there via breakpoints.
+                    .find(item => item.columnCount === 1);
+
+                smallestBreakpointLayout.tiles.forEach(tile => {
+                  if (tile.hasAd) {
+                    const widgetsBeforeThisPosition =
+                      smallestBreakpointLayout.tiles.filter(
+                        t => t.allowsWidget && t.position < tile.position
+                      ).length;
+                    const adjustedPosition =
+                      tile.position - widgetsBeforeThisPosition;
+                    sectionsSpocsPositions.push({ index: adjustedPosition });
+                  }
+                });
                 return {
                   ...section,
                   data: handleSpocs(
@@ -11194,10 +11120,184 @@ const Weather_Weather = (0,external_ReactRedux_namespaceObject.connect)(state =>
   IntersectionObserver: globalThis.IntersectionObserver,
   document: globalThis.document
 }))(_Weather);
+;// CONCATENATED MODULE: ./content-src/components/DiscoveryStreamComponents/BriefingCard/BriefingCard.jsx
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+
+
+
+
+
+
+const TIMESTAMP_DISPLAY_DURATION = 15 * 60 * 1000;
+
+/**
+ * The BriefingCard component displays "In The Know" headlines.
+ * It is the first card in the "Your Briefing" section.
+ */
+const BriefingCard = ({
+  sectionClassNames = "",
+  headlines = [],
+  lastUpdated,
+  selectedTopics,
+  isFollowed,
+  firstVisibleTimestamp
+}) => {
+  const [showTimestamp, setShowTimestamp] = (0,external_React_namespaceObject.useState)(false);
+  const [timeAgo, setTimeAgo] = (0,external_React_namespaceObject.useState)("");
+  const [isDismissed, setIsDismissed] = (0,external_React_namespaceObject.useState)(false);
+  const dispatch = (0,external_ReactRedux_namespaceObject.useDispatch)();
+  const handleDismiss = () => {
+    setIsDismissed(true);
+    const tilesWithFormat = headlines.map(headline => ({
+      ...headline,
+      format: "daily-briefing",
+      guid: headline.id,
+      tile_id: headline.id,
+      ...(headline.section ? {
+        section: headline.section,
+        section_position: 0,
+        is_section_followed: isFollowed
+      } : {})
+    }));
+    const menuOption = LinkMenuOptions.BlockUrls(tilesWithFormat, 0, "DAILY_BRIEFING");
+    dispatch(menuOption.action);
+    if (menuOption.impression) {
+      dispatch(menuOption.impression);
+    }
+  };
+  (0,external_React_namespaceObject.useEffect)(() => {
+    if (!lastUpdated) {
+      setShowTimestamp(false);
+      return undefined;
+    }
+    const updateTimestamp = () => {
+      const now = Date.now();
+      const timeSinceUpdate = now - lastUpdated;
+
+      // Only show a timestamp for the first 15 minutes after feed refresh.
+      // This avoids showing an outdated timestamp for a cached version of the feed.
+      if (now - lastUpdated < TIMESTAMP_DISPLAY_DURATION) {
+        setShowTimestamp(true);
+        const minutes = Math.ceil(timeSinceUpdate / 60000);
+        setTimeAgo(minutes);
+      } else {
+        setShowTimestamp(false);
+      }
+    };
+    updateTimestamp();
+    const interval = setInterval(updateTimestamp, 60000);
+    return () => clearInterval(interval);
+  }, [lastUpdated]);
+  if (isDismissed || headlines.length === 0) {
+    return null;
+  }
+  const onLinkClick = headline => {
+    const userEvent = {
+      event: "CLICK",
+      source: "DAILY_BRIEFING",
+      action_position: headline.pos,
+      value: {
+        event_source: "CARD_GRID",
+        card_type: "organic",
+        recommendation_id: headline.recommendation_id,
+        tile_id: headline.id,
+        fetchTimestamp: headline.fetchTimestamp,
+        firstVisibleTimestamp,
+        corpus_item_id: headline.corpus_item_id,
+        scheduled_corpus_item_id: headline.scheduled_corpus_item_id,
+        recommended_at: headline.recommended_at,
+        received_rank: headline.received_rank,
+        features: headline.features,
+        selected_topics: selectedTopics,
+        format: "daily-briefing",
+        ...(headline.section ? {
+          section: headline.section,
+          section_position: 0,
+          is_section_followed: isFollowed,
+          layout_name: "daily-briefing"
+        } : {})
+      }
+    };
+    dispatch(actionCreators.DiscoveryStreamUserEvent(userEvent));
+  };
+  return /*#__PURE__*/external_React_default().createElement("div", {
+    className: `briefing-card ${sectionClassNames}`
+  }, /*#__PURE__*/external_React_default().createElement("moz-button", {
+    className: "briefing-card-context-menu-button",
+    iconSrc: "chrome://global/skin/icons/more.svg",
+    menuId: "briefing-card-menu",
+    type: "ghost"
+  }), /*#__PURE__*/external_React_default().createElement("panel-list", {
+    id: "briefing-card-menu"
+  }, /*#__PURE__*/external_React_default().createElement("panel-item", {
+    "data-l10n-id": "newtab-daily-briefing-card-menu-dismiss",
+    onClick: handleDismiss
+  })), /*#__PURE__*/external_React_default().createElement("div", {
+    className: "briefing-card-header"
+  }, /*#__PURE__*/external_React_default().createElement("h3", {
+    className: "briefing-card-title",
+    "data-l10n-id": "newtab-daily-briefing-card-title"
+  }), showTimestamp && /*#__PURE__*/external_React_default().createElement("span", {
+    className: "briefing-card-timestamp",
+    "data-l10n-id": "newtab-daily-briefing-card-timestamp",
+    "data-l10n-args": JSON.stringify({
+      minutes: timeAgo
+    })
+  })), /*#__PURE__*/external_React_default().createElement("hr", null), /*#__PURE__*/external_React_default().createElement("ol", {
+    className: "briefing-card-headlines"
+  }, headlines.map(headline => /*#__PURE__*/external_React_default().createElement("li", {
+    key: headline.id,
+    className: "briefing-card-headline"
+  }, /*#__PURE__*/external_React_default().createElement(SafeAnchor, {
+    url: headline.url,
+    dispatch: dispatch,
+    onLinkClick: () => onLinkClick(headline),
+    className: "briefing-card-headline-link",
+    title: headline.title
+  }, /*#__PURE__*/external_React_default().createElement("div", {
+    className: "briefing-card-headline-title"
+  }, headline.title), /*#__PURE__*/external_React_default().createElement("div", {
+    className: "briefing-card-headline-footer"
+  }, headline.icon_src && /*#__PURE__*/external_React_default().createElement("img", {
+    src: headline.icon_src,
+    alt: "",
+    className: "briefing-card-headline-icon"
+  }), /*#__PURE__*/external_React_default().createElement("span", {
+    className: "briefing-card-headline-source"
+  }, headline.publisher)))))), /*#__PURE__*/external_React_default().createElement(ImpressionStats_ImpressionStats, {
+    rows: headlines.map(headline => ({
+      id: headline.id,
+      pos: headline.pos,
+      recommendation_id: headline.recommendation_id,
+      fetchTimestamp: headline.fetchTimestamp,
+      corpus_item_id: headline.corpus_item_id,
+      scheduled_corpus_item_id: headline.scheduled_corpus_item_id,
+      recommended_at: headline.recommended_at,
+      received_rank: headline.received_rank,
+      features: headline.features,
+      format: "daily-briefing",
+      ...(headline.section ? {
+        section: headline.section,
+        // Daily Briefing is a single section, section_position is always 0.
+        section_position: 0,
+        is_section_followed: isFollowed,
+        sectionLayoutName: "daily-briefing"
+      } : {})
+    })),
+    dispatch: dispatch,
+    source: "DAILY_BRIEFING",
+    firstVisibleTimestamp: firstVisibleTimestamp
+  }));
+};
+
 ;// CONCATENATED MODULE: ./content-src/components/DiscoveryStreamComponents/CardSections/CardSections.jsx
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
+
 
 
 
@@ -11225,14 +11325,18 @@ const CardSections_PREF_BILLBOARD_ENABLED = "newtabAdSize.billboard";
 const CardSections_PREF_BILLBOARD_POSITION = "newtabAdSize.billboard.position";
 const CardSections_PREF_LEADERBOARD_ENABLED = "newtabAdSize.leaderboard";
 const CardSections_PREF_LEADERBOARD_POSITION = "newtabAdSize.leaderboard.position";
-const PREF_REFINED_CARDS_ENABLED = "discoverystream.refinedCardsLayout.enabled";
 const PREF_INFERRED_PERSONALIZATION_USER = "discoverystream.sections.personalization.inferred.user.enabled";
 const CardSections_PREF_DAILY_BRIEF_SECTIONID = "discoverystream.dailyBrief.sectionId";
+const PREF_DAILY_BRIEF_V2_ENABLED = "discoverystream.dailyBrief.v2.enabled";
 const CardSections_PREF_SPOCS_STARTUPCACHE_ENABLED = "discoverystream.spocs.startupCache.enabled";
-function getLayoutData(responsiveLayouts, index, refinedCardsLayout) {
+
+// Feed URL
+const CURATED_RECOMMENDATIONS_FEED_URL = "https://merino.services.mozilla.com/api/v1/curated-recommendations";
+function getLayoutData(responsiveLayouts, index) {
   let layoutData = {
     classNames: [],
-    imageSizes: {}
+    imageSizes: {},
+    allowsWidget: false
   };
   responsiveLayouts.forEach(layout => {
     layout.tiles.forEach((tile, tileIndex) => {
@@ -11240,11 +11344,14 @@ function getLayoutData(responsiveLayouts, index, refinedCardsLayout) {
         layoutData.classNames.push(`col-${layout.columnCount}-${tile.size}`);
         layoutData.classNames.push(`col-${layout.columnCount}-position-${tileIndex}`);
         layoutData.imageSizes[layout.columnCount] = tile.size;
+        if (tile.allowsWidget) {
+          layoutData.allowsWidget = true;
+        }
 
         // The API tells us whether the tile should show the excerpt or not.
         // Apply extra styles accordingly.
         if (tile.hasExcerpt) {
-          if (tile.size === "medium" && refinedCardsLayout) {
+          if (tile.size === "medium") {
             layoutData.classNames.push(`col-${layout.columnCount}-hide-excerpt`);
           } else {
             layoutData.classNames.push(`col-${layout.columnCount}-show-excerpt`);
@@ -11305,7 +11412,8 @@ function CardSection({
     messageData
   } = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.Messages);
   const {
-    sectionPersonalization
+    sectionPersonalization,
+    feeds
   } = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.DiscoveryStream);
   const {
     isForStartupCache
@@ -11359,8 +11467,9 @@ function CardSection({
   const mayHaveSectionsCards = prefs[CardSections_PREF_SECTIONS_CARDS_ENABLED];
   const selectedTopics = prefs[CardSections_PREF_TOPICS_SELECTED];
   const availableTopics = prefs[CardSections_PREF_TOPICS_AVAILABLE];
-  const refinedCardsLayout = prefs[PREF_REFINED_CARDS_ENABLED];
   const spocsStartupCacheEnabled = prefs[CardSections_PREF_SPOCS_STARTUPCACHE_ENABLED];
+  const dailyBriefV2Enabled = prefs.trainhopConfig?.dailyBriefing?.v2Enabled || prefs[PREF_DAILY_BRIEF_V2_ENABLED];
+  const dailyBriefSectionId = prefs.trainhopConfig?.dailyBriefing?.sectionId || prefs[CardSections_PREF_DAILY_BRIEF_SECTIONID];
   const mayHaveSectionsPersonalization = prefs[PREF_SECTIONS_PERSONALIZATION_ENABLED];
   const {
     sectionKey,
@@ -11437,12 +11546,133 @@ function CardSection({
     // So it can be displayed without orphans in grids with 2, 3, and 4 columns.
     maxTile = 12;
   }
+  const shouldShowBriefingCard = sectionKey === dailyBriefSectionId && dailyBriefV2Enabled;
+  const getBriefingData = () => {
+    const EMPTY_BRIEFING = {
+      headlines: [],
+      lastUpdated: null
+    };
+    if (!shouldShowBriefingCard) {
+      return EMPTY_BRIEFING;
+    }
+    const sections = feeds?.data[CURATED_RECOMMENDATIONS_FEED_URL];
+    if (!sections) {
+      return EMPTY_BRIEFING;
+    }
+    const headlines = sections.data.recommendations.filter(rec => rec.section === dailyBriefSectionId && rec.isHeadline);
+    return {
+      headlines,
+      lastUpdated: sections.lastUpdated
+    };
+  };
+  const {
+    headlines: briefingHeadlines,
+    lastUpdated: briefingLastUpdated
+  } = getBriefingData();
+  const hasBriefingHeadlines = briefingHeadlines.length === 3;
   const displaySections = section.data.slice(0, maxTile);
   const isSectionEmpty = !displaySections?.length;
-  const shouldShowLabels = sectionKey === "top_stories_section" && showTopics;
+  const shouldShowLabels = sectionKey === dailyBriefSectionId && showTopics;
   if (isSectionEmpty) {
     return null;
   }
+  function buildCards() {
+    const cards = [];
+    let dataIndex = 0;
+    for (let position = 0; position < maxTile; position++) {
+      const layoutData = getLayoutData(responsiveLayouts, position);
+      const {
+        classNames,
+        imageSizes
+      } = layoutData;
+      const shouldRenderWidget = shouldShowBriefingCard && layoutData.allowsWidget && hasBriefingHeadlines;
+      if (shouldRenderWidget) {
+        cards.push(/*#__PURE__*/external_React_default().createElement(BriefingCard, {
+          key: "briefing-card",
+          sectionClassNames: classNames.join(" "),
+          headlines: briefingHeadlines,
+          lastUpdated: briefingLastUpdated,
+          selectedTopics: selectedTopics,
+          isFollowed: following,
+          firstVisibleTimestamp: firstVisibleTimestamp
+        }));
+        continue;
+      }
+      if (dataIndex >= displaySections.length) {
+        break;
+      }
+      const rec = displaySections[dataIndex];
+      const currentIndex = dataIndex;
+
+      // Render a placeholder card when:
+      // 1. No recommendation is available.
+      // 2. The item is flagged as a placeholder.
+      // 3. Spocs are loading for with spocs startup cache disabled.
+      const isPlaceholder = !rec || rec.placeholder || placeholder || rec.flight_id && !spocsStartupCacheEnabled && isForStartupCache.DiscoveryStream;
+      if (isPlaceholder) {
+        cards.push(/*#__PURE__*/external_React_default().createElement(PlaceholderDSCard, {
+          key: `dscard-${currentIndex}`
+        }));
+      } else {
+        cards.push(/*#__PURE__*/external_React_default().createElement(DSCard, {
+          key: `dscard-${rec.id}`,
+          pos: rec.pos,
+          flightId: rec.flight_id,
+          image_src: rec.image_src,
+          raw_image_src: rec.raw_image_src,
+          icon_src: rec.icon_src,
+          word_count: rec.word_count,
+          time_to_read: rec.time_to_read,
+          title: rec.title,
+          topic: rec.topic,
+          features: rec.features,
+          excerpt: rec.excerpt,
+          url: rec.url,
+          id: rec.id,
+          shim: rec.shim,
+          fetchTimestamp: rec.fetchTimestamp,
+          type: type,
+          context: rec.context,
+          sponsor: rec.sponsor,
+          sponsored_by_override: rec.sponsored_by_override,
+          dispatch: dispatch,
+          source: rec.domain,
+          publisher: rec.publisher,
+          pocket_id: rec.pocket_id,
+          context_type: rec.context_type,
+          bookmarkGuid: rec.bookmarkGuid,
+          recommendation_id: rec.recommendation_id,
+          firstVisibleTimestamp: firstVisibleTimestamp,
+          corpus_item_id: rec.corpus_item_id,
+          scheduled_corpus_item_id: rec.scheduled_corpus_item_id,
+          recommended_at: rec.recommended_at,
+          received_rank: rec.received_rank,
+          format: rec.format,
+          alt_text: rec.alt_text,
+          mayHaveSectionsCards: mayHaveSectionsCards,
+          showTopics: shouldShowLabels,
+          selectedTopics: selectedTopics,
+          availableTopics: availableTopics,
+          ctaButtonSponsors: ctaButtonSponsors,
+          ctaButtonVariant: ctaButtonVariant,
+          sectionsClassNames: classNames.join(" "),
+          sectionsCardImageSizes: imageSizes,
+          section: sectionKey,
+          sectionPosition: sectionPosition,
+          sectionFollowed: following,
+          sectionLayoutName: layoutName,
+          isTimeSensitive: rec.isTimeSensitive,
+          tabIndex: currentIndex === focusedIndex ? 0 : -1,
+          onFocus: () => onCardFocus(currentIndex),
+          attribution: rec.attribution,
+          isDailyBriefV2: shouldShowBriefingCard
+        }));
+      }
+      dataIndex++;
+    }
+    return cards;
+  }
+  const cards = buildCards();
   const sectionContextWrapper = /*#__PURE__*/external_React_default().createElement("div", {
     className: "section-context-wrapper"
   }, /*#__PURE__*/external_React_default().createElement("div", {
@@ -11506,75 +11736,7 @@ function CardSection({
   })), mayHaveSectionsPersonalization ? sectionContextWrapper : null), /*#__PURE__*/external_React_default().createElement("div", {
     className: `ds-section-grid ds-card-grid`,
     onKeyDown: handleCardKeyDown
-  }, section.data.slice(0, maxTile).map((rec, index) => {
-    const layoutData = getLayoutData(responsiveLayouts, index, refinedCardsLayout);
-    const {
-      classNames,
-      imageSizes
-    } = layoutData;
-    // Render a placeholder card when:
-    // 1. No recommendation is available.
-    // 2. The item is flagged as a placeholder.
-    // 3. Spocs are loading for with spocs startup cache disabled.
-    if (!rec || rec.placeholder || placeholder || rec.flight_id && !spocsStartupCacheEnabled && isForStartupCache.DiscoveryStream) {
-      return /*#__PURE__*/external_React_default().createElement(PlaceholderDSCard, {
-        key: `dscard-${index}`
-      });
-    }
-    const card = /*#__PURE__*/external_React_default().createElement(DSCard, {
-      key: `dscard-${rec.id}`,
-      pos: rec.pos,
-      flightId: rec.flight_id,
-      image_src: rec.image_src,
-      raw_image_src: rec.raw_image_src,
-      icon_src: rec.icon_src,
-      word_count: rec.word_count,
-      time_to_read: rec.time_to_read,
-      title: rec.title,
-      topic: rec.topic,
-      features: rec.features,
-      excerpt: rec.excerpt,
-      url: rec.url,
-      id: rec.id,
-      shim: rec.shim,
-      fetchTimestamp: rec.fetchTimestamp,
-      type: type,
-      context: rec.context,
-      sponsor: rec.sponsor,
-      sponsored_by_override: rec.sponsored_by_override,
-      dispatch: dispatch,
-      source: rec.domain,
-      publisher: rec.publisher,
-      pocket_id: rec.pocket_id,
-      context_type: rec.context_type,
-      bookmarkGuid: rec.bookmarkGuid,
-      recommendation_id: rec.recommendation_id,
-      firstVisibleTimestamp: firstVisibleTimestamp,
-      corpus_item_id: rec.corpus_item_id,
-      scheduled_corpus_item_id: rec.scheduled_corpus_item_id,
-      recommended_at: rec.recommended_at,
-      received_rank: rec.received_rank,
-      format: rec.format,
-      alt_text: rec.alt_text,
-      mayHaveSectionsCards: mayHaveSectionsCards,
-      showTopics: shouldShowLabels,
-      selectedTopics: selectedTopics,
-      availableTopics: availableTopics,
-      ctaButtonSponsors: ctaButtonSponsors,
-      ctaButtonVariant: ctaButtonVariant,
-      sectionsClassNames: classNames.join(" "),
-      sectionsCardImageSizes: imageSizes,
-      section: sectionKey,
-      sectionPosition: sectionPosition,
-      sectionFollowed: following,
-      sectionLayoutName: layoutName,
-      isTimeSensitive: rec.isTimeSensitive,
-      tabIndex: index === focusedIndex ? 0 : -1,
-      onFocus: () => onCardFocus(index),
-      attribution: rec.attribution
-    });
-    return [card];
-  })));
+  }, cards));
 }
 function CardSections({
   data,
@@ -13090,6 +13252,7 @@ function EditableTimerFields({
 
 
 
+
 function WeatherForecast({
   dispatch
 }) {
@@ -13125,6 +13288,7 @@ function WeatherForecast({
   const {
     searchActive
   } = weatherData;
+  const maximizedWidgets = prefs["widgets.maximized"];
   function handleChangeLocation() {
     dispatch(actionCreators.BroadcastToContent({
       type: actionTypes.WEATHER_SEARCH_ACTIVE,
@@ -13171,93 +13335,94 @@ function WeatherForecast({
       }
     }));
   }
-  return /*#__PURE__*/React.createElement("article", {
-    className: "weather-forecast-widget"
-  }, /*#__PURE__*/React.createElement("div", {
+  return /*#__PURE__*/external_React_default().createElement("article", {
+    className: `weather-forecast-widget${maximizedWidgets ? "" : " small-widget"}`
+  }, /*#__PURE__*/external_React_default().createElement("div", {
     className: "city-wrapper"
-  }, /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/external_React_default().createElement("div", {
     className: "city-name"
-  }, searchActive ? /*#__PURE__*/React.createElement(LocationSearch, {
+  }, searchActive ? /*#__PURE__*/external_React_default().createElement(LocationSearch, {
     outerClassName: ""
-  }) : /*#__PURE__*/React.createElement("h3", null, weatherData.locationData.city)), /*#__PURE__*/React.createElement("div", {
+  }) : /*#__PURE__*/external_React_default().createElement("h3", null, weatherData.locationData.city)), /*#__PURE__*/external_React_default().createElement("div", {
     className: "weather-forecast-context-menu-wrapper"
-  }, /*#__PURE__*/React.createElement("moz-button", {
+  }, /*#__PURE__*/external_React_default().createElement("moz-button", {
     className: "weather-forecast-context-menu-button",
     iconSrc: "chrome://global/skin/icons/more.svg",
     menuId: "weather-forecast-context-menu",
-    type: "ghost"
-  }), /*#__PURE__*/React.createElement("panel-list", {
+    type: "ghost",
+    size: `${maximizedWidgets ? "default" : "small"}`
+  }), /*#__PURE__*/external_React_default().createElement("panel-list", {
     id: "weather-forecast-context-menu"
-  }, prefs["weather.locationSearchEnabled"] && /*#__PURE__*/React.createElement("panel-item", {
+  }, prefs["weather.locationSearchEnabled"] && /*#__PURE__*/external_React_default().createElement("panel-item", {
     "data-l10n-id": "newtab-weather-menu-change-location",
     onClick: handleChangeLocation
-  }), isOptInEnabled && /*#__PURE__*/React.createElement("panel-item", {
+  }), isOptInEnabled && /*#__PURE__*/external_React_default().createElement("panel-item", {
     "data-l10n-id": "newtab-weather-menu-detect-my-location",
     onClick: handleDetectLocation
-  }), prefs["weather.temperatureUnits"] === "f" ? /*#__PURE__*/React.createElement("panel-item", {
+  }), prefs["weather.temperatureUnits"] === "f" ? /*#__PURE__*/external_React_default().createElement("panel-item", {
     "data-l10n-id": "newtab-weather-menu-change-temperature-units-celsius",
     onClick: () => handleChangeTempUnit("c")
-  }) : /*#__PURE__*/React.createElement("panel-item", {
+  }) : /*#__PURE__*/external_React_default().createElement("panel-item", {
     "data-l10n-id": "newtab-weather-menu-change-temperature-units-fahrenheit",
     onClick: () => handleChangeTempUnit("f")
-  }), !showDetailedView ? /*#__PURE__*/React.createElement("panel-item", {
+  }), !showDetailedView ? /*#__PURE__*/external_React_default().createElement("panel-item", {
     "data-l10n-id": "newtab-weather-menu-change-weather-display-detailed",
     onClick: () => handleChangeDisplay("detailed")
-  }) : /*#__PURE__*/React.createElement("panel-item", {
+  }) : /*#__PURE__*/external_React_default().createElement("panel-item", {
     "data-l10n-id": "newtab-weather-menu-change-weather-display-simple",
     onClick: () => handleChangeDisplay("simple")
-  }), /*#__PURE__*/React.createElement("panel-item", {
-    "data-l10n-id": "newtab-weather-menu-hide-weather",
+  }), /*#__PURE__*/external_React_default().createElement("panel-item", {
+    "data-l10n-id": "newtab-weather-menu-hide-weather-v2",
     onClick: handleHideWeather
-  }), /*#__PURE__*/React.createElement("panel-item", {
+  }), /*#__PURE__*/external_React_default().createElement("panel-item", {
     "data-l10n-id": "newtab-weather-menu-learn-more",
     onClick: handleLearnMore
-  })))), /*#__PURE__*/React.createElement("div", {
+  })))), maximizedWidgets && /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, /*#__PURE__*/external_React_default().createElement("div", {
     className: "current-weather-wrapper"
-  }, /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/external_React_default().createElement("div", {
     className: "weather-icon-column"
-  }, /*#__PURE__*/React.createElement("span", {
+  }, /*#__PURE__*/external_React_default().createElement("span", {
     className: `weather-icon iconId${WEATHER_SUGGESTION.current_conditions.icon_id}`
-  })), /*#__PURE__*/React.createElement("div", {
+  })), /*#__PURE__*/external_React_default().createElement("div", {
     className: "weather-info-column"
-  }, /*#__PURE__*/React.createElement("span", {
+  }, /*#__PURE__*/external_React_default().createElement("span", {
     className: "temperature-unit"
-  }, WEATHER_SUGGESTION.current_conditions.temperature[prefs["weather.temperatureUnits"]], "\xB0", prefs["weather.temperatureUnits"]), /*#__PURE__*/React.createElement("span", {
+  }, WEATHER_SUGGESTION.current_conditions.temperature[prefs["weather.temperatureUnits"]], "\xB0", prefs["weather.temperatureUnits"]), /*#__PURE__*/external_React_default().createElement("span", {
     className: "temperature-description"
-  }, WEATHER_SUGGESTION.current_conditions.summary)), /*#__PURE__*/React.createElement("div", {
+  }, WEATHER_SUGGESTION.current_conditions.summary)), /*#__PURE__*/external_React_default().createElement("div", {
     className: "high-low-column"
-  }, /*#__PURE__*/React.createElement("span", {
+  }, /*#__PURE__*/external_React_default().createElement("span", {
     className: "high-temperature"
-  }, /*#__PURE__*/React.createElement("span", {
+  }, /*#__PURE__*/external_React_default().createElement("span", {
     className: "arrow-icon arrow-up"
-  }), WEATHER_SUGGESTION.forecast.high[prefs["weather.temperatureUnits"]], "\xB0"), /*#__PURE__*/React.createElement("span", {
+  }), WEATHER_SUGGESTION.forecast.high[prefs["weather.temperatureUnits"]], "\xB0"), /*#__PURE__*/external_React_default().createElement("span", {
     className: "low-temperature"
-  }, /*#__PURE__*/React.createElement("span", {
+  }, /*#__PURE__*/external_React_default().createElement("span", {
     className: "arrow-icon arrow-down"
-  }), WEATHER_SUGGESTION.forecast.low[prefs["weather.temperatureUnits"]], "\xB0"))), /*#__PURE__*/React.createElement("hr", null), /*#__PURE__*/React.createElement("div", {
+  }), WEATHER_SUGGESTION.forecast.low[prefs["weather.temperatureUnits"]], "\xB0"))), /*#__PURE__*/external_React_default().createElement("hr", null)), /*#__PURE__*/external_React_default().createElement("div", {
     className: "forecast-row"
-  }, /*#__PURE__*/React.createElement("p", {
+  }, maximizedWidgets && /*#__PURE__*/external_React_default().createElement("p", {
     className: "today-forecast",
     "data-l10n-id": "newtab-weather-todays-forecast"
-  }), /*#__PURE__*/React.createElement("ul", {
+  }), /*#__PURE__*/external_React_default().createElement("ul", {
     className: "forecast-row-items"
-  }, /*#__PURE__*/React.createElement("li", null, /*#__PURE__*/React.createElement("span", null, "80\xB0"), /*#__PURE__*/React.createElement("span", {
+  }, /*#__PURE__*/external_React_default().createElement("li", null, /*#__PURE__*/external_React_default().createElement("span", null, "80\xB0"), /*#__PURE__*/external_React_default().createElement("span", {
     className: `weather-icon iconId${WEATHER_SUGGESTION.current_conditions.icon_id}`
-  }), /*#__PURE__*/React.createElement("span", null, "7:00")), /*#__PURE__*/React.createElement("li", null, /*#__PURE__*/React.createElement("span", null, "80\xB0"), /*#__PURE__*/React.createElement("span", {
+  }), /*#__PURE__*/external_React_default().createElement("span", null, "7:00")), /*#__PURE__*/external_React_default().createElement("li", null, /*#__PURE__*/external_React_default().createElement("span", null, "80\xB0"), /*#__PURE__*/external_React_default().createElement("span", {
     className: `weather-icon iconId${WEATHER_SUGGESTION.current_conditions.icon_id}`
-  }), /*#__PURE__*/React.createElement("span", null, "7:00")), /*#__PURE__*/React.createElement("li", null, /*#__PURE__*/React.createElement("span", null, "80\xB0"), /*#__PURE__*/React.createElement("span", {
+  }), /*#__PURE__*/external_React_default().createElement("span", null, "7:00")), /*#__PURE__*/external_React_default().createElement("li", null, /*#__PURE__*/external_React_default().createElement("span", null, "80\xB0"), /*#__PURE__*/external_React_default().createElement("span", {
     className: `weather-icon iconId${WEATHER_SUGGESTION.current_conditions.icon_id}`
-  }), /*#__PURE__*/React.createElement("span", null, "7:00")), /*#__PURE__*/React.createElement("li", null, /*#__PURE__*/React.createElement("span", null, "80\xB0"), /*#__PURE__*/React.createElement("span", {
+  }), /*#__PURE__*/external_React_default().createElement("span", null, "7:00")), /*#__PURE__*/external_React_default().createElement("li", null, /*#__PURE__*/external_React_default().createElement("span", null, "80\xB0"), /*#__PURE__*/external_React_default().createElement("span", {
     className: `weather-icon iconId${WEATHER_SUGGESTION.current_conditions.icon_id}`
-  }), /*#__PURE__*/React.createElement("span", null, "7:00")), /*#__PURE__*/React.createElement("li", null, /*#__PURE__*/React.createElement("span", null, "80\xB0"), /*#__PURE__*/React.createElement("span", {
+  }), /*#__PURE__*/external_React_default().createElement("span", null, "7:00")), /*#__PURE__*/external_React_default().createElement("li", null, /*#__PURE__*/external_React_default().createElement("span", null, "80\xB0"), /*#__PURE__*/external_React_default().createElement("span", {
     className: `weather-icon iconId${WEATHER_SUGGESTION.current_conditions.icon_id}`
-  }), /*#__PURE__*/React.createElement("span", null, "7:00")))), /*#__PURE__*/React.createElement("div", {
-    className: "weather-forecast-footer"
-  }, /*#__PURE__*/React.createElement("a", {
+  }), /*#__PURE__*/external_React_default().createElement("span", null, "7:00")))), /*#__PURE__*/external_React_default().createElement("div", {
+    className: "forecast-footer"
+  }, /*#__PURE__*/external_React_default().createElement("a", {
     href: "#",
     className: "full-forecast",
     "data-l10n-id": "newtab-weather-see-full-forecast"
-  }), /*#__PURE__*/React.createElement("span", {
+  }), /*#__PURE__*/external_React_default().createElement("span", {
     className: "sponsored-text",
     "data-l10n-id": "newtab-weather-sponsored",
     "data-l10n-args": "{\"provider\": \"AccuWeather\xAE\"}"
@@ -13367,6 +13532,7 @@ function Widgets() {
   const nimbusListsTrainhopEnabled = prefs.trainhopConfig?.widgets?.listsEnabled;
   const nimbusTimerTrainhopEnabled = prefs.trainhopConfig?.widgets?.timerEnabled;
   const nimbusWeatherForecastTrainhopEnabled = prefs.trainhopConfig?.widgets?.weatherForecastEnabled;
+  const nimbusMaximizedTrainhopEnabled = prefs.trainhopConfig?.widgets?.maximized;
   const listsEnabled = (nimbusListsTrainhopEnabled || nimbusListsEnabled || prefs[PREF_WIDGETS_SYSTEM_LISTS_ENABLED]) && prefs[PREF_WIDGETS_LISTS_ENABLED];
   const timerEnabled = (nimbusTimerTrainhopEnabled || nimbusTimerEnabled || prefs[PREF_WIDGETS_SYSTEM_TIMER_ENABLED]) && prefs[PREF_WIDGETS_TIMER_ENABLED];
   const weatherForecastEnabled = nimbusWeatherForecastTrainhopEnabled || prefs[PREF_WIDGETS_SYSTEM_WEATHER_FORECAST_ENABLED];
@@ -13436,14 +13602,14 @@ function Widgets() {
     className: "widgets-title-container"
   }, /*#__PURE__*/external_React_default().createElement("h1", {
     "data-l10n-id": "newtab-widget-section-title"
-  }), prefs[PREF_WIDGETS_SYSTEM_MAXIMIZED] && /*#__PURE__*/external_React_default().createElement("moz-button", {
+  }), (nimbusMaximizedTrainhopEnabled || prefs[PREF_WIDGETS_SYSTEM_MAXIMIZED]) && /*#__PURE__*/external_React_default().createElement("moz-button", {
     id: "toggle-widgets-size-button",
     type: "icon ghost",
     size: "small"
     // Toggle the icon and hover text
     ,
-    "data-l10n-id": isMaximized ? "newtab-widget-section-maximize" : "newtab-widget-section-minimize",
-    iconsrc: `chrome://browser/skin/${isMaximized ? "fullscreen" : "fullscreen-exit"}.svg`,
+    "data-l10n-id": isMaximized ? "newtab-widget-section-minimize" : "newtab-widget-section-maximize",
+    iconsrc: `chrome://browser/skin/${isMaximized ? "fullscreen-exit" : "fullscreen"}.svg`,
     onClick: handleToggleMaximizeClick,
     onKeyDown: handleToggleMaximizeKeyDown
   }), /*#__PURE__*/external_React_default().createElement("moz-button", {
@@ -13455,7 +13621,7 @@ function Widgets() {
     onClick: handleHideAllWidgetsClick,
     onKeyDown: handleHideAllWidgetsKeyDown
   })), /*#__PURE__*/external_React_default().createElement("div", {
-    className: `widgets-container ${isMaximized ? "is-maximized" : ""}`
+    className: `widgets-container${isMaximized ? " is-maximized" : ""}`
   }, listsEnabled && /*#__PURE__*/external_React_default().createElement(Lists, {
     dispatch: dispatch,
     handleUserInteraction: handleUserInteraction,
@@ -14103,7 +14269,6 @@ class _WallpaperCategories extends (external_React_default()).PureComponent {
     this.state = {
       activeCategory: null,
       activeCategoryFluentID: null,
-      showColorPicker: false,
       inputType: "radio",
       activeId: null,
       customWallpaperErrorType: null,
@@ -14438,12 +14603,13 @@ class _WallpaperCategories extends (external_React_default()).PureComponent {
       activeWallpaper
     } = this.props;
     const {
-      activeCategory,
-      showColorPicker
+      activeCategory
     } = this.state;
     const {
       activeCategoryFluentID
     } = this.state;
+    // Enable custom color select if pref'ed on
+    let showColorPicker = prefs["newtabWallpapers.customColor.enabled"];
     let filteredWallpapers = wallpaperList.filter(wallpaper => wallpaper.category === activeCategory);
     const wallpaperUploadMaxFileSize = this.props.Prefs.values[PREF_WALLPAPER_UPLOAD_MAX_FILE_SIZE];
     function reduceColorsToFitCustomColorInput(arr) {
@@ -14458,17 +14624,10 @@ class _WallpaperCategories extends (external_React_default()).PureComponent {
 
     // User has previous selected a custom color
     if (selectedWallpaper.includes("solid-color-picker")) {
-      this.setState({
-        showColorPicker: true
-      });
+      showColorPicker = true;
       const regex = /#([a-fA-F0-9]{6})/;
       [wallpaperCustomSolidColorHex] = selectedWallpaper.match(regex);
     }
-
-    // Enable custom color select if pref'ed on
-    this.setState({
-      showColorPicker: prefs["newtabWallpapers.customColor.enabled"]
-    });
 
     // Remove last item of solid colors to make space for custom color picker
     if (prefs["newtabWallpapers.customColor.enabled"] && activeCategory === "solid-colors") {
@@ -14999,13 +15158,15 @@ class _CustomizeMenu extends (external_React_default()).PureComponent {
     }
   }
   render() {
+    const activationWindowVariant = this.props.Prefs.values["activationWindow.variant"];
+    const activationWindowClass = activationWindowVariant ? `activation-window-variant-${activationWindowVariant}` : "";
     return /*#__PURE__*/external_React_default().createElement("span", null, /*#__PURE__*/external_React_default().createElement(external_ReactTransitionGroup_namespaceObject.CSSTransition, {
       timeout: 300,
       classNames: "personalize-animate",
       in: !this.props.showing,
       appear: true
     }, /*#__PURE__*/external_React_default().createElement("button", {
-      className: "personalize-button",
+      className: `${activationWindowClass} personalize-button`,
       "data-l10n-id": "newtab-customize-panel-icon-button",
       onClick: () => this.props.onOpen(),
       onKeyDown: e => {
@@ -15064,7 +15225,8 @@ class _CustomizeMenu extends (external_React_default()).PureComponent {
   }
 }
 const CustomizeMenu = (0,external_ReactRedux_namespaceObject.connect)(state => ({
-  DiscoveryStream: state.DiscoveryStream
+  DiscoveryStream: state.DiscoveryStream,
+  Prefs: state.Prefs
 }))(_CustomizeMenu);
 ;// CONCATENATED MODULE: ./content-src/components/Logo/Logo.jsx
 /* This Source Code Form is subject to the terms of the Mozilla Public
@@ -15915,11 +16077,91 @@ function WallpaperFeatureHighlight({
     outsideClickCallback: handleDismiss
   }));
 }
+;// CONCATENATED MODULE: ./content-src/components/ActivationWindowMessage/ActivationWindowMessage.jsx
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+
+
+function ActivationWindowMessage({
+  dispatch,
+  handleBlock,
+  handleClick,
+  handleDismiss,
+  messageData
+}) {
+  const {
+    content
+  } = messageData;
+  const hasButtons = content.primaryButton || content.secondaryButton;
+  const onDismiss = (0,external_React_namespaceObject.useCallback)(() => {
+    handleDismiss();
+    handleBlock();
+  }, [handleDismiss, handleBlock]);
+  const onPrimaryClick = (0,external_React_namespaceObject.useCallback)(() => {
+    handleClick("primary-button");
+    if (content.primaryButton?.action?.dismiss) {
+      handleDismiss();
+      handleBlock();
+    }
+    if (content.primaryButton?.action?.type === "SHOW_PERSONALIZE") {
+      dispatch({
+        type: actionTypes.SHOW_PERSONALIZE
+      });
+      dispatch(actionCreators.UserEvent({
+        event: "SHOW_PERSONALIZE"
+      }));
+    }
+  }, [dispatch, handleClick, handleDismiss, handleBlock, content]);
+  const onSecondaryClick = (0,external_React_namespaceObject.useCallback)(() => {
+    handleClick("secondary-button");
+    if (content.secondaryButton?.action?.dismiss) {
+      handleDismiss();
+      handleBlock();
+    }
+  }, [handleClick, handleDismiss, handleBlock, content]);
+  return /*#__PURE__*/external_React_default().createElement("aside", {
+    className: hasButtons ? "activation-window-message" : "activation-window-message no-buttons"
+  }, /*#__PURE__*/external_React_default().createElement("div", {
+    className: "activation-window-message-dismiss"
+  }, /*#__PURE__*/external_React_default().createElement("moz-button", {
+    type: "icon ghost",
+    iconSrc: "chrome://global/skin/icons/close.svg",
+    onClick: onDismiss,
+    "data-l10n-id": "newtab-activation-window-message-dismiss-button"
+  })), /*#__PURE__*/external_React_default().createElement("div", {
+    className: "activation-window-message-inner"
+  }, /*#__PURE__*/external_React_default().createElement("img", {
+    src: content.imageSrc || "chrome://newtab/content/data/content/assets/kit-in-circle.svg",
+    alt: "",
+    role: "presentation"
+  }), /*#__PURE__*/external_React_default().createElement("div", null, content.heading && (typeof content.heading === "string" ? /*#__PURE__*/external_React_default().createElement("h2", null, content.heading) : /*#__PURE__*/external_React_default().createElement("h2", {
+    "data-l10n-id": content.heading.string_id
+  })), content.message && (typeof content.message === "string" ? /*#__PURE__*/external_React_default().createElement("p", null, content.message) : /*#__PURE__*/external_React_default().createElement("p", {
+    "data-l10n-id": content.message.string_id
+  })), (content.primaryButton || content.secondaryButton) && /*#__PURE__*/external_React_default().createElement("moz-button-group", null, content.primaryButton && (typeof content.primaryButton.label === "string" ? /*#__PURE__*/external_React_default().createElement("moz-button", {
+    type: "primary",
+    onClick: onPrimaryClick
+  }, content.primaryButton.label) : /*#__PURE__*/external_React_default().createElement("moz-button", {
+    type: "primary",
+    onClick: onPrimaryClick,
+    "data-l10n-id": content.primaryButton.label.string_id
+  })), content.secondaryButton && (typeof content.secondaryButton.label === "string" ? /*#__PURE__*/external_React_default().createElement("moz-button", {
+    type: "default",
+    onClick: onSecondaryClick
+  }, content.secondaryButton.label) : /*#__PURE__*/external_React_default().createElement("moz-button", {
+    type: "default",
+    onClick: onSecondaryClick,
+    "data-l10n-id": content.secondaryButton.label.string_id
+  }))))));
+}
 ;// CONCATENATED MODULE: ./content-src/components/Base/Base.jsx
 function Base_extends() { return Base_extends = Object.assign ? Object.assign.bind() : function (n) { for (var e = 1; e < arguments.length; e++) { var t = arguments[e]; for (var r in t) ({}).hasOwnProperty.call(t, r) && (n[r] = t[r]); } return n; }, Base_extends.apply(null, arguments); }
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 
 
 
@@ -16450,7 +16692,8 @@ class BaseContent extends (external_React_default()).PureComponent {
   }
   shouldShowOMCHighlight(componentId) {
     const messageData = this.props.Messages?.messageData;
-    if (!messageData || Object.keys(messageData).length === 0) {
+    const isVisible = this.props.Messages?.isVisible;
+    if (!messageData || Object.keys(messageData).length === 0 || !isVisible) {
       return false;
     }
     return messageData?.content?.messageType === componentId;
@@ -16632,7 +16875,12 @@ class BaseContent extends (external_React_default()).PureComponent {
       showLogo: noSectionsEnabled || prefs["logowordmark.alwaysVisible"]
     }, props.Search)))), !prefs.showSearch && !noSectionsEnabled && /*#__PURE__*/external_React_default().createElement(Logo, null), /*#__PURE__*/external_React_default().createElement("div", {
       className: `body-wrapper${initialized ? " on" : ""}`
-    }, isDiscoveryStream ? /*#__PURE__*/external_React_default().createElement(ErrorBoundary, {
+    }, this.shouldShowOMCHighlight("ActivationWindowMessage") && /*#__PURE__*/external_React_default().createElement(MessageWrapper, {
+      dispatch: this.props.dispatch
+    }, /*#__PURE__*/external_React_default().createElement(ActivationWindowMessage, {
+      dispatch: this.props.dispatch,
+      messageData: this.props.Messages.messageData
+    })), isDiscoveryStream ? /*#__PURE__*/external_React_default().createElement(ErrorBoundary, {
       className: "borderless-error"
     }, /*#__PURE__*/external_React_default().createElement(DiscoveryStreamBase, {
       locale: props.App.locale,

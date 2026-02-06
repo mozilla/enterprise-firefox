@@ -224,6 +224,11 @@ abstract class Settings {
     open var loginAutofillEnabled: Boolean by UnsupportedSetting()
 
     /**
+     * Setting to control the Firefox Relay feature state.
+     */
+    open var firefoxRelay: Engine.FirefoxRelayMode? by UnsupportedSetting()
+
+    /**
      * Setting to force the ability to scale the content
      */
     open var forceUserScalableContent: Boolean by UnsupportedSetting()
@@ -419,6 +424,7 @@ data class DefaultSettings(
     override var preferredColorScheme: PreferredColorScheme = PreferredColorScheme.System,
     override var testingModeEnabled: Boolean = false,
     override var suspendMediaWhenInactive: Boolean = false,
+    override var firefoxRelay: Engine.FirefoxRelayMode? = null,
     override var fontInflationEnabled: Boolean? = null,
     override var fontSizeFactor: Float? = null,
     override var forceUserScalableContent: Boolean = false,

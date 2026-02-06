@@ -801,11 +801,6 @@ TestRunner.testFinished = function (tests) {
         result = result != "CRASH" ? "ERROR" : result;
       }
 
-      SpecialPowers.addProfilerMarker(
-        "TestRunner",
-        { category: "Test", startTime: TestRunner._currentTestStartTimestamp },
-        TestRunner.currentTestURL
-      );
       var runtime = new Date().valueOf() - TestRunner._currentTestStartTime;
 
       if (

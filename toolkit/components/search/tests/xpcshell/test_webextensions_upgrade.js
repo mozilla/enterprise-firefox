@@ -38,10 +38,7 @@ add_task(async function test_basic_upgrade() {
   let params = engine.getSubmission("test").uri.query.split("&");
   Assert.ok(params.includes("version=1.0"), "Correct version installed");
 
-  await SearchService.setDefault(
-    engine,
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
-  );
+  await SearchService.setDefault(engine, SearchService.CHANGE_REASON.UNKNOWN);
 
   let promiseChanged = TestUtils.topicObserved(
     "browser-search-engine-modified",
@@ -90,10 +87,7 @@ add_task(async function test_upgrade_changes_name() {
   let engine = SearchService.getEngineByName("engine");
   Assert.ok(!!engine, "Should have loaded the engine");
 
-  await SearchService.setDefault(
-    engine,
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
-  );
+  await SearchService.setDefault(engine, SearchService.CHANGE_REASON.UNKNOWN);
 
   Assert.deepEqual(
     (await SearchService.getVisibleEngines()).map(e => e.name),

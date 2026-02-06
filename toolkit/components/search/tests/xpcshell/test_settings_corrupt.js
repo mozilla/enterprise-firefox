@@ -24,7 +24,7 @@ add_task(async function test_settings_invalid_json() {
     "lastSettingsCorruptTime is initially 0."
   );
   let notificationBoxStub = sinon.stub(
-    SearchService.wrappedJSObject,
+    SearchService,
     "_showSearchSettingsResetNotificationBox"
   );
 
@@ -61,7 +61,7 @@ add_task(async function test_settings_invalid_json() {
 });
 
 add_task(async function test_settings_migration_fail() {
-  SearchService.wrappedJSObject.reset();
+  SearchService.reset();
 
   Services.prefs.setIntPref(
     SearchUtils.BROWSER_SEARCH_PREF + "lastSettingsCorruptTime",
@@ -77,7 +77,7 @@ add_task(async function test_settings_migration_fail() {
   await promiseSaveSettingsData(settingsTemplate);
 
   let notificationBoxStub = sinon.stub(
-    SearchService.wrappedJSObject,
+    SearchService,
     "_showSearchSettingsResetNotificationBox"
   );
 

@@ -84,11 +84,23 @@ export class ChatConversation {
    * @returns {Array<ChatMessage>}
    */
   renderState() {
-    const messages = this.#messages.filter(message => {
-      return CHAT_ROLES.includes(message.role);
+    return this.#messages.filter(message => {
+      const { role, content } = message;
+      if (!CHAT_ROLES.includes(role)) {
+        return false;
+      }
+      if (role !== MESSAGE_ROLE.ASSISTANT) {
+        return true;
+      }
+      const { type, body } = content ?? {};
+      if (type === "function") {
+        return false;
+      }
+      if (type === "text" && !body) {
+        return false;
+      }
+      return true;
     });
-
-    return messages;
   }
 
   /**
@@ -240,9 +252,10 @@ export class ChatConversation {
    *
    * @param {string} prompt - new user prompt
    * @param {URL} pageUrl - The URL of the page when prompt was submitted
-   * @param {boolean} withMemories - Whether to generate memories for new prompt message
+   * @param {UserRoleOpts} [userOpts]
+   *   Optional user message options
    */
-  async generatePrompt(prompt, pageUrl, withMemories) {
+  async generatePrompt(prompt, pageUrl, userOpts = undefined) {
     this.#messages = this.#messages.filter(message => {
       const isRealTimeInjection =
         message.role === MESSAGE_ROLE.SYSTEM &&
@@ -263,11 +276,10 @@ export class ChatConversation {
 
     await this.getRealTimeInfo();
 
-    if (withMemories) {
-      await this.getMemoriesContext();
+    if (userOpts?.memoriesEnabled) {
+      await this.getMemoriesContext(prompt);
     }
-
-    this.addUserMessage(prompt, pageUrl);
+    this.addUserMessage(prompt, pageUrl, userOpts);
 
     return this;
   }
@@ -299,8 +311,8 @@ export class ChatConversation {
 
     await this.getRealTimeInfo();
 
-    if (withMemories) {
-      await this.getMemoriesContext();
+    if (withMemories ?? message.memoriesEnabled) {
+      await this.getMemoriesContext(message.content.body);
     }
 
     this.addUserMessage(message.content.body, message.pageUrl);
@@ -349,13 +361,17 @@ export class ChatConversation {
    *    (message: string) => Promise<null | MemoryApiFunctionReturn>
    *  } MemoriesApiFunction
    *
+   * @param {string|null} message
+   *   The text of the user message.
+   *
    * @param {MemoriesApiFunction} [constructMemories=constructRelevantMemoriesContextMessage]
    * Function that returns promise that resolves with memories data
    */
   async getMemoriesContext(
+    message,
     constructMemories = constructRelevantMemoriesContextMessage
   ) {
-    const memoriesContext = await constructMemories();
+    const memoriesContext = await constructMemories(message);
     if (!memoriesContext?.content) {
       return;
     }

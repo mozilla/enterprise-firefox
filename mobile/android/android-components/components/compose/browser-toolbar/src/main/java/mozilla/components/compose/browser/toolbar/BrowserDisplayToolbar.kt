@@ -15,12 +15,15 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.DividerDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.tooling.preview.PreviewParameter
@@ -51,6 +54,8 @@ private const val DEFAULT_KEYBOARD_ANIMATION_TIME_MILLIS = 285
  * @param gravity [ToolbarGravity] for where the toolbar is being placed on the screen.
  * @param progressBarConfig [ProgressBarConfig] configuration for the progress bar.
  * If `null` a progress bar will not be displayed.
+ * @param backgroundColor Color of the background.
+ * @param outlineColor Color of the divider.
  * @param browserActionsStart List of browser [Action]s to be displayed at the start of the
  * toolbar, outside of the URL bounding box.
  * These should be actions relevant to the browser as a whole.
@@ -76,6 +81,8 @@ fun BrowserDisplayToolbar(
     pageOrigin: PageOrigin,
     gravity: ToolbarGravity,
     progressBarConfig: ProgressBarConfig?,
+    backgroundColor: Color = MaterialTheme.colorScheme.surface,
+    outlineColor: Color = DividerDefaults.color,
     browserActionsStart: List<Action> = emptyList(),
     pageActionsStart: List<Action> = emptyList(),
     pageActionsEnd: List<Action> = emptyList(),
@@ -155,6 +162,8 @@ fun BrowserDisplayToolbar(
                     pageActionsStart = pageActionsStart,
                     gravity = gravity,
                     modifier = toolbarModifier,
+                    backgroundColor = backgroundColor,
+                    outlineColor = outlineColor,
                     pageActionsStartModifier = pageActionsStartTrait,
                     originModifier = originTrait,
                 )
@@ -169,6 +178,8 @@ fun BrowserDisplayToolbar(
                     browserActionsEnd = browserActionsEnd,
                     onInteraction = onInteraction,
                     modifier = toolbarModifier,
+                    backgroundColor = backgroundColor,
+                    outlineColor = outlineColor,
                     browserActionsStartModifier = browserActionsStartTrait,
                     pageActionsStartModifier = pageActionsStartTrait,
                     originModifier = originTrait,

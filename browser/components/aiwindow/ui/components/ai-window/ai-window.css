@@ -3,20 +3,82 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 :host {
-  display: flex;
-  flex-direction: column;
+  --browser-container-max-width-units: 290;
+  height: 100vh;
+  display: grid;
+  grid-template-columns: 1fr;
+  align-self: center;
+  align-items: center;
+  justify-items: center;
+  /* Cap the width at 580px (2 * 290) */
+  max-width: calc(var(--space-xxsmall) * var(--browser-container-max-width-units));
+  width: 100%;
 }
 
-/* TODO update height styles - this is a place holder size. */
-#browser-container,
+/* Fullpage: browser collapsed (0 height) until chat starts, showing prompts and smartbar */
+:host([mode="fullpage"]) {
+  grid-template-areas:
+    "browser"
+    "smartbar"
+    "prompts";
+  grid-template-rows: 0 auto auto;
+  align-content: center;
+}
+
+:host([mode="sidebar"]) {
+  grid-template-areas:
+    "sidebar-header"
+    "browser"
+    "prompts"
+    "smartbar";
+  grid-template-rows: auto 1fr auto auto;
+}
+
+/* Expands browser to full height and removes prompts from grid when chat starts */
+:host(.chat-active) {
+  grid-template-areas:
+    "browser"
+    "smartbar";
+  grid-template-rows: 1fr auto;
+}
+
+:host([mode="sidebar"].chat-active) {
+  grid-template-areas:
+    "sidebar-header"
+    "browser"
+    "smartbar";
+  grid-template-rows: auto 1fr auto;
+}
+
+#browser-container {
+  grid-area: browser;
+  display: contents;
+  width: 100%;
+}
+
 #aichat-browser {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-size-tokens */
-  min-height: 400px;
+  width: 100%;
+  height: 100%;
 }
 
 #ai-window-smartbar {
+  grid-area: smartbar;
   width: 100%;
+}
+
+smartwindow-prompts {
+  grid-area: prompts;
+  width: 100%;
+}
+
+.sidebar-header {
+  grid-area: sidebar-header;
+  padding: var(--space-small);
+  display: flex;
+  justify-content: flex-end;
+  width: 100%;
+}
+
+moz-button.new-chat-icon-button {
+  --button-border-radius: var(--border-radius-large);
 }

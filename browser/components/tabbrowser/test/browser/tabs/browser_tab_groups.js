@@ -1357,3 +1357,33 @@ add_task(async function test_bug1997096_autoUncollapseOnRightClick() {
   BrowserTestUtils.removeTab(newTab);
   BrowserTestUtils.removeTab(groupedTab);
 });
+
+add_task(async function test_bug2007061_hideSplitViewWhenDraggingGroup() {
+  let tab1 = BrowserTestUtils.addTab(gBrowser, "about:blank");
+  let tab2 = BrowserTestUtils.addTab(gBrowser, "about:blank");
+  let splitview = gBrowser.addTabSplitView([tab1, tab2]);
+  let group = gBrowser.addTabGroup([splitview]);
+
+  gBrowser.selectedTab = tab1;
+  Assert.ok(tab1.selected, "tab1 in split view is selected");
+
+  Assert.ok(splitview.hasActiveTab, "split view has active tab attribute");
+
+  group.collapsed = true;
+  Assert.ok(group.collapsed, "group is collapsed");
+
+  group.isBeingDragged = true;
+  Assert.ok(
+    group.hasAttribute("movingtabgroup"),
+    "group has movingtabgroup attribute when being dragged"
+  );
+
+  Assert.ok(
+    BrowserTestUtils.isHidden(splitview),
+    "split view wrapper is hidden while dragging collapsed group"
+  );
+
+  group.isBeingDragged = false;
+
+  await removeTabGroup(group);
+});

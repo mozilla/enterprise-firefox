@@ -11,6 +11,7 @@
 #include "js/TypeDecls.h"
 #include "vm/JSObject.h"
 #include "vm/StringType.h"
+#include "vm/SymbolType.h"
 
 class JS_PUBLIC_API JSTracer;
 
@@ -125,6 +126,14 @@ class GlobalIntlData {
    */
   GCPtr<JSObject*> dateTimeFormatToLocaleTime_;
 
+  /**
+   * The [[FallbackSymbol]] symbol of the %Intl% intrinsic object.
+   *
+   * This symbol is used to implement the legacy constructor semantics for
+   * Intl.DateTimeFormat and Intl.NumberFormat.
+   */
+  GCPtr<JS::Symbol*> fallbackSymbol_;
+
  public:
   /**
    * Returns the BCP 47 language tag for the global's current locale.
@@ -172,6 +181,12 @@ class GlobalIntlData {
   DateTimeFormatObject* getOrCreateDateTimeFormat(
       JSContext* cx, DateTimeFormatKind kind,
       JS::Handle<JSLinearString*> locale);
+
+  /**
+   * Returns the %Intl%.[[FallbackSymbol]] for legacy constructor semantics of
+   * Intl.DateTimeFormat and Intl.NumberFormat.
+   */
+  JS::Symbol* fallbackSymbol(JSContext* cx);
 
   void trace(JSTracer* trc);
 

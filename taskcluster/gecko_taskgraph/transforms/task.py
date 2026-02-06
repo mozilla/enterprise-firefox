@@ -13,7 +13,10 @@ import hashlib
 import os
 import re
 import time
+from pathlib import Path
+from urllib.parse import quote
 
+import taskgraph
 from mozbuild.util import memoize
 from mozilla_taskgraph.util.signed_artifacts import get_signed_artifacts
 from taskcluster.utils import fromNow
@@ -43,16 +46,8 @@ from gecko_taskgraph.util.partners import get_partners_to_be_published
 from gecko_taskgraph.util.scriptworker import BALROG_ACTIONS, get_release_config
 from gecko_taskgraph.util.workertypes import get_worker_type, worker_type_implementation
 
-RUN_TASK_HG = os.path.join(GECKO, "taskcluster", "scripts", "run-task")
-RUN_TASK_GIT = os.path.join(
-    GECKO,
-    "third_party",
-    "python",
-    "taskcluster_taskgraph",
-    "taskgraph",
-    "run-task",
-    "run-task",
-)
+RUN_TASK_HG = Path(GECKO, "taskcluster", "scripts", "run-task")
+RUN_TASK_GIT = Path(taskgraph.__file__).parent / "run-task" / "run-task"
 
 SCCACHE_GCS_PROJECT = "sccache-3"
 
@@ -61,8 +56,8 @@ SCCACHE_GCS_PROJECT = "sccache-3"
 def _run_task_suffix(repo_type):
     """String to append to cache names under control of run-task."""
     if repo_type == "hg":
-        return hash_path(RUN_TASK_HG)[0:20]
-    return hash_path(RUN_TASK_GIT)[0:20]
+        return hash_path(str(RUN_TASK_HG))[0:20]
+    return hash_path(str(RUN_TASK_GIT))[0:20]
 
 
 def _compute_geckoview_version(app_version, moz_build_date):
@@ -230,12 +225,12 @@ UNKNOWN_GROUP_NAME = (
 )
 
 V2_ROUTE_TEMPLATES = [
-    "index.{trust-domain}.v2.{project}.latest.{product}.{job-name}",
-    "index.{trust-domain}.v2.{project}.pushdate.{build_date_long}.{product}.{job-name}",
-    "index.{trust-domain}.v2.{project}.pushdate.{build_date}.latest.{product}.{job-name}",
-    "index.{trust-domain}.v2.{project}.pushlog-id.{pushlog_id}.{product}.{job-name}",
-    "index.{trust-domain}.v2.{project}.revision.{branch_rev}.{product}.{job-name}",
-    "index.{trust-domain}.v2.{project}.revision.{branch_git_rev}.{product}.{job-name}",
+    "index.{trust-domain}.v2.{project}{head_ref}.latest.{product}.{job-name}",
+    "index.{trust-domain}.v2.{project}{head_ref}.pushdate.{build_date_long}.{product}.{job-name}",
+    "index.{trust-domain}.v2.{project}{head_ref}.pushdate.{build_date}.latest.{product}.{job-name}",
+    "index.{trust-domain}.v2.{project}{head_ref}.pushlog-id.{pushlog_id}.{product}.{job-name}",
+    "index.{trust-domain}.v2.{project}{head_ref}.revision.{branch_rev}.{product}.{job-name}",
+    "index.{trust-domain}.v2.{project}{head_ref}.revision.{branch_git_rev}.{product}.{job-name}",
 ]
 
 # {central, inbound, autoland} write to a "trunk" index prefix. This facilitates
@@ -245,30 +240,30 @@ V2_TRUNK_ROUTE_TEMPLATES = [
 ]
 
 V2_SHIPPABLE_TEMPLATES = [
-    "index.{trust-domain}.v2.{project}.shippable.latest.{product}.{job-name}",
-    "index.{trust-domain}.v2.{project}.shippable.{build_date}.revision.{branch_rev}.{product}.{job-name}",  # noqa - too long
-    "index.{trust-domain}.v2.{project}.shippable.{build_date}.latest.{product}.{job-name}",
-    "index.{trust-domain}.v2.{project}.shippable.revision.{branch_rev}.{product}.{job-name}",
-    "index.{trust-domain}.v2.{project}.shippable.revision.{branch_git_rev}.{product}.{job-name}",
+    "index.{trust-domain}.v2.{project}{head_ref}.shippable.latest.{product}.{job-name}",
+    "index.{trust-domain}.v2.{project}{head_ref}.shippable.{build_date}.revision.{branch_rev}.{product}.{job-name}",  # noqa - too long
+    "index.{trust-domain}.v2.{project}{head_ref}.shippable.{build_date}.latest.{product}.{job-name}",
+    "index.{trust-domain}.v2.{project}{head_ref}.shippable.revision.{branch_rev}.{product}.{job-name}",
+    "index.{trust-domain}.v2.{project}{head_ref}.shippable.revision.{branch_git_rev}.{product}.{job-name}",
 ]
 
 V2_SHIPPABLE_L10N_TEMPLATES = [
-    "index.{trust-domain}.v2.{project}.shippable.latest.{product}-l10n.{job-name}.{locale}",
-    "index.{trust-domain}.v2.{project}.shippable.{build_date}.revision.{branch_rev}.{product}-l10n.{job-name}.{locale}",  # noqa - too long
-    "index.{trust-domain}.v2.{project}.shippable.{build_date}.latest.{product}-l10n.{job-name}.{locale}",  # noqa - too long
-    "index.{trust-domain}.v2.{project}.shippable.revision.{branch_rev}.{product}-l10n.{job-name}.{locale}",  # noqa - too long
+    "index.{trust-domain}.v2.{project}{head_ref}.shippable.latest.{product}-l10n.{job-name}.{locale}",
+    "index.{trust-domain}.v2.{project}{head_ref}.shippable.{build_date}.revision.{branch_rev}.{product}-l10n.{job-name}.{locale}",  # noqa - too long
+    "index.{trust-domain}.v2.{project}{head_ref}.shippable.{build_date}.latest.{product}-l10n.{job-name}.{locale}",  # noqa - too long
+    "index.{trust-domain}.v2.{project}{head_ref}.shippable.revision.{branch_rev}.{product}-l10n.{job-name}.{locale}",  # noqa - too long
 ]
 
 V2_L10N_TEMPLATES = [
-    "index.{trust-domain}.v2.{project}.revision.{branch_rev}.{product}-l10n.{job-name}.{locale}",
-    "index.{trust-domain}.v2.{project}.pushdate.{build_date_long}.{product}-l10n.{job-name}.{locale}",  # noqa - too long
-    "index.{trust-domain}.v2.{project}.pushlog-id.{pushlog_id}.{product}-l10n.{job-name}.{locale}",
-    "index.{trust-domain}.v2.{project}.latest.{product}-l10n.{job-name}.{locale}",
+    "index.{trust-domain}.v2.{project}{head_ref}.revision.{branch_rev}.{product}-l10n.{job-name}.{locale}",
+    "index.{trust-domain}.v2.{project}{head_ref}.pushdate.{build_date_long}.{product}-l10n.{job-name}.{locale}",  # noqa - too long
+    "index.{trust-domain}.v2.{project}{head_ref}.pushlog-id.{pushlog_id}.{product}-l10n.{job-name}.{locale}",
+    "index.{trust-domain}.v2.{project}{head_ref}.latest.{product}-l10n.{job-name}.{locale}",
 ]
 
 # This index is specifically for builds that include geckoview releases,
 # so we can hard-code the project to "geckoview"
-V2_GECKOVIEW_RELEASE = "index.{trust-domain}.v2.{project}.geckoview-version.{geckoview-version}.{product}.{job-name}"  # noqa - too long
+V2_GECKOVIEW_RELEASE = "index.{trust-domain}.v2.{project}{head_ref}.geckoview-version.{geckoview-version}.{product}.{job-name}"  # noqa - too long
 
 # the roots of the treeherder routes
 TREEHERDER_ROUTE_ROOT = "tc-treeherder"
@@ -298,6 +293,35 @@ def get_project_alias(config):
     if config.params["tasks_for"].startswith("github-pull-request"):
         return f"{config.params['project']}-pr"
     return config.params["project"]
+
+
+def get_head_ref(config) -> str:
+    if config.params["repository_type"] == "hg":
+        return ""
+
+    if config.params["tasks_for"].startswith("github-pull-request"):
+        return ""
+
+    head_ref = config.params["head_ref"]
+
+    head_prefix = "refs/heads"
+    tag_prefix = "refs/tags"
+
+    if head_ref.startswith(head_prefix):
+        head_ref = f".branch.{head_ref[len(head_prefix) + 1 :]}"
+
+    elif head_ref.startswith(tag_prefix):
+        head_ref = f".tag.{head_ref[len(tag_prefix) + 1 :]}"
+
+    else:
+        # Unable to determine whether it's a branch or a tag, just put it in a
+        # 'ref' namespace.
+        # TODO We should probably enforce passing 'head_ref' with a prefix.
+        head_ref = f".ref.{head_ref}"
+
+    # Ensure head_ref conforms to TC route schema. The `safe` flag ensures '/'
+    # is also quoted.
+    return quote(head_ref, safe="")
 
 
 @memoize
@@ -1877,6 +1901,7 @@ def add_generic_index_routes(config, task):
         pass
 
     subs["project"] = get_project_alias(config)
+    subs["head_ref"] = get_head_ref(config)
 
     project = config.params.get("project")
 
@@ -1919,6 +1944,7 @@ def add_shippable_index_routes(config, task):
     except KeyError:
         pass
     subs["project"] = get_project_alias(config)
+    subs["head_ref"] = get_head_ref(config)
 
     for tpl in V2_SHIPPABLE_TEMPLATES:
         try:
@@ -1955,6 +1981,8 @@ def add_l10n_index_routes(config, task, force_locale=None):
     subs["product"] = index["product"]
     subs["trust-domain"] = config.graph_config["trust-domain"]
     subs["branch_rev"] = get_branch_rev(config)
+    subs["project"] = get_project_alias(config)
+    subs["head_ref"] = get_head_ref(config)
 
     locales = task["attributes"].get(
         "chunk_locales", task["attributes"].get("all_locales")
@@ -1998,6 +2026,7 @@ def add_shippable_l10n_index_routes(config, task, force_locale=None):
     subs["trust-domain"] = config.graph_config["trust-domain"]
     subs["branch_rev"] = get_branch_rev(config)
     subs["project"] = get_project_alias(config)
+    subs["head_ref"] = get_head_ref(config)
 
     locales = task["attributes"].get(
         "chunk_locales", task["attributes"].get("all_locales")
@@ -2034,9 +2063,10 @@ def add_geckoview_index_routes(config, task):
 
     subs = {
         "geckoview-version": geckoview_version,
+        "head_ref": get_head_ref(config),
         "job-name": index["job-name"],
         "product": index["product"],
-        "project": config.params["project"],
+        "project": get_project_alias(config),
         "trust-domain": config.graph_config["trust-domain"],
     }
     routes.append(V2_GECKOVIEW_RELEASE.format(**subs))
@@ -2058,35 +2088,6 @@ def add_android_shippable_multi_index_routes(config, task):
     task = add_geckoview_index_routes(config, task)
 
     return task
-
-
-@transforms.add
-def add_enterprise_index_routes(config, tasks):
-    for task in tasks:
-        if (
-            not "enterprise" in task["label"]
-            or "upload" in task["label"]
-            or not "shippable" in task["label"]
-            or task["label"].endswith("/debug")
-            or task["label"].startswith("enterprise-test")
-            or task["label"].startswith("test-")
-        ):
-            yield task
-            continue
-
-        routes = task.setdefault("routes", [])
-
-        template = "index.{trust-domain}.v2.{project}.shippable-packages.latest.{product}.{job-name}"
-
-        subs = config.params.copy()
-        subs["job-name"] = task["label"].split("/")[0]
-        subs["product"] = config.params["release_product"]
-        subs["trust-domain"] = config.graph_config["trust-domain"]
-        subs["project"] = get_project_alias(config)
-
-        routes.append(template.format(**subs))
-
-        yield task
 
 
 @transforms.add
@@ -2352,9 +2353,7 @@ def build_task(config, tasks):
 
         if task_th:
             # link back to treeherder in description
-            th_job_link = (
-                "https://treeherder.mozilla.org/#/jobs?repo={}&revision={}&selectedTaskRun=<self>"
-            ).format(config.params["project"], branch_rev)
+            th_job_link = f"https://treeherder.mozilla.org/#/jobs?repo={get_project_alias(config)}&revision={branch_rev}&selectedTaskRun=<self>"
             task_def["metadata"]["description"] = {
                 "task-reference": "{description} ([Treeherder job]({th_job_link}))".format(
                     description=task_def["metadata"]["description"],

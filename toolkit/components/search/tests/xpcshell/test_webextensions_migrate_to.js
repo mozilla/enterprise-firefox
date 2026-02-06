@@ -21,8 +21,8 @@ add_setup(async function () {
   // We need the extension installed for this test, but we do not want to
   // trigger the functions that happen on installation, so stub that out.
   // The manifest already has details of this engine.
-  let oldFunc = SearchService.wrappedJSObject.addEnginesFromExtension;
-  SearchService.wrappedJSObject.addEnginesFromExtension = () => {};
+  let oldFunc = SearchService.addEnginesFromExtension;
+  SearchService.addEnginesFromExtension = () => {};
 
   // Add the add-on so add-on manager has a valid item.
   await SearchTestUtils.installSearchExtension({
@@ -31,7 +31,7 @@ add_setup(async function () {
     search_url: "https://example.com/",
   });
 
-  SearchService.wrappedJSObject.addEnginesFromExtension = oldFunc;
+  SearchService.addEnginesFromExtension = oldFunc;
 });
 
 add_task(async function test_migrateLegacyEngineDifferentName() {
@@ -42,10 +42,7 @@ add_task(async function test_migrateLegacyEngineDifferentName() {
 
   // Set this engine as default, the new engine should become the default
   // after migration.
-  await SearchService.setDefault(
-    engine,
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
-  );
+  await SearchService.setDefault(engine, SearchService.CHANGE_REASON.UNKNOWN);
 
   engine = SearchService.getEngineByName("simple search");
   Assert.ok(engine, "Should have the WebExtension engine.");

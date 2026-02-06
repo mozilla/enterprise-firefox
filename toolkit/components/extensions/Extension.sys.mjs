@@ -3782,6 +3782,7 @@ export class Extension extends ExtensionData {
       id: this.id,
       uuid: this.uuid,
       name: this.name,
+      version: this.version,
       type: this.type,
       manifestVersion: this.manifestVersion,
       extensionPageCSP: this.extensionPageCSP,
@@ -4067,6 +4068,7 @@ export class Extension extends ExtensionData {
       id: this.id,
       mozExtensionHostname: this.uuid,
       baseURL: this.resourceURL,
+      version: this.version,
       isPrivileged: this.isPrivileged,
       ignoreQuarantine: this.ignoreQuarantine,
       hasRecommendedState: this.hasRecommendedState,
@@ -4084,6 +4086,7 @@ export class Extension extends ExtensionData {
     pendingExtensions.set(this.id, {
       mozExtensionHostname: this.uuid,
       baseURL: this.resourceURL,
+      version: this.version,
       isPrivileged: this.isPrivileged,
       ignoreQuarantine: this.ignoreQuarantine,
       hasRecommendedState: this.hasRecommendedState,

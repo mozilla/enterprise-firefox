@@ -7717,4 +7717,9 @@ void HTMLInputElement::UpdateRadioGroupState() {
 
 }  // namespace mozilla::dom
 
+#undef NS_OUTER_ACTIVATE_EVENT
 #undef NS_ORIGINAL_CHECKED_VALUE
+#undef NS_ORIGINAL_INDETERMINATE_VALUE
+#undef NS_PRE_HANDLE_BLUR_EVENT
+#undef NS_IN_SUBMIT_CLICK
+#undef NS_CONTROL_TYPE

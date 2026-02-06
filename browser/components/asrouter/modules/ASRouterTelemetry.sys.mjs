@@ -4,7 +4,7 @@
 
 // We use importESModule here instead of static import so that the Karma test
 // environment won't choke on these module. This is because the Karma test
-// environment already stubs out XPCOMUtils, AppConstants and RemoteSettings,
+// environment already stubs out XPCOMUtils and AppConstants,
 // and overrides importESModule to be a no-op (which can't be done for a static
 // import statement).
 

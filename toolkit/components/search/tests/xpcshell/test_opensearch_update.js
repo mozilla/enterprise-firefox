@@ -106,7 +106,7 @@ add_task(async function test_engineUpdate() {
   // set last update to 8 days ago, since the default interval is 7, then
   // trigger an update
   let engine = SearchService.getEngineByName("original engine");
-  engine.wrappedJSObject.setAttr("updateexpir", Date.now() - ONE_DAY_IN_MS * 8);
+  engine.setAttr("updateexpir", Date.now() - ONE_DAY_IN_MS * 8);
   SearchService.QueryInterface(Ci.nsITimerCallback).notify(null);
 
   await promiseUpdate;
@@ -114,11 +114,7 @@ add_task(async function test_engineUpdate() {
   Assert.equal(engine.name, "simple", "Should have updated the engine's name");
 
   Assert.equal(engine.alias, KEYWORD, "Should have kept the keyword");
-  Assert.equal(
-    engine.wrappedJSObject.getAttr("order"),
-    1,
-    "Should have kept the order"
-  );
+  Assert.equal(engine.getAttr("order"), 1, "Should have kept the order");
 
   Assert.ok(
     !!SearchService.getEngineByName("simple"),

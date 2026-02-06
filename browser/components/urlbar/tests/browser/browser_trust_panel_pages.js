@@ -33,6 +33,13 @@ const TESTS = [
     connectionIcon: ICONS.broken,
     descriptionSection: "trustpanel-header-enabled-insecure",
   },
+  {
+    url: "https://self-signed.example.com",
+    icon: ICONS.insecure,
+    connectionIcon: ICONS.broken,
+    descriptionSection: "trustpanel-header-enabled-insecure",
+    isErrorPage: true,
+  },
 ];
 
 let fetchIconUrl = (doc, id) => {
@@ -68,22 +75,33 @@ add_task(async function () {
   for (let testData of TESTS) {
     info(`Testing state of for ${testData.url}`);
 
-    const tab = await BrowserTestUtils.openNewForegroundTab({
+    let pageLoaded;
+    let tab = await BrowserTestUtils.openNewForegroundTab(
       gBrowser,
-      opening: testData.url,
-    });
+      () => {
+        gBrowser.selectedTab = BrowserTestUtils.addTab(gBrowser, testData.url);
+        let browser = gBrowser.selectedBrowser;
+        if (testData.isErrorPage) {
+          pageLoaded = BrowserTestUtils.waitForErrorPage(browser);
+        } else {
+          pageLoaded = BrowserTestUtils.browserLoaded(browser);
+        }
+      },
+      false
+    );
+    await pageLoaded;
 
     Assert.equal(
       fetchIconUrl(tab.ownerDocument, "trust-icon"),
       testData.icon,
-      "Trustpanel urlbar icon is correct"
+      `Trustpanel urlbar icon is correct for ${testData.url}`
     );
 
     await UrlbarTestUtils.openTrustPanel(window);
     Assert.equal(
       fetchIconUrl(tab.ownerDocument, "trustpanel-connection-icon"),
       testData.connectionIcon,
-      "Trustpanel connection icon is correct"
+      `Trustpanel connection icon is correct for ${testData.url}`
     );
 
     Assert.ok(

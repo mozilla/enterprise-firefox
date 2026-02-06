@@ -33,8 +33,7 @@ static void CheckMetadataFrameCount(
     NotNull<RefPtr<SourceBuffer>>& aSourceBuffer, BMPWithinICO aBMPWithinICO) {
   // Create a metadata decoder.
   DecoderType decoderType = DecoderFactory::GetDecoderType(aTestCase.mMimeType);
-  DecoderFlags decoderFlags =
-      DecoderFactory::GetDefaultDecoderFlagsForType(decoderType);
+  DecoderFlags decoderFlags = DefaultDecoderFlags();
   decoderFlags |= DecoderFlags::COUNT_FRAMES;
   RefPtr<image::Decoder> decoder =
       DecoderFactory::CreateAnonymousMetadataDecoder(decoderType, aSourceBuffer,
@@ -98,8 +97,7 @@ static void CheckMetadataCommon(const ImageTestCase& aTestCase,
                                 BMPWithinICO aBMPWithinICO) {
   // Create a metadata decoder.
   DecoderType decoderType = DecoderFactory::GetDecoderType(aTestCase.mMimeType);
-  DecoderFlags decoderFlags =
-      DecoderFactory::GetDefaultDecoderFlagsForType(decoderType);
+  DecoderFlags decoderFlags = DefaultDecoderFlags();
   decoderFlags |= DecoderFlags::FIRST_FRAME_ONLY;
   RefPtr<image::Decoder> decoder =
       DecoderFactory::CreateAnonymousMetadataDecoder(decoderType, aSourceBuffer,

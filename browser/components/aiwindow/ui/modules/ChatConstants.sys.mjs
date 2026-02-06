@@ -21,7 +21,7 @@ export const DB_FILE_NAME = "chat-store.sqlite";
 /**
  * Preference branch for the Chat storage location
  */
-export const PREF_BRANCH = "browser.aiWindow.chatHistory";
+export const PREF_BRANCH = "browser.smartwindow.chatHistory";
 
 export {
   CONVERSATION_STATUS,

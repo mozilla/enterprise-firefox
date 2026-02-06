@@ -21,6 +21,7 @@ class nsIPSIProvider : public nsISupports {
   NS_INLINE_DECL_STATIC_IID(NS_IPSIPROVIDER_IID)
 
   NS_IMETHOD GetCachedPSIInfo(mozilla::PSIInfo& aResult) = 0;
+  virtual void StartNonOOMPSISampling() = 0;
 };
 
 #endif  // nsIPSIProvider_h_

@@ -26,7 +26,7 @@ use crate::prim_store::VECS_PER_SEGMENT;
 use crate::quad;
 use crate::render_target::RenderTargetContext;
 use crate::render_task_graph::{RenderTaskId, RenderTaskGraph};
-use crate::render_task::{RenderTaskAddress, RenderTaskKind, SubPass};
+use crate::render_task::{RenderTaskAddress, RenderTaskKind};
 use crate::renderer::{BlendMode, GpuBufferAddress, GpuBufferBlockF, GpuBufferBuilder, ShaderColorMode};
 use crate::renderer::MAX_VERTEX_TEXTURE_WIDTH;
 use crate::resource_cache::{GlyphFetchResult, ImageProperties};
@@ -1049,17 +1049,9 @@ impl BatchBuilder {
                     let mut is_opaque = prim_info.clip_task_index == ClipTaskIndex::INVALID
                         && surface.is_opaque
                         && transform_id.is_2d_axis_aligned()
-                        && !is_anti_aliased;
+                        && !is_anti_aliased
+                        && !prim_info.clip_chain.needs_mask;
 
-                    let pic_task_id = picture.primary_render_task_id.unwrap();
-
-                    let pic_task = &render_tasks[pic_task_id];
-                    match pic_task.sub_pass {
-                        Some(SubPass::Masks { .. }) => {
-                            is_opaque = false;
-                        }
-                        None => {}
-                    }
                     match raster_config.composite_mode {
                         PictureCompositeMode::TileCache { .. } => {
                             // TODO(gw): For now, TileCache is still a composite mode, even though
@@ -1081,6 +1073,8 @@ impl BatchBuilder {
                         prim_info.clip_task_index,
                         render_tasks,
                     ).unwrap();
+
+                    let pic_task_id = picture.primary_render_task_id.unwrap();
 
                     let (uv_rect_address, texture) = render_tasks.resolve_location(
                         pic_task_id,

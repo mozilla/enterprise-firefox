@@ -192,10 +192,10 @@ impl FeltXPCOM {
         }
     }
 
-    fn OpenURL(&self, url: *const nsACString) -> nserror::nsresult {
+    fn OpenURL(&self, url: *const nsACString, disposition: i32) -> nserror::nsresult {
         let url_s = unsafe { (*url).to_string() };
-        trace!("FeltXPCOM::OpenURL: {}", url_s);
-        self.send(FeltMessage::OpenURL(url_s))
+        trace!("FeltXPCOM::OpenURL: {} {}", url_s, disposition);
+        self.send(FeltMessage::OpenURL((url_s, disposition)))
     }
 
     fn GetConsoleUrl(&self, console_url: *mut nsACString) -> nserror::nsresult {

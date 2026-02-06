@@ -250,6 +250,18 @@ nsresult XRE_AddManifestLocation(NSLocationType aType, nsIFile* aLocation);
  */
 nsresult XRE_ParseAppData(nsIFile* aINIFile, mozilla::XREAppData& aAppData);
 
+#if defined(MOZ_ENTERPRISE)
+/**
+ * Parse the distribution.ini file to read the enterprise console address. Use
+ * the console address to build the crash report URL to set in an existing
+ * nsXREAppData structure.
+ *
+ * @param aAppData The nsXREAppData structure on which to set the
+ * crashReporterURL.
+ */
+nsresult XRE_ParseEnterpriseServerURL(mozilla::XREAppData& aAppData);
+#endif
+
 const char* XRE_GeckoProcessTypeToString(GeckoProcessType aProcessType);
 const char* XRE_ChildProcessTypeToAnnotation(GeckoProcessType aProcessType);
 

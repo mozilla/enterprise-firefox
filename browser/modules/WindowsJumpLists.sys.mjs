@@ -182,8 +182,15 @@ var Builder = class {
       return;
     }
 
+    if (!this._showRecent) {
+      // Clear the recents list, so it won't appear if we disable frequents
+      // and tasks.  Recents will only appear if we disable frequents and
+      // tasks _and_ we do not clear the list here.
+      this._clearRecentsList();
+    }
+
     // anything to build?
-    if (!this._showFrequent && !this._showRecent && !this._showTasks) {
+    if (!this._showFrequent && !this._showTasks) {
       // don't leave the last list hanging on the taskbar.
       this._deleteActiveJumpList();
       return;
@@ -284,6 +291,10 @@ var Builder = class {
     }
   }
 
+  _clearRecentsList() {
+    this._builder.clearRecentsList();
+  }
+
   _deleteActiveJumpList() {
     this._builder.clearJumpList();
   }
@@ -359,6 +370,21 @@ export var WinTaskbarJumpList = {
     if (this._blocked) {
       this._builder._deleteActiveJumpList();
     }
+
+    // In Felt mode, block jump list until Firefox is ready
+    if (Services.felt?.isFeltUI()) {
+      this._setupFeltBlocking();
+    }
+  },
+
+  _setupFeltBlocking: function WTBJL__setupFeltBlocking() {
+    const { isFeltFirefoxWindowReady, waitForFeltFirefoxWindowReady } =
+      ChromeUtils.importESModule("resource:///modules/FeltURLHandler.sys.mjs");
+    if (isFeltFirefoxWindowReady()) {
+      return;
+    }
+
+    this.blockJumpList(waitForFeltFirefoxWindowReady());
   },
 
   update: function WTBJL_update() {

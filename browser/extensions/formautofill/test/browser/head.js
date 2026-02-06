@@ -90,6 +90,8 @@ const FORMS_REPLACING_ALL_FIELDS_ON_INPUT =
   "https://example.org" +
   HTTP_TEST_PATH +
   "dynamic_form_replacing_all_fields.html";
+const FORMS_REPLACING_FORM_ON_INPUT =
+  "https://example.org" + HTTP_TEST_PATH + "dynamic_form_replace_form.html";
 const FORM_WITH_USER_INITIATED_FORM_CHANGE =
   "https://example.org" +
   HTTP_TEST_PATH +

@@ -329,32 +329,12 @@ var allowlist = [
     file: "resource://app/modules/backup/CookiesBackupResource.sys.mjs",
   },
 
-  // Bug 2000945 - Move query intent detection to AI-window r?mardak (backed out due to unused file)
-  {
-    file: "moz-src:///browser/components/aiwindow/models/IntentClassifier.sys.mjs",
-  },
-  // Bug 2006433 - Implement conversation starter/followup inference
-  {
-    file: "moz-src:///browser/components/aiwindow/models/ConversationSuggestions.sys.mjs",
-  },
   // Bug 1996315: QR code generation modules
   {
     file: "moz-src:///browser/components/qrcode/QRCodeGenerator.sys.mjs",
   },
   {
     file: "moz-src:///browser/components/qrcode/QRCodeWorker.sys.mjs",
-  },
-  // Bug D278371 - Smart Window website 'chip' component
-  {
-    file: "chrome://browser/content/aiwindow/components/ai-website-chip.mjs",
-  },
-  // Bug 2001456 - Toggle memories button for ai window
-  {
-    file: "chrome://browser/content/aiwindow/components/memories-icon-button.mjs",
-  },
-  // Bug 2010143: memory generation schedule updates
-  {
-    file: "moz-src:///browser/components/aiwindow/models/memories/MemoriesSchedulers.sys.mjs",
   },
   // Bug 2011266 - Integrate current tab website chip context in sidebar
   {

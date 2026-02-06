@@ -86,7 +86,7 @@ add_setup(async function () {
 });
 
 add_task(async function test_migration_after_renames() {
-  await SearchService.wrappedJSObject.reset();
+  await SearchService.reset();
   await SearchService.init();
 
   for (let [identifier, name] of ENGINE_NAME_TO_NEW_NAME_MAP.entries()) {

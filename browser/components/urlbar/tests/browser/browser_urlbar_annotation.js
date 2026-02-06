@@ -376,6 +376,6 @@ add_task(async function search() {
 
   await SearchService.setDefault(
     originalDefaultEngine,
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+    SearchService.CHANGE_REASON.UNKNOWN
   );
 });

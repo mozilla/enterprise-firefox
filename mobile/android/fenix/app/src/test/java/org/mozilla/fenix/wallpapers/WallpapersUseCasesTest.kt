@@ -52,6 +52,7 @@ class WallpapersUseCasesTest {
         every { shouldMigrateLegacyWallpaper = any() } just Runs
         every { shouldMigrateLegacyWallpaperCardColors } returns false
         every { shouldMigrateLegacyWallpaperCardColors = any() } just Runs
+        every { enableHomepageEdgeToEdgeBackgroundFeature } returns false
     }
     private lateinit var mockMigrationHelper: LegacyWallpaperMigration
 

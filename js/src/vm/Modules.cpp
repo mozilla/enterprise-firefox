@@ -305,7 +305,7 @@ JS_PUBLIC_API JSObject* JS::CreateDefaultExportSyntheticModule(
 
 JS_PUBLIC_API JSObject* JS::CompileWasmModule(
     JSContext* cx, const ReadOnlyCompileOptions& options,
-    SourceText<mozilla::Utf8Unit>& srcBuf) {
+    js::Vector<uint8_t, 0, js::MallocAllocPolicy>& srcBuf) {
   // TODO: Compilation of wasm modules will be added in
   // https://bugzilla.mozilla.org/show_bug.cgi?id=1997621.
   // For now, we fail unconditionally.
@@ -313,18 +313,6 @@ JS_PUBLIC_API JSObject* JS::CompileWasmModule(
                            JSMSG_WASM_COMPILE_ERROR,
                            "Compilation of wasm modules not implemented.");
 
-  return nullptr;
-}
-
-JS_PUBLIC_API JSObject* JS::CompileWasmModule(
-    JSContext* cx, const ReadOnlyCompileOptions& options,
-    SourceText<char16_t>& srcBuf) {
-  // TODO: Compilation of wasm modules will be added in
-  // https://bugzilla.mozilla.org/show_bug.cgi?id=1997621.
-  // For now, we fail unconditionally.
-  JS_ReportErrorNumberUTF8(cx, GetErrorMessage, nullptr,
-                           JSMSG_WASM_COMPILE_ERROR,
-                           "Compilation of wasm modules not implemented.");
   return nullptr;
 }
 
@@ -1453,6 +1441,11 @@ static bool InnerModuleLoading(JSContext* cx,
   MOZ_ASSERT(state);
   MOZ_ASSERT(module);
 
+  AutoCheckRecursionLimit recursion(cx);
+  if (!recursion.check(cx)) {
+    return false;
+  }
+
   // Step 1. Assert: state.[[IsLoading]] is true.
   MOZ_ASSERT(state->isLoading());
 
@@ -2091,8 +2084,11 @@ static bool InnerModuleEvaluation(JSContext* cx, Handle<ModuleObject*> module,
 
       // Step 11.c.ii. Assert: requiredModule.[[Status]] is evaluating if and
       //               only if requiredModule is in stack.
-      MOZ_ASSERT((requiredModule->status() == ModuleStatus::Evaluating) ==
-                 ContainsElement(stack, requiredModule));
+      if ((requiredModule->status() == ModuleStatus::Evaluating) !=
+          ContainsElement(stack, requiredModule)) {
+        ThrowUnexpectedModuleStatus(cx, requiredModule->status());
+        return false;
+      }
 
       // Step 11.c.iii. If requiredModule.[[Status]] is evaluating, then:
       if (requiredModule->status() == ModuleStatus::Evaluating) {

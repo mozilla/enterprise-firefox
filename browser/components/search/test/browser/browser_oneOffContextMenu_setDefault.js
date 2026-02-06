@@ -10,11 +10,11 @@ let originalPrivateEngine;
 async function resetEngines() {
   await SearchService.setDefault(
     originalEngine,
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+    SearchService.CHANGE_REASON.UNKNOWN
   );
   await SearchService.setDefaultPrivate(
     originalPrivateEngine,
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+    SearchService.CHANGE_REASON.UNKNOWN
   );
 }
 

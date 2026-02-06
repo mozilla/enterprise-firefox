@@ -209,7 +209,7 @@ class ArgumentsObject : public NativeObject {
 
  public:
   static const uint32_t RESERVED_SLOTS = 4;
-  static const gc::AllocKind FINALIZE_KIND = gc::AllocKind::OBJECT4_BACKGROUND;
+  static const gc::AllocKind FINALIZE_KIND = gc::AllocKind::OBJECT4;
 
   /* Create an arguments object for a frame that is expecting them. */
   static ArgumentsObject* createExpected(JSContext* cx, AbstractFramePtr frame);
@@ -442,15 +442,16 @@ class ArgumentsObject : public NativeObject {
     if (!data()) {  // Template arguments objects have no data.
       return 0;
     }
-    return mallocSizeOf(data()) + mallocSizeOf(maybeRareData());
+    size_t dataSize = gc::GetAllocSize(zone(), data());
+    size_t rareDataSize =
+        !maybeRareData() ? 0 : gc::GetAllocSize(zone(), maybeRareData());
+    return dataSize + rareDataSize;
   }
   size_t sizeOfData() const {
     return ArgumentsData::bytesRequired(data()->numArgs()) +
            (maybeRareData() ? RareArgumentsData::bytesRequired(initialLength())
                             : 0);
   }
-
-  static void finalize(JS::GCContext* gcx, JSObject* obj);
   static void trace(JSTracer* trc, JSObject* obj);
   static size_t objectMoved(JSObject* dst, JSObject* src);
 

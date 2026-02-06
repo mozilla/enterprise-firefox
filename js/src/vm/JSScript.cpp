@@ -2804,6 +2804,47 @@ void JSScript::addSizeOfJitScript(mozilla::MallocSizeOf mallocSizeOf,
 
 js::GlobalObject& JSScript::uninlinedGlobal() const { return global(); }
 
+SourceLocationIterator::SourceLocationIterator(
+    unsigned startLine, JS::LimitedColumnNumberOneOrigin startCol,
+    SrcNote* notes, SrcNote* notesEnd, jsbytecode* code)
+    : iter_(notes, notesEnd),
+      offset_(0),
+      line_(startLine),
+      column_(startCol),
+      startLine_(startLine),
+      code_(code) {}
+
+void SourceLocationIterator::advanceToPC(const jsbytecode* pc) {
+  ptrdiff_t target = pc - code_;
+  while (offset_ < target && !iter_.atEnd()) {
+    const auto* sn = *iter_;
+    ptrdiff_t nextOffset = offset_ + sn->delta();
+    if (nextOffset > target) {
+      break;
+    }
+    offset_ = nextOffset;
+
+    SrcNoteType type = sn->type();
+    if (type == SrcNoteType::SetLine) {
+      line_ = SrcNote::SetLine::getLine(sn, startLine_);
+      column_ = JS::LimitedColumnNumberOneOrigin();
+    } else if (type == SrcNoteType::SetLineColumn) {
+      line_ = SrcNote::SetLineColumn::getLine(sn, startLine_);
+      column_ = SrcNote::SetLineColumn::getColumn(sn);
+    } else if (type == SrcNoteType::NewLine) {
+      line_++;
+      column_ = JS::LimitedColumnNumberOneOrigin();
+    } else if (type == SrcNoteType::NewLineColumn) {
+      line_++;
+      column_ = SrcNote::NewLineColumn::getColumn(sn);
+    } else if (type == SrcNoteType::ColSpan) {
+      column_ += SrcNote::ColSpan::getSpan(sn);
+    }
+
+    ++iter_;
+  }
+}
+
 unsigned js::PCToLineNumber(unsigned startLine,
                             JS::LimitedColumnNumberOneOrigin startCol,
                             SrcNote* notes, SrcNote* notesEnd, jsbytecode* code,
@@ -3419,6 +3460,11 @@ bool JSScript::hasLoops() {
     }
   }
   return false;
+}
+
+js::SourceLocationIterator JSScript::sourceLocationIter() const {
+  return SourceLocationIterator(lineno(), column(), notes(), notesEnd(),
+                                code());
 }
 
 bool JSScript::mayReadFrameArgsDirectly() {

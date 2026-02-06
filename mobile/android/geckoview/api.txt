@@ -105,6 +105,7 @@ import org.mozilla.geckoview.Image;
 import org.mozilla.geckoview.MediaSession;
 import org.mozilla.geckoview.OrientationController;
 import org.mozilla.geckoview.OverscrollEdgeEffect;
+import org.mozilla.geckoview.PageExtractionController;
 import org.mozilla.geckoview.PanZoomController;
 import org.mozilla.geckoview.RuntimeSettings;
 import org.mozilla.geckoview.ScreenLength;
@@ -316,6 +317,7 @@ package org.mozilla.geckoview {
   public static class Autocomplete.SelectOption.Hint {
     ctor public Hint();
     field public static final int DUPLICATE_USERNAME = 4;
+    field public static final @org.mozilla.geckoview.ExperimentalGeckoViewApi int FIREFOX_RELAY = 16;
     field public static final int GENERATED = 1;
     field public static final int INSECURE_FORM = 2;
     field public static final int MATCHING_ORIGIN = 8;
@@ -1029,6 +1031,7 @@ package org.mozilla.geckoview {
     method @Nullable public Boolean getFingerprintingProtection();
     method @NonNull public String getFingerprintingProtectionOverrides();
     method @Nullable public Boolean getFingerprintingProtectionPrivateBrowsing();
+    method @Nullable public String getFirefoxRelay();
     method @Nullable public Boolean getFissionEnabled();
     method public boolean getFontInflationEnabled();
     method public float getFontSizeFactor();
@@ -1089,6 +1092,7 @@ package org.mozilla.geckoview {
     method @NonNull public GeckoRuntimeSettings setFingerprintingProtection(boolean);
     method @NonNull public GeckoRuntimeSettings setFingerprintingProtectionOverrides(@NonNull String);
     method @NonNull public GeckoRuntimeSettings setFingerprintingProtectionPrivateBrowsing(boolean);
+    method @NonNull public GeckoRuntimeSettings setFirefoxRelay(@NonNull String);
     method @NonNull public GeckoRuntimeSettings setFontInflationEnabled(boolean);
     method @NonNull public GeckoRuntimeSettings setFontSizeFactor(float);
     method @NonNull public GeckoRuntimeSettings setForceEnableAccessibility(boolean);
@@ -1123,6 +1127,10 @@ package org.mozilla.geckoview {
     field public static final int COLOR_SCHEME_LIGHT = 0;
     field public static final int COLOR_SCHEME_SYSTEM = -1;
     field public static final Parcelable.Creator<GeckoRuntimeSettings> CREATOR;
+    field public static final String FIREFOX_RELAY_AVAILABLE = "available";
+    field public static final String FIREFOX_RELAY_DISABLED = "disabled";
+    field public static final String FIREFOX_RELAY_ENABLED = "enabled";
+    field public static final String FIREFOX_RELAY_OFFERED = "offered";
     field public static final int HTTPS_ONLY = 2;
     field public static final int HTTPS_ONLY_PRIVATE = 1;
     field public static final int STRATEGY_ISOLATE_EVERYTHING = 1;
@@ -1193,6 +1201,9 @@ package org.mozilla.geckoview {
   @Retention(value=RetentionPolicy.SOURCE) public static interface GeckoRuntimeSettings.ColorScheme {
   }
 
+  @Retention(value=RetentionPolicy.SOURCE) public static interface GeckoRuntimeSettings.FirefoxRelayMode {
+  }
+
   @Retention(value=RetentionPolicy.SOURCE) public static interface GeckoRuntimeSettings.HttpsOnlyMode {
   }
 
@@ -1239,6 +1250,7 @@ package org.mozilla.geckoview {
     method @AnyThread @Nullable public GeckoSession.PromptDelegate getPromptDelegate();
     method @Nullable @UiThread public GeckoSession.ScrollDelegate getScrollDelegate();
     method @AnyThread @Nullable public GeckoSession.SelectionActionDelegate getSelectionActionDelegate();
+    method @AnyThread @NonNull public PageExtractionController.SessionPageExtractor getSessionPageExtractor();
     method @AnyThread @Nullable public TranslationsController.SessionTranslation getSessionTranslation();
     method @AnyThread @NonNull public GeckoSessionSettings getSettings();
     method @UiThread public void getSurfaceBounds(@NonNull Rect);
@@ -2269,6 +2281,24 @@ package org.mozilla.geckoview {
     method @Nullable public Runnable getInvalidationCallback();
     method public void setInvalidationCallback(@Nullable Runnable);
     method public void setTheme(@NonNull Context);
+  }
+
+  public class PageExtractionController {
+    ctor public PageExtractionController();
+  }
+
+  public static class PageExtractionController.PageExtractionException extends Exception {
+    ctor public PageExtractionException(@NonNull String);
+    ctor public PageExtractionException(@NonNull String, Throwable);
+    field public static final String ERROR_MALFORMED_RESULT = "MALFORMED_RESULT";
+    field public static final String ERROR_NULL_RESULT = "NULL_RESULT";
+    field public static final String ERROR_UNKNOWN = "UNKNOWN_ERROR";
+    field @NonNull public final String errorType;
+  }
+
+  public static class PageExtractionController.SessionPageExtractor {
+    ctor public SessionPageExtractor(GeckoSession);
+    method @AnyThread @NonNull public GeckoResult<String> getPageContent();
   }
 
   @UiThread public class PanZoomController {

@@ -6,6 +6,7 @@
 
 @import url("chrome://global/skin/design-system/tokens-platform.css");
 @import url("chrome://global/skin/design-system/text-and-typography.css");
+@import url("chrome://global/skin/design-system/toolbar.css");
 
 @import url("chrome://global/locale/intl.css");
 @import url("chrome://global/content/widgets.css");
@@ -52,50 +53,7 @@
 
   --input-border-color: color-mix(in srgb, currentColor 46%, transparent);
 
-  --toolbarbutton-icon-fill: currentColor;
-  --toolbarbutton-icon-fill-attention: AccentColor;
-  --toolbarbutton-icon-fill-attention-text: AccentColorText;
-  --toolbarbutton-disabled-opacity: 0.4;
-
-  --toolbar-field-background-color: Field;
-  --toolbar-field-color: FieldText;
-  --toolbar-field-border-color: var(--input-border-color);
-  --toolbar-field-focus-background-color: Field;
-  --toolbar-field-focus-color: FieldText;
-  --toolbar-field-focus-border-color: color-mix(in srgb, var(--focus-outline-color) 50%, transparent);
-
-  --toolbar-bgcolor: color-mix(in srgb, -moz-dialog 85%, white);
-  --toolbar-color: -moz-dialogtext;
-
-  /* Override some toolbar colors when not under prefers-contrast. Note that
-   * for the browser window these might be overridden by
-   * browser-colors.css.
-   *
-   * For the light theme we use .05 alpha, to increase the contrast of the
-   * text. For the dark theme, we use a darker background, which works because
-   * the toolbar background applies some white unconditionally.
-   */
-  @media not (prefers-contrast) {
-    --toolbar-field-border-color: transparent;
-    --toolbar-field-background-color: light-dark(rgba(0, 0, 0, 0.05), rgba(0, 0, 0, 0.3));
-    --toolbar-field-color: inherit;
-
-    @media (prefers-color-scheme: light) {
-      --toolbar-bgcolor: white;
-    }
-  }
-
   &[lwtheme] {
-    --toolbar-bgcolor: rgba(255, 255, 255, 0.4);
-    --toolbar-color: var(--lwt-text-color, inherit);
-
-    --toolbarbutton-icon-fill-attention: light-dark(rgb(0, 97, 224), rgb(0, 221, 255));
-    --toolbarbutton-icon-fill-attention-text-light: rgb(240, 240, 244);
-    --toolbarbutton-icon-fill-attention-text-dark: rgb(28, 27, 34);
-    --toolbarbutton-icon-fill-attention-text: light-dark(
-      var(--toolbarbutton-icon-fill-attention-text-light),
-      var(--toolbarbutton-icon-fill-attention-text-dark)
-    );
     &[lwt-icon-fill-attention="dark"] {
       --toolbarbutton-icon-fill-attention-text: var(--toolbarbutton-icon-fill-attention-text-light);
     }
@@ -116,13 +74,7 @@
   }
 
   @media (prefers-contrast) {
-    /* Reduce the opacity of disabled toolbar buttons in order to increase
-       contrast with the enabled state. */
-    --toolbarbutton-disabled-opacity: 0.3;
-
     --panel-separator-color: currentColor;
-    --toolbar-field-focus-border-color: var(--focus-outline-color);
-
     --input-border-color: currentColor;
   }
 
@@ -155,12 +107,12 @@
 /* Lightweight theme roots */
 
 :root[lwtheme] {
-  .browser-toolbox-background,
+  body,
   toolbar,
   &[lwt-popup="light"] panel {
     color-scheme: light;
   }
-  &[lwtheme-brighttext] .browser-toolbox-background,
+  &[lwtheme-brighttext] body,
   toolbar[brighttext],
   &[lwt-popup="dark"] panel {
     color-scheme: dark;

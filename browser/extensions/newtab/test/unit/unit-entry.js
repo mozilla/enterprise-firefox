@@ -260,6 +260,15 @@ const TEST_GLOBAL = {
   console: {
     ...console,
     error() {},
+    createInstance() {
+      return {
+        log() {},
+        debug() {},
+        info() {},
+        warn() {},
+        error() {},
+      };
+    },
   },
   dump() {},
   EveryWindow: {
@@ -588,6 +597,9 @@ const TEST_GLOBAL = {
 
   getFxAccountsSingleton() {},
   AboutNewTab: {},
+  AboutHomeStartupCache: {
+    onPreloadedNewTabMessage() {},
+  },
   Glean: {
     activityStream: {
       eventClick: {

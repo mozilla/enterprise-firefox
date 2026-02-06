@@ -8,7 +8,7 @@
 # documentation and how to modify this file.
 repo: mozilla-central
 created_at: '2021-10-14T12:50:40.073465'
-updated_at: '2026-01-16T11:46:32.948561+00:00'
+updated_at: '2026-02-02T15:13:45.743395+00:00'
 export:
   path: ./docs/mots/index.rst
   format: rst
@@ -789,6 +789,10 @@ people:
     bmo_id: 547538
     name: Miko Mynttinen
     nick: mikokm
+  - &mimi
+    bmo_id: 709548
+    name: Mimi Jung
+    nick: mimi
   - &mixedpuppy
     bmo_id: 443354
     name: Shane Caraveo
@@ -825,14 +829,14 @@ people:
     bmo_id: 438654
     name: Martin Thomson
     nick: mt
+  - &mviar
+    bmo_id: 697077
+    name: Meg Viar
+    nick: mviar
   - &nalexander
     bmo_id: 432887
     name: Nick Alexander
     nick: nalexander
-  - &nanj
-    bmo_id: 538785
-    name: Nan Jiang
-    nick: nanj
   - &nbarrett
     bmo_id: 690000
     name: Nathan Barrett
@@ -2032,7 +2036,7 @@ modules:
         - Bevis Tseng
         - Andrea Marchesini
       group: dev-platform
-      url: https://developer.mozilla.org/en/IndexedDB
+      url: https://developer.mozilla.org/docs/Web/API/IndexedDB_API
       components:
         - 'Core::DOM: IndexedDB'
       review_group: dom-storage-reviewers
@@ -3716,8 +3720,9 @@ modules:
         machine_name: form_autofill
 
       - name: In-product Messaging
-        description: The system for delivering in-product messaging and onboarding
-          including Activity Stream Router, about:welcome, UI tour.
+        description: The system for delivering in-product messaging and onboarding,
+          including ASRouter, about:welcome, and reusable messaging templates like
+          Feature Callout and Spotlight.
         includes:
           - browser/components/asrouter/**/*
           - browser/components/aboutwelcome/**/*
@@ -3727,18 +3732,18 @@ modules:
           components:
             - Firefox::Messaging System
             - Firefox::Tours
+          url: https://firefox-source-docs.mozilla.org/browser/components/asrouter/docs/
+          review_group: omc-reviewers
           owners_emeritus:
             - *Mardak
-          peers_emeritus:
-            - *k88hudson
-            - *MattN
+            - *pdahiya
         owners:
-          - *pdahiya
-        peers:
-          - *nanj
-          - *Mardak
-          - *dmosedale
           - *aminomancer
+          - *mviar
+        peers:
+          - *dmosedale
+          - *emcminn
+          - *mimi
         machine_name: inproduct_messaging
 
       - name: Launcher Process
@@ -4702,5 +4707,5 @@ modules:
         - Ryan Tilder
       group: dev-platform
 hashes:
-  config: 9d84d2bfd82f9297ad5259a5977bf6a7815b3d74
-  export: 9c759f9fbc101c0e4c89cf45c371661a21ce04f7
+  config: 2db07f7fa261720687b12b3253afccfda3a3ebfe
+  export: 8ca12e00a0c82974b57bbb2a3df9ad5ce251ca61

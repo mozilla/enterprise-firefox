@@ -13,11 +13,12 @@
 
 moz-button.input-cta {
   --button-background-color-active: color-mix(in srgb, black 25%, transparent);
-  --button-background-color-disabled: var(--color-gray-20);
+  --button-background-color-disabled: light-dark(var(--color-gray-20), var(--color-gray-60));
   --button-background-color-hover: color-mix(in srgb, black 15%, transparent);
   --button-background-color-selected: color-mix(in srgb, black 25%, transparent);
   --button-background-color: transparent;
   --button-border-radius: var(--border-radius-circle);
+  --button-icon-fill: light-dark(var(--color-gray-60), white);
   --button-padding: 0 var(--space-small) 0 var(--space-large);
   --button-text-color-active: white;
   --button-text-color-disabled: white;

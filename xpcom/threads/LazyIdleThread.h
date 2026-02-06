@@ -40,7 +40,7 @@ class LazyIdleThread final : public nsISerialEventTarget, public nsIObserver {
    * Create a new LazyIdleThread that will destroy its thread after the given
    * number of milliseconds.
    */
-  LazyIdleThread(uint32_t aIdleTimeoutMS, const char* aName,
+  LazyIdleThread(uint32_t aIdleTimeoutMS, StaticString aName,
                  ShutdownMethod aShutdownMethod = AutomaticShutdown);
 
   /**

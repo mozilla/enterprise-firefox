@@ -74,6 +74,11 @@ class SubResourceNetworkMetadataHolder {
 
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(SubResourceNetworkMetadataHolder)
 
+  size_t SizeOfIncludingThis(MallocSizeOf aMallocSizeOf) const {
+    return aMallocSizeOf(this) + SizeOfExcludingThis(aMallocSizeOf);
+  }
+  size_t SizeOfExcludingThis(MallocSizeOf aMallocSizeOf) const;
+
  private:
   ~SubResourceNetworkMetadataHolder();
 
@@ -123,8 +128,7 @@ void AddPerformanceEntryForCache(
     const SubResourceNetworkMetadataHolder* aNetworkMetadata,
     TimeStamp aStartTime, TimeStamp aEndTime, dom::Document* aDocument);
 
-bool ShouldClearEntry(nsIURI* aEntryURI, nsIPrincipal* aEntryLoaderPrincipal,
-                      nsIPrincipal* aEntryPartitionPrincipal,
+bool ShouldClearEntry(nsIURI* aEntryURI, nsIPrincipal* aEntryPartitionPrincipal,
                       const Maybe<bool>& aChrome,
                       const Maybe<nsCOMPtr<nsIPrincipal>>& aPrincipal,
                       const Maybe<nsCString>& aSchemelessSite,
@@ -184,6 +188,11 @@ class SharedSubResourceCache {
           mWasSyncLoad(aValue.IsSyncLoad()) {}
 
     inline bool Expired() const;
+
+    size_t SizeOfExcludingThis(MallocSizeOf aMallocSizeOf) const {
+      return mResource->SizeOfIncludingThis(aMallocSizeOf) +
+             mNetworkMetadata->SizeOfIncludingThis(aMallocSizeOf);
+    }
   };
 
  public:
@@ -300,9 +309,8 @@ void SharedSubResourceCache<Traits, Derived>::ClearInProcess(
 
   for (auto iter = mComplete.Iter(); !iter.Done(); iter.Next()) {
     if (SharedSubResourceCacheUtils::ShouldClearEntry(
-            iter.Key().URI(), iter.Key().LoaderPrincipal(),
-            iter.Key().PartitionPrincipal(), aChrome, aPrincipal,
-            aSchemelessSite, aPattern, aURL)) {
+            iter.Key().URI(), iter.Key().PartitionPrincipal(), aChrome,
+            aPrincipal, aSchemelessSite, aPattern, aURL)) {
       iter.Remove();
     }
   }
@@ -551,7 +559,7 @@ size_t SharedSubResourceCache<Traits, Derived>::SizeOfExcludingThis(
     MallocSizeOf aMallocSizeOf) const {
   size_t n = mComplete.ShallowSizeOfExcludingThis(aMallocSizeOf);
   for (const auto& data : mComplete.Values()) {
-    n += data.mResource->SizeOfIncludingThis(aMallocSizeOf);
+    n += data.SizeOfExcludingThis(aMallocSizeOf);
   }
 
   return n;

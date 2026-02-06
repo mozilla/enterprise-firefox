@@ -57,7 +57,9 @@ RE_BUILD_OUTPUT = re.compile(
     |(?P<warning_standalone>^warning:\s+mkdir\s)
     |(?P<warning_num>^warning\s+\d+:)
     |(?P<warning_block>^warning:\s?)
-    |(?P<include_from>^In\ file\ included\ from\ (?P<include_path>[^:]+):)
+    |(?P<include_from>^In\ file\ included\ from\ (?P<include_path>.+?):\d+)
+    |(?P<gcc_include_continuation>^\s+from\s+(?P<gcc_from_path>.+?):\d+)
+    |(?P<gcc_context>^(?P<gcc_context_path>.+?):\s*(?:In\s+.+|At\s+global\s+scope):)
     |(?P<inline_diagnostic>^(?P<diag_path>.+?)(?:\(\d+,\d+\)|:\d+:\d+)?:\s*(?P<diag_type>warning|error|note):)
     |(?P<continuation>^\s+(?:\d+\s+)?\||\s+[\^~])
     """,
@@ -835,6 +837,30 @@ class BuildOutputManager(OutputManager):
                                 log_level = self._active_log_level
                         elif match.group("include_from"):
                             path = match.group("include_path")
+                            self._active_log_level = log_level = (
+                                THIRD_PARTY_WARNING
+                                if self._is_third_party_path(path)
+                                else logging.WARNING
+                            )
+                        elif match.group("gcc_include_continuation"):
+                            path = match.group("gcc_from_path")
+                            normed = mozpath.normsep(path)
+                            is_relative = (
+                                not normed.startswith(self.monitor.topsrcdir)
+                                and not os.path.isabs(normed)
+                                and not normed.startswith("/")
+                            )
+                            if is_relative:
+                                # Relative paths are generated files, preserve current level
+                                log_level = self._active_log_level or logging.WARNING
+                            elif self._is_third_party_path(path):
+                                self._active_log_level = log_level = THIRD_PARTY_WARNING
+                            elif self._active_log_level == THIRD_PARTY_WARNING:
+                                log_level = THIRD_PARTY_WARNING
+                            else:
+                                self._active_log_level = log_level = logging.WARNING
+                        elif match.group("gcc_context"):
+                            path = match.group("gcc_context_path")
                             self._active_log_level = log_level = (
                                 THIRD_PARTY_WARNING
                                 if self._is_third_party_path(path)

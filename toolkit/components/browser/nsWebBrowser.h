@@ -89,11 +89,12 @@ class nsWebBrowser final : public nsIWebBrowser,
   MOZ_CAN_RUN_SCRIPT_BOUNDARY void FocusDeactivate(uint64_t aActionId);
   void SetWillChangeProcess();
 
-  static already_AddRefed<nsWebBrowser> Create(
-      nsIWebBrowserChrome* aContainerWindow, nsIWidget* aParentWidget,
-      mozilla::dom::BrowsingContext* aBrowsingContext,
-      mozilla::dom::WindowGlobalChild* aInitialWindowChild,
-      nsIOpenWindowInfo* aOpenWindowInfo);
+  static nsresult Create(nsIWebBrowserChrome* aContainerWindow,
+                         nsIWidget* aParentWidget,
+                         mozilla::dom::BrowsingContext* aBrowsingContext,
+                         mozilla::dom::WindowGlobalChild* aInitialWindowChild,
+                         nsIOpenWindowInfo* aOpenWindowInfo,
+                         nsWebBrowser** aWebBrowser);
 
  protected:
   virtual ~nsWebBrowser();

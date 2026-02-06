@@ -5,8 +5,10 @@
 .chip {
   --chip-border-color: var(--color-violet-0);
   --chip-hover-border-color: color-mix(in srgb, var(--color-violet-20) 50%, transparent);
+  --chip-selected-border-color: var(--color-violet-20);
   --chip-background-color: var(--color-violet-0);
   --chip-hover-background-color: var(--color-violet-0);
+  --chip-selected-background-color: color-mix(in srgb, var(--color-violet-20) 20%, var(--color-violet-0));
   --chip-label-color: var(--color-violet-90);
   --chip-text-color: var(--color-gray-100);
   --chip-text-color-deemphasized: color-mix(in srgb, var(--color-gray-100) 69%, transparent);
@@ -21,11 +23,16 @@
   gap: var(--space-small, 8px);
   border-radius: var(--border-radius-medium);
   cursor: pointer;
+  user-select: none;
   text-decoration: none;
+  color: inherit;
 }
 
-a.chip {
-  color: inherit;
+button.chip {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
 }
 
 /* Shared styles */
@@ -77,12 +84,15 @@ a.chip {
 :host([type="in-line"]) .chip {
   --border-color: var(--chip-border-color);
 
-  padding: var(--space-small);
+  align-items: baseline;
   border: 1px solid;
   border-color: var(--border-color);
+  gap: var(--space-xsmall);
+  padding: var(--space-xxsmall) var(--space-xsmall);
 }
 
 :host([type="in-line"]) .chip-icon {
+  align-self: center;
   transition: opacity 120ms ease;
 }
 
@@ -141,12 +151,13 @@ a.chip {
   display: flex;
 }
 
-/* Global hover - must come after type-specific rules to override borders */
+/* Global hover and selected - must come after type-specific rules to override borders */
 .chip:hover {
-  --background-color-box: var(--chip-hover-background-color);
-  --border-color: var(--chip-hover-border-color);
+  background-color: var(--chip-hover-background-color);
+  border-color: var(--chip-hover-border-color);
+}
 
-  background-color: var(--background-color-box);
-  border: 1px solid;
-  border-color: var(--border-color);
+:host([selected]) .chip:not(:hover) {
+  background-color: var(--chip-selected-background-color);
+  border-color: var(--chip-selected-border-color);
 }

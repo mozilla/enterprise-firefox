@@ -46,13 +46,6 @@ class LocaleObject : public NativeObject {
   static const ClassSpec classSpec_;
 };
 
-[[nodiscard]] extern bool intl_ValidateAndCanonicalizeLanguageTag(JSContext* cx,
-                                                                  unsigned argc,
-                                                                  Value* vp);
-
-[[nodiscard]] extern bool intl_ValidateAndCanonicalizeUnicodeExtensionType(
-    JSContext* cx, unsigned argc, Value* vp);
-
 }  // namespace js
 
 #endif /* builtin_intl_Locale_h */

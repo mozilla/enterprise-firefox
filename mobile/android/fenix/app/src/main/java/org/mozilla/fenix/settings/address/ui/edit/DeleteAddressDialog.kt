@@ -25,8 +25,8 @@ import org.mozilla.fenix.settings.address.store.DeleteDialogAction
 import org.mozilla.fenix.settings.address.store.DialogState
 import org.mozilla.fenix.settings.address.store.ViewAppeared
 import org.mozilla.fenix.theme.FirefoxTheme
+import org.mozilla.fenix.theme.PreviewThemeProvider
 import org.mozilla.fenix.theme.Theme
-import org.mozilla.fenix.theme.ThemeProvider
 
 /**
  * Dialog that is presented when deleting an address.
@@ -69,7 +69,7 @@ internal fun DeleteAddressDialog(store: AddressStore) {
 @Preview
 @Composable
 private fun DeleteAddressDialogPreview(
-    @PreviewParameter(ThemeProvider::class) theme: Theme,
+    @PreviewParameter(PreviewThemeProvider::class) theme: Theme,
 ) {
     val store = AddressStore(
         AddressState.initial().copy(deleteDialog = DialogState.Presenting),

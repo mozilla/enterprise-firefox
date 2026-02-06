@@ -29,8 +29,8 @@ import org.mozilla.fenix.databinding.FragmentShareBinding
 import org.mozilla.fenix.ext.components
 import org.mozilla.fenix.ext.requireComponents
 import org.mozilla.fenix.nimbus.FxNimbus
+import org.mozilla.fenix.theme.DefaultThemeProvider
 import org.mozilla.fenix.theme.FirefoxTheme
-import org.mozilla.fenix.theme.Theme
 
 class ShareFragment : AppCompatDialogFragment() {
 
@@ -80,12 +80,21 @@ class ShareFragment : AppCompatDialogFragment() {
 
         val accountManager = requireComponents.backgroundServices.accountManager
 
+        // Determine if tabs being shared are from private browsing mode.
+        // When sessionId is provided, check that specific tab's private state.
+        // When sessionId is null it must be from tabs tray, and since selection mode
+        // is not currently supported for private tabs, we assume it's not a private tab.
+        val isPrivate = args.sessionId
+            ?.let { sessionId -> requireComponents.core.store.state.findTabOrCustomTab(sessionId) }
+            ?.content?.private ?: true
+
         shareInteractor = ShareInteractor(
             DefaultShareController(
                 context = requireContext(),
                 appStore = requireComponents.appStore,
                 shareSubject = args.shareSubject,
                 shareData = shareData,
+                isPrivate = isPrivate,
                 navController = findNavController(),
                 sendTabUseCases = SendTabUseCases(accountManager),
                 saveToPdfUseCase = requireComponents.useCases.sessionUseCases.saveToPdf,
@@ -124,7 +133,7 @@ class ShareFragment : AppCompatDialogFragment() {
 
         binding.savePdf.setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
         binding.savePdf.setContent {
-            FirefoxTheme(theme = Theme.getTheme(allowPrivateTheme = false)) {
+            FirefoxTheme(theme = DefaultThemeProvider.provideTheme()) {
                 SaveToPDFItem {
                     shareInteractor.onSaveToPDF(tabId = args.sessionId)
                 }
@@ -135,7 +144,7 @@ class ShareFragment : AppCompatDialogFragment() {
         if (FxNimbus.features.print.value().sharePrintEnabled) {
             binding.print.setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
             binding.print.setContent {
-                FirefoxTheme(theme = Theme.getTheme(allowPrivateTheme = false)) {
+                FirefoxTheme(theme = DefaultThemeProvider.provideTheme()) {
                     PrintItem {
                         shareInteractor.onPrint(tabId = args.sessionId)
                     }

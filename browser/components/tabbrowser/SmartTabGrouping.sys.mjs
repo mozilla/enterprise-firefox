@@ -293,6 +293,7 @@ export class SmartTabGroupingManager extends AIFeature {
     // `browser.tabs.smart.userEnabled` disable the UI but not
     // `browser.tabs.groups.smart.optin`
     return (
+      Services.prefs.getBoolPref("browser.ml.enable") &&
       Services.prefs.getBoolPref("browser.tabs.groups.smart.enabled") &&
       Services.prefs.getBoolPref("browser.tabs.groups.smart.userEnabled") &&
       Services.prefs.getBoolPref("browser.tabs.groups.smart.optin")
@@ -301,15 +302,12 @@ export class SmartTabGroupingManager extends AIFeature {
 
   /**
    * Checks for other conditions for smart tab grouping to be turned on,
-   * e.g. locale and main ml pref.
+   * e.g. locale.
    *
    * @return {boolean}
    */
   static get isAllowed() {
-    return (
-      Services.prefs.getBoolPref("browser.ml.enable") &&
-      Services.locale.appLocaleAsBCP47.startsWith("en")
-    );
+    return Services.locale.appLocaleAsBCP47.startsWith("en");
   }
 
   /**
@@ -335,6 +333,15 @@ export class SmartTabGroupingManager extends AIFeature {
       !Services.prefs.getBoolPref("browser.tabs.groups.smart.enabled") ||
       !Services.prefs.getBoolPref("browser.tabs.groups.smart.userEnabled")
     );
+  }
+
+  /**
+   * Checks if the feature is managed by enterprise policy.
+   *
+   * @return {boolean}
+   */
+  static get isManagedByPolicy() {
+    return Services.prefs.prefIsLocked("browser.tabs.groups.smart.userEnabled");
   }
 
   /**

@@ -4,7 +4,12 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 extern crate urlpattern;
+use urlpattern::parser::RegexSyntax;
 use urlpattern::quirks as Uq;
+use urlpattern::regexp::RegExp;
+use urlpattern::UrlPatternOptions;
+
+type UrlPattern = urlpattern::UrlPattern<SpiderMonkeyRegexp>;
 
 extern crate nsstring;
 use nsstring::nsACString;
@@ -33,7 +38,11 @@ pub extern "C" fn urlp_parse_pattern_from_string(
         return false;
     };
 
-    if let Ok(pattern) = Uq::parse_pattern(init, options.into()) {
+    let options = UrlPatternOptions {
+        regex_syntax: RegexSyntax::EcmaScript,
+        ignore_case: options.ignore_case,
+    };
+    if let Ok(pattern) = Uq::parse_pattern_as_lib::<SpiderMonkeyRegexp>(init, options) {
         unsafe {
             *res = UrlpPattern(Box::into_raw(Box::new(pattern)) as *mut _);
         }
@@ -49,93 +58,119 @@ pub unsafe extern "C" fn urlp_parse_pattern_from_init(
     res: *mut UrlpPattern,
 ) -> bool {
     debug!("urlp_parse_pattern_from_init()");
-    if let Ok(pattern) = Uq::parse_pattern(init.into(), options.into()) {
+
+    let options = UrlPatternOptions {
+        regex_syntax: RegexSyntax::EcmaScript,
+        ignore_case: options.ignore_case,
+    };
+    if let Ok(pattern) = Uq::parse_pattern_as_lib::<SpiderMonkeyRegexp>(init.into(), options) {
         *res = UrlpPattern(Box::into_raw(Box::new(pattern)) as *mut _);
         return true;
     }
     false
 }
 
+// When dom::URLPattern goes out of scope destructor will drop the underlying
+// urlpattern::UrlPattern<R> (lib.rs)
 #[no_mangle]
 pub unsafe extern "C" fn urlp_pattern_free(pattern: UrlpPattern) {
-    drop(Box::from_raw(pattern.0 as *mut Uq::UrlPattern));
+    drop(Box::from_raw(pattern.0 as *mut UrlPattern));
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn urlp_get_has_regexp_groups(pattern: UrlpPattern) -> bool {
+    let q_pattern = &*(pattern.0 as *const UrlPattern);
+    q_pattern.has_regexp_groups()
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn urlp_get_protocol_component(
     pattern: UrlpPattern,
-    res: *mut UrlpComponent,
-) {
-    let q_pattern = &*(pattern.0 as *const Uq::UrlPattern);
-    let tmp: UrlpComponent = q_pattern.protocol.clone().into();
-    *res = tmp;
+) -> *mut UrlpComponentPtr {
+    let q_pattern = &*(pattern.0 as *const UrlPattern);
+    &q_pattern.protocol as *const _ as *mut UrlpComponentPtr
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn urlp_get_username_component(
     pattern: UrlpPattern,
-    res: *mut UrlpComponent,
-) {
-    let q_pattern = &*(pattern.0 as *const Uq::UrlPattern);
-    let tmp: UrlpComponent = q_pattern.username.clone().into();
-    *res = tmp;
+) -> *mut UrlpComponentPtr {
+    let q_pattern = &*(pattern.0 as *const UrlPattern);
+    &q_pattern.username as *const _ as *mut UrlpComponentPtr
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn urlp_get_password_component(
     pattern: UrlpPattern,
-    res: *mut UrlpComponent,
-) {
-    let q_pattern = &*(pattern.0 as *const Uq::UrlPattern);
-    let tmp: UrlpComponent = q_pattern.password.clone().into();
-    *res = tmp;
+) -> *mut UrlpComponentPtr {
+    let q_pattern = &*(pattern.0 as *const UrlPattern);
+    &q_pattern.password as *const _ as *mut UrlpComponentPtr
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn urlp_get_hostname_component(
     pattern: UrlpPattern,
-    res: *mut UrlpComponent,
-) {
-    let q_pattern = &*(pattern.0 as *const Uq::UrlPattern);
-    let tmp: UrlpComponent = q_pattern.hostname.clone().into();
-    *res = tmp;
+) -> *mut UrlpComponentPtr {
+    let q_pattern = &*(pattern.0 as *const UrlPattern);
+    &q_pattern.hostname as *const _ as *mut UrlpComponentPtr
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn urlp_get_port_component(pattern: UrlpPattern, res: *mut UrlpComponent) {
-    let q_pattern = &*(pattern.0 as *const Uq::UrlPattern);
-    let tmp: UrlpComponent = q_pattern.port.clone().into();
-    *res = tmp;
+pub unsafe extern "C" fn urlp_get_port_component(pattern: UrlpPattern) -> *mut UrlpComponentPtr {
+    let q_pattern = &*(pattern.0 as *const UrlPattern);
+    &q_pattern.port as *const _ as *mut UrlpComponentPtr
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn urlp_get_pathname_component(
     pattern: UrlpPattern,
-    res: *mut UrlpComponent,
+) -> *mut UrlpComponentPtr {
+    let q_pattern = &*(pattern.0 as *const UrlPattern);
+    &q_pattern.pathname as *const _ as *mut UrlpComponentPtr
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn urlp_get_search_component(pattern: UrlpPattern) -> *mut UrlpComponentPtr {
+    let q_pattern = &*(pattern.0 as *const UrlPattern);
+    &q_pattern.search as *const _ as *mut UrlpComponentPtr
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn urlp_get_hash_component(pattern: UrlpPattern) -> *mut UrlpComponentPtr {
+    let q_pattern = &*(pattern.0 as *const UrlPattern);
+    &q_pattern.hash as *const _ as *mut UrlpComponentPtr
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn urlp_component_get_pattern_string(
+    component_ptr: *mut UrlpComponentPtr,
+    res: &mut nsCString,
 ) {
-    let q_pattern = &*(pattern.0 as *const Uq::UrlPattern);
-    let tmp: UrlpComponent = q_pattern.pathname.clone().into();
-    *res = tmp;
+    let component = &*(component_ptr as *const Component);
+    res.assign(&nsCString::from(&component.pattern_string));
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn urlp_get_search_component(pattern: UrlpPattern, res: *mut UrlpComponent) {
-    let q_pattern = &*(pattern.0 as *const Uq::UrlPattern);
-    let tmp: UrlpComponent = q_pattern.search.clone().into();
-    *res = tmp;
+pub unsafe extern "C" fn urlp_component_get_regexp_string(
+    component_ptr: *mut UrlpComponentPtr,
+    res: &mut nsCString,
+) {
+    let component = &*(component_ptr as *const Component);
+    match &component.regexp {
+        Ok(regexp) => res.assign(&nsCString::from(regexp.pattern_string())),
+        Err(_) => res.truncate(),
+    }
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn urlp_get_hash_component(pattern: UrlpPattern, res: *mut UrlpComponent) {
-    let q_pattern = &*(pattern.0 as *const Uq::UrlPattern);
-    let tmp: UrlpComponent = q_pattern.hash.clone().into();
-    *res = tmp;
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn urlp_get_has_regexp_groups(pattern: UrlpPattern) -> bool {
-    let q_pattern = &*(pattern.0 as *const Uq::UrlPattern);
-    q_pattern.has_regexp_groups
+pub unsafe extern "C" fn urlp_component_get_group_name_list(
+    component_ptr: *mut UrlpComponentPtr,
+    res: &mut ThinVec<nsCString>,
+) {
+    let component = &*(component_ptr as *const Component);
+    for name in &component.group_name_list {
+        res.push(nsCString::from(name.as_str()));
+    }
 }
 
 // note: the ThinVec<MaybeString> is being returned as an out-param
@@ -147,28 +182,30 @@ pub unsafe extern "C" fn urlp_get_has_regexp_groups(pattern: UrlpPattern) -> boo
 // so we use an out-param instead. We see similar patterns elsewhere in this file
 // for return values on the C++/rust ffi boundary
 #[no_mangle]
-pub extern "C" fn urlp_matcher_matches_component(
-    matcher: &UrlpMatcher,
+pub unsafe extern "C" fn urlp_component_matches(
+    component_ptr: *mut UrlpComponentPtr,
     input: &nsACString,
-    ignore_case: bool,
+    match_only: bool,
     res: &mut ThinVec<MaybeString>,
 ) -> bool {
-    debug!("urlp_matcher_matches_component()");
-    let q_matcher: Uq::Matcher = matcher.clone().into();
-    let i: &str = &input.to_string();
-    let matches = matcher_matches(&q_matcher, i, ignore_case);
+    let component = &*(component_ptr as *const Component);
+    let input_str = input.to_utf8();
+
+    let matcher_ptr = &component.matcher as *const _ as *mut UrlpMatcherPtr;
+    let matches = matcher_matches(matcher_ptr, input_str.as_ref(), match_only);
+
     if let Some(inner_vec) = matches {
         for item in inner_vec {
             match item {
                 Some(s) => {
                     res.push(MaybeString {
-                        string: s.into(),
+                        string: nsCString::from(s),
                         valid: true,
                     });
                 }
                 None => {
                     res.push(MaybeString {
-                        string: nsCString::from(""),
+                        string: nsCString::new(),
                         valid: false,
                     });
                 }

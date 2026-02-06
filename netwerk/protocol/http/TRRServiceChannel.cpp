@@ -15,6 +15,7 @@
 #include "mozilla/StaticPrefs_network.h"
 #include "nsDNSPrefetch.h"
 #include "nsEscape.h"
+#include "nsHttpConnectionMgr.h"
 #include "nsHttpTransaction.h"
 #include "nsICancelable.h"
 #include "nsICachingChannel.h"
@@ -412,7 +413,8 @@ nsresult TRRServiceChannel::BeginConnect() {
            scheme, host, port, mPrivateBrowsing, OriginAttributes(),
            http2Allowed, http3Allowed,
            StaticPrefs::network_trr_force_http3_first() ||
-               TRRService::Get()->Http3FirstEnabled()))) {
+               (StaticPrefs::network_trr_allow_default_http3_first() &&
+                TRRService::Get()->Http3FirstEnabled())))) {
     LOG(("TRRServiceChannel %p Alt Service Mapping Found %s://%s:%d [%s]\n",
          this, scheme.get(), mapping->AlternateHost().get(),
          mapping->AlternatePort(), mapping->HashKey().get()));

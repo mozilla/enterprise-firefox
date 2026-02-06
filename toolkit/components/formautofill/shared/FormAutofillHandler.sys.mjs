@@ -167,6 +167,30 @@ export class FormAutofillHandler {
   }
 
   /**
+   * Replaces a field detail with a different element.
+   *
+   * @param {FieldDetail} fieldDetail
+   *        Field detail to replace.
+   * @param {Element} element
+   *        Element to replace.
+   * @returns {FieldDetail} the new field detail object.
+   */
+  #replaceFieldDetail(fieldDetail, element) {
+    let idx = this.#fieldDetails.indexOf(fieldDetail);
+    if (idx < 0) {
+      return null;
+    }
+
+    let newfd = lazy.FieldDetail.create(
+      element,
+      element.form,
+      fieldDetail.fieldName
+    );
+    this.#fieldDetails[idx] = newfd;
+    return newfd;
+  }
+
+  /**
    * Determines whether 'setIdentifiedFieldDetails' has been called and the
    * `fieldDetails` have been initialized.
    *
@@ -460,14 +484,22 @@ export class FormAutofillHandler {
     this.getAdaptedProfiles([profile]);
 
     const filledValuesByElement = new Map();
-    for (const fieldDetail of this.fieldDetails) {
-      const { element, elementId } = fieldDetail;
+    for (let fieldDetail of this.fieldDetails) {
+      let { element, elementId } = fieldDetail;
 
       if (
         !elementIds.includes(elementId) ||
         !FormAutofillUtils.isFieldAutofillable(element)
       ) {
-        continue;
+        if (element.isConnected) {
+          continue;
+        }
+
+        element = this.getReplacedFormElement(element);
+        if (!element) {
+          continue;
+        }
+        fieldDetail = this.#replaceFieldDetail(fieldDetail, element);
       }
 
       element.previewValue = "";
@@ -627,6 +659,23 @@ export class FormAutofillHandler {
     return element.value;
   }
 
+  // If an element is in a form that has been removed, check if there is an
+  // element with the same id and consider that to be a replacement element.
+  // This is done rather than using a mutation observer as an ancestor
+  // element from the form can often be the one removed, and we don't want to
+  // listen to the entire document for changes.
+  getReplacedFormElement(element) {
+    let form = element.form;
+    if (form && !form.isConnected) {
+      let newElement = element.ownerDocument.getElementById(element.id);
+      if (newElement && newElement != element) {
+        return newElement;
+      }
+    }
+
+    return null;
+  }
+
   /**
    * After a refill or clear action, the website might adjust the value of an
    * element immediately afterwards. If this happens, fill or clear the value
@@ -643,7 +692,14 @@ export class FormAutofillHandler {
 
     this.#refillTimeoutId = lazy.setTimeout(() => {
       for (let [e, v] of filledValuesByElement) {
-        if (onClear) {
+        // If the element is no longer in the document and its form was just removed, check if there
+        // is another element with the same id, as the entire form may have been replaced.
+        if (!e.isConnected && e.id && !e.form?.isConnected) {
+          e = this.getReplacedFormElement(e);
+          if (!e) {
+            continue;
+          }
+        } else if (onClear) {
           if (e.autofillState != FIELD_STATES.NORMAL || e.value !== v) {
             // Only reclear if the value was changed back to the original value.
             continue;

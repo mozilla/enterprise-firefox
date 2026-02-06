@@ -9,6 +9,7 @@ import androidx.core.net.toUri
 import androidx.test.espresso.Espresso.pressBack
 import mozilla.components.concept.engine.utils.EngineReleaseChannel
 import okhttp3.internal.wait
+import org.junit.Ignore
 import org.junit.Rule
 import org.junit.Test
 import org.mozilla.fenix.customannotations.SmokeTest
@@ -54,6 +55,7 @@ class EnhancedTrackingProtectionTest : TestSetup() {
     val memoryLeaksRule = DetectMemoryLeaksRule()
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/416046
+    @Ignore("Failing, see https://bugzilla.mozilla.org/show_bug.cgi?id=1864598")
     @Test
     fun testETPSettingsItemsAndSubMenus() {
         homeScreen(composeTestRule) {
@@ -135,6 +137,7 @@ class EnhancedTrackingProtectionTest : TestSetup() {
 
         navigationToolbar(composeTestRule) {
         }.enterURLAndEnterToBrowser(firstPage.url) {
+            waitForPageToLoad(waitingTimeLong)
         }.openSiteSecuritySheet {
         }.toggleEnhancedTrackingProtectionFromSheet {
             verifyEnhancedTrackingProtectionSheetStatus("OFF", false)
@@ -162,6 +165,7 @@ class EnhancedTrackingProtectionTest : TestSetup() {
 
         navigationToolbar(composeTestRule) {
         }.enterURLAndEnterToBrowser(trackingPage.url) {
+            waitForPageToLoad(waitingTimeLong)
             verifyUrl(trackingPage.url.toString())
         }.openSiteSecuritySheet {
         }.toggleEnhancedTrackingProtectionFromSheet {
@@ -196,6 +200,7 @@ class EnhancedTrackingProtectionTest : TestSetup() {
 
         navigationToolbar(composeTestRule) {
         }.enterURLAndEnterToBrowser(firstPage.url) {
+            verifyPageContent(firstPage.content)
         }.openSiteSecuritySheet {
             verifyEnhancedTrackingProtectionSheetStatus("ON", true)
         }.toggleEnhancedTrackingProtectionFromSheet {

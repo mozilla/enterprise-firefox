@@ -36,12 +36,14 @@ add_task(async function toolbar_added_and_removed() {
     "IP Protection widget added in the correct position"
   );
   // Disable the feature
-  await cleanupExperiment();
+  Services.prefs.clearUserPref("browser.ipProtection.enabled");
   widget = document.getElementById(IPProtectionWidget.WIDGET_ID);
   Assert.equal(widget, null, "IP Protection widget is removed");
 
   // Reenable the feature
-  await setupExperiment();
+  await SpecialPowers.pushPrefEnv({
+    set: [["browser.ipProtection.enabled", true]],
+  });
   widget = document.getElementById(IPProtectionWidget.WIDGET_ID);
   Assert.ok(
     BrowserTestUtils.isVisible(widget),
@@ -84,8 +86,8 @@ add_task(async function toolbar_icon_status() {
   Assert.ok(content, "Panel content should be present");
 
   let statusCard = content.statusCardEl;
-  let toggle = statusCard.connectionToggleEl;
-  Assert.ok(toggle, "Status card connection toggle should be present");
+  let turnOnButton = statusCard.actionButtonEl;
+  Assert.ok(turnOnButton, "Status card turn on button should be present");
 
   let vpnOnPromise = BrowserTestUtils.waitForEvent(
     lazy.IPPProxyManager,
@@ -93,8 +95,8 @@ add_task(async function toolbar_icon_status() {
     false,
     () => !!IPPProxyManager.activatedAt
   );
-  // Toggle the VPN on
-  toggle.click();
+  // Turn the VPN on
+  turnOnButton.click();
   await vpnOnPromise;
   Assert.ok(
     button.classList.contains("ipprotection-on"),
@@ -106,8 +108,9 @@ add_task(async function toolbar_icon_status() {
     false,
     () => lazy.IPProtectionService.state === lazy.IPProtectionStates.READY
   );
-  // Toggle the VPN off
-  toggle.click();
+  // Turn the VPN off
+  let turnOffButton = statusCard.actionButtonEl;
+  turnOffButton.click();
   await vpnOffPromise;
   Assert.ok(
     !button.classList.contains("ipprotection-on"),
@@ -140,9 +143,10 @@ add_task(async function toolbar_icon_status_new_window() {
     false,
     () => !!IPPProxyManager.activatedAt
   );
-  // Toggle the VPN on
+  // Turn the VPN on
   let statusCard = content.statusCardEl;
-  statusCard.connectionToggleEl.click();
+  let turnOnButton = statusCard.actionButtonEl;
+  turnOnButton.click();
   await vpnOnPromise;
 
   let button = document.getElementById(IPProtectionWidget.WIDGET_ID);
@@ -232,7 +236,8 @@ add_task(async function toolbar_placement_customized() {
   );
 
   // Disable the feature
-  await cleanupExperiment();
+  Services.prefs.clearUserPref("browser.ipProtection.enabled");
+
   let widget = document.getElementById(IPProtectionWidget.WIDGET_ID);
   Assert.equal(widget, null, "IP Protection widget is removed");
 
@@ -244,7 +249,9 @@ add_task(async function toolbar_placement_customized() {
   );
 
   // Reenable the feature
-  await setupExperiment();
+  await SpecialPowers.pushPrefEnv({
+    set: [["browser.ipProtection.enabled", true]],
+  });
 
   await waitForStateChange;
 
@@ -287,7 +294,7 @@ add_task(async function toolbar_removed() {
   Assert.equal(end, null, "IP Protection widget is removed");
 
   // Disable the feature
-  await cleanupExperiment();
+  Services.prefs.clearUserPref("browser.ipProtection.enabled");
 
   const waitForStateChange = BrowserTestUtils.waitForEvent(
     lazy.IPProtectionService,
@@ -297,7 +304,9 @@ add_task(async function toolbar_removed() {
   );
 
   // Reenable the feature
-  await setupExperiment();
+  await SpecialPowers.pushPrefEnv({
+    set: [["browser.ipProtection.enabled", true]],
+  });
 
   await waitForStateChange;
 

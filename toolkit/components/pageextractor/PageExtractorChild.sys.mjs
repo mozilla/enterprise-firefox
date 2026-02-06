@@ -49,12 +49,17 @@ export class PageExtractorChild extends JSWindowActorChild {
     switch (name) {
       case "PageExtractorParent:GetReaderModeContent":
         if (this.isAboutReader()) {
-          return this.getAboutReaderContent();
+          const text = this.getAboutReaderContent();
+          return { text: text ?? "", links: [] };
         }
         return this.getReaderModeContent(data);
       case "PageExtractorParent:GetText":
         if (this.isAboutReader()) {
-          return this.getAboutReaderContent();
+          const text = this.getAboutReaderContent();
+          return {
+            text: text ?? "",
+            links: [],
+          };
         }
         return this.getText(data);
       case "PageExtractorParent:WaitForPageReady":
@@ -89,23 +94,23 @@ export class PageExtractorChild extends JSWindowActorChild {
    * @see PageExtractorParent#getReaderModeContent for docs
    *
    * @param {boolean} force
-   * @returns {Promise<string | null>} text from the page
+   * @returns {Promise<{ text: string, links: string[] }>}
    */
   async getReaderModeContent(force) {
     const window = this.browsingContext?.window;
     const document = window?.document;
 
     if (!force && (!document || !lazy.isProbablyReaderable(document))) {
-      return null;
+      return { text: "", links: [] };
     }
 
     if (!document) {
-      return "";
+      return { text: "", links: [] };
     }
 
     const article = await lazy.ReaderMode.parseDocument(document);
     if (!article) {
-      return "";
+      return { text: "", links: [] };
     }
 
     let text = (article?.textContent || "")
@@ -119,29 +124,29 @@ export class PageExtractorChild extends JSWindowActorChild {
     lazy.console.log("GetReaderModeContent", { force });
     lazy.console.debug(text);
 
-    return text;
+    return { text, links: [] };
   }
 
   /**
    * @see PageExtractorParent#getText for docs
    *
    * @param {GetTextOptions} options
-   * @returns {string}
+   * @returns {{ text: string, links: string[] }}
    */
-  getText(options) {
+  getText(options = {}) {
     const window = this.browsingContext?.window;
     const document = window?.document;
 
     if (!document) {
-      return "";
+      return { text: "", links: [] };
     }
 
-    const text = lazy.extractTextFromDOM(document, options);
+    const result = lazy.extractTextFromDOM(document, options);
 
     lazy.console.log("GetText", options);
-    lazy.console.debug(text);
+    lazy.console.debug(result);
 
-    return text;
+    return result;
   }
 
   /**

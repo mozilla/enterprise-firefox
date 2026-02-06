@@ -401,15 +401,13 @@ class HomeScreenRobot(private val composeTestRule: ComposeTestRule) {
     @OptIn(ExperimentalTestApi::class)
     fun verifyCollectionIsDisplayed(title: String, collectionExists: Boolean = true) {
         if (collectionExists) {
-            this@HomeScreenRobot.composeTestRule.waitUntilExactlyOneExists(hasText(title), waitingTime)
-            Log.i(TAG, "verifyCollectionIsDisplayed: Trying to verify that collection with title: $title is displayed")
-            this@HomeScreenRobot.composeTestRule.onNodeWithText(title).assertIsDisplayed()
-            Log.i(TAG, "verifyCollectionIsDisplayed: Verified that collection with title: $title is displayed")
+            Log.i(TAG, "verifyCollectionIsDisplayed: Waiting for $waitingTime until collection with title: $title exist")
+            composeTestRule.waitUntilExactlyOneExists(hasText(title), waitingTime)
+            Log.i(TAG, "verifyCollectionIsDisplayed: Waited for $waitingTime until collection with title: $title exist")
         } else {
-            this@HomeScreenRobot.composeTestRule.waitUntilDoesNotExist(hasText(title), waitingTime)
-            Log.i(TAG, "verifyCollectionIsDisplayed: Trying to verify that collection with title: $title is not displayed")
-            this@HomeScreenRobot.composeTestRule.onNodeWithText(title).assertIsNotDisplayed()
-            Log.i(TAG, "verifyCollectionIsDisplayed: Verified that collection with title: $title is not displayed")
+            Log.i(TAG, "verifyCollectionIsDisplayed: Waiting for $waitingTime until collection with title: $title does not exist")
+            composeTestRule.waitUntilDoesNotExist(hasText(title), waitingTime)
+            Log.i(TAG, "verifyCollectionIsDisplayed: Waited for $waitingTime until collection with title: $title does not exist")
         }
     }
 
@@ -562,22 +560,25 @@ class HomeScreenRobot(private val composeTestRule: ComposeTestRule) {
             composeTestRule.onNodeWithContentDescription(getStringResource(R.string.content_description_menu)).performClick()
             Log.i(TAG, "openThreeDotMenu: Clicked main menu button")
 
-            composeTestRule.runOnIdle {
-                Log.i(TAG, "runOnIdle: Compose is idle, thread=${Thread.currentThread().name}")
-            }
-
-            assertUIObjectExists(itemWithResId("$packageName:id/design_bottom_sheet"))
-
             ThreeDotMenuMainRobot(composeTestRule).interact()
             return ThreeDotMenuMainRobot.Transition(composeTestRule)
         }
 
         @OptIn(ExperimentalTestApi::class)
         fun openSearch(interact: SearchRobot.() -> Unit): SearchRobot.Transition {
-            composeTestRule.waitUntilAtLeastOneExists(hasTestTag(ADDRESSBAR_URL_BOX), waitingTime)
+            Log.i(TAG, "openSearch: Waiting for URL box node to appear and be ready for interaction")
+            composeTestRule.waitUntil(waitingTime) {
+                composeTestRule.onAllNodesWithTag(ADDRESSBAR_URL_BOX).fetchSemanticsNodes().isNotEmpty()
+            }
+            Log.i(TAG, "openSearch: URL box node is now present and ready")
+
             Log.i(TAG, "openSearch: Trying to click navigation toolbar")
             composeTestRule.onNodeWithTag(ADDRESSBAR_URL_BOX).performClick()
             Log.i(TAG, "openSearch: Clicked navigation toolbar")
+
+            Log.i(TAG, "openSearch: Waiting for compose rule to be idle")
+            composeTestRule.waitForIdle()
+            Log.i(TAG, "openSearch: Waited for compose rule to be idle")
 
             SearchRobot(composeTestRule).interact()
             return SearchRobot.Transition(composeTestRule)
@@ -758,9 +759,6 @@ class HomeScreenRobot(private val composeTestRule: ComposeTestRule) {
             Log.i(TAG, "expandCollection: Trying to click collection with title: $title")
             composeTestRule.onNodeWithText(title).performClick()
             Log.i(TAG, "expandCollection: Clicked collection with title: $title")
-            Log.i(TAG, "expandCollection: Waiting for compose test rule to be idle")
-            composeTestRule.waitForIdle()
-            Log.i(TAG, "expandCollection: Waited for compose test rule to be idle")
 
             CollectionRobot(composeTestRule).interact()
             return CollectionRobot.Transition(composeTestRule)

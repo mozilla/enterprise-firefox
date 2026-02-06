@@ -129,6 +129,10 @@ size_t LoadedScript::SizeOfIncludingThis(
     mozilla::MallocSizeOf aMallocSizeOf) const {
   size_t bytes = aMallocSizeOf(this);
 
+  if (mFetchOptions) {
+    bytes += mFetchOptions->SizeOfIncludingThis(aMallocSizeOf);
+  }
+
   if (IsTextSource()) {
     if (IsUTF16Text()) {
       bytes += ScriptText<char16_t>().sizeOfExcludingThis(aMallocSizeOf);

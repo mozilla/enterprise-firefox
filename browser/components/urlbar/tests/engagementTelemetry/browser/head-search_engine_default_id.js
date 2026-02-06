@@ -28,7 +28,7 @@ async function doSearchEngineDefaultIdTest({ trigger, assert }) {
     Assert.notEqual(defaultEngine.telemetryId, newEngine.telemetryId);
     await SearchService.setDefault(
       newEngine,
-      Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+      SearchService.CHANGE_REASON.UNKNOWN
     );
 
     await openPopup("x");
@@ -37,7 +37,7 @@ async function doSearchEngineDefaultIdTest({ trigger, assert }) {
 
     await SearchService.setDefault(
       defaultEngine,
-      Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+      SearchService.CHANGE_REASON.UNKNOWN
     );
   });
 }

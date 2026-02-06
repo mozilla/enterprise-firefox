@@ -9,6 +9,7 @@
 
 /**
  * @import {Query} from "UrlbarProvidersManager.sys.mjs"
+ * @import {SearchEngine} from "moz-src:///toolkit/components/search/SearchEngine.sys.mjs"
  * @import {UrlbarSearchStringTokenData} from "UrlbarTokenizer.sys.mjs"
  */
 
@@ -56,10 +57,12 @@ export var UrlbarUtils = {
   // because we don't want to make downgrades unnecessarily hard.
   RESULT_GROUP: Object.freeze({
     ABOUT_PAGES: "aboutPages",
+    AI: "ai",
     GENERAL: "general",
     GENERAL_PARENT: "generalParent",
     FORM_HISTORY: "formHistory",
     HEURISTIC_AUTOFILL: "heuristicAutofill",
+    HEURISTIC_AI_CHAT: "heuristicAiChat",
     HEURISTIC_ENGINE_ALIAS: "heuristicEngineAlias",
     HEURISTIC_EXTENSION: "heuristicExtension",
     HEURISTIC_FALLBACK: "heuristicFallback",
@@ -116,6 +119,8 @@ export var UrlbarUtils = {
     DYNAMIC: 8,
     // A restrict keyword result, could be @bookmarks, @history, or @tabs.
     RESTRICT: 9,
+    // An AI chat result.
+    AI_CHAT: 10,
 
     // When you add a new type, also add its schema to
     // UrlbarUtils.RESULT_PAYLOAD_SCHEMA below.  Also consider checking if
@@ -338,7 +343,7 @@ export var UrlbarUtils = {
       return { url, postData, mayInheritPrincipal };
     }
 
-    /** @type {nsISearchEngine} */
+    /** @type {SearchEngine} */
     let engine = await lazy.SearchService.getEngineByAlias(keyword);
     if (engine) {
       let submission = engine.getSubmission(param, null);
@@ -565,6 +570,8 @@ export var UrlbarUtils = {
     }
     if (result.heuristic) {
       switch (result.providerName) {
+        case "UrlbarProviderAiChat":
+          return this.RESULT_GROUP.HEURISTIC_AI_CHAT;
         case "UrlbarProviderAliasEngines":
           return this.RESULT_GROUP.HEURISTIC_ENGINE_ALIAS;
         case "UrlbarProviderAutofill":
@@ -630,6 +637,8 @@ export var UrlbarUtils = {
         return this.RESULT_GROUP.REMOTE_TAB;
       case this.RESULT_TYPE.RESTRICT:
         return this.RESULT_GROUP.RESTRICT_SEARCH_KEYWORD;
+      case this.RESULT_TYPE.AI_CHAT:
+        return this.RESULT_GROUP.AI;
     }
     return this.RESULT_GROUP.GENERAL;
   },
@@ -680,7 +689,7 @@ export var UrlbarUtils = {
   /**
    * Get the url to load for the search query.
    *
-   * @param {nsISearchEngine} engine
+   * @param {SearchEngine} engine
    *   The engine to generate the query for.
    * @param {string} query
    *   The query string to search for.
@@ -765,7 +774,7 @@ export var UrlbarUtils = {
    * Note: This is not infallible, if a speculative connection cannot be
    *       initialized, it will be a no-op.
    *
-   * @param {typeof lazy.SearchEngine.prototype|nsISearchEngine|nsIURI|URL|string} urlOrEngine
+   * @param {SearchEngine|nsIURI|URL|string} urlOrEngine
    *   The entity to initiate a speculative connection for.
    * @param {window} window
    *   The window from where the connection is initialized.
@@ -774,10 +783,7 @@ export var UrlbarUtils = {
     if (!lazy.UrlbarPrefs.get("speculativeConnect.enabled")) {
       return;
     }
-    if (
-      urlOrEngine instanceof Ci.nsISearchEngine ||
-      urlOrEngine instanceof lazy.SearchEngine
-    ) {
+    if (urlOrEngine instanceof lazy.SearchEngine) {
       try {
         urlOrEngine.speculativeConnect({
           window,
@@ -908,6 +914,49 @@ export var UrlbarUtils = {
       }
     }
     return host;
+  },
+
+  /**
+   * Sanitize and process data retrieved from the clipboard
+   *
+   * @param {string} clipboardData
+   *   The original data retrieved from the clipboard.
+   * @returns {string}
+   *   The sanitized paste data, ready to use.
+   */
+  sanitizeTextFromClipboard(clipboardData) {
+    let fixedURI, keywordAsSent;
+    try {
+      ({ fixedURI, keywordAsSent } = Services.uriFixup.getFixupURIInfo(
+        clipboardData,
+        Ci.nsIURIFixup.FIXUP_FLAG_FIX_SCHEME_TYPOS |
+          Ci.nsIURIFixup.FIXUP_FLAG_ALLOW_KEYWORD_LOOKUP
+      ));
+    } catch (e) {}
+
+    let pasteData;
+    if (keywordAsSent) {
+      // For performance reasons, we don't want to beautify a long string.
+      if (clipboardData.length < 500) {
+        // For only keywords, replace any white spaces including line break
+        // with white space.
+        pasteData = clipboardData.replace(/\s/g, " ");
+      } else {
+        pasteData = clipboardData;
+      }
+    } else if (
+      fixedURI?.scheme == "data" &&
+      !fixedURI.spec.match(/^data:.+;base64,/)
+    ) {
+      // For data url without base64, replace line break with white space.
+      pasteData = clipboardData.replace(/[\r\n]/g, " ");
+    } else {
+      // For normal url or data url having basic64, or if fixup failed, just
+      // remove line breaks.
+      pasteData = clipboardData.replace(/[\r\n]/g, "");
+    }
+
+    return this.stripUnsafeProtocolOnPaste(pasteData);
   },
 
   /**
@@ -1358,6 +1407,9 @@ export var UrlbarUtils = {
         if (result.payload.keyword === lazy.UrlbarTokenizer.RESTRICT.ACTION) {
           return "restrict_keyword_actions";
         }
+        break;
+      case this.RESULT_TYPE.AI_CHAT:
+        return "ai_chat";
     }
     return "unknown";
   },
@@ -1497,6 +1549,9 @@ export var UrlbarUtils = {
       }
       case this.RESULT_GROUP.RESTRICT_SEARCH_KEYWORD: {
         return "restrict_keyword";
+      }
+      case this.RESULT_GROUP.AI: {
+        return "ai";
       }
     }
 
@@ -1650,6 +1705,9 @@ export var UrlbarUtils = {
         if (result.payload.keyword === lazy.UrlbarTokenizer.RESTRICT.ACTION) {
           return "restrict_keyword_actions";
         }
+        break;
+      case this.RESULT_TYPE.AI_CHAT:
+        return "ai_chat";
     }
 
     return "unknown";
@@ -2108,6 +2166,10 @@ UrlbarUtils.RESULT_PAYLOAD_SCHEMA = {
         type: "string",
       },
       titleL10n: L10N_SCHEMA,
+      subtitle: {
+        type: "string",
+      },
+      subtitleL10n: L10N_SCHEMA,
       url: {
         type: "string",
       },
@@ -2306,6 +2368,21 @@ UrlbarUtils.RESULT_PAYLOAD_SCHEMA = {
       },
       providesSearchMode: {
         type: "boolean",
+      },
+    },
+  },
+  [UrlbarUtils.RESULT_TYPE.AI_CHAT]: {
+    type: "object",
+    required: ["icon", "query", "title"],
+    properties: {
+      icon: {
+        type: "string",
+      },
+      query: {
+        type: "string",
+      },
+      title: {
+        type: "string",
       },
     },
   },

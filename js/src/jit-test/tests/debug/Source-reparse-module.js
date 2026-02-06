@@ -2,7 +2,7 @@
 
 const g = newGlobal({newCompartment: true});
 const dbg = new Debugger;
-dbg.addDebuggee(g);
+const gw = dbg.addDebuggee(g);
 
 const scripts = [];
 dbg.onNewScript = script => scripts.push(script);
@@ -35,3 +35,17 @@ for (const script of scripts) {
     script.source.reparse(/* asModule */ true);
   }
 }
+
+// reparse module throws when line number == 0
+g.libdir = libdir;
+g.gw = gw;
+g.eval(`
+  load(libdir + "asserts.js");
+
+  assertThrowsInstanceOf(() => gw.createSource({}).reparse(true), Error);
+  assertThrowsInstanceOf(() => gw.createSource({ startLine: 0 }).reparse(true), Error);
+`);
+let script1 = gw.createSource({ startLine: 1 }).reparse(true);
+assertEq(script1.startLine, 1);
+let script2 = gw.createSource({ startLine: 2 }).reparse(true);
+assertEq(script2.startLine, 2);

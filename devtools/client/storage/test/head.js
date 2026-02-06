@@ -483,15 +483,31 @@ function matchVariablesViewProperty(prop, rule) {
  *
  * @param {[string]} ids
  *        The array id of the item in the tree
+ * @param {object=} options
+ * @param {boolean=} waitForItem
+ *        Wait for the item to be available in the tree. Defaults to true. Force
+ *        to false if selecting the item is optional AND the item is not
+ *        guaranteed to be available.
  */
-async function selectTreeItem(ids) {
+async function selectTreeItem(ids, options = {}) {
+  const { waitForItem = true } = options;
+
   if (gUI.tree.isSelected(ids)) {
     info(`"${ids}" is already selected, returning.`);
     return;
   }
+
   if (!gUI.tree.exists(ids)) {
-    info(`"${ids}" does not exist, returning.`);
-    return;
+    if (!waitForItem) {
+      info(`${ids} is unavailable and waitForItem=false, returning`);
+      return;
+    }
+
+    info(`Wait until ${ids} the expected item appears in the tree`);
+    await waitFor(
+      () => gUI.tree.exists(ids),
+      `Waiting until ${ids} exists in the storage tree`
+    );
   }
 
   // The item exists but is not selected... select it.
@@ -924,7 +940,8 @@ async function checkState(state) {
   for (const [store, names] of state) {
     const storeName = store.join(" > ");
     info(`Selecting tree item ${storeName}`);
-    await selectTreeItem(store);
+    // Item might be unavailable, set waitForItem=false.
+    await selectTreeItem(store, { waitForItem: false });
 
     const items = gUI.table.items;
 
@@ -1044,7 +1061,9 @@ async function performAdd(store) {
   const toolbar = gPanelWindow.document.getElementById("storage-toolbar");
   const type = store[0];
 
-  await selectTreeItem(store);
+  // Set waitForItem=false, there might not be any item in the table before
+  // using add.
+  await selectTreeItem(store, { waitForItem: false });
 
   const menuAdd = toolbar.querySelector("#add-button");
 

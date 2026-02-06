@@ -34,6 +34,13 @@ class TestNoToolbarChanges(MarionetteTestCase):
         )
         navbarPlacements = self.get_area_default_placements("AREA_NAVBAR")
         navbarPlacements.append("unified-extensions-button")
+
+        if (
+            self.marionette.session_capabilities.get("moz:browserFlavor")
+            == "enterprise"
+        ):
+            navbarPlacements.append("enterprise-badge-toolbar-button")
+
         self.assertEqual(
             self.get_area_widgets("AREA_NAVBAR"),
             navbarPlacements,

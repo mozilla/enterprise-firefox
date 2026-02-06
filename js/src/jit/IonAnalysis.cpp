@@ -3491,19 +3491,6 @@ static void AssertResumePointDominatedByOperands(MResumePoint* resume) {
 }
 #endif  // DEBUG
 
-static bool PrecedesInSameBlock(MInstruction* a, MInstruction* b) {
-  MOZ_ASSERT(a->block() == b->block());
-  MBasicBlock* block = a->block();
-  MInstructionIterator opIter = block->begin(a);
-  do {
-    ++opIter;
-    if (opIter == block->end()) {
-      return false;
-    }
-  } while (*opIter != b);
-  return true;
-}
-
 // Checks the basic GraphCoherency but also other conditions that
 // do not hold immediately (such as the fact that critical edges
 // are split, or conditions related to wasm semantics)
@@ -3586,16 +3573,8 @@ void jit::AssertExtendedGraphCoherency(MIRGraph& graph, bool underValueNumberer,
       MInstruction* ins = *iter;
       for (size_t i = 0, e = ins->numOperands(); i < e; ++i) {
         MDefinition* op = ins->getOperand(i);
-        MBasicBlock* opBlock = op->block();
-        MOZ_ASSERT(opBlock->dominates(*block),
-                   "Instruction is not dominated by its operands");
-
-        // If the operand is an instruction in the same block, check
-        // that it comes first.
-        if (opBlock == *block && !op->isPhi()) {
-          MOZ_ASSERT(PrecedesInSameBlock(op->toInstruction(), ins),
-                     "Operand in same block as instruction does not precede");
-        }
+        MOZ_ASSERT(op->dominates(ins),
+                   "instruction is not dominated by its operands");
       }
       AssertIfResumableInstruction(ins);
       if (MResumePoint* resume = ins->resumePoint()) {
@@ -4493,25 +4472,17 @@ static void TryOptimizeWasmCast(MDefinition* cast, MIRGraph& graph) {
         refUse->consumer() != cast) {
       MDefinition* otherCast = refUse->consumer()->toDefinition();
       // And that ref.cast instruction dominates us...
-      if (otherCast->block()->dominates(cast->block())) {
-        // Like _really_ dominates us...
-        bool precedes = otherCast->block() == cast->block()
-                            ? PrecedesInSameBlock(otherCast->toInstruction(),
-                                                  cast->toInstruction())
-                            : true;
-        if (precedes) {
-          // And the type of the dominating ref.cast is <: the type of the
-          // current cast...
-          wasm::RefType dominatingDestType =
-              WasmRefTestOrCastDestType(otherCast);
-          wasm::RefType currentDestType = WasmRefTestOrCastDestType(cast);
-          if (wasm::RefType::isSubTypeOf(dominatingDestType, currentDestType)) {
-            // Then the cast is redundant because it is dominated by a tighter
-            // ref.cast. Discard the cast and fall back on the other.
-            cast->replaceAllUsesWith(otherCast);
-            cast->block()->discard(cast->toInstruction());
-            return;
-          }
+      if (otherCast->dominates(cast)) {
+        // And the type of the dominating ref.cast is <: the type of the
+        // current cast...
+        wasm::RefType dominatingDestType = WasmRefTestOrCastDestType(otherCast);
+        wasm::RefType currentDestType = WasmRefTestOrCastDestType(cast);
+        if (wasm::RefType::isSubTypeOf(dominatingDestType, currentDestType)) {
+          // Then the cast is redundant because it is dominated by a tighter
+          // ref.cast. Discard the cast and fall back on the other.
+          cast->replaceAllUsesWith(otherCast);
+          cast->block()->discard(cast->toInstruction());
+          return;
         }
       }
     }
@@ -4581,27 +4552,19 @@ static void TryOptimizeWasmTest(MDefinition* refTest, MIRGraph& graph) {
     if (IsWasmRefCast(refUse->consumer()->toDefinition())) {
       MDefinition* refCast = refUse->consumer()->toDefinition();
       // And that ref.cast instruction dominates us...
-      if (refCast->block()->dominates(refTest->block())) {
-        // Like _really_ dominates us...
-        bool precedes = refCast->block() == refTest->block()
-                            ? PrecedesInSameBlock(refCast->toInstruction(),
-                                                  refTest->toInstruction())
-                            : true;
-        if (precedes) {
-          // And the type of the dominating ref.cast is <: the type of the
-          // current ref.test...
-          wasm::RefType dominatingDestType = WasmRefTestOrCastDestType(refCast);
-          wasm::RefType currentDestType = WasmRefTestOrCastDestType(refTest);
-          if (wasm::RefType::isSubTypeOf(dominatingDestType, currentDestType)) {
-            // Then the ref.test is redundant because it is dominated by a
-            // tighter ref.cast. Replace with a constant 1.
-            auto* replacement = MConstant::NewInt32(graph.alloc(), 1);
-            refTest->block()->insertBefore(refTest->toInstruction(),
-                                           replacement);
-            refTest->replaceAllUsesWith(replacement);
-            refTest->block()->discard(refTest->toInstruction());
-            return;
-          }
+      if (refCast->dominates(refTest)) {
+        // And the type of the dominating ref.cast is <: the type of the
+        // current ref.test...
+        wasm::RefType dominatingDestType = WasmRefTestOrCastDestType(refCast);
+        wasm::RefType currentDestType = WasmRefTestOrCastDestType(refTest);
+        if (wasm::RefType::isSubTypeOf(dominatingDestType, currentDestType)) {
+          // Then the ref.test is redundant because it is dominated by a
+          // tighter ref.cast. Replace with a constant 1.
+          auto* replacement = MConstant::NewInt32(graph.alloc(), 1);
+          refTest->block()->insertBefore(refTest->toInstruction(), replacement);
+          refTest->replaceAllUsesWith(replacement);
+          refTest->block()->discard(refTest->toInstruction());
+          return;
         }
       }
     }
@@ -5520,7 +5483,7 @@ bool jit::OptimizeIteratorIndices(const MIRGenerator* mir, MIRGraph& graph) {
             otherIter = FindObjectToIteratorUse(SkipIterObjectUnbox(receiver));
           }
 
-          if (!otherIter || !otherIter->block()->dominates(ins->block())) {
+          if (!otherIter || !otherIter->dominates(ins)) {
             continue;
           }
         }

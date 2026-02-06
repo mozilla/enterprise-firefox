@@ -251,8 +251,9 @@ export const SpecialMessageActions = {
     // Array of prefs that are allowed to be edited by SET_PREF
     const allowedPrefs = [
       "browser.aboutwelcome.didSeeFinalScreen",
-      "browser.aiwindow.firstrun.hasCompleted",
-      "browser.aiwindow.firstrun.modelChoice",
+      "browser.smartwindow.enabled",
+      "browser.smartwindow.firstrun.hasCompleted",
+      "browser.smartwindow.firstrun.modelChoice",
       "browser.crashReports.unsubmittedCheck.autoSubmit2",
       "browser.dataFeatureRecommendations.enabled",
       "browser.ipProtection.enabled",
@@ -661,6 +662,12 @@ export const SpecialMessageActions = {
       case "OPEN_FIREFOX_VIEW":
         window.FirefoxViewHandler.openTab();
         break;
+      case "OPEN_TAB_IN_SPLITVIEW": {
+        Services.prefs.setBoolPref("browser.tabs.splitView.enabled", true);
+        let newTab = window.gBrowser.addTrustedTab("about:opentabs");
+        window.gBrowser.addTabSplitView([window.gBrowser.selectedTab, newTab]);
+        break;
+      }
       case "OPEN_PREFERENCES_PAGE":
         window.openPreferences(
           action.data.category || action.data.args,

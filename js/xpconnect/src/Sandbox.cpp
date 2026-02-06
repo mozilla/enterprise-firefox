@@ -42,6 +42,7 @@
 #include "mozilla/dom/BindingUtils.h"
 #include "mozilla/dom/BlobBinding.h"
 #include "mozilla/dom/cache/CacheStorage.h"
+#include "mozilla/dom/ChromeUtilsBinding.h"
 #include "mozilla/dom/CSSBinding.h"
 #include "mozilla/dom/CSSPositionTryDescriptorsBinding.h"
 #include "mozilla/dom/CSSRuleBinding.h"

@@ -1932,7 +1932,7 @@ export var UITour = {
     }
     return lazy.SearchService.setDefault(
       engine,
-      Ci.nsISearchService.CHANGE_REASON_UITOUR
+      lazy.SearchService.CHANGE_REASON.UITOUR
     );
   },
 

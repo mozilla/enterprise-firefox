@@ -20,6 +20,7 @@
 #include "nsThreadUtils.h"
 
 #if defined(MOZ_WIDGET_ANDROID)
+#  include "mozilla/layers/AndroidHardwareBuffer.h"
 #  include "mozilla/widget/AndroidUiThread.h"
 
 static RefPtr<nsThread> GetUiThread() { return mozilla::GetAndroidUiThread(); }
@@ -138,12 +139,13 @@ bool UiCompositorControllerChild::SetDefaultClearColor(const uint32_t& aColor) {
   return SendDefaultClearColor(aColor);
 }
 
-bool UiCompositorControllerChild::RequestScreenPixels() {
+bool UiCompositorControllerChild::RequestScreenPixels(gfx::IntRect aSourceRect,
+                                                      gfx::IntSize aDestSize) {
   if (!mIsOpen) {
     return false;
   }
 
-  return SendRequestScreenPixels();
+  return SendRequestScreenPixels(aSourceRect, aDestSize);
 }
 
 bool UiCompositorControllerChild::EnableLayerUpdateNotifications(
@@ -186,10 +188,6 @@ void UiCompositorControllerChild::Destroy() {
       }));
 
   task.Wait();
-}
-
-bool UiCompositorControllerChild::DeallocPixelBuffer(Shmem& aMem) {
-  return DeallocShmem(aMem);
 }
 
 // protected:
@@ -238,10 +236,20 @@ UiCompositorControllerChild::RecvNotifyCompositorScrollUpdate(
 }
 
 mozilla::ipc::IPCResult UiCompositorControllerChild::RecvScreenPixels(
-    ipc::Shmem&& aMem, const ScreenIntSize& aSize, bool aNeedsYFlip) {
+    Maybe<ipc::FileDescriptor>&& aHardwareBuffer,
+    Maybe<ipc::FileDescriptor>&& aAcquireFence) {
 #if defined(MOZ_WIDGET_ANDROID)
+  RefPtr<layers::AndroidHardwareBuffer> hardwareBuffer;
+  if (aHardwareBuffer) {
+    hardwareBuffer =
+        layers::AndroidHardwareBuffer::DeserializeFromFileDescriptor(
+            aHardwareBuffer->TakePlatformHandle());
+  }
+  if (hardwareBuffer && aAcquireFence) {
+    hardwareBuffer->SetAcquireFence(aAcquireFence->TakePlatformHandle());
+  }
   if (mWidget) {
-    mWidget->RecvScreenPixels(std::move(aMem), aSize, aNeedsYFlip);
+    mWidget->RecvScreenPixels(hardwareBuffer);
   }
 #endif  // defined(MOZ_WIDGET_ANDROID)
 
@@ -321,9 +329,6 @@ void UiCompositorControllerChild::SetCompositorSurfaceManager(
     java::CompositorSurfaceManager::Param aCompositorSurfaceManager) {
   MOZ_ASSERT(!mCompositorSurfaceManager,
              "SetCompositorSurfaceManager must only be called once.");
-  MOZ_ASSERT(mProcessToken != 0,
-             "SetCompositorSurfaceManager must only be called for GPU process "
-             "controllers.");
   mCompositorSurfaceManager = aCompositorSurfaceManager;
 };
 

@@ -806,7 +806,6 @@ void nsDocLoader::DocLoaderIsEmpty(bool aFlushLayout,
     const bool hasActiveLoad = mDocumentRequest ||
                                mDocumentOpenedButNotLoaded ||
                                mIsLoadingJavascriptURI;
-    MOZ_ASSERT_IF(forceInitialSyncLoad, hasActiveLoad);
     if ((IsBusy() && !forceInitialSyncLoad) || !hasActiveLoad) {
       return;
     }

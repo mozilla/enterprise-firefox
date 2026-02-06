@@ -884,6 +884,19 @@ void nsAccessibilityService::TableLayoutGuessMaybeChanged(
   }
 }
 
+void nsAccessibilityService::ComboboxValueChanged(nsIContent* aSelect) {
+  DocAccessible* document =
+      GetDocAccessible(aSelect->OwnerDoc()->GetPresShell());
+  if (!document) {
+    return;
+  }
+  if (LocalAccessible* accessible = document->GetAccessible(aSelect)) {
+    MOZ_ASSERT(accessible->IsCombobox());
+    document->FireDelayedEvent(nsIAccessibleEvent::EVENT_TEXT_VALUE_CHANGE,
+                               accessible);
+  }
+}
+
 void nsAccessibilityService::ComboboxOptionMaybeChanged(
     PresShell* aPresShell, nsIContent* aMutatingNode) {
   DocAccessible* document = GetDocAccessible(aPresShell);

@@ -61,15 +61,9 @@ extern double math_random_impl(JSContext* cx);
 
 extern double math_abs_impl(double x);
 
-extern bool math_abs(JSContext* cx, unsigned argc, js::Value* vp);
-
 extern double math_max_impl(double x, double y);
 
-extern bool math_max(JSContext* cx, unsigned argc, js::Value* vp);
-
 extern double math_min_impl(double x, double y);
-
-extern bool math_min(JSContext* cx, unsigned argc, js::Value* vp);
 
 extern double math_sqrt_impl(double x);
 
@@ -109,8 +103,6 @@ extern double hypot4(double x, double y, double z, double w);
 extern bool math_hypot_handle(JSContext* cx, HandleValueArray args,
                               MutableHandleValue res);
 
-extern bool math_trunc(JSContext* cx, unsigned argc, Value* vp);
-
 extern double ecmaAtan2(double x, double y);
 
 extern double math_atan_impl(double x);
@@ -120,8 +112,6 @@ extern double math_asin_impl(double x);
 extern double math_acos_impl(double x);
 
 extern double math_ceil_impl(double x);
-
-extern bool math_floor(JSContext* cx, unsigned argc, Value* vp);
 
 extern double math_floor_impl(double x);
 
@@ -155,11 +145,17 @@ extern double math_atanh_impl(double x);
 
 extern double math_trunc_impl(double x);
 
-extern bool math_sign(JSContext* cx, unsigned argc, Value* vp);
-
 extern double math_sign_impl(double x);
 
 extern double math_cbrt_impl(double x);
+
+// Math methods exposed so they can be installed in the self-hosting global.
+
+extern bool math_max(JSContext* cx, unsigned argc, JS::Value* vp);
+
+extern bool math_min(JSContext* cx, unsigned argc, JS::Value* vp);
+
+extern bool math_trunc(JSContext* cx, unsigned argc, JS::Value* vp);
 
 } /* namespace js */
 

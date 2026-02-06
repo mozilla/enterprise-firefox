@@ -13,6 +13,7 @@
 #include "mozilla/BaseProfiler.h"
 #include "mozilla/Components.h"
 #include "mozilla/FilePreferences.h"
+#include "mozilla/FOG.h"
 #include "mozilla/ChaosMode.h"
 #include "mozilla/HelperMacros.h"
 #include "mozilla/CmdLineAndEnvUtils.h"
@@ -4282,6 +4283,12 @@ int XREMain::XRE_mainInit(bool* aExitFlag) {
     }
   }
 
+#if defined(MOZ_ENTERPRISE)
+  XRE_ParseEnterpriseServerURL(*mAppData);
+  // Ignoring nsresult. If console url is not found in a release build, the
+  // default server url is empty and crash reports will fail to submit.
+#endif
+
   // Check sanity and correctness of app data.
 
   if (!mAppData->name) {
@@ -4324,6 +4331,14 @@ int XREMain::XRE_mainInit(bool* aExitFlag) {
   if (EnvHasValue("MOZ_CRASHREPORTER")) {
     mAppData->flags |= NS_XRE_ENABLE_CRASH_REPORTER;
   }
+
+#ifdef MOZ_THUNDERBIRD
+  // Set an explicit application name for Thunderbird.
+  // We do NOT set one for `firefox`.
+  // FOG uses a default one,
+  // background tasks overwrite it using `initializeFOG`.
+  FOG::SetApplicationID("thunderbird.desktop"_ns);
+#endif  // MOZ_THUNDERBIRD
 
   nsCOMPtr<nsIFile> xreBinDirectory;
   xreBinDirectory = mDirProvider.GetGREBinDir();

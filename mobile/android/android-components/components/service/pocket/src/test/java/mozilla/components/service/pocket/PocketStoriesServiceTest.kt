@@ -35,7 +35,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.Mockito.doReturn
-import org.mockito.Mockito.never
 import org.mockito.Mockito.verify
 import java.util.UUID
 import kotlin.reflect.KVisibility
@@ -48,7 +47,6 @@ class PocketStoriesServiceTest {
     private val sponsoredContentsUseCases: SponsoredContentsUseCases = mock()
     private val service = PocketStoriesService(testContext, PocketStoriesConfig(mock())).also {
         it.storiesRefreshScheduler = mock()
-        it.spocsRefreshscheduler = mock()
         it.contentRecommendationsRefreshScheduler = mock()
         it.sponsoredContentsRefreshScheduler = mock()
         it.storiesUseCases = storiesUseCases
@@ -84,61 +82,6 @@ class PocketStoriesServiceTest {
 
         verify(service.storiesRefreshScheduler).stopPeriodicRefreshes(any())
         assertNull(GlobalDependencyProvider.RecommendedStories.useCases)
-    }
-
-    @Test
-    fun `GIVEN PocketStoriesService is initialized with a valid profile WHEN called to start periodic refreshes THEN persist dependencies, cancel profile deletion and schedule stories refresh`() {
-        val client: Client = mock()
-        val profileId = UUID.randomUUID()
-        val appId = "test"
-        val service = PocketStoriesService(
-            context = testContext,
-            pocketStoriesConfig = PocketStoriesConfig(
-                client = client,
-                profile = Profile(
-                    profileId = profileId,
-                    appId = appId,
-                ),
-            ),
-        ).apply {
-            spocsRefreshscheduler = mock()
-        }
-
-        service.startPeriodicSponsoredStoriesRefresh()
-
-        assertNotNull(GlobalDependencyProvider.SponsoredStories.useCases)
-        verify(service.spocsRefreshscheduler).stopProfileDeletion(any())
-        verify(service.spocsRefreshscheduler).schedulePeriodicRefreshes(any())
-    }
-
-    @Test
-    fun `GIVEN PocketStoriesService is initialized with an invalid profile WHEN called to start periodic refreshes THEN don't schedule periodic refreshes and don't persist dependencies`() {
-        val service = PocketStoriesService(
-            context = testContext,
-            pocketStoriesConfig = PocketStoriesConfig(
-                client = mock(),
-                profile = null,
-            ),
-        ).apply {
-            spocsRefreshscheduler = mock()
-        }
-
-        service.startPeriodicSponsoredStoriesRefresh()
-
-        verify(service.spocsRefreshscheduler, never()).schedulePeriodicRefreshes(any())
-        assertNull(GlobalDependencyProvider.SponsoredStories.useCases)
-    }
-
-    @Test
-    fun `GIVEN PocketStoriesService WHEN called to stop periodic refreshes THEN stop refreshing stories`() {
-        // Mock periodic refreshes were started previously and profile details were set.
-        // Now they will have to be cleaned.
-        GlobalDependencyProvider.SponsoredStories.initialize(mock())
-        service.spocsRefreshscheduler = mock()
-
-        service.stopPeriodicSponsoredStoriesRefresh()
-
-        verify(service.spocsRefreshscheduler).stopPeriodicRefreshes(any())
     }
 
     @Test
@@ -201,15 +144,11 @@ class PocketStoriesServiceTest {
                     appId = appId,
                 ),
             ),
-        ).apply {
-            spocsRefreshscheduler = mock()
-        }
+        )
 
         service.deleteProfile()
 
         assertNotNull(GlobalDependencyProvider.SponsoredStories.useCases)
-        verify(service.spocsRefreshscheduler).stopPeriodicRefreshes(any())
-        verify(service.spocsRefreshscheduler).scheduleProfileDeletion(any())
     }
 
     @Test
@@ -220,13 +159,10 @@ class PocketStoriesServiceTest {
                 client = mock(),
                 profile = null,
             ),
-        ).apply {
-            spocsRefreshscheduler = mock()
-        }
+        )
 
         service.deleteProfile()
 
-        verify(service.spocsRefreshscheduler, never()).scheduleProfileDeletion(any())
         assertNull(GlobalDependencyProvider.SponsoredStories.useCases)
     }
 

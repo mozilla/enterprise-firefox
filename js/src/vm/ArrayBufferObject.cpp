@@ -1276,15 +1276,30 @@ static ArrayBufferContents ReallocateArrayBufferContents(JSContext* cx,
 }
 
 static ArrayBufferContents NewCopiedBufferContents(
-    JSContext* cx, Handle<ArrayBufferObject*> buffer) {
+    JSContext* cx, Handle<ArrayBufferObject*> buffer, size_t nbytes) {
+  size_t byteLength = buffer->byteLength();
+  MOZ_RELEASE_ASSERT(byteLength <= nbytes,
+                     "can't copy less than byteLength bytes");
+
   ArrayBufferContents dataCopy =
-      AllocateUninitializedArrayBufferContents(cx, buffer->byteLength());
+      AllocateUninitializedArrayBufferContents(cx, nbytes);
   if (dataCopy) {
-    if (auto count = buffer->byteLength()) {
-      memcpy(dataCopy.get(), buffer->dataPointer(), count);
+    // Copy the initial bytes from |buffer|.
+    if (byteLength) {
+      memcpy(dataCopy.get(), buffer->dataPointer(), byteLength);
+    }
+
+    // Zero the remaining bytes.
+    if (byteLength < nbytes) {
+      memset(dataCopy.get() + byteLength, 0, nbytes - byteLength);
     }
   }
   return dataCopy;
+}
+
+static ArrayBufferContents NewCopiedBufferContents(
+    JSContext* cx, Handle<ArrayBufferObject*> buffer) {
+  return NewCopiedBufferContents(cx, buffer, buffer->byteLength());
 }
 
 /* static */
@@ -3181,7 +3196,7 @@ bool ArrayBufferObject::ensureNonInline(JSContext* cx,
   }
 
   size_t nbytes = buffer->maxByteLength();
-  ArrayBufferContents copy = NewCopiedBufferContents(cx, buffer);
+  ArrayBufferContents copy = NewCopiedBufferContents(cx, buffer, nbytes);
   if (!copy) {
     return false;
   }

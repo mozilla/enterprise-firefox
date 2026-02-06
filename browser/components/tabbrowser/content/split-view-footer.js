@@ -217,9 +217,11 @@
     #resetTab() {
       if (this.#tab) {
         this.#tab.removeEventListener("TabAttrModified", this);
-        this.#tab.linkedBrowser?.removeProgressListener(
-          this.#browserProgressListener
-        );
+        if (this.#tab.linkedBrowser?.webProgress) {
+          this.#tab.linkedBrowser.removeProgressListener(
+            this.#browserProgressListener
+          );
+        }
       }
       this.#tab = null;
     }

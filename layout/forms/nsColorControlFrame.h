@@ -9,6 +9,7 @@
 
 #include "ButtonControlFrame.h"
 #include "nsCOMPtr.h"
+#include "nsIAnonymousContentCreator.h"
 
 namespace mozilla {
 class PresShell;
@@ -16,7 +17,8 @@ class PresShell;
 
 // Class which implements the input type=color
 
-class nsColorControlFrame final : public mozilla::ButtonControlFrame {
+class nsColorControlFrame final : public mozilla::ButtonControlFrame,
+                                  public nsIAnonymousContentCreator {
   typedef mozilla::dom::Element Element;
 
  public:

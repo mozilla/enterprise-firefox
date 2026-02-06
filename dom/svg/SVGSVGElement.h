@@ -43,7 +43,7 @@ class SVGView {
   SVGAnimatedEnumeration mZoomAndPan;
   SVGAnimatedViewBox mViewBox;
   SVGAnimatedPreserveAspectRatio mPreserveAspectRatio;
-  UniquePtr<SVGAnimatedTransformList> mTransforms;
+  std::unique_ptr<SVGAnimatedTransformList> mTransforms;
 };
 
 using SVGSVGElementBase = SVGViewportElement;
@@ -127,8 +127,8 @@ class SVGSVGElement final : public SVGSVGElementBase {
 
   nsresult BindToTree(BindContext&, nsINode& aParent) override;
   void UnbindFromTree(UnbindContext&) override;
-  SVGAnimatedTransformList* GetAnimatedTransformList(
-      uint32_t aFlags = 0) override;
+  SVGAnimatedTransformList* GetExistingAnimatedTransformList() const override;
+  SVGAnimatedTransformList* GetOrCreateAnimatedTransformList() override;
 
   // SVGSVGElement methods:
 
@@ -206,7 +206,7 @@ class SVGSVGElement final : public SVGSVGElementBase {
 
   // The time container for animations within this SVG document fragment. Set
   // for all outermost <svg> elements (not nested <svg> elements).
-  UniquePtr<SMILTimeContainer> mTimedDocumentRoot;
+  std::unique_ptr<SMILTimeContainer> mTimedDocumentRoot;
 
   SVGPoint mCurrentTranslate;
   float mCurrentScale;
@@ -221,8 +221,8 @@ class SVGSVGElement final : public SVGSVGElementBase {
 
   // mCurrentViewID and mSVGView are mutually exclusive; we can have
   // at most one non-null.
-  UniquePtr<nsString> mCurrentViewID;
-  UniquePtr<SVGView> mSVGView;
+  std::unique_ptr<nsString> mCurrentViewID;
+  std::unique_ptr<SVGView> mSVGView;
 };
 
 }  // namespace dom

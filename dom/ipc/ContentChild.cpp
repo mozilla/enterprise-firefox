@@ -1864,6 +1864,13 @@ mozilla::ipc::IPCResult ContentChild::RecvConstructBrowser(
     }
   }
 
+  if (!aBrowserEp.IsValidForManager(this)) {
+    return IPC_FAIL(this, "Invalid PBrowserChild endpoint");
+  }
+  if (!aWindowEp.IsValidForManager(aBrowserEp)) {
+    return IPC_FAIL(this, "Invalid PWindowGlobalChild endpoint");
+  }
+
   RefPtr<BrowsingContext> browsingContext =
       BrowsingContext::Get(aWindowInit.context().mBrowsingContextId);
   if (!browsingContext || browsingContext->IsDiscarded()) {
@@ -1882,6 +1889,13 @@ mozilla::ipc::IPCResult ContentChild::RecvConstructBrowser(
     return browsingContext
                ? IPC_FAIL(this, "discarded initial top BrowsingContext")
                : IPC_FAIL(this, "missing initial top BrowsingContext");
+  }
+  if (!browsingContext->AncestorsAreCurrent()) {
+    MOZ_ASSERT(!aIsTopLevel, "Top level discard was already checked");
+    MOZ_LOG(
+        BrowsingContext::GetLog(), LogLevel::Warning,
+        ("Discarded or inactive ancestor of initial frame BrowsingContext"));
+    return IPC_OK();
   }
 
   if (xpc::IsInAutomation() &&
@@ -1957,15 +1971,11 @@ mozilla::ipc::IPCResult ContentChild::RecvConstructBrowser(
   openWindowInfo->mPolicyContainerToInheritForAboutBlank =
       new PolicyContainer();
 
-  {
-    // Block the script runner that notifies about the creation of the script
-    // global for the initial about:blank.
-    nsAutoScriptBlocker blockScripts;
-
-    if (NS_WARN_IF(NS_FAILED(browserChild->Init(
-            /* aOpener */ nullptr, windowChild, openWindowInfo)))) {
-      return IPC_FAIL(browserChild, "BrowserChild::Init failed");
-    }
+  nsresult rv = browserChild->Init(
+      /* aOpener */ nullptr, windowChild, openWindowInfo);
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    IPC_FAIL_UNSAFE_PRINTF(browserChild, "BrowserChild::Init failed (rv=%s)",
+                           mozilla::GetStaticErrorName(rv));
   }
 
   nsCOMPtr<nsIObserverService> os = services::GetObserverService();

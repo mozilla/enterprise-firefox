@@ -316,6 +316,11 @@ nsSocketTransportService::UnregisterShutdownTask(nsITargetShutdownTask* task) {
   return thread ? thread->UnregisterShutdownTask(task) : NS_ERROR_UNEXPECTED;
 }
 
+nsIEventTarget::FeatureFlags nsSocketTransportService::GetFeatures() {
+  nsCOMPtr<nsIThread> thread = GetThreadSafely();
+  return thread ? thread->GetFeatures() : SUPPORTS_BASE;
+}
+
 NS_IMETHODIMP
 nsSocketTransportService::IsOnCurrentThread(bool* result) {
   *result = OnSocketThread();

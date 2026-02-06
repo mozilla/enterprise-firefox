@@ -446,10 +446,7 @@ add_task(async function test_accel_down() {
     );
     is(searchPopup.selectedIndex, -1, "no suggestion should be selected");
   }
-  await SearchService.setDefault(
-    current,
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
-  );
+  await SearchService.setDefault(current, SearchService.CHANGE_REASON.UNKNOWN);
 });
 
 add_task(async function test_accel_up() {
@@ -479,10 +476,7 @@ add_task(async function test_accel_up() {
     );
     is(searchPopup.selectedIndex, -1, "no suggestion should be selected");
   }
-  await SearchService.setDefault(
-    current,
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
-  );
+  await SearchService.setDefault(current, SearchService.CHANGE_REASON.UNKNOWN);
 });
 
 add_task(async function test_tab_and_arrows() {

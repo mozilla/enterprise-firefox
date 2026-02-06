@@ -1010,11 +1010,11 @@ add_task(async function setup() {
 
   await SearchService.setDefault(
     SearchService.getEngineByName(kSearchEngineID),
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+    SearchService.CHANGE_REASON.UNKNOWN
   );
   await SearchService.setDefaultPrivate(
     SearchService.getEngineByName(kPrivateSearchEngineID),
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+    SearchService.CHANGE_REASON.UNKNOWN
   );
 });
 
@@ -1039,7 +1039,7 @@ add_task(async function run_test() {
   gSingleWordDNSLookup = false;
   await SearchService.setDefault(
     SearchService.getEngineByName(kPostSearchEngineID),
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+    SearchService.CHANGE_REASON.UNKNOWN
   );
   await do_single_test_run();
 });

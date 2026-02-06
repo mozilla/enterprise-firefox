@@ -866,6 +866,23 @@
       return children.filter(node => node.tagName == "tab-group");
     }
 
+    get allSplitViews() {
+      let children = Array.from(this.arrowScrollbox.children);
+      let splitViews = [];
+      for (let node of children) {
+        if (node.tagName == "tab-split-view-wrapper") {
+          splitViews.push(node);
+        } else if (node.tagName == "tab-group") {
+          splitViews.push(
+            ...Array.from(node.children).filter(
+              child => child.tagName == "tab-split-view-wrapper"
+            )
+          );
+        }
+      }
+      return splitViews;
+    }
+
     /**
      * Returns all tabs in the current window, including hidden tabs and tabs
      * in collapsed groups, but excluding closing tabs and the Firefox View tab.

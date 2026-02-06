@@ -69,11 +69,11 @@ add_task(async function test_config_updated_engine_changes() {
 
   function enginesObs(subject, topic, data) {
     if (data == SearchUtils.MODIFIED_TYPE.ADDED) {
-      enginesAdded.push(subject.QueryInterface(Ci.nsISearchEngine).id);
+      enginesAdded.push(subject.wrappedJSObject.id);
     } else if (data == SearchUtils.MODIFIED_TYPE.CHANGED) {
-      enginesModified.push(subject.QueryInterface(Ci.nsISearchEngine).id);
+      enginesModified.push(subject.wrappedJSObject.id);
     } else if (data == SearchUtils.MODIFIED_TYPE.REMOVED) {
-      enginesRemoved.push(subject.QueryInterface(Ci.nsISearchEngine).id);
+      enginesRemoved.push(subject.wrappedJSObject.id);
     }
   }
   Services.obs.addObserver(enginesObs, SearchUtils.TOPIC_ENGINE_MODIFIED);
@@ -120,9 +120,7 @@ add_task(async function test_config_updated_engine_changes() {
   );
 
   Assert.equal(
-    SearchService.wrappedJSObject._settings.getMetaDataAttribute(
-      "useSavedOrder"
-    ),
+    SearchService._settings.getMetaDataAttribute("useSavedOrder"),
     false,
     "Should not have set the useSavedOrder preference"
   );

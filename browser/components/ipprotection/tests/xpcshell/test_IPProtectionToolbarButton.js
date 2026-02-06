@@ -12,6 +12,11 @@ const { IPProtectionToolbarButton } = ChromeUtils.importESModule(
  * and correctly update CSS classes based on the state.
  */
 add_task(function test_update_icon_status() {
+  Services.prefs.setBoolPref(
+    "browser.ipProtection.features.siteExceptions",
+    true
+  );
+
   const browser = Services.appShell.createWindowlessBrowser(true);
   const principal = Services.scriptSecurityManager.getSystemPrincipal();
   browser.docShell.createAboutBlankDocumentViewer(principal, principal);
@@ -108,4 +113,5 @@ add_task(function test_update_icon_status() {
 
   // Cleanup
   fakeToolbarButton.uninit();
+  Services.prefs.clearUserPref("browser.ipProtection.features.siteExceptions");
 });

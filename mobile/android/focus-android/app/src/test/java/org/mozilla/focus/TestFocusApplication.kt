@@ -34,7 +34,7 @@ class TestFocusApplication : FocusApplication() {
 
     override fun initializeNimbus() = Unit
     override fun initializeTelemetry() = Unit
-    override fun finishSetupMegazord(ioDispatcher: CoroutineDispatcher) = Unit
+    override fun finishSetupMegazord(dispatcher: CoroutineDispatcher) = Unit
 
     override fun initializeWebExtensionSupport() = Unit
 }

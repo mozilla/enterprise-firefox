@@ -30,10 +30,8 @@ add_setup(async function () {
   // For these tests, stub-out the removeEngine function, so that when we
   // remove it from the add-on manager, the engine is left in the search
   // settings.
-  oldRemoveEngineFunc = SearchService.wrappedJSObject.removeEngine.bind(
-    SearchService.wrappedJSObject
-  );
-  SearchService.wrappedJSObject.removeEngine = () => {};
+  oldRemoveEngineFunc = SearchService.removeEngine.bind(SearchService);
+  SearchService.removeEngine = () => {};
 
   registerCleanupFunction(async () => {
     await extensionPostData.unload();
@@ -72,7 +70,7 @@ add_task(async function test_different_name() {
 
   let engine = SearchService.getEngineByName("Example");
 
-  engine.wrappedJSObject._name = "Example Test";
+  engine._name = "Example Test";
 
   await SearchService.runBackgroundChecks();
 
@@ -87,7 +85,7 @@ add_task(async function test_different_name() {
     "Should record an invalid web extension because the addon has a different name"
   );
 
-  engine.wrappedJSObject._name = "Example";
+  engine._name = "Example";
 });
 
 add_task(async function test_different_url() {
@@ -95,8 +93,8 @@ add_task(async function test_different_url() {
 
   let engine = SearchService.getEngineByName("Example");
 
-  engine.wrappedJSObject._urls = [];
-  engine.wrappedJSObject._setUrls({
+  engine._urls = [];
+  engine._setUrls({
     search_url: "https://example.com/123",
     search_url_get_params: "?q={searchTerms}",
   });
@@ -120,8 +118,8 @@ add_task(async function test_different_url_post_data() {
 
   let engine = SearchService.getEngineByName("PostData");
 
-  engine.wrappedJSObject._urls = [];
-  engine.wrappedJSObject._setUrls({
+  engine._urls = [];
+  engine._setUrls({
     search_url: "https://example.com/123",
     search_url_post_params: "?q={searchTerms}",
   });

@@ -62,10 +62,6 @@ void Set(mozilla::Telemetry::ScalarID aId, const nsAString& aKey, bool aValue);
 nsresult RegisterScalars(const nsACString& aCategoryName,
                          JS::Handle<JS::Value> aScalarData, JSContext* cx);
 
-// Event Summary
-void SummarizeEvent(const nsCString& aUniqueEventName,
-                    mozilla::Telemetry::ProcessID aProcessType);
-
 // Only to be used for testing.
 void ClearScalars();
 

@@ -80,7 +80,7 @@ tasks:
 
     macosx64:
         dependencies:
-            repackage: repackage-macosx64-enterprise-shippable/opt
+            repackage: repackage-macosx64-shippable/opt
         run:
             using: mach
         extra-config:

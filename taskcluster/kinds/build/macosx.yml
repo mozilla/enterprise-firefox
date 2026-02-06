@@ -886,7 +886,8 @@ macosx64-x64-shippable/opt:
         platform: osx-shippable/opt
         symbol: Bpgo(Bx)
         tier: 1
-    run-on-projects: ['release']
+    run-on-projects: ["release", "enterprise-firefox"]
+    run-on-repo-type: ["git"]
     worker:
         max-run-time: 7200
         env:
@@ -957,7 +958,8 @@ macosx64-shippable/opt:
         platform: osx-shippable/opt
         symbol: Bpgo(B)
         tier: 1
-    run-on-projects: ['release']
+    run-on-projects: ["release", "enterprise-firefox"]
+    run-on-repo-type: ["git"]
     worker:
         max-run-time: 1800
     run:

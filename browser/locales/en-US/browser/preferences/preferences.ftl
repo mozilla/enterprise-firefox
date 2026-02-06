@@ -297,19 +297,22 @@ settings-tabs-show-image-in-preview =
     .accessKey = h
 
 
-browser-layout-header = Browser Layout
+browser-layout-header2 =
+    .label = Browser Layout
 
-browser-layout-horizontal-tabs =
+browser-layout-horizontal-tabs2 =
     .label = Horizontal tabs
-browser-layout-horizontal-tabs-desc = Display at top of browser
+    .title = Tabs at the top
+    .description = Tabs at the top
 
-browser-layout-vertical-tabs =
+browser-layout-vertical-tabs2 =
     .label = Vertical tabs
-browser-layout-vertical-tabs-desc = Display on the side, in the sidebar
+    .title = Tabs on the side, in the sidebar
+    .description = Tabs on the side, in the sidebar
 
-browser-layout-show-sidebar =
+browser-layout-show-sidebar2 =
     .label = Show sidebar
-browser-layout-show-sidebar-desc = Quickly access bookmarks, tabs from your phone, AI chatbots, and more without leaving your main view.
+    .description = Quickly access bookmarks, tabs from your phone, AI chatbots, and more without leaving your main view.
 
 ## General Section - Language & Appearance
 
@@ -396,6 +399,33 @@ preferences-text-zoom-override-warning =
 language-header = Language
 
 choose-language-description = Choose your preferred language for displaying pages
+
+website-language-heading =
+  .label = Website language
+  .description = Some web pages are displayed in multiple languages. Choose languages in your preferred order.
+
+website-preferred-language =
+  .label = Preferred languages
+
+website-add-language =
+  .label = Add language
+
+website-add-language-button =
+  .aria-label = Add selected language
+  .title = Add selected language
+
+# The pattern used to generate strings presented to the user in the
+# website languages selection list.
+#
+# Example:
+#   Icelandic
+#   Spanish (Chile)
+#
+# Variables:
+#   $locale (String) - A name of the locale (for example: "Icelandic", "Spanish (Chile)")
+website-remove-language-button =
+  .aria-label = Remove { $locale }
+  .title = Remove { $locale }
 
 choose-button =
     .label = Choose…
@@ -862,11 +892,8 @@ home-custom-homepage-subpage =
     .heading = Custom Homepage
 
 # Subheader on the Custom Homepage subpage. Followed by a form to enter URLs and a list of URLs already saved, if any.
-home-custom-homepage-subheader = Website address(es)
-
-# Subheader on the Custom Homepage subpage. Followed by a form to enter URLs and a list of URLs already saved, if any.
-home-custom-homepage-card =
-    .heading = Website address(es)
+home-custom-homepage-card-header =
+    .label = Website address(es)
 
 home-custom-homepage-address =
     .placeholder = Enter address
@@ -874,7 +901,12 @@ home-custom-homepage-address-button =
     .label = Add address
 
 # Shown when no custom websites/URLs to use as a homepage have been added yet
-home-custom-homepage-no-websites-yet = No websites added yet.
+home-custom-homepage-no-results =
+    .label = No websites added yet.
+
+home-custom-homepage-delete-address-button =
+    .aria-label = Delete address
+    .title = Delete address
 
 # Further options to use when setting the home page. Two action buttons are placed in line with this prompt
 # to replace the current home page with a currently open page or bookmark.
@@ -1557,7 +1589,7 @@ autofill-payment-methods-manage-payments-button =
     .accesskey = m
 # This operation requires the user to authenticate with the operating system (device sign-in)
 autofill-reauth-payment-methods-checkbox-2 =
-    .label = Require device sign in to autofill and manage payments methods
+    .label = Require device sign in to autofill and manage payment methods
     .accesskey = o
 
 autofill-payment-methods-add-button = Add new payment method

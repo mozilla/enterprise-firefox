@@ -111,6 +111,16 @@ def add_command_arguments(config, tasks):
             all_locales.update(sub_partner.get("locales", []))
 
     for task in tasks:
+        for dep_task in get_dependencies(config, task):
+            if "mar-channel-id" in dep_task.attributes.keys():
+                task["attributes"].update({
+                    "mar-channel-id": dep_task.attributes["mar-channel-id"],
+                    "accepted-mar-channel-ids": dep_task.attributes[
+                        "accepted-mar-channel-ids"
+                    ],
+                })
+                break
+
         # add the MOZHARNESS_OPTIONS, eg version=61.0, build-number=1, platform=win64
         if not config.kind.startswith("enterprise-repack") and not task["attributes"][
             "build_platform"

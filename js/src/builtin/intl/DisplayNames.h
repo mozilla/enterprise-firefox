@@ -13,11 +13,11 @@
 #include "jstypes.h"
 #include "NamespaceImports.h"
 
-#include "builtin/SelfHostingDefines.h"
 #include "js/Class.h"  // JSClass, JSClassOps, js::ClassSpec
 #include "js/TypeDecls.h"
 #include "js/Value.h"
 #include "vm/NativeObject.h"
+#include "vm/StringType.h"
 
 struct JS_PUBLIC_API JSContext;
 
@@ -28,21 +28,100 @@ class DisplayNames;
 namespace js {
 struct ClassSpec;
 
+namespace intl {
+// Similar to enums in mozilla::intl::DisplayNames, except uses smaller int
+// types to require less memory when allocating on the heap.
+struct DisplayNamesOptions {
+  enum class Style : int8_t { Long, Short, Narrow, Abbreviated };
+  Style style = Style::Long;
+
+  enum class Type : int8_t {
+    Language,
+    Region,
+    Script,
+    Currency,
+    Calendar,
+    DateTimeField,
+    Weekday,
+    Month,
+    Quarter,
+    DayPeriod
+  };
+  Type type = Type::Language;
+
+  enum class Fallback : int8_t { Code, None };
+  Fallback fallback = Fallback::Code;
+
+  enum class LanguageDisplay : int8_t { Dialect, Standard };
+  LanguageDisplay languageDisplay = LanguageDisplay::Dialect;
+
+  bool mozExtensions = false;
+};
+}  // namespace intl
+
 class DisplayNamesObject : public NativeObject {
  public:
   static const JSClass class_;
   static const JSClass& protoClass_;
 
-  static constexpr uint32_t INTERNALS_SLOT = 0;
-  static constexpr uint32_t LOCALE_DISPLAY_NAMES_SLOT = 1;
-  static constexpr uint32_t SLOT_COUNT = 3;
-
-  static_assert(INTERNALS_SLOT == INTL_INTERNALS_OBJECT_SLOT,
-                "INTERNALS_SLOT must match self-hosting define for internals "
-                "object slot");
+  static constexpr uint32_t LOCALE = 0;
+  static constexpr uint32_t CALENDAR = 1;
+  static constexpr uint32_t OPTIONS = 2;
+  static constexpr uint32_t LOCALE_DISPLAY_NAMES_SLOT = 3;
+  static constexpr uint32_t SLOT_COUNT = 4;
 
   // Estimated memory use for ULocaleDisplayNames (see IcuMemoryUsage).
   static constexpr size_t EstimatedMemoryUse = 1238;
+
+  bool isLocaleResolved() const { return getFixedSlot(LOCALE).isString(); }
+
+  JSObject* getRequestedLocales() const {
+    const auto& slot = getFixedSlot(LOCALE);
+    if (slot.isUndefined()) {
+      return nullptr;
+    }
+    return &slot.toObject();
+  }
+
+  void setRequestedLocales(JSObject* requestedLocales) {
+    setFixedSlot(LOCALE, ObjectValue(*requestedLocales));
+  }
+
+  JSLinearString* getLocale() const {
+    const auto& slot = getFixedSlot(LOCALE);
+    if (slot.isUndefined()) {
+      return nullptr;
+    }
+    return &slot.toString()->asLinear();
+  }
+
+  void setLocale(JSLinearString* locale) {
+    setFixedSlot(LOCALE, StringValue(locale));
+  }
+
+  JSLinearString* getCalendar() const {
+    const auto& slot = getFixedSlot(CALENDAR);
+    if (slot.isUndefined()) {
+      return nullptr;
+    }
+    return &slot.toString()->asLinear();
+  }
+
+  void setCalendar(JSLinearString* calendar) {
+    setFixedSlot(CALENDAR, StringValue(calendar));
+  }
+
+  intl::DisplayNamesOptions* getOptions() const {
+    const auto& slot = getFixedSlot(OPTIONS);
+    if (slot.isUndefined()) {
+      return nullptr;
+    }
+    return static_cast<intl::DisplayNamesOptions*>(slot.toPrivate());
+  }
+
+  void setOptions(intl::DisplayNamesOptions* options) {
+    setFixedSlot(OPTIONS, PrivateValue(options));
+  }
 
   mozilla::intl::DisplayNames* getDisplayNames() const {
     const auto& slot = getFixedSlot(LOCALE_DISPLAY_NAMES_SLOT);
@@ -62,17 +141,6 @@ class DisplayNamesObject : public NativeObject {
 
   static void finalize(JS::GCContext* gcx, JSObject* obj);
 };
-
-/**
- * Return the display name for the requested code or undefined if no applicable
- * display name was found.
- *
- * Usage: result = intl_ComputeDisplayName(displayNames, locale, calendar,
- *                                         style, languageDisplay, fallback,
- *                                         type, code)
- */
-[[nodiscard]] extern bool intl_ComputeDisplayName(JSContext* cx, unsigned argc,
-                                                  Value* vp);
 
 }  // namespace js
 

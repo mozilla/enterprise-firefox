@@ -61,7 +61,7 @@ import org.mozilla.fenix.tabstray.TabsTrayState.Mode
 import org.mozilla.fenix.tabstray.TabsTrayStore
 import org.mozilla.fenix.tabstray.TabsTrayTestTag
 import org.mozilla.fenix.tabstray.ui.tabstray.TabsTray
-import org.mozilla.fenix.tabstray.ui.theme.getTabManagerTheme
+import org.mozilla.fenix.tabstray.ui.theme.TabManagerThemeProvider
 import org.mozilla.fenix.theme.FirefoxTheme
 import kotlin.math.max
 import mozilla.components.ui.icons.R as iconsR
@@ -579,7 +579,7 @@ private fun TabsTrayBannerPreviewRoot(
     }
     val state by tabsTrayStore.stateFlow.collectAsState()
 
-    FirefoxTheme(theme = getTabManagerTheme(page = state.selectedPage)) {
+    FirefoxTheme(theme = TabManagerThemeProvider(selectedPage = state.selectedPage).provideTheme()) {
         Box(modifier = Modifier.size(400.dp)) {
             TabsTrayBanner(
                 selectedPage = state.selectedPage,

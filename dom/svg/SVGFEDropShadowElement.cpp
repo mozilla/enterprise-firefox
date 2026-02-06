@@ -25,7 +25,7 @@ SVGElement::NumberInfo SVGFEDropShadowElement::sNumberInfo[2] = {
     {nsGkAtoms::dx, 2}, {nsGkAtoms::dy, 2}};
 
 SVGElement::NumberPairInfo SVGFEDropShadowElement::sNumberPairInfo[1] = {
-    {nsGkAtoms::stdDeviation, 2, 2}};
+    {nsGkAtoms::stdDeviation, 2}};
 
 SVGElement::StringInfo SVGFEDropShadowElement::sStringInfo[2] = {
     {nsGkAtoms::result, kNameSpaceID_None, true},
@@ -71,18 +71,18 @@ FilterPrimitiveDescription SVGFEDropShadowElement::GetPrimitiveDescription(
     const nsTArray<bool>& aInputsAreTainted,
     nsTArray<RefPtr<SourceSurface>>& aInputImages) {
   float stdX = aInstance->GetPrimitiveNumber(
-      SVGContentUtils::X, &mNumberPairAttributes[STD_DEV],
+      SVGLength::Axis::X, &mNumberPairAttributes[STD_DEV],
       SVGAnimatedNumberPairWhichOne::First);
   float stdY = aInstance->GetPrimitiveNumber(
-      SVGContentUtils::Y, &mNumberPairAttributes[STD_DEV],
+      SVGLength::Axis::Y, &mNumberPairAttributes[STD_DEV],
       SVGAnimatedNumberPairWhichOne::Second);
   if (stdX < 0 || stdY < 0) {
     return FilterPrimitiveDescription();
   }
 
   Point offset(
-      aInstance->GetPrimitiveNumber(SVGContentUtils::X, &mNumberAttributes[DX]),
-      aInstance->GetPrimitiveNumber(SVGContentUtils::Y,
+      aInstance->GetPrimitiveNumber(SVGLength::Axis::X, &mNumberAttributes[DX]),
+      aInstance->GetPrimitiveNumber(SVGLength::Axis::Y,
                                     &mNumberAttributes[DY]));
 
   DropShadowAttributes atts;

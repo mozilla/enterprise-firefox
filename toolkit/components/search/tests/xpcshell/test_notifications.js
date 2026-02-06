@@ -71,7 +71,7 @@ async function defaultNotificationTest(
   const defaultObserver = new SearchObserver(expected);
   await SearchService[setPrivateDefault ? "setDefaultPrivate" : "setDefault"](
     engine,
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+    SearchService.CHANGE_REASON.UNKNOWN
   );
   await defaultObserver.promise;
 }
@@ -88,7 +88,7 @@ add_task(
   async function test_defaultPrivateEngine_notifications_when_not_enabled() {
     await SearchService.setDefault(
       appDefaultEngine,
-      Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+      SearchService.CHANGE_REASON.UNKNOWN
     );
 
     Services.prefs.setBoolPref(
@@ -101,13 +101,10 @@ add_task(
 );
 
 add_task(async function test_removeEngine() {
-  await SearchService.setDefault(
-    engine,
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
-  );
+  await SearchService.setDefault(engine, SearchService.CHANGE_REASON.UNKNOWN);
   await SearchService.setDefaultPrivate(
     engine,
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+    SearchService.CHANGE_REASON.UNKNOWN
   );
 
   const removedObserver = new SearchObserver([

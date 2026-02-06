@@ -20,8 +20,62 @@ ChromeUtils.defineESModuleGetters(lazy, {
 // Will at least make move forward marionette
 Services.obs.notifyObservers(window, "browser-delayed-startup-finished");
 
+const ErrorReport = {
+  _wrapper: null,
+
+  init() {
+    this._wrapper = document.querySelector(".felt-browser-error");
+  },
+
+  reset() {
+    if (!this._wrapper) {
+      return;
+    }
+    if (this._wrapper.classList.contains("is-hidden")) {
+      return;
+    }
+    this._wrapper.classList.add("is-hidden");
+    const errors = this._wrapper.querySelectorAll(
+      ".felt-browser-error > div:not(.is-hidden)"
+    );
+    errors.forEach(e => e.classList.add("is-hidden"));
+  },
+
+  async update(errorType, details = null) {
+    if (!this._wrapper) {
+      return;
+    }
+    const errorElement = this._wrapper.querySelector(`.${errorType}`);
+    if (!errorElement) {
+      return;
+    }
+    if (details) {
+      const detailsElement = errorElement.querySelector(
+        ".felt-browser-error-details"
+      );
+      if (detailsElement) {
+        const l10nId = `felt-error-${details}`;
+        const translated = await document.l10n.formatValue(l10nId);
+        detailsElement.textContent = translated || details;
+      }
+    }
+    errorElement.classList.remove("is-hidden");
+    this._wrapper.classList.remove("is-hidden");
+  },
+};
+
 async function connectToConsole(email) {
-  const posture = await lazy.ConsoleClient.sendDevicePosture();
+  ErrorReport.reset();
+
+  let posture;
+  try {
+    posture = await lazy.ConsoleClient.sendDevicePosture();
+  } catch (err) {
+    console.error(`FeltExtension: Failed to connect to console: ${err}`);
+    ErrorReport.update("felt-browser-error-connection", err.message);
+    return;
+  }
+
   if (!posture) {
     // TODO: Currently we don't check the posture yet. In the future we need to handle rejected device posture
     return;
@@ -103,10 +157,7 @@ function informAboutPotentialStartupFailure() {
   if (window.location.search) {
     const errorClass = new URLSearchParams(window.location.search).get("error");
     if (errorClass) {
-      document
-        .querySelector(".felt-browser-error")
-        .classList.remove("is-hidden");
-      document.querySelector(`.${errorClass}`).classList.remove("is-hidden");
+      ErrorReport.update(errorClass);
     }
   }
 }
@@ -172,6 +223,60 @@ function setupMarionetteEnvironment() {
   Services.obs.notifyObservers(window, "browser-idle-startup-tasks-finished");
 }
 
+function setupContextMenu() {
+  const contextMenu = document.getElementById("textbox-contextmenu");
+  if (!contextMenu) {
+    return;
+  }
+
+  // Focus the target on contextmenu so command queries find the right editor.
+  window.addEventListener(
+    "contextmenu",
+    e => {
+      let target = e.composedTarget;
+      if (target && document.commandDispatcher.focusedElement != target) {
+        target.focus();
+      }
+    },
+    true
+  );
+
+  function updateMenuItemStates() {
+    for (let item of contextMenu.childNodes) {
+      let command = item.getAttribute("command");
+      if (command) {
+        try {
+          let controller =
+            document.commandDispatcher.getControllerForCommand(command);
+          if (controller) {
+            let enabled = controller.isCommandEnabled(command);
+            if (enabled) {
+              item.removeAttribute("disabled");
+            } else {
+              item.setAttribute("disabled", "true");
+            }
+          }
+        } catch (e) {}
+      }
+    }
+  }
+
+  contextMenu.addEventListener("popupshowing", () => {
+    goUpdateGlobalEditMenuItems(true);
+    updateMenuItemStates();
+
+    // Command state updates arrive asynchronously for remote content.
+    // Listen for updates while the menu is open.
+    let updateHandler = () => updateMenuItemStates();
+    window.addEventListener("commandupdate", updateHandler);
+    contextMenu.addEventListener(
+      "popuphidden",
+      () => window.removeEventListener("commandupdate", updateHandler),
+      { once: true }
+    );
+  });
+}
+
 function setupPopupNotifications() {
   ChromeUtils.defineLazyGetter(window, "PopupNotifications", () => {
     const panel = document.getElementById("notification-popup");
@@ -197,8 +302,10 @@ function setupPopupNotifications() {
 window.addEventListener(
   "load",
   () => {
+    ErrorReport.init();
     setupMarionetteEnvironment();
     setupPopupNotifications();
+    setupContextMenu();
     listenFormEmailSubmission();
     informAboutPotentialStartupFailure();
   },

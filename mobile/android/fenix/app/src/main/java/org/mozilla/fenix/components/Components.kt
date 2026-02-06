@@ -111,17 +111,19 @@ class Components(private val context: Context) {
 
     val useCases by lazyMonitored {
         UseCases(
-            context,
-            lazyMonitored { core.engine },
-            lazyMonitored { core.store },
-            lazyMonitored { core.webAppShortcutManager },
-            lazyMonitored { core.topSitesStorage },
-            lazyMonitored { core.bookmarksStorage },
-            lazyMonitored { core.historyStorage },
-            lazyMonitored { backgroundServices.syncedTabsCommands },
-            lazyMonitored { appStore },
-            lazyMonitored { core.client },
-            lazyMonitored { strictMode },
+            context = context,
+            crashReporter = lazyMonitored { analytics.crashReporter },
+            engine = lazyMonitored { core.engine },
+            store = lazyMonitored { core.store },
+            shortcutManager = lazyMonitored { core.webAppShortcutManager },
+            topSitesStorage = lazyMonitored { core.topSitesStorage },
+            bookmarksStorage = lazyMonitored { core.bookmarksStorage },
+            historyStorage = lazyMonitored { core.historyStorage },
+            syncedTabsCommands = lazyMonitored { backgroundServices.syncedTabsCommands },
+            adsClientProvider = ads.lazyAdsClientProvider,
+            appStore = lazyMonitored { appStore },
+            client = lazyMonitored { core.client },
+            strictMode = lazyMonitored { strictMode },
         )
     }
 
@@ -361,6 +363,10 @@ class Components(private val context: Context) {
 
     val settingsIndexer by lazyMonitored {
         DefaultFenixSettingsIndexer(context)
+    }
+
+    val ads by lazyMonitored {
+        Ads(context = context)
     }
 }
 

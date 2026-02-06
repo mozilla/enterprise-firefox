@@ -53,7 +53,7 @@ add_setup(async function () {
   const privateEngine = await SearchService.getEngineByName("DuckDuckGo");
   await SearchService.setDefaultPrivate(
     privateEngine,
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+    SearchService.CHANGE_REASON.UNKNOWN
   );
   expectedEngineAlias = privateEngine.aliases[0];
   expectedIconURL = await privateEngine.getIconURL();
@@ -61,7 +61,7 @@ add_setup(async function () {
   registerCleanupFunction(async () => {
     await SearchService.setDefaultPrivate(
       originalPrivateDefault,
-      Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+      SearchService.CHANGE_REASON.UNKNOWN
     );
   });
 });

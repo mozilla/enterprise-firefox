@@ -251,6 +251,8 @@ struct RunnableQueue : public nsISerialEventTarget {
     return NS_ERROR_NOT_IMPLEMENTED;
   }
 
+  NS_IMETHOD_(FeatureFlags) GetFeatures() override { return SUPPORTS_BASE; }
+
   // nsISupports methods
 
   NS_DECL_THREADSAFE_ISUPPORTS

@@ -10,6 +10,7 @@ import {
   ChatStore,
   MESSAGE_ROLE,
 } from "moz-src:///browser/components/aiwindow/ui/modules/ChatStore.sys.mjs";
+import { BlockListManager } from "chrome://global/content/ml/Utils.sys.mjs";
 
 // Chat fetch defaults
 const DEFAULT_MAX_RESULTS = 50;
@@ -18,6 +19,8 @@ const MS_PER_SEC = 1_000;
 const SEC_PER_MIN = 60;
 const MINS_PER_HOUR = 60;
 const HOURS_PER_DAY = 24;
+
+let _mgr = BlockListManager.initializeFromDefault({ language: "en" });
 
 /**
  * Fetch recent user chat messages from the ChatStore and compute a freshness
@@ -50,15 +53,22 @@ export async function getRecentChats(
   // Underlying Chatstore uses Date type but MemoriesStore maintains in TS
   const startDate = new Date(startTime);
   const endDate = new Date();
-  const chatStore = new ChatStore();
-  const messages = await chatStore.findMessagesByDate(
+  const messages = await ChatStore.findMessagesByDate(
     startDate,
     endDate,
     MESSAGE_ROLE.USER,
     maxResults
   );
 
-  const chatMessages = messages.map(msg => {
+  const filtered = messages.filter(msg => {
+    const body = msg.content?.body;
+    if (!body || typeof body !== "string") {
+      return true;
+    }
+    return !_mgr.matchAtWordBoundary({ text: body.toLowerCase() });
+  });
+
+  const chatMessages = filtered.map(msg => {
     const createdDate = msg.createdDate;
     const freshness_score = computeFreshnessScore(createdDate, halfLifeDays);
     return {
@@ -104,4 +114,8 @@ export function computeFreshnessScore(
   }
   const raw = Math.exp(-Math.LN2 * (ageDays / halfLifeDays));
   return Math.max(0, Math.min(1, raw));
+}
+
+export function _setBlockListManagerForTesting(mgr) {
+  _mgr = mgr;
 }

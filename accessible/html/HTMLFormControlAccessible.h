@@ -95,7 +95,6 @@ class HTMLTextFieldAccessible : public HyperTextAccessible {
       const override;
 
   // LocalAccessible
-  virtual void Value(nsString& aValue) const override;
   virtual void ApplyARIAState(uint64_t* aState) const override;
   virtual mozilla::a11y::role NativeRole() const override;
   virtual uint64_t NativeState() const override;

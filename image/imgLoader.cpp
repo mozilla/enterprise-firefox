@@ -1548,8 +1548,8 @@ nsresult imgLoader::RemoveEntriesInternal(
     const auto& key = entry.GetKey();
 
     if (SharedSubResourceCacheUtils::ShouldClearEntry(
-            key.URI(), key.LoaderPrincipal(), key.PartitionPrincipal(),
-            Nothing(), aPrincipal, aSchemelessSite, aPattern, aURL)) {
+            key.URI(), key.PartitionPrincipal(), Nothing(), aPrincipal,
+            aSchemelessSite, aPattern, aURL)) {
       entriesToBeRemoved.AppendElement(entry.GetData());
     }
   }

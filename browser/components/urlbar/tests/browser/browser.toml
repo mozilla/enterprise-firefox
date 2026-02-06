@@ -721,6 +721,9 @@ https_first_disabled = true
 
 ["browser_trust_panel_security_view.js"]
 https_first_disabled = true
+skip-if = [
+  "true", # Bug 2014612
+]
 
 ["browser_typed_value.js"]
 
@@ -750,11 +753,6 @@ tags = "search-telemetry"
 support-files = [
   "urlbarTelemetrySearchSuggestions.sjs",
   "urlbarTelemetrySearchSuggestions.xml",
-]
-skip-if = [
-  "os == 'linux' && os_version == '24.04' && arch == 'x86_64' && display == 'x11' && opt", # Bug 1775830
-  "os == 'linux' && os_version == '24.04' && arch == 'x86_64' && display == 'x11' && asan", # Bug 1775830
-  "os == 'mac' && os_version == '10.15' && arch == 'x86_64'", # Bug 1775830
 ]
 
 ["browser_urlbar_telemetry_autofill.js"]

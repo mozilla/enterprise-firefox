@@ -719,7 +719,7 @@ impl CompositeState {
         }
     }
 
-    fn compositor_clip_params(
+    pub fn compositor_clip_params(
         &self,
         clip_index: Option<CompositorClipIndex>,
         default_rect: DeviceRect,

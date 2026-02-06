@@ -21,12 +21,15 @@ browser.jar:
    content/browser/preferences/findInPage.js
    content/browser/preferences/more-from-mozilla-qr-code-simple.svg
    content/browser/preferences/more-from-mozilla-qr-code-simple-cn.svg
+   content/browser/preferences/browser-layout-horizontal.svg
+   content/browser/preferences/browser-layout-vertical.svg
    content/browser/preferences/web-appearance-dark.svg
    content/browser/preferences/web-appearance-light.svg
    content/browser/preferences/etp-toggle-promo.svg
    content/browser/preferences/etp-advanced-banner.svg
    content/browser/preferences/OnDeviceModelManager.mjs
    content/browser/preferences/config/aiFeatures.mjs                    (config/aiFeatures.mjs)
+   content/browser/preferences/config/block-ai-confirmation-dialog.css  (config/block-ai-confirmation-dialog.css)
    content/browser/preferences/config/SettingGroupManager.mjs           (config/SettingGroupManager.mjs)
    content/browser/preferences/widgets/dialog-button.mjs                (widgets/dialog-button/dialog-button.mjs)
    content/browser/preferences/widgets/placeholder-message.mjs          (widgets/placeholder-message/placeholder-message.mjs)

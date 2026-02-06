@@ -6,6 +6,7 @@
 
 #include "mozilla/dom/InspectorUtils.h"
 
+#include "AnchorPositioningUtils.h"
 #include "ChildIterator.h"
 #include "Units.h"
 #include "gfxTextRun.h"
@@ -54,6 +55,7 @@
 #include "nsGlobalWindowInner.h"
 #include "nsGridContainerFrame.h"
 #include "nsIContentInlines.h"
+#include "nsIFrameInlines.h"
 #include "nsLayoutUtils.h"
 #include "nsNameSpaceManager.h"
 #include "nsPresContext.h"
@@ -1380,6 +1382,59 @@ uint16_t InspectorUtils::GetGridContainerType(GlobalObject&,
     result |= InspectorUtils_Binding::GRID_SUBGRID_COL;
   }
   return result;
+}
+
+void InspectorUtils::GetAnchorFor(GlobalObject&, Element& aElement,
+                                  const nsAString& aName,
+                                  Nullable<InspectorAnchorElement>& aResult) {
+  auto* frame = aElement.GetPrimaryFrame(FlushType::Frames);
+  if (!frame || !frame->IsAbsolutelyPositioned()) {
+    return;
+  }
+
+  nsIFrame* anchor = nullptr;
+  RefPtr<nsAtom> name;
+  ScopedNameRef scopedName{nullptr, StyleCascadeLevel::Default()};
+  InspectorAnchorType type = InspectorAnchorType::Explicit;
+  if (aName.IsEmpty()) {
+    // Anchor name, otherwise implicit anchor.
+    const auto& positionAnchor = frame->StylePosition()->mPositionAnchor;
+    if (positionAnchor.value.IsIdent()) {
+      scopedName = {positionAnchor.value.AsIdent().AsAtom(),
+                    positionAnchor.scope};
+    } else {
+      auto implicit = AnchorPositioningUtils::GetAnchorPosImplicitAnchor(frame);
+      anchor = implicit.mAnchorFrame;
+      if (!anchor) {
+        return;
+      }
+      switch (implicit.mKind) {
+        case AnchorPositioningUtils::ImplicitAnchorKind::None:
+          break;
+        case AnchorPositioningUtils::ImplicitAnchorKind::Popover:
+          type = InspectorAnchorType::Popover;
+          break;
+        case AnchorPositioningUtils::ImplicitAnchorKind::PseudoElement:
+          type = InspectorAnchorType::Pseudo_element;
+          break;
+      }
+      auto& result = aResult.SetValue();
+      result.mElement = *anchor->GetContent()->AsElement();
+      result.mType = type;
+      return;
+    }
+  } else {
+    // TODO(emilio): Allow looking up names from other trees.
+    name = NS_Atomize(aName);
+    scopedName = {name, StyleCascadeLevel::Default()};
+  }
+  anchor = frame->PresShell()->GetAnchorPosAnchor(scopedName, frame);
+  if (!anchor) {
+    return;
+  }
+  auto& result = aResult.SetValue();
+  result.mElement = *anchor->GetContent()->AsElement();
+  result.mType = type;
 }
 
 }  // namespace mozilla::dom

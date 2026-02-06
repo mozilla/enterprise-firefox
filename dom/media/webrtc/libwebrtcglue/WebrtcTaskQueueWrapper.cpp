@@ -233,8 +233,8 @@ CreateWebrtcTaskQueue(already_AddRefed<nsIEventTarget> aTarget,
                       const nsACString& aName, bool aSupportsTailDispatch) {
   using Wrapper = WebrtcTaskQueueWrapper<DeletionPolicy::Blocking>;
   const auto& flat = PromiseFlatCString(aName);
-  auto tq =
-      TaskQueue::Create(std::move(aTarget), flat.get(), aSupportsTailDispatch);
+  auto tq = TaskQueue::Create(std::move(aTarget), "WebrtcTaskQueue",
+                              aSupportsTailDispatch);
   auto wrapper = MakeUnique<Wrapper>(std::move(tq), flat);
   auto observer = MakeRefPtr<Wrapper::TaskQueueObserver>(wrapper.get());
   wrapper->mTaskQueue->SetObserver(observer);
@@ -243,13 +243,12 @@ CreateWebrtcTaskQueue(already_AddRefed<nsIEventTarget> aTarget,
 }
 
 RefPtr<TaskQueue> CreateWebrtcTaskQueueWrapper(
-    already_AddRefed<nsIEventTarget> aTarget, const nsACString& aName,
+    already_AddRefed<nsIEventTarget> aTarget, const nsLiteralCString& aName,
     bool aSupportsTailDispatch) {
   using Wrapper = WebrtcTaskQueueWrapper<DeletionPolicy::NonBlocking>;
-  const auto& flat = PromiseFlatCString(aName);
-  auto tq =
-      TaskQueue::Create(std::move(aTarget), flat.get(), aSupportsTailDispatch);
-  auto wrapper = MakeUnique<Wrapper>(tq.get(), flat);
+  auto tq = TaskQueue::Create(std::move(aTarget), StaticString(aName),
+                              aSupportsTailDispatch);
+  auto wrapper = MakeUnique<Wrapper>(tq.get(), aName);
   auto observer = MakeRefPtr<Wrapper::TaskQueueObserver>(std::move(wrapper));
   tq->SetObserver(observer);
   return tq;

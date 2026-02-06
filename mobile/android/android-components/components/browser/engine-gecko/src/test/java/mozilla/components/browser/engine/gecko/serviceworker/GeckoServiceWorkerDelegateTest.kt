@@ -20,7 +20,7 @@ class GeckoServiceWorkerDelegateTest() {
     fun `GIVEN a delegate to add tabs WHEN it added a new tab for the request to open a new window THEN return a the new closed session`() {
         val delegate = mock<ServiceWorkerDelegate>()
         doReturn(true).`when`(delegate).addNewTab(any())
-        val geckoDelegate = GeckoServiceWorkerDelegate(delegate, mock(), mock())
+        val geckoDelegate = GeckoServiceWorkerDelegate(delegate, mock(), mock(), mock())
 
         val result = geckoDelegate.onOpenWindow("").poll(1)
 
@@ -31,7 +31,7 @@ class GeckoServiceWorkerDelegateTest() {
     fun `GIVEN a delegate to add tabs WHEN it disn't add a new tab for the request to open a new window THEN return null`() {
         val delegate = mock<ServiceWorkerDelegate>()
         doReturn(false).`when`(delegate).addNewTab(any())
-        val geckoDelegate = GeckoServiceWorkerDelegate(delegate, mock(), mock())
+        val geckoDelegate = GeckoServiceWorkerDelegate(delegate, mock(), mock(), mock())
 
         val result = geckoDelegate.onOpenWindow("").poll(1)
 

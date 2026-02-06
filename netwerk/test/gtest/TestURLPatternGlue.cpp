@@ -5,6 +5,7 @@
 
 #include "gtest/gtest.h"
 #include "gtest/MozGTestBench.h"  // For MOZ_GTEST_BENCH
+#include "mozilla/dom/ScriptSettings.h"
 #include "mozilla/net/URLPatternGlue.h"
 #include "mozilla/net/urlpattern_glue.h"
 
@@ -12,60 +13,6 @@ using namespace mozilla::net;
 
 template <typename T>
 using Optional = mozilla::Maybe<T>;
-
-// pattern construction from string
-TEST(TestURLPatternGlue, PatternFromString)
-{
-  nsCString str(":café://:foo");
-  UrlpPattern pattern{};
-  UrlpOptions options = {.ignore_case = false};
-  bool res = urlp_parse_pattern_from_string(&str, nullptr, options, &pattern);
-  ASSERT_TRUE(res);
-  ASSERT_TRUE(pattern._0);
-}
-
-TEST(TestURLPatternGlue, PatternFromStringOnlyPathname)
-{
-  nsCString str("/foo/thing");
-  UrlpPattern pattern{};
-  UrlpOptions options = {.ignore_case = false};
-  bool res = urlp_parse_pattern_from_string(&str, nullptr, options, &pattern);
-  ASSERT_FALSE(res);
-  ASSERT_FALSE(pattern._0);
-}
-
-bool operator==(const UrlpInnerMatcher& a, const UrlpInnerMatcher& b) {
-  if (a.inner_type != b.inner_type) {
-    return false;
-  }
-
-  switch (a.inner_type) {
-    case UrlpInnerMatcherType::Literal: {
-      return a.literal.Equals(b.literal);
-    }
-    case UrlpInnerMatcherType::SingleCapture: {
-      if (a.allow_empty == b.allow_empty &&
-          a.filter_exists == b.filter_exists) {
-        if (a.filter_exists) {
-          return a.filter == b.filter;
-        }
-        return true;
-      }
-      return false;
-    }
-    case UrlpInnerMatcherType::RegExp: {
-      return a.regexp.Equals(b.regexp);
-    }
-    default: {
-      return false;
-    }
-  }
-}
-
-bool operator==(const UrlpMatcher& a, const UrlpMatcher& b) {
-  return a.prefix.Equals(b.prefix) && a.suffix.Equals(b.suffix) &&
-         a.inner == b.inner;
-}
 
 UrlpInit CreateInit(const nsCString& protocol, const nsCString& username,
                     const nsCString& password, const nsCString& hostname,
@@ -99,6 +46,26 @@ UrlpInit CreateInit(const char* protocol, const char* username,
                     nsCString(password), nsCString(hostname), nsCString(port),
                     nsCString(pathname), nsCString(search), nsCString(hash),
                     nsCString(base));
+}
+
+TEST(TestURLPatternGlue, PatternFromStringOnlyPathname)
+{
+  nsCString str("/foo/thing");
+  UrlpPattern pattern{};
+  UrlpOptions options = {.ignore_case = false};
+  bool res = urlp_parse_pattern_from_string(&str, nullptr, options, &pattern);
+  ASSERT_FALSE(res);
+  ASSERT_FALSE(pattern._0);
+}
+
+TEST(TestURLPatternGlue, PatternFromString)
+{
+  nsCString str(":café://:foo");
+  UrlpPattern pattern{};
+  UrlpOptions options = {.ignore_case = false};
+  bool res = urlp_parse_pattern_from_string(&str, nullptr, options, &pattern);
+  ASSERT_TRUE(res);
+  ASSERT_TRUE(pattern._0);
 }
 
 // pattern construction from init
@@ -764,76 +731,6 @@ TEST(TestURLPatternGlue, MatchInputFromInit)
   }
 }
 
-void assert_matcher_same(UrlpMatcher& componentMatcher, UrlpMatcher& expected) {
-  ASSERT_EQ(componentMatcher.prefix, expected.prefix);
-  ASSERT_EQ(componentMatcher.suffix, expected.suffix);
-  ASSERT_EQ(componentMatcher.inner.inner_type, expected.inner.inner_type);
-  ASSERT_EQ(componentMatcher.inner.literal, expected.inner.literal);
-  ASSERT_EQ(componentMatcher.inner.allow_empty, expected.inner.allow_empty);
-  ASSERT_EQ(componentMatcher.inner.filter_exists, expected.inner.filter_exists);
-  ASSERT_EQ(componentMatcher.inner.filter, expected.inner.filter);
-  ASSERT_EQ(componentMatcher.inner.regexp, expected.inner.regexp);
-  ASSERT_TRUE(componentMatcher == expected);
-}
-
-TEST(TestURLPatternGlue, UrlPatternGetComponentBasic)
-{
-  nsCString str("http://:foo");
-  UrlpOptions options = {.ignore_case = false};
-  UrlpPattern pattern{};
-  bool res = urlp_parse_pattern_from_string(&str, nullptr, options, &pattern);
-  ASSERT_TRUE(res);
-  ASSERT_TRUE(pattern._0);
-
-  UrlpInnerMatcher expectedInnerMatcher = {
-      .inner_type = UrlpInnerMatcherType::Literal,
-      .literal = "http"_ns,
-      .allow_empty = false,
-      .filter_exists = false,
-      .filter = 'x',
-      .regexp = ""_ns,
-  };
-  UrlpMatcher expectedMatcher = {
-      .prefix = ""_ns,
-      .suffix = ""_ns,
-      .inner = expectedInnerMatcher,
-  };
-  nsCString expectedPatternString("http");
-  nsCString expectedRegexp("^http$");
-
-  UrlpComponent componentProtocol{};
-  auto protoStr = UrlpGetProtocol(pattern);
-  ASSERT_EQ(protoStr, expectedPatternString);
-
-  auto hostnameStr = UrlpGetHostname(pattern);
-  nsCString expectedHostnamePatternString(":foo");
-  nsCString expectedHostnameRegexp("^([^\\.]+?)$");
-  expectedMatcher.inner.inner_type = UrlpInnerMatcherType::SingleCapture;
-  expectedMatcher.inner.literal = ""_ns;
-  expectedMatcher.inner.filter_exists = true;
-  expectedMatcher.inner.filter = '.';
-  ASSERT_EQ(hostnameStr, expectedHostnamePatternString);
-
-  auto pathnameStr = UrlpGetPathname(pattern);
-  nsCString expectedPathnamePatternString("*");
-  nsCString expectedPathnameRegexp("^(.*)$");
-  expectedMatcher.inner.filter = 'x';
-  expectedMatcher.inner.allow_empty = true;
-  ASSERT_EQ(pathnameStr, expectedPathnamePatternString);
-}
-
-void assert_pattern_result(UrlpResult& res) {
-  ASSERT_TRUE(res.mProtocol.isSome());
-  ASSERT_TRUE(res.mUsername.isSome());
-  ASSERT_TRUE(res.mPassword.isSome());
-  ASSERT_TRUE(res.mHostname.isSome());
-  ASSERT_TRUE(res.mPort.isSome());
-  ASSERT_TRUE(res.mPathname.isSome());
-  ASSERT_TRUE(res.mSearch.isSome());
-  ASSERT_TRUE(res.mHash.isSome());
-  ASSERT_TRUE(res.mInputs.Length() == 1);
-}
-
 TEST(TestURLPatternGlue, UrlPatternExecFromString)
 {
   nsCString str(":café://:foo");
@@ -849,6 +746,18 @@ TEST(TestURLPatternGlue, UrlPatternExecFromString)
   Optional<UrlpResult> res2 = UrlpPatternExec(pattern, input, execBaseUrl);
 
   ASSERT_TRUE(res2.isNothing());
+}
+
+void assert_pattern_result(UrlpResult& res) {
+  ASSERT_TRUE(res.mProtocol.isSome());
+  ASSERT_TRUE(res.mUsername.isSome());
+  ASSERT_TRUE(res.mPassword.isSome());
+  ASSERT_TRUE(res.mHostname.isSome());
+  ASSERT_TRUE(res.mPort.isSome());
+  ASSERT_TRUE(res.mPathname.isSome());
+  ASSERT_TRUE(res.mSearch.isSome());
+  ASSERT_TRUE(res.mHash.isSome());
+  ASSERT_TRUE(res.mInputs.Length() == 1);
 }
 
 TEST(TestURLPatternGlue, UrlPatternExecFromInit)

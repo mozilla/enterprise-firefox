@@ -52,10 +52,7 @@ async function addAndMakeDefault(name, search_url, search_url_get_params) {
   });
 
   let engine = SearchService.getEngineByName(name);
-  await SearchService.setDefault(
-    engine,
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
-  );
+  await SearchService.setDefault(engine, SearchService.CHANGE_REASON.UNKNOWN);
   return engine;
 }
 
@@ -84,10 +81,7 @@ add_task(async function test_submission_url_matching() {
 
 add_task(async function test_submission_url_built_in() {
   const engine = await SearchService.getEngineById("engine");
-  await SearchService.setDefault(
-    engine,
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
-  );
+  await SearchService.setDefault(engine, SearchService.CHANGE_REASON.UNKNOWN);
 
   const engineInfo = SearchService.getDefaultEngineInfo();
   Assert.equal(

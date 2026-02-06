@@ -1443,9 +1443,8 @@ browser.search.withads:
     description: >
       Records counts of SERP pages with adverts displayed where the search
       was started from a webextension. The key format is
-      ‘<provider>:<tagged|organic>’ See https://firefox-source-
-      docs.mozilla.org/browser/search/telemetry.html#browser-search-
-      content
+      ‘<provider>:<tagged|organic>’. See
+      https://firefox-source-docs.mozilla.org/browser/search/telemetry.html#browser-search-content
       This metric was generated to correspond to the Legacy Telemetry
       scalar browser.search.withads.webextension.
     bugs:
@@ -1463,9 +1462,8 @@ browser.search.withads:
     description: >
       Records counts of SERP pages with adverts displayed where the search
       was started from the AI window assistant. The key format is
-      ‘<provider>:<tagged|organic>’ See https://firefox-source-
-      docs.mozilla.org/browser/search/telemetry.html#browser-search-
-      content.
+      ‘<provider>:<tagged|organic>’. See
+      https://firefox-source-docs.mozilla.org/browser/search/telemetry.html#browser-search-content
     bugs:
       - https://bugzil.la/2001519
     data_reviews:
@@ -1480,7 +1478,7 @@ browser.search.withads:
     description: >
       Records counts of SERP pages with adverts displayed where the search
       was started from the system, e.g. command line. The key format is
-      ‘<provider>:<tagged|organic>’
+      ‘<provider>:<tagged|organic>’.
       See https://firefox-source-docs.mozilla.org/browser/search/telemetry.html#browser-search-content
       This metric was generated to correspond to the Legacy Telemetry
       scalar browser.search.withads.system.
@@ -1537,9 +1535,8 @@ browser.search.withads:
     description: >
       Records counts of SERP pages with adverts displayed where the search
       was started from a place not categorized by the other scalars. The
-      key format is ‘<provider>:<tagged|organic>’ See https://firefox-
-      source-docs.mozilla.org/browser/search/telemetry.html#browser-
-      search-content
+      key format is ‘<provider>:<tagged|organic>’. See
+      https://firefox-source-docs.mozilla.org/browser/search/telemetry.html#browser-search-content
       This metric was generated to correspond to the Legacy Telemetry
       scalar browser.search.withads.unknown.
     bugs:
@@ -1557,10 +1554,8 @@ browser.search.adclicks:
     type: labeled_counter
     description: >
       Records clicks of adverts on SERP pages where the search was started
-      from the urlbar. The key format is ‘<provider>:<tagged|organic>’ See
-      https://firefox-source-
-      docs.mozilla.org/browser/search/telemetry.html#browser-search-
-      content
+      from the urlbar. The key format is ‘<provider>:<tagged|organic>’. See
+      https://firefox-source-docs.mozilla.org/browser/search/telemetry.html#browser-search-content
       This metric was generated to correspond to the Legacy Telemetry
       scalar browser.search.adclicks.urlbar.
     bugs:
@@ -1650,10 +1645,8 @@ browser.search.adclicks:
     type: labeled_counter
     description: >
       Records clicks of adverts on SERP pages where the search was started
-      from about:home. The key format is ‘<provider>:<tagged|organic>’ See
-      https://firefox-source-
-      docs.mozilla.org/browser/search/telemetry.html#browser-search-
-      content
+      from about:home. The key format is ‘<provider>:<tagged|organic>’. See
+      https://firefox-source-docs.mozilla.org/browser/search/telemetry.html#browser-search-content
       This metric was generated to correspond to the Legacy Telemetry
       scalar browser.search.adclicks.about_home.
     bugs:
@@ -1689,8 +1682,8 @@ browser.search.adclicks:
     description: >
       Records clicks of adverts on SERP pages where the search was started
       from the context menu. The key format is
-      ‘<provider>:<tagged|organic>’
-      See https://firefox-source-docs.mozilla.org/browser/search/telemetry.html#browser-search-content
+      ‘<provider>:<tagged|organic>’. See
+      https://firefox-source-docs.mozilla.org/browser/search/telemetry.html#browser-search-content
       This metric was generated to correspond to the Legacy Telemetry
       scalar browser.search.adclicks.contextmenu.
     bugs:

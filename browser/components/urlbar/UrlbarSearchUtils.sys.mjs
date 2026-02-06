@@ -11,6 +11,7 @@
 
 /**
  * @typedef {typeof import("UrlbarUtils.sys.mjs").UrlbarUtils.RESULT_SOURCE} RESULT_SOURCE
+ * @import {SearchEngine} from "moz-src:///toolkit/components/search/SearchEngine.sys.mjs"
  */
 
 import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
@@ -64,7 +65,7 @@ class SearchUtils {
    *   Match at each sub domain, for example "a.b.c.com" will be matched at
    *   "a.b.c.com", "b.c.com", and "c.com". Partial matches are always returned
    *   after perfect matches.
-   * @returns {Promise<nsISearchEngine[]>}
+   * @returns {Promise<SearchEngine[]>}
    *   An array of all matching engines. An empty array if there are none.
    */
   async enginesForDomainPrefix(prefix, { matchAllDomainLevels = false } = {}) {
@@ -139,7 +140,7 @@ class SearchUtils {
    * @param {string} [searchString]
    *   Optional. If provided, we also enforce that there must be a space after
    *   the alias in the search string.
-   * @returns {Promise<nsISearchEngine>}
+   * @returns {Promise<SearchEngine>}
    *   The matching engine or null if there isn't one.
    */
   async engineForAlias(alias, searchString = null) {
@@ -185,7 +186,7 @@ class SearchUtils {
   }
 
   /**
-   * @param {nsISearchEngine} engine
+   * @param {SearchEngine} engine
    *   The engine to get the root domain of
    * @returns {string}
    *   The root domain of a search engine. e.g. If `engine` has the domain
@@ -214,7 +215,7 @@ class SearchUtils {
   /**
    * @param {boolean} [isPrivate]
    *   True if in a private context.
-   * @returns {nsISearchEngine}
+   * @returns {SearchEngine}
    *   The default engine or null if SearchService has not initialized.
    */
   getDefaultEngine(isPrivate = false) {
@@ -370,7 +371,7 @@ class SearchUtils {
    * `engine.aliases`.  Additionally, the returned aliases will be lower-cased
    * to make lookups and comparisons easier.
    *
-   * @param {nsISearchEngine} engine
+   * @param {SearchEngine} engine
    *   The aliases of this search engine will be returned.
    * @returns {Array}
    *   An array of lower-cased string aliases as described above.
@@ -390,7 +391,7 @@ class SearchUtils {
   /**
    * @param {string} engineName
    *   Name of the search engine.
-   * @returns {nsISearchEngine}
+   * @returns {SearchEngine}
    *   The engine based on engineName or null if SearchService has not
    *   initialized.
    */

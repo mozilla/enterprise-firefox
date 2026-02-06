@@ -15,6 +15,20 @@
 #include "nsWeakReference.h"
 #include "nsTHashSet.h"
 
+inline const char* format_as(nsIBounceTrackingProtection::Modes aMode) {
+  switch (aMode) {
+    case nsIBounceTrackingProtection::MODE_DISABLED:
+      return "MODE_DISABLED";
+    case nsIBounceTrackingProtection::MODE_ENABLED:
+      return "MODE_ENABLED";
+    case nsIBounceTrackingProtection::MODE_ENABLED_STANDBY:
+      return "MODE_ENABLED_STANDBY";
+    case nsIBounceTrackingProtection::MODE_ENABLED_DRY_RUN:
+      return "MODE_ENABLED_DRY_RUN";
+  }
+  return "UNKNOWN";
+}
+
 class nsIPrincipal;
 class nsITimer;
 

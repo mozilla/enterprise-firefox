@@ -132,6 +132,8 @@ skip-if = [
 
 ["test_htmlcopyencoder_common_ancestor.html"]
 
+["test_htmlcopyencoder_details.html"]
+
 ["test_htmlcopyencoder_list.html"]
 
 ["test_htmlcopyencoder_table.html"]

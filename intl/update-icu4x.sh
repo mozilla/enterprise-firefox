@@ -81,6 +81,7 @@ rm -rf icu_capi_tar.gz
 log "Patching icu_capi"
 for patch in \
     001-Cargo.toml.patch \
+    002-bug2011393.patch \
 ; do
     patch -d ${top_src_dir} -p1 --no-backup-if-mismatch < ${top_src_dir}/intl/icu4x-patches/$patch
 done

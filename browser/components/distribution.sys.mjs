@@ -271,13 +271,12 @@ DistributionCustomizer.prototype = {
       this._newProfile = true;
     }
 
-    // Must run before early return to handle MOZ_DISTRIBUTION_ID fallback.
-    if (!this._prefDefaultsApplied) {
-      this.applyPrefDefaults();
-    }
-
     if (!this._ini) {
       return this._checkCustomizationComplete();
+    }
+
+    if (!this._prefDefaultsApplied) {
+      this.applyPrefDefaults();
     }
   },
 
@@ -374,12 +373,6 @@ DistributionCustomizer.prototype = {
   applyPrefDefaults: function DIST_applyPrefDefaults() {
     this._prefDefaultsApplied = true;
     if (!this._ini) {
-      // No distribution.ini file exists. Fall back to MOZ_DISTRIBUTION_ID
-      let distroId = Services.appinfo.distributionID;
-      if (distroId) {
-        let defaults = Services.prefs.getDefaultBranch(null);
-        defaults.setCharPref("distribution.id", distroId);
-      }
       return this._checkCustomizationComplete();
     }
 
@@ -404,7 +397,7 @@ DistributionCustomizer.prototype = {
     // Global really contains info we set as prefs.  They're only
     // separate because they are "special" (read: required)
 
-    defaults.setCharPref("distribution.id", distroID);
+    defaults.setStringPref("distribution.id", distroID);
 
     if (
       distroID.startsWith("yandex") ||
@@ -503,7 +496,7 @@ DistributionCustomizer.prototype = {
       // so we're using an internal preference to name them correctly.
       // This is needed for search to work properly.
       try {
-        defaults.setCharPref(
+        defaults.setStringPref(
           "distribution.id",
           defaults
             .get("extensions.yasearch@yandex.ru.clids.vendor")

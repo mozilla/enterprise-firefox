@@ -635,3 +635,5 @@ JSObject* HTMLButtonElement::WrapNode(JSContext* aCx,
 }
 
 }  // namespace mozilla::dom
+#undef NS_IN_SUBMIT_CLICK
+#undef NS_OUTER_ACTIVATE_EVENT

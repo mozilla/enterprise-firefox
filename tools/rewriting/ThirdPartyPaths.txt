@@ -145,6 +145,7 @@ modules/freetype2/
 modules/woff2/
 modules/xz-embedded/
 modules/zlib/
+mozglue/baseprofiler/core/vtune/
 mozglue/misc/decimal/
 mozglue/static/lz4/
 mozglue/tests/glibc_printf_tests/

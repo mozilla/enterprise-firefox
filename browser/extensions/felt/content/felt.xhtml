@@ -17,10 +17,19 @@
     <link rel="stylesheet" href="chrome://felt/content/styles/felt.css" />
     <link rel="localization" href="preview/felt.ftl" />
     <link rel="localization" href="branding/brand.ftl" />
+    <link rel="localization" href="toolkit/global/textActions.ftl" />
     <link rel="localization" href="browser/browser.ftl" />
     <script
       type="application/javascript"
       src="chrome://global/content/customElements.js"
+    ></script>
+    <script
+      type="application/javascript"
+      src="chrome://global/content/globalOverlay.js"
+    ></script>
+    <script
+      type="application/javascript"
+      src="chrome://global/content/editMenuOverlay.js"
     ></script>
     <script
       type="application/javascript"
@@ -40,6 +49,52 @@
       role="alert"
       remote="true"
     />
+
+    <xul:commandset />
+
+    <xul:menupopup id="textbox-contextmenu" showservicesmenu="true">
+      <xul:menuitem
+        id="context-undo"
+        data-l10n-id="text-action-undo"
+        command="cmd_undo"
+      />
+      <xul:menuitem
+        id="context-redo"
+        data-l10n-id="text-action-redo"
+        command="cmd_redo"
+      />
+      <xul:menuseparator id="context-sep-redo" />
+      <xul:menuitem
+        id="context-cut"
+        data-l10n-id="text-action-cut"
+        command="cmd_cut"
+      />
+      <xul:menuitem
+        id="context-copy"
+        data-l10n-id="text-action-copy"
+        command="cmd_copy"
+      />
+      <xul:menuitem
+        id="context-paste"
+        data-l10n-id="text-action-paste"
+        command="cmd_paste"
+      />
+      <xul:menuitem
+        id="context-delete"
+        data-l10n-id="text-action-delete"
+        command="cmd_delete"
+      />
+      <xul:menuitem
+        id="context-selectall"
+        data-l10n-id="text-action-select-all"
+        command="cmd_selectAll"
+      />
+      <xul:menuitem
+        id="textbox-contextmenu-reveal-password"
+        data-l10n-id="text-action-reveal-password"
+        type="checkbox"
+      />
+    </xul:menupopup>
 
     <xul:box
       id="notification-popup-box"
@@ -82,11 +137,14 @@
           </form>
         </div>
         <div class="felt-browser-error is-hidden">
-          <span
+          <div
             class="felt-browser-error-multiple-crashes is-hidden"
             data-l10n-id="felt-browser-error-multiple-crashes"
-          >
-          </span>
+          ></div>
+          <div class="felt-browser-error-connection is-hidden">
+            <span data-l10n-id="felt-browser-error-connection"></span>
+            <span class="felt-browser-error-details"></span>
+          </div>
         </div>
         <span
           class="felt-powered-by text-deemphasized"

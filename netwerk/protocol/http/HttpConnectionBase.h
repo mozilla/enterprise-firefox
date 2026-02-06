@@ -7,7 +7,6 @@
 #define HttpConnectionBase_h_
 
 #include "nsHttpConnectionInfo.h"
-#include "nsHttpResponseHead.h"
 #include "nsAHttpTransaction.h"
 #include "nsCOMPtr.h"
 #include "nsProxyRelease.h"
@@ -34,6 +33,7 @@ class ConnectionEntry;
 class nsHttpHandler;
 class ASpdySession;
 class WebTransportSessionBase;
+class nsHttpResponseHead;
 
 enum class ConnectionState : uint32_t {
   HALF_OPEN = 0,

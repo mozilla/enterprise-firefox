@@ -54,6 +54,77 @@ export class AIChatMessage extends MozLitElement {
     this.dispatchEvent(e);
   }
 
+  #getIconSrc = linkHref => {
+    // Since we use the "page-icon:" CSP rule we can just look at the page URL for the img src
+    const finalIcon = linkHref
+      ? `page-icon:${linkHref}`
+      : "chrome://global/skin/icons/defaultFavicon.svg";
+    return finalIcon;
+  };
+
+  /**
+   * Replaces “website mention” markdown links rendered as anchors with an
+   * <ai-website-chip> custom element.
+   *
+   * Example markdown that produces such an anchor:
+   *
+   *   Look up [@Google](
+   *     mention:?href=https%3A%2F%2Fwww.google.com
+   *   )
+   *
+   * After ProseMirror renders the markdown, this method transforms:
+   *
+   *   <a href="mention:?...">@Google</a>
+   *
+   * into:
+   *
+   *   <ai-website-chip type="in-line" ...></ai-website-chip>
+   *
+   *
+   * `mention:?` is intentional: the substring after it is a query string.
+   * This lets us detect mention anchors and parse href but in the future additional params
+   * for example type or src via `URLSearchParams`.
+   *
+   * @param {Element} root
+   *   Root element that already contains sanitized HTML for the message
+   *   (i.e., after `setHTML()` has inserted the ProseMirror-rendered output).
+   */
+  #replaceWebsiteMentions(root) {
+    const MAX_URL_LENGTH = 2048;
+    const MENTION_PREFIX = "mention:?";
+    const links = root.querySelectorAll(`a[href^="${MENTION_PREFIX}"]`);
+
+    for (const a of links) {
+      const { href } = a;
+
+      if (!href.startsWith(MENTION_PREFIX)) {
+        continue;
+      }
+
+      const params = new URLSearchParams(href.substring(MENTION_PREFIX.length));
+
+      // Build Data
+      const linkHref = params.get("href") || "";
+
+      if (!linkHref || linkHref.length > MAX_URL_LENGTH) {
+        // TODO - https://bugzilla.mozilla.org/show_bug.cgi?id=2011538
+        continue;
+      }
+
+      const label = a.textContent || linkHref;
+      const iconSrc = this.#getIconSrc(linkHref);
+
+      // Create Website Chip
+      const chip = root.ownerDocument.createElement("ai-website-chip");
+      chip.type = "in-line";
+      chip.label = label;
+      chip.iconSrc = iconSrc;
+      chip.href = linkHref;
+
+      a.replaceWith(chip);
+    }
+  }
+
   /**
    * Parse markdown content to HTML using ProseMirror
    *
@@ -67,10 +138,20 @@ export class AIChatMessage extends MozLitElement {
     // Convert DocumentFragment to HTML string
     const container = this.ownerDocument.createElement("div");
     container.appendChild(fragment);
-    const containerString = container.innerHTML;
 
     // Sanitize the HTML string by using "setHTML"
-    element.setHTML(containerString);
+    element.setHTML(container.innerHTML);
+  }
+
+  /**
+   * Parse markdown and replace mentions for user messages
+   *
+   * @param {string} markdown
+   * @param {Element} element
+   */
+  parseUserMarkdown(markdown, element) {
+    this.parseMarkdown(markdown, element);
+    this.#replaceWebsiteMentions(element);
   }
 
   /**
@@ -98,10 +179,16 @@ export class AIChatMessage extends MozLitElement {
   }
 
   getUserMessage() {
-    return html`<div class=${"message-" + this.role}>
-      <!-- TODO: Parse user prompt to add any mentions pills -->
-      ${this.message}
-    </div> `;
+    const messageElement = this.ownerDocument.createElement("div");
+    messageElement.className = "message-" + this.role;
+
+    if (!this.message) {
+      return messageElement;
+    }
+
+    this.parseUserMarkdown(this.message, messageElement);
+
+    return messageElement;
   }
 
   render() {

@@ -14,6 +14,7 @@
 #define LOG_ENABLED() LOG5_ENABLED()
 
 #include "nsHttpHandler.h"
+#include "nsHttpConnectionMgr.h"
 #include "Http2StreamTunnel.h"
 #include "nsHttpConnectionInfo.h"
 #include "nsQueryObject.h"

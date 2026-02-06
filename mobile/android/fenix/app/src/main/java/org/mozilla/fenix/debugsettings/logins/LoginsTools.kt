@@ -42,8 +42,8 @@ import org.mozilla.fenix.R
 import org.mozilla.fenix.compose.list.TextListItem
 import org.mozilla.fenix.debugsettings.ui.DebugDrawer
 import org.mozilla.fenix.theme.FirefoxTheme
+import org.mozilla.fenix.theme.PreviewThemeProvider
 import org.mozilla.fenix.theme.Theme
-import org.mozilla.fenix.theme.ThemeProvider
 import java.util.UUID
 import mozilla.components.ui.icons.R as iconsR
 
@@ -189,7 +189,7 @@ internal class FakeLoginsStorage : LoginsStorage {
 @Preview
 @Composable
 private fun LoginsScreenPreview(
-    @PreviewParameter(ThemeProvider::class) theme: Theme,
+    @PreviewParameter(PreviewThemeProvider::class) theme: Theme,
 ) {
     FirefoxTheme(theme) {
         val selectedTab = createTab("https://example.com")

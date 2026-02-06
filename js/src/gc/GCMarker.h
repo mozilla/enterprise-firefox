@@ -47,7 +47,7 @@ enum IncrementalProgress { NotFinished = 0, Finished };
 
 class AutoSetMarkColor;
 class AutoUpdateMarkStackRanges;
-struct Cell;
+class Cell;
 class MarkStackIter;
 class ParallelMarkTask;
 class UnmarkGrayTracer;

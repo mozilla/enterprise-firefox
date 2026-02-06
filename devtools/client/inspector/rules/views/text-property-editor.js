@@ -609,6 +609,21 @@ class TextPropertyEditor {
           varName,
           this.rule.pseudoElement
         ),
+      getAttributeValue: attrName => {
+        const nodeFront = this.rule.elementStyle.element.isPseudoElement
+          ? // get the closest non pseudo element
+            this.rule.elementStyle.element.getUltimateOriginatingElement()
+          : this.rule.elementStyle.element;
+
+        const attribute = nodeFront.attributes.find(
+          attr => attr.name === attrName
+        );
+        if (!attribute) {
+          return null;
+        }
+
+        return attribute.value;
+      },
       inStartingStyleRule: this.rule.isInStartingStyle(),
       isValid: this.isValid(),
     };

@@ -1,0 +1,36 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+const lazy = {};
+ChromeUtils.defineESModuleGetters(lazy, {
+  ASRouter: "resource:///modules/asrouter/ASRouter.sys.mjs",
+});
+
+const { topChromeWindow } = window.browsingContext;
+
+/**
+ * Initializes ASRouter and call appropriate trigger functions
+ */
+async function init() {
+  await lazy.ASRouter.waitForInitialized;
+  triggerSwitcherButtonCallout();
+}
+
+/**
+ * Triggers the onboarding switcher button callout using the messaging system.
+ */
+function triggerSwitcherButtonCallout() {
+  lazy.ASRouter.sendTriggerMessage({
+    browser: topChromeWindow.gBrowser.selectedBrowser,
+    id: "smartWindowNewTab",
+  });
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", init, {
+    once: true,
+  });
+} else {
+  await init();
+}

@@ -22,6 +22,7 @@ MOZ_SRC_FILES += [
     "IPPOptOutHelper.sys.mjs",
     "IPPProxyManager.sys.mjs",
     "IPProtection.sys.mjs",
+    "IPProtectionAlertManager.sys.mjs",
     "IPProtectionHelpers.sys.mjs",
     "IPProtectionPanel.sys.mjs",
     "IPProtectionServerlist.sys.mjs",

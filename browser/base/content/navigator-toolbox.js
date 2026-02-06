@@ -207,7 +207,7 @@ document.addEventListener(
         #identity-permission-box,
         #translations-button,
         #split-view-button,
-        #aiwindow-ask-button
+        #smartwindow-ask-button
         `);
       if (!element) {
         return;
@@ -302,7 +302,7 @@ document.addEventListener(
           }
           break;
 
-        case "aiwindow-ask-button":
+        case "smartwindow-ask-button":
           if (isLeftClick) {
             AIWindowUI.toggleSidebarFromAskButton(window, event);
           }
@@ -337,7 +337,7 @@ document.addEventListener(
         #unified-extensions-button,
         #library-button,
         #split-view-button,
-        #aiwindow-ask-button
+        #smartwindow-ask-button
       `);
       if (!element) {
         return;
@@ -429,7 +429,7 @@ document.addEventListener(
           }
           break;
 
-        case "aiwindow-ask-button":
+        case "smartwindow-ask-button":
           if (isLikeLeftClick) {
             AIWindowUI.toggleSidebarFromAskButton(window, event);
           }

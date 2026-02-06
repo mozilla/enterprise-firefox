@@ -188,16 +188,8 @@ add_task(async function test_install_and_remove() {
   let engine = SearchService.getEngineByName("Foo");
   Assert.notEqual(engine, null, "Specified search engine should be installed");
 
-  Assert.equal(
-    await engine.wrappedJSObject.getIconURL(),
-    iconURL,
-    "Icon should be present"
-  );
-  Assert.equal(
-    engine.wrappedJSObject.queryCharset,
-    "UTF-8",
-    "Should default to utf-8"
-  );
+  Assert.equal(await engine.getIconURL(), iconURL, "Icon should be present");
+  Assert.equal(engine.queryCharset, "UTF-8", "Should default to utf-8");
 
   await setupPolicyEngineWithJsonWithSearch({
     policies: {
@@ -247,11 +239,7 @@ add_task(async function test_install_post_method_engine() {
   let engine = SearchService.getEngineByName("Post");
   Assert.notEqual(engine, null, "Specified search engine should be installed");
 
-  Assert.equal(
-    engine.wrappedJSObject._urls[0].method,
-    "POST",
-    "Method should be POST"
-  );
+  Assert.equal(engine._urls[0].method, "POST", "Method should be POST");
 
   let submission = engine.getSubmission("term", "text/html");
   Assert.notEqual(submission.postData, null, "Post data should not be null");
@@ -297,7 +285,7 @@ add_task(async function test_install_with_encoding() {
 
   let engine = SearchService.getEngineByName("Encoding");
   Assert.equal(
-    engine.wrappedJSObject.queryCharset,
+    engine.queryCharset,
     "windows-1252",
     "Should have correct encoding"
   );

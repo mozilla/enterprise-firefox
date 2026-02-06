@@ -36,7 +36,6 @@ import org.mozilla.fenix.utils.Settings
  */
 interface PocketSettings {
     val showPocketRecommendationsFeature: Boolean
-    var hasPocketSponsoredStoriesProfileMigrated: Boolean
     val showPocketSponsoredStories: Boolean
 }
 
@@ -47,9 +46,6 @@ interface PocketSettings {
  */
 class SettingsBackedPocketSettings(private val settings: Settings) : PocketSettings {
     override val showPocketRecommendationsFeature get() = settings.showPocketRecommendationsFeature
-    override var hasPocketSponsoredStoriesProfileMigrated
-        get() = settings.hasPocketSponsoredStoriesProfileMigrated
-        set(value) { settings.hasPocketSponsoredStoriesProfileMigrated = value }
     override val showPocketSponsoredStories get() = settings.showPocketSponsoredStories
 }
 
@@ -83,10 +79,6 @@ class PocketMiddleware(
                     coroutineScope.launch(IO) {
                         if (settings.showPocketRecommendationsFeature) {
                             pocketStoriesService.value.startPeriodicContentRecommendationsRefresh()
-                        }
-
-                        if (!settings.hasPocketSponsoredStoriesProfileMigrated) {
-                            migratePocketSponsoredStoriesProfile(pocketStoriesService.value)
                         }
 
                         if (settings.showPocketSponsoredStories) {
@@ -138,15 +130,6 @@ class PocketMiddleware(
                 // no-op
             }
         }
-    }
-
-    /**
-     * Deletes the user's existing sponsored stories profile as part of the migration to the
-     * MARS API.
-     */
-    private fun migratePocketSponsoredStoriesProfile(pocketStoriesService: PocketStoriesService) {
-        pocketStoriesService.deleteProfile()
-        settings.hasPocketSponsoredStoriesProfileMigrated = true
     }
 }
 

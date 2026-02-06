@@ -141,7 +141,7 @@ class FullParseHandler;
 }
 
 namespace gc {
-struct Cell;
+class Cell;
 }
 
 namespace jit {

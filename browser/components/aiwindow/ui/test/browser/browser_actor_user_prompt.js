@@ -8,7 +8,7 @@
  */
 add_task(async function test_user_prompt_dispatch() {
   await SpecialPowers.pushPrefEnv({
-    set: [["browser.aiwindow.enabled", true]],
+    set: [["browser.smartwindow.enabled", true]],
   });
 
   await BrowserTestUtils.withNewTab("about:aichatcontent", async browser => {

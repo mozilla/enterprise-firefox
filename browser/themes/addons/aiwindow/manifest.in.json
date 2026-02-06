@@ -39,7 +39,7 @@
 
   "dark_theme": {
     "properties": {
-      "ai_gradient": "radial-gradient(ellipse 90% 60% at 100% 100%, rgba(255, 124, 31, 0.2), transparent 60%), radial-gradient(ellipse 70% 50% at -10% 10%, rgba(148, 90, 242, 0.23), transparent 50%), radial-gradient(ellipse 100% 100% at 50% 0%, rgba(106, 50, 140, 0.5), rgba(33, 3, 64, 0.25) 50%, transparent 80%), linear-gradient(236deg, #31143C 5.34%, #1F133C 98.24%)",
+      "ai_gradient": "radial-gradient(ellipse 110% 130% at 100% 100%, rgba(255, 124, 31, 0.2), transparent 45%), radial-gradient(ellipse 90% 70% at -10% 10%, rgba(115, 90, 245, 0.32), transparent 60%), radial-gradient(ellipse 100% 100% at 50% 0%, rgba(106, 50, 140, 0.5), rgba(33, 3, 64, 0.25) 50%, transparent 80%), linear-gradient(236deg, #31143C 5.34%, #1F133C 98.24%)",
       "link_color": "#ae90fe"
     },
     "colors": {

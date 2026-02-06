@@ -75,10 +75,7 @@ add_task(async function test_contextualsearch_install_deny() {
     window.gNotificationBox.getNotificationWithValue(NOTIFICATION_VALUE);
   Assert.ok(!notificationBar, "No notification is not shown after deny chosen");
 
-  SearchService.wrappedJSObject._settings.setMetaDataAttribute(
-    "contextual-engines-seen",
-    {}
-  );
+  SearchService._settings.setMetaDataAttribute("contextual-engines-seen", {});
 });
 
 add_task(async function test_contextualsearch_install() {
@@ -137,8 +134,5 @@ add_task(async function test_contextualsearch_install() {
 
   let engine = SearchService.getEngineByName("Foo");
   await SearchService.removeEngine(engine);
-  SearchService.wrappedJSObject._settings.setMetaDataAttribute(
-    "contextual-engines-seen",
-    {}
-  );
+  SearchService._settings.setMetaDataAttribute("contextual-engines-seen", {});
 });

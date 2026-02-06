@@ -166,9 +166,9 @@ void ConvertGroupsToRecord(
     Optional<Record<nsCString, OwningUTF8StringOrUndefined>>& aRes) {
   Record<nsCString, OwningUTF8StringOrUndefined> record;
   for (auto iter = aGroups.ConstIter(); !iter.Done(); iter.Next()) {
-    OwningUTF8StringOrUndefined value;
-    value.SetUndefined();
     MaybeString s = iter.Data();
+    OwningUTF8StringOrUndefined value;
+    value.SetUndefined();  // if capture group doesn't match we leave undefined
     if (s.valid) {
       value.SetAsUTF8String().Assign(s.string);
     }

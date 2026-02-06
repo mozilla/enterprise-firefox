@@ -9,17 +9,6 @@ plugins {
 
 layout.buildDirectory.set(file("${gradle.mozconfig.topobjdir}/gradle/build/mobile/android/android-components/plugins/config"))
 
-repositories {
-    gradle.mozconfig.substs.GRADLE_MAVEN_REPOSITORIES.each { repository ->
-        maven {
-            url = repository
-            if (gradle.mozconfig.substs.ALLOW_INSECURE_GRADLE_REPOSITORIES) {
-                allowInsecureProtocol = true
-            }
-        }
-    }
-}
-
 gradlePlugin {
     plugins.register("mozac.ConfigPlugin") {
         id = "mozac.ConfigPlugin"

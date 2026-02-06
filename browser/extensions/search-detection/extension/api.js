@@ -88,7 +88,7 @@ this.addonsSearchDetection = class extends ExtensionAPI {
                 // because we don't need to report them. However, we do ensure
                 // the pattern is recorded (above), so that we check for
                 // redirects against those.
-                const addonId = engine.wrappedJSObject._extensionID;
+                const addonId = engine.extensionID;
 
                 let paramName;
                 for (let [key, value] of new URLSearchParams(uri.query)) {

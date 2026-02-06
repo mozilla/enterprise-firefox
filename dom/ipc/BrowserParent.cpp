@@ -787,9 +787,9 @@ mozilla::ipc::IPCResult BrowserParent::RecvDidUnsuppressPainting() {
 }
 
 mozilla::ipc::IPCResult BrowserParent::RecvEnsureLayersConnected(
-    CompositorOptions* aCompositorOptions) {
+    Maybe<CompositorOptions>* aCompositorOptions) {
   if (mRemoteLayerTreeOwner.IsInitialized()) {
-    mRemoteLayerTreeOwner.EnsureLayersConnected(aCompositorOptions);
+    mRemoteLayerTreeOwner.EnsureLayersConnected(*aCompositorOptions);
   }
   return IPC_OK();
 }

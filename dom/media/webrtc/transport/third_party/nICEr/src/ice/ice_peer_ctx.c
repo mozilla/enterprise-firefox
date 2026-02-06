@@ -51,7 +51,7 @@ int nr_ice_peer_ctx_create(nr_ice_ctx *ctx, nr_ice_handler *handler,char *label,
     int r,_status;
     nr_ice_peer_ctx *pctx=0;
 
-    if(!(pctx=RCALLOC(sizeof(nr_ice_peer_ctx))))
+    if(!(pctx=R_NEW(nr_ice_peer_ctx)))
       ABORT(R_NO_MEMORY);
 
     pctx->state = NR_ICE_PEER_STATE_UNPAIRED;
@@ -359,7 +359,7 @@ int nr_ice_peer_ctx_parse_trickle_candidate(nr_ice_peer_ctx *pctx, nr_ice_media_
 
 static void nr_ice_peer_ctx_trickle_wait_cb(NR_SOCKET s, int how, void *cb_arg)
   {
-    nr_ice_peer_ctx *pctx=cb_arg;
+    nr_ice_peer_ctx *pctx=(nr_ice_peer_ctx*)cb_arg;
     nr_ice_media_stream *stream;
     nr_ice_component *comp;
 
@@ -692,7 +692,7 @@ void nr_ice_peer_ctx_connected(nr_ice_peer_ctx *pctx)
 
 static void nr_ice_peer_ctx_fire_connected(NR_SOCKET s, int how, void *cb_arg)
   {
-    nr_ice_peer_ctx *pctx=cb_arg;
+    nr_ice_peer_ctx *pctx=(nr_ice_peer_ctx*)cb_arg;
 
     pctx->connected_cb_timer=0;
 

@@ -71,7 +71,7 @@ async function setupPolicyEngineWithJson(json, customSchema) {
  *   A custom schema to use to validate the enterprise policy.
  */
 async function setupPolicyEngineWithJsonWithSearch(json, customSchema) {
-  SearchService.wrappedJSObject.reset();
+  SearchService.reset();
   if (typeof json != "object") {
     let filePath = do_get_file(json ? json : "non-existing-file.json").path;
     await EnterprisePolicyTesting.setupPolicyEngineWithJson(

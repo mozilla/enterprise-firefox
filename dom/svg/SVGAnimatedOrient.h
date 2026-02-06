@@ -7,11 +7,12 @@
 #ifndef DOM_SVG_SVGANIMATEDORIENT_H_
 #define DOM_SVG_SVGANIMATEDORIENT_H_
 
+#include <memory>
+
 #include "DOMSVGAnimatedEnumeration.h"
 #include "SVGAnimatedEnumeration.h"
 #include "mozilla/AlreadyAddRefed.h"
 #include "mozilla/SMILAttr.h"
-#include "mozilla/UniquePtr.h"
 #include "mozilla/dom/SVGAngleBinding.h"
 #include "mozilla/dom/SVGMarkerElementBinding.h"
 #include "nsError.h"
@@ -76,7 +77,7 @@ class SVGAnimatedOrient {
       SVGElement* aSVGElement);
   already_AddRefed<dom::DOMSVGAnimatedEnumeration> ToDOMAnimatedEnum(
       SVGElement* aSVGElement);
-  UniquePtr<SMILAttr> ToSMILAttr(SVGElement* aSVGElement);
+  std::unique_ptr<SMILAttr> ToSMILAttr(SVGElement* aSVGElement);
 
   static bool IsValidUnitType(uint16_t aUnitType);
 

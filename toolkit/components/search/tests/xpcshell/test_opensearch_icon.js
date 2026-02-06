@@ -54,8 +54,6 @@ add_task(async function test_icon_types() {
       url: `${gHttpURL}/sjs/engineMaker.sjs?${JSON.stringify(engineData)}`,
     });
     let engine = await promiseEngineAdded;
-    // Ensure this is a nsISearchEngine.
-    engine.QueryInterface(Ci.nsISearchEngine);
     await promiseIconChanged;
 
     Assert.ok(await engine.getIconURL(), `${test.name} engine has an icon`);
@@ -75,8 +73,8 @@ add_task(async function test_multiple_icons_in_file() {
   });
 
   await TestUtils.waitForCondition(
-    () => Object.keys(engine.wrappedJSObject._iconMapObj).length == 3,
-    "Not all added todo"
+    () => Object.keys(engine._iconMapObj).length == 3,
+    "Should have added all the items to the map"
   );
 
   Assert.equal(await engine.getIconURL(), ico16, "Default should be 16.");
@@ -109,7 +107,7 @@ add_task(async function test_icon_not_in_opensearch_file_invalid_svg() {
   );
 
   await promiseIconChanged;
-  let sizes = Object.keys(engine.wrappedJSObject._iconMapObj);
+  let sizes = Object.keys(engine._iconMapObj);
   Assert.deepEqual(sizes, ["16"], "Defaulted to 16x16");
 
   await SearchService.removeEngine(engine);
@@ -127,7 +125,7 @@ add_task(async function test_icon_not_in_opensearch_file_invalid_ico() {
   );
 
   await promiseIconChanged;
-  let sizes = Object.keys(engine.wrappedJSObject._iconMapObj);
+  let sizes = Object.keys(engine._iconMapObj);
   Assert.deepEqual(sizes, ["16"], "Defaulted to 16x16");
 
   await SearchService.removeEngine(engine);
@@ -148,7 +146,7 @@ add_task(async function test_icon_not_in_opensearch_file_svg() {
   );
 
   await promiseIconChanged;
-  let sizes = Object.keys(engine.wrappedJSObject._iconMapObj);
+  let sizes = Object.keys(engine._iconMapObj);
   Assert.deepEqual(sizes, ["16"], "Icon size was correctly detected.");
   Assert.equal(await engine.getIconURL(16), icoIconDataUrl, "Correct icon");
   await SearchService.removeEngine(engine);
@@ -169,7 +167,7 @@ add_task(async function test_icon_not_in_opensearch_file_ico() {
   );
 
   await promiseIconChanged;
-  let sizes = Object.keys(engine.wrappedJSObject._iconMapObj);
+  let sizes = Object.keys(engine._iconMapObj);
   Assert.deepEqual(sizes, ["32"], "Icon size was correctly detected.");
   Assert.equal(await engine.getIconURL(32), icoIconDataUrl, "Correct icon");
   await SearchService.removeEngine(engine);

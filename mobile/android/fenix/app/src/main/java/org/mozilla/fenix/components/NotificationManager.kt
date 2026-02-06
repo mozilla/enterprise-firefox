@@ -18,6 +18,7 @@ import androidx.core.content.getSystemService
 import androidx.core.net.toUri
 import mozilla.components.concept.sync.Device
 import mozilla.components.concept.sync.TabData
+import mozilla.components.concept.sync.TabPrivacy
 import mozilla.components.support.base.ids.SharedIdsHelper
 import mozilla.components.support.base.log.logger.Logger
 import org.mozilla.fenix.HomeActivity
@@ -136,6 +137,7 @@ class NotificationManager(private val context: Context) {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK
             }
             intent.putExtra(RECEIVE_TABS_TAG, true)
+            intent.putExtra(HomeActivity.PRIVATE_BROWSING_MODE, tab.privacy == TabPrivacy.Private)
             val pendingIntent: PendingIntent =
                 PendingIntent.getActivity(context, 0, intent, showReceivedTabsIntentFlags)
 

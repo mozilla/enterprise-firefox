@@ -81,6 +81,15 @@
 #  define MOZ_HAS_CLANG_ATTRIBUTE(attr) 0
 #endif
 
+// Prevent a class with non-trivial destructor and/or non-trivial move
+// assignment or move-constructor to be passed by hidden reference, a.k.a
+// pointer.
+#if MOZ_HAS_CLANG_ATTRIBUTE(__trivial_abi__)
+#  define MOZ_TRIVIAL_ABI __attribute__((__trivial_abi__))
+#else
+#  define MOZ_TRIVIAL_ABI
+#endif
+
 /*
  * When built with clang analyzer (a.k.a scan-build), define MOZ_HAVE_NORETURN
  * to mark some false positives

@@ -5,6 +5,12 @@
 #tab-preview-panel {
   --panel-width: 280px;
   --panel-padding: 0;
+  --tab-note-text-background: light-dark(rgba(0, 0, 0, 0.05), rgba(0, 0, 0, 0.3));
+  --tab-note-text-border-color: transparent;
+  @media (prefers-contrast) {
+    --tab-note-text-background: transparent;
+    --tab-note-text-border-color: var(--border-color-card);
+  }
   /* stylelint-disable-next-line media-query-no-invalid */
   @media not -moz-pref("browser.tabs.notes.enabled") {
     pointer-events: none;
@@ -68,7 +74,11 @@
 .tab-preview-note-container {
   font: menu;
   position: relative;
-  margin: 0 var(--space-large) var(--space-large);
+  margin: 0 var(--space-small) var(--space-small);
+  padding: var(--space-small);
+  border-radius: var(--border-radius-medium);
+  background-color: var(--tab-note-text-background);
+  border: var(--border-width) solid var(--tab-note-text-border-color);
 
   &[hidden] {
     display: none;
@@ -112,8 +122,11 @@
   text-decoration: underline;
   cursor: pointer;
   position: absolute;
+  /* position at bottom-end of containing box, using the same padding as the
+   * containing box */
   inset-block-end: 0;
   inset-inline-end: 0;
+  padding: var(--space-small);
 
   #tab-preview-panel[note-overflow]:not([note-expanded]) & {
     display: block;

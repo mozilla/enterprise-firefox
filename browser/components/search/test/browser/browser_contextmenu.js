@@ -65,10 +65,7 @@ add_setup(async function () {
   engine = await SearchService.getEngineByName(ENGINE_NAME);
   Assert.ok(engine, "Got a search engine");
   oldDefaultEngine = await SearchService.getDefault();
-  await SearchService.setDefault(
-    engine,
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
-  );
+  await SearchService.setDefault(engine, SearchService.CHANGE_REASON.UNKNOWN);
 
   privateEngine = await SearchService.getEngineByName(PRIVATE_ENGINE_NAME);
   Assert.ok(privateEngine, "Got a search engine");
@@ -272,7 +269,7 @@ add_task(async function test() {
  *   The value to set for the `separatePrivateDefault` pref.
  * @param {boolean} options.separatePrivateDefaultUiEnabled
  *   The value to set for the `separatePrivateDefault.ui.enabled` pref.
- * @param {nsISearchEngine} options.defaultPrivateEngine
+ * @param {SearchEngine} options.defaultPrivateEngine
  *   The engine to set as the default private engine.
  * @param {boolean} options.inPrivateWindow
  *   Whether the test should start in a private window.
@@ -352,7 +349,7 @@ async function computeExpectedAndDoTest({
  *   The value to set for the `separatePrivateDefault` pref.
  * @param {boolean} options.separatePrivateDefaultUiEnabled
  *   The value to set for the `separatePrivateDefault.ui.enabled` pref.
- * @param {nsISearchEngine} options.defaultPrivateEngine
+ * @param {SearchEngine} options.defaultPrivateEngine
  *   The engine to set as the default private engine.
  * @param {boolean} options.inPrivateWindow
  *   Whether the test should start in a private window.
@@ -410,7 +407,7 @@ async function doTest({
   if (defaultPrivateEngine) {
     await SearchService.setDefaultPrivate(
       defaultPrivateEngine,
-      Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+      SearchService.CHANGE_REASON.UNKNOWN
     );
   }
 
@@ -439,11 +436,11 @@ async function doTest({
 add_task(async function cleanup() {
   await SearchService.setDefault(
     oldDefaultEngine,
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+    SearchService.CHANGE_REASON.UNKNOWN
   );
   await SearchService.setDefaultPrivate(
     oldDefaultPrivateEngine,
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+    SearchService.CHANGE_REASON.UNKNOWN
   );
   await SearchService.removeEngine(engine);
   await SearchService.removeEngine(privateEngine);

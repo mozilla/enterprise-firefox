@@ -184,11 +184,10 @@ void CrossShadowBoundaryRange::ContentWillBeRemoved(nsIContent* aChild,
       // We're only interested if our boundary reference was removed, otherwise
       // we can just invalidate the offset.
       if (aChild == aBoundary.Ref()) {
-        return Some<RawRangeBoundary>(
-            {container, aChild->GetPreviousSibling(), TreeKind::Flat});
+        return Some(RawRangeBoundary::FromChild(*aChild, TreeKind::Flat));
       }
       RawRangeBoundary newBoundary(TreeKind::Flat);
-      newBoundary.CopyFrom(aBoundary, RangeBoundaryIsMutationObserved::Yes);
+      newBoundary.CopyFrom(aBoundary, RangeBoundarySetBy::Ref);
       newBoundary.InvalidateOffset();
       return Some(newBoundary);
     }
@@ -221,8 +220,8 @@ void CrossShadowBoundaryRange::CharacterDataChanged(
   MOZ_ASSERT(mIsPositioned);
 
   auto MaybeCreateNewBoundary =
-      [aContent,
-       &aInfo](const RangeBoundary& aBoundary) -> Maybe<RawRangeBoundary> {
+      [aContent, &aInfo](const RangeBoundary& aBoundary,
+                         RangeBoundaryFor aFor) -> Maybe<RawRangeBoundary> {
     // If the changed node contains our start boundary and the change starts
     // before the boundary we'll need to adjust the offset.
     if (aContent == aBoundary.GetContainer() &&
@@ -236,14 +235,17 @@ void CrossShadowBoundaryRange::CharacterDataChanged(
       RawRangeBoundary newStart =
           nsRange::ComputeNewBoundaryWhenBoundaryInsideChangedText(
               aInfo, aBoundary.AsRaw());
-      return Some(newStart.AsRangeBoundaryInFlatTree());
+      return Some(newStart.AsRangeBoundaryInFlatTree(aFor));
     }
     return Nothing();
   };
 
+  const bool collapsed = mStart == mEnd;
   const Maybe<RawRangeBoundary> newStartBoundary =
-      MaybeCreateNewBoundary(mStart);
-  const Maybe<RawRangeBoundary> newEndBoundary = MaybeCreateNewBoundary(mEnd);
+      MaybeCreateNewBoundary(mStart, collapsed ? RangeBoundaryFor::Collapsed
+                                               : RangeBoundaryFor::Start);
+  const Maybe<RawRangeBoundary> newEndBoundary = MaybeCreateNewBoundary(
+      mEnd, collapsed ? RangeBoundaryFor::Collapsed : RangeBoundaryFor::End);
 
   if (newStartBoundary || newEndBoundary) {
     DoSetRange(newStartBoundary ? newStartBoundary.ref() : mStart.AsRaw(),

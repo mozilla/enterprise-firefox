@@ -926,7 +926,7 @@ class _QuickSuggest {
    * @returns {number}
    */
   get MIGRATION_VERSION() {
-    return 6;
+    return 7;
   }
 
   /**
@@ -1091,6 +1091,32 @@ class _QuickSuggest {
         "suggest.quicksuggest.all",
         userBranch.getBoolPref("suggest.quicksuggest.nonsponsored")
       );
+    }
+  }
+
+  _migrateUserPrefsTo_7(userBranch) {
+    // Firefox 149: Make the "Show less frequently" behavior of addon
+    // suggestions consistent with other suggestion types. This reverts the fix
+    // to bug 1836582 and goes back to using `addons.minKeywordLength`.
+    if (
+      userBranch.prefHasUserValue("addons.minKeywordLength") &&
+      !userBranch.prefHasUserValue("addons.showLessFrequentlyCount")
+    ) {
+      // The user clicked "Show less frequently" before bug 1836582 was fixed
+      // since `minKeywordLength` has a user value, but they haven't clicked it
+      // again since `showLessFrequentlyCount` does not have a user value. Set
+      // `showLessFrequentlyCount` to 1 and keep `minKeywordLength` the same.
+      userBranch.setIntPref("addons.showLessFrequentlyCount", 1);
+    } else if (
+      !userBranch.prefHasUserValue("addons.minKeywordLength") &&
+      userBranch.prefHasUserValue("addons.showLessFrequentlyCount")
+    ) {
+      // The user clicked "Show less frequently" after bug 1836582 was fixed but
+      // not before. We need to set `minKeywordLength` to something but we can't
+      // know what. Err on the side of not bothering the user by using the max
+      // keyword length as of 149. This will effectively disable addon
+      // suggestions unless/until longer keywords are added.
+      userBranch.setIntPref("addons.minKeywordLength", 20);
     }
   }
 

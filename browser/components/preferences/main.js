@@ -8,6 +8,10 @@
 /* import-globals-from /browser/base/content/aboutDialog-appUpdater.js */
 /* global MozXULElement */
 
+/**
+ * @import { Setting } from "chrome://global/content/preferences/Setting.mjs"
+ */
+
 ChromeUtils.defineESModuleGetters(this, {
   BackgroundUpdate: "resource://gre/modules/BackgroundUpdate.sys.mjs",
   UpdateListener: "resource://gre/modules/UpdateListener.sys.mjs",
@@ -56,6 +60,17 @@ const APP_ICON_ATTR_NAME = "appHandlerIcon";
 const OPEN_EXTERNAL_LINK_NEXT_TO_ACTIVE_TAB_VALUE =
   Ci.nsIBrowserDOMWindow.OPEN_NEWTAB_AFTER_CURRENT;
 
+/**
+ * @param {Setting} featureSetting
+ * @param {Setting} defaultSetting
+ */
+function canShowAiFeature(featureSetting, defaultSetting) {
+  return (
+    featureSetting.value != "blocked" &&
+    !(featureSetting.value == "default" && defaultSetting.value == "blocked")
+  );
+}
+
 Preferences.addAll([
   // Startup
   { id: "browser.startup.page", type: "int" },
@@ -69,6 +84,15 @@ Preferences.addAll([
   { id: "browser.download.always_ask_before_handling_new_types", type: "bool" },
   { id: "browser.download.folderList", type: "int" },
   { id: "browser.download.dir", type: "file" },
+
+  // AI Controls, these pref values can affect settings on the main pane and
+  // have base Settings here
+  { id: "browser.ai.control.default", type: "string" },
+  { id: "browser.ai.control.translations", type: "string" },
+  { id: "browser.ai.control.pdfjsAltText", type: "string" },
+  { id: "browser.ai.control.smartTabGroups", type: "string" },
+  { id: "browser.ai.control.linkPreviewKeyPoints", type: "string" },
+  { id: "browser.ai.control.sidebarChatbot", type: "string" },
 
   /* Tab preferences
   Preferences:
@@ -105,6 +129,7 @@ Preferences.addAll([
   { id: "browser.ctrlTab.sortByRecentlyUsed", type: "bool" },
   { id: "browser.tabs.hoverPreview.enabled", type: "bool" },
   { id: "browser.tabs.hoverPreview.showThumbnails", type: "bool" },
+  { id: "browser.tabs.groups.enabled", type: "bool" },
   { id: "browser.tabs.groups.smart.userEnabled", type: "bool" },
   { id: "browser.tabs.groups.smart.enabled", type: "bool" },
   { id: "privacy.userContext.ui.enabled", type: "bool" },
@@ -131,6 +156,8 @@ Preferences.addAll([
   // Languages
   { id: "intl.regional_prefs.use_os_locales", type: "bool" },
 
+  { id: "intl.accept_languages", type: "string" },
+  { id: "privacy.spoof_english", type: "int" },
   // General tab
 
   /* Accessibility
@@ -164,6 +191,7 @@ Preferences.addAll([
   { id: "layout.css.always_underline_links", type: "bool" },
   { id: "layout.spellcheckDefault", type: "int" },
   { id: "accessibility.tabfocus", type: "int" },
+
   { id: "browser.ml.linkPreview.enabled", type: "bool" },
   { id: "browser.ml.linkPreview.optin", type: "bool" },
   { id: "browser.ml.linkPreview.longPress", type: "bool" },
@@ -504,15 +532,23 @@ Preferences.addSetting(
     },
   })
 );
+
 Preferences.addSetting({
   id: "linkPreviewEnabled",
   pref: "browser.ml.linkPreview.enabled",
-  // @ts-ignore bug 1996860
-  visible: () => LinkPreview.canShowPreferences,
+  deps: ["aiControlDefault", "aiControlLinkPreviews"],
+  visible: ({ aiControlDefault, aiControlLinkPreviews }) => {
+    return (
+      canShowAiFeature(aiControlLinkPreviews, aiControlDefault) &&
+      // @ts-ignore bug 1996860
+      LinkPreview.canShowPreferences
+    );
+  },
 });
 Preferences.addSetting({
   id: "linkPreviewKeyPoints",
   pref: "browser.ml.linkPreview.optin",
+  // LinkPreview.canShowKeyPoints depends on the global genai pref.
   // @ts-ignore bug 1996860
   visible: () => LinkPreview.canShowKeyPoints,
 });
@@ -587,6 +623,23 @@ Preferences.addSetting({
   pref: "browser.newtabpage.activity-stream.asrouter.userprefs.cfr.features",
 });
 Preferences.addSetting({
+  id: "browserLayoutRadioGroup",
+  pref: "sidebar.verticalTabs",
+  get: prefValue => (prefValue ? "true" : "false"),
+  set: value => value === "true",
+});
+Preferences.addSetting({
+  id: "browserLayoutShowSidebar",
+  pref: "sidebar.revamp",
+  onUserChange(checked) {
+    if (checked) {
+      window.browsingContext.topChromeWindow.SidebarController?.enabledViaSettings(
+        true
+      );
+    }
+  },
+});
+Preferences.addSetting({
   id: "web-appearance-override-warning",
   setup: emitChange => {
     FORCED_COLORS_QUERY.addEventListener("change", emitChange);
@@ -644,6 +697,211 @@ Preferences.addSetting({
 });
 
 Preferences.addSetting({
+  id: "acceptLanguages",
+  pref: "intl.accept_languages",
+  get(prefVal, _, setting) {
+    return setting.pref.defaultValue != prefVal
+      ? prefVal.toLowerCase()
+      : Services.locale.acceptLanguages.toLowerCase();
+  },
+});
+Preferences.addSetting({
+  id: "availableLanguages",
+  deps: ["acceptLanguages"],
+  get(_, { acceptLanguages }) {
+    let re = /\s*(?:,|$)\s*/;
+    let _acceptLanguages = acceptLanguages.value.split(re);
+    let availableLanguages = [];
+    let localeCodes = [];
+    let localeValues = [];
+    let bundle = Services.strings.createBundle(
+      "resource://gre/res/language.properties"
+    );
+
+    for (let currString of bundle.getSimpleEnumeration()) {
+      let property = currString.key.split(".");
+      if (property[1] == "accept") {
+        localeCodes.push(property[0]);
+        localeValues.push(currString.value);
+      }
+    }
+
+    let localeNames = Services.intl.getLocaleDisplayNames(
+      undefined,
+      localeCodes
+    );
+
+    for (let i in localeCodes) {
+      let isVisible =
+        localeValues[i] == "true" &&
+        (!_acceptLanguages.includes(localeCodes[i]) ||
+          !_acceptLanguages[localeCodes[i]]);
+      let locale = {
+        code: localeCodes[i],
+        displayName: localeNames[i],
+        isVisible,
+      };
+      availableLanguages.push(locale);
+    }
+
+    return availableLanguages;
+  },
+});
+
+Preferences.addSetting({
+  id: "websiteLanguageWrapper",
+  deps: ["acceptLanguages"],
+  onUserReorder(event, deps) {
+    const { draggedIndex, targetIndex } = event.detail;
+
+    let re = /\s*(?:,|$)\s*/;
+    let languages = deps.acceptLanguages.value.split(re).filter(lang => lang);
+
+    const [draggedLang] = languages.splice(draggedIndex, 1);
+
+    languages.splice(targetIndex, 0, draggedLang);
+
+    deps.acceptLanguages.value = languages.join(",");
+  },
+  getControlConfig(config, deps) {
+    let languagePref = deps.acceptLanguages.value;
+    let localeCodes = languagePref
+      .toLowerCase()
+      .split(/\s*,\s*/)
+      .filter(code => code.length);
+    let localeDisplayNames = Services.intl.getLocaleDisplayNames(
+      undefined,
+      localeCodes
+    );
+    /** @type {SettingOptionConfig[]} */
+    let availableLanguages = [];
+    for (let i = 0; i < localeCodes.length; i++) {
+      let displayName = localeDisplayNames[i];
+      let localeCode = localeCodes[i];
+      availableLanguages.push({
+        l10nId: "languages-code-format",
+        l10nArgs: {
+          locale: displayName,
+          code: localeCode,
+        },
+        control: "moz-box-item",
+        key: localeCode,
+        options: [
+          {
+            control: "moz-button",
+            slot: "actions-start",
+            iconSrc: "chrome://global/skin/icons/delete.svg",
+            l10nId: "website-remove-language-button",
+            l10nArgs: {
+              locale: displayName,
+              code: localeCode,
+            },
+            controlAttrs: {
+              locale: localeCode,
+              action: "remove",
+            },
+          },
+        ],
+      });
+    }
+    config.options = [config.options[0], ...availableLanguages];
+    return config;
+  },
+  onUserClick(e, deps) {
+    let code = e.target.getAttribute("locale");
+    let action = e.target.getAttribute("action");
+    if (code && action) {
+      if (action === "remove") {
+        let re = /\s*(?:,|$)\s*/;
+        let acceptedLanguages = deps.acceptLanguages.value.split(re);
+        let filteredLanguages = acceptedLanguages.filter(
+          acceptedCode => acceptedCode !== code
+        );
+        deps.acceptLanguages.value = filteredLanguages.join(",");
+        let closestBoxItem = e.target.closest("moz-box-item");
+        closestBoxItem.nextElementSibling
+          ? closestBoxItem.nextElementSibling.focus()
+          : closestBoxItem.previousElementSibling.focus();
+      }
+    }
+  },
+});
+
+Preferences.addSetting({
+  id: "websiteLanguageAddLanguage",
+  deps: ["websiteLanguagePicker", "acceptLanguages"],
+  onUserClick(e, deps) {
+    let selectedLanguage = deps.websiteLanguagePicker.value;
+    if (selectedLanguage == "-1") {
+      return;
+    }
+
+    let re = /\s*(?:,|$)\s*/;
+    let currentLanguages = deps.acceptLanguages.value.split(re);
+    let isAlreadyAccepted = currentLanguages.includes(selectedLanguage);
+
+    if (isAlreadyAccepted) {
+      return;
+    }
+
+    currentLanguages.unshift(selectedLanguage);
+    deps.acceptLanguages.value = currentLanguages.join(",");
+  },
+});
+
+Preferences.addSetting(
+  /** @type {{inputValue: string} & SettingConfig } */ ({
+    id: "websiteLanguagePicker",
+    deps: ["availableLanguages", "acceptLanguages"],
+    inputValue: "-1",
+    getControlConfig(config, deps) {
+      let re = /\s*(?:,|$)\s*/;
+      let availableLanguages =
+        /** @type {{ locale: string, code: string, displayName: string, isVisible: boolean }[]} */
+        deps.availableLanguages.value;
+
+      let acceptLanguages = new Set(
+        /** @type {string} */ (deps.acceptLanguages.value).split(re)
+      );
+
+      let sortedOptions = availableLanguages.map(locale => ({
+        l10nId: "languages-code-format",
+        l10nArgs: {
+          locale: locale.displayName,
+          code: locale.code,
+        },
+        hidden: locale.isVisible && acceptLanguages.has(locale.code),
+        value: locale.code,
+      }));
+      // Sort the list of languages by name
+      let comp = new Services.intl.Collator(undefined, {
+        usage: "sort",
+      });
+
+      sortedOptions.sort((a, b) => {
+        return comp.compare(a.l10nArgs.locale, b.l10nArgs.locale);
+      });
+
+      // Take the existing "Add Language" option and prepend it.
+      config.options = [config.options[0], ...sortedOptions];
+      return config;
+    },
+    get(_, deps) {
+      if (
+        !this.inputValue ||
+        deps.acceptLanguages.value.split(",").includes(this.inputValue)
+      ) {
+        this.inputValue = "-1";
+      }
+      return this.inputValue;
+    },
+    set(inputVal) {
+      this.inputValue = String(inputVal);
+    },
+  })
+);
+
+Preferences.addSetting({
   id: "containersPane",
   onUserClick(e) {
     e.preventDefault();
@@ -651,10 +909,20 @@ Preferences.addSetting({
   },
 });
 Preferences.addSetting({ id: "containersPlaceholder" });
+Preferences.addSetting({
+  id: "legacyTranslationsVisible",
+  deps: ["aiControlDefault", "aiControlTranslations"],
+  visible: ({ aiControlDefault, aiControlTranslations }) =>
+    !Services.prefs.getBoolPref("browser.settings-redesign.enable", false) &&
+    canShowAiFeature(aiControlTranslations, aiControlDefault),
+});
 
 Preferences.addSetting({
   id: "offerTranslations",
   pref: "browser.translations.automaticallyPopup",
+  deps: ["aiControlDefault", "aiControlTranslations"],
+  visible: ({ aiControlDefault, aiControlTranslations }) =>
+    canShowAiFeature(aiControlTranslations, aiControlDefault),
 });
 
 function createNeverTranslateSitesDescription() {
@@ -756,10 +1024,13 @@ Preferences.addSetting({
 
 Preferences.addSetting({
   id: "translationsManageButton",
+  deps: ["aiControlDefault", "aiControlTranslations"],
   onUserClick(e) {
     e.preventDefault();
     gotoPref("paneTranslations");
   },
+  visible: ({ aiControlDefault, aiControlTranslations }) =>
+    canShowAiFeature(aiControlTranslations, aiControlDefault),
 });
 
 Preferences.addSetting({
@@ -1615,6 +1886,32 @@ Preferences.addSetting({
   visible: () => TransientPrefs.prefShouldBeVisible("browser.tabs.warnOnOpen"),
 });
 
+// AI Control pref settings
+Preferences.addSetting({
+  id: "aiControlDefault",
+  pref: "browser.ai.control.default",
+});
+Preferences.addSetting({
+  id: "aiControlTranslations",
+  pref: "browser.ai.control.translations",
+});
+Preferences.addSetting({
+  id: "aiControlPdfjsAltText",
+  pref: "browser.ai.control.pdfjsAltText",
+});
+Preferences.addSetting({
+  id: "aiControlSmartTabGroups",
+  pref: "browser.ai.control.smartTabGroups",
+});
+Preferences.addSetting({
+  id: "aiControlLinkPreviews",
+  pref: "browser.ai.control.linkPreviewKeyPoints",
+});
+Preferences.addSetting({
+  id: "aiControlSidebarChatbot",
+  pref: "browser.ai.control.sidebarChatbot",
+});
+
 // "Interaction" tabs settings
 Preferences.addSetting({
   id: "tabsInteraction",
@@ -1637,15 +1934,35 @@ Preferences.addSetting({
   visible: ({ tabHoverPreview }) => !!tabHoverPreview.value,
 });
 Preferences.addSetting({
+  id: "tabGroups",
+  pref: "browser.tabs.groups.enabled",
+});
+Preferences.addSetting({
   id: "smartTabGroups",
   pref: "browser.tabs.groups.smart.enabled",
 });
 Preferences.addSetting({
   id: "tabGroupSuggestions",
   pref: "browser.tabs.groups.smart.userEnabled",
-  deps: ["smartTabGroups"],
-  visible: ({ smartTabGroups }) =>
-    !!smartTabGroups.value && Services.locale.appLocaleAsBCP47.startsWith("en"),
+  deps: [
+    "tabGroups",
+    "smartTabGroups",
+    "aiControlDefault",
+    "aiControlSmartTabGroups",
+  ],
+  visible: ({
+    smartTabGroups,
+    tabGroups,
+    aiControlDefault,
+    aiControlSmartTabGroups,
+  }) => {
+    return (
+      canShowAiFeature(aiControlSmartTabGroups, aiControlDefault) &&
+      !!tabGroups.value &&
+      !!smartTabGroups.value &&
+      Services.locale.appLocaleAsBCP47.startsWith("en")
+    );
+  },
 });
 if (AppConstants.platform === "win") {
   /**
@@ -2068,19 +2385,6 @@ function createDefaultBrowserConfig({
 }
 
 SettingGroupManager.registerGroups({
-  containers: {
-    // This section is marked as in progress for testing purposes
-    inProgress: true,
-    items: [
-      {
-        id: "containersPlaceholder",
-        control: "moz-message-bar",
-        controlAttrs: {
-          message: "Placeholder for updated containers",
-        },
-      },
-    ],
-  },
   profilePane: {
     headingLevel: 2,
     id: "browserProfilesGroupPane",
@@ -2196,6 +2500,7 @@ SettingGroupManager.registerGroups({
   homepage: {
     inProgress: true,
     headingLevel: 2,
+    iconSrc: "chrome://browser/skin/window-firefox.svg",
     l10nId: "home-homepage-title",
     items: [
       {
@@ -2239,53 +2544,15 @@ SettingGroupManager.registerGroups({
   customHomepage: {
     inProgress: true,
     headingLevel: 2,
+    l10nId: "home-custom-homepage-card-header",
+    iconSrc: "chrome://global/skin/icons/link.svg",
     items: [
       {
-        id: "customHomepageCard",
-        control: "moz-card",
-        l10nId: "home-custom-homepage-card",
-        iconSrc: "chrome://global/skin/icons/link.svg",
-        items: [
-          {
-            id: "customHomepageBoxGroup",
-            control: "moz-box-group",
-            controlAttrs: {
-              type: "list",
-            },
-            items: [
-              {
-                id: "customHomepageBoxForm",
-                control: "moz-box-item",
-                items: [
-                  {
-                    id: "customHomepagePlaceholderButton",
-                    control: "moz-button",
-                  },
-                ],
-              },
-              {
-                id: "customHomepageBoxUrlList",
-                control: "moz-box-item",
-                items: [
-                  {
-                    id: "customHomepagePlaceholderButton",
-                    control: "moz-button",
-                  },
-                ],
-              },
-              {
-                id: "customHomepageBoxActions",
-                control: "moz-box-item",
-                items: [
-                  {
-                    id: "customHomepagePlaceholderButton",
-                    control: "moz-button",
-                  },
-                ],
-              },
-            ],
-          },
-        ],
+        id: "customHomepageBoxGroup",
+        control: "moz-box-group",
+        controlAttrs: {
+          type: "list",
+        },
       },
     ],
   },
@@ -2293,8 +2560,7 @@ SettingGroupManager.registerGroups({
     inProgress: true,
     headingLevel: 2,
     l10nId: "home-prefs-content-header",
-    // Icons are not ready to be used yet.
-    // iconSrc: "chrome://browser/skin/home.svg",
+    iconSrc: "chrome://browser/skin/home.svg",
     items: [
       {
         id: "webSearch",
@@ -2409,9 +2675,6 @@ SettingGroupManager.registerGroups({
           {
             id: "recentActivityRows",
             control: "moz-select",
-            controlAttrs: {
-              class: "newtab-rows-select",
-            },
             options: [
               {
                 value: 1,
@@ -2501,6 +2764,42 @@ SettingGroupManager.registerGroups({
       },
     ],
   },
+  browserLayout: {
+    l10nId: "browser-layout-header2",
+    headingLevel: 2,
+    items: [
+      {
+        id: "browserLayoutRadioGroup",
+        control: "moz-visual-picker",
+        options: [
+          {
+            id: "browserLayoutHorizontalTabs",
+            value: "false",
+            l10nId: "browser-layout-horizontal-tabs2",
+            controlAttrs: {
+              class: "setting-chooser-item",
+              imagesrc:
+                "chrome://browser/content/preferences/browser-layout-horizontal.svg",
+            },
+          },
+          {
+            id: "browserLayoutVerticalTabs",
+            value: "true",
+            l10nId: "browser-layout-vertical-tabs2",
+            controlAttrs: {
+              class: "setting-chooser-item",
+              imagesrc:
+                "chrome://browser/content/preferences/browser-layout-vertical.svg",
+            },
+          },
+        ],
+      },
+      {
+        id: "browserLayoutShowSidebar",
+        l10nId: "browser-layout-show-sidebar2",
+      },
+    ],
+  },
   appearance: {
     l10nId: "appearance-group",
     headingLevel: 2,
@@ -2519,7 +2818,7 @@ SettingGroupManager.registerGroups({
             l10nId: "preferences-web-appearance-choice-auto2",
             controlAttrs: {
               id: "preferences-web-appearance-choice-auto",
-              class: "appearance-chooser-item",
+              class: "setting-chooser-item",
               imagesrc:
                 "chrome://browser/content/preferences/web-appearance-light.svg",
             },
@@ -2529,7 +2828,7 @@ SettingGroupManager.registerGroups({
             l10nId: "preferences-web-appearance-choice-light2",
             controlAttrs: {
               id: "preferences-web-appearance-choice-light",
-              class: "appearance-chooser-item",
+              class: "setting-chooser-item",
               imagesrc:
                 "chrome://browser/content/preferences/web-appearance-light.svg",
             },
@@ -2539,7 +2838,7 @@ SettingGroupManager.registerGroups({
             l10nId: "preferences-web-appearance-choice-dark2",
             controlAttrs: {
               id: "preferences-web-appearance-choice-dark",
-              class: "appearance-chooser-item",
+              class: "setting-chooser-item",
               imagesrc:
                 "chrome://browser/content/preferences/web-appearance-dark.svg",
             },
@@ -2553,6 +2852,52 @@ SettingGroupManager.registerGroups({
         controlAttrs: {
           href: "about:addons",
         },
+      },
+    ],
+  },
+  websiteLanguage: {
+    inProgress: true,
+    l10nId: "website-language-heading",
+    headingLevel: 2,
+    items: [
+      {
+        id: "websiteLanguageWrapper",
+        control: "moz-box-group",
+        controlAttrs: {
+          type: "reorderable-list",
+        },
+        options: [
+          {
+            id: "websiteLanguagePickerWrapper",
+            l10nId: "website-preferred-language",
+            key: "addlanguage",
+            control: "moz-box-item",
+            slot: "header",
+            items: [
+              {
+                id: "websiteLanguagePicker",
+                slot: "actions",
+                control: "moz-select",
+                options: [
+                  {
+                    control: "moz-option",
+                    l10nId: "website-add-language",
+                    controlAttrs: {
+                      value: "-1",
+                    },
+                  },
+                ],
+              },
+              {
+                id: "websiteLanguageAddLanguage",
+                slot: "actions",
+                control: "moz-button",
+                iconSrc: "chrome://global/skin/icons/plus.svg",
+                l10nId: "website-add-language-button",
+              },
+            ],
+          },
+        ],
       },
     ],
   },
@@ -2858,6 +3203,7 @@ SettingGroupManager.registerGroups({
   },
   securityPrivacyStatus: {
     inProgress: true,
+    card: "never",
     items: [
       {
         id: "privacyCard",
@@ -2867,6 +3213,7 @@ SettingGroupManager.registerGroups({
   },
   securityPrivacyWarnings: {
     inProgress: true,
+    card: "never",
     items: [
       {
         id: "warningCard",
@@ -2936,6 +3283,30 @@ SettingGroupManager.registerGroups({
     supportPage: "ip-protection",
     items: [
       {
+        id: "ipProtectionNotOptedInSection",
+        l10nId: "ip-protection-not-opted-in",
+        l10nArgs: {
+          maxUsage: "50",
+        },
+        control: "moz-promo",
+        controlAttrs: {
+          imagesrc:
+            "chrome://browser/content/ipprotection/assets/vpn-settings-get-started.svg",
+          imagealignment: "end",
+        },
+        items: [
+          {
+            id: "getStartedButton",
+            l10nId: "ip-protection-not-opted-in-button",
+            control: "moz-button",
+            slot: "actions",
+            controlAttrs: {
+              type: "primary",
+            },
+          },
+        ],
+      },
+      {
         id: "ipProtectionExceptions",
         l10nId: "ip-protection-site-exceptions",
         control: "moz-fieldset",
@@ -2974,6 +3345,7 @@ SettingGroupManager.registerGroups({
           href: "https://www.mozilla.org/products/vpn/",
         },
       },
+      { id: "ipProtectionBandwidth", control: "bandwidth-usage" },
     ],
   },
   cookiesAndSiteData: {
@@ -3847,6 +4219,7 @@ SettingGroupManager.registerGroups({
   },
   etpBanner: {
     inProgress: true,
+    card: "never",
     items: [
       {
         id: "etpBannerEl",
@@ -4683,10 +5056,12 @@ var gMainPane = {
     gMainPane.initTranslations();
 
     // Initialize settings groups from the config object.
+    initSettingGroup("browserLayout");
     initSettingGroup("appearance");
     initSettingGroup("downloads");
     initSettingGroup("drm");
     initSettingGroup("contrast");
+    initSettingGroup("websiteLanguage");
     initSettingGroup("browsing");
     initSettingGroup("zoom");
     initSettingGroup("support");
@@ -4737,14 +5112,6 @@ var gMainPane = {
       gMainPane._rebuildFonts.bind(gMainPane)
     );
     setEventListener("advancedFonts", "command", gMainPane.configureFonts);
-
-    document
-      .getElementById("browserLayoutShowSidebar")
-      .addEventListener(
-        "command",
-        gMainPane.onShowSidebarCommand.bind(gMainPane),
-        { capture: true }
-      );
 
     document
       .getElementById("migrationWizardDialog")
@@ -4972,21 +5339,6 @@ var gMainPane = {
     return false;
   },
 
-  /**
-   * Handle toggling the "Show sidebar" checkbox to allow SidebarController to know the
-   * origin of this change.
-   */
-  onShowSidebarCommand(event) {
-    // Note: We useCapture so while the checkbox' checked property is already updated,
-    // the pref value has not yet been changed
-    const willEnable = event.target.checked;
-    if (willEnable) {
-      window.browsingContext.topChromeWindow.SidebarController?.enabledViaSettings(
-        true
-      );
-    }
-  },
-
   // CONTAINERS
 
   /*
@@ -5051,19 +5403,34 @@ var gMainPane = {
    * Initialize the translations view.
    */
   async initTranslations() {
-    if (!Services.prefs.getBoolPref("browser.translations.enable")) {
-      return;
-    }
-
+    let legacyTranslationsVisible = Preferences.getSetting(
+      "legacyTranslationsVisible"
+    );
     /**
      * Which phase a language download is in.
      *
      * @typedef {"downloaded" | "loading" | "uninstalled"} DownloadPhase
      */
 
-    // Immediately show the group so that the async load of the component does
-    // not cause the layout to jump. The group will be empty initially.
-    document.getElementById("translationsGroup").hidden = false;
+    let translationsGroup = document.getElementById("translationsGroup");
+    let setTranslationsGroupVisbility = () => {
+      // Immediately show the group so that the async load of the component does
+      // not cause the layout to jump. The group will be empty initially.
+      translationsGroup.hidden = !legacyTranslationsVisible.visible;
+      translationsGroup.classList.toggle(
+        "setting-hidden",
+        translationsGroup.hidden
+      );
+    };
+    setTranslationsGroupVisbility();
+
+    legacyTranslationsVisible.on("change", setTranslationsGroupVisbility);
+    window.addEventListener(
+      "unload",
+      () =>
+        legacyTranslationsVisible.off("change", setTranslationsGroupVisbility),
+      { once: true }
+    );
 
     class TranslationsState {
       /**

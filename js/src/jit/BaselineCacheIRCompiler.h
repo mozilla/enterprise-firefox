@@ -47,9 +47,19 @@ ICAttachResult AttachBaselineCacheIRStub(JSContext* cx,
 
 // BaselineCacheIRCompiler compiles CacheIR to BaselineIC native code.
 class MOZ_RAII BaselineCacheIRCompiler : public CacheIRCompiler {
+  struct CreateThisData {
+    uint32_t numFixedSlots;
+    uint32_t numDynamicSlots;
+    gc::AllocKind allocKind;
+    uint32_t thisShapeOffset;
+    uint32_t allocSiteOffset;
+  };
+
   bool makesGCCalls_;
   uint8_t localTracingSlots_ = 0;
   Register baselineFrameReg_ = FramePointer;
+
+  mozilla::Maybe<CreateThisData> createThisData_;
 
   // This register points to the baseline frame of the caller. It should only
   // be used before we enter a stub frame. This is normally the frame pointer
@@ -95,9 +105,10 @@ class MOZ_RAII BaselineCacheIRCompiler : public CacheIRCompiler {
                                   CallFlags flags, uint32_t numBoundArgs,
                                   bool isJitCall);
   void createThis(Register argcReg, Register calleeReg, Register scratch,
-                  CallFlags flags, bool isBoundFunction);
-  template <typename T>
-  void storeThis(const T& newThis, Register argcReg, CallFlags flags);
+                  Register scratch2, Register scratch3, CallFlags flags,
+                  bool isBoundFunction);
+  void storeThis(const ConstantOrRegister& newThis, Register argcReg,
+                 CallFlags flags);
   void updateReturnValue();
 
   enum class NativeCallType { Native, ClassHook };

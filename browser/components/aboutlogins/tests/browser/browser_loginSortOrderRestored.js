@@ -22,8 +22,8 @@ add_setup(async function () {
   info(`TEST_LOGIN1 added with guid=${TEST_LOGIN1.guid}`);
   TEST_LOGIN3 = await addLogin(TEST_LOGIN3);
   info(`TEST_LOGIN3 added with guid=${TEST_LOGIN3.guid}`);
-  registerCleanupFunction(() => {
-    Services.logins.removeAllUserFacingLogins();
+  registerCleanupFunction(async () => {
+    await Services.logins.removeAllUserFacingLoginsAsync();
     Services.prefs.clearUserPref(SORT_PREF_NAME);
   });
 });

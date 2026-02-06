@@ -173,9 +173,9 @@ SVGAnimatedIntegerPair::DOMAnimatedInteger::~DOMAnimatedInteger() {
   sSVGAnimatedIntegerTearoffTables[mWhichOneOfPair].RemoveTearoff(mVal);
 }
 
-UniquePtr<SMILAttr> SVGAnimatedIntegerPair::ToSMILAttr(
+std::unique_ptr<SMILAttr> SVGAnimatedIntegerPair::ToSMILAttr(
     SVGElement* aSVGElement) {
-  return MakeUnique<SMILIntegerPair>(this, aSVGElement);
+  return std::make_unique<SMILIntegerPair>(this, aSVGElement);
 }
 
 nsresult SVGAnimatedIntegerPair::SMILIntegerPair::ValueFromString(

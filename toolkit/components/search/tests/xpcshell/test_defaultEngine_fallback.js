@@ -56,12 +56,9 @@ function setDefault(privateMode, engine) {
   return privateMode
     ? SearchService.setDefaultPrivate(
         engine,
-        Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+        SearchService.CHANGE_REASON.UNKNOWN
       )
-    : SearchService.setDefault(
-        engine,
-        Ci.nsISearchService.CHANGE_REASON_UNKNOWN
-      );
+    : SearchService.setDefault(engine, SearchService.CHANGE_REASON.UNKNOWN);
 }
 
 async function checkFallbackDefaultRegion(checkPrivate) {
@@ -212,7 +209,7 @@ add_task(async function test_default_fallback_remove_default_no_visible() {
 
   await SearchService.setDefaultPrivate(
     SearchService.defaultEngine,
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+    SearchService.CHANGE_REASON.UNKNOWN
   );
   let visibleEngines = await SearchService.getVisibleEngines();
   for (let engine of visibleEngines) {
@@ -277,14 +274,14 @@ add_task(
       }
     }
     SearchTestUtils.setRemoteSettingsConfig(searchConfig);
-    SearchService.wrappedJSObject.reset();
+    SearchService.reset();
     await SearchService.init();
 
     appPrivateDefault = await SearchService.getDefaultPrivate();
 
     await SearchService.setDefault(
       appPrivateDefault,
-      Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+      SearchService.CHANGE_REASON.UNKNOWN
     );
 
     // Remove all but the default engine.

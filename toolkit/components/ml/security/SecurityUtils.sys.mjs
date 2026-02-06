@@ -184,6 +184,7 @@ export class TabLedger {
    * @param {string} [baseUrl] - Optional base URL for resolving relative URLs
    */
   seed(urls, baseUrl = null) {
+    const startTime = ChromeUtils.now();
     this.#cleanup();
 
     const now = ChromeUtils.now();
@@ -201,6 +202,12 @@ export class TabLedger {
     }
 
     this.lastCleanup = now;
+
+    ChromeUtils.addProfilerMarker(
+      "ML.Security.TabLedger.seed",
+      { startTime },
+      `TabLedger.seed for ${urls?.length} urls and tabId: ${this.tabId}`
+    );
   }
 
   /**
@@ -236,23 +243,28 @@ export class TabLedger {
    * @returns {boolean} True if URL is in ledger and not expired
    */
   has(url, baseUrl = null) {
+    const startTime = ChromeUtils.now();
+    let result = true;
+
     const normalized = normalizeUrl(url, baseUrl);
-    if (!normalized.success) {
-      return false;
-    }
 
     const expiresAt = this.urls.get(normalized.url);
-    if (expiresAt === undefined) {
-      return false;
-    }
 
-    // Check expiration
-    if (ChromeUtils.now() > expiresAt) {
+    if (!normalized.success || expiresAt === undefined) {
+      result = false;
+    } else if (ChromeUtils.now() > expiresAt) {
+      // Check expiration
       this.urls.delete(normalized.url);
-      return false;
+      result = false;
     }
 
-    return true;
+    ChromeUtils.addProfilerMarker(
+      "ML.Security.TabLedger.has",
+      { startTime },
+      `TabLedger.has for url ${url} and tabId: ${this.tabId}`
+    );
+
+    return result;
   }
 
   /**

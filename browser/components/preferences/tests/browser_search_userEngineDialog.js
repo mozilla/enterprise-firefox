@@ -264,7 +264,7 @@ add_task(async function test_editGetEngine() {
     url: "https://example.com/user?q={searchTerms}&b=ff",
     alias: "u",
   });
-  engine.wrappedJSObject.changeUrl(
+  engine.changeUrl(
     SearchUtils.URL_TYPE.SUGGEST_JSON,
     "https://example.com/suggest?query={searchTerms}",
     null

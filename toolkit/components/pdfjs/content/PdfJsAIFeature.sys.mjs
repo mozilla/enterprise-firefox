@@ -46,13 +46,7 @@ export class PdfJsGuessAltTextFeature extends AIFeature {
   static async disable() {
     Services.prefs.setBoolPref("pdfjs.enableGuessAltText", false);
     Services.prefs.setBoolPref("pdfjs.enableAltTextModelDownload", false);
-
-    // We intentionally do not set pdfjs.enableAltText to false.
-    // This pref does not control the AI part of PDF.js. AI alt text is instead
-    // controlled by enableGuessAltText. pdfjs.enableAltText only lets the user
-    // choose between manual (non-AI) alt text and AI-generated alt text. If
-    // enableGuessAltText is false, the user can still use manual alt text or
-    // manually toggle the AI mode on.
+    Services.prefs.setBoolPref("pdfjs.enableAltText", false);
     await this.uninstall();
   }
 
@@ -92,5 +86,9 @@ export class PdfJsGuessAltTextFeature extends AIFeature {
       !Services.prefs.getBoolPref("browser.ml.enable", false) ||
       !Services.prefs.getBoolPref("pdfjs.enableAltText", false)
     );
+  }
+
+  static get isManagedByPolicy() {
+    return Services.prefs.prefIsLocked("pdfjs.enableAltText");
   }
 }

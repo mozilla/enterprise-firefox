@@ -72,9 +72,9 @@ add_task(async function test_PiP_remembers_position() {
   info("Re-opening PiP window");
   await BrowserTestUtils.closeWindow(chromePiP);
   const chromePiP2Promise = BrowserTestUtils.waitForNewWindow();
-  await SpecialPowers.spawn(tab.linkedBrowser, [testSize], async size => {
+  await SpecialPowers.spawn(tab.linkedBrowser, [], async () => {
     content.document.notifyUserGestureActivation();
-    await content.documentPictureInPicture.requestWindow(size);
+    await content.documentPictureInPicture.requestWindow();
   });
   const chromePiP2 = await chromePiP2Promise;
 

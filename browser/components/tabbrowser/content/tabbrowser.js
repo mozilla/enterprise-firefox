@@ -103,6 +103,7 @@
       this.splitViewCommandSet = document.getElementById("splitViewCommands");
 
       ChromeUtils.defineESModuleGetters(this, {
+        ASRouter: "resource:///modules/asrouter/ASRouter.sys.mjs",
         AsyncTabSwitcher:
           "moz-src:///browser/components/tabbrowser/AsyncTabSwitcher.sys.mjs",
         PictureInPicture: "resource://gre/modules/PictureInPicture.sys.mjs",
@@ -424,12 +425,21 @@
 
     _hoverTabTimer = null;
 
+    /**
+     * @type {Array<{count: number, uris: [string, string], timestamp: number}>}
+     */
+    _tabSelectTimestamps = [];
+
     get tabs() {
       return this.tabContainer.allTabs;
     }
 
     get tabGroups() {
       return this.tabContainer.allGroups;
+    }
+
+    get splitViews() {
+      return this.tabContainer.allSplitViews;
     }
 
     get tabsInCollapsedTabGroups() {
@@ -1636,6 +1646,9 @@
         });
         newTab.dispatchEvent(event);
 
+        // Check if switched between tabs 3 times in last minute
+        this._checkIfShouldTriggerTabSelectMessage(oldTab, newTab);
+
         this._tabAttrModified(oldTab, ["selected"]);
         this._tabAttrModified(newTab, ["selected"]);
 
@@ -1684,6 +1697,47 @@
 
       if (!aForceUpdate) {
         Glean.browserTabswitch.update.stopAndAccumulate(timerId);
+      }
+    }
+
+    async _checkIfShouldTriggerTabSelectMessage(oldTab, newTab) {
+      const ONE_MINUTE_MS = 60000;
+      const LIMIT_FOR_TRIGGER = 2;
+      const now = Date.now();
+
+      const oldTabSpec = oldTab.linkedBrowser.currentURI.spec;
+      const newTabSpec = newTab.linkedBrowser.currentURI.spec;
+
+      // Only look at entries from the last minute
+      this._tabSelectTimestamps = this._tabSelectTimestamps.filter(
+        entry => now - entry.timestamp < ONE_MINUTE_MS
+      );
+
+      const sortedUris = [oldTabSpec, newTabSpec].sort();
+      const existingEntry = this._tabSelectTimestamps.find(
+        entry =>
+          entry.uris[0] === sortedUris[0] && entry.uris[1] === sortedUris[1]
+      );
+
+      if (existingEntry) {
+        existingEntry.count++;
+        existingEntry.timestamp = now;
+        if (existingEntry.count === LIMIT_FOR_TRIGGER) {
+          await this.ASRouter.waitForInitialized;
+          this.ASRouter.sendTriggerMessage({
+            browser: newTab.linkedBrowser,
+            id: "tabSwitch",
+          });
+          this._tabSelectTimestamps = this._tabSelectTimestamps.filter(
+            entry => entry !== existingEntry
+          );
+        }
+      } else {
+        this._tabSelectTimestamps.push({
+          timestamp: now,
+          uris: sortedUris,
+          count: 1,
+        });
       }
     }
 
@@ -1875,7 +1929,9 @@
         return;
       }
       // If WebRTC was used, leave object to enable tracking of grace periods.
-      tab._sharingState = tab._sharingState?.webRTC ? { webRTC: {} } : {};
+      aBrowser._sharingState = aBrowser._sharingState?.webRTC
+        ? { webRTC: {} }
+        : {};
       tab.removeAttribute("sharing");
       this._tabAttrModified(tab, ["sharing"]);
       if (aBrowser == this.selectedBrowser) {
@@ -1888,14 +1944,15 @@
       if (!tab) {
         return;
       }
-      if (tab._sharingState == null) {
-        tab._sharingState = {};
+
+      if (aBrowser._sharingState == null) {
+        aBrowser._sharingState = {};
       }
-      tab._sharingState = Object.assign(tab._sharingState, aState);
+      aBrowser._sharingState = Object.assign(aBrowser._sharingState, aState);
 
       if ("webRTC" in aState) {
-        if (tab._sharingState.webRTC?.sharing) {
-          if (tab._sharingState.webRTC.paused) {
+        if (aBrowser._sharingState.webRTC?.sharing) {
+          if (aBrowser._sharingState.webRTC.paused) {
             tab.removeAttribute("sharing");
           } else {
             tab.setAttribute("sharing", aState.webRTC.sharing);
@@ -1913,9 +1970,10 @@
 
     getTabSharingState(aTab) {
       // Normalize the state object for consumers (ie.extensions).
+      let browser = aTab.linkedBrowser;
       let state = Object.assign(
         {},
-        aTab._sharingState && aTab._sharingState.webRTC
+        browser._sharingState && browser._sharingState.webRTC
       );
       return {
         camera: !!state.camera,
@@ -2810,9 +2868,7 @@
       }
 
       // Reset sharing state.
-      if (aTab._sharingState) {
-        this.resetBrowserSharing(browser);
-      }
+      this.resetBrowserSharing(browser);
       webrtcUI.forgetStreamsFromBrowserContext(browser.browsingContext);
 
       // Abort any dialogs since the browser is about to be discarded.
@@ -3390,6 +3446,7 @@
           panels.push(tab.linkedPanel);
         }
       }
+      this.setIsSplitViewActive(true, tabs);
       this.tabpanels.splitViewPanels = panels;
     }
 
@@ -3414,7 +3471,7 @@
       for (const tab of tabs) {
         this.tabpanels.setSplitViewPanelActive(isActive, tab.linkedPanel);
       }
-      this.tabpanels.isSplitViewActive = gBrowser.selectedTab.splitview;
+      this.tabpanels.setSplitViewActive(!!gBrowser.selectedTab.splitview);
     }
 
     /**
@@ -4135,17 +4192,26 @@
      */
 
     /**
+     * @typedef {object} SplitViewWorkingData
+     * @property {MozTabbrowserTab[]} tabs
+     * @property {MozTabSplitViewWrapper|undefined} node
+     * @property {number} numberOfTabs
+     */
+
+    /**
      * @param {boolean} restoreTabsLazily
      * @param {number} selectTab see SessionStoreInternal.restoreTabs { aSelectTab }
      * @param {TabStateData[]} tabDataList
      * @param {TabGroupStateData[]} tabGroupDataList
+     * @param {TabSplitViewStateData[]} splitViewDataList
      * @returns {MozTabbrowserTab[]}
      */
     createTabsForSessionRestore(
       restoreTabsLazily,
       selectTab,
       tabDataList,
-      tabGroupDataList
+      tabGroupDataList,
+      splitViewDataList = []
     ) {
       let tabs = [];
       let tabsFragment = document.createDocumentFragment();
@@ -4153,12 +4219,21 @@
       let hiddenTabs = new Map();
       /** @type {Map<TabGroupStateData['id'], TabGroupWorkingData>} */
       let tabGroupWorkingData = new Map();
+      /** @type {Map<TabSplitViewStateData['id'], SplitViewWorkingData>} */
+      let splitViewWorkingData = new Map();
 
       for (const tabGroupData of tabGroupDataList) {
         tabGroupWorkingData.set(tabGroupData.id, {
           stateData: tabGroupData,
           node: undefined,
           containingTabsFragment: document.createDocumentFragment(),
+        });
+      }
+      for (const splitViewData of splitViewDataList) {
+        splitViewWorkingData.set(splitViewData.id, {
+          numberOfTabs: splitViewData.numberOfTabs,
+          node: undefined,
+          tabs: [],
         });
       }
 
@@ -4240,6 +4315,14 @@
           }
         }
 
+        let splitView = splitViewWorkingData.get(tabData.splitViewId);
+        if (tabData.splitViewId) {
+          splitView.tabs.push(tab);
+          if (splitView.tabs.length == splitView.numberOfTabs) {
+            splitView.node = this._createTabSplitView(tabData.splitViewId);
+          }
+        }
+
         tabs.push(tab);
 
         if (tabData.pinned) {
@@ -4251,8 +4334,14 @@
           const tabGroup = tabGroupWorkingData.get(groupId);
           // if a tab refers to a tab group we don't know, skip any group
           // processing
+
           if (tabGroup) {
-            tabGroup.containingTabsFragment.appendChild(tab);
+            if (!splitView) {
+              tabGroup.containingTabsFragment.appendChild(tab);
+            } else if (splitView?.node) {
+              tabGroup.containingTabsFragment.appendChild(splitView.node);
+            }
+
             // if this is the first time encountering a tab group, create its
             // DOM node once and place it in the tabs bar fragment
             if (!tabGroup.node) {
@@ -4271,7 +4360,12 @@
             hiddenTabs.set(tab, tabData.extData && tabData.extData.hiddenBy);
           }
 
-          tabsFragment.appendChild(tab);
+          if (!splitView) {
+            tabsFragment.appendChild(tab);
+          } else if (splitView?.node) {
+            tabsFragment.appendChild(splitView.node);
+          }
+
           if (tabWasReused) {
             this.tabContainer._invalidateCachedTabs();
           }
@@ -4283,10 +4377,15 @@
       // inject the top-level tab and tab group DOM nodes
       this.tabContainer.appendChild(tabsFragment);
 
-      // inject tab DOM nodes into the now-connected tab group DOM nodes
+      // inject tab DOM nodes into the now-connected tab group and split view DOM nodes
       for (const tabGroup of tabGroupWorkingData.values()) {
         if (tabGroup.node) {
           tabGroup.node.appendChild(tabGroup.containingTabsFragment);
+        }
+      }
+      for (const splitView of splitViewWorkingData.values()) {
+        if (splitView.node) {
+          splitView.node.addTabs(splitView.tabs, true);
         }
       }
 
@@ -4570,7 +4669,11 @@
       if (pinned && !itemAfter?.pinned) {
         itemAfter = null;
       } else if (itemAfter?.splitview) {
-        itemAfter = itemAfter.splitview?.nextElementSibling || null;
+        let splitview = itemAfter.splitview;
+        itemAfter =
+          itemAfter === splitview.tabs[0]
+            ? splitview
+            : splitview.nextElementSibling || null;
       }
       // Prevent a flash of unstyled content by setting up the tab content
       // and inherited attributes before appending it (see Bug 1592054):
@@ -4756,7 +4859,8 @@
         (a, b) => b.lastSeenActive - a.lastSeenActive
       );
       let duplicateTabs = [];
-      let keys = [];
+      /** @type {Map<string, Set<number>>} */
+      let userContextIdsPerUri = new Map();
       for (let tab of lastSeenTabs) {
         const uri = tab.linkedBrowser?.currentURI;
         if (!uri) {
@@ -4764,20 +4868,15 @@
           // Safest to leave it be.
           continue;
         }
-
-        const key = {
-          uri,
-          userContextId: tab.userContextId,
-        };
-        if (
-          !tab.pinned &&
-          keys.some(
-            k => k.userContextId == key.userContextId && k.uri.equals(key.uri)
-          )
-        ) {
+        let userContextIds = userContextIdsPerUri.getOrInsertComputed(
+          uri.spec,
+          () => new Set()
+        );
+        let userContextId = tab.userContextId;
+        if (!tab.pinned && userContextIds.has(userContextId)) {
           duplicateTabs.push(tab);
         }
-        keys.push(key);
+        userContextIds.add(userContextId);
       }
       return duplicateTabs;
     }
@@ -5486,7 +5585,7 @@
       // Delay hiding the the active tab if we're screen sharing.
       // See Bug 1642747.
       let screenShareInActiveTab =
-        aTab == this.selectedTab && aTab._sharingState?.webRTC?.screen;
+        aTab == this.selectedTab && browser._sharingState?.webRTC?.screen;
 
       if (!screenShareInActiveTab) {
         this._blurTab(aTab);
@@ -5830,15 +5929,22 @@
       }
       let unloadSelectedTab = false;
       let allTabsUnloaded = false;
-      if (tabs.some(tab => tab.selected)) {
+      if (tabs.some(tab => tab.selected || tab.splitview?.hasActiveTab)) {
         // Unloading the currently selected tab.
         // Need to select a different one before unloading.
         // Avoid selecting any tab we're unloading now or
         // any tab that is already unloaded.
         unloadSelectedTab = true;
-        const tabsToExclude = tabs.concat(
+        let tabsToExclude = tabs.concat(
           this.tabContainer.allTabs.filter(tab => !tab.linkedPanel)
         );
+        for (const tab of tabs) {
+          if (tab.splitview) {
+            tabsToExclude.push(
+              ...tab.splitview.tabs.filter(splitViewTab => splitViewTab != tab)
+            );
+          }
+        }
         let newTab = this._findTabToBlurTo(this.selectedTab, tabsToExclude);
         if (newTab) {
           this.selectedTab = newTab;
@@ -6095,7 +6201,7 @@
       if (aOtherTab.hasAttribute("sharing")) {
         aOurTab.setAttribute("sharing", aOtherTab.getAttribute("sharing"));
         modifiedAttrs.push("sharing");
-        aOurTab._sharingState = aOtherTab._sharingState;
+        ourBrowser._sharingState = otherBrowser._sharingState;
         webrtcUI.swapBrowserForNotification(otherBrowser, ourBrowser);
       }
       if (aOtherTab.hasAttribute("pictureinpicture")) {
@@ -6397,7 +6503,7 @@
         aTab.selected ||
         aTab.closing ||
         // Tabs that are sharing the screen, microphone or camera cannot be hidden.
-        aTab._sharingState?.webRTC?.sharing
+        aTab.linkedBrowser._sharingState?.webRTC?.sharing
       ) {
         return;
       }
@@ -6450,22 +6556,15 @@
      * in the current window, in which case this will do nothing.
      *
      * @param {MozTabbrowserTab|MozTabbrowserTabGroup|MozTabbrowserTabGroup.labelElement} aTab
+     * @param {object} [aOptions={}]
+     *   Key-value pairs that will be serialized into the features string.
      */
-    replaceTabWithWindow(aTab, aOptions) {
+    replaceTabWithWindow(aTab, aOptions = {}) {
       if (this.tabs.length == 1) {
         return null;
       }
       // TODO bug 1967925: Consider handling the case where aTab is a tab group
       // and also the only tab group in its window.
-
-      var options = "chrome,dialog=no,all";
-      for (var name in aOptions) {
-        options += "," + name + "=" + aOptions[name];
-      }
-
-      if (PrivateBrowsingUtils.isWindowPrivate(window)) {
-        options += ",private=1";
-      }
 
       // Play the tab closing animation to give immediate feedback while
       // waiting for the new window to appear.
@@ -6475,12 +6574,16 @@
       }
 
       // tell a new window to take the "dropped" tab
-      return window.openDialog(
-        AppConstants.BROWSER_CHROME_URL,
-        "_blank",
-        options,
-        aTab
-      );
+      let args = Cc["@mozilla.org/array;1"].createInstance(Ci.nsIMutableArray);
+      args.appendElement(aTab);
+      return BrowserWindowTracker.openWindow({
+        private: PrivateBrowsingUtils.isWindowPrivate(window),
+        features: Object.entries(aOptions)
+          .map(([key, value]) => `${key}=${value}`)
+          .join(","),
+        openerWindow: window,
+        args,
+      });
     }
 
     /**
@@ -6496,9 +6599,9 @@
 
       let tabs;
       if (contextTab.multiselected) {
-        tabs = this.selectedTabs;
+        tabs = this.selectedElements;
       } else {
-        tabs = [contextTab];
+        tabs = [contextTab.splitview ?? contextTab];
       }
 
       if (this.tabs.length == tabs.length) {
@@ -6536,7 +6639,9 @@
           let tabIndex = 0;
           for (let tab of tabs) {
             if (tab !== selectedTab) {
-              const newTab = win.gBrowser.adoptTab(tab, { tabIndex });
+              const newTab = win.gBrowser.isSplitViewWrapper(tab)
+                ? win.gBrowser.adoptSplitView(tab, { elementIndex: tabIndex })
+                : win.gBrowser.adoptTab(tab, { tabIndex });
               if (!newTab) {
                 // The adoption failed. Restore "fadein" and don't increase the index.
                 tab.setAttribute("fadein", "true");
@@ -6798,6 +6903,12 @@
           targetElement = targetElement.group;
         }
         moveBefore = true;
+      }
+
+      // We want to include the splitview wrapper if it's the targetElement, but
+      // not in the case where we want to reverse tabs within the same splitview.
+      if (targetElement?.splitview && !element.splitview) {
+        targetElement = targetElement.splitview;
       }
 
       let getContainer = () =>
@@ -7257,6 +7368,10 @@
     }
 
     addToMultiSelectedTabs(aTab) {
+      if (aTab.splitview) {
+        aTab.splitview.setAttribute("multiselected", "true");
+      }
+
       if (aTab.multiselected) {
         return;
       }
@@ -7303,6 +7418,9 @@
         return;
       }
       aTab.removeAttribute("multiselected");
+      if (aTab.splitview) {
+        aTab.splitview.removeAttribute("multiselected");
+      }
       aTab.removeAttribute("aria-selected");
       this._multiSelectedTabsSet.delete(aTab);
       this._startMultiSelectChange();
@@ -7442,6 +7560,22 @@
       return tabs.sort((a, b) => a._tPos > b._tPos);
     }
 
+    /**
+     * For multiselection, splitsviews can also be selected alongside tabs.
+     * The getter for selectedTabs returns an array with the splitview child tabs
+     * rather than the splitview itself. Hence the need for selectedElements.
+     * We need to know the indices of the draggable elements, such as the
+     * splitview parent element. This getter returns an array of multiselected
+     * tabs and splitview parent elements (as opposed to splitview child tabs).
+     */
+    get selectedElements() {
+      let selectedElements = new Set();
+      for (let selectedTab of this.selectedTabs) {
+        selectedElements.add(selectedTab.splitview ?? selectedTab);
+      }
+      return Array.from(selectedElements.values());
+    }
+
     get multiSelectedTabsCount() {
       return ChromeUtils.nondeterministicGetWeakSetKeys(
         this._multiSelectedTabsSet
@@ -7561,7 +7695,8 @@
       return (
         (aBrowser == this.selectedBrowser && !document.hidden) ||
         this._printPreviewBrowsers.has(aBrowser) ||
-        this.PictureInPicture.isOriginatingBrowser(aBrowser)
+        this.PictureInPicture.isOriginatingBrowser(aBrowser) ||
+        this.splitViewBrowsers.includes(aBrowser)
       );
     }
 
@@ -9200,6 +9335,13 @@
             PrivateBrowsingUtils.isWindowPrivate(window)
           );
           this.mBrowser.registeredOpenURI = aLocation;
+
+          // Record telemetry for URI loads in split view
+          if (this.mTab.splitview && aLocation.spec !== "about:opentabs") {
+            const index = this.mTab.splitview.tabs.indexOf(this.mTab);
+            const label = String(index + 1); // 0 -> "1" (LTR left), 1 -> "2" (LTR right)
+            Glean.splitview.uriCount[label].add(1);
+          }
         }
 
         if (this.mTab != gBrowser.selectedTab) {
@@ -9678,13 +9820,6 @@ var TabBarVisibility = {
       CustomTitlebar.enabled && hideTabsToolbar
     );
 
-    document
-      .getElementById("browser")
-      .classList.toggle(
-        "browser-toolbox-background",
-        CustomTitlebar.enabled && hasVerticalTabs
-      );
-
     if (
       hideTabsToolbar == tabsToolbar.collapsed &&
       !force &&
@@ -10063,7 +10198,9 @@ var TabContextMenu = {
     let visibleOrCollapsedTabs = gBrowser.tabs.filter(
       t => t.isOpen && !t.hidden
     );
-    let allTabsSelected = visibleOrCollapsedTabs.every(t => t.multiselected);
+    let allTabsSelected =
+      visibleOrCollapsedTabs.length == 1 ||
+      visibleOrCollapsedTabs.every(t => t.multiselected);
     contextMoveTabOptions.setAttribute("data-l10n-args", tabCountInfo);
     contextMoveTabOptions.disabled = this.contextTab.hidden || allTabsSelected;
     let selectedTabs = gBrowser.selectedTabs;
@@ -10152,16 +10289,12 @@ var TabContextMenu = {
       .getElementById("context_closeTab")
       .setAttribute("data-l10n-args", tabCountInfo);
 
-    let closeDuplicateEnabled = Services.prefs.getBoolPref(
-      "browser.tabs.context.close-duplicate.enabled"
-    );
     let closeDuplicateTabsItem = document.getElementById(
       "context_closeDuplicateTabs"
     );
-    closeDuplicateTabsItem.hidden = !closeDuplicateEnabled;
-    closeDuplicateTabsItem.disabled =
-      !closeDuplicateEnabled ||
-      !gBrowser.getDuplicateTabsToClose(this.contextTab).length;
+    closeDuplicateTabsItem.disabled = !gBrowser.getDuplicateTabsToClose(
+      this.contextTab
+    ).length;
 
     // Disable "Close Multiple Tabs" if all sub menuitems are disabled
     document.getElementById("context_closeTabOptions").disabled =
@@ -10438,8 +10571,12 @@ var TabContextMenu = {
    * @param {MozTabbrowserTabGroup} group
    */
   moveTabsToGroup(group) {
+    let elementsToMove = new Set();
+    for (let tab of this.contextTabs) {
+      elementsToMove.add(tab.splitview ?? tab);
+    }
     group.addTabs(
-      this.contextTabs,
+      Array.from(elementsToMove.values()),
       gBrowser.TabMetrics.userTriggeredContext(
         gBrowser.TabMetrics.METRIC_SOURCE.TAB_MENU
       )

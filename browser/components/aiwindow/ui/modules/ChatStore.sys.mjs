@@ -12,7 +12,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 ChromeUtils.defineLazyGetter(lazy, "log", function () {
   return console.createInstance({
     prefix: "ChatStore",
-    maxLogLevelPref: "browser.aiwindow.chatStore.loglevel",
+    maxLogLevelPref: "browser.smartwindow.chatStore.loglevel",
   });
 });
 
@@ -90,7 +90,7 @@ const SORTS = ["ASC", "DESC"];
  * @example
  * let { ChatStore, ChatConversation, ChatMessage, MESSAGE_ROLE } =
  *   ChromeUtils.importESModule("resource:///modules/aiwindow/ui/modules/ChatStore.sys.mjs");
- * const chatStore = new ChatStore();
+ * const chatStore = ChatStore;
  * const conversation = new ChatConversation({
  *   title: "title",
  *   description: "description",
@@ -121,7 +121,7 @@ const SORTS = ["ASC", "DESC"];
  *
  * @property {*} x ?
  */
-export class ChatStore {
+class ChatStore {
   #asyncShutdownBlocker;
   #conn;
   #promiseConn;
@@ -341,6 +341,15 @@ export class ChatStore {
     limit = -1,
     offset = -1
   ) {
+    await this.#ensureDatabase().catch(e => {
+      lazy.log.error(
+        "Could not ensure a database connection.",
+        e.message,
+        e.stack
+      );
+      throw e;
+    });
+
     const params = {
       start_date: startDate.getTime(),
       end_date: endDate.getTime(),
@@ -379,6 +388,15 @@ export class ChatStore {
    * object path
    */
   async searchContent(keyChain, role = -1) {
+    await this.#ensureDatabase().catch(e => {
+      lazy.log.error(
+        "Could not ensure a database connection.",
+        e.message,
+        e.stack
+      );
+      throw e;
+    });
+
     const path = `$.${keyChain}`;
 
     const query =
@@ -409,12 +427,13 @@ export class ChatStore {
    * in the message.content.body field
    *
    * @param {string} searchString - The string to search with for conversations
+   * @param {boolean} [includeMessages=true] - Whether to fetch messages for each conversation
    *
-   * @returns {Array<ChatConversation>} - An array of conversations with messages
+   * @returns {Array<ChatConversation>} - An array of conversations with or without messages
    * that contain a message that matches the search string in the conversation
    * titles
    */
-  async search(searchString) {
+  async search(searchString, includeMessages = true) {
     await this.#ensureDatabase().catch(e => {
       lazy.log.error(
         "Could not ensure a database connection.",
@@ -437,6 +456,10 @@ export class ChatStore {
     }
 
     const conversations = rows.map(parseConversationRow);
+
+    if (!includeMessages) {
+      return conversations;
+    }
 
     return await this.#getMessagesForConversations(conversations);
   }
@@ -614,7 +637,14 @@ export class ChatStore {
    * @returns {number} - The file size in bytes
    */
   async getDatabaseSize() {
-    await this.#ensureDatabase();
+    await this.#ensureDatabase().catch(e => {
+      lazy.log.error(
+        "Could not ensure a database connection.",
+        e.message,
+        e.stack
+      );
+      throw e;
+    });
 
     const stats = await IOUtils.stat(this.databaseFilePath);
     return stats.size;
@@ -645,6 +675,7 @@ export class ChatStore {
    */
   async destroyDatabase() {
     await this.#removeDatabaseFiles();
+    this.#promiseConn = null;
   }
 
   /**
@@ -882,11 +913,6 @@ export class ChatStore {
       return [];
     });
 
-    // @todo Bug 2005414
-    // Check summary first, find the one with the largest end_ordinal.
-    // If not found retrieve all messages.
-    // If found compare end_ordinal of the summary with active branch ordinal
-    // to determine if extra messages must be retrieved.
     let rows = await this.#conn.executeCached(sql, queryParams);
 
     const conversations = rows.map(parseConversationRow);
@@ -936,3 +962,6 @@ export class ChatStore {
     return PathUtils.join(PathUtils.profileDir, this.databaseFileName);
   }
 }
+
+const chatStore = new ChatStore();
+export { chatStore as ChatStore };

@@ -108,6 +108,24 @@ class MOZ_RAII SelectionNodeCache final {
     return MaybeCollect(aSelection).Contains(aNode);
   }
 
+  AutoTArray<Selection*, 1>* LastCommonAncestorSelections(
+      const nsINode* aCommonAncestorForRangeInSelection) {
+    if (mLastCommonAncestorForRangeInSelection &&
+        mLastCommonAncestorForRangeInSelection ==
+            aCommonAncestorForRangeInSelection) {
+      return &mLastCommonAncestorSelections;
+    }
+    return nullptr;
+  }
+
+  void SetLastCommonAncestorSelections(
+      const nsINode* aCommonAncestorForRangeInSelection,
+      const AutoTArray<Selection*, 1>& aAncestorSelections) {
+    mLastCommonAncestorForRangeInSelection = aCommonAncestorForRangeInSelection;
+    mLastCommonAncestorSelections.Clear();
+    mLastCommonAncestorSelections.AppendElements(aAncestorSelections);
+  }
+
  private:
   /**
    * This class is supposed to be only created by the PresShell.
@@ -121,6 +139,10 @@ class MOZ_RAII SelectionNodeCache final {
    * If `aSelection` is already cached, the hash set is returned directly.
    */
   const nsTHashSet<const nsINode*>& MaybeCollect(const Selection* aSelection);
+
+  const nsINode* mLastCommonAncestorForRangeInSelection = nullptr;
+
+  AutoTArray<Selection*, 1> mLastCommonAncestorSelections;
 
   nsTHashMap<const Selection*, nsTHashSet<const nsINode*>> mSelectedNodes;
 
@@ -677,6 +699,7 @@ class Selection final : public nsSupportsWeakReference,
    */
   MOZ_CAN_RUN_SCRIPT void CollapseToEnd(mozilla::ErrorResult& aRv);
 
+ private:
   /**
    * Extends the selection by moving the selection end to the specified node and
    * offset, preserving the selection begin position. The new selection end
@@ -687,9 +710,10 @@ class Selection final : public nsSupportsWeakReference,
    * @param aOffset    Where in aContainer to place the offset of the new
    *                   selection end.
    */
-  MOZ_CAN_RUN_SCRIPT void Extend(nsINode& aContainer, uint32_t aOffset,
-                                 ErrorResult& aRv);
+  MOZ_CAN_RUN_SCRIPT void ExtendInternal(nsINode& aContainer, uint32_t aOffset,
+                                         ErrorResult& aRv);
 
+ public:
   MOZ_CAN_RUN_SCRIPT void AddRangeAndSelectFramesAndNotifyListeners(
       nsRange& aRange, mozilla::ErrorResult& aRv);
 
@@ -848,7 +872,7 @@ class Selection final : public nsSupportsWeakReference,
   nsresult SelectionLanguageChange(bool aLangRTL);
 
  private:
-  bool HasSameRootOrSameComposedDoc(const nsINode& aNode);
+  bool HasSameRootOrSameComposedDoc(const nsINode& aNode) const;
 
   // XXX Please don't add additional uses of this method, it's only for
   // XXX supporting broken code (bug 1245883) in the following classes:
@@ -873,6 +897,10 @@ class Selection final : public nsSupportsWeakReference,
                                 const RawRangeBoundary& aAnchorRef,
                                 const RawRangeBoundary& aFocusRef,
                                 ErrorResult& aRv);
+
+  static bool IsValidNodeAndOffsetForBoundary(const nsINode& aContainer,
+                                              uint32_t aOffset,
+                                              ErrorResult& aRv);
 
  public:
   SelectionType GetType() const { return mSelectionType; }
@@ -971,7 +999,8 @@ class Selection final : public nsSupportsWeakReference,
     explicit StyledRanges(Selection& aSelection) : mSelection(aSelection) {}
     void Clear();
 
-    TextRangeStyle* FindRangeData(AbstractRange* aRange);
+    const TextRangeStyle* GetNonDefaultTextRangeStyle(
+        const AbstractRange* aRange);
 
     size_t Length() const;
 

@@ -112,64 +112,35 @@ struct MOZ_STACK_CLASS PluralRulesOptions {
    * Creates a NumberFormatOptions from the PluralRulesOptions.
    */
   NumberFormatOptions ToNumberFormatOptions() const {
-    NumberFormatOptions options;
-    options.mRoundingMode = NumberFormatOptions::RoundingMode::HalfExpand;
-
-    if (mFractionDigits.isSome()) {
-      options.mFractionDigits.emplace(mFractionDigits.ref());
-    }
-
-    if (mMinIntegerDigits.isSome()) {
-      options.mMinIntegerDigits.emplace(mMinIntegerDigits.ref());
-    }
-
-    if (mSignificantDigits.isSome()) {
-      options.mSignificantDigits.emplace(mSignificantDigits.ref());
-    }
-
-    options.mStripTrailingZero = mStripTrailingZero;
-
-    options.mRoundingIncrement = mRoundingIncrement;
-
-    options.mRoundingMode = NumberFormatOptions::RoundingMode(mRoundingMode);
-
-    options.mRoundingPriority =
-        NumberFormatOptions::RoundingPriority(mRoundingPriority);
-
-    return options;
+    return NumberFormatOptions{
+        .mFractionDigits = mFractionDigits,
+        .mMinIntegerDigits = mMinIntegerDigits,
+        .mSignificantDigits = mSignificantDigits,
+        .mStripTrailingZero = mStripTrailingZero,
+        .mNotation = mNotation,
+        .mRoundingIncrement = mRoundingIncrement,
+        .mRoundingMode = mRoundingMode,
+        .mRoundingPriority = mRoundingPriority,
+    };
   }
   /**
    * Creates a NumberFormatOptions from the PluralRulesOptions.
    */
   NumberRangeFormatOptions ToNumberRangeFormatOptions() const {
-    NumberRangeFormatOptions options;
-    options.mRoundingMode = NumberRangeFormatOptions::RoundingMode::HalfExpand;
-    options.mRangeCollapse = NumberRangeFormatOptions::RangeCollapse::None;
-    options.mRangeIdentityFallback =
-        NumberRangeFormatOptions::RangeIdentityFallback::Range;
-
-    if (mFractionDigits.isSome()) {
-      options.mFractionDigits.emplace(mFractionDigits.ref());
-    }
-
-    if (mMinIntegerDigits.isSome()) {
-      options.mMinIntegerDigits.emplace(mMinIntegerDigits.ref());
-    }
-
-    if (mSignificantDigits.isSome()) {
-      options.mSignificantDigits.emplace(mSignificantDigits.ref());
-    }
-
-    options.mStripTrailingZero = mStripTrailingZero;
-
-    options.mRoundingIncrement = mRoundingIncrement;
-
-    options.mRoundingMode = NumberFormatOptions::RoundingMode(mRoundingMode);
-
-    options.mRoundingPriority =
-        NumberFormatOptions::RoundingPriority(mRoundingPriority);
-
-    return options;
+    return NumberRangeFormatOptions{
+        {
+            .mFractionDigits = mFractionDigits,
+            .mMinIntegerDigits = mMinIntegerDigits,
+            .mSignificantDigits = mSignificantDigits,
+            .mStripTrailingZero = mStripTrailingZero,
+            .mNotation = mNotation,
+            .mRoundingIncrement = mRoundingIncrement,
+            .mRoundingMode = mRoundingMode,
+            .mRoundingPriority = mRoundingPriority,
+        },
+        NumberRangeFormatOptions::RangeCollapse::None,
+        NumberRangeFormatOptions::RangeIdentityFallback::Range,
+    };
   }
 
   /**
@@ -208,6 +179,12 @@ struct MOZ_STACK_CLASS PluralRulesOptions {
    * values.
    */
   bool mStripTrailingZero = false;
+
+  /**
+   * Set the notation style.
+   */
+  using Notation = NumberFormatOptions::Notation;
+  Notation mNotation = Notation::Standard;
 
   /**
    * Set the rounding increment, which must be a non-zero number.

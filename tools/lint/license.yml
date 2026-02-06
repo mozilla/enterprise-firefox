@@ -52,6 +52,7 @@ license:
         - security/mac/hardenedruntime/production/nightly.browser.xml
         - security/mac/hardenedruntime/production/firefox.browser.xml
         - security/mac/hardenedruntime/production/firefoxdeveloperedition.browser.xml
+        - security/mac/hardenedruntime/production/firefoxenterprise.browser.xml
         - security/mac/hardenedruntime/production/media-plugin-helper.xml
         - security/mac/hardenedruntime/production/plugin-container.xml
         - security/mac/hardenedruntime/production/security-module-helper.xml

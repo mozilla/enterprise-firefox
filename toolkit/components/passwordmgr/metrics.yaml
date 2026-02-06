@@ -818,6 +818,25 @@ pwmgr:
     unit: passwords
     telemetry_mirror: PWMGR_POTENTIALLY_BREACHED_PASSWORDS
 
+  breach_alert_link_clicked:
+    type: event
+    description: >
+      Recorded when a user clicks on a breach alert link in about:logins.
+      This tracks user engagement with breach notifications, specifically
+      when they click to visit the breached website.
+    bugs:
+      - https://bugzil.la/TBD
+    data_reviews:
+      - https://bugzil.la/TBD
+    notification_emails:
+      - passwords-dev@mozilla.org
+    expires: never
+    extra_keys:
+      breach_name:
+        description: >
+          The name of the breach that was clicked.
+        type: string
+
   num_saved_passwords:
     type: quantity
     unit: passwords

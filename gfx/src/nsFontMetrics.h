@@ -80,6 +80,51 @@ class nsFontMetrics final {
   void Destroy();
 
   /**
+   * Return the font's alphabetic baseline.
+   */
+  nscoord AlphabeticBaseline() const;
+
+  /**
+   * Return the font's central baseline.
+   */
+  nscoord CentralBaseline() const;
+
+  /**
+   * Return the font's x-middle baseline.
+   */
+  nscoord XMiddleBaseline() const;
+
+  /**
+   * Return the font's ideographic-under baseline.
+   */
+  nscoord IdeographicUnderBaseline() const;
+
+  /**
+   * Return the font's ideographic-over baseline.
+   */
+  nscoord IdeographicOverBaseline() const;
+
+  /**
+   * Return the font's ideographic-ink-under baseline.
+   */
+  nscoord IdeographicInkUnderBaseline() const;
+
+  /**
+   * Return the font's ideographic-ink-over baseline.
+   */
+  nscoord IdeographicInkOverBaseline() const;
+
+  /**
+   * Return the font's hanging baseline.
+   */
+  nscoord HangingBaseline() const;
+
+  /**
+   * Return the font's math baseline.
+   */
+  nscoord MathBaseline() const;
+
+  /**
    * Return the font's x-height.
    */
   nscoord XHeight() const;

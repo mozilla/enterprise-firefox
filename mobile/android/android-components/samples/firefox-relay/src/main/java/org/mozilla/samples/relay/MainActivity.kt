@@ -33,15 +33,10 @@ import mozilla.components.service.fxa.manager.SCOPE_SESSION
 import mozilla.components.service.fxa.manager.SCOPE_SYNC
 import mozilla.components.service.fxa.sync.SyncReason
 import mozilla.components.service.fxa.toAuthType
-import mozilla.components.service.fxrelay.FxRelay
-import mozilla.components.service.fxrelay.eligibility.AppServicesRelayStatusFetcher
 import mozilla.components.service.fxrelay.eligibility.Eligible
 import mozilla.components.service.fxrelay.eligibility.Ineligible
-import mozilla.components.service.fxrelay.eligibility.RelayAccountDetails
-import mozilla.components.service.fxrelay.eligibility.RelayEligibilityFeature
 import mozilla.components.service.fxrelay.eligibility.RelayEligibilityStore
-import mozilla.components.service.fxrelay.eligibility.RelayPlanTier
-import mozilla.components.service.fxrelay.eligibility.RelayStatusFetcher
+import mozilla.components.service.fxrelay.eligibility.RelayFeature
 import mozilla.components.support.AppServicesInitializer
 import mozilla.components.support.base.log.Log
 import mozilla.components.support.base.log.sink.AndroidLogSink
@@ -74,18 +69,10 @@ open class MainActivity : AppCompatActivity(), LoginFragment.OnLoginCompleteList
     }
 
     private val relayEligibilityStore by lazy { RelayEligibilityStore() }
-    private val relayEligibilityFeature by lazy {
-        RelayEligibilityFeature(
+    private val relayFeature by lazy {
+        RelayFeature(
             accountManager = accountManager,
             store = relayEligibilityStore,
-            relayStatusFetcher = object : RelayStatusFetcher {
-                override suspend fun fetch(): Result<RelayAccountDetails> {
-                    val account = accountManager.authenticatedAccount()
-                        ?: return Result.success(RelayAccountDetails(RelayPlanTier.NONE, 0))
-
-                    return AppServicesRelayStatusFetcher(account).fetch()
-                }
-            },
         )
     }
     private val accountObserver = object : AccountObserver {
@@ -158,24 +145,20 @@ open class MainActivity : AppCompatActivity(), LoginFragment.OnLoginCompleteList
 
         findViewById<View>(R.id.buttonRelayAddresses).setOnClickListener {
             lifecycleScope.launch {
-                val eligibility = relayEligibilityStore.state.eligibilityState
-                if (eligibility !is Eligible) {
-                    Toast.makeText(
-                        applicationContext,
-                        "Not eligible for Relay (state=$eligibility)",
-                        Toast.LENGTH_SHORT,
-                    ).show()
-                    return@launch
+                val eligibilityState = relayEligibilityStore.state.eligibilityState
+
+                val message = if (eligibilityState is Eligible) {
+                    val emailMasks = relayFeature.fetchEmailMasks()
+                    if (emailMasks == null) {
+                        "Failed to fetch email masks"
+                    } else {
+                        "Fetched ${emailMasks.size} email masks"
+                    }
+                } else {
+                    "Not eligible for Relay (state=$eligibilityState)"
                 }
 
-                val account = accountManager.authenticatedAccount()
-                    ?: run {
-                        Toast.makeText(applicationContext, "Not logged in.", Toast.LENGTH_SHORT).show()
-                        return@launch
-                    }
-
-                val addressList = FxRelay(account).fetchAllAddresses()
-                Toast.makeText(applicationContext, "Fetched ${addressList.size} addresses", Toast.LENGTH_SHORT).show()
+                Toast.makeText(applicationContext, message, Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -224,11 +207,11 @@ open class MainActivity : AppCompatActivity(), LoginFragment.OnLoginCompleteList
 
     override fun onStart() {
         super.onStart()
-        relayEligibilityFeature.start()
+        relayFeature.start()
     }
 
     override fun onStop() {
-        relayEligibilityFeature.stop()
+        relayFeature.stop()
         super.onStop()
     }
 }

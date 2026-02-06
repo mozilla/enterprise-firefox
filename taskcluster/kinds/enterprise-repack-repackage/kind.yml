@@ -20,6 +20,12 @@ kind-dependencies:
     - enterprise-repack-mac-notarization
 
 only-for-build-platforms:
+    - linux64-enterprise/opt
+    - linux64-aarch64-enterprise/opt
+    - macosx64-enterprise/opt
+    - win64-enterprise/opt
+    - linux64-enterprise-shippable/opt
+    - linux64-aarch64-enterprise-shippable/opt
     - macosx64-enterprise-shippable/opt
     - win64-enterprise-shippable/opt
 
@@ -44,10 +50,12 @@ tasks:
                         - repackage/base.py
                         - repackage/win32_sfx_stub.py
                         - repackage/win64_partner.py
+                        - repackage/enterprise_partner.py
                     linux64.*:
                         - repackage/base.py
+                        - repackage/enterprise_partner.py
         package-formats:
             by-build-platform:
-                macosx64\b.*: [dmg, pkg]
-                win32\b.*: [installer]
-                win64\b.*: [installer]
+                linux.*: [mar]
+                macosx64\b.*: [dmg, mar, pkg]
+                win64\b.*: [installer, mar]

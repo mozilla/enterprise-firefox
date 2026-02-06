@@ -453,10 +453,7 @@ async function setup() {
     url: "chrome://mochitests/content/browser/browser/components/urlbar/tests/browser/searchSuggestionEngine.xml",
   });
   const originalDefaultEngine = await SearchService.getDefault();
-  await SearchService.setDefault(
-    engine,
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
-  );
+  await SearchService.setDefault(engine, SearchService.CHANGE_REASON.UNKNOWN);
   await SearchService.moveEngine(engine, 0);
 
   registerCleanupFunction(async function () {
@@ -475,7 +472,7 @@ async function setup() {
     await SpecialPowers.popPrefEnv();
     await SearchService.setDefault(
       originalDefaultEngine,
-      Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+      SearchService.CHANGE_REASON.UNKNOWN
     );
   });
 }

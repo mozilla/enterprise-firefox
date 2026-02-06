@@ -1422,6 +1422,59 @@ export var Policies = {
     },
   },
 
+  DownloadTelemetry: {
+    onBeforeAddons(manager, param) {
+      if (param && typeof param === "object") {
+        // Enable/disable download telemetry
+        if (typeof param.Enabled === "boolean") {
+          setAndLockPref(
+            "browser.download.enterprise.telemetry.enabled",
+            param.Enabled
+          );
+        }
+
+        // Set URL logging level
+        if (
+          typeof param.UrlLogging === "string" &&
+          ["full", "domain", "none"].includes(param.UrlLogging)
+        ) {
+          setAndLockPref(
+            "browser.download.enterprise.telemetry.urlLogging",
+            param.UrlLogging
+          );
+        }
+
+        // Set file logging level
+        if (
+          typeof param.FileLogging === "string" &&
+          ["full", "metadata", "none"].includes(param.FileLogging)
+        ) {
+          setAndLockPref(
+            "browser.download.enterprise.telemetry.fileLogging",
+            param.FileLogging
+          );
+        }
+      }
+    },
+    onRemove(manager, oldParams) {
+      if (oldParams && typeof oldParams === "object") {
+        if ("Enabled" in oldParams) {
+          unsetAndUnlockPref("browser.download.enterprise.telemetry.enabled");
+        }
+        if ("UrlLogging" in oldParams) {
+          unsetAndUnlockPref(
+            "browser.download.enterprise.telemetry.urlLogging"
+          );
+        }
+        if ("FileLogging" in oldParams) {
+          unsetAndUnlockPref(
+            "browser.download.enterprise.telemetry.fileLogging"
+          );
+        }
+      }
+    },
+  },
+
   EnableTrackingProtection: {
     onAllWindowsRestored(manager, param) {
       if (param.Category) {
@@ -1858,17 +1911,34 @@ export var Policies = {
       const defaultValue = "Enabled" in param ? param.Enabled : undefined;
 
       const features = [
-        ["Chatbot", ["browser.ml.chat.enabled", "browser.ml.chat.page"]],
-        ["LinkPreviews", ["browser.ml.linkPreview.optin"]],
-        ["TabGroups", ["browser.tabs.groups.smart.userEnabled"]],
+        [
+          "Chatbot",
+          ["browser.ml.chat.enabled", "browser.ml.chat.page"],
+          "browser.ai.control.sidebarChatbot",
+        ],
+        [
+          "LinkPreviews",
+          ["browser.ml.linkPreview.optin"],
+          "browser.ai.control.linkPreviewKeyPoints",
+        ],
+        [
+          "TabGroups",
+          ["browser.tabs.groups.smart.userEnabled"],
+          "browser.ai.control.smartTabGroups",
+        ],
       ];
 
-      for (const [key, prefs] of features) {
+      for (const [key, prefs, aiControlPref] of features) {
         const value = key in param ? param[key] : defaultValue;
         if (value !== undefined) {
           for (const pref of prefs) {
             PoliciesUtils.setDefaultPref(pref, value, param.Locked);
           }
+          PoliciesUtils.setDefaultPref(
+            aiControlPref,
+            value ? "enabled" : "blocked",
+            param.Locked
+          );
         }
       }
     },
@@ -2909,7 +2979,7 @@ export var Policies = {
                   try {
                     await lazy.SearchService.removeEngine(
                       engine,
-                      Ci.nsISearchService.CHANGE_REASON_ENTERPRISE
+                      lazy.SearchService.CHANGE_REASON.ENTERPRISE
                     );
                   } catch (ex) {
                     lazy.log.error("Unable to remove the search engine", ex);
@@ -2944,7 +3014,7 @@ export var Policies = {
                 try {
                   await lazy.SearchService.setDefault(
                     defaultEngine,
-                    Ci.nsISearchService.CHANGE_REASON_ENTERPRISE
+                    lazy.SearchService.CHANGE_REASON.ENTERPRISE
                   );
                 } catch (ex) {
                   lazy.log.error("Unable to set the default search engine", ex);
@@ -2978,7 +3048,7 @@ export var Policies = {
                 try {
                   await lazy.SearchService.setDefaultPrivate(
                     defaultPrivateEngine,
-                    Ci.nsISearchService.CHANGE_REASON_ENTERPRISE
+                    lazy.SearchService.CHANGE_REASON.ENTERPRISE
                   );
                 } catch (ex) {
                   lazy.log.error(
@@ -3128,59 +3198,6 @@ export var Policies = {
   StartDownloadsInTempDirectory: {
     onBeforeAddons(manager, param) {
       setAndLockPref("browser.download.start_downloads_in_tmp_dir", param);
-    },
-  },
-
-  DownloadTelemetry: {
-    onBeforeAddons(manager, param) {
-      if (param && typeof param === "object") {
-        // Enable/disable download telemetry
-        if (typeof param.Enabled === "boolean") {
-          setAndLockPref(
-            "browser.download.enterprise.telemetry.enabled",
-            param.Enabled
-          );
-        }
-
-        // Set URL logging level
-        if (
-          typeof param.UrlLogging === "string" &&
-          ["full", "domain", "none"].includes(param.UrlLogging)
-        ) {
-          setAndLockPref(
-            "browser.download.enterprise.telemetry.urlLogging",
-            param.UrlLogging
-          );
-        }
-
-        // Set file logging level
-        if (
-          typeof param.FileLogging === "string" &&
-          ["full", "metadata", "none"].includes(param.FileLogging)
-        ) {
-          setAndLockPref(
-            "browser.download.enterprise.telemetry.fileLogging",
-            param.FileLogging
-          );
-        }
-      }
-    },
-    onRemove(manager, oldParams) {
-      if (oldParams && typeof oldParams === "object") {
-        if ("Enabled" in oldParams) {
-          unsetAndUnlockPref("browser.download.enterprise.telemetry.enabled");
-        }
-        if ("UrlLogging" in oldParams) {
-          unsetAndUnlockPref(
-            "browser.download.enterprise.telemetry.urlLogging"
-          );
-        }
-        if ("FileLogging" in oldParams) {
-          unsetAndUnlockPref(
-            "browser.download.enterprise.telemetry.fileLogging"
-          );
-        }
-      }
     },
   },
 

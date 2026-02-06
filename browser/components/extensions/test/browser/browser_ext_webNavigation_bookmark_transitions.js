@@ -10,6 +10,8 @@ Services.scriptloader.loadSubScript(
            promiseLibrary, promiseLibraryClosed, synthesizeClickOnSelectedTreeCell */
 
 add_setup(async () => {
+  await PlacesUtils.bookmarks.eraseEverything();
+
   let toolbar = document.getElementById("PersonalToolbar");
   await promiseSetToolbarVisibility(toolbar, true);
   registerCleanupFunction(async () => {
@@ -126,10 +128,9 @@ add_task(async function test_webnavigation_bookmark_library_click_transition() {
   await extension.startup();
   await extension.awaitMessage("ready");
 
-  let bmNode = library.ContentTree.view.view.nodeForTreeIndex(0);
+  library.ContentTree.view.selectItems([bookmark.guid]);
+  let bmNode = library.ContentTree.view.selectedNode;
   Assert.equal(bmNode.title, bookmark.title, "Found bookmark in library");
-
-  library.ContentTree.view.selectNode(bmNode);
 
   let loadedPromise = BrowserTestUtils.browserLoaded(
     gBrowser.selectedBrowser,

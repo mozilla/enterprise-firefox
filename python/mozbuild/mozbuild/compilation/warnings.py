@@ -12,10 +12,9 @@ import mozpack.path as mozpath
 
 from mozbuild.util import hash_file
 
-# Regular expression to strip ANSI color sequences from a string. This is
-# needed to properly analyze Clang compiler output, which may be colorized.
-# It assumes ANSI escape sequences.
-RE_STRIP_COLORS = re.compile(r"\x1b\[[\d;]+m")
+# Regular expression to strip ANSI escape sequences from a string. This is
+# needed to properly analyze compiler output, which may be colorized.
+RE_STRIP_COLORS = re.compile(r"\x1b\[[\d;]*[mK]")
 
 # This captures Clang diagnostics with the standard formatting.
 # The file pattern handles Windows paths with drive letters (e.g.: D:/path/file.cpp)

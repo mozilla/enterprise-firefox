@@ -33,7 +33,7 @@ export class PageExtractorParent extends JSWindowActorParent {
    * @see PageExtractorChild#getReaderModeContent
    *
    * @param {boolean} force - Bypass the `isProbablyReaderable` check.
-   * @returns {Promise<string | null>}
+   * @returns {Promise<{ text: string, links: string[] }>}
    */
   getReaderModeContent(force = false) {
     return this.sendQuery("PageExtractorParent:GetReaderModeContent", force);
@@ -56,13 +56,14 @@ export class PageExtractorParent extends JSWindowActorParent {
    * @see PageExtractorChild#getText
    *
    * @param {Partial<GetTextOptions>} options
-   * @returns {Promise<string | null>}
+   * @returns {Promise<{ text: string, links: string[] }>}
    */
-  getText(options = {}) {
+  async getText(options = {}) {
     if (this.#isPDF()) {
-      return this.browsingContext.currentWindowGlobal
+      const text = await this.browsingContext.currentWindowGlobal
         .getActor("Pdfjs")
         .getTextContent();
+      return { text, links: [] };
     }
     return this.sendQuery("PageExtractorParent:GetText", options);
   }

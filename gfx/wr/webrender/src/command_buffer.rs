@@ -81,9 +81,6 @@ bitflags! {
         /// cheaply be used as a device-space clip in the vertex shader.
         const APPLY_RENDER_TASK_CLIP = 1 << 1;
 
-        /// If true, the device-pixel scale is already applied, so ignore in vertex shaders
-        const IGNORE_DEVICE_PIXEL_SCALE = 1 << 2;
-
         /// If true, use segments for drawing the AA edges, to allow inner section to be opaque
         const USE_AA_SEGMENTS = 1 << 3;
 

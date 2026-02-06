@@ -1871,7 +1871,7 @@ static bool str_charAt(JSContext* cx, unsigned argc, Value* vp) {
  *
  * ES2024 draft rev 7d2644968bd56d54d2886c012d18698ff3f72c35
  */
-bool js::str_charCodeAt(JSContext* cx, unsigned argc, Value* vp) {
+static bool str_charCodeAt(JSContext* cx, unsigned argc, Value* vp) {
   AutoJSMethodProfilerEntry pseudoFrame(cx, "String.prototype", "charCodeAt");
   CallArgs args = CallArgsFromVp(argc, vp);
 
@@ -4027,7 +4027,7 @@ static bool GuessFromCharCodeIsLatin1(const CallArgs& args) {
  *
  * ES2024 draft rev 7d2644968bd56d54d2886c012d18698ff3f72c35
  */
-bool js::str_fromCharCode(JSContext* cx, unsigned argc, Value* vp) {
+static bool str_fromCharCode(JSContext* cx, unsigned argc, Value* vp) {
   CallArgs args = CallArgsFromVp(argc, vp);
 
   MOZ_ASSERT(args.length() <= ARGS_LENGTH_MAX);
@@ -4270,9 +4270,8 @@ bool js::str_fromCodePoint(JSContext* cx, unsigned argc, Value* vp) {
 }
 
 static const JSFunctionSpec string_static_methods[] = {
-    JS_INLINABLE_FN("fromCharCode", js::str_fromCharCode, 1, 0,
-                    StringFromCharCode),
-    JS_INLINABLE_FN("fromCodePoint", js::str_fromCodePoint, 1, 0,
+    JS_INLINABLE_FN("fromCharCode", str_fromCharCode, 1, 0, StringFromCharCode),
+    JS_INLINABLE_FN("fromCodePoint", str_fromCodePoint, 1, 0,
                     StringFromCodePoint),
 
     JS_SELF_HOSTED_FN("raw", "String_static_raw", 1, 0),

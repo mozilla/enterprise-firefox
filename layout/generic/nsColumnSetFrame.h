@@ -117,6 +117,10 @@ class nsColumnSetFrame final : public nsContainerFrame {
     // columns. We set it to true at the end of FindBestBalanceBSize().
     bool mIsLastBalancingReflow = false;
 
+    // A boolean indicates whether or not we use an unconstrained available
+    // block-size to perform a measuring reflow.
+    bool mIsInMeasuringReflow = false;
+
     // The last known column block-size that was 'feasible'. A column bSize is
     // feasible if all child content fits within the specified bSize.
     nscoord mKnownFeasibleBSize = NS_UNCONSTRAINEDSIZE;

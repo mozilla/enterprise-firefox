@@ -26,7 +26,7 @@ use crate::util::pack_as_float;
 pub const VECS_PER_TRANSFORM: usize = 8;
 pub const VECS_PER_SPECIFIC_BRUSH: usize = 3;
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, PartialEq)]
 #[repr(C)]
 #[cfg_attr(feature = "capture", derive(Serialize))]
 #[cfg_attr(feature = "replay", derive(Deserialize))]
@@ -35,6 +35,16 @@ pub struct ZBufferId(pub i32);
 impl ZBufferId {
     pub fn invalid() -> Self {
         ZBufferId(i32::MAX)
+    }
+}
+
+impl std::fmt::Debug for ZBufferId {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        if *self == Self::invalid() {
+            write!(f, "<invalid>")
+        } else {
+            write!(f, "#{}", self.0)
+        }
     }
 }
 

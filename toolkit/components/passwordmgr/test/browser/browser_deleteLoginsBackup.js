@@ -94,7 +94,7 @@ add_task(
 
     storageUpdatePromise = TestUtils.topicObserved("password-storage-updated");
     info("Removing all user facing logins");
-    Services.logins.removeAllUserFacingLogins();
+    await Services.logins.removeAllUserFacingLoginsAsync();
     await storageUpdatePromise;
     info("Writes to storage are complete after removeAllUserFacingLogins call");
     await waitForBackupUpdate();
@@ -137,7 +137,7 @@ add_task(async function test_deleteLoginsBackup_removeAllUserFacingLogins() {
 
   storageUpdatePromise = TestUtils.topicObserved("password-storage-updated");
   info("Removing all user facing logins");
-  Services.logins.removeAllUserFacingLogins();
+  await Services.logins.removeAllUserFacingLoginsAsync();
 
   await storageUpdatePromise;
   info(

@@ -136,3 +136,88 @@ add_task(async function test_dragging_splitview_second_window() {
 
   await BrowserTestUtils.closeWindow(win2);
 });
+
+add_task(async function test_drag_link_before_or_after_splitview_tabs() {
+  // Setup: [Tab1, (Tab2, Tab3), Tab4]
+  const tab1 = gBrowser.tabs[0];
+  const tab2 = await addTab("data:text/plain,tab2");
+  const tab3 = await addTab("data:text/plain,tab3");
+  gBrowser.addTabSplitView([tab2, tab3]);
+  const tab4 = await addTab("data:text/plain,tab4");
+  Assert.deepEqual(
+    gBrowser.tabs,
+    [tab1, tab2, tab3, tab4],
+    "confirm tabs' starting order"
+  );
+
+  // Create a draggable link
+  let linkEl = document.createXULElement("label");
+  linkEl.setAttribute("value", "Draggable Link");
+  linkEl.setAttribute("draggable", "true");
+  document.documentElement.appendChild(linkEl);
+
+  info("Drag and drop the link before the Split View.");
+  const url = "https://example.com/";
+  let rect = tab2.getBoundingClientRect();
+  let promiseTabOpen = BrowserTestUtils.waitForEvent(window, "TabOpen");
+  await EventUtils.synthesizeDrop(
+    linkEl,
+    tab2,
+    [[{ type: "text/uri-list", data: url }]],
+    "link",
+    window,
+    window,
+    {
+      clientX: rect.left + 10,
+      clientY: rect.top + rect.height / 2,
+    }
+  );
+  await promiseTabOpen;
+
+  // Verify Result: [Tab1, NEW, (Tab2, Tab3), Tab4]
+  Assert.equal(gBrowser.tabs.length, 5, "Should have 5 tabs after drop.");
+  let newTab = gBrowser.tabs[1];
+  await BrowserTestUtils.browserLoaded(newTab.linkedBrowser, { wantLoad: url });
+  Assert.ok(!newTab.splitview, "New tab is not part of the split view.");
+  Assert.deepEqual(
+    gBrowser.tabs,
+    [tab1, newTab, tab2, tab3, tab4],
+    "Order should be [A, New, B, C, D]"
+  );
+
+  info("Drag and drop the link after the Split View.");
+  BrowserTestUtils.removeTab(newTab);
+  rect = tab3.getBoundingClientRect();
+  promiseTabOpen = BrowserTestUtils.waitForEvent(window, "TabOpen");
+  await EventUtils.synthesizeDrop(
+    linkEl,
+    tab3,
+    [[{ type: "text/uri-list", data: url }]],
+    "link",
+    window,
+    window,
+    {
+      clientX: rect.right - 10,
+      clientY: rect.top + rect.height / 2,
+    }
+  );
+  await promiseTabOpen;
+
+  // Verify Result: [Tab1, (Tab2, Tab3), NEW, Tab4]
+  Assert.equal(gBrowser.tabs.length, 5, "Should have 5 tabs after drop.");
+  newTab = gBrowser.tabs[3];
+  await BrowserTestUtils.browserLoaded(newTab.linkedBrowser, { wantLoad: url });
+  Assert.ok(!newTab.splitview, "New tab is not part of the split view.");
+  Assert.deepEqual(
+    gBrowser.tabs,
+    [tab1, tab2, tab3, newTab, tab4],
+    "Order should be [A, B, C, New, D]"
+  );
+
+  // Cleanup
+  BrowserTestUtils.removeTab(newTab);
+  BrowserTestUtils.removeTab(tab2);
+  BrowserTestUtils.removeTab(tab3);
+  BrowserTestUtils.removeTab(tab4);
+  linkEl.remove();
+});

@@ -2234,6 +2234,10 @@ export class TopSitesFeed {
    */
   _insertPin(site, originalIndex, draggedFromIndex) {
     let index = this._adjustPinIndexForSponsoredLinks(site, originalIndex);
+    let adjustedDraggedFromIndex = this._adjustPinIndexForSponsoredLinks(
+      site,
+      draggedFromIndex
+    );
 
     // Don't insert any pins past the end of the visible top sites. Otherwise,
     // we can end up with a bunch of pinned sites that can never be unpinned again
@@ -2249,11 +2253,11 @@ export class TopSitesFeed {
     if (!pinned[index]) {
       this._pinSiteAt(site, index);
     } else {
-      pinned[draggedFromIndex] = null;
+      pinned[adjustedDraggedFromIndex] = null;
       // Find the hole to shift the pinned site(s) towards. We shift towards the
       // hole left by the site being dragged.
       let holeIndex = index;
-      const indexStep = index > draggedFromIndex ? -1 : 1;
+      const indexStep = index > adjustedDraggedFromIndex ? -1 : 1;
       while (pinned[holeIndex]) {
         holeIndex += indexStep;
       }

@@ -4,7 +4,7 @@
 
 "use strict";
 
-/* globals browser, UAHelpers */
+/* globals browser, debugLog, UAHelpers */
 
 const GOOGLE_TLDS = [
   "com",
@@ -305,7 +305,12 @@ var InterventionHelpers = {
   ],
   valid_channels: ["beta", "esr", "nightly", "stable"],
 
-  shouldSkip(intervention, firefoxVersion, firefoxChannel) {
+  shouldSkip(
+    intervention,
+    firefoxVersion,
+    firefoxChannel,
+    customFunctionNames
+  ) {
     const {
       bug,
       max_version,
@@ -317,30 +322,30 @@ var InterventionHelpers = {
     } = intervention;
     if (firefoxChannel) {
       if (only_channels && !only_channels.includes(firefoxChannel)) {
-        return true;
+        return `not for Firefox ${firefoxChannel}`;
       }
       if (not_channels?.includes(firefoxChannel)) {
-        return true;
+        return `not for Firefox ${firefoxChannel}`;
       }
     }
     if (min_version && firefoxVersion < min_version) {
-      return true;
+      return `only for Firefox ${min_version} or newer`;
     }
     if (max_version) {
       // Make sure to handle the case where only the major version matters,
       // for instance if we want 138 and the version number is 138.1.
       if (String(max_version).includes(".")) {
         if (firefoxVersion > max_version) {
-          return true;
+          return `only for Firefox ${max_version} or older`;
         }
       } else if (Math.floor(firefoxVersion) > max_version) {
-        return true;
+        return `only for Firefox ${max_version} or older`;
       }
     }
     if (ua_string) {
       for (let ua of Array.isArray(ua_string) ? ua_string : [ua_string]) {
         if (!InterventionHelpers.ua_change_functions[ua.change ?? ua]) {
-          return true;
+          return `unknown UA string helper ${ua.change ?? ua} (webcompat addon may be too old)`;
         }
       }
     }
@@ -350,17 +355,35 @@ var InterventionHelpers = {
           !this.skip_if_functions[skip_if] ||
           this.skip_if_functions[skip_if]?.()
         ) {
-          return true;
+          return `skipped because ${skip_if}`;
         }
       } catch (e) {
         console.trace(
           `Error while checking skip-if condition ${skip_if} for bug ${bug}:`,
           e
         );
-        return true;
+        return `error while checking if ${skip_if}`;
       }
     }
-    return false;
+
+    // special case: allow platforms=[] to indicate "disabled by default",
+    // meaning we intend for it to be available on every platform.
+    if (
+      !InterventionHelpers.isDisabledByDefault(intervention) &&
+      !InterventionHelpers.checkPlatformMatches(intervention)
+    ) {
+      return "unneeded on this platform";
+    }
+
+    const missingFn = InterventionHelpers.isMissingCustomFunctions(
+      intervention,
+      customFunctionNames
+    );
+    if (missingFn) {
+      return `needed function ${missingFn} unavailable (webcompat addon may be too old)`;
+    }
+
+    return undefined;
   },
 
   nonCustomInterventionKeys: Object.freeze(
@@ -385,10 +408,10 @@ var InterventionHelpers = {
         !InterventionHelpers.nonCustomInterventionKeys.has(key) &&
         !customFunctionNames.has(key)
       ) {
-        return true;
+        return key;
       }
     }
-    return false;
+    return undefined;
   },
 
   getOS() {
@@ -448,6 +471,14 @@ var InterventionHelpers = {
     );
   },
 
+  isDisabledByDefault(intervention) {
+    return (
+      intervention.platforms &&
+      !intervention.platforms.length &&
+      !intervention.not_platforms
+    );
+  },
+
   applyUAChanges(ua, changes) {
     if (!Array.isArray(changes)) {
       changes = [changes];
@@ -495,7 +526,7 @@ var InterventionHelpers = {
     return InterventionHelpers.matchPatternsForTLDs(base, suffix, GOOGLE_TLDS);
   },
 
-  async _registerContentScripts(scriptsToReg, typeStr, logger) {
+  async registerContentScripts(scriptsToReg, typeStr) {
     // Try to avoid re-registering scripts already registered
     // (e.g. if the webcompat background page is restarted
     // after an extension process crash, after having registered
@@ -516,25 +547,116 @@ var InterventionHelpers = {
         ({ id }) => !alreadyReggedIds.includes(id)
       );
       await browser.scripting.registerContentScripts(stillNeeded);
-      logger(
+      debugLog(
         `Registered still-not-active ${typeStr} content scripts`,
         stillNeeded
       );
     } catch (e) {
+      for (const script of scriptsToReg) {
+        try {
+          await browser.scripting.registerContentScripts(scriptsToReg);
+        } catch (e2) {
+          console.error(
+            `Error while registering ${typeStr} content script`,
+            script,
+            e2
+          );
+        }
+      }
+      debugLog(
+        `Registered ${typeStr} content scripts after error registering just non-active ones`,
+        scriptsToReg,
+        e
+      );
+    }
+  },
+
+  async ensureOnlyTheseContentScripts(contentScriptsToRegister, type) {
+    if (type != "webcompat intervention" && type != "SmartBlock shim") {
+      throw new Error(
+        '`type` must be "webcompat intervention" or "SmartBlock shim"'
+      );
+    }
+
+    // Check which content scripts are already registered persistently.
+    // (we may need to disable ones we no longer need, and also register
+    // any new ones which are not persisted yet).
+    const desiredContentScriptIds = new Set(
+      contentScriptsToRegister.map(s => s.id)
+    );
+    const activeContentScripts =
+      await browser.scripting.getRegisteredContentScripts();
+
+    const interventionContentScripts = activeContentScripts.filter(s =>
+      s.id.includes(type)
+    );
+
+    const oldContentScriptsToUnregister = interventionContentScripts.filter(
+      ({ id }) => !desiredContentScriptIds.has(id)
+    );
+
+    if (oldContentScriptsToUnregister.length) {
+      debugLog(
+        `Unregistering no-longer-needed ${type} content scripts`,
+        oldContentScriptsToUnregister
+      );
       try {
-        await browser.scripting.registerContentScripts(scriptsToReg);
-        logger(
-          `Registered all ${typeStr} content scripts after error registering just non-active ones`,
-          scriptsToReg,
-          e
-        );
-      } catch (e2) {
-        console.error(
-          `Error while registering ${typeStr} content scripts:`,
-          e2,
-          scriptsToReg
-        );
+        await browser.scripting.unregisterContentScripts({
+          ids: oldContentScriptsToUnregister.map(s => s.id),
+        });
+      } catch (_) {
+        for (const script of oldContentScriptsToUnregister) {
+          try {
+            await browser.scripting.unregisterContentScripts({
+              ids: [script.id],
+            });
+          } catch (e) {
+            console.error("Error unregistering content script", script, e);
+          }
+        }
       }
     }
+
+    const interventionContentScriptIds = new Set(
+      interventionContentScripts.map(s => s.id)
+    );
+    const newContentScriptsToRegister = contentScriptsToRegister.filter(
+      ({ id }) => !interventionContentScriptIds.has(id)
+    );
+    if (newContentScriptsToRegister.length) {
+      debugLog(
+        `Registering new ${type} content scripts`,
+        newContentScriptsToRegister
+      );
+      try {
+        await browser.scripting.registerContentScripts(
+          newContentScriptsToRegister
+        );
+      } catch (_) {
+        for (const script of newContentScriptsToRegister) {
+          try {
+            await browser.scripting.registerContentScripts([script]);
+          } catch (e) {
+            console.error("Error registering content script", script, e);
+          }
+        }
+      }
+    }
+
+    const alreadyRegisteredContentScripts = contentScriptsToRegister.filter(
+      ({ id }) => interventionContentScriptIds.has(id)
+    );
+    if (alreadyRegisteredContentScripts.length) {
+      debugLog(
+        `Already have registered ${type} content scripts`,
+        alreadyRegisteredContentScripts
+      );
+    }
+
+    return {
+      alreadyRegisteredContentScripts,
+      newContentScriptsToRegister,
+      oldContentScriptsToUnregister,
+    };
   },
 };

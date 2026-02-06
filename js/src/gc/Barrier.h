@@ -1175,7 +1175,9 @@ void BarrieredMoveRangeImpl(gc::Cell* owner, void* dst, const T* src,
 template <typename T>
 void BarrieredMoveRange(gc::Cell* owner, void* dst, const T* src,
                         size_t count) {
-  MOZ_ASSERT(dst != src);
+  if (dst == src) {
+    return;
+  }
 
   if (owner->isTenured() || owner->shadowZone()->needsIncrementalBarrier()) {
     gc::BarrieredMoveRangeImpl(owner, dst, src, count);

@@ -381,7 +381,14 @@ async function withVisits(callback) {
   for (let i = 0; i < UrlbarPrefs.get("maxRichResults"); i++) {
     urls.push("http://example.com/foo/" + i);
   }
-  await PlacesTestUtils.addVisits(urls);
+
+  let typedVisits = urls.map(url => {
+    return {
+      url,
+      transition: PlacesUtils.history.TRANSITION_TYPED,
+    };
+  });
+  await PlacesTestUtils.addVisits(typedVisits);
 
   // The URLs will appear in the view in reverse order so that newer visits are
   // first. Reverse the array now so callers to `checkVisitResults` or
@@ -413,16 +420,13 @@ async function withEngine(
   let originalEngine;
   if (makeDefault) {
     originalEngine = await SearchService.getDefault();
-    await SearchService.setDefault(
-      engine,
-      Ci.nsISearchService.CHANGE_REASON_UNKNOWN
-    );
+    await SearchService.setDefault(engine, SearchService.CHANGE_REASON.UNKNOWN);
   }
   await callback();
   if (originalEngine) {
     await SearchService.setDefault(
       originalEngine,
-      Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+      SearchService.CHANGE_REASON.UNKNOWN
     );
   }
   await SearchService.removeEngine(engine);

@@ -806,7 +806,6 @@ impl_malloc_size_of_metric!(
     DenominatorMetric,
     MemoryDistributionMetric,
     NumeratorMetric,
-    QuantityMetric,
     RateMetric,
     StringMetric,
     StringListMetric,
@@ -822,6 +821,15 @@ impl malloc_size_of::MallocSizeOf for BooleanMetric {
         match self {
             BooleanMetric::Child(_) | BooleanMetric::UnorderedChild(_) => 0,
             BooleanMetric::Parent { inner, .. } => inner.size_of(ops),
+        }
+    }
+}
+
+impl malloc_size_of::MallocSizeOf for QuantityMetric {
+    fn size_of(&self, ops: &mut malloc_size_of::MallocSizeOfOps) -> usize {
+        match self {
+            QuantityMetric::Child(_) | QuantityMetric::UnorderedChild(_) => 0,
+            QuantityMetric::Parent { inner, .. } => inner.size_of(ops),
         }
     }
 }

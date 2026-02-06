@@ -36,6 +36,7 @@ import MozInputFolder from "chrome://global/content/elements/moz-input-folder.mj
  * @property {any} [value] A value to set on the option.
  * @property {boolean} [disabled] If the option should be disabled.
  * @property {boolean} [hidden] If the option should be hidden.
+ * @property {any} [key] A key to identify this option.
  */
 
 /**
@@ -323,6 +324,35 @@ export class SettingControl extends SettingElement {
     this.setting.userClick(event);
   }
 
+  /**
+   * Called by our parent when moz-message-bar is dismissed.
+   *
+   * @param {CustomEvent} event
+   */
+  onMessageBarDismiss(event) {
+    this.setting.messageBarDismiss(event);
+  }
+
+  /**
+   * Called by our parent when items are reordered. The reorder event is
+   * a CustomEvent that bubbles from reorderable moz-box-group elements when
+   * items are reordered via drag-and-drop or keyboard shortcuts.
+   *
+   * The detail object of the reorder event contains the following properties:
+   *
+   * - `draggedElement`: The element that was reordered.
+   * - `targetElement`: The element that the dragged element was reordered relative to.
+   * - `position`: The position of the drop relative to the target element. -1
+   *   means before, 0 means after.
+   * - `draggedIndex`: The original index of the element being reordered.
+   * - `targetIndex`: The new index of the draggedElement after reordering.
+   *
+   * @param {CustomEvent} event
+   */
+  onReorder(event) {
+    this.setting.userReorder(event);
+  }
+
   async disableExtension() {
     this.isDisablingExtension = true;
     this.showEnableExtensionMessage = true;
@@ -411,21 +441,25 @@ export class SettingControl extends SettingElement {
       return [];
     }
     let control = config.control || "moz-checkbox";
-    return config.options.map(opt => {
-      let optionTag = opt.control
-        ? unsafeStatic(opt.control)
-        : KNOWN_OPTIONS.get(control);
-      let spreadValues = spread(this.getOptionPropertyMapping(opt));
-      let children =
-        "items" in opt ? this.itemsTemplate(opt) : this.optionsTemplate(opt);
-      if (opt.control == "a" && opt.controlAttrs?.is == "moz-support-link") {
-        // The `is` attribute must be set when the element is first added to the
-        // DOM. We need to mark that up manually, since `spread()` uses
-        // `el.setAttribute()` to set attributes it receives.
-        return html`<a is="moz-support-link" ${spreadValues}>${children}</a>`;
+    return repeat(
+      config.options,
+      opt => opt.key,
+      opt => {
+        let optionTag = opt.control
+          ? unsafeStatic(opt.control)
+          : KNOWN_OPTIONS.get(control);
+        let spreadValues = spread(this.getOptionPropertyMapping(opt));
+        let children =
+          "items" in opt ? this.itemsTemplate(opt) : this.optionsTemplate(opt);
+        if (opt.control == "a" && opt.controlAttrs?.is == "moz-support-link") {
+          // The `is` attribute must be set when the element is first added to the
+          // DOM. We need to mark that up manually, since `spread()` uses
+          // `el.setAttribute()` to set attributes it receives.
+          return html`<a is="moz-support-link" ${spreadValues}>${children}</a>`;
+        }
+        return staticHtml`<${optionTag} ${spreadValues}>${children}</${optionTag}>`;
       }
-      return staticHtml`<${optionTag} ${spreadValues}>${children}</${optionTag}>`;
-    });
+    );
   }
 
   get extensionSupportPage() {

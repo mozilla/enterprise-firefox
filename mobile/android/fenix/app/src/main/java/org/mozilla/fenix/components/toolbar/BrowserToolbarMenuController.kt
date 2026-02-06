@@ -34,13 +34,11 @@ import mozilla.components.support.ktx.kotlin.isContentUrl
 import mozilla.components.support.utils.BuildManufacturerChecker
 import mozilla.components.ui.widgets.withCenterAlignedButtons
 import mozilla.telemetry.glean.private.NoExtras
-import org.mozilla.fenix.BrowserDirection
 import org.mozilla.fenix.GleanMetrics.Collections
 import org.mozilla.fenix.GleanMetrics.Events
 import org.mozilla.fenix.GleanMetrics.ReaderMode
 import org.mozilla.fenix.GleanMetrics.Toolbar
 import org.mozilla.fenix.GleanMetrics.Translations
-import org.mozilla.fenix.HomeActivity
 import org.mozilla.fenix.NavGraphDirections
 import org.mozilla.fenix.R
 import org.mozilla.fenix.browser.BrowserAnimator
@@ -54,6 +52,8 @@ import org.mozilla.fenix.ext.components
 import org.mozilla.fenix.ext.nav
 import org.mozilla.fenix.ext.navigateSafe
 import org.mozilla.fenix.ext.openSetDefaultBrowserOption
+import org.mozilla.fenix.ext.openToBrowser
+import org.mozilla.fenix.ext.requireComponents
 import org.mozilla.fenix.telemetry.ACTION_NAVIGATE_BACK_CLICKED
 import org.mozilla.fenix.telemetry.ACTION_NAVIGATE_BACK_LONG_CLICKED
 import org.mozilla.fenix.telemetry.ACTION_NAVIGATE_FORWARD_CLICKED
@@ -76,7 +76,6 @@ class DefaultBrowserToolbarMenuController(
     private val fragment: Fragment,
     private val store: BrowserStore,
     private val appStore: AppStore,
-    private val activity: HomeActivity,
     private val navController: NavController,
     private val settings: Settings,
     private val readerModeController: ReaderModeController,
@@ -104,10 +103,11 @@ class DefaultBrowserToolbarMenuController(
 
     @Suppress("CognitiveComplexMethod", "LongMethod", "CyclomaticComplexMethod")
     override fun handleToolbarItemInteraction(item: ToolbarMenu.Item) {
-        val sessionUseCases = activity.components.useCases.sessionUseCases
-        val customTabUseCases = activity.components.useCases.customTabsUseCases
-        val tabsUseCases = activity.components.useCases.tabsUseCases
-        val fenixBrowserUseCases = activity.components.useCases.fenixBrowserUseCases
+        val components = fragment.requireContext().components
+        val sessionUseCases = components.useCases.sessionUseCases
+        val customTabUseCases = components.useCases.customTabsUseCases
+        val tabsUseCases = components.useCases.tabsUseCases
+        val fenixBrowserUseCases = components.useCases.fenixBrowserUseCases
 
         trackToolbarItemInteraction(item)
 
@@ -117,7 +117,7 @@ class DefaultBrowserToolbarMenuController(
             is ToolbarMenu.Item.InstallPwaToHomeScreen -> {
                 settings.installPwaOpened = true
                 MainScope().launch {
-                    with(activity.components.useCases.webAppUseCases) {
+                    with(components.useCases.webAppUseCases) {
                         if (isInstallable()) {
                             addToHomescreen()
                         } else {
@@ -139,7 +139,7 @@ class DefaultBrowserToolbarMenuController(
                     customTabUseCases.migrate(customTabSessionId, select = true)
 
                     // Switch to the actual browser which should now display our new selected session
-                    activity.startActivity(
+                    fragment.requireActivity().startActivity(
                         openInFenixIntent.apply {
                             // We never want to launch the browser in the same task as the external app
                             // activity. So we force a new task here. IntentReceiverActivity will do the
@@ -150,14 +150,14 @@ class DefaultBrowserToolbarMenuController(
                     )
 
                     // Close this activity (and the task) since it is no longer displaying any session
-                    activity.finishAndRemoveTask()
+                    fragment.requireActivity().finishAndRemoveTask()
                 }
             }
             // todo === End ===
             is ToolbarMenu.Item.OpenInApp -> {
                 settings.openInAppOpened = true
 
-                val appLinksUseCases = activity.components.useCases.appLinksUseCases
+                val appLinksUseCases = components.useCases.appLinksUseCases
                 val getRedirect = appLinksUseCases.appLinkRedirect
                 currentSession?.let {
                     val redirect = getRedirect.invoke(it.content.url)
@@ -166,7 +166,7 @@ class DefaultBrowserToolbarMenuController(
                 }
             }
             is ToolbarMenu.Item.Quit -> {
-                deleteAndQuit(activity)
+                deleteAndQuit(fragment.requireActivity())
             }
             is ToolbarMenu.Item.CustomizeReaderView -> {
                 readerModeController.showControls()
@@ -279,7 +279,7 @@ class DefaultBrowserToolbarMenuController(
                     } else {
                         ioScope.launch {
                             currentSession?.let {
-                                with(activity.components.useCases.topSitesUseCase) {
+                                with(components.useCases.topSitesUseCase) {
                                     addPinnedSites(it.content.title, it.content.url)
                                 }
                             }
@@ -292,7 +292,7 @@ class DefaultBrowserToolbarMenuController(
             is ToolbarMenu.Item.AddToHomeScreen -> {
                 settings.installPwaOpened = true
                 MainScope().launch {
-                    with(activity.components.useCases.webAppUseCases) {
+                    with(components.useCases.webAppUseCases) {
                         if (isInstallable()) {
                             addToHomescreen()
                         } else {
@@ -385,7 +385,7 @@ class DefaultBrowserToolbarMenuController(
                 )
             }
             is ToolbarMenu.Item.SetDefaultBrowser -> {
-                activity.openSetDefaultBrowserOption()
+                fragment.requireActivity().openSetDefaultBrowserOption()
             }
             is ToolbarMenu.Item.RemoveFromTopSites -> {
                 scope.launch {
@@ -396,7 +396,7 @@ class DefaultBrowserToolbarMenuController(
                     if (removedTopSite != null) {
                         ioScope.launch {
                             currentSession?.let {
-                                with(activity.components.useCases.topSitesUseCase) {
+                                with(components.useCases.topSitesUseCase) {
                                     removeTopSites(removedTopSite)
                                 }
                             }
@@ -414,10 +414,13 @@ class DefaultBrowserToolbarMenuController(
                                 ),
                         )
                     } else {
-                        activity.openToBrowserAndLoad(
-                            searchTermOrURL = "$WEB_COMPAT_REPORTER_URL$tabUrl",
+                        val url = "$WEB_COMPAT_REPORTER_URL$tabUrl"
+                        navController.openToBrowser()
+
+                        fragment.requireComponents.useCases.fenixBrowserUseCases.loadUrlOrSearch(
+                            searchTermOrURL = url,
                             newTab = true,
-                            from = BrowserDirection.FromGlobal,
+                            private = appStore.state.mode.isPrivate,
                         )
                     }
                 }

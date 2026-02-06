@@ -211,10 +211,13 @@ class FFmpegVideoDecoder<LIBAV_VER>
   MediaResult CreateImageMediaCodec(int64_t aOffset, int64_t aPts,
                                     int64_t aTimecode, int64_t aDuration,
                                     MediaDataDecoder::DecodedData& aResults);
+  bool ReleaseFrameMediaCodec(void* aKey, bool aRender);
+  void ReleaseFramesMediaCodec();
   int32_t mTextureAlignment;
   AVBufferRef* mMediaCodecDeviceContext = nullptr;
   java::GeckoSurface::GlobalRef mSurface;
   AndroidSurfaceTextureHandle mSurfaceHandle{};
+  SimpleMap<void*, AVFrame*, ThreadSafePolicy> mFrameMap;
 #endif
 
 #if defined(MOZ_USE_HWDECODE) && defined(MOZ_WIDGET_GTK)

@@ -159,6 +159,7 @@ open class BaseSessionTest(
         const val BUG1985669_HTML_PATH = "/assets/www/bug1985669.html"
         const val BUG1993407_HTML_PATH = "/assets/www/bug1993407.html"
         const val BUG1994311_HTML_PATH = "/assets/www/bug1994311.html"
+        const val PAGE_EXTRACTION_HTML_PATH = "/assets/www/page-extraction.html"
         const val POSITION_STICKY_HTML_PATH = "/assets/www/position-sticky.html"
         const val POSITION_STICKY_ON_MAIN_THREAD_HTML_PATH = "/assets/www/position-sticky-on-main-thread.html"
         const val INTERACTIVE_WIDGET_HTML_PATH = "/assets/www/interactive-widget.html"

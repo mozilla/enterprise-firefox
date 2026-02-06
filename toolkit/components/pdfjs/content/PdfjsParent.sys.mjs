@@ -40,14 +40,6 @@ const PDFJS_DB_VERSION = 1;
 const PDFJS_STORE_NAME = "signatures";
 const PDFJS_SIGNATURE_STORAGE_CHANGED_TOPIC = "pdfjs:storedSignaturesChanged";
 
-var Svc = {};
-XPCOMUtils.defineLazyServiceGetter(
-  Svc,
-  "mime",
-  "@mozilla.org/mime;1",
-  Ci.nsIMIMEService
-);
-
 XPCOMUtils.defineLazyPreferenceGetter(
   lazy,
   "matchesCountLimit",
@@ -86,6 +78,14 @@ export class PdfjsParent extends JSWindowActorParent {
     this._boundToFindbar = null;
     this._findFailedString = null;
     this._lastNotFoundStringLength = 0;
+
+    if (
+      !Services.prefs.prefHasUserValue("pdfjs.enableAltText") &&
+      !Services.locale.appLocaleAsBCP47.startsWith("en") &&
+      Services.prefs.getBoolPref("pdfjs.enableAltText", true)
+    ) {
+      Services.prefs.setBoolPref("pdfjs.enableAltText", false);
+    }
 
     this._updatedPreference();
   }

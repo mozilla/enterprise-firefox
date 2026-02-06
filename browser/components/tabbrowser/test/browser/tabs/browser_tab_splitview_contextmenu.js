@@ -530,3 +530,77 @@ add_task(async function test_move_to_split_view_disabled_in_customize_mode() {
 
   await SpecialPowers.popPrefEnv();
 });
+
+add_task(async function test_new_tab_to_right_of_tab_before_splitview() {
+  await SpecialPowers.pushPrefEnv({
+    set: [["browser.newtab.preload", false]],
+  });
+  const tab1 = await addTabAndLoadBrowser();
+  const tab2 = await addTabAndLoadBrowser();
+  const tab3 = await addTabAndLoadBrowser();
+
+  let splitViewCreated = BrowserTestUtils.waitForEvent(
+    gBrowser.tabContainer,
+    "SplitViewCreated"
+  );
+  gBrowser.addTabSplitView([tab2, tab3]);
+  await splitViewCreated;
+
+  info("Split view has been added");
+
+  let splitview = tab2.splitview;
+
+  let tab1Index = tab1.elementIndex;
+  let splitviewIndex = splitview.elementIndex;
+  Assert.equal(
+    splitviewIndex,
+    tab1Index + 1,
+    "Split view is directly after tab1"
+  );
+
+  gBrowser.selectedTab = tab1;
+
+  const newTabPromise = BrowserTestUtils.waitForNewTab(gBrowser);
+
+  const tabContextMenu = document.getElementById("tabContextMenu");
+  const contextMenuShown = BrowserTestUtils.waitForPopupEvent(
+    tabContextMenu,
+    "shown"
+  );
+
+  EventUtils.synthesizeMouseAtCenter(
+    tab1,
+    { type: "contextmenu", button: 2 },
+    window
+  );
+  await contextMenuShown;
+
+  const openNewTabItem = document.getElementById("context_openANewTab");
+  tabContextMenu.activateItem(openNewTabItem);
+
+  let newTab = await newTabPromise;
+
+  let newTabIndex = newTab.elementIndex;
+  let updatedTab1Index = tab1.elementIndex;
+  let updatedSplitviewIndex = splitview.elementIndex;
+
+  Assert.equal(
+    newTabIndex,
+    updatedTab1Index + 1,
+    "New tab is directly after tab1"
+  );
+  Assert.equal(
+    updatedSplitviewIndex,
+    newTabIndex + 1,
+    "Split view is directly after new tab"
+  );
+  Assert.ok(!newTab.splitview, "New tab is not part of the split view");
+
+  info("New tab was correctly inserted between tab1 and the split view");
+
+  splitview.close();
+  BrowserTestUtils.removeTab(newTab);
+  while (gBrowser.tabs.length > 1) {
+    BrowserTestUtils.removeTab(gBrowser.tabs.at(-1));
+  }
+});

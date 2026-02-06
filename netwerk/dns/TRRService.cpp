@@ -15,6 +15,7 @@
 #include "nsIOService.h"
 #include "nsNetUtil.h"
 #include "nsStandardURL.h"
+#include "DNSServiceBase.h"
 #include "TRR.h"
 #include "TRRService.h"
 
@@ -470,13 +471,14 @@ void TRRService::ReadEtcHostsFile() {
     return;
   }
 
-  DoReadEtcHostsFile([](const nsTArray<nsCString>* aArray) -> bool {
-    RefPtr<TRRService> service(sTRRServicePtr);
-    if (service && aArray) {
-      service->AddEtcHosts(*aArray);
-    }
-    return !!service;
-  });
+  DNSServiceBase::DoReadEtcHostsFile(
+      [](const nsTArray<nsCString>* aArray) -> bool {
+        RefPtr<TRRService> service(sTRRServicePtr);
+        if (service && aArray) {
+          service->AddEtcHosts(*aArray);
+        }
+        return !!service;
+      });
 }
 
 void TRRService::GetURI(nsACString& result) {

@@ -142,11 +142,11 @@ events:
           custom_desktop_view_off, custom_desktop_view_on, custom_find_in_page,
           custom_forward, custom_forward_long_press, custom_share, desktop_view_off,
           desktop_view_on, discover_more_extensions, dismiss_menu_banner, downloads,
-          edit_bookmark, extensions_learn_more, find_in_page, forward, forward_long_press,
-          history, install_addon, installed_addon_details, menu_banner, new_tab, open_in_app,
-          open_in_fenix, print_content, quit, reader_mode_appearance, reload, remove_from_top_sites,
-          save_to_collection, set_default_browser, settings, share, stop, sync_account,
-          translate and web_extension_browser_action_clicked.
+          edit_bookmark, find_in_page, forward, forward_long_press, history, install_addon,
+          installed_addon_details, menu_banner, new_tab, open_in_app, open_in_fenix, print_content,
+          quit, reader_mode_appearance, reload, remove_from_top_sites, save_to_collection,
+          set_default_browser, settings, share, stop, sync_account, translate and
+          web_extension_browser_action_clicked.
         type: string
     bugs:
       - https://github.com/mozilla-mobile/fenix/issues/1024
@@ -344,8 +344,7 @@ events:
     extra_keys:
         source:
           description: |
-            The view the user was on when they tapped on "what's new" page button (For example:
-            `HOME`, `ABOUT` or `MENU`)
+            The view the user was on when they tapped on "what's new" page button (For example: `ABOUT`)
           type: string
     bugs:
       - https://github.com/mozilla-mobile/fenix/issues/5021
@@ -14500,6 +14499,19 @@ downloads:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1956437
     data_reviews:
       - https://phabricator.services.mozilla.com/D243323
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - android-probes@mozilla.com
+    expires: never
+  rename_file:
+    type: event
+    description: |
+      A user renamed a downloaded file.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2002257
+    data_reviews:
+      - https://phabricator.services.mozilla.com/D280509
     data_sensitivity:
       - interaction
     notification_emails:

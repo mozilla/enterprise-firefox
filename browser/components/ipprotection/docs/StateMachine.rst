@@ -51,6 +51,7 @@ Proxy states
 - ``ACTIVATING``: ``start()`` is creating a channel filter, fetching a proxy pass, and selecting an endpoint.
 - ``ACTIVE``: Proxy connected. Usage and network observers are reporting metrics.
 - ``ERROR``: A recoverable error occurred while activating or rotating credentials. Errors are kept in a bounded history.
+- ``PAUSED``: Everything is working but the bandwidth limit has been reached so we can't connect to the VPN. The bandwidth will reset next month.
 
 Proxy transitions
 ~~~~~~~~~~~~~~~~~

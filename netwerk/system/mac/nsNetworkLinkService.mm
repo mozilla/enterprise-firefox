@@ -38,6 +38,13 @@
 #include "../../base/IPv6Utils.h"
 #include "../LinkServiceCommon.h"
 #include "../NetworkLinkServiceDefines.h"
+#include "nsNetworkInterface.h"
+
+#if defined(MOZ_ENTERPRISE)
+#  include <sys/sockio.h>
+#  include <sys/ioctl.h>
+#  include <net/if_media.h>
+#endif
 
 #import <Cocoa/Cocoa.h>
 #import <netinet/in.h>
@@ -377,7 +384,11 @@ static bool parseHashKey(struct rt_msghdr* rtm,
 // It detects the IP of the default gateways in the routing table, then the MAC
 // address of that IP in the ARP table before it hashes that string (to avoid
 // information leakage).
-bool nsNetworkLinkService::RoutingTable(nsTArray<nsCString>& aHash) {
+template <typename T>
+bool nsNetworkLinkService::RoutingTable(T& aTarget,
+                                        bool (*rtmParser)(struct rt_msghdr* rtm,
+                                                          T& strings,
+                                                          bool skipDstCheck)) {
   size_t needed;
   int mib[6];
   struct rt_msghdr* rtm;
@@ -412,7 +423,7 @@ bool nsNetworkLinkService::RoutingTable(nsTArray<nsCString>& aHash) {
       break;
     }
 
-    if (parseHashKey(rtm, aHash, false)) {
+    if (rtmParser(rtm, aTarget, false)) {
       rv = true;
     }
   }
@@ -477,7 +488,7 @@ bool nsNetworkLinkService::RoutingFromKernel(nsTArray<nsCString>& aHash) {
 // Figure out the current IPv4 "network identification" string.
 bool nsNetworkLinkService::IPv4NetworkId(SHA1Sum* aSHA1) {
   nsTArray<nsCString> hash;
-  if (!RoutingTable(hash)) {
+  if (!RoutingTable(hash, parseHashKey)) {
     NS_WARNING("IPv4NetworkId: No default gateways");
   }
 
@@ -987,6 +998,88 @@ void nsNetworkLinkService::NotifyObservers(const char* aTopic,
         aData ? NS_ConvertASCIItoUTF16(aData).get() : nullptr);
   }
 }
+
+#if defined(MOZ_ENTERPRISE)
+NS_IMETHODIMP
+nsNetworkLinkService::GetNetworkInterfaces(
+    nsTArray<RefPtr<nsINetworkInterface>>& aNetworkInterfaces) {
+  MutexAutoLock lock(mMutex);
+
+  struct ifaddrs* ifap;
+  if (getifaddrs(&ifap) < 0) {
+    return NS_ERROR_FAILURE;
+  }
+
+  std::vector<std::string> ifNames;
+  struct ifaddrs* ifa;
+  for (ifa = ifap; ifa; ifa = ifa->ifa_next) {
+    if (ifa->ifa_addr == NULL) {
+      continue;
+    }
+
+    if (!(ifa->ifa_flags & IFF_UP)) {
+      continue;
+    }
+
+    if (ifa->ifa_flags & IFF_LOOPBACK) {
+      continue;
+    }
+
+    if (!(ifa->ifa_flags & IFF_RUNNING)) {
+      continue;
+    }
+
+    int s =
+        socket(ifa->ifa_addr->sa_family == AF_LINK ? AF_INET
+                                                   : ifa->ifa_addr->sa_family,
+               SOCK_DGRAM, 0);
+    if (s < 0) {
+      continue;
+    }
+
+    struct ifmediareq ifmr;
+    memset(&ifmr, 0, sizeof(ifmr));
+    strlcpy(ifmr.ifm_name, ifa->ifa_name, sizeof(ifmr.ifm_name));
+
+    int probe = ioctl(s, SIOCGIFXMEDIA, (caddr_t)&ifmr);
+    close(s);
+    if (probe < 0) {
+      LOG(("nsNetworkLinkService::GetNetworkInterfaces ioctl(SIOCGIFXMEDIA) on "
+           "%s failed with %d\n",
+           ifa->ifa_name, probe));
+      continue;
+    }
+
+    if (!(ifmr.ifm_status & IFM_ACTIVE)) {
+      continue;
+    }
+
+    std::string ifa_name(ifa->ifa_name);
+    if (std::find(ifNames.begin(), ifNames.end(), ifa_name) == ifNames.end()) {
+      ifNames.emplace_back(ifa_name);
+    }
+  }
+
+  nsTHashMap<nsCString, nsTArray<std::pair<int, nsCString>>> routes;
+  if (!RoutingTable(routes, getRoutesForNetworkInterfaces)) {
+    NS_WARNING("NetworkInterfaces: no routing table");
+  }
+
+  for (auto ifName : ifNames) {
+    NetworkInterface intf(ifName.c_str(), routes, ifap);
+    aNetworkInterfaces.AppendElement(MakeRefPtr<nsNetworkInterface>(&intf));
+  }
+
+  freeifaddrs(ifap);
+  return NS_OK;
+}
+#else
+NS_IMETHODIMP
+nsNetworkLinkService::GetNetworkInterfaces(
+    nsTArray<RefPtr<nsINetworkInterface>>& aNetworkInterfaces) {
+  return NS_ERROR_NOT_IMPLEMENTED;
+}
+#endif
 
 /* static */
 void nsNetworkLinkService::ReachabilityChanged(SCNetworkReachabilityRef target,

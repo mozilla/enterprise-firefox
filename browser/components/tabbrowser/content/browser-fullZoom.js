@@ -44,8 +44,8 @@ var FullZoom = {
   // Initialization & Destruction
 
   init: function FullZoom_init() {
-    gBrowser.addEventListener("DoZoomEnlargeBy10", this);
-    gBrowser.addEventListener("DoZoomReduceBy10", this);
+    gBrowser.addEventListener("DoZoomEnlarge", this);
+    gBrowser.addEventListener("DoZoomReduce", this);
     window.addEventListener("MozScaleGestureComplete", this);
 
     // Register ourselves with the service so we know when our pref changes.
@@ -77,8 +77,8 @@ var FullZoom = {
   destroy: function FullZoom_destroy() {
     Services.prefs.removeObserver("browser.zoom.", this);
     this._cps2.removeObserverForName(this.name, this);
-    gBrowser.removeEventListener("DoZoomEnlargeBy10", this);
-    gBrowser.removeEventListener("DoZoomReduceBy10", this);
+    gBrowser.removeEventListener("DoZoomEnlarge", this);
+    gBrowser.removeEventListener("DoZoomReduce", this);
     window.removeEventListener("MozScaleGestureComplete", this);
   },
 
@@ -88,10 +88,10 @@ var FullZoom = {
 
   handleEvent: function FullZoom_handleEvent(event) {
     switch (event.type) {
-      case "DoZoomEnlargeBy10":
+      case "DoZoomEnlarge":
         this.enlarge(this._getTargetedBrowser(event));
         break;
-      case "DoZoomReduceBy10":
+      case "DoZoomReduce":
         this.reduce(this._getTargetedBrowser(event));
         break;
       case "MozScaleGestureComplete": {

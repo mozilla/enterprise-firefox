@@ -25,16 +25,10 @@
     <key>com.apple.security.smartcard</key><true/>
 
     <!-- Required for com.apple.developer.web-browser.public-key-credential -->
-    <!--
-    TODO: DISABLE UNTIL GRANTED OFFICIALLY
     <key>com.apple.application-identifier</key>
     <string>43AQ936H96.org.mozilla.firefox</string>
-    -->
 
     <!-- For platform passkey (webauthn) support -->
-    <!--
-    TODO: DISABLE UNTIL GRANTED OFFICIALLY
     <key>com.apple.developer.web-browser.public-key-credential</key><true/>
-    -->
   </dict>
 </plist>

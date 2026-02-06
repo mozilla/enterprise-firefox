@@ -35,7 +35,7 @@ add_setup(async function () {
   registerCleanupFunction(async () => {
     await SearchService.setDefault(
       defaultEngine,
-      Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+      SearchService.CHANGE_REASON.UNKNOWN
     );
   });
 });
@@ -136,7 +136,7 @@ async function runNewTabTest() {
 
   await SearchService.setDefault(
     addedEngine,
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+    SearchService.CHANGE_REASON.UNKNOWN
   );
 
   // We only show the engine's own icon for config engines, otherwise show
@@ -154,7 +154,7 @@ async function runNewTabTest() {
 
   await SearchService.setDefault(
     defaultEngine,
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+    SearchService.CHANGE_REASON.UNKNOWN
   );
 
   BrowserTestUtils.removeTab(tab);
@@ -182,7 +182,7 @@ add_task(async function test_content_search_attributes_in_private_window() {
 
   await SearchService.setDefault(
     addedEngine,
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+    SearchService.CHANGE_REASON.UNKNOWN
   );
 
   // We only show the engine's own icon for config engines, otherwise show
@@ -198,7 +198,7 @@ add_task(async function test_content_search_attributes_in_private_window() {
 
   await SearchService.setDefault(
     defaultEngine,
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+    SearchService.CHANGE_REASON.UNKNOWN
   );
 
   await BrowserTestUtils.closeWindow(win);

@@ -5,8 +5,11 @@
 import { MozLitElement } from "chrome://global/content/lit-utils.mjs";
 import { html } from "chrome://global/content/vendor/lit.all.mjs";
 
+// eslint-disable-next-line import/no-unassigned-import
+import "chrome://browser/content/ipprotection/ipprotection-status-box.mjs";
+
 /**
- * Custom element that implements a status card for IP protection.
+ * Custom element that implements the state UI for the status card.
  */
 export default class IPProtectionStatusBox extends MozLitElement {
   static queries = {
@@ -22,6 +25,7 @@ export default class IPProtectionStatusBox extends MozLitElement {
   static properties = {
     headerL10nId: { type: String },
     descriptionL10nId: { type: String },
+    descriptionL10nArgs: { type: String },
     type: { type: String },
   };
 
@@ -82,8 +86,18 @@ export default class IPProtectionStatusBox extends MozLitElement {
           <slot name="icon"></slot>
         </span>
         <div id="content">
-          <span id="description" data-l10n-id=${this.descriptionL10nId}></span>
-          <slot name="location"></slot>
+          ${this.descriptionL10nId
+            ? html`<span
+                id="description"
+                data-l10n-id=${this.descriptionL10nId}
+                data-l10n-args=${this.descriptionL10nArgs}
+              ></span>`
+            : null}
+          <slot name="bandwidth"></slot>
+          <div id="location">
+            <slot name="location-icon"></slot>
+            <slot name="location"></slot>
+          </div>
         </div>
         <slot name="action"></slot>
         <slot name="content"></slot>

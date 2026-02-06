@@ -13,13 +13,18 @@ from taskgraph.util.schema import Schema, optionally_keyed_by, resolve_keyed_by
 from taskgraph.util.taskcluster import get_artifact_prefix
 from voluptuous import Optional, Required
 
+from gecko_taskgraph.transforms.repackage import MOZHARNESS_EXPANSIONS
 from gecko_taskgraph.transforms.repackage import (
     PACKAGE_FORMATS as PACKAGE_FORMATS_VANILLA,
 )
 from gecko_taskgraph.transforms.task import task_description_schema
 from gecko_taskgraph.util.attributes import copy_attributes_from_dependent_job
 from gecko_taskgraph.util.partners import get_partner_config_by_kind
-from gecko_taskgraph.util.platforms import archive_format, executable_extension
+from gecko_taskgraph.util.platforms import (
+    architecture,
+    archive_format,
+    executable_extension,
+)
 from gecko_taskgraph.util.workertypes import worker_type_implementation
 
 # When repacking the stub installer we need to pass a zip file and package name to the
@@ -135,6 +140,8 @@ def make_job_description(config, jobs):
                 signing_task = dependency
             elif build_platform.startswith("win") and dependency.endswith("repack"):
                 signing_task = dependency
+            elif build_platform.startswith("linux") and dependency.endswith("repack"):
+                signing_task = dependency
 
         attributes["repackage_type"] = "repackage"
 
@@ -153,12 +160,19 @@ def make_job_description(config, jobs):
             command = copy.deepcopy(PACKAGE_FORMATS[format])
             substs = {
                 "archive_format": archive_format(build_platform),
+                "architecture": architecture(build_platform),
+                "mar-channel-id": attributes.get("mar-channel-id", ""),
                 "executable_extension": executable_extension(build_platform),
             }
+
+            # similar to MOZHARNESS_EXPANSIONS in repackage.py
+            substs.update({name: f"{{{name}}}" for name in MOZHARNESS_EXPANSIONS})
+
             command["inputs"] = {
                 name: filename.format(**substs)
                 for name, filename in command["inputs"].items()
             }
+            command["args"] = [arg.format(**substs) for arg in command["args"]]
             repackage_config.append(command)
 
         run = job.get("mozharness", {})
@@ -244,7 +258,9 @@ def make_job_description(config, jobs):
                 .replace("enterprise-", "")
                 .replace("shippable", "")
             )
-            if "linux64" in platform:
+            if "linux64" in platform and "aarch64" in platform:
+                th_platform = "linux64-aarch64-enterprise/opt"
+            elif "linux64" in platform:
                 th_platform = "linux64-enterprise/opt"
             elif "macosx64" in platform:
                 th_platform = "osx-cross-enterprise/opt"
@@ -253,20 +269,23 @@ def make_job_description(config, jobs):
             else:
                 raise ValueError(f"Unsupported {platform}")
 
-            task["extra"]["treeherder"] = {
-                "machine": {
-                    "platform": th_platform,
-                },
+            task["treeherder"] = {
+                "platform": th_platform,
                 "tier": 1,
                 "kind": "other",
-                "collection": {"opt": True},
-                "symbol": f"{repack_id}",
-                "groupSymbol": "Rpk-Ent",
+                "symbol": f"Rpk-Ent-Rpk({repack_id})",
             }
 
         # we may have reduced the priority for partner jobs, otherwise task.py will set it
         if job.get("priority"):
             task["priority"] = job["priority"]
+
+        task.setdefault("fetches", {}).setdefault("toolchain", []).extend([
+            "linux64-mar-tools",
+            "linux64-zucchini-bin",
+            "linux64-upx",
+        ])
+
         if build_platform.startswith("macosx"):
             task.setdefault("fetches", {}).setdefault("toolchain", []).extend([
                 "linux64-libdmg",
@@ -275,6 +294,12 @@ def make_job_description(config, jobs):
                 "linux64-xar",
                 "linux64-mkbom",
             ])
+
+        if build_platform.startswith("linux"):
+            task.setdefault("fetches", {}).setdefault("toolchain", []).extend([
+                "linux64-node",
+            ])
+
         yield task
 
 
@@ -314,6 +339,16 @@ def _generate_download_config(
                 f"{locale_path}setup-stub.exe",
             ])
         return {signing_task: download_config}
+
+    if build_platform.startswith("linux"):
+        return {
+            signing_task: [
+                {
+                    "artifact": f"{locale_path}target{archive_format(build_platform)}",
+                    "extract": False,
+                },
+            ],
+        }
 
     raise NotImplementedError(f'Unsupported build_platform: "{build_platform}"')
 

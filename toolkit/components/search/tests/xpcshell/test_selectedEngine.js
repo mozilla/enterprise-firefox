@@ -31,7 +31,7 @@ add_task(async function test_persistAcrossRestarts() {
   // Set the engine through the API.
   await SearchService.setDefault(
     SearchService.getEngineByName(kTestEngineName),
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+    SearchService.CHANGE_REASON.UNKNOWN
   );
   Assert.equal(SearchService.defaultEngine.name, kTestEngineName);
   await promiseAfterSettings();
@@ -41,7 +41,7 @@ add_task(async function test_persistAcrossRestarts() {
   Assert.equal(metadata.defaultEngineIdHash.length, 44);
 
   // Re-init and check the engine is still the same.
-  SearchService.wrappedJSObject.reset();
+  SearchService.reset();
   await SearchService.init(true);
   Assert.equal(SearchService.defaultEngine.name, kTestEngineName);
 
@@ -55,7 +55,7 @@ add_task(async function test_ignoreInvalidHash() {
   // Set the engine through the API.
   await SearchService.setDefault(
     SearchService.getEngineByName(kTestEngineName),
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+    SearchService.CHANGE_REASON.UNKNOWN
   );
   Assert.equal(SearchService.defaultEngine.name, kTestEngineName);
   await promiseAfterSettings();
@@ -66,7 +66,7 @@ add_task(async function test_ignoreInvalidHash() {
   await promiseSaveGlobalMetadata(metadata);
 
   // Re-init the search service, and check that the json file is ignored.
-  SearchService.wrappedJSObject.reset();
+  SearchService.reset();
   await SearchService.init(true);
   Assert.equal(SearchService.defaultEngine.name, kDefaultEngineName);
 });
@@ -76,7 +76,7 @@ add_task(async function test_settingToDefault() {
   // Set the engine through the API.
   await SearchService.setDefault(
     SearchService.getEngineByName(kTestEngineName),
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+    SearchService.CHANGE_REASON.UNKNOWN
   );
   Assert.equal(SearchService.defaultEngine.name, kTestEngineName);
   await promiseAfterSettings();
@@ -89,7 +89,7 @@ add_task(async function test_settingToDefault() {
   // Then set the engine back to the default through the API.
   await SearchService.setDefault(
     SearchService.getEngineByName(kDefaultEngineName),
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+    SearchService.CHANGE_REASON.UNKNOWN
   );
   await promiseAfterSettings();
 
@@ -103,7 +103,7 @@ add_task(async function test_resetToOriginalDefaultEngine() {
 
   await SearchService.setDefault(
     SearchService.getEngineByName(kTestEngineName),
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+    SearchService.CHANGE_REASON.UNKNOWN
   );
   Assert.equal(SearchService.defaultEngine.name, kTestEngineName);
   await promiseAfterSettings();
@@ -121,7 +121,7 @@ add_task(async function test_fallback_kept_after_restart() {
 
   await SearchService.setDefault(
     otherAppProvidedEngine,
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+    SearchService.CHANGE_REASON.UNKNOWN
   );
   Assert.equal(SearchService.defaultEngine.name, otherAppProvidedEngine.name);
   await promiseAfterSettings();
@@ -144,7 +144,7 @@ add_task(async function test_fallback_kept_after_restart() {
   await promiseAfterSettings();
 
   // After a restart, the defaultEngine value should still be unchanged.
-  SearchService.wrappedJSObject.reset();
+  SearchService.reset();
   await SearchService.init(true);
   Assert.equal(SearchService.defaultEngine.name, kDefaultEngineName);
 });

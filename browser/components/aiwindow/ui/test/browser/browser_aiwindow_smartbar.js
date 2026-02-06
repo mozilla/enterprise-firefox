@@ -35,7 +35,7 @@ async function dispatchSmartbarCommit(browser, value, action) {
       composed: true,
     });
 
-    smartbar.dispatchEvent(commitEvent);
+    smartbar.ownerDocument.dispatchEvent(commitEvent);
   });
 }
 

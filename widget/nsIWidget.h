@@ -85,11 +85,6 @@ enum class WindowShadow : uint8_t {
   Tooltip,
 };
 
-#if defined(MOZ_WIDGET_ANDROID)
-namespace ipc {
-class Shmem;
-}
-#endif  // defined(MOZ_WIDGET_ANDROID)
 namespace dom {
 class BrowserChild;
 enum class CallerType : uint32_t;
@@ -100,6 +95,7 @@ class DrawTarget;
 class SourceSurface;
 }  // namespace gfx
 namespace layers {
+class AndroidHardwareBuffer;
 class APZEventState;
 class AsyncDragMetrics;
 class Compositor;
@@ -2311,11 +2307,11 @@ class nsIWidget : public nsSupportsWeakReference {
    * RecvScreenPixels Buffer containing the pixel from the frame buffer. Used
    * for android robocop tests.
    *
-   * @param aMem  shared memory containing the frame buffer pixels.
-   * @param aSize size of the buffer in screen pixels.
+   * @param aHardwareBuffer Android HardwareBuffer containing the frame buffer
+   * pixels.
    */
-  virtual void RecvScreenPixels(mozilla::ipc::Shmem&& aMem,
-                                const ScreenIntSize& aSize, bool aNeedsYFlip) {}
+  virtual void RecvScreenPixels(
+      RefPtr<mozilla::layers::AndroidHardwareBuffer> aHardwareBuffer) {}
 
   virtual void UpdateDynamicToolbarMaxHeight(mozilla::ScreenIntCoord aHeight) {}
   virtual mozilla::ScreenIntCoord GetDynamicToolbarMaxHeight() const {

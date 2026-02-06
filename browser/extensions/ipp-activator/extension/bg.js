@@ -224,8 +224,7 @@ class IPPAddonActivator {
           }
 
           if (await browser.ippActivator.hasExclusion(tab.url)) {
-            await browser.ippActivator.hideMessage(tabId);
-            this.#shownDomainByTab.delete(tabId);
+            await this.#maybeHideNotification(tabId);
           }
         } catch (_) {}
       })
@@ -251,8 +250,7 @@ class IPPAddonActivator {
           shownBase !== info.baseDomain &&
           shownBase !== info.host
         ) {
-          await browser.ippActivator.hideMessage(tabId);
-          this.#shownDomainByTab.delete(tabId);
+          await this.#maybeHideNotification(tabId);
         }
       } catch (_) {
         // ignore lookup issues
@@ -319,10 +317,12 @@ class IPPAddonActivator {
   async #maybeNotify(tab, breakages, url) {
     const info = await browser.ippActivator.getBaseDomainFromURL(url);
     if (!info.baseDomain && !info.host) {
+      await this.#maybeHideNotification(tab.id);
       return false;
     }
 
     if (await browser.ippActivator.hasExclusion(url)) {
+      await this.#maybeHideNotification(tab.id);
       return false;
     }
 
@@ -335,6 +335,7 @@ class IPPAddonActivator {
         b => Array.isArray(b.domains) && b.domains.includes(info.host)
       );
       if (!breakage) {
+        await this.#maybeHideNotification(tab.id);
         return false;
       }
 
@@ -344,12 +345,14 @@ class IPPAddonActivator {
     // Do not show the same notification again for the same base domain.
     const shown = await browser.ippActivator.getNotifiedDomains();
     if (Array.isArray(shown) && shown.includes(domain)) {
+      await this.#maybeHideNotification(tab.id);
       return false;
     }
 
     if (
       !(await ConditionFactory.run(breakage.condition, { tabId: tab.id, url }))
     ) {
+      await this.#maybeHideNotification(tab.id);
       return false;
     }
 
@@ -386,6 +389,13 @@ class IPPAddonActivator {
       });
 
     return true;
+  }
+
+  async #maybeHideNotification(tabId) {
+    if (this.#shownDomainByTab.get(tabId)) {
+      await browser.ippActivator.hideMessage(tabId);
+      this.#shownDomainByTab.delete(tabId);
+    }
   }
 
   async #onRequest(details) {

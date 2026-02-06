@@ -2,6 +2,8 @@
 support-files = ["head.js"]
 prefs = ["dom.documentpip.enabled=true"]
 
+["browser_move_pip_for_fullscreen.js"]
+
 ["browser_parent_has_pip_flag.js"]
 
 ["browser_pip_closes_once.js"]

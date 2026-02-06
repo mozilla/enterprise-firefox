@@ -12,6 +12,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.BoxWithConstraintsScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -55,6 +56,7 @@ import androidx.compose.ui.semantics.traversalIndex
 import androidx.compose.ui.tooling.preview.Devices
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewParameter
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.coerceIn
 import androidx.compose.ui.unit.dp
 import androidx.core.text.BidiFormatter
@@ -75,8 +77,8 @@ import org.mozilla.fenix.tabstray.browser.compose.DragItemContainer
 import org.mozilla.fenix.tabstray.browser.compose.createListReorderState
 import org.mozilla.fenix.tabstray.browser.compose.detectListPressAndDrag
 import org.mozilla.fenix.theme.FirefoxTheme
+import org.mozilla.fenix.theme.PreviewThemeProvider
 import org.mozilla.fenix.theme.Theme
-import org.mozilla.fenix.theme.ThemeProvider
 import org.mozilla.fenix.theme.ThemedValue
 import org.mozilla.fenix.theme.ThemedValueProvider
 import mozilla.components.ui.icons.R as iconsR
@@ -96,6 +98,7 @@ private val tabStripHorizontalPadding = 16.dp
  *
  * @param isSelectDisabled Whether or not the tabs can be shown as selected.
  * @param showActionButtons Show the action buttons in the tabs strip when true.
+ * @param tabStripColors The colors to use for the tabs strip.
  * @param browserStore The [BrowserStore] instance used to observe tabs state.
  * @param appStore The [AppStore] instance used to observe browsing mode.
  * @param tabsUseCases The [TabsUseCases] instance to perform tab actions.
@@ -109,6 +112,7 @@ private val tabStripHorizontalPadding = 16.dp
 fun TabStrip(
     isSelectDisabled: Boolean = false,
     showActionButtons: Boolean = true,
+    tabStripColors: TabStripColors = TabStripColors.default(),
     browserStore: BrowserStore = components.core.store,
     appStore: AppStore = components.appStore,
     tabsUseCases: TabsUseCases = components.useCases.tabsUseCases,
@@ -145,6 +149,7 @@ fun TabStrip(
     TabStripContent(
         state = state,
         showActionButtons = showActionButtons,
+        colors = tabStripColors,
         onAddTabClick = {
             onAddTabClick()
             TabStripMetrics.newTabTapped.record()
@@ -176,6 +181,7 @@ fun TabStrip(
 @Composable
 private fun TabStripContent(
     state: TabStripState,
+    colors: TabStripColors,
     showActionButtons: Boolean = true,
     onAddTabClick: () -> Unit,
     onCloseTabClick: (id: String, isPrivate: Boolean) -> Unit,
@@ -187,7 +193,7 @@ private fun TabStripContent(
         modifier = Modifier
             .fillMaxWidth()
             .height(dimensionResource(R.dimen.tab_strip_height))
-            .background(FirefoxTheme.colors.layer3)
+            .background(colors.backgroundColor)
             .systemGestureExclusion()
             .padding(horizontal = tabStripHorizontalPadding),
         verticalAlignment = Alignment.CenterVertically,
@@ -200,6 +206,7 @@ private fun TabStripContent(
             TabsList(
                 state = state,
                 modifier = Modifier.weight(1f, fill = false),
+                tabItemBackgroundColors = colors.tabItemBackgroundColors,
                 onCloseTabClick = onCloseTabClick,
                 onSelectedTabClick = onSelectedTabClick,
                 onMove = onMove,
@@ -234,6 +241,7 @@ private fun TabStripContent(
 @Composable
 private fun TabsList(
     state: TabStripState,
+    tabItemBackgroundColors: TabStripColors.TabColors,
     modifier: Modifier = Modifier,
     onCloseTabClick: (id: String, isPrivate: Boolean) -> Unit,
     onSelectedTabClick: (tabId: String, url: String) -> Unit,
@@ -241,10 +249,7 @@ private fun TabsList(
 ) {
     BoxWithConstraints(modifier = modifier) {
         val listState = rememberLazyListState()
-        // Calculate the width of each tab item based on available width and the number of tabs and
-        // taking into account the space between tabs.
-        val availableWidth = maxWidth - tabStripListContentStartPadding
-        val tabWidth = (availableWidth / state.tabs.size) - spaceBetweenTabs
+        val tabWidth = calculateTabWidth(state.tabs.size)
 
         val reorderState = createListReorderState(
             listState = listState,
@@ -282,15 +287,11 @@ private fun TabsList(
                         state = itemState,
                         onCloseTabClick = onCloseTabClick,
                         onSelectedTabClick = onSelectedTabClick,
+                        backgroundColors = tabItemBackgroundColors,
                         modifier = Modifier
                             .padding(end = spaceBetweenTabs)
                             .animateItem()
-                            .width(
-                                tabWidth.coerceIn(
-                                    minimumValue = minTabStripItemWidth,
-                                    maximumValue = maxTabStripItemWidth,
-                                ),
-                            )
+                            .width(tabWidth)
                             .thenConditional(
                                 modifier = Modifier.semantics { traversalIndex = -1f },
                                 predicate = { itemState.isSelected },
@@ -326,19 +327,31 @@ private fun TabsList(
     }
 }
 
+/**
+ * Calculates the width of each tab item based on available width and the number of tabs.
+ *
+ * @param tabCount The number of tabs to display.
+ * @return The calculated width for each tab, constrained between min and max tab widths.
+ */
+@Composable
+private fun BoxWithConstraintsScope.calculateTabWidth(tabCount: Int): Dp {
+    val availableWidth = maxWidth - tabStripListContentStartPadding
+    return ((availableWidth / tabCount) - spaceBetweenTabs).coerceIn(
+        minimumValue = minTabStripItemWidth,
+        maximumValue = maxTabStripItemWidth,
+    )
+}
+
 @Composable
 @Suppress("LongMethod", "CognitiveComplexMethod")
 private fun TabItem(
     state: TabStripItem,
     modifier: Modifier = Modifier,
+    backgroundColors: TabStripColors.TabColors,
     onCloseTabClick: (id: String, isPrivate: Boolean) -> Unit,
     onSelectedTabClick: (id: String, url: String) -> Unit,
 ) {
-    val backgroundColor = if (state.isSelected) {
-        FirefoxTheme.colors.tabActive
-    } else {
-        FirefoxTheme.colors.tabInactive
-    }
+    val backgroundColor = backgroundColors.get(state.isSelected)
     val closeTabLabel = stringResource(R.string.close_tab)
 
     TabStripCard(
@@ -435,6 +448,12 @@ private fun TabItem(
     }
 }
 
+/**
+ * Displays the icon for a tab in the tab strip.
+ *
+ * @param url The URL of the tab, used to generate a favicon if no icon is provided.
+ * @param icon The tab's favicon bitmap, if available.
+ */
 @Composable
 private fun TabStripIcon(
     url: String,
@@ -562,6 +581,7 @@ private fun TabStripContentPreview(tabs: List<TabStripItem>) {
                 isPrivateMode = false,
                 tabCounterMenuItems = emptyList(),
             ),
+            colors = TabStripColors.default(),
             onAddTabClick = {},
             onCloseTabClick = { _, _ -> },
             onSelectedTabClick = { _, _ -> },
@@ -574,7 +594,7 @@ private fun TabStripContentPreview(tabs: List<TabStripItem>) {
 @Preview(device = Devices.PIXEL_TABLET)
 @Composable
 private fun TabStripPreview(
-    @PreviewParameter(ThemeProvider::class) theme: Theme,
+    @PreviewParameter(PreviewThemeProvider::class) theme: Theme,
 ) {
     val browserStore = BrowserStore()
 

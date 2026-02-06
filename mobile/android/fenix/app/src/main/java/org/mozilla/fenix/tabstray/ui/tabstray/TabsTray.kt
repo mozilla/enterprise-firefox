@@ -63,7 +63,7 @@ import org.mozilla.fenix.tabstray.ui.fab.TabManagerFloatingToolbar
 import org.mozilla.fenix.tabstray.ui.tabpage.NormalTabsPage
 import org.mozilla.fenix.tabstray.ui.tabpage.PrivateTabsPage
 import org.mozilla.fenix.tabstray.ui.tabpage.SyncedTabsPage
-import org.mozilla.fenix.tabstray.ui.theme.getTabManagerTheme
+import org.mozilla.fenix.tabstray.ui.theme.TabManagerThemeProvider
 import org.mozilla.fenix.theme.FirefoxTheme
 import mozilla.components.browser.storage.sync.Tab as SyncTab
 import org.mozilla.fenix.tabstray.ui.syncedtabs.OnTabClick as OnSyncedTabClick
@@ -380,7 +380,7 @@ private fun TabsTrayPreview(
     val page by remember { tabsTrayStore.stateFlow.map { it.selectedPage } }
         .collectAsState(initial = tabsTrayStore.state.selectedPage)
 
-    FirefoxTheme(theme = getTabManagerTheme(page = page)) {
+    FirefoxTheme(theme = TabManagerThemeProvider(selectedPage = page).provideTheme()) {
         TabsTray(
             tabsTrayStore = tabsTrayStore,
             displayTabsInGrid = tabTrayState.displayTabsInGrid,

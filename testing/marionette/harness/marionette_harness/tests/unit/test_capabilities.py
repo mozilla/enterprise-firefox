@@ -34,10 +34,11 @@ class TestCapabilities(MarionetteTestCase):
             self.appinfo = self.marionette.execute_script(
                 """
                 return {
-                  name: Services.appinfo.name,
+                  name: AppConstants.MOZ_ENTERPRISE ? "Firefox" : Services.appinfo.name,
                   version: Services.appinfo.version,
                   processID: Services.appinfo.processID,
                   buildID: Services.appinfo.appBuildID,
+                  browserFlavor: AppConstants.MOZ_ENTERPRISE ? "enterprise" : null,
                 }
                 """
             )
@@ -78,6 +79,7 @@ class TestCapabilities(MarionetteTestCase):
             self.assertTrue(self.caps["setWindowRect"])
         else:
             self.assertFalse(self.caps["setWindowRect"])
+
         self.assertTrue(self.caps["strictFileInteractability"])
         self.assertDictEqual(
             self.caps["timeouts"], {"implicit": 0, "pageLoad": 300000, "script": 30000}
@@ -110,6 +112,9 @@ class TestCapabilities(MarionetteTestCase):
         self.assertEqual(self.caps["moz:buildID"], self.appinfo["buildID"])
 
         self.assertNotIn("moz:debuggerAddress", self.caps)
+
+        if (self.appinfo["browserFlavor"]):
+            self.assertEqual(self.caps["moz:browserFlavor"], self.appinfo["browserFlavor"])
 
         self.assertIn("moz:platformVersion", self.caps)
         self.assertEqual(self.caps["moz:platformVersion"], self.os_version)

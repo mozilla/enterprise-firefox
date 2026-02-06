@@ -34,7 +34,7 @@ use crate::render_backend::DataStores;
 use crate::render_task_graph::RenderTaskId;
 use crate::render_task_cache::RenderTaskCacheKeyKind;
 use crate::render_task_cache::{RenderTaskCacheKey, to_cache_size, RenderTaskParent};
-use crate::render_task::{EmptyTask, MaskSubPass, RenderTask, RenderTaskKind, SubPass};
+use crate::render_task::{EmptyTask, RenderTask, RenderTaskKind};
 use crate::segment::SegmentBuilder;
 use crate::util::{clamp_to_scale_factor, ScaleOffset};
 use crate::visibility::{compute_conservative_visible_rect, PrimitiveVisibility, VisibilityState};
@@ -1072,18 +1072,32 @@ fn prepare_interned_prim_for_render(
                         count: frame_state.clip_store.clip_node_instances.len() as u32 - first_clip_node_index,
                     };
 
-                    let masks = MaskSubPass {
-                        clip_node_range,
-                        prim_spatial_node_index,
-                        prim_address_f,
-                    };
-
                     // Add the mask as a sub-pass of the picture
                     let pic_task_id = pic.primary_render_task_id.expect("uh oh");
                     let pic_task = frame_state.rg_builder.get_task_mut(pic_task_id);
-                    pic_task.add_sub_pass(SubPass::Masks {
-                        masks,
-                    });
+
+                    let RenderTaskKind::Picture(info) = &pic_task.kind else { unreachable!() };
+
+                    let task_rect = DeviceRect::from_origin_and_size(
+                        info.content_origin,
+                        pic_task.get_target_size().to_f32(),
+                    );
+
+                    quad::prepare_clip_range(
+                        clip_node_range,
+                        pic_task_id,
+                        task_rect,
+                        prim_address_f,
+                        prim_spatial_node_index,
+                        info.raster_spatial_node_index,
+                        info.device_pixel_scale,
+                        &data_stores.clip,
+                        frame_state.clip_store,
+                        frame_context.spatial_tree,
+                        frame_state.rg_builder,
+                        &mut frame_state.frame_gpu_data.f32,
+                        frame_state.transforms,
+                    );
                 }
 
                 // Handle masks on the target. This is the rare case, and occurs for:
@@ -1137,16 +1151,23 @@ fn prepare_interned_prim_for_render(
                         count: frame_state.clip_store.clip_node_instances.len() as u32 - first_clip_node_index,
                     };
 
-                    let masks = MaskSubPass {
-                        clip_node_range,
-                        prim_spatial_node_index,
-                        prim_address_f,
-                    };
+                    let task_rect = clipped_surface_rect.to_f32();
 
-                    let clip_task = frame_state.rg_builder.get_task_mut(clip_task_id);
-                    clip_task.add_sub_pass(SubPass::Masks {
-                        masks,
-                    });
+                    quad::prepare_clip_range(
+                        clip_node_range,
+                        clip_task_id,
+                        task_rect,
+                        prim_address_f,
+                        prim_spatial_node_index,
+                        raster_spatial_node_index,
+                        device_pixel_scale,
+                        &data_stores.clip,
+                        frame_state.clip_store,
+                        frame_context.spatial_tree,
+                        frame_state.rg_builder,
+                        &mut frame_state.frame_gpu_data.f32,
+                        frame_state.transforms,
+                    );
 
                     let clip_task_index = ClipTaskIndex(scratch.clip_mask_instances.len() as _);
                     scratch.clip_mask_instances.push(ClipMaskKind::Mask(clip_task_id));

@@ -200,28 +200,7 @@ struct ActiveScrolledRoot {
   }
 
   static const ActiveScrolledRoot* LowestCommonAncestor(
-      const ActiveScrolledRoot* aOne, const ActiveScrolledRoot* aTwo) {
-    uint32_t depth1 = Depth(aOne);
-    uint32_t depth2 = Depth(aTwo);
-    if (depth1 > depth2) {
-      for (uint32_t i = 0; i < (depth1 - depth2); ++i) {
-        MOZ_ASSERT(aOne);
-        aOne = aOne->mParent;
-      }
-    } else if (depth1 < depth2) {
-      for (uint32_t i = 0; i < (depth2 - depth1); ++i) {
-        MOZ_ASSERT(aTwo);
-        aTwo = aTwo->mParent;
-      }
-    }
-    while (aOne != aTwo) {
-      MOZ_ASSERT(aOne);
-      MOZ_ASSERT(aTwo);
-      aOne = aOne->mParent;
-      aTwo = aTwo->mParent;
-    }
-    return aOne;
-  }
+      const ActiveScrolledRoot* aOne, const ActiveScrolledRoot* aTwo);
 
   static const ActiveScrolledRoot* PickDescendant(
       const ActiveScrolledRoot* aOne, const ActiveScrolledRoot* aTwo) {
@@ -280,6 +259,8 @@ struct ActiveScrolledRoot {
   ASRKind mKind = ASRKind::Scroll;
 
   NS_INLINE_DECL_REFCOUNTING(ActiveScrolledRoot)
+
+  void AssertDepthInvariant() const;
 
  private:
   ActiveScrolledRoot() : mDepth(0) {}

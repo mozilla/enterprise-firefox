@@ -8844,8 +8844,7 @@ var gCSSProperties = {
       "sub",
       "super",
       "top",
-      // TODO Bug 308338 - Uncomment to enable test for this keyword
-      // "center",
+      "center",
       "bottom",
       "15%",
       "3px",

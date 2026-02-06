@@ -13,6 +13,8 @@
 #include "mozilla/TimeStamp.h"
 #include "mozilla/UniquePtrExtensions.h"
 
+#include <sys/socket.h>
+
 namespace mozilla {
 namespace layers {
 
@@ -32,6 +34,19 @@ static uint32_t ToAHardwareBuffer_Format(gfx::SurfaceFormat aFormat) {
     default:
       MOZ_ASSERT_UNREACHABLE("Unsupported SurfaceFormat");
       return AHARDWAREBUFFER_FORMAT_R8G8B8A8_UNORM;
+  }
+}
+
+static Maybe<gfx::SurfaceFormat> ToSurfaceFormat(uint32_t aFormat) {
+  switch (aFormat) {
+    case AHARDWAREBUFFER_FORMAT_R8G8B8A8_UNORM:
+      return Some(gfx::SurfaceFormat::R8G8B8A8);
+    case AHARDWAREBUFFER_FORMAT_R8G8B8X8_UNORM:
+      return Some(gfx::SurfaceFormat::R8G8B8X8);
+    case AHARDWAREBUFFER_FORMAT_R5G6B5_UNORM:
+      return Some(gfx::SurfaceFormat::R5G6B5_UINT16);
+    default:
+      return Nothing();
   }
 }
 
@@ -73,20 +88,21 @@ already_AddRefed<AndroidHardwareBuffer> AndroidHardwareBuffer::Create(
   AHardwareBuffer_describe(nativeBuffer, &bufferInfo);
 
   RefPtr<AndroidHardwareBuffer> buffer = new AndroidHardwareBuffer(
-      nativeBuffer, aSize, bufferInfo.stride, aFormat, GetNextId());
-  AndroidHardwareBufferManager::Get()->Register(buffer);
+      nativeBuffer, aSize, bufferInfo.stride, aFormat);
+  if (auto* manager = AndroidHardwareBufferManager::Get()) {
+    manager->Register(buffer);
+  }
   return buffer.forget();
 }
 
 AndroidHardwareBuffer::AndroidHardwareBuffer(AHardwareBuffer* aNativeBuffer,
                                              gfx::IntSize aSize,
                                              uint32_t aStride,
-                                             gfx::SurfaceFormat aFormat,
-                                             uint64_t aId)
+                                             gfx::SurfaceFormat aFormat)
     : mSize(aSize),
       mStride(aStride),
       mFormat(aFormat),
-      mId(aId),
+      mId(GetNextId()),
       mNativeBuffer(aNativeBuffer),
       mIsRegistered(false) {
   MOZ_ASSERT(mNativeBuffer);
@@ -105,6 +121,62 @@ AndroidHardwareBuffer::~AndroidHardwareBuffer() {
     AndroidHardwareBufferManager::Get()->Unregister(this);
   }
   AHardwareBuffer_release(mNativeBuffer);
+}
+
+UniqueFileHandle AndroidHardwareBuffer::SerializeToFileDescriptor() const {
+  int fd[2];
+  if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, fd) != 0) {
+    gfxCriticalNote << "AndroidHardwareBuffer::SerializeToFileDescriptor: "
+                       "Failed to create Unix socket";
+    return UniqueFileHandle();
+  }
+
+  UniqueFileHandle readerFd(fd[0]);
+  UniqueFileHandle writerFd(fd[1]);
+  const int ret =
+      AHardwareBuffer_sendHandleToUnixSocket(mNativeBuffer, writerFd.get());
+  if (ret < 0) {
+    gfxCriticalNote << "AndroidHardwareBuffer::SerializeToFileDescriptor: "
+                       "sendHandleToUnixSocket failed";
+    return UniqueFileHandle();
+  }
+
+  return readerFd;
+}
+
+/* static */
+already_AddRefed<AndroidHardwareBuffer>
+AndroidHardwareBuffer::DeserializeFromFileDescriptor(UniqueFileHandle&& aFd) {
+  if (!aFd) {
+    gfxCriticalNote << "AndroidHardwareBuffer::DeserializeFromFileDescriptor: "
+                       "Invalid FileDescriptor";
+    return nullptr;
+  }
+
+  AHardwareBuffer* nativeBuffer = nullptr;
+  int ret = AHardwareBuffer_recvHandleFromUnixSocket(aFd.get(), &nativeBuffer);
+  if (ret < 0) {
+    gfxCriticalNote << "AndroidHardwareBuffer::DeserializeFromFileDescriptor: "
+                       "recvHandleFromUnixSocket failed";
+    return nullptr;
+  }
+
+  AHardwareBuffer_Desc desc = {};
+  AHardwareBuffer_describe(nativeBuffer, &desc);
+
+  const auto format = ToSurfaceFormat(desc.format);
+  if (!format) {
+    gfxCriticalNote << "AndroidHardwareBuffer::DeserializeFromFileDescriptor: "
+                       "Unrecognized AHARDWAREBUFFER_FORMAT";
+    AHardwareBuffer_release(nativeBuffer);
+    return nullptr;
+  }
+
+  RefPtr<AndroidHardwareBuffer> buffer = new AndroidHardwareBuffer(
+      nativeBuffer, gfx::IntSize(desc.width, desc.height), desc.stride,
+      *format);
+
+  return buffer.forget();
 }
 
 int AndroidHardwareBuffer::Lock(uint64_t aUsage, const ARect* aRect,
@@ -127,33 +199,28 @@ int AndroidHardwareBuffer::Unlock() {
 }
 
 void AndroidHardwareBuffer::SetReleaseFence(UniqueFileHandle&& aFenceFd) {
-  MonitorAutoLock lock(AndroidHardwareBufferManager::Get()->GetMonitor());
-  SetReleaseFence(std::move(aFenceFd), lock);
-}
-
-void AndroidHardwareBuffer::SetReleaseFence(UniqueFileHandle&& aFenceFd,
-                                            const MonitorAutoLock& aAutoLock) {
+  MonitorAutoLock lock(mMonitor);
   mReleaseFenceFd = std::move(aFenceFd);
 }
 
 void AndroidHardwareBuffer::SetAcquireFence(UniqueFileHandle&& aFenceFd) {
-  MonitorAutoLock lock(AndroidHardwareBufferManager::Get()->GetMonitor());
+  MonitorAutoLock lock(mMonitor);
 
   mAcquireFenceFd = std::move(aFenceFd);
 }
 
 UniqueFileHandle AndroidHardwareBuffer::GetAndResetReleaseFence() {
-  MonitorAutoLock lock(AndroidHardwareBufferManager::Get()->GetMonitor());
+  MonitorAutoLock lock(mMonitor);
   return std::move(mReleaseFenceFd);
 }
 
 UniqueFileHandle AndroidHardwareBuffer::GetAndResetAcquireFence() {
-  MonitorAutoLock lock(AndroidHardwareBufferManager::Get()->GetMonitor());
+  MonitorAutoLock lock(mMonitor);
   return std::move(mAcquireFenceFd);
 }
 
 UniqueFileHandle AndroidHardwareBuffer::GetAcquireFence() const {
-  MonitorAutoLock lock(AndroidHardwareBufferManager::Get()->GetMonitor());
+  MonitorAutoLock lock(mMonitor);
   if (!mAcquireFenceFd) {
     return UniqueFileHandle();
   }
@@ -173,9 +240,6 @@ void AndroidHardwareBufferManager::Init() {
 
 /* static */
 void AndroidHardwareBufferManager::Shutdown() { sInstance = nullptr; }
-
-AndroidHardwareBufferManager::AndroidHardwareBufferManager()
-    : mMonitor("AndroidHardwareBufferManager.mMonitor") {}
 
 void AndroidHardwareBufferManager::Register(
     RefPtr<AndroidHardwareBuffer> aBuffer) {
@@ -204,7 +268,7 @@ void AndroidHardwareBufferManager::Unregister(AndroidHardwareBuffer* aBuffer) {
 }
 
 already_AddRefed<AndroidHardwareBuffer> AndroidHardwareBufferManager::GetBuffer(
-    uint64_t aBufferId) {
+    uint64_t aBufferId) const {
   MonitorAutoLock lock(mMonitor);
 
   const auto it = mBuffers.find(aBufferId);

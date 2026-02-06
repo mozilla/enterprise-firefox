@@ -654,8 +654,18 @@ class nsLineLayout {
                                   nscoord aBStartEdge);
   void VerticalAlignFrames(PerSpanData* psd);
 
-  void PlaceTopBottomFrames(PerSpanData* psd, nscoord aDistanceFromStart,
-                            nscoord aLineBSize);
+  nscoord ComputeTopAlignFrameStart(const PerFrameData* pfd,
+                                    const mozilla::WritingMode& aWM,
+                                    nscoord aDistanceFromStart,
+                                    nscoord aLineBSize);
+
+  nscoord ComputeBottomAlignFrameStart(const PerFrameData* pfd,
+                                       const mozilla::WritingMode& aWM,
+                                       nscoord aDistanceFromStart,
+                                       nscoord aLineBSize);
+
+  void PlaceTopBottomCenterFrames(PerSpanData* psd, nscoord aDistanceFromStart,
+                                  nscoord aLineBSize);
 
   void ApplyRelativePositioning(PerFrameData* aPFD);
 

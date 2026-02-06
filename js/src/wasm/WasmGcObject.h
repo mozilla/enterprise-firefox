@@ -289,7 +289,7 @@ class WasmGcObject : public JSObject {
 // knowing whether it is inline or out-of-line.
 
 #undef WASM_ARRAY_OBJECT_NEEDS_PADDING
-#if !(defined(XP_WIN) && defined(_WIN32))
+#if !(defined(XP_WIN) && defined(_WIN32) && !defined(__MINGW32__))
 #  define WASM_ARRAY_OBJECT_NEEDS_PADDING 1
 #endif
 

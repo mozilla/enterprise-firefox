@@ -8,6 +8,7 @@ import mozilla.components.browser.engine.gecko.GeckoEngineSession
 import mozilla.components.concept.engine.EngineSession
 import mozilla.components.concept.engine.prompt.PromptRequest
 import mozilla.components.support.test.mock
+import mozilla.components.support.utils.FakeDownloadFileUtils
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -19,7 +20,10 @@ class PromptInstanceDismissDelegateTest {
 
     @Test
     fun `GIVEN delegate with promptRequest WHEN onPromptDismiss called from geckoview THEN notifyObservers the prompt is dismissed`() {
-        val mockSession = GeckoEngineSession(mock())
+        val mockSession = GeckoEngineSession(
+            mock(),
+            downloadFileUtils = FakeDownloadFileUtils(),
+            )
         var onDismissWasCalled = false
         mockSession.register(
             object : EngineSession.Observer {

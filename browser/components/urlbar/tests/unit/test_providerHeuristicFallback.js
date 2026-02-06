@@ -564,10 +564,7 @@ add_task(async function () {
     engine2,
     "New engine shouldn't be the current engine yet"
   );
-  await SearchService.setDefault(
-    engine2,
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
-  );
+  await SearchService.setDefault(engine2, SearchService.CHANGE_REASON.UNKNOWN);
   query = "toronto";
   context = createContext(query, { isPrivate: false });
   await check_results({
@@ -581,7 +578,7 @@ add_task(async function () {
   });
   await SearchService.setDefault(
     originalTestEngine,
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+    SearchService.CHANGE_REASON.UNKNOWN
   );
 
   info(

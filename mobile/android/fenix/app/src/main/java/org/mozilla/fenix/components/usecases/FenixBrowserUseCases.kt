@@ -15,7 +15,6 @@ import mozilla.components.feature.session.SessionUseCases
 import mozilla.components.feature.tabs.TabsUseCases
 import mozilla.components.support.ktx.kotlin.isUrl
 import mozilla.components.support.ktx.kotlin.toNormalizedUrl
-import org.mozilla.fenix.TabPartitionTags
 import org.mozilla.fenix.components.AppStore
 
 /**
@@ -133,18 +132,15 @@ class FenixBrowserUseCases(
     }
 
     /**
-     * Adds a new homepage ("about:home") tab to the provided group.
+     * Adds a new homepage ("about:home") tab to the provided tab group.
      *
-     * @param partition The ID of the partition the group belongs to.
      * @param group The ID of the group.
      */
     fun addNewHomepageTabInGroup(
-        partition: String = TabPartitionTags.TAB_GROUPS,
         group: String,
     ) {
         val tabId = addNewHomepageTab()
         tabsUseCases.addTabsInGroup(
-            partition = partition,
             group = group,
             tabId = tabId,
         )

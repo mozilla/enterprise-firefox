@@ -44,6 +44,51 @@ class FeltDevicePosture(FeltTests):
             "Device posture reports proper applicationName"
         )
         assert "secureBootEnabled" in device_posture
+        assert "mobileEquipmentId" in device_posture["network"], (
+            "Device posture reports IMEI/MEID"
+        )
+
+        assert len(device_posture["network"]["interfaces"]) >= 1, (
+            "Device posture reports at least one network interface"
+        )
+
+        found_one_ipv4 = False
+        found_one_ipv6 = False
+
+        for interface in device_posture["network"]["interfaces"]:
+            if sys.platform == "linux" or sys.platform == "darwin":
+                assert not interface["name"].startswith("lo"), (
+                    "Device posture should not report loopback"
+                )
+            elif sys.platform == "win32":
+                assert "loopback" not in interface["name"].lower(), (
+                    "Device posture should not report loopback"
+                )
+
+            assert len(interface["mac"]) == 17, "Device posture reports MAC address"
+
+            """
+            Not all interfaces are expected to have IPv4 and/or IPv6 but we
+            should have at least one of each over all interfaces.
+            """
+
+            num_ipv4 = len(interface["ipv4"])
+            num_ipv6 = len(interface["ipv6"])
+
+            assert num_ipv4 >= 0, "Device posture reports network interface IPv4"
+
+            assert num_ipv6 >= 0, "Device posture reports network interface IPv6"
+
+            if num_ipv4 > 0:
+                found_one_ipv4 = True
+
+            if num_ipv6 > 0:
+                found_one_ipv6 = True
+
+        assert found_one_ipv4, "Device posture reports network interfaces (IPv4)"
+
+        assert found_one_ipv6, "Device posture reports network interfaces (IPv6)"
+
         return True
 
     def test_felt_3_access(self, exp):

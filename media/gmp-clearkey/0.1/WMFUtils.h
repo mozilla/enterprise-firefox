@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef __WMFUtils_h__
-#define __WMFUtils_h__
+#ifndef WMFUtils_h_
+#define WMFUtils_h_
 
 #include <assert.h>
 #include <mfapi.h>
@@ -245,4 +245,4 @@ int32_t GetNumThreads(int32_t aCoreCount);
 
 }  // namespace wmf
 
-#endif  // __WMFUtils_h__
+#endif  // WMFUtils_h_

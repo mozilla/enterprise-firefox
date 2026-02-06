@@ -414,6 +414,20 @@ open class DefaultComponents(private val applicationContext: Context) {
             },
         )
 
+        items.add(
+            BrowserMenuCheckbox(
+                "Toggle Relay",
+                { engine.settings.firefoxRelay != null },
+            ) { checked ->
+                val mode = if (checked) {
+                    Engine.FirefoxRelayMode.ENABLED
+                } else {
+                    Engine.FirefoxRelayMode.DISABLED
+                }
+                engine.settings.firefoxRelay = mode
+            },
+        )
+
         items
     }
 

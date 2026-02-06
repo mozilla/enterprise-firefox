@@ -4,6 +4,15 @@
 
 #include "mozilla/net/URLPatternGlue.h"
 
+#include "mozilla/dom/ScriptSettings.h"  // for AutoJSAPI
+#include "js/RegExp.h"
+#include "js/RegExpFlags.h"
+#include "js/RootingAPI.h"
+#include "js/Array.h"         // JS::GetArrayLength
+#include "js/GlobalObject.h"  // JS::CurrentGlobalOrNull
+#include "nsJSUtils.h"
+#include "mozilla/dom/BindingUtils.h"
+
 mozilla::LazyLogModule gUrlPatternLog("urlpattern");
 
 namespace mozilla::net {
@@ -31,71 +40,85 @@ MaybeString CreateMaybeStringNone() {
 }
 
 nsAutoCString UrlpGetProtocol(const UrlpPattern aPattern) {
-  UrlpComponent component;
-  urlp_get_protocol_component(aPattern, &component);
-  return nsAutoCString(component.pattern_string);
+  nsAutoCString result;
+  urlp_component_get_pattern_string(urlp_get_protocol_component(aPattern),
+                                    &result);
+  return result;
 }
 
 nsAutoCString UrlpGetUsername(const UrlpPattern aPattern) {
-  UrlpComponent component;
-  urlp_get_username_component(aPattern, &component);
-  return nsAutoCString(component.pattern_string);
+  nsAutoCString result;
+  urlp_component_get_pattern_string(urlp_get_username_component(aPattern),
+                                    &result);
+  return result;
 }
 
 nsAutoCString UrlpGetPassword(const UrlpPattern aPattern) {
-  UrlpComponent component;
-  urlp_get_password_component(aPattern, &component);
-  return nsAutoCString(component.pattern_string);
+  nsAutoCString result;
+  urlp_component_get_pattern_string(urlp_get_password_component(aPattern),
+                                    &result);
+  return result;
 }
 
 nsAutoCString UrlpGetHostname(const UrlpPattern aPattern) {
-  UrlpComponent component;
-  urlp_get_hostname_component(aPattern, &component);
-  return nsAutoCString(component.pattern_string);
+  nsAutoCString result;
+  urlp_component_get_pattern_string(urlp_get_hostname_component(aPattern),
+                                    &result);
+  return result;
 }
 
 nsAutoCString UrlpGetPort(const UrlpPattern aPattern) {
-  UrlpComponent component;
-  urlp_get_port_component(aPattern, &component);
-  return nsAutoCString(component.pattern_string);
+  nsAutoCString result;
+  urlp_component_get_pattern_string(urlp_get_port_component(aPattern), &result);
+  return result;
 }
 
 nsAutoCString UrlpGetPathname(const UrlpPattern aPattern) {
-  UrlpComponent component;
-  urlp_get_pathname_component(aPattern, &component);
-  return nsAutoCString(component.pattern_string);
+  nsAutoCString result;
+  urlp_component_get_pattern_string(urlp_get_pathname_component(aPattern),
+                                    &result);
+  return result;
 }
 
 nsAutoCString UrlpGetSearch(const UrlpPattern aPattern) {
-  UrlpComponent component;
-  urlp_get_search_component(aPattern, &component);
-  return nsAutoCString(component.pattern_string);
+  nsAutoCString result;
+  urlp_component_get_pattern_string(urlp_get_search_component(aPattern),
+                                    &result);
+  return result;
 }
 
 nsAutoCString UrlpGetHash(const UrlpPattern aPattern) {
-  UrlpComponent component;
-  urlp_get_hash_component(aPattern, &component);
-  return nsAutoCString(component.pattern_string);
+  nsAutoCString result;
+  urlp_component_get_pattern_string(urlp_get_hash_component(aPattern), &result);
+  return result;
 }
 
 // https://urlpattern.spec.whatwg.org/#create-a-component-match-result
-Maybe<UrlpComponentResult> ComponentMatches(UrlpComponent& aComponent,
+Maybe<UrlpComponentResult> ComponentMatches(UrlpComponentPtr* aComponentPtr,
                                             nsACString& aInput,
-                                            bool aIgnoreCase) {
+                                            bool aMatchOnly) {
   UrlpComponentResult res;
-  if (aComponent.regexp_string == "^$") {  // empty string
+  nsAutoCString regexpString;
+  urlp_component_get_regexp_string(aComponentPtr, &regexpString);
+  if (regexpString == "^$") {  // empty string
     if (aInput != "") {
       return Nothing();
     }
   } else {  // check deeper match
     nsTArray<MaybeString> matches;
-    if (!urlp_matcher_matches_component(&aComponent.matcher, &aInput,
-                                        aIgnoreCase, &matches)) {
+
+    if (!urlp_component_matches(aComponentPtr, &aInput, aMatchOnly, &matches)) {
       return Nothing();
     }
+
+    nsTArray<nsCString> groupNames;
+    urlp_component_get_group_name_list(aComponentPtr, &groupNames);
+
     for (size_t i = 0; i < matches.Length(); i++) {
+      // Insert all capture groups, both matched and unmatched
+      // The valid flag will be used later to set undefined vs string value
       nsAutoCString key;
-      key.Assign(aComponent.group_name_list[i]);
+      key.Assign(groupNames[i]);
       res.mGroups.InsertOrUpdate(key, matches[i]);
     }
   }
@@ -105,66 +128,52 @@ Maybe<UrlpComponentResult> ComponentMatches(UrlpComponent& aComponent,
 
 Maybe<UrlpResult> AllComponentMatches(const UrlpPattern aPattern,
                                       UrlpMatchInput& aMatchInput,
-                                      bool aIgnoreCase) {
+                                      bool aMatchOnly) {
   UrlpResult res;
-  UrlpComponent componentProtocol{};
-  urlp_get_protocol_component(aPattern, &componentProtocol);
-  res.mProtocol =
-      ComponentMatches(componentProtocol, aMatchInput.protocol, aIgnoreCase);
+  res.mProtocol = ComponentMatches(urlp_get_protocol_component(aPattern),
+                                   aMatchInput.protocol, aMatchOnly);
   if (res.mProtocol.isNothing()) {
     return Nothing();
   }
 
-  UrlpComponent componentUsername{};
-  urlp_get_username_component(aPattern, &componentUsername);
-  res.mUsername =
-      ComponentMatches(componentUsername, aMatchInput.username, aIgnoreCase);
+  res.mUsername = ComponentMatches(urlp_get_username_component(aPattern),
+                                   aMatchInput.username, aMatchOnly);
   if (res.mUsername.isNothing()) {
     return Nothing();
   }
 
-  UrlpComponent componentPassword{};
-  urlp_get_password_component(aPattern, &componentPassword);
-  res.mPassword =
-      ComponentMatches(componentPassword, aMatchInput.password, aIgnoreCase);
+  res.mPassword = ComponentMatches(urlp_get_password_component(aPattern),
+                                   aMatchInput.password, aMatchOnly);
   if (res.mPassword.isNothing()) {
     return Nothing();
   }
 
-  UrlpComponent componentHostname{};
-  urlp_get_hostname_component(aPattern, &componentHostname);
-  res.mHostname =
-      ComponentMatches(componentHostname, aMatchInput.hostname, aIgnoreCase);
+  res.mHostname = ComponentMatches(urlp_get_hostname_component(aPattern),
+                                   aMatchInput.hostname, aMatchOnly);
   if (res.mHostname.isNothing()) {
     return Nothing();
   }
 
-  UrlpComponent componentPort{};
-  urlp_get_port_component(aPattern, &componentPort);
-  res.mPort = ComponentMatches(componentPort, aMatchInput.port, aIgnoreCase);
+  res.mPort = ComponentMatches(urlp_get_port_component(aPattern),
+                               aMatchInput.port, aMatchOnly);
   if (res.mPort.isNothing()) {
     return Nothing();
   }
 
-  UrlpComponent componentPathname{};
-  urlp_get_pathname_component(aPattern, &componentPathname);
-  res.mPathname =
-      ComponentMatches(componentPathname, aMatchInput.pathname, aIgnoreCase);
+  res.mPathname = ComponentMatches(urlp_get_pathname_component(aPattern),
+                                   aMatchInput.pathname, aMatchOnly);
   if (res.mPathname.isNothing()) {
     return Nothing();
   }
 
-  UrlpComponent componentSearch{};
-  urlp_get_search_component(aPattern, &componentSearch);
-  res.mSearch =
-      ComponentMatches(componentSearch, aMatchInput.search, aIgnoreCase);
+  res.mSearch = ComponentMatches(urlp_get_search_component(aPattern),
+                                 aMatchInput.search, aMatchOnly);
   if (res.mSearch.isNothing()) {
     return Nothing();
   }
 
-  UrlpComponent componentHash{};
-  urlp_get_hash_component(aPattern, &componentHash);
-  res.mHash = ComponentMatches(componentHash, aMatchInput.hash, aIgnoreCase);
+  res.mHash = ComponentMatches(urlp_get_hash_component(aPattern),
+                               aMatchInput.hash, aMatchOnly);
   if (res.mHash.isNothing()) {
     return Nothing();
   }
@@ -197,7 +206,7 @@ Maybe<UrlpResult> UrlpPatternExec(UrlpPattern aPattern, const UrlpInput& aInput,
   // shouldn't be any need to convert the urlpatternwrapper to quirks wrapper
   // the all_component_matches signature should be able to receive as a wrapper
   Maybe<UrlpResult> res =
-      AllComponentMatches(aPattern, matchInputAndInputs.input, aIgnoreCase);
+      AllComponentMatches(aPattern, matchInputAndInputs.input, false);
   if (res.isNothing()) {
     return Nothing();
   }
@@ -241,8 +250,158 @@ bool UrlpPatternTest(UrlpPattern aPattern, const UrlpInput& aInput,
   // shouldn't be any need to convert the urlpatternwrapper to quirks wrapper
   // the all_component_matches signature should be able to receive as a wrapper
   Maybe<UrlpResult> res =
-      AllComponentMatches(aPattern, matchInputAndInputs.input, aIgnoreCase);
+      AllComponentMatches(aPattern, matchInputAndInputs.input, true);
   return !res.isNothing();
+}
+
+// Implementation for the same object represented in rust as RegExpObjWrapper
+// we are using this class to root the spidermonkey regexp object returned
+// from parsing so that we can hold onto it longer without it getting cleaned up
+// by garbage collection.
+// As noted elsewhere, this object gets held by SpiderMonkeyRegexp,
+// which is ultimately held by the dom::URLPattern.
+class RegExpObjImpl {
+ public:
+  // should be okay but doesn't participate in slicing of incremental GC
+  // alternative: implement trace method, called from dom::URLPattern
+  JS::PersistentRooted<JSObject*> mRegexp;  // advertising directly to GC
+  explicit RegExpObjImpl(JSContext* cx, JSObject* aJsObj)
+      : mRegexp(cx, aJsObj) {}
+};
+
+extern "C" bool parse_regexp_ffi(const uint16_t* pattern, uintptr_t pattern_len,
+                                 const uint16_t* flags, uintptr_t flags_len,
+                                 RegExpObjWrapper** res) {
+  dom::AutoJSAPI jsapi;
+  jsapi.Init();
+  JSContext* cx = jsapi.cx();
+  AutoDisableJSInterruptCallback disabler(cx);
+  JSAutoRealm ar(
+      cx, dom::binding_detail::UnprivilegedJunkScopeOrWorkerGlobal(fallible));
+
+  const char16_t* flagsStr = reinterpret_cast<const char16_t*>(flags);
+  JS::RegExpFlags regexpFlags = JS::RegExpFlag::UnicodeSets;
+  for (uintptr_t i = 0; i < flags_len; i++) {
+    switch (flagsStr[i]) {
+      case u'i':
+        regexpFlags = regexpFlags | JS::RegExpFlag::IgnoreCase;
+        break;
+      default:
+        break;
+    }
+  }
+
+  const char16_t* patternStr = reinterpret_cast<const char16_t*>(pattern);
+  JS::Rooted<JSObject*> regexp(
+      cx, JS::NewUCRegExpObject(cx, patternStr, pattern_len, regexpFlags));
+  if (!regexp) {
+    if (JS_IsExceptionPending(cx)) {
+      JS_ClearPendingException(cx);
+    }
+    return false;
+  }
+
+  RegExpObjImpl* w = new RegExpObjImpl(cx, regexp);
+  *res =
+      reinterpret_cast<RegExpObjWrapper*>(w);  // can't static_cast to void **
+  return true;
+}
+
+bool matches_regexp(RegExpObjWrapper* const* regexpWrapper,
+                    const uint8_t* aText, uintptr_t aTextLen, bool aMatchOnly,
+                    bool* aMatchResult, nsTArray<MaybeString>* aRegexResults) {
+  dom::AutoJSAPI jsapi;
+  jsapi.Init();
+  JSContext* cx = jsapi.cx();
+  AutoDisableJSInterruptCallback disabler(cx);
+
+  RegExpObjImpl* regExpObjImpl =
+      reinterpret_cast<RegExpObjImpl*>(*regexpWrapper);
+  JSAutoRealm ar(cx, regExpObjImpl->mRegexp);
+
+  // SM expects utf-16 strings and the matches_regexp API has been simplified to
+  // only deal with utf-8, so we convert as necessary here
+  nsDependentCSubstring utf8Text(reinterpret_cast<const char*>(aText),
+                                 aTextLen);
+  NS_ConvertUTF8toUTF16 utf16Text(utf8Text);
+  const char16_t* text = utf16Text.get();
+
+  JS::Rooted<JS::Value> regexResult(cx, JS::NullValue());
+  size_t textLen = utf16Text.Length();
+
+  size_t index = 0;
+  if (!JS::ExecuteRegExpNoStatics(cx, regExpObjImpl->mRegexp, text, textLen,
+                                  &index, aMatchOnly, &regexResult)) {
+    return false;
+  }
+
+  // On no match, ExecuteRegExpNoStatics returns Null
+  if (regexResult.isNull()) {
+    *aMatchResult = false;
+    return true;
+  }
+
+  // We have a match
+  *aMatchResult = true;
+
+  // early exit if we requested aMatchOnly because we don't need the results
+  if (aMatchOnly) {
+    MOZ_ASSERT(regexResult.isBoolean() && regexResult.toBoolean());
+    return true;
+  }
+
+  if (aRegexResults == nullptr) {
+    return false;
+  }
+
+  // Now we know we have a result, and we need to extract it so we can read it.
+  uint32_t length;
+  JS::Rooted<JSObject*> regexResultObj(cx, &regexResult.toObject());
+  if (!JS::GetArrayLength(cx, regexResultObj, &length)) {
+    return false;
+  }
+
+  // Skip index 0 (the full match) and only return captured groups
+  for (uint32_t i = 1; i < length; i++) {
+    JS::Rooted<JS::Value> element(cx);
+    if (!JS_GetElement(cx, regexResultObj, i, &element)) {
+      return false;
+    }
+
+    // If capture group didn't match (is undefined), add invalid MaybeString
+    if (element.isUndefined()) {
+      aRegexResults->AppendElement(CreateMaybeStringNone());
+      continue;
+    }
+
+    nsAutoJSString value;
+    if (!value.init(cx, element)) {
+      return false;
+    }
+
+    aRegexResults->AppendElement(
+        CreateMaybeString(NS_ConvertUTF16toUTF8(value), true));
+  }
+  return true;
+}
+
+extern "C" bool matches_regexp_ffi(RegExpObjWrapper* const* regexp_wrapper,
+                                   const uint8_t* string, uintptr_t string_len,
+                                   bool match_only, bool* match_result,
+                                   nsTArray<MaybeString>* res) {
+  if (!matches_regexp(regexp_wrapper, string, string_len, match_only,
+                      match_result, res)) {
+    return false;
+  }
+
+  return true;
+}
+
+extern "C" void free_regexp_ffi(RegExpObjWrapper* regexp_wrapper) {
+  if (regexp_wrapper) {
+    RegExpObjImpl* impl = reinterpret_cast<RegExpObjImpl*>(regexp_wrapper);
+    delete impl;
+  }
 }
 
 }  // namespace mozilla::net

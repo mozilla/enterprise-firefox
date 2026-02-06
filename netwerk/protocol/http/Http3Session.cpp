@@ -21,10 +21,13 @@
 #include "mozilla/RandomNum.h"
 #include "mozilla/RefPtr.h"
 #include "mozilla/ScopeExit.h"
+#include "mozilla/glean/NetwerkDnsMetrics.h"
 #include "mozilla/glean/NetwerkMetrics.h"
 #include "mozilla/glean/NetwerkProtocolHttpMetrics.h"
 #include "mozilla/net/DNS.h"
+#include "nsHttpConnectionMgr.h"
 #include "nsHttpHandler.h"
+#include "nsHttpTransaction.h"
 #include "nsIHttpActivityObserver.h"
 #include "nsIOService.h"
 #include "nsITLSSocketControl.h"
@@ -260,11 +263,9 @@ nsresult Http3Session::Init(const nsHttpConnectionInfo* aConnInfo,
     }
   }
 
-#ifndef ANDROID
   if (mState != ZERORTT) {
     ZeroRttTelemetry(ZeroRttOutcome::NOT_USED);
   }
-#endif
 
   // After this line, Http3Session and HttpConnectionUDP become a cycle. We put
   // this line in the end of Http3Session::Init to make sure Http3Session can be
@@ -646,9 +647,7 @@ nsresult Http3Session::ProcessEvents() {
           mState = INITIALIZING;
           mTransactionCount = 0;
           Finish0Rtt(true);
-#ifndef ANDROID
           ZeroRttTelemetry(ZeroRttOutcome::USED_REJECTED);
-#endif
         }
         break;
       case Http3Event::Tag::ResumptionToken: {
@@ -672,9 +671,7 @@ nsresult Http3Session::ProcessEvents() {
         mSocketControl->HandshakeCompleted();
         if (was0RTT) {
           Finish0Rtt(false);
-#ifndef ANDROID
           ZeroRttTelemetry(ZeroRttOutcome::USED_SUCCEEDED);
-#endif
         }
 
         OnTransportStatus(nullptr, NS_NET_STATUS_CONNECTED_TO, 0);
@@ -2016,12 +2013,10 @@ void Http3Session::CloseInternal(bool aCallNeqoClose) {
     mBeforeConnectedError = true;
   }
 
-#ifndef ANDROID
   if (mState == ZERORTT) {
     ZeroRttTelemetry(aCallNeqoClose ? ZeroRttOutcome::USED_CONN_CLOSED_BY_NECKO
                                     : ZeroRttOutcome::USED_CONN_ERROR);
   }
-#endif
 
   mState = CLOSING;
   Shutdown();
@@ -2852,6 +2847,7 @@ void Http3Session::EchOutcomeTelemetry() {
   glean::http3::ech_outcome.EnumGet(label).AccumulateSingleSample(
       mHandshakeSucceeded ? 0 : 1);
 }
+#endif
 
 void Http3Session::ZeroRttTelemetry(ZeroRttOutcome aOutcome) {
   nsAutoCString key;
@@ -2873,18 +2869,27 @@ void Http3Session::ZeroRttTelemetry(ZeroRttOutcome aOutcome) {
       break;
   }
 
+  bool isTrr = mConnInfo && mConnInfo->GetIsTrrServiceChannel();
+
   if (key.IsEmpty()) {
     mozilla::glean::netwerk::http3_0rtt_state.Get("not_used"_ns).Add(1);
+    if (isTrr) {
+      mozilla::glean::dns::trr_http3_0rtt_state.Get("not_used"_ns).Add(1);
+    }
   } else {
     MOZ_ASSERT(mZeroRttStarted);
     mozilla::TimeStamp zeroRttEnded = mozilla::TimeStamp::Now();
     mozilla::glean::netwerk::http3_0rtt_state_duration.Get(key)
         .AccumulateRawDuration(zeroRttEnded - mZeroRttStarted);
-
     mozilla::glean::netwerk::http3_0rtt_state.Get(key).Add(1);
+
+    if (isTrr) {
+      mozilla::glean::dns::trr_http3_0rtt_state_duration.Get(key)
+          .AccumulateRawDuration(zeroRttEnded - mZeroRttStarted);
+      mozilla::glean::dns::trr_http3_0rtt_state.Get(key).Add(1);
+    }
   }
 }
-#endif
 
 nsresult Http3Session::GetTransactionTLSSocketControl(
     nsITLSSocketControl** tlsSocketControl) {

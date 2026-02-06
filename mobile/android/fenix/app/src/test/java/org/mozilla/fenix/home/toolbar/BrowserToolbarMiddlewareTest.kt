@@ -115,7 +115,6 @@ class BrowserToolbarMiddlewareTest {
         appStore = spyk(AppStore())
         every { testContext.settings().shouldUseExpandedToolbar } returns false
         every { testContext.settings().isTabStripEnabled } returns false
-        every { testContext.settings().tabManagerEnhancementsEnabled } returns false
         every { testContext.settings().shouldShowToolbarCustomization } returns false
         every { testContext.settings().toolbarExpandedShortcut } returns ShortcutType.BOOKMARK.value
     }
@@ -457,7 +456,7 @@ class BrowserToolbarMiddlewareTest {
         verify {
             navController.nav(
                 R.id.homeFragment,
-                NavGraphDirections.actionGlobalTabsTrayFragment(page = Page.NormalTabs),
+                NavGraphDirections.actionGlobalTabManagementFragment(page = Page.NormalTabs),
             )
         }
     }
@@ -477,7 +476,7 @@ class BrowserToolbarMiddlewareTest {
         verify {
             navController.nav(
                 R.id.homeFragment,
-                NavGraphDirections.actionGlobalTabsTrayFragment(page = Page.PrivateTabs),
+                NavGraphDirections.actionGlobalTabManagementFragment(page = Page.PrivateTabs),
             )
         }
     }

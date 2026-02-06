@@ -9,6 +9,7 @@
 #include "gc/HashUtil.h"
 #include "js/friend/WindowProxy.h"  // js::IsWindow
 #include "js/HashTable.h"
+#include "js/Prefs.h"
 #include "js/Printer.h"  // js::GenericPrinter, js::Fprinter
 #include "js/UniquePtr.h"
 #include "vm/JSObject.h"
@@ -1066,16 +1067,35 @@ bool NativeObject::generateNewDictionaryShape(JSContext* cx,
   return true;
 }
 
-/* static */
-bool JSObject::setFlag(JSContext* cx, HandleObject obj, ObjectFlag flag) {
-  MOZ_ASSERT(cx->compartment() == obj->compartment());
+static bool ShouldUseObjectFuseForPrototype(JSObject* obj) {
+  if (!obj->is<NativeObject>()) {
+    return false;
+  }
+  return ShouldUseObjectFuses() && JS::Prefs::objectfuse_for_all_protos();
+}
 
-  if (obj->hasFlag(flag)) {
+// static
+bool JSObject::setIsUsedAsPrototype(JSContext* cx, JS::HandleObject obj) {
+  js::ObjectFlags flags = {js::ObjectFlag::IsUsedAsPrototype};
+  if (ShouldUseObjectFuseForPrototype(obj)) {
+    flags.setFlag(js::ObjectFlag::HasObjectFuse);
+  }
+  return setFlags(cx, obj, flags);
+}
+
+/* static */
+bool JSObject::setFlags(JSContext* cx, HandleObject obj, ObjectFlags flags) {
+  MOZ_ASSERT(cx->compartment() == obj->compartment());
+  MOZ_ASSERT_IF(flags.hasFlag(ObjectFlag::IsUsedAsPrototype) &&
+                    ShouldUseObjectFuseForPrototype(obj),
+                flags.hasFlag(ObjectFlag::HasObjectFuse));
+
+  if (obj->hasAllFlags(flags)) {
     return true;
   }
 
   ObjectFlags objectFlags = obj->shape()->objectFlags();
-  objectFlags.setFlag(flag);
+  objectFlags.setFlags(flags);
 
   uint32_t numFixed =
       obj->is<NativeObject>() ? obj->as<NativeObject>().numFixedSlots() : 0;
@@ -1343,6 +1363,9 @@ void ForEachObjectFlag(ObjectFlags flags, KnownF known, UnknownF unknown) {
         break;
       case ObjectFlag::HasRealmFuseProperty:
         known("HasRealmFuseProperty");
+        break;
+      case ObjectFlag::HasObjectFuse:
+        known("HasObjectFuse");
         break;
       case ObjectFlag::HasPreservedWrapper:
         known("HasPreservedWrapper");

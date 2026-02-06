@@ -16,7 +16,6 @@ import mozilla.components.service.pocket.spocs.SpocsUseCases
 import mozilla.components.service.pocket.stories.PocketStoriesUseCases
 import mozilla.components.service.pocket.update.ContentRecommendationsRefreshScheduler
 import mozilla.components.service.pocket.update.PocketStoriesRefreshScheduler
-import mozilla.components.service.pocket.update.SpocsRefreshScheduler
 import mozilla.components.service.pocket.update.SponsoredContentsRefreshScheduler
 
 /**
@@ -31,9 +30,6 @@ class PocketStoriesService(
 ) {
     @VisibleForTesting
     internal var storiesRefreshScheduler = PocketStoriesRefreshScheduler(pocketStoriesConfig)
-
-    @VisibleForTesting
-    internal var spocsRefreshscheduler = SpocsRefreshScheduler(pocketStoriesConfig)
 
     @VisibleForTesting
     internal var contentRecommendationsRefreshScheduler =
@@ -117,39 +113,6 @@ class PocketStoriesService(
     }
 
     /**
-     * Entry point to start fetching Pocket sponsored stories in the background.
-     *
-     * Use this at an as high as possible level in your application.
-     * Must be paired in a similar way with the [stopPeriodicSponsoredStoriesRefresh] method.
-     *
-     * This starts the process of downloading and caching Pocket sponsored stories in the background,
-     * making them available for the [getSponsoredStories] method.
-     */
-    fun startPeriodicSponsoredStoriesRefresh() {
-        val useCases = spocsUseCases
-        if (useCases == null) {
-            logger.warn("Cannot start sponsored stories refresh. Service has incomplete setup")
-            return
-        }
-
-        GlobalDependencyProvider.SponsoredStories.initialize(useCases)
-        spocsRefreshscheduler.stopProfileDeletion(context)
-        spocsRefreshscheduler.schedulePeriodicRefreshes(context)
-    }
-
-    /**
-     * Single stopping point for the "refresh sponsored Pocket stories" functionality.
-     *
-     * Use this at an as high as possible level in your application.
-     * Must be paired in a similar way with the [startPeriodicSponsoredStoriesRefresh] method.
-     *
-     * This stops the process of downloading and caching Pocket sponsored stories in the background.
-     */
-    fun stopPeriodicSponsoredStoriesRefresh() {
-        spocsRefreshscheduler.stopPeriodicRefreshes(context)
-    }
-
-    /**
      * Fetch sponsored Pocket stories and refresh the locally persisted list.
      */
     suspend fun refreshSponsoredStories() {
@@ -175,8 +138,6 @@ class PocketStoriesService(
         }
 
         GlobalDependencyProvider.SponsoredStories.initialize(useCases)
-        spocsRefreshscheduler.stopPeriodicRefreshes(context)
-        spocsRefreshscheduler.scheduleProfileDeletion(context)
     }
 
     /**

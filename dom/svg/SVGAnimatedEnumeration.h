@@ -7,9 +7,10 @@
 #ifndef DOM_SVG_SVGANIMATEDENUMERATION_H_
 #define DOM_SVG_SVGANIMATEDENUMERATION_H_
 
+#include <memory>
+
 #include "DOMSVGAnimatedEnumeration.h"
 #include "mozilla/SMILAttr.h"
-#include "mozilla/UniquePtr.h"
 #include "mozilla/dom/SVGElement.h"
 #include "nsCycleCollectionParticipant.h"
 #include "nsError.h"
@@ -57,7 +58,7 @@ class SVGAnimatedEnumeration {
   already_AddRefed<dom::DOMSVGAnimatedEnumeration> ToDOMAnimatedEnum(
       SVGElement* aSVGElement);
 
-  UniquePtr<SMILAttr> ToSMILAttr(SVGElement* aSVGElement);
+  std::unique_ptr<SMILAttr> ToSMILAttr(SVGElement* aSVGElement);
 
  private:
   SVGEnumValue mAnimVal;

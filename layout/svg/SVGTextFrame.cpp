@@ -3323,8 +3323,7 @@ nsIFrame* SVGTextFrame::GetFrameForPoint(const gfxPoint& aPoint) {
   TextRenderedRunIterator it(this);
   nsIFrame* hit = nullptr;
   for (TextRenderedRun run = it.Current(); run.mFrame; run = it.Next()) {
-    uint16_t hitTestFlags = SVGUtils::GetGeometryHitTestFlags(run.mFrame);
-    if (!hitTestFlags) {
+    if (SVGUtils::GetGeometryHitTestFlags(run.mFrame).isEmpty()) {
       continue;
     }
 
@@ -3382,11 +3381,12 @@ void SVGTextFrame::ReflowSVG() {
     // fill/ stroke don't actually render (e.g. when stroke="none" or
     // stroke-opacity="0"). GetGeometryHitTestFlags accounts for
     // 'pointer-events'. The text-shadow is not part of the hit-test area.
-    uint16_t hitTestFlags = SVGUtils::GetGeometryHitTestFlags(run.mFrame);
-    if (hitTestFlags & SVG_HIT_TEST_FILL) {
+    SVGHitTestFlags hitTestFlags =
+        SVGUtils::GetGeometryHitTestFlags(run.mFrame);
+    if (hitTestFlags.contains(SVGHitTestFlag::Fill)) {
       runFlags += TextRenderedRun::GeometryFlag::IncludeFill;
     }
-    if (hitTestFlags & SVG_HIT_TEST_STROKE) {
+    if (hitTestFlags.contains(SVGHitTestFlag::Stroke)) {
       runFlags += TextRenderedRun::GeometryFlag::IncludeStroke;
     }
 
@@ -3435,9 +3435,7 @@ void SVGTextFrame::ReflowSVG() {
 static TextRenderedRun::GeometryFlags TextRenderedRunFlagsForBBoxContribution(
     const TextRenderedRun& aRun, uint32_t aBBoxFlags) {
   TextRenderedRun::GeometryFlags flags;
-  if ((aBBoxFlags & SVGUtils::eBBoxIncludeFillGeometry) ||
-      ((aBBoxFlags & SVGUtils::eBBoxIncludeFill) &&
-       !aRun.mFrame->StyleSVG()->mFill.kind.IsNone())) {
+  if (aBBoxFlags & SVGUtils::eBBoxIncludeFillGeometry) {
     flags += TextRenderedRun::GeometryFlag::IncludeFill;
   }
   if ((aBBoxFlags & SVGUtils::eBBoxIncludeStrokeGeometry) ||
@@ -4821,10 +4819,10 @@ void SVGTextFrame::DoTextPathLayout() {
       Point offsetFromPath = normal * (vertical ? -mPositions[i].mPosition.x
                                                 : mPositions[i].mPosition.y);
       pt += offsetFromPath;
-      Point direction = textRun->IsInlineReversed() ? -tangent : tangent;
       mPositions[i].mPosition =
-          ThebesPoint(pt) - ThebesPoint(direction) * halfAdvance;
+          ThebesPoint(pt) - ThebesPoint(tangent) * halfAdvance;
       mPositions[i].mAngle += rotation;
+      Point direction = textRun->IsInlineReversed() ? -tangent : tangent;
 
       // Position any characters for a partial ligature.
       for (uint32_t k = i + 1; k < j; k++) {
@@ -5210,7 +5208,7 @@ void SVGTextFrame::DoReflow() {
     return;
   }
 
-  UniquePtr<gfxContext> renderingContext =
+  std::unique_ptr<gfxContext> renderingContext =
       presContext->PresShell()->CreateReferenceRenderingContext();
 
   if (UpdateFontSizeScaleFactor()) {

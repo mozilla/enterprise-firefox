@@ -16,6 +16,10 @@
   });
 
   /**
+   * @import {SearchEngine} from "moz-src:///toolkit/components/search/SearchEngine.sys.mjs"
+   */
+
+  /**
    * A richlistbox popup custom element for for a browser search autocomplete
    * widget.
    */
@@ -244,7 +248,7 @@
     /**
      * Updates the header of the pop-up with the search engine name and icon.
      *
-     * @param {nsISearchEngine} [engine]
+     * @param {SearchEngine} [engine]
      *   The engine to use, if not specified falls back to the default engine.
      */
     async updateHeader(engine) {
@@ -288,7 +292,7 @@
      *
      * @param {Event} event
      *   The event that triggered the search.
-     * @param {nsISearchEngine} engine
+     * @param {SearchEngine} engine
      *   The search engine being used for the search.
      * @param {string} where
      *   Where the search should be opened (current tab, new tab, window etc).

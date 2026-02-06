@@ -37,6 +37,10 @@ struct DirectAuxvDumpInfo;
 
 class nsIFile;
 
+namespace mozilla::geckoargs {
+struct ChildProcessArgs;
+}
+
 namespace CrashReporter {
 
 using mozilla::Maybe;
@@ -270,11 +274,10 @@ using CrashPipeType = mozilla::UniqueFileHandle;
 void SetCrashHelperPipes(FileHandle breakpadFd, FileHandle crashHelperFd);
 #endif
 CrashPipeType GetChildNotificationPipe();
-mozilla::UniqueFileHandle RegisterChildIPCChannel();
+bool RegisterChildIPCChannel(mozilla::geckoargs::ChildProcessArgs& aArgs);
 
 // Child-side API
-MOZ_EXPORT bool SetRemoteExceptionHandler(
-    CrashPipeType aCrashPipe, mozilla::UniqueFileHandle aCrashHelperPipe);
+MOZ_EXPORT bool SetRemoteExceptionHandler(int& aArgc, char** aArgv);
 bool UnsetRemoteExceptionHandler(bool wasSet = true);
 
 }  // namespace CrashReporter

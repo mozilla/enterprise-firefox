@@ -95,7 +95,7 @@ static bool math_function(JSContext* cx, CallArgs& args) {
 
 double js::math_abs_impl(double x) { return mozilla::Abs(x); }
 
-bool js::math_abs(JSContext* cx, unsigned argc, Value* vp) {
+static bool math_abs(JSContext* cx, unsigned argc, Value* vp) {
   CallArgs args = CallArgsFromVp(argc, vp);
 
   if (args.length() == 0) {
@@ -245,7 +245,7 @@ double js::math_floor_impl(double x) {
   return std::floor(x);
 }
 
-bool js::math_floor(JSContext* cx, unsigned argc, Value* vp) {
+static bool math_floor(JSContext* cx, unsigned argc, Value* vp) {
   CallArgs args = CallArgsFromVp(argc, vp);
 
   if (args.length() == 0) {
@@ -874,7 +874,7 @@ double js::math_sign_impl(double x) {
   return x == 0 ? x : x < 0 ? -1 : 1;
 }
 
-bool js::math_sign(JSContext* cx, unsigned argc, Value* vp) {
+static bool math_sign(JSContext* cx, unsigned argc, Value* vp) {
   CallArgs args = CallArgsFromVp(argc, vp);
   if (args.length() == 0) {
     args.rval().setNaN();

@@ -213,6 +213,7 @@ export function normalizeAttributeName(attr) {
  * Nimbus via the `getPrefValue` filter.
  */
 export const PREFS = Object.freeze({
+  "browser.ai.control.default": PREF_STRING,
   "browser.newtabpage.activity-stream.asrouter.userprefs.cfr.addons": PREF_BOOL,
   "browser.newtabpage.activity-stream.asrouter.userprefs.cfr.features":
     PREF_BOOL,
@@ -359,6 +360,12 @@ async function recordTargetingContextAttributes() {
     )
   ).ctx;
 
+  const recordAttrsEnabled =
+    lazy.NimbusFeatures.nimbusTelemetry.getVariable("gleanMetricConfiguration")
+      ?.metrics_enabled?.[
+      "nimbus_targeting_environment.targeting_context_value"
+    ] ?? false;
+
   const recordAttrs =
     lazy.NimbusFeatures.nimbusTelemetry.getVariable(
       "nimbusTargetingEnvironment"
@@ -370,7 +377,10 @@ async function recordTargetingContextAttributes() {
     try {
       const value = await transform(await context[attr]);
 
-      if (recordAttrs === null || recordAttrs.includes(attr)) {
+      if (
+        recordAttrsEnabled &&
+        (recordAttrs === null || recordAttrs.includes(attr))
+      ) {
         values[metric] = value;
       }
 
@@ -381,14 +391,16 @@ async function recordTargetingContextAttributes() {
     }
   }
 
-  let stringifiedCtx;
-  try {
-    stringifiedCtx = JSON.stringify(values);
-  } catch (ex) {
-    stringifiedCtx = "(JSON.stringify error)";
-  }
+  if (recordAttrsEnabled) {
+    let stringifiedCtx;
+    try {
+      stringifiedCtx = JSON.stringify(values);
+    } catch (ex) {
+      stringifiedCtx = "(JSON.stringify error)";
+    }
 
-  Glean.nimbusTargetingEnvironment.targetingContextValue.set(stringifiedCtx);
+    Glean.nimbusTargetingEnvironment.targetingContextValue.set(stringifiedCtx);
+  }
 }
 
 /**

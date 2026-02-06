@@ -15,27 +15,57 @@ ChromeUtils.defineESModuleGetters(lazy, {
 
 console.debug(`FeltExtension: FeltParentProcess.sys.mjs`);
 
-// Import the shared pending URLs queue from BrowserContentHandler
-// This queue is shared between BrowserContentHandler (which fills it early during command-line
-// processing) and FeltProcessParent (which forwards URLs after Firefox is ready)
-import { gFeltPendingURLs } from "resource:///modules/BrowserContentHandler.sys.mjs";
+// Import the shared pending URLs queue
+import {
+  gFeltPendingURLs,
+  resetFeltFirefoxWindowReady,
+  FELT_OPEN_WINDOW_DISPOSITION,
+} from "resource:///modules/FeltURLHandler.sys.mjs";
 
-export function queueURL(url) {
+export function queueURL(payload) {
   // If Firefox AND extension are both ready, forward immediately
   if (
     gFeltProcessParentInstance?.firefoxReady &&
     gFeltProcessParentInstance?.extensionReady
   ) {
-    gFeltProcessParentInstance.sendURLToFirefox(url);
+    gFeltProcessParentInstance.sendURLToFirefox(payload);
     // Ensure Felt launcher stays hidden when forwarding to running Firefox
     Services.felt.makeBackgroundProcess(true);
   } else {
     // Queue at module level until ready
-    gFeltPendingURLs.push(url);
+    gFeltPendingURLs.push(payload);
   }
 }
 
 let gFeltProcessParentInstance = null;
+
+function extractURLPayload(payload) {
+  return {
+    url: payload.url ?? "",
+    disposition: payload.disposition ?? FELT_OPEN_WINDOW_DISPOSITION.DEFAULT,
+  };
+}
+
+let gFeltFirefoxReadyNotified = false;
+
+export function isFeltFirefoxWindowReady() {
+  return (
+    gFeltProcessParentInstance?.firefoxReady &&
+    gFeltProcessParentInstance?.extensionReady
+  );
+}
+
+function notifyFirefoxReady() {
+  if (gFeltFirefoxReadyNotified) {
+    return;
+  }
+  if (!isFeltFirefoxWindowReady()) {
+    return;
+  }
+  gFeltFirefoxReadyNotified = true;
+  console.debug("FeltExtension: Notifying felt-firefox-window-ready");
+  Services.obs.notifyObservers(null, "felt-firefox-window-ready");
+}
 
 /**
  * Manages the SSO login and launching Firefox
@@ -54,6 +84,8 @@ export class FeltProcessParent extends JSProcessActorParent {
     this.firefoxReady = false;
     // Track extension ready state (extension must register its observer)
     this.extensionReady = false;
+    // Current loggedInUserInfo
+    this.loggedInUserInfo = null;
 
     this.abnormalExitCounter = 0;
 
@@ -130,6 +162,7 @@ export class FeltProcessParent extends JSProcessActorParent {
             if (gFeltProcessParentInstance) {
               gFeltProcessParentInstance.extensionReady = true;
               gFeltProcessParentInstance.forwardPendingURLs();
+              notifyFirefoxReady();
             }
             break;
           }
@@ -223,6 +256,8 @@ export class FeltProcessParent extends JSProcessActorParent {
     this.logoutReported = false;
     this.firefoxReady = false;
     this.extensionReady = false;
+    resetFeltFirefoxWindowReady();
+    gFeltFirefoxReadyNotified = false;
     Services.cpmm.sendAsyncMessage("FeltParent:FirefoxStarting", {});
     this.firefox = this.startFirefoxProcess();
     this.firefox
@@ -259,6 +294,7 @@ export class FeltProcessParent extends JSProcessActorParent {
 
         // Try to forward pending URLs now (will only forward if extension is also ready)
         this.forwardPendingURLs();
+        notifyFirefoxReady();
       })
       .then(() => {
         console.debug(
@@ -347,22 +383,31 @@ export class FeltProcessParent extends JSProcessActorParent {
         "@mozilla.org/toolkit/profile-service;1"
       ].getService(Ci.nsIToolkitProfileService);
 
+      let profileName = await this.profileName();
       let foundProfile = null;
+
       for (let profile of profileService.profiles) {
-        if (profile.name === lazy.FeltCommon.ENTERPRISE_PROFILE) {
+        if (profile.name === profileName) {
           foundProfile = profile;
           break;
         }
       }
 
+      /* Remove once we finished foxfooding */
       if (!foundProfile) {
-        console.debug(
-          `FeltExtension: creating new ${lazy.FeltCommon.ENTERPRISE_PROFILE} profile`
-        );
-        foundProfile = profileService.createProfile(
-          null,
-          lazy.FeltCommon.ENTERPRISE_PROFILE
-        );
+        let legacyProfileName = lazy.FeltCommon.ENTERPRISE_PROFILE;
+        for (let profile of profileService.profiles) {
+          if (profile.name === legacyProfileName) {
+            foundProfile = profile;
+            console.warn("using legacy profile");
+            break;
+          }
+        }
+      }
+
+      if (!foundProfile) {
+        console.debug(`FeltExtension: creating new ${profileName} profile`);
+        foundProfile = profileService.createProfile(null, profileName);
 
         await profileService.asyncFlush();
       }
@@ -439,18 +484,19 @@ export class FeltProcessParent extends JSProcessActorParent {
   }
 
   /**
-   * Send a URL to Firefox via IPC (Firefox must be ready)
+   * Send a URL request to Firefox via IPC (Firefox must be ready)
    *
-   * @param {string} url
+   * @param {object} payload - Object with url and disposition properties
    */
-  sendURLToFirefox(url) {
+  sendURLToFirefox(payload) {
     if (!this.firefoxReady || !Services.felt) {
       console.error(`FeltExtension: Cannot send URL, Firefox not ready`);
       return;
     }
 
     try {
-      Services.felt.openURL(url);
+      let { url, disposition } = extractURLPayload(payload);
+      Services.felt.openURL(url, disposition);
     } catch (err) {
       console.error(`FeltExtension: Failed to forward URL: ${err}`);
     }
@@ -480,11 +526,12 @@ export class FeltProcessParent extends JSProcessActorParent {
     }
 
     // Forward all URLs directly via IPC (both Firefox and extension are ready)
-    for (const url of gFeltPendingURLs) {
+    for (const payload of gFeltPendingURLs) {
       try {
-        Services.felt.openURL(url);
+        let { url, disposition } = extractURLPayload(payload);
+        Services.felt.openURL(url, disposition);
       } catch (err) {
-        console.error(`FeltExtension: Failed to forward URL ${url}: ${err}`);
+        console.error(`FeltExtension: Failed to forward URL: ${err}`);
       }
     }
 
@@ -532,8 +579,11 @@ export class FeltProcessParent extends JSProcessActorParent {
           Services.felt.setTokens(access_token, refresh_token, expires_in);
 
           // TODO: Bug 2003001 - Pass user info from Felt to Firefox to avoid network request on startup
-          const { email } = await lazy.ConsoleClient.getLoggedInUserInfo();
-          lazy.FeltStorage.updateLastSignedInUserEmail(email);
+          this.loggedInUserInfo =
+            await lazy.ConsoleClient.getLoggedInUserInfo();
+          lazy.FeltStorage.updateLastSignedInUserEmail(
+            this.loggedInUserInfo?.email
+          );
 
           const ssoCollectedCookies = this.getAllCookies();
           console.debug(`Collected cookies: ${ssoCollectedCookies.length}`);
@@ -562,4 +612,22 @@ export class FeltProcessParent extends JSProcessActorParent {
       })
     );
   }
+
+  async profileName() {
+    if (this.loggedInUserInfo !== null) {
+      return `${lazy.FeltCommon.ENTERPRISE_PROFILE}-${await hashTo40bits(this.loggedInUserInfo.id)}`;
+    }
+    console.error(`FeltExtension: loggedInUserInfo not set`);
+    return lazy.FeltCommon.ENTERPRISE_PROFILE;
+  }
+}
+
+async function hashTo40bits(s) {
+  const msgUint8 = new TextEncoder().encode(s);
+  const hashBuffer = await globalThis.crypto.subtle.digest("SHA-256", msgUint8);
+  const base64 = new Uint8Array(hashBuffer).slice(0, 5).toBase64({
+    omitPadding: true,
+    alphabet: "base64url",
+  });
+  return base64;
 }

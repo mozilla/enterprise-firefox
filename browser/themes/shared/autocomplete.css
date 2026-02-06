@@ -24,10 +24,13 @@
   min-height: var(--size-item-medium);
   border: 0;
   border-radius: var(--border-radius-small);
-  margin-block: var(--space-xsmall);
 
   --status-text-color: currentColor;
   --status-background-color: rgba(248, 232, 28, 0.2);
+
+  &:not(:last-child) {
+    margin-block-end: var(--space-xsmall);
+  }
 
   > .ac-site-icon {
     margin-inline: 4px 0;

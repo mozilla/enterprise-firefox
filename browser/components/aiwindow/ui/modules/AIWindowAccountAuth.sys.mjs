@@ -20,24 +20,25 @@ ChromeUtils.defineLazyGetter(lazy, "fxAccounts", () => {
 ChromeUtils.defineLazyGetter(lazy, "log", function () {
   return console.createInstance({
     prefix: "AIWindowAccountAuth",
-    maxLogLevelPref: Services.prefs.getBoolPref("browser.aiwindow.log", false)
+    maxLogLevelPref: Services.prefs.getBoolPref(
+      "browser.smartwindow.log",
+      false
+    )
       ? "Debug"
       : "Warn",
   });
 });
 
-// Temporary gating while feature is in development
-// To be set to true by default before MVP launch
 XPCOMUtils.defineLazyPreferenceGetter(
   lazy,
-  "AIWindowRequireSignIn",
-  "browser.aiwindow.requireSignIn",
+  "hasAIWindowToSConsent",
+  "browser.smartwindow.tos.hasConsent",
   false
 );
 XPCOMUtils.defineLazyPreferenceGetter(
   lazy,
-  "hasAIWindowToSConsent",
-  "browser.aiwindow.tos.hasConsent",
+  "hasFirstrunCompleted",
+  "browser.smartwindow.firstrun.hasCompleted",
   false
 );
 
@@ -47,7 +48,7 @@ export const AIWindowAccountAuth = {
   },
 
   set hasToSConsent(value) {
-    Services.prefs.setBoolPref("browser.aiwindow.tos.hasConsent", value);
+    Services.prefs.setBoolPref("browser.smartwindow.tos.hasConsent", value);
   },
 
   async isSignedIn() {
@@ -60,14 +61,7 @@ export const AIWindowAccountAuth = {
     }
   },
 
-  requiresSignIn() {
-    return lazy.AIWindowRequireSignIn;
-  },
-
   async canAccessAIWindow() {
-    if (!this.requiresSignIn()) {
-      return true;
-    }
     if (!this.hasToSConsent) {
       return false;
     }
@@ -77,10 +71,10 @@ export const AIWindowAccountAuth = {
   async promptSignIn(browser) {
     try {
       const data = {
-        autoClose: false,
-        entrypoint: "aiwindow",
+        autoClose: !!lazy.hasFirstrunCompleted,
+        entrypoint: "smartwindow",
         extraParams: {
-          service: "aiwindow",
+          service: "smartwindow",
         },
       };
       const signedIn = await lazy.SpecialMessageActions.fxaSignInFlow(

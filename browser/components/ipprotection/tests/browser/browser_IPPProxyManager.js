@@ -8,15 +8,13 @@ const { IPProtectionServerlist } = ChromeUtils.importESModule(
   "moz-src:///browser/components/ipprotection/IPProtectionServerlist.sys.mjs"
 );
 
-// Don't add an experiment so we can test adding and removing it.
-DEFAULT_EXPERIMENT = null;
-
 add_task(async function test_IPPProxyManager_handleProxyErrorEvent() {
   setupService({
     isSignedIn: true,
     canEnroll: true,
   });
-  let cleanupAlpha = await setupExperiment({ enabled: true, variant: "alpha" });
+
+  IPProtectionService.updateState();
 
   await IPProtectionServerlist.maybeFetchList();
 
@@ -115,7 +113,6 @@ add_task(async function test_IPPProxyManager_handleProxyErrorEvent() {
     "Should not return a promise when connection is inactive"
   );
 
-  await cleanupAlpha();
   cleanupService();
 });
 
@@ -127,6 +124,8 @@ add_task(async function test_IPPProxyManager_bug_1999946() {
   const { IPPChannelFilter } = ChromeUtils.importESModule(
     "moz-src:///browser/components/ipprotection/IPPChannelFilter.sys.mjs"
   );
+
+  Services.prefs.clearUserPref("browser.ipProtection.enabled");
 
   // Hook the Call to create to capture the created channel filter
   let channelFilterRef = null;
@@ -145,7 +144,9 @@ add_task(async function test_IPPProxyManager_bug_1999946() {
     canEnroll: true,
   });
 
-  let cleanupAlpha = await setupExperiment({ enabled: true, variant: "alpha" });
+  await SpecialPowers.pushPrefEnv({
+    set: [["browser.ipProtection.enabled", true]],
+  });
 
   await IPProtectionServerlist.maybeFetchList();
 
@@ -158,6 +159,5 @@ add_task(async function test_IPPProxyManager_bug_1999946() {
   );
 
   sandbox.restore();
-  await cleanupAlpha();
   cleanupService();
 });

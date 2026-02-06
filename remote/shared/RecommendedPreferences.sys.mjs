@@ -334,6 +334,9 @@ const COMMON_PREFERENCES = new Map([
   // Disable Firefox accounts ping
   ["identity.fxaccounts.auth.uri", "https://{server}/dummy/fxa"],
 
+  // Allow scroll amount larger than one page on a single mouse wheel event.
+  ["mousewheel.allow_scrolling_more_than_one_page", true],
+
   // Disable connectivity service pings
   ["network.connectivity-service.enabled", false],
 

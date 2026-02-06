@@ -31,7 +31,7 @@ $ds-card-image-gradient-solid: rgba(0, 0, 0, 100%);
 
     .placeholder-image {
       width: 100%;
-      height: 140px;
+      height: 150px;
       border-radius: var(--border-radius-medium) var(--border-radius-medium) 0 0;
     }
 
@@ -51,22 +51,12 @@ $ds-card-image-gradient-solid: rgba(0, 0, 0, 100%);
     .placeholder-description {
       height: 60px;
       margin-inline: var(--space-large);
-      margin-block-end: var(--space-large);
+      margin-block-end: var(--space-small);
     }
 
-    &.refined-cards {
-      .placeholder-image {
-        height: 150px;
-      }
-
-      .placeholder-description {
-        margin-block-end: var(--space-small);
-      }
-
-      .placeholder-header {
-        width: initial;
-        margin-block-end: var(--space-large);
-      }
+    .placeholder-header {
+      width: initial;
+      margin-block-end: var(--space-large);
     }
   }
 
@@ -79,12 +69,10 @@ $ds-card-image-gradient-solid: rgba(0, 0, 0, 100%);
       inset-inline-start: -100%;
       height: 100%;
       width: 100%;
-      background: linear-gradient(
-        90deg,
-        rgba(255, 255, 255, 0%) 0%,
-        var(--newtab-background-color-secondary) 50%,
-        rgba(255, 255, 255, 0%) 100%
-      );
+      background: linear-gradient(90deg,
+      rgba(255, 255, 255, 0%) 0%,
+      var(--newtab-background-color-secondary) 50%,
+      rgba(255, 255, 255, 0%) 100%);
       z-index: 2;
 
       @media (prefers-reduced-motion: no-preference) {
@@ -246,6 +234,17 @@ $ds-card-image-gradient-solid: rgba(0, 0, 0, 100%);
     font-size: var(--font-size-small);
   }
 
+  .ds-card-daily-brief-topic {
+    position: absolute;
+    inset-block-end: var(--space-xsmall);
+    inset-inline-start: var(--space-xsmall);
+    background: var(--background-color-canvas);
+    border-radius: var(--border-radius-small);
+    color: var(--newtab-text-primary-color);
+    padding: var(--space-xsmall);
+    font-size: var(--font-size-small);
+  }
+
   .meta {
     display: flex;
     justify-content: space-between;
@@ -324,11 +323,9 @@ $ds-card-image-gradient-solid: rgba(0, 0, 0, 100%);
 
   &.ds-card-image-gradient {
     img {
-      mask-image: linear-gradient(
-        to top,
-        $ds-card-image-gradient-fade,
-        $ds-card-image-gradient-solid 40px
-      );
+      mask-image: linear-gradient(to top,
+      $ds-card-image-gradient-fade,
+      $ds-card-image-gradient-solid 40px);
     }
 
     .meta {
@@ -403,6 +400,7 @@ $ds-card-image-gradient-solid: rgba(0, 0, 0, 100%);
 // Class is applied to .ds-card element
 // See _CardSections.scss for large and small card style mixins
 .sections-card-ui {
+
   // Loading Animation
   &.placeholder {
     box-shadow: 0 2px 6px #15141A24;
@@ -428,7 +426,7 @@ $ds-card-image-gradient-solid: rgba(0, 0, 0, 100%);
         z-index: 2;
       }
 
-      .img-wrapper > .ds-image.img > img {
+      .img-wrapper>.ds-image.img>img {
         border-radius: var(--border-radius-large) var(--border-radius-large) 0 0;
       }
     }
@@ -497,6 +495,8 @@ $ds-card-image-gradient-solid: rgba(0, 0, 0, 100%);
       margin-block-start: var(--space-small);
       position: relative;
       min-height: 28px;
+      display: flex;
+      align-items: center;
     }
 
     .ds-card-topic {
@@ -523,6 +523,7 @@ $ds-card-image-gradient-solid: rgba(0, 0, 0, 100%);
 
 .ds-card-grid,
 .ds-section-grid {
+
   // Intentionally duplicated classname to increase
   // specificity to override .sections-card-ui styles
   .ds-card.ds-spoc-rectangle.ds-spoc-rectangle {
@@ -575,53 +576,41 @@ $ds-card-image-gradient-solid: rgba(0, 0, 0, 100%);
       }
     }
 
-    &.refined-cards {
-      @include newtab-card-style;
+    @include newtab-card-style;
 
-      .img-wrapper .ds-image img {
-        border-end-start-radius: 0;
-        border-end-end-radius: 0;
-      }
+    .img-wrapper .ds-image img {
+      border-end-start-radius: 0;
+      border-end-end-radius: 0;
+    }
 
-      &:hover .img-wrapper .ds-image img {
-        box-shadow: none;
-      }
+    &:hover .img-wrapper .ds-image img {
+      box-shadow: none;
+    }
 
-      .meta {
-        padding: var(--space-small) var(--space-large);
-        padding-block-end: 0;
+    .info-wrap {
+      margin-block-start: auto;
+    }
 
-      }
+    .sections-card-footer {
+      display: none;
+    }
 
-      .info-wrap {
-        margin-block-start: auto;
-      }
+    .card-stp-button-position-wrapper {
+      z-index: 10;
+      inset-block-end: 0;
+      position: absolute;
 
-      .meta .title {
-        text-transform: none;
-      }
+    }
 
-      .sections-card-footer {
-        display: none;
-      }
-
-      .card-stp-button-position-wrapper {
-        z-index: 10;
-        inset-block-end: 0;
-        position: absolute;
-
-      }
-
-      .card-stp-button-position-wrapper .context-menu-position-container {
-        align-self: flex-start;
-        padding-block-start: var(--space-medium);
-      }
+    .card-stp-button-position-wrapper .context-menu-position-container {
+      align-self: flex-start;
+      padding-block-start: var(--space-medium);
     }
   }
 
 }
 
-.ds-card-grid .refined-cards {
+.ds-card-grid .ds-card {
   .meta {
     color: var(--newtab-text-primary-color);
     padding: var(--space-small) var(--space-large);
@@ -635,13 +624,25 @@ $ds-card-image-gradient-solid: rgba(0, 0, 0, 100%);
     display: flex;
     justify-content: space-between;
     pointer-events: none;
-    max-width: 230px;
     margin-block-start: var(--space-xsmall);
 
     .source-wrapper {
       margin-block-end: 0;
       margin-inline-end: var(--space-xxsmall);
-      max-width: 175px;
+      max-width: 170px;
+    }
+
+    .card-stp-button-hover-background {
+      position: static;
+      width: auto;
+      padding-block-start: 0;
+      background: transparent;
+      border-radius: 0;
+    }
+
+    .card-stp-button-position-wrapper {
+      position: static;
+      inset: auto;
     }
   }
 
@@ -667,7 +668,7 @@ $ds-card-image-gradient-solid: rgba(0, 0, 0, 100%);
     .card-stp-button-position-wrapper {
       inset-block-start: unset;
       // this value needs to equal the current padding of the card
-      inset-block-end: var(--space-medium);
+      inset-block-end: var(--space-xsmall);
       inset-inline-end: var(--space-large);
       background: var(--button-background-color-ghost);
     }

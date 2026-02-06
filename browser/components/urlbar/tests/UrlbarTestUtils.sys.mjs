@@ -1499,6 +1499,9 @@ class UrlbarInputTestUtils {
 
   async openTrustPanel(win) {
     let btn = win.document.getElementById("trust-icon");
+    if (!btn.checkVisibility()) {
+      btn = win.document.getElementById("identity-icon-box");
+    }
     let popupShown = lazy.BrowserTestUtils.waitForEvent(
       win.document,
       "popupshown"

@@ -28,6 +28,7 @@ import mozilla.components.support.test.eq
 import mozilla.components.support.test.mock
 import mozilla.components.support.test.robolectric.testContext
 import mozilla.components.support.test.whenever
+import mozilla.components.support.utils.FakeDownloadFileUtils
 import mozilla.components.test.ReflectionUtils
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -74,6 +75,11 @@ typealias AC_AUTH_LEVEL = PromptRequest.Authentication.Level
 class GeckoPromptDelegateTest {
 
     private lateinit var runtime: GeckoRuntime
+    private var downloadFileUtils = FakeDownloadFileUtils()
+
+    private val testUrl = "https://mozilla.org"
+    private val testUrlWithFormAction = "https://sitewithformaction.com"
+    private val testHttpRealm = "testRealm"
 
     @Before
     fun setup() {
@@ -83,7 +89,10 @@ class GeckoPromptDelegateTest {
 
     @Test
     fun `onChoicePrompt called with CHOICE_TYPE_SINGLE must provide a SingleChoice PromptRequest`() {
-        val mockSession = GeckoEngineSession(runtime)
+        val mockSession = GeckoEngineSession(
+            runtime,
+            downloadFileUtils = downloadFileUtils,
+            )
         var promptRequestSingleChoice: PromptRequest = MultipleChoice(arrayOf(), {}, {})
         var confirmWasCalled = false
         val gecko = GeckoPromptDelegate(mockSession)
@@ -125,7 +134,10 @@ class GeckoPromptDelegateTest {
 
     @Test
     fun `onChoicePrompt called with CHOICE_TYPE_MULTIPLE must provide a MultipleChoice PromptRequest`() {
-        val mockSession = GeckoEngineSession(runtime)
+        val mockSession = GeckoEngineSession(
+            runtime,
+            downloadFileUtils = downloadFileUtils,
+            )
         var promptRequestSingleChoice: PromptRequest = SingleChoice(arrayOf(), {}, {})
         var confirmWasCalled = false
         val gecko = GeckoPromptDelegate(mockSession)
@@ -166,7 +178,10 @@ class GeckoPromptDelegateTest {
 
     @Test
     fun `onChoicePrompt called with CHOICE_TYPE_MENU must provide a MenuChoice PromptRequest`() {
-        val mockSession = GeckoEngineSession(runtime)
+        val mockSession = GeckoEngineSession(
+            runtime,
+            downloadFileUtils = downloadFileUtils,
+            )
         var promptRequestSingleChoice: PromptRequest = PromptRequest.MenuChoice(arrayOf(), {}, {})
         var confirmWasCalled = false
         val gecko = GeckoPromptDelegate(mockSession)
@@ -219,7 +234,10 @@ class GeckoPromptDelegateTest {
 
     @Test
     fun `onAlertPrompt must provide an alert PromptRequest`() {
-        val mockSession = GeckoEngineSession(runtime)
+        val mockSession = GeckoEngineSession(
+            runtime,
+            downloadFileUtils = downloadFileUtils,
+            )
         var alertRequest: PromptRequest? = null
         var dismissWasCalled = false
 
@@ -258,7 +276,10 @@ class GeckoPromptDelegateTest {
 
     @Test
     fun `onDateTimePrompt called with DATETIME_TYPE_DATE must provide a date PromptRequest`() {
-        val mockSession = GeckoEngineSession(runtime)
+        val mockSession = GeckoEngineSession(
+            runtime,
+            downloadFileUtils = downloadFileUtils,
+            )
         var dateRequest: PromptRequest? = null
         var geckoPrompt = geckoDateTimePrompt("title", DATE, "", "", "")
 
@@ -288,7 +309,10 @@ class GeckoPromptDelegateTest {
 
     @Test
     fun `onDateTimePrompt DATETIME_TYPE_DATE with date parameters must format dates correctly`() {
-        val mockSession = GeckoEngineSession(runtime)
+        val mockSession = GeckoEngineSession(
+            runtime,
+            downloadFileUtils = downloadFileUtils,
+            )
         var timeSelectionRequest: PromptRequest.TimeSelection? = null
         val confirmCaptor = argumentCaptor<String>()
 
@@ -326,7 +350,10 @@ class GeckoPromptDelegateTest {
 
     @Test
     fun `onDateTimePrompt called with DATETIME_TYPE_MONTH must provide a date PromptRequest`() {
-        val mockSession = GeckoEngineSession(runtime)
+        val mockSession = GeckoEngineSession(
+            runtime,
+            downloadFileUtils = downloadFileUtils,
+            )
         var dateRequest: PromptRequest? = null
         var confirmCalled = false
 
@@ -357,7 +384,10 @@ class GeckoPromptDelegateTest {
 
     @Test
     fun `onDateTimePrompt DATETIME_TYPE_MONTH with date parameters must format dates correctly`() {
-        val mockSession = GeckoEngineSession(runtime)
+        val mockSession = GeckoEngineSession(
+            runtime,
+            downloadFileUtils = downloadFileUtils,
+            )
         var timeSelectionRequest: PromptRequest.TimeSelection? = null
         val confirmCaptor = argumentCaptor<String>()
 
@@ -393,7 +423,10 @@ class GeckoPromptDelegateTest {
 
     @Test
     fun `onDateTimePrompt called with DATETIME_TYPE_WEEK must provide a date PromptRequest`() {
-        val mockSession = GeckoEngineSession(runtime)
+        val mockSession = GeckoEngineSession(
+            runtime,
+            downloadFileUtils = downloadFileUtils,
+            )
         var dateRequest: PromptRequest? = null
         var confirmCalled = false
         val promptDelegate = GeckoPromptDelegate(mockSession)
@@ -422,7 +455,10 @@ class GeckoPromptDelegateTest {
 
     @Test
     fun `onDateTimePrompt DATETIME_TYPE_WEEK with date parameters must format dates correctly`() {
-        val mockSession = GeckoEngineSession(runtime)
+        val mockSession = GeckoEngineSession(
+            runtime,
+            downloadFileUtils = downloadFileUtils,
+            )
         var timeSelectionRequest: PromptRequest.TimeSelection? = null
         val confirmCaptor = argumentCaptor<String>()
         val promptDelegate = GeckoPromptDelegate(mockSession)
@@ -458,7 +494,10 @@ class GeckoPromptDelegateTest {
 
     @Test
     fun `onDateTimePrompt called with DATETIME_TYPE_TIME must provide a TimeSelection PromptRequest`() {
-        val mockSession = GeckoEngineSession(runtime)
+        val mockSession = GeckoEngineSession(
+            runtime,
+            downloadFileUtils = downloadFileUtils,
+            )
         var dateRequest: PromptRequest? = null
         var confirmCalled = false
 
@@ -486,7 +525,10 @@ class GeckoPromptDelegateTest {
 
     @Test
     fun `onDateTimePrompt DATETIME_TYPE_TIME with time parameters must format time correctly`() {
-        val mockSession = GeckoEngineSession(runtime)
+        val mockSession = GeckoEngineSession(
+            runtime,
+            downloadFileUtils = downloadFileUtils,
+            )
         var timeSelectionRequest: PromptRequest.TimeSelection? = null
         val confirmCaptor = argumentCaptor<String>()
 
@@ -523,7 +565,10 @@ class GeckoPromptDelegateTest {
 
     @Test
     fun `onDateTimePrompt DATETIME_TYPE_TIME with stepValue time parameter must format time correctly`() {
-        val mockSession = GeckoEngineSession(runtime)
+        val mockSession = GeckoEngineSession(
+            runtime,
+            downloadFileUtils = downloadFileUtils,
+            )
         var timeSelectionRequest: PromptRequest.TimeSelection? = null
         val confirmCaptor = argumentCaptor<String>()
 
@@ -578,7 +623,10 @@ class GeckoPromptDelegateTest {
 
     @Test
     fun `WHEN DateTimePrompt request with invalid stepValue parameter is triggered THEN stepValue is passed as null`() {
-        val mockSession = GeckoEngineSession(runtime)
+        val mockSession = GeckoEngineSession(
+            runtime,
+            downloadFileUtils = downloadFileUtils,
+            )
         var timeSelectionRequest: PromptRequest.TimeSelection? = null
         val promptDelegate = GeckoPromptDelegate(mockSession)
         mockSession.register(
@@ -603,7 +651,10 @@ class GeckoPromptDelegateTest {
 
     @Test
     fun `onDateTimePrompt called with DATETIME_TYPE_DATETIME_LOCAL must provide a TimeSelection PromptRequest`() {
-        val mockSession = GeckoEngineSession(runtime)
+        val mockSession = GeckoEngineSession(
+            runtime,
+            downloadFileUtils = downloadFileUtils,
+            )
         var dateRequest: PromptRequest? = null
         var confirmCalled = false
 
@@ -631,7 +682,10 @@ class GeckoPromptDelegateTest {
 
     @Test
     fun `onDateTimePrompt DATETIME_TYPE_DATETIME_LOCAL with date parameters must format time correctly`() {
-        val mockSession = GeckoEngineSession(runtime)
+        val mockSession = GeckoEngineSession(
+            runtime,
+            downloadFileUtils = downloadFileUtils,
+            )
         var timeSelectionRequest: PromptRequest.TimeSelection? = null
         val confirmCaptor = argumentCaptor<String>()
 
@@ -697,7 +751,10 @@ class GeckoPromptDelegateTest {
     fun `Calling onFilePrompt must provide a FilePicker PromptRequest`() {
         val context = spy(testContext)
         val contentResolver = spy(context.contentResolver)
-        val mockSession = GeckoEngineSession(runtime)
+        val mockSession = GeckoEngineSession(
+            runtime,
+            downloadFileUtils = downloadFileUtils,
+            )
         var onSingleFileSelectedWasCalled = false
         var onMultipleFilesSelectedWasCalled = false
         var onDismissWasCalled = false
@@ -780,7 +837,10 @@ class GeckoPromptDelegateTest {
     fun `Calling onFilePrompt for folder must provide a FilePicker PromptRequest`() {
         // Calling onSelected
         val context = spy(testContext)
-        val mockSession = GeckoEngineSession(runtime)
+        val mockSession = GeckoEngineSession(
+            runtime,
+            downloadFileUtils = downloadFileUtils,
+            )
         val mockUri: Uri = mock()
         var onSelectedWasCalled = false
         var onDismissWasCalled = false
@@ -819,7 +879,10 @@ class GeckoPromptDelegateTest {
 
     @Test
     fun `Calling onLoginSave must provide an SaveLoginPrompt PromptRequest`() {
-        val mockSession = GeckoEngineSession(runtime)
+        val mockSession = GeckoEngineSession(
+            runtime,
+            downloadFileUtils = downloadFileUtils,
+            )
         var onLoginSaved = false
         var onDismissWasCalled = false
 
@@ -873,7 +936,10 @@ class GeckoPromptDelegateTest {
 
     @Test
     fun `Calling onLoginSave must set a PromptInstanceDismissDelegate`() {
-        val mockSession = GeckoEngineSession(runtime)
+        val mockSession = GeckoEngineSession(
+            runtime,
+            downloadFileUtils = downloadFileUtils,
+            )
         var loginSaveRequest: PromptRequest.SaveLoginPrompt = mock()
         val promptDelegate = spy(GeckoPromptDelegate(mockSession))
         mockSession.register(
@@ -895,7 +961,10 @@ class GeckoPromptDelegateTest {
 
     @Test
     fun `Calling onLoginSelect must provide an SelectLoginPrompt PromptRequest`() {
-        val mockSession = GeckoEngineSession(runtime)
+        val mockSession = GeckoEngineSession(
+            runtime,
+            downloadFileUtils = downloadFileUtils,
+            )
         var onLoginSelected = false
         var onDismissWasCalled = false
 
@@ -954,6 +1023,181 @@ class GeckoPromptDelegateTest {
         assertFalse(onLoginSelected)
     }
 
+    @Test
+    fun `onLoginSelect with both httpRealm and formActionOrigin provided uses original values`() {
+        val mockSession = GeckoEngineSession(runtime, downloadFileUtils = mock()).also {
+            it.currentUrl = testUrl
+        }
+        var receivedPrompt: PromptRequest.SelectLoginPrompt? = null
+
+        val promptDelegate = GeckoPromptDelegate(mockSession)
+
+        mockSession.register(
+            object : EngineSession.Observer {
+                override fun onPromptRequest(promptRequest: PromptRequest) {
+                    receivedPrompt = promptRequest as PromptRequest.SelectLoginPrompt
+                }
+            },
+        )
+
+        val loginEntry = createLoginEntry(
+            httpRealm = testHttpRealm,
+            formActionOrigin = testUrlWithFormAction,
+        )
+        val loginSelectOption = Autocomplete.LoginSelectOption(loginEntry.toLoginEntry())
+
+        promptDelegate.onLoginSelect(
+            mock(),
+            geckoLoginSelectPrompt(arrayOf(loginSelectOption)),
+        )
+        shadowOf(getMainLooper()).idle()
+
+        val logins = receivedPrompt!!.logins
+        assertEquals(1, logins.size)
+        assertEquals(testHttpRealm, logins[0].httpRealm)
+        assertEquals(testUrlWithFormAction, logins[0].formActionOrigin)
+    }
+
+    @Test
+    fun `onLoginSelect with only httpRealm provided uses null for formActionOrigin`() {
+        val mockSession = GeckoEngineSession(runtime, downloadFileUtils = mock()).also {
+            it.currentUrl = testUrl
+        }
+        var receivedPrompt: PromptRequest.SelectLoginPrompt? = null
+
+        val promptDelegate = GeckoPromptDelegate(mockSession)
+
+        mockSession.register(
+            object : EngineSession.Observer {
+                override fun onPromptRequest(promptRequest: PromptRequest) {
+                    receivedPrompt = promptRequest as PromptRequest.SelectLoginPrompt
+                }
+            },
+        )
+
+        val loginEntry = createLoginEntry(
+            httpRealm = testHttpRealm,
+            formActionOrigin = null,
+        )
+        val loginSelectOption = Autocomplete.LoginSelectOption(loginEntry.toLoginEntry())
+
+        promptDelegate.onLoginSelect(
+            mock(),
+            geckoLoginSelectPrompt(arrayOf(loginSelectOption)),
+        )
+        shadowOf(getMainLooper()).idle()
+
+        val logins = receivedPrompt!!.logins
+        assertEquals(1, logins.size)
+        assertEquals(testHttpRealm, logins[0].httpRealm)
+        assertNull(logins[0].formActionOrigin)
+    }
+
+    @Test
+    fun `onLoginSelect with only formActionOrigin provided uses null for httpRealm`() {
+        val mockSession = GeckoEngineSession(runtime, downloadFileUtils = mock()).also {
+            it.currentUrl = testUrl
+        }
+        var receivedPrompt: PromptRequest.SelectLoginPrompt? = null
+
+        val promptDelegate = GeckoPromptDelegate(mockSession)
+
+        mockSession.register(
+            object : EngineSession.Observer {
+                override fun onPromptRequest(promptRequest: PromptRequest) {
+                    receivedPrompt = promptRequest as PromptRequest.SelectLoginPrompt
+                }
+            },
+        )
+
+        val loginEntry = createLoginEntry(
+            httpRealm = null,
+            formActionOrigin = testUrlWithFormAction,
+        )
+        val loginSelectOption = Autocomplete.LoginSelectOption(loginEntry.toLoginEntry())
+
+        promptDelegate.onLoginSelect(
+            mock(),
+            geckoLoginSelectPrompt(arrayOf(loginSelectOption)),
+        )
+        shadowOf(getMainLooper()).idle()
+
+        val logins = receivedPrompt!!.logins
+        assertEquals(1, logins.size)
+        assertNull(logins[0].httpRealm)
+        assertEquals(testUrlWithFormAction, logins[0].formActionOrigin)
+    }
+
+    @Test
+    fun `onLoginSelect with neither httpRealm nor formActionOrigin uses currentUrl as formActionOrigin`() {
+        val mockSession = GeckoEngineSession(runtime, downloadFileUtils = mock()).also {
+            it.currentUrl = testUrl
+        }
+        var receivedPrompt: PromptRequest.SelectLoginPrompt? = null
+
+        val promptDelegate = GeckoPromptDelegate(mockSession)
+
+        mockSession.register(
+            object : EngineSession.Observer {
+                override fun onPromptRequest(promptRequest: PromptRequest) {
+                    receivedPrompt = promptRequest as PromptRequest.SelectLoginPrompt
+                }
+            },
+        )
+
+        val loginEntry = createLoginEntry(
+            httpRealm = null,
+            formActionOrigin = null,
+        )
+        val loginSelectOption = Autocomplete.LoginSelectOption(loginEntry.toLoginEntry())
+
+        promptDelegate.onLoginSelect(
+            mock(),
+            geckoLoginSelectPrompt(arrayOf(loginSelectOption)),
+        )
+        shadowOf(getMainLooper()).idle()
+
+        val logins = receivedPrompt!!.logins
+        assertEquals(1, logins.size)
+        assertNull(logins[0].httpRealm)
+        assertEquals(testUrl, logins[0].formActionOrigin)
+    }
+
+    @Test
+    fun `onLoginSelect with blank httpRealm and formActionOrigin uses currentUrl as formActionOrigin`() {
+        val mockSession = GeckoEngineSession(runtime, downloadFileUtils = mock()).also {
+            it.currentUrl = testUrl
+        }
+        var receivedPrompt: PromptRequest.SelectLoginPrompt? = null
+
+        val promptDelegate = GeckoPromptDelegate(mockSession)
+
+        mockSession.register(
+            object : EngineSession.Observer {
+                override fun onPromptRequest(promptRequest: PromptRequest) {
+                    receivedPrompt = promptRequest as PromptRequest.SelectLoginPrompt
+                }
+            },
+        )
+
+        val loginEntry = createLoginEntry(
+            httpRealm = "",
+            formActionOrigin = "",
+        )
+        val loginSelectOption = Autocomplete.LoginSelectOption(loginEntry.toLoginEntry())
+
+        promptDelegate.onLoginSelect(
+            mock(),
+            geckoLoginSelectPrompt(arrayOf(loginSelectOption)),
+        )
+        shadowOf(getMainLooper()).idle()
+
+        val logins = receivedPrompt!!.logins
+        assertEquals(1, logins.size)
+        assertEquals("", logins[0].httpRealm)
+        assertEquals(testUrl, logins[0].formActionOrigin)
+    }
+
     fun createLogin(
         guid: String = "id",
         password: String = "password",
@@ -978,8 +1222,8 @@ class GeckoPromptDelegateTest {
         password: String = "password",
         username: String = "username",
         origin: String = "https://www.origin.com",
-        httpRealm: String = "httpRealm",
-        formActionOrigin: String = "https://www.origin.com",
+        httpRealm: String? = "httpRealm",
+        formActionOrigin: String? = "https://www.origin.com",
         usernameField: String = "usernameField",
         passwordField: String = "passwordField",
     ) = LoginEntry(
@@ -994,7 +1238,10 @@ class GeckoPromptDelegateTest {
 
     @Test
     fun `Calling onCreditCardSave must provide an SaveCreditCard PromptRequest`() {
-        val mockSession = GeckoEngineSession(runtime)
+        val mockSession = GeckoEngineSession(
+            runtime,
+            downloadFileUtils = downloadFileUtils,
+            )
         var onCreditCardSaved = false
         var onDismissWasCalled = false
 
@@ -1055,7 +1302,10 @@ class GeckoPromptDelegateTest {
 
     @Test
     fun `Calling onCreditSave must set a PromptInstanceDismissDelegate`() {
-        val mockSession = GeckoEngineSession(runtime)
+        val mockSession = GeckoEngineSession(
+            runtime,
+            downloadFileUtils = downloadFileUtils,
+            )
         var saveCreditCardPrompt: PromptRequest.SaveCreditCard = mock()
         val promptDelegate = spy(GeckoPromptDelegate(mockSession))
 
@@ -1087,7 +1337,10 @@ class GeckoPromptDelegateTest {
 
     @Test
     fun `Calling onCreditCardSelect must provide as CreditCardSelectOption PromptRequest`() {
-        val mockSession = GeckoEngineSession(runtime)
+        val mockSession = GeckoEngineSession(
+            runtime,
+            downloadFileUtils = downloadFileUtils,
+            )
         var onConfirmWasCalled = false
         var onDismissWasCalled = false
 
@@ -1160,7 +1413,10 @@ class GeckoPromptDelegateTest {
 
     @Test
     fun `Calling onAuthPrompt must provide an Authentication PromptRequest`() {
-        val mockSession = GeckoEngineSession(runtime)
+        val mockSession = GeckoEngineSession(
+            runtime,
+            downloadFileUtils = downloadFileUtils,
+            )
         var authRequest: PromptRequest.Authentication = mock()
 
         val promptDelegate = GeckoPromptDelegate(mockSession)
@@ -1225,7 +1481,10 @@ class GeckoPromptDelegateTest {
 
     @Test
     fun `WHEN onSelectIdentityCredentialProvider is called THEN SelectProvider prompt request must be provided with the correct callbacks`() {
-        val mockSession = GeckoEngineSession(runtime)
+        val mockSession = GeckoEngineSession(
+            runtime,
+            downloadFileUtils = downloadFileUtils,
+            )
         var selectProviderRequest: IdentityCredential.SelectProvider = mock()
         var onConfirmWasCalled = false
         var onDismissWasCalled = false
@@ -1278,7 +1537,10 @@ class GeckoPromptDelegateTest {
 
     @Test
     fun `WHEN onSelectIdentityCredentialAccount is called THEN SelectAccount prompt request must be provided with the correct callbacks`() {
-        val mockSession = GeckoEngineSession(runtime)
+        val mockSession = GeckoEngineSession(
+            runtime,
+            downloadFileUtils = downloadFileUtils,
+            )
         var selectAccountRequest: IdentityCredential.SelectAccount = mock()
         var onConfirmWasCalled = false
         var onDismissWasCalled = false
@@ -1332,7 +1594,10 @@ class GeckoPromptDelegateTest {
 
     @Test
     fun `WHEN onShowPrivacyPolicyIdentityCredential is called THEN the PrivacyPolicy prompt request must be provided with the correct callbacks`() {
-        val mockSession = GeckoEngineSession(runtime)
+        val mockSession = GeckoEngineSession(
+            runtime,
+            downloadFileUtils = downloadFileUtils,
+            )
         var privacyPolicyRequest: IdentityCredential.PrivacyPolicy = mock()
         var onConfirmWasCalled = false
         var onDismissWasCalled = false
@@ -1387,7 +1652,10 @@ class GeckoPromptDelegateTest {
 
     @Test
     fun `Calling onColorPrompt must provide a Color PromptRequest`() {
-        val mockSession = GeckoEngineSession(runtime)
+        val mockSession = GeckoEngineSession(
+            runtime,
+            downloadFileUtils = downloadFileUtils,
+            )
         var colorRequest: PromptRequest.Color = mock()
         var onConfirmWasCalled = false
         var onDismissWasCalled = false
@@ -1436,7 +1704,10 @@ class GeckoPromptDelegateTest {
 
     @Test
     fun `onTextPrompt must provide an TextPrompt PromptRequest`() {
-        val mockSession = GeckoEngineSession(runtime)
+        val mockSession = GeckoEngineSession(
+            runtime,
+            downloadFileUtils = downloadFileUtils,
+            )
         var request: PromptRequest.TextPrompt = mock()
         var dismissWasCalled = false
         var confirmWasCalled = false
@@ -1485,7 +1756,10 @@ class GeckoPromptDelegateTest {
 
     @Test
     fun `onPopupRequest must provide a Popup PromptRequest`() {
-        val mockSession = GeckoEngineSession(runtime)
+        val mockSession = GeckoEngineSession(
+            runtime,
+            downloadFileUtils = downloadFileUtils,
+            )
         var request: PromptRequest.Popup? = null
 
         val promptDelegate = GeckoPromptDelegate(mockSession)
@@ -1525,7 +1799,10 @@ class GeckoPromptDelegateTest {
 
     @Test
     fun `onRedirectRequest must provide a Redirect PromptRequest`() {
-        val mockSession = GeckoEngineSession(runtime)
+        val mockSession = GeckoEngineSession(
+            runtime,
+            downloadFileUtils = downloadFileUtils,
+            )
         var request: PromptRequest.Redirect? = null
 
         val promptDelegate = GeckoPromptDelegate(mockSession)
@@ -1565,7 +1842,10 @@ class GeckoPromptDelegateTest {
 
     @Test
     fun `onBeforeUnloadPrompt must provide a BeforeUnload PromptRequest`() {
-        val mockSession = GeckoEngineSession(runtime)
+        val mockSession = GeckoEngineSession(
+            runtime,
+            downloadFileUtils = downloadFileUtils,
+            )
         var request: PromptRequest.BeforeUnload? = null
         val promptDelegate = GeckoPromptDelegate(mockSession)
 
@@ -1601,7 +1881,10 @@ class GeckoPromptDelegateTest {
 
     @Test
     fun `onBeforeUnloadPrompt will inform listeners when if navigation is cancelled`() {
-        val mockSession = GeckoEngineSession(runtime)
+        val mockSession = GeckoEngineSession(
+            runtime,
+            downloadFileUtils = downloadFileUtils,
+            )
         var onBeforeUnloadPromptCancelledCalled = false
         var request: PromptRequest.BeforeUnload = mock()
 
@@ -1627,7 +1910,10 @@ class GeckoPromptDelegateTest {
 
     @Test
     fun `onSharePrompt must provide a Share PromptRequest`() {
-        val mockSession = GeckoEngineSession(runtime)
+        val mockSession = GeckoEngineSession(
+            runtime,
+            downloadFileUtils = downloadFileUtils,
+            )
         var request: PromptRequest.Share? = null
         var onSuccessWasCalled = false
         var onFailureWasCalled = false
@@ -1695,7 +1981,10 @@ class GeckoPromptDelegateTest {
 
     @Test
     fun `onButtonPrompt must provide a Confirm PromptRequest`() {
-        val mockSession = GeckoEngineSession(runtime)
+        val mockSession = GeckoEngineSession(
+            runtime,
+            downloadFileUtils = downloadFileUtils,
+            )
         var request: PromptRequest.Confirm = mock()
         var onPositiveButtonWasCalled = false
         var onNegativeButtonWasCalled = false
@@ -1774,7 +2063,10 @@ class GeckoPromptDelegateTest {
 
     @Test
     fun `onRepostConfirmPrompt must provide a Repost PromptRequest`() {
-        val mockSession = GeckoEngineSession(runtime)
+        val mockSession = GeckoEngineSession(
+            runtime,
+            downloadFileUtils = downloadFileUtils,
+            )
         var request: PromptRequest.Repost = mock()
         var onPositiveButtonWasCalled = false
         var onNegativeButtonWasCalled = false
@@ -1824,7 +2116,10 @@ class GeckoPromptDelegateTest {
 
     @Test
     fun `onRepostConfirmPrompt will not be able to complete multiple times`() {
-        val mockSession = GeckoEngineSession(runtime)
+        val mockSession = GeckoEngineSession(
+            runtime,
+            downloadFileUtils = downloadFileUtils,
+            )
         var request: PromptRequest.Repost = mock()
 
         mockSession.register(
@@ -1864,7 +2159,10 @@ class GeckoPromptDelegateTest {
 
     @Test
     fun `onRepostConfirmPrompt will inform listeners when it is being dismissed`() {
-        val mockSession = GeckoEngineSession(runtime)
+        val mockSession = GeckoEngineSession(
+            runtime,
+            downloadFileUtils = downloadFileUtils,
+            )
         var onRepostPromptCancelledCalled = false
         var request: PromptRequest.Repost = mock()
 
@@ -1914,7 +2212,10 @@ class GeckoPromptDelegateTest {
 
     @Test
     fun `WHEN onAddressSelect is called THEN SelectAddress prompt request must be provided with the correct callbacks`() {
-        val mockSession = GeckoEngineSession(runtime)
+        val mockSession = GeckoEngineSession(
+            runtime,
+            downloadFileUtils = downloadFileUtils,
+            )
 
         var isOnConfirmCalled = false
         var isOnDismissCalled = false
@@ -2005,7 +2306,10 @@ class GeckoPromptDelegateTest {
     @Test
     fun `onFolderUploadPrompt must provide a Confirm PromptRequest`() {
         // Calling onCofirm
-        val mockSession = GeckoEngineSession(runtime)
+        val mockSession = GeckoEngineSession(
+            runtime,
+            downloadFileUtils = downloadFileUtils,
+            )
         var request: PromptRequest.FolderUploadPrompt = mock()
         var onPositiveButtonWasCalled = false
         var onNegativeButtonWasCalled = false

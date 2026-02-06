@@ -12,6 +12,7 @@ import android.widget.TextView
 import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import kotlinx.coroutines.test.runTest
 import mozilla.components.browser.state.state.BrowserState
 import mozilla.components.browser.state.store.BrowserStore
 import mozilla.components.feature.addons.Addon
@@ -21,14 +22,12 @@ import mozilla.components.feature.addons.ui.AddonsManagerAdapter.NotYetSupported
 import mozilla.components.feature.addons.ui.AddonsManagerAdapter.Section
 import mozilla.components.support.test.mock
 import mozilla.components.support.test.robolectric.testContext
-import mozilla.components.support.test.rule.MainCoroutineRule
 import mozilla.components.support.test.whenever
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
-import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.Mockito.any
@@ -40,11 +39,6 @@ import java.util.Locale
 
 @RunWith(AndroidJUnit4::class)
 class AddonsManagerAdapterTest {
-
-    @get:Rule
-    val coroutinesTestRule = MainCoroutineRule()
-    private val scope = coroutinesTestRule.scope
-    private val dispatcher = coroutinesTestRule.testDispatcher
 
     // We must pass these variables to `bindAddon()` because looking up the version name
     // requires package info that we do not have in the test context.
@@ -527,7 +521,7 @@ class AddonsManagerAdapterTest {
     }
 
     @Test
-    fun bindHeaderButton() {
+    fun bindHeaderButton() = runTest {
         val store = BrowserStore(initialState = BrowserState(extensionsProcessDisabled = true))
         val adapter =
             spy(AddonsManagerAdapter(mock(), emptyList(), mock(), emptyList(), store))
@@ -538,7 +532,7 @@ class AddonsManagerAdapterTest {
         assertEquals(1, adapter.currentList.size)
 
         viewHolder.restartButton.performClick()
-        dispatcher.scheduler.advanceUntilIdle()
+        testScheduler.advanceUntilIdle()
 
         assertFalse(store.state.extensionsProcessDisabled)
         verify(adapter).submitList(emptyList())

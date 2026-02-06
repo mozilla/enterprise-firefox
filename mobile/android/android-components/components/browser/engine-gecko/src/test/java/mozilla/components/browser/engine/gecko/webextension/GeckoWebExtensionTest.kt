@@ -20,6 +20,7 @@ import mozilla.components.support.test.argumentCaptor
 import mozilla.components.support.test.eq
 import mozilla.components.support.test.mock
 import mozilla.components.support.test.whenever
+import mozilla.components.support.utils.FakeDownloadFileUtils
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -42,6 +43,7 @@ import org.robolectric.Shadows.shadowOf
 
 @RunWith(AndroidJUnit4::class)
 class GeckoWebExtensionTest {
+    private var downloadFileUtils = FakeDownloadFileUtils()
 
     @Test
     fun `register background message handler`() {
@@ -56,6 +58,7 @@ class GeckoWebExtensionTest {
         val extension = GeckoWebExtension(
             runtime = runtime,
             nativeExtension = nativeGeckoWebExt,
+            downloadFileUtils = downloadFileUtils,
         )
 
         extension.registerBackgroundMessageHandler("mozacTest", messageHandler)
@@ -123,6 +126,7 @@ class GeckoWebExtensionTest {
         val extension = GeckoWebExtension(
             runtime = runtime,
             nativeExtension = nativeGeckoWebExt,
+            downloadFileUtils = downloadFileUtils,
         )
         assertFalse(extension.hasContentMessageHandler(session, "mozacTest"))
         extension.registerContentMessageHandler(session, "mozacTest", messageHandler)
@@ -190,6 +194,7 @@ class GeckoWebExtensionTest {
         val extension = GeckoWebExtension(
             runtime = runtime,
             nativeExtension = nativeGeckoWebExt,
+            downloadFileUtils = downloadFileUtils,
         )
         extension.registerContentMessageHandler(session, "mozacTest", messageHandler)
         verify(webExtensionSessionController).setMessageDelegate(eq(nativeGeckoWebExt), messageDelegateCaptor.capture(), eq("mozacTest"))
@@ -214,6 +219,7 @@ class GeckoWebExtensionTest {
         val extension = GeckoWebExtension(
             runtime = runtime,
             nativeExtension = nativeGeckoWebExt,
+            downloadFileUtils = downloadFileUtils,
         )
         extension.registerBackgroundMessageHandler("mozacTest", messageHandler)
 
@@ -245,6 +251,7 @@ class GeckoWebExtensionTest {
         val extension = GeckoWebExtension(
             runtime = runtime,
             nativeExtension = nativeGeckoWebExt,
+            downloadFileUtils = downloadFileUtils,
         )
         extension.registerActionHandler(actionHandler)
         verify(nativeGeckoWebExt).setActionDelegate(actionDelegateCaptor.capture())
@@ -291,6 +298,7 @@ class GeckoWebExtensionTest {
         val extension = GeckoWebExtension(
             runtime = runtime,
             nativeExtension = nativeGeckoWebExt,
+            downloadFileUtils = downloadFileUtils,
         )
         extension.registerActionHandler(session, actionHandler)
         verify(webExtensionSessionController).setActionDelegate(eq(nativeGeckoWebExt), actionDelegateCaptor.capture())
@@ -331,6 +339,7 @@ class GeckoWebExtensionTest {
         val extension = GeckoWebExtension(
             runtime = runtime,
             nativeExtension = nativeGeckoWebExt,
+            downloadFileUtils = downloadFileUtils,
         )
         val defaultSettings: DefaultSettings = mock()
 
@@ -378,6 +387,7 @@ class GeckoWebExtensionTest {
         val extension = GeckoWebExtension(
             runtime = runtime,
             nativeExtension = nativeGeckoWebExt,
+            downloadFileUtils = downloadFileUtils,
         )
         extension.registerTabHandler(session, tabHandler)
         verify(webExtensionSessionController).setTabDelegate(eq(nativeGeckoWebExt), tabDelegateCaptor.capture())
@@ -434,7 +444,11 @@ class GeckoWebExtensionTest {
                 incognito = "split",
             ),
         )
-        val extensionWithMetadata = GeckoWebExtension(nativeWebExtension, runtime)
+        val extensionWithMetadata = GeckoWebExtension(
+            nativeWebExtension,
+            runtime,
+            downloadFileUtils = downloadFileUtils,
+            )
         val metadata = extensionWithMetadata.getMetadata()
         assertNotNull(metadata)
 
@@ -486,7 +500,11 @@ class GeckoWebExtensionTest {
                 incognito = null,
             ),
         )
-        val extensionWithMetadata = GeckoWebExtension(nativeWebExtension, runtime)
+        val extensionWithMetadata = GeckoWebExtension(
+            nativeWebExtension,
+            runtime,
+            downloadFileUtils = downloadFileUtils,
+            )
         val metadata = extensionWithMetadata.getMetadata()
         assertNotNull(metadata)
         assertEquals("1.0", metadata.version)
@@ -515,12 +533,14 @@ class GeckoWebExtensionTest {
         val builtInExtension = GeckoWebExtension(
             mockNativeWebExtension(id = "id", location = "uri", isBuiltIn = true),
             runtime,
+            downloadFileUtils = downloadFileUtils,
         )
         assertTrue(builtInExtension.isBuiltIn())
 
         val externalExtension = GeckoWebExtension(
             mockNativeWebExtension(id = "id", location = "uri", isBuiltIn = false),
             runtime,
+            downloadFileUtils = downloadFileUtils,
         )
         assertFalse(externalExtension.isBuiltIn())
     }
@@ -537,7 +557,11 @@ class GeckoWebExtensionTest {
                 enabled = true,
             ),
         )
-        val enabledWebExtension = GeckoWebExtension(nativeEnabledWebExtension, runtime)
+        val enabledWebExtension = GeckoWebExtension(
+            nativeEnabledWebExtension,
+            runtime,
+            downloadFileUtils = downloadFileUtils,
+            )
         assertTrue(enabledWebExtension.isEnabled())
 
         val nativeDisabledWebExtension = mockNativeWebExtension(
@@ -547,7 +571,11 @@ class GeckoWebExtensionTest {
                 enabled = false,
             ),
         )
-        val disabledWebExtension = GeckoWebExtension(nativeDisabledWebExtension, runtime)
+        val disabledWebExtension = GeckoWebExtension(
+            nativeDisabledWebExtension,
+            runtime,
+            downloadFileUtils = downloadFileUtils,
+            )
         assertFalse(disabledWebExtension.isEnabled())
     }
 
@@ -564,7 +592,11 @@ class GeckoWebExtensionTest {
                 allowedInPrivateBrowsing = false,
             ),
         )
-        val builtInExtension = GeckoWebExtension(nativeBuiltInExtension, runtime)
+        val builtInExtension = GeckoWebExtension(
+            nativeBuiltInExtension,
+            runtime,
+            downloadFileUtils = downloadFileUtils,
+            )
         assertTrue(builtInExtension.isAllowedInPrivateBrowsing())
 
         val nativeWebExtensionWithPrivateBrowsing = mockNativeWebExtension(
@@ -574,7 +606,11 @@ class GeckoWebExtensionTest {
                 allowedInPrivateBrowsing = true,
             ),
         )
-        val webExtensionWithPrivateBrowsing = GeckoWebExtension(nativeWebExtensionWithPrivateBrowsing, runtime)
+        val webExtensionWithPrivateBrowsing = GeckoWebExtension(
+            nativeWebExtensionWithPrivateBrowsing,
+            runtime,
+            downloadFileUtils = downloadFileUtils,
+            )
         assertTrue(webExtensionWithPrivateBrowsing.isAllowedInPrivateBrowsing())
 
         val nativeWebExtensionWithoutPrivateBrowsing = mockNativeWebExtension(
@@ -584,7 +620,11 @@ class GeckoWebExtensionTest {
                 allowedInPrivateBrowsing = false,
             ),
         )
-        val webExtensionWithoutPrivateBrowsing = GeckoWebExtension(nativeWebExtensionWithoutPrivateBrowsing, runtime)
+        val webExtensionWithoutPrivateBrowsing = GeckoWebExtension(
+            nativeWebExtensionWithoutPrivateBrowsing,
+            runtime,
+            downloadFileUtils = downloadFileUtils,
+            )
         assertFalse(webExtensionWithoutPrivateBrowsing.isAllowedInPrivateBrowsing())
     }
 
@@ -599,7 +639,11 @@ class GeckoWebExtensionTest {
             location = "uri",
             metaData = mockNativeWebExtensionMetaData(icon = iconMock),
         )
-        val webExtensionWithIcon = GeckoWebExtension(nativeWebExtensionWithIcon, runtime)
+        val webExtensionWithIcon = GeckoWebExtension(
+            nativeWebExtensionWithIcon,
+            runtime,
+            downloadFileUtils = downloadFileUtils,
+            )
 
         val result = webExtensionWithIcon.getIcon(48)
         val mainLooper = Looper.getMainLooper()
@@ -620,7 +664,11 @@ class GeckoWebExtensionTest {
             location = "uri",
             metaData = mockNativeWebExtensionMetaData(icon = iconMock),
         )
-        val webExtensionWithIcon = GeckoWebExtension(nativeWebExtensionWithIcon, runtime)
+        val webExtensionWithIcon = GeckoWebExtension(
+            nativeWebExtensionWithIcon,
+            runtime,
+            downloadFileUtils = downloadFileUtils,
+            )
 
         val result = webExtensionWithIcon.getIcon(48)
         val mainLooper = Looper.getMainLooper()
@@ -638,7 +686,11 @@ class GeckoWebExtensionTest {
             location = "uri",
             metaData = mockNativeWebExtensionMetaData(version = "1", incognito = "spanning"),
         )
-        val extensionWithMetadata = GeckoWebExtension(nativeWebExtension, runtime)
+        val extensionWithMetadata = GeckoWebExtension(
+            nativeWebExtension,
+            runtime,
+            downloadFileUtils = downloadFileUtils,
+            )
 
         val metadata = extensionWithMetadata.getMetadata()
         assertNotNull(metadata)
@@ -653,7 +705,11 @@ class GeckoWebExtensionTest {
             location = "uri",
             metaData = mockNativeWebExtensionMetaData(version = "1", incognito = "not_allowed"),
         )
-        val extensionWithMetadata = GeckoWebExtension(nativeWebExtension, runtime)
+        val extensionWithMetadata = GeckoWebExtension(
+            nativeWebExtension,
+            runtime,
+            downloadFileUtils = downloadFileUtils,
+            )
 
         val metadata = extensionWithMetadata.getMetadata()
         assertNotNull(metadata)
@@ -668,7 +724,11 @@ class GeckoWebExtensionTest {
             location = "uri",
             metaData = mockNativeWebExtensionMetaData(version = "1", incognito = "split"),
         )
-        val extensionWithMetadata = GeckoWebExtension(nativeWebExtension, runtime)
+        val extensionWithMetadata = GeckoWebExtension(
+            nativeWebExtension,
+            runtime,
+            downloadFileUtils = downloadFileUtils,
+            )
 
         val metadata = extensionWithMetadata.getMetadata()
         assertNotNull(metadata)

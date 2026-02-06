@@ -182,7 +182,7 @@ already_AddRefed<Promise> CredentialsContainer::Get(
     }
 
     EnsureWebAuthnHandler();
-    mWebAuthnHandler->GetAssertion(aOptions.mPublicKey.Value(),
+    mWebAuthnHandler->GetAssertion(aCx, aOptions.mPublicKey.Value(),
                                    conditionallyMediated, aOptions.mSignal,
                                    promise);
     return promise.forget();
@@ -282,7 +282,7 @@ already_AddRefed<Promise> CredentialsContainer::Create(
     }
 
     EnsureWebAuthnHandler();
-    mWebAuthnHandler->MakeCredential(aOptions.mPublicKey.Value(),
+    mWebAuthnHandler->MakeCredential(aCx, aOptions.mPublicKey.Value(),
                                      aOptions.mSignal, promise);
     return promise.forget();
   }

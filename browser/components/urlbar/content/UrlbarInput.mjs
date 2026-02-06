@@ -11,7 +11,8 @@ const { AppConstants } = ChromeUtils.importESModule(
 );
 
 /**
- * @import {UrlbarSearchOneOffs} from "moz-src:///browser/components/urlbar/UrlbarSearchOneOffs.sys.mjs"
+ * @import { UrlbarSearchOneOffs } from "moz-src:///browser/components/urlbar/UrlbarSearchOneOffs.sys.mjs"
+ * @import { SearchEngine } from "moz-src:///toolkit/components/search/SearchEngine.sys.mjs"
  */
 
 const lazy = XPCOMUtils.declareLazy({
@@ -1027,7 +1028,7 @@ export class UrlbarInput extends HTMLElement {
    *   Where we expect the result to be opened.
    * @property {object} openParams
    *   The parameters related to where the result will be opened.
-   * @property {nsISearchEngine} engine
+   * @property {SearchEngine} engine
    *   The selected one-off's engine.
    */
 
@@ -1303,7 +1304,7 @@ export class UrlbarInput extends HTMLElement {
    *
    * @param {string} searchString
    *   The search string to use.
-   * @param {nsISearchEngine} [searchEngine]
+   * @param {SearchEngine} [searchEngine]
    *   Optional. If included and the right prefs are set, we will enter search
    *   mode when handing `searchString` from the fake input to the Urlbar.
    * @param {string} [newtabSessionId]
@@ -1531,18 +1532,20 @@ export class UrlbarInput extends HTMLElement {
           ),
         });
 
+        let activeSplitView = this.window.gBrowser.selectedTab.splitview;
+
         let switched = this.window.switchToTabHavingURI(
           Services.io.newURI(url),
           true,
           loadOpts,
-
           lazy.UrlbarProviderOpenTabs.isNonPrivateUserContextId(
             result.payload.userContextId
           )
             ? result.payload.userContextId
-            : null
+            : null,
+          activeSplitView
         );
-        if (switched && prevTab.isEmpty) {
+        if (switched && !activeSplitView && prevTab.isEmpty) {
           this.window.gBrowser.removeTab(prevTab);
         }
 
@@ -1735,6 +1738,19 @@ export class UrlbarInput extends HTMLElement {
           checkValue: false,
         });
 
+        return;
+      }
+      case lazy.UrlbarUtils.RESULT_TYPE.AI_CHAT: {
+        // AI Chat results handle their own navigation.
+        this.controller.engagementEvent.record(event, {
+          result,
+          element,
+          searchString: this._lastSearchString,
+          selType: this.controller.engagementEvent.typeFromElement(
+            result,
+            element
+          ),
+        });
         return;
       }
     }
@@ -2126,7 +2142,7 @@ export class UrlbarInput extends HTMLElement {
    *   use it as its query.
    * @param {object} [options]
    *   Object options
-   * @param {nsISearchEngine} [options.searchEngine]
+   * @param {SearchEngine} [options.searchEngine]
    *   Search engine to use when the search is using a known alias.
    * @param {UrlbarUtils.SEARCH_MODE_ENTRY} [options.searchModeEntry]
    *   If provided, we will record this parameter as the search mode entry point
@@ -2234,7 +2250,7 @@ export class UrlbarInput extends HTMLElement {
    *
    * @param {string} value
    * @param {object} options
-   * @param {nsISearchEngine} options.searchEngine
+   * @param {SearchEngine} options.searchEngine
    */
   openEngineHomePage(value, { searchEngine }) {
     if (!searchEngine) {
@@ -2753,10 +2769,15 @@ export class UrlbarInput extends HTMLElement {
     return true;
   }
 
+  /**
+   * @param {{wrappedJSObject: SearchEngine}} subject
+   * @param {"browser-search-engine-modified"} topic
+   * @param {string} data
+   */
   observe(subject, topic, data) {
     switch (topic) {
       case lazy.SearchUtils.TOPIC_ENGINE_MODIFIED: {
-        let engine = subject.QueryInterface(Ci.nsISearchEngine);
+        let engine = subject.wrappedJSObject;
         switch (data) {
           case lazy.SearchUtils.MODIFIED_TYPE.CHANGED:
           case lazy.SearchUtils.MODIFIED_TYPE.REMOVED: {
@@ -3463,7 +3484,7 @@ export class UrlbarInput extends HTMLElement {
    * updates an incremental total number of searches in a pref,
    * and informs ASRouter that a search has occurred via a trigger send
    *
-   * @param {nsISearchEngine} engine
+   * @param {SearchEngine} engine
    *   The engine to generate the query for.
    * @param {Event} event
    *   The event that triggered this query.
@@ -3857,7 +3878,7 @@ export class UrlbarInput extends HTMLElement {
     if (openUILinkWhere == "current") {
       params.targetBrowser = browser;
       params.indicateErrorPageLoad = true;
-      params.allowPinnedTabHostChange = true;
+      params.allowPinnedTabHostChange = this.#isAddressbar;
       params.allowPopups = url.startsWith("javascript:");
     } else {
       params.initiatingDoc = this.window.document;
@@ -4579,7 +4600,7 @@ export class UrlbarInput extends HTMLElement {
   /**
    * Returns a Promise that resolves with default search engine.
    *
-   * @returns {Promise<nsISearchEngine>}
+   * @returns {Promise<SearchEngine>}
    */
   _getDefaultSearchEngine() {
     return this.isPrivate
@@ -5154,7 +5175,8 @@ export class UrlbarInput extends HTMLElement {
     }
     let oldEnd = oldValue.substring(this.selectionEnd);
 
-    const pasteData = this.sanitizeTextFromClipboard(originalPasteData);
+    const pasteData =
+      lazy.UrlbarUtils.sanitizeTextFromClipboard(originalPasteData);
 
     if (originalPasteData != pasteData) {
       // Unfortunately we're not allowed to set the bits being pasted
@@ -5186,49 +5208,6 @@ export class UrlbarInput extends HTMLElement {
         event,
       });
     }
-  }
-
-  /**
-   * Sanitize and process data retrieved from the clipboard
-   *
-   * @param {string} clipboardData
-   *   The original data retrieved from the clipboard.
-   * @returns {string}
-   *   The sanitized paste data, ready to use.
-   */
-  sanitizeTextFromClipboard(clipboardData) {
-    let fixedURI, keywordAsSent;
-    try {
-      ({ fixedURI, keywordAsSent } = Services.uriFixup.getFixupURIInfo(
-        clipboardData,
-        Ci.nsIURIFixup.FIXUP_FLAG_FIX_SCHEME_TYPOS |
-          Ci.nsIURIFixup.FIXUP_FLAG_ALLOW_KEYWORD_LOOKUP
-      ));
-    } catch (e) {}
-
-    let pasteData;
-    if (keywordAsSent) {
-      // For performance reasons, we don't want to beautify a long string.
-      if (clipboardData.length < 500) {
-        // For only keywords, replace any white spaces including line break
-        // with white space.
-        pasteData = clipboardData.replace(/\s/g, " ");
-      } else {
-        pasteData = clipboardData;
-      }
-    } else if (
-      fixedURI?.scheme == "data" &&
-      !fixedURI.spec.match(/^data:.+;base64,/)
-    ) {
-      // For data url without base64, replace line break with white space.
-      pasteData = clipboardData.replace(/[\r\n]/g, " ");
-    } else {
-      // For normal url or data url having basic64, or if fixup failed, just
-      // remove line breaks.
-      pasteData = clipboardData.replace(/[\r\n]/g, "");
-    }
-
-    return lazy.UrlbarUtils.stripUnsafeProtocolOnPaste(pasteData);
   }
 
   /**
@@ -5544,39 +5523,40 @@ export class UrlbarInput extends HTMLElement {
       ? droppedData.href
       : droppedData;
     if (
-      droppedString &&
-      droppedString !== this.window.gBrowser.currentURI.spec
+      this.#isAddressbar &&
+      droppedString == this.window.gBrowser.currentURI.spec
     ) {
-      this.value = droppedString;
-      this.setPageProxyState("invalid");
-      this.focus();
-      if (this.#isAddressbar) {
-        // If we're an address bar, we automatically open the dropped address or
-        // submit the dropped string to the search engine.
-        let principal =
-          Services.droppedLinkHandler.getTriggeringPrincipal(event);
-        // To simplify tracking of events, register an initial event for event
-        // telemetry, to replace the missing input event.
-        let queryContext = this.#makeQueryContext({
-          searchString: droppedString,
-        });
-        this.controller.setLastQueryContextCache(queryContext);
-        this.controller.engagementEvent.start(event, queryContext);
-        this.handleNavigation({ triggeringPrincipal: principal });
-        // For safety reasons, in the drop case we don't want to immediately show
-        // the dropped value, instead we want to keep showing the current page
-        // url until an onLocationChange happens.
-        // See the handling in `setURI` for further details.
-        this.userTypedValue = null;
-        this.setURI({ dueToTabSwitch: true });
-      } else {
-        // If we're a search bar, allow for getting search suggestions, changing
-        // the search engine, or modifying the search term before submitting.
-        this.startQuery({
-          searchString: droppedString,
-          event,
-        });
-      }
+      return;
+    }
+
+    this.value = droppedString;
+    this.setPageProxyState("invalid");
+    this.focus();
+    if (this.#isAddressbar) {
+      // If we're an address bar, we automatically open the dropped address or
+      // submit the dropped string to the search engine.
+      let principal = Services.droppedLinkHandler.getTriggeringPrincipal(event);
+      // To simplify tracking of events, register an initial event for event
+      // telemetry, to replace the missing input event.
+      let queryContext = this.#makeQueryContext({
+        searchString: droppedString,
+      });
+      this.controller.setLastQueryContextCache(queryContext);
+      this.controller.engagementEvent.start(event, queryContext);
+      this.handleNavigation({ triggeringPrincipal: principal });
+      // For safety reasons, in the drop case we don't want to immediately show
+      // the dropped value, instead we want to keep showing the current page
+      // url until an onLocationChange happens.
+      // See the handling in `setURI` for further details.
+      this.userTypedValue = null;
+      this.setURI({ dueToTabSwitch: true });
+    } else {
+      // If we're a search bar, allow for getting search suggestions, changing
+      // the search engine, or modifying the search term before submitting.
+      this.startQuery({
+        searchString: droppedString,
+        event,
+      });
     }
   }
 

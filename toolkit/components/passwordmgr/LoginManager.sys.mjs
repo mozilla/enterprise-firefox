@@ -343,12 +343,22 @@ LoginManager.prototype = {
 
   /**
    * Remove all user facing stored logins.
-   *
+   * Deprecated: Use removeAllUserFacingLoginsAsync() instead.
    * This will not remove the FxA Sync key, which is stored with the rest of a user's logins.
    */
   removeAllUserFacingLogins() {
     lazy.log.debug("Removing all user facing logins.");
     this._storage.removeAllUserFacingLogins();
+  },
+
+  /**
+   * Remove all user facing stored logins.
+   *
+   * This will not remove the FxA Sync key, which is stored with the rest of a user's logins.
+   */
+  async removeAllUserFacingLoginsAsync() {
+    lazy.log.debug("Removing all user facing logins.");
+    await this._storage.removeAllUserFacingLoginsAsync();
   },
 
   /**
@@ -560,5 +570,29 @@ LoginManager.prototype = {
    */
   reencryptAllLogins() {
     return this._storage.reencryptAllLogins();
+  },
+
+  /**
+   * Debug helper to identify logins with invalid origin/formActionOrigin URLs.
+   * Used to diagnose login storage incompatibilities with the Application Services
+   * Rust component, which has stricter URL validation requirements.
+   *
+   * @return {Promise<Array<object>>} Array of objects containing origin,
+   * timeCreated, and timeLastUsed for logins that failed URL validation.
+   */
+  async listInvalidOrigins() {
+    const logins = await this.getAllLogins();
+    const invalidOrigins = [];
+    for (const login of logins) {
+      const origin = login.origin || login.formActionOrigin;
+      if (!URL.canParse(origin)) {
+        invalidOrigins.push({
+          origin,
+          timeCreated: new Date(login.timeCreated),
+          timeLastUsed: new Date(login.timeLastUsed),
+        });
+      }
+    }
+    return invalidOrigins;
   },
 }; // end of LoginManager implementation

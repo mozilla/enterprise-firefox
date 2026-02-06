@@ -1324,29 +1324,6 @@ class BrowserRobot(private val composeTestRule: ComposeTestRule) {
         }
     }
 
-    fun verifyToolsMenuDoesNotExist() {
-        assertUIObjectIsGone(itemWithDescription(getStringResource(R.string.browser_tools_menu_handlebar_content_description)))
-    }
-
-    fun verifySaveMenuDoesNotExist() {
-        assertUIObjectIsGone(itemWithDescription(getStringResource(R.string.browser_save_menu_handlebar_content_description)))
-    }
-
-    fun verifyExtensionsMenuDoesNotExist() {
-        assertUIObjectIsGone(itemWithDescription(getStringResource(R.string.browser_extensions_menu_handlebar_content_description)))
-    }
-
-    fun verifyExtensionsPromotionBannerLearnMoreLinkURL() {
-        try {
-            verifyUrl("support.mozilla.org/en-US/kb/find-and-install-add-ons-firefox-android")
-        } catch (e: AssertionError) {
-            Log.i(TAG, "verifyExtensionsPromotionBannerLearnMoreLinkURL: AssertionError caught, checking redirect URL")
-            verifyUrl(
-                SupportUtils.getSumoURLForTopic(appContext, SupportUtils.SumoTopic.FIND_INSTALL_ADDONS).replace("https://", ""),
-            )
-        }
-    }
-
     fun verifyWebCompatPageItemExists(itemText: String, isSmartBlockFixesItem: Boolean = false) {
         for (i in 1..RETRY_COUNT) {
             try {
@@ -1488,8 +1465,27 @@ class BrowserRobot(private val composeTestRule: ComposeTestRule) {
         }
 
         fun clickDownloadLink(title: String, interact: DownloadRobot.() -> Unit): DownloadRobot.Transition {
-            clickPageObject(composeTestRule, itemContainingText(title))
-            waitForAppWindowToBeUpdated()
+            for (i in 1..RETRY_COUNT) {
+                Log.i(TAG, "clickDownloadLink: Started try #$i")
+                try {
+                    Log.i(TAG, "clickDownloadLink: Trying to click the: $title download link")
+                    mDevice.findObject(By.textContains(title)).click()
+                    Log.i(TAG, "clickDownloadLink: Clicked the: $title download link")
+                    assertUIObjectExists(itemWithResId("$packageName:id/parentPanel"))
+                } catch (e: AssertionError) {
+                    Log.i(TAG, "clickDownloadLink: AssertionError caught, executing fallback methods")
+                    if (i == RETRY_COUNT) {
+                        throw e
+                    } else {
+                        browserScreen(composeTestRule) {
+                        }.openThreeDotMenu {
+                        }.clickRefreshButton {
+                            waitForPageToLoad(pageLoadWaitingTime = waitingTimeLong)
+                        }
+                    }
+                }
+            }
+
             DownloadRobot(composeTestRule).interact()
             return DownloadRobot.Transition(composeTestRule)
         }

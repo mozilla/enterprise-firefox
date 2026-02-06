@@ -24,7 +24,10 @@ const mockIdleService = {
   _observers: new Set(),
   _fireObservers(state) {
     for (let observer of this._observers.values()) {
-      observer.observe(this, state, null);
+      // Pass idle time in seconds as a string in the data parameter,
+      // matching the real nsIUserIdleService behavior
+      const data = state === "idle" ? "1200" : null;
+      observer.observe(this, state, data);
     }
   },
   QueryInterface: ChromeUtils.generateQI(["nsIUserIdleService"]),
@@ -749,5 +752,46 @@ add_task(async function test_ipprotection_ready() {
   Assert.ok(ipProtectionReadyTrigger, "ipProtectionReady trigger sent");
 
   IPProtection.uninit();
+  sandbox.restore();
+});
+
+add_task(async function test_tabSwitch() {
+  const sandbox = sinon.createSandbox();
+
+  await SpecialPowers.pushPrefEnv({
+    set: [["browser.tabs.splitview.hasUsed", false]],
+  });
+
+  const receivedTrigger = new Promise(resolve => {
+    sandbox.stub(ASRouter, "sendTriggerMessage").callsFake(({ id }) => {
+      if (id === "tabSwitch") {
+        resolve(true);
+      }
+    });
+  });
+
+  let tab1 = await BrowserTestUtils.openNewForegroundTab(
+    gBrowser,
+    "https://example.com"
+  );
+  let tab2 = await BrowserTestUtils.openNewForegroundTab(
+    gBrowser,
+    "https://example.org"
+  );
+
+  await BrowserTestUtils.switchTab(gBrowser, tab1);
+  await BrowserTestUtils.switchTab(gBrowser, tab2);
+  await BrowserTestUtils.switchTab(gBrowser, tab1);
+
+  let tabSwitchTrigger = await receivedTrigger;
+  Assert.ok(
+    tabSwitchTrigger,
+    "tabSwitch trigger sent after switching between tabs 3 times"
+  );
+
+  BrowserTestUtils.removeTab(tab1);
+  BrowserTestUtils.removeTab(tab2);
+
+  await SpecialPowers.popPrefEnv();
   sandbox.restore();
 });

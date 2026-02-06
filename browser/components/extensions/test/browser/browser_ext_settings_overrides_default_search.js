@@ -80,10 +80,7 @@ const CONFIG = [
 
 async function restoreDefaultEngine() {
   let engine = SearchService.getEngineByName(DEFAULT_ENGINE.name);
-  await SearchService.setDefault(
-    engine,
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
-  );
+  await SearchService.setDefault(engine, SearchService.CHANGE_REASON.UNKNOWN);
 }
 
 function clearTelemetry() {
@@ -519,10 +516,7 @@ add_task(async function test_user_changing_default_engine() {
   );
 
   let engine = SearchService.getEngineByName(ALTERNATE2_ENGINE.name);
-  await SearchService.setDefault(
-    engine,
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
-  );
+  await SearchService.setDefault(engine, SearchService.CHANGE_REASON.UNKNOWN);
   // This simulates the preferences UI when the setting is changed.
   ExtensionSettingsStore.select(
     ExtensionSettingsStore.SETTING_USER_SET,
@@ -571,10 +565,7 @@ add_task(async function test_user_change_with_disabling() {
   );
 
   let engine = SearchService.getEngineByName(ALTERNATE2_ENGINE.name);
-  await SearchService.setDefault(
-    engine,
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
-  );
+  await SearchService.setDefault(engine, SearchService.CHANGE_REASON.UNKNOWN);
   // This simulates the preferences UI when the setting is changed.
   ExtensionSettingsStore.select(
     ExtensionSettingsStore.SETTING_USER_SET,

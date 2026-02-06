@@ -58,8 +58,8 @@ import org.mozilla.fenix.settings.address.store.ViewAppeared
 import org.mozilla.fenix.settings.address.store.isEditing
 import org.mozilla.fenix.settings.address.utils.generateAddress
 import org.mozilla.fenix.theme.FirefoxTheme
+import org.mozilla.fenix.theme.PreviewThemeProvider
 import org.mozilla.fenix.theme.Theme
-import org.mozilla.fenix.theme.ThemeProvider
 import mozilla.components.compose.base.text.Text as DropdownText
 
 /**
@@ -323,7 +323,7 @@ private fun createStore(
 @FlexibleWindowPreview
 @Composable
 private fun AddAddressPreview(
-    @PreviewParameter(ThemeProvider::class) theme: Theme,
+    @PreviewParameter(PreviewThemeProvider::class) theme: Theme,
 ) {
     val store = createStore()
 
@@ -335,7 +335,7 @@ private fun AddAddressPreview(
 @FlexibleWindowPreview
 @Composable
 private fun EditAddressPreview(
-    @PreviewParameter(ThemeProvider::class) theme: Theme,
+    @PreviewParameter(PreviewThemeProvider::class) theme: Theme,
 ) {
     val store = createStore(
         address = generateAddress(),

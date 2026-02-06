@@ -222,10 +222,7 @@ class NodeActor extends Actor {
       isInHTMLDocument:
         this.rawNode.ownerDocument &&
         this.rawNode.ownerDocument.contentType === "text/html",
-      traits: {
-        // @backward-compat { version 147 } Can be removed once 147 reaches release
-        hasPseudoElementNameInDisplayName: true,
-      },
+      traits: {},
     };
 
     // The event collector can be expensive, so only check for events on nodes that

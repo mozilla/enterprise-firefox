@@ -47,7 +47,8 @@ class MegamorphicCacheEntry;
 
 namespace gc {
 
-struct Cell;
+class AllocSite;
+class Cell;
 
 }  // namespace gc
 
@@ -411,6 +412,11 @@ bool OperatorIn(JSContext* cx, HandleValue key, HandleObject obj, bool* out);
 [[nodiscard]] bool CreateThisFromIC(JSContext* cx, HandleObject callee,
                                     HandleObject newTarget,
                                     MutableHandleValue rval);
+[[nodiscard]] bool CreateThisFromICWithAllocSite(JSContext* cx,
+                                                 HandleObject callee,
+                                                 HandleObject newTarget,
+                                                 gc::AllocSite* site,
+                                                 MutableHandleValue rval);
 [[nodiscard]] bool CreateThisFromIon(JSContext* cx, HandleObject callee,
                                      HandleObject newTarget,
                                      MutableHandleValue rval);

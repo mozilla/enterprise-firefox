@@ -18,7 +18,10 @@ import shlex
 import sys
 import tempfile
 from contextlib import contextmanager
-from copy import copy
+from copy import (
+    copy,
+    deepcopy,
+)
 from datetime import datetime
 from itertools import chain
 from os.path import abspath, dirname, isfile, realpath
@@ -759,7 +762,7 @@ def load_tests(options, requested_paths, excluded_paths):
         test_gen = (_ for _ in test_gen if not _.slow)
 
     if options.repeat:
-        test_gen = (test for test in test_gen for i in range(options.repeat))
+        test_gen = (deepcopy(test) for test in test_gen for _ in range(options.repeat))
         test_count *= options.repeat
 
     return test_count, test_gen

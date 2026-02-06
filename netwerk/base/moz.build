@@ -62,6 +62,7 @@ XPIDL_SOURCES += [
     "nsINetworkConnectivityService.idl",
     "nsINetworkInfoService.idl",
     "nsINetworkInterceptController.idl",
+    "nsINetworkInterface.idl",
     "nsINetworkLinkService.idl",
     "nsINullChannel.idl",
     "nsIParentChannel.idl",
@@ -137,6 +138,7 @@ EXPORTS += [
     "nsInputStreamPump.h",
     "nsMIMEInputStream.h",
     "nsNetUtil.h",
+    "nsNetworkInterface.h",
     "nsReadLine.h",
     "nsSerializationHelper.h",
     "nsSimpleNestedURI.h",
@@ -252,6 +254,17 @@ UNIFIED_SOURCES += [
     "TLSServerSocket.cpp",
     "TRRLoadInfo.cpp",
 ]
+
+if CONFIG["MOZ_ENTERPRISE"]:
+    if CONFIG["MOZ_WIDGET_TOOLKIT"] == "windows":
+        # netwerk/base/nsProtocolProxyService.cpp(736,10): error: no member named 'u' in 'PRIPv6Addr'
+        SOURCES += [
+            "nsNetworkInterface.cpp",
+        ]
+    else:
+        UNIFIED_SOURCES += [
+            "nsNetworkInterface.cpp",
+        ]
 
 if CONFIG["FUZZING"]:
     SOURCES += [

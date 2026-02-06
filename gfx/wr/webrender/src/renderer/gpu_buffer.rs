@@ -111,7 +111,7 @@ impl std::fmt::Debug for GpuBufferHandle {
 //           In the future, we can change the PrimitiveInstanceData struct
 //           to use 2x u16 for the vertex attribute instead of an i32.
 #[repr(transparent)]
-#[derive(Copy, Debug, Clone, MallocSizeOf, Eq, PartialEq)]
+#[derive(Copy, Clone, MallocSizeOf, Eq, PartialEq)]
 #[cfg_attr(feature = "capture", derive(Serialize))]
 #[cfg_attr(feature = "replay", derive(Deserialize))]
 pub struct GpuBufferAddress(u32);
@@ -149,6 +149,16 @@ impl GpuBufferAddress {
     }
 
     pub const INVALID: GpuBufferAddress = GpuBufferAddress(u32::MAX - 1);
+}
+
+impl std::fmt::Debug for GpuBufferAddress {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        if *self == Self::INVALID {
+            write!(f, "<invalid>")
+        } else {
+            write!(f, "#{}", self.0)
+        }
+    }
 }
 
 impl GpuBufferBlockF {

@@ -250,19 +250,28 @@ bool Compatibility::IsUiaEnabled() {
     }
     return *sIsNvdaVersionSupported;
   }
-  if (IsJAWS()) {
+  if (IsVisperoShared()) {
+    if (!::GetModuleHandleW(L"firefox.exe")) {
+      // JAWS and ZoomText only handle UIA correctly for firefox.exe. They
+      // don't handle it correctly for any other Gecko application; e.g.
+      // Thunderbird.
+      return false;
+    }
     // Cache to avoid repeated version checks.
-    static Maybe<bool> sIsJawsVersionSupported;
-    if (sIsJawsVersionSupported.isNothing()) {
-      if (HMODULE jawsHandle = ::GetModuleHandleW(L"jhook")) {
-        // JAWS 2026 (file version 27) and later handles UIA correctly in Gecko.
-        sIsJawsVersionSupported = Some(!IsModuleVersionLessThan(
-            jawsHandle, MAKE_FILE_VERSION(27, 0, 0, 0)));
+    static Maybe<bool> sIsVisperoVersionSupported;
+    if (sIsVisperoVersionSupported.isNothing()) {
+      if (HMODULE visperoHandle = ::GetModuleHandleW(L"AccEventCache")) {
+        // JAWS and ZoomText 2026 and later handle UIA correctly in Firefox.
+        // They both use Vispero AccEventCache >= 6.0.
+        sIsVisperoVersionSupported = Some(!IsModuleVersionLessThan(
+            visperoHandle, MAKE_FILE_VERSION(6, 0, 0, 0)));
       } else {
-        sIsJawsVersionSupported = Some(false);
+        sIsVisperoVersionSupported = Some(false);
       }
     }
-    return *sIsJawsVersionSupported;
+    return *sIsVisperoVersionSupported;
   }
-  return !IsOldJAWS() && !IsVisperoShared();
+  // Disable UIA for older versions of JAWS and ZoomText which don't have
+  // AccEventCache.
+  return !IsJAWS() && !(sConsumers & ZOOMTEXT);
 }

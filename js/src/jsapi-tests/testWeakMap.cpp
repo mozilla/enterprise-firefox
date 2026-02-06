@@ -90,7 +90,8 @@ BEGIN_TEST(testWeakMap_setWeakMapEntry_invalid_key) {
   JS::Rooted<JS::Value> exn(cx);
   CHECK(JS_GetPendingException(cx, &exn));
   JS::Rooted<JSObject*> obj(cx, &exn.toObject());
-  JSErrorReport* err = JS_ErrorFromException(cx, obj);
+  JS::BorrowedErrorReport err(cx);
+  CHECK(JS_ErrorFromException(cx, obj, err));
   CHECK(err->exnType == JSEXN_TYPEERR);
 
   JS_ClearPendingException(cx);

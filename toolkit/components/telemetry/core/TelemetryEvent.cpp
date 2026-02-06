@@ -474,10 +474,6 @@ RecordEventResult RecordEvent(const StaticMutexAutoLock& lock,
     return RecordEventResult::CannotRecord;
   }
 
-  // Count the number of times this event has been recorded.
-  TelemetryScalar::SummarizeEvent(UniqueEventName(category, method, object),
-                                  processType);
-
   EventRecordArray* eventRecords = GetEventRecordsForProcess(lock, processType);
   eventRecords->AppendElement(EventRecord(timestamp, eventKey, value, extra));
 

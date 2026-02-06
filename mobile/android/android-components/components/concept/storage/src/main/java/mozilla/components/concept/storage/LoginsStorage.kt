@@ -7,6 +7,29 @@ package mozilla.components.concept.storage
 import kotlinx.coroutines.Deferred
 
 /**
+ * Hint types that provide context in which a login entry was created or presented.
+ */
+enum class LoginHint {
+    /** No hint specified. */
+    NONE,
+
+    /** Auto-generated secure password. */
+    GENERATED,
+
+    /** The form that is considered insecure. */
+    INSECURE_FORM,
+
+    /** The username is shared with another login entry. */
+    DUPLICATE_USERNAME,
+
+    /** The login entry's origin matches the login form origin. */
+    MATCHING_ORIGIN,
+
+    /** Indicates that an email mask should be offered. */
+    EMAIL_MASK,
+}
+
+/**
  * A login stored in the database
  */
 data class Login(
@@ -75,6 +98,11 @@ data class Login(
      * This field is set on Desktop when a user discards the warning message of the breach.
      */
     val timeLastBreachAlertDismissed: Long? = null,
+    /**
+     * A hint provides context in which this item was created. For example, [LoginHint.GENERATED]
+     * tells a consumer that the password was generated.
+     */
+    val hint: LoginHint = LoginHint.NONE,
 ) {
     /**
      * Converts [Login] into a [LoginEntry].

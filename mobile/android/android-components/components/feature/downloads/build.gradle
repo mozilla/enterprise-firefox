@@ -68,6 +68,7 @@ dependencies {
     testImplementation libs.robolectric
 
     androidTestImplementation project(':components:support-android-test')
+    testImplementation testFixtures(project(':components:support-utils'))
 
     androidTestImplementation libs.androidx.arch.core.testing
     androidTestImplementation libs.androidx.room.testing

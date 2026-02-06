@@ -43,7 +43,10 @@ add_task(async function selected_result_autofill_adaptive() {
   });
 
   await doTest(async () => {
-    await PlacesTestUtils.addVisits("https://example.com/test");
+    await PlacesTestUtils.addVisits({
+      url: "https://example.com/test",
+      transition: PlacesUtils.history.TRANSITION_TYPED,
+    });
     await UrlbarUtils.addToInputHistory("https://example.com/test", "exa");
     await openPopup("exa");
     await doEnter();
@@ -63,7 +66,10 @@ add_task(async function selected_result_autofill_adaptive() {
 
 add_task(async function selected_result_autofill_origin() {
   await doTest(async () => {
-    await PlacesTestUtils.addVisits("https://example.com/test");
+    await PlacesTestUtils.addVisits({
+      url: "https://example.com/test",
+      transition: PlacesUtils.history.TRANSITION_TYPED,
+    });
     await PlacesFrecencyRecalculator.recalculateAnyOutdatedFrecencies();
     await openPopup("exa");
     await doEnter();
@@ -81,7 +87,10 @@ add_task(async function selected_result_autofill_origin() {
 
 add_task(async function selected_result_autofill_url() {
   await doTest(async () => {
-    await PlacesTestUtils.addVisits("https://example.com/test");
+    await PlacesTestUtils.addVisits({
+      url: "https://example.com/test",
+      transition: PlacesUtils.history.TRANSITION_TYPED,
+    });
     await PlacesFrecencyRecalculator.recalculateAnyOutdatedFrecencies();
     await openPopup("https://example.com/test");
     await doEnter();
@@ -942,10 +951,7 @@ add_task(async function selected_result_trending() {
   ]);
 
   let engine = SearchService.getEngineByName("mozengine");
-  await SearchService.setDefault(
-    engine,
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
-  );
+  await SearchService.setDefault(engine, SearchService.CHANGE_REASON.UNKNOWN);
 
   await doTest(async () => {
     await openPopup("");
@@ -966,7 +972,7 @@ add_task(async function selected_result_trending() {
 
   await SearchService.setDefault(
     defaultEngine,
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+    SearchService.CHANGE_REASON.UNKNOWN
   );
   let settingsWritten = SearchTestUtils.promiseSearchNotification(
     "write-settings-to-disk-complete"
@@ -1032,10 +1038,7 @@ add_task(async function selected_result_trending_rich() {
   ]);
 
   let engine = SearchService.getEngineByName("mozengine");
-  await SearchService.setDefault(
-    engine,
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
-  );
+  await SearchService.setDefault(engine, SearchService.CHANGE_REASON.UNKNOWN);
 
   await doTest(async () => {
     await openPopup("");
@@ -1056,7 +1059,7 @@ add_task(async function selected_result_trending_rich() {
 
   await SearchService.setDefault(
     defaultEngine,
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+    SearchService.CHANGE_REASON.UNKNOWN
   );
   let settingsWritten = SearchTestUtils.promiseSearchNotification(
     "write-settings-to-disk-complete"

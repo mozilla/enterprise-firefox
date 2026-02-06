@@ -48,8 +48,8 @@ import org.mozilla.fenix.debugsettings.ui.DebugDrawer
 import org.mozilla.fenix.ext.maxActiveTime
 import org.mozilla.fenix.tabstray.ext.isNormalTabInactive
 import org.mozilla.fenix.theme.FirefoxTheme
+import org.mozilla.fenix.theme.PreviewThemeProvider
 import org.mozilla.fenix.theme.Theme
-import org.mozilla.fenix.theme.ThemeProvider
 
 @VisibleForTesting
 internal const val MAX_TABS_GENERATED = 1000
@@ -318,7 +318,7 @@ internal fun validateTextField(text: String): Int? {
 @Preview
 @Composable
 private fun TabToolsPreview(
-    @PreviewParameter(ThemeProvider::class) theme: Theme,
+    @PreviewParameter(PreviewThemeProvider::class) theme: Theme,
 ) {
     FirefoxTheme(theme) {
         TabTools(
@@ -331,7 +331,7 @@ private fun TabToolsPreview(
 @Preview
 @Composable
 private fun TabToolsInactiveTabsDisabledPreview(
-    @PreviewParameter(ThemeProvider::class) theme: Theme,
+    @PreviewParameter(PreviewThemeProvider::class) theme: Theme,
 ) {
     FirefoxTheme(theme) {
         TabTools(

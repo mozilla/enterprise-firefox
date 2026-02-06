@@ -68,6 +68,8 @@ function Widgets() {
     prefs.trainhopConfig?.widgets?.timerEnabled;
   const nimbusWeatherForecastTrainhopEnabled =
     prefs.trainhopConfig?.widgets?.weatherForecastEnabled;
+  const nimbusMaximizedTrainhopEnabled =
+    prefs.trainhopConfig?.widgets?.maximized;
 
   const listsEnabled =
     (nimbusListsTrainhopEnabled ||
@@ -152,7 +154,8 @@ function Widgets() {
       <div className="widgets-section-container">
         <div className="widgets-title-container">
           <h1 data-l10n-id="newtab-widget-section-title"></h1>
-          {prefs[PREF_WIDGETS_SYSTEM_MAXIMIZED] && (
+          {(nimbusMaximizedTrainhopEnabled ||
+            prefs[PREF_WIDGETS_SYSTEM_MAXIMIZED]) && (
             <moz-button
               id="toggle-widgets-size-button"
               type="icon ghost"
@@ -160,10 +163,10 @@ function Widgets() {
               // Toggle the icon and hover text
               data-l10n-id={
                 isMaximized
-                  ? "newtab-widget-section-maximize"
-                  : "newtab-widget-section-minimize"
+                  ? "newtab-widget-section-minimize"
+                  : "newtab-widget-section-maximize"
               }
-              iconsrc={`chrome://browser/skin/${isMaximized ? "fullscreen" : "fullscreen-exit"}.svg`}
+              iconsrc={`chrome://browser/skin/${isMaximized ? "fullscreen-exit" : "fullscreen"}.svg`}
               onClick={handleToggleMaximizeClick}
               onKeyDown={handleToggleMaximizeKeyDown}
             />
@@ -179,7 +182,7 @@ function Widgets() {
           />
         </div>
         <div
-          className={`widgets-container ${isMaximized ? "is-maximized" : ""}`}
+          className={`widgets-container${isMaximized ? " is-maximized" : ""}`}
         >
           {listsEnabled && (
             <Lists

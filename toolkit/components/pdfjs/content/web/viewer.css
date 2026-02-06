@@ -4515,22 +4515,6 @@
       display:flex;
       flex-direction:column;
       gap:12px;
-
-      button{
-        width:fit-content;
-      }
-
-      &.download{
-        #deleteModelButton{
-          display:none;
-        }
-      }
-
-      &:not(.download){
-        #downloadModelButton{
-          display:none;
-        }
-      }
     }
 
     #automaticAltText,
@@ -4551,6 +4535,16 @@
       flex-direction:column;
       gap:16px;
     }
+  }
+}
+
+button.hasPopupMenu{
+  &[aria-expanded="true"] + menu{
+    visibility:visible;
+  }
+
+  &[aria-expanded="false"] + menu{
+    visibility:hidden;
   }
 }
 
@@ -4614,6 +4608,7 @@
   top:1px;
   margin:0;
   padding:5px;
+  box-sizing:border-box;
 
   background:var(--menu-bg);
   background-blend-mode:var(--menu-background-blend-mode);
@@ -5202,6 +5197,7 @@
 
         #actionSelector{
           height:32px;
+          min-width:115px;
           width:auto;
           display:block;
 
@@ -5233,8 +5229,9 @@
             }
           }
 
-          > .contextMenu{
-            min-width:115px;
+          > .popupMenu{
+            width:auto;
+            z-index:1;
           }
         }
       }
@@ -5576,6 +5573,7 @@
   min-width:var(--sidebar-min-width);
   max-width:var(--sidebar-max-width);
   backdrop-filter:var(--sidebar-backdrop-filter);
+  box-sizing:border-box;
 
   .sidebarResizer{
     width:var(--resizer-width);

@@ -98,16 +98,8 @@ nsresult ColumnSetWrapperFrame::GetFrameName(nsAString& aResult) const {
 }
 #endif
 
-// Disallow any append, insert, or remove operations after building the
-// column hierarchy since any change to the column hierarchy in the column
-// sub-tree need to be re-created.
 void ColumnSetWrapperFrame::AppendFrames(ChildListID aListID,
                                          nsFrameList&& aFrameList) {
-#ifdef DEBUG
-  MOZ_ASSERT(!mFinishedBuildingColumns, "Should only call once!");
-  mFinishedBuildingColumns = true;
-#endif
-
   nsBlockFrame::AppendFrames(aListID, std::move(aFrameList));
 
 #ifdef DEBUG

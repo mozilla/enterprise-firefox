@@ -22,11 +22,6 @@ const TEST_PROVIDER_INFO = [
       /^https:\/\/example.org\/browser\/browser\/components\/search\/test\/browser\/telemetry\/searchTelemetryAd_searchbox_with_content_redirect.html/,
     ],
     extraAdServersRegexps: [/^https:\/\/example\.com\/ad/],
-    shoppingTab: {
-      selector: "nav a",
-      regexp: "&page=shopping",
-      inspectRegexpInSERP: true,
-    },
     components: [
       {
         type: SearchSERPTelemetryUtils.COMPONENTS.INCONTENT_SEARCHBOX,
@@ -66,6 +61,26 @@ const TEST_PROVIDER_INFO = [
         default: true,
       },
     ],
+    impressionAttributes: [
+      {
+        key: "is_shopping_page",
+        url: {
+          regexp: "&page=shopping",
+        },
+      },
+      {
+        key: "shopping_tab_displayed",
+        element: {
+          selector: "nav a",
+          attributeName: "href",
+          regexp: "&page=shopping",
+          component: {
+            type: "shopping_tab",
+            countImpressions: true,
+          },
+        },
+      },
+    ],
   },
 ];
 
@@ -103,6 +118,7 @@ add_task(async function test_click_tab() {
   assertSERPTelemetry([
     {
       impression: {
+        is_shopping_page: "false",
         shopping_tab_displayed: "true",
       },
       engagements: [
@@ -128,6 +144,7 @@ add_task(async function test_click_tab() {
     },
     {
       impression: {
+        is_shopping_page: "false",
         shopping_tab_displayed: "true",
       },
       adImpressions: [
@@ -170,6 +187,7 @@ add_task(async function test_click_shopping() {
   assertSERPTelemetry([
     {
       impression: {
+        is_shopping_page: "false",
         shopping_tab_displayed: "true",
       },
       engagements: [
@@ -242,6 +260,7 @@ add_task(async function test_click_related_search_in_new_tab() {
   assertSERPTelemetry([
     {
       impression: {
+        is_shopping_page: "false",
         shopping_tab_displayed: "true",
       },
       engagements: [
@@ -270,6 +289,7 @@ add_task(async function test_click_related_search_in_new_tab() {
         tagged: "false",
         partner_code: "",
         source: "opened_in_new_tab",
+        is_shopping_page: "false",
         shopping_tab_displayed: "true",
       },
       adImpressions: [
@@ -319,6 +339,7 @@ add_task(async function test_click_redirect_search_in_newtab() {
   assertSERPTelemetry([
     {
       impression: {
+        is_shopping_page: "false",
         shopping_tab_displayed: "true",
       },
       engagements: [
@@ -347,6 +368,7 @@ add_task(async function test_click_redirect_search_in_newtab() {
         tagged: "false",
         partner_code: "",
         source: "opened_in_new_tab",
+        is_shopping_page: "false",
         shopping_tab_displayed: "true",
       },
       adImpressions: [
@@ -403,6 +425,7 @@ add_task(async function test_content_source_reset() {
   assertSERPTelemetry([
     {
       impression: {
+        is_shopping_page: "false",
         shopping_tab_displayed: "true",
       },
       engagements: [
@@ -433,6 +456,7 @@ add_task(async function test_content_source_reset() {
     {
       impression: {
         source: "follow_on_from_refine_on_incontent_search",
+        is_shopping_page: "false",
         shopping_tab_displayed: "true",
       },
       engagements: [
@@ -460,6 +484,7 @@ add_task(async function test_content_source_reset() {
       impression: {
         tagged: "false",
         partner_code: "",
+        is_shopping_page: "false",
         shopping_tab_displayed: "true",
       },
       adImpressions: [
@@ -514,6 +539,7 @@ add_task(async function test_click_refinement_button() {
   assertSERPTelemetry([
     {
       impression: {
+        is_shopping_page: "false",
         shopping_tab_displayed: "true",
       },
       engagements: [
@@ -542,6 +568,7 @@ add_task(async function test_click_refinement_button() {
         tagged: "false",
         partner_code: "",
         source: "follow_on_from_refine_on_SERP",
+        is_shopping_page: "false",
         shopping_tab_displayed: "true",
       },
       adImpressions: [

@@ -10,6 +10,7 @@ import androidx.navigation.NavController
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import mozilla.appservices.places.BookmarkRoot
@@ -51,6 +52,7 @@ private const val WARN_OPEN_ALL_SIZE = 15
  * @param reportResultGlobally Invoked when an error occurs that needs to be reported even if the
  * feature goes out of scope.
  * @param ioDispatcher Coroutine dispatcher for IO operations.
+ * @param lifecycleScope lifecycle bound CoroutineScope scope used to cancel jobs when leaving bookmarks.
  */
 @Suppress("LongParameterList", "LargeClass")
 internal class BookmarksMiddleware(
@@ -73,9 +75,10 @@ internal class BookmarksMiddleware(
     private val lastSavedFolderCache: LastSavedFolderCache,
     private val reportResultGlobally: (BookmarksGlobalResultReport) -> Unit,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    lifecycleScope: CoroutineScope,
 ) : Middleware<BookmarksState, BookmarksAction> {
 
-    private val scope = CoroutineScope(ioDispatcher)
+    private val scope = CoroutineScope(lifecycleScope.coroutineContext + ioDispatcher)
 
     @Suppress("LongMethod", "CognitiveComplexMethod", "CyclomaticComplexMethod")
     override fun invoke(
@@ -278,6 +281,10 @@ internal class BookmarksMiddleware(
                     }
                     // list screen cases
                     preReductionState.selectedItems.isNotEmpty() -> { /* noop */ }
+                    // User is clicking back before we've loaded anything
+                    preReductionState.currentFolder.guid.isEmpty() -> {
+                        exitBookmarks()
+                    }
                     preReductionState.currentFolder.guid != BookmarkRoot.Mobile.id -> {
                         scope.launch {
                             val parentFolderGuid = withContext(ioDispatcher) {
@@ -450,10 +457,16 @@ internal class BookmarksMiddleware(
 
     private fun Store<BookmarksState, BookmarksAction>.tryDispatchLoadSelectableFolders() =
         scope.launch {
+            val sortOrder = state.sortOrder
             Result.runCatching {
                 if (!bookmarksStorage.hasDesktopBookmarks()) {
                     listOf(
-                        loadAsSelectableFolder(guid = BookmarkRoot.Mobile.id, indentation = 0, false)!!,
+                        loadAsSelectableFolder(
+                            guid = BookmarkRoot.Mobile.id,
+                            indentation = 0,
+                            shouldOpen = false,
+                            sortOrder = sortOrder,
+                        )!!,
                     )
                 } else {
                     val rootNode = bookmarksStorage.getTree(BookmarkRoot.Root.id).getOrNull()!!
@@ -464,7 +477,12 @@ internal class BookmarksMiddleware(
 
                     // we want to order these a specific way on mobile
                     (listOf(mobileNode, rootNode) + desktopRootNodes).mapNotNull { item ->
-                        loadAsSelectableFolder(guid = item.guid, indentation = 0, false)
+                        loadAsSelectableFolder(
+                            guid = item.guid,
+                            indentation = 0,
+                            shouldOpen = false,
+                            sortOrder = sortOrder,
+                        )
                     }
                 }
             }.onSuccess { folders ->
@@ -475,7 +493,12 @@ internal class BookmarksMiddleware(
     private fun Store<BookmarksState, BookmarksAction>.tryDispatchAdditionalSelectableFolders(
         folder: SelectFolderItem,
     ) = scope.launch {
-            loadAsSelectableFolder(folder.guid, folder.indentation, true)?.let {
+            loadAsSelectableFolder(
+                guid = folder.guid,
+                indentation = folder.indentation,
+                shouldOpen = true,
+                sortOrder = state.sortOrder,
+            )?.let {
                 dispatch(SelectFolderAction.ExpandedFolderLoaded(it))
             }
         }
@@ -487,22 +510,32 @@ internal class BookmarksMiddleware(
         guid: String,
         indentation: Int,
         shouldOpen: Boolean,
+        sortOrder: BookmarksListSortOrder,
     ): SelectFolderItem? = Result.runCatching {
         val loadedNode = bookmarksStorage.getTree(guid).getOrNull()!!
         if (loadedNode.type != BookmarkNodeType.FOLDER) return null
+        val comparator = Comparator<SelectFolderItem> { left, right ->
+            sortOrder.comparator.compare(left.folder, right.folder)
+        }
         SelectFolderItem(
             indentation = indentation,
             folder = BookmarkItem.Folder(
                 title = resolveFolderTitle(loadedNode),
                 guid = loadedNode.guid,
                 position = loadedNode.position,
+                dateAdded = loadedNode.dateAdded,
             ),
             expansionState = when {
                 // when we are expanding folders, we need to find all their children that could also be selected
                 shouldOpen -> SelectFolderExpansionState.Open(
                     children = loadedNode.children.orEmpty().mapNotNull { node ->
-                        loadAsSelectableFolder(node.guid, indentation + 1, false)
-                    },
+                        loadAsSelectableFolder(
+                            guid = node.guid,
+                            indentation = indentation + 1,
+                            shouldOpen = false,
+                            sortOrder = sortOrder,
+                        )
+                    }.sortedWith(comparator),
                 )
                 // only mark folders as expandable if they have children that could potentially be selected
                 (loadedNode.children?.any { it.type == BookmarkNodeType.FOLDER } == true) -> {
@@ -516,6 +549,8 @@ internal class BookmarksMiddleware(
     private fun Store<BookmarksState, BookmarksAction>.tryDispatchLoadFor(guid: String) =
         scope.launch {
             bookmarksStorage.getTree(guid).getOrNull()?.let { rootNode ->
+                ensureActive()
+
                 val folder = BookmarkItem.Folder(
                     guid = guid,
                     title = resolveFolderTitle(rootNode),

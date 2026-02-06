@@ -215,7 +215,7 @@ add_task(
       "timeLastUsed == timePasswordChanged"
     );
 
-    Services.logins.removeAllUserFacingLogins();
+    await Services.logins.removeAllUserFacingLoginsAsync();
   }
 );
 

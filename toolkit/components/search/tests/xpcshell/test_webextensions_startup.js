@@ -60,7 +60,7 @@ add_task(async function test_startup_with_new_addon() {
 });
 
 add_task(async function test_startup_with_existing_addon_from_settings() {
-  SearchService.wrappedJSObject.reset();
+  SearchService.reset();
 
   let settingsWritten = promiseAfterSettings();
   await SearchService.init();
@@ -84,7 +84,7 @@ add_task(
     // when the add-on is already there. The console check is handled by
     // TestUtils.listenForConsoleMessages() in head_search.js.
 
-    SearchService.wrappedJSObject.reset();
+    SearchService.reset();
 
     await SearchService.addEnginesFromExtension(extension.extension);
 

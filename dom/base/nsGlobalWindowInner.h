@@ -780,6 +780,8 @@ class nsGlobalWindowInner final : public mozilla::dom::EventTarget,
   void ResizeBy(int32_t aWidthDif, int32_t aHeightDif,
                 mozilla::dom::CallerType aCallerType,
                 mozilla::ErrorResult& aError);
+  void MoveResize(int32_t aX, int32_t aY, int32_t aWidth, int32_t aHeight,
+                  mozilla::ErrorResult& aError);
   void Scroll(double aXScroll, double aYScroll) {
     ScrollTo(aXScroll, aYScroll);
   }

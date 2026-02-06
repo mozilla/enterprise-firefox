@@ -78,6 +78,9 @@ skip-if = [
 ]
 
 ["browser_identityPopup_qwacs.js"]
+skip-if = [
+  "true", # Bug 2014612
+]
 
 ["browser_identity_UI.js"]
 https_first_disabled = true

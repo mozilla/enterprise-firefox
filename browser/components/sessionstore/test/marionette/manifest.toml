@@ -5,6 +5,8 @@ tags = "local"
 
 ["test_persist_closed_tabs_restore_manually.py"]
 
+["test_restore_aiwindow.py"]
+
 ["test_restore_loading_tab.py"]
 
 ["test_restore_manually.py"]
@@ -37,6 +39,8 @@ skip-if = [
   "os == 'win' && os_version == '11.26100' && arch == 'x86'", # Bug 1727691
   "os == 'win' && os_version == '11.26100' && arch == 'x86_64'", # Bug 1727691
 ]
+
+["test_splitview_restore.py"]
 
 ["test_tabgroups_restore.py"]
 

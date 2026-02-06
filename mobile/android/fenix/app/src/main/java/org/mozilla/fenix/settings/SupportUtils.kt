@@ -62,7 +62,6 @@ object SupportUtils {
         TRANSLATIONS("android-translation"),
         MANAGE_OPTIONAL_EXTENSION_PERMISSIONS("manage-optional-permissions-android-extensions"),
         EXTENSION_PERMISSIONS("extension-permissions"),
-        FIND_INSTALL_ADDONS("add-ons-firefox-android"),
         CRASH_REPORTS("mobile-crash-reports"),
         TECHNICAL_AND_INTERACTION_DATA("mobile-technical-and-interaction-data"),
         USAGE_PING_SETTINGS("usage-ping-settings-mobile"),

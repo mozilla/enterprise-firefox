@@ -114,10 +114,7 @@ add_task(
 
     let engine = SearchService.getEngineByName("Example");
     let originalEngine = await SearchService.getDefault();
-    await SearchService.setDefault(
-      engine,
-      Ci.nsISearchService.CHANGE_REASON_UNKNOWN
-    );
+    await SearchService.setDefault(engine, SearchService.CHANGE_REASON.UNKNOWN);
 
     async function cleanup() {
       Preferences.set("browser.urlbar.suggest.history", suggestHistory);
@@ -126,7 +123,7 @@ add_task(
 
       await SearchService.setDefault(
         originalEngine,
-        Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+        SearchService.CHANGE_REASON.UNKNOWN
       );
     }
     registerCleanupFunction(cleanup);

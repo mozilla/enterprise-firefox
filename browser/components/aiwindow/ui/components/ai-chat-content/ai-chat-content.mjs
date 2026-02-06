@@ -14,16 +14,24 @@ export class AIChatContent extends MozLitElement {
   static properties = {
     conversationState: { type: Array },
     tokens: { type: Object },
+    isSearching: { type: Boolean },
+    searchQuery: { type: String },
   };
 
   constructor() {
     super();
     this.conversationState = [];
+    this.isSearching = false;
+    this.searchQuery = null;
   }
 
   connectedCallback() {
     super.connectedCallback();
     this.#initEventListeners();
+
+    this.dispatchEvent(
+      new CustomEvent("AIChatContent:Ready", { bubbles: true })
+    );
   }
 
   /**
@@ -39,11 +47,48 @@ export class AIChatContent extends MozLitElement {
 
   messageEvent(event) {
     const message = event.detail;
-    if (message.role === "assistant") {
-      this.handleAIResponseEvent(event);
-      return;
+
+    switch (message.role) {
+      case "loading":
+        this.handleLoadingEvent(event);
+        break;
+      case "assistant":
+        this.#checkConversationState(message);
+        this.handleAIResponseEvent(event);
+        break;
+      case "user":
+        this.#checkConversationState(message);
+        this.handleUserPromptEvent(event);
+        break;
     }
-    this.handleUserPromptEvent(event);
+  }
+
+  /**
+   * Check if conversationState needs to be cleared
+   *
+   * @param {ChatMessage} message
+   */
+  #checkConversationState(message) {
+    const lastMessage = this.conversationState.at(-1);
+    const firstMessage = this.conversationState.at(0);
+    const isReloadingSameConvo =
+      firstMessage &&
+      firstMessage.convId === message.convId &&
+      firstMessage.ordinal === message.ordinal;
+    const convIdChanged = message.convId !== lastMessage?.convId;
+
+    // If the conversation ID has changed, reset the conversation state
+    if (convIdChanged || isReloadingSameConvo) {
+      this.conversationState = [];
+    }
+  }
+
+  handleLoadingEvent(event) {
+    const { isSearching, searchQuery } = event.detail;
+    this.isSearching = !!isSearching;
+    this.searchQuery = searchQuery || null;
+    this.requestUpdate();
+    this.#scrollToBottom();
   }
 
   /**
@@ -53,12 +98,15 @@ export class AIChatContent extends MozLitElement {
    */
 
   handleUserPromptEvent(event) {
-    const { content } = event.detail;
-    this.conversationState.push({
+    const { convId, content, ordinal } = event.detail;
+    this.conversationState[ordinal] = {
       role: "user",
       body: content.body,
-    });
+      convId,
+      ordinal,
+    };
     this.requestUpdate();
+    this.#scrollToBottom();
   }
 
   /**
@@ -68,24 +116,44 @@ export class AIChatContent extends MozLitElement {
    */
 
   handleAIResponseEvent(event) {
-    // TODO (bug 2009434): update reference to insights
+    this.isSearching = false;
+    this.searchQuery = null;
+
     const {
+      convId,
       ordinal,
       id: messageId,
       content,
       memoriesApplied,
       tokens,
+      webSearchQueries,
     } = event.detail;
+
+    if (typeof content.body !== "string" || !content.body) {
+      return;
+    }
 
     this.conversationState[ordinal] = {
       role: "assistant",
+      convId,
       messageId,
       body: content.body,
       appliedMemories: memoriesApplied ?? [],
-      searchTokens: tokens?.search || [],
+      // The "webSearchQueries" are coming from a conversation that is being initialized
+      // and "tokens" are streaming in from a live conversation.
+      searchTokens: webSearchQueries ?? tokens?.search ?? [],
     };
 
     this.requestUpdate();
+  }
+
+  #scrollToBottom() {
+    this.updateComplete.then(() => {
+      const wrapper = this.shadowRoot?.querySelector(".chat-content-wrapper");
+      if (wrapper) {
+        wrapper.scrollTop = wrapper.scrollHeight;
+      }
+    });
   }
 
   render() {
@@ -96,6 +164,9 @@ export class AIChatContent extends MozLitElement {
       />
       <div class="chat-content-wrapper">
         ${this.conversationState.map(msg => {
+          if (!msg) {
+            return nothing;
+          }
           return html`
             <div class=${`chat-bubble chat-bubble-${msg.role}`}>
               <ai-chat-message
@@ -115,6 +186,19 @@ export class AIChatContent extends MozLitElement {
             </div>
           `;
         })}
+        ${this.isSearching
+          ? html`
+              <div
+                class="chat-bubble chat-bubble-assistant searching-indicator"
+              >
+                <span class="searching-text">
+                  ${this.searchQuery
+                    ? `Searching for: "${this.searchQuery}"`
+                    : "Searching the web..."}
+                </span>
+              </div>
+            `
+          : nothing}
       </div>
     `;
   }

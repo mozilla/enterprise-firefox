@@ -38,8 +38,8 @@ import mozilla.components.compose.base.textfield.TextField
 import org.mozilla.fenix.Config
 import org.mozilla.fenix.R
 import org.mozilla.fenix.theme.FirefoxTheme
+import org.mozilla.fenix.theme.PreviewThemeProvider
 import org.mozilla.fenix.theme.Theme
-import org.mozilla.fenix.theme.ThemeProvider
 
 private const val DEFAULT_REGION = "XX"
 private const val MAX_REGION_LENGTH = 2
@@ -190,7 +190,7 @@ class RegionToolsViewModel : ViewModel() {
 @Preview
 @Composable
 private fun RegionScreenPreview(
-    @PreviewParameter(ThemeProvider::class) theme: Theme,
+    @PreviewParameter(PreviewThemeProvider::class) theme: Theme,
 ) {
     FirefoxTheme(theme) {
         RegionTools(

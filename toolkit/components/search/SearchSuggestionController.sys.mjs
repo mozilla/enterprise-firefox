@@ -37,6 +37,10 @@ const lazy = XPCOMUtils.declareLazy({
 });
 
 /**
+ * @import {SearchEngine} from "./SearchEngine.sys.mjs"
+ */
+
+/**
  * @typedef {Awaited<ReturnType<typeof lazy.FormHistory.getAutoCompleteResults>>} FormHistoryResultType
  */
 
@@ -52,7 +56,7 @@ const lazy = XPCOMUtils.declareLazy({
  *   The term to provide suggestions for.
  * @property {boolean} inPrivateBrowsing
  *   Whether the request is being made in the context of private browsing.
- * @property {nsISearchEngine} engine
+ * @property {SearchEngine} engine
  *   The search engine to use for suggestions.
  * @property {number} [maxLocalResults]
  *   The maximum number of local form history results to return. This limit is
@@ -225,7 +229,7 @@ export class SearchSuggestionController {
   /**
    * Determines whether the given engine offers search suggestions.
    *
-   * @param {nsISearchEngine} engine - The search engine
+   * @param {SearchEngine} engine - The search engine
    * @param {boolean} fetchTrending - Whether we should fetch trending suggestions.
    * @returns {boolean} True if the engine offers suggestions and false otherwise.
    */

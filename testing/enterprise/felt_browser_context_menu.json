@@ -1,0 +1,21 @@
+{
+  "test_email_context_menu_cut": {},
+  "test_email_context_menu_copy": {},
+  "test_email_context_menu_paste": {},
+  "test_email_context_menu_select_all": {},
+  "test_email_context_menu_delete": {},
+  "test_email_context_menu_undo_redo": {},
+  "test_email_z_submit": {},
+  "test_login_context_menu_cut": {},
+  "test_login_context_menu_copy": {},
+  "test_login_context_menu_paste": {},
+  "test_login_context_menu_select_all": {},
+  "test_login_context_menu_delete": {},
+  "test_login_context_menu_undo_redo": {},
+  "test_password_context_menu_cut": {},
+  "test_password_context_menu_copy": {},
+  "test_password_context_menu_paste": {},
+  "test_password_context_menu_select_all": {},
+  "test_password_context_menu_delete": {},
+  "test_password_context_menu_undo_redo": {}
+}

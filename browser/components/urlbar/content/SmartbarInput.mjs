@@ -4,7 +4,13 @@
 
 import { createEditor } from "chrome://browser/content/urlbar/SmartbarInputUtils.mjs";
 // eslint-disable-next-line import/no-unassigned-import
+import "chrome://browser/content/aiwindow/components/ai-website-chip.mjs";
+// eslint-disable-next-line import/no-unassigned-import
 import "chrome://browser/content/aiwindow/components/input-cta.mjs";
+// eslint-disable-next-line import/no-unassigned-import
+import "chrome://browser/content/aiwindow/components/suggestions-panel-list.mjs";
+// eslint-disable-next-line import/no-unassigned-import
+import "chrome://browser/content/aiwindow/components/memories-icon-button.mjs";
 
 const { XPCOMUtils } = ChromeUtils.importESModule(
   "resource://gre/modules/XPCOMUtils.sys.mjs"
@@ -15,8 +21,9 @@ const { AppConstants } = ChromeUtils.importESModule(
 );
 
 /**
- * @import {UrlbarSearchOneOffs} from "moz-src:///browser/components/urlbar/UrlbarSearchOneOffs.sys.mjs"
- * @import {SmartbarAction} from "moz-src:///browser/components/aiwindow/ui/components/input-cta/input-cta.mjs"
+ * @import { UrlbarSearchOneOffs } from "moz-src:///browser/components/urlbar/UrlbarSearchOneOffs.sys.mjs"
+ * @import { SearchEngine } from "moz-src:///toolkit/components/search/SearchEngine.sys.mjs"
+ * @import { SmartbarAction } from "moz-src:///browser/components/aiwindow/ui/components/input-cta/input-cta.mjs"
  */
 
 const lazy = XPCOMUtils.declareLazy({
@@ -139,6 +146,7 @@ export class SmartbarInput extends HTMLElement {
                       inputmode="mozAwesomebar"
                       data-l10n-id="smartbar-placeholder"/>
         </moz-input-box>
+        <html:suggestions-panel-list></html:suggestions-panel-list>
         <moz-urlbar-slot name="revert-button"> </moz-urlbar-slot>
         <image class="urlbar-icon urlbar-go-button"
                role="button"
@@ -146,6 +154,7 @@ export class SmartbarInput extends HTMLElement {
         <moz-urlbar-slot name="page-actions" hidden=""> </moz-urlbar-slot>
       </hbox>
       <hbox class="smartbar-button-container">
+        <html:memories-icon-button></html:memories-icon-button>
         <html:input-cta action=""></html:input-cta>
       </hbox>
       <vbox class="urlbarView"
@@ -1196,7 +1205,7 @@ export class SmartbarInput extends HTMLElement {
    *   Where we expect the result to be opened.
    * @property {object} openParams
    *   The parameters related to where the result will be opened.
-   * @property {nsISearchEngine} engine
+   * @property {SearchEngine} engine
    *   The selected one-off's engine.
    */
 
@@ -1491,7 +1500,7 @@ export class SmartbarInput extends HTMLElement {
    *
    * @param {string} searchString
    *   The search string to use.
-   * @param {nsISearchEngine} [searchEngine]
+   * @param {SearchEngine} [searchEngine]
    *   Optional. If included and the right prefs are set, we will enter search
    *   mode when handing `searchString` from the fake input to the Urlbar.
    * @param {string} [newtabSessionId]
@@ -1549,6 +1558,11 @@ export class SmartbarInput extends HTMLElement {
 
     if (element?.dataset.command) {
       this.#pickMenuResult(result, event, element, browser);
+      return;
+    }
+
+    // This is handled by the provider internally.
+    if (result.type == lazy.UrlbarUtils.RESULT_TYPE.AI_CHAT) {
       return;
     }
 
@@ -1642,6 +1656,7 @@ export class SmartbarInput extends HTMLElement {
       ? { url: resultUrl, postData: null }
       : lazy.UrlbarUtils.getUrlFromResult(result, { element });
     openParams.postData = postData;
+    let isSplitViewActive = this.window.gBrowser.selectedTab.splitview;
 
     switch (result.type) {
       case lazy.UrlbarUtils.RESULT_TYPE.URL: {
@@ -1689,7 +1704,8 @@ export class SmartbarInput extends HTMLElement {
         // and button is provided to switch to tab.
         if (
           this.hasAttribute("action-override") ||
-          (lazy.UrlbarPrefs.get("secondaryActions.switchToTab") &&
+          ((lazy.UrlbarPrefs.get("secondaryActions.switchToTab") ||
+            isSplitViewActive) &&
             element?.dataset.action !== "tabswitch")
         ) {
           where = "current";
@@ -2155,6 +2171,11 @@ export class SmartbarInput extends HTMLElement {
       return;
     }
 
+    // Don’t autofill if mentions panel is open.
+    if (this.inputField.isHandlingMentions) {
+      return;
+    }
+
     let isPlaceholderSelected =
       this._autofillPlaceholder &&
       this.selectionEnd == this._autofillPlaceholder.value.length &&
@@ -2270,10 +2291,19 @@ export class SmartbarInput extends HTMLElement {
     resetSearchState = true,
     event,
   } = {}) {
+    // When mentions panel is open, skip queries triggered by input events
+    // since the mentions plugin will handle querying providers directly.
+    const isHandlingMentions = this.inputField.isHandlingMentions;
+    if (isHandlingMentions && event) {
+      return;
+    }
+
+    // When mentions panel is open, skip the validation since the value
+    // includes "@" but searchString doesn’t.
     if (!searchString) {
       searchString =
         this.getAttribute("pageproxystate") == "valid" ? "" : this.value;
-    } else if (!this.value.startsWith(searchString)) {
+    } else if (!isHandlingMentions && !this.value.startsWith(searchString)) {
       throw new Error("The current value doesn't start with the search string");
     }
 
@@ -2317,7 +2347,7 @@ export class SmartbarInput extends HTMLElement {
    *   use it as its query.
    * @param {object} [options]
    *   Object options
-   * @param {nsISearchEngine} [options.searchEngine]
+   * @param {SearchEngine} [options.searchEngine]
    *   Search engine to use when the search is using a known alias.
    * @param {UrlbarUtils.SEARCH_MODE_ENTRY} [options.searchModeEntry]
    *   If provided, we will record this parameter as the search mode entry point
@@ -2425,7 +2455,7 @@ export class SmartbarInput extends HTMLElement {
    *
    * @param {string} value
    * @param {object} options
-   * @param {nsISearchEngine} options.searchEngine
+   * @param {SearchEngine} options.searchEngine
    */
   openEngineHomePage(value, { searchEngine }) {
     if (!searchEngine) {
@@ -2963,10 +2993,15 @@ export class SmartbarInput extends HTMLElement {
     return true;
   }
 
+  /**
+   * @param {{wrappedJSObject: SearchEngine}} subject
+   * @param {"browser-search-engine-modified"} topic
+   * @param {string} data
+   */
   observe(subject, topic, data) {
     switch (topic) {
       case lazy.SearchUtils.TOPIC_ENGINE_MODIFIED: {
-        let engine = subject.QueryInterface(Ci.nsISearchEngine);
+        let engine = subject.wrappedJSObject;
         switch (data) {
           case lazy.SearchUtils.MODIFIED_TYPE.CHANGED:
           case lazy.SearchUtils.MODIFIED_TYPE.REMOVED: {
@@ -3414,10 +3449,12 @@ export class SmartbarInput extends HTMLElement {
    */
   _maybeAutofillPlaceholder(value) {
     // We allow autofill in local but not remote search modes.
+    // Also disable autofill when mentions panel is open.
     let allowAutofill =
       this.selectionEnd == value.length &&
       !this.searchMode?.engineName &&
-      this.searchMode?.source != lazy.UrlbarUtils.RESULT_SOURCE.SEARCH;
+      this.searchMode?.source != lazy.UrlbarUtils.RESULT_SOURCE.SEARCH &&
+      !this.inputField.isHandlingMentions;
 
     if (!allowAutofill) {
       this.#clearAutofill();
@@ -3672,7 +3709,7 @@ export class SmartbarInput extends HTMLElement {
    * updates an incremental total number of searches in a pref,
    * and informs ASRouter that a search has occurred via a trigger send
    *
-   * @param {nsISearchEngine} engine
+   * @param {SearchEngine} engine
    *   The engine to generate the query for.
    * @param {Event} event
    *   The event that triggered this query.
@@ -4807,7 +4844,7 @@ export class SmartbarInput extends HTMLElement {
   /**
    * Returns a Promise that resolves with default search engine.
    *
-   * @returns {Promise<nsISearchEngine>}
+   * @returns {Promise<SearchEngine>}
    */
   _getDefaultSearchEngine() {
     return this.isPrivate
@@ -5394,7 +5431,8 @@ export class SmartbarInput extends HTMLElement {
     }
     let oldEnd = oldValue.substring(this.selectionEnd);
 
-    const pasteData = this.sanitizeTextFromClipboard(originalPasteData);
+    const pasteData =
+      lazy.UrlbarUtils.sanitizeTextFromClipboard(originalPasteData);
 
     if (originalPasteData != pasteData) {
       // Unfortunately we're not allowed to set the bits being pasted
@@ -5426,49 +5464,6 @@ export class SmartbarInput extends HTMLElement {
         event,
       });
     }
-  }
-
-  /**
-   * Sanitize and process data retrieved from the clipboard
-   *
-   * @param {string} clipboardData
-   *   The original data retrieved from the clipboard.
-   * @returns {string}
-   *   The sanitized paste data, ready to use.
-   */
-  sanitizeTextFromClipboard(clipboardData) {
-    let fixedURI, keywordAsSent;
-    try {
-      ({ fixedURI, keywordAsSent } = Services.uriFixup.getFixupURIInfo(
-        clipboardData,
-        Ci.nsIURIFixup.FIXUP_FLAG_FIX_SCHEME_TYPOS |
-          Ci.nsIURIFixup.FIXUP_FLAG_ALLOW_KEYWORD_LOOKUP
-      ));
-    } catch (e) {}
-
-    let pasteData;
-    if (keywordAsSent) {
-      // For performance reasons, we don't want to beautify a long string.
-      if (clipboardData.length < 500) {
-        // For only keywords, replace any white spaces including line break
-        // with white space.
-        pasteData = clipboardData.replace(/\s/g, " ");
-      } else {
-        pasteData = clipboardData;
-      }
-    } else if (
-      fixedURI?.scheme == "data" &&
-      !fixedURI.spec.match(/^data:.+;base64,/)
-    ) {
-      // For data url without base64, replace line break with white space.
-      pasteData = clipboardData.replace(/[\r\n]/g, " ");
-    } else {
-      // For normal url or data url having basic64, or if fixup failed, just
-      // remove line breaks.
-      pasteData = clipboardData.replace(/[\r\n]/g, "");
-    }
-
-    return lazy.UrlbarUtils.stripUnsafeProtocolOnPaste(pasteData);
   }
 
   /**
@@ -5569,6 +5564,17 @@ export class SmartbarInput extends HTMLElement {
       // bar but we should not untrim in that case.
       this._untrimOnFocusAfterKeydown = !this.focused;
       return;
+    }
+
+    // When mentions panel is open don’t let key navigation select urlbar results.
+    if (this.inputField.isHandlingMentions) {
+      if (
+        event.keyCode === KeyEvent.DOM_VK_TAB ||
+        event.keyCode === KeyEvent.DOM_VK_DOWN ||
+        event.keyCode === KeyEvent.DOM_VK_UP
+      ) {
+        return;
+      }
     }
 
     if (

@@ -72,6 +72,7 @@ add_task(async function test_warning_message() {
     isSignedOut: false,
     error: "",
     bandwidthWarning: true,
+    bandwidthUsage: { currentBandwidthUsage: 55, maxBandwidth: 150 },
   });
   await messageBarLoadedPromise;
 

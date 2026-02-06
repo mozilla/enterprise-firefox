@@ -137,6 +137,19 @@
       "type": "boolean"
     },
 
+    "BlocklistDomainBrowsedTelemetry": {
+      "type": "object",
+      "properties": {
+        "Enabled": {
+          "type": "boolean"
+        },
+        "UrlLogging": {
+          "type": "string",
+          "enum": ["full", "domain", "none"]
+        }
+      }
+    },
+
     "Bookmarks": {
       "type": "array",
       "items": {
@@ -175,19 +188,6 @@
         },
         "AllowRestore": {
           "type": "boolean"
-        }
-      }
-    },
-
-    "BlocklistDomainBrowsedTelemetry": {
-      "type": "object",
-      "properties": {
-        "Enabled": {
-          "type": "boolean"
-        },
-        "UrlLogging": {
-          "type": "string",
-          "enum": ["full", "domain", "none"]
         }
       }
     },
@@ -649,6 +649,23 @@
 
     "DownloadDirectory": {
       "type": "string"
+    },
+
+    "DownloadTelemetry": {
+      "type": "object",
+      "properties": {
+        "Enabled": {
+          "type": "boolean"
+        },
+        "UrlLogging": {
+          "type": "string",
+          "enum": ["full", "domain", "none"]
+        },
+        "FileLogging": {
+          "type": "string",
+          "enum": ["full", "metadata", "none"]
+        }
+      }
     },
 
     "EnableTrackingProtection": {
@@ -1662,23 +1679,6 @@
 
     "StartDownloadsInTempDirectory": {
       "type": "boolean"
-    },
-
-    "DownloadTelemetry": {
-      "type": "object",
-      "properties": {
-        "Enabled": {
-          "type": "boolean"
-        },
-        "UrlLogging": {
-          "type": "string",
-          "enum": ["full", "domain", "none"]
-        },
-        "FileLogging": {
-          "type": "string",
-          "enum": ["full", "metadata", "none"]
-        }
-      }
     },
 
     "SupportMenu": {

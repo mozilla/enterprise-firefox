@@ -572,9 +572,6 @@ pub struct PicturePrimitive {
     /// transform animation and/or scrolling.
     pub segments_are_valid: bool,
 
-    /// Set to true if we know for sure the picture is fully opaque.
-    pub is_opaque: bool,
-
     /// Requested raster space for this picture
     pub raster_space: RasterSpace,
 
@@ -674,7 +671,6 @@ impl PicturePrimitive {
             spatial_node_index,
             prev_local_rect: LayoutRect::zero(),
             segments_are_valid: false,
-            is_opaque: false,
             raster_space,
             flags,
             clip_root: None,

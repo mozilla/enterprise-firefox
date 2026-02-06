@@ -95,6 +95,12 @@ class MachSettings:
                     "Do not automatically open a browser during authentication.",
                     False,
                 ),
+                (
+                    "try.noartifact",
+                    "boolean",
+                    "Do not autodetect artifact mode base on mozconfig. The '--artifact' flag must be used explicitly if artifact try pushes are desired.",
+                    False,
+                ),
             ]
 
         def taskgraph_config_settings():

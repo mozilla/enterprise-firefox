@@ -243,7 +243,7 @@ bool GMPProcessParent::Launch(int32_t aTimeoutMs) {
 }
 
 void GMPProcessParent::Delete(nsCOMPtr<nsIRunnable> aCallback) {
-  mDeletedCallback = aCallback;
+  mDeletedCallback = std::move(aCallback);
   XRE_GetAsyncIOEventTarget()->Dispatch(NewNonOwningRunnableMethod(
       "gmp::GMPProcessParent::DoDelete", this, &GMPProcessParent::DoDelete));
 }

@@ -328,6 +328,7 @@ partial interface Window {
   [Throws, NeedsCallerType] undefined moveBy(long x, long y);
   [Throws, NeedsCallerType] undefined resizeTo(long x, long y);
   [Throws, NeedsCallerType] undefined resizeBy(long x, long y);
+  [Throws, ChromeOnly] undefined moveResize(long x, long y, long w, long h);
 
   // viewport
   [Replaceable, Throws] readonly attribute double innerWidth;

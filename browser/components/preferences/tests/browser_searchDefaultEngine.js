@@ -25,11 +25,11 @@ add_setup(async function () {
   registerCleanupFunction(async () => {
     await SearchService.setDefault(
       defaultEngine,
-      Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+      SearchService.CHANGE_REASON.UNKNOWN
     );
     await SearchService.setDefaultPrivate(
       defaultPrivateEngine,
-      Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+      SearchService.CHANGE_REASON.UNKNOWN
     );
   });
 });
@@ -251,10 +251,7 @@ add_task(async function test_setDefaultEngine() {
   const engine1 = SearchService.getEngineByName("engine1");
 
   // Set an initial default so we have a known engine.
-  await SearchService.setDefault(
-    engine1,
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
-  );
+  await SearchService.setDefault(engine1, SearchService.CHANGE_REASON.UNKNOWN);
 
   Services.telemetry.clearEvents();
   Services.fog.testResetFOG();
@@ -299,7 +296,7 @@ add_task(async function test_setPrivateDefaultEngine() {
   // Set an initial default so we have a known engine.
   await SearchService.setDefaultPrivate(
     engine2,
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+    SearchService.CHANGE_REASON.UNKNOWN
   );
 
   Services.telemetry.clearEvents();

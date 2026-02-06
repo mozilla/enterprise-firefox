@@ -187,7 +187,8 @@ class CacheEntry final : public nsIRunnable,
   class Callback {
    public:
     Callback(CacheEntry* aEntry, nsICacheEntryOpenCallback* aCallback,
-             bool aReadOnly, bool aCheckOnAnyThread, bool aSecret);
+             bool aReadOnly, bool aReadAlways, bool aCheckOnAnyThread,
+             bool aSecret);
     // Special constructor for Callback objects added to the chain
     // just to ensure proper defer dooming (recreation) of this entry.
     Callback(CacheEntry* aEntry, bool aDoomWhenFoundInPinStatus);
@@ -210,6 +211,7 @@ class CacheEntry final : public nsIRunnable,
     nsCOMPtr<nsICacheEntryOpenCallback> mCallback;
     nsCOMPtr<nsIEventTarget> mTarget;
     bool mReadOnly : 1;
+    bool mReadAlways : 1;  // used for dictionary reads
     bool mRevalidating : 1;
     bool mCheckOnAnyThread : 1;
     bool mRecheckAfterWrite : 1;

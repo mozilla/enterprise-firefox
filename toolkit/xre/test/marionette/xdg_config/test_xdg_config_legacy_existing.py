@@ -12,7 +12,9 @@ class TestXdgConfigHomeLegacyExisting(XdgConfigHomeTestCase):
     def setUp(self):
         assert "XDG_CONFIG_HOME" not in self._env.keys()
         self._env.update({"XDG_CONFIG_HOME": f"{self.homedir}/.config-test/"})
-        self.product_root = self.make_product_root(os.path.join(".mozilla", "firefox"))
+        self.product_root = self.make_product_root(
+            os.path.join(".mozilla", self._product_name)
+        )
         super().setUp()
 
     def tearDown(self):
@@ -26,6 +28,6 @@ class TestXdgConfigHomeLegacyExisting(XdgConfigHomeTestCase):
         profile_subdir = self.get_asserted_profile_subdir()
         print(f"profile_subdir={profile_subdir}")
         self.assertTrue(
-            profile_subdir.startswith(".mozilla/firefox"),
-            "Profile is under '.mozilla/firefox'",
+            profile_subdir.startswith(f".mozilla/{self._product_name}"),
+            f"Profile is under '.mozilla/{self._product_name}'",
         )

@@ -1085,7 +1085,7 @@ JsepSession::Result JsepSessionImpl::SetRemoteDescription(
   NS_ENSURE_SUCCESS(rv, dom::PCError::OperationError);
 
   mRemoteIsIceLite = iceLite;
-  mIceOptions = iceOptions;
+  mIceOptions = std::move(iceOptions);
   SetIceRestarting(iceRestarting);
   return Result();
 }

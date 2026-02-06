@@ -26,18 +26,6 @@ Awsy tests
    **Owner**: :mccr8 and Perftest Team
 
    * **Test Task**:
-      * test-linux1804-64-clang-trunk-qr/opt
-            * awsy-base: None
-            * awsy-base-dmd: None
-
-      * test-linux1804-64-qr/opt
-            * awsy-base: None
-            * awsy-base-dmd: None
-
-      * test-linux1804-64-shippable-qr/opt
-            * awsy-base: trunk
-            * awsy-base-dmd: None
-
       * test-linux2404-64-clang-trunk/opt
             * awsy-base: None
             * awsy-base-dmd: None
@@ -75,18 +63,6 @@ Awsy tests
    **Owner**: :mccr8 and Perftest Team
 
    * **Test Task**:
-      * test-linux1804-64-clang-trunk-qr/opt
-            * awsy-base-dmd: None
-            * awsy-dmd: None
-
-      * test-linux1804-64-qr/opt
-            * awsy-base-dmd: None
-            * awsy-dmd: None
-
-      * test-linux1804-64-shippable-qr/opt
-            * awsy-base-dmd: None
-            * awsy-dmd: None
-
       * test-linux2404-64-clang-trunk/opt
             * awsy-base-dmd: None
             * awsy-dmd: None
@@ -124,12 +100,6 @@ Awsy tests
    **Owner**: :mccr8 and Perftest Team
 
    * **Test Task**:
-      * test-linux1804-64-clang-trunk-qr/opt
-
-      * test-linux1804-64-qr/opt
-
-      * test-linux1804-64-shippable-qr/opt
-
       * test-linux2404-64-clang-trunk/opt
 
       * test-linux2404-64-shippable/opt
@@ -155,15 +125,6 @@ Awsy tests
    **Owner**: :mccr8 and Perftest Team
 
    * **Test Task**:
-      * test-linux1804-64-clang-trunk-qr/opt
-            * awsy-tp6: None
-
-      * test-linux1804-64-qr/opt
-            * awsy-tp6: None
-
-      * test-linux1804-64-shippable-qr/opt
-            * awsy-tp6: trunk
-
       * test-linux2404-64-clang-trunk/opt
             * awsy-tp6: None
 

@@ -9,6 +9,25 @@ transforms = TransformSequence()
 
 
 @transforms.add
+def skip_enterprise_pr(config, jobs):
+    """
+    Force skip startup tests on enterprise PR scheduling, otherwise they try
+    to run and fail to produce a taskgraph because missing
+    repackage-macosx64-shippable/opt due to the lack of build-mac-notarization
+    builds that are not ran on PRs (level 1) and only on Merges (level 3)
+    """
+
+    for job in jobs:
+        if config.kind != "startup-test":
+            continue
+
+        if int(config.params["level"]) != 3:
+            continue
+
+        yield job
+
+
+@transforms.add
 def add_command(config, jobs):
     for job in jobs:
         extra_config = job.pop("extra-config")

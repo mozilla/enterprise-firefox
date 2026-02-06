@@ -260,7 +260,7 @@ function stopMockOpenAI(server) {
 async function withServer(serverOptions, task) {
   const { server, port } = startMockOpenAI(serverOptions);
   await SpecialPowers.pushPrefEnv({
-    set: [["browser.aiwindow.endpoint", `http://localhost:${port}/v1`]],
+    set: [["browser.smartwindow.endpoint", `http://localhost:${port}/v1`]],
   });
 
   try {

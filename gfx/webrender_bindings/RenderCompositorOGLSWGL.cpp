@@ -10,6 +10,7 @@
 
 #include "GLContext.h"
 #include "GLContextEGL.h"
+#include "ScopedGLHelpers.h"
 #include "mozilla/layers/BuildConstants.h"
 #include "mozilla/layers/CompositorOGL.h"
 #include "mozilla/layers/Effects.h"
@@ -218,6 +219,8 @@ bool RenderCompositorOGLSWGL::RequestFullRender() { return mFullRender; }
 void RenderCompositorOGLSWGL::Pause() {
 #ifdef MOZ_WIDGET_ANDROID
   DestroyEGLSurface();
+#elif defined(MOZ_WIDGET_GTK)
+  mCompositor->Pause();
 #endif
 }
 
@@ -259,6 +262,12 @@ bool RenderCompositorOGLSWGL::Resume() {
 
   gl::GLContextEGL::Cast(GetGLContext())->SetEGLSurfaceOverride(mEGLSurface);
   mCompositor->SetDestinationSurfaceSize(size.ToUnknownSize());
+#elif defined(MOZ_WIDGET_GTK)
+  bool resumed = mCompositor->Resume();
+  if (!resumed) {
+    RenderThread::Get()->HandleWebRenderError(WebRenderError::NEW_SURFACE);
+    return false;
+  }
 #endif
   return true;
 }
@@ -304,6 +313,43 @@ bool RenderCompositorOGLSWGL::MaybeReadback(
 
   return true;
 }
+
+#ifdef MOZ_WIDGET_ANDROID
+bool RenderCompositorOGLSWGL::MaybeCaptureScreenPixels(
+    const gfx::IntRect& aSourceRect,
+    RefPtr<layers::AndroidHardwareBuffer> aHardwareBuffer) {
+  auto* const gl = GetGLContext();
+  auto* const gle = gl::GLContextEGL::Cast(gl);
+  const auto& egl = gle->mEgl;
+  gl::ScopedEGLImageForAndroidHardwareBuffer eglImage(gle, aHardwareBuffer);
+  gl::ScopedBindFramebuffer scopedBind(gl);
+  gl::ScopedRenderbuffer rb(gl);
+  gl->fBindRenderbuffer(LOCAL_GL_RENDERBUFFER, rb);
+  gl->fEGLImageTargetRenderbufferStorage(LOCAL_GL_RENDERBUFFER, eglImage);
+  gl::ScopedFramebufferForRenderbuffer fb(gl, rb);
+
+  const auto srcRect =
+      gfx::IntRect(aSourceRect.x, GetBufferSize().height - aSourceRect.y,
+                   aSourceRect.width, -aSourceRect.height);
+  const auto destRect = gfx::IntRect({}, aHardwareBuffer->mSize);
+  gl->BindReadFB(0);
+  gl->BindDrawFB(fb.FB());
+  gl->fBlitFramebuffer(srcRect.x, srcRect.y, srcRect.XMost(), srcRect.YMost(),
+                       destRect.x, destRect.y, destRect.XMost(),
+                       destRect.YMost(), LOCAL_GL_COLOR_BUFFER_BIT,
+                       LOCAL_GL_LINEAR);
+
+  if (EGLSync sync =
+          egl->fCreateSync(LOCAL_EGL_SYNC_NATIVE_FENCE_ANDROID, nullptr)) {
+    auto fence = UniqueFileHandle(egl->fDupNativeFenceFDANDROID(sync));
+    if (fence) {
+      aHardwareBuffer->SetAcquireFence(std::move(fence));
+    }
+    egl->fDestroySync(sync);
+  }
+  return true;
+}
+#endif
 
 // This is a DataSourceSurface that represents a 0-based PBO for GLTextureImage.
 class PBOUnpackSurface : public gfx::DataSourceSurface {

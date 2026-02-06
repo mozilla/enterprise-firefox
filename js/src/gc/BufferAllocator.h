@@ -41,7 +41,7 @@ class Nursery;
 namespace gc {
 
 struct BufferChunk;
-struct Cell;
+class Cell;
 class GCRuntime;
 struct LargeBuffer;
 struct SmallBufferRegion;

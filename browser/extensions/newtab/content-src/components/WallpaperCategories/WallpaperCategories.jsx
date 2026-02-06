@@ -59,7 +59,6 @@ export class _WallpaperCategories extends React.PureComponent {
     this.state = {
       activeCategory: null,
       activeCategoryFluentID: null,
-      showColorPicker: false,
       inputType: "radio",
       activeId: null,
       customWallpaperErrorType: null,
@@ -433,8 +432,10 @@ export class _WallpaperCategories extends React.PureComponent {
     const prefs = this.props.Prefs.values;
     const { wallpaperList, categories } = this.props.Wallpapers;
     const { activeWallpaper } = this.props;
-    const { activeCategory, showColorPicker } = this.state;
+    const { activeCategory } = this.state;
     const { activeCategoryFluentID } = this.state;
+    // Enable custom color select if pref'ed on
+    let showColorPicker = prefs["newtabWallpapers.customColor.enabled"];
     let filteredWallpapers = wallpaperList.filter(
       wallpaper => wallpaper.category === activeCategory
     );
@@ -455,15 +456,10 @@ export class _WallpaperCategories extends React.PureComponent {
 
     // User has previous selected a custom color
     if (selectedWallpaper.includes("solid-color-picker")) {
-      this.setState({ showColorPicker: true });
+      showColorPicker = true;
       const regex = /#([a-fA-F0-9]{6})/;
       [wallpaperCustomSolidColorHex] = selectedWallpaper.match(regex);
     }
-
-    // Enable custom color select if pref'ed on
-    this.setState({
-      showColorPicker: prefs["newtabWallpapers.customColor.enabled"],
-    });
 
     // Remove last item of solid colors to make space for custom color picker
     if (

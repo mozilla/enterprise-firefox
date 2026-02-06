@@ -203,10 +203,12 @@ class nsAccessibilityService final : public mozilla::a11y::DocManager,
                                     nsIContent* aContent);
 
   /**
-   * Notifies when a combobox <option> text or label changes.
+   * Notifies when a combobox's <option> text or label changes.
    */
   void ComboboxOptionMaybeChanged(mozilla::PresShell*,
                                   nsIContent* aMutatingNode);
+  // Notifies when a combobox's selected index changes.
+  void ComboboxValueChanged(nsIContent*);
 
   void UpdateText(mozilla::PresShell* aPresShell, nsIContent* aContent);
 

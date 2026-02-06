@@ -11,11 +11,9 @@
 #include "mozilla/dom/HTMLSelectElement.h"
 #include "nsGkAtoms.h"
 #include "nsIFormControl.h"
-#include "nsISelectControlFrame.h"
 #include "nsStyleConsts.h"
 
 // Notify/query select frame for selected state
-#include "mozAutoDocUpdate.h"
 #include "mozilla/dom/Document.h"
 #include "nsCOMPtr.h"
 #include "nsContentCreatorFunctions.h"
@@ -88,8 +86,7 @@ void HTMLOptionElement::UpdateDisabledState(bool aNotify) {
 void HTMLOptionElement::SetSelected(bool aValue) {
   // Note: The select content obj maintains all the PresState
   // so defer to it to get the answer
-  HTMLSelectElement* selectInt = GetSelect();
-  if (selectInt) {
+  if (HTMLSelectElement* select = GetSelect()) {
     int32_t index = Index();
     HTMLSelectElement::OptionFlags mask{
         HTMLSelectElement::OptionFlag::SetDisabled,
@@ -99,7 +96,7 @@ void HTMLOptionElement::SetSelected(bool aValue) {
     }
 
     // This should end up calling SetSelectedInternal
-    selectInt->SetOptionsSelectedByIndex(index, index, mask);
+    select->SetOptionsSelectedByIndex(index, index, mask);
   } else {
     SetSelectedInternal(aValue, true);
   }

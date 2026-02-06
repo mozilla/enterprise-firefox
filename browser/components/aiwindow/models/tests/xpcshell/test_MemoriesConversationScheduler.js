@@ -81,7 +81,7 @@ add_task(async function test_scheduler_doesnt_run_with_insufficient_messages() {
 
   try {
     const findMessagesStub = sb
-      .stub(ChatStore.prototype, "findMessagesByDate")
+      .stub(ChatStore, "findMessagesByDate")
       .callsFake(async () => {
         return messages;
       });
@@ -127,7 +127,7 @@ add_task(async function test_scheduler_runs_with_small_history() {
     sb.stub(MemoriesManager, "shouldEnableMemoriesSchedulers").returns(true);
 
     const findMessagesStub = sb
-      .stub(ChatStore.prototype, "findMessagesByDate")
+      .stub(ChatStore, "findMessagesByDate")
       .callsFake(async () => {
         return messages;
       });

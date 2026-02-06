@@ -108,14 +108,14 @@ add_task(async function test_search_private_window() {
   let originalEngine = await SearchService.getDefaultPrivate();
   await SearchService.setDefaultPrivate(
     engine,
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+    SearchService.CHANGE_REASON.UNKNOWN
   );
 
   registerCleanupFunction(async () => {
     await BrowserTestUtils.closeWindow(win);
     await SearchService.setDefaultPrivate(
       originalEngine,
-      Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+      SearchService.CHANGE_REASON.UNKNOWN
     );
   });
 

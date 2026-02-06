@@ -210,11 +210,12 @@ class TabNotesControllerClass {
         aWebProgress.loadType & Ci.nsIDocShell.LOAD_CMD_RELOAD ||
         aWebProgress.loadType & Ci.nsIDocShell.LOAD_CMD_HISTORY
       ) {
-        // User is reloading/returning to the same document via history. We
-        // can count on CanonicalURLChild to listen for `pageshow` and tell us
+        // User is reloading or returning to the same document via history. We
+        // can count on CanonicalURLChild to listen for `pageshow` (for traditional
+        // web sites) or `popstate` (for single-page applications) and tell us
         // about the canonical URL at the new location.
         lazy.logConsole.debug(
-          "reload/history navigation, waiting for pageshow",
+          "reload/history navigation, waiting for pageshow or popstate",
           aLocation.spec
         );
         return;
@@ -239,9 +240,11 @@ class TabNotesControllerClass {
           );
 
         if (parent) {
-          parent.sendAsyncMessage("CanonicalURL:Detect");
+          parent.sendAsyncMessage("CanonicalURL:DetectFromPushState", {
+            pushStateUrl: aLocation.spec,
+          });
           lazy.logConsole.debug(
-            "requesting CanonicalURL:Detect due to history.pushState",
+            "requesting CanonicalURL:DetectFromPushState due to history.pushState",
             aLocation.spec
           );
         }

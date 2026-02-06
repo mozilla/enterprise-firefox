@@ -208,7 +208,7 @@ add_task(async function test_oneOff_enterSelection() {
   let previousEngine = await SearchService.getDefault();
   await SearchService.setDefault(
     suggestionEngine,
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+    SearchService.CHANGE_REASON.UNKNOWN
   );
 
   let tab = await BrowserTestUtils.openNewForegroundTab(
@@ -237,7 +237,7 @@ add_task(async function test_oneOff_enterSelection() {
 
   await SearchService.setDefault(
     previousEngine,
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+    SearchService.CHANGE_REASON.UNKNOWN
   );
   BrowserTestUtils.removeTab(tab);
 });
@@ -288,7 +288,7 @@ async function checkSuggestionClick(clickOptions, waitForActionFn) {
   let previousEngine = await SearchService.getDefault();
   await SearchService.setDefault(
     suggestionEngine,
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+    SearchService.CHANGE_REASON.UNKNOWN
   );
 
   let tab = await BrowserTestUtils.openNewForegroundTab(
@@ -333,7 +333,7 @@ async function checkSuggestionClick(clickOptions, waitForActionFn) {
 
   await SearchService.setDefault(
     previousEngine,
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+    SearchService.CHANGE_REASON.UNKNOWN
   );
   BrowserTestUtils.removeTab(tab);
 }
@@ -371,7 +371,7 @@ add_task(async function test_suggestion_enterSelection() {
   let previousEngine = await SearchService.getDefault();
   await SearchService.setDefault(
     suggestionEngine,
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+    SearchService.CHANGE_REASON.UNKNOWN
   );
 
   let tab = await BrowserTestUtils.openNewForegroundTab(
@@ -396,7 +396,7 @@ add_task(async function test_suggestion_enterSelection() {
 
   await SearchService.setDefault(
     previousEngine,
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+    SearchService.CHANGE_REASON.UNKNOWN
   );
   BrowserTestUtils.removeTab(tab);
 });

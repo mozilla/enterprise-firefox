@@ -13,7 +13,7 @@ class TestXdgConfigHomeNewExisting(XdgConfigHomeTestCase):
         assert "XDG_CONFIG_HOME" not in self._env.keys()
         self._env.update({"XDG_CONFIG_HOME": f"{self.homedir}/.config-test/"})
         self.product_root = self.make_product_root(
-            os.path.join(".config-test", "mozilla", "firefox")
+            os.path.join(".config-test", "mozilla", self._product_name)
         )
         super().setUp()
 
@@ -27,6 +27,6 @@ class TestXdgConfigHomeNewExisting(XdgConfigHomeTestCase):
 
         profile_subdir = self.get_asserted_profile_subdir()
         self.assertTrue(
-            profile_subdir.startswith(".config-test/mozilla/firefox"),
-            "Profile is under '.config-test/mozilla/firefox'",
+            profile_subdir.startswith(f".config-test/mozilla/{self._product_name}"),
+            f"Profile is under '.config-test/mozilla/{self._product_name}'",
         )

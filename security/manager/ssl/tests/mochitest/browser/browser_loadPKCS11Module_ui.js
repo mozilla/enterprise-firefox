@@ -46,24 +46,8 @@ const gMockPKCS11ModuleDB = {
     throw new Error("not expecting getInternal() to be called");
   },
 
-  getInternalFIPS() {
-    throw new Error("not expecting getInternalFIPS() to be called");
-  },
-
   listModules() {
     throw new Error("not expecting listModules() to be called");
-  },
-
-  get canToggleFIPS() {
-    throw new Error("not expecting get canToggleFIPS() to be called");
-  },
-
-  toggleFIPSMode() {
-    throw new Error("not expecting toggleFIPSMode() to be called");
-  },
-
-  get isFIPSEnabled() {
-    throw new Error("not expecting get isFIPSEnabled() to be called");
   },
 
   QueryInterface: ChromeUtils.generateQI(["nsIPKCS11ModuleDB"]),

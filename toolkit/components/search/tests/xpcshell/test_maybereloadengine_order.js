@@ -46,9 +46,7 @@ add_task(async function basic_multilocale_test() {
   });
 
   Assert.equal(
-    SearchService.wrappedJSObject._settings.getMetaDataAttribute(
-      "useSavedOrder"
-    ),
+    SearchService._settings.getMetaDataAttribute("useSavedOrder"),
     false,
     "We should not set the engine order during maybeReloadEngines"
   );

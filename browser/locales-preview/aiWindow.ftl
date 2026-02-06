@@ -55,6 +55,14 @@ aiwindow-input-cta-label-navigate = Go
 smartbar-placeholder =
     .placeholder = Ask, search, or type a URL
 
+## Mentions
+## These label strings generally refer to “pages”, which can either be open tabs
+## or previously visited pages depending on the results shown in the list.
+
+smartbar-mentions-list-no-results-label = No tabs or pages found
+smartbar-mentions-list-open-tabs-label = Tabs
+smartbar-mentions-list-previously-visited-pages-label = Previously visited
+
 ## Website Chip
 
 aiwindow-website-chip-placeholder = Tag a tab or site
@@ -88,7 +96,7 @@ aiwindow-copy-message =
 
 ## Ask Toolbar Button
 
-aiwindow-ask-button =
+smartwindow-ask-button =
     .label = Ask
 
 ## Memories toggle button
@@ -99,3 +107,13 @@ aiwindow-memories-on =
 aiwindow-memories-off =
     .tooltiptext = Memories off
     .aria-label = Memories off
+
+## New Chat Button
+
+aiwindow-new-chat =
+    .tooltiptext = New chat
+    .aria-label = New chat
+
+## Sign out dialog
+
+fxa-signout-dialog-body-aiwindow = Synced data will remain in your account. Your open Smart Windows will switch to standard windows.

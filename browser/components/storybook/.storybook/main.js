@@ -41,7 +41,7 @@ module.exports = {
     // AI Window components stories
     `${projectRoot}/browser/components/aiwindow/ui/**/*.stories.mjs`,
     // Multiline editor components stories
-    `${projectRoot}/browser/components/multilineeditor/**/*.stories.mjs`,
+    `${projectRoot}/browser/components/multilineeditor/**/*.stories.@(mjs|md)`,
     // Everything else
     "../stories/**/*.stories.@(js|jsx|mjs|ts|tsx|md)",
     // Design system files

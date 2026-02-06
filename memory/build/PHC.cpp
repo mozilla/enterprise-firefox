@@ -1822,7 +1822,11 @@ Maybe<void*> PHC::PageRealloc(const Maybe<arena_id_t>& aArenaId, void* aOldPtr,
     // because the user might have used malloc_usable_size() and filled up the
     // usable size.
     size_t oldUsableSize = PageUsableSize(index);
-    size_t newUsableSize = MozJemalloc::malloc_good_size(aNewSize);
+    // It's possible for mozjemalloc to round an allocation from below the page
+    // size to above it. So use std::min to make sure this never exceeds the
+    // page size.
+    size_t newUsableSize =
+        std::min(MozJemalloc::malloc_good_size(aNewSize), kPhcPageSize);
     uint8_t* pagePtr = sRegion.AllocPagePtr(index);
     uint8_t* newPtr = pagePtr + kPhcPageSize - newUsableSize;
     memmove(newPtr, aOldPtr, std::min(oldUsableSize, aNewSize));

@@ -202,7 +202,8 @@ JSString* ComputeStackString(JSContext* cx);
 extern bool ErrorToException(JSContext* cx, JSErrorReport* reportp,
                              JSErrorCallback callback, void* userRef);
 
-extern JSErrorReport* ErrorFromException(JSContext* cx, HandleObject obj);
+extern bool ErrorFromException(JSContext* cx, HandleObject obj,
+                               JS::BorrowedErrorReport& errorReport);
 
 /*
  * Make a copy of errobj parented to cx's compartment's global.

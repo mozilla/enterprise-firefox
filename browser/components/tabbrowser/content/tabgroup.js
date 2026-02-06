@@ -562,8 +562,14 @@
     addTabs(tabsOrSplitViews, metricsContext = null) {
       for (let tabOrSplitView of tabsOrSplitViews) {
         if (gBrowser.isSplitViewWrapper(tabOrSplitView)) {
+          let splitViewToMove =
+            this.ownerGlobal === tabOrSplitView.ownerGlobal
+              ? tabOrSplitView
+              : gBrowser.adoptSplitView(tabOrSplitView, {
+                  elementIndex: gBrowser.tabs.at(-1)._tPos + 1,
+                });
           gBrowser.moveSplitViewToExistingGroup(
-            tabOrSplitView,
+            splitViewToMove,
             this,
             metricsContext
           );
@@ -601,8 +607,12 @@
           detail: metricsContext,
         })
       );
-      for (let i = this.tabs.length - 1; i >= 0; i--) {
-        gBrowser.ungroupTab(this.tabs[i]);
+      for (let i = this.tabsAndSplitViews.length - 1; i >= 0; i--) {
+        if (gBrowser.isSplitViewWrapper(this.tabsAndSplitViews[i])) {
+          gBrowser.ungroupSplitView(this.tabsAndSplitViews[i]);
+        } else if (gBrowser.isTab(this.tabsAndSplitViews[i])) {
+          gBrowser.ungroupTab(this.tabsAndSplitViews[i]);
+        }
       }
     }
 

@@ -18,6 +18,8 @@ const failOverTimeout = 10; // seconds
 
 const MODE_PREF = "browser.ipProtection.mode";
 
+const isXpcshell = Services.env.exists("XPCSHELL_TEST_PROFILE_DIR");
+
 export const IPPMode = Object.freeze({
   MODE_FULL: 0,
   MODE_PB: 1,
@@ -138,12 +140,16 @@ export class IPPChannelFilter {
    */
   static serverToProxyInfo(authToken, server) {
     const isolationKey = IPPChannelFilter.makeIsolationKey();
+    // When running tests, we can’t set alwaysTunnel to true because our test
+    // server doesn’t support tunneling.
+    const alwaysTunnel = !(Cu.isInAutomation || isXpcshell);
     return server.protocols.reduceRight((fallBackInfo, protocol) => {
       return IPPChannelFilter.constructProxyInfo(
         authToken,
         isolationKey,
         protocol,
-        fallBackInfo
+        fallBackInfo,
+        alwaysTunnel
       );
     }, null);
   }

@@ -100,7 +100,10 @@ class OpenTabsInSplitView extends MozLitElement {
     const { gBrowser } = this.getWindow();
     const tab = event.originalTarget.tabElement;
     if (this.currentSplitView) {
-      this.currentSplitView.replaceTab(gBrowser.selectedTab, tab);
+      let aboutOpenTabsTab = gBrowser.getTabForBrowser(
+        window.browsingContext.embedderElement
+      );
+      this.currentSplitView.replaceTab(aboutOpenTabsTab, tab);
     }
   }
 

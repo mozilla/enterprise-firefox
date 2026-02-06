@@ -55,6 +55,7 @@ export class UrlbarResult {
    * @param {boolean} [params.heuristic]
    * @param {boolean} [params.hideRowLabel]
    * @param {boolean} [params.isBestMatch]
+   * @param {boolean} [params.isNovaSuggestion]
    * @param {boolean} [params.isRichSuggestion]
    * @param {boolean} [params.isSuggestedIndexRelativeToGroup]
    * @param {string} [params.providerName]
@@ -77,6 +78,7 @@ export class UrlbarResult {
     heuristic = false,
     hideRowLabel = false,
     isBestMatch = false,
+    isNovaSuggestion = false,
     isRichSuggestion = false,
     isSuggestedIndexRelativeToGroup = false,
     providerName,
@@ -126,6 +128,7 @@ export class UrlbarResult {
     this.#heuristic = heuristic;
     this.#hideRowLabel = hideRowLabel;
     this.#isBestMatch = isBestMatch;
+    this.#isNovaSuggestion = isNovaSuggestion;
     this.#isRichSuggestion = isRichSuggestion;
     this.#isSuggestedIndexRelativeToGroup = isSuggestedIndexRelativeToGroup;
     this.#richSuggestionIconSize = richSuggestionIconSize;
@@ -184,6 +187,10 @@ export class UrlbarResult {
 
   get isBestMatch() {
     return this.#isBestMatch;
+  }
+
+  get isNovaSuggestion() {
+    return this.#isNovaSuggestion;
   }
 
   get isRichSuggestion() {
@@ -255,6 +262,11 @@ export class UrlbarResult {
 
   get testForceNewContent() {
     return this.#testForceNewContent;
+  }
+
+  // Used only for test.
+  get testHighlights() {
+    return this.#highlights;
   }
 
   /**
@@ -462,6 +474,7 @@ export class UrlbarResult {
   #heuristic;
   #hideRowLabel;
   #isBestMatch;
+  #isNovaSuggestion;
   #isRichSuggestion;
   #isSuggestedIndexRelativeToGroup;
   #providerName;

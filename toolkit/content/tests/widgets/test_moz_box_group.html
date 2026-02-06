@@ -17,6 +17,7 @@
     <script src="lit-test-helpers.js"></script>
     <script>
       let html;
+      let MozLitElement;
       let testHelpers = new LitTestHelpers();
 
       async function keyboardNavigate(direction, boxGroup) {
@@ -28,6 +29,8 @@
       }
       add_setup(async function setup() {
         ({ html } = await testHelpers.setupLit());
+        ({ MozLitElement } =
+          await import("chrome://global/content/lit-utils.mjs"));
         let templateFn = () => html`
           <moz-box-group>
             <moz-box-item label="item"></moz-box-item>
@@ -593,17 +596,56 @@
       });
 
       add_task(async function testMozBoxGroupReorderable() {
-        let reorderableTemplate = html`<moz-box-group type="reorderable-list">
-          <moz-box-item label="item 1"></moz-box-item>
-          <moz-box-item label="item 2"></moz-box-item>
-          <moz-box-item label="item 3"></moz-box-item>
-          <moz-box-item label="footer" slot="footer"></moz-box-item>
-        </moz-box-group>`;
+        class TestReorderable extends MozLitElement {
+          static properties = { items: { type: Array } };
+          constructor() {
+            super();
+            this.items = [
+              html`<moz-box-item label="item 1"></moz-box-item>`,
+              html`<moz-box-item label="item 2"></moz-box-item>`,
+              html`<moz-box-item label="item 3"></moz-box-item>`,
+              html`<moz-box-item label="footer" slot="footer"></moz-box-item>`,
+            ];
+          }
+          render() {
+            return html`<moz-box-group
+              @reorder=${this.onReorder}
+              type="reorderable-list"
+            >
+              ${this.items}
+            </moz-box-group>`;
+          }
+
+          onReorder(event) {
+            const { draggedIndex, targetIndex } = event.detail;
+            const [draggedItem] = this.items.splice(draggedIndex, 1);
+            this.items.splice(targetIndex, 0, draggedItem);
+            this.requestUpdate();
+          }
+        }
+        customElements.define("test-reorderable", TestReorderable);
+        let reorderableTemplate = html`<test-reorderable></test-reorderable>`;
         let {
           children: [boxGroup],
         } = await testHelpers.renderTemplate(reorderableTemplate);
-        let boxItems = boxGroup.querySelectorAll("moz-box-item");
-        let [item1, item2, item3, footer] = boxItems;
+        let reorderableWrapper = boxGroup;
+        boxGroup = boxGroup.shadowRoot.querySelector("moz-box-group");
+
+        /**
+          Since the DOM nodes are destroyed and recreated, we need to
+          get fresh references to the newly created elements. Otherwise,
+          we will send a keydown event to an element that is no longer in
+          the DOM tree. This will cause the test to timeout.
+        */
+        function getNewRefs() {
+          let item1 = boxGroup.querySelector("[label='item 1']");
+          let item2 = boxGroup.querySelector("[label='item 2']");
+          let item3 = boxGroup.querySelector("[label='item 3']");
+          let footer = boxGroup.querySelector("[label='footer']");
+          return [item1, item2, item3, footer];
+        }
+
+        let [item1, item2, item3, footer] = getNewRefs();
 
         async function moveItem(item, direction) {
           let handle = item.handleEl;
@@ -626,52 +668,74 @@
         );
 
         is(
-          boxGroup.querySelector("moz-box-item:nth-of-type(2)"),
-          item2,
+          boxGroup.querySelector("moz-box-item:nth-of-type(2)").label,
+          item2.label,
           "item2 starts in the second position."
         );
         is(
-          boxGroup.querySelector("moz-box-item:nth-of-type(3)"),
-          item3,
+          boxGroup.querySelector("moz-box-item:nth-of-type(3)").label,
+          item3.label,
           "item3 starts after item2 in the third position."
         );
 
+        /*
+          Ensure the moz-box-items get the REORDER_PROP so that the
+          reorder event fires as expected.
+        **/
+        boxGroup.reorderableList.getItems();
+        let reordered = BrowserTestUtils.waitForEvent(boxGroup, "reorder");
         await moveItem(item3, "up");
+        await reordered;
+        await reorderableWrapper.updateComplete;
 
         is(
-          boxGroup.querySelector("moz-box-item:nth-of-type(2)"),
-          item3,
+          boxGroup.querySelector("moz-box-item:nth-of-type(2)").label,
+          item3.label,
           "item3 has been reordered to the second position."
         );
         is(
-          boxGroup.querySelector("moz-box-item:nth-of-type(3)"),
-          item2,
+          boxGroup.querySelector("moz-box-item:nth-of-type(3)").label,
+          item2.label,
           "item2 has been reordered to the third position."
         );
 
+        reordered = BrowserTestUtils.waitForEvent(boxGroup, "reorder");
         await moveItem(item1, "down");
+        await reordered;
+        await reorderableWrapper.updateComplete;
 
         is(
-          boxGroup.querySelector("moz-box-item:nth-of-type(1)"),
-          item3,
+          boxGroup.querySelector("moz-box-item:nth-of-type(1)").label,
+          item3.label,
           "item3 has been reordered to the first position."
         );
         is(
-          boxGroup.querySelector("moz-box-item:nth-of-type(2)"),
-          item1,
+          boxGroup.querySelector("moz-box-item:nth-of-type(2)").label,
+          item1.label,
           "item1 has been reordered to the second position."
         );
         is(
-          boxGroup.querySelector("moz-box-item:nth-of-type(3)"),
-          item2,
+          boxGroup.querySelector("moz-box-item:nth-of-type(3)").label,
+          item2.label,
           "item2 is still in the third position."
         );
 
+        /*
+          Since item2 was moved when item3 was moved up, item2 no longer
+          exists in our DOM. Therefore we need to get a new reference to
+          item2 before trying to move it down
+        **/
+        [item1, item2, item3, footer] = getNewRefs();
+        /*
+         Item2 is at the bottom of the list, thus trying to move it
+         down will never fire a reorder event.
+        **/
         await moveItem(item2, "down");
+        await reorderableWrapper.updateComplete;
 
         is(
-          boxGroup.querySelector("moz-box-item:nth-of-type(3)"),
-          item2,
+          boxGroup.querySelector("moz-box-item:nth-of-type(3)").label,
+          item2.label,
           "item2 is still in the third position."
         );
 
@@ -681,7 +745,12 @@
           "footer is in the forth position."
         );
 
+        /*
+          The footer element can't be reordered, so no reorder event
+          will fire in this case.
+        **/
         await moveItem(footer, "up");
+        await reorderableWrapper.updateComplete;
 
         is(
           boxGroup.querySelector("moz-box-item:nth-of-type(4)"),

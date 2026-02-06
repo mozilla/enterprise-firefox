@@ -66,7 +66,7 @@ add_setup(async function () {
   registerCleanupFunction(async function () {
     await SearchService.setDefault(
       oldDefaultEngine,
-      Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+      SearchService.CHANGE_REASON.UNKNOWN
     );
     sinon.restore();
     Services.prefs.clearUserPref("browser.search.suggest.enabled");

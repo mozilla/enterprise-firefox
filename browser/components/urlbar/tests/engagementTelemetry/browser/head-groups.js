@@ -536,15 +536,12 @@ async function _useTailSuggestionsEngine() {
 
   const tailEngine = SearchService.getEngineByName(engineName);
   const originalEngine = await SearchService.getDefault();
-  SearchService.setDefault(
-    tailEngine,
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
-  );
+  SearchService.setDefault(tailEngine, SearchService.CHANGE_REASON.UNKNOWN);
 
   return async () => {
     SearchService.setDefault(
       originalEngine,
-      Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+      SearchService.CHANGE_REASON.UNKNOWN
     );
     httpServer.stop(() => {});
     await SpecialPowers.popPrefEnv();

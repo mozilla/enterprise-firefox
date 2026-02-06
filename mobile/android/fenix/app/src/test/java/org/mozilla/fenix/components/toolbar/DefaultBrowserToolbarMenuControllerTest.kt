@@ -4,6 +4,7 @@
 
 package org.mozilla.fenix.components.toolbar
 
+import android.content.Context
 import android.content.Intent
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
@@ -55,7 +56,6 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.mozilla.fenix.BrowserDirection
 import org.mozilla.fenix.GleanMetrics.Collections
 import org.mozilla.fenix.GleanMetrics.Events
 import org.mozilla.fenix.GleanMetrics.ReaderMode
@@ -65,11 +65,14 @@ import org.mozilla.fenix.NavGraphDirections
 import org.mozilla.fenix.R
 import org.mozilla.fenix.browser.BrowserAnimator
 import org.mozilla.fenix.browser.BrowserFragmentDirections
+import org.mozilla.fenix.browser.browsingmode.BrowsingMode
 import org.mozilla.fenix.browser.readermode.ReaderModeController
 import org.mozilla.fenix.collections.SaveCollectionStep
 import org.mozilla.fenix.components.AppStore
+import org.mozilla.fenix.components.Components
 import org.mozilla.fenix.components.TabCollectionStorage
 import org.mozilla.fenix.components.appstate.AppAction.ShortcutAction
+import org.mozilla.fenix.components.appstate.AppState
 import org.mozilla.fenix.components.usecases.FenixBrowserUseCases
 import org.mozilla.fenix.compose.snackbar.Snackbar
 import org.mozilla.fenix.ext.components
@@ -89,10 +92,6 @@ class DefaultBrowserToolbarMenuControllerTest {
     val gleanTestRule = FenixGleanTestRule(testContext)
 
     @MockK private lateinit var snackbarParent: ViewGroup
-
-    @RelaxedMockK private lateinit var fragment: Fragment
-
-    @RelaxedMockK private lateinit var activity: HomeActivity
 
     @RelaxedMockK private lateinit var navController: NavController
 
@@ -128,22 +127,37 @@ class DefaultBrowserToolbarMenuControllerTest {
 
     @RelaxedMockK private lateinit var pinnedSiteStorage: PinnedSiteStorage
 
-    @RelaxedMockK private lateinit var appStore: AppStore
-
     private lateinit var browserStore: BrowserStore
     private lateinit var selectedTab: TabSessionState
     private var deleteAndQuitCalled = false
+
+    @RelaxedMockK private lateinit var fragment: Fragment
+
+    @RelaxedMockK private lateinit var activity: HomeActivity
+    private lateinit var context: Context
+    private lateinit var components: Components
+    private lateinit var appStore: AppStore
 
     @Before
     fun setUp() {
         MockKAnnotations.init(this)
 
-        every { activity.components.useCases.sessionUseCases } returns sessionUseCases
-        every { activity.components.useCases.customTabsUseCases } returns customTabUseCases
-        every { activity.components.useCases.searchUseCases } returns searchUseCases
-        every { activity.components.useCases.topSitesUseCase } returns topSitesUseCase
-        every { activity.components.useCases.tabsUseCases } returns tabsUseCases
-        every { activity.components.useCases.fenixBrowserUseCases } returns fenixBrowserUseCases
+        appStore = spyk(AppStore(initialState = AppState(mode = BrowsingMode.Normal)))
+
+        context = mockk(relaxed = true)
+        components = mockk(relaxed = true)
+
+        every { fragment.requireContext() } returns context
+        every { fragment.requireActivity() } returns activity
+        every { context.components } returns components
+        every { activity.components } returns components
+        every { components.useCases.sessionUseCases } returns sessionUseCases
+        every { components.useCases.customTabsUseCases } returns customTabUseCases
+        every { components.useCases.searchUseCases } returns searchUseCases
+        every { components.useCases.topSitesUseCase } returns topSitesUseCase
+        every { components.useCases.tabsUseCases } returns tabsUseCases
+        every { components.useCases.fenixBrowserUseCases } returns fenixBrowserUseCases
+
         every { sessionFeatureWrapper.get() } returns sessionFeature
         every { navController.currentDestination } returns mockk {
             every { id } returns R.id.browserFragment
@@ -151,7 +165,11 @@ class DefaultBrowserToolbarMenuControllerTest {
         every { settings.topSitesMaxLimit } returns 16
 
         val onComplete = slot<(Boolean) -> Unit>()
-        every { browserAnimator.captureEngineViewAndDrawStatically(any(), capture(onComplete)) } answers { onComplete.captured.invoke(true) }
+        every {
+            browserAnimator.captureEngineViewAndDrawStatically(any(), capture(onComplete))
+        } answers {
+            onComplete.captured.invoke(true)
+        }
 
         selectedTab = createTab("https://www.mozilla.org", id = "1")
 
@@ -890,23 +908,36 @@ class DefaultBrowserToolbarMenuControllerTest {
         runTest {
             val item = ToolbarMenu.Item.ReportBrokenSite
             every { settings.isTelemetryEnabled } returns false
+
+            every { navController.currentDestination } returns mockk {
+                every { id } returns 0
+            }
+
             val controller = createController(scope = this, store = browserStore)
 
             controller.handleToolbarItemInteraction(item)
 
             verify {
-                activity.openToBrowserAndLoad(
+                navController.navigate(R.id.browserFragment)
+            }
+
+            val expectedPrivate = appStore.state.mode.isPrivate
+
+            verify {
+                fenixBrowserUseCases.loadUrlOrSearch(
                     searchTermOrURL = "$WEB_COMPAT_REPORTER_URL${selectedTab.content.url}",
                     newTab = true,
-                    from = BrowserDirection.FromGlobal,
+                    private = expectedPrivate,
                 )
             }
+
+            val telemetry = Events.browserMenuAction.testGetValue()?.firstOrNull()
+            assertEquals("report_broken_site", telemetry?.extra?.get("item"))
         }
 
     private fun createController(
         scope: CoroutineScope,
         store: BrowserStore,
-        activity: HomeActivity = this.activity,
         customTabSessionId: String? = null,
         findInPageLauncher: () -> Unit = { },
         bookmarkTapped: (String, String) -> Unit = { _, _ -> },
@@ -914,7 +945,6 @@ class DefaultBrowserToolbarMenuControllerTest {
         fragment = fragment,
         store = store,
         appStore = appStore,
-        activity = activity,
         navController = navController,
         settings = settings,
         findInPageLauncher = findInPageLauncher,
@@ -928,7 +958,7 @@ class DefaultBrowserToolbarMenuControllerTest {
         sessionFeature = sessionFeatureWrapper,
         topSitesStorage = topSitesStorage,
         pinnedSiteStorage = pinnedSiteStorage,
-        deleteAndQuit = { _ -> deleteAndQuitCalled = true },
+        deleteAndQuit = { deleteAndQuitCalled = true },
     ).apply {
         ioScope = scope
     }

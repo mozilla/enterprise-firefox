@@ -32,7 +32,6 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mozilla.fenix.R
-import org.mozilla.fenix.TabPartitionTags
 import org.mozilla.fenix.browser.browsingmode.BrowsingMode
 import org.mozilla.fenix.components.AppStore
 import org.mozilla.fenix.components.appstate.AppState
@@ -456,7 +455,6 @@ class FenixBrowserUseCasesTest {
                 private = false,
             )
             tabsUseCases.addTabsInGroup(
-                partition = TabPartitionTags.TAB_GROUPS,
                 group = group,
                 tabId = tabId,
             )

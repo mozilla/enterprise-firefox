@@ -125,6 +125,10 @@ export default class MozSelect extends MozBaseInputElement {
           disabled: node.getAttribute("disabled") !== null,
           hidden: node.getAttribute("hidden") !== null,
         });
+      } else if (node.localName === "hr") {
+        options.push({
+          separator: true,
+        });
       }
     }
 
@@ -171,6 +175,17 @@ export default class MozSelect extends MozBaseInputElement {
    */
   togglePanel(event) {
     this.panelList?.toggle(event);
+  }
+
+  /**
+   * Prevents mousedown on the trigger from propagating to panel-list's document
+   * listener, which would close the panel before the click handler can toggle
+   * it.
+   *
+   * @param {MouseEvent} event - The mousedown event.
+   */
+  handlePanelMousedown(event) {
+    event.stopPropagation();
   }
 
   /**
@@ -275,17 +290,19 @@ export default class MozSelect extends MozBaseInputElement {
         this.hasDescription ? undefined : this.ariaDescription
       )}
     >
-      ${this.options.map(
-        option => html`
-          <option
-            value=${option.value}
-            .selected=${option.value == this.value}
-            ?disabled=${option.disabled}
-            ?hidden=${option.hidden}
-          >
-            ${option.label}
-          </option>
-        `
+      ${this.options.map(option =>
+        option.separator
+          ? html`<hr />`
+          : html`
+              <option
+                value=${option.value}
+                .selected=${option.value == this.value}
+                ?disabled=${option.disabled}
+                ?hidden=${option.hidden}
+              >
+                ${option.label}
+              </option>
+            `
       )}
     </select>`;
   }
@@ -303,6 +320,7 @@ export default class MozSelect extends MozBaseInputElement {
       aria-expanded=${this.panelList?.open ? "true" : "false"}
       @click=${this.togglePanel}
       @keydown=${this.handlePanelKeydown}
+      @mousedown=${this.handlePanelMousedown}
       ?disabled=${this.disabled || this.parentDisabled}
     >
       ${this.selectedOption?.label}
@@ -322,20 +340,21 @@ export default class MozSelect extends MozBaseInputElement {
       @click=${this.handlePanelChange}
       @hidden=${this.handlePanelHidden}
     >
-      ${this.options.map(
-        option =>
-          html`<panel-item
-            .value=${option.value}
-            ?selected=${option.value == this.value}
-            ?disabled=${option.disabled}
-            ?hidden=${option.hidden}
-            icon=${ifDefined(option.iconSrc)}
-            style=${option.iconSrc
-              ? `--select-item-icon-url: url(${option.iconSrc})`
-              : ""}
-          >
-            ${option.label}
-          </panel-item>`
+      ${this.options.map(option =>
+        option.separator
+          ? html`<hr />`
+          : html`<panel-item
+              .value=${option.value}
+              ?selected=${option.value == this.value}
+              ?disabled=${option.disabled}
+              ?hidden=${option.hidden}
+              icon=${ifDefined(option.iconSrc)}
+              style=${option.iconSrc
+                ? `--select-item-icon-url: url(${option.iconSrc})`
+                : ""}
+            >
+              ${option.label}
+            </panel-item>`
       )}
     </panel-list>`;
   }

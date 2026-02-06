@@ -25,11 +25,11 @@ import androidx.compose.ui.tooling.preview.PreviewParameter
 import mozilla.components.compose.base.annotation.FlexibleWindowPreview
 import mozilla.components.compose.base.button.OutlinedButton
 import org.mozilla.fenix.R
-import org.mozilla.fenix.compose.SwitchWithLabel
+import org.mozilla.fenix.compose.list.SwitchListItem
 import org.mozilla.fenix.nimbus.FxNimbus
 import org.mozilla.fenix.theme.FirefoxTheme
+import org.mozilla.fenix.theme.PreviewThemeProvider
 import org.mozilla.fenix.theme.Theme
-import org.mozilla.fenix.theme.ThemeProvider
 
 /**
  * CFR Tools UI that allows for the CFR states to be reset.
@@ -189,12 +189,15 @@ private fun CfrToggle(
     enabled: Boolean = true,
     onCfrToggle: () -> Unit,
 ) {
-    SwitchWithLabel(
+    SwitchListItem(
         label = title,
         checked = checked,
         modifier = Modifier.padding(horizontal = FirefoxTheme.layout.space.dynamic400),
         description = description,
+        maxDescriptionLines = Int.MAX_VALUE,
+        maxLabelLines = Int.MAX_VALUE,
         enabled = enabled,
+        showSwitchAfter = true,
     ) {
         onCfrToggle()
     }
@@ -220,7 +223,7 @@ private fun CfrSectionTitle(
 @Composable
 @FlexibleWindowPreview
 private fun CfrToolsPreview(
-    @PreviewParameter(ThemeProvider::class) theme: Theme,
+    @PreviewParameter(PreviewThemeProvider::class) theme: Theme,
 ) {
     FirefoxTheme(theme) {
         CfrTools(

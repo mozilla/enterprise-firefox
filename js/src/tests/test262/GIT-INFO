@@ -1,9 +1,13 @@
-commit 4869a68f71f9ea4c1b50ac7b1283e1fc81525581
-Author: Frank Yung-Fong Tang <ftang@chromium.org>
-Date:   Wed Dec 10 08:37:46 2025 -0800
+commit 677ee2634952e762ca57ffcb8fffee91692c7517
+Author: André Bargull <andre.bargull@gmail.com>
+Date:   Thu Jan 29 14:19:46 2026 +0100
 
-    Add test for ECMA402 PR 1015 to verify  (new Intl.Segmenter()).segment("123")[Symbol.iterator].name (#4635)
+    Allow Intl.DisplayNames to support calendars not returned by Intl.supportedValuesOf
     
-    * Add test for ECMA402 PR 1015
+    Change the assertion so that if a calendar is not supported, then it
+    must be a calendar not returned by `Intl.supportedValuesOf("calendar")`.
     
-    https://github.com/tc39/ecma402/pull/1015
+    This allows for example implementations to provide a display name for
+    `"islamic"`.
+    
+    See <https://github.com/tc39/ecma402/issues/1042>.

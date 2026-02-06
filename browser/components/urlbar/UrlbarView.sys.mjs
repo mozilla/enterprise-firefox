@@ -1709,6 +1709,67 @@ export class UrlbarView {
     item._elements.set("bottom", bottom);
   }
 
+  #createRowContentForNova(item, _result) {
+    item._content.toggleAttribute("selectable", true);
+
+    let favicon = this.#createElement("img");
+    favicon.className = "urlbarView-favicon";
+    item._content.appendChild(favicon);
+    item._elements.set("favicon", favicon);
+
+    let body = this.#createElement("span");
+    body.className = "urlbarView-row-body";
+    item._content.appendChild(body);
+
+    let top = this.#createElement("div");
+    top.className = "urlbarView-row-body-top";
+    body.appendChild(top);
+
+    let noWrap = this.#createElement("div");
+    noWrap.className = "urlbarView-row-body-top-no-wrap";
+    top.appendChild(noWrap);
+    item._elements.set("noWrap", noWrap);
+
+    let title = this.#createElement("span");
+    title.classList.add("urlbarView-title", "urlbarView-overflowable");
+    noWrap.appendChild(title);
+    item._elements.set("title", title);
+
+    let subtitleSeparator = this.#createElement("span");
+    subtitleSeparator.className = "urlbarView-subtitle-separator";
+    noWrap.appendChild(subtitleSeparator);
+    item._elements.set("subtitleSeparator", subtitleSeparator);
+
+    let subtitle = this.#createElement("span");
+    subtitle.className = "urlbarView-subtitle";
+    noWrap.appendChild(subtitle);
+    item._elements.set("subtitle", subtitle);
+
+    let description = this.#createElement("div");
+    description.classList.add("urlbarView-row-body-description");
+    body.appendChild(description);
+    item._elements.set("description", description);
+
+    let bottom = this.#createElement("div");
+    bottom.className = "urlbarView-row-body-bottom";
+    body.appendChild(bottom);
+
+    let bottomLabel = this.#createElement("span");
+    bottomLabel.className = "urlbarView-bottom-label";
+    bottom.appendChild(bottomLabel);
+    item._elements.set("bottomLabel", bottomLabel);
+
+    let bottomSeparator = this.#createElement("span");
+    bottomSeparator.className = "urlbarView-bottom-separator";
+    bottom.appendChild(bottomSeparator);
+    item._elements.set("bottomSeparator", bottomSeparator);
+
+    let url = this.#createElement("span");
+    url.className = "urlbarView-url";
+    bottom.appendChild(url);
+    item._elements.set("url", url);
+  }
+
   #needsNewButtons(item, oldResult, newResult) {
     if (!oldResult) {
       return true;
@@ -1974,6 +2035,10 @@ export class UrlbarView {
       }
     }
 
+    if (oldResult.isNovaSuggestion != newResult.isNovaSuggestion) {
+      return true;
+    }
+
     return newResult.testForceNewContent;
   }
 
@@ -2006,8 +2071,11 @@ export class UrlbarView {
           item.classList.remove(className);
         }
       }
+
       if (item.result.type == lazy.UrlbarUtils.RESULT_TYPE.DYNAMIC) {
         this.#createRowContentForDynamicType(item, result);
+      } else if (result.isNovaSuggestion) {
+        this.#createRowContentForNova(item, result);
       } else if (result.isRichSuggestion) {
         this.#createRowContentForRichSuggestion(item, result);
       } else {
@@ -2023,6 +2091,17 @@ export class UrlbarView {
     this.#updateRowButtons(item, oldResult, result);
 
     item._content.id = item.id + "-inner";
+
+    if (result.isNovaSuggestion) {
+      item.toggleAttribute("nova", true);
+      item.toggleAttribute("rich-suggestion", true);
+      item.setAttribute(
+        "type",
+        lazy.UrlbarUtils.searchEngagementTelemetryType(result)
+      );
+      this.#updateRowContentForNova(item, result);
+      return;
+    }
 
     let isFirstChild = item === this.#rows.children[0];
     let secAction = result.payload.action;
@@ -2165,6 +2244,13 @@ export class UrlbarView {
         };
         setURL = true;
         break;
+      case lazy.UrlbarUtils.RESULT_TYPE.AI_CHAT:
+        actionSetter = () => {
+          this.#l10nCache.setElementL10n(action, {
+            id: "urlbar-result-action-ai-chat",
+          });
+        };
+        break;
       case lazy.UrlbarUtils.RESULT_TYPE.SEARCH:
         if (
           result.payload.suggestionObject?.suggestionType == "important_dates"
@@ -2261,7 +2347,7 @@ export class UrlbarView {
 
     this.#setRowSelectable(item, isRowSelectable);
 
-    action.toggleAttribute(
+    action?.toggleAttribute(
       "slide-in",
       result.providerName == "UrlbarProviderTabToSearch"
     );
@@ -2520,6 +2606,42 @@ export class UrlbarView {
     } else {
       this.#l10nCache.removeElementL10n(bottom);
     }
+  }
+
+  #updateRowContentForNova(item, result) {
+    this.#setRowSelectable(item, true);
+
+    let favicon = item._elements.get("favicon");
+    favicon.src = this.#iconForResult(result);
+    if (result.richSuggestionIconSize) {
+      item.setAttribute("icon-size", result.richSuggestionIconSize);
+      favicon.setAttribute("icon-size", result.richSuggestionIconSize);
+    } else {
+      item.removeAttribute("icon-size");
+      favicon.removeAttribute("icon-size");
+    }
+
+    let title = item._elements.get("title");
+    this.#setResultTitle(result, title);
+
+    let subtitle = item._elements.get("subtitle");
+    if (result.payload.subtitleL10n) {
+      this.#l10nCache.setElementL10n(subtitle, result.payload.subtitleL10n);
+    } else {
+      this.#l10nCache.removeElementL10n(subtitle);
+      if (result.payload.subtitle) {
+        subtitle.textContent = result.payload.subtitle;
+      }
+    }
+
+    let description = item._elements.get("description");
+    description.textContent = result.payload.description;
+
+    let bottomLabel = item._elements.get("bottomLabel");
+    this.#l10nCache.setElementL10n(bottomLabel, result.payload.bottomTextL10n);
+
+    let url = item._elements.get("url");
+    url.textContent = lazy.UrlbarUtils.prepareUrlForDisplay(result.payload.url);
   }
 
   /**
@@ -3216,9 +3338,11 @@ export class UrlbarView {
     } else {
       tabGroupAction?.remove();
     }
-
+    let isSplitViewActive = this.window.gBrowser.selectedTab.splitview;
     this.#l10nCache.setElementL10n(actionNode, {
-      id: "urlbar-result-action-switch-tab",
+      id: isSplitViewActive
+        ? "urlbar-result-action-move-tab-to-split-view"
+        : "urlbar-result-action-switch-tab",
     });
   }
 
@@ -3443,6 +3567,7 @@ export class UrlbarView {
       { id: "urlbar-result-action-switch-tab" },
       { id: "urlbar-result-action-visit" },
       { id: "urlbar-result-action-visit-from-clipboard" },
+      { id: "urlbar-result-action-move-tab-to-split-view" },
     ];
 
     if (lazy.UrlbarPrefs.get("groupLabels.enabled")) {

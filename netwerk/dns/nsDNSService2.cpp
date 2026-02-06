@@ -910,6 +910,10 @@ nsDNSService::Init() {
     mTrrService = nullptr;
   }
 
+  if (mTrrService && httpsEnabled) {
+    mTrrService->ReadEtcHostsFile();
+  }
+
   return NS_OK;
 }
 

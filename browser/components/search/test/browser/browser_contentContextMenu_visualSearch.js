@@ -330,10 +330,7 @@ async function setDefaultEngineAndCheckMenu({
 }) {
   let engine = SearchService.getEngineById(defaultEngineId);
   Assert.ok(engine, "Sanity check: Engine should exist: " + defaultEngineId);
-  await SearchService.setDefault(
-    engine,
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
-  );
+  await SearchService.setDefault(engine, SearchService.CHANGE_REASON.UNKNOWN);
 
   let data = await openAndCheckMenu({
     win,
@@ -402,7 +399,7 @@ async function withPrivateWindow({ callback, privateDefaultEngineId = null }) {
 
     await SearchService.setDefaultPrivate(
       engine,
-      Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+      SearchService.CHANGE_REASON.UNKNOWN
     );
   }
 

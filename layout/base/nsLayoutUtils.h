@@ -548,6 +548,10 @@ class nsLayoutUtils {
       const nsIFrame* aAncestorFrame, const nsIFrame* aFrame,
       const nsIFrame* aCommonAncestor = nullptr);
 
+  static bool IsAncestorFrameCrossDocInProcessConsideringContinuations(
+      const nsIFrame* aAncestorFrame, const nsIFrame* aFrame,
+      const nsIFrame* aCommonAncestor = nullptr);
+
   static mozilla::SideBits GetSideBitsForFixedPositionContent(
       const nsIFrame* aFixedPosFrame);
 
@@ -1411,6 +1415,14 @@ class nsLayoutUtils {
                                                  nsIFrame* aDescendantFrame);
 
   /**
+   * Returns true if aFrame or any of its descendants have absolutely
+   * positioned children. This is used in a fragmented context to determine
+   * whether a measuring reflow is required for computing unfragmented
+   * positions of absolutely positioned elements.
+   */
+  static bool HasAbsolutelyPositionedDescendants(const nsIFrame* aFrame);
+
+  /**
    * Find the nearest ancestor that's a block
    */
   static nsBlockFrame* FindNearestBlockAncestor(nsIFrame* aFrame);
@@ -1673,7 +1685,7 @@ class nsLayoutUtils {
    *   internally work with variables that unconditionally represent a
    *   content-box size, regardless of the 'box-sizing' value; and for those
    *   cases, it would be appropriate to unconditionally pass
-   *   StyleBoxSizing::Content to this function, or to just use the
+   *   StyleBoxSizing::ContentBox to this function, or to just use the
    *   convenience-wrapper that has "ContentBox" in the function name.
    */
   static inline nscoord ComputeStretchBSize(
@@ -1683,7 +1695,7 @@ class nsLayoutUtils {
                  "We don't handle situations with unconstrained "
                  "aSizeToFill; caller should handle that!");
     nscoord stretchSize = aSizeToFill - aMargin;
-    if (aBoxSizing == mozilla::StyleBoxSizing::Content) {
+    if (aBoxSizing == mozilla::StyleBoxSizing::ContentBox) {
       stretchSize -= aBorderPadding;
     }
     return std::max(0, stretchSize);
@@ -1693,7 +1705,7 @@ class nsLayoutUtils {
                                                       nscoord aMargin,
                                                       nscoord aBorderPadding) {
     return ComputeStretchBSize(aSizeToFill, aMargin, aBorderPadding,
-                               mozilla::StyleBoxSizing::Content);
+                               mozilla::StyleBoxSizing::ContentBox);
   }
   // Similar to the above convenience-wrapper, but now for inline-axis.
   // TODO(dholbert): would it be useful to add a box-sizing-aware version of

@@ -47,10 +47,7 @@ add_task(async function test_parseSubmissionURL() {
     search_url_get_params: "",
   });
 
-  await SearchService.setDefault(
-    engine1,
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
-  );
+  await SearchService.setDefault(engine1, SearchService.CHANGE_REASON.UNKNOWN);
 
   // Hide the default engines to prevent them from being used in the search.
   for (let engine of await SearchService.getAppProvidedEngines()) {
@@ -62,7 +59,7 @@ add_task(async function test_parseSubmissionURL() {
   // first parameter.
   let url = "https://www.google.com/search?foo=bar&q=caff%C3%A8";
   let result = SearchService.parseSubmissionURL(url);
-  Assert.equal(result.engine.wrappedJSObject, engine1);
+  Assert.equal(result.engine, engine1);
   Assert.equal(result.terms, "caff\u00E8");
 
   // The second engine uses a locale-specific domain that is an alternate domain
@@ -70,14 +67,14 @@ add_task(async function test_parseSubmissionURL() {
   // The URL used with this engine uses ISO-8859-1 encoding instead.
   url = "https://www.google.fr/search?q=caff%E8";
   result = SearchService.parseSubmissionURL(url);
-  Assert.equal(result.engine.wrappedJSObject, engine2);
+  Assert.equal(result.engine, engine2);
   Assert.equal(result.terms, "caff\u00E8");
 
   // Test a domain that is an alternate domain of those defined.  In this case,
   // the first matching engine from the ordered list should be returned.
   url = "https://www.google.co.uk/search?q=caff%C3%A8";
   result = SearchService.parseSubmissionURL(url);
-  Assert.equal(result.engine.wrappedJSObject, engine1);
+  Assert.equal(result.engine, engine1);
   Assert.equal(result.terms, "caff\u00E8");
 
   // We support parsing URLs from a dynamically added engine.
@@ -89,7 +86,7 @@ add_task(async function test_parseSubmissionURL() {
   // Test URLs with unescaped unicode characters.
   url = "https://www.google.com/search?q=foo+b\u00E4r";
   result = SearchService.parseSubmissionURL(url);
-  Assert.equal(result.engine.wrappedJSObject, engine1);
+  Assert.equal(result.engine, engine1);
   Assert.equal(result.terms, "foo b\u00E4r");
 
   // Test search engines with unescaped IDNs.
@@ -115,7 +112,7 @@ add_task(async function test_parseSubmissionURL() {
   // if a matching parameter value template is provided.
   url = "https://duckduckgo.com/?foo=bar&q=caff%C3%A8";
   result = SearchService.parseSubmissionURL(url);
-  Assert.equal(result.engine.wrappedJSObject, engine5);
+  Assert.equal(result.engine, engine5);
   Assert.equal(result.terms, "caff\u00E8");
 
   // If the search params are in the template, the query parameter
@@ -123,40 +120,40 @@ add_task(async function test_parseSubmissionURL() {
   // by a question mark.
   url = "https://duckduckgo.com?foo=bar&q=caff%C3%A8";
   result = SearchService.parseSubmissionURL(url);
-  Assert.equal(result.engine.wrappedJSObject, engine5);
+  Assert.equal(result.engine, engine5);
   Assert.equal(result.terms, "caff\u00E8");
 
   // HTTP and HTTPS schemes are interchangeable.
   url = "https://www.google.com/search?q=caff%C3%A8";
   result = SearchService.parseSubmissionURL(url);
-  Assert.equal(result.engine.wrappedJSObject, engine1);
+  Assert.equal(result.engine, engine1);
   Assert.equal(result.terms, "caff\u00E8");
 
   // Decoding search terms with multiple spaces should work.
   result = SearchService.parseSubmissionURL(
     "https://www.google.com/search?q=+with++spaces+"
   );
-  Assert.equal(result.engine.wrappedJSObject, engine1);
+  Assert.equal(result.engine, engine1);
   Assert.equal(result.terms, " with  spaces ");
 
   // Parsing search terms with ampersands should work.
   result = SearchService.parseSubmissionURL(
     "https://www.google.com/search?q=with%26ampersand"
   );
-  Assert.equal(result.engine.wrappedJSObject, engine1);
+  Assert.equal(result.engine, engine1);
   Assert.equal(result.terms, "with&ampersand");
 
   // Capitals in the path should work
   result = SearchService.parseSubmissionURL(
     "https://www.google.com/SEARCH?q=caps"
   );
-  Assert.equal(result.engine.wrappedJSObject, engine1);
+  Assert.equal(result.engine, engine1);
   Assert.equal(result.terms, "caps");
 
   // An empty query parameter should work the same.
   url = "https://www.google.com/search?q=";
   result = SearchService.parseSubmissionURL(url);
-  Assert.equal(result.engine.wrappedJSObject, engine1);
+  Assert.equal(result.engine, engine1);
   Assert.equal(result.terms, "");
 
   // There should be no match when the path is different.

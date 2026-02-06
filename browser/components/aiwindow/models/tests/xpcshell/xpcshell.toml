@@ -26,6 +26,8 @@ support-files = [
 
 ["test_MemoriesHistorySource.js"]
 
+["test_MemoriesHistorySource_blocklist.js"]
+
 ["test_MemoriesManager.js"]
 
 ["test_SearchBrowsingHistory.js"]
@@ -34,9 +36,13 @@ support-files = [
 
 ["test_TitleGeneration.js"]
 
+["test_ToolDefinitions.js"]
+
 ["test_Tools_GetOpenTabs.js"]
 
 ["test_Tools_GetPageContent.js"]
+
+["test_Tools_RunSearch.js"]
 
 ["test_Tools_SearchBrowsingHistory.js"]
 

@@ -9,6 +9,7 @@ import mozilla.components.concept.engine.EngineSession
 import mozilla.components.concept.engine.translate.TranslationEngineState
 import mozilla.components.support.test.mock
 import mozilla.components.support.test.whenever
+import mozilla.components.support.utils.FakeDownloadFileUtils
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -24,7 +25,10 @@ class GeckoTranslateSessionDelegateTest {
     fun setup() {
         runtime = mock()
         whenever(runtime.settings).thenReturn(mock())
-        mockSession = GeckoEngineSession(runtime)
+        mockSession = GeckoEngineSession(
+            runtime,
+            downloadFileUtils = FakeDownloadFileUtils(),
+            )
     }
 
     @Test

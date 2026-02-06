@@ -65,11 +65,14 @@ class MOZ_STACK_CLASS nsTextPaintStyle {
   bool GetSelectionColors(nscolor* aForeColor, nscolor* aBackColor);
   void GetHighlightColors(nscolor* aForeColor, nscolor* aBackColor);
   void GetTargetTextColors(nscolor* aForeColor, nscolor* aBackColor);
+  mozilla::Span<const StyleSimpleShadow> GetTargetTextShadow();
   // Computes colors for custom highlights.
   // Returns false if there are no rules associated with `aHighlightName`.
   bool GetCustomHighlightTextColor(nsAtom* aHighlightName, nscolor* aForeColor);
   bool GetCustomHighlightBackgroundColor(nsAtom* aHighlightName,
                                          nscolor* aBackColor);
+  mozilla::Span<const StyleSimpleShadow> GetCustomHighlightTextShadow(
+      nsAtom* aHighlightName);
   RefPtr<ComputedStyle> GetComputedStyleForSelectionPseudo(
       SelectionType aSelectionType, nsAtom* aHighlightName);
 
@@ -86,9 +89,7 @@ class MOZ_STACK_CLASS nsTextPaintStyle {
                                     nscolor* aLineColor, float* aRelativeSize,
                                     StyleTextDecorationStyle* aStyle);
 
-  // if this returns false, no text-shadow was specified for the selection
-  // and the *aShadow parameter was not modified.
-  bool GetSelectionShadow(mozilla::Span<const StyleSimpleShadow>* aShadows);
+  mozilla::Span<const StyleSimpleShadow> GetSelectionShadow();
 
   nsPresContext* PresContext() const { return mPresContext; }
 

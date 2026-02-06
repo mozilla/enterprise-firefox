@@ -6,10 +6,10 @@ android-lint = "31.13.2"
 # Kotlin
 coroutines = "1.10.2"
 kotlin = "2.3.0"
-serialization = "1.9.0"
+serialization = "1.10.0"
 
 # AndroidX
-activity = "1.12.2"
+activity = "1.12.3"
 annotation = "1.9.1"
 annotation-experimental = "1.5.1"
 appcompat = "1.7.1"
@@ -29,34 +29,36 @@ core = "1.17.0"
 core-splashscreen = "1.2.0"
 datastore = "1.2.0"
 drawerlayout = "1.2.0"
+emoji2 = "1.6.0"
 fragment = "1.8.9"
 lifecycle = "2.10.0"
 localbroadcastmanager = "1.0.0"
 media = "1.7.1"
 nav3Core = "1.0.0"
-navigation = "2.9.5"
-paging = "3.3.6"
+navigation = "2.9.7"
+paging = "3.4.0"
 palette = "1.0.0"
 preferences = "1.2.1"
 profileinstaller = "1.4.0"
 recyclerview = "1.4.0"
+documentfile = "1.0.1"
 room = "2.8.4"
 savedstate = "1.4.0"
 swiperefreshlayout = "1.2.0"
 transition = "1.7.0"
 viewpager2 = "1.1.0"
 window = "1.5.1"
-work = "2.11.0"
+work = "2.11.1"
 
 # Google other
 accompanist = "0.37.3"
 firebase-messaging = "25.0.1"
 installreferrer = "2.2"
-ksp = "2.3.4"
+ksp = "2.3.5"
 material = "1.13.0"
 osslicenses-plugin = "0.10.10"
 play-review = "2.0.2"
-play-services-ads-id = "18.2.0"
+play-services-ads-id = "18.3.0"
 play-services-base = "18.10.0"
 play-services-fido = "21.2.0"
 protobuf = "4.33.2" # Keep Protobuf in sync with the version used by AppServices.
@@ -75,10 +77,10 @@ tomlj = "1.1.1"
 detekt = "1.23.8"
 google-java-format = "1.28.0"
 ktlint = "1.8.0"
-spotless = "8.1.0"
+spotless = "8.2.0"
 
 # Mozilla
-glean = "66.3.0"
+glean = "67.0.0"
 
 # Testing libraries
 androidx-test = "1.7.0"
@@ -92,7 +94,7 @@ junit4 = "4.13.2"
 junit6 = "6.0.2"
 leakcanary = "2.14"
 mockito = "5.21.0"
-mockk = "1.14.7"
+mockk = "1.14.9"
 robolectric = "4.16"
 
 # Third party libraries
@@ -145,6 +147,7 @@ androidx-core-splashscreen = { group = "androidx.core", name = "core-splashscree
 androidx-datastore = { group = "androidx.datastore", name = "datastore", version.ref = "datastore" }
 androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
 androidx-drawerlayout = { group = "androidx.drawerlayout", name = "drawerlayout", version.ref = "drawerlayout" }
+androidx-emoji2 = { group = "androidx.emoji2", name = "emoji2", version.ref = "emoji2" }
 androidx-fragment = { group = "androidx.fragment", name = "fragment", version.ref = "fragment" }
 androidx-fragment-compose = { group = "androidx.fragment", name = "fragment-compose", version.ref = "fragment" }
 androidx-fragment-ktx = { group = "androidx.fragment", name = "fragment-ktx", version.ref = "fragment" }
@@ -169,6 +172,7 @@ androidx-palette = { group = "androidx.palette", name = "palette-ktx", version.r
 androidx-preferences = { group = "androidx.preference", name = "preference", version.ref = "preferences" }
 androidx-profileinstaller = { group = "androidx.profileinstaller", name = "profileinstaller", version.ref = "profileinstaller" }
 androidx-recyclerview = { group = "androidx.recyclerview", name = "recyclerview", version.ref = "recyclerview" }
+androidx-documentfile = { group = "androidx.documentfile", name = "documentfile", version.ref = "documentfile" }
 androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
 androidx-room-runtime = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
 androidx-room-testing = { group = "androidx.room", name = "room-testing", version.ref = "room" }
@@ -218,6 +222,7 @@ play-services-base = { group = "com.google.android.gms", name = "play-services-b
 play-services-fido = { group = "com.google.android.gms", name = "play-services-fido", version.ref = "play-services-fido" }
 protobuf-compiler = { group = "com.google.protobuf", name = "protoc", version.ref = "protobuf" }
 protobuf-javalite = { group = "com.google.protobuf", name = "protobuf-javalite", version.ref = "protobuf" }
+mlkit-prompt = { group = "com.google.mlkit", name = "genai-prompt", version = "1.0.0-alpha1" }
 
 # Gradle plugins
 semanticdb-java = { group = "com.sourcegraph", name = "semanticdb-javac", version.ref = "semanticdb-javac" }

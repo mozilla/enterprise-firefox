@@ -2,6 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
+import React from "react";
 import { useSelector } from "react-redux";
 import { actionCreators as ac, actionTypes as at } from "common/Actions.mjs";
 import { LocationSearch } from "content-src/components/Weather/LocationSearch";
@@ -52,6 +53,7 @@ function WeatherForecast({ dispatch }) {
   const isOptInEnabled = weatherOptIn || nimbusWeatherOptInEnabled;
 
   const { searchActive } = weatherData;
+  const maximizedWidgets = prefs["widgets.maximized"];
 
   function handleChangeLocation() {
     dispatch(
@@ -118,7 +120,9 @@ function WeatherForecast({ dispatch }) {
   }
 
   return (
-    <article className="weather-forecast-widget">
+    <article
+      className={`weather-forecast-widget${maximizedWidgets ? "" : " small-widget"}`}
+    >
       <div className="city-wrapper">
         <div className="city-name">
           {searchActive ? (
@@ -133,6 +137,7 @@ function WeatherForecast({ dispatch }) {
             iconSrc="chrome://global/skin/icons/more.svg"
             menuId="weather-forecast-context-menu"
             type="ghost"
+            size={`${maximizedWidgets ? "default" : "small"}`}
           />
           <panel-list id="weather-forecast-context-menu">
             {prefs["weather.locationSearchEnabled"] && (
@@ -170,7 +175,7 @@ function WeatherForecast({ dispatch }) {
               />
             )}
             <panel-item
-              data-l10n-id="newtab-weather-menu-hide-weather"
+              data-l10n-id="newtab-weather-menu-hide-weather-v2"
               onClick={handleHideWeather}
             />
             <panel-item
@@ -180,49 +185,59 @@ function WeatherForecast({ dispatch }) {
           </panel-list>
         </div>
       </div>
-      <div className="current-weather-wrapper">
-        <div className="weather-icon-column">
-          <span
-            className={`weather-icon iconId${WEATHER_SUGGESTION.current_conditions.icon_id}`}
-          ></span>
-        </div>
-        <div className="weather-info-column">
-          <span className="temperature-unit">
-            {
-              WEATHER_SUGGESTION.current_conditions.temperature[
-                prefs["weather.temperatureUnits"]
-              ]
-            }
-            &deg;{prefs["weather.temperatureUnits"]}
-          </span>
-          <span className="temperature-description">
-            {WEATHER_SUGGESTION.current_conditions.summary}
-          </span>
-        </div>
-        <div className="high-low-column">
-          <span className="high-temperature">
-            <span className="arrow-icon arrow-up" />
-            {
-              WEATHER_SUGGESTION.forecast.high[
-                prefs["weather.temperatureUnits"]
-              ]
-            }
-            &deg;
-          </span>
+      {maximizedWidgets && (
+        <>
+          <div className="current-weather-wrapper">
+            <div className="weather-icon-column">
+              <span
+                className={`weather-icon iconId${WEATHER_SUGGESTION.current_conditions.icon_id}`}
+              ></span>
+            </div>
+            <div className="weather-info-column">
+              <span className="temperature-unit">
+                {
+                  WEATHER_SUGGESTION.current_conditions.temperature[
+                    prefs["weather.temperatureUnits"]
+                  ]
+                }
+                &deg;{prefs["weather.temperatureUnits"]}
+              </span>
+              <span className="temperature-description">
+                {WEATHER_SUGGESTION.current_conditions.summary}
+              </span>
+            </div>
+            <div className="high-low-column">
+              <span className="high-temperature">
+                <span className="arrow-icon arrow-up" />
+                {
+                  WEATHER_SUGGESTION.forecast.high[
+                    prefs["weather.temperatureUnits"]
+                  ]
+                }
+                &deg;
+              </span>
 
-          <span className="low-temperature">
-            <span className="arrow-icon arrow-down" />
-            {WEATHER_SUGGESTION.forecast.low[prefs["weather.temperatureUnits"]]}
-            &deg;
-          </span>
-        </div>
-      </div>
-      <hr />
+              <span className="low-temperature">
+                <span className="arrow-icon arrow-down" />
+                {
+                  WEATHER_SUGGESTION.forecast.low[
+                    prefs["weather.temperatureUnits"]
+                  ]
+                }
+                &deg;
+              </span>
+            </div>
+          </div>
+          <hr />
+        </>
+      )}
       <div className="forecast-row">
-        <p
-          className="today-forecast"
-          data-l10n-id="newtab-weather-todays-forecast"
-        ></p>
+        {maximizedWidgets && (
+          <p
+            className="today-forecast"
+            data-l10n-id="newtab-weather-todays-forecast"
+          ></p>
+        )}
         <ul className="forecast-row-items">
           <li>
             <span>80&deg;</span>
@@ -262,7 +277,7 @@ function WeatherForecast({ dispatch }) {
         </ul>
       </div>
 
-      <div className="weather-forecast-footer">
+      <div className="forecast-footer">
         <a
           href="#"
           className="full-forecast"

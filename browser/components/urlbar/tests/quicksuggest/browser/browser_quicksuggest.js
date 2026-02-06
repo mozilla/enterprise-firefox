@@ -69,32 +69,6 @@ add_setup(async function () {
   });
 });
 
-// Tests a sponsored result and keyword highlighting.
-add_task(async function sponsored() {
-  await UrlbarTestUtils.promiseAutocompleteResultPopup({
-    window,
-    value: "fra",
-  });
-  await QuickSuggestTestUtils.assertIsQuickSuggest({
-    window,
-    index: 1,
-    isSponsored: true,
-    url: "https://example.com/amp",
-  });
-  let row = await UrlbarTestUtils.waitForAutocompleteResultAt(window, 1);
-  Assert.equal(
-    row.querySelector(".urlbarView-title").firstChild.textContent,
-    "fra",
-    "The part of the keyword that matches users input is not bold."
-  );
-  Assert.equal(
-    row.querySelector(".urlbarView-title > strong").textContent,
-    "b",
-    "The auto completed section of the keyword is bolded."
-  );
-  await UrlbarTestUtils.promisePopupClose(window);
-});
-
 // Tests a non-sponsored result.
 add_task(async function nonSponsored() {
   await UrlbarTestUtils.promiseAutocompleteResultPopup({
@@ -129,16 +103,6 @@ add_task(async function sponsoredPriority() {
   });
 
   let row = await UrlbarTestUtils.waitForAutocompleteResultAt(window, 1);
-  Assert.equal(
-    row.querySelector(".urlbarView-title").firstChild.textContent,
-    "fra",
-    "The part of the keyword that matches users input is not bold."
-  );
-  Assert.equal(
-    row.querySelector(".urlbarView-title > strong").textContent,
-    "b",
-    "The auto completed section of the keyword is bolded."
-  );
 
   // Group label.
   let before = window.getComputedStyle(row, "::before");
@@ -199,16 +163,10 @@ add_task(async function ampTopPickCharThreshold_meetsThreshold() {
     index: 1,
     isSponsored: true,
     isBestMatch: true,
-    hasSponsoredLabel: false,
     url: "https://example.com/amp",
   });
 
   let row = await UrlbarTestUtils.waitForAutocompleteResultAt(window, 1);
-  Assert.equal(
-    row.querySelector(".urlbarView-title > strong").textContent,
-    query,
-    "The title should include the full keyword and the part that matches the query should be bold"
-  );
 
   // Group label.
   let before = window.getComputedStyle(row, "::before");
@@ -316,4 +274,27 @@ add_task(async function resultMenu_manage_dynamicWikipedia() {
   });
 
   await SpecialPowers.popPrefEnv();
+});
+
+// Tests the "Learn more" result menu.
+add_task(async function resultMenu_learn_more_sponsored() {
+  await UrlbarTestUtils.promiseAutocompleteResultPopup({
+    window,
+    value: "fra",
+  });
+
+  info("Selecting Learn more item from the result menu");
+  let tabOpenPromise = BrowserTestUtils.waitForNewTab(
+    gBrowser,
+    Services.urlFormatter.formatURLPref("app.support.baseURL") +
+      "awesome-bar-result-menu"
+  );
+  await UrlbarTestUtils.openResultMenuAndClickItem(window, "help", {
+    resultIndex: 1,
+  });
+  info("Waiting for Learn more link to open in a new tab");
+  await tabOpenPromise;
+  gBrowser.removeCurrentTab();
+
+  await UrlbarTestUtils.promisePopupClose(window);
 });

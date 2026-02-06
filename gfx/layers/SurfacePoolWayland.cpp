@@ -316,3 +316,5 @@ Maybe<GLuint> SurfacePoolHandleWayland::GetFramebufferForBuffer(
 }
 
 }  // namespace mozilla::layers
+#undef LOG
+#undef LOGVERBOSE

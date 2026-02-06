@@ -71,7 +71,6 @@ export class AIWebsiteChip extends MozLitElement {
   render() {
     const isEmpty = this.#isEmpty;
     const isRemovable = this.#isRemovable;
-    const isLink = this.type === "context-chip" && this.href;
 
     let iconTemplate;
     if (isEmpty) {
@@ -105,7 +104,7 @@ export class AIWebsiteChip extends MozLitElement {
       ${iconTemplate} ${removeButton} ${labelTemplate}
     `;
 
-    const chipElement = isLink
+    const chipElement = this.href
       ? html`<a
           class="chip"
           ?data-removable=${isRemovable}
@@ -114,14 +113,14 @@ export class AIWebsiteChip extends MozLitElement {
         >
           ${chipContent}
         </a>`
-      : html`<div
+      : html`<button
           class="chip"
           ?data-empty=${isEmpty}
           ?data-removable=${isRemovable}
           @click=${this.#handleClick}
         >
           ${chipContent}
-        </div>`;
+        </button>`;
 
     return html`
       <link

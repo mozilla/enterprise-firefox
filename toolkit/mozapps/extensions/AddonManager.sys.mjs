@@ -5595,6 +5595,32 @@ AMTelemetry = {
   },
 
   /**
+   * Retrieve the addon name for the given AddonInstall instance.
+   *
+   * @param {AddonInstall} install
+   *        The AddonInstall instance to retrieve the addon name from.
+   *
+   * @returns {string | null}
+   *          The addon name for the given AddonInstall instance (if any).
+   */
+  getAddonNameFromInstall(install) {
+    // Returns the name of the extension that is being installed, as soon as the
+    // addon is available in the AddonInstall instance (after being downloaded
+    // and validated successfully).
+    if (install.addon) {
+      return install.addon.name;
+    }
+
+    // While updating an addon, the existing addon can be
+    // used to retrieve the addon id since the first update event.
+    if (install.existingAddon) {
+      return install.existingAddon.name;
+    }
+
+    return null;
+  },
+
+  /**
    * Retrieve the telemetry event's object property value for the given
    * AddonInstall instance.
    *
@@ -5847,6 +5873,7 @@ AMTelemetry = {
     }
 
     let addonId = this.getAddonIdFromInstall(install);
+    let addonName = this.getAddonNameFromInstall(install);
     let object = this.getEventObjectFromInstall(install);
 
     let installId = String(install.installId);
@@ -5899,7 +5926,25 @@ AMTelemetry = {
       })
     );
 #ifdef MOZ_ENTERPRISE
-    GleanPings.enterprise.submit();
+    if (eventMethod == "install" && extra.step == "completed") {
+      Glean.addonsManager.installComplete.record(
+        this.formatExtraVars({
+          addon_id: extra.addon_id,
+          addon_name: addonName,
+          addon_type: object,
+          install_id: installId,
+          download_time: extra.download_time,
+          error: extra.error,
+          source: extra.source,
+          source_method: extra.method,
+          num_strings: extra.num_strings,
+          updated_from: extra.updated_from,
+          install_origins: extra.install_origins,
+          step: extra.step,
+        })
+      );
+      GleanPings.enterprise.submit();
+    }
 #endif
   },
 

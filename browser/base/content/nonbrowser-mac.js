@@ -3,11 +3,28 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+function queueFeltDockAction(isPrivate) {
+  if (!Services.felt?.isFeltUI()) {
+    return;
+  }
+  const { queueFeltURL, FELT_OPEN_WINDOW_DISPOSITION } =
+    ChromeUtils.importESModule("resource:///modules/FeltURLHandler.sys.mjs");
+  queueFeltURL({
+    disposition: isPrivate
+      ? FELT_OPEN_WINDOW_DISPOSITION.NEW_PRIVATE_WINDOW
+      : FELT_OPEN_WINDOW_DISPOSITION.NEW_WINDOW,
+  });
+}
+
 var NonBrowserWindow = {
   delayedStartupTimeoutId: null,
   MAC_HIDDEN_WINDOW: "chrome://browser/content/hiddenWindowMac.xhtml",
 
   openBrowserWindowFromDockMenu(options = {}) {
+    if (Services.felt?.isFeltUI()) {
+      queueFeltDockAction(options.private);
+      return null;
+    }
     let existingWindow = BrowserWindowTracker.getTopWindow();
     options.openerWindow = existingWindow || window;
     let win = OpenBrowserWindow(options);
@@ -108,9 +125,46 @@ var NonBrowserWindow = {
         document.getElementById("key_quitApplication").remove();
         document.getElementById("menu_FileQuitItem").removeAttribute("key");
       }
+
+      // In Felt mode, disable dock menu items until Firefox is ready
+      if (Services.felt?.isFeltUI()) {
+        this.setupFeltDockMenuState();
+      }
     }
 
     this.delayedStartupTimeoutId = setTimeout(() => this.delayedStartup(), 0);
+  },
+
+  setupFeltDockMenuState() {
+    const { isFeltFirefoxWindowReady, waitForFeltFirefoxWindowReady } =
+      ChromeUtils.importESModule("resource:///modules/FeltURLHandler.sys.mjs");
+
+    // Check if Firefox is already ready (e.g., after restart)
+    if (isFeltFirefoxWindowReady()) {
+      return;
+    }
+
+    let newWindowItem = document.getElementById("macDockMenuNewWindow");
+    let privateWindowItem = document.getElementById(
+      "macDockMenuNewPrivateWindow"
+    );
+
+    // Disable dock menu items until Firefox is ready
+    if (newWindowItem) {
+      newWindowItem.setAttribute("disabled", "true");
+    }
+    if (privateWindowItem) {
+      privateWindowItem.setAttribute("disabled", "true");
+    }
+
+    waitForFeltFirefoxWindowReady().then(() => {
+      if (newWindowItem) {
+        newWindowItem.removeAttribute("disabled");
+      }
+      if (privateWindowItem) {
+        privateWindowItem.removeAttribute("disabled");
+      }
+    });
   },
 
   delayedStartup() {

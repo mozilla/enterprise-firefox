@@ -94,7 +94,7 @@ add_task(async function test_ignoreList() {
 });
 
 add_task(async function test_correct_default_engine_change_reason() {
-  SearchService.wrappedJSObject.reset();
+  SearchService.reset();
   await Promise.all([SearchService.init(), promiseAfterSettings()]);
 
   await SearchTestUtils.installSearchExtension(

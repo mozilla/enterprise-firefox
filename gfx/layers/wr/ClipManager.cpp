@@ -53,7 +53,7 @@ void ClipManager::BeginList(const StackingContextHelper& aStackingContext) {
            aStackingContext.AffectsClipPositioning(),
            aStackingContext.ReferenceFrameId().isSome());
 
-  ItemClips clips(nullptr, nullptr, 0, false);
+  ItemClips clips(nullptr, nullptr, 0);
   if (!mItemClipStack.empty()) {
     clips = mItemClipStack.top();
   }
@@ -85,7 +85,6 @@ void ClipManager::EndList(const StackingContextHelper& aStackingContext) {
 
   CLIP_LOG("end list %p\n", &aStackingContext);
 
-  mBuilder->SetClipChainLeaf(Nothing());
   mItemClipStack.pop();
 
   if (aStackingContext.AffectsClipPositioning()) {
@@ -198,16 +197,6 @@ wr::WrSpaceAndClipChain ClipManager::SwitchItem(nsDisplayListBuilder* aBuilder,
            DisplayItemTypeName(aItem->GetType()), asr, clip,
            inheritedClipChain);
 
-  // In most cases we can combine the leaf of the clip chain with the clip rect
-  // of the display item. This reduces the number of clip items, which avoids
-  // some overhead further down the pipeline.
-  // Container display items are not currently supported because the clip
-  // rect of a stacking context is not handled the same as normal display
-  // items.
-  const bool separateLeaf = clip && clip->mASR == asr &&
-                            clip->mClip.GetRoundedRectCount() == 0 &&
-                            !aItem->GetChildren();
-
   // Zoom display items report their bounds etc using the parent document's
   // APD because zoom items act as a conversion layer between the two different
   // APDs.
@@ -218,7 +207,7 @@ wr::WrSpaceAndClipChain ClipManager::SwitchItem(nsDisplayListBuilder* aBuilder,
     return aItem->Frame()->PresContext()->AppUnitsPerDevPixel();
   }();
 
-  ItemClips clips(asr, clip, auPerDevPixel, separateLeaf);
+  ItemClips clips(asr, clip, auPerDevPixel);
   MOZ_ASSERT(!mItemClipStack.empty());
   if (clips.HasSameInputs(mItemClipStack.top())) {
     // Early-exit because if the clips are the same as aItem's previous sibling,
@@ -234,13 +223,6 @@ wr::WrSpaceAndClipChain ClipManager::SwitchItem(nsDisplayListBuilder* aBuilder,
   // Pop aItem's previous sibling's stuff from mBuilder in preparation for
   // pushing aItem's stuff.
   mItemClipStack.pop();
-
-  // If the leaf of the clip chain is going to be merged with the display item's
-  // clip rect, then we should create a clip chain id from the leaf's parent.
-  if (separateLeaf) {
-    CLIP_LOG("\tseparate leaf detected, ignoring the last clip\n");
-    clip = clip->mParent;
-  }
 
   // There are up to three ASR chains here that we need to be fully defined:
   //  1. The ASR chain pointed to by |asr|
@@ -272,7 +254,6 @@ wr::WrSpaceAndClipChain ClipManager::SwitchItem(nsDisplayListBuilder* aBuilder,
 
   // Now that we have the scroll id and a clip id for the item, push it onto
   // the WR stack.
-  clips.UpdateSeparateLeaf(*mBuilder, auPerDevPixel);
   auto spaceAndClipChain = clips.GetSpaceAndClipChain();
 
   CLIP_LOG("  push: clip: %p, asr: %p, scroll = %" PRIuPTR ", clip = %" PRIu64
@@ -727,30 +708,13 @@ ClipManager::~ClipManager() {
 
 ClipManager::ItemClips::ItemClips(const ActiveScrolledRoot* aASR,
                                   const DisplayItemClipChain* aChain,
-                                  int32_t aAppUnitsPerDevPixel,
-                                  bool aSeparateLeaf)
-    : mASR(aASR),
-      mChain(aChain),
-      mAppUnitsPerDevPixel(aAppUnitsPerDevPixel),
-      mSeparateLeaf(aSeparateLeaf) {
+                                  int32_t aAppUnitsPerDevPixel)
+    : mASR(aASR), mChain(aChain), mAppUnitsPerDevPixel(aAppUnitsPerDevPixel) {
   mScrollId = wr::wr_root_scroll_node_id();
 }
 
-void ClipManager::ItemClips::UpdateSeparateLeaf(
-    wr::DisplayListBuilder& aBuilder, int32_t aAppUnitsPerDevPixel) {
-  Maybe<wr::LayoutRect> clipLeaf;
-  if (mSeparateLeaf) {
-    MOZ_ASSERT(mChain);
-    clipLeaf.emplace(wr::ToLayoutRect(LayoutDeviceRect::FromAppUnits(
-        mChain->mClip.GetClipRect(), aAppUnitsPerDevPixel)));
-  }
-
-  aBuilder.SetClipChainLeaf(clipLeaf);
-}
-
 bool ClipManager::ItemClips::HasSameInputs(const ItemClips& aOther) {
-  if (mASR != aOther.mASR || mChain != aOther.mChain ||
-      mSeparateLeaf != aOther.mSeparateLeaf) {
+  if (mASR != aOther.mASR || mChain != aOther.mChain) {
     return false;
   }
   // AUPDP only matters if we have a clip chain, since it's only used to compute

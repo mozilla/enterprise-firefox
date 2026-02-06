@@ -556,7 +556,7 @@ void SMILTimedElement::DoSampleAt(SMILTime aContainerTime, bool aEndOnly) {
                 : SMILElementState::PostActive;
         stateChanged = true;
         if (mElementState == SMILElementState::Waiting) {
-          mCurrentInterval = MakeUnique<SMILInterval>(firstInterval);
+          mCurrentInterval = std::make_unique<SMILInterval>(firstInterval);
           NotifyNewInterval();
         }
       } break;
@@ -609,7 +609,7 @@ void SMILTimedElement::DoSampleAt(SMILTime aContainerTime, bool aEndOnly) {
           mOldIntervals.AppendElement(std::move(mCurrentInterval));
           SampleFillValue();
           if (mElementState == SMILElementState::Waiting) {
-            mCurrentInterval = MakeUnique<SMILInterval>(newInterval);
+            mCurrentInterval = std::make_unique<SMILInterval>(newInterval);
           }
           // We are now in a consistent state to dispatch notifications
           if (didApplyEarlyEnd) {
@@ -1075,11 +1075,11 @@ void SMILTimedElement::BindToTree(Element& aContextElement) {
     AutoIntervalUpdateBatcher updateBatcher(*this);
 
     // Resolve references to other parts of the tree
-    for (UniquePtr<SMILTimeValueSpec>& beginSpec : mBeginSpecs) {
+    for (std::unique_ptr<SMILTimeValueSpec>& beginSpec : mBeginSpecs) {
       beginSpec->ResolveReferences(aContextElement);
     }
 
-    for (UniquePtr<SMILTimeValueSpec>& endSpec : mEndSpecs) {
+    for (std::unique_ptr<SMILTimeValueSpec>& endSpec : mEndSpecs) {
       endSpec->ResolveReferences(aContextElement);
     }
   }
@@ -1090,22 +1090,22 @@ void SMILTimedElement::BindToTree(Element& aContextElement) {
 void SMILTimedElement::HandleTargetElementChange(Element* aNewTarget) {
   AutoIntervalUpdateBatcher updateBatcher(*this);
 
-  for (UniquePtr<SMILTimeValueSpec>& beginSpec : mBeginSpecs) {
+  for (std::unique_ptr<SMILTimeValueSpec>& beginSpec : mBeginSpecs) {
     beginSpec->HandleTargetElementChange(aNewTarget);
   }
 
-  for (UniquePtr<SMILTimeValueSpec>& endSpec : mEndSpecs) {
+  for (std::unique_ptr<SMILTimeValueSpec>& endSpec : mEndSpecs) {
     endSpec->HandleTargetElementChange(aNewTarget);
   }
 }
 
 void SMILTimedElement::Traverse(nsCycleCollectionTraversalCallback* aCallback) {
-  for (UniquePtr<SMILTimeValueSpec>& beginSpec : mBeginSpecs) {
+  for (std::unique_ptr<SMILTimeValueSpec>& beginSpec : mBeginSpecs) {
     MOZ_ASSERT(beginSpec, "null SMILTimeValueSpec in list of begin specs");
     beginSpec->Traverse(aCallback);
   }
 
-  for (UniquePtr<SMILTimeValueSpec>& endSpec : mEndSpecs) {
+  for (std::unique_ptr<SMILTimeValueSpec>& endSpec : mEndSpecs) {
     MOZ_ASSERT(endSpec, "null SMILTimeValueSpec in list of end specs");
     endSpec->Traverse(aCallback);
   }
@@ -1115,12 +1115,12 @@ void SMILTimedElement::Unlink() {
   AutoIntervalUpdateBatcher updateBatcher(*this);
 
   // Remove dependencies on other elements
-  for (UniquePtr<SMILTimeValueSpec>& beginSpec : mBeginSpecs) {
+  for (std::unique_ptr<SMILTimeValueSpec>& beginSpec : mBeginSpecs) {
     MOZ_ASSERT(beginSpec, "null SMILTimeValueSpec in list of begin specs");
     beginSpec->Unlink();
   }
 
-  for (UniquePtr<SMILTimeValueSpec>& endSpec : mEndSpecs) {
+  for (std::unique_ptr<SMILTimeValueSpec>& endSpec : mEndSpecs) {
     MOZ_ASSERT(endSpec, "null SMILTimeValueSpec in list of end specs");
     endSpec->Unlink();
   }
@@ -1152,7 +1152,7 @@ nsresult SMILTimedElement::SetBeginOrEndSpec(const nsAString& aSpec,
 
   bool hadFailure = false;
   while (tokenizer.hasMoreTokens()) {
-    auto spec = MakeUnique<SMILTimeValueSpec>(*this, aIsBegin);
+    auto spec = std::make_unique<SMILTimeValueSpec>(*this, aIsBegin);
     nsresult rv = spec->SetSpec(tokenizer.nextToken(), aContextElement);
     if (NS_SUCCEEDED(rv)) {
       timeSpecsList.AppendElement(std::move(spec));
@@ -1191,7 +1191,7 @@ void SMILTimedElement::ClearSpecs(TimeValueSpecList& aSpecs,
                                   RemovalTestFunction aRemove) {
   AutoIntervalUpdateBatcher updateBatcher(*this);
 
-  for (UniquePtr<SMILTimeValueSpec>& spec : aSpecs) {
+  for (std::unique_ptr<SMILTimeValueSpec>& spec : aSpecs) {
     spec->Unlink();
   }
   aSpecs.Clear();
@@ -1849,7 +1849,7 @@ void SMILTimedElement::UpdateCurrentInterval(bool aForceChangeNotice) {
     if (mElementState == SMILElementState::PostActive) {
       MOZ_ASSERT(!mCurrentInterval,
                  "In postactive state but the interval has been set");
-      mCurrentInterval = MakeUnique<SMILInterval>(updatedInterval);
+      mCurrentInterval = std::make_unique<SMILInterval>(updatedInterval);
       mElementState = SMILElementState::Waiting;
       NotifyNewInterval();
 
@@ -2150,7 +2150,7 @@ bool SMILTimedElement::HasClientInFillRange() const {
 }
 
 bool SMILTimedElement::EndHasEventConditions() const {
-  for (const UniquePtr<SMILTimeValueSpec>& endSpec : mEndSpecs) {
+  for (const std::unique_ptr<SMILTimeValueSpec>& endSpec : mEndSpecs) {
     if (endSpec->IsEventBased()) return true;
   }
   return false;

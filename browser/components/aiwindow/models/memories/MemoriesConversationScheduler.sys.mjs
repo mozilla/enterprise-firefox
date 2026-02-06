@@ -14,7 +14,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 ChromeUtils.defineLazyGetter(lazy, "console", function () {
   return console.createInstance({
     prefix: "MemoriesConversationScheduler",
-    maxLogLevelPref: "browser.aiwindow.memoriesLogLevel",
+    maxLogLevelPref: "browser.smartwindow.memoriesLogLevel",
   });
 });
 

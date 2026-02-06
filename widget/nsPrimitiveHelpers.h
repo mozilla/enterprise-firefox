@@ -19,7 +19,7 @@ class nsPrimitiveHelpers {
   // nsISupports* wrapper for passing across IDL boundaries. The length
   // parameter should not include the null if the data is null terminated.
   static void CreatePrimitiveForData(const nsACString& aFlavor,
-                                     const void* aDataBuff, uint32_t aDataLen,
+                                     const void* aDataBuff, size_t aDataLen,
                                      nsISupports** aPrimitive);
 
   // A specific case of CreatePrimitive for windows CF_HTML handling in

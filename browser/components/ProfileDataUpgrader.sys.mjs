@@ -929,6 +929,30 @@ export let ProfileDataUpgrader = {
       Services.prefs.setBoolPref("signon.rustMirror.migrationNeeded", true);
     }
 
+    if (existingDataVersion < 164) {
+      const { PREF_BOOL, PREF_INT, PREF_STRING } = Services.prefs;
+      const METHODS = {
+        [PREF_BOOL]: ["getBoolPref", "setBoolPref"],
+        [PREF_INT]: ["getIntPref", "setIntPref"],
+        [PREF_STRING]: ["getStringPref", "setStringPref"],
+      };
+      const OLD_PREFIX = "browser.aiwindow.";
+      for (let oldPref of Services.prefs.getChildList(OLD_PREFIX)) {
+        let prefType = Services.prefs.getPrefType(oldPref);
+        if (
+          !Services.prefs.prefHasUserValue(oldPref) ||
+          !Object.hasOwn(METHODS, prefType)
+        ) {
+          continue;
+        }
+        let newPref =
+          "browser.smartwindow." + oldPref.substring(OLD_PREFIX.length);
+        let [getter, setter] = METHODS[prefType];
+        Services.prefs[setter](newPref, Services.prefs[getter](oldPref));
+        Services.prefs.clearUserPref(oldPref);
+      }
+    }
+
     // Update the migration version.
     Services.prefs.setIntPref("browser.migration.version", newVersion);
   },

@@ -463,7 +463,7 @@ Moof::Moof(const Box& aBox, const TrackParseMode& aTrackParseMode,
   // file are dispatched to the media element in a single "encrypted" event.
   // So append contiguous boxes here.
   for (size_t i = 0; i < psshBoxes.Length(); ++i) {
-    Box box = psshBoxes[i];
+    const Box& box = psshBoxes[i];
     if (i == 0 || box.Offset() != psshBoxes[i - 1].NextOffset()) {
       mPsshes.AppendElement();
     }

@@ -100,6 +100,7 @@ Var PostSigningData
 !include defines.nsi
 !include common.nsh
 !include locales.nsi
+!include installer_helpers.nsh
 
 VIAddVersionKey "FileDescription" "${BrandShortName} Installer"
 VIAddVersionKey "OriginalFilename" "setup.exe"
@@ -756,7 +757,6 @@ Section "-InstallEndCleanup"
   SetDetailsPrint none
 
   ; Maybe copy the post-signing data?
-  StrCpy $PostSigningData ""
   ${GetParameters} $0
   ClearErrors
   ; We don't get post-signing data from the MSI.
@@ -769,7 +769,13 @@ Section "-InstallEndCleanup"
       ; We're being run standalone, copy the data.
       ${CopyPostSigningData}
       Pop $PostSigningData
+    ${Else}
+      ; If we see this value in telemetry, it means that we were expecting the stub installer
+      ; to send telemetry for this installation, but the full installer (also?) sent telemetry
+      StrCpy $PostSigningData "full_installer:unexpected"
     ${EndIf}
+  ${Else}
+    StrCpy $PostSigningData "msi:none"
   ${EndIf}
 
   ; Adds a pinned Task Bar shortcut (see MigrateTaskBarShortcut for details).
@@ -996,6 +1002,7 @@ Function SendPing
   Return
 !endif
 
+  ClearErrors
   ${GetParameters} $0
   ${GetOptions} $0 "/LaunchedFromStub" $0
   ${IfNot} ${Errors}
@@ -1730,6 +1737,9 @@ Function .onInit
   StrCpy $FinishPhaseEnd 0
   StrCpy $InstallResult "cancel"
   StrCpy $LaunchedNewApp false
+  ; initialize postSigningData to explicitly say that it comes from the full installer
+  StrCpy $PostSigningData "full_installer:unset"
+
 
   StrCpy $PageName ""
   StrCpy $LANGUAGE 0

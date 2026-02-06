@@ -140,7 +140,7 @@ add_task(async function () {
     if (test.changePrivateDefaultEngine) {
       await SearchService.setDefaultPrivate(
         otherPrivateDefault,
-        Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+        SearchService.CHANGE_REASON.UNKNOWN
       );
     }
 
@@ -220,7 +220,7 @@ add_task(async function () {
     if (test.changePrivateDefaultEngine) {
       await SearchService.setDefaultPrivate(
         originalPrivateDefault,
-        Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+        SearchService.CHANGE_REASON.UNKNOWN
       );
     }
   }

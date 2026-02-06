@@ -42,8 +42,8 @@ export const LoginTestUtils = {
   /**
    * Erases all the data stored by the Login Manager service.
    */
-  clearData() {
-    Services.logins.removeAllUserFacingLogins();
+  async clearData() {
+    await Services.logins.removeAllUserFacingLoginsAsync();
     for (let origin of Services.logins.getAllDisabledHosts()) {
       Services.logins.setLoginSavingEnabled(origin, true);
     }

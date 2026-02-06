@@ -51,10 +51,7 @@ add_task(async function test_language_switch_changes_name() {
     "Should have loaded the English version of the name"
   );
 
-  await SearchService.setDefault(
-    engine,
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
-  );
+  await SearchService.setDefault(engine, SearchService.CHANGE_REASON.UNKNOWN);
 
   let promiseChanged = TestUtils.topicObserved(
     "browser-search-engine-modified",

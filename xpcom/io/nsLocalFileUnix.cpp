@@ -1391,7 +1391,9 @@ nsresult nsLocalFile::SetTimeImpl(PRTime aTime,
 
   struct STAT statInfo {};
   nsresult rv = StatFile(&statInfo);
-  NS_ENSURE_SUCCESS(rv, rv);
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
 
 #if (defined(__APPLE__) && defined(__MACH__))
   auto* copyFrom = aTimeField == TimeField::AccessedTime
@@ -1508,7 +1510,9 @@ nsLocalFile::GetPermissions(uint32_t* aPermissions) {
 
   struct STAT statInfo {};
   nsresult rv = StatFile(&statInfo);
-  NS_ENSURE_SUCCESS(rv, rv);
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
 
   *aPermissions = NORMALIZE_PERMS(statInfo.st_mode);
   return NS_OK;
@@ -1572,7 +1576,9 @@ nsLocalFile::GetFileSize(int64_t* aFileSize) {
 
   struct STAT statInfo {};
   nsresult rv = StatFile(&statInfo);
-  NS_ENSURE_SUCCESS(rv, rv);
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
 
   if (!S_ISDIR(statInfo.st_mode)) {
     *aFileSize = (int64_t)statInfo.st_size;
@@ -1730,7 +1736,9 @@ nsresult nsLocalFile::GetDiskInfo(StatInfoFunc&& aStatInfoFunc,
 
   struct STAT statInfo {};
   nsresult rv = StatFile(&statInfo);
-  NS_ENSURE_SUCCESS(rv, rv);
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
 
   nsAutoCString deviceName;
   if (!GetDeviceName(major(statInfo.st_dev), minor(statInfo.st_dev),
@@ -2016,7 +2024,9 @@ nsLocalFile::IsDirectory(bool* aResult) {
 
   struct STAT statInfo {};
   nsresult rv = StatFile(&statInfo);
-  NS_ENSURE_SUCCESS(rv, rv);
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
 
   *aResult = S_ISDIR(statInfo.st_mode);
 
@@ -2032,7 +2042,9 @@ nsLocalFile::IsFile(bool* aResult) {
 
   struct STAT statInfo {};
   nsresult rv = StatFile(&statInfo);
-  NS_ENSURE_SUCCESS(rv, rv);
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
 
   *aResult = S_ISREG(statInfo.st_mode);
   return NS_OK;
@@ -2072,7 +2084,9 @@ nsLocalFile::IsSpecial(bool* aResult) {
 
   struct STAT statInfo {};
   nsresult rv = StatFile(&statInfo);
-  NS_ENSURE_SUCCESS(rv, rv);
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
 
   *aResult = S_ISCHR(statInfo.st_mode) || S_ISBLK(statInfo.st_mode) ||
 #ifdef S_ISSOCK

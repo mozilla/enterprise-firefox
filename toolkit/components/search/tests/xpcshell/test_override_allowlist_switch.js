@@ -118,7 +118,7 @@ add_setup(async function () {
   sinon.stub(settings, "get").returns(ALLOWLIST);
 
   notificationBoxStub = sinon.stub(
-    SearchService.wrappedJSObject,
+    SearchService,
     "_showRemovalOfSearchEngineNotificationBox"
   );
 
@@ -336,7 +336,7 @@ async function runTestScenario({ extend, remove, testOpenSearch = false }) {
 async function restartSearchService(initSearchService = false) {
   info("Restarting search service.");
   await promiseAfterSettings();
-  SearchService.wrappedJSObject.reset();
+  SearchService.reset();
   if (initSearchService) {
     await SearchService.init();
   }
@@ -474,7 +474,7 @@ async function assertEngineCorrectlySet({
     "Should have used the third party engine's URLs"
   );
   Assert.equal(
-    !!defaultEngine.wrappedJSObject.getAttr("overriddenBy"),
+    !!defaultEngine.getAttr("overriddenBy"),
     appEngineOverriden,
     "Should have correctly overridden or not."
   );
@@ -521,10 +521,7 @@ async function installThirdPartyEngineAsDefault(useOpenSearch) {
     );
   }
 
-  await SearchService.setDefault(
-    engine,
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
-  );
+  await SearchService.setDefault(engine, SearchService.CHANGE_REASON.UNKNOWN);
 
   return { engine, extension };
 }

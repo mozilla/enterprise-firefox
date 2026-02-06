@@ -154,7 +154,7 @@ export class AboutLoginsParent extends JSWindowActorParent {
         break;
       }
       case "AboutLogins:RemoveAllLogins": {
-        this.#removeAllLogins();
+        await this.#removeAllLogins();
         break;
       }
     }
@@ -502,8 +502,8 @@ export class AboutLoginsParent extends JSWindowActorParent {
     }
   }
 
-  #removeAllLogins() {
-    Services.logins.removeAllUserFacingLogins();
+  async #removeAllLogins() {
+    await Services.logins.removeAllUserFacingLoginsAsync();
   }
 
   #handleLoginStorageErrors(login, error) {
@@ -586,7 +586,7 @@ class AboutLoginsInternal {
             break;
           }
           case "removeAllLogins": {
-            this.#removeAllLogins();
+            await this.#removeAllLogins();
             break;
           }
         }
@@ -659,7 +659,7 @@ class AboutLoginsInternal {
     this.#messageSubscribers("AboutLogins:LoginRemoved", login);
   }
 
-  #removeAllLogins() {
+  async #removeAllLogins() {
     this.#messageSubscribers("AboutLogins:RemoveAllLogins", []);
   }
 

@@ -72,10 +72,9 @@ add_setup(async () => {
 async function promiseEngineIconLoaded(engineName) {
   await TestUtils.topicObserved(
     "browser-search-engine-modified",
-    (engine, verb) => {
-      engine.QueryInterface(Ci.nsISearchEngine);
-      return verb == "engine-icon-changed" && engine.name == engineName;
-    }
+    (subject, verb) =>
+      verb == "engine-icon-changed" &&
+      subject.wrappedJSObject.name == engineName
   );
   Assert.ok(
     await SearchService.getEngineByName(engineName).getIconURL(),

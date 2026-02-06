@@ -7,9 +7,10 @@
 #ifndef DOM_SVG_SVGANIMATEDCLASS_H_
 #define DOM_SVG_SVGANIMATEDCLASS_H_
 
+#include <memory>
+
 #include "mozilla/SMILAttr.h"
 #include "mozilla/SVGAnimatedClassOrString.h"
-#include "mozilla/UniquePtr.h"
 #include "nsCycleCollectionParticipant.h"
 
 namespace mozilla {
@@ -37,10 +38,10 @@ class SVGAnimatedClass final : public SVGAnimatedClassOrString {
                     const SVGElement* aSVGElement) const override;
   bool IsAnimated() const { return !!mAnimVal; }
 
-  UniquePtr<SMILAttr> ToSMILAttr(SVGElement* aSVGElement);
+  std::unique_ptr<SMILAttr> ToSMILAttr(SVGElement* aSVGElement);
 
  private:
-  UniquePtr<nsString> mAnimVal;
+  std::unique_ptr<nsString> mAnimVal;
 
  public:
   struct SMILString : public SMILAttr {

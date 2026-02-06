@@ -23,7 +23,11 @@ add_task(async function test_memories_icon_button() {
       );
 
       let changeEvent = null;
-      btn.addEventListener("change", e => (changeEvent = e), { once: true });
+      btn.addEventListener(
+        "aiwindow-memories-toggle:on-change",
+        e => (changeEvent = e),
+        { once: true }
+      );
 
       const shadow = btn.shadowRoot;
       const mozBtn = shadow.querySelector("moz-button");

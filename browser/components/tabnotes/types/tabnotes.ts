@@ -4,7 +4,12 @@
 
 type MozTabbrowserTab = EventTarget & { canonicalUrl: string };
 
-type CanonicalURLSource = "link" | "opengraph" | "jsonLd" | "fallback";
+type CanonicalURLSource =
+  | "link"
+  | "opengraph"
+  | "jsonLd"
+  | "fallback"
+  | "pushstate";
 type CanonicalURLSourceResults = {
   [source in CanonicalURLSource]: string | null;
 };

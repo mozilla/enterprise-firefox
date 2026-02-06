@@ -25,8 +25,8 @@ add_setup(async function () {
   await sinon.restore();
   LoginHelper.setOSAuthEnabled(false);
 
-  registerCleanupFunction(() => {
-    Services.logins.removeAllUserFacingLogins();
+  registerCleanupFunction(async () => {
+    await Services.logins.removeAllUserFacingLoginsAsync();
     LoginTestUtils.primaryPassword.disable();
   });
 });

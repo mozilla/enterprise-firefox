@@ -63,11 +63,10 @@ import org.mozilla.fenix.nimbus.CookieBannersSection
 import org.mozilla.fenix.nimbus.DefaultBrowserPrompt
 import org.mozilla.fenix.nimbus.FxNimbus
 import org.mozilla.fenix.nimbus.HomeScreenSection
+import org.mozilla.fenix.nimbus.OpeningScreenOption
 import org.mozilla.fenix.settings.PhoneFeature
 import org.mozilla.fenix.settings.ShortcutType
 import org.mozilla.fenix.settings.deletebrowsingdata.DeleteBrowsingDataOnQuitType
-import org.mozilla.fenix.settings.logins.SavedLoginsSortingStrategyMenu
-import org.mozilla.fenix.settings.logins.SortingStrategy
 import org.mozilla.fenix.settings.registerOnSharedPreferenceChangeListener
 import org.mozilla.fenix.settings.sitepermissions.AUTOPLAY_BLOCK_ALL
 import org.mozilla.fenix.settings.sitepermissions.AUTOPLAY_BLOCK_AUDIBLE
@@ -308,6 +307,12 @@ class Settings(
      */
     val showHomepageRecentlyVisitedSectionToggle: Boolean
         get() = !enableHomepageSearchBar
+
+    /**
+     * Indicates whether or not the homepage should use edge to edge background
+     */
+    val enableHomepageEdgeToEdgeBackgroundFeature: Boolean
+        get() = FxNimbus.features.homescreenEdgeToEdgeBackground.value().enabled
 
     var numberOfAppLaunches by intPreference(
         appContext.getPreferenceKey(R.string.pref_key_times_app_opened),
@@ -847,13 +852,16 @@ class Settings(
         default = 0L,
     )
 
+    private val openingScreenDefault: OpeningScreenOption
+        get() = FxNimbus.features.homepageOpeningScreenDefault.value().defaultOption
+
     /**
      * Indicates if the user has selected the option to start on the home screen after
      * four hours of inactivity.
      */
     var openHomepageAfterFourHoursOfInactivity by booleanPreference(
         appContext.getPreferenceKey(R.string.pref_key_start_on_home_after_four_hours),
-        default = true,
+        default = { openingScreenDefault == OpeningScreenOption.HOMEPAGE_FOUR_HOURS },
     )
 
     /**
@@ -861,7 +869,7 @@ class Settings(
      */
     var alwaysOpenTheHomepageWhenOpeningTheApp by booleanPreference(
         appContext.getPreferenceKey(R.string.pref_key_start_on_home_always),
-        default = false,
+        default = { openingScreenDefault == OpeningScreenOption.HOMEPAGE },
     )
 
     /**
@@ -870,7 +878,7 @@ class Settings(
      */
     var alwaysOpenTheLastTabWhenOpeningTheApp by booleanPreference(
         appContext.getPreferenceKey(R.string.pref_key_start_on_home_never),
-        default = false,
+        default = { openingScreenDefault == OpeningScreenOption.LAST_TAB },
     )
 
     /**
@@ -1935,30 +1943,6 @@ class Settings(
         default = "",
     )
 
-    private var savedLoginsSortingStrategyString by stringPreference(
-        appContext.getPreferenceKey(R.string.pref_key_saved_logins_sorting_strategy),
-        default = SavedLoginsSortingStrategyMenu.Item.AlphabeticallySort.strategyString,
-    )
-
-    val savedLoginsMenuHighlightedItem: SavedLoginsSortingStrategyMenu.Item
-        get() = SavedLoginsSortingStrategyMenu.Item.fromString(savedLoginsSortingStrategyString)
-
-    var savedLoginsSortingStrategy: SortingStrategy
-        get() {
-            return when (savedLoginsMenuHighlightedItem) {
-                SavedLoginsSortingStrategyMenu.Item.AlphabeticallySort -> SortingStrategy.Alphabetically
-                SavedLoginsSortingStrategyMenu.Item.LastUsedSort -> SortingStrategy.LastUsed
-            }
-        }
-        set(value) {
-            savedLoginsSortingStrategyString = when (value) {
-                is SortingStrategy.Alphabetically ->
-                    SavedLoginsSortingStrategyMenu.Item.AlphabeticallySort.strategyString
-                is SortingStrategy.LastUsed ->
-                    SavedLoginsSortingStrategyMenu.Item.LastUsedSort.strategyString
-            }
-        }
-
     var isPullToRefreshEnabledInBrowser by booleanPreference(
         appContext.getPreferenceKey(R.string.pref_key_website_pull_to_refresh),
         default = true,
@@ -2089,15 +2073,6 @@ class Settings(
         appContext.getPreferenceKey(R.string.pref_key_pocket_sponsored_stories_profile),
         default = { UUID.randomUUID().toString() },
         persistDefaultIfNotExists = true,
-    )
-
-    /**
-     * Whether or not the profile ID used in the sponsored stories communications with the Pocket
-     * endpoint has been migrated to the MARS endpoint.
-     */
-    var hasPocketSponsoredStoriesProfileMigrated by booleanPreference(
-        appContext.getPreferenceKey(R.string.pref_key_pocket_sponsored_stories_profile_migrated),
-        default = false,
     )
 
     /**
@@ -2257,7 +2232,8 @@ class Settings(
      */
     var hasSeenBrowserToolbarCFR by booleanPreference(
         key = appContext.getPreferenceKey(R.string.pref_key_toolbar_cfr),
-        default = isBenchmarkBuild,
+        default = Config.channel.isReleaseOrBeta || isBenchmarkBuild,
+        persistDefaultIfNotExists = true,
     )
 
     /**
@@ -2374,7 +2350,7 @@ class Settings(
      */
     var enableMozillaAdsClient by booleanPreference(
         key = appContext.getPreferenceKey(R.string.pref_key_enable_mozilla_ads_client),
-        default = FeatureFlags.MOZILLA_ADS_CLIENT_ENABLED,
+        default = { FxNimbus.features.mozillaAdsClient.value().enabled },
     )
 
     /**
@@ -2383,6 +2359,22 @@ class Settings(
     var enableFirefoxLabs by booleanPreference(
         key = appContext.getPreferenceKey(R.string.pref_key_enable_firefox_labs),
         default = FeatureFlags.FIREFOX_LABS,
+    )
+
+    /**
+     * Indicates if Browser Mode Toggle is enabled.
+     */
+    var enableBrowserModeToggle by booleanPreference(
+        key = appContext.getPreferenceKey(R.string.pref_key_enable_browser_mode_toggle),
+        default = { FxNimbus.features.browserModeToggle.value().enabled },
+    )
+
+    /**
+     * Indicates if Merino Client is enabled.
+     */
+    var enableMerinoClient by booleanPreference(
+        key = appContext.getPreferenceKey(R.string.pref_key_enable_merino_client),
+        default = { FxNimbus.features.merinoClient.value().enabled },
     )
 
     /**
@@ -2548,6 +2540,14 @@ class Settings(
     )
 
     /**
+     * Indicates if the Shake to Summarize feature is enabled.
+     */
+    var shakeToSummarizeFeatureEnabled by booleanPreference(
+        key = appContext.getPreferenceKey(R.string.pref_key_enable_shake_to_summarize),
+        default = Config.channel.isDebug,
+    )
+
+    /**
      * Indicates if a microsurvey should be shown to the user.
      */
     var shouldShowMicrosurveyPrompt by booleanPreference(
@@ -2669,14 +2669,6 @@ class Settings(
     var lastSavedInFolderGuid by stringPreference(
         key = appContext.getPreferenceKey(R.string.pref_last_folder_saved_in),
         default = "",
-    )
-
-    /**
-     * Indicates whether or not we should use the new compose logins UI
-     */
-    var enableComposeLogins by booleanPreference(
-        key = appContext.getPreferenceKey(R.string.pref_key_enable_compose_logins),
-        default = true,
     )
 
     var loginsListSortOrder by stringPreference(
@@ -2828,14 +2820,6 @@ class Settings(
     var distributionId by stringPreference(
         key = appContext.getPreferenceKey(R.string.pref_key_distribution_id),
         default = "",
-    )
-
-    /**
-     * Whether the Tab Manager enhancements are enabled.
-     */
-    var tabManagerEnhancementsEnabled by booleanPreference(
-        key = appContext.getPreferenceKey(R.string.pref_key_tab_manager_enhancements),
-        default = { DefaultTabManagementFeatureHelper.enhancementsEnabled },
     )
 
     /**

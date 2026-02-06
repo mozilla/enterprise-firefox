@@ -3,6 +3,6 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 moz-button.memories-icon-button {
-  --button-icon-fill: var(--color-gray-70);
+  --button-icon-fill: light-dark(var(--color-gray-70), white);
   --button-background-color-ghost-selected: transparent;
 }

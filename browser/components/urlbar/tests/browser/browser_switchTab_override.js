@@ -135,3 +135,52 @@ add_task(async function test_switchtab_override_scotch_bonnet() {
   gBrowser.removeTab(secondTab);
   await SpecialPowers.popPrefEnv();
 });
+
+add_task(async function test_switchtab_override_scotch_bonnet_for_split_view() {
+  await SpecialPowers.pushPrefEnv({
+    set: [["browser.urlbar.secondaryActions.switchToTab", false]],
+  });
+
+  info("Opening first tab");
+  let tab1 = await BrowserTestUtils.openNewForegroundTab(gBrowser, TEST_URL);
+  let tab2 = await BrowserTestUtils.openNewForegroundTab(
+    gBrowser,
+    "about:opentabs"
+  );
+
+  info("Opening and selecting second tab");
+  let tab3 = await BrowserTestUtils.openNewForegroundTab(gBrowser);
+
+  gBrowser.addTabSplitView([tab2, tab3], { id: "1" });
+  let tabbrowserTabs = document.getElementById("tabbrowser-tabs");
+  await BrowserTestUtils.waitForMutationCondition(
+    tabbrowserTabs,
+    { childList: true },
+    () => tabbrowserTabs.querySelectorAll("tab-split-view-wrapper").length === 1
+  );
+
+  info("Wait for autocomplete");
+  await UrlbarTestUtils.promiseAutocompleteResultPopup({
+    window,
+    value: "dummy_page",
+  });
+
+  info("Select second autocomplete popup entry");
+  EventUtils.synthesizeKey("KEY_ArrowDown");
+  let result = await UrlbarTestUtils.getDetailsOfResultAt(
+    window,
+    UrlbarTestUtils.getSelectedRowIndex(window)
+  );
+  Assert.equal(result.type, UrlbarUtils.RESULT_TYPE.TAB_SWITCH);
+
+  info("Check the current status");
+  let actionLabel = result.element.row.querySelector(".urlbarView-action");
+  Assert.ok(BrowserTestUtils.isVisible(actionLabel));
+  Assert.ok(actionLabel.textContent, "Move tab to Split View");
+
+  info("Cleanup");
+  gBrowser.removeTab(tab1);
+  gBrowser.removeTab(tab2);
+  gBrowser.removeTab(tab3);
+  await SpecialPowers.popPrefEnv();
+});

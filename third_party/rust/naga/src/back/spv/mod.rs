@@ -183,7 +183,7 @@ pub enum Error {
 struct IdGenerator(Word);
 
 impl IdGenerator {
-    fn next(&mut self) -> Word {
+    const fn next(&mut self) -> Word {
         self.0 += 1;
         self.0
     }
@@ -763,7 +763,7 @@ impl GlobalVariable {
     }
 
     /// Prepare `self` for use within a single function.
-    fn reset_for_function(&mut self) {
+    const fn reset_for_function(&mut self) {
         self.handle_id = 0;
         self.access_id = 0;
     }
@@ -857,7 +857,7 @@ struct RayQueryTrackers {
 }
 
 impl BlockContext<'_> {
-    fn gen_id(&mut self) -> Word {
+    const fn gen_id(&mut self) -> Word {
         self.writer.id_gen.next()
     }
 
@@ -1005,19 +1005,6 @@ bitflags::bitflags! {
         /// Note: VK_KHR_shader_non_semantic_info must be enabled. This will have no
         /// effect if `options.ray_query_initialization_tracking` is set to false.
         const PRINT_ON_RAY_QUERY_INITIALIZATION_FAIL = 0x20;
-    }
-}
-
-bitflags::bitflags! {
-    /// How far through a ray query are we
-    #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-    pub(super) struct RayQueryPoint: u32 {
-        /// Ray query has been successfully initialized.
-        const INITIALIZED = 1 << 0;
-        /// Proceed has been called on ray query.
-        const PROCEED = 1 << 1;
-        /// Proceed has returned false (have finished traversal).
-        const FINISHED_TRAVERSAL = 1 << 2;
     }
 }
 

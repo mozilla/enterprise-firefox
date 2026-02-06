@@ -22,7 +22,7 @@ add_task(async function upgrade_with_configuration_change_test() {
 
   // Restart the search service but not the AddonManager, we will
   // load the engines from settings.
-  SearchService.wrappedJSObject.reset();
+  SearchService.reset();
   await SearchService.init();
 
   engine = await SearchService.getEngineByAlias("testalias");

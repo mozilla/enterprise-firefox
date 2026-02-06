@@ -114,13 +114,16 @@ static void RecordContentProcessOOMKilled() {
 
   if (NS_SUCCEEDED(rv)) {
     // Record Glean event with PSI metrics
+    mozilla::glean::memory_watcher::ProcessOomKilledExtra extra;
+    extra.psiSomeAvg10 = mozilla::Some(nsPrintfCString("%lu", psi.some_avg10));
+    extra.psiSomeAvg60 = mozilla::Some(nsPrintfCString("%lu", psi.some_avg60));
+    extra.psiFullAvg10 = mozilla::Some(nsPrintfCString("%lu", psi.full_avg10));
+    extra.psiFullAvg60 = mozilla::Some(nsPrintfCString("%lu", psi.full_avg60));
+    extra.psiAvailable = mozilla::Some(psi.psi_available);
     mozilla::glean::memory_watcher::process_oom_killed.Record(
-        mozilla::Some(mozilla::glean::memory_watcher::ProcessOomKilledExtra{
-            mozilla::Some(nsPrintfCString("%lu", psi.some_avg10)),
-            mozilla::Some(nsPrintfCString("%lu", psi.some_avg60)),
-            mozilla::Some(nsPrintfCString("%lu", psi.full_avg10)),
-            mozilla::Some(nsPrintfCString("%lu", psi.full_avg60)),
-        }));
+        mozilla::Some(extra));
+
+    mozilla::StartNonOOMPSISampling();
   }
 }
 #endif

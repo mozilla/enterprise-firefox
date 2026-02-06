@@ -306,15 +306,9 @@ class DefaultSessionControlController(
     }
 
     private fun showTabTrayCollectionCreation() {
-        val directions = if (settings.tabManagerEnhancementsEnabled) {
-            HomeFragmentDirections.actionGlobalTabManagementFragment(
-                enterMultiselect = true,
-            )
-        } else {
-            HomeFragmentDirections.actionGlobalTabsTrayFragment(
-                enterMultiselect = true,
-            )
-        }
+        val directions = HomeFragmentDirections.actionGlobalTabManagementFragment(
+            enterMultiselect = true,
+        )
         navController.nav(R.id.homeFragment, directions)
     }
 

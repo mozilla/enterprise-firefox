@@ -597,29 +597,29 @@ void gfxFontShaper::MergeFontFeatures(
     case NS_FONT_VARIANT_CAPS_NORMAL:
       break;
 
-    case NS_FONT_VARIANT_CAPS_ALLSMALL:
+    case NS_FONT_VARIANT_CAPS_ALL_SMALL_CAPS:
       addOrReplace(gfxFontFeature{HB_TAG('c', '2', 's', 'c'), 1});
       // fall through to the small-caps case
       [[fallthrough]];
 
-    case NS_FONT_VARIANT_CAPS_SMALLCAPS:
+    case NS_FONT_VARIANT_CAPS_SMALL_CAPS:
       addOrReplace(gfxFontFeature{HB_TAG('s', 'm', 'c', 'p'), 1});
       break;
 
-    case NS_FONT_VARIANT_CAPS_ALLPETITE:
+    case NS_FONT_VARIANT_CAPS_ALL_PETITE_CAPS:
       addOrReplace(gfxFontFeature{aAddSmallCaps ? HB_TAG('c', '2', 's', 'c')
                                                 : HB_TAG('c', '2', 'p', 'c'),
                                   1});
       // fall through to the petite-caps case
       [[fallthrough]];
 
-    case NS_FONT_VARIANT_CAPS_PETITECAPS:
+    case NS_FONT_VARIANT_CAPS_PETITE_CAPS:
       addOrReplace(gfxFontFeature{aAddSmallCaps ? HB_TAG('s', 'm', 'c', 'p')
                                                 : HB_TAG('p', 'c', 'a', 'p'),
                                   1});
       break;
 
-    case NS_FONT_VARIANT_CAPS_TITLING:
+    case NS_FONT_VARIANT_CAPS_TITLING_CAPS:
       addOrReplace(gfxFontFeature{HB_TAG('t', 'i', 't', 'l'), 1});
       break;
 
@@ -997,6 +997,8 @@ gfxFont::gfxFont(const RefPtr<UnscaledFont>& aUnscaledFont,
     mAntialiasOption = kAntialiasNone;
   }
 
+  InitBaselines(mHorizontalBaselines, nsFontMetrics::eHorizontal);
+
   mKerningSet = HasFeatureSet(HB_TAG('k', 'e', 'r', 'n'), mKerningEnabled);
 
   // Ensure the gfxFontEntry's unitsPerEm and extents fields are initialized,
@@ -1009,6 +1011,7 @@ gfxFont::~gfxFont() {
 
   // Delete objects owned through atomic pointers. (Some of these may be null,
   // but that's OK.)
+  delete mVerticalBaselines.exchange(nullptr);
   delete mVerticalMetrics.exchange(nullptr);
   delete mHarfBuzzShaper.exchange(nullptr);
   delete mGraphiteShaper.exchange(nullptr);
@@ -1578,13 +1581,13 @@ bool gfxFont::SupportsVariantCaps(Script aScript, uint32_t aVariantCaps,
   aSyntheticLowerToSmallCaps = false;
   aSyntheticUpperToSmallCaps = false;
   switch (aVariantCaps) {
-    case NS_FONT_VARIANT_CAPS_SMALLCAPS:
+    case NS_FONT_VARIANT_CAPS_SMALL_CAPS:
       ok = SupportsFeature(aScript, HB_TAG('s', 'm', 'c', 'p'));
       if (!ok) {
         aSyntheticLowerToSmallCaps = true;
       }
       break;
-    case NS_FONT_VARIANT_CAPS_ALLSMALL:
+    case NS_FONT_VARIANT_CAPS_ALL_SMALL_CAPS:
       ok = SupportsFeature(aScript, HB_TAG('s', 'm', 'c', 'p')) &&
            SupportsFeature(aScript, HB_TAG('c', '2', 's', 'c'));
       if (!ok) {
@@ -1592,7 +1595,7 @@ bool gfxFont::SupportsVariantCaps(Script aScript, uint32_t aVariantCaps,
         aSyntheticUpperToSmallCaps = true;
       }
       break;
-    case NS_FONT_VARIANT_CAPS_PETITECAPS:
+    case NS_FONT_VARIANT_CAPS_PETITE_CAPS:
       ok = SupportsFeature(aScript, HB_TAG('p', 'c', 'a', 'p'));
       if (!ok) {
         ok = SupportsFeature(aScript, HB_TAG('s', 'm', 'c', 'p'));
@@ -1602,7 +1605,7 @@ bool gfxFont::SupportsVariantCaps(Script aScript, uint32_t aVariantCaps,
         aSyntheticLowerToSmallCaps = true;
       }
       break;
-    case NS_FONT_VARIANT_CAPS_ALLPETITE:
+    case NS_FONT_VARIANT_CAPS_ALL_PETITE_CAPS:
       ok = SupportsFeature(aScript, HB_TAG('p', 'c', 'a', 'p')) &&
            SupportsFeature(aScript, HB_TAG('c', '2', 'p', 'c'));
       if (!ok) {
@@ -4424,69 +4427,58 @@ void gfxFont::SanitizeMetrics(gfxFont::Metrics* aMetrics,
   }
 }
 
-gfxFont::Baselines gfxFont::GetBaselines(Orientation aOrientation) {
-  // Approximated baselines for fonts lacking actual baseline data. These are
-  // fractions of the em ascent/descent from the alphabetic baseline.
-  const double kHangingBaselineDefault = 0.8;       // fraction of ascent
-  const double kIdeographicBaselineDefault = -0.5;  // fraction of descent
-
-  // If no BASE table is present, just return synthetic values immediately.
-  if (!mFontEntry->HasFontTable(TRUETYPE_TAG('B', 'A', 'S', 'E'))) {
-    // No baseline table; just synthesize them immediately.
-    const Metrics& metrics = GetMetrics(aOrientation);
-    return Baselines{
-        0.0,                                             // alphabetic
-        kHangingBaselineDefault * metrics.emAscent,      // hanging
-        kIdeographicBaselineDefault * metrics.emDescent  // ideographic
-    };
-  }
-
-  // Use harfbuzz to try to read the font's baseline metrics.
-  Baselines result{NAN, NAN, NAN};
+void gfxFont::InitBaselines(Baselines& aBaselines, Orientation aOrientation) {
+  // Use harfbuzz to try to read the font's baseline metrics. For
+  // missing baselines, harfbuzz will synthesize fallbacks according
+  // to the CSS Inline Layout Module Level 3 specification.
   hb_font_t* hbFont = gfxHarfBuzzShaper::CreateHBFont(this);
   hb_direction_t hbDir = aOrientation == nsFontMetrics::eHorizontal
                              ? HB_DIRECTION_LTR
                              : HB_DIRECTION_TTB;
   hb_position_t position;
-  unsigned count = 0;
   auto Fix2Float = [](hb_position_t f) -> gfxFloat { return f / 65536.0; };
-  if (hb_ot_layout_get_baseline(hbFont, HB_OT_LAYOUT_BASELINE_TAG_ROMAN, hbDir,
-                                HB_OT_TAG_DEFAULT_SCRIPT,
-                                HB_OT_TAG_DEFAULT_LANGUAGE, &position)) {
-    result.mAlphabetic = Fix2Float(position);
-    count++;
-  }
-  if (hb_ot_layout_get_baseline(hbFont, HB_OT_LAYOUT_BASELINE_TAG_HANGING,
-                                hbDir, HB_OT_TAG_DEFAULT_SCRIPT,
-                                HB_OT_TAG_DEFAULT_LANGUAGE, &position)) {
-    result.mHanging = Fix2Float(position);
-    count++;
-  }
-  if (hb_ot_layout_get_baseline(
-          hbFont, HB_OT_LAYOUT_BASELINE_TAG_IDEO_EMBOX_BOTTOM_OR_LEFT, hbDir,
-          HB_OT_TAG_DEFAULT_SCRIPT, HB_OT_TAG_DEFAULT_LANGUAGE, &position)) {
-    result.mIdeographic = Fix2Float(position);
-    count++;
-  }
+
+  hb_ot_layout_get_baseline_with_fallback(
+      hbFont, HB_OT_LAYOUT_BASELINE_TAG_ROMAN, hbDir, HB_OT_TAG_DEFAULT_SCRIPT,
+      HB_OT_TAG_DEFAULT_LANGUAGE, &position);
+  aBaselines.mAlphabetic = Fix2Float(position);
+
+  hb_ot_layout_get_baseline_with_fallback(
+      hbFont, HB_OT_LAYOUT_BASELINE_TAG_HANGING, hbDir,
+      HB_OT_TAG_DEFAULT_SCRIPT, HB_OT_TAG_DEFAULT_LANGUAGE, &position);
+  aBaselines.mHanging = Fix2Float(position);
+
+  hb_ot_layout_get_baseline_with_fallback(
+      hbFont, HB_OT_LAYOUT_BASELINE_TAG_IDEO_EMBOX_BOTTOM_OR_LEFT, hbDir,
+      HB_OT_TAG_DEFAULT_SCRIPT, HB_OT_TAG_DEFAULT_LANGUAGE, &position);
+  aBaselines.mIdeographicUnder = Fix2Float(position);
+
+  hb_ot_layout_get_baseline_with_fallback(
+      hbFont, HB_OT_LAYOUT_BASELINE_TAG_IDEO_EMBOX_TOP_OR_RIGHT, hbDir,
+      HB_OT_TAG_DEFAULT_SCRIPT, HB_OT_TAG_DEFAULT_LANGUAGE, &position);
+  aBaselines.mIdeographicOver = Fix2Float(position);
+
+  hb_ot_layout_get_baseline_with_fallback(
+      hbFont, HB_OT_LAYOUT_BASELINE_TAG_IDEO_FACE_BOTTOM_OR_LEFT, hbDir,
+      HB_OT_TAG_DEFAULT_SCRIPT, HB_OT_TAG_DEFAULT_LANGUAGE, &position);
+  aBaselines.mIdeographicInkUnder = Fix2Float(position);
+
+  hb_ot_layout_get_baseline_with_fallback(
+      hbFont, HB_OT_LAYOUT_BASELINE_TAG_IDEO_FACE_TOP_OR_RIGHT, hbDir,
+      HB_OT_TAG_DEFAULT_SCRIPT, HB_OT_TAG_DEFAULT_LANGUAGE, &position);
+  aBaselines.mIdeographicInkOver = Fix2Float(position);
+
+  hb_ot_layout_get_baseline_with_fallback(
+      hbFont, HB_OT_LAYOUT_BASELINE_TAG_IDEO_EMBOX_CENTRAL, hbDir,
+      HB_OT_TAG_DEFAULT_SCRIPT, HB_OT_TAG_DEFAULT_LANGUAGE, &position);
+  aBaselines.mCentral = Fix2Float(position);
+
+  hb_ot_layout_get_baseline_with_fallback(
+      hbFont, HB_OT_LAYOUT_BASELINE_TAG_MATH, hbDir, HB_OT_TAG_DEFAULT_SCRIPT,
+      HB_OT_TAG_DEFAULT_LANGUAGE, &position);
+  aBaselines.mMath = Fix2Float(position);
+
   hb_font_destroy(hbFont);
-  // If we successfully read all three, we can return now.
-  if (count == 3) {
-    return result;
-  }
-
-  // Synthesize the baselines that we didn't find in the font.
-  const Metrics& metrics = GetMetrics(aOrientation);
-  if (std::isnan(result.mAlphabetic)) {
-    result.mAlphabetic = 0.0;
-  }
-  if (std::isnan(result.mHanging)) {
-    result.mHanging = kHangingBaselineDefault * metrics.emAscent;
-  }
-  if (std::isnan(result.mIdeographic)) {
-    result.mIdeographic = kIdeographicBaselineDefault * metrics.emDescent;
-  }
-
-  return result;
 }
 
 // Create a Metrics record to be used for vertical layout. This should never
@@ -4683,6 +4675,15 @@ void gfxFont::CreateVerticalMetrics() {
 
   if (!mVerticalMetrics.compareExchange(nullptr, metrics)) {
     delete metrics;
+  }
+}
+
+void gfxFont::CreateVerticalBaselines() {
+  auto* baselines = new Baselines();
+  InitBaselines(*baselines, nsFontMetrics::eVertical);
+
+  if (!mVerticalBaselines.compareExchange(nullptr, baselines)) {
+    delete baselines;
   }
 }
 

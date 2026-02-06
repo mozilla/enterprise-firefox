@@ -6,8 +6,9 @@ use super::*;
 use std::borrow::Cow;
 
 pub fn pass(root: &mut Root) -> Result<()> {
-    root.visit_mut(|module: &mut Module| {
-        module.js_docstring = format_docstring(module.docstring.as_ref().unwrap_or(&module.name));
+    root.visit_mut(|namespace: &mut Namespace| {
+        namespace.js_docstring =
+            format_docstring(namespace.docstring.as_ref().unwrap_or(&namespace.name));
     });
     root.visit_mut(|func: &mut Function| {
         func.js_docstring = format_callable_docstring(

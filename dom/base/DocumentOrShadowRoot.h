@@ -246,7 +246,7 @@ class DocumentOrShadowRoot {
   void ClearAdoptedStyleSheets();
 
   /**
-   * Clone's the argument's adopted style sheets into this.
+   * Clones the argument's adopted style sheets into this.
    * This should only be used when cloning a static document for printing.
    */
   void CloneAdoptedSheetsFrom(const DocumentOrShadowRoot&);

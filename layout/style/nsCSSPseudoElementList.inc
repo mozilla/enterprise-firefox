@@ -75,6 +75,13 @@ CSS_PSEUDO_ELEMENT(mozNumberSpinDown, ":-moz-number-spin-down",
 CSS_PSEUDO_ELEMENT(mozSearchClearButton, ":-moz-search-clear-button",
                    CSS_PSEUDO_ELEMENT_SUPPORTS_USER_ACTION_STATE |
                    CSS_PSEUDO_ELEMENT_ENABLED_IN_UA_SHEETS_AND_CHROME)
+// The selected label of a <select>
+CSS_PSEUDO_ELEMENT(mozSelectContent, ":-moz-select-content",
+                   CSS_PSEUDO_ELEMENT_ENABLED_IN_UA_SHEETS_AND_CHROME)
+// The menulist button of a <select>
+// TODO: Maybe unify with the base-appearance ::picker-icon pseudo?
+CSS_PSEUDO_ELEMENT(mozSelectPickerIcon, ":-moz-select-picker-icon",
+                   CSS_PSEUDO_ELEMENT_ENABLED_IN_UA_SHEETS_AND_CHROME)
 CSS_PSEUDO_ELEMENT(mozProgressBar, ":-moz-progress-bar",
                    CSS_PSEUDO_ELEMENT_SUPPORTS_USER_ACTION_STATE)
 CSS_PSEUDO_ELEMENT(mozRangeTrack, ":-moz-range-track",
@@ -102,6 +109,9 @@ CSS_PSEUDO_ELEMENT(mozReveal, ":-moz-reveal",
 // The button in an <input type=file>
 CSS_PSEUDO_ELEMENT(fileSelectorButton, ":file-selector-button",
                    CSS_PSEUDO_ELEMENT_SUPPORTS_USER_ACTION_STATE)
+// The cropped label in a file input.
+CSS_PSEUDO_ELEMENT(mozFileContent, ":-moz-file-content",
+                   CSS_PSEUDO_ELEMENT_ENABLED_IN_UA_SHEETS_AND_CHROME)
 
 // Standard progress/meter/range pseudo-elements.
 CSS_PSEUDO_ELEMENT(sliderTrack, ":slider-track",

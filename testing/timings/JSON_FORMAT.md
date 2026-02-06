@@ -1,13 +1,15 @@
-# XPCShell JSON Data Format Documentation
+# Test Harness JSON Data Format Documentation
 
-This document describes the JSON file formats created by `fetch-xpcshell-data.js`.
+This document describes the JSON file formats created by `fetch-test-data.js`.
 
 ## Overview
 
 The script generates two types of JSON files for each date or try commit:
 
-1. **Test timing data**: `xpcshell-{date}.json` or `xpcshell-try-{revision}.json`
-2. **Resource usage data**: `xpcshell-{date}-resources.json` or `xpcshell-try-{revision}-resources.json`
+1. **Test timing data**: `{harness}-{date}.json` or `{harness}-{project}-{revision}.json`
+2. **Resource usage data**: `{harness}-{date}-resources.json` or `{harness}-{project}-{revision}-resources.json`
+
+Where `{harness}` is the test harness name (e.g., `xpcshell`, `mochitest`).
 
 Both formats use string tables and index-based lookups to minimize file size.
 

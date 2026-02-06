@@ -628,6 +628,21 @@ double SVGContentUtils::ComputeNormalizedHypotenuse(double aWidth,
   return NS_hypot(aWidth, aHeight) / M_SQRT2;
 }
 
+double SVGContentUtils::AxisLength(const gfxSize& aAxisSize,
+                                   SVGLength::Axis aAxis) {
+  switch (aAxis) {
+    case SVGLength::Axis::X:
+      return aAxisSize.width;
+    case SVGLength::Axis::Y:
+      return aAxisSize.height;
+    case SVGLength::Axis::XY:
+      return ComputeNormalizedHypotenuse(aAxisSize.width, aAxisSize.height);
+    default:
+      MOZ_ASSERT_UNREACHABLE("Unknown value for SVGLength::Axis");
+      return 1;
+  }
+}
+
 float SVGContentUtils::AngleBisect(float a1, float a2) {
   float delta = std::fmod(a2 - a1, static_cast<float>(2 * M_PI));
   if (delta < 0) {
@@ -857,10 +872,10 @@ bool SVGContentUtils::ParseInteger(const nsAString& aString, int32_t& aValue) {
 
 float SVGContentUtils::CoordToFloat(const SVGElement* aContent,
                                     const LengthPercentage& aLength,
-                                    uint8_t aCtxType) {
+                                    SVGLength::Axis aAxis) {
   float result = aLength.ResolveToCSSPixelsWith([&] {
     SVGViewportElement* ctx = aContent->GetCtx();
-    return CSSCoord(ctx ? ctx->GetLength(aCtxType) : 0.0f);
+    return CSSCoord(ctx ? ctx->GetLength(aAxis) : 0.0f);
   });
   if (aLength.IsCalc()) {
     const auto& calc = aLength.AsCalc();

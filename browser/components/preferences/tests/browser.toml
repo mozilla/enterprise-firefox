@@ -25,6 +25,14 @@ run-if = [
 
 ["browser_aiFeatures.js"]
 
+["browser_aiFeatures_block_dialog.js"]
+
+["browser_aiFeatures_chatbot.js"]
+
+["browser_aiFeatures_memories.js"]
+
+["browser_aiFeatures_visibility.js"]
+
 ["browser_application_xml_handle_internally.js"]
 
 ["browser_applications_selection.js"]

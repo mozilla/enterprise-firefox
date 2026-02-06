@@ -3,6 +3,7 @@
 
 /**
  * @import { SettingControl } from "chrome://browser/content/preferences/widgets/setting-control.mjs"
+ * @import { Setting } from "chrome://global/content/preferences/Setting.mjs"
  */
 
 const { EnterprisePolicyTesting, PoliciesPrefTracker } =
@@ -777,13 +778,22 @@ async function updateCheckBox(win, id, value) {
   await EventUtils.synthesizeMouseAtCenter(checkbox, {}, checkbox.ownerGlobal);
 }
 
-function waitForSettingChange(setting) {
-  return new Promise(resolve => {
+/**
+ * @param {Setting} setting The setting to wait on.
+ * @param {() => any} [triggerFn]
+ * An optional function to call that will trigger the change.
+ */
+function waitForSettingChange(setting, triggerFn) {
+  let changePromise = new Promise(resolve => {
     setting.on("change", function handler() {
       setting.off("change", handler);
       resolve();
     });
   });
+  if (triggerFn) {
+    triggerFn();
+  }
+  return changePromise;
 }
 
 async function waitForSettingControlChange(control) {

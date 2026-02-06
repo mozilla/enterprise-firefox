@@ -66,7 +66,6 @@ varying highp vec2 vLocalPos;
 
 #define QF_IS_OPAQUE            1
 #define QF_APPLY_DEVICE_CLIP    2
-#define QF_IGNORE_DEVICE_SCALE  4
 #define QF_USE_AA_SEGMENTS      8
 #define QF_IS_MASK              16
 
@@ -188,15 +187,15 @@ VertexInfo write_vertex(vec2 local_pos,
                         Transform transform,
                         vec2 content_origin,
                         RectWithEndpoint task_rect,
-                        float device_pixel_scale,
                         int quad_flags) {
     VertexInfo vi;
 
-    // Transform the current vertex to world space.
-    vec4 world_pos = transform.m * vec4(local_pos, 0.0, 1.0);
+    // Transform the current vertex to device space.
+    vec4 transformed = transform.m * vec4(local_pos, 0.0, 1.0);
 
     // Convert the world positions to device pixel space.
-    vec2 device_pos = world_pos.xy * device_pixel_scale;
+    vec2 device_pos = transformed.xy;
+    float w = transformed.w;
 
     if ((quad_flags & QF_APPLY_DEVICE_CLIP) != 0) {
         RectWithEndpoint device_clip_rect = RectWithEndpoint(
@@ -207,7 +206,7 @@ VertexInfo write_vertex(vec2 local_pos,
         // Clip to task rect
         device_pos = rect_clamp(device_clip_rect, device_pos);
 
-        vi.local_pos = (transform.inv_m * vec4(device_pos / device_pixel_scale, 0.0, 1.0)).xy;
+        vi.local_pos = (transform.inv_m * vec4(device_pos, 0.0, 1.0)).xy;
     } else {
         vi.local_pos = local_pos;
     }
@@ -215,7 +214,7 @@ VertexInfo write_vertex(vec2 local_pos,
     // Apply offsets for the render task to get correct screen location.
     vec2 final_offset = -content_origin + task_rect.p0;
 
-    gl_Position = uTransform * vec4(device_pos + final_offset * world_pos.w, z * world_pos.w, world_pos.w);
+    gl_Position = uTransform * vec4(device_pos + final_offset * w, z * w, w);
 
     return vi;
 }
@@ -329,18 +328,12 @@ PrimitiveInfo quad_primive_info(void) {
 
     vec2 local_pos = mix(local_coverage_rect.p0, local_coverage_rect.p1, aPosition);
 
-    float device_pixel_scale = task.device_pixel_scale;
-    if ((qi.quad_flags & QF_IGNORE_DEVICE_SCALE) != 0) {
-        device_pixel_scale = 1.0f;
-    }
-
     VertexInfo vi = write_vertex(
         local_pos,
         z,
         transform,
         task.content_origin,
         task.task_rect,
-        device_pixel_scale,
         qi.quad_flags
     );
 

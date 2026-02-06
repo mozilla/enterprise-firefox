@@ -7,7 +7,9 @@ support-files = [
   "test_assistant_message_footer_page.html",
   "test_applied_memories_page.html",
   "test_memories_icon_button_page.html",
-  "test_memories_icon_button.mjs"
+  "test_memories_icon_button.mjs",
+  "test_website_chip_page.html",
+  "test_website_chip.mjs"
 ]
 
 ["browser_actor_user_prompt.js"]
@@ -15,6 +17,8 @@ support-files = [
 ["browser_aichat_content_actors.js"]
 
 ["browser_aichat_message.js"]
+
+["browser_aiwindow_account_auth.js"]
 
 ["browser_aiwindow_applied_memories_button.js"]
 
@@ -26,17 +30,27 @@ support-files = [
 
 ["browser_aiwindow_integration.js"]
 
+["browser_aiwindow_memories.js"]
+
+["browser_aiwindow_memory_tokens.js"]
+
+["browser_aiwindow_new_chat_button.js"]
+
 ["browser_aiwindow_newtab_preload.js"]
 
 ["browser_aiwindow_search_button.js"]
 
 ["browser_aiwindow_smartbar.js"]
 
+["browser_aiwindow_smartbar_mentions.js"]
+
 ["browser_aiwindow_switcher.js"]
 
 ["browser_aiwindow_token_parsing.js"]
 
 ["browser_aiwindow_transparency.js"]
+
+["browser_aiwindow_website_chip.js"]
 
 ["browser_aiwindowui.js"]
 
@@ -45,3 +59,9 @@ support-files = [
 ["browser_open_aiwindow.js"]
 
 ["browser_sidebar_aiwindow.js"]
+
+["browser_smartwindow_init.js"]
+
+["browser_smartwindow_prompts.js"]
+
+["browser_smartwindow_tab_move.js"]

@@ -8,6 +8,7 @@ import mozilla.components.browser.engine.gecko.GeckoEngineSession
 import mozilla.components.concept.engine.EngineSession
 import mozilla.components.concept.engine.prompt.PromptRequest
 import mozilla.components.support.test.mock
+import mozilla.components.support.utils.FakeDownloadFileUtils
 import mozilla.components.test.ReflectionUtils
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -17,10 +18,11 @@ import org.mozilla.geckoview.GeckoSession
 
 @RunWith(AndroidJUnit4::class)
 class ChoicePromptDelegateTest {
+    private var downloadFileUtils = FakeDownloadFileUtils()
 
     @Test
     fun `WHEN onPromptUpdate is called from GeckoView THEN notifyObservers is invoked with onPromptUpdate`() {
-        val mockSession = GeckoEngineSession(mock())
+        val mockSession = GeckoEngineSession(mock(), downloadFileUtils = downloadFileUtils)
         var isOnPromptUpdateCalled = false
         var isOnConfirmCalled = false
         var isOnDismissCalled = false
@@ -60,7 +62,7 @@ class ChoicePromptDelegateTest {
 
     @Test
     fun `WHEN onPromptDismiss is called from GeckoView THEN notifyObservers is invoked with onPromptDismissed`() {
-        val mockSession = GeckoEngineSession(mock())
+        val mockSession = GeckoEngineSession(mock(), downloadFileUtils = downloadFileUtils)
         var isOnDismissCalled = false
         mockSession.register(
             object : EngineSession.Observer {

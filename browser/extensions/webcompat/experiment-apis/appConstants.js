@@ -6,6 +6,26 @@
 
 /* global AppConstants, ExtensionAPI, XPCOMUtils */
 
+const lazy = {};
+
+if (AppConstants.ENABLE_WEBDRIVER) {
+  XPCOMUtils.defineLazyServiceGetter(
+    lazy,
+    "Marionette",
+    "@mozilla.org/remote/marionette;1",
+    Ci.nsIMarionette
+  );
+  XPCOMUtils.defineLazyServiceGetter(
+    lazy,
+    "RemoteAgent",
+    "@mozilla.org/remote/agent;1",
+    Ci.nsIRemoteAgent
+  );
+} else {
+  lazy.Marionette = { running: false };
+  lazy.RemoteAgent = { running: false };
+}
+
 this.appConstants = class extends ExtensionAPI {
   getAPI() {
     return {
@@ -47,6 +67,13 @@ this.appConstants = class extends ExtensionAPI {
             return "release_or_beta";
           }
           return "unknown";
+        },
+        isInAutomation: () => {
+          return (
+            Cu.isInAutomation ||
+            lazy.Marionette.running ||
+            lazy.RemoteAgent.running
+          );
         },
       },
     };

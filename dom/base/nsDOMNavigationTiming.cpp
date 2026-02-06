@@ -473,7 +473,7 @@ struct LCPMarker : public BaseMarkerType<LCPMarker> {
       {"timeMs", MS::InputType::TimeDuration, "Elapsed Time",
        MS::Format::Duration},
       {"element", MS::InputType::String, "Element", MS::Format::String},
-      {"imageURL", MS::InputType::CString, "Image URL", MS::Format::String}};
+      {"imageURL", MS::InputType::CString, "Image URL", MS::Format::Url}};
 
   static constexpr MS::Location Locations[] = {MS::Location::MarkerChart,
                                                MS::Location::MarkerTable,

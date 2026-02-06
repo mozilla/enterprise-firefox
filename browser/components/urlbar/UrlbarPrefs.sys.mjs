@@ -40,12 +40,24 @@ const PREF_URLBAR_DEFAULTS = /** @type {PreferenceDefinition[]} */ ([
   // Feature gate pref for addon suggestions in the urlbar.
   ["addons.featureGate", false],
 
+  // The minimum prefix length of an addons keyword the user must type to
+  // trigger the suggestion.
+  ["addons.minKeywordLength", 0],
+
   // The number of times the user has clicked the "Show less frequently" command
   // for addon suggestions.
   ["addons.showLessFrequentlyCount", 0],
 
   // Feature gate pref for AMP suggestions in the urlbar.
   ["amp.featureGate", false],
+
+  // The minimum prefix length of an AMP keyword the user must type to trigger
+  // the suggestion.
+  ["amp.minKeywordLength", 0],
+
+  // The number of times the user has clicked the "Show less frequently" command
+  // for AMP suggestions.
+  ["amp.showLessFrequentlyCount", 0],
 
   // "Autofill" is the name of the feature that automatically completes domains
   // and URLs that the user has visited as the user is typing them in the urlbar
@@ -200,6 +212,20 @@ const PREF_URLBAR_DEFAULTS = /** @type {PreferenceDefinition[]} */ ([
 
   // Feature gate pref for mdn suggestions in the urlbar.
   ["mdn.featureGate", true],
+
+  // The minimum prefix length of a mdn keyword the user must type to trigger
+  // the suggestion.
+  ["mdn.minKeywordLength", 0],
+
+  // If defined and non-zero, this is the maximum number of times the user
+  // will be able to click the "Show less frequently" command for mdn
+  // suggestions. If undefined or zero, the user will be able to click the
+  // command without any limit.
+  ["mdn.showLessFrequentlyCap", 0],
+
+  // The number of times the user has clicked the "Show less frequently" command
+  // for mdn suggestions.
+  ["mdn.showLessFrequentlyCount", 0],
 
   // Comma-separated list of client variants to send to Merino
   ["merino.clientVariants", ""],
@@ -863,6 +889,99 @@ function makeDefaultResultGroups({ showSearchSuggestionsFirst }) {
   return rootGroup;
 }
 
+function makeSmartBarGroups() {
+  /**
+   * @type {ResultGroup}
+   */
+  return {
+    children: [
+      // heuristic
+      {
+        maxResultCount: 1,
+        children: [
+          { group: lazy.UrlbarUtils.RESULT_GROUP.HEURISTIC_TEST },
+          { group: lazy.UrlbarUtils.RESULT_GROUP.HEURISTIC_AUTOFILL },
+          { group: lazy.UrlbarUtils.RESULT_GROUP.HEURISTIC_HISTORY_URL },
+          { group: lazy.UrlbarUtils.RESULT_GROUP.HEURISTIC_AI_CHAT },
+          { group: lazy.UrlbarUtils.RESULT_GROUP.HEURISTIC_FALLBACK },
+        ],
+      },
+      // main
+      {
+        flexChildren: true,
+        children: [
+          // search suggestions
+          {
+            flex: 2,
+            children: [
+              {
+                availableSpan: 2,
+                group: lazy.UrlbarUtils.RESULT_GROUP.AI,
+              },
+              {
+                flexChildren: true,
+                children: [
+                  {
+                    // If `maxHistoricalSearchSuggestions` == 0, the muxer forces
+                    // `maxResultCount` to be zero and flex is ignored, per query.
+                    flex: 2,
+                    group: lazy.UrlbarUtils.RESULT_GROUP.FORM_HISTORY,
+                  },
+                  {
+                    flex: 99,
+                    group: lazy.UrlbarUtils.RESULT_GROUP.RECENT_SEARCH,
+                  },
+                  {
+                    flex: 4,
+                    group: lazy.UrlbarUtils.RESULT_GROUP.REMOTE_SUGGESTION,
+                  },
+                ],
+              },
+              {
+                group: lazy.UrlbarUtils.RESULT_GROUP.TAIL_SUGGESTION,
+              },
+            ],
+          },
+          // general
+          {
+            flex: 1,
+            group: lazy.UrlbarUtils.RESULT_GROUP.GENERAL_PARENT,
+            children: [
+              {
+                availableSpan: 3,
+                group: lazy.UrlbarUtils.RESULT_GROUP.INPUT_HISTORY,
+              },
+              {
+                flexChildren: true,
+                children: [
+                  {
+                    flex: 2,
+                    group: lazy.UrlbarUtils.RESULT_GROUP.GENERAL,
+                    orderBy: "frecency",
+                  },
+                  {
+                    flex: 1,
+                    group: lazy.UrlbarUtils.RESULT_GROUP.REMOTE_TAB,
+                  },
+                  {
+                    // We show relatively many about-page results because they're
+                    // only added for queries starting with "about:".
+                    flex: 2,
+                    group: lazy.UrlbarUtils.RESULT_GROUP.ABOUT_PAGES,
+                  },
+                ],
+              },
+              {
+                group: lazy.UrlbarUtils.RESULT_GROUP.INPUT_HISTORY,
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+}
+
 /**
  * Preferences class.  The exported object is a singleton instance.
  */
@@ -1024,9 +1143,7 @@ class Preferences {
       }
       case "smartbar": {
         // This is a temporary placeholder until smartbar gets its own config.
-        return this.#getOrCacheResultGroups(key, () =>
-          makeDefaultResultGroups({ showSearchSuggestionsFirst: false })
-        );
+        return this.#getOrCacheResultGroups(key, makeSmartBarGroups);
       }
       default: {
         throw new Error(`Unknown SAP name: ${context.sapName}`);

@@ -57,6 +57,7 @@ export let RemotePageAccessManager = {
       ],
       RPMGetAppBuildID: ["*"],
       RPMGetHostForDisplay: ["*"],
+      RPMGetInnermostAsciiHost: ["*"],
       RPMIsWindowPrivate: ["*"],
     },
     "about:home": {
@@ -120,6 +121,7 @@ export let RemotePageAccessManager = {
         "security.certerrors.felt-privacy-v1",
       ],
       RPMGetHostForDisplay: ["*"],
+      RPMGetInnermostAsciiHost: ["*"],
       RPMGetHttpResponseHeader: ["*"],
       RPMIsTRROnlyFailure: ["*"],
       RPMIsFirefox: ["*"],

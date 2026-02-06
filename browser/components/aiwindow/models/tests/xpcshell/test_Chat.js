@@ -21,9 +21,9 @@ const { sinon } = ChromeUtils.importESModule(
 );
 
 // Prefs for aiwindow
-const PREF_API_KEY = "browser.aiwindow.apiKey";
-const PREF_ENDPOINT = "browser.aiwindow.endpoint";
-const PREF_MODEL = "browser.aiwindow.model";
+const PREF_API_KEY = "browser.smartwindow.apiKey";
+const PREF_ENDPOINT = "browser.smartwindow.endpoint";
+const PREF_MODEL = "browser.smartwindow.model";
 
 // Clean prefs after all tests
 registerCleanupFunction(() => {

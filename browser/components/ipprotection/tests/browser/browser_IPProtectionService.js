@@ -22,9 +22,6 @@ const { TelemetryTestUtils } = ChromeUtils.importESModule(
 
 AddonTestUtils.initMochitest(this);
 
-// Don't add an experiment so we can test adding and removing it.
-DEFAULT_EXPERIMENT = null;
-
 /**
  * Tests getting eligibility from a Nimbus experiment and
  * creating and destroying the widget.
@@ -64,6 +61,7 @@ add_task(async function test_IPProtectionService_updateEligibility() {
  * Tests a user who was previously enrolled will be shown the widget.
  */
 add_task(async function test_IPProtectionService_updateEnrollment() {
+  Services.prefs.clearUserPref("browser.ipProtection.enabled");
   setupService({
     isSignedIn: true,
     isEnrolledAndEntitled: true,
@@ -132,6 +130,7 @@ add_task(async function test_IPProtectionService_enroll() {
  */
 add_task(
   async function test_IPProtectionService_enroll_when_enrolled_in_experiment() {
+    Services.prefs.clearUserPref("browser.ipProtection.enabled");
     setupService({
       isEnrolledAndEntitled: false,
       isSignedIn: true,
@@ -160,11 +159,9 @@ add_task(
 
     let statusCard = content.statusCardEl;
 
-    // User is already signed in so the toggle should be available.
-    Assert.ok(
-      statusCard?.connectionToggleEl,
-      "Status card connection toggle should be present"
-    );
+    // User is already signed in so the turn on button should be available.
+    let turnOnButton = statusCard?.actionButtonEl;
+    Assert.ok(turnOnButton, "Status card turn on button should be present");
 
     cleanupService();
     await cleanupAlpha();
@@ -210,6 +207,7 @@ add_task(
  * Tests the entitlement updates when not in the experiment.
  */
 add_task(async function test_IPProtectionService_updateEntitlement() {
+  Services.prefs.clearUserPref("browser.ipProtection.enabled");
   setupService({
     isSignedIn: true,
     isEnrolledAndEntitled: true,
@@ -232,6 +230,7 @@ add_task(async function test_IPProtectionService_updateEntitlement() {
 });
 
 add_task(async function test_ipprotection_ready() {
+  Services.prefs.clearUserPref("browser.ipProtection.enabled");
   setupService({
     isSignedIn: true,
     isEnrolledAndEntitled: true,
@@ -282,16 +281,11 @@ add_task(async function test_IPProtectionService_pass_errors() {
 
   let statusCard = content.statusCardEl;
 
-  let toggleChangedPromise = BrowserTestUtils.waitForMutationCondition(
-    statusCard.shadowRoot,
-    { childList: true, subtree: true },
-    () => !statusCard.toggleEnabled
-  );
+  let turnOnButton = statusCard.actionButtonEl;
 
-  statusCard.connectionToggleEl.click();
+  turnOnButton.click();
 
   await messageBarLoadedPromise;
-  await toggleChangedPromise;
 
   Assert.equal(
     IPPProxyManager.state,
@@ -302,8 +296,8 @@ add_task(async function test_IPProtectionService_pass_errors() {
   let messageBar = content.shadowRoot.querySelector("ipprotection-message-bar");
 
   Assert.ok(
-    !statusCard.connectionToggleEl.pressed,
-    "Toggle is still turned off because of an error"
+    turnOnButton,
+    "Turn on button is still present because of an error"
   );
   Assert.ok(messageBar, "Message bar should be present");
   Assert.equal(
@@ -355,7 +349,8 @@ add_task(async function test_IPProtectionService_retry_errors() {
     false,
     () => !!IPPProxyManager.activatedAt
   );
-  statusCard.connectionToggleEl.click();
+  let turnOnButton = statusCard.actionButtonEl;
+  turnOnButton.click();
 
   await startedEventPromise;
 
@@ -387,10 +382,8 @@ add_task(async function test_IPProtectionService_stop_on_signout() {
     BrowserTestUtils.isVisible(content),
     "ipprotection content component should be present"
   );
-  Assert.ok(
-    statusCard.connectionToggleEl,
-    "Status card connection toggle should be present"
-  );
+  let turnOnButton = statusCard.actionButtonEl;
+  Assert.ok(turnOnButton, "Status card turn on button should be present");
 
   let startedEventPromise = BrowserTestUtils.waitForEvent(
     IPPProxyManager,
@@ -398,7 +391,7 @@ add_task(async function test_IPProtectionService_stop_on_signout() {
     false,
     () => !!IPPProxyManager.activatedAt
   );
-  statusCard.connectionToggleEl.click();
+  turnOnButton.click();
 
   await startedEventPromise;
 
@@ -455,19 +448,18 @@ add_task(async function test_IPProtectionService_reload() {
     BrowserTestUtils.isVisible(content),
     "ipprotection content component should be present"
   );
-  Assert.ok(
-    statusCard.connectionToggleEl,
-    "Status card connection toggle should be present"
-  );
+  let turnOnButton = statusCard.actionButtonEl;
+  Assert.ok(turnOnButton, "Status card turn on button should be present");
 
   let tabReloaded = waitForTabReloaded(gBrowser.selectedTab);
-  statusCard.connectionToggleEl.click();
+  turnOnButton.click();
   await tabReloaded;
 
   Assert.equal(IPPProxyManager.state, IPPProxyStates.ACTIVE, "Proxy is active");
 
   tabReloaded = waitForTabReloaded(gBrowser.selectedTab);
-  statusCard.connectionToggleEl.click();
+  let turnOffButton = statusCard.actionButtonEl;
+  turnOffButton.click();
   await tabReloaded;
 
   Assert.notStrictEqual(

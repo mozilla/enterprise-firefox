@@ -237,17 +237,6 @@ bool ResolveLocale(JSContext* cx, AvailableLocaleKind availableLocales,
                    LocaleData localeData,
                    JS::MutableHandle<ResolvedLocale> result);
 
-bool ResolveLocale(JSContext* cx, AvailableLocaleKind availableLocales,
-                   JS::Handle<ArrayObject*> requestedLocales,
-                   JS::Handle<JSObject*> options,
-                   mozilla::EnumSet<UnicodeExtensionKey> relevantExtensionKeys,
-                   LocaleData localeData,
-                   JS::MutableHandle<ResolvedLocale> result);
-
-JSObject* ResolveLocaleToObject(
-    JSContext* cx, JS::Handle<ResolvedLocale> resolved,
-    mozilla::EnumSet<UnicodeExtensionKey> relevantExtensionKeys);
-
 /**
  * Return the supported locales in |locales| which are supported according to
  * |availableLocales|.

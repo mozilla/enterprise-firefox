@@ -13,7 +13,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
 });
 
 /**
- * @import {UrlbarUtils} from "moz-src:///browser/components/urlbar/UrlbarUtils.sys.mjs"
+ * @import { UrlbarUtils } from "moz-src:///browser/components/urlbar/UrlbarUtils.sys.mjs"
+ * @import { SearchEngine } from "moz-src:///toolkit/components/search/SearchEngine.sys.mjs"
  */
 
 /**
@@ -23,7 +24,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
  * @property {Values<typeof UrlbarUtils.RESULT_SOURCE>} [source]
  *   The result source of the button. Only appropriate for one-off buttons
  *   on the urlbar.
- * @property {nsISearchEngine} engine
+ * @property {SearchEngine} engine
  *   The search engine associated with the button.
  */
 
@@ -381,7 +382,13 @@ export class SearchOneOffs {
     return this._engineInfo;
   }
 
-  observe(aEngine, aTopic, aData) {
+  /**
+   * @param {?{wrappedJSObject: SearchEngine}} aSubject
+   *   Null iff aTopic == "browser-search-service".
+   * @param {"browser-search-service"|"browser-search-engine-modified"} aTopic
+   * @param {string} aData
+   */
+  observe(aSubject, aTopic, aData) {
     // For the "browser-search-service" topic, we only need to invalidate
     // the cache on initialization complete or when the engines are reloaded.
     if (aTopic != "browser-search-service" || aData == "engines-reloaded") {
@@ -390,9 +397,10 @@ export class SearchOneOffs {
     }
 
     if (aData === "engine-icon-changed") {
-      aEngine.getIconURL().then(icon => {
+      let engine = aSubject.wrappedJSObject;
+      engine.getIconURL().then(icon => {
         this.getSelectableButtons(false)
-          .find(b => b.engine?.id == aEngine.id)
+          .find(b => b.engine?.id == engine.id)
           ?.setAttribute(
             "image",
             icon || "chrome://browser/skin/search-engine-placeholder.png"
@@ -966,7 +974,7 @@ export class SearchOneOffs {
    *
    * @param {event} event
    *        The event that triggered the pick.
-   * @param {nsISearchEngine} engine
+   * @param {SearchEngine} engine
    *        The engine that was picked.
    * @param {boolean} forceNewTab
    *        True if the search results page should be loaded in a new tab.
@@ -1099,12 +1107,12 @@ export class SearchOneOffs {
       if (isPrivateButton) {
         lazy.SearchService.setDefaultPrivate(
           newDefaultEngine,
-          Ci.nsISearchService.CHANGE_REASON_USER_SEARCHBAR_CONTEXT
+          lazy.SearchService.CHANGE_REASON.USER_SEARCHBAR_CONTEXT
         );
       } else {
         lazy.SearchService.setDefault(
           newDefaultEngine,
-          Ci.nsISearchService.CHANGE_REASON_USER_SEARCHBAR_CONTEXT
+          lazy.SearchService.CHANGE_REASON.USER_SEARCHBAR_CONTEXT
         );
       }
     }
@@ -1124,7 +1132,7 @@ export class SearchOneOffs {
       .querySelector(".search-one-offs-context-set-default")
       .setAttribute(
         "disabled",
-        target.engine == lazy.SearchService.defaultEngine.wrappedJSObject
+        target.engine == lazy.SearchService.defaultEngine
       );
 
     const privateDefaultItem = this.contextMenuPopup.querySelector(
@@ -1141,7 +1149,7 @@ export class SearchOneOffs {
       privateDefaultItem.hidden = false;
       privateDefaultItem.setAttribute(
         "disabled",
-        target.engine == lazy.SearchService.defaultPrivateEngine.wrappedJSObject
+        target.engine == lazy.SearchService.defaultPrivateEngine
       );
     } else {
       privateDefaultItem.hidden = true;

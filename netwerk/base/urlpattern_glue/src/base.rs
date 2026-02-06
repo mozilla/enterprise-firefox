@@ -5,7 +5,6 @@
 
 use nsstring::nsCString;
 use std::ffi::c_void;
-use thin_vec::ThinVec;
 
 // Note that we use MaybeString throughout the c++/rust ffi boundary functions
 // since having a *nsCString to emulate Option<nsCString> (which has no representation on both rust and C++
@@ -37,10 +36,23 @@ impl MaybeString {
     }
 }
 
+// Used as opaque pointer to urlpattern::UrlPattern<R> (lib.rs, not quirks)
 // this used to hide info of internal urlpattern::url from C++ compiler
 // so cpp compilation doesn't fail since we don't expose url to gecko
 #[repr(C)]
 pub struct UrlpPattern(pub *mut c_void); // structs with unnamed fields
+
+// opaque pointer to urlpattern::component::Component<SpiderMonkeyRegexp>;
+#[repr(transparent)]
+pub struct UrlpComponentPtr(pub *mut c_void);
+
+// opaque pointer to urlpattern::matcher::Matcher<SpiderMonkeyRegexp>;
+#[repr(transparent)]
+pub struct UrlpMatcherPtr(pub *mut c_void);
+
+// opaque pointer for passing RegExpObjImpl across ffi API
+#[repr(transparent)]
+pub struct RegExpObjWrapper(pub *mut c_void);
 
 #[derive(Debug, Clone)]
 #[repr(C)]
@@ -117,40 +129,4 @@ pub struct UrlpMatchInputAndInputs {
 #[repr(C)]
 pub struct UrlpOptions {
     pub ignore_case: bool,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-#[repr(C)]
-pub enum UrlpInnerMatcherType {
-    Literal,
-    SingleCapture,
-    RegExp,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-#[repr(C)]
-pub struct UrlpInnerMatcher {
-    pub inner_type: UrlpInnerMatcherType,
-    pub literal: nsCString, // Literal
-    pub allow_empty: bool,  // SingleCapture
-    pub filter_exists: bool,
-    pub filter: char,      // SingleCapture
-    pub regexp: nsCString, // RegExp
-}
-
-#[derive(Debug, Clone, PartialEq)]
-#[repr(C)]
-pub struct UrlpMatcher {
-    pub prefix: nsCString,
-    pub suffix: nsCString,
-    pub inner: UrlpInnerMatcher,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-#[repr(C)]
-pub struct UrlpComponent {
-    pub pattern_string: nsCString,
-    pub regexp_string: nsCString,
-    pub matcher: UrlpMatcher,
-    pub group_name_list: ThinVec<nsCString>,
 }

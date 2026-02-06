@@ -49,9 +49,11 @@ export class UrlbarProviderRecentSearches extends UrlbarProvider {
     return (
       lazy.UrlbarPrefs.get(ENABLED_PREF) &&
       lazy.UrlbarPrefs.get(SUGGEST_PREF) &&
-      !queryContext.restrictSource &&
       !queryContext.searchString &&
-      !queryContext.searchMode
+      // On the searchbar, we show recent searches of all engines,
+      // regardless of the searchmode.
+      ((!queryContext.searchMode && !queryContext.restrictSource) ||
+        queryContext.sapName == "searchbar")
     );
   }
 
@@ -100,24 +102,27 @@ export class UrlbarProviderRecentSearches extends UrlbarProvider {
     }
     let results = await lazy.FormHistory.search(["value", "lastUsed"], {
       fieldname: lazy.DEFAULT_FORM_HISTORY_PARAM,
-      source: engine.name,
+      // Use undefined to show recent searches of all engines.
+      source: queryContext.sapName == "searchbar" ? undefined : engine.name,
     });
 
-    let expiration =
-      queryContext.sapName == "searchbar"
-        ? Infinity
-        : parseInt(lazy.UrlbarPrefs.get(EXPIRATION_PREF), 10);
-    let lastDefaultChanged = parseInt(
-      lazy.UrlbarPrefs.get(LASTDEFAULTCHANGED_PREF),
-      10
-    );
     let now = Date.now();
 
-    // We only want to show searches since the last engine change, if we
-    // havent changed the engine we expire the display of the searches
-    // after a period of time.
-    if (lastDefaultChanged != -1) {
-      expiration = Math.min(expiration, now - lastDefaultChanged);
+    let expiration;
+    if (queryContext.sapName != "searchbar") {
+      expiration = parseInt(lazy.UrlbarPrefs.get(EXPIRATION_PREF), 10);
+      let lastDefaultChanged = parseInt(
+        lazy.UrlbarPrefs.get(LASTDEFAULTCHANGED_PREF),
+        10
+      );
+      // We only want to show searches since the last engine change, if we
+      // havent changed the engine we expire the display of the searches
+      // after a period of time.
+      if (lastDefaultChanged != -1) {
+        expiration = Math.min(expiration, now - lastDefaultChanged);
+      }
+    } else {
+      expiration = Infinity;
     }
 
     results = results.filter(

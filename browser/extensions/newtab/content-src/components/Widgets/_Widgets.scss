@@ -68,6 +68,7 @@
   // This is the maximum number of widgets the Widgets row can support
   --widgets-max-cols: 3;
   --widgets-grid-gap: var(--space-large);
+  --widgets-small-card-height: var(--newtab-card-height-small);
 
   // Update the card width when Sections is enabled
   .has-sections-grid & {
@@ -98,6 +99,10 @@
         --widgets-grid-gap: var(--space-large);
       }
     }
+  }
+
+  .small-widget {
+    height: var(--widgets-small-card-height);
   }
 }
 

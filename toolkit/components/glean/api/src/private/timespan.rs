@@ -121,7 +121,7 @@ impl TimespanMetric {
                 time_unit,
             } => {
                 #[cfg(feature = "with_gecko")]
-                if gecko_profiler::can_accept_markers() {
+                if gecko_profiler::current_thread_is_being_profiled_for_markers() {
                     gecko_profiler::add_marker(
                         "TimeSpan::setRaw",
                         TelemetryProfilerCategory,
@@ -165,7 +165,7 @@ impl Timespan for TimespanMetric {
                 // While these bugs are being solved, we record instant markers so
                 // that we still have *some* information.
                 #[cfg(feature = "with_gecko")]
-                if gecko_profiler::can_accept_markers() {
+                if gecko_profiler::current_thread_is_being_profiled_for_markers() {
                     gecko_profiler::add_marker(
                         "TimeSpan::start",
                         TelemetryProfilerCategory,
@@ -195,7 +195,7 @@ impl Timespan for TimespanMetric {
             TimespanMetric::Parent { id, inner, .. } => {
                 // See comment on Timespan::start
                 #[cfg(feature = "with_gecko")]
-                if gecko_profiler::can_accept_markers() {
+                if gecko_profiler::current_thread_is_being_profiled_for_markers() {
                     gecko_profiler::add_marker(
                         "TimeSpan::stop",
                         TelemetryProfilerCategory,
@@ -225,7 +225,7 @@ impl Timespan for TimespanMetric {
             TimespanMetric::Parent { id, inner, .. } => {
                 // See comment on Timespan::start
                 #[cfg(feature = "with_gecko")]
-                if gecko_profiler::can_accept_markers() {
+                if gecko_profiler::current_thread_is_being_profiled_for_markers() {
                     gecko_profiler::add_marker(
                         "TimeSpan::cancel",
                         TelemetryProfilerCategory,
@@ -255,7 +255,7 @@ impl Timespan for TimespanMetric {
             TimespanMetric::Parent { id, inner, .. } => {
                 let elapsed = elapsed.as_nanos().try_into().unwrap_or(i64::MAX);
                 #[cfg(feature = "with_gecko")]
-                if gecko_profiler::can_accept_markers() {
+                if gecko_profiler::current_thread_is_being_profiled_for_markers() {
                     gecko_profiler::add_marker(
                         "TimeSpan::setRaw",
                         TelemetryProfilerCategory,

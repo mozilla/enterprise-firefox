@@ -1539,7 +1539,7 @@ describe("<TopSiteList>", () => {
     assert.lengthOf(wrapper.find(TopSitePlaceholder), 3, "placeholders");
   });
   it("should update state onDragStart and clear it onDragEnd", () => {
-    const wrapper = shallow(<TopSiteList {...DEFAULT_PROPS} App={{ APP }} />);
+    const wrapper = shallow(<TopSiteList {...DEFAULT_PROPS} App={APP} />);
     const instance = wrapper.instance();
     const index = 7;
     const link = { url: "https://foo.com" };
@@ -1656,16 +1656,6 @@ describe("<TopSiteList>", () => {
       site3,
       draggedSite,
       addButton,
-      null,
-      null,
-      null,
-      null,
-    ]);
-    assert.deepEqual(instance._makeTopSitesPreview(3), [
-      site2,
-      site3,
-      addButton,
-      draggedSite,
       null,
       null,
       null,

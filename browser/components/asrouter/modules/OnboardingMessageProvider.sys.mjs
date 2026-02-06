@@ -3070,35 +3070,35 @@ const PREONBOARDING_MESSAGES = () => [
           },
           tiles: [
             {
-              type: "embedded_browser",
+              type: "link",
               id: "terms_of_use",
               header: {
                 title: {
                   string_id: "preonboarding-terms-of-use-header-button-title",
                 },
               },
-              data: {
-                style: {
-                  width: "100%",
-                  height: "200px",
+              action: {
+                type: "OPEN_URL",
+                data: {
+                  args: "https://mozilla.org/about/legal/terms/firefox/?v=product",
+                  where: "chromeless",
                 },
-                url: "https://mozilla.org/about/legal/terms/firefox/?v=product",
               },
             },
             {
-              type: "embedded_browser",
+              type: "link",
               id: "privacy_notice",
               header: {
                 title: {
                   string_id: "preonboarding-privacy-notice-header-button-title",
                 },
               },
-              data: {
-                style: {
-                  width: "100%",
-                  height: "200px",
+              action: {
+                type: "OPEN_URL",
+                data: {
+                  args: "https://mozilla.org/privacy/firefox/?v=product",
+                  where: "chromeless",
                 },
-                url: "https://mozilla.org/privacy/firefox/?v=product",
               },
             },
             {
@@ -3186,7 +3186,9 @@ const PREONBOARDING_MESSAGES = () => [
           primary_button: {
             label: {
               string_id: "preonboarding-primary-cta-v2",
-              marginBlock: "24px 0",
+              marginBlock: "30px 0",
+              paddingBlock: "4px",
+              paddingInline: "16px",
             },
             should_focus_button: true,
             action: {

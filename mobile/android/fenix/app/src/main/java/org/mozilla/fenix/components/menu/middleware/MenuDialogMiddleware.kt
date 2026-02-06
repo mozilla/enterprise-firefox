@@ -22,7 +22,6 @@ import mozilla.components.feature.addons.AddonManager
 import mozilla.components.feature.addons.AddonManagerException
 import mozilla.components.feature.app.links.AppLinksUseCases
 import mozilla.components.feature.session.SessionUseCases
-import mozilla.components.feature.tabs.TabsUseCases
 import mozilla.components.feature.top.sites.PinnedSiteStorage
 import mozilla.components.feature.top.sites.TopSite
 import mozilla.components.feature.top.sites.TopSitesUseCases
@@ -65,7 +64,6 @@ import org.mozilla.fenix.utils.Settings
  * selected tab from pinned shortcuts.
  * @param requestDesktopSiteUseCase The [SessionUseCases.RequestDesktopSiteUseCase] for toggling
  * desktop mode for the current session.
- * @param tabsUseCases The [TabsUseCases] for reopening a private tab as a regular (ie, non-private) tab.
  * @param materialAlertDialogBuilder The [MaterialAlertDialogBuilder] used to create a popup when trying to
  * add a shortcut after the shortcut limit has been reached.
  * @param topSitesMaxLimit The maximum number of top sites the user can have.
@@ -88,7 +86,6 @@ class MenuDialogMiddleware(
     private val addPinnedSiteUseCase: TopSitesUseCases.AddPinnedSiteUseCase,
     private val removePinnedSitesUseCase: TopSitesUseCases.RemoveTopSiteUseCase,
     private val requestDesktopSiteUseCase: SessionUseCases.RequestDesktopSiteUseCase,
-    private val tabsUseCases: TabsUseCases,
     private val materialAlertDialogBuilder: MaterialAlertDialogBuilder,
     private val topSitesMaxLimit: Int,
     private val onDeleteAndQuit: () -> Unit,
@@ -121,10 +118,8 @@ class MenuDialogMiddleware(
             is MenuAction.InstallAddon -> installAddon(store, action.addon)
             is MenuAction.InstallAddonSuccess -> installAddonSuccess()
             is MenuAction.CustomMenuItemAction -> customMenuItemAction(action.intent, action.url)
-            is MenuAction.ToggleReaderView -> toggleReaderView(state = currentState)
             is MenuAction.CustomizeReaderView -> customizeReaderView()
             is MenuAction.OnCFRShown -> onCFRShown()
-            is MenuAction.OpenInRegularTab -> openInRegularTab(state = currentState)
             is MenuAction.RequestDesktopSite,
             is MenuAction.RequestMobileSite,
             -> requestSiteMode(
@@ -188,8 +183,6 @@ class MenuDialogMiddleware(
             store.dispatch(MenuAction.UpdateAvailableAddons(addons.filter { it.isInstalled() && it.isEnabled() }))
 
             if (addons.any { it.isInstalled() }) {
-                store.dispatch(MenuAction.UpdateShowExtensionsOnboarding(false))
-                store.dispatch(MenuAction.UpdateManageExtensionsMenuItemVisibility(true))
                 return@launch
             }
 
@@ -204,7 +197,6 @@ class MenuDialogMiddleware(
                         recommendedAddons = recommendedAddons,
                     ),
                 )
-                store.dispatch(MenuAction.UpdateShowExtensionsOnboarding(true))
             }
         } catch (e: AddonManagerException) {
             logger.error("Failed to query extensions", e)
@@ -223,9 +215,16 @@ class MenuDialogMiddleware(
         val selectedTab = browserMenuState.selectedTab
         val url = selectedTab.getUrl() ?: return@launch
 
-        val parentGuid = lastSavedFolderCache.getGuid() ?: BookmarkRoot.Mobile.id
+        // get the last saved folder id
+        val targetParentFolderId = lastSavedFolderCache.getGuid() ?: BookmarkRoot.Mobile.id
 
-        val parentNode = bookmarksStorage.getBookmark(parentGuid).getOrNull()
+        // get the corresponding bookmark and fallback to mobile root bookmark node
+        // this is necessary because it's possible that the last saved folder no longer exists (
+        // e.g. if the folder is removed through sync)
+        val parentNode = bookmarksStorage.getBookmark(targetParentFolderId).getOrNull()
+            ?: bookmarksStorage.getBookmark(BookmarkRoot.Mobile.id).getOrNull()
+
+        val parentGuid = parentNode?.guid ?: BookmarkRoot.Mobile.id
 
         val guidToEdit = addBookmarkUseCase(
             url = url,
@@ -351,8 +350,6 @@ class MenuDialogMiddleware(
             installationMethod = InstallationMethod.MANAGER,
             onSuccess = {
                 store.dispatch(MenuAction.InstallAddonSuccess(addon = addon))
-                store.dispatch(MenuAction.UpdateShowExtensionsOnboarding(false))
-                store.dispatch(MenuAction.UpdateManageExtensionsMenuItemVisibility(true))
             },
             onError = { e ->
                 store.dispatch(MenuAction.InstallAddonFailed(addon = addon))
@@ -362,24 +359,6 @@ class MenuDialogMiddleware(
     }
 
     private fun installAddonSuccess() = scope.launch {
-        onDismiss()
-    }
-
-    private fun toggleReaderView(
-        state: MenuState,
-    ) = scope.launch {
-        val readerState = state.browserMenuState?.selectedTab?.readerState ?: return@launch
-
-        if (!readerState.readerable) {
-            return@launch
-        }
-
-        if (readerState.active) {
-            appStore.dispatch(ReaderViewAction.ReaderViewDismissed)
-        } else {
-            appStore.dispatch(ReaderViewAction.ReaderViewStarted)
-        }
-
         onDismiss()
     }
 
@@ -416,16 +395,6 @@ class MenuDialogMiddleware(
         url: String?,
     ) = scope.launch {
         onSendPendingIntentWithUrl(intent, url)
-        onDismiss()
-    }
-
-    private fun openInRegularTab(state: MenuState) = scope.launch {
-        state.browserMenuState?.selectedTab?.id?.let { sessionId ->
-            tabsUseCases.migratePrivateTabUseCase.invoke(
-                sessionId,
-                state.browserMenuState.selectedTab.getUrl(),
-            )
-        }
         onDismiss()
     }
 

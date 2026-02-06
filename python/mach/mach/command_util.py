@@ -139,6 +139,9 @@ MACH_COMMANDS = {
     ),
     "hazards": MachCommandReference("js/src/devtools/rootAnalysis/mach_commands.py"),
     "ide": MachCommandReference("python/mozbuild/mozbuild/backend/mach_commands.py"),
+    "rust-analyzer-config": MachCommandReference(
+        "python/mozbuild/mozbuild/backend/mach_commands.py"
+    ),
     "import-pr": MachCommandReference("tools/vcs/mach_commands.py"),
     "install": MachCommandReference("python/mozbuild/mozbuild/mach_commands.py"),
     "intermittents": MachCommandReference("testing/intermittents_mach_commands.py"),

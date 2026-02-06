@@ -60,9 +60,10 @@ import mozilla.components.ui.icons.R as iconsR
  * @param onDeleteClick Invoked when delete is clicked.
  * @param onShareUrlClick Invoked when share URL is clicked.
  * @param onShareFileClick Invoked when share file is clicked.
+ * @param onRenameFileClick Invoked when rename file is clicked.
  */
 @Composable
- @Suppress("LongParameterList")
+@Suppress("LongParameterList")
 internal fun FileListItem(
     fileItem: FileItem,
     isSelected: Boolean,
@@ -74,6 +75,7 @@ internal fun FileListItem(
     onDeleteClick: (FileItem) -> Unit,
     onShareUrlClick: (FileItem) -> Unit,
     onShareFileClick: (FileItem) -> Unit,
+    onRenameFileClick: (FileItem) -> Unit,
 ) {
     SelectableListItem(
         label = fileItem.fileName ?: fileItem.url,
@@ -102,6 +104,7 @@ internal fun FileListItem(
                     onDeleteClick = onDeleteClick,
                     onShareUrlClick = onShareUrlClick,
                     onShareFileClick = onShareFileClick,
+                    onRenameFileClick = onRenameFileClick,
                 )
             }
         },
@@ -125,6 +128,7 @@ internal fun FileListItem(
 }
 
 @Composable
+@Suppress("LongParameterList")
 private fun AfterListItemAction(
     fileItem: FileItem,
     onPauseClick: (id: String) -> Unit,
@@ -133,6 +137,7 @@ private fun AfterListItemAction(
     onDeleteClick: (FileItem) -> Unit,
     onShareUrlClick: (FileItem) -> Unit,
     onShareFileClick: (FileItem) -> Unit,
+    onRenameFileClick: (FileItem) -> Unit,
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
 
@@ -195,6 +200,7 @@ private fun AfterListItemAction(
                 onDeleteClick = { onDeleteClick(fileItem) },
                 onShareUrlClick = { onShareUrlClick(fileItem) },
                 onShareFileClick = { onShareFileClick(fileItem) },
+                onRenameFileClick = { onRenameFileClick(fileItem) },
             ),
             expanded = menuExpanded,
             onDismissRequest = { menuExpanded = false },
@@ -242,6 +248,7 @@ private fun getContextMenuItems(
     onDeleteClick: () -> Unit,
     onShareUrlClick: () -> Unit,
     onShareFileClick: () -> Unit,
+    onRenameFileClick: () -> Unit,
 ) = when (status) {
     FileItem.Status.Completed -> listOf(
         MenuItem.TextItem(
@@ -252,6 +259,11 @@ private fun getContextMenuItems(
         MenuItem.TextItem(
             text = Text.Resource(R.string.download_share_file),
             onClick = onShareFileClick,
+            level = MenuItem.FixedItem.Level.Default,
+        ),
+        MenuItem.TextItem(
+            text = Text.Resource(R.string.download_rename_file),
+            onClick = onRenameFileClick,
             level = MenuItem.FixedItem.Level.Default,
         ),
         MenuItem.TextItem(
@@ -542,6 +554,7 @@ private fun FileListItemPreview(
             onShareFileClick = {},
             onDeleteClick = {},
             onShareUrlClick = {},
+            onRenameFileClick = {},
         )
     }
 }

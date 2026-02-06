@@ -10,10 +10,10 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.mozilla.fenix.settings.emailmasks.EmailMasksAction
-import org.mozilla.fenix.settings.emailmasks.EmailMasksNavigationMiddleware
 import org.mozilla.fenix.settings.emailmasks.EmailMasksState
-import org.mozilla.fenix.settings.emailmasks.EmailMasksUrlProvider
 import org.mozilla.fenix.settings.emailmasks.EmailMasksUserAction
+import org.mozilla.fenix.settings.emailmasks.middleware.EmailMasksNavigationMiddleware
+import org.mozilla.fenix.settings.emailmasks.middleware.EmailMasksUrlProvider
 
 class EmailMasksNavigationMiddlewareTest {
 

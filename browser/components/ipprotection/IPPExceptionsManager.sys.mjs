@@ -87,7 +87,7 @@ class ExceptionsManager extends EventTarget {
     let permissionObject = Services.perms.getPermissionObject(
       principal,
       PERM_NAME,
-      true /* exactHost */
+      false /* exactHost */
     );
     return permissionObject;
   }

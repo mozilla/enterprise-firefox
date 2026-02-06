@@ -255,17 +255,25 @@ class WindowManager {
       };
       const promises = [];
 
-      if (width !== null && height !== null) {
+      const resize = width !== null && height !== null;
+      if (resize) {
         promises.push(new lazy.EventPromise(win, "resize", options));
-        win.resizeTo(width, height);
       }
 
       // Wayland doesn't support setting the window position.
-      if (!lazy.AppInfo.isWayland && x !== null && y !== null) {
+      const move = !lazy.AppInfo.isWayland && x !== null && y !== null;
+      if (move) {
         promises.push(
           new lazy.EventPromise(win.windowRoot, "MozUpdateWindowPos", options)
         );
+      }
+
+      if (move && resize) {
+        win.moveResize(x, y, width, height);
+      } else if (move) {
         win.moveTo(x, y);
+      } else if (resize) {
+        win.resizeTo(width, height);
       }
 
       try {
@@ -356,6 +364,14 @@ class WindowManager {
 
     switch (lazy.AppInfo.name) {
       case "Firefox": {
+        if (lazy.AppInfo.isEnterprise) {
+          if (Services.felt.isFeltUI()) {
+            throw new lazy.error.UnsupportedOperationError(
+              `openWindow() not supported in ${lazy.AppInfo.name}`
+            );
+          }
+        }
+
         if (openerWindow === null) {
           // If no opener was provided, fallback to the topmost window.
           openerWindow = Services.wm.getMostRecentBrowserWindow();

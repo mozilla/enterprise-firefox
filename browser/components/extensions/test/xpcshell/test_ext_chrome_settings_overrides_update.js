@@ -599,7 +599,7 @@ async function test_default_search_on_updating_addons_installed_before_bug175776
   }
   await SearchService.setDefault(
     initialEngine,
-    Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+    SearchService.CHANGE_REASON.UNKNOWN
   );
 
   let defaultEngineName = (await SearchService.getDefault()).name;

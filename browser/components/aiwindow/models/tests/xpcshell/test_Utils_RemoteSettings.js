@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-const { openAIEngine, MODEL_FEATURES, DEFAULT_MODEL } =
+const { openAIEngine, MODEL_FEATURES, DEFAULT_MODEL, parseVersion } =
   ChromeUtils.importESModule(
     "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs"
   );
@@ -11,9 +11,9 @@ const { sinon } = ChromeUtils.importESModule(
   "resource://testing-common/Sinon.sys.mjs"
 );
 
-const PREF_API_KEY = "browser.aiwindow.apiKey";
-const PREF_ENDPOINT = "browser.aiwindow.endpoint";
-const PREF_MODEL = "browser.aiwindow.model";
+const PREF_API_KEY = "browser.smartwindow.apiKey";
+const PREF_ENDPOINT = "browser.smartwindow.endpoint";
+const PREF_MODEL = "browser.smartwindow.model";
 
 const API_KEY = "fake-key";
 const ENDPOINT = "https://api.fake-endpoint.com/v1";
@@ -36,6 +36,64 @@ registerCleanupFunction(() => {
       Services.prefs.clearUserPref(pref);
     }
   }
+});
+
+add_task(async function test_parseVersion_with_v_prefix() {
+  const result = parseVersion("v1.0");
+  Assert.ok(result, "Should parse version with v prefix");
+  Assert.equal(result.major, 1, "Major version should be 1");
+  Assert.equal(result.minor, 0, "Minor version should be 0");
+  Assert.equal(result.original, "v1.0", "Original should be preserved");
+});
+
+add_task(async function test_parseVersion_without_v_prefix() {
+  const result = parseVersion("1.0");
+  Assert.ok(result, "Should parse version without v prefix");
+  Assert.equal(result.major, 1, "Major version should be 1");
+  Assert.equal(result.minor, 0, "Minor version should be 0");
+  Assert.equal(result.original, "1.0", "Original should be preserved");
+});
+
+add_task(async function test_parseVersion_with_higher_numbers() {
+  const result = parseVersion("2.15");
+  Assert.ok(result, "Should parse version with higher numbers");
+  Assert.equal(result.major, 2, "Major version should be 2");
+  Assert.equal(result.minor, 15, "Minor version should be 15");
+  Assert.equal(result.original, "2.15", "Original should be preserved");
+});
+
+add_task(async function test_parseVersion_invalid_format() {
+  Assert.equal(
+    parseVersion("v1"),
+    null,
+    "Should return null for version without minor"
+  );
+  Assert.equal(parseVersion("1"), null, "Should return null for single number");
+  Assert.equal(
+    parseVersion("v1.0.0"),
+    null,
+    "Should return null for three part version"
+  );
+  Assert.equal(
+    parseVersion("invalid"),
+    null,
+    "Should return null for non-numeric version"
+  );
+});
+
+add_task(async function test_parseVersion_edge_cases() {
+  Assert.equal(parseVersion(""), null, "Should return null for empty string");
+  Assert.equal(parseVersion(null), null, "Should return null for null");
+  Assert.equal(
+    parseVersion(undefined),
+    null,
+    "Should return null for undefined"
+  );
+  Assert.equal(
+    parseVersion("v1.0extra"),
+    null,
+    "Should return null for version with extra text after"
+  );
 });
 
 add_task(async function test_loadConfig_basic_with_real_snapshot() {
@@ -166,28 +224,28 @@ add_task(async function test_loadConfig_filters_by_major_version() {
     };
     sb.stub(openAIEngine, "_createEngine").resolves(fakeEngine);
 
-    // Add a v2.0 record to test data
-    const recordsWithV2 = [
+    // Add a v3.0 record to test data
+    const recordsWithV3 = [
       ...REAL_REMOTE_SETTINGS_SNAPSHOT,
       {
         model: "future-model",
         feature: "chat",
         prompts: "Future version prompt",
-        version: "v2.0",
+        version: "v3.0",
         is_default: true,
       },
     ];
 
     sb.stub(openAIEngine, "getRemoteClient").returns({
-      get: sb.stub().resolves(recordsWithV2),
+      get: sb.stub().resolves(recordsWithV3),
     });
 
     const engine = new openAIEngine();
     await engine.loadConfig(MODEL_FEATURES.CHAT);
 
     const config = engine.getConfig(MODEL_FEATURES.CHAT);
-    // Should get v1.x, not v2.0
-    Assert.ok(config.version.startsWith("v1."), "Should select v1.x, not v2.0");
+    // Should get 1.x, not 3.0
+    Assert.ok(config.version.startsWith("1."), "Should select 1.x, not 3.0");
   } finally {
     sb.restore();
   }
@@ -227,7 +285,7 @@ add_task(async function test_loadConfig_fallback_when_user_model_not_found() {
       engine.model,
       "Engine model should match the default config's model"
     );
-    Assert.equal(config.version, "v1.0", "Should use v1.0");
+    Assert.equal(config.version, "1.0", "Should use 1.0");
   } finally {
     sb.restore();
     Services.prefs.clearUserPref(PREF_MODEL);
@@ -244,7 +302,7 @@ add_task(async function test_loadConfig_custom_endpoint_with_custom_model() {
     const fakeRecords = [
       {
         feature: MODEL_FEATURES.CHAT,
-        version: "v1.0",
+        version: "1.0",
         model: "some-other-model",
         is_default: true,
       },
@@ -281,7 +339,7 @@ add_task(async function test_loadConfig_custom_endpoint_without_custom_model() {
     const fakeRecords = [
       {
         feature: MODEL_FEATURES.CHAT,
-        version: "v1.0",
+        version: "1.0",
         model: "remote-default-model",
         is_default: true,
       },
@@ -495,6 +553,99 @@ add_task(async function test_inference_params_from_config() {
       inferenceParams.temperature,
       1.0,
       "Temperature should be loaded from parameters"
+    );
+  } finally {
+    sb.restore();
+  }
+});
+
+add_task(async function test_loadConfig_with_additional_components() {
+  Services.prefs.setStringPref(PREF_API_KEY, API_KEY);
+  Services.prefs.setStringPref(PREF_ENDPOINT, ENDPOINT);
+
+  const sb = sinon.createSandbox();
+  try {
+    const fakeEngine = {
+      runWithGenerator() {
+        throw new Error("not used");
+      },
+    };
+    sb.stub(openAIEngine, "_createEngine").resolves(fakeEngine);
+
+    const fakeRecords = [
+      {
+        feature: "memories-initial-generation-system",
+        version: "1.0",
+        model: "test-model",
+        is_default: true,
+        prompts: "System prompt for memory generation",
+        additional_components:
+          "[memories-initial-generation-user, memories-deduplication-system]",
+        parameters: "{}",
+      },
+      {
+        feature: "memories-initial-generation-user",
+        version: "1.0",
+        model: "test-model",
+        prompts: "User prompt for memory generation",
+      },
+      {
+        feature: "memories-deduplication-system",
+        version: "1.0",
+        model: "test-model",
+        prompts: "System prompt for deduplication",
+      },
+    ];
+
+    sb.stub(openAIEngine, "getRemoteClient").returns({
+      get: sb.stub().resolves(fakeRecords),
+    });
+
+    const engine = new openAIEngine();
+    await engine.loadConfig("memories-initial-generation-system");
+
+    const mainConfig = engine.getConfig("memories-initial-generation-system");
+    Assert.ok(mainConfig, "Main config should be loaded");
+    Assert.equal(
+      mainConfig.prompts,
+      "System prompt for memory generation",
+      "Main prompt should be loaded"
+    );
+
+    const userPromptConfig = engine.getConfig(
+      "memories-initial-generation-user"
+    );
+    Assert.ok(userPromptConfig, "Additional component config should be loaded");
+    Assert.equal(
+      userPromptConfig.prompts,
+      "User prompt for memory generation",
+      "Additional component prompt should be loaded"
+    );
+
+    const dedupConfig = engine.getConfig("memories-deduplication-system");
+    Assert.ok(dedupConfig, "Second additional component should be loaded");
+    Assert.equal(
+      dedupConfig.prompts,
+      "System prompt for deduplication",
+      "Second additional component prompt should be loaded"
+    );
+
+    const systemPrompt = await engine.loadPrompt(
+      "memories-initial-generation-system"
+    );
+    Assert.equal(
+      systemPrompt,
+      "System prompt for memory generation",
+      "Should load system prompt from config"
+    );
+
+    const userPrompt = await engine.loadPrompt(
+      "memories-initial-generation-user"
+    );
+    Assert.equal(
+      userPrompt,
+      "User prompt for memory generation",
+      "Should load user prompt from additional components"
     );
   } finally {
     sb.restore();

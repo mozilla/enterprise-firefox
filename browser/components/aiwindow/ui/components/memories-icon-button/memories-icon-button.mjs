@@ -9,19 +9,20 @@ import { MozLitElement } from "chrome://global/content/lit-utils.mjs";
  * Icon-style toggle button for enabling or disabling AI Memories.
  *
  * - `pressed`: boolean property/attribute reflected to `aria-pressed`
- * - Emits `change` with `{ pressed }` on user toggle
+ * - Emits `aiwindow-memories-toggle:on-change` with `{ pressed }` on user toggle
  *
  * Logic is handled by the parent component.
  */
 export class MemoriesIconButton extends MozLitElement {
   static properties = {
     pressed: { type: Boolean, reflect: true },
+    disabled: { type: Boolean, reflect: true },
   };
 
   #onClick() {
     this.pressed = !this.pressed;
     this.dispatchEvent(
-      new CustomEvent("change", {
+      new CustomEvent("aiwindow-memories-toggle:on-change", {
         bubbles: true,
         composed: true,
         detail: { pressed: this.pressed },
@@ -47,6 +48,7 @@ export class MemoriesIconButton extends MozLitElement {
         href="chrome://browser/content/aiwindow/components/memories-icon-button.css"
       />
       <moz-button
+        ?disabled=${this.disabled}
         data-l10n-id=${tooltipTextId}
         data-l10n-attrs="tooltiptext,aria-label"
         type="ghost"

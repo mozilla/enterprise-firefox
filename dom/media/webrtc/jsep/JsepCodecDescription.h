@@ -966,7 +966,7 @@ class JsepVideoCodecDescription final : public JsepCodecDescription {
         temp.push_back(subType);
       }
     }
-    *supportedTypes = temp;
+    *supportedTypes = std::move(temp);
   }
 
   void NegotiateRtcpFb(
@@ -982,7 +982,7 @@ class JsepVideoCodecDescription final : public JsepCodecDescription {
         temp.push_back(fb);
       }
     }
-    *supportedFbs = temp;
+    *supportedFbs = std::move(temp);
   }
 
   void NegotiateRtcpFb(const SdpMediaSection& remote) {

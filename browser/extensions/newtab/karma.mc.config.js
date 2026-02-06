@@ -256,6 +256,13 @@ module.exports = function (config) {
                 lines: 84,
                 functions: 83,
               },
+            "content-src/components/DiscoveryStreamComponents/BriefingCard/BriefingCard.jsx":
+              {
+                statements: 92.31,
+                branches: 66.67,
+                functions: 90,
+                lines: 94.59,
+              },
             /**
              * PromoCard currently has no functionality and is a placeholder component
              */

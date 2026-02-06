@@ -1,0 +1,12 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+.suggestions-panel-list-anchor {
+  height: var(--anchor-height, 0);
+  pointer-events: none;
+  position: absolute;
+  transform: translate(var(--anchor-left, 0), var(--anchor-top, 0));
+  visibility: hidden;
+  width: var(--anchor-width, 0);
+}

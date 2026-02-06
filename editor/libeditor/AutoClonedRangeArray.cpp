@@ -186,9 +186,8 @@ bool AutoClonedRangeArray::AdjustRangesNotInReplacedNorVoidElements(
         // range.
         if (aRangeInReplacedOrVoidElement ==
                 RangeInReplacedOrVoidElement::Delete ||
-            NS_WARN_IF(NS_FAILED(range->CollapseTo(RawRangeBoundary(
-                replacedOrVoidElementAtStart->GetParentNode(),
-                replacedOrVoidElementAtStart->GetPreviousSibling())))) ||
+            NS_WARN_IF(NS_FAILED(range->CollapseTo(
+                RawRangeBoundary::FromChild(*replacedOrVoidElementAtStart)))) ||
             MOZ_UNLIKELY(
                 !AutoClonedRangeArray::IsEditableRange(range, aEditingHost))) {
           mRanges.RemoveElementAt(index);
@@ -199,8 +198,7 @@ bool AutoClonedRangeArray::AdjustRangesNotInReplacedNorVoidElements(
         // If the range does not end in the replaced element or the void
         // element, let's treat that the range starts after the element.
         if (NS_WARN_IF(NS_FAILED(range->SetStartAndEnd(
-                RawRangeBoundary(replacedOrVoidElementAtStart->GetParentNode(),
-                                 replacedOrVoidElementAtStart),
+                RawRangeBoundary::After(*replacedOrVoidElementAtStart),
                 range->EndRef()))) ||
             MOZ_UNLIKELY(
                 !AutoClonedRangeArray::IsEditableRange(range, aEditingHost))) {
@@ -222,9 +220,7 @@ bool AutoClonedRangeArray::AdjustRangesNotInReplacedNorVoidElements(
         // treat that the range ends before the element.
         if (NS_WARN_IF(NS_FAILED(range->SetStartAndEnd(
                 range->StartRef(),
-                RawRangeBoundary(
-                    replacedOrVoidElementAtEnd->GetParentNode(),
-                    replacedOrVoidElementAtEnd->GetPreviousSibling())))) ||
+                RawRangeBoundary::FromChild(*replacedOrVoidElementAtEnd)))) ||
             MOZ_UNLIKELY(
                 !AutoClonedRangeArray::IsEditableRange(range, aEditingHost))) {
           mRanges.RemoveElementAt(index);

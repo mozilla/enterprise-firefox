@@ -21,6 +21,7 @@ support-files = [
   "favicon.ico",
   "geolocation.html",
   "head.js",
+  "helper_touch_all_events.js",
   "hover.html",
   "page_style.html",
   "sjs_redirection.sjs",
@@ -178,6 +179,26 @@ https_first_disabled = true
 ["browser_tooltip.js"]
 
 ["browser_touch_all_events.js"]
+skip-if = [
+  "a11y_checks",
+  "os == 'linux' && os_version == '24.04' && arch == 'x86_64' && display == 'x11' && asan", # Bug 1980013
+  "os == 'linux' && os_version == '24.04' && arch == 'x86_64' && display == 'x11' && debug", # Bug 1980013
+  "os == 'linux' && os_version == '24.04' && arch == 'x86_64' && display == 'x11' && tsan", # Bug 1980013
+  "os == 'mac' && os_version == '14.70' && arch == 'x86_64' && debug", # Bug 1980013
+  "os == 'mac' && os_version == '14.70' && arch == 'x86_64' && verify", # can be too slow in chaos mode to trigger dblclick events
+  "os == 'win'", # Bug 1977557 and Bug 1977558
+]
+
+["browser_touch_all_events_long_tap.js"]
+skip-if = [
+  "a11y_checks",
+  "os == 'linux' && os_version == '24.04' && arch == 'x86_64' && display == 'x11'", # Bug 2012028, Frequently failing on all linux variants
+  "os == 'mac' && os_version == '14.70' && arch == 'x86_64' && debug", # Bug 1980013
+  "os == 'mac' && os_version == '14.70' && arch == 'x86_64' && verify", # can be too slow in chaos mode to trigger dblclick events
+  "os == 'win'", # Bug 1977557 and Bug 1977558
+]
+
+["browser_touch_all_events_zoom.js"]
 skip-if = [
   "a11y_checks",
   "os == 'linux' && os_version == '24.04' && arch == 'x86_64' && display == 'x11' && asan", # Bug 1980013

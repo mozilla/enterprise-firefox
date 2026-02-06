@@ -674,8 +674,9 @@ void MediaDecoder::DiscardOngoingSeekIfExists() {
 void MediaDecoder::CallSeek(const SeekTarget& aTarget) {
   MOZ_ASSERT(NS_IsMainThread());
   if (mShouldDelaySeek) {
-    LOG("Delay seek to %f and store it to delayed seek target",
-        mDelayedSeekTarget->GetTime().ToSeconds());
+    LOG("Delay seek to %f (was %f) and store it to delayed seek target",
+        aTarget.GetTime().ToSeconds(),
+        mDelayedSeekTarget ? mDelayedSeekTarget->GetTime().ToSeconds() : 0.0f);
     mDelayedSeekTarget = Some(aTarget);
     return;
   }

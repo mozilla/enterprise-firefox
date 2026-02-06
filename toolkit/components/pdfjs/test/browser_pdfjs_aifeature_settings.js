@@ -110,8 +110,8 @@ add_task(async function test_disable_sets_prefs_false_and_uninstalls_models() {
   );
   Assert.equal(
     Services.prefs.getBoolPref(PREF_ALT_TEXT_ENABLED, true),
-    true,
-    "disable() don't change pdfjs.enableAltText"
+    false,
+    "disable() changes pdfjs.enableAltText"
   );
 
   Assert.ok(

@@ -25,6 +25,7 @@
 #include "builtin/intl/CommonFunctions.h"
 #include "builtin/intl/FormatBuffer.h"
 #include "builtin/intl/NumberingSystemsGenerated.h"
+#include "builtin/intl/ParameterNegotiation.h"
 #include "builtin/intl/SharedIntlData.h"
 #include "builtin/intl/StringAsciiChars.h"
 #include "js/Conversions.h"
@@ -68,12 +69,6 @@ static mozilla::Maybe<UnicodeExtensionKey> ToUnicodeExtensionKey(
     }
   }
   return mozilla::Nothing();
-}
-
-static auto UnicodeExtensionPropertyKey(JSContext* cx,
-                                        UnicodeExtensionKey key) {
-  static constexpr auto names = UnicodeExtensionKeyNames();
-  return JS::PropertyKey::NonIntAtom(cx->staticStrings().lookup(names[key], 2));
 }
 
 static bool AssertCanonicalLocaleWithoutUnicodeExtension(
@@ -353,30 +348,10 @@ static bool SupportedLocales(JSContext* cx,
     }
 
     // Step 1.b.
-    Rooted<Value> localeMatcher(cx);
-    if (!GetProperty(cx, obj, obj, cx->names().localeMatcher, &localeMatcher)) {
+    LocaleMatcher localeMatcher;
+    if (!GetLocaleMatcherOption(cx, obj, JSMSG_INVALID_LOCALE_MATCHER,
+                                &localeMatcher)) {
       return false;
-    }
-
-    if (!localeMatcher.isUndefined()) {
-      JSString* str = ToString(cx, localeMatcher);
-      if (!str) {
-        return false;
-      }
-
-      JSLinearString* linear = str->ensureLinear(cx);
-      if (!linear) {
-        return false;
-      }
-
-      if (!StringEqualsLiteral(linear, "lookup") &&
-          !StringEqualsLiteral(linear, "best fit")) {
-        if (auto chars = QuoteString(cx, linear)) {
-          JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr,
-                                    JSMSG_INVALID_LOCALE_MATCHER, chars.get());
-        }
-        return false;
-      }
     }
   }
 
@@ -1256,75 +1231,6 @@ bool js::intl::ResolveLocale(
 
   // Step 16.
   return true;
-}
-
-/**
- * ResolveLocale ( availableLocales, requestedLocales, options,
- * relevantExtensionKeys, localeData )
- */
-bool js::intl::ResolveLocale(
-    JSContext* cx, AvailableLocaleKind availableLocales,
-    Handle<ArrayObject*> requestedLocales, Handle<JSObject*> options,
-    mozilla::EnumSet<UnicodeExtensionKey> relevantExtensionKeys,
-    LocaleData localeData, JS::MutableHandle<ResolvedLocale> result) {
-  Rooted<LocaleOptions> localeOptions(cx);
-
-  Rooted<JS::Value> value(cx);
-  Rooted<JS::PropertyKey> optionName(cx);
-  for (auto key : relevantExtensionKeys) {
-    optionName.set(UnicodeExtensionPropertyKey(cx, key));
-    if (!GetProperty(cx, options, options, optionName, &value)) {
-      return false;
-    }
-    MOZ_ASSERT(value.isString() || value.isNullOrUndefined(),
-               "unexpected type for options value");
-
-    if (!value.isUndefined()) {
-      JSLinearString* optionsValue = nullptr;
-      if (value.isString()) {
-        optionsValue = value.toString()->ensureLinear(cx);
-        if (!optionsValue) {
-          return false;
-        }
-      }
-      localeOptions.setUnicodeExtension(key, optionsValue);
-    }
-  }
-
-  return ResolveLocale(cx, availableLocales, requestedLocales, localeOptions,
-                       relevantExtensionKeys, localeData, result);
-}
-
-JSObject* js::intl::ResolveLocaleToObject(
-    JSContext* cx, Handle<ResolvedLocale> resolved,
-    mozilla::EnumSet<UnicodeExtensionKey> relevantExtensionKeys) {
-  Rooted<IdValueVector> properties(cx, cx);
-
-  auto* locale = resolved.toLocale(cx);
-  if (!locale) {
-    return nullptr;
-  }
-  if (!properties.emplaceBack(NameToId(cx->names().locale),
-                              StringValue(locale))) {
-    return nullptr;
-  }
-
-  if (!properties.emplaceBack(NameToId(cx->names().dataLocale),
-                              StringValue(resolved.dataLocale()))) {
-    return nullptr;
-  }
-
-  for (auto key : relevantExtensionKeys) {
-    auto value = NullValue();
-    if (auto ext = resolved.extension(key)) {
-      value = StringValue(ext);
-    }
-    if (!properties.emplaceBack(UnicodeExtensionPropertyKey(cx, key), value)) {
-      return nullptr;
-    }
-  }
-
-  return NewPlainObjectWithUniqueNames(cx, properties);
 }
 
 ArrayObject* js::intl::LocalesListToArray(JSContext* cx,

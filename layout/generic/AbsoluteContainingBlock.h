@@ -129,6 +129,17 @@ class AbsoluteContainingBlock {
    */
   void MarkAllFramesDirty();
 
+  /**
+   * Rects for abspos frames to position against. Differences are relevant
+   * for containing blocks that scroll.
+   *
+   * See https://drafts.csswg.org/css-position-4/#scrollable-cb
+   */
+  struct ContainingBlockRects {
+    nsRect mLocal;
+    nsRect mScrollable;
+  };
+
  protected:
   /**
    * Returns true if the position of aFrame depends on the position of
@@ -175,10 +186,10 @@ class AbsoluteContainingBlock {
   void ReflowAbsoluteFrame(
       nsContainerFrame* aDelegatingFrame, nsPresContext* aPresContext,
       const ReflowInput& aReflowInput,
-      const nsRect& aOriginalContainingBlockRect,
-      const nsRect& aOriginalScrollableContainingBlockRect,
+      const ContainingBlockRects& aContainingBlockRects,
       AbsPosReflowFlags aFlags, nsIFrame* aKidFrame, nsReflowStatus& aStatus,
       OverflowAreas* aOverflowAreas,
+      const ContainingBlockRects* aFragmentedContainingBlockRects,
       mozilla::AnchorPosResolutionCache* aAnchorPosResolutionCache = nullptr);
 
   /**
@@ -211,7 +222,26 @@ class AbsoluteContainingBlock {
   // them to its own AbsoluteContainingBlock.
   nsFrameList mPushedAbsoluteFrames;
 
+  // Suppose D is the distance from an absolute containing block fragment's
+  // border-box block-start edge to whichever is larger of either (a) its
+  // border-box block-end edge, or (b) the available space's block-end
+  // edge.
+  //
+  // TODO (TYLin, Bug 2009647): We currently assume (a) cannot be bigger than
+  // (b), but it can if there is an unfragmentable in-flow element.
+  //
+  // This variable stores the sum of the D values for the current absolute
+  // containing block fragment and for all its previous fragments. It represents
+  // the offset from the start of the theoretical unfragmented abspos containing
+  // block to the start of the current fragment. During reflow, we subtract this
+  // value from abspos frames' unfragmented positions to get their local
+  // coordinate space position in the current fragment.
+  nscoord mCumulativeContainingBlockBSize = 0;
+
 #ifdef DEBUG
+  void SanityCheckChildListsBeforeReflow(
+      const nsIFrame* aDelegatingFrame) const;
+
   // FrameChildListID::Fixed or FrameChildListID::Absolute
   FrameChildListID const mChildListID;
 #endif

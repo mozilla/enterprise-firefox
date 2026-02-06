@@ -16,6 +16,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -24,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.fragment.app.Fragment
 import androidx.fragment.compose.content
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import mozilla.components.browser.state.search.RegionState
 import mozilla.components.compose.base.button.FilledButton
 import org.mozilla.fenix.R
@@ -79,13 +81,17 @@ private fun SecretDebugSettingsScreen() {
         )
     }
 
+    val coroutineScope = rememberCoroutineScope()
+
     Surface {
         SecretDebugSettingsScreenContent(
             regionState = regionState,
             distributionId = distributionId,
             playInstallReferrer = playInstallReferrer,
             onQueryProvider = {
-                DefaultDistributionProviderChecker(context).queryProvider()
+                coroutineScope.launch {
+                    DefaultDistributionProviderChecker(context).queryProvider()
+                }
             },
         )
     }

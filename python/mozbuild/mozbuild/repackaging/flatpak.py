@@ -22,7 +22,7 @@ from mozbuild.repackaging.utils import (
 # When updating this, please make sure to keep in sync the script for symbol
 # scraping at
 # https://github.com/mozilla/symbol-scrapers/blob/master/firefox-flatpak/script.sh
-FREEDESKTOP_VERSION = "24.08"
+FREEDESKTOP_VERSION = "25.08"
 # The base app is shared by firefox and thunderbird
 FIREFOX_BASEAPP = "org.mozilla.firefox.BaseApp"
 FIREFOX_BASEAPP_CHANNEL = FREEDESKTOP_VERSION

@@ -2604,6 +2604,7 @@ void TextInputHandler::InsertText(NSString* aString,
     // If text content is chrome process, OnTextChange etc will be dispatched
     // synchronously. We don't want to dismiss text substitution panel at this
     // point.
+    mPendingDismissTextSubstitution = false;
     AutoRestore<bool> block(mBlockDismissTextSubstitutionPanel);
     mBlockDismissTextSubstitutionPanel = true;
 
@@ -2612,11 +2613,16 @@ void TextInputHandler::InsertText(NSString* aString,
   }();
   bool keyPressHandled = (status == nsEventStatus_eConsumeNoDefault);
 
-  // WebKit and text editor dismisses autocorrect panel by space, then process
-  // autocorrect.
-  if (keypressEvent.mKeyCode == NS_VK_SPACE && keyPressDispatched) {
-    mProcessTextSubstitution = true;
-    DismissTextSubstitutionPanel();
+  if (keyPressDispatched) {
+    // WebKit and text editor dismisses autocorrect panel by space, then process
+    // autocorrect.
+    const bool isSpaceKeyPress = (keypressEvent.mKeyCode == NS_VK_SPACE);
+    // If not space key, we don't process text substitution.
+    mProcessTextSubstitution = isSpaceKeyPress;
+
+    if (isSpaceKeyPress || mPendingDismissTextSubstitution) {
+      DismissTextSubstitutionPanel();
+    }
   }
 
   // Note: mWidget might have become null here. Don't count on it from here on.
@@ -3116,6 +3122,7 @@ bool TextInputHandler::DoCommandBySelector(const char* aSelector) {
     // synchronously. We don't want to dismiss text substitution panel at this
     // point.
     {
+      mPendingDismissTextSubstitution = false;
       AutoRestore<bool> block(mBlockDismissTextSubstitutionPanel);
       mBlockDismissTextSubstitutionPanel = true;
 
@@ -3132,10 +3139,17 @@ bool TextInputHandler::DoCommandBySelector(const char* aSelector) {
          this, TrueOrFalse(Destroyed()),
          TrueOrFalse(currentKeyEvent->mKeyPressHandled)));
 
-    // WebKit and text editor dismisses autocorrect panel by enter, then process
-    // autocorrect.
-    mProcessTextSubstitution = (keypressEvent.mKeyCode == NS_VK_RETURN);
-    DismissTextSubstitutionPanel();
+    if (currentKeyEvent->mKeyPressDispatched) {
+      // WebKit and text editor dismisses autocorrect panel by enter, then
+      // process autocorrect.
+      const bool isEnterKeyPress = (keypressEvent.mKeyCode == NS_VK_RETURN);
+      // If not enterkey key, we don't process text substitution.
+      mProcessTextSubstitution = isEnterKeyPress;
+
+      if (isEnterKeyPress || mPendingDismissTextSubstitution) {
+        DismissTextSubstitutionPanel();
+      }
+    }
 
     // This command is now dispatched with keypress event.
     // So, this shouldn't be handled by nobody anymore.
@@ -5078,6 +5092,14 @@ void IMEInputHandler::HandleTextSubstitution(
           &IMEInputHandler::OnTextSubstitution,
           aIMENotification.mTextChangeData.mAddedEndOffset),
       100, EventQueuePriority::Idle);
+
+  // OnTextSubstitution might be called on non-e10s during dispatching a key
+  // events. If during it (mBlockDismissTextSubstitutionPanel is true), we have
+  // to mark that text substitution panel s going to dismiss. Then after
+  // dispatching a key event, it should be dismissed.
+  if (mBlockDismissTextSubstitutionPanel) {
+    mPendingDismissTextSubstitution = true;
+  }
 }
 
 void IMEInputHandler::OnTextSubstitution(uint32_t aStartOffset) {

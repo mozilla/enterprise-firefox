@@ -714,7 +714,7 @@ nsresult NS_DispatchBackgroundTask(
                                                            aDispatchFlags);
 }
 
-nsresult NS_CreateBackgroundTaskQueue(const char* aName,
+nsresult NS_CreateBackgroundTaskQueue(mozilla::StaticString aName,
                                       nsISerialEventTarget** aTarget) {
   nsCOMPtr<nsISerialEventTarget> target =
       nsThreadManager::get().CreateBackgroundTaskQueue(aName);

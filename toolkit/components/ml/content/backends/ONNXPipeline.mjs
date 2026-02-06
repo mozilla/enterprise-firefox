@@ -877,7 +877,7 @@ export class ONNXPipeline {
     };
 
     const streamerOptions = {
-      perTokens: true,
+      perTokens: false,
       skipPrompt: true,
       returnTokens: false,
       ...request.streamerOptions,
@@ -885,16 +885,36 @@ export class ONNXPipeline {
 
     let streamer;
     let chunkTokens = [];
-    // Removed unused chunkText declaration here
+    let chunkText = "";
+    let nextTokensArePrompt = !streamerOptions.skipPrompt;
+    let restoreTokenizer = false;
 
     let firstTokenTimestamp = null;
-    if (tokenizer) {
+    if (tokenizer && inferenceProgressCallback) {
+      const flushPrompts = _tokens => {
+        streamer.token_cache = _tokens;
+        streamer.end();
+        streamer.tokenizer = {
+          decode: () => {
+            streamer.token_cache = [];
+            return "";
+          },
+        };
+        restoreTokenizer = true;
+        streamer.next_tokens_are_prompt = false;
+      };
+
       streamer = new transformers.TextStreamer(tokenizer, {
         skip_prompt: streamerOptions.skipPrompt,
         decode_kwargs: {
           skip_special_tokens: true,
         },
         token_callback_function: tokens => {
+          if (restoreTokenizer) {
+            streamer.tokenizer = tokenizer;
+            restoreTokenizer = false;
+          }
+
           // Record Time To First Token on the very first callback
           const now = ChromeUtils.now();
           if (metrics.timeToFirstToken === null) {
@@ -904,35 +924,37 @@ export class ONNXPipeline {
 
           metrics.outputTokens += tokens.length;
 
-          // Only proceed with buffering if we have a callback to call
-          if (!inferenceProgressCallback) {
-            return;
-          }
+          if (streamerOptions.perTokens) {
+            if (nextTokensArePrompt) {
+              flushPrompts(tokens);
+            }
 
-          if (streamerOptions.perTokens) {
-            // Logic handled in callback_function
-          } else {
-            // Append newly received tokens.
-            chunkTokens.push(tokens);
-          }
-        },
-        // Per-word (or per-token if perTokens=true) callback function
-        callback_function: text => {
-          if (!inferenceProgressCallback) {
-            return;
-          }
-          if (streamerOptions.perTokens) {
             inferenceProgressCallback({
               ...progressInfo,
               metadata: {
-                text,
-                tokens: streamerOptions.returnTokens ? chunkTokens : null,
+                text: chunkText,
+                tokens: streamerOptions.returnTokens ? tokens : null,
+                isPrompt: nextTokensArePrompt,
                 requestId,
-                isPrompt: false, // skipping prompt, so assumed false
               },
               type: lazy.Progress.ProgressType.INFERENCE,
               statusText: lazy.Progress.ProgressStatusText.IN_PROGRESS,
             });
+
+            chunkText = "";
+          } else {
+            chunkTokens.push(tokens);
+
+            if (nextTokensArePrompt) {
+              flushPrompts(tokens);
+            }
+          }
+          nextTokensArePrompt = false;
+        },
+        // Per-word callback function
+        callback_function: text => {
+          if (streamerOptions.perTokens) {
+            chunkText = text;
           } else {
             inferenceProgressCallback({
               ...progressInfo,
@@ -940,7 +962,7 @@ export class ONNXPipeline {
                 text,
                 tokens: streamerOptions.returnTokens ? chunkTokens : null,
                 requestId,
-                isPrompt: false,
+                isPrompt: nextTokensArePrompt,
               },
               type: lazy.Progress.ProgressType.INFERENCE,
               statusText: lazy.Progress.ProgressStatusText.IN_PROGRESS,
@@ -952,11 +974,13 @@ export class ONNXPipeline {
       });
     }
 
-    // Inject streamer into request options
-    const requestWithCallback = {
-      ...request,
-      options: { ...request.options, streamer },
-    };
+    // Override streamer in options
+    const requestWithCallback = inferenceProgressCallback
+      ? {
+          ...request,
+          options: { ...request.options, streamer },
+        }
+      : request;
 
     let result;
 

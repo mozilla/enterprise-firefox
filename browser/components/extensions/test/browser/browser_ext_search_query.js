@@ -169,7 +169,7 @@ add_task(async function test_query() {
   await searchExtension.startup();
   await SearchService.setDefault(
     SearchService.getEngineByName(SEARCH_NAME),
-    Ci.nsISearchService.CHANGE_REASON_ADDON_INSTALL
+    SearchService.CHANGE_REASON.ADDON_INSTALL
   );
   await extension.startup();
   await extension.awaitFinish("disposition");

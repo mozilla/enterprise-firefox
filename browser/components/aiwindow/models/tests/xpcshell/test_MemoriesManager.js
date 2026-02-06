@@ -13,17 +13,10 @@ const { sinon } = ChromeUtils.importESModule(
 const { MemoriesManager } = ChromeUtils.importESModule(
   "moz-src:///browser/components/aiwindow/models/memories/MemoriesManager.sys.mjs"
 );
-const {
-  CATEGORIES,
-  INTENTS,
-  HISTORY: SOURCE_HISTORY,
-  CONVERSATION: SOURCE_CONVERSATION,
-} = ChromeUtils.importESModule(
-  "moz-src:///browser/components/aiwindow/models/memories/MemoriesConstants.sys.mjs"
-);
-const { getFormattedMemoryAttributeList } = ChromeUtils.importESModule(
-  "moz-src:///browser/components/aiwindow/models/memories/Memories.sys.mjs"
-);
+const { HISTORY: SOURCE_HISTORY, CONVERSATION: SOURCE_CONVERSATION } =
+  ChromeUtils.importESModule(
+    "moz-src:///browser/components/aiwindow/models/memories/MemoriesConstants.sys.mjs"
+  );
 const { MemoryStore } = ChromeUtils.importESModule(
   "moz-src:///browser/components/aiwindow/services/MemoryStore.sys.mjs"
 );
@@ -50,9 +43,9 @@ const TEST_MEMORIES = [
 /**
  * Constants for preference keys and test values
  */
-const PREF_API_KEY = "browser.aiwindow.apiKey";
-const PREF_ENDPOINT = "browser.aiwindow.endpoint";
-const PREF_MODEL = "browser.aiwindow.model";
+const PREF_API_KEY = "browser.smartwindow.apiKey";
+const PREF_ENDPOINT = "browser.smartwindow.endpoint";
+const PREF_MODEL = "browser.smartwindow.model";
 
 const API_KEY = "fake-key";
 const ENDPOINT = "https://api.fake-endpoint.com/v1";
@@ -351,33 +344,15 @@ add_task(async function test_hardDeleteMemoryById_not_found() {
 });
 
 /**
- * Tests building the message memory classification prompt
- */
-add_task(async function test_buildMessageMemoryClassificationPrompt() {
-  const prompt =
-    await MemoriesManager.buildMessageMemoryClassificationPrompt(TEST_MESSAGE);
-
-  Assert.ok(
-    prompt.includes(TEST_MESSAGE),
-    "Prompt should include the original message."
-  );
-  Assert.ok(
-    prompt.includes(getFormattedMemoryAttributeList(CATEGORIES)),
-    "Prompt should include formatted categories."
-  );
-  Assert.ok(
-    prompt.includes(getFormattedMemoryAttributeList(INTENTS)),
-    "Prompt should include formatted intents."
-  );
-});
-
-/**
  * Tests classifying a user message into memory categories and intents
  */
 add_task(async function test_memoryClassifyMessage_happy_path() {
   const sb = sinon.createSandbox();
   try {
     const fakeEngine = {
+      loadPrompt() {
+        return "fake prompt";
+      },
       run() {
         return {
           finalOutput: `{
@@ -389,12 +364,15 @@ add_task(async function test_memoryClassifyMessage_happy_path() {
     };
 
     const stub = sb
-      .stub(MemoriesManager, "ensureOpenAIEngine")
+      .stub(MemoriesManager, "ensureOpenAIEngineForUsage")
       .returns(fakeEngine);
     const messageClassification =
       await MemoriesManager.memoryClassifyMessage(TEST_MESSAGE);
     // Check that the stub was called
-    Assert.ok(stub.calledOnce, "ensureOpenAIEngine should be called once");
+    Assert.ok(
+      stub.calledOnce,
+      "ensureOpenAIEngineForUsage should be called once"
+    );
 
     // Check classification result was returned correctly
     Assert.equal(
@@ -429,6 +407,9 @@ add_task(async function test_memoryClassifyMessage_sad_path_empty_output() {
   const sb = sinon.createSandbox();
   try {
     const fakeEngine = {
+      loadPrompt() {
+        return "fake prompt";
+      },
       run() {
         return {
           finalOutput: ``,
@@ -437,12 +418,15 @@ add_task(async function test_memoryClassifyMessage_sad_path_empty_output() {
     };
 
     const stub = sb
-      .stub(MemoriesManager, "ensureOpenAIEngine")
+      .stub(MemoriesManager, "ensureOpenAIEngineForUsage")
       .returns(fakeEngine);
     const messageClassification =
       await MemoriesManager.memoryClassifyMessage(TEST_MESSAGE);
     // Check that the stub was called
-    Assert.ok(stub.calledOnce, "ensureOpenAIEngine should be called once");
+    Assert.ok(
+      stub.calledOnce,
+      "ensureOpenAIEngineForUsage should be called once"
+    );
 
     // Check classification result was returned correctly despite empty output
     Assert.equal(
@@ -477,6 +461,9 @@ add_task(async function test_memoryClassifyMessage_sad_path_bad_schema() {
   const sb = sinon.createSandbox();
   try {
     const fakeEngine = {
+      loadPrompt() {
+        return "fake prompt";
+      },
       run() {
         return {
           finalOutput: `{
@@ -487,12 +474,15 @@ add_task(async function test_memoryClassifyMessage_sad_path_bad_schema() {
     };
 
     const stub = sb
-      .stub(MemoriesManager, "ensureOpenAIEngine")
+      .stub(MemoriesManager, "ensureOpenAIEngineForUsage")
       .returns(fakeEngine);
     const messageClassification =
       await MemoriesManager.memoryClassifyMessage(TEST_MESSAGE);
     // Check that the stub was called
-    Assert.ok(stub.calledOnce, "ensureOpenAIEngine should be called once");
+    Assert.ok(
+      stub.calledOnce,
+      "ensureOpenAIEngineForUsage should be called once"
+    );
 
     // Check classification result was returned correctly despite bad schema
     Assert.equal(
@@ -530,6 +520,9 @@ add_task(async function test_getRelevantMemories_happy_path() {
   const sb = sinon.createSandbox();
   try {
     const fakeEngine = {
+      loadPrompt() {
+        return "fake prompt";
+      },
       run() {
         return {
           finalOutput: `{
@@ -541,12 +534,15 @@ add_task(async function test_getRelevantMemories_happy_path() {
     };
 
     const stub = sb
-      .stub(MemoriesManager, "ensureOpenAIEngine")
+      .stub(MemoriesManager, "ensureOpenAIEngineForUsage")
       .returns(fakeEngine);
     const relevantMemories =
       await MemoriesManager.getRelevantMemories(TEST_MESSAGE);
     // Check that the stub was called
-    Assert.ok(stub.calledOnce, "ensureOpenAIEngine should be called once");
+    Assert.ok(
+      stub.calledOnce,
+      "ensureOpenAIEngineForUsage should be called once"
+    );
 
     // Check that the correct relevant memory was returned
     Assert.ok(Array.isArray(relevantMemories), "Result should be an array.");
@@ -600,6 +596,9 @@ add_task(
     const sb = sinon.createSandbox();
     try {
       const fakeEngine = {
+        loadPrompt() {
+          return "fake prompt";
+        },
         run() {
           return {
             finalOutput: `{
@@ -611,12 +610,15 @@ add_task(
       };
 
       const stub = sb
-        .stub(MemoriesManager, "ensureOpenAIEngine")
+        .stub(MemoriesManager, "ensureOpenAIEngineForUsage")
         .returns(fakeEngine);
       const relevantMemories =
         await MemoriesManager.getRelevantMemories(TEST_MESSAGE);
       // Check that the stub was called
-      Assert.ok(stub.calledOnce, "ensureOpenAIEngine should be called once");
+      Assert.ok(
+        stub.calledOnce,
+        "ensureOpenAIEngineForUsage should be called once"
+      );
 
       // Check that result is an empty array
       Assert.ok(Array.isArray(relevantMemories), "Result should be an array.");
@@ -645,6 +647,9 @@ add_task(
     const sb = sinon.createSandbox();
     try {
       const fakeEngine = {
+        loadPrompt() {
+          return "fake prompt";
+        },
         run() {
           return {
             finalOutput: `{
@@ -656,12 +661,15 @@ add_task(
       };
 
       const stub = sb
-        .stub(MemoriesManager, "ensureOpenAIEngine")
+        .stub(MemoriesManager, "ensureOpenAIEngineForUsage")
         .returns(fakeEngine);
       const relevantMemories =
         await MemoriesManager.getRelevantMemories(TEST_MESSAGE);
       // Check that the stub was called
-      Assert.ok(stub.calledOnce, "ensureOpenAIEngine should be called once");
+      Assert.ok(
+        stub.calledOnce,
+        "ensureOpenAIEngineForUsage should be called once"
+      );
 
       // Check that result is an empty array
       Assert.ok(Array.isArray(relevantMemories), "Result should be an array.");

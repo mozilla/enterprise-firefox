@@ -59,9 +59,12 @@ add_task(async function test_reload_engines_with_duplicate() {
 
   let engineId = engine.id;
 
-  Region._setHomeRegion("FR", false);
+  const reloadObserved =
+    SearchTestUtils.promiseSearchNotification("engines-reloaded");
 
-  await SearchService.wrappedJSObject._maybeReloadEngines();
+  Region._setHomeRegion("FR");
+
+  await reloadObserved;
 
   Assert.ok(
     !(await SearchService.getEngineById(engineId)),

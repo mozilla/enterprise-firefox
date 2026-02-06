@@ -193,7 +193,7 @@ add_task(async function testAddingEngines() {
       "Engine has correct alias"
     );
 
-    Assert.equal(engine.wrappedJSObject.queryCharset, args.charset);
+    Assert.equal(engine.queryCharset, args.charset);
     let submission = engine.getSubmission(args.submission);
     Assert.equal(
       submission.uri.spec,

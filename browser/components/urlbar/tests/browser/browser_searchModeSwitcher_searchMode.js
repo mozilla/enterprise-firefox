@@ -26,7 +26,7 @@ add_setup(async function setup() {
   registerCleanupFunction(async function () {
     await SearchService.setDefault(
       oldDefaultEngine,
-      Ci.nsISearchService.CHANGE_REASON_UNKNOWN
+      SearchService.CHANGE_REASON.UNKNOWN
     );
     await PlacesUtils.history.clear();
   });

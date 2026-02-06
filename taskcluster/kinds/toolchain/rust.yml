@@ -11,21 +11,6 @@ task-defaults:
         script: repack_rust.py
         toolchain-artifact: public/build/rustc.tar.zst
 
-linux64-rust-1.87:
-    treeherder:
-        symbol: TL(rust-1.87)
-    run:
-        arguments: [
-            '--channel', '1.87.0',
-            '--host', 'x86_64-unknown-linux-gnu',
-            '--target', 'x86_64-unknown-linux-gnu',
-            '--target', 'i686-unknown-linux-gnu',
-            '--target', 'aarch64-unknown-linux-gnu',
-            '--target', 'wasm32-wasip1',
-        ]
-        toolchain-alias:
-            - linux64-rust-base
-
 linux64-rust-1.90:
     treeherder:
         symbol: TL(rust)
@@ -41,9 +26,11 @@ linux64-rust-1.90:
         toolchain-alias:
             by-project:
                 toolchains:
+                    - linux64-rust-base
                     - linux64-rust-toolchain
                 default:
                     - linux64-rust
+                    - linux64-rust-base
                     - linux64-rust-toolchain
 
 # A patched rust toolchain that allows us to use sanitizers in our vendored

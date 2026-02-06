@@ -122,7 +122,7 @@ async function assertEnterpriseParameter(useEmptyPolicy) {
     },
   ];
 
-  SearchService.wrappedJSObject.reset();
+  SearchService.reset();
   await EnterprisePolicyTesting.setupPolicyEngineWithJson(
     useEmptyPolicy
       ? {}

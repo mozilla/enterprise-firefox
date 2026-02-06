@@ -1427,8 +1427,8 @@
   value: ""
   mirror: always
 
-# Control whether we enable the feature of crash pull at all
-- name: browser.crashReports.crashPull
+# Control whether we enable the feature of crash reports on demand at all
+- name: browser.crashReports.onDemand
   type: bool
   value: true
   mirror: always
@@ -2702,6 +2702,13 @@
   value: false
   mirror: always
 
+# Legacy behavior: include named properties in [[OwnPropertyKeys]] for the
+# Window named properties object (see bug 2011056).
+- name: dom.window.named_properties_object.legacy_own_property_keys
+  type: bool
+  value: false
+  mirror: always
+
 # Only intended for fuzzing purposes, this will break mozPrintCallback, etc.
 - name: dom.window_print.fuzzing.block_while_printing
   type: bool
@@ -3713,7 +3720,7 @@
 # BrowsingContext. This includes calls to History and Location APIs.
 - name: dom.navigation.navigationRateLimit.count
   type: uint32_t
-  value: 200
+  value: 1000
   mirror: always
 
 # Time span in seconds for location change rate limit.
@@ -5190,7 +5197,8 @@
     *.fedex.com,
     *.msci.com,
     *.the-saleroom.com,
-    *.si.com
+    *.si.com,
+    *.heinnie.com
   mirror: never
 
 # Maximum amount of time in milliseconds consecutive setTimeout()/setInterval()
@@ -5847,6 +5855,12 @@
 - name: dom.webnotifications.testing.force_storage_cleanup.enabled
   type: bool
   value: false
+  mirror: always
+
+# Block notifications and revoke permission for sites on Safe Browsing lists.
+- name: dom.webnotifications.block_if_on_safebrowsing
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 - name: dom.worker.canceling.timeoutMilliseconds
@@ -6910,10 +6924,14 @@
   value: false
   mirror: always
 
-# 0x7fff is the maximum supported xlib surface size and is more than enough for canvases.
 - name: gfx.canvas.max-size
   type: RelaxedAtomicInt32
-  value: 0x7fff
+  value: 0xffff
+  mirror: always
+
+- name: gfx.canvas.max-area
+  type: RelaxedAtomicUint32
+  value: 0x3fffffff
   mirror: always
 
 # Whether OffscreenCanvas can use remote canvas
@@ -7431,7 +7449,7 @@
 # Use gfxPlatform::MaxTextureSize instead of the pref directly.
 - name: gfx.max-texture-size
   type: int32_t
-  value: (int32_t)32767
+  value: (int32_t)65535
   mirror: once
   do_not_use_directly: true
 
@@ -7857,7 +7875,7 @@
 - name: gfx.webrender.dcomp-texture-overlay-win
   type: bool
 #if defined(XP_WIN)
-  value: @IS_EARLY_BETA_OR_EARLIER@
+  value: true
 #else
   value: false
 #endif
@@ -8617,16 +8635,16 @@
 
 # Whether to allow decoding of animated AVIF sequences.
 - name: image.avif.sequence.enabled
-  type: RelaxedAtomicBool
+  type: bool
   value: true
-  mirror: always
+  mirror: once
 
 # Whether AVIF files containing sequences should be animated even when the
 # major brand is set to 'avif'.
 - name: image.avif.sequence.animate_avif_major_branded_images
-  type: RelaxedAtomicBool
+  type: bool
   value: false
-  mirror: always
+  mirror: once
 
 # Whether we attempt to decode JXL images or not.
 - name: image.jxl.enabled
@@ -9001,6 +9019,14 @@
   mirror: always
   set_spidermonkey_pref: startup
 
+# Whether object fuses are used to optimize constant properties on all JS
+# objects that are used as prototypes.
+- name: javascript.options.objectfuse_for_all_protos
+  type: bool
+  value: true
+  mirror: always
+  set_spidermonkey_pref: startup
+
 - name: javascript.options.compact_on_user_inactive
   type: bool
   value: true
@@ -9070,13 +9096,6 @@
 
 # Experimental support for Uint8Array base64/hex in JavaScript.
 - name: javascript.options.experimental.uint8array_base64
-  type: bool
-  value: true
-  mirror: always
-  set_spidermonkey_pref: startup
-
-# Experimental support for Math.sumPrecise in JavaScript.
-- name: javascript.options.experimental.math_sumprecise
   type: bool
   value: true
   mirror: always
@@ -9221,13 +9240,6 @@
 #endif  // ENABLE_EXPLICIT_RESOURCE_MANAGEMENT
 
 - name: javascript.options.experimental.error_capture_stack_trace
-  type: bool
-  value: true
-  mirror: always
-  set_spidermonkey_pref: always
-
-# Dictionary Teleporting
-- name: javascript.options.experimental.dictionary_teleporting
   type: bool
   value: true
   mirror: always
@@ -9583,6 +9595,14 @@
 - name: javascript.options.parallel_parsing
   type: bool
   value: true
+  mirror: always
+
+# Testing pref to force the ScriptPreloader to remain active even after
+# browser-delayed-startup-finished. Only takes effect when running in automation.
+# This allows tests to exercise the cache after startup has completed.
+- name: javascript.options.force_preloader_active
+  type: bool
+  value: false
   mirror: always
 
 # Whether to use fdlibm for Math.sin, Math.cos, and Math.tan. When
@@ -10082,7 +10102,7 @@
 # Whether style() container queries are enabled
 - name: layout.css.style-queries.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
   rust: true
 
@@ -10211,6 +10231,13 @@
 - name: layout.css.basic-shape-shape.enabled
   type: RelaxedAtomicBool
   value: true
+  mirror: always
+  rust: true
+
+# Is multiple color items upported for color-mix()?
+- name: layout.css.color-mix-multi-color.enabled
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
   rust: true
 
@@ -10659,6 +10686,13 @@
 - name: layout.css.text-autospace.enabled
   type: bool
   value: true
+  mirror: always
+
+# Is support for CSS text-box property enabled?
+# https://drafts.csswg.org/css-inline-3/#text-box-shorthand
+- name: layout.css.text-box.enabled
+  type: bool
+  value: false
   mirror: always
 
 # Maximum number of lines to try balancing.
@@ -11524,16 +11558,6 @@
   value: true
   mirror: always
 
-- name: media.mediasource.mp4.enabled
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-
-- name: media.mediasource.webm.enabled
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-
 # Check if vp9 is enabled by default in mediasource. False on Android.
 # If disabled, vp9 will only be enabled under some conditions:
 # - h264 HW decoding is not supported
@@ -11759,6 +11783,15 @@
   value: false
 #endif
   mirror: always
+
+# Provide minimal HW support for codecs that are otherwise unavailable on
+# Android, e.g. H264 and HEVC.
+#if defined(ANDROID)
+- name: media.ffvpx-hw.minimal
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+#endif
 
 # The codecs in the vendored ffmpeg copy are usually prefered to the other
 # codecs. This allows changing this policy for testing purposes.
@@ -13426,6 +13459,12 @@
   value: 80
   mirror: always
 
+# Whether to allow scroll amount larger than a page on a single mouse wheel event.
+- name: mousewheel.allow_scrolling_more_than_one_page
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
 #---------------------------------------------------------------------------
 # Prefs starting with "mozilla."
 #---------------------------------------------------------------------------
@@ -13499,6 +13538,13 @@
 - name: network.auth.sspi_detect_hash
   type: RelaxedAtomicBool
   value: true
+  mirror: always
+
+# Chunk size for BackgroundFileSaver async copy operations. Should be a power
+# of 2 for optimal performance.
+- name: network.backgroundfilesaver.async_copy_chunk_size
+  type: RelaxedAtomicUint32
+  value: 1048576  # 1MB (1024 * 1024)
   mirror: always
 
 # Default buffer size for buffered stream operations. The actual value used will
@@ -14000,6 +14046,13 @@
 - name: network.socket.ip_addr_any.disabled
   type: RelaxedAtomicBool
   value: true
+  mirror: always
+
+# When MOZ_DISABLE_NONLOCAL_CONNECTIONS is set, allow these non-local domains
+# which are required for testing.
+- name: network.socket.allowed_nonlocal_domains
+  type: DataMutexString
+  value: ""
   mirror: always
 
 # Set true to allow resolving proxy for localhost
@@ -15580,6 +15633,12 @@
   value: false
   mirror: always
 
+# When true, allow HTTP/3 first behavior when enabled via remote settings
+- name: network.trr.allow_default_http3_first
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+
 # When true, a http request will be upgraded to https when HTTPS RR is
 # available.
 - name: network.dns.upgrade_with_https_rr
@@ -15957,7 +16016,7 @@
 # Enable HTTP Compression Dictionary support
 - name: network.http.dictionaries.enable
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
 
 #---------------------------------------------------------------------------
@@ -17508,6 +17567,14 @@
   type: RelaxedAtomicBool
   value: true
   mirror: always
+
+
+# Whether or not to enable the test trust anchor list when verifying PDF signatures
+- name: security.pdf_signature_verification.enable_test_trust_anchors
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+  rust: true
 
 # If true, attempt to load the osclientcerts PKCS#11 module at startup on a
 # background thread. This module allows Firefox to use client certificates

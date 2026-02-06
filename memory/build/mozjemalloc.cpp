@@ -53,51 +53,43 @@
 // Allocation requests are rounded up to the nearest size class, and no record
 // of the original request size is maintained.  Allocations are broken into
 // categories according to size class.  Assuming runtime defaults, the size
-// classes in each category are as follows (for x86, x86_64 and Apple Silicon):
+// classes in each category are as follows.  These are generally true across OSs
+// and architectures because mozjemalloc uses 4KiB pages internally.
 //
-//   |=========================================================|
-//   | Category | Subcategory    |     x86 |  x86_64 | Mac ARM |
-//   |---------------------------+---------+---------+---------|
-//   | Word size                 |  32 bit |  64 bit |  64 bit |
-//   | Page size                 |    4 Kb |    4 Kb |   16 Kb |
-//   |=========================================================|
-//   | Small    | Quantum-spaced |      16 |      16 |      16 |
-//   |          |                |      32 |      32 |      32 |
-//   |          |                |      48 |      48 |      48 |
-//   |          |                |     ... |     ... |     ... |
-//   |          |                |     480 |     480 |     480 |
-//   |          |                |     496 |     496 |     496 |
-//   |          |----------------+---------|---------|---------|
-//   |          | Quantum-wide-  |     512 |     512 |     512 |
-//   |          | spaced         |     768 |     768 |     768 |
-//   |          |                |     ... |     ... |     ... |
-//   |          |                |    3584 |    3584 |    3584 |
-//   |          |                |    3840 |    3840 |    3840 |
-//   |          |----------------+---------|---------|---------|
-//   |          | Sub-page       |       - |       - |    4096 |
-//   |          |                |       - |       - |    8 kB |
-//   |=========================================================|
-//   | Large                     |    4 kB |    4 kB |       - |
-//   |                           |    8 kB |    8 kB |       - |
-//   |                           |   12 kB |   12 kB |       - |
-//   |                           |   16 kB |   16 kB |   16 kB |
-//   |                           |     ... |     ... |       - |
-//   |                           |   32 kB |   32 kB |   32 kB |
-//   |                           |     ... |     ... |     ... |
-//   |                           | 1008 kB | 1008 kB | 1008 kB |
-//   |                           | 1012 kB | 1012 kB |       - |
-//   |                           | 1016 kB | 1016 kB |       - |
-//   |                           | 1020 kB | 1020 kB |       - |
-//   |=========================================================|
-//   | Huge                      |    1 MB |    1 MB |    1 MB |
-//   |                           |    2 MB |    2 MB |    2 MB |
-//   |                           |    3 MB |    3 MB |    3 MB |
-//   |                           |     ... |     ... |     ... |
-//   |=========================================================|
+//   |==========================================|
+//   | Small    | Quantum-spaced |           16 |
+//   |          |                |           32 |
+//   |          |                |           48 |
+//   |          |                |          ... |
+//   |          |                |          480 |
+//   |          |                |          496 |
+//   |          |----------------+--------------|
+//   |          | Quantum-wide-  |          512 |
+//   |          | spaced         |          768 |
+//   |          |                |          ... |
+//   |          |                |         3584 |
+//   |          |                |         3840 |
+//   |==========================================|
+//   | Large                     |         4 kB |
+//   |                           |         8 kB |
+//   |                           |        12 kB |
+//   |                           |        16 kB |
+//   |                           |          ... |
+//   |                           |        32 kB |
+//   |                           |          ... |
+//   |                           |      1008 kB |
+//   |                           |      1012 kB |
+//   |                           |      1016 kB |
+//   |                           |      1020 kB |
+//   |==========================================|
+//   | Huge                      |         1 MB |
+//   |                           |         2 MB |
+//   |                           |         3 MB |
+//   |                           |          ... |
+//   |==========================================|
 //
 // Legend:
 //   n:    Size class exists for this platform.
-//   -:    This size class doesn't exist for this platform.
 //   ...:  Size classes follow a pattern here.
 //
 // A different mechanism is used for each category:
@@ -232,7 +224,6 @@ class SizeClass {
   enum ClassType {
     Quantum,
     QuantumWide,
-    SubPage,
     Large,
   };
 
@@ -248,9 +239,6 @@ class SizeClass {
     } else if (aSize <= kMaxQuantumWideClass) {
       mType = QuantumWide;
       mSize = QUANTUM_WIDE_CEILING(aSize);
-    } else if (aSize <= gMaxSubPageClass) {
-      mType = SubPage;
-      mSize = SUBPAGE_CEILING(aSize);
     } else if (aSize <= gMaxLargeClass) {
       mType = Large;
       mSize = PAGE_CEILING(aSize);
@@ -676,6 +664,13 @@ struct arena_t {
       MOZ_REQUIRES(mLock);
 
   arena_chunk_t* DallocRun(arena_run_t* aRun, bool aDirty) MOZ_REQUIRES(mLock);
+
+#ifndef MALLOC_DECOMMIT
+  // Mark an madvised page as dirty, this is required when a allocating a
+  // neighbouring page that is part of the same real page.
+  void TouchMadvisedPage(arena_chunk_t* aChunk, size_t aPage)
+      MOZ_REQUIRES(mLock);
+#endif
 
   [[nodiscard]] bool SplitRun(arena_run_t* aRun, size_t aSize, bool aLarge,
                               bool aZero) MOZ_REQUIRES(mLock);
@@ -1478,6 +1473,31 @@ static inline void arena_run_reg_dalloc(arena_run_t* run, arena_bin_t* bin,
   run->mRegionsMask[elm] |= (1U << bit);
 }
 
+#ifndef MALLOC_DECOMMIT
+void arena_t::TouchMadvisedPage(arena_chunk_t* aChunk, size_t page) {
+  // It should be MADVISED because it's part of the same real page.
+  MOZ_ASSERT(aChunk->mPageMap[page].bits & CHUNK_MAP_MADVISED);
+
+  // But it must not have the other flags.
+  MOZ_ASSERT((aChunk->mPageMap[page].bits &
+              (CHUNK_MAP_FRESH | CHUNK_MAP_DECOMMITTED | CHUNK_MAP_DIRTY)) ==
+             0);
+
+  // Clear MADVISED and set DIRTY.  It's dirty since it may still contain
+  // data from a previous use.
+  aChunk->mPageMap[page].bits =
+      (aChunk->mPageMap[page].bits & ~CHUNK_MAP_MADVISED) | CHUNK_MAP_DIRTY;
+
+  // Although this increases the number of dirty pages in the chunk, we
+  // don't add it to the purge list because these pages can't be purged.
+  // DallocRun will add it later.
+  aChunk->mNumDirty++;
+  mNumDirty++;
+  mStats.committed++;
+  mNumMAdvised--;
+}
+#endif
+
 bool arena_t::SplitRun(arena_run_t* aRun, size_t aSize, bool aLarge,
                        bool aZero) {
   arena_chunk_t* chunk = GetChunkForPtr(aRun);
@@ -1575,6 +1595,12 @@ bool arena_t::SplitRun(arena_run_t* aRun, size_t aSize, bool aLarge,
     chunk->mDirtyRunHint = run_ind + need_pages;
   }
 
+#ifndef MALLOC_DECOMMIT
+  bool first_page_was_madvised =
+      chunk->mPageMap[run_ind].bits & CHUNK_MAP_MADVISED;
+  bool last_page_was_madvised =
+      chunk->mPageMap[run_ind + need_pages - 1].bits & CHUNK_MAP_MADVISED;
+#endif
   for (size_t i = 0; i < need_pages; i++) {
     // Zero if necessary.
     if (aZero) {
@@ -1609,6 +1635,34 @@ bool arena_t::SplitRun(arena_run_t* aRun, size_t aSize, bool aLarge,
       chunk->mPageMap[run_ind + i].bits = size_t(aRun) | CHUNK_MAP_ALLOCATED;
     }
   }
+
+#ifndef MALLOC_DECOMMIT
+  // Remove the MADVISED bit from leading and trailing pages that are part of
+  // the same real pages that we've touched.  This may cross into other free
+  // runs, including busy runs.  This is safe because real page boundaries are
+  // not crossed by either this code or the purging code.
+  if (first_page_was_madvised) {
+    for (size_t i = run_ind - 1;
+         (i & (gPagesPerRealPage - 1)) != (gPagesPerRealPage - 1); i--) {
+      // This loop will never go beyond into the chunk header or touch the guard
+      // page because the guard page is always aligned.
+      MOZ_ASSERT(gChunkHeaderNumPages <= i);
+
+      TouchMadvisedPage(chunk, i);
+    }
+  }
+
+  if (last_page_was_madvised) {
+    for (size_t i = run_ind + need_pages; (i & (gPagesPerRealPage - 1)) != 0;
+         i++) {
+      // This loop will never go beyond the end of the chunk or touch the guard
+      // page because the guard page is always aligned.
+      MOZ_ASSERT(i < gChunkNumPages - gPagesPerRealPage);
+
+      TouchMadvisedPage(chunk, i);
+    }
+  }
+#endif
 
   // Set the run size only in the first element for large runs.  This is
   // primarily a debugging aid, since the lack of size info for trailing
@@ -2767,10 +2821,6 @@ void* arena_t::MallocSmall(size_t aSize, bool aZero) {
       bin = &mBins[kNumQuantumClasses + (aSize / kQuantumWide) -
                    (kMinQuantumWideClass / kQuantumWide)];
       break;
-    case SizeClass::SubPage:
-      bin = &mBins[kNumQuantumClasses + kNumQuantumWideClasses +
-                   (FloorLog2(aSize) - LOG2(kMinSubPageClass))];
-      break;
     default:
       MOZ_MAKE_COMPILER_ASSUME_IS_UNREACHABLE("Unexpected size class type");
   }
@@ -3845,7 +3895,8 @@ void* arena_t::RallocHuge(void* aPtr, size_t aSize, size_t aOldSize) {
 
   // Avoid moving the allocation if the size class would not change.
   if (aOldSize > gMaxLargeClass &&
-      CHUNK_CEILING(aSize + gPageSize) == CHUNK_CEILING(aOldSize + gPageSize)) {
+      CHUNK_CEILING(aSize + gRealPageSize) ==
+          CHUNK_CEILING(aOldSize + gRealPageSize)) {
     size_t psize = REAL_PAGE_CEILING(aSize);
     if (aSize < aOldSize) {
       MaybePoison((void*)((uintptr_t)aPtr + aSize), aOldSize - aSize);
@@ -3974,8 +4025,8 @@ static bool malloc_init_hard() {
     MOZ_CRASH();
   }
 #else
-  gPageSize = page_size;
   gRealPageSize = page_size;
+  gPageSize = std::min(4_KiB, page_size);
 #endif
 
   // Get runtime configuration.
@@ -4295,7 +4346,7 @@ inline size_t MozJemalloc::malloc_good_size(size_t aSize) {
     // CHUNK_CEILING to get csize.  This ensures that this
     // malloc_usable_size(malloc(n)) always matches
     // malloc_good_size(n).
-    aSize = PAGE_CEILING(aSize);
+    aSize = REAL_PAGE_CEILING(aSize);
   }
   return aSize;
 }
@@ -4327,10 +4378,11 @@ inline void MozJemalloc::jemalloc_stats_internal(
   aStats->quantum_max = kMaxQuantumClass;
   aStats->quantum_wide = kQuantumWide;
   aStats->quantum_wide_max = kMaxQuantumWideClass;
-  aStats->subpage_max = gMaxSubPageClass;
+  aStats->unused = kMaxQuantumWideClass;
   aStats->large_max = gMaxLargeClass;
   aStats->chunksize = kChunkSize;
   aStats->page_size = gPageSize;
+  aStats->real_page_size = gRealPageSize;
   aStats->dirty_max = opt_dirty_max;
 
   // Gather current memory usage statistics.

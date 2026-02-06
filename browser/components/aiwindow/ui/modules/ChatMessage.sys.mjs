@@ -179,14 +179,22 @@ export class ToolRoleOpts {
  */
 export class UserRoleOpts {
   revisionRootMessageId;
+  memoriesEnabled;
+  memoriesFlagSource;
 
   /**
-   * @param {string} [revisionRootMessageId=undefined]
+   * @param {string|object} [opts]
    */
-  constructor(revisionRootMessageId) {
+  constructor({
+    revisionRootMessageId = null,
+    memoriesEnabled = null,
+    memoriesFlagSource = null,
+  } = {}) {
     if (revisionRootMessageId) {
       this.revisionRootMessageId = revisionRootMessageId;
     }
+    this.memoriesEnabled = memoriesEnabled;
+    this.memoriesFlagSource = memoriesFlagSource;
   }
 }
 

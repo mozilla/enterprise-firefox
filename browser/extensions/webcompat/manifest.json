@@ -2,7 +2,7 @@
   "manifest_version": 2,
   "name": "Web Compatibility Interventions",
   "description": "Urgent post-release fixes for web compatibility.",
-  "version": "149.2.0",
+  "version": "149.5.0",
   "browser_specific_settings": {
     "gecko": {
       "id": "webcompat@mozilla.org",
@@ -13,14 +13,9 @@
   "experiment_apis": {
     "aboutConfigPrefs": {
       "schema": "experiment-apis/aboutConfigPrefs.json",
-      "parent": {
-        "scopes": ["addon_parent"],
-        "script": "experiment-apis/aboutConfigPrefs.js",
-        "paths": [["aboutConfigPrefs"]]
-      },
       "child": {
         "scopes": ["addon_child"],
-        "script": "experiment-apis/aboutConfigPrefsChild.js",
+        "script": "experiment-apis/aboutConfigPrefs.js",
         "paths": [["aboutConfigPrefs"]]
       }
     },
@@ -71,6 +66,14 @@
         "script": "experiment-apis/trackingProtection.js",
         "paths": [["trackingProtection"]]
       }
+    },
+    "urlHelpers": {
+      "schema": "experiment-apis/urlHelpers.json",
+      "child": {
+        "scopes": ["addon_child"],
+        "script": "experiment-apis/urlHelpers.js",
+        "paths": [["appConstants"]]
+      }
     }
   },
 
@@ -89,6 +92,7 @@
 
   "background": {
     "scripts": [
+      "lib/logging.js",
       "lib/remote_settings_update_check.js",
       "lib/messaging_helper.js",
       "lib/ua_helpers.js",

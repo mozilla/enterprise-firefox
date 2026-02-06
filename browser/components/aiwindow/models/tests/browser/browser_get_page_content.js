@@ -51,26 +51,21 @@ add_task(async function test_get_page_content_basic() {
   );
   const result = result_array[0];
 
-  info("Extraction result: " + result);
+  info("Extraction result: " + JSON.stringify(result));
 
-  // Verify the result contains expected content
-  ok(
-    result.includes("Sample Article Title"),
-    "Result should contain the title"
-  );
+  ok(result, "Result should be a string");
+  ok(result.includes("Sample Article Title"), "Text should contain the title");
   ok(
     result.includes("first paragraph"),
-    "Result should contain text from the first paragraph"
+    "Text should contain text from the first paragraph"
   );
   ok(
     result.includes("second paragraph"),
-    "Result should contain text from the second paragraph"
+    "Text should contain text from the second paragraph"
   );
-
-  // Verify the result indicates which extraction mode was used
   ok(
     result.startsWith("Content (") && result.includes(") from"),
-    "Result should indicate the extraction mode used"
+    "Text should indicate the extraction mode used"
   );
 
   await cleanup();

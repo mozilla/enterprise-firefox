@@ -4787,12 +4787,6 @@ class nsIFrame : public nsQueryFrame {
   mozilla::StyleAlignmentBaseline AlignmentBaseline() const;
 
   /**
-   * Returns the baseline-shift value to be used for layout. If this is an
-   * SVG text frame, it returns an initial zero value.
-   */
-  const mozilla::StyleBaselineShift& BaselineShift() const;
-
-  /**
    * Adds the NS_FRAME_IN_POPUP state bit to aFrame, and
    * all descendant frames (including cross-doc ones).
    */

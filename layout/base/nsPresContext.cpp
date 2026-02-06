@@ -3029,6 +3029,22 @@ nscoord nsPresContext::GetBimodalDynamicToolbarHeightInAppUnits() const {
              : 0;
 }
 
+nscoord nsPresContext::GetBimodalDynamicToolbarHeightForFixedPosInAppUnits()
+    const {
+  if (GetDynamicToolbarState() != DynamicToolbarState::Collapsed) {
+    return 0;
+  }
+  if (mDynamicToolbarMaxHeight == 0) {
+    return 0;
+  }
+  RefPtr<MobileViewportManager> mvm = mPresShell->GetMobileViewportManager();
+  if (!mvm) {
+    return 0;
+  }
+  return CSSPixel::ToAppUnits(ScreenCoord(GetDynamicToolbarMaxHeight()) /
+                              mvm->GetIntrinsicScaleForFixedViewport());
+}
+
 void nsPresContext::SetSafeAreaInsets(
     const LayoutDeviceIntMargin& aSafeAreaInsets) {
   if (mSafeAreaInsets == aSafeAreaInsets) {

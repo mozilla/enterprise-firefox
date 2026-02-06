@@ -164,20 +164,28 @@ pub fn notify_observers(name: String) {
     });
 }
 
-pub fn open_url_in_firefox(url: String) {
-    trace!("open_url_in_firefox() url: {}", url);
+pub fn open_url_in_firefox(url: String, disposition: i32) {
+    trace!(
+        "open_url_in_firefox() url: {} disposition: {}",
+        url,
+        disposition
+    );
+    let payload = serde_json::json!({
+        "url": url,
+        "disposition": disposition,
+    })
+    .to_string();
     do_main_thread("felt_open_url", async move {
         let obssvc: RefPtr<nsIObserverService> = xpcom::components::Observer::service().unwrap();
         let topic = CString::new("felt-open-url").unwrap();
-        let url_data = nsstring::nsString::from(&url);
+        let url_data = nsstring::nsString::from(&payload);
 
         let rv =
             unsafe { obssvc.NotifyObservers(std::ptr::null(), topic.as_ptr(), url_data.as_ptr()) };
 
         if rv.succeeded() {
             trace!(
-                "open_url_in_firefox() successfully sent observer notification for URL: {}",
-                url
+                "open_url_in_firefox() successfully sent observer notification for URL request"
             );
         } else {
             trace!("open_url_in_firefox() NotifyObservers failed: {:?}", rv);

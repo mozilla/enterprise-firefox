@@ -174,7 +174,7 @@ add_task(async function test_IPProtectionPanel_signedIn() {
 });
 
 /**
- * Tests that IPProtectionService unavailable state event updates the state.
+ * Tests that IPProtectionService unauthenticated state event updates the state.
  */
 add_task(async function test_IPProtectionPanel_signedOut() {
   let sandbox = sinon.createSandbox();
@@ -189,7 +189,7 @@ add_task(async function test_IPProtectionPanel_signedOut() {
   let signedOutEventPromise = waitForEvent(
     IPProtectionService,
     "IPProtectionService:StateChanged",
-    () => IPProtectionService.state === IPProtectionStates.UNAVAILABLE
+    () => IPProtectionService.state === IPProtectionStates.UNAUTHENTICATED
   );
   IPProtectionService.updateState();
 

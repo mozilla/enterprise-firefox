@@ -638,6 +638,12 @@ static JSScript* ReparseSource(JSContext* cx, Handle<ScriptSourceObject*> sso,
   }
 
   if (asModule) {
+    if (options.lineno == 0) {
+      JS_ReportErrorASCII(cx, "Module cannot be compiled with lineNumber == 0");
+      return nullptr;
+    }
+    options.setModule();
+
     JSObject* module = JS::CompileModule(cx, options, srcBuf);
     if (!module) {
       return nullptr;

@@ -438,9 +438,10 @@ nsAppShellService::CreateWindowlessBrowser(bool aIsChrome, uint32_t aChromeMask,
   /* Next, we create an instance of nsWebBrowser. Instances of this class have
    * an associated doc shell, which is what we're interested in.
    */
-  nsCOMPtr<nsIWebBrowser> browser =
-      nsWebBrowser::Create(stub, widget, browsingContext,
-                           nullptr /* initialWindowChild */, openWindowInfo);
+  RefPtr<nsWebBrowser> browser;
+  MOZ_TRY(nsWebBrowser::Create(stub, widget, browsingContext,
+                               nullptr /* initialWindowChild */, openWindowInfo,
+                               getter_AddRefs(browser)));
 
   if (NS_WARN_IF(!browser)) {
     NS_ERROR("Couldn't create instance of nsWebBrowser!");

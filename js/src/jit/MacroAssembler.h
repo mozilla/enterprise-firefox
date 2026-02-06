@@ -5964,6 +5964,8 @@ class MacroAssembler : public MacroAssemblerSpecific {
     emitProfilingInstrumentation_ = true;
   }
 
+  void instrumentProfilerCallSite();
+
  private:
   // This class is used to surround call sites throughout the assembler. This
   // is used by callWithABI, and callJit functions, except if suffixed by
