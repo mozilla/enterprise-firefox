@@ -154,7 +154,6 @@ EnterprisePoliciesManager.prototype = {
     }
 
     if (!this._provider.hasPolicies) {
-      this._status = Ci.nsIEnterprisePolicies.INACTIVE;
       return;
     }
 
@@ -171,7 +170,6 @@ EnterprisePoliciesManager.prototype = {
       (policies.Certificates.ImportEnterpriseRoots === true ||
         policies.Certificates.ImportEnterpriseRoots === 1)
     ) {
-      this._status = Ci.nsIEnterprisePolicies.INACTIVE;
       return;
     }
 
