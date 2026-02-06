@@ -204,10 +204,7 @@ EnterprisePoliciesManager.prototype = {
    * Activates the policies that are provided during initialization.
    */
   _activatePolicies() {
-    this._status = Ci.nsIEnterprisePolicies.ACTIVE;
-
-    lazy.log.debug(this._provider);
-
+    
     for (const [policyName, policyParams] of Object.entries(
       this._provider.policies || {}
     )) {
@@ -215,16 +212,20 @@ EnterprisePoliciesManager.prototype = {
         policyName,
         policyParams
       );
-
+      
       if (!isValid) {
         console.warn(`Parameters for policy ${policyName} are invalid`);
         continue;
       }
-
+      
       this._parsedPolicies[policyName] = parsedParams;
-
+      
       const policyImpl = lazy.Policies[policyName];
       this._scheduleActivationPolicyCallbacks(policyImpl, parsedParams);
+    }
+    
+    if (this.hasActivePolicies()) {
+      this._status = Ci.nsIEnterprisePolicies.ACTIVE;
     }
   },
 
@@ -272,6 +273,12 @@ EnterprisePoliciesManager.prototype = {
         }
       }
       this._runPoliciesCallbacks(timing);
+    }
+
+    if (this.hasActivePolicies()) {
+      this._status = Ci.nsIEnterprisePolicies.ACTIVE;
+    } else {
+      this._status = Ci.nsIEnterprisePolicies.INACTIVE;
     }
   },
 
@@ -641,6 +648,10 @@ EnterprisePoliciesManager.prototype = {
 
   getActivePolicies() {
     return this._parsedPolicies;
+  },
+
+  hasActivePolicies() {
+    return !!Object.keys(this._parsedPolicies || {}).length
   },
 
   setSupportMenu(supportMenu) {
