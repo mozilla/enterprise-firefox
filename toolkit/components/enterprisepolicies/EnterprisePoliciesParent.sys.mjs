@@ -131,7 +131,6 @@ EnterprisePoliciesManager.prototype = {
       "resource:///modules/policies/schema.sys.mjs"
     ).schema;
 
-    this._status = Ci.nsIEnterprisePolicies.INACTIVE;
     Services.prefs.setBoolPref(PREF_POLICIES_APPLIED, false);
 
     const localProvider = this._chooseProvider();
@@ -155,11 +154,12 @@ EnterprisePoliciesManager.prototype = {
     }
 
     if (this._provider.failed) {
-      this._status = Ci.nsIEnterprisePolicies.FAILED;
+      this.status = Ci.nsIEnterprisePolicies.FAILED;
       return;
     }
 
     if (!this._provider.hasPolicies) {
+      this.status = Ci.nsIEnterprisePolicies.INACTIVE;
       return;
     }
 
@@ -176,6 +176,7 @@ EnterprisePoliciesManager.prototype = {
       (policies.Certificates.ImportEnterpriseRoots === true ||
         policies.Certificates.ImportEnterpriseRoots === 1)
     ) {
+      this.status = Ci.nsIEnterprisePolicies.INACTIVE;
       return;
     }
 
@@ -207,6 +208,17 @@ EnterprisePoliciesManager.prototype = {
   },
 
   /**
+   * Update engine status after parsing a new set of policies
+   */
+  _updateStatus() {
+    if (this.hasActivePolicies()) {
+      this.status = Ci.nsIEnterprisePolicies.ACTIVE;
+    } else {
+      this.status = Ci.nsIEnterprisePolicies.INACTIVE;
+    }
+  },
+
+  /**
    * Activates the policies that are provided during initialization.
    */
   _activatePolicies() {
@@ -229,9 +241,7 @@ EnterprisePoliciesManager.prototype = {
       this._scheduleActivationPolicyCallbacks(policyImpl, parsedParams);
     }
 
-    if (this.hasActivePolicies()) {
-      this._status = Ci.nsIEnterprisePolicies.ACTIVE;
-    }
+    this._updateStatus();
   },
 
   /**
@@ -244,7 +254,7 @@ EnterprisePoliciesManager.prototype = {
    * - Remove a policy if it's missing in the updated set.
    */
   _updatePolicies() {
-    if (this._status === Ci.nsIEnterprisePolicies.UNINITIALIZED) {
+    if (this.status === Ci.nsIEnterprisePolicies.UNINITIALIZED) {
       // Abort if we are still initializing or restarting the policy engine.
       return;
     }
@@ -280,11 +290,7 @@ EnterprisePoliciesManager.prototype = {
       this._runPoliciesCallbacks(timing);
     }
 
-    if (this.hasActivePolicies()) {
-      this._status = Ci.nsIEnterprisePolicies.ACTIVE;
-    } else {
-      this._status = Ci.nsIEnterprisePolicies.INACTIVE;
-    }
+    this._updateStatus();
   },
 
   /**
@@ -511,7 +517,7 @@ EnterprisePoliciesManager.prototype = {
     Services.ppmm.sharedData.delete("EnterprisePolicies:Status");
     Services.ppmm.sharedData.delete("EnterprisePolicies:DisallowedFeatures");
 
-    this._status = Ci.nsIEnterprisePolicies.UNINITIALIZED;
+    this.status = Ci.nsIEnterprisePolicies.UNINITIALIZED;
     this._parsedPolicies = {};
     if (this.isRemotePoliciesSupported()) {
       RemotePoliciesProvider.dropInstance();
@@ -1113,7 +1119,7 @@ class WindowsGPOPoliciesProvider extends PoliciesProvider {
     // We don't access machine policies in testing
     if (!Cu.isInAutomation && !isXpcshell) {
       this._readData(wrk, wrk.ROOT_KEY_LOCAL_MACHINE);
-    } 
+    }
   }
 
   _readData(wrk, root) {
