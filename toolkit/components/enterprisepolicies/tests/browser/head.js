@@ -7,13 +7,16 @@
 const {
   EnterprisePolicyTesting,
   PoliciesPrefTracker,
-  REMOTE_POLICIES_TESTING_PREF,
 } = ChromeUtils.importESModule(
   "resource://testing-common/EnterprisePolicyTesting.sys.mjs"
 );
 
 const { Policies } = ChromeUtils.importESModule(
   "resource:///modules/policies/Policies.sys.mjs"
+);
+
+const { PREF_REMOTE_POLICIES_ENABLED } = ChromeUtils.importESModule(
+  "resource://gre/modules/EnterprisePoliciesParent.sys.mjs"
 );
 
 PoliciesPrefTracker.start();
@@ -23,11 +26,11 @@ registerCleanupFunction(() => {
 
 async function setupPolicyEngineWithJson(json, customSchema) {
   PoliciesPrefTracker.restoreDefaultValues();
-  const isRemotePoliciesTesting = Services.prefs.getBoolPref(
-    REMOTE_POLICIES_TESTING_PREF,
+  const isRemotePoliciesEnabled = Services.prefs.getBoolPref(
+    PREF_REMOTE_POLICIES_ENABLED,
     false
   );
-  if (isRemotePoliciesTesting) {
+  if (isRemotePoliciesEnabled) {
     return servePolicyWithRemoteJson(json, customSchema);
   }
   return setupPolicyWithJsonFile(json, customSchema);

@@ -14,8 +14,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
   ConsoleClient: "resource:///modules/enterprise/ConsoleClient.sys.mjs",
 });
 
-export const REMOTE_POLICIES_TESTING_PREF = "browser.policies.remote.enabled";
-
 export const EnterprisePolicyTesting = {
   /* The stub wrapping ConsoleClient.getRemotePolicies to control which remote policies are fetched */
   get remotePoliciesStub() {
