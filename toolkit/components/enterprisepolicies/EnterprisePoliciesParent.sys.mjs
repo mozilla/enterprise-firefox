@@ -124,7 +124,7 @@ EnterprisePoliciesManager.prototype = {
     }
   },
 
-  _initialize() {
+  async _initialize() {
     this._cleanupPolicies();
 
     this._policiesSchema = ChromeUtils.importESModule(
@@ -139,8 +139,7 @@ EnterprisePoliciesManager.prototype = {
       const remoteProvider = RemotePoliciesProvider.getInstance();
       try {
         // Poll and ingest initial set of policies
-        const remotePoliciesPromise = remoteProvider.ingestPolicies();
-        this.spinResolve(remotePoliciesPromise);
+        await remoteProvider.ingestPolicies();
         // Will apply policy updates once policies manager is initialized
         remoteProvider.startPolling();
       } catch (e) {
@@ -560,11 +559,12 @@ EnterprisePoliciesManager.prototype = {
       case "policies-startup":
         // Before the first set of policy callbacks runs, we must
         // initialize the service.
-        this._initialize();
-
-        this._runPoliciesCallbacks("onBeforeAddons");
-        break;
-
+        {
+          const initializedPromise = this._initialize();
+          this.spinResolve(initializedPromise);
+          this._runPoliciesCallbacks("onBeforeAddons");
+          break;
+        }
       case "profile-after-change":
         this._runPoliciesCallbacks("onProfileAfterChange");
         break;
@@ -805,7 +805,7 @@ EnterprisePoliciesManager.prototype = {
       });
 
     Services.tm.spinEventLoopUntil(
-      "BrowserContentHandler.sys.mjs:BCH_spinResolve",
+      "EnterprisePoliciesManager.sys.mjs:_initialize",
       () => done
     );
     if (!done) {
@@ -1113,7 +1113,7 @@ class WindowsGPOPoliciesProvider extends PoliciesProvider {
     // We don't access machine policies in testing
     if (!Cu.isInAutomation && !isXpcshell) {
       this._readData(wrk, wrk.ROOT_KEY_LOCAL_MACHINE);
-    }
+    } 
   }
 
   _readData(wrk, root) {
