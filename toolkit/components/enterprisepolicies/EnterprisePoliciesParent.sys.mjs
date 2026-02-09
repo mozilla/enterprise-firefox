@@ -46,7 +46,8 @@ const PREF_LOGLEVEL = "browser.policies.loglevel";
 // To allow for cleaning up old policies
 const PREF_POLICIES_APPLIED = "browser.policies.applied";
 
-const PREF_REMOTE_POLICIES_ENABLED = "browser.policies.remote.enabled";
+export const PREF_REMOTE_POLICIES_ENABLED = "browser.policies.remote.enabled";
+export const PREF_LOCAL_POLICIES_ENABLED = "browser.policies.local.enabled";
 
 ChromeUtils.defineLazyGetter(lazy, "log", () => {
   let { ConsoleAPI } = ChromeUtils.importESModule(
@@ -107,6 +108,12 @@ EnterprisePoliciesManager.prototype = {
     );
   },
 
+  isLocalPoliciesSupported() {
+    // If remote policies are enabled, 
+    // we ignore local ones for now.
+    return !AppConstants.MOZ_ENTERPRISE || Services.prefs.getBoolPref(PREF_LOCAL_POLICIES_ENABLED, true);
+  },
+
   _cleanupPolicies() {
     if (Services.prefs.getBoolPref(PREF_POLICIES_APPLIED, false)) {
       if ("_cleanup" in lazy.Policies) {
@@ -139,7 +146,7 @@ EnterprisePoliciesManager.prototype = {
       } catch (e) {
         console.error("Unable to find policies in payload.");
       }
-      if (localProvider.hasPolicies) {
+      if (this.isLocalPoliciesSupported() && localProvider.hasPolicies) {
         this._provider = new CombinedProvider(remoteProvider, localProvider);
       } else {
         this._provider = remoteProvider;
@@ -1122,8 +1129,8 @@ class WindowsGPOPoliciesProvider extends PoliciesProvider {
         lazy.log.debug(
           `root = ${
             root == wrk.ROOT_KEY_CURRENT_USER
-              ? "HKEY_CURRENT_USER"
-              : "HKEY_LOCAL_MACHINE"
+            ? "HKEY_CURRENT_USER"
+            : "HKEY_LOCAL_MACHINE"
           }`
         );
         this._policies = lazy.WindowsGPOParser.readPolicies(

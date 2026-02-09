@@ -3,6 +3,7 @@ head = "head.js"
 support-files = ["config_broken_json.json"]
 prefs = [
   "browser.policies.remote.enabled=false",
+  "browser.policies.local.enabled=true",
 ]
 environment = [
   "MOZ_BYPASS_FELT=1",

@@ -3,6 +3,7 @@ head = "head.js"
 support-files = ["../head.js"]
 prefs = [
   "browser.policies.remote.enabled=true",
+  "browser.policies.local.enabled=true",
   "browser.policies.live_polling.enabled=true",
   "browser.policies.live_polling.frequency=500",
 ]

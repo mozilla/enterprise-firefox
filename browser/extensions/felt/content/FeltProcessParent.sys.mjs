@@ -11,6 +11,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   isTesting: "resource:///modules/enterprise/EnterpriseCommon.sys.mjs",
   FeltCommon: "chrome://felt/content/FeltCommon.sys.mjs",
   FeltStorage: "resource:///modules/FeltStorage.sys.mjs",
+  PREF_REMOTE_POLICIES_ENABLED: "resource://gre/modules/EnterprisePoliciesParent.sys.mjs",
+  PREF_LOCAL_POLICIES_ENABLED: "resource://gre/modules/EnterprisePoliciesParent.sys.mjs",
 });
 
 console.debug(`FeltExtension: FeltParentProcess.sys.mjs`);
@@ -236,8 +238,13 @@ export class FeltProcessParent extends JSProcessActorParent {
       "identity.fxaccounts.auth.uri",
       lazy.ConsoleClient.fxAccountsAuth
     );
+    
+    // Enables remote policies
+    Services.felt.sendBoolPreference(lazy.PREF_REMOTE_POLICIES_ENABLED, true);
+    // Disables local policies
+    Services.felt.sendBoolPreference(lazy.PREF_LOCAL_POLICIES_ENABLED, false);
 
-    // Enables remote policy polling
+    // Enables live policy polling
     Services.felt.sendBoolPreference(
       "browser.policies.live_polling.enabled",
       true
