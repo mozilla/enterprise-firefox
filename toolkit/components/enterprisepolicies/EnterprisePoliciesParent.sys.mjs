@@ -109,9 +109,12 @@ EnterprisePoliciesManager.prototype = {
   },
 
   isLocalPoliciesSupported() {
-    // If remote policies are enabled, 
+    // If remote policies are enabled,
     // we ignore local ones for now.
-    return !AppConstants.MOZ_ENTERPRISE || Services.prefs.getBoolPref(PREF_LOCAL_POLICIES_ENABLED, true);
+    return (
+      !AppConstants.MOZ_ENTERPRISE ||
+      Services.prefs.getBoolPref(PREF_LOCAL_POLICIES_ENABLED, true)
+    );
   },
 
   _cleanupPolicies() {
@@ -562,15 +565,14 @@ EnterprisePoliciesManager.prototype = {
     this._topicsObserved.add(aTopic);
 
     switch (aTopic) {
-      case "policies-startup":
-        // Before the first set of policy callbacks runs, we must
-        // initialize the service.
-        {
-          const initializedPromise = this._initialize();
-          this.spinResolve(initializedPromise);
-          this._runPoliciesCallbacks("onBeforeAddons");
-          break;
-        }
+      case "policies-startup": // Before the first set of policy callbacks runs, we must
+      // initialize the service.
+      {
+        const initializedPromise = this._initialize();
+        this.spinResolve(initializedPromise);
+        this._runPoliciesCallbacks("onBeforeAddons");
+        break;
+      }
       case "profile-after-change":
         this._runPoliciesCallbacks("onProfileAfterChange");
         break;
@@ -1135,8 +1137,8 @@ class WindowsGPOPoliciesProvider extends PoliciesProvider {
         lazy.log.debug(
           `root = ${
             root == wrk.ROOT_KEY_CURRENT_USER
-            ? "HKEY_CURRENT_USER"
-            : "HKEY_LOCAL_MACHINE"
+              ? "HKEY_CURRENT_USER"
+              : "HKEY_LOCAL_MACHINE"
           }`
         );
         this._policies = lazy.WindowsGPOParser.readPolicies(

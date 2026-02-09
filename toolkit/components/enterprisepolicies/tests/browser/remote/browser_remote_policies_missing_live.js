@@ -121,14 +121,20 @@ add_task(async function check_all_policies_are_live() {
     }
   }
 
-  const livePoliciesNotAppliable = livePolicies.difference(policiesAppliable)
+  const livePoliciesNotAppliable = livePolicies.difference(policiesAppliable);
   if (livePoliciesNotAppliable.size) {
-    console.debug(`Live policies that are not appliable because of missing remove functions ${livePoliciesNotAppliable}`);
+    console.debug(
+      `Live policies that are not appliable because of missing remove functions ${livePoliciesNotAppliable}`
+    );
   }
 
-  Assert.equal(livePoliciesNotAppliable.size, 0, "Not all policies are live. Work better.");
+  Assert.equal(
+    livePoliciesNotAppliable.size,
+    0,
+    "Not all policies are live. Work better."
+  );
 
-  const liveAndNotLive = policiesAppliable.intersection(notLivePolicies)
+  const liveAndNotLive = policiesAppliable.intersection(notLivePolicies);
   if (liveAndNotLive.size) {
     console.debug(
       `Inconsistent state: live and not live ${JSON.stringify(liveAndNotLive)}`
