@@ -32,6 +32,7 @@ add_task(async function check_all_policies_are_live() {
     "DisableDefaultBrowserAgent",
     "DisableForgetButton",
     "DisableFormHistory",
+    "DisableRemoteImprovements",
     "DisableMasterPasswordCreation",
     "DisablePasswordReveal",
     "DisableProfileImport",
@@ -122,7 +123,7 @@ add_task(async function check_all_policies_are_live() {
 
   const livePoliciesNotAppliable = livePolicies.difference(policiesAppliable)
   if (livePoliciesNotAppliable.size) {
-    console.debug(`Live policies that are not appliable because of missing remove functions ${JSON.stringify(livePoliciesNotAppliable)}`);
+    console.debug(`Live policies that are not appliable because of missing remove functions ${livePoliciesNotAppliable}`);
   }
 
   Assert.equal(livePoliciesNotAppliable.size, 0, "Not all policies are live. Work better.");
