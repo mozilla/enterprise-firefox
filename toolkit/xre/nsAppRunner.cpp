@@ -4453,6 +4453,13 @@ int XREMain::XRE_mainInit(bool* aExitFlag) {
 #endif
 
 #ifdef XP_MACOSX
+#  ifdef MOZ_ENTERPRISE
+  // Suppress dock icon before NSApp initialization. The dock icon will be
+  // restored after the remoting check. Remoting clients (processes that just
+  // forward a URL to an existing instance) exit before restoration, preventing
+  // transient dock icon flash on rapid link clicks (bug 2002462).
+  SuppressMacDockIcon();
+#  endif
   // Set up ability to respond to system (Apple) events. This must occur before
   // ProcessUpdates to ensure that links clicked in external applications aren't
   // lost when updates are pending.
@@ -5209,6 +5216,11 @@ int XREMain::XRE_mainStartup(bool* aExitFlag) {
     }
   }
 #endif /* MOZ_HAS_REMOTE */
+
+#if defined(XP_MACOSX) && defined(MOZ_ENTERPRISE)
+  // Not a remoting client — restore the dock icon for the main process.
+  RestoreMacDockIcon();
+#endif
 
 #if defined(MOZ_UPDATER) && !defined(MOZ_WIDGET_ANDROID)
 #  ifdef XP_WIN

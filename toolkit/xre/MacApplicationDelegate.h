@@ -15,4 +15,9 @@ void InitializeMacApp(void);
 nsTArray<nsCString> TakeStartupURLs();
 void DisableAppNap(void);
 
+#ifdef MOZ_ENTERPRISE
+void SuppressMacDockIcon(void);
+void RestoreMacDockIcon(void);
+#endif
+
 #endif

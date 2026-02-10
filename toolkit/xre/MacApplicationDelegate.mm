@@ -102,6 +102,23 @@ void DisableAppNap() {
   }];
 }
 
+#ifdef MOZ_ENTERPRISE
+void SuppressMacDockIcon() {
+  // Start the process as a UIElement app so it has no dock icon.
+  // Remoting clients (processes that just forward a URL to an existing
+  // instance and exit) will never restore the dock icon, preventing
+  // transient dock icon flash on rapid link clicks (bug 2002462).
+  ProcessSerialNumber psn = {0, kCurrentProcess};
+  TransformProcessType(&psn, kProcessTransformToUIElementApplication);
+}
+
+void RestoreMacDockIcon() {
+  NS_OBJC_BEGIN_TRY_IGNORE_BLOCK;
+  [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
+  NS_OBJC_END_TRY_IGNORE_BLOCK;
+}
+#endif
+
 void SetupMacApplicationDelegate(bool* gRestartedByOS) {
   NS_OBJC_BEGIN_TRY_IGNORE_BLOCK;
 

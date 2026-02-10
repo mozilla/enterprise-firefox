@@ -251,9 +251,15 @@
 		<string>0</string>
 		<key>SYSTEM_VERSION_COMPAT</key>
 		<string>0</string>
+#ifdef MOZ_ENTERPRISE
 		<key>MOZ_FELT_UI</key>
 		<string>1</string>
+#endif
 	</dict>
+#ifdef MOZ_ENTERPRISE
+	<key>LSUIElement</key>
+	<true/>
+#endif
 	<key>LSFileQuarantineEnabled</key>
 	<true/>
 	<key>LSMinimumSystemVersion</key>
