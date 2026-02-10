@@ -308,6 +308,22 @@ enum nsCursor {  ///(normal cursor,       usually rendered as an arrow)
  */
 #define NS_WIDGET_MAC_APP_ACTIVATE_OBSERVER_TOPIC "mac_app_activate"
 
+/**
+ * When the OS ends the user's session (logout/shutdown), this topic is
+ * notified. Always triggers enterprise sign-out (non-configurable).
+ */
+#define NS_WIDGET_OS_SESSION_END_OBSERVER_TOPIC "os-session-end"
+
+/**
+ * When the OS switches to a different user session, this topic is notified.
+ */
+#define NS_WIDGET_OS_USER_SWITCH_OBSERVER_TOPIC "os-user-switch"
+
+/**
+ * When the screen is locked, this topic is notified.
+ */
+#define NS_WIDGET_SCREEN_LOCKED_OBSERVER_TOPIC "screen-locked"
+
 namespace mozilla::widget {
 
 /**
