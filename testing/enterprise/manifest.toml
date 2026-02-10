@@ -38,6 +38,8 @@ run-if = [
 
 ["test_felt_browser_safe_mode.py"]
 
+["test_felt_browser_os_session.py"]
+
 ["test_felt_browser_shutdown_crash_exit.py"]
 
 ["test_felt_browser_signout.py"]
