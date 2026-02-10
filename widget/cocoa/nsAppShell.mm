@@ -1052,6 +1052,22 @@ void nsAppShell::OnMemoryPressureChanged(
            selector:@selector(timezoneChanged:)
                name:NSSystemTimeZoneDidChangeNotification
              object:nil];
+
+    NSNotificationCenter* workspaceNC =
+        [[NSWorkspace sharedWorkspace] notificationCenter];
+    [workspaceNC addObserver:self
+                    selector:@selector(sessionDidResignActive:)
+                        name:NSWorkspaceSessionDidResignActiveNotification
+                      object:nil];
+    [workspaceNC addObserver:self
+                    selector:@selector(workspaceWillPowerOff:)
+                        name:NSWorkspaceWillPowerOffNotification
+                      object:nil];
+    [[NSDistributedNotificationCenter defaultCenter]
+        addObserver:self
+           selector:@selector(screenIsLocked:)
+               name:@"com.apple.screenIsLocked"
+             object:nil];
   }
 
   return self;
@@ -1064,6 +1080,7 @@ void nsAppShell::OnMemoryPressureChanged(
 
   [[NSNotificationCenter defaultCenter] removeObserver:self];
   [[NSDistributedNotificationCenter defaultCenter] removeObserver:self];
+  [[[NSWorkspace sharedWorkspace] notificationCenter] removeObserver:self];
   [super dealloc];
 
   NS_OBJC_END_TRY_IGNORE_BLOCK;
@@ -1110,6 +1127,42 @@ void nsAppShell::OnMemoryPressureChanged(
   NS_OBJC_BEGIN_TRY_IGNORE_BLOCK;
 
   nsBaseAppShell::OnSystemTimezoneChange();
+
+  NS_OBJC_END_TRY_IGNORE_BLOCK;
+}
+
+- (void)sessionDidResignActive:(NSNotification*)aNotification {
+  NS_OBJC_BEGIN_TRY_IGNORE_BLOCK;
+
+  nsCOMPtr<nsIObserverService> observerService = services::GetObserverService();
+  if (observerService) {
+    observerService->NotifyObservers(
+        nullptr, NS_WIDGET_OS_USER_SWITCH_OBSERVER_TOPIC, nullptr);
+  }
+
+  NS_OBJC_END_TRY_IGNORE_BLOCK;
+}
+
+- (void)workspaceWillPowerOff:(NSNotification*)aNotification {
+  NS_OBJC_BEGIN_TRY_IGNORE_BLOCK;
+
+  nsCOMPtr<nsIObserverService> observerService = services::GetObserverService();
+  if (observerService) {
+    observerService->NotifyObservers(
+        nullptr, NS_WIDGET_OS_SESSION_END_OBSERVER_TOPIC, nullptr);
+  }
+
+  NS_OBJC_END_TRY_IGNORE_BLOCK;
+}
+
+- (void)screenIsLocked:(NSNotification*)aNotification {
+  NS_OBJC_BEGIN_TRY_IGNORE_BLOCK;
+
+  nsCOMPtr<nsIObserverService> observerService = services::GetObserverService();
+  if (observerService) {
+    observerService->NotifyObservers(
+        nullptr, NS_WIDGET_SCREEN_LOCKED_OBSERVER_TOPIC, nullptr);
+  }
 
   NS_OBJC_END_TRY_IGNORE_BLOCK;
 }
