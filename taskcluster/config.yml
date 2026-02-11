@@ -413,6 +413,7 @@ try:
 release-promotion:
     products:
         - 'devedition'
+        - 'enterprise-firefox'
         - 'fennec'
         - 'firefox'
         - 'firefox-android'
