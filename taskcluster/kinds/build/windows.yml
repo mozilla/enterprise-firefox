@@ -485,7 +485,7 @@ win64-enterprise-shippable/opt:
         enable-build-signing: true
         enable-full-crashsymbols: true
     shipping-phase: build
-    shipping-product: firefox
+    shipping-product: firefox-enterprise
     treeherder:
         platform: windows2012-64-enterprise-shippable/opt
         symbol: Bpgo(Bent)
@@ -541,7 +541,6 @@ win64-enterprise/opt:
         enable-build-signing: true
         enable-full-crashsymbols: true
     shipping-phase: build
-    shipping-product: firefox
     treeherder:
         platform: windows2012-64-enterprise/opt
         symbol: Bent

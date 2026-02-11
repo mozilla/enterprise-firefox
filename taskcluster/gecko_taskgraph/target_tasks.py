@@ -491,6 +491,9 @@ def target_tasks_enterprise_firefox_with_tests(
         ):
             return False
 
+        if task.attributes.get("shipping_product") not in (None, "firefox-enterprise"):
+            return False
+
         build_platform = task.attributes.get("build_platform")
         build_type = task.attributes.get("build_type")
         shippable = task.attributes.get("shippable", False)

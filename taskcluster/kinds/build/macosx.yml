@@ -217,7 +217,7 @@ macosx64-enterprise-shippable/opt:
         enable-build-signing: true
         enable-full-crashsymbols: true
     shipping-phase: build
-    shipping-product: firefox
+    shipping-product: firefox-enterprise
     treeherder:
         platform: osx-cross-enterprise-shippable/opt
         symbol: Bpgo(Bent)
@@ -256,7 +256,6 @@ macosx64-enterprise/opt:
         enable-build-signing: true
         enable-full-crashsymbols: true
     shipping-phase: build
-    shipping-product: firefox
     treeherder:
         platform: osx-cross-enterprise/opt
         symbol: Bent

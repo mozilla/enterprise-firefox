@@ -62,7 +62,7 @@ linux64-enterprise-shippable/opt:
         enable-build-signing: true
         enable-full-crashsymbols: true
     shipping-phase: build
-    shipping-product: firefox
+    shipping-product: firefox-enterprise
     treeherder:
         platform: linux64-enterprise-shippable/opt
         symbol: Bpgo(Bent)
@@ -114,7 +114,6 @@ linux64-enterprise/opt:
     attributes:
         enable-full-crashsymbols: true
     shipping-phase: build
-    shipping-product: firefox
     treeherder:
         platform: linux64-enterprise/opt
         symbol: Bent
@@ -1875,7 +1874,7 @@ linux64-aarch64-enterprise-shippable/opt:
         enable-full-crashsymbols: true
         skip-verify-test-packaging: true
     shipping-phase: build
-    shipping-product: firefox
+    shipping-product: firefox-enterprise
     treeherder:
         platform: linux64-aarch64-enterprise-shippable/opt
         symbol: Bpgo(Bent)

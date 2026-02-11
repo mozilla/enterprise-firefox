@@ -417,6 +417,7 @@ release-promotion:
         - 'fennec'
         - 'firefox'
         - 'firefox-android'
+        - 'firefox-enterprise'
     rebuild-kinds:
         - docker-image
         - fetch
