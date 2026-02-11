@@ -81,8 +81,8 @@ task-defaults:
                 nightly-larch: firefox-nightly-larch
                 nightly-oak: firefox-nightly-oak
                 nightly-pine: firefox-nightly-pine
-                release-enterprise: release-enterprise
-                nightly-enterprise: nightly-enterprise
+                release-enterprise: firefox-enterprise-release
+                nightly-enterprise: firefox-enterprise-nightly
                 beta:
                     by-shipping-product:
                         devedition: firefox-mozilla-aurora
@@ -95,8 +95,8 @@ task-defaults:
                 nightly-larch: firefox-nightly-larch
                 nightly-oak: firefox-nightly-oak
                 nightly-pine: firefox-nightly-pine
-                release-enterprise: release-enterprise
-                nightly-enterprise: nightly-enterprise
+                release-enterprise: firefox-enterprise-release
+                nightly-enterprise: firefox-enterprise-nightly
                 beta:
                     by-shipping-product:
                         devedition: firefox-mozilla-aurora
