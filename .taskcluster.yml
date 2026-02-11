@@ -372,7 +372,7 @@ tasks:
                                 project: '${repository.project}'
                                 ref:
                                     $if: 'push.branch[:11] == "refs/heads/"'
-                                    then: ${ref}
+                                    then: ${push.branch}
                                     # Prepending 'refs/heads' ensures `run-task` won't attempt to fetch tags.
                                     else: 'refs/heads/${push.branch}'
                                 baseRev: '${push.revision}'
