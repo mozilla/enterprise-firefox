@@ -473,6 +473,7 @@ tasks:
                                       - $switch:
                                             isPullRequest:
                                                 - "tc-treeherder.v2.${project}-pr.${headRev}"
+                                                - "index.${trustDomain}.v2.${project}-pr.revision.${headRev}.taskgraph.decision"
                                             'eventType == "push"':
                                                 - "tc-treeherder.v2.${project}.${headRev}"
                                                 - "index.${trustDomain}.v2.${project}.latest.taskgraph.decision"
