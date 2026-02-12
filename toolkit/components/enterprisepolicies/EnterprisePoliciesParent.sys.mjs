@@ -101,16 +101,14 @@ EnterprisePoliciesManager.prototype = {
   // Caches latest set of parsed policies
   _parsedPolicies: {},
 
-  isRemotePoliciesSupported() {
+  _isRemotePoliciesSupported() {
     return (
       AppConstants.MOZ_ENTERPRISE &&
       Services.prefs.getBoolPref(PREF_REMOTE_POLICIES_ENABLED, false)
     );
   },
 
-  isLocalPoliciesSupported() {
-    // If remote policies are enabled,
-    // we ignore local ones for now.
+  _isLocalPoliciesSupported() {
     return (
       !AppConstants.MOZ_ENTERPRISE ||
       Services.prefs.getBoolPref(PREF_LOCAL_POLICIES_ENABLED, true)
@@ -136,8 +134,12 @@ EnterprisePoliciesManager.prototype = {
 
     Services.prefs.setBoolPref(PREF_POLICIES_APPLIED, false);
 
-    const localProvider = this._chooseProvider();
-    if (this.isRemotePoliciesSupported()) {
+    let localProvider;
+    if (this._isLocalPoliciesSupported()) {
+      localProvider = this._chooseProvider();
+    }
+
+    if (this._isRemotePoliciesSupported()) {
       const remoteProvider = RemotePoliciesProvider.getInstance();
       try {
         // Poll and ingest initial set of policies
@@ -147,13 +149,19 @@ EnterprisePoliciesManager.prototype = {
       } catch (e) {
         console.error("Unable to find policies in payload.");
       }
-      if (this.isLocalPoliciesSupported() && localProvider.hasPolicies) {
+      if (localProvider?.hasPolicies) {
         this._provider = new CombinedProvider(remoteProvider, localProvider);
       } else {
         this._provider = remoteProvider;
       }
     } else {
       this._provider = localProvider;
+    }
+
+    if (!this._provider) {
+      // Both local and remote policy provision is disabled.
+      this.status = Ci.nsIEnterprisePolicies.INACTIVE;
+      return;
     }
 
     if (this._provider.failed) {
@@ -522,7 +530,7 @@ EnterprisePoliciesManager.prototype = {
 
     this.status = Ci.nsIEnterprisePolicies.UNINITIALIZED;
     this._parsedPolicies = {};
-    if (this.isRemotePoliciesSupported()) {
+    if (this._isRemotePoliciesSupported()) {
       RemotePoliciesProvider.dropInstance();
     }
     this._provider = null;
@@ -565,7 +573,8 @@ EnterprisePoliciesManager.prototype = {
     this._topicsObserved.add(aTopic);
 
     switch (aTopic) {
-      case "policies-startup": // Before the first set of policy callbacks runs, we must
+      case "policies-startup": 
+      // Before the first set of policy callbacks runs, we must
       // initialize the service.
       {
         const initializedPromise = this._initialize();
