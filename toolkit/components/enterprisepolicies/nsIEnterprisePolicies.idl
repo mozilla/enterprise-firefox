@@ -22,13 +22,6 @@ interface nsIEnterprisePolicies : nsISupports
   boolean isAllowed(in ACString feature);
 
   /**
-   * Whether remote policies are supported (limited to enterprise builds)
-   *
-   * @return A boolean value defining is remote policies are supported.
-   */
-  boolean isRemotePoliciesSupported();
-
-  /**
    * Get the active policies that have been successfully parsed.
    *
    * @returns A JS object that contains the policies names and
