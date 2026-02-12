@@ -9,7 +9,6 @@ prefs = [
 ]
 environment = [
   "MOZ_BYPASS_FELT=1",
-  "MOZ_AUTOMATION=1",
 ]
 
 ["browser_remote_and_local_policies_merging.js"]

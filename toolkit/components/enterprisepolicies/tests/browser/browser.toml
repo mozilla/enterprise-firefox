@@ -7,7 +7,6 @@ prefs = [
 ]
 environment = [
   "MOZ_BYPASS_FELT=1",
-  "MOZ_AUTOMATION=1",
 ]
 
 ["browser_policies_basic_tests.js"]
