@@ -195,9 +195,6 @@ export let WebsiteFilter = {
       "browser.policies.enterprise.telemetry.blocklistDomainBrowsed.enabled",
       true
     );
-    if (!isEnabled) {
-      return;
-    }
 
     try {
       const processedOrigUrl = this._processTelemetryUrl(originalUrl);
