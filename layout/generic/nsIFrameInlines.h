@@ -9,7 +9,6 @@
 
 #include "mozilla/ComputedStyleInlines.h"
 #include "mozilla/dom/ElementInlines.h"
-#include "nsCSSAnonBoxes.h"
 #include "nsContainerFrame.h"
 #include "nsFrameManager.h"
 #include "nsIContentInlines.h"
@@ -54,7 +53,7 @@ bool nsIFrame::IsMasonry(mozilla::WritingMode aWM,
 bool nsIFrame::IsTableCaption() const {
   return StyleDisplay()->mDisplay == mozilla::StyleDisplay::TableCaption &&
          GetParent()->Style()->GetPseudoType() ==
-             mozilla::PseudoStyleType::tableWrapper;
+             mozilla::PseudoStyleType::MozTableWrapper;
 }
 
 bool nsIFrame::IsFloating() const {
@@ -120,7 +119,7 @@ bool nsIFrame::IsColumnSpanInMulticolSubtree() const {
           // A frame other than inline and block won't have
           // NS_FRAME_HAS_MULTI_COLUMN_ANCESTOR. We instead test its parent.
           (GetParent() && GetParent()->Style()->GetPseudoType() ==
-                              mozilla::PseudoStyleType::columnSpanWrapper));
+                              mozilla::PseudoStyleType::MozColumnSpanWrapper));
 }
 
 mozilla::StyleDisplay nsIFrame::GetDisplay() const {

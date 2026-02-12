@@ -915,6 +915,11 @@ class HTMLMediaElement : public nsGenericHTMLElement,
   virtual void WakeLockRelease();
   virtual void UpdateWakeLock();
 
+  // This must be called immediately after monitor attributes change, and cannot
+  // wait for the Watchable notification, because some pseudo-classes are
+  // required to be applied immediately after the change.
+  void UpdatePlaybackPseudoClasses();
+
   void CreateAudioWakeLockIfNeeded();
   void ReleaseAudioWakeLockIfExists();
   void ReleaseAudioWakeLockInternal();
@@ -1837,6 +1842,8 @@ class HTMLMediaElement : public nsGenericHTMLElement,
   // https://html.spec.whatwg.org/multipage/media.html#pending-text-track-change-notification-flag
   bool mPendingTextTrackChanged = false;
 
+  Visibility mVisibilityState = Visibility::Untracked;
+
  public:
   // This function will be called whenever a text track that is in a media
   // element's list of text tracks has its text track mode change value
@@ -1890,7 +1897,8 @@ class HTMLMediaElement : public nsGenericHTMLElement,
   // For use by mochitests. Enabling pref "media.test.video-suspend"
   bool mForcedHidden = false;
 
-  Visibility mVisibilityState = Visibility::Untracked;
+  // https://html.spec.whatwg.org/multipage/media.html#is-currently-stalled
+  bool mIsCurrentlyStalled = false;
 
   UniquePtr<ErrorSink> mErrorSink;
 

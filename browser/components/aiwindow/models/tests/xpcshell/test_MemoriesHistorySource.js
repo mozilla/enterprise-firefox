@@ -8,6 +8,7 @@ const {
   generateProfileInputs,
   aggregateSessions,
   topkAggregates,
+  _sanitizeTitleForTesting,
 } = ChromeUtils.importESModule(
   "moz-src:///browser/components/aiwindow/models/memories/MemoriesHistorySource.sys.mjs"
 );
@@ -758,4 +759,121 @@ add_task(function test_topkAggregates_recency_and_ranking() {
     "More recent domain outranks older one"
   );
   Assert.equal(secondDomain, "old.com", "Older domain comes second");
+});
+
+add_task(function test_sanitizeTitle_basic() {
+  // Normal title - should pass through unchanged
+  const normal = "Example Page Title";
+  Assert.equal(
+    _sanitizeTitleForTesting(normal),
+    normal,
+    "Normal title unchanged"
+  );
+});
+
+add_task(function test_sanitizeTitle_backslash() {
+  // Backslash - primary issue that caused JSON parse failures
+  const withBackslash = "Claude's new constitution \\ Anthropic";
+  const expected = "Claude's new constitution / Anthropic";
+  Assert.equal(
+    _sanitizeTitleForTesting(withBackslash),
+    expected,
+    "Backslash replaced with forward slash"
+  );
+
+  // Multiple backslashes
+  const multipleBackslashes = "Path\\to\\file\\name.txt";
+  const expectedMultiple = "Path/to/file/name.txt";
+  Assert.equal(
+    _sanitizeTitleForTesting(multipleBackslashes),
+    expectedMultiple,
+    "Multiple backslashes replaced"
+  );
+
+  // Windows path
+  const windowsPath = "C:\\Users\\Documents\\file.txt";
+  const expectedPath = "C:/Users/Documents/file.txt";
+  Assert.equal(
+    _sanitizeTitleForTesting(windowsPath),
+    expectedPath,
+    "Windows path backslashes replaced"
+  );
+});
+
+add_task(function test_sanitizeTitle_control_characters() {
+  // Newline
+  const withNewline = "Title\nwith\nnewlines";
+  Assert.equal(
+    _sanitizeTitleForTesting(withNewline),
+    "Title with newlines",
+    "Newlines replaced with spaces"
+  );
+
+  // Tab
+  const withTab = "Title\twith\ttabs";
+  Assert.equal(
+    _sanitizeTitleForTesting(withTab),
+    "Title with tabs",
+    "Tabs replaced with spaces"
+  );
+
+  // Carriage return
+  const withCarriageReturn = "Title\rwith\rCR";
+  Assert.equal(
+    _sanitizeTitleForTesting(withCarriageReturn),
+    "Title with CR",
+    "Carriage returns replaced with spaces"
+  );
+
+  // Mixed control characters
+  const mixed = "Title\n\t\rwith\x00mixed\x1Fcontrols";
+  Assert.equal(
+    _sanitizeTitleForTesting(mixed),
+    "Title with mixed controls",
+    "Mixed control characters replaced and collapsed"
+  );
+});
+
+add_task(function test_sanitizeTitle_multiple_spaces() {
+  // Multiple spaces should collapse to single space
+  const multipleSpaces = "Title    with    many    spaces";
+  Assert.equal(
+    _sanitizeTitleForTesting(multipleSpaces),
+    "Title with many spaces",
+    "Multiple spaces collapsed to single space"
+  );
+
+  // Mixed spacing
+  const mixedSpacing = "Title  \t\n  with  \r  mixed   spacing";
+  Assert.equal(
+    _sanitizeTitleForTesting(mixedSpacing),
+    "Title with mixed spacing",
+    "Mixed spacing collapsed"
+  );
+});
+
+add_task(function test_sanitizeTitle_whitespace_trim() {
+  // Leading whitespace
+  const leading = "   Title with leading spaces";
+  Assert.equal(
+    _sanitizeTitleForTesting(leading),
+    "Title with leading spaces",
+    "Leading whitespace trimmed"
+  );
+
+  // Trailing whitespace
+  const trailing = "Title with trailing spaces   ";
+  Assert.equal(
+    _sanitizeTitleForTesting(trailing),
+    "Title with trailing spaces",
+    "Trailing whitespace trimmed"
+  );
+
+  // Both
+  const both = "   Title with both   ";
+  Assert.equal(
+    _sanitizeTitleForTesting(both),
+    "Title with both",
+    "Both leading and trailing whitespace trimmed"
+  );
 });

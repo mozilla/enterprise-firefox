@@ -24,6 +24,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///browser/components/ipprotection/IPPSignInWatcher.sys.mjs",
   IPPNimbusHelper:
     "moz-src:///browser/components/ipprotection/IPPNimbusHelper.sys.mjs",
+  IPPEnrollAndEntitleManager:
+    "moz-src:///browser/components/ipprotection/IPPEnrollAndEntitleManager.sys.mjs",
 });
 
 const PANELSTATES = {
@@ -47,6 +49,9 @@ const PANELSTATES = {
 async function setAndUpdateIsAuthenticated(content, isSignedOut, sandbox) {
   sandbox.stub(lazy.IPPSignInWatcher, "isSignedIn").get(() => !isSignedOut);
   sandbox.stub(lazy.IPPNimbusHelper, "isEligible").get(() => true);
+  sandbox
+    .stub(lazy.IPPEnrollAndEntitleManager, "isEnrolledAndEntitled")
+    .get(() => true);
   lazy.IPProtectionService.updateState();
   content.requestUpdate();
   await content.updateComplete;

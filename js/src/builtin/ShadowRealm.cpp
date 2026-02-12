@@ -421,6 +421,7 @@ static JSObject* ShadowRealmImportValue(JSContext* cx,
     //         now the running execution context. (Implicit)
     Rooted<GlobalObject*> evalRealmGlobal(cx, evalRealm->maybeGlobal());
     AutoRealm ar(cx, evalRealmGlobal);
+
     Rooted<JSAtom*> specifierAtom(cx, AtomizeString(cx, specifierString));
     if (!specifierAtom) {
       if (!RejectPromiseWithPendingError(cx, promise)) {
@@ -428,6 +429,8 @@ static JSObject* ShadowRealmImportValue(JSContext* cx,
       }
       return promise;
     }
+
+    cx->markAtom(specifierAtom);
 
     Rooted<ImportAttributeVector> attributes(cx);
     Rooted<JSObject*> moduleRequest(
@@ -439,9 +442,16 @@ static JSObject* ShadowRealmImportValue(JSContext* cx,
       return promise;
     }
 
+    Rooted<Value> payload(cx, ObjectValue(*promise));
+    if (!cx->compartment()->wrap(cx, &payload)) {
+      if (!RejectPromiseWithPendingError(cx, promise)) {
+        return nullptr;
+      }
+      return nullptr;
+    }
+
     // Step 7. Perform ! HostLoadImportedModule(referrer, specifierString,
     // EMPTY, innerCapability).
-    Rooted<Value> payload(cx, ObjectValue(*promise));
     if (!js::HostLoadImportedModule(cx, nullptr, moduleRequest,
                                     JS::UndefinedHandleValue, payload)) {
       if (!RejectPromiseWithPendingError(cx, promise)) {

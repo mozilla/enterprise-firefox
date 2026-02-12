@@ -139,15 +139,15 @@ export class StorageValueChange {
             throw e;
         }
         /**
-         * key
+         * @type {string}
          */
         this.key = key;
         /**
-         * oldValue
+         * @type {?JsonValue}
          */
         this.oldValue = oldValue;
         /**
-         * newValue
+         * @type {?JsonValue}
          */
         this.newValue = newValue;
     }
@@ -278,7 +278,7 @@ export class StorageChanges {
             throw e;
         }
         /**
-         * changes
+         * @type {Array.<StorageValueChange>}
          */
         this.changes = changes;
     }
@@ -352,11 +352,11 @@ export class SyncedExtensionChange {
             throw e;
         }
         /**
-         * extId
+         * @type {string}
          */
         this.extId = extId;
         /**
-         * changes
+         * @type {string}
          */
         this.changes = changes;
     }
@@ -416,7 +416,7 @@ export class FfiConverterTypeSyncedExtensionChange extends FfiConverterArrayBuff
 /**
  * QuotaReason
  */
-export const QuotaReason = {
+export const QuotaReason = Object.freeze({
     /**
      * TOTAL_BYTES
      */
@@ -429,8 +429,7 @@ export const QuotaReason = {
      * MAX_ITEMS
      */
     MAX_ITEMS: 2,
-};
-Object.freeze(QuotaReason);
+});
 
 // Export the FFIConverter object to make external types work.
 export class FfiConverterTypeQuotaReason extends FfiConverterArrayBuffer {

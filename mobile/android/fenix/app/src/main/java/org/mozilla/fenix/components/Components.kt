@@ -18,7 +18,13 @@ import mozilla.components.feature.addons.update.DefaultAddonUpdater
 import mozilla.components.feature.autofill.AutofillConfiguration
 import mozilla.components.lib.crash.store.CrashAction
 import mozilla.components.lib.crash.store.CrashMiddleware
+import mozilla.components.lib.integrity.googleplay.GooglePlayIntegrityClient
+import mozilla.components.lib.integrity.googleplay.GoogleProjectNumber
+import mozilla.components.lib.integrity.googleplay.IntegrityManagerProvider
+import mozilla.components.lib.integrity.googleplay.RequestHashProvider
+import mozilla.components.lib.integrity.googleplay.TokenProviderFactory
 import mozilla.components.lib.publicsuffixlist.PublicSuffixList
+import mozilla.components.service.fxrelay.eligibility.RelayEligibilityStore
 import mozilla.components.support.base.android.DefaultProcessInfoProvider
 import mozilla.components.support.base.android.NotificationsDelegate
 import mozilla.components.support.base.worker.Frequency
@@ -317,8 +323,8 @@ class Components(private val context: Context) {
                 SetupChecklistPreferencesMiddleware(DefaultSetupChecklistRepository(context)),
                 SetupChecklistTelemetryMiddleware(),
                 ReviewPromptMiddleware(
-                    isReviewPromptFeatureEnabled = { settings.customReviewPromptFeatureEnabled },
-                    isTelemetryEnabled = { settings.isTelemetryEnabled },
+                    shouldUseNewTriggerCriteria = { settings.newReviewPromptTriggerCriteriaEnabled },
+                    shouldShowCustomPrompt = { settings.customReviewPromptUiEnabled && settings.isTelemetryEnabled },
                     createJexlHelper = nimbus::createJexlHelper,
                     nimbusEventStore = nimbus.events,
                 ).also {
@@ -357,6 +363,16 @@ class Components(private val context: Context) {
         )
     }
 
+    val integrityClient by lazyMonitored {
+        GooglePlayIntegrityClient(
+            TokenProviderFactory.create(
+                IntegrityManagerProvider.create(context),
+                GoogleProjectNumber.create(BuildConfig.GPS_INTEGRITY_TOKEN),
+            ),
+            RequestHashProvider.randomHashProvider(),
+        )
+    }
+
     val termsOfUseManager by lazyMonitored {
         TermsOfUseManager(DefaultTermsOfUsePromptRepository(settings))
     }
@@ -367,6 +383,10 @@ class Components(private val context: Context) {
 
     val ads by lazyMonitored {
         Ads(context = context)
+    }
+
+    val relayEligibilityStore by lazyMonitored {
+        RelayEligibilityStore()
     }
 }
 

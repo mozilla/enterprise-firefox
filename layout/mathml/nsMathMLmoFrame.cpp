@@ -407,7 +407,7 @@ void nsMathMLmoFrame::ProcessOperatorData() {
   mContent->AsElement()->GetAttr(nsGkAtoms::lspace, value);
   if (!value.IsEmpty()) {
     nsCSSValue cssValue;
-    if (dom::MathMLElement::ParseNumericValue(value, cssValue, 0,
+    if (dom::MathMLElement::ParseNumericValue(value, cssValue,
                                               mContent->OwnerDoc())) {
       if ((eCSSUnit_Number == cssValue.GetUnit()) &&
           !cssValue.GetFloatValue()) {
@@ -435,7 +435,7 @@ void nsMathMLmoFrame::ProcessOperatorData() {
   mContent->AsElement()->GetAttr(nsGkAtoms::rspace, value);
   if (!value.IsEmpty()) {
     nsCSSValue cssValue;
-    if (dom::MathMLElement::ParseNumericValue(value, cssValue, 0,
+    if (dom::MathMLElement::ParseNumericValue(value, cssValue,
                                               mContent->OwnerDoc())) {
       if ((eCSSUnit_Number == cssValue.GetUnit()) &&
           !cssValue.GetFloatValue()) {
@@ -526,7 +526,7 @@ void nsMathMLmoFrame::ProcessOperatorData() {
   mContent->AsElement()->GetAttr(nsGkAtoms::minsize, value);
   if (!value.IsEmpty()) {
     nsCSSValue cssValue;
-    if (dom::MathMLElement::ParseNumericValue(value, cssValue, 0,
+    if (dom::MathMLElement::ParseNumericValue(value, cssValue,
                                               mContent->OwnerDoc())) {
       nsCSSUnit unit = cssValue.GetUnit();
       if (eCSSUnit_Number == unit) {
@@ -556,7 +556,7 @@ void nsMathMLmoFrame::ProcessOperatorData() {
   mContent->AsElement()->GetAttr(nsGkAtoms::maxsize, value);
   if (!value.IsEmpty()) {
     nsCSSValue cssValue;
-    if (dom::MathMLElement::ParseNumericValue(value, cssValue, 0,
+    if (dom::MathMLElement::ParseNumericValue(value, cssValue,
                                               mContent->OwnerDoc())) {
       nsCSSUnit unit = cssValue.GetUnit();
       if (eCSSUnit_Number == unit) {

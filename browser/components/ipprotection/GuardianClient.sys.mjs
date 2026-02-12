@@ -162,9 +162,18 @@ export class GuardianClient {
   /**
    * Fetches a proxy pass from the Guardian service.
    *
-   * @returns {Promise<{error?: string, status?:number, pass?: ProxyPass}>} Resolves with an object containing either an error string or the proxy pass data and a status code.
+   * @returns {Promise<{error?: string, status?:number, pass?: ProxyPass, usage?: ProxyUsage|null, retryAfter?: string|null}>} Resolves with an object containing either an error string or the proxy pass data and a status code.
+   *
+   * Return values:
+   * - {pass, status, usage}: Success with proxy pass and optional usage info
+   * - {error: "login_needed", usage: null}: No FxA token available
+   * - {status: 429, error: "quota_exceeded", usage, retryAfter}: Usage quota exceeded
+   * - {status, error: "invalid_response", usage}: Invalid response from server
+   * - {status, error: "parse_error", usage}: Failed to parse response
+   *
    * Status codes to watch for:
    * - 200: User is a proxy user and a new pass was fetched
+   * - 429: Usage quota exceeded
    * - 403: The FxA was valid but the user is not a proxy user.
    * - 401: The FxA token was rejected.
    * - 5xx: Internal guardian error.
@@ -181,18 +190,40 @@ export class GuardianClient {
       });
     });
     if (!response) {
-      return { error: "login_needed" };
+      return { error: "login_needed", usage: null };
     }
+
     const status = response.status;
+
+    let usage = null;
+    try {
+      usage = ProxyUsage.fromResponse(response);
+    } catch (error) {
+      console.warn(
+        "Usage headers missing or invalid, continuing without usage:",
+        error
+      );
+    }
+
+    if (status === 429) {
+      const retryAfter = response.headers.get("Retry-After");
+      return {
+        status,
+        error: "quota_exceeded",
+        usage,
+        retryAfter,
+      };
+    }
+
     try {
       const pass = await ProxyPass.fromResponse(response);
       if (!pass) {
-        return { status, error: "invalid_response" };
+        return { status, error: "invalid_response", usage };
       }
-      return { pass, status };
+      return { pass, status, usage };
     } catch (error) {
-      console.error("Error creating ProxyPass:", error);
-      return { status, error: "parse_error" };
+      console.error("Error parsing pass:", error);
+      return { status, error: "parse_error", usage };
     }
   }
   /**
@@ -442,6 +473,8 @@ export class Entitlement {
   uid = 0;
   /** True if the User has website inclusion */
   website_inclusion = false;
+  /** The maximum number of bytes allowed for the user */
+  maxBytes = BigInt(0);
 
   constructor(
     args = {
@@ -452,12 +485,12 @@ export class Entitlement {
       subscribed: false,
       uid: 0,
       website_inclusion: false,
+      maxBytes: "0",
     }
   ) {
-    // Ensure it parses to a valid date
     const parsed = Date.parse(args.created_at);
     if (isNaN(parsed)) {
-      throw new TypeError("entitlementDate is not a valid date string");
+      throw new TypeError("created_at is not a valid date string");
     }
     this.autostart = args.autostart;
     this.limited_bandwidth = args.limited_bandwidth;
@@ -465,7 +498,8 @@ export class Entitlement {
     this.website_inclusion = args.website_inclusion;
     this.subscribed = args.subscribed;
     this.uid = args.uid;
-    this.created_at = parsed;
+    this.created_at = new Date(parsed);
+    this.maxBytes = BigInt(args.maxBytes);
     Object.freeze(this);
   }
   static fromResponse(response) {
@@ -516,6 +550,11 @@ export class Entitlement {
         website_inclusion: {
           type: "boolean",
         },
+        maxBytes: {
+          type: "string",
+          description:
+            "A BigInt string representing the maximum number of bytes allowed for the user",
+        },
       },
       required: [
         "autostart",
@@ -525,9 +564,74 @@ export class Entitlement {
         "subscribed",
         "uid",
         "website_inclusion",
+        "maxBytes",
       ],
       additionalProperties: true,
     };
+  }
+
+  toString() {
+    return JSON.stringify({
+      ...this,
+      maxBytes: this.maxBytes.toString(),
+      created_at: this.created_at.toISOString(),
+    });
+  }
+}
+
+/**
+ * Represents usage tracking information for the Proxy Service.
+ * Contains data about quota limits, remaining quota, and reset time.
+ *
+ * Immutable after creation.
+ */
+export class ProxyUsage {
+  /** @type {bigint} - Maximum bytes allowed */
+  max = BigInt(0);
+  /** @type {bigint} - Remaining bytes available */
+  remaining = BigInt(0);
+  /** @type {Temporal.Instant} - When the usage quota resets */
+  reset = null;
+
+  /**
+   * @param {string} max - Maximum bytes allowed (as string for BigInt parsing)
+   * @param {string} remaining - Remaining bytes available (as string for BigInt parsing)
+   * @param {string} reset - ISO 8601 timestamp when quota resets
+   */
+  constructor(max, remaining, reset) {
+    this.max = BigInt(max);
+    if (this.max < BigInt(0)) {
+      throw new TypeError("max must be non-negative");
+    }
+
+    this.remaining = BigInt(remaining);
+    if (this.remaining < BigInt(0)) {
+      throw new TypeError("remaining must be non-negative");
+    }
+
+    if (this.remaining > this.max) {
+      throw new TypeError("remaining cannot exceed max");
+    }
+
+    this.reset = Temporal.Instant.from(reset);
+
+    Object.freeze(this);
+  }
+
+  static fromResponse(response) {
+    const getOrThrow = headerName => {
+      const value = response.headers.get(headerName);
+      if (!value) {
+        throw new TypeError(`Missing required header: ${headerName}`);
+      }
+      return value;
+    };
+
+    const quotaLimit = getOrThrow("X-Quota-Limit");
+    const quotaRemaining = getOrThrow("X-Quota-Remaining");
+    const quotaReset = getOrThrow("X-Quota-Reset");
+
+    return new ProxyUsage(quotaLimit, quotaRemaining, quotaReset);
   }
 }
 
@@ -537,7 +641,9 @@ export class Entitlement {
 const CLIENT_ID_MAP = {
   "http://localhost:3000": "6089c54fdc970aed",
   "https://guardian-dev.herokuapp.com": "64ef9b544a31bca8",
+  "https://dev.vpn.nonprod.webservices.mozgcp.net": "64ef9b544a31bca8",
   "https://stage.guardian.nonprod.cloudops.mozgcp.net": "e6eb0d1e856335fc",
+  "https://stage.vpn.nonprod.webservices.mozgcp.net": "e6eb0d1e856335fc",
   "https://fpn.firefox.com": "e6eb0d1e856335fc",
   "https://vpn.mozilla.org": "e6eb0d1e856335fc",
 };

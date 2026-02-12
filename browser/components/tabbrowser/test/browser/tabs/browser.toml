@@ -633,6 +633,10 @@ skip-if = [
 ["browser_tab_splitview.js"]
 
 ["browser_tab_splitview_about_opentabs.js"]
+skip-if = [
+  "os == 'linux' && os_version == '24.04' && arch == 'x86_64' && display == 'x11' && opt && a11y_checks", # Bug 2014213
+]
+
 
 ["browser_tab_splitview_contextmenu.js"]
 skip-if = [

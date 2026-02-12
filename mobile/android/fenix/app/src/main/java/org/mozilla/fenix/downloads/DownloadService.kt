@@ -30,7 +30,7 @@ class DownloadService : AbstractFetchDownloadService() {
     override val downloadFileUtils: DownloadFileUtils by lazy {
         DefaultDownloadFileUtils(
             context = applicationContext,
-            downloadLocationGetter = {
+            downloadLocation = {
                 Environment.getExternalStoragePublicDirectory(
                     Environment.DIRECTORY_DOWNLOADS,
                 ).path

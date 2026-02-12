@@ -26,6 +26,7 @@ const lazy = XPCOMUtils.declareLazy({
 const APIKEY_PREF = "browser.smartwindow.apiKey";
 const MODEL_PREF = "browser.smartwindow.model";
 const ENDPOINT_PREF = "browser.smartwindow.endpoint";
+const MODEL_CHOICE_PREF = "browser.smartwindow.firstrun.modelChoice";
 
 /**
  * Default engine ID used for all AI Window features
@@ -124,7 +125,7 @@ export const DEFAULT_MODEL = Object.freeze({
  * - Old clients will continue using old major version
  */
 export const FEATURE_MAJOR_VERSIONS = Object.freeze({
-  [MODEL_FEATURES.CHAT]: 1,
+  [MODEL_FEATURES.CHAT]: 2,
   [MODEL_FEATURES.TITLE_GENERATION]: 1,
   [MODEL_FEATURES.CONVERSATION_SUGGESTIONS_SIDEBAR_STARTER]: 1,
   [MODEL_FEATURES.CONVERSATION_SUGGESTIONS_FOLLOWUP]: 1,
@@ -157,9 +158,9 @@ export const FEATURE_MAJOR_VERSIONS = Object.freeze({
  */
 
 /**
- * Parses a version string in the format "v{major}.{minor}" or "{major}.{minor}".
+ * Parses a version string in the format "{major}.{minor}".
  *
- * @param {string} versionString - Version string to parse (e.g., "v1.2" or "1.2")
+ * @param {string} versionString - Version string to parse (e.g., "1.2")
  * @returns {object|null} Parsed version with major and minor numbers, or null if invalid
  */
 export function parseVersion(versionString) {
@@ -188,9 +189,14 @@ export function parseVersion(versionString) {
  * @param {object} options - Selection options
  * @param {number} options.majorVersion - Required major version for the feature
  * @param {string} options.userModel - User's preferred model (empty string if none)
+ * @param {string} options.modelChoiceId
+ * @param {string} options.feature
  * @returns {object|null} Selected config or null if no match
  */
-function selectMainConfig(featureConfigs, { majorVersion, userModel }) {
+function selectMainConfig(
+  featureConfigs,
+  { majorVersion, userModel, modelChoiceId, feature }
+) {
   // Filter to configs matching the required major version
   const sameMajor = featureConfigs.filter(config => {
     const parsed = parseVersion(config.version);
@@ -202,18 +208,36 @@ function selectMainConfig(featureConfigs, { majorVersion, userModel }) {
     return null;
   }
 
-  // If user specified a model preference, find that model's config
-  if (userModel) {
-    const userModelConfig = sameMajor.find(
-      config => config.model === userModel
-    );
-    if (userModelConfig) {
-      return userModelConfig;
+  // We only allow customization of main assistant model unless user is
+  //  using custom endpoint (which is handled by _applyCustomEndpointModel)
+  if (feature === MODEL_FEATURES.CHAT) {
+    // If user specified a model preference, find that model's config
+    if (userModel) {
+      const userModelConfig = sameMajor.find(
+        config => config.model === userModel
+      );
+      if (userModelConfig) {
+        return userModelConfig;
+      }
+      // User's model not found in this major version - fall through to defaults
+      console.warn(
+        `User model "${userModel}" not found for major version ${majorVersion} for feature '${feature}', using modelChoice ${modelChoiceId}`
+      );
     }
-    // User's model not found in this major version - fall through to defaults
-    console.warn(
-      `User model "${userModel}" not found for major version ${majorVersion}, using default`
-    );
+
+    // If user specified a model preference, find that model's config
+    if (modelChoiceId) {
+      const userModelConfig = sameMajor.find(
+        config => config.model_choice_id == modelChoiceId
+      );
+      if (userModelConfig) {
+        return userModelConfig;
+      }
+      // User's model not found in this major version - fall through to defaults
+      console.warn(
+        `User model choice "${modelChoiceId}" not found for major version ${majorVersion} for feature '${feature}', using default`
+      );
+    }
   }
 
   // No user model pref OR user's model not found: use default
@@ -298,10 +322,12 @@ export class openAIEngine {
    */
   _applyCustomEndpointModel() {
     const userModel = Services.prefs.getStringPref(MODEL_PREF, "");
-    console.warn(
-      `Using custom endpoint with model "${userModel}" for feature: ${this.feature}`
-    );
-    this.model = userModel;
+    if (userModel) {
+      console.warn(
+        `Using custom model "${userModel}" for feature: ${this.feature}`
+      );
+      this.model = userModel;
+    }
   }
 
   /**
@@ -341,10 +367,13 @@ export class openAIEngine {
 
     const userModel = Services.prefs.getStringPref(MODEL_PREF, "");
     const hasCustomModel = Services.prefs.prefHasUserValue(MODEL_PREF);
+    const modelChoiceId = Services.prefs.getStringPref(MODEL_CHOICE_PREF, "");
 
     const mainConfig = selectMainConfig(featureConfigs, {
       majorVersion,
       userModel: hasCustomModel ? userModel : "",
+      modelChoiceId,
+      feature,
     });
 
     if (!mainConfig) {

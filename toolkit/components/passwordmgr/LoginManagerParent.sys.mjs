@@ -346,7 +346,7 @@ export class LoginManagerParent extends JSWindowActorParent {
       }
 
       case "PasswordManager:removeLogin": {
-        this.#onRemoveLogin(data.login);
+        await this.#onRemoveLogin(data.login);
         break;
       }
 
@@ -405,9 +405,9 @@ export class LoginManagerParent extends JSWindowActorParent {
     }
   }
 
-  #onRemoveLogin(login) {
+  async #onRemoveLogin(login) {
     login = lazy.LoginHelper.vanillaObjectToLogin(login);
-    Services.logins.removeLogin(login);
+    Services.logins.removeLoginAsync(login);
   }
 
   #onOpenImportableLearnMore() {

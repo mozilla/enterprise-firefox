@@ -322,3 +322,16 @@ def add_enterprise_secret_scopes(config, jobs):
             ])
 
         yield job
+
+
+@transforms.add
+def add_enterprise_to_searchfox(config, jobs):
+    for job in jobs:
+        if (
+            config.params["project"] == "enterprise-firefox"
+            and config.kind == "searchfox"
+        ):
+            job["run"].setdefault("extra-config", {}).setdefault(
+                "extra_mozconfig_content", []
+            ).extend(["ac_add_options --enable-enterprise"])
+        yield job

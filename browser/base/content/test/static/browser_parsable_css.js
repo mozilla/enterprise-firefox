@@ -210,6 +210,11 @@ let propNameAllowlist = [
   // Ignore token properties that follow the patterns --color-[name], --color-[name]-[number], or --color-[name]-alpha-[number]
   // This enables us to provide our full color palette for developers.
   { propName: /--color-[a-z]+(-alpha)?(-\d+)?/, isFromDevTools: false },
+
+  // Ignore position-anchor: and @position-try properties. This is a work around
+  // for bug 2012304.
+  { propName: "--selected-session-history-entry-info", isFromDevTools: true },
+  { propName: "--session-history-entry-bottom-end", isFromDevTools: true },
 ];
 
 // Add suffix to stylesheets' URI so that we always load them here and

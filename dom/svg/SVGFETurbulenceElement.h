@@ -76,15 +76,15 @@ class SVGFETurbulenceElement final : public SVGFETurbulenceElementBase {
   SVGAnimatedInteger mIntegerAttributes[1];
   static IntegerInfo sIntegerInfo[1];
 
+  enum { RESULT };
+  SVGAnimatedString mStringAttributes[1];
+  static StringInfo sStringInfo[1];
+
   enum { TYPE, STITCHTILES };
   SVGAnimatedEnumeration mEnumAttributes[2];
   static SVGEnumMapping sTypeMap[];
   static SVGEnumMapping sStitchTilesMap[];
   static EnumInfo sEnumInfo[2];
-
-  enum { RESULT };
-  SVGAnimatedString mStringAttributes[1];
-  static StringInfo sStringInfo[1];
 };
 
 }  // namespace mozilla::dom

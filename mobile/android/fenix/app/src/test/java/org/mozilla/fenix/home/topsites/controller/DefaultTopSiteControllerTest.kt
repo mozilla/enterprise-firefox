@@ -4,6 +4,7 @@
 
 package org.mozilla.fenix.home.topsites.controller
 
+import android.app.Activity
 import androidx.navigation.NavController
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import io.mockk.coVerify
@@ -37,7 +38,6 @@ import org.mozilla.fenix.GleanMetrics.Events
 import org.mozilla.fenix.GleanMetrics.Pings
 import org.mozilla.fenix.GleanMetrics.ShortcutsLibrary
 import org.mozilla.fenix.GleanMetrics.TopSites
-import org.mozilla.fenix.HomeActivity
 import org.mozilla.fenix.R
 import org.mozilla.fenix.components.Analytics
 import org.mozilla.fenix.components.usecases.FenixBrowserUseCases
@@ -55,7 +55,7 @@ class DefaultTopSiteControllerTest {
     @get:Rule
     val gleanTestRule = FenixGleanTestRule(testContext)
 
-    private val activity: HomeActivity = mockk(relaxed = true)
+    private val activity: Activity = mockk(relaxed = true)
     private val navController: NavController = mockk(relaxed = true)
     private val tabsUseCases: TabsUseCases = mockk(relaxed = true)
     private val selectTabUseCase: TabsUseCases = mockk(relaxed = true)

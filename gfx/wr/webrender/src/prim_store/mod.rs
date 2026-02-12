@@ -14,7 +14,7 @@ use crate::clip::ClipLeafId;
 use crate::pattern::{Pattern, PatternBuilder, PatternBuilderContext, PatternBuilderState};
 use crate::quad::QuadTileClassifier;
 use crate::renderer::{GpuBufferAddress, GpuBufferHandle, GpuBufferWriterF};
-use crate::segment::EdgeAaSegmentMask;
+use crate::segment::EdgeMask;
 use crate::border::BorderSegmentCacheKey;
 use crate::debug_item::{DebugItem, DebugMessage};
 use crate::debug_colors;
@@ -533,7 +533,7 @@ pub struct PrimTemplateCommonData {
     /// be anti-aliased, only that they could be.
     ///
     /// Use this to force disable anti-alasing on edges of the primitives.
-    pub edge_aa_mask: EdgeAaSegmentMask,
+    pub edge_aa_mask: EdgeMask,
 }
 
 impl PrimTemplateCommonData {
@@ -544,7 +544,7 @@ impl PrimTemplateCommonData {
             prim_rect: common.prim_rect.into(),
             gpu_buffer_address: GpuBufferAddress::INVALID,
             opacity: PrimitiveOpacity::translucent(),
-            edge_aa_mask: EdgeAaSegmentMask::all(),
+            edge_aa_mask: EdgeMask::all(),
         }
     }
 }
@@ -728,7 +728,7 @@ pub enum ClipMaskKind {
 pub struct BrushSegment {
     pub local_rect: LayoutRect,
     pub may_need_clip_mask: bool,
-    pub edge_flags: EdgeAaSegmentMask,
+    pub edge_flags: EdgeMask,
     pub extra_data: [f32; 4],
     pub brush_flags: BrushFlags,
 }
@@ -737,7 +737,7 @@ impl BrushSegment {
     pub fn new(
         local_rect: LayoutRect,
         may_need_clip_mask: bool,
-        edge_flags: EdgeAaSegmentMask,
+        edge_flags: EdgeMask,
         extra_data: [f32; 4],
         brush_flags: BrushFlags,
     ) -> Self {

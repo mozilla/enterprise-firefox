@@ -28,7 +28,7 @@ void SVGAnimatedString::SetBaseValue(const nsAString& aValue,
   if (aDoSetAttr) {
     aSVGElement->SetStringBaseValue(mAttrEnum, aValue);
   }
-  if (mAnimVal) {
+  if (!mAnimVal.IsVoid()) {
     aSVGElement->AnimationNeedsResample();
   }
 
@@ -37,8 +37,8 @@ void SVGAnimatedString::SetBaseValue(const nsAString& aValue,
 
 void SVGAnimatedString::GetAnimValue(nsAString& aResult,
                                      const SVGElement* aSVGElement) const {
-  if (mAnimVal) {
-    aResult = *mAnimVal;
+  if (!mAnimVal.IsVoid()) {
+    aResult = mAnimVal;
     return;
   }
 
@@ -48,13 +48,10 @@ void SVGAnimatedString::GetAnimValue(nsAString& aResult,
 void SVGAnimatedString::SetAnimValue(const nsAString& aValue,
                                      SVGElement* aSVGElement) {
   if (aSVGElement->IsStringAnimatable(mAttrEnum)) {
-    if (mAnimVal && mAnimVal->Equals(aValue)) {
+    if (!mAnimVal.IsVoid() && mAnimVal.Equals(aValue)) {
       return;
     }
-    if (!mAnimVal) {
-      mAnimVal = std::make_unique<nsString>();
-    }
-    *mAnimVal = aValue;
+    mAnimVal = aValue;
     aSVGElement->DidAnimateString(mAttrEnum);
   }
 }
@@ -82,8 +79,8 @@ SMILValue SVGAnimatedString::SMILString::GetBaseValue() const {
 }
 
 void SVGAnimatedString::SMILString::ClearAnimValue() {
-  if (mVal->mAnimVal) {
-    mVal->mAnimVal = nullptr;
+  if (!mVal->mAnimVal.IsVoid()) {
+    mVal->mAnimVal = VoidString();
     mSVGElement->DidAnimateString(mVal->mAttrEnum);
   }
 }

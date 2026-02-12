@@ -273,7 +273,7 @@ hr {
 
 .forecast-row {
   .today-forecast {
-    margin-block-start: 0;
+    margin-block-start: var(--space-small);
     font-weight: var(--font-weight-semibold);
   }
 

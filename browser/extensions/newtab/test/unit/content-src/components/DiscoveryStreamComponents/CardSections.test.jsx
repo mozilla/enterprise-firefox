@@ -620,7 +620,7 @@ describe("<CardSections />", () => {
           ...INITIAL_STATE.Prefs,
           values: {
             ...INITIAL_STATE.Prefs.values,
-            "discoverystream.dailyBrief.v2.enabled": true,
+            "discoverystream.dailyBrief.enabled": true,
             "discoverystream.dailyBrief.sectionId": "daily_brief_section",
           },
         },

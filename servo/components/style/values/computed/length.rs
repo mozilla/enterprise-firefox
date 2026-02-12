@@ -13,18 +13,22 @@ use crate::values::computed::{NonNegativeNumber, Percentage, Zoom};
 use crate::values::generics::length::{
     GenericLengthOrNumber, GenericLengthPercentageOrNormal, GenericMaxSize, GenericSize,
 };
+#[cfg(feature = "gecko")]
 use crate::values::generics::position::TreeScoped;
 use crate::values::generics::NonNegative;
 use crate::values::generics::{length as generics, ClampToNonNegative};
 use crate::values::resolved::{Context as ResolvedContext, ToResolvedValue};
 use crate::values::specified::length::{AbsoluteLength, FontBaseSize, LineHeightBase};
+#[cfg(feature = "gecko")]
 use crate::values::DashedIdent;
 use crate::values::{specified, CSSFloat};
 use crate::Zero;
 use app_units::Au;
 use std::fmt::{self, Write};
 use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Sub, SubAssign};
-use style_traits::{CSSPixel, CssString, CssWriter, NumericValue, ToCss, ToTyped, TypedValue};
+use style_traits::{
+    CSSPixel, CssString, CssWriter, NumericValue, ToCss, ToTyped, TypedValue, UnitValue,
+};
 
 pub use super::image::Image;
 pub use super::length_percentage::{LengthPercentage, NonNegativeLengthPercentage};
@@ -337,10 +341,10 @@ impl ToCss for CSSPixelLength {
 
 impl ToTyped for CSSPixelLength {
     fn to_typed(&self) -> Option<TypedValue> {
-        Some(TypedValue::Numeric(NumericValue::Unit {
+        Some(TypedValue::Numeric(NumericValue::Unit(UnitValue {
             value: self.0 as f32,
             unit: CssString::from("px"),
-        }))
+        })))
     }
 }
 

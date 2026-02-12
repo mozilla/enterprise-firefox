@@ -6,7 +6,7 @@
 const lazy = {};
 
 ChromeUtils.defineLazyGetter(lazy, "ipProtectionLocalization", () => {
-  return new Localization(["preview/ipProtection.ftl"], true);
+  return new Localization(["browser/ipProtection.ftl"], true);
 });
 
 function setState(state) {

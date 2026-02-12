@@ -16,6 +16,10 @@
 
 class nsIContent;
 
+namespace mozilla {
+enum class PseudoStyleType : uint8_t;
+}
+
 class nsTreeStyleCache {
  public:
   nsTreeStyleCache() : mNextState(0) {}
@@ -30,8 +34,7 @@ class nsTreeStyleCache {
 
   mozilla::ComputedStyle* GetComputedStyle(
       nsPresContext* aPresContext, nsIContent* aContent,
-      mozilla::ComputedStyle* aStyle,
-      nsCSSAnonBoxPseudoStaticAtom* aPseudoElement,
+      mozilla::ComputedStyle* aStyle, mozilla::PseudoStyleType aPseudoType,
       const mozilla::AtomArray& aInputWord);
 
  protected:

@@ -5,7 +5,6 @@
 //! Manual shorthand parsing and serialization
 #![allow(missing_docs)]
 
-use super::expanded;
 use crate::parser::{Parse, ParserContext};
 use crate::values::specified;
 use cssparser::Parser;
@@ -14,6 +13,20 @@ use style_traits::{
     values::SequenceWriter, CssWriter, KeywordsCollectFn, ParseError, SpecifiedValueInfo,
     StyleParseErrorKind, ToCss,
 };
+
+macro_rules! expanded {
+    ( $( $name: ident: $value: expr ),+ ) => {
+        expanded!( $( $name: $value, )+ )
+    };
+    ( $( $name: ident: $value: expr, )+ ) => {
+        Longhands {
+            $(
+                $name: $crate::properties::MaybeBoxed::maybe_boxed($value),
+            )+
+        }
+    }
+}
+pub(crate) use expanded;
 
 macro_rules! try_parse_one {
     ($context: expr, $input: expr, $var: ident, $parse_path: path) => {
@@ -109,7 +122,7 @@ pub fn parse_border<'i, 't>(
 
 pub mod border_block {
     use super::*;
-    pub use crate::properties::shorthands_generated::border_block::*;
+    pub use crate::properties::generated::shorthands::border_block::*;
 
     pub fn parse_value<'i, 't>(
         context: &ParserContext,
@@ -144,7 +157,7 @@ pub mod border_block {
 
 pub mod border_inline {
     use super::*;
-    pub use crate::properties::shorthands_generated::border_inline::*;
+    pub use crate::properties::generated::shorthands::border_inline::*;
 
     pub fn parse_value<'i, 't>(
         context: &ParserContext,
@@ -178,7 +191,7 @@ pub mod border_inline {
 }
 
 pub mod border_radius {
-    pub use crate::properties::shorthands_generated::border_radius::*;
+    pub use crate::properties::generated::shorthands::border_radius::*;
 
     use super::*;
     use crate::values::generics::border::BorderCornerRadius;
@@ -219,7 +232,7 @@ pub mod border_radius {
 }
 
 pub mod border_image {
-    pub use crate::properties::shorthands_generated::border_image::*;
+    pub use crate::properties::generated::shorthands::border_image::*;
 
     use super::*;
     use crate::properties::longhands::{
@@ -373,14 +386,14 @@ pub mod border_image {
 }
 
 pub mod border {
-    pub use crate::properties::shorthands_generated::border::*;
+    pub use crate::properties::generated::shorthands::border::*;
 
     use super::*;
+    pub use crate::properties::generated::shorthands::border_left;
     use crate::properties::longhands::{
         border_image_outset, border_image_repeat, border_image_slice, border_image_source,
         border_image_width,
     };
-    pub use crate::properties::shorthands_generated::border_left;
 
     pub fn parse_value<'i, 't>(
         context: &ParserContext,
@@ -496,9 +509,10 @@ pub mod border {
     }
 }
 
+#[cfg(feature = "gecko")]
 pub mod container {
     use super::*;
-    pub use crate::properties::shorthands_generated::container::*;
+    pub use crate::properties::generated::shorthands::container::*;
 
     use crate::values::specified::{ContainerName, ContainerType};
 
@@ -536,7 +550,7 @@ pub mod container {
 
 pub mod vertical_align {
     use super::*;
-    pub use crate::properties::shorthands_generated::vertical_align::*;
+    pub use crate::properties::generated::shorthands::vertical_align::*;
 
     use crate::values::specified::{AlignmentBaseline, BaselineShift, BaselineSource};
 
@@ -594,9 +608,10 @@ pub mod vertical_align {
     }
 }
 
+#[cfg(feature = "gecko")]
 pub mod page_break_before {
     use super::*;
-    pub use crate::properties::shorthands_generated::page_break_before::*;
+    pub use crate::properties::generated::shorthands::page_break_before::*;
 
     use crate::values::specified::BreakBetween;
 
@@ -619,8 +634,9 @@ pub mod page_break_before {
     }
 }
 
+#[cfg(feature = "gecko")]
 pub mod page_break_after {
-    pub use crate::properties::shorthands_generated::page_break_after::*;
+    pub use crate::properties::generated::shorthands::page_break_after::*;
 
     use super::*;
     use crate::values::specified::BreakBetween;
@@ -644,9 +660,10 @@ pub mod page_break_after {
     }
 }
 
+#[cfg(feature = "gecko")]
 pub mod page_break_inside {
     use super::*;
-    pub use crate::properties::shorthands_generated::page_break_inside::*;
+    pub use crate::properties::generated::shorthands::page_break_inside::*;
     use crate::values::specified::BreakWithin;
 
     pub fn parse_value<'i>(
@@ -668,9 +685,10 @@ pub mod page_break_inside {
     }
 }
 
+#[cfg(feature = "gecko")]
 pub mod offset {
     use super::*;
-    pub use crate::properties::shorthands_generated::offset::*;
+    pub use crate::properties::generated::shorthands::offset::*;
     use crate::values::specified::{
         LengthPercentage, OffsetPath, OffsetPosition, OffsetRotate, PositionOrAuto,
     };
@@ -767,7 +785,7 @@ pub mod offset {
 }
 
 pub mod _webkit_perspective {
-    pub use crate::properties::shorthands_generated::_webkit_perspective::*;
+    pub use crate::properties::generated::shorthands::_webkit_perspective::*;
 
     use super::*;
 
@@ -794,7 +812,7 @@ pub mod _webkit_perspective {
 }
 
 pub mod _webkit_transform {
-    pub use crate::properties::shorthands_generated::_webkit_transform::*;
+    pub use crate::properties::generated::shorthands::_webkit_transform::*;
 
     use super::*;
 
@@ -810,7 +828,7 @@ pub mod _webkit_transform {
 }
 
 pub mod columns {
-    pub use crate::properties::shorthands_generated::columns::*;
+    pub use crate::properties::generated::shorthands::columns::*;
 
     use super::*;
     use crate::properties::longhands::{column_count, column_width};
@@ -879,8 +897,9 @@ pub mod columns {
     }
 }
 
+#[cfg(feature = "gecko")]
 pub mod column_rule {
-    pub use crate::properties::shorthands_generated::column_rule::*;
+    pub use crate::properties::generated::shorthands::column_rule::*;
 
     use super::*;
     use crate::properties::longhands::column_rule_color;
@@ -913,8 +932,9 @@ pub mod column_rule {
     }
 }
 
+#[cfg(feature = "gecko")]
 pub mod text_wrap {
-    pub use crate::properties::shorthands_generated::text_wrap::*;
+    pub use crate::properties::generated::shorthands::text_wrap::*;
 
     use super::*;
     use crate::properties::longhands::{text_wrap_mode, text_wrap_style};
@@ -965,7 +985,7 @@ pub mod text_wrap {
 }
 
 pub mod white_space {
-    pub use crate::properties::shorthands_generated::white_space::*;
+    pub use crate::properties::generated::shorthands::white_space::*;
 
     use super::*;
     use crate::properties::longhands::{text_wrap_mode, white_space_collapse};
@@ -1070,8 +1090,9 @@ pub mod white_space {
     }
 }
 
+#[cfg(feature = "gecko")]
 pub mod _webkit_text_stroke {
-    pub use crate::properties::shorthands_generated::_webkit_text_stroke::*;
+    pub use crate::properties::generated::shorthands::_webkit_text_stroke::*;
 
     use super::*;
     use crate::properties::longhands::{_webkit_text_stroke_color, _webkit_text_stroke_width};
@@ -1101,7 +1122,7 @@ pub mod _webkit_text_stroke {
 }
 
 pub mod list_style {
-    pub use crate::properties::shorthands_generated::list_style::*;
+    pub use crate::properties::generated::shorthands::list_style::*;
 
     use super::*;
     use crate::properties::longhands::{list_style_image, list_style_position, list_style_type};
@@ -1211,7 +1232,7 @@ pub mod list_style {
 }
 
 pub mod gap {
-    pub use crate::properties::shorthands_generated::gap::*;
+    pub use crate::properties::generated::shorthands::gap::*;
 
     use super::*;
     use crate::properties::longhands::{column_gap, row_gap};
@@ -1246,8 +1267,9 @@ pub mod gap {
     }
 }
 
+#[cfg(feature = "gecko")]
 pub mod marker {
-    pub use crate::properties::shorthands_generated::marker::*;
+    pub use crate::properties::generated::shorthands::marker::*;
 
     use super::*;
     use crate::values::specified::url::UrlOrNone;
@@ -1280,7 +1302,7 @@ pub mod marker {
 }
 
 pub mod flex_flow {
-    pub use crate::properties::shorthands_generated::flex_flow::*;
+    pub use crate::properties::generated::shorthands::flex_flow::*;
 
     use super::*;
     use crate::properties::longhands::{flex_direction, flex_wrap};
@@ -1329,7 +1351,7 @@ pub mod flex_flow {
 }
 
 pub mod flex {
-    pub use crate::properties::shorthands_generated::flex::*;
+    pub use crate::properties::generated::shorthands::flex::*;
 
     use super::*;
     use crate::properties::longhands::flex_basis::SpecifiedValue as FlexBasis;
@@ -1395,7 +1417,7 @@ pub mod flex {
 }
 
 pub mod place_content {
-    pub use crate::properties::shorthands_generated::place_content::*;
+    pub use crate::properties::generated::shorthands::place_content::*;
 
     use super::*;
     use crate::values::specified::align::ContentDistribution;
@@ -1441,7 +1463,7 @@ pub mod place_content {
 }
 
 pub mod place_self {
-    pub use crate::properties::shorthands_generated::place_self::*;
+    pub use crate::properties::generated::shorthands::place_self::*;
 
     use super::*;
     use crate::values::specified::align::SelfAlignment;
@@ -1483,7 +1505,7 @@ pub mod place_self {
 }
 
 pub mod place_items {
-    pub use crate::properties::shorthands_generated::place_items::*;
+    pub use crate::properties::generated::shorthands::place_items::*;
 
     use super::*;
     use crate::values::specified::align::{ItemPlacement, JustifyItems};
@@ -1519,7 +1541,7 @@ pub mod place_items {
 }
 
 pub mod grid_row {
-    pub use crate::properties::shorthands_generated::grid_row::*;
+    pub use crate::properties::generated::shorthands::grid_row::*;
 
     use super::*;
     use crate::values::specified::GridLine;
@@ -1563,7 +1585,7 @@ pub mod grid_row {
 }
 
 pub mod grid_column {
-    pub use crate::properties::shorthands_generated::grid_column::*;
+    pub use crate::properties::generated::shorthands::grid_column::*;
 
     use super::*;
     use crate::values::specified::GridLine;
@@ -1607,7 +1629,7 @@ pub mod grid_column {
 }
 
 pub mod grid_area {
-    pub use crate::properties::shorthands_generated::grid_area::*;
+    pub use crate::properties::generated::shorthands::grid_area::*;
 
     use super::*;
     use crate::values::specified::GridLine;
@@ -1689,8 +1711,9 @@ pub mod grid_area {
     }
 }
 
+#[cfg(feature = "gecko")]
 pub mod position_try {
-    pub use crate::properties::shorthands_generated::position_try::*;
+    pub use crate::properties::generated::shorthands::position_try::*;
 
     use super::*;
     use crate::values::specified::position::{PositionTryFallbacks, PositionTryOrder};
@@ -1728,6 +1751,7 @@ pub mod position_try {
     }
 }
 
+#[cfg(feature = "gecko")]
 fn timeline_to_css<W>(
     name: &[specified::TimelineName],
     axes: &[specified::ScrollAxis],
@@ -1752,8 +1776,9 @@ where
     Ok(())
 }
 
+#[cfg(feature = "gecko")]
 pub mod scroll_timeline {
-    pub use crate::properties::shorthands_generated::scroll_timeline::*;
+    pub use crate::properties::generated::shorthands::scroll_timeline::*;
 
     use super::*;
     use crate::properties::longhands::{scroll_timeline_axis, scroll_timeline_name};
@@ -1794,8 +1819,9 @@ pub mod scroll_timeline {
     }
 }
 
+#[cfg(feature = "gecko")]
 pub mod view_timeline {
-    pub use crate::properties::shorthands_generated::view_timeline::*;
+    pub use crate::properties::generated::shorthands::view_timeline::*;
 
     use super::*;
     use crate::properties::longhands::{view_timeline_axis, view_timeline_name};
@@ -1833,7 +1859,7 @@ pub mod view_timeline {
 }
 
 pub mod transition {
-    pub use crate::properties::shorthands_generated::transition::*;
+    pub use crate::properties::generated::shorthands::transition::*;
 
     use super::*;
     use crate::properties::longhands::{
@@ -1927,12 +1953,6 @@ pub mod transition {
             }
         }
 
-        let mut propertys = Vec::new();
-        let mut durations = Vec::new();
-        let mut timing_functions = Vec::new();
-        let mut delays = Vec::new();
-        let mut behaviors = Vec::new();
-
         let mut first = true;
         let mut has_transition_property_none = false;
         let results = input.parse_comma_separated(|i| {
@@ -1944,20 +1964,29 @@ pub mod transition {
             has_transition_property_none = transition.transition_property.is_none();
             Ok(transition)
         })?;
+
+        let len = results.len();
+        let mut property = Vec::with_capacity(len);
+        let mut duration = Vec::with_capacity(len);
+        let mut timing_function = Vec::with_capacity(len);
+        let mut delay = Vec::with_capacity(len);
+        let mut behavior = Vec::with_capacity(len);
         for result in results {
-            propertys.push(result.transition_property);
-            durations.push(result.transition_duration);
-            timing_functions.push(result.transition_timing_function);
-            delays.push(result.transition_delay);
-            behaviors.push(result.transition_behavior);
+            property.push(result.transition_property);
+            duration.push(result.transition_duration);
+            timing_function.push(result.transition_timing_function);
+            delay.push(result.transition_delay);
+            behavior.push(result.transition_behavior);
         }
 
-        Ok(expanded! {
-            transition_property: transition_property::SpecifiedValue(propertys.into()),
-            transition_duration: transition_duration::SpecifiedValue(durations.into()),
-            transition_timing_function: transition_timing_function::SpecifiedValue(timing_functions.into()),
-            transition_delay: transition_delay::SpecifiedValue(delays.into()),
-            transition_behavior: transition_behavior::SpecifiedValue(behaviors.into()),
+        Ok(Longhands {
+            transition_property: transition_property::SpecifiedValue(property.into()),
+            transition_duration: transition_duration::SpecifiedValue(duration.into()),
+            transition_timing_function: transition_timing_function::SpecifiedValue(
+                timing_function.into(),
+            ),
+            transition_delay: transition_delay::SpecifiedValue(delay.into()),
+            transition_behavior: transition_behavior::SpecifiedValue(behavior.into()),
         })
     }
 
@@ -1969,40 +1998,23 @@ pub mod transition {
             use crate::Zero;
             use style_traits::values::SequenceWriter;
 
-            let property_len = self.transition_property.0.len();
-
-            if property_len == 0 {
-                if self.transition_duration.0.len() != 1 {
-                    return Ok(());
-                }
-                if self.transition_delay.0.len() != 1 {
-                    return Ok(());
-                }
-                if self.transition_timing_function.0.len() != 1 {
-                    return Ok(());
-                }
-
-                if self.transition_behavior.0.len() != 1 {
-                    return Ok(());
-                }
-            } else {
-                if self.transition_duration.0.len() != property_len {
-                    return Ok(());
-                }
-                if self.transition_delay.0.len() != property_len {
-                    return Ok(());
-                }
-                if self.transition_timing_function.0.len() != property_len {
-                    return Ok(());
-                }
-
-                if self.transition_behavior.0.len() != property_len {
-                    return Ok(());
-                }
+            let len = self.transition_property.0.len();
+            debug_assert_ne!(
+                len, 0,
+                "We should always have at least one transition-property, even if none"
+            );
+            if self.transition_duration.0.len() != len {
+                return Ok(());
             }
-
-            let len = self.transition_duration.0.len();
-
+            if self.transition_delay.0.len() != len {
+                return Ok(());
+            }
+            if self.transition_timing_function.0.len() != len {
+                return Ok(());
+            }
+            if self.transition_behavior.0.len() != len {
+                return Ok(());
+            }
             for i in 0..len {
                 if i != 0 {
                     dest.write_str(", ")?;
@@ -2015,25 +2027,18 @@ pub mod transition {
                 let has_any = has_duration || has_timing || has_delay || has_behavior;
 
                 let mut writer = SequenceWriter::new(dest, " ");
-
-                if property_len == 0 {
-                    writer.raw_item("none")?;
-                } else if !self.transition_property.0[i].is_all() || !has_any {
+                if !self.transition_property.0[i].is_all() || !has_any {
                     writer.item(&self.transition_property.0[i])?;
                 }
-
                 if has_duration || has_delay {
                     writer.item(&self.transition_duration.0[i])?;
                 }
-
                 if has_timing {
                     writer.item(&self.transition_timing_function.0[i])?;
                 }
-
                 if has_delay {
                     writer.item(&self.transition_delay.0[i])?;
                 }
-
                 if has_behavior {
                     writer.item(&self.transition_behavior.0[i])?;
                 }
@@ -2044,7 +2049,7 @@ pub mod transition {
 }
 
 pub mod outline {
-    pub use crate::properties::shorthands_generated::outline::*;
+    pub use crate::properties::generated::shorthands::outline::*;
 
     use super::*;
     use crate::properties::longhands::{outline_color, outline_style, outline_width};
@@ -2100,7 +2105,7 @@ pub mod outline {
 }
 
 pub mod background_position {
-    pub use crate::properties::shorthands_generated::background_position::*;
+    pub use crate::properties::generated::shorthands::background_position::*;
 
     use super::*;
     use crate::properties::longhands::{background_position_x, background_position_y};
@@ -2158,7 +2163,7 @@ pub mod background_position {
 }
 
 pub mod background {
-    pub use crate::properties::shorthands_generated::background::*;
+    pub use crate::properties::generated::shorthands::background::*;
 
     use super::*;
     use crate::properties::longhands::background_clip;
@@ -2429,15 +2434,18 @@ pub mod background {
 }
 
 pub mod font {
-    pub use crate::properties::shorthands_generated::font::*;
+    pub use crate::properties::generated::shorthands::font::*;
 
     use super::*;
+    #[cfg(feature = "gecko")]
     use crate::properties::longhands::{
-        font_family, font_feature_settings, font_kerning, font_language_override,
-        font_optical_sizing, font_size, font_size_adjust, font_stretch, font_style,
-        font_variant_alternates, font_variant_caps, font_variant_east_asian, font_variant_emoji,
+        font_family, font_feature_settings, font_kerning, font_language_override, font_size,
+        font_size_adjust, font_variant_alternates, font_variant_east_asian, font_variant_emoji,
         font_variant_ligatures, font_variant_numeric, font_variant_position,
-        font_variation_settings, font_weight,
+    };
+    use crate::properties::longhands::{
+        font_optical_sizing, font_stretch, font_style, font_variant_caps, font_variation_settings,
+        font_weight,
     };
     #[cfg(feature = "gecko")]
     use crate::values::specified::font::SystemFont;
@@ -2537,19 +2545,30 @@ pub mod font {
             font_family: family,
             font_optical_sizing: font_optical_sizing::get_initial_specified_value(),
             font_variation_settings: font_variation_settings::get_initial_specified_value(),
+            #[cfg(feature = "gecko")]
             font_kerning: font_kerning::get_initial_specified_value(),
+            #[cfg(feature = "gecko")]
             font_language_override: font_language_override::get_initial_specified_value(),
+            #[cfg(feature = "gecko")]
             font_size_adjust: font_size_adjust::get_initial_specified_value(),
+            #[cfg(feature = "gecko")]
             font_variant_alternates: font_variant_alternates::get_initial_specified_value(),
+            #[cfg(feature = "gecko")]
             font_variant_east_asian: font_variant_east_asian::get_initial_specified_value(),
+            #[cfg(feature = "gecko")]
             font_variant_emoji: font_variant_emoji::get_initial_specified_value(),
+            #[cfg(feature = "gecko")]
             font_variant_ligatures: font_variant_ligatures::get_initial_specified_value(),
+            #[cfg(feature = "gecko")]
             font_variant_numeric: font_variant_numeric::get_initial_specified_value(),
+            #[cfg(feature = "gecko")]
             font_variant_position: font_variant_position::get_initial_specified_value(),
+            #[cfg(feature = "gecko")]
             font_feature_settings: font_feature_settings::get_initial_specified_value(),
         })
     }
 
+    #[cfg(feature = "gecko")]
     enum CheckSystemResult {
         AllSystem(SystemFont),
         SomeSystem,
@@ -2561,6 +2580,7 @@ pub mod font {
         where
             W: fmt::Write,
         {
+            #[cfg(feature = "gecko")]
             match self.check_system() {
                 CheckSystemResult::AllSystem(sys) => return sys.to_css(dest),
                 CheckSystemResult::SomeSystem => return Ok(()),
@@ -2577,42 +2597,52 @@ pub mod font {
                     return Ok(());
                 }
             }
+            #[cfg(feature = "gecko")]
             if let Some(v) = self.font_variant_emoji {
                 if v != &font_variant_emoji::get_initial_specified_value() {
                     return Ok(());
                 }
             }
 
+            #[cfg(feature = "gecko")]
             if self.font_kerning != &font_kerning::get_initial_specified_value() {
                 return Ok(());
             }
+            #[cfg(feature = "gecko")]
             if self.font_language_override != &font_language_override::get_initial_specified_value()
             {
                 return Ok(());
             }
+            #[cfg(feature = "gecko")]
             if self.font_size_adjust != &font_size_adjust::get_initial_specified_value() {
                 return Ok(());
             }
+            #[cfg(feature = "gecko")]
             if self.font_variant_alternates
                 != &font_variant_alternates::get_initial_specified_value()
             {
                 return Ok(());
             }
+            #[cfg(feature = "gecko")]
             if self.font_variant_east_asian
                 != &font_variant_east_asian::get_initial_specified_value()
             {
                 return Ok(());
             }
+            #[cfg(feature = "gecko")]
             if self.font_variant_ligatures != &font_variant_ligatures::get_initial_specified_value()
             {
                 return Ok(());
             }
+            #[cfg(feature = "gecko")]
             if self.font_variant_numeric != &font_variant_numeric::get_initial_specified_value() {
                 return Ok(());
             }
+            #[cfg(feature = "gecko")]
             if self.font_variant_position != &font_variant_position::get_initial_specified_value() {
                 return Ok(());
             }
+            #[cfg(feature = "gecko")]
             if self.font_feature_settings != &font_feature_settings::get_initial_specified_value() {
                 return Ok(());
             }
@@ -2670,6 +2700,7 @@ pub mod font {
     }
 
     impl<'a> LonghandsToSerialize<'a> {
+        #[cfg(feature = "gecko")]
         fn check_system(&self) -> CheckSystemResult {
             let mut sys = None;
             let mut all = true;
@@ -2733,16 +2764,15 @@ pub mod font {
 }
 
 pub mod font_variant {
-    pub use crate::properties::shorthands_generated::font_variant::*;
+    pub use crate::properties::generated::shorthands::font_variant::*;
 
     use super::*;
-    use crate::properties::longhands::font_variant_alternates;
     use crate::properties::longhands::font_variant_caps;
-    use crate::properties::longhands::font_variant_east_asian;
-    use crate::properties::longhands::font_variant_emoji;
-    use crate::properties::longhands::font_variant_ligatures;
-    use crate::properties::longhands::font_variant_numeric;
-    use crate::properties::longhands::font_variant_position;
+    #[cfg(feature = "gecko")]
+    use crate::properties::longhands::{
+        font_variant_alternates, font_variant_east_asian, font_variant_emoji,
+        font_variant_ligatures, font_variant_numeric, font_variant_position,
+    };
     #[allow(unused_imports)]
     use crate::values::specified::FontVariantLigatures;
 
@@ -2750,12 +2780,18 @@ pub mod font_variant {
         context: &ParserContext,
         input: &mut Parser<'i, 't>,
     ) -> Result<Longhands, ParseError<'i>> {
+        #[cfg(feature = "gecko")]
         let mut ligatures = None;
         let mut caps = None;
+        #[cfg(feature = "gecko")]
         let mut alternates = None;
+        #[cfg(feature = "gecko")]
         let mut numeric = None;
+        #[cfg(feature = "gecko")]
         let mut east_asian = None;
+        #[cfg(feature = "gecko")]
         let mut position = None;
+        #[cfg(feature = "gecko")]
         let mut emoji = None;
 
         if input
@@ -2766,7 +2802,10 @@ pub mod font_variant {
             .try_parse(|input| input.expect_ident_matching("none"))
             .is_ok()
         {
-            ligatures = Some(FontVariantLigatures::NONE);
+            #[cfg(feature = "gecko")]
+            {
+                ligatures = Some(FontVariantLigatures::NONE);
+            }
         } else {
             let mut parsed = 0;
             loop {
@@ -2780,12 +2819,18 @@ pub mod font_variant {
                 {
                     return Err(input.new_custom_error(StyleParseErrorKind::UnspecifiedError));
                 }
+                #[cfg(feature = "gecko")]
                 try_parse_one!(context, input, ligatures, font_variant_ligatures::parse);
                 try_parse_one!(context, input, caps, font_variant_caps::parse);
+                #[cfg(feature = "gecko")]
                 try_parse_one!(context, input, alternates, font_variant_alternates::parse);
+                #[cfg(feature = "gecko")]
                 try_parse_one!(context, input, numeric, font_variant_numeric::parse);
+                #[cfg(feature = "gecko")]
                 try_parse_one!(context, input, east_asian, font_variant_east_asian::parse);
+                #[cfg(feature = "gecko")]
                 try_parse_one!(context, input, position, font_variant_position::parse);
+                #[cfg(feature = "gecko")]
                 try_parse_one!(context, input, emoji, font_variant_emoji::parse);
                 parsed -= 1;
                 break;
@@ -2796,7 +2841,8 @@ pub mod font_variant {
             }
         }
 
-        Ok(expanded! {
+        #[cfg(feature = "gecko")]
+        return Ok(expanded! {
             font_variant_ligatures: unwrap_or_initial!(font_variant_ligatures, ligatures),
             font_variant_caps: unwrap_or_initial!(font_variant_caps, caps),
             font_variant_alternates: unwrap_or_initial!(font_variant_alternates, alternates),
@@ -2804,7 +2850,11 @@ pub mod font_variant {
             font_variant_east_asian: unwrap_or_initial!(font_variant_east_asian, east_asian),
             font_variant_position: unwrap_or_initial!(font_variant_position, position),
             font_variant_emoji: unwrap_or_initial!(font_variant_emoji, emoji),
-        })
+        });
+        #[cfg(feature = "servo")]
+        return Ok(expanded! {
+            font_variant_caps: unwrap_or_initial!(font_variant_caps, caps),
+        });
     }
 
     impl<'a> ToCss for LonghandsToSerialize<'a> {
@@ -2813,9 +2863,15 @@ pub mod font_variant {
         where
             W: fmt::Write,
         {
+            #[cfg(feature = "gecko")]
             let has_none_ligatures = self.font_variant_ligatures == &FontVariantLigatures::NONE;
+            #[cfg(feature = "servo")]
+            let has_none_ligatures = false;
 
+            #[cfg(feature = "gecko")]
             const TOTAL_SUBPROPS: usize = 7;
+            #[cfg(feature = "servo")]
+            const TOTAL_SUBPROPS: usize = 1;
             let mut nb_normals = 0;
             macro_rules! count_normal {
                 ($e: expr, $p: ident) => {
@@ -2827,13 +2883,18 @@ pub mod font_variant {
                     count_normal!(self.$v, $v);
                 };
             }
+            #[cfg(feature = "gecko")]
             count_normal!(font_variant_ligatures);
             count_normal!(font_variant_caps);
+            #[cfg(feature = "gecko")]
             count_normal!(font_variant_alternates);
+            #[cfg(feature = "gecko")]
             count_normal!(font_variant_numeric);
+            #[cfg(feature = "gecko")]
             count_normal!(font_variant_east_asian);
+            #[cfg(feature = "gecko")]
             count_normal!(font_variant_position);
-
+            #[cfg(feature = "gecko")]
             if let Some(value) = self.font_variant_emoji {
                 if value == &font_variant_emoji::get_initial_specified_value() {
                     nb_normals += 1;
@@ -2864,12 +2925,18 @@ pub mod font_variant {
                 };
             }
 
+            #[cfg(feature = "gecko")]
             write!(font_variant_ligatures);
             write!(font_variant_caps);
+            #[cfg(feature = "gecko")]
             write!(font_variant_alternates);
+            #[cfg(feature = "gecko")]
             write!(font_variant_numeric);
+            #[cfg(feature = "gecko")]
             write!(font_variant_east_asian);
+            #[cfg(feature = "gecko")]
             write!(font_variant_position);
+            #[cfg(feature = "gecko")]
             if let Some(v) = self.font_variant_emoji {
                 write!(v, font_variant_emoji);
             }
@@ -2878,8 +2945,9 @@ pub mod font_variant {
     }
 }
 
+#[cfg(feature = "gecko")]
 pub mod font_synthesis {
-    pub use crate::properties::shorthands_generated::font_synthesis::*;
+    pub use crate::properties::generated::shorthands::font_synthesis::*;
 
     use super::*;
     use crate::values::specified::{FontSynthesis, FontSynthesisStyle};
@@ -2986,7 +3054,7 @@ pub mod font_synthesis {
 }
 
 pub mod text_box {
-    pub use crate::properties::shorthands_generated::text_box::*;
+    pub use crate::properties::generated::shorthands::text_box::*;
 
     use super::*;
     use crate::values::specified::{TextBoxEdge, TextBoxTrim};
@@ -3053,8 +3121,9 @@ pub mod text_box {
     }
 }
 
+#[cfg(feature = "gecko")]
 pub mod text_emphasis {
-    pub use crate::properties::shorthands_generated::text_emphasis::*;
+    pub use crate::properties::generated::shorthands::text_emphasis::*;
 
     use super::*;
     use crate::properties::longhands::{text_emphasis_color, text_emphasis_style};
@@ -3084,9 +3153,10 @@ pub mod text_emphasis {
 }
 
 pub mod text_decoration {
-    pub use crate::properties::shorthands_generated::text_decoration::*;
+    pub use crate::properties::generated::shorthands::text_decoration::*;
 
     use super::*;
+    #[cfg(feature = "gecko")]
     use crate::properties::longhands::text_decoration_thickness;
     use crate::properties::longhands::{
         text_decoration_color, text_decoration_line, text_decoration_style,
@@ -3099,6 +3169,7 @@ pub mod text_decoration {
         let mut line = None;
         let mut style = None;
         let mut color = None;
+        #[cfg(feature = "gecko")]
         let mut thickness = None;
 
         let mut parsed = 0;
@@ -3107,6 +3178,7 @@ pub mod text_decoration {
             try_parse_one!(context, input, line, text_decoration_line::parse);
             try_parse_one!(context, input, style, text_decoration_style::parse);
             try_parse_one!(context, input, color, text_decoration_color::parse);
+            #[cfg(feature = "gecko")]
             try_parse_one!(context, input, thickness, text_decoration_thickness::parse);
             parsed -= 1;
             break;
@@ -3116,12 +3188,19 @@ pub mod text_decoration {
             return Err(input.new_custom_error(StyleParseErrorKind::UnspecifiedError));
         }
 
-        Ok(expanded! {
+        #[cfg(feature = "gecko")]
+        return Ok(expanded! {
             text_decoration_line: unwrap_or_initial!(text_decoration_line, line),
             text_decoration_style: unwrap_or_initial!(text_decoration_style, style),
             text_decoration_color: unwrap_or_initial!(text_decoration_color, color),
             text_decoration_thickness: unwrap_or_initial!(text_decoration_thickness, thickness),
-        })
+        });
+        #[cfg(feature = "servo")]
+        return Ok(expanded! {
+            text_decoration_line: unwrap_or_initial!(text_decoration_line, line),
+            text_decoration_style: unwrap_or_initial!(text_decoration_style, style),
+            text_decoration_color: unwrap_or_initial!(text_decoration_color, color),
+        });
     }
 
     impl<'a> ToCss for LonghandsToSerialize<'a> {
@@ -3136,13 +3215,17 @@ pub mod text_decoration {
             let is_solid_style =
                 *self.text_decoration_style == text_decoration_style::SpecifiedValue::Solid;
             let is_current_color = *self.text_decoration_color == Color::CurrentColor;
+            #[cfg(feature = "gecko")]
             let is_auto_thickness = self.text_decoration_thickness.is_auto();
+            #[cfg(feature = "servo")]
+            let is_auto_thickness = true;
             let is_none = *self.text_decoration_line == TextDecorationLine::none();
 
             let mut writer = SequenceWriter::new(dest, " ");
             if (is_solid_style && is_current_color && is_auto_thickness) || !is_none {
                 writer.item(self.text_decoration_line)?;
             }
+            #[cfg(feature = "gecko")]
             if !is_auto_thickness {
                 writer.item(self.text_decoration_thickness)?;
             }
@@ -3158,7 +3241,7 @@ pub mod text_decoration {
 }
 
 pub mod animation {
-    pub use crate::properties::shorthands_generated::animation::*;
+    pub use crate::properties::generated::shorthands::animation::*;
 
     use super::*;
     use crate::properties::longhands::{
@@ -3405,8 +3488,9 @@ pub mod animation {
     }
 }
 
+#[cfg(feature = "gecko")]
 pub mod mask {
-    pub use crate::properties::shorthands_generated::mask::*;
+    pub use crate::properties::generated::shorthands::mask::*;
 
     use super::*;
     use crate::parser::Parse;
@@ -3685,8 +3769,9 @@ pub mod mask {
     }
 }
 
+#[cfg(feature = "gecko")]
 pub mod mask_position {
-    pub use crate::properties::shorthands_generated::mask_position::*;
+    pub use crate::properties::generated::shorthands::mask_position::*;
 
     use super::*;
     use crate::properties::longhands::{mask_position_x, mask_position_y};
@@ -3746,7 +3831,7 @@ pub mod mask_position {
 }
 
 pub mod grid_template {
-    pub use crate::properties::shorthands_generated::grid_template::*;
+    pub use crate::properties::generated::shorthands::grid_template::*;
 
     use super::*;
     use crate::parser::Parse;
@@ -3983,7 +4068,7 @@ pub mod grid_template {
 }
 
 pub mod grid {
-    pub use crate::properties::shorthands_generated::grid::*;
+    pub use crate::properties::generated::shorthands::grid::*;
 
     use super::*;
     use crate::parser::Parse;

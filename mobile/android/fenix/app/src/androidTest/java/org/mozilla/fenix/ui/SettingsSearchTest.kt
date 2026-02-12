@@ -468,8 +468,7 @@ class SettingsSearchTest : TestSetup() {
     @SmokeTest
     @Test
     fun verifyShowSearchSuggestionsToggleTest() {
-        homeScreen(composeTestRule) {
-        }.openSearch {
+        searchScreen(composeTestRule) {
             // The Google related suggestions aren't always displayed on cold run
             // Bugzilla ticket: https://bugzilla.mozilla.org/show_bug.cgi?id=1813587
             clickSearchSelectorButton()

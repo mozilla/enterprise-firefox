@@ -1285,7 +1285,10 @@ class XPCShellTests:
             sys.stderr.write("*** offending mozinfo.info: %s\n" % repr(mozinfo.info))
             raise
 
+        # Store missing manifests for later use in structured logging
+        self.missing_manifests = set()
         if path_filter and path_filter.missing:
+            self.missing_manifests = path_filter.missing
             self.log.warning(
                 "The following path(s) didn't resolve any tests:\n  {}".format(
                     "  \n".join(sorted(path_filter.missing))
@@ -2450,6 +2453,11 @@ class XPCShellTests:
         for test in self.alltests:
             group = get_full_group_name(test)
             tests_by_manifest[group].append(test["id"])
+
+        # Add missing manifests with empty test lists so they appear in
+        # group_result output with SKIP status
+        for missing_path in self.missing_manifests:
+            tests_by_manifest[missing_path] = []
 
         self.log.suite_start(tests_by_manifest, name="xpcshell")
 

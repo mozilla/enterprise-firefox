@@ -57,6 +57,10 @@ export class LoginManagerStorage extends LoginManagerStorage_json {
     throw Components.Exception("", Cr.NS_ERROR_NOT_IMPLEMENTED);
   }
 
+  async removeLoginAsync(_login) {
+    throw Components.Exception("", Cr.NS_ERROR_NOT_IMPLEMENTED);
+  }
+
   modifyLogin(_oldLogin, _newLoginData) {
     throw Components.Exception("", Cr.NS_ERROR_NOT_IMPLEMENTED);
   }

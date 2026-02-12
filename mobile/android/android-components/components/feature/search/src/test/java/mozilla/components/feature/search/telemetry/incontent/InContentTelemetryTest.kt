@@ -136,7 +136,7 @@ class InContentTelemetryTest {
     @Test
     fun `WHEN installWebExtension is called THEN install a properly configured extension`() {
         val engine: Engine = mock()
-        val store: BrowserStore = mock()
+        val store = BrowserStore()
         val extensionCaptor = argumentCaptor<ExtensionInfo>()
 
         runBlocking {

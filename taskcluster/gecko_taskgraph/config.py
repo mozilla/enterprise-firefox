@@ -2,11 +2,11 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-from taskgraph.util.schema import Schema, optionally_keyed_by
+from taskgraph.util.schema import LegacySchema, optionally_keyed_by
 from voluptuous import All, Any, Extra, Optional, Required
 from voluptuous.validators import Length
 
-graph_config_schema = Schema({
+graph_config_schema = LegacySchema({
     # The trust-domain for this graph.
     # (See https://firefox-source-docs.mozilla.org/taskcluster/taskcluster/taskgraph.html#taskgraph-trust-domain)  # noqa
     Required("trust-domain"): str,

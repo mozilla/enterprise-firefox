@@ -44,8 +44,8 @@ const HISTORY_RESULTS_LIMIT = 100;
 // The maximum number of links Links.getLinks will return.
 const LINKS_GET_LINKS_LIMIT = 100;
 
-// The gather telemetry topic.
-const TOPIC_GATHER_TELEMETRY = "gather-telemetry";
+// The idle-daily telemetry topic.
+const TOPIC_IDLE_DAILY = "idle-daily";
 
 // Some default query limit for Activity Stream requests
 const ACTIVITY_STREAM_DEFAULT_LIMIT = 12;
@@ -1870,11 +1870,11 @@ var Telemetry = {
    * Initializes object.
    */
   init: function Telemetry_init() {
-    Services.obs.addObserver(this, TOPIC_GATHER_TELEMETRY);
+    Services.obs.addObserver(this, TOPIC_IDLE_DAILY);
   },
 
   uninit: function Telemetry_uninit() {
-    Services.obs.removeObserver(this, TOPIC_GATHER_TELEMETRY);
+    Services.obs.removeObserver(this, TOPIC_IDLE_DAILY);
   },
 
   /**
@@ -1890,7 +1890,7 @@ var Telemetry = {
   },
 
   /**
-   * Listens for gather telemetry topic.
+   * Listens for idle-daily telemetry trigger.
    */
   observe: function Telemetry_observe() {
     this._collect();

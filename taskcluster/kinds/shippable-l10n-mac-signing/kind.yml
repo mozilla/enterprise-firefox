@@ -23,6 +23,10 @@ only-for-build-platforms:
     - macosx64-devedition/opt
     - macosx64/opt
     - macosx64/debug
+    - macosx64-enterprise/opt
+    - macosx64-enterprise/debug
+    - macosx64-enterprise-shippable/opt
+    - macosx64-enterprise-shippable/debug
 
 tasks:
     shippable-l10n-mac-signing:

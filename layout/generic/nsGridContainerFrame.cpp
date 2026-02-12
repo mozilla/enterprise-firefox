@@ -9622,7 +9622,7 @@ void nsGridContainerFrame::Reflow(nsPresContext* aPresContext,
 
   contentBSize =
       ReflowChildren(gridRI, contentArea, containerSize, aDesiredSize, aStatus);
-  if (Style()->GetPseudoType() == PseudoStyleType::scrolledContent) {
+  if (Style()->GetPseudoType() == PseudoStyleType::MozScrolledContent) {
     // Per spec, the grid area is included in a grid container's scrollable
     // overflow region [1], as well as the padding on the end-edge sides that
     // would satisfy the requirements of 'place-content: end' alignment [2].

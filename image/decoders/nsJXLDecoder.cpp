@@ -8,6 +8,7 @@
 
 #include "nsJXLDecoder.h"
 
+#include "AnimationParams.h"
 #include "mozilla/CheckedInt.h"
 #include "RasterImage.h"
 #include "SurfacePipeFactory.h"
@@ -23,13 +24,14 @@ nsJXLDecoder::nsJXLDecoder(RasterImage* aImage)
     : Decoder(aImage),
       mLexer(Transition::ToUnbuffered(State::FINISHED_JXL_DATA, State::JXL_DATA,
                                       SIZE_MAX),
-             Transition::TerminateSuccess()) {
+             Transition::To(State::DRAIN_FRAMES, 0)) {
   MOZ_LOG(sJXLLog, LogLevel::Debug,
           ("[this=%p] nsJXLDecoder::nsJXLDecoder", this));
 }
 
 nsresult nsJXLDecoder::InitInternal() {
-  mDecoder.reset(jxl_decoder_new(IsMetadataDecode()));
+  bool premultiply = !(GetSurfaceFlags() & SurfaceFlags::NO_PREMULTIPLY_ALPHA);
+  mDecoder.reset(jxl_decoder_new(IsMetadataDecode(), premultiply));
   return NS_OK;
 }
 
@@ -47,6 +49,8 @@ LexerResult nsJXLDecoder::DoDecode(SourceBufferIterator& aIterator,
                       switch (aState) {
                         case State::JXL_DATA:
                           return ReadJXLData(aData, aLength);
+                        case State::DRAIN_FRAMES:
+                          return DrainFrames();
                         case State::FINISHED_JXL_DATA:
                           return FinishedJXLData();
                       }
@@ -62,11 +66,7 @@ LexerTransition<nsJXLDecoder::State> nsJXLDecoder::ReadJXLData(
   size_t currentLength = aLength;
 
   while (true) {
-    uint8_t* bufferPtr = mPixelBuffer.empty() ? nullptr : mPixelBuffer.begin();
-    size_t bufferLen = mPixelBuffer.length();
-
-    JxlDecoderStatus status = jxl_decoder_process_data(
-        mDecoder.get(), &currentData, &currentLength, bufferPtr, bufferLen);
+    JxlDecoderStatus status = ProcessInput(&currentData, &currentLength);
 
     switch (status) {
       case JxlDecoderStatus::Ok: {
@@ -88,50 +88,47 @@ LexerTransition<nsJXLDecoder::State> nsJXLDecoder::ReadJXLData(
           if (basicInfo.has_alpha) {
             PostHasTransparency();
           }
-          PostFrameCount(1);  // Static JXL = 1 frame
 
-          if (IsMetadataDecode()) {
+          if (!basicInfo.is_animated) {
+            PostFrameCount(1);
+            if (IsMetadataDecode()) {
+              return Transition::TerminateSuccess();
+            }
+          }
+        }
+
+        // Handle animation metadata when first frame header is available.
+        if (jxl_decoder_is_frame_ready(mDecoder.get()) && !HasAnimation()) {
+          JxlBasicInfo basicInfo = jxl_decoder_get_basic_info(mDecoder.get());
+          if (basicInfo.is_animated) {
+            JxlFrameInfo frameInfo = jxl_decoder_get_frame_info(mDecoder.get());
+            PostIsAnimated(
+                FrameTimeout::FromRawMilliseconds(frameInfo.duration_ms));
+            PostLoopCount(
+                (basicInfo.num_loops == 0 || basicInfo.num_loops > INT32_MAX)
+                    ? -1
+                    : static_cast<int32_t>(basicInfo.num_loops));
+            if (IsMetadataDecode()) {
+              return Transition::TerminateSuccess();
+            }
+          }
+        }
+
+        switch (HandleFrameOutput()) {
+          case FrameOutputResult::BufferAllocated:
+            break;
+          case FrameOutputResult::FrameAdvanced:
+            return Transition::ContinueUnbufferedAfterYield(
+                State::JXL_DATA, aLength - currentLength);
+          case FrameOutputResult::DecodeComplete:
             return Transition::TerminateSuccess();
-          }
-        }
-
-        bool frameReady = jxl_decoder_is_frame_ready(mDecoder.get());
-
-        // Check if frame is ready for rendering and we need to allocate buffer
-        if (HasSize() && frameReady && mPixelBuffer.empty()) {
-          OrientedIntSize size = Size();
-          CheckedInt<size_t> bufferSize =
-              CheckedInt<size_t>(size.width) * size.height * 4;
-          if (!bufferSize.isValid()) {
-            MOZ_LOG(sJXLLog, LogLevel::Error,
-                    ("[this=%p] nsJXLDecoder::ReadJXLData -- buffer size "
-                     "overflow\n",
-                     this));
+          case FrameOutputResult::NoOutput:
+            if (currentLength == 0) {
+              return Transition::ContinueUnbuffered(State::JXL_DATA);
+            }
+            break;
+          case FrameOutputResult::Error:
             return Transition::TerminateFailure();
-          }
-          if (!mPixelBuffer.resize(bufferSize.value())) {
-            MOZ_LOG(sJXLLog, LogLevel::Error,
-                    ("[this=%p] nsJXLDecoder::ReadJXLData -- failed to "
-                     "allocate pixel buffer\n",
-                     this));
-            return Transition::TerminateFailure();
-          }
-          break;
-        }
-
-        // Frame rendering complete when frameReady becomes false
-        if (HasSize() && !frameReady && !mPixelBuffer.empty()) {
-          // The pixel buffer has been filled by jxl_decoder_process_data.
-          // Send it through the surface pipeline and finish decoding.
-          nsresult rv = ProcessFrame(mPixelBuffer);
-          if (NS_FAILED(rv)) {
-            return Transition::TerminateFailure();
-          }
-
-          PostDecodeDone();
-          return Transition::TerminateSuccess();
-        } else if (currentLength == 0) {
-          return Transition::ContinueUnbuffered(State::JXL_DATA);
         }
         break;
       }
@@ -142,6 +139,92 @@ LexerTransition<nsJXLDecoder::State> nsJXLDecoder::ReadJXLData(
         }
         break;
       }
+
+      case JxlDecoderStatus::Error:
+        return Transition::TerminateFailure();
+    }
+  }
+}
+
+JxlDecoderStatus nsJXLDecoder::ProcessInput(const uint8_t** aData,
+                                            size_t* aLength) {
+  uint8_t* bufferPtr = mPixelBuffer.empty() ? nullptr : mPixelBuffer.begin();
+  size_t bufferLen = mPixelBuffer.length();
+  return jxl_decoder_process_data(mDecoder.get(), aData, aLength, bufferPtr,
+                                  bufferLen);
+}
+
+nsJXLDecoder::FrameOutputResult nsJXLDecoder::HandleFrameOutput() {
+  bool frameNeedsBuffer = jxl_decoder_is_frame_ready(mDecoder.get());
+
+  // Allocate buffer for frame rendering.
+  if (frameNeedsBuffer && mPixelBuffer.empty()) {
+    OrientedIntSize size = Size();
+    CheckedInt<size_t> bufferSize =
+        CheckedInt<size_t>(size.width) * size.height * 4;
+    if (!bufferSize.isValid() || !mPixelBuffer.resize(bufferSize.value())) {
+      MOZ_LOG(sJXLLog, LogLevel::Error,
+              ("[this=%p] nsJXLDecoder::HandleFrameOutput -- "
+               "failed to allocate pixel buffer\n",
+               this));
+      return FrameOutputResult::Error;
+    }
+    return FrameOutputResult::BufferAllocated;
+  }
+
+  // Frame rendering complete. The pixel buffer has been filled by
+  // jxl_decoder_process_data. Send it through the surface pipeline.
+  if (!frameNeedsBuffer && !mPixelBuffer.empty()) {
+    nsresult rv = ProcessFrame(mPixelBuffer);
+    if (NS_FAILED(rv)) {
+      return FrameOutputResult::Error;
+    }
+
+    bool hasMoreFrames = jxl_decoder_has_more_frames(mDecoder.get());
+    if (IsFirstFrameDecode() || !HasAnimation() || !hasMoreFrames) {
+      PostFrameCount(mFrameIndex + 1);
+      PostDecodeDone();
+      return FrameOutputResult::DecodeComplete;
+    }
+    mFrameIndex++;
+    mPixelBuffer.clear();
+    return FrameOutputResult::FrameAdvanced;
+  }
+
+  return FrameOutputResult::NoOutput;
+}
+
+LexerTransition<nsJXLDecoder::State> nsJXLDecoder::DrainFrames() {
+  // Called via the truncated transition when the source is complete. Since
+  // jxl-rs buffers all input data internally, it may be able to produce
+  // remaining frames without additional source bytes.
+  while (true) {
+    const uint8_t* noData = nullptr;
+    size_t noLength = 0;
+    JxlDecoderStatus status = ProcessInput(&noData, &noLength);
+
+    switch (status) {
+      case JxlDecoderStatus::Ok: {
+        if (!HasSize()) {
+          return Transition::TerminateFailure();
+        }
+
+        switch (HandleFrameOutput()) {
+          case FrameOutputResult::BufferAllocated:
+            break;
+          case FrameOutputResult::FrameAdvanced:
+            return Transition::ToAfterYield(State::DRAIN_FRAMES);
+          case FrameOutputResult::DecodeComplete:
+          case FrameOutputResult::NoOutput:
+            return Transition::TerminateSuccess();
+          case FrameOutputResult::Error:
+            return Transition::TerminateFailure();
+        }
+        break;
+      }
+
+      case JxlDecoderStatus::NeedMoreData:
+        return Transition::TerminateSuccess();
 
       case JxlDecoderStatus::Error:
         return Transition::TerminateFailure();
@@ -161,13 +244,26 @@ nsresult nsJXLDecoder::ProcessFrame(Vector<uint8_t>& aPixelBuffer) {
   JxlBasicInfo basicInfo = jxl_decoder_get_basic_info(mDecoder.get());
 
   OrientedIntSize size = Size();
+
+  Maybe<AnimationParams> animParams;
+  if (HasAnimation()) {
+    JxlFrameInfo frameInfo = jxl_decoder_get_frame_info(mDecoder.get());
+    if (!frameInfo.frame_duration_valid) {
+      return NS_ERROR_FAILURE;
+    }
+    // jxl-rs renders complete frames, replacing the previous frame entirely.
+    animParams.emplace(FullFrame().ToUnknownRect(),
+                       FrameTimeout::FromRawMilliseconds(frameInfo.duration_ms),
+                       mFrameIndex, BlendMethod::SOURCE, DisposalMethod::KEEP);
+  }
+
   SurfaceFormat inFormat = SurfaceFormat::R8G8B8A8;
   SurfaceFormat outFormat =
       basicInfo.has_alpha ? SurfaceFormat::OS_RGBA : SurfaceFormat::OS_RGBX;
   SurfacePipeFlags pipeFlags = SurfacePipeFlags();
 
   Maybe<SurfacePipe> pipe = SurfacePipeFactory::CreateSurfacePipe(
-      this, size, OutputSize(), FullFrame(), inFormat, outFormat, Nothing(),
+      this, size, OutputSize(), FullFrame(), inFormat, outFormat, animParams,
       nullptr, pipeFlags);
   if (!pipe) {
     return NS_ERROR_FAILURE;

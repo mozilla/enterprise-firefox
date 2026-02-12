@@ -366,7 +366,7 @@ export class LoginManagerRustMirror {
       case "removeLogin":
         this.#logger.log(`removing login ${subject.guid}...`);
         try {
-          this.#rustStorage.removeLogin(subject);
+          await this.#rustStorage.removeLoginAsync(subject);
           this.#logger.log(`removed login ${subject.guid}.`);
         } catch (e) {
           status = "failure";

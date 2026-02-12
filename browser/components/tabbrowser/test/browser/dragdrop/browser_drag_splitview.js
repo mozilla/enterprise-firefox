@@ -160,7 +160,7 @@ add_task(async function test_drag_link_before_or_after_splitview_tabs() {
   const url = "https://example.com/";
   let rect = tab2.getBoundingClientRect();
   let promiseTabOpen = BrowserTestUtils.waitForEvent(window, "TabOpen");
-  await EventUtils.synthesizeDrop(
+  EventUtils.synthesizeDrop(
     linkEl,
     tab2,
     [[{ type: "text/uri-list", data: url }]],
@@ -184,12 +184,12 @@ add_task(async function test_drag_link_before_or_after_splitview_tabs() {
     [tab1, newTab, tab2, tab3, tab4],
     "Order should be [A, New, B, C, D]"
   );
+  BrowserTestUtils.removeTab(newTab);
 
   info("Drag and drop the link after the Split View.");
-  BrowserTestUtils.removeTab(newTab);
   rect = tab3.getBoundingClientRect();
   promiseTabOpen = BrowserTestUtils.waitForEvent(window, "TabOpen");
-  await EventUtils.synthesizeDrop(
+  EventUtils.synthesizeDrop(
     linkEl,
     tab3,
     [[{ type: "text/uri-list", data: url }]],
@@ -213,9 +213,38 @@ add_task(async function test_drag_link_before_or_after_splitview_tabs() {
     [tab1, tab2, tab3, newTab, tab4],
     "Order should be [A, B, C, New, D]"
   );
+  BrowserTestUtils.removeTab(newTab);
+
+  info("Drag and drop the link within the margins of the Split View wrapper.");
+  const splitViewBox = tab2.splitview.getBoundingClientRect();
+  promiseTabOpen = BrowserTestUtils.waitForEvent(window, "TabOpen");
+  EventUtils.synthesizeDrop(
+    linkEl,
+    gBrowser.tabContainer.arrowScrollbox,
+    [[{ type: "text/uri-list", data: url }]],
+    "link",
+    window,
+    window,
+    {
+      clientX: splitViewBox.left + splitViewBox.width * 0.75,
+      clientY: splitViewBox.bottom + 1,
+    }
+  );
+  await promiseTabOpen;
+
+  // Verify Result: [Tab1, (Tab2, Tab3), NEW, Tab4]
+  Assert.equal(gBrowser.tabs.length, 5, "Should have 5 tabs after drop.");
+  newTab = gBrowser.tabs[3];
+  await BrowserTestUtils.browserLoaded(newTab.linkedBrowser, { wantLoad: url });
+  Assert.ok(!newTab.splitview, "New tab is not part of the split view.");
+  Assert.deepEqual(
+    gBrowser.tabs,
+    [tab1, tab2, tab3, newTab, tab4],
+    "Order should be [A, B, C, New, D]"
+  );
+  BrowserTestUtils.removeTab(newTab);
 
   // Cleanup
-  BrowserTestUtils.removeTab(newTab);
   BrowserTestUtils.removeTab(tab2);
   BrowserTestUtils.removeTab(tab3);
   BrowserTestUtils.removeTab(tab4);

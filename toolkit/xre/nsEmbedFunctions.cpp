@@ -356,7 +356,7 @@ nsresult XRE_InitChildProcess(int aArgc, char* aArgv[],
 
     if (!exceptionHandlerIsSet) {
       // Bug 684322 will add better visibility into this condition
-      NS_WARNING("Could not setup crash reporting\n");
+      NS_WARNING("Could not setup crash reporting");
     } else {
       // We might have registered a runtime exception module very early in
       // process startup to catch early crashes. This is before we process the

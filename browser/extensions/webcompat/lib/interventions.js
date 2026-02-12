@@ -309,7 +309,7 @@ class Interventions {
     });
   }
 
-  #getBlocksAndMatchesFor(config) {
+  getBlocksAndMatchesFor(config) {
     const { bugs } = config;
     return {
       blocks: Object.values(bugs)
@@ -336,7 +336,7 @@ class Interventions {
         continue;
       }
 
-      const { blocks, matches } = this.#getBlocksAndMatchesFor(config);
+      const { blocks, matches } = this.getBlocksAndMatchesFor(config);
 
       for (const intervention of interventions) {
         if (!intervention.enabled) {
@@ -550,7 +550,7 @@ class Interventions {
             `force-disabled by pref extensions.webcompat.${disablingPref}`,
           ]);
         } else {
-          const { blocks, matches } = this.#getBlocksAndMatchesFor(config);
+          const { blocks, matches } = this.getBlocksAndMatchesFor(config);
 
           let uaOverridesEnabled = false;
           let requestBlocksEnabled = false;
@@ -594,7 +594,7 @@ class Interventions {
 
             if (intervention.content_scripts) {
               const contentScriptsForIntervention =
-                this.#buildContentScriptRegistrations(
+                this.buildContentScriptRegistrations(
                   config.label,
                   intervention,
                   matches
@@ -813,17 +813,23 @@ class Interventions {
     }
   }
 
-  #buildContentScriptRegistrations(label, intervention, matches) {
+  buildContentScriptRegistrations(label, intervention, matches) {
     const registration = {
-      id: `webcompat intervention for ${label}: ${JSON.stringify(intervention.content_scripts)}`,
       matches,
-      persistAcrossSessions: true,
     };
 
-    let { all_frames, css, js, run_at } = intervention.content_scripts;
+    let { all_frames, css, isolated, js, run_at } =
+      intervention.content_scripts;
     if (!css && !js) {
       console.error(`Missing js or css for content_script in ${label}`);
       return [];
+    }
+    if (js) {
+      if (isolated) {
+        registration.world = "ISOLATED";
+      } else {
+        registration.world = "MAIN";
+      }
     }
     if (all_frames) {
       registration.allFrames = true;
@@ -849,6 +855,10 @@ class Interventions {
     } else {
       registration.runAt = "document_start";
     }
+
+    registration.id = `webcompat intervention for ${label}: ${JSON.stringify(registration)}`;
+
+    registration.persistAcrossSessions = true;
 
     return [registration];
   }

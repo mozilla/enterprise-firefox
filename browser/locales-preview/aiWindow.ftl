@@ -22,6 +22,8 @@ menu-history-chats =
 menu-history-chats-recent =
     .label = Recent Chats
 
+smartwindow-document-title = New Tab
+
 ## Smart Window Toggle Button
 
 toolbar-button-ai-window-toggle =
@@ -72,27 +74,15 @@ aiwindow-website-chip-remove-button =
 ## Firstrun onboarding
 
 aiwindow-firstrun-title = Welcome to Smart Window
-aiwindow-firstrun-model-title = Pick a model to start
-aiwindow-firstrun-model-subtitle = Switch anytime to find your best fit.
-aiwindow-firstrun-model-fast-label = Fastest
-aiwindow-firstrun-model-fast-body = Best for quick answers to everyday questions
-aiwindow-firstrun-model-allpurpose-label = All-purpose
-aiwindow-firstrun-model-allpurpose-body = Best for a variety of quick and complex features
-aiwindow-firstrun-model-personal-label = Personalization
-aiwindow-firstrun-model-personal-body = Best for learning with you
-aiwindow-firstrun-button = Let’s go
-
-## Assistant Message footer
-
-aiwindow-memories-used = Memories used
-aiwindow-retry-without-memories =
-    .label = Retry without memories
-aiwindow-retry =
-  .tooltiptext = Retry
-  .aria-label = Retry
-aiwindow-copy-message =
-    .tooltiptext = Copy
-    .aria-label = Copy message
+aiwindow-firstrun-model-title = What’s important to you?
+aiwindow-firstrun-model-subtitle = Pick a model to power Smart Window. Switch anytime.
+aiwindow-firstrun-model-fast-label = Fast
+aiwindow-firstrun-model-fast-body = Answers quickly
+aiwindow-firstrun-model-allpurpose-label = Flexible
+aiwindow-firstrun-model-allpurpose-body = Solid fit for most needs
+aiwindow-firstrun-model-personal-label = Personal
+aiwindow-firstrun-model-personal-body = Most tailored answers
+aiwindow-firstrun-button = Let’s go!
 
 ## Ask Toolbar Button
 

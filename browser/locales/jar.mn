@@ -19,12 +19,7 @@
   preview/aiWindow.ftl                             (../locales-preview/aiWindow.ftl)
   preview/aiWindowContent.ftl                      (../locales-preview/aiWindowContent.ftl)
   preview/smartTabGroups.ftl                       (../locales-preview/smartTabGroups.ftl)
-  preview/ipProtection.ftl                         (../locales-preview/ipProtection.ftl)
   preview/privacyPreferences.ftl                   (../locales-preview/privacyPreferences.ftl)
-#ifdef MOZ_ENTERPRISE
-  preview/felt.ftl                                 (../extensions/felt/content/locales/felt.ftl)
-  preview/enterprise.ftl                           (../components/enterprise/content/enterprise.ftl)
-#endif
 
 @AB_CD@.jar:
 % locale browser @AB_CD@ %locale/browser/
@@ -42,3 +37,4 @@
 % locale browser-region @AB_CD@ %locale/browser-region/
 # the following files are browser-specific overrides
     locale/browser/appstrings.properties       (%chrome/overrides/appstrings.properties)
+    locale/browser/enterprise.properties       (%chrome/overrides/enterprise.properties)

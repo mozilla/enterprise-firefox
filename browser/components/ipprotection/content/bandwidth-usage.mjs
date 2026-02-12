@@ -4,7 +4,10 @@
 
 import { html } from "chrome://global/content/vendor/lit.all.mjs";
 import { MozLitElement } from "chrome://global/content/lit-utils.mjs";
-import { LINKS } from "chrome://browser/content/ipprotection/ipprotection-constants.mjs";
+import {
+  LINKS,
+  BANDWIDTH,
+} from "chrome://browser/content/ipprotection/ipprotection-constants.mjs";
 
 /**
  * Element used for displaying VPN bandwidth usage.
@@ -15,12 +18,16 @@ import { LINKS } from "chrome://browser/content/ipprotection/ipprotection-consta
 export default class BandwidthUsageCustomElement extends MozLitElement {
   static properties = {
     numeric: { type: Boolean, reflect: true },
-    value: { type: Number },
-    max: { type: Number },
+    remaining: { type: BigInt }, // Remaining bytes available
+    max: { type: BigInt }, // Maximum bytes allowed
+  };
+
+  static queries = {
+    description: "#progress-description",
   };
 
   get bandwidthPercent() {
-    const percent = (100 * this.value) / this.max;
+    const percent = (100 * this.bandwidthUsed) / this.max;
     if (percent > 90) {
       return 90;
     } else if (percent > 75) {
@@ -29,31 +36,46 @@ export default class BandwidthUsageCustomElement extends MozLitElement {
     return percent.toFixed(0);
   }
 
-  get bandwidthLeft() {
-    return this.max - this.value;
+  get remainingMB() {
+    return this.remaining / BANDWIDTH.BYTES_IN_MB;
   }
 
-  get bandwidthUsageLeft() {
-    if (this.value < 1) {
+  get remainingGB() {
+    return this.remaining / BANDWIDTH.BYTES_IN_GB;
+  }
+
+  get maxGB() {
+    return this.max / BANDWIDTH.BYTES_IN_GB;
+  }
+
+  get bandwidthUsed() {
+    return this.max - this.remaining;
+  }
+
+  get bandwidthUsedGB() {
+    return (this.max - this.remaining) / BANDWIDTH.BYTES_IN_GB;
+  }
+
+  get remainingRounded() {
+    if (this.remainingGB < 1) {
       // Bug 2006997 - Handle this scenario where less than 1 GB used.
-      return Math.floor(this.bandwidthLeft);
-    } else if (this.bandwidthLeft < 1) {
-      // Show usage left in MB if less than 1GB left
-      return this.bandwidthLeft.toFixed(0);
+      return Math.floor(this.remainingMB);
+    } else if (this.bandwidthUsedGB < 1) {
+      return Math.floor(this.remainingGB);
     }
 
-    return this.bandwidthLeft.toFixed(0);
+    return Math.round(this.remainingGB);
   }
 
   get bandwidthLeftDataL10nId() {
-    if (this.bandwidthLeft < 1) {
+    if (this.remainingGB < 1) {
       return "ip-protection-bandwidth-left-mb";
     }
     return "ip-protection-bandwidth-left-gb";
   }
 
   get bandwidthLeftThisMonthDataL10nId() {
-    if (this.bandwidthLeft < 1) {
+    if (this.remainingGB < 1) {
       return "ip-protection-bandwidth-left-this-month-mb";
     }
     return "ip-protection-bandwidth-left-this-month-gb";
@@ -70,13 +92,13 @@ export default class BandwidthUsageCustomElement extends MozLitElement {
     }
 
     let descriptionText;
-    if (this.value < this.max) {
+    if (this.remaining > 0) {
       descriptionText = html`<span
         id="progress-description"
         data-l10n-id=${this.bandwidthLeftDataL10nId}
         data-l10n-args=${JSON.stringify({
-          usageLeft: this.bandwidthUsageLeft,
-          maxUsage: this.max,
+          usageLeft: this.remainingRounded,
+          maxUsage: this.maxGB,
         })}
       ></span>`;
     } else {
@@ -84,7 +106,7 @@ export default class BandwidthUsageCustomElement extends MozLitElement {
         id="progress-description"
         data-l10n-id="ip-protection-bandwidth-hit-for-the-month"
         data-l10n-args=${JSON.stringify({
-          maxUsage: this.max,
+          maxUsage: this.maxGB,
         })}
       ></span>`;
     }
@@ -100,7 +122,7 @@ export default class BandwidthUsageCustomElement extends MozLitElement {
             id="usage-help-text"
             data-l10n-id="ip-protection-bandwidth-help-text"
             data-l10n-args=${JSON.stringify({
-              maxUsage: this.max,
+              maxUsage: this.maxGB,
             })}
           ></span>
           <a
@@ -113,7 +135,7 @@ export default class BandwidthUsageCustomElement extends MozLitElement {
           <progress
             id="progress-bar"
             max="150"
-            value=${this.value}
+            value=${this.bandwidthUsed}
             percent=${this.bandwidthPercent}
           ></progress>
           <div id="min-progress"></div>
@@ -129,13 +151,13 @@ export default class BandwidthUsageCustomElement extends MozLitElement {
       return null;
     }
 
-    if (this.value < this.max) {
+    if (this.remaining > 0) {
       return html`<span
         id="progress-description"
         data-l10n-id=${this.bandwidthLeftThisMonthDataL10nId}
         data-l10n-args=${JSON.stringify({
-          usageLeft: this.bandwidthUsageLeft,
-          maxUsage: this.max,
+          usageLeft: this.remainingRounded,
+          maxUsage: this.maxGB,
         })}
       ></span>`;
     }
@@ -144,7 +166,7 @@ export default class BandwidthUsageCustomElement extends MozLitElement {
       id="progress-description"
       data-l10n-id="ip-protection-bandwidth-hit-for-the-month"
       data-l10n-args=${JSON.stringify({
-        maxUsage: this.max,
+        maxUsage: this.maxGB,
       })}
     ></span>`;
   }

@@ -675,6 +675,18 @@ add_task(async function tabNotesTests() {
     "Panel has been expanded"
   );
 
+  await BrowserTestUtils.waitForCondition(
+    () => Glean.tabNotes.expanded.testGetValue()?.length,
+    "wait for event to be recorded"
+  );
+
+  const [expandedEvent] = Glean.tabNotes.expanded.testGetValue();
+  Assert.deepEqual(
+    expandedEvent.extra,
+    { note_length: "999" },
+    "expanded event extra data should say the tab note text is 999 characters long"
+  );
+
   await closeTabPreviews();
 
   info(

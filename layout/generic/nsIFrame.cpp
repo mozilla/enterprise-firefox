@@ -14,6 +14,7 @@
 
 #include "AnchorPositioningUtils.h"
 #include "LayoutLogging.h"
+#include "PseudoStyleType.h"
 #include "RubyUtils.h"
 #include "TextOverflow.h"
 #include "gfx2DGlue.h"
@@ -68,10 +69,8 @@
 #include "nsAtom.h"
 #include "nsBidiPresUtils.h"
 #include "nsCOMPtr.h"
-#include "nsCSSAnonBoxes.h"
 #include "nsCSSFrameConstructor.h"
 #include "nsCSSProps.h"
-#include "nsCSSPseudoElements.h"
 #include "nsCSSRendering.h"
 #include "nsCanvasFrame.h"
 #include "nsContentUtils.h"
@@ -1519,16 +1518,17 @@ void nsIFrame::AssertNewStyleIsSane(ComputedStyle& aNewStyle) {
       aNewStyle.GetPseudoType() == mComputedStyle->GetPseudoType() ||
       // ::first-line continuations are weird, this should probably be fixed via
       // bug 1465474.
-      (mComputedStyle->GetPseudoType() == PseudoStyleType::firstLine &&
-       aNewStyle.GetPseudoType() == PseudoStyleType::mozLineFrame) ||
+      (mComputedStyle->GetPseudoType() == PseudoStyleType::FirstLine &&
+       aNewStyle.GetPseudoType() == PseudoStyleType::MozLineFrame) ||
       // ::first-letter continuations are broken, in particular floating ones,
       // see bug 1490281. The construction code tries to fix this up after the
       // fact, then restyling undoes it...
-      (mComputedStyle->GetPseudoType() == PseudoStyleType::mozText &&
-       aNewStyle.GetPseudoType() == PseudoStyleType::firstLetterContinuation) ||
+      (mComputedStyle->GetPseudoType() == PseudoStyleType::MozText &&
+       aNewStyle.GetPseudoType() ==
+           PseudoStyleType::MozFirstLetterContinuation) ||
       (mComputedStyle->GetPseudoType() ==
-           PseudoStyleType::firstLetterContinuation &&
-       aNewStyle.GetPseudoType() == PseudoStyleType::mozText));
+           PseudoStyleType::MozFirstLetterContinuation &&
+       aNewStyle.GetPseudoType() == PseudoStyleType::MozText));
 }
 #endif
 
@@ -1983,16 +1983,6 @@ RubyMetrics nsIFrame::RubyMetrics(float aRubyMetricsFactor) const {
       nscoord(NS_round(fm->TrimmedDescent() * aRubyMetricsFactor))};
 }
 
-ComputedStyle* nsIFrame::GetAdditionalComputedStyle(int32_t aIndex) const {
-  MOZ_ASSERT(aIndex >= 0, "invalid index number");
-  return nullptr;
-}
-
-void nsIFrame::SetAdditionalComputedStyle(int32_t aIndex,
-                                          ComputedStyle* aComputedStyle) {
-  MOZ_ASSERT(aIndex >= 0, "invalid index number");
-}
-
 nscoord nsIFrame::SynthesizeFallbackBaseline(
     WritingMode aWM, BaselineSharingGroup aBaselineGroup) const {
   const auto margin = GetLogicalUsedMargin(aWM);
@@ -2347,7 +2337,7 @@ already_AddRefed<ComputedStyle> nsIFrame::ComputeSelectionStyle(
   }
   RefPtr<ComputedStyle> pseudoStyle =
       PresContext()->StyleSet()->ProbePseudoElementStyle(
-          *element, PseudoStyleType::selection, nullptr, Style());
+          *element, PseudoStyleType::Selection, nullptr, Style());
   if (!pseudoStyle) {
     return nullptr;
   }
@@ -2371,7 +2361,7 @@ already_AddRefed<ComputedStyle> nsIFrame::ComputeHighlightSelectionStyle(
     return nullptr;
   }
   return PresContext()->StyleSet()->ProbePseudoElementStyle(
-      *element, PseudoStyleType::highlight, aHighlightName, Style());
+      *element, PseudoStyleType::Highlight, aHighlightName, Style());
 }
 
 already_AddRefed<ComputedStyle> nsIFrame::ComputeTargetTextStyle() const {
@@ -2380,7 +2370,7 @@ already_AddRefed<ComputedStyle> nsIFrame::ComputeTargetTextStyle() const {
     return nullptr;
   }
   RefPtr pseudoStyle = PresContext()->StyleSet()->ProbePseudoElementStyle(
-      *element, PseudoStyleType::targetText, nullptr, Style());
+      *element, PseudoStyleType::TargetText, nullptr, Style());
   if (!pseudoStyle) {
     return nullptr;
   }
@@ -4867,7 +4857,7 @@ nsresult nsIFrame::GetDataForTableSelection(
 
 static bool IsEditingHost(const nsIFrame* aFrame) {
   if (aFrame->Style()->GetPseudoType() ==
-      PseudoStyleType::mozTextControlEditingRoot) {
+      PseudoStyleType::MozTextControlEditingRoot) {
     return true;
   }
   nsIContent* content = aFrame->GetContent();
@@ -4939,7 +4929,7 @@ bool nsIFrame::ShouldHaveLineIfEmpty() const {
   switch (Style()->GetPseudoType()) {
     case PseudoStyleType::NotPseudo:
       break;
-    case PseudoStyleType::scrolledContent:
+    case PseudoStyleType::MozScrolledContent:
       return GetParent()->ShouldHaveLineIfEmpty();
     default:
       return false;
@@ -5732,7 +5722,7 @@ static bool IsRelevantBlockFrame(const nsIFrame* aFrame) {
   if (PseudoStyle::IsAnonBox(pseudoType)) {
     // Table cell contents should be considered block boundaries for this
     // purpose.
-    return pseudoType == PseudoStyleType::cellContent;
+    return pseudoType == PseudoStyleType::MozCellContent;
   }
   return true;
 }
@@ -6697,7 +6687,8 @@ nsIFrame::SizeComputationResult nsIFrame::ComputeSize(
                       aBorderPadding, aSizeOverrides, aFlags);
   const nsStylePosition* stylePos = StylePosition();
   const nsStyleDisplay* disp = StyleDisplay();
-  const auto anchorResolutionParams = AnchorPosResolutionParams::From(this);
+  const auto anchorResolutionParams = AnchorPosResolutionParams::From(
+      this, aSizingInput.mAnchorPosResolutionCache);
   auto aspectRatioUsage = AspectRatioUsage::None;
 
   const auto boxSizingAdjust = stylePos->mBoxSizing == StyleBoxSizing::BorderBox
@@ -8777,9 +8768,9 @@ bool nsIFrame::IsPercentageResolvedAgainstZero(const LengthPercentage& aSize,
 
 bool nsIFrame::IsBlockWrapper() const {
   auto pseudoType = Style()->GetPseudoType();
-  return pseudoType == PseudoStyleType::mozBlockInsideInlineWrapper ||
-         pseudoType == PseudoStyleType::cellContent ||
-         pseudoType == PseudoStyleType::columnSpanWrapper;
+  return pseudoType == PseudoStyleType::MozBlockInsideInlineWrapper ||
+         pseudoType == PseudoStyleType::MozCellContent ||
+         pseudoType == PseudoStyleType::MozColumnSpanWrapper;
 }
 
 bool nsIFrame::IsBlockFrameOrSubclass() const {
@@ -8847,7 +8838,7 @@ nsIFrame* nsIFrame::GetContainingBlock(
   }
 
   if (aFlags & SKIP_SCROLLED_FRAME && f &&
-      f->Style()->GetPseudoType() == PseudoStyleType::scrolledContent) {
+      f->Style()->GetPseudoType() == PseudoStyleType::MozScrolledContent) {
     f = f->GetParent();
   }
   return f;
@@ -10831,7 +10822,7 @@ static void ComputeAndIncludeOutlineArea(nsIFrame* aFrame,
   nsIFrame* frameForArea = aFrame;
   do {
     PseudoStyleType pseudoType = frameForArea->Style()->GetPseudoType();
-    if (pseudoType != PseudoStyleType::mozBlockInsideInlineWrapper) {
+    if (pseudoType != PseudoStyleType::MozBlockInsideInlineWrapper) {
       break;
     }
     // If we're done, we really want it and all its later siblings.
@@ -11250,7 +11241,7 @@ static nsIFrame* GetIBSplitSiblingForAnonymousBlock(const nsIFrame* aFrame) {
                "GetIBSplitSibling should only be called on ib-split frames");
 
   if (aFrame->Style()->GetPseudoType() !=
-      PseudoStyleType::mozBlockInsideInlineWrapper) {
+      PseudoStyleType::MozBlockInsideInlineWrapper) {
     // it's not an anonymous block
     return nullptr;
   }
@@ -11302,7 +11293,7 @@ static nsIFrame* GetCorrectedParent(const nsIFrame* aFrame) {
   // table, that actually means its the _inner_ table that wants to
   // know its parent. So get the pseudo of the inner in that case.
   auto pseudo = aFrame->Style()->GetPseudoType();
-  if (pseudo == PseudoStyleType::tableWrapper) {
+  if (pseudo == PseudoStyleType::MozTableWrapper) {
     MOZ_ASSERT(aFrame->IsTableWrapperFrame());
     nsTableFrame* innerTable =
         static_cast<const nsTableWrapperFrame*>(aFrame)->InnerTableFrame();
@@ -11336,7 +11327,7 @@ nsIFrame* nsIFrame::CorrectStyleParentFrame(nsIFrame* aProspectiveParent,
                                             PseudoStyleType aChildPseudo) {
   MOZ_ASSERT(aProspectiveParent, "Must have a prospective parent");
 
-  if (aChildPseudo != PseudoStyleType::NotPseudo) {
+  if (aChildPseudo < PseudoStyleType::NotPseudo) {
     // Non-inheriting anon boxes have no style parent frame at all.
     if (PseudoStyle::IsNonInheritingAnonBox(aChildPseudo)) {
       return nullptr;
@@ -11345,8 +11336,8 @@ nsIFrame* nsIFrame::CorrectStyleParentFrame(nsIFrame* aProspectiveParent,
     // Other anon boxes are parented to their actual parent already, except
     // for non-elements.  Those should not be treated as an anon box.
     if (PseudoStyle::IsAnonBox(aChildPseudo) &&
-        !nsCSSAnonBoxes::IsNonElement(aChildPseudo)) {
-      NS_ASSERTION(aChildPseudo != PseudoStyleType::mozBlockInsideInlineWrapper,
+        !PseudoStyle::IsNonElement(aChildPseudo)) {
+      NS_ASSERTION(aChildPseudo != PseudoStyleType::MozBlockInsideInlineWrapper,
                    "Should have dealt with kids that have "
                    "NS_FRAME_PART_OF_IBSPLIT elsewhere");
       return aProspectiveParent;
@@ -11384,7 +11375,7 @@ nsIFrame* nsIFrame::CorrectStyleParentFrame(nsIFrame* aProspectiveParent,
   } while (parent);
 
   if (aProspectiveParent->Style()->GetPseudoType() ==
-      PseudoStyleType::viewportScroll) {
+      PseudoStyleType::MozViewportScroll) {
     // aProspectiveParent is the scrollframe for a viewport
     // and the kids are the anonymous scrollbars
     return aProspectiveParent;
@@ -11416,7 +11407,7 @@ ComputedStyle* nsIFrame::DoGetParentComputedStyle(
            IsPrimaryFrame()) ||
           /* if next is true then it's really a request for the table frame's
              parent context, see nsTable[Outer]Frame::GetParentComputedStyle. */
-          pseudo == PseudoStyleType::tableWrapper) {
+          pseudo == PseudoStyleType::MozTableWrapper) {
         // In some edge cases involving display: contents, we may end up here
         // for something that's pending to be reframed. In this case we return
         // the wrong style from here (because we've already lost track of it!),
@@ -11573,7 +11564,7 @@ Focusable nsIFrame::IsFocusable(IsFocusableFlags aFlags) {
   MOZ_ASSERT(!StyleUI()->IsInert(), "inert implies -moz-user-focus: none");
 
   const PseudoStyleType pseudo = Style()->GetPseudoType();
-  if (pseudo == PseudoStyleType::anonymousItem) {
+  if (pseudo == PseudoStyleType::MozAnonymousItem) {
     return {};
   }
 
@@ -11704,9 +11695,6 @@ nsChangeHint nsIFrame::UpdateStyleOfOwnedChildFrame(
     nsIFrame* aChildFrame, ComputedStyle* aNewComputedStyle,
     ServoRestyleState& aRestyleState,
     const Maybe<ComputedStyle*>& aContinuationComputedStyle) {
-  MOZ_ASSERT(!aChildFrame->GetAdditionalComputedStyle(0),
-             "We don't handle additional styles here");
-
   // Figure out whether we have an actual change.  It's important that we do
   // this, for several reasons:
   //
@@ -11745,7 +11733,6 @@ nsChangeHint nsIFrame::UpdateStyleOfOwnedChildFrame(
                                          : aNewComputedStyle;
   for (nsIFrame* kid = aChildFrame->GetNextContinuation(); kid;
        kid = kid->GetNextContinuation()) {
-    MOZ_ASSERT(!kid->GetAdditionalComputedStyle(0));
     kid->SetComputedStyle(continuationStyle);
   }
 
@@ -12062,15 +12049,6 @@ void nsIFrame::AddSizeOfExcludingThisForTree(nsWindowSizes& aSizes) const {
   if (!aSizes.mState.HaveSeenPtr(mComputedStyle)) {
     mComputedStyle->AddSizeOfIncludingThis(aSizes,
                                            &aSizes.mLayoutComputedValuesNonDom);
-  }
-
-  // And our additional styles.
-  int32_t index = 0;
-  while (auto* extra = GetAdditionalComputedStyle(index++)) {
-    if (!aSizes.mState.HaveSeenPtr(extra)) {
-      extra->AddSizeOfIncludingThis(aSizes,
-                                    &aSizes.mLayoutComputedValuesNonDom);
-    }
   }
 
   for (const auto& childList : ChildLists()) {

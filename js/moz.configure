@@ -1102,6 +1102,31 @@ def wasm_custom_page_sizes(value, simulator, target, no_experimental):
 set_config("ENABLE_WASM_CUSTOM_PAGE_SIZES", wasm_custom_page_sizes)
 set_define("ENABLE_WASM_CUSTOM_PAGE_SIZES", wasm_custom_page_sizes)
 
+# Experimental support for GC concurrent marking
+# ==============================================
+
+
+option(
+    "--enable-gc-concurrent-marking",
+    default=False,
+    help="{Enable|Disable} experimental support for GC concurrent marking",
+)
+
+
+@depends("--enable-gc-concurrent-marking", target)
+def gc_concurrent_marking(value, target):
+    if not value:
+        return
+
+    if target.cpu != "x86_64":
+        die("Concurrent marking is only supported on 64 bit x86 platforms")
+
+    return True
+
+
+set_config("JS_GC_CONCURRENT_MARKING", gc_concurrent_marking)
+set_define("JS_GC_CONCURRENT_MARKING", gc_concurrent_marking)
+
 
 # Support for WebAssembly compact imports.
 # ===========================

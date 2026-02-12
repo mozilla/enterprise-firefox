@@ -97,11 +97,6 @@ class SVGFEConvolveMatrixElement final : public SVGFEConvolveMatrixElementBase {
   SVGAnimatedBoolean mBooleanAttributes[1];
   static BooleanInfo sBooleanInfo[1];
 
-  enum { EDGEMODE };
-  SVGAnimatedEnumeration mEnumAttributes[1];
-  static SVGEnumMapping sEdgeModeMap[];
-  static EnumInfo sEnumInfo[1];
-
   enum { RESULT, IN1 };
   SVGAnimatedString mStringAttributes[2];
   static StringInfo sStringInfo[2];
@@ -109,6 +104,11 @@ class SVGFEConvolveMatrixElement final : public SVGFEConvolveMatrixElementBase {
   enum { KERNELMATRIX };
   SVGAnimatedNumberList mNumberListAttributes[1];
   static NumberListInfo sNumberListInfo[1];
+
+  enum { EDGEMODE };
+  SVGAnimatedEnumeration mEnumAttributes[1];
+  static SVGEnumMapping sEdgeModeMap[];
+  static EnumInfo sEnumInfo[1];
 };
 
 }  // namespace mozilla::dom

@@ -407,7 +407,7 @@ PasswordStore.prototype = {
       return;
     }
 
-    this.storage.removeLogin(loginItem, sourceSync);
+    await this.storage.removeLoginAsync(loginItem, sourceSync);
   },
 
   async update(record) {

@@ -14,6 +14,8 @@ const { sinon } = ChromeUtils.importESModule(
 ChromeUtils.defineESModuleGetters(lazy, {
   SpecialMessageActions:
     "resource://messaging-system/lib/SpecialMessageActions.sys.mjs",
+  IPPEnrollAndEntitleManager:
+    "moz-src:///browser/components/ipprotection/IPPEnrollAndEntitleManager.sys.mjs",
 });
 
 const FEATURE_PREF = "browser.ipProtection.enabled";
@@ -27,6 +29,23 @@ const AUTOSTART_PRIVATE_PREF = "browser.ipProtection.autoStartPrivateEnabled";
 const ONBOARDING_MESSAGE_MASK_PREF =
   "browser.ipProtection.onboardingMessageMask";
 const ENTITLEMENT_CACHE_PREF = "browser.ipProtection.entitlementCache";
+const IPP_ADDED_PREF = "browser.ipProtection.added";
+const IPP_STATE_CACHE_PREF = "browser.ipProtection.stateCache";
+const IPP_PANEL_OPEN_COUNT_PREF = "browser.ipProtection.panelOpenCount";
+const IPP_CACHE_DISABLED_PREF = "browser.ipProtection.cacheDisabled";
+
+add_setup(async function ippSetup() {
+  await SpecialPowers.pushPrefEnv({
+    set: [[IPP_CACHE_DISABLED_PREF, true]],
+  });
+
+  registerCleanupFunction(async () => {
+    Services.prefs.clearUserPref(ONBOARDING_MESSAGE_MASK_PREF);
+    Services.prefs.clearUserPref(IPP_ADDED_PREF);
+    Services.prefs.clearUserPref(IPP_STATE_CACHE_PREF);
+    Services.prefs.clearUserPref(IPP_PANEL_OPEN_COUNT_PREF);
+  });
+});
 
 async function setupVpnPrefs({
   feature = false,
@@ -401,11 +420,16 @@ add_task(async function test_not_opted_in_section_visible_when_null() {
   );
 });
 
-// Test that clicking the "Get started" button calls fxaSignInFlow
+// Test that clicking the "Get started" button start the optin flow.
 add_task(async function test_get_started_button() {
   let sandbox = sinon.createSandbox();
   sandbox
     .stub(lazy.SpecialMessageActions, "fxaSignInFlow")
+    .callsFake(async function () {
+      return true;
+    });
+  sandbox
+    .stub(lazy.IPPEnrollAndEntitleManager, "maybeEnrollAndEntitle")
     .callsFake(async function () {
       return true;
     });
@@ -425,14 +449,36 @@ add_task(async function test_get_started_button() {
         "Get started button is shown when entitlementCache is null"
       );
 
+      const waitForPanelShown = BrowserTestUtils.waitForEvent(
+        browser.ownerGlobal.document,
+        "popupshown",
+        false,
+        event => {
+          if (event.target.getAttribute("viewId") === "PanelUI-ipprotection") {
+            return true;
+          }
+          return false;
+        }
+      );
+
       getStartedButton.click();
+
+      await waitForPanelShown;
 
       Assert.ok(
         lazy.SpecialMessageActions.fxaSignInFlow.calledOnce,
         "fxaSignInFlow should be called once when Get started button is clicked"
       );
+
+      Assert.ok(
+        lazy.IPPEnrollAndEntitleManager.maybeEnrollAndEntitle.calledOnce,
+        "maybeEnrollAndEntitle should be called once when Get started button is clicked"
+      );
     }
   );
+
+  // Clean up
+  EventUtils.synthesizeKey("KEY_Escape");
 
   sandbox.restore();
 });

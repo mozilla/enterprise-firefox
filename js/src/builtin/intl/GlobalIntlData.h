@@ -15,19 +15,17 @@
 
 class JS_PUBLIC_API JSTracer;
 
-namespace js {
-class CollatorObject;
-class DateTimeFormatObject;
-class NumberFormatObject;
-
-namespace temporal {
+namespace js::temporal {
 class TimeZoneObject;
 }
-}  // namespace js
 
 namespace js::intl {
 
 enum class DateTimeFormatKind;
+
+class CollatorObject;
+class DateTimeFormatObject;
+class NumberFormatObject;
 
 /**
  * Cached per-global Intl data. In contrast to SharedIntlData, which is

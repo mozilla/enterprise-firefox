@@ -83,6 +83,10 @@ static constexpr RelationData kRelationTypeAtoms[] = {
      RelationType::CONTROLLER_FOR},
     {nsGkAtoms::aria_describedby, nullptr, RelationType::DESCRIBED_BY,
      RelationType::DESCRIPTION_FOR},
+    {nsGkAtoms::commandfor, nullptr, RelationType::DESCRIBED_BY,
+     RelationType::DESCRIPTION_FOR},
+    {nsGkAtoms::popovertarget, nullptr, RelationType::DESCRIBED_BY,
+     RelationType::DESCRIPTION_FOR},
     {nsGkAtoms::aria_flowto, nullptr, RelationType::FLOWS_TO,
      RelationType::FLOWS_FROM},
     {nsGkAtoms::aria_details, nullptr, RelationType::DETAILS,
@@ -222,6 +226,11 @@ class CacheKey {
   // nsAtom, CacheUpdateType::Initial
   // The type of a popup (used for HTML popover).
   static constexpr nsStaticAtom* PopupType = nsGkAtoms::ispopup;
+  // bool, CacheDomain::Relations
+  // Whether popovertarget/commandfor should expose a DETAILS relation (true)
+  // or DESCRIBED_BY relation (false). Only meaningful when popovertarget or
+  // commandfor is cached.
+  static constexpr nsStaticAtom* PopoverInvokerIsDetails = nsGkAtoms::details;
   // nsAtom, CacheDomain::Actions
   static constexpr nsStaticAtom* PrimaryAction = nsGkAtoms::action;
   // float, no domain

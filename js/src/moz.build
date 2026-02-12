@@ -276,6 +276,11 @@ UNIFIED_SOURCES += [
     "jsfriendapi.cpp",
 ]
 
+# Must be in SOURCES so that Glean symbols from xul will take priority over the
+# no-op symbols implemented in jsglean.cpp
+SOURCES += [
+    "jsglean.cpp",
+]
 
 if CONFIG["MOZ_INSTRUMENTS"]:
     OS_LIBS += ["-framework CoreFoundation"]
@@ -299,6 +304,23 @@ DIRS += [
     "wasm",
     "xsum",
 ]
+
+# Glean integration
+if CONFIG["JS_STANDALONE"]:
+    # For MetricTypes.h and related headers
+    include("/toolkit/components/glean/glean.mozbuild")
+
+    glean_parser_flags = [CONFIG["MOZ_APP_VERSION"]]
+    tags_yamls = [
+        "/toolkit/components/glean/tags.yaml",
+    ]
+    GeneratedFile(
+        "JsSrcMetrics.h",
+        script="/toolkit/components/glean/build_scripts/glean_parser_ext/run_glean_parser.py",
+        flags=glean_parser_flags,
+        inputs=["metrics.yaml"] + tags_yamls,
+    )
+    EXPORTS.mozilla.glean += ["!JsSrcMetrics.h"]
 
 if CONFIG["JS_HAS_CTYPES"]:
     DIRS += ["ctypes"]

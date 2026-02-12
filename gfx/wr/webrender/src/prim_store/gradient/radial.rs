@@ -97,7 +97,7 @@ pub struct RadialGradientTemplate {
     pub common: PrimTemplateCommonData,
     pub extend_mode: ExtendMode,
     pub params: RadialGradientParams,
-    pub center: DevicePoint,
+    pub center: LayoutPoint,
     pub task_size: DeviceIntSize,
     pub scale: DeviceVector2D,
     pub stretch_size: LayoutSize,
@@ -119,9 +119,14 @@ impl PatternBuilder for RadialGradientTemplate {
         // of the render task for cached gradients. Here we aren't applying any.
         let no_scale = DeviceVector2D::one();
 
+        // RadialGradientTemplate stores the center point relative to the primitive
+        // origin, but the shader works with start/end points in "proper" layout
+        // coordinates (relative to the primitive's spatial node).
+        let center = self.center.cast_unit() + self.common.prim_rect.min.to_vector();
+
         if ctx.fb_config.precise_radial_gradients {
             radial_gradient_pattern(
-                self.center,
+                center,
                 no_scale,
                 &self.params,
                 self.extend_mode,
@@ -131,7 +136,7 @@ impl PatternBuilder for RadialGradientTemplate {
             )
         } else {
             radial_gradient_pattern_with_table(
-                self.center,
+                center,
                 no_scale,
                 &self.params,
                 self.extend_mode,
@@ -205,7 +210,7 @@ impl From<RadialGradientKey> for RadialGradientTemplate {
 
         RadialGradientTemplate {
             common,
-            center: DevicePoint::new(item.center.x, item.center.y),
+            center: item.center.into(),
             extend_mode: item.extend_mode,
             params: item.params,
             stretch_size,
@@ -277,7 +282,10 @@ impl RadialGradientTemplate {
                     task_size,
                     RenderTaskKind::RadialGradient(RadialGradientTask {
                         extend_mode: self.extend_mode,
-                        center: self.center,
+                        // In this code path we chose to render the gradient as if
+                        // layout coordinates were equivalent to device coordinates.
+                        // This can lead to loss of precision.
+                        center: self.center.cast_unit(),
                         scale: self.scale,
                         params: self.params.clone(),
                         stops,
@@ -571,7 +579,7 @@ pub fn optimize_radial_gradient(
 }
 
 pub fn radial_gradient_pattern_with_table(
-    center: DevicePoint,
+    center: LayoutPoint,
     scale: DeviceVector2D,
     params: &RadialGradientParams,
     extend_mode: ExtendMode,
@@ -614,7 +622,7 @@ pub fn radial_gradient_pattern_with_table(
 }
 
 pub fn radial_gradient_pattern(
-    center: DevicePoint,
+    center: LayoutPoint,
     scale: DeviceVector2D,
     params: &RadialGradientParams,
     extend_mode: ExtendMode,

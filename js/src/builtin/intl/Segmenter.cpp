@@ -548,7 +548,7 @@ static UniqueICU4XLocale CreateICU4XLocale(JSContext* cx,
 
   icu4x::capi::icu4x_Locale_from_string_mv1_result result{};
   {
-    intl::StringAsciiChars chars(linear);
+    StringAsciiChars chars(linear);
     if (!chars.init(cx)) {
       return nullptr;
     }
@@ -559,7 +559,7 @@ static UniqueICU4XLocale CreateICU4XLocale(JSContext* cx,
   }
 
   if (!result.is_ok) {
-    intl::ReportInternalError(cx);
+    ReportInternalError(cx);
     return nullptr;
   }
   return UniqueICU4XLocale{result.ok};
@@ -586,7 +586,7 @@ static typename Interface::Segmenter* CreateSegmenter(
 
   auto result = Interface::create(loc.get());
   if (!result.is_ok) {
-    intl::ReportInternalError(cx);
+    ReportInternalError(cx);
     return nullptr;
   }
   return result.ok;
@@ -741,10 +741,10 @@ void SegmentsObject::finalize(JS::GCContext* gcx, JSObject* obj) {
   if (auto chars = segments->getStringChars()) {
     size_t length = segments->getString()->length();
     if (chars.has<JS::Latin1Char>()) {
-      intl::RemoveICUCellMemory(gcx, segments, length * sizeof(JS::Latin1Char));
+      RemoveICUCellMemory(gcx, segments, length * sizeof(JS::Latin1Char));
       js_free(chars.data<JS::Latin1Char>());
     } else {
-      intl::RemoveICUCellMemory(gcx, segments, length * sizeof(char16_t));
+      RemoveICUCellMemory(gcx, segments, length * sizeof(char16_t));
       js_free(chars.data<char16_t>());
     }
   }
@@ -762,10 +762,10 @@ void SegmentIteratorObject::finalize(JS::GCContext* gcx, JSObject* obj) {
   if (auto chars = iterator->getStringChars()) {
     size_t length = iterator->getString()->length();
     if (chars.has<JS::Latin1Char>()) {
-      intl::RemoveICUCellMemory(gcx, iterator, length * sizeof(JS::Latin1Char));
+      RemoveICUCellMemory(gcx, iterator, length * sizeof(JS::Latin1Char));
       js_free(chars.data<JS::Latin1Char>());
     } else {
-      intl::RemoveICUCellMemory(gcx, iterator, length * sizeof(char16_t));
+      RemoveICUCellMemory(gcx, iterator, length * sizeof(char16_t));
       js_free(chars.data<char16_t>());
     }
   }
@@ -837,7 +837,7 @@ static bool EnsureStringChars(JSContext* cx, Handle<T*> segments) {
     }
     segments->setStringChars(SegmentsStringChars{chars.release()});
 
-    intl::AddICUCellMemory(segments, length * sizeof(JS::Latin1Char));
+    AddICUCellMemory(segments, length * sizeof(JS::Latin1Char));
   } else {
     auto chars = DuplicateString(cx, string->twoByteChars(nogc), length);
     if (!chars) {
@@ -845,7 +845,7 @@ static bool EnsureStringChars(JSContext* cx, Handle<T*> segments) {
     }
     segments->setStringChars(SegmentsStringChars{chars.release()});
 
-    intl::AddICUCellMemory(segments, length * sizeof(char16_t));
+    AddICUCellMemory(segments, length * sizeof(char16_t));
   }
   return true;
 }

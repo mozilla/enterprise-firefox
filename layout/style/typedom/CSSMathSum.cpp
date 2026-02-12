@@ -8,6 +8,7 @@
 
 #include "mozilla/AlreadyAddRefed.h"
 #include "mozilla/ErrorResult.h"
+#include "mozilla/ServoStyleConsts.h"
 #include "mozilla/dom/BindingDeclarations.h"
 #include "mozilla/dom/CSSMathSumBinding.h"
 #include "mozilla/dom/CSSNumericArray.h"
@@ -19,8 +20,27 @@ namespace mozilla::dom {
 
 CSSMathSum::CSSMathSum(nsCOMPtr<nsISupports> aParent,
                        RefPtr<CSSNumericArray> aValues)
-    : CSSMathValue(std::move(aParent), ValueType::MathSum),
+    : CSSMathValue(std::move(aParent), NumericValueType::MathSum),
       mValues(std::move(aValues)) {}
+
+// static
+RefPtr<CSSMathSum> CSSMathSum::Create(nsCOMPtr<nsISupports> aParent,
+                                      const StyleMathSum& aMathSum) {
+  nsTArray<RefPtr<CSSNumericValue>> values;
+
+  for (const auto& value : aMathSum.values) {
+    // XXX Only supporting units for now
+    if (value.IsUnit()) {
+      auto unitValue = value.AsUnit();
+
+      values.AppendElement(CSSUnitValue::Create(aParent, unitValue));
+    }
+  }
+
+  auto array = MakeRefPtr<CSSNumericArray>(aParent, std::move(values));
+
+  return MakeRefPtr<CSSMathSum>(aParent, std::move(array));
+}
 
 NS_IMPL_ISUPPORTS_CYCLE_COLLECTION_INHERITED_0(CSSMathSum, CSSMathValue)
 NS_IMPL_CYCLE_COLLECTION_INHERITED(CSSMathSum, CSSMathValue, mValues)
@@ -104,8 +124,14 @@ void CSSMathSum::ToCssTextWithProperty(const CSSPropertyId& aPropertyId,
   aDest.Append(")"_ns);
 }
 
-CSSMathSum& CSSStyleValue::GetAsCSSMathSum() {
-  MOZ_DIAGNOSTIC_ASSERT(mValueType == ValueType::MathSum);
+const CSSMathSum& CSSNumericValue::GetAsCSSMathSum() const {
+  MOZ_DIAGNOSTIC_ASSERT(mNumericValueType == NumericValueType::MathSum);
+
+  return *static_cast<const CSSMathSum*>(this);
+}
+
+CSSMathSum& CSSNumericValue::GetAsCSSMathSum() {
+  MOZ_DIAGNOSTIC_ASSERT(mNumericValueType == NumericValueType::MathSum);
 
   return *static_cast<CSSMathSum*>(this);
 }

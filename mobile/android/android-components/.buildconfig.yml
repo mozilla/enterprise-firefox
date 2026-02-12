@@ -467,6 +467,12 @@ projects:
     - components:support-base
     - components:support-test
     - components:tooling-lint
+  components:concept-integrity:
+    description: A concept for verifying the integrity of an installation
+    path: components/concept/integrity
+    publish: true
+    upstream_dependencies:
+    - components:tooling-lint
   components:concept-llm:
     description: An abstract definition of an LLM request.
     path: components/concept/llm
@@ -1182,6 +1188,7 @@ projects:
     - components:support-base
     - components:support-ktx
     - components:support-test
+    - components:support-test-libstate
     - components:support-utils
     - components:support-webextensions
     - components:tooling-lint
@@ -1378,6 +1385,7 @@ projects:
     - components:support-images
     - components:support-ktx
     - components:support-test
+    - components:support-test-libstate
     - components:support-utils
     - components:tooling-lint
     - components:ui-autocomplete
@@ -1390,14 +1398,21 @@ projects:
     path: components/feature/summarize
     publish: true
     upstream_dependencies:
+    - components:browser-errorpages
+    - components:compose-base
     - components:concept-base
+    - components:concept-engine
     - components:concept-fetch
+    - components:concept-storage
     - components:lib-publicsuffixlist
     - components:lib-state
     - components:support-base
     - components:support-ktx
+    - components:support-test-fakes
     - components:support-utils
     - components:tooling-lint
+    - components:ui-colors
+    - components:ui-icons
   components:feature-syncedtabs:
     description: Feature that provides access to other devices' tabs in the same account.
     path: components/feature/syncedtabs
@@ -1526,6 +1541,7 @@ projects:
     - components:support-base
     - components:support-ktx
     - components:support-test
+    - components:support-test-libstate
     - components:support-utils
     - components:tooling-lint
     - components:ui-icons
@@ -1659,6 +1675,11 @@ projects:
     path: components/lib/accelerometer-sensormanager
     publish: true
     upstream_dependencies:
+    - components:concept-accelerometer
+    - components:concept-base
+    - components:concept-fetch
+    - components:support-base
+    - components:support-test
     - components:tooling-lint
   components:lib-auth:
     description: A component for various kinds of authentication mechanisms.
@@ -1738,6 +1759,18 @@ projects:
     - components:support-test
     - components:tooling-fetch-tests
     - components:tooling-lint
+  components:lib-integrity-googleplay:
+    description: A library for verifying the integrity of an installation using Google
+      Play
+    path: components/lib/integrity-googleplay
+    publish: true
+    upstream_dependencies:
+    - components:concept-base
+    - components:concept-fetch
+    - components:concept-integrity
+    - components:support-base
+    - components:support-test
+    - components:tooling-lint
   components:lib-jexl:
     description: 'Javascript Expression Language: Powerful context-based expression
       parser and evaluator.'
@@ -1789,6 +1822,11 @@ projects:
     path: components/lib/shake
     publish: true
     upstream_dependencies:
+    - components:concept-accelerometer
+    - components:concept-base
+    - components:concept-fetch
+    - components:support-base
+    - components:support-test
     - components:tooling-lint
   components:lib-state:
     description: A library for maintaining application state.
@@ -2166,6 +2204,7 @@ projects:
     - components:service-firefox-accounts
     - components:support-base
     - components:support-ktx
+    - components:support-test
     - components:support-utils
     - components:tooling-lint
     - components:ui-colors
@@ -2283,6 +2322,7 @@ projects:
     - components:lib-publicsuffixlist
     - components:support-base
     - components:support-ktx
+    - components:support-test
     - components:support-utils
     - components:tooling-lint
   components:support-android-test:

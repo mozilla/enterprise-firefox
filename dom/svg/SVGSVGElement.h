@@ -10,6 +10,7 @@
 #include "SVGAnimatedEnumeration.h"
 #include "SVGViewportElement.h"
 #include "mozilla/SVGImageContext.h"
+#include "nsString.h"
 
 nsresult NS_NewSVGSVGElement(
     nsIContent** aResult, already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo,
@@ -40,10 +41,10 @@ class SVGView {
  public:
   SVGView();
 
-  SVGAnimatedEnumeration mZoomAndPan;
   SVGAnimatedViewBox mViewBox;
-  SVGAnimatedPreserveAspectRatio mPreserveAspectRatio;
   std::unique_ptr<SVGAnimatedTransformList> mTransforms;
+  SVGAnimatedPreserveAspectRatio mPreserveAspectRatio;
+  SVGAnimatedEnumeration mZoomAndPan;
 };
 
 using SVGSVGElementBase = SVGViewportElement;
@@ -127,16 +128,16 @@ class SVGSVGElement final : public SVGSVGElementBase {
 
   nsresult BindToTree(BindContext&, nsINode& aParent) override;
   void UnbindFromTree(UnbindContext&) override;
-  SVGAnimatedTransformList* GetExistingAnimatedTransformList() const override;
-  SVGAnimatedTransformList* GetOrCreateAnimatedTransformList() override;
 
   // SVGSVGElement methods:
 
   // Returns true IFF our attributes are currently overridden by a <view>
   // element and that element's ID matches the passed-in string.
   bool IsOverriddenBy(const nsAString& aViewID) const {
-    return mCurrentViewID && mCurrentViewID->Equals(aViewID);
+    return !mCurrentViewID.IsVoid() && mCurrentViewID.Equals(aViewID);
   }
+
+  SVGAnimatedTransformList* GetViewTransformList() const;
 
   SMILTimeContainer* GetTimedDocumentRoot();
 
@@ -199,17 +200,17 @@ class SVGSVGElement final : public SVGSVGElementBase {
 
   EnumAttributesInfo GetEnumInfo() override;
 
-  enum { ZOOMANDPAN };
-  SVGAnimatedEnumeration mEnumAttributes[1];
-  static SVGEnumMapping sZoomAndPanMap[];
-  static EnumInfo sEnumInfo[1];
-
   // The time container for animations within this SVG document fragment. Set
   // for all outermost <svg> elements (not nested <svg> elements).
   std::unique_ptr<SMILTimeContainer> mTimedDocumentRoot;
 
   SVGPoint mCurrentTranslate;
   float mCurrentScale;
+
+  enum { ZOOMANDPAN };
+  SVGAnimatedEnumeration mEnumAttributes[1];
+  static SVGEnumMapping sZoomAndPanMap[];
+  static EnumInfo sEnumInfo[1];
 
   // For outermost <svg> elements created from parsing, animation is started by
   // the onload event in accordance with the SVG spec, but for <svg> elements
@@ -219,9 +220,8 @@ class SVGSVGElement final : public SVGSVGElementBase {
 
   bool mImageNeedsTransformInvalidation;
 
-  // mCurrentViewID and mSVGView are mutually exclusive; we can have
-  // at most one non-null.
-  std::unique_ptr<nsString> mCurrentViewID;
+  // mCurrentViewID and mSVGView are mutually exclusive.
+  nsString mCurrentViewID = VoidString();
   std::unique_ptr<SVGView> mSVGView;
 };
 

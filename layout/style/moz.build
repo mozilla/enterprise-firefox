@@ -50,19 +50,16 @@ XPIDL_MODULE = "layout_style"
 
 EXPORTS += [
     "!NonCustomCSSPropertyId.h",
+    "!PseudoStyleTypeList.h",
     "AnimationCommon.h",
     "CounterStyleManager.h",
     "nsAnimationManager.h",
     "nsChangeHint.h",
     "nsComputedDOMStyle.h",
-    "nsCSSAnonBoxes.h",
-    "nsCSSAnonBoxList.h",
     "nsCSSCounterDescList.inc",
     "nsCSSFontDescList.inc",
     "nsCSSPropertyIDSet.h",
     "nsCSSProps.h",
-    "nsCSSPseudoElementList.inc",
-    "nsCSSPseudoElements.h",
     "nsCSSValue.h",
     "nsDOMCSSAttrDeclaration.h",
     "nsDOMCSSDeclaration.h",
@@ -82,6 +79,7 @@ EXPORTS += [
 ]
 
 EXPORTS.mozilla += [
+    "!PseudoStyleTypeList.h",
     "!ServoCSSPropList.h",
     "AnimatedPropertyIDSet.h",
     "AnimationCollection.h",
@@ -108,6 +106,7 @@ EXPORTS.mozilla += [
     "PostTraversalTask.h",
     "PreferenceSheet.h",
     "PreloadedStyleSheet.h",
+    "PseudoStyleRequest.h",
     "PseudoStyleType.h",
     "RestyleManager.h",
     "RustCell.h",
@@ -247,9 +246,7 @@ UNIFIED_SOURCES += [
     "MediaQueryList.cpp",
     "nsAnimationManager.cpp",
     "nsComputedDOMStyle.cpp",
-    "nsCSSAnonBoxes.cpp",
     "nsCSSProps.cpp",
-    "nsCSSPseudoElements.cpp",
     "nsCSSValue.cpp",
     "nsDOMCSSAttrDeclaration.cpp",
     "nsDOMCSSDeclaration.cpp",
@@ -333,7 +330,11 @@ GeneratedFile(
     script="GenerateCSSProperties.py",
     entry_point="gen_css_prop_list_header",
 )
-
+GeneratedFile(
+    "PseudoStyleTypeList.h",
+    script="GeneratePseudoStyleTypeList.py",
+    entry_point="generate",
+)
 
 if CONFIG["COMPILE_ENVIRONMENT"]:
     EXPORTS.mozilla += [

@@ -364,6 +364,12 @@ export class LoginManagerStorage_json {
     lazy.LoginHelper.notifyStorageChanged("removeLogin", storedLogin);
   }
 
+  async removeLoginAsync(login, fromSync) {
+    let result = this.removeLogin(login, fromSync);
+    // Emulate being async:
+    return Promise.resolve(result);
+  }
+
   modifyLogin(oldLogin, newLoginData, fromSync) {
     this._store.ensureDataReady();
 

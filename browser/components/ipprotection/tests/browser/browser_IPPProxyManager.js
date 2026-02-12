@@ -11,7 +11,7 @@ const { IPProtectionServerlist } = ChromeUtils.importESModule(
 add_task(async function test_IPPProxyManager_handleProxyErrorEvent() {
   setupService({
     isSignedIn: true,
-    canEnroll: true,
+    isEnrolledAndEntitled: true,
   });
 
   IPProtectionService.updateState();
@@ -141,7 +141,7 @@ add_task(async function test_IPPProxyManager_bug_1999946() {
 
   setupService({
     isSignedIn: true,
-    canEnroll: true,
+    isEnrolledAndEntitled: true,
   });
 
   await SpecialPowers.pushPrefEnv({

@@ -599,7 +599,7 @@ class SystemEngineView @JvmOverloads constructor(
                 session.internalNotifyObservers {
                     val fileName = DefaultDownloadFileUtils(
                         context = context,
-                        downloadLocationGetter = {
+                        downloadLocation = {
                             Environment.getExternalStoragePublicDirectory(
                                 Environment.DIRECTORY_DOWNLOADS,
                             ).path

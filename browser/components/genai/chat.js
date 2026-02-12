@@ -607,3 +607,7 @@ window.onNewPrompt = async function (opt = {}) {
     clearWarningMessage();
   }
 };
+
+window.addEventListener("SidebarFocused", () =>
+  document.querySelector("#browser-container browser").focus()
+);

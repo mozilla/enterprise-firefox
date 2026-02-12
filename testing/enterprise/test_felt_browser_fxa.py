@@ -3,17 +3,27 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+import os
 import sys
+
+sys.path.append(os.path.dirname(__file__))
 
 from felt_tests import FeltTests
 
 
 class BrowserFxAccount(FeltTests):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    EXTRA_PREFS = {
+        "enterprise.loglevel": "Debug",
+        "enterprise.sync.enabledByDefault": False,
+    }
 
-    def test_felt_2_no_fxa_toolbar_button(self, exp):
+    def test_browser_fxa(self):
+        super().run_felt_base()
+        self.run_felt_no_fxa_toolbar_button()
+        self.run_felt_no_fxa_item_in_toolbar_menu()
+        self.run_felt_fxa_endpoints_set()
 
+    def run_felt_no_fxa_toolbar_button(self):
         self.connect_child_browser()
 
         self._child_driver.set_context("chrome")
@@ -31,10 +41,7 @@ class BrowserFxAccount(FeltTests):
             "FxAccount toolbar button shouldn't be visible in the toolbar"
         )
 
-        return True
-
-    def test_felt_3_no_fxa_item_in_toolbar_menu(self, exp):
-
+    def run_felt_no_fxa_item_in_toolbar_menu(self):
         self._child_driver.set_context("chrome")
 
         self._logger.info("Getting menu button")
@@ -42,7 +49,6 @@ class BrowserFxAccount(FeltTests):
         self._logger.info("Clicking menu button to open panel")
         menu_button.click()
         app_menu_main_view = self.get_elem_child("#appMenu-mainView")
-        self._logger.info(app_menu_main_view)
         is_restricted_for_enterprise = app_menu_main_view.get_attribute(
             "restricted-enterprise-view"
         )
@@ -52,9 +58,7 @@ class BrowserFxAccount(FeltTests):
             "App menu main view should have the attribute restricted-enterprise-view to hide fxa status and separator"
         )
 
-        return True
-
-    def test_felt_4_fxa_endpoints_set(self, exp):
+    def run_felt_fxa_endpoints_set(self):
         self._child_driver.set_context("chrome")
         [
             fxaccounts_remote_oauth,
@@ -88,20 +92,4 @@ class BrowserFxAccount(FeltTests):
             == "https://ent-dev-tokenserver.sync.nonprod.webservices.mozgcp.net/1.0/sync/1.5"
         ), f"Sync TokenServer URI correct: {sync_token_server}"
 
-        return True
-
     # More tests to follow once fxa and sync test endpoints are setup
-
-
-if __name__ == "__main__":
-    BrowserFxAccount(
-        "felt_browser_fxa.json",
-        firefox=sys.argv[1],
-        geckodriver=sys.argv[2],
-        profile_root=sys.argv[3],
-        env_vars={"MOZ_FELT_UI": "1"},
-        test_prefs=[
-            ["enterprise.loglevel", "Debug"],
-            ["enterprise.sync.enabledByDefault", False],
-        ],
-    )

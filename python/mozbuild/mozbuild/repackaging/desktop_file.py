@@ -174,6 +174,8 @@ def _get_en_US_brand_fluent_filename(
         return branding_fluent_filename_template.format(brand="official")
     elif release_type == "nightly-enterprise":
         return branding_fluent_filename_template.format(brand="enterprise")
+    elif release_type == "release-enterprise":
+        return branding_fluent_filename_template.format(brand="enterprise")
     else:
         return branding_fluent_filename_template.format(brand="unofficial")
 

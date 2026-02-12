@@ -80,10 +80,14 @@ internal fun AddLoginScreen(store: LoginsStore) {
 private fun AddLoginTopBar(store: LoginsStore) {
     val state by remember { store.stateFlow.map { it.loginsAddLoginState } }
         .collectAsState(store.state.loginsAddLoginState)
+    val newLoginState by remember {
+        store.stateFlow.map { it.newLoginState }
+    }.collectAsState(initial = store.state.newLoginState)
     val host = state?.host ?: ""
     val username = state?.username ?: ""
     val password = state?.password ?: ""
-    val isLoginValid = isValidHost(host) && username.isNotBlank() && password.isNotBlank()
+    val isLoginValid =
+        isValidHost(host) && username.isNotBlank() && newLoginState != NewLoginState.Duplicate && password.isNotBlank()
 
     TopAppBar(
         windowInsets = WindowInsets(

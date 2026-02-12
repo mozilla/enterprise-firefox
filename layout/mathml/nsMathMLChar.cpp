@@ -444,11 +444,6 @@ already_AddRefed<gfxTextRun> nsOpenTypeTable::MakeTextRun(
 
 nsMathMLChar::~nsMathMLChar() { MOZ_COUNT_DTOR(nsMathMLChar); }
 
-ComputedStyle* nsMathMLChar::GetComputedStyle() const {
-  NS_ASSERTION(mComputedStyle, "chars should always have a ComputedStyle");
-  return mComputedStyle;
-}
-
 void nsMathMLChar::SetComputedStyle(ComputedStyle* aComputedStyle) {
   MOZ_ASSERT(aComputedStyle);
   mComputedStyle = aComputedStyle;

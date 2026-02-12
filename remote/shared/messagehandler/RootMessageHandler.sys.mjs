@@ -8,12 +8,16 @@ const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
   NavigationManager: "chrome://remote/content/shared/NavigationManager.sys.mjs",
+  registerWebDriverWorkerListenerActor:
+    "chrome://remote/content/shared/js-process-actors/WebDriverWorkerListenerActor.sys.mjs",
   RootTransport:
     "chrome://remote/content/shared/messagehandler/transports/RootTransport.sys.mjs",
   SessionData:
     "chrome://remote/content/shared/messagehandler/sessiondata/SessionData.sys.mjs",
   SessionDataMethod:
     "chrome://remote/content/shared/messagehandler/sessiondata/SessionData.sys.mjs",
+  unregisterWebDriverWorkerListenerActor:
+    "chrome://remote/content/shared/js-process-actors/WebDriverWorkerListenerActor.sys.mjs",
   WindowGlobalMessageHandler:
     "chrome://remote/content/shared/messagehandler/WindowGlobalMessageHandler.sys.mjs",
 });
@@ -69,6 +73,10 @@ export class RootMessageHandler extends MessageHandler {
     this.#navigationManager = new lazy.NavigationManager();
     this.#navigationManager.startMonitoring();
 
+    // Register js process actors to monitor worker creation and destruction in
+    // all processes.
+    lazy.registerWebDriverWorkerListenerActor();
+
     // Map with inner window ids as keys, and sets of realm ids, associated with
     // this window as values.
     this.#realms = new Map();
@@ -94,6 +102,8 @@ export class RootMessageHandler extends MessageHandler {
   destroy() {
     this.#sessionData.destroy();
     this.#navigationManager.destroy();
+
+    lazy.unregisterWebDriverWorkerListenerActor();
 
     Services.obs.removeObserver(this, "window-global-destroyed");
     this.#realms = null;

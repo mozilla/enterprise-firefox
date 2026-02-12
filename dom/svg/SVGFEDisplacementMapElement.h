@@ -75,14 +75,14 @@ class SVGFEDisplacementMapElement final
   SVGAnimatedNumber mNumberAttributes[1];
   static NumberInfo sNumberInfo[1];
 
+  enum { RESULT, IN1, IN2 };
+  SVGAnimatedString mStringAttributes[3];
+  static StringInfo sStringInfo[3];
+
   enum { CHANNEL_X, CHANNEL_Y };
   SVGAnimatedEnumeration mEnumAttributes[2];
   static SVGEnumMapping sChannelMap[];
   static EnumInfo sEnumInfo[2];
-
-  enum { RESULT, IN1, IN2 };
-  SVGAnimatedString mStringAttributes[3];
-  static StringInfo sStringInfo[3];
 };
 
 }  // namespace mozilla::dom

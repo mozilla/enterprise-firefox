@@ -17,7 +17,6 @@ glob:**/*.rst
 glob:**/*.md
 glob:**/*.mjs
 glob:**/*.js
-glob:**/*.jsm
 glob:**/*.json
 
 # Potential included images. We don't glob all paths in order to avoid importing

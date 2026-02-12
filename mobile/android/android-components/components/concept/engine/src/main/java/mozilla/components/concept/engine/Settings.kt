@@ -118,6 +118,11 @@ abstract class Settings {
     open var historyTrackingDelegate: HistoryTrackingDelegate? by UnsupportedSetting()
 
     /**
+     * Setting to provide a delegate for handling download requests initiated by the engine.
+     */
+    open var downloadDelegate: DownloadDelegate? by UnsupportedSetting()
+
+    /**
      * Setting to control the user agent string.
      */
     open var userAgentString: String? by UnsupportedSetting()
@@ -471,6 +476,7 @@ data class DefaultSettings(
     override var lnaFeatureEnabled: Boolean = false,
     override var crliteChannel: String? = null,
     override var safeBrowsingV5Enabled: Boolean? = null,
+    override var downloadDelegate: DownloadDelegate? = null,
 ) : Settings() {
     override val desktopModeEnabled: Boolean
         get() = getDesktopMode()

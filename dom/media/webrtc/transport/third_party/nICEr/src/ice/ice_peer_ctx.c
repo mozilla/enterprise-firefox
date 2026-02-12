@@ -619,19 +619,6 @@ void nr_ice_peer_ctx_stream_started_checks(nr_ice_peer_ctx *pctx, nr_ice_media_s
     }
   }
 
-void nr_ice_peer_ctx_dump_state(nr_ice_peer_ctx *pctx, int log_level)
-  {
-    nr_ice_media_stream *stream;
-
-    r_log(LOG_ICE,log_level,"PEER %s STATE DUMP",pctx->label);
-    r_log(LOG_ICE,log_level,"==========================================");
-    stream=STAILQ_FIRST(&pctx->peer_streams);
-    while(stream){
-      nr_ice_media_stream_dump_state(pctx,stream,log_level);
-    }
-    r_log(LOG_ICE,log_level,"==========================================");
-  }
-
 void nr_ice_peer_ctx_refresh_consent_all_streams(nr_ice_peer_ctx *pctx)
   {
     nr_ice_media_stream *str;

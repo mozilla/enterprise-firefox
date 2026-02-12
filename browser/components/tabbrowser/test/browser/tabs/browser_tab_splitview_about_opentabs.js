@@ -604,3 +604,89 @@ add_task(async function test_splitview_with_unloaded_tab() {
     BrowserTestUtils.removeTab(gBrowser.tabs.at(-1));
   }
 });
+
+add_task(async function test_about_opentabs_reverts_to_newtab_when_no_tabs() {
+  const tab1 = await addTab();
+  const tab2 = await addTab();
+
+  EventUtils.synthesizeMouseAtCenter(tab1, {});
+
+  let openTabsPromise = BrowserTestUtils.waitForNewTab(
+    gBrowser,
+    "about:opentabs"
+  );
+  let tabContainer = gBrowser.tabContainer;
+  let splitViewCreated = BrowserTestUtils.waitForEvent(
+    tabContainer,
+    "SplitViewCreated"
+  );
+  await withTabMenu(tab1, async moveTabToNewSplitViewItem => {
+    await BrowserTestUtils.waitForMutationCondition(
+      moveTabToNewSplitViewItem,
+      { attributes: true },
+      () =>
+        !moveTabToNewSplitViewItem.hidden &&
+        !moveTabToNewSplitViewItem.disabled,
+      "moveTabToNewSplitViewItem is visible and not disabled"
+    );
+
+    info("Click menu option to add new split view");
+    moveTabToNewSplitViewItem.click();
+    await splitViewCreated;
+    await openTabsPromise;
+    info("about:opentabs has been opened");
+  });
+
+  let splitview = tab1.splitview;
+  let aboutOpenTabsTab = gBrowser.selectedTab;
+
+  Assert.equal(
+    aboutOpenTabsTab.linkedBrowser.currentURI.spec,
+    "about:opentabs",
+    "about:opentabs is the selected tab"
+  );
+
+  let aboutOpenTabsDocument = aboutOpenTabsTab.linkedBrowser.contentDocument;
+  let openTabsComponent = await TestUtils.waitForCondition(
+    () => aboutOpenTabsDocument.querySelector("splitview-opentabs"),
+    "Open tabs component rendered"
+  );
+  await TestUtils.waitForCondition(
+    () => openTabsComponent.nonSplitViewUnpinnedTabs?.length,
+    "Open tabs component has rendered items"
+  );
+
+  let availableTabs = openTabsComponent.nonSplitViewUnpinnedTabs;
+  Assert.greaterOrEqual(
+    availableTabs.length,
+    1,
+    `At least 1 tab is shown in the open tabs list (found ${availableTabs.length})`
+  );
+  Assert.ok(
+    availableTabs.includes(tab2),
+    "tab2 is in the list of available tabs"
+  );
+
+  info(
+    `Remove all ${availableTabs.length} available tabs to trigger navigation to about:newtab`
+  );
+  for (let tab of availableTabs) {
+    BrowserTestUtils.removeTab(tab);
+  }
+
+  await TestUtils.waitForCondition(
+    () => aboutOpenTabsTab.linkedBrowser.currentURI.spec === "about:newtab",
+    "about:opentabs has been automatically replaced with about:newtab"
+  );
+
+  Assert.equal(
+    aboutOpenTabsTab.linkedBrowser.currentURI.spec,
+    "about:newtab",
+    "The tab now shows about:newtab since there are no tabs to display"
+  );
+
+  splitview.unsplitTabs();
+  while (gBrowser.tabs.length > 1) {
+    BrowserTestUtils.removeTab(gBrowser.tabs.at(-1));
+  }
+});

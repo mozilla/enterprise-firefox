@@ -27,6 +27,7 @@
 #include "vm/JSObject-inl.h"
 
 using namespace js;
+using namespace js::intl;
 
 void js::intl::GlobalIntlData::resetCollator() {
   collatorLocale_ = nullptr;

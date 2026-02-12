@@ -1113,7 +1113,11 @@ class OutputParser {
     this.#appendNode(
       "span",
       {
-        class: attrValue === null ? options.unmatchedClass : undefined,
+        class: `inspector-attribute${attrValue === null ? " " + options.unmatchedClass : ""}`,
+        "data-attribute":
+          attrValue === null
+            ? STYLE_INSPECTOR_L10N.getFormatStr("rule.attributeUnset", attrName)
+            : `"${attrValue}"`,
       },
       attrName
     );
@@ -1138,7 +1142,7 @@ class OutputParser {
         this.#appendNode(
           "span",
           {
-            class: attrValue !== null ? options.unmatchedClass : undefined,
+            class: `inspector-attr-fallback${attrValue !== null ? " " + options.unmatchedClass : ""}`,
           },
           t.text
         );

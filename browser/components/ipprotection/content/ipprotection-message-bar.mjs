@@ -19,8 +19,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
  */
 export default class IPProtectionMessageBarElement extends MozLitElement {
   #MESSAGE_TYPE_MAP = new Map([
-    ["generic-error", () => this.genericErrorTemplate()],
-
     ["info", () => this.infoMessageTemplate()],
     ["warning", () => this.warningMessageTemplate()],
   ]);
@@ -66,17 +64,6 @@ export default class IPProtectionMessageBarElement extends MozLitElement {
     this.dispatchEvent(
       new CustomEvent(this.DISMISS_EVENT, { bubbles: true, composed: true })
     );
-  }
-
-  genericErrorTemplate() {
-    return html`
-      <moz-message-bar
-        type="error"
-        data-l10n-id=${ifDefined(this.messageId)}
-        dismissable
-      >
-      </moz-message-bar>
-    `;
   }
 
   infoMessageTemplate() {

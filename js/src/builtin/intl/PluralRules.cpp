@@ -300,7 +300,7 @@ static bool PluralRules(JSContext* cx, unsigned argc, Value* vp) {
   return true;
 }
 
-void js::PluralRulesObject::finalize(JS::GCContext* gcx, JSObject* obj) {
+void js::intl::PluralRulesObject::finalize(JS::GCContext* gcx, JSObject* obj) {
   auto* pluralRules = &obj->as<PluralRulesObject>();
 
   if (auto* options = pluralRules->getOptions()) {

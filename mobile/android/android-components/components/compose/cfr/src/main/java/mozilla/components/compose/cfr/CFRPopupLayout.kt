@@ -17,7 +17,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -27,7 +26,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -69,20 +67,7 @@ fun CFRPopupLayout(
                 onCFRShown()
             }
 
-            var popup by remember { mutableStateOf<CFRPopup?>(null) }
-            val configuration = LocalConfiguration.current
-            var anchorView: View? by remember { mutableStateOf(null) }
-            AndroidView(
-                modifier = Modifier.fillMaxSize(),
-                factory = { context ->
-                    View(context).also {
-                        anchorView = it
-                    }
-                },
-                onRelease = {
-                    anchorView = null
-                },
-            )
+            var popup: CFRPopup? = null
 
             val invokeDismiss: DismissAction = {
                 if (!hasDismissedCFR) {
@@ -91,25 +76,33 @@ fun CFRPopupLayout(
                 popup = null
             }
 
-            DisposableEffect(configuration, anchorView) {
-                val anchor = anchorView ?: return@DisposableEffect onDispose {}
-
-                popup = CFRPopup(
-                    anchor = anchor,
-                    properties = properties,
-                    onDismiss = { dismissFromButton ->
-                        onDismiss(dismissFromButton)
-                        hasDismissedCFR = true
-                    },
-                    title = title,
-                    text = text,
-                    action = {
-                        action(invokeDismiss)
-                    },
-                ).also { it.show() }
-
-                onDispose { invokeDismiss() }
-            }
+            AndroidView(
+                modifier = Modifier.fillMaxSize(),
+                factory = { context ->
+                    View(context).also {
+                        popup = CFRPopup(
+                            anchor = it,
+                            properties = properties,
+                            onDismiss = { dismissFromButton ->
+                                onDismiss(dismissFromButton)
+                                hasDismissedCFR = true
+                            },
+                            title = title,
+                            text = text,
+                            action = {
+                                action(invokeDismiss)
+                            },
+                        )
+                    }
+                },
+                onRelease = {
+                    invokeDismiss()
+                },
+                update = {
+                    popup?.dismiss()
+                    popup?.show()
+                },
+            )
         }
 
         anchorContent()

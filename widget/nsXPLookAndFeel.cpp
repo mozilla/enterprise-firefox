@@ -800,8 +800,8 @@ Maybe<nscolor> nsXPLookAndFeel::GenericDarkColor(ColorID aID) {
       color = NS_RGB(0xb1, 0xb1, 0xb1);
       break;
     case ColorID::MozCellhighlight:
-    case ColorID::Selecteditem:
-      color = NS_RGBA(249, 249, 250, 26);
+    case ColorID::Selecteditem:  // --color-accent-primary-selected
+      color = NS_RGB(0, 221, 255);
       break;
     case ColorID::MozSidebar:
     case ColorID::Field:
@@ -839,7 +839,7 @@ Maybe<nscolor> nsXPLookAndFeel::GenericDarkColor(ColorID aID) {
     case ColorID::Linktext:
       // If you change this color, you probably also want to change the default
       // value of browser.anchor_color.dark.
-      color = NS_RGB(0x8c, 0x8c, 0xff);
+      color = NS_RGB(0x00, 0xca, 0xdb);
       break;
     case ColorID::Activetext:
     case ColorID::SpellCheckerUnderline:

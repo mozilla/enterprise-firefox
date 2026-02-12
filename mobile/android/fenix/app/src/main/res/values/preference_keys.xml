@@ -73,6 +73,7 @@
     <string name="pref_key_install_pwa_visits" translatable="false">pref_key_install_pwa_visits</string>
     <string name="pref_key_times_app_opened" translatable="false">pref_key_times_app_opened</string>
     <string name="pref_key_custom_review_prompt_enabled" translatable="false">pref_key_custom_review_prompt_enabled</string>
+    <string name="pref_key_custom_review_prompt_ui_enabled" translatable="false">pref_key_custom_review_prompt_ui_enabled</string>
     <string name="pref_key_last_browse_activity_time" translatable="false">pref_key_last_browse_activity_time</string>
     <string name="pref_key_last_cfr_shown_time" translatable="false">pref_key_last_cfr_shown_time</string>
     <string name="pref_key_re_engagement_notification_shown" translatable="false">pref_key_re_engagement_notification_shown</string>
@@ -427,7 +428,6 @@
     <!-- Pocket -->
     <string name="pref_key_pocket_homescreen_recommendations" translatable="false">pref_key_pocket_homescreen_recommendations</string>
     <string name="pref_key_pocket_sponsored_stories" translatable="false">pref_key_pocket_sponsored_stories</string>
-    <string name="pref_key_pocket_sponsored_stories_profile" translatable="false">pref_key_pocket_sponsored_stories_profile</string>
 
     <!-- Secret Info Setting Keys -->
     <string name="pref_key_secret_debug_info" translatable="false">pref_key_secret_debug_info</string>
@@ -439,11 +439,6 @@
     <string name="pref_key_nimbus_use_preview" translatable="false">pref_key_nimbus_use_preview</string>
     <string name="pref_key_history_metadata_feature" translatable="false">pref_key_history_metadata_feature</string>
     <string name="pref_key_custom_glean_server_url" translatable="false">pref_key_custom_glean_server_url</string>
-    <string name="pref_key_custom_sponsored_stories_parameters" translatable="false">pref_key_custom_sponsored_stories_parameters</string>
-    <string name="pref_key_custom_sponsored_stories_parameters_enabled" translatable="false">pref_key_custom_sponsored_stories_parameters_enabled</string>
-    <string name="pref_key_custom_sponsored_stories_site_id" translatable="false">pref_key_custom_sponsored_stories_site_id</string>
-    <string name="pref_key_custom_sponsored_stories_country" translatable="false">pref_key_custom_sponsored_stories_country</string>
-    <string name="pref_key_custom_sponsored_stories_city" translatable="false">pref_key_custom_sponsored_stories_city</string>
     <string name="pref_key_enable_homepage_searchbar" translatable="false">pref_key_enable_homepage_searchbar</string>
     <string name="pref_key_should_show_custom_tab_extensions" translatable="false">pref_key_should_show_custom_tab_extensions</string>
     <string name="pref_key_enable_homepage_as_new_tab" translatable="false">pref_key_enable_homepage_as_new_tab</string>
@@ -480,6 +475,12 @@
     <string name="pref_key_growth_resume_last_sent" translatable="false">pref_key_growth_last_resumed</string>
     <string name="pref_key_growth_uri_load_last_sent" translatable="false">pref_key_growth_uri_load_last_sent</string>
 
+    <!-- Post Install Data -->
+    <string name="pref_key_first_week_post_install_last_three_days_activity_sent" translatable="false">pref_key_first_week_post_install_last_three_days_activity_sent</string>
+    <string name="pref_key_first_week_post_install_recurrent_activity_sent" translatable="false">pref_key_first_week_post_install_recurrent_activity_sent</string>
+    <string name="pref_key_first_week_post_install_everyday_activity_and_set_to_default_sent" translatable="false">pref_key_first_week_post_install_everyday_activity_and_set_to_default_sent</string>
+    <string name="pref_key_first_week_post_install_is_browser_set_to_default_during_first_four_days" translatable="false">pref_key_first_week_post_install_is_browser_set_to_default_during_first_four_days</string>
+
     <!--Translations -->
     <string name="pref_key_ignore_translations_data_saver_warning" translatable="false">pref_key_ignore_translations_data_saver_warning</string>
 
@@ -495,6 +496,7 @@
     <string name="pref_key_number_of_set_as_default_prompt_shown_times" translatable="false">pref_key_number_of_set_as_default_prompt_shown_times</string>
     <string name="pref_key_app_cold_start_count" translatable="false">pref_key_app_cold_start_count</string>
     <string name="pref_key_app_is_onboarding_set_as_default_displayed" translatable="false">pref_key_app_is_onboarding_set_as_default_displayed</string>
+    <string name="pref_key_last_set_as_default_prompt_request_time" translatable="false">pref_key_last_set_as_default_prompt_request_time</string>
 
     <string name="pref_key_desktop_browsing" translatable="false">pref_key_desktop_browsing</string>
 

@@ -231,6 +231,7 @@ let JSWINDOWACTORS = {
       events: {
         "AIChatContent:DispatchSearch": { wantUntrusted: true },
         "AIChatContent:Ready": { wantUntrusted: true },
+        "AIChatContent:DispatchFooterAction": { wantUntrusted: true },
       },
     },
     allFrames: true,

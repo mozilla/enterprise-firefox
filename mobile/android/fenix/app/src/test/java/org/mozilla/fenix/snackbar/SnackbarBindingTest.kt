@@ -672,7 +672,7 @@ class SnackbarBindingTest {
 
     private fun buildSnackbarBinding(
         context: Context = testContext,
-        browserStore: BrowserStore = mock(),
+        browserStore: BrowserStore = BrowserStore(),
         appStore: AppStore = this.appStore,
         snackbarDelegate: FenixSnackbarDelegate = this.snackbarDelegate,
         navController: NavController = this.navController,

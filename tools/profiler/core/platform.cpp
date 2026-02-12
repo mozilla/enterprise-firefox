@@ -3674,8 +3674,7 @@ struct JavaMarkerWithDetails {
     schema.SetTooltipLabel("{marker.name}");
     schema.SetChartLabel("{marker.data.name}");
     schema.SetTableLabel("{marker.data.name}");
-    schema.AddKeyLabelFormat("name", "Details", MS::Format::String,
-                             MS::PayloadFlags::Searchable);
+    schema.AddKeyLabelFormat("name", "Details", MS::Format::String);
     return schema;
   }
 };
@@ -5312,10 +5311,8 @@ struct UnregisteredThreadLifetimeMarker {
   static MarkerSchema MarkerTypeDisplay() {
     using MS = MarkerSchema;
     MS schema{MS::Location::MarkerChart, MS::Location::MarkerTable};
-    schema.AddKeyFormat("Thread Id", MS::Format::Integer,
-                        MS::PayloadFlags::Searchable);
-    schema.AddKeyFormat("Thread Name", MS::Format::String,
-                        MS::PayloadFlags::Searchable);
+    schema.AddKeyFormat("Thread Id", MS::Format::Integer);
+    schema.AddKeyFormat("Thread Name", MS::Format::String);
     schema.AddKeyFormat("End Event", MS::Format::String);
     schema.AddStaticLabelValue(
         "Note",
@@ -5344,8 +5341,7 @@ struct UnregisteredThreadCPUMarker {
   static MarkerSchema MarkerTypeDisplay() {
     using MS = MarkerSchema;
     MS schema{MS::Location::MarkerChart, MS::Location::MarkerTable};
-    schema.AddKeyFormat("Thread Id", MS::Format::Integer,
-                        MS::PayloadFlags::Searchable);
+    schema.AddKeyFormat("Thread Id", MS::Format::Integer);
     schema.AddKeyFormat("CPU Time", MS::Format::Nanoseconds);
     schema.AddKeyFormat("CPU Utilization", MS::Format::Percentage);
     schema.SetChartLabel("{marker.data.CPU Utilization}");

@@ -24,11 +24,11 @@ import java.io.File
  * The default implementation of [DownloadFileUtils].
  *
  * @param context The application context.
- * @param downloadLocationGetter A lambda providing the current directory path for downloads.
+ * @param downloadLocation A lambda providing the current directory path for downloads.
  */
 class DefaultDownloadFileUtils(
     private val context: Context,
-    private val downloadLocationGetter: () -> String,
+    private val downloadLocation: () -> String,
 ) : DownloadFileUtils {
     private val logger = Logger("DefaultDownloadFileUtils")
 
@@ -66,7 +66,7 @@ class DefaultDownloadFileUtils(
             extractedFileName + createExtension(sanitizedMimeType)
         }
         return uniqueFileName(
-            directoryPath = downloadLocationGetter(),
+            directoryPath = downloadLocation(),
             fileName = fileName,
         )
     }

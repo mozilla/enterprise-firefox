@@ -249,14 +249,14 @@ def verify_task_graph_symbol_enterprise(
                                 task.label,
                                 "repackage-enterprise-repack-msi",
                                 symbol=symbol,
-                                expected_symbol="sample/gcpEU/en-US",
+                                expected_symbol="sample/gcpEU",
                             )
                             task_matcher_exception_generator(
                                 "repacks MSI signed",
                                 task.label,
                                 "repackage-signing-enterprise-repack-msi",
                                 symbol=symbol,
-                                expected_symbol="sample/gcpEU/en-US",
+                                expected_symbol="sample/gcpEU",
                             )
 
                         if "enterfox" in task.label:
@@ -298,14 +298,14 @@ def verify_task_graph_symbol_enterprise(
                                 task.label,
                                 "enterprise-repack-mac-signing",
                                 symbol=symbol,
-                                expected_symbol="sample/gcpEU/en-US",
+                                expected_symbol="sample/gcpEU",
                             )
                             task_matcher_exception_generator(
                                 "repacks mac notarization",
                                 task.label,
                                 "enterprise-repack-mac-notarization",
                                 symbol=symbol,
-                                expected_symbol="sample/gcpEU/en-US",
+                                expected_symbol="sample/gcpEU",
                             )
 
                         if "enterfox" in task.label:
@@ -356,7 +356,7 @@ def verify_task_graph_symbol_enterprise(
                                 task.label,
                                 "repackage-enterprise-repack-deb",
                                 symbol=symbol,
-                                expected_symbol="sample/gcpEU/en-US",
+                                expected_symbol="sample/gcpEU",
                             )
 
                         if "enterfox" in task.label:

@@ -13,7 +13,6 @@
 #define nsBlockFrame_h_
 
 #include "mozilla/IntrinsicISizesCache.h"
-#include "nsCSSPseudoElements.h"
 #include "nsContainerFrame.h"
 #include "nsFloatManager.h"
 #include "nsHTMLParts.h"
@@ -539,7 +538,7 @@ class nsBlockFrame : public nsContainerFrame {
       // box of a button to do it.
       auto pseudoType = Style()->GetPseudoType();
       return !mozilla::PseudoStyle::IsAnonBox(pseudoType) ||
-             pseudoType == mozilla::PseudoStyleType::scrolledContent;
+             pseudoType == mozilla::PseudoStyleType::MozScrolledContent;
     }
     return IsButtonControlFrame();
   }

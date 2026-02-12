@@ -1,16 +1,5 @@
-ac_add_options --enable-application=browser
 ac_add_options --enable-enterprise
 
 # Enterprise builds use Telemetry for security logging,
 # and it goes to the console, so enable it by default.
 ac_add_options MOZ_TELEMETRY_REPORTING=1
-
-ac_add_options --enable-strip
-
-### For a debug build uncomment below and comment --enable-strip
-## MOZ_DEMANGLE_SYMBOLS=1
-## MOZ_DEBUG=1
-## MOZ_DEBUG_SYMBOLS=1
-## ac_add_options --enable-debug
-## ac_add_options --enable-debug-symbols
-## ac_add_options --disable-install-strip

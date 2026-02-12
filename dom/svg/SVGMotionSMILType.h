@@ -19,7 +19,7 @@ class SMILValue;
 /**
  * RotateType: Enum to indicate the type of our "rotate" attribute.
  */
-enum class RotateType {
+enum class RotateType : uint8_t {
   Explicit,    // for e.g. rotate="45"/"45deg"/"0.785rad"
   Auto,        // for rotate="auto"
   AutoReverse  // for rotate="auto-reverse"

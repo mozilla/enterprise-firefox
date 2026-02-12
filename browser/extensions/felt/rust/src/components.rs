@@ -301,6 +301,10 @@ impl FeltXPCOM {
                                 trace!("FeltServerThread::felt_server::ipc_loop(): Restarting");
                                 crate::utils::notify_observers("felt-firefox-restarting".to_string());
                             },
+                            Ok(FeltMessage::Exiting) => {
+                                trace!("FeltServerThread::felt_server::ipc_loop(): Exiting");
+                                crate::utils::notify_observers("felt-firefox-exiting".to_string());
+                            },
                             Ok(FeltMessage::ExtensionReady) => {
                                 trace!("FeltServerThread::felt_server::ipc_loop(): ExtensionReady");
                                 crate::utils::notify_observers("felt-extension-ready".to_string());

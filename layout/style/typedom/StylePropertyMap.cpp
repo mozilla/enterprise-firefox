@@ -81,29 +81,22 @@ void StylePropertyMap::Set(
 
   nsAutoCString cssText;
 
-  switch (styleValue.GetValueType()) {
-    case CSSStyleValue::ValueType::MathSum: {
-      CSSMathSum& mathSum = styleValue.GetAsCSSMathSum();
+  switch (styleValue.GetStyleValueType()) {
+    case CSSStyleValue::StyleValueType::NumericValue: {
+      CSSNumericValue& numericValue = styleValue.GetAsCSSNumericValue();
 
-      mathSum.ToCssTextWithProperty(propertyId, cssText);
+      numericValue.ToCssTextWithProperty(propertyId, cssText);
       break;
     }
 
-    case CSSStyleValue::ValueType::UnitValue: {
-      CSSUnitValue& unitValue = styleValue.GetAsCSSUnitValue();
-
-      unitValue.ToCssTextWithProperty(propertyId, cssText);
-      break;
-    }
-
-    case CSSStyleValue::ValueType::KeywordValue: {
+    case CSSStyleValue::StyleValueType::KeywordValue: {
       CSSKeywordValue& keywordValue = styleValue.GetAsCSSKeywordValue();
 
       keywordValue.ToCssTextWithProperty(propertyId, cssText);
       break;
     }
 
-    case CSSStyleValue::ValueType::UnsupportedValue: {
+    case CSSStyleValue::StyleValueType::UnsupportedValue: {
       CSSUnsupportedValue& unsupportedValue =
           styleValue.GetAsCSSUnsupportedValue();
 
@@ -111,7 +104,7 @@ void StylePropertyMap::Set(
       break;
     }
 
-    case CSSStyleValue::ValueType::Uninitialized:
+    case CSSStyleValue::StyleValueType::Uninitialized:
       break;
   }
 

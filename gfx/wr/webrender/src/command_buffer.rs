@@ -6,7 +6,7 @@ use api::units::PictureRect;
 use crate::pattern::{PatternKind, PatternShaderInput};
 use crate::{spatial_tree::SpatialNodeIndex, render_task_graph::RenderTaskId, surface::SurfaceTileDescriptor, tile_cache::TileKey, renderer::GpuBufferAddress, FastHashMap, prim_store::PrimitiveInstanceIndex};
 use crate::gpu_types::QuadSegment;
-use crate::segment::EdgeAaSegmentMask;
+use crate::segment::EdgeMask;
 use crate::transform::GpuTransformId;
 
 /// A tightly packed command stored in a command buffer
@@ -125,7 +125,7 @@ pub enum PrimitiveCommand {
         gpu_buffer_address: GpuBufferAddress,
         transform_id: GpuTransformId,
         quad_flags: QuadFlags,
-        edge_flags: EdgeAaSegmentMask,
+        edge_flags: EdgeMask,
     },
 }
 
@@ -156,7 +156,7 @@ impl PrimitiveCommand {
         gpu_buffer_address: GpuBufferAddress,
         transform_id: GpuTransformId,
         quad_flags: QuadFlags,
-        edge_flags: EdgeAaSegmentMask,
+        edge_flags: EdgeMask,
     ) -> Self {
         PrimitiveCommand::Quad {
             pattern,
@@ -301,7 +301,7 @@ impl CommandBuffer {
                     let transform_id = GpuTransformId(cmd_iter.next().unwrap().0);
                     let bits = cmd_iter.next().unwrap().0;
                     let quad_flags = QuadFlags::from_bits((bits >> 16) as u8).unwrap();
-                    let edge_flags = EdgeAaSegmentMask::from_bits((bits & 0xff) as u8).unwrap();
+                    let edge_flags = EdgeMask::from_bits((bits & 0xff) as u8).unwrap();
                     let gpu_buffer_address = GpuBufferAddress::from_u32(data.0);
                     let cmd = PrimitiveCommand::quad(
                         pattern,

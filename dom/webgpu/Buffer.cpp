@@ -216,8 +216,8 @@ already_AddRefed<dom::Promise> Buffer::MapAsync(
   mMapRequest = promise;
 
   GetChild()->EnqueueBufferMapPromise(GetId(), PendingBufferMapPromise{
-                                                   RefPtr(promise),
-                                                   RefPtr(this),
+                                                   promise,
+                                                   this,
                                                });
 
   return promise.forget();

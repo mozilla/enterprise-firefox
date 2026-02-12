@@ -8,6 +8,7 @@ import { AddonsPicker } from "./AddonsPicker";
 import { SingleSelect } from "./SingleSelect";
 import { MobileDownloads } from "./MobileDownloads";
 import { MultiSelect } from "./MultiSelect";
+import { TextAreaTile } from "./TextAreaTile";
 import { EmbeddedMigrationWizard } from "./EmbeddedMigrationWizard";
 import { EmbeddedFxBackupOptIn } from "./EmbeddedFxBackupOptIn";
 import { ActionChecklist } from "./ActionChecklist";
@@ -170,8 +171,12 @@ export const ContentTiles = props => {
 
   const toggleTile = (index, tile) => {
     const tileId = `${tile.type}${tile.id ? "_" : ""}${tile.id ?? ""}_header`;
-    AboutWelcomeUtils.sendActionTelemetry(props.messageId, tileId);
-
+    AboutWelcomeUtils.sendActionTelemetry(
+      props.messageId,
+      tileId,
+      "CLICK_BUTTON",
+      { writeInMicrosurvey: props.writeInMicrosurvey }
+    );
     if (tile.type === "link" && tile.action) {
       props.handleAction(
         {
@@ -190,7 +195,9 @@ export const ContentTiles = props => {
     setTilesHeaderExpanded(prev => !prev);
     AboutWelcomeUtils.sendActionTelemetry(
       props.messageId,
-      "content_tiles_header"
+      "content_tiles_header",
+      "CLICK_BUTTON",
+      { writeInMicrosurvey: props.writeInMicrosurvey }
     );
   };
 
@@ -273,6 +280,7 @@ export const ContentTiles = props => {
                 message_id={props.messageId}
                 handleAction={props.handleAction}
                 layout={content.position}
+                writeInMicrosurvey={props.writeInMicrosurvey}
               />
             )}
             {["theme", "single-select"].includes(tile.type) && tile.data && (
@@ -311,6 +319,14 @@ export const ContentTiles = props => {
                 multiSelectId={`tile-${index}`}
               />
             )}
+            {tile.type === "textarea" && tile.data && (
+              <TextAreaTile
+                content={{ tiles: tile }}
+                textInputs={props.textInputs}
+                setTextInput={props.setTextInput}
+                tileIndex={index}
+              />
+            )}
             {tile.type === "migration-wizard" && (
               <EmbeddedMigrationWizard
                 handleAction={props.handleAction}
@@ -318,7 +334,11 @@ export const ContentTiles = props => {
               />
             )}
             {tile.type === "action_checklist" && tile.data && (
-              <ActionChecklist content={content} message_id={props.messageId} />
+              <ActionChecklist
+                content={content}
+                message_id={props.messageId}
+                writeInMicrosurvey={props.writeInMicrosurvey}
+              />
             )}
             {tile.type === "embedded_browser" && tile.data?.url && (
               <EmbeddedBrowser url={tile.data.url} style={tile.data.style} />

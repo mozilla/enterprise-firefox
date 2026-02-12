@@ -11,6 +11,7 @@
 #include "AnchorPositioningUtils.h"
 #include "ChildIterator.h"
 #include "ErrorReporter.h"
+#include "PseudoStyleType.h"
 #include "gfxFontFeatures.h"
 #include "gfxMathTable.h"
 #include "gfxTextRun.h"
@@ -59,7 +60,6 @@
 #include "nsAttrValueInlines.h"
 #include "nsCSSFrameConstructor.h"
 #include "nsCSSProps.h"
-#include "nsCSSPseudoElements.h"
 #include "nsContentUtils.h"
 #include "nsDOMTokenList.h"
 #include "nsDeviceContext.h"
@@ -282,6 +282,12 @@ bool Gecko_IsRootElement(const Element* aElement) {
   return aElement->OwnerDoc()->GetRootElement() == aElement;
 }
 
+void Gecko_GetCachedLazyPseudoStyles(const ComputedStyle* aStyle,
+                                     nsTArray<const ComputedStyle*>* aArray) {
+  MOZ_ASSERT(aStyle);
+  aStyle->GetCachedLazyPseudoStyles(*aArray);
+}
+
 void Gecko_NoteDirtyElement(const Element* aElement) {
   MOZ_ASSERT(NS_IsMainThread());
   const_cast<Element*>(aElement)->NoteDirtyForServo();
@@ -310,6 +316,12 @@ void Gecko_InvalidatePositionTry(const Element* aElement) {
   }
   f->RemoveProperty(nsIFrame::LastSuccessfulPositionFallback());
   f->PresShell()->MarkPositionedFrameForReflow(f);
+}
+
+void Gecko_NoteHighlightPseudoStyleInvalidated(const Document* aDoc) {
+  if (auto* presContext = aDoc->GetPresContext()) {
+    presContext->RestyleManager()->NoteHighlightPseudoStyleInvalidated();
+  }
 }
 
 float Gecko_GetScrollbarInlineSize(const nsPresContext* aPc) {

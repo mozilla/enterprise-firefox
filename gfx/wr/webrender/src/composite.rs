@@ -16,7 +16,7 @@ use crate::tile_cache::{TileCacheInstance, TileSurface};
 use crate::tile_cache::TileId;
 use crate::prim_store::DeferredResolve;
 use crate::resource_cache::{ImageRequest, ResourceCache};
-use crate::segment::EdgeAaSegmentMask;
+use crate::segment::EdgeMask;
 use crate::util::{extract_inner_rect_safe, Preallocator, ScaleOffset};
 use crate::tile_cache::PictureCacheDebugInfo;
 use crate::device::Device;
@@ -628,7 +628,7 @@ pub struct CompositorClip {
 pub struct CompositeRoundedCorner {
     pub rect: LayoutRect,
     pub radius: LayoutSize,
-    pub edge_flags: EdgeAaSegmentMask,
+    pub edge_flags: EdgeMask,
 }
 
 impl Eq for CompositeRoundedCorner {}

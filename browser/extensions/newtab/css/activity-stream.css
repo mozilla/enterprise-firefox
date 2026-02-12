@@ -2751,13 +2751,6 @@ main section {
     inset-inline-end: var(--space-xxlarge);
   }
 }
-.weather.section-weather {
-  position: initial;
-  margin-inline-start: var(--space-medium);
-}
-.weather.section-weather .weatherInfoLink {
-  max-width: unset;
-}
 .no-search .weather {
   position: absolute;
   inset-block-start: var(--space-xxlarge);
@@ -2779,11 +2772,6 @@ main section {
   .no-search .weather {
     inset-inline-end: var(--space-xxlarge);
   }
-}
-.weather .context-menu {
-  inset-inline-end: 100%;
-  inset-inline-start: auto;
-  margin-inline-end: var(--space-xsmall);
 }
 
 .weather-placeholder {
@@ -5010,7 +4998,7 @@ hr {
 }
 
 .forecast-row .today-forecast {
-  margin-block-start: 0;
+  margin-block-start: var(--space-small);
   font-weight: var(--font-weight-semibold);
 }
 .forecast-row .forecast-row-items {
@@ -5416,11 +5404,6 @@ hr {
   justify-content: space-between;
   align-items: center;
   margin-block: var(--space-small) var(--space-medium);
-}
-.ds-section-wrapper .ds-section .section-heading .section-heading-inline-start {
-  display: flex;
-  flex-direction: row;
-  align-items: flex-start;
 }
 .ds-section-wrapper .ds-section .section-title {
   font-weight: var(--heading-font-weight);

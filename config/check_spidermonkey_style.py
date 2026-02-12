@@ -78,6 +78,8 @@ included_inclnames_to_ignore = set([
     "js/PrefsGenerated.h",  # generated in $OBJDIR
     "mozilla/ProfilingCategoryList.h",  # comes from mozglue/baseprofiler
     "mozilla/glue/Debug.h",  # comes from mozglue/misc, shadowed by <mozilla/Debug.h>
+    "mozilla/glean/JsSrcMetrics.h",  # generated in $OBJDIR"
+    "mozilla/glean/bindings/MetricStandaloneTypes.h",
     "jscustomallocator.h",  # provided by embedders;  allowed to be missing
     "js-config.h",  # generated in $OBJDIR
     "fdlibm.h",  # fdlibm

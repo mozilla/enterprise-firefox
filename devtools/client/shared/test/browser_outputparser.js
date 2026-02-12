@@ -1718,27 +1718,27 @@ function testParseAttr(doc, parser) {
         "Passing known attribute doesn't add unmatched classes to attribute name",
       propertyValue: "attr(data-x)",
       attributes: { "data-x": "" },
-      expected: `attr(<span>data-x</span>)`,
+      expected: `attr(<span class="inspector-attribute" data-attribute="&quot;&quot;">data-x</span>)`,
     },
     {
       message:
         "Passing unknown attribute adds unmatched classes to attribute name",
       propertyValue: "attr(data-x)",
       attributes: {},
-      expected: `attr(<span class="unmatched-class">data-x</span>)`,
+      expected: `attr(<span class="inspector-attribute unmatched-class" data-attribute="Attribute data-x is not set">data-x</span>)`,
     },
     {
       message:
         "Passing unknown attribute adds unmatched classes to attribute name, not to fallback",
       propertyValue: `attr(data-x, "fallback")`,
       attributes: {},
-      expected: `attr(<span class="unmatched-class">data-x</span>, <span>"fallback"</span>)`,
+      expected: `attr(<span class="inspector-attribute unmatched-class" data-attribute="Attribute data-x is not set">data-x</span>, <span class="inspector-attr-fallback">"fallback"</span>)`,
     },
     {
       message: "Passing known attribute adds unmatched classes to fallback",
       propertyValue: `attr(data-x, "fallback")`,
       attributes: { "data-x": "" },
-      expected: `attr(<span>data-x</span>, <span class="unmatched-class">"fallback"</span>)`,
+      expected: `attr(<span class="inspector-attribute" data-attribute="&quot;&quot;">data-x</span>, <span class="inspector-attr-fallback unmatched-class">"fallback"</span>)`,
     },
   ];
 

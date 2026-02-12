@@ -32,6 +32,7 @@ const EVENTS = [
   "TabNote:Created",
   "TabNote:Edited",
   "TabNote:Removed",
+  "TabNote:Expand",
 ];
 
 /**
@@ -101,7 +102,7 @@ class TabNotesControllerClass {
   }
 
   /**
-   * @param {CanonicalURLIdentifiedEvent|TabNoteCreatedEvent|TabNoteEditedEvent|TabNoteRemovedEvent} event
+   * @param {CanonicalURLIdentifiedEvent|TabNoteCreatedEvent|TabNoteEditedEvent|TabNoteRemovedEvent|TabNoteExpandEvent} event
    */
   handleEvent(event) {
     switch (event.type) {
@@ -184,6 +185,16 @@ class TabNotesControllerClass {
           lazy.logConsole.debug("TabNote:Removed", canonicalUrl);
         }
         break;
+
+      case "TabNote:Expand": {
+        const tab = event.target;
+        lazy.TabNotes.get(tab).then(note => {
+          if (note) {
+            lazy.logConsole.debug("TabNote:Expand", note);
+            Glean.tabNotes.expanded.record({ note_length: note.text.length });
+          }
+        });
+      }
     }
   }
 

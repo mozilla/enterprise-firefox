@@ -84,6 +84,38 @@ using namespace mozilla;
 static LazyLogModule gUserCharacteristicsLog("UserCharacteristics");
 
 // ==================================================================
+// MathML prefs collection - extracted for testability
+static void CollectMathMLPrefs() {
+  // MathML prefs - only collect those modified from defaults
+  // Format: "shortname=val,..." (e.g. "dis=1,fnt=0")
+  nsAutoCString mathmlPrefs;
+  static const struct {
+    const char* pref;
+    const char* shortName;
+  } kMathMLPrefs[] = {
+      {"mathml.disabled", "dis"},
+      {"mathml.scale_stretchy_operators.enabled", "str"},
+      {"mathml.mathspace_names.disabled", "spc"},
+      {"mathml.rtl_operator_mirroring.enabled", "rtl"},
+      {"mathml.mathvariant_styling_fallback.disabled", "var"},
+      {"mathml.math_shift.enabled", "shf"},
+      {"mathml.operator_dictionary_accent.disabled", "acc"},
+      {"mathml.legacy_mathvariant_attribute.disabled", "leg"},
+      {"mathml.font_family_math.enabled", "fnt"},
+  };
+  for (const auto& p : kMathMLPrefs) {
+    if (Preferences::HasUserValue(p.pref)) {
+      if (!mathmlPrefs.IsEmpty()) {
+        mathmlPrefs.Append(',');
+      }
+      mathmlPrefs.Append(p.shortName);
+      mathmlPrefs.Append('=');
+      mathmlPrefs.Append(Preferences::GetBool(p.pref) ? '1' : '0');
+    }
+  }
+  glean::characteristics::mathml_diag_prefs_modified.Set(mathmlPrefs);
+}
+
 namespace testing {
 extern "C" {
 
@@ -96,6 +128,8 @@ int MaxTouchPoints() {
   return 0;
 #endif
 }
+
+void PopulateMathMLPrefs() { CollectMathMLPrefs(); }
 
 }  // extern "C"
 };  // namespace testing
@@ -365,8 +399,10 @@ already_AddRefed<PopulatePromise> PopulateFingerprintedFonts() {
   }
   std::pair<const char**,
             std::pair<glean::impl::StringMetric, glean::impl::StringMetric>>
-      fontLists[] = {FONT_PAIR(fpjs, fpjs), FONT_PAIR(variantA, variant_a),
-                     FONT_PAIR(variantB, variant_b)};
+      fontLists[] = {
+          FONT_PAIR(fpjs, fpjs),          FONT_PAIR(variantA, variant_a),
+          FONT_PAIR(variantB, variant_b), FONT_PAIR(variantC, variant_c),
+          FONT_PAIR(variantD, variant_d), FONT_PAIR(variantE, variant_e)};
 
 #undef FONT_PAIR
 
@@ -419,6 +455,8 @@ void PopulatePrefs() {
 
   glean::characteristics::prefs_network_cookie_cookiebehavior.Set(
       StaticPrefs::network_cookie_cookieBehavior());
+
+  CollectMathMLPrefs();
 }
 
 void PopulateKeyboardLayout() {

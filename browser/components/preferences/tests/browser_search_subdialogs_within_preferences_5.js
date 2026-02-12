@@ -12,7 +12,7 @@ add_task(async function () {
     leaveOpen: true,
   });
   // Oh, Canada:
-  await evaluateSearchResults("Unified Canadian Syllabary", "fontsGroup");
+  await evaluateSearchResults("Unified Canadian Syllabary", "fonts");
   BrowserTestUtils.removeTab(gBrowser.selectedTab);
 });
 

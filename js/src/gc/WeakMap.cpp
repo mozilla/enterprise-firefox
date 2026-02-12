@@ -19,6 +19,11 @@ WeakMapBase::WeakMapBase(JSObject* memOf, Zone* zone)
     : memberOf(memOf), zone_(zone) {
   MOZ_ASSERT_IF(memberOf, memberOf->compartment()->zone() == zone);
   MOZ_ASSERT(!IsMarked(mapColor()));
+
+  zone->gcWeakMapList().insertFront(this);
+  if (zone->gcState() > Zone::Prepare) {
+    setMapColor(CellColor::Black);
+  }
 }
 
 void WeakMapBase::unmarkZone(JS::Zone* zone) {
@@ -153,9 +158,18 @@ void Zone::sweepWeakMaps(JSTracer* trc) {
   for (WeakMapBase* m = gcWeakMapList().getFirst(); m;) {
     WeakMapBase* next = m->getNext();
     if (IsMarked(m->mapColor())) {
-      m->traceWeakEdges(trc);
+      // Sweep live map to remove dead entries.
+      m->traceWeakEdgesDuringSweeping(trc);
     } else {
-      m->clearAndCompact();
+      if (m->memberOf) {
+        // Table will be cleaned up when owning object is finalized.
+        MOZ_ASSERT(!m->memberOf->isMarkedAny());
+      } else if (!m->empty()) {
+        // Clean up internal weak maps now. This may remove store buffer
+        // entries.
+        AutoLockSweepingLock lock(trc->runtime());
+        m->clearAndCompact();
+      }
       m->removeFrom(gcWeakMapList());
     }
     m = next;
@@ -211,7 +225,3 @@ void WeakMapBase::setHasNurseryEntries() {
 
   hasNurseryEntries = true;
 }
-
-namespace js {
-template class WeakMap<JSObject*, JSObject*, ZoneAllocPolicy>;
-}  // namespace js

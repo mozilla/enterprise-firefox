@@ -59,6 +59,8 @@ import mozilla.components.concept.sync.AccountObserver
 import mozilla.components.concept.sync.AuthType
 import mozilla.components.concept.sync.OAuthAccount
 import mozilla.components.feature.accounts.push.SendTabUseCases
+import mozilla.components.feature.downloads.DateTimeProvider
+import mozilla.components.feature.downloads.DefaultDateTimeProvider
 import mozilla.components.feature.tab.collections.TabCollection
 import mozilla.components.feature.top.sites.presenter.DefaultTopSitesPresenter
 import mozilla.components.lib.state.ext.consumeFlow
@@ -66,7 +68,9 @@ import mozilla.components.lib.state.ext.consumeFrom
 import mozilla.components.lib.state.ext.flow
 import mozilla.components.lib.state.ext.observeAsComposableState
 import mozilla.components.support.base.feature.ViewBoundFeatureWrapper
+import mozilla.components.support.utils.BuildManufacturerChecker
 import mozilla.components.support.utils.KeyboardState
+import mozilla.components.support.utils.ext.navigateToDefaultBrowserAppsSettings
 import mozilla.components.support.utils.keyboardAsState
 import mozilla.telemetry.glean.private.NoExtras
 import org.mozilla.fenix.BrowserDirection
@@ -231,6 +235,7 @@ class HomeFragment : Fragment() {
             settings = requireComponents.settings,
         )
     }
+    private val dateTimeProvider: DateTimeProvider by lazy { DefaultDateTimeProvider() }
 
     private lateinit var privacyNoticeBannerStore: PrivacyNoticeBannerStore
 
@@ -286,6 +291,19 @@ class HomeFragment : Fragment() {
         NavController.OnDestinationChangedListener { _, destination, _ ->
             if (destination.id != R.id.homeFragment) {
                 privacyNoticeBannerStore.dispatch(PrivacyNoticeBannerAction.OnNavigatedAwayFromHome)
+            }
+        }
+
+    private val setToDefaultPromptRequestLauncher: ActivityResultLauncher<Intent> =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            with(requireContext()) {
+                maybeNavigateToSystemSetToDefaultAction(
+                    result.resultCode,
+                    settings(),
+                    dateTimeProvider,
+                ) {
+                    navigateToDefaultBrowserAppsSettings(BuildManufacturerChecker())
+                }
             }
         }
 
@@ -516,6 +534,12 @@ class HomeFragment : Fragment() {
             navControllerRef = WeakReference(findNavController()),
             viewLifecycleScope = viewLifecycleOwner.lifecycleScope,
             showAddSearchWidgetPrompt = ::showAddSearchWidgetPrompt,
+            requestSetDefaultBrowserPrompt = {
+                maybeRequestDefaultBrowserPrompt(
+                    WeakReference(activity),
+                    setToDefaultPromptRequestLauncher,
+                )
+            },
         ).apply {
             registerCallback(
                 object : SessionControlControllerCallback {
@@ -597,7 +621,7 @@ class HomeFragment : Fragment() {
                 appStore = components.appStore,
             ),
             topSiteController = DefaultTopSiteController(
-                activityRef = WeakReference(activity),
+                activityRef = WeakReference(requireActivity()),
                 store = store,
                 navControllerRef = WeakReference(findNavController()),
                 settings = components.settings,

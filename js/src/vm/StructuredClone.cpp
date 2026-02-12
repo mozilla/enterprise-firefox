@@ -2002,8 +2002,13 @@ bool JSStructuredCloneWriter::traverseError(HandleObject obj) {
     return false;
   }
 
-  Rooted<ErrorObject*> unwrapped(cx, obj->maybeUnwrapAs<ErrorObject>());
-  MOZ_ASSERT(unwrapped);
+  // ToString can call arbitrary JS so we have to check for nuked CCWs.
+  if (!obj->canUnwrapAs<ErrorObject>()) {
+    MOZ_ASSERT(JS_IsDeadWrapper(CheckedUnwrapStatic(obj)));
+    JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr, JSMSG_DEAD_OBJECT);
+    return false;
+  }
+  Rooted<ErrorObject*> unwrapped(cx, &obj->unwrapAs<ErrorObject>());
 
   // Non-standard: Serialize |stack|.
   // The Error stack property is saved as SavedFrames.

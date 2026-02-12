@@ -8,7 +8,6 @@ import { DSCard, PlaceholderDSCard } from "../DSCard/DSCard";
 import { useSelector } from "react-redux";
 import { actionCreators as ac, actionTypes as at } from "common/Actions.mjs";
 import {
-  selectWeatherPlacement,
   useIntersectionObserver,
   getActiveColumnLayout,
 } from "../../../lib/utils";
@@ -18,7 +17,6 @@ import { AdBanner } from "../AdBanner/AdBanner.jsx";
 import { PersonalizedCard } from "../PersonalizedCard/PersonalizedCard";
 import { FollowSectionButtonHighlight } from "../FeatureHighlight/FollowSectionButtonHighlight";
 import { MessageWrapper } from "content-src/components/MessageWrapper/MessageWrapper";
-import { Weather } from "../../Weather/Weather.jsx";
 import { BriefingCard } from "../BriefingCard/BriefingCard.jsx";
 
 // Prefs
@@ -39,7 +37,7 @@ const PREF_LEADERBOARD_POSITION = "newtabAdSize.leaderboard.position";
 const PREF_INFERRED_PERSONALIZATION_USER =
   "discoverystream.sections.personalization.inferred.user.enabled";
 const PREF_DAILY_BRIEF_SECTIONID = "discoverystream.dailyBrief.sectionId";
-const PREF_DAILY_BRIEF_V2_ENABLED = "discoverystream.dailyBrief.v2.enabled";
+const PREF_DAILY_BRIEF_ENABLED = "discoverystream.dailyBrief.enabled";
 const PREF_SPOCS_STARTUPCACHE_ENABLED =
   "discoverystream.spocs.startupCache.enabled";
 
@@ -135,7 +133,6 @@ function CardSection({
   ctaButtonVariant,
   ctaButtonSponsors,
   anySectionsFollowed,
-  showWeather,
   placeholder,
 }) {
   const prefs = useSelector(state => state.Prefs.values);
@@ -212,9 +209,9 @@ function CardSection({
   const selectedTopics = prefs[PREF_TOPICS_SELECTED];
   const availableTopics = prefs[PREF_TOPICS_AVAILABLE];
   const spocsStartupCacheEnabled = prefs[PREF_SPOCS_STARTUPCACHE_ENABLED];
-  const dailyBriefV2Enabled =
-    prefs.trainhopConfig?.dailyBriefing?.v2Enabled ||
-    prefs[PREF_DAILY_BRIEF_V2_ENABLED];
+  const dailyBriefEnabled =
+    prefs.trainhopConfig?.dailyBriefing?.enabled ||
+    prefs[PREF_DAILY_BRIEF_ENABLED];
   const dailyBriefSectionId =
     prefs.trainhopConfig?.dailyBriefing?.sectionId ||
     prefs[PREF_DAILY_BRIEF_SECTIONID];
@@ -303,7 +300,7 @@ function CardSection({
   }
 
   const shouldShowBriefingCard =
-    sectionKey === dailyBriefSectionId && dailyBriefV2Enabled;
+    sectionKey === dailyBriefSectionId && dailyBriefEnabled;
 
   const getBriefingData = () => {
     const EMPTY_BRIEFING = { headlines: [], lastUpdated: null };
@@ -435,7 +432,7 @@ function CardSection({
             tabIndex={currentIndex === focusedIndex ? 0 : -1}
             onFocus={() => onCardFocus(currentIndex)}
             attribution={rec.attribution}
-            isDailyBriefV2={shouldShowBriefingCard}
+            isDailyBrief={shouldShowBriefingCard}
           />
         );
       }
@@ -523,12 +520,9 @@ function CardSection({
       }}
     >
       <div className="section-heading">
-        <div className="section-heading-inline-start">
-          <div className="section-title-wrapper">
-            <h2 className="section-title">{title}</h2>
-            {subtitle && <p className="section-subtitle">{subtitle}</p>}
-          </div>
-          {showWeather && <Weather isInSection={true} />}
+        <div className="section-title-wrapper">
+          <h2 className="section-title">{title}</h2>
+          {subtitle && <p className="section-subtitle">{subtitle}</p>}
         </div>
         {mayHaveSectionsPersonalization ? sectionContextWrapper : null}
       </div>
@@ -557,11 +551,6 @@ function CardSections({
     state => state.DiscoveryStream
   );
   const { messageData } = useSelector(state => state.Messages);
-  const weatherPlacement = useSelector(selectWeatherPlacement);
-  const dailyBriefSectionId =
-    prefs.trainhopConfig?.dailyBriefing?.sectionId ||
-    prefs[PREF_DAILY_BRIEF_SECTIONID];
-  const weatherEnabled = prefs.showWeather;
   const personalizationEnabled = prefs[PREF_SECTIONS_PERSONALIZATION_ENABLED];
   const interestPickerEnabled = prefs[PREF_INTEREST_PICKER_ENABLED];
 
@@ -624,12 +613,6 @@ function CardSections({
       ctaButtonSponsors={ctaButtonSponsors}
       anySectionsFollowed={anySectionsFollowed}
       placeholder={placeholder}
-      showWeather={
-        weatherEnabled &&
-        weatherPlacement === "section" &&
-        sectionPosition === 0 &&
-        section.sectionKey === dailyBriefSectionId
-      }
     />
   ));
 

@@ -51,6 +51,7 @@
 #include "mozilla/dom/HTMLAnchorElement.h"
 #include "mozilla/dom/HTMLFormElement.h"
 #include "mozilla/dom/HTMLInputElement.h"
+#include "mozilla/dom/PopoverData.h"
 #include "mozilla/gfx/Matrix.h"
 #include "nsIContent.h"
 #include "nsIFormControl.h"
@@ -423,6 +424,26 @@ uint64_t LocalAccessible::NativeInteractiveState() const {
 }
 
 uint64_t LocalAccessible::NativeLinkState() const { return 0; }
+
+bool LocalAccessible::IsOnlyPlainContent() const {
+  if (!IsPlainContent()) {
+    return false;
+  }
+
+  uint32_t childCount = ChildCount();
+  for (uint32_t i = 0; i < childCount; i++) {
+    LocalAccessible* child = LocalChildAt(i);
+    if (!child) {
+      continue;
+    }
+
+    if (!child->IsOnlyPlainContent()) {
+      return false;
+    }
+  }
+
+  return true;
+}
 
 bool LocalAccessible::NativelyUnavailable() const {
   if (mContent->IsHTMLElement()) return mContent->AsElement()->IsDisabled();
@@ -1940,6 +1961,39 @@ nsIContent* LocalAccessible::GetAtomicRegion() const {
   return atomic.EqualsLiteral("true") ? loopContent : nullptr;
 }
 
+static bool IsHintPopover(nsIContent* aContent) {
+  auto* htmlEl = nsGenericHTMLElement::FromNode(aContent);
+  return htmlEl &&
+         htmlEl->GetPopoverAttributeState() == dom::PopoverAttributeState::Hint;
+}
+
+static bool IsOpenHintPopover(nsIContent* aContent) {
+  auto* htmlEl = nsGenericHTMLElement::FromNode(aContent);
+  return htmlEl && htmlEl->PopoverOpen() &&
+         htmlEl->GetPopoverAttributeState() == dom::PopoverAttributeState::Hint;
+}
+
+// Returns true if targetEl is:
+//  - a non hint popover (these should always use details, not described by).
+//  - a hint popover that is not open (no relation should be established).
+//  - a hint popover with "rich" content (for non-rich content, desdcribed by
+//    should be established instead).
+static bool ShouldHintPopoverEstablishDetailsRelation(
+    dom::Element* aTargetEl, LocalAccessible* aTargetAcc) {
+  if (!IsHintPopover(aTargetEl)) {
+    return true;
+  }
+  if (!IsOpenHintPopover(aTargetEl)) {
+    return false;
+  }
+  return !aTargetAcc->IsOnlyPlainContent();
+}
+
+static bool ShouldHintPopoverEstablishDescribedByRelation(
+    dom::Element* aTargetEl, LocalAccessible* aTargetAcc) {
+  return IsOpenHintPopover(aTargetEl) && aTargetAcc->IsOnlyPlainContent();
+}
+
 LocalAccessible* LocalAccessible::GetCommandForDetailsRelation() const {
   dom::Element* targetEl = mContent->GetEffectiveCommandForElement();
   if (!targetEl) {
@@ -1965,6 +2019,9 @@ LocalAccessible* LocalAccessible::GetCommandForDetailsRelation() const {
   if (targetAcc->NextSibling() == this || targetAcc->PrevSibling() == this) {
     return nullptr;
   }
+  if (!ShouldHintPopoverEstablishDetailsRelation(targetEl, targetAcc)) {
+    return nullptr;
+  }
   return targetAcc;
 }
 
@@ -1987,6 +2044,9 @@ LocalAccessible* LocalAccessible::GetPopoverTargetDetailsRelation() const {
     }
   }
   if (targetAcc->NextSibling() == this || targetAcc->PrevSibling() == this) {
+    return nullptr;
+  }
+  if (!ShouldHintPopoverEstablishDetailsRelation(targetEl, targetAcc)) {
     return nullptr;
   }
   return targetAcc;
@@ -2058,6 +2118,54 @@ LocalAccessible* LocalAccessible::GetAnchorPositionTargetDetailsRelation()
   return targetAcc;
 }
 
+LocalAccessible* LocalAccessible::GetPopoverTargetDescribedByRelation() const {
+  dom::Element* targetEl = mContent->GetEffectivePopoverTargetElement();
+  if (!targetEl) {
+    return nullptr;
+  }
+  LocalAccessible* targetAcc = mDoc->GetAccessible(targetEl);
+  if (!targetAcc) {
+    return nullptr;
+  }
+  if (const nsAttrValue* actionVal =
+          Elm()->GetParsedAttr(nsGkAtoms::popovertargetaction)) {
+    if (static_cast<PopoverTargetAction>(actionVal->GetEnumValue()) ==
+        PopoverTargetAction::Hide) {
+      return nullptr;
+    }
+  }
+  if (ShouldHintPopoverEstablishDescribedByRelation(targetEl, targetAcc)) {
+    return targetAcc;
+  }
+  return nullptr;
+}
+
+LocalAccessible* LocalAccessible::GetCommandForDescribedByRelation() const {
+  dom::Element* targetEl = mContent->GetEffectiveCommandForElement();
+  if (!targetEl) {
+    return nullptr;
+  }
+  LocalAccessible* targetAcc = mDoc->GetAccessible(targetEl);
+  if (!targetAcc) {
+    return nullptr;
+  }
+  if (const nsAttrValue* actionVal = Elm()->GetParsedAttr(nsGkAtoms::command)) {
+    if (actionVal && actionVal->Type() != nsAttrValue::eEnum) {
+      return nullptr;
+    }
+    auto command =
+        static_cast<dom::Element::Command>(actionVal->GetEnumValue());
+    if (command != dom::Element::Command::ShowPopover &&
+        command != dom::Element::Command::TogglePopover) {
+      return nullptr;
+    }
+  }
+  if (ShouldHintPopoverEstablishDescribedByRelation(targetEl, targetAcc)) {
+    return targetAcc;
+  }
+  return nullptr;
+}
+
 Relation LocalAccessible::RelationByType(RelationType aType) const {
   if (!HasOwnContent()) return Relation();
 
@@ -2094,6 +2202,12 @@ Relation LocalAccessible::RelationByType(RelationType aType) const {
       if (mContent->IsXULElement()) {
         rel.AppendIter(new XULDescriptionIterator(Document(), mContent));
       }
+      if (LocalAccessible* target = GetCommandForDescribedByRelation()) {
+        rel.AppendTarget(target);
+      }
+      if (LocalAccessible* target = GetPopoverTargetDescribedByRelation()) {
+        rel.AppendTarget(target);
+      }
 
       return rel;
     }
@@ -2108,6 +2222,25 @@ Relation LocalAccessible::RelationByType(RelationType aType) const {
       if (mContent->IsXULElement(nsGkAtoms::description)) {
         rel.AppendIter(
             new AssociatedElementsIterator(mDoc, mContent, nsGkAtoms::control));
+      }
+
+      RelatedAccIterator popoverInvokers(mDoc, mContent,
+                                         nsGkAtoms::popovertarget);
+      while (Accessible* invoker = popoverInvokers.Next()) {
+        if (invoker->AsLocal()->GetPopoverTargetDescribedByRelation()) {
+          MOZ_ASSERT(
+              invoker->AsLocal()->GetPopoverTargetDescribedByRelation() ==
+              this);
+          rel.AppendTarget(invoker);
+        }
+      }
+      RelatedAccIterator commandInvokers(mDoc, mContent, nsGkAtoms::commandfor);
+      while (Accessible* invoker = commandInvokers.Next()) {
+        if (invoker->AsLocal()->GetCommandForDescribedByRelation()) {
+          MOZ_ASSERT(invoker->AsLocal()->GetCommandForDescribedByRelation() ==
+                     this);
+          rel.AppendTarget(invoker);
+        }
       }
 
       return rel;
@@ -2777,6 +2910,23 @@ void LocalAccessible::BindToParent(LocalAccessible* aParent,
   if (IsTableCell()) {
     CachedTableAccessible::Invalidate(this);
   }
+
+  if (mContent && mContent->IsElement()) {
+    // If this element is an open hint popover, queue cache updates for all its
+    // invokers so they can recompute relations now that this popover and its
+    // descendants are in the accessibility tree.
+    if (IsOpenHintPopover(mContent)) {
+      mDoc->QueueCacheUpdateForPopoverInvokers(mContent->AsElement());
+    }
+
+    // If this element is being bound to a parent that is an open hint popover,
+    // queue cache updates for that popover's invokers. This handles the case
+    // where interactive descendants are added to the hint popover after it's
+    // already been shown.
+    if (aParent && aParent->Elm() && IsOpenHintPopover(aParent->Elm())) {
+      mDoc->QueueCacheUpdateForPopoverInvokers(aParent->Elm());
+    }
+  }
 }
 
 // LocalAccessible protected
@@ -2785,6 +2935,12 @@ void LocalAccessible::UnbindFromParent() {
   // We do this for subtree removal in DocAccessible::UncacheChildrenInSubtree.
   if (IsTable() || IsTableCell()) {
     CachedTableAccessible::Invalidate(this);
+  }
+
+  // If this element is a hint popover being hidden, queue cache updates for all
+  // its invokers so they can clear the relations.
+  if (mContent && mContent->IsElement() && IsHintPopover(mContent)) {
+    mDoc->QueueCacheUpdateForPopoverInvokers(mContent->AsElement());
   }
 
   mParent = nullptr;
@@ -4118,6 +4274,11 @@ already_AddRefed<AccAttributes> LocalAccessible::BundleFieldsForCache(
       }
     }
 
+    // Track whether aria-details/aria-describedby have targets, so that
+    // commandfor/popovertarget can respect their precedence.
+    bool hasAriaDetails = false;
+    bool hasAriaDescribedby = false;
+
     for (auto const& data : kRelationTypeAtoms) {
       nsTArray<uint64_t> ids;
       nsStaticAtom* const relAtom = data.mAtom;
@@ -4140,12 +4301,20 @@ already_AddRefed<AccAttributes> LocalAccessible::BundleFieldsForCache(
           rel.AppendIter(
               new AssociatedElementsIterator(mDoc, mContent, relAtom));
         } else if (relAtom == nsGkAtoms::commandfor) {
-          if (LocalAccessible* target = GetCommandForDetailsRelation()) {
-            rel.AppendTarget(target);
+          // aria-details takes precedence; skip if it has targets.
+          if (!hasAriaDetails) {
+            if (LocalAccessible* target = GetCommandForDetailsRelation()) {
+              rel.AppendTarget(target);
+              fields->SetAttribute(CacheKey::PopoverInvokerIsDetails, true);
+            }
           }
         } else if (relAtom == nsGkAtoms::popovertarget) {
-          if (LocalAccessible* target = GetPopoverTargetDetailsRelation()) {
-            rel.AppendTarget(target);
+          // aria-details takes precedence; skip if it has targets.
+          if (!hasAriaDetails) {
+            if (LocalAccessible* target = GetPopoverTargetDetailsRelation()) {
+              rel.AppendTarget(target);
+              fields->SetAttribute(CacheKey::PopoverInvokerIsDetails, true);
+            }
           }
         } else if (relAtom == nsGkAtoms::target) {
           if (LocalAccessible* target =
@@ -4154,6 +4323,26 @@ already_AddRefed<AccAttributes> LocalAccessible::BundleFieldsForCache(
           }
         } else {
           MOZ_ASSERT_UNREACHABLE("Unknown details relAtom");
+        }
+      } else if (data.mType == RelationType::DESCRIBED_BY) {
+        if (relAtom == nsGkAtoms::aria_describedby) {
+          rel.AppendIter(
+              new AssociatedElementsIterator(mDoc, mContent, relAtom));
+        } else if (relAtom == nsGkAtoms::commandfor) {
+          // aria-describedby takes precedence; skip if it has targets.
+          if (!hasAriaDescribedby) {
+            if (LocalAccessible* target = GetCommandForDescribedByRelation()) {
+              rel.AppendTarget(target);
+            }
+          }
+        } else if (relAtom == nsGkAtoms::popovertarget) {
+          // aria-describedby takes precedence; skip if it has targets.
+          if (!hasAriaDescribedby) {
+            if (LocalAccessible* target =
+                    GetPopoverTargetDescribedByRelation()) {
+              rel.AppendTarget(target);
+            }
+          }
         }
       } else if (data.mType == RelationType::CONTROLLER_FOR) {
         // We need to use RelationByType for controls because it might include
@@ -4175,7 +4364,18 @@ already_AddRefed<AccAttributes> LocalAccessible::BundleFieldsForCache(
       }
       if (ids.Length()) {
         fields->SetAttribute(relAtom, std::move(ids));
-      } else if (IsUpdatePush(CacheDomain::Relations)) {
+        // Track that aria-details/aria-describedby have targets for precedence.
+        if (relAtom == nsGkAtoms::aria_details) {
+          hasAriaDetails = true;
+        } else if (relAtom == nsGkAtoms::aria_describedby) {
+          hasAriaDescribedby = true;
+        }
+      } else if (IsUpdatePush(CacheDomain::Relations) &&
+                 !fields->HasAttribute(relAtom)) {
+        // Only send DeleteEntry if we haven't already cached a value for this
+        // atom in an earlier iteration. This handles atoms that appear multiple
+        // times in kRelationTypeAtoms (e.g., popovertarget/commandfor appear
+        // for both DETAILS and DESCRIBED_BY).
         fields->SetAttribute(relAtom, DeleteEntry());
       }
     }

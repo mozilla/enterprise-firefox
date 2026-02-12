@@ -22,7 +22,9 @@ class nsISupports;
 
 namespace mozilla {
 
+struct CSSPropertyId;
 class ErrorResult;
+struct StyleNumericValue;
 
 namespace dom {
 
@@ -32,9 +34,19 @@ class Sequence;
 
 class CSSNumericValue : public CSSStyleValue {
  public:
+  enum class NumericValueType {
+    Uninitialized,  // TODO: Remove once the implementation is complete.
+    UnitValue,
+    MathSum,
+  };
+
   explicit CSSNumericValue(nsCOMPtr<nsISupports> aParent);
 
-  CSSNumericValue(nsCOMPtr<nsISupports> aParent, ValueType aValueType);
+  CSSNumericValue(nsCOMPtr<nsISupports> aParent,
+                  NumericValueType aNumericValueType);
+
+  static RefPtr<CSSNumericValue> Create(nsCOMPtr<nsISupports> aParent,
+                                        const StyleNumericValue& aNumericValue);
 
   JSObject* WrapObject(JSContext* aCx,
                        JS::Handle<JSObject*> aGivenProto) override;
@@ -68,14 +80,38 @@ class CSSNumericValue : public CSSStyleValue {
 
   void Type(CSSNumericType& aRetVal);
 
+  // https://drafts.css-houdini.org/css-typed-om-1/#dom-cssnumericvalue-parse
   static already_AddRefed<CSSNumericValue> Parse(const GlobalObject& aGlobal,
                                                  const nsACString& aCssText,
                                                  ErrorResult& aRv);
 
   // end of CSSNumbericValue Web IDL declarations
 
+  NumericValueType GetNumericValueType() const { return mNumericValueType; }
+
+  bool IsCSSUnitValue() const;
+
+  // Defined in CSSUnitValue.cpp
+  const CSSUnitValue& GetAsCSSUnitValue() const;
+
+  // Defined in CSSUnitValue.cpp
+  CSSUnitValue& GetAsCSSUnitValue();
+
+  bool IsCSSMathSum() const;
+
+  // Defined in CSSMathSum.cpp
+  const CSSMathSum& GetAsCSSMathSum() const;
+
+  // Defined in CSSMathSum.cpp
+  CSSMathSum& GetAsCSSMathSum();
+
+  void ToCssTextWithProperty(const CSSPropertyId& aPropertyId,
+                             nsACString& aDest) const;
+
  protected:
   virtual ~CSSNumericValue() = default;
+
+  const NumericValueType mNumericValueType;
 };
 
 }  // namespace dom

@@ -13,7 +13,7 @@ include_guard = "IMAGE_RUST_JXLDECODERFFI_H_"
 includes = ["cstdint", "cstddef"]
 
 [export]
-include = ["JxlDecoderStatus", "JxlBasicInfo"]
+include = ["JxlDecoderStatus", "JxlBasicInfo", "JxlFrameInfo"]
 
 [fn]
 rename_args = "None"

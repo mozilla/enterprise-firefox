@@ -21,6 +21,7 @@ import io.mockk.spyk
 import io.mockk.verify
 import io.mockk.verifyOrder
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import mozilla.appservices.places.BookmarkRoot
 import mozilla.components.browser.state.action.CustomTabListAction
@@ -46,8 +47,6 @@ import mozilla.components.feature.top.sites.PinnedSiteStorage
 import mozilla.components.feature.top.sites.TopSitesUseCases
 import mozilla.components.support.base.feature.ViewBoundFeatureWrapper
 import mozilla.components.support.test.robolectric.testContext
-import mozilla.components.support.test.rule.MainCoroutineRule
-import mozilla.components.support.test.rule.runTestOnMain
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -84,9 +83,6 @@ import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
 class DefaultBrowserToolbarMenuControllerTest {
-
-    @get:Rule
-    val coroutinesTestRule = MainCoroutineRule()
 
     @get:Rule
     val gleanTestRule = FenixGleanTestRule(testContext)
@@ -173,7 +169,7 @@ class DefaultBrowserToolbarMenuControllerTest {
 
         selectedTab = createTab("https://www.mozilla.org", id = "1")
 
-        val engineMiddleware = EngineMiddleware.create(mockk(), coroutinesTestRule.scope)
+        val engineMiddleware = EngineMiddleware.create(mockk(), TestScope())
         browserStore = BrowserStore(
             initialState = BrowserState(
                 tabs = listOf(selectedTab),
@@ -534,7 +530,7 @@ class DefaultBrowserToolbarMenuControllerTest {
     }
 
     @Test
-    fun `WHEN add to shortcuts menu item is pressed THEN add site AND show snackbar`() = runTestOnMain {
+    fun `WHEN add to shortcuts menu item is pressed THEN add site AND show snackbar`() = runTest {
         val item = ToolbarMenu.Item.AddToTopSites
         val addPinnedSiteUseCase: TopSitesUseCases.AddPinnedSiteUseCase = mockk(relaxed = true)
 
@@ -547,6 +543,7 @@ class DefaultBrowserToolbarMenuControllerTest {
         assertNull(Events.browserMenuAction.testGetValue())
 
         controller.handleToolbarItemInteraction(item)
+        testScheduler.advanceUntilIdle()
 
         assertNotNull(Events.browserMenuAction.testGetValue())
         val snapshot = Events.browserMenuAction.testGetValue()!!

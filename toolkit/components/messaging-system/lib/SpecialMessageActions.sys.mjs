@@ -19,6 +19,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   FxAccounts: "resource://gre/modules/FxAccounts.sys.mjs",
   GenAI: "resource:///modules/GenAI.sys.mjs",
   MigrationUtils: "resource:///modules/MigrationUtils.sys.mjs",
+  ON_SERVICE_ENABLED_NOTIFICATION:
+    "resource://gre/modules/FxAccountsCommon.sys.mjs",
   PlacesTransactions: "resource://gre/modules/PlacesTransactions.sys.mjs",
   // eslint-disable-next-line mozilla/no-browser-refs-in-toolkit
   PlacesUIUtils: "moz-src:///browser/components/places/PlacesUIUtils.sys.mjs",
@@ -354,6 +356,9 @@ export const SpecialMessageActions = {
     if (!(await lazy.FxAccounts.canConnectAccount())) {
       return false;
     }
+    // In practice, all FxA signin flows will have a "ervice", because that param dictates the
+    // UI shown by FxA. But to be extra cautious, this code treats it as optional.
+    let neededService = data?.extraParams?.service;
     const url = await lazy.FxAccounts.config.promiseConnectAccountURI(
       data?.entrypoint || "activity-stream-firstrun",
       data?.extraParams || {}
@@ -375,13 +380,15 @@ export const SpecialMessageActions = {
     let gBrowser = fxaBrowser.getTabBrowser();
     let fxaTab = gBrowser.getTabForBrowser(fxaBrowser);
 
+    let sawNeededService = false;
     let didSignIn = await new Promise(resolve => {
       // We're going to be setting up a listener and an observer for this
       // mechanism.
       //
       // 1. An event listener for the TabClose event, to detect if the user
       //    closes the tab before completing sign-in
-      // 2. An nsIObserver that listens for the UIState for FxA to reach
+      // 2. An nsIObserver that listens for an FxA "service" being enabled.
+      // 3. An nsIObserver that listens for the UIState for FxA to reach
       //    STATUS_SIGNED_IN.
       //
       // We want to clean up both the listener and observer when all of this
@@ -400,13 +407,27 @@ export const SpecialMessageActions = {
           Ci.nsISupportsWeakReference,
         ]),
 
-        observe() {
-          let state = lazy.UIState.get();
-          if (state.status === lazy.UIState.STATUS_SIGNED_IN) {
-            // We completed sign-in, so tear down our listener / observer and resolve
-            // didSignIn to true.
-            controller.abort();
-            resolve(true);
+        observe(aSubject, aTopic, aData) {
+          switch (aTopic) {
+            case lazy.UIState.ON_UPDATE: {
+              let state = lazy.UIState.get();
+              if (
+                (!neededService || sawNeededService) &&
+                state.status === lazy.UIState.STATUS_SIGNED_IN
+              ) {
+                // We completed sign-in, so tear down our listener / observer and resolve
+                // didSignIn to true.
+                controller.abort();
+                resolve(true);
+              }
+              break;
+            }
+            case lazy.ON_SERVICE_ENABLED_NOTIFICATION: {
+              if (aData === neededService) {
+                sawNeededService = true;
+              }
+              break;
+            }
           }
         },
       };
@@ -435,14 +456,22 @@ export const SpecialMessageActions = {
         resolve(false);
       });
 
+      Services.obs.addObserver(
+        fxaObserver,
+        lazy.ON_SERVICE_ENABLED_NOTIFICATION
+      );
       Services.obs.addObserver(fxaObserver, lazy.UIState.ON_UPDATE);
 
       // Unfortunately, nsIObserverService.addObserver does not accept an
       // AbortController signal as a parameter, so instead we listen for the
-      // abort event on the signal to remove the observer.
+      // abort event on the signal to remove the observers.
       signal.addEventListener(
         "abort",
         () => {
+          Services.obs.removeObserver(
+            fxaObserver,
+            lazy.ON_SERVICE_ENABLED_NOTIFICATION
+          );
           Services.obs.removeObserver(fxaObserver, lazy.UIState.ON_UPDATE);
         },
         { once: true }

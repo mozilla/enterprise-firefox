@@ -22,6 +22,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import mozilla.components.browser.state.action.SearchAction
 import mozilla.components.support.AppServicesInitializer
 import mozilla.components.support.base.facts.register
 import mozilla.components.support.base.log.Log
@@ -88,6 +89,8 @@ open class FocusApplication : LocaleAwareApplication(), Provider {
 
             initializeRemoteSettingsSupport()
 
+            refreshSearchEngineUpdate()
+
             setupLeakCanary()
 
             components.appStartReasonProvider.registerInAppOnCreate(this)
@@ -103,6 +106,10 @@ open class FocusApplication : LocaleAwareApplication(), Provider {
                 components.fileUploadsDirCleaner.cleanUploadsDirectory()
             }
         }
+    }
+
+    private fun refreshSearchEngineUpdate() {
+        components.store.dispatch(SearchAction.RefreshSearchEnginesAction)
     }
 
     override fun onConfigurationChanged(config: android.content.res.Configuration) {

@@ -67,6 +67,7 @@ enum class State {
   D(CheckHashTablesOnMinorGC, 13)        \
   D(Compact, 14)                         \
   D(CheckHeapAfterGC, 15)                \
+  D(ConcurrentMarking, 16)               \
   D(YieldBeforeSweepingAtoms, 17)        \
   D(CheckGrayMarking, 18)                \
   D(YieldBeforeSweepingCaches, 19)       \
@@ -111,7 +112,6 @@ enum class GCAbortReason {
   _(ArrayBufferContents)                   \
   _(StringContents)                        \
   _(ScriptPrivateData)                     \
-  _(WeakMapObject)                         \
   _(ShapeSetForAdd)                        \
   _(PropMapChildren)                       \
   _(PropMapTable)                          \

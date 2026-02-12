@@ -21,6 +21,7 @@ import mozilla.components.browser.engine.gecko.cookiebanners.GeckoCookieBannersS
 import mozilla.components.browser.engine.gecko.cookiebanners.ReportSiteDomainsRepository
 import mozilla.components.browser.engine.gecko.fetch.GeckoViewFetchClient
 import mozilla.components.browser.engine.gecko.permission.GeckoSitePermissionsStorage
+import mozilla.components.browser.engine.gecko.util.EngineDownloadDelegate
 import mozilla.components.browser.icons.BrowserIcons
 import mozilla.components.browser.session.storage.SessionStorage
 import mozilla.components.browser.state.engine.EngineMiddleware
@@ -95,9 +96,7 @@ import mozilla.components.service.mars.Placement
 import mozilla.components.service.mars.contile.ContileTopSitesUpdater
 import mozilla.components.service.pocket.ContentRecommendationsRequestConfig
 import mozilla.components.service.pocket.PocketStoriesConfig
-import mozilla.components.service.pocket.PocketStoriesRequestConfig
 import mozilla.components.service.pocket.PocketStoriesService
-import mozilla.components.service.pocket.Profile
 import mozilla.components.service.pocket.mars.api.MarsSpocsRequestConfig
 import mozilla.components.service.pocket.mars.api.NEW_TAB_SPOCS_PLACEMENT_KEY
 import mozilla.components.service.sync.autofill.AutofillCreditCardsAddressesStorage
@@ -106,7 +105,6 @@ import mozilla.components.support.base.worker.Frequency
 import mozilla.components.support.ktx.android.content.appVersionName
 import mozilla.components.support.ktx.android.content.res.readJSONObject
 import mozilla.components.support.locale.LocaleManager
-import mozilla.components.support.utils.DefaultDownloadFileUtils
 import mozilla.components.support.utils.RunWhenReadyQueue
 import org.mozilla.fenix.AppRequestInterceptor
 import org.mozilla.fenix.BuildConfig
@@ -137,7 +135,6 @@ import org.mozilla.fenix.share.SaveToPDFMiddleware
 import org.mozilla.fenix.telemetry.TelemetryMiddleware
 import org.mozilla.fenix.utils.getUndoDelay
 import org.mozilla.geckoview.GeckoRuntime
-import java.util.UUID
 import java.util.concurrent.TimeUnit
 import mozilla.components.service.pocket.mars.api.Placement as MarsSpocsPlacement
 
@@ -202,7 +199,15 @@ class Core(
             lnaFeatureEnabled = context.settings().isLnaFeatureEnabled,
             lnaTrackerBlockingEnabled = context.settings().isLnaTrackerBlockingEnabled,
             crliteChannel = FxNimbus.features.pki.value().crliteChannel,
-        )
+            downloadDelegate = EngineDownloadDelegate(
+                context = context,
+                downloadLocationGetter = {
+                    Environment.getExternalStoragePublicDirectory(
+                        Environment.DIRECTORY_DOWNLOADS,
+                    ).absolutePath
+                },
+            ),
+            )
 
         // Apply fingerprinting protection overrides if the feature is enabled in Nimbus
         if (FxNimbus.features.fingerprintingProtection.value().enabled) {
@@ -240,14 +245,6 @@ class Core(
             context = context,
             defaultSettings = defaultSettings,
             runtime = geckoRuntime,
-            downloadFileUtils = DefaultDownloadFileUtils(
-                context = context,
-                downloadLocationGetter = {
-                    Environment.getExternalStoragePublicDirectory(
-                        Environment.DIRECTORY_DOWNLOADS,
-                    ).path
-                },
-                ),
         ).also {
             WebCompatFeature.install(it)
         }
@@ -571,19 +568,6 @@ class Core(
         PocketStoriesConfig(
             client,
             Frequency(4, TimeUnit.HOURS),
-            Profile(
-                profileId = UUID.fromString(context.settings().pocketSponsoredStoriesProfileId),
-                appId = BuildConfig.POCKET_CONSUMER_KEY,
-            ),
-            sponsoredStoriesParams = if (context.settings().useCustomConfigurationForSponsoredStories) {
-                PocketStoriesRequestConfig(
-                    context.settings().pocketSponsoredStoriesSiteId,
-                    context.settings().pocketSponsoredStoriesCountry,
-                    context.settings().pocketSponsoredStoriesCity,
-                )
-            } else {
-                PocketStoriesRequestConfig()
-            },
             contentRecommendationsParams = ContentRecommendationsRequestConfig(
                 locale = LocaleManager.getSelectedLocale(context).toLanguageTag(),
             ),

@@ -75,6 +75,15 @@ TEST_SUITES = {
         "kwargs": {"tests": None},
         "task_regex": ["marionette($|.*(-1|[^0-9])$)"],
     },
+    "marionette-enterprise": {
+        "aliases": ("mnent",),
+        "build_flavor": "marionette",
+        "mach_command": "marionette-test",
+        "kwargs": {
+            "subsuite": "enterprise",
+        },
+        "task_regex": ["marionette($|.*(-1|[^0-9])$)"],
+    },
     "marionette-unittest": {
         "aliases": ("mnself",),
         "build_flavor": "marionette",
@@ -447,6 +456,7 @@ _test_flavors = {
     "firefox-ui-functional": "firefox-ui-functional",
     "firefox-ui-update": "firefox-ui-update",
     "marionette-integration": "marionette-integration",
+    "marionette-enterprise": "marionette-enterprise",
     "marionette-unittest": "marionette-unittest",
     "mochitest": "mochitest-plain",
     "puppeteer": "puppeteer",
@@ -1209,8 +1219,6 @@ class TestResolver(MozbuildObject):
             ]  # full path on disk until web-platform tests directory
 
             for test_type, path, tests in manifest:
-                full_path = mozpath.join(tests_root, path)
-                src_path = mozpath.relpath(full_path, self.topsrcdir)
                 if test_type not in WPT_TYPES:
                     continue
 

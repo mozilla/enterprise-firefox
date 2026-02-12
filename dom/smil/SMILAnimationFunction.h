@@ -38,7 +38,7 @@ class SVGAnimationElement;
 //
 class SMILAnimationFunction {
  public:
-  SMILAnimationFunction();
+  SMILAnimationFunction() = default;
 
   /*
    * Sets the owning animation element which this class uses to query attribute
@@ -358,7 +358,7 @@ class SMILAnimationFunction {
 
   // For tracking parse errors in these attributes, when those parse errors
   // should block us from doing animation.
-  enum class ErrorFlag {
+  enum class ErrorFlag : uint8_t {
     Accumulate,
     Additive,
     CalcMode,
@@ -422,36 +422,37 @@ class SMILAnimationFunction {
   // instructed by the compositor. This allows us to apply the result directly
   // to the animation value and allows the compositor to filter out functions
   // that it determines will not contribute to the final result.
-  SMILTime mSampleTime;  // sample time within simple dur
+  SMILTime mSampleTime = -1;  // sample time within simple dur
   SMILTimeValue mSimpleDuration;
-  uint32_t mRepeatIteration;
 
-  SMILTime mBeginTime;  // document time
+  SMILTime mBeginTime = std::numeric_limits<SMILTime>::min();  // document time
 
   // The owning animation element. This is used for sorting based on document
   // position and for fetching attribute values stored in the element.
   // Raw pointer is OK here, because this SMILAnimationFunction can't outlive
   // its owning animation element.
-  dom::SVGAnimationElement* mAnimationElement;
-
-  // Which attributes have been set but have had errors. This is not used for
-  // all attributes but only those which have specified error behaviour
-  // associated with them.
-  ErrorFlags mErrorFlags;
+  dom::SVGAnimationElement* mAnimationElement = nullptr;
 
   // Allows us to check whether an animation function has changed target from
   // sample to sample (because if neither target nor animated value have
   // changed, we don't have to do anything).
   SMILWeakTargetIdentifier mLastTarget;
 
+  uint32_t mRepeatIteration = 0;
+
+  // Which attributes have been set but have had errors. This is not used for
+  // all attributes but only those which have specified error behaviour
+  // associated with them.
+  ErrorFlags mErrorFlags;
+
   // Boolean flags
-  bool mIsActive : 1;
-  bool mIsFrozen : 1;
-  bool mLastValue : 1;
-  bool mHasChanged : 1;
-  bool mValueNeedsReparsingEverySample : 1;
-  bool mPrevSampleWasSingleValueAnimation : 1;
-  bool mWasSkippedInPrevSample : 1;
+  bool mIsActive : 1 = false;
+  bool mIsFrozen : 1 = false;
+  bool mLastValue : 1 = false;
+  bool mHasChanged : 1 = true;
+  bool mValueNeedsReparsingEverySample : 1 = false;
+  bool mPrevSampleWasSingleValueAnimation : 1 = false;
+  bool mWasSkippedInPrevSample : 1 = false;
 };
 
 }  // namespace mozilla

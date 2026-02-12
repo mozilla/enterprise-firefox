@@ -137,6 +137,7 @@ export const MemoryStore = {
    * @property {string} memory_summary - Short human-readable summary of the memory.
    * @property {string} category - Category label for the memory.
    * @property {string} intent - Intent label associated with the memory.
+   * @property {string} reasoning - Explanation of why this memory was created.
    * @property {number} score - Numeric score representing the memory's relevance.
    * @property {number} updated_at - Last-updated time in milliseconds since Unix epoch.
    * @property {boolean} is_deleted - Whether the memory is marked as deleted.
@@ -147,6 +148,7 @@ export const MemoryStore = {
    * @property {string} [memory_summary] Optional summary; defaults to an empty string.
    * @property {string} [category] Optional category label; defaults to an empty string.
    * @property {string} [intent] Optional intent label; defaults to an empty string.
+   * @property {string} [reasoning] Optional reasoning explanation; defaults to an empty string.
    * @property {number} [score] Optional numeric score; non-finite values are ignored.
    * @property {number} [updated_at] Optional last-updated time in milliseconds since Unix epoch.
    * @property {boolean} [is_deleted] Optional deleted flag; defaults to false.
@@ -168,7 +170,12 @@ export const MemoryStore = {
     let memory = gState.memories.find(i => i.id === id);
 
     if (memory) {
-      const simpleProperties = ["memory_summary", "category", "intent"];
+      const simpleProperties = [
+        "memory_summary",
+        "category",
+        "intent",
+        "reasoning",
+      ];
       for (const prop of simpleProperties) {
         if (prop in memoryPartial) {
           memory[prop] = memoryPartial[prop];
@@ -199,6 +206,7 @@ export const MemoryStore = {
       memory_summary: memoryPartial.memory_summary || "",
       category: memoryPartial.category || "",
       intent: memoryPartial.intent || "",
+      reasoning: memoryPartial.reasoning || "",
       score: Number.isFinite(memoryPartial.score) ? memoryPartial.score : 0,
       updated_at: memoryPartial.updated_at || now,
       is_deleted: memoryPartial.is_deleted ?? false,
@@ -225,7 +233,12 @@ export const MemoryStore = {
       return null;
     }
 
-    const simpleProperties = ["memory_summary", "category", "intent"];
+    const simpleProperties = [
+      "memory_summary",
+      "category",
+      "intent",
+      "reasoning",
+    ];
     for (const prop of simpleProperties) {
       if (prop in updates) {
         memory[prop] = updates[prop];

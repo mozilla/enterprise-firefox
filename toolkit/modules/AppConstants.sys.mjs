@@ -31,6 +31,13 @@ export var AppConstants = Object.freeze({
 
   MOZ_OFFICIAL_BRANDING: @MOZ_OFFICIAL_BRANDING_BOOL@,
 
+  BUILT_BY_MOZILLA:
+#ifdef BUILT_BY_MOZILLA
+  true,
+#else
+  false,
+#endif
+
   MOZ_DEV_EDITION: @MOZ_DEV_EDITION_BOOL@,
 
   MOZ_SERVICES_SYNC: @MOZ_SERVICES_SYNC_BOOL@,

@@ -124,7 +124,7 @@ add_task(async function test_sort_order_persisted() {
     "passwordmgr-storage-changed",
     (_, data) => data == "removeLogin"
   );
-  Services.logins.removeLogin(TEST_LOGIN3);
+  await Services.logins.removeLoginAsync(TEST_LOGIN3);
   await storageChangedPromised;
   TEST_LOGIN2 = await addLogin(TEST_LOGIN2);
 

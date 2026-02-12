@@ -227,6 +227,12 @@ class LocalAccessible : public nsISupports, public Accessible {
    */
   virtual bool NativelyUnavailable() const;
 
+  /**
+   * Return true if this accessible and all of its descendants have only
+   * plain-content roles (text, images, generic containers, etc.).
+   */
+  bool IsOnlyPlainContent() const;
+
   virtual already_AddRefed<AccAttributes> Attributes() override;
 
   /**
@@ -1037,6 +1043,10 @@ class LocalAccessible : public nsISupports, public Accessible {
   LocalAccessible* GetPopoverTargetDetailsRelation() const;
 
   LocalAccessible* GetAnchorPositionTargetDetailsRelation() const;
+
+  LocalAccessible* GetPopoverTargetDescribedByRelation() const;
+
+  LocalAccessible* GetCommandForDescribedByRelation() const;
 };
 
 ////////////////////////////////////////////////////////////////////////////////

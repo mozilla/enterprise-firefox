@@ -16,6 +16,14 @@ export class AIChatContentParent extends JSWindowActorParent {
     this.sendAsyncMessage("AIChatContent:DispatchMessage", response);
   }
 
+  dispatchTruncateToChatContent(payload) {
+    this.sendAsyncMessage("AIChatContent:TruncateConversation", payload);
+  }
+
+  dispatchRemoveAppliedMemoryToChatContent(payload) {
+    this.sendAsyncMessage("AIChatContent:RemoveAppliedMemory", payload);
+  }
+
   receiveMessage({ data, name }) {
     switch (name) {
       case "aiChatContentActor:search":
@@ -26,6 +34,10 @@ export class AIChatContentParent extends JSWindowActorParent {
         this.#notifyContentReady();
         break;
 
+      case "aiChatContentActor:footer-action":
+        this.#handleFooterActionFromChild(data);
+        break;
+
       default:
         console.warn(`AIChatContentParent received unknown message: ${name}`);
         break;
@@ -34,8 +46,7 @@ export class AIChatContentParent extends JSWindowActorParent {
   }
 
   #notifyContentReady() {
-    const browser = this.browsingContext.embedderElement;
-    const aiWindow = browser.ownerDocument.querySelector("ai-window");
+    const aiWindow = this.#getAIWindowElement();
     aiWindow.onContentReady();
   }
 
@@ -46,5 +57,23 @@ export class AIChatContentParent extends JSWindowActorParent {
     } catch (e) {
       console.warn("Could not perform search from AI Window chat", e);
     }
+  }
+
+  #handleFooterActionFromChild(data) {
+    try {
+      const aiWindow = this.#getAIWindowElement();
+      aiWindow.handleFooterAction(data);
+    } catch (e) {
+      console.warn("Could not handle footer action from AI Window chat", e);
+    }
+  }
+
+  #getAIWindowElement() {
+    const browser = this.browsingContext.embedderElement;
+    const root = browser?.getRootNode?.();
+    if (root?.host?.localName === "ai-window") {
+      return root.host;
+    }
+    return browser?.ownerDocument?.querySelector("ai-window") ?? null;
   }
 }

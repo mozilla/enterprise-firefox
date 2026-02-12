@@ -30,3 +30,5 @@ DIRS += ["manifest", "mozbase", "mozharness"]
 PERFTESTS_MANIFESTS += [
     "performance/perftest.toml",
 ]
+
+MARIONETTE_MANIFESTS += ["enterprise/manifest.toml"]

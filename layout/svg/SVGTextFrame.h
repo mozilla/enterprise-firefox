@@ -549,6 +549,11 @@ class SVGTextFrame final : public SVGDisplayContainerFrame {
   RefPtr<MutationObserver> mMutationObserver;
 
   /**
+   * Computed position information for each DOM character within the <text>.
+   */
+  nsTArray<CharPosition> mPositions;
+
+  /**
    * The number of characters in the DOM after the final nsTextFrame.  For
    * example, with
    *
@@ -557,11 +562,6 @@ class SVGTextFrame final : public SVGDisplayContainerFrame {
    * mTrailingUndisplayedCharacters would be 2.
    */
   uint32_t mTrailingUndisplayedCharacters = 0;
-
-  /**
-   * Computed position information for each DOM character within the <text>.
-   */
-  nsTArray<CharPosition> mPositions;
 
   /**
    * mFontSizeScaleFactor is used to cause the nsTextFrames to create text

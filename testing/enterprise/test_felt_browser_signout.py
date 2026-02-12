@@ -3,24 +3,22 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+import os
 import sys
 import uuid
 
+sys.path.append(os.path.dirname(__file__))
+
 from felt_tests import FeltTests
-from selenium.common.exceptions import (
+from marionette_driver.errors import (
     JavascriptException,
     NoSuchWindowException,
-    UnexpectedAlertPresentException,
-    WebDriverException,
+    UnexpectedAlertOpen,
+    UnknownException,
 )
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.support.ui import WebDriverWait
 
 
-class BrowserSignout(FeltTests):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
+class BaseBrowserSignout(FeltTests):
     def felt_whoami(self):
         self._child_driver.set_context("chrome")
         rv = self._child_driver.execute_script(
@@ -32,14 +30,10 @@ class BrowserSignout(FeltTests):
         self._child_driver.set_context("content")
         return rv
 
-    def await_felt_auth_window(self):
-        tabs = self._driver.window_handles
-        self._wait.until(EC.new_window_is_opened(tabs))
-
     def force_window(self):
         self._driver.set_context("chrome")
-        assert len(self._driver.window_handles) == 1, "One window exists"
-        self._driver.switch_to.window(self._driver.window_handles[0])
+        assert len(self._driver.chrome_window_handles) == 1, "One window exists"
+        self._driver.switch_to_window(self._driver.chrome_window_handles[0])
         self._driver.set_context("content")
 
     def get_private_cookies(self):
@@ -58,7 +52,7 @@ class BrowserSignout(FeltTests):
         self._driver.set_context("content")
         return private_cookies
 
-    def test_felt_3_browser_ui_state_when_user_is_logged_in(self, exp):
+    def run_browser_ui_state_when_user_is_logged_in(self):
         self.connect_child_browser(
             capabilities={
                 # Do not auto-handle prompts.
@@ -101,9 +95,7 @@ class BrowserSignout(FeltTests):
 
         self._child_driver.set_context("content")
 
-        return True
-
-    def test_felt_4_perform_signout(self, exp):
+    def run_perform_signout(self):
         self.open_tab_child("about:newtab")
 
         self._child_driver.set_context("chrome")
@@ -113,25 +105,27 @@ class BrowserSignout(FeltTests):
 
         # Making sure we get to handle the Signout dialog
         assert (
-            self._child_driver.capabilities.get("unhandledPromptBehavior") == "ignore"
+            self._child_driver.session_capabilities.get("unhandledPromptBehavior")
+            == "ignore"
         ), "Driver should not auto-handle prompt"
 
         try:
             # This will cause an UnexpectedAlertPresentException, which is our expected signout dialog
             self._logger.info("Clicking signout button in enterprise panel")
             self.get_elem_child(".panelUI-enterprise__sign-out-btn").click()
-        except UnexpectedAlertPresentException:
+        except UnexpectedAlertOpen:
             # Do nothing, signout dialog ("alert") is expected
             pass
 
         self._logger.info("Waiting for the signout dialog to open")
-        WebDriverWait(self._child_driver, 5).until(EC.alert_is_present())
+        alert = self._child_driver.switch_to_alert()
+        # Wait(self._child_driver, 5).until(alert)
 
         self._logger.info(
             "Signing out the user by clicking the Signout button in the dialog"
         )
         # This target the primary action, which is clicking the Signout button
-        self._child_driver.switch_to.alert.accept()
+        alert.accept()
 
         self._child_driver.set_context("content")
 
@@ -144,9 +138,7 @@ class BrowserSignout(FeltTests):
         self.cookie_name.value = str(uuid.uuid1()).split("-")[0]
         self.cookie_value.value = str(uuid.uuid4()).split("-")[4]
 
-        return True
-
-    def test_felt_5_whoami(self, exp):
+    def run_whoami(self):
         try:
             self.felt_whoami()
             assert False, "Error on signout"
@@ -154,16 +146,14 @@ class BrowserSignout(FeltTests):
             assert ex.msg == "InvalidAuthError: Unhandled reauthentication", (
                 "Deauth done"
             )
-            return True
         except NoSuchWindowException:
-            return True
-        except WebDriverException as ex:
+            pass
+        except UnknownException as ex:
             assert ex.msg == "Failed to decode response from marionette", "Deauth done"
-            return True
+        except OSError:
+            pass
 
-        return True
-
-    def test_felt_7_prefilled_email_submit(self, exp):
+    def run_prefilled_email_submit(self):
         self.await_felt_auth_window()
         self.force_window()
 
@@ -177,26 +167,22 @@ class BrowserSignout(FeltTests):
         )
         self._driver.set_context("content")
 
-        self.test_felt_00_chrome_on_email_submit(exp)
-        return True
+        self.run_felt_chrome_on_email_submit()
 
-    def test_felt_8_load_sso(self, exp):
+    def run_load_sso(self):
         self.force_window()
-        self.test_felt_0_load_sso(exp)
-        return True
+        self.run_felt_load_sso()
 
-    def test_felt_9_0_perform_sso_auth(self, exp):
+    def run_perform_sso_auth(self):
         self.force_window()
-        self.test_felt_1_perform_sso_auth(exp)
+        self.run_felt_perform_sso_auth()
         # We will be restarting again
         self._manually_closed_child = False
-        return True
 
-    def test_felt_9_1_new_browser(self, exp):
+    def run_new_browser(self):
         self.connect_child_browser()
-        return True
 
-    def test_felt_9_2_new_browser_new_tab(self, exp):
+    def run_new_browser_new_tab(self):
         self.open_tab_child(f"http://localhost:{self.sso_port}/sso_page")
 
         expected_cookie = list(
@@ -211,14 +197,15 @@ class BrowserSignout(FeltTests):
             f"Cookie {self.cookie_name} was properly set on Firefox started by FELT, found {expected_cookie}"
         )
 
-        return True
 
-
-if __name__ == "__main__":
-    BrowserSignout(
-        "felt_browser_signout.json",
-        firefox=sys.argv[1],
-        geckodriver=sys.argv[2],
-        profile_root=sys.argv[3],
-        env_vars={"MOZ_FELT_UI": "1"},
-    )
+class BrowserSignout(BaseBrowserSignout):
+    def test_browser_signout(self):
+        super().run_felt_base()
+        self.run_browser_ui_state_when_user_is_logged_in()
+        self.run_perform_signout()
+        self.run_whoami()
+        self.run_prefilled_email_submit()
+        self.run_load_sso()
+        self.run_perform_sso_auth()
+        self.run_new_browser()
+        self.run_new_browser_new_tab()

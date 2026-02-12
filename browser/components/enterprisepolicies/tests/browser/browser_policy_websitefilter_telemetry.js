@@ -115,7 +115,7 @@ async function checkBlockedPageTelemetry(
     if (!events?.length) {
       return;
     }
-    Assert.greaterOrEqual(events.length, 1, "Should record at least one event"); // TODO this should eventually be exactly 1
+    Assert.equal(events.length, 1, "Should record at least one event");
     const event = events.at(-1);
     Assert.ok(event.extra, "Event should have extra data");
     Assert.equal(

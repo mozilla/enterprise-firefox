@@ -142,6 +142,7 @@ class FunctionBox;
   F(LexicalScope, LexicalScopeNode)                                       \
   F(LetDecl, DeclarationListNode)                                         \
   F(ImportDecl, BinaryNode)                                               \
+  IF_SOURCE_PHASE_IMPORTS(F(ImportSourceDecl, BinaryNode))                \
   F(ImportSpecList, ListNode)                                             \
   F(ImportSpec, BinaryNode)                                               \
   F(ImportNamespaceSpec, UnaryNode)                                       \
@@ -398,9 +399,21 @@ inline bool IsTypeofKind(ParseNodeKind kind) {
  * LabelStmt (LabeledStatement)
  *   atom: label
  *   expr: labeled statement
+ * ImportAttribute (BinaryNode)
+ *   left: String attribute key, e.g. "type"
+ *   right: String attribute value, e.g. "json"
+ * ImportAttributeList (ListNode)
+ *   head: list of N ImportAttribute nodes
+ *   count: N >= 0 (N = 0 for `with {key0: "value", key1: "value", ...}`)
  * ImportDecl (BinaryNode)
  *   left: ImportSpecList import specifiers
- *   right: String module specifier
+ *   right: ImportModuleRequest module request
+ * ImportModuleRequest (BinaryNode)
+ *   left: String module specifier
+ *   right: ImportAttributeList import attributes
+ * ImportSourceDecl (BinaryNode)
+ *   left: String imported binding
+ *   right: ImportModuleRequest module request
  * ImportSpecList (ListNode)
  *   head: list of N ImportSpec nodes
  *   count: N >= 0 (N = 0 for `import {} from ...`)

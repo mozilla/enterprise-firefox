@@ -958,7 +958,7 @@ class BaseFinder:
         if path.endswith((".ftl", ".properties")):
             return MinifiedCommentStripped(file)
 
-        if path.endswith((".js", ".jsm", ".mjs")):
+        if path.endswith((".js", ".mjs")):
             file_path = mozpath.normsep(path)
             filename = mozpath.basename(file_path)
             # Don't minify prefs files because they use a custom parser that's stricter than JS

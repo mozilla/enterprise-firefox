@@ -25,7 +25,7 @@ class SMILTimeValue;
 //
 class SMILTimeContainer {
  public:
-  SMILTimeContainer();
+  SMILTimeContainer() = default;
   virtual ~SMILTimeContainer();
 
   /*
@@ -253,10 +253,10 @@ class SMILTimeContainer {
   void NotifyTimeChange();
 
   // The parent time container, if any
-  SMILTimeContainer* mParent;
+  SMILTimeContainer* mParent = nullptr;
 
   // The current time established at the last call to Sample()
-  SMILTime mCurrentTime;
+  SMILTime mCurrentTime = 0L;
 
   // The number of milliseconds for which the container has been paused
   // (excluding the current pause interval if the container is currently
@@ -264,27 +264,13 @@ class SMILTimeContainer {
   //
   //  Current time = parent time - mParentOffset
   //
-  SMILTime mParentOffset;
+  SMILTime mParentOffset = 0L;
 
   // The time the time container will pause when it reaches this point.
   Maybe<SMILTime> mPauseTime;
 
   // The timestamp in parent time when the container was paused
-  SMILTime mPauseStart;
-
-  // Whether or not a pause sample is required
-  bool mNeedsPauseSample;
-
-  bool mNeedsRewind;  // Backwards seek performed
-  bool mIsSeeking;    // Currently in the middle of a seek operation
-
-#ifdef DEBUG
-  bool mHoldingEntries;  // True if there's a raw pointer to mMilestoneEntries
-                         // on the stack.
-#endif
-
-  // A bitfield of the pause type for all pause requests
-  PauseTypes mPauseTypes;
+  SMILTime mPauseStart = 0L;
 
   struct MilestoneEntry {
     MilestoneEntry(const SMILMilestone& aMilestone,
@@ -305,6 +291,23 @@ class SMILTimeContainer {
   // taken care of the milestones before the current sample time but before we
   // actually do the full sample.
   nsTPriorityQueue<MilestoneEntry> mMilestoneEntries;
+
+  // A bitfield of the pause type for all pause requests
+  PauseTypes mPauseTypes = PauseType::Begin;
+
+  // Whether or not a pause sample is required
+  bool mNeedsPauseSample = false;
+
+  // Backwards seek performed
+  bool mNeedsRewind = false;
+  // Currently in the middle of a seek operation
+  bool mIsSeeking = false;
+
+#ifdef DEBUG
+  // True if there's a raw pointer to mMilestoneEntries
+  // on the stack.
+  bool mHoldingEntries = false;
+#endif
 };
 
 }  // namespace mozilla

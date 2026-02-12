@@ -7,21 +7,28 @@ import os
 import sys
 import time
 
+sys.path.append(os.path.dirname(__file__))
+
 import psutil
 from felt_tests import FeltTests
-from selenium.common.exceptions import NoSuchWindowException, WebDriverException
+from marionette_driver.errors import (
+    NoSuchWindowException,
+    UnknownException,
+)
 
 
 class BrowserRestartIsQuit(FeltTests):
-    def __init__(self, *args, **kwargs):
-        super().__init__(
-            *args, **kwargs, test_prefs=[["enterprise.disable_restart", True]]
-        )
+    EXTRA_PREFS = {"enterprise.disable_restart": True}
 
-    def test_felt_3_restart_is_quit(self, exp):
+    def test_browser_signout(self):
+        super().run_felt_base()
+        self.run_felt_restart_is_quit()
+        self.run_felt_restart_does_not_restart()
+
+    def run_felt_restart_is_quit(self):
         self._logger.info("Connecting to browser")
         self.connect_child_browser()
-        self._browser_pid = self._child_driver.capabilities["moz:processID"]
+        self._browser_pid = self._child_driver.session_capabilities["moz:processID"]
         self._logger.info(f"Connected to {self._browser_pid}")
 
         process = psutil.Process(pid=self._browser_pid)
@@ -31,24 +38,22 @@ class BrowserRestartIsQuit(FeltTests):
         )
 
         try:
-            self._logger.info("Issuing restart, expecting quit being done")
+            self._logger.info("Issuing restartecting quit being done")
             self._child_driver.set_context("chrome")
             self._child_driver.execute_script(
                 "Services.startup.quit(Ci.nsIAppStartup.eRestart | Ci.nsIAppStartup.eAttemptQuit);"
             )
-        except WebDriverException:
-            self._logger.info("Received expected WebDriverException")
+        except UnknownException:
+            self._logger.info("Received expected UnknownException")
         except NoSuchWindowException:
             self._logger.info("Received expected NoSuchWindowException")
         finally:
             self._logger.info(
-                f"Issued restart, expecting quit underway, checking PID {self._browser_pid}"
+                f"Issued restartecting quit underway, checking PID {self._browser_pid}"
             )
             self._manually_closed_child = True
 
-        return True
-
-    def test_felt_4_restart_does_not_restart(self, exp):
+    def run_felt_restart_does_not_restart(self):
         self._logger.info("Waiting a few seconds ...")
         if sys.platform == "win32":
             time.sleep(8)
@@ -58,7 +63,6 @@ class BrowserRestartIsQuit(FeltTests):
 
         if not psutil.pid_exists(self._browser_pid):
             self._logger.info(f"No more PID {self._browser_pid}")
-            return True
         else:
             try:
                 process = psutil.Process(pid=self._browser_pid)
@@ -68,17 +72,5 @@ class BrowserRestartIsQuit(FeltTests):
                 assert os.path.basename(process.name()) != "firefox", (
                     "Process is not Firefox"
                 )
-                return True
             except psutil.ZombieProcess:
                 self._logger.info(f"Zombie found as {self._browser_pid}")
-                return True
-
-
-if __name__ == "__main__":
-    BrowserRestartIsQuit(
-        "felt_browser_restart_is_quit.json",
-        firefox=sys.argv[1],
-        geckodriver=sys.argv[2],
-        profile_root=sys.argv[3],
-        env_vars={"MOZ_FELT_UI": "1"},
-    )

@@ -911,19 +911,15 @@ bool IMEContentObserver::OnMouseButtonEvent(nsPresContext& aPresContext,
 
 void IMEContentObserver::CharacterDataWillChange(
     nsIContent* aContent, const CharacterDataChangeInfo& aInfo) {
-  if (!aContent->IsText()) {
-    return;  // Ignore if it's a comment node or something other invisible data
-             // node.
+  if (!NeedsTextChangeNotification() || !aContent->IsText() ||
+      !nsContentUtils::IsInSameAnonymousTree(mRootElement, aContent)) {
+    // Ignore if it's a comment node, a node in a shadow tree or so, or some
+    // other invisible data node.
+    return;
   }
   MOZ_ASSERT(mPreCharacterDataChangeLength < 0,
              "CharacterDataChanged() should've reset "
              "mPreCharacterDataChangeLength");
-
-  if (!NeedsTextChangeNotification() ||
-      !nsContentUtils::IsInSameAnonymousTree(mRootElement, aContent)) {
-    return;
-  }
-
   mEndOfAddedTextCache.Clear(__FUNCTION__);
   mStartOfRemovingTextRangeCache.Clear(__FUNCTION__);
 
@@ -944,9 +940,11 @@ void IMEContentObserver::CharacterDataWillChange(
 
 void IMEContentObserver::CharacterDataChanged(
     nsIContent* aContent, const CharacterDataChangeInfo& aInfo) {
-  if (!aContent->IsText()) {
-    return;  // Ignore if it's a comment node or something other invisible data
-             // node.
+  if (!aContent->IsText() ||
+      !nsContentUtils::IsInSameAnonymousTree(mRootElement, aContent)) {
+    // Ignore if it's a comment node, a node in a shadow tree or so, or some
+    // other invisible data node.
+    return;
   }
 
   // Let TextComposition have a change to update composition string range in
@@ -958,8 +956,7 @@ void IMEContentObserver::CharacterDataChanged(
     }
   }
 
-  if (!NeedsTextChangeNotification() ||
-      !nsContentUtils::IsInSameAnonymousTree(mRootElement, aContent)) {
+  if (!NeedsTextChangeNotification()) {
     return;
   }
 

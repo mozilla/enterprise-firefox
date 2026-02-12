@@ -605,10 +605,6 @@ add_task(async function test_embedded_component_persistent_data_filepicker() {
 
     // First verify the default input value and dir path button
     let filePathButton = turnOnScheduledBackups.filePathButtonEl;
-    let stateUpdatePromise = BrowserTestUtils.waitForEvent(
-      window,
-      "BackupUI:StateWasUpdated"
-    );
     Assert.ok(
       filePathButton,
       "Button for choosing a file path should be found"
@@ -616,8 +612,15 @@ add_task(async function test_embedded_component_persistent_data_filepicker() {
     filePathButton.click();
 
     await filePickerShownPromise;
-    await stateUpdatePromise;
     await turnOnScheduledBackups.updateComplete;
+
+    await BrowserTestUtils.waitForCondition(
+      () =>
+        settings.backupServiceState.embeddedComponentPersistentData?.path !==
+        undefined,
+      "Waiting for persistent path to be set"
+    );
+
     Assert.equal(
       settings.backupServiceState.embeddedComponentPersistentData.path,
       mockCustomParentDir,
@@ -761,10 +764,6 @@ add_task(
 
         // First verify the default input value and dir path button
         let filePathButton = turnOnScheduledBackups.filePathButtonEl;
-        const waitForStateUpdate = () =>
-          BrowserTestUtils.waitForEvent(window, "BackupUI:StateWasUpdated");
-
-        let stateUpdatePromise = waitForStateUpdate();
 
         Assert.ok(
           filePathButton,
@@ -773,8 +772,14 @@ add_task(
         filePathButton.click();
 
         await filePickerShownPromise;
-        await stateUpdatePromise;
         await turnOnScheduledBackups.updateComplete;
+
+        await BrowserTestUtils.waitForCondition(
+          () =>
+            settings.backupServiceState.embeddedComponentPersistentData
+              ?.path !== undefined,
+          "Waiting for persistent path to be set"
+        );
 
         Assert.equal(
           settings.backupServiceState.embeddedComponentPersistentData.path,
@@ -782,13 +787,18 @@ add_task(
           "Our persistent path should be set correctly"
         );
 
-        stateUpdatePromise = waitForStateUpdate();
-
         let dialog = settings.turnOnScheduledBackupsDialogEl;
         let closedPromise = BrowserTestUtils.waitForEvent(dialog, "close");
         dialog.close();
         await closedPromise;
-        await stateUpdatePromise;
+
+        await BrowserTestUtils.waitForCondition(
+          () =>
+            Object.keys(
+              settings.backupServiceState.embeddedComponentPersistentData
+            ).length === 0,
+          "Waiting for persistent data to be flushed"
+        );
 
         Assert.deepEqual(
           settings.backupServiceState.embeddedComponentPersistentData,

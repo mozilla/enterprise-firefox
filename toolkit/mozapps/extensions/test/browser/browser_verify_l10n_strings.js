@@ -9,11 +9,14 @@ const updatedAddonFluentIds = new Map([
 ]);
 
 add_task(async function test_ensure_bundled_addons_are_localized() {
-  const l10n = new Localization(["browser/appExtensionFields.ftl"], true);
+  const l10n = new Localization(
+    ["browser/appExtensionFields.ftl", "browser/enterprise/enterprise.ftl"],
+    true
+  );
   let l10nReg = L10nRegistry.getInstance();
   let bundles = l10nReg.generateBundlesSync(
     ["en-US"],
-    ["browser/appExtensionFields.ftl"]
+    ["browser/appExtensionFields.ftl", "browser/enterprise/enterprise.ftl"]
   );
   let addons = await AddonManager.getAllAddons();
   let standardBuiltInThemes = addons.filter(

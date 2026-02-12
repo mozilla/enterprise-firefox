@@ -107,8 +107,8 @@ function stringToCauseType(value) {
 
 function isChannelFromSystemPrincipal(channel) {
   let principal;
-
-  if (channel.isDocument) {
+  const channelURI = channel.originalURI || channel.URI;
+  if (channelURI?.spec.startsWith("view-source:") || channel.isDocument) {
     // The loadingPrincipal is the principal where the request will be used.
     principal = channel.loadInfo.loadingPrincipal;
   } else {

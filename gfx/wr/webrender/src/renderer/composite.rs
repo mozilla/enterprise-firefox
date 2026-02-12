@@ -17,7 +17,7 @@ use api::{ClipMode, DebugFlags};
 use std::collections::HashSet;
 use std::mem;
 use crate::debug_item::DebugItem;
-use crate::segment::EdgeAaSegmentMask;
+use crate::segment::EdgeMask;
 use crate::device::DrawTarget;
 use crate::gpu_types::{CompositeInstance, ZBufferId};
 use crate::internal_types::{FastHashMap, TextureSource};
@@ -1051,19 +1051,19 @@ impl Renderer {
                         let key = OcclusionItemKey { tile_index: idx, needs_mask: segment.has_mask };
 
                         let radius = if segment.edge_flags ==
-                            EdgeAaSegmentMask::TOP | EdgeAaSegmentMask::LEFT &&
+                            EdgeMask::TOP | EdgeMask::LEFT &&
                             !clip.radius.top_left.is_empty() {
                             Some(clip.radius.top_left)
                         } else if segment.edge_flags ==
-                            EdgeAaSegmentMask::TOP | EdgeAaSegmentMask::RIGHT &&
+                            EdgeMask::TOP | EdgeMask::RIGHT &&
                             !clip.radius.top_right.is_empty() {
                             Some(clip.radius.top_right)
                         } else if segment.edge_flags ==
-                            EdgeAaSegmentMask::BOTTOM | EdgeAaSegmentMask::LEFT &&
+                            EdgeMask::BOTTOM | EdgeMask::LEFT &&
                             !clip.radius.bottom_left.is_empty() {
                             Some(clip.radius.bottom_left)
                         } else if segment.edge_flags ==
-                            EdgeAaSegmentMask::BOTTOM | EdgeAaSegmentMask::RIGHT &&
+                            EdgeMask::BOTTOM | EdgeMask::RIGHT &&
                             !clip.radius.bottom_right.is_empty() {
                             Some(clip.radius.bottom_right)
                         } else {

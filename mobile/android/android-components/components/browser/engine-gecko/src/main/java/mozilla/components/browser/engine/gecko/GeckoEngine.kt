@@ -5,7 +5,6 @@
 package mozilla.components.browser.engine.gecko
 
 import android.content.Context
-import android.os.Environment
 import android.os.Parcelable
 import android.util.AttributeSet
 import android.util.JsonReader
@@ -41,6 +40,7 @@ import mozilla.components.browser.engine.gecko.webnotifications.GeckoWebNotifica
 import mozilla.components.browser.engine.gecko.webpush.GeckoWebPushDelegate
 import mozilla.components.browser.engine.gecko.webpush.GeckoWebPushHandler
 import mozilla.components.concept.engine.CancellableOperation
+import mozilla.components.concept.engine.DownloadDelegate
 import mozilla.components.concept.engine.Engine
 import mozilla.components.concept.engine.EngineSession
 import mozilla.components.concept.engine.EngineSession.CookieBannerHandlingMode
@@ -83,8 +83,6 @@ import mozilla.components.concept.engine.webnotifications.WebNotificationDelegat
 import mozilla.components.concept.engine.webpush.WebPushDelegate
 import mozilla.components.concept.engine.webpush.WebPushHandler
 import mozilla.components.support.ktx.kotlin.isResourceUrl
-import mozilla.components.support.utils.DefaultDownloadFileUtils
-import mozilla.components.support.utils.DownloadFileUtils
 import mozilla.components.support.utils.ThreadUtils
 import org.json.JSONObject
 import org.mozilla.geckoview.AllowOrDeny
@@ -117,14 +115,6 @@ class GeckoEngine(
     private val geckoPreferenceAccessor: GeckoPreferenceAccessor = DefaultGeckoPreferenceAccessor(),
     private val runtimeTranslationAccessor: RuntimeTranslationAccessor = DefaultRuntimeTranslationAccessor(),
     private val addressStructureAccessor: RuntimeAddressStructureAccessor = DefaultRuntimeAddressStructureAccessor(),
-    private val downloadFileUtils: DownloadFileUtils = DefaultDownloadFileUtils(
-        context = context,
-        downloadLocationGetter = {
-            Environment.getExternalStoragePublicDirectory(
-                Environment.DIRECTORY_DOWNLOADS,
-            ).path
-        },
-    ),
 ) : Engine, WebExtensionRuntime, TranslationsRuntime, BrowserPreferencesRuntime {
     private val executor by lazy { executorProvider.invoke() }
     private val localeUpdater = LocaleSettingUpdater(context, runtime)
@@ -146,7 +136,6 @@ class GeckoEngine(
                 GeckoEngineSession(
                     runtime = runtime,
                     defaultSettings = defaultSettings,
-                    downloadFileUtils = downloadFileUtils,
                 ),
                 action,
             )
@@ -234,7 +223,6 @@ class GeckoEngine(
         return speculativeSession ?: GeckoEngineSession(
             runtime = runtime,
             privateMode = private,
-            downloadFileUtils = downloadFileUtils,
             defaultSettings = defaultSettings,
             contextId = contextId,
         )
@@ -264,7 +252,6 @@ class GeckoEngine(
             private = private,
             contextId = contextId,
             defaultSettings = defaultSettings,
-            downloadFileUtils = downloadFileUtils,
         )
     }
 
@@ -374,7 +361,6 @@ class GeckoEngine(
                     GeckoWebExtension(
                         nativeExtension = geckoExtension,
                         runtime = runtime,
-                        downloadFileUtils = downloadFileUtils,
                     ).also {
                         it.registerActionHandler(webExtensionActionHandler)
                         it.registerTabHandler(webExtensionTabHandler, defaultSettings)
@@ -414,7 +400,6 @@ class GeckoEngine(
                     GeckoWebExtension(
                         nativeExtension = ext,
                         runtime = runtime,
-                        downloadFileUtils = downloadFileUtils,
                     ),
                     permissions.toList(),
                     origins.toList(),
@@ -443,7 +428,6 @@ class GeckoEngine(
                     GeckoWebExtension(
                         nativeExtension = extension,
                         runtime = runtime,
-                        downloadFileUtils = downloadFileUtils,
                     ),
                     newPermissions.toList(),
                     newOrigins.toList(),
@@ -465,7 +449,6 @@ class GeckoEngine(
                     GeckoWebExtension(
                         nativeExtension = extension,
                         runtime = runtime,
-                        downloadFileUtils = downloadFileUtils,
                     ),
                     permissions.toList(),
                     origins.toList(),
@@ -489,7 +472,6 @@ class GeckoEngine(
                     GeckoWebExtension(
                         nativeExtension = extension,
                         runtime = runtime,
-                        downloadFileUtils = downloadFileUtils,
                     ),
                 )
             }
@@ -499,7 +481,6 @@ class GeckoEngine(
                     GeckoWebExtension(
                         nativeExtension = extension,
                         runtime = runtime,
-                        downloadFileUtils = downloadFileUtils,
                     ),
                 )
             }
@@ -509,7 +490,6 @@ class GeckoEngine(
                     GeckoWebExtension(
                         nativeExtension = extension,
                         runtime = runtime,
-                        downloadFileUtils = downloadFileUtils,
                     ),
                 )
             }
@@ -519,7 +499,6 @@ class GeckoEngine(
                     GeckoWebExtension(
                         nativeExtension = extension,
                         runtime = runtime,
-                        downloadFileUtils = downloadFileUtils,
                     ),
                 )
             }
@@ -528,7 +507,6 @@ class GeckoEngine(
                 val installedExtension = GeckoWebExtension(
                     nativeExtension = extension,
                     runtime = runtime,
-                    downloadFileUtils = downloadFileUtils,
                 )
                 webExtensionDelegate.onInstalled(installedExtension)
                 installedExtension.registerActionHandler(webExtensionActionHandler)
@@ -552,7 +530,6 @@ class GeckoEngine(
                     GeckoWebExtension(
                         nativeExtension = extension,
                         runtime = runtime,
-                        downloadFileUtils = downloadFileUtils,
                     ),
                 )
             }
@@ -580,7 +557,6 @@ class GeckoEngine(
                     GeckoWebExtension(
                         nativeExtension = extension,
                         runtime = runtime,
-                        downloadFileUtils = downloadFileUtils,
                     )
                 } ?: emptyList()
 
@@ -613,7 +589,6 @@ class GeckoEngine(
                 val enabledExtension = GeckoWebExtension(
                     nativeExtension = it!!,
                     runtime = runtime,
-                    downloadFileUtils = downloadFileUtils,
                 )
                 onSuccess(enabledExtension)
                 GeckoResult<Void>()
@@ -655,7 +630,6 @@ class GeckoEngine(
                 val enabledExtension = GeckoWebExtension(
                     nativeExtension = it!!,
                     runtime = runtime,
-                    downloadFileUtils = downloadFileUtils,
                 )
                 onSuccess(enabledExtension)
                 GeckoResult<Void>()
@@ -697,7 +671,6 @@ class GeckoEngine(
                 val enabledExtension = GeckoWebExtension(
                     nativeExtension = it!!,
                     runtime = runtime,
-                    downloadFileUtils = downloadFileUtils,
                 )
                 onSuccess(enabledExtension)
                 GeckoResult<Void>()
@@ -723,7 +696,6 @@ class GeckoEngine(
                 val disabledExtension = GeckoWebExtension(
                     nativeExtension = it!!,
                     runtime = runtime,
-                    downloadFileUtils = downloadFileUtils,
                 )
                 onSuccess(disabledExtension)
                 GeckoResult<Void>()
@@ -760,7 +732,6 @@ class GeckoEngine(
                     val ext = GeckoWebExtension(
                         nativeExtension = geckoExtension,
                         runtime = runtime,
-                        downloadFileUtils = downloadFileUtils,
                     )
                     webExtensionDelegate?.onAllowedInPrivateBrowsingChanged(ext)
                     onSuccess(ext)
@@ -878,7 +849,6 @@ class GeckoEngine(
         runtime.serviceWorkerDelegate = GeckoServiceWorkerDelegate(
             delegate = serviceWorkerDelegate,
             runtime = runtime,
-            downloadFileUtils = downloadFileUtils,
             engineSettings = defaultSettings,
         )
     }
@@ -1577,6 +1547,10 @@ class GeckoEngine(
             get() = defaultSettings?.historyTrackingDelegate
             set(value) { defaultSettings?.historyTrackingDelegate = value }
 
+        override var downloadDelegate: DownloadDelegate?
+            get() = defaultSettings?.downloadDelegate
+            set(value) { defaultSettings?.downloadDelegate = value }
+
         override var testingModeEnabled: Boolean
             get() = defaultSettings?.testingModeEnabled ?: false
             set(value) { defaultSettings?.testingModeEnabled = value }
@@ -1901,6 +1875,7 @@ class GeckoEngine(
             this.lnaTrackerBlockingEnabled = it.lnaTrackerBlockingEnabled
             this.crliteChannel = it.crliteChannel
             this.safeBrowsingV5Enabled = it.safeBrowsingV5Enabled
+            this.downloadDelegate = it.downloadDelegate
         }
     }
 
@@ -2011,7 +1986,6 @@ class GeckoEngine(
             GeckoWebExtension(
                 nativeExtension = this,
                 runtime = runtime,
-                downloadFileUtils = downloadFileUtils,
             )
         } else {
             null
@@ -2025,7 +1999,6 @@ class GeckoEngine(
         val installedExtension = GeckoWebExtension(
             nativeExtension = ext,
             runtime = runtime,
-            downloadFileUtils = downloadFileUtils,
         )
         webExtensionDelegate?.onInstalled(installedExtension)
         installedExtension.registerActionHandler(webExtensionActionHandler)

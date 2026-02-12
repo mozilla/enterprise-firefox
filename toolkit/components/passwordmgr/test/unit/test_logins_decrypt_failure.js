@@ -42,8 +42,8 @@ add_task(async function test_logins_decrypt_failure() {
     Services.logins.modifyLoginAsync(logins[0], newPropertyBag()),
     /No matching logins/
   );
-  Assert.throws(
-    () => Services.logins.removeLogin(logins[0]),
+  await Assert.rejects(
+    Services.logins.removeLoginAsync(logins[0]),
     /No matching logins/
   );
 
@@ -75,7 +75,7 @@ add_task(async function test_logins_decrypt_failure() {
 
   // Removing single logins does not remove non-decryptable logins.
   for (let loginInfo of TestData.loginList()) {
-    Services.logins.removeLogin(loginInfo);
+    await Services.logins.removeLoginAsync(loginInfo);
   }
   Assert.equal((await Services.logins.getAllLogins()).length, 0);
   Assert.equal(Services.logins.countLogins("", "", ""), logins.length);

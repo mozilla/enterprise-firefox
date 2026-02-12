@@ -161,7 +161,7 @@ impl FeltClientThread {
             pending_cookies: Arc<Mutex<Vec<nsICookieWrapper>>>,
             profile_ready: Arc<AtomicBool>,
             thread_stop: ipc_channel::ipc::IpcSender<bool>,
-            restart_tx: Option<ipc_channel::ipc::IpcSender<FeltMessage>>,
+            tx: Option<ipc_channel::ipc::IpcSender<FeltMessage>>,
         }
 
         impl Observer {
@@ -216,17 +216,23 @@ impl FeltClientThread {
                             "FeltClientThread::start_thread::observe() quit-application: data={}",
                             obsData
                         );
-                        match obsData.trim() {
-                            "restart" => {
-                                trace!("FeltClientThread::start_thread::observe() quit-application: restart");
-                                if let Some(ref tx) = self.restart_tx {
+                        if let Some(ref tx) = self.tx {
+                            match obsData.trim() {
+                                "restart" => {
+                                    trace!("FeltClientThread::start_thread::observe() quit-application: restart");
                                     if let Err(err) = tx.send(FeltMessage::Restarting) {
                                         trace!("FeltClientThread::start_thread::observe() failed to send restart: {:?}", err);
                                     }
+                                },
+                                "shutdown" => {
+                                    trace!("FeltClientThread::start_thread::observe() quit-application: shutdown");
+                                    if let Err(err) = tx.send(FeltMessage::Exiting) {
+                                        trace!("FeltClientThread::start_thread::observe() failed to send shutdown: {:?}", err);
+                                    }
                                 }
-                            }
-                            _ => {
-                                trace!("FeltClientThread::start_thread::observe() quit-application: something else? Ignore");
+                                _ => {
+                                    trace!("FeltClientThread::start_thread::observe() quit-application: something else? Ignore");
+                                }
                             }
                         }
                     }
@@ -252,7 +258,7 @@ impl FeltClientThread {
 
         let pending_cookies: Arc<Mutex<Vec<nsICookieWrapper>>> = Arc::new(Mutex::new(Vec::new()));
 
-        // Clone tx for the observer to send restart messages directly
+        // Clone tx for the observer to send messages directly
         let client = self.ipc_client.borrow_mut();
         let tx_for_observer = client.tx.clone();
         drop(client);
@@ -263,7 +269,7 @@ impl FeltClientThread {
             profile_ready: profile_ready.clone(),
             pending_cookies: pending_cookies.clone(),
             thread_stop: tx_thread,
-            restart_tx: tx_for_observer,
+            tx: tx_for_observer,
         });
         let mut rv = unsafe {
             obssvc.AddObserver(

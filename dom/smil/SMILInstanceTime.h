@@ -105,6 +105,13 @@ class SMILInstanceTime final {
 
   void SetBaseInterval(SMILInterval* aBaseInterval);
 
+  // The SMILTimeValueSpec object that created us.
+  // (currently only needed for syncbase instance times.)
+  SMILTimeValueSpec* mCreator;
+  // Interval from which this time is derived
+  // (only used for syncbase instance times).
+  SMILInterval* mBaseInterval = nullptr;
+
   SMILTimeValue mTime;
 
   // Internal flags used to represent the behaviour of different instance times
@@ -136,7 +143,10 @@ class SMILInstanceTime final {
   };
   using Flags = EnumSet<Flag>;
   Flags mFlags;
-  mutable bool mVisited;  // Cycle tracking
+
+  // A serial number used by the containing class to specify the sort order
+  // for instance times with the same mTime.
+  uint32_t mSerial = 0;
 
   // Additional reference count to determine if this instance time is currently
   // used as a fixed endpoint in any intervals. Instance times that are used in
@@ -151,17 +161,9 @@ class SMILInstanceTime final {
   //    interval, and
   // d) trimmed intervals
   // Hence the limited range of a uint16_t should be more than adequate.
-  uint16_t mFixedEndpointRefCnt;
+  uint16_t mFixedEndpointRefCnt = 0;
 
-  uint32_t mSerial;  // A serial number used by the containing class to
-                     // specify the sort order for instance times with the
-                     // same mTime.
-
-  SMILTimeValueSpec* mCreator;  // The SMILTimeValueSpec object that created
-                                // us. (currently only needed for syncbase
-                                // instance times.)
-  SMILInterval* mBaseInterval;  // Interval from which this time is derived
-                                // (only used for syncbase instance times)
+  mutable bool mVisited = false;  // Cycle tracking
 };
 
 }  // namespace mozilla

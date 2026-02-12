@@ -102,6 +102,8 @@ MACH_COMMANDS = {
     "event-into-legacy": MachCommandReference(
         "toolkit/components/glean/build_scripts/mach_commands.py"
     ),
+    "eval": MachCommandReference("toolkit/components/ml/eval/mach_commands.py"),
+    "eval-tools": MachCommandReference("toolkit/components/ml/eval/mach_commands.py"),
     "fetch-condprofile": MachCommandReference("testing/condprofile/mach_commands.py"),
     "file-info": MachCommandReference(
         "python/mozbuild/mozbuild/frontend/mach_commands.py"
@@ -211,6 +213,7 @@ MACH_COMMANDS = {
     "rusttests": MachCommandReference("testing/mach_commands.py"),
     "settings": MachCommandReference("python/mach/mach/commands/settings.py"),
     "show-log": MachCommandReference("python/mozbuild/mozbuild/mach_commands.py"),
+    "source-package": MachCommandReference("python/mozbuild/mozbuild/mach_commands.py"),
     "static-analysis": MachCommandReference(
         "python/mozbuild/mozbuild/code_analysis/mach_commands.py"
     ),
@@ -241,7 +244,6 @@ MACH_COMMANDS = {
         "toolkit/components/glean/build_scripts/mach_commands.py"
     ),
     "update-test": MachCommandReference("testing/update/mach_commands.py"),
-    "enterprise-tests": MachCommandReference("testing/enterprise/mach_commands.py"),
     "use-moz-src": MachCommandReference("tools/use-moz-src/mach_commands.py"),
     "valgrind-test": MachCommandReference("build/valgrind/mach_commands.py"),
     "vcs-setup": MachCommandReference(

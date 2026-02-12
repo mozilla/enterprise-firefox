@@ -165,25 +165,19 @@ void nsFontMetrics::Destroy() { mPresContext = nullptr; }
 #define ROUND_TO_TWIPS(x) (nscoord) floor(((x) * mP2A) + 0.5)
 #define CEIL_TO_TWIPS(x) (nscoord) ceil((x) * mP2A)
 
-static const gfxFont::Baselines& GetBaselines(
-    const nsFontMetrics* aFontMetrics,
-    nsFontMetrics::FontOrientation aOrientation) {
+static nscoord GetBaseline(const nsFontMetrics* aFontMetrics,
+                           gfxFont::Baseline aBaseline) {
   RefPtr<gfxFont> font =
       aFontMetrics->GetThebesFontGroup()->GetFirstValidFont();
-  return font->GetBaselines(aOrientation);
-}
-
-static const gfxFont::Baselines& GetBaselines(
-    const nsFontMetrics* aFontMetrics) {
-  return GetBaselines(aFontMetrics, aFontMetrics->Orientation());
+  return font->GetBaseline(aBaseline, aFontMetrics->Orientation());
 }
 
 nscoord nsFontMetrics::AlphabeticBaseline() const {
-  return ROUND_TO_TWIPS(GetBaselines(this).mAlphabetic);
+  return ROUND_TO_TWIPS(GetBaseline(this, gfxFont::kAlphabetic));
 }
 
 nscoord nsFontMetrics::CentralBaseline() const {
-  return ROUND_TO_TWIPS(GetBaselines(this).mCentral);
+  return ROUND_TO_TWIPS(GetBaseline(this, gfxFont::kCentral));
 }
 
 nscoord nsFontMetrics::XMiddleBaseline() const {
@@ -191,27 +185,27 @@ nscoord nsFontMetrics::XMiddleBaseline() const {
 }
 
 nscoord nsFontMetrics::IdeographicUnderBaseline() const {
-  return ROUND_TO_TWIPS(GetBaselines(this).mIdeographicUnder);
+  return ROUND_TO_TWIPS(GetBaseline(this, gfxFont::kIdeographicUnder));
 }
 
 nscoord nsFontMetrics::IdeographicOverBaseline() const {
-  return ROUND_TO_TWIPS(GetBaselines(this).mIdeographicOver);
+  return ROUND_TO_TWIPS(GetBaseline(this, gfxFont::kIdeographicOver));
 }
 
 nscoord nsFontMetrics::IdeographicInkUnderBaseline() const {
-  return ROUND_TO_TWIPS(GetBaselines(this).mIdeographicInkUnder);
+  return ROUND_TO_TWIPS(GetBaseline(this, gfxFont::kIdeographicInkUnder));
 }
 
 nscoord nsFontMetrics::IdeographicInkOverBaseline() const {
-  return ROUND_TO_TWIPS(GetBaselines(this).mIdeographicInkOver);
+  return ROUND_TO_TWIPS(GetBaseline(this, gfxFont::kIdeographicInkOver));
 }
 
 nscoord nsFontMetrics::HangingBaseline() const {
-  return ROUND_TO_TWIPS(GetBaselines(this).mHanging);
+  return ROUND_TO_TWIPS(GetBaseline(this, gfxFont::kHanging));
 }
 
 nscoord nsFontMetrics::MathBaseline() const {
-  return ROUND_TO_TWIPS(GetBaselines(this).mMath);
+  return ROUND_TO_TWIPS(GetBaseline(this, gfxFont::kMath));
 }
 
 static const gfxFont::Metrics& GetMetrics(

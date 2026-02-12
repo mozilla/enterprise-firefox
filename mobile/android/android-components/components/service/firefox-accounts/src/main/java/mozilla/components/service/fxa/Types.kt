@@ -7,6 +7,7 @@ package mozilla.components.service.fxa
 
 import mozilla.appservices.fxaclient.AccessTokenInfo
 import mozilla.appservices.fxaclient.AccountEvent
+import mozilla.appservices.fxaclient.AttachedClient
 import mozilla.appservices.fxaclient.Device
 import mozilla.appservices.fxaclient.IncomingDeviceCommand
 import mozilla.appservices.fxaclient.Profile
@@ -68,6 +69,22 @@ fun AccessTokenInfo.into(): mozilla.components.concept.sync.AccessTokenInfo {
         token = this.token,
         key = this.key?.into(),
         expiresAt = this.expiresAt,
+    )
+}
+
+/**
+ * Converts from rust data type to the [mozilla.components.concept.sync.AttachedClient].
+ */
+fun AttachedClient.into(): mozilla.components.concept.sync.AttachedClient {
+    return mozilla.components.concept.sync.AttachedClient(
+        clientId = this.clientId,
+        deviceId = this.deviceId,
+        deviceType = this.deviceType.into(),
+        isCurrentSession = isCurrentSession,
+        name = this.name,
+        createdTime = this.createdTime,
+        lastAccessTime = this.lastAccessTime,
+        scope = this.scope,
     )
 }
 

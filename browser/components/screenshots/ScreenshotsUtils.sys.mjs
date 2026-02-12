@@ -530,12 +530,16 @@ export var ScreenshotsUtils = {
     this.closePanel(browser);
     this.closeOverlay(browser);
     this.resetMethodsUsed();
-    this.attemptToRestoreFocus(browser);
+
+    const gBrowser = browser.getTabBrowser();
+    // Only attempt to restore focus if we're exiting to the same browser.
+    if (gBrowser.selectedBrowser == browser) {
+      this.attemptToRestoreFocus(browser);
+    }
 
     this.revokeBlobURL(browser);
 
     browser.removeEventListener("SwapDocShells", this);
-    const gBrowser = browser.getTabBrowser();
     gBrowser.tabContainer.removeEventListener("TabSelect", this);
     browser.ownerDocument.removeEventListener("keydown", this);
 

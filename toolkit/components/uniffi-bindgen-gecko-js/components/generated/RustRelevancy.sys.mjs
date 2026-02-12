@@ -46,7 +46,7 @@ export var UnitTestObjs = {
  * # Return:
  * - A score ranges in [0, 1].
  * @param {InterestVector} interestVector
- * @param {Array.<Interest>} contentCategories
+ * @param {Array.<Interest[keyof Interest]>} contentCategories
  * @returns {number}
  */
 export function score(
@@ -142,27 +142,27 @@ export class BanditData {
             throw e;
         }
         /**
-         * bandit
+         * @type {string}
          */
         this.bandit = bandit;
         /**
-         * arm
+         * @type {string}
          */
         this.arm = arm;
         /**
-         * impressions
+         * @type {number}
          */
         this.impressions = impressions;
         /**
-         * clicks
+         * @type {number}
          */
         this.clicks = clicks;
         /**
-         * alpha
+         * @type {number}
          */
         this.alpha = alpha;
         /**
-         * beta
+         * @type {number}
          */
         this.beta = beta;
     }
@@ -321,6 +321,7 @@ export class InterestMetrics {
          * the user's top interest is copied, but all other interests are set to zero.  This measures
          * the highest possible similarity with consumers that used interest vectors with a single
          * interest set.
+         * @type {number}
          */
         this.topSingleInterestSimilarity = topSingleInterestSimilarity;
         /**
@@ -328,10 +329,12 @@ export class InterestMetrics {
          * similarity with consumers that used interest vectors with a two interests (note: this means
          * they would need to choose the user's top two interests and have the exact same proportion
          * between them as the user).
+         * @type {number}
          */
         this.top2interestSimilarity = top2interestSimilarity;
         /**
          * The same as before, but the top 3 interests are copied.
+         * @type {number}
          */
         this.top3interestSimilarity = top3interestSimilarity;
     }
@@ -602,79 +605,79 @@ export class InterestVector {
             throw e;
         }
         /**
-         * inconclusive
+         * @type {number}
          */
         this.inconclusive = inconclusive;
         /**
-         * animals
+         * @type {number}
          */
         this.animals = animals;
         /**
-         * arts
+         * @type {number}
          */
         this.arts = arts;
         /**
-         * autos
+         * @type {number}
          */
         this.autos = autos;
         /**
-         * business
+         * @type {number}
          */
         this.business = business;
         /**
-         * career
+         * @type {number}
          */
         this.career = career;
         /**
-         * education
+         * @type {number}
          */
         this.education = education;
         /**
-         * fashion
+         * @type {number}
          */
         this.fashion = fashion;
         /**
-         * finance
+         * @type {number}
          */
         this.finance = finance;
         /**
-         * food
+         * @type {number}
          */
         this.food = food;
         /**
-         * government
+         * @type {number}
          */
         this.government = government;
         /**
-         * hobbies
+         * @type {number}
          */
         this.hobbies = hobbies;
         /**
-         * home
+         * @type {number}
          */
         this.home = home;
         /**
-         * news
+         * @type {number}
          */
         this.news = news;
         /**
-         * realEstate
+         * @type {number}
          */
         this.realEstate = realEstate;
         /**
-         * society
+         * @type {number}
          */
         this.society = society;
         /**
-         * sports
+         * @type {number}
          */
         this.sports = sports;
         /**
-         * tech
+         * @type {number}
          */
         this.tech = tech;
         /**
-         * travel
+         * @type {number}
          */
         this.travel = travel;
     }
@@ -940,7 +943,7 @@ export class FfiConverterTypeInterestVector extends FfiConverterArrayBuffer {
  * interests.  `Inconclusive` is used for domains in the user's top sites that we can't classify
  * because there's no corresponding entry in the interest database.
  */
-export const Interest = {
+export const Interest = Object.freeze({
     /**
      * INCONCLUSIVE
      */
@@ -1017,8 +1020,7 @@ export const Interest = {
      * TRAVEL
      */
     TRAVEL: 19,
-};
-Object.freeze(Interest);
+});
 
 // Export the FFIConverter object to make external types work.
 export class FfiConverterTypeInterest extends FfiConverterArrayBuffer {

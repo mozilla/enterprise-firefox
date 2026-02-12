@@ -119,7 +119,14 @@ already_AddRefed<DOMSVGAnimatedLength> SVGSVGElement::Height() {
 }
 
 bool SVGSVGElement::UseCurrentView() const {
-  return mSVGView || mCurrentViewID;
+  return mSVGView || !mCurrentViewID.IsVoid();
+}
+
+SVGAnimatedTransformList* SVGSVGElement::GetViewTransformList() const {
+  if (mSVGView && mSVGView->mTransforms) {
+    return mSVGView->mTransforms.get();
+  }
+  return nullptr;
 }
 
 float SVGSVGElement::CurrentScale() const { return mCurrentScale; }
@@ -362,21 +369,6 @@ void SVGSVGElement::UnbindFromTree(UnbindContext& aContext) {
   SVGGraphicsElement::UnbindFromTree(aContext);
 }
 
-SVGAnimatedTransformList* SVGSVGElement::GetExistingAnimatedTransformList()
-    const {
-  if (mSVGView && mSVGView->mTransforms) {
-    return mSVGView->mTransforms.get();
-  }
-  return SVGGraphicsElement::GetExistingAnimatedTransformList();
-}
-
-SVGAnimatedTransformList* SVGSVGElement::GetOrCreateAnimatedTransformList() {
-  if (mSVGView && mSVGView->mTransforms) {
-    return mSVGView->mTransforms.get();
-  }
-  return SVGGraphicsElement::GetOrCreateAnimatedTransformList();
-}
-
 void SVGSVGElement::GetEventTargetParent(EventChainPreVisitor& aVisitor) {
   if (aVisitor.mEvent->mMessage == eSVGLoad) {
     if (mTimedDocumentRoot) {
@@ -611,11 +603,11 @@ SVGPreserveAspectRatio SVGSVGElement::GetPreserveAspectRatioWithOverride()
 }
 
 SVGViewElement* SVGSVGElement::GetCurrentViewElement() const {
-  if (mCurrentViewID) {
+  if (!mCurrentViewID.IsVoid()) {
     // XXXsmaug It is unclear how this should work in case we're in Shadow DOM.
     Document* doc = GetUncomposedDoc();
     if (doc) {
-      Element* element = doc->GetElementById(*mCurrentViewID);
+      Element* element = doc->GetElementById(mCurrentViewID);
       return SVGViewElement::FromNodeOrNull(element);
     }
   }

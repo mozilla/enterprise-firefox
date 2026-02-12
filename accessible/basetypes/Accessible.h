@@ -729,6 +729,30 @@ class Accessible {
   }
 
   /**
+   * Returns true if this accessible represents plain content without
+   * interactive or semantic meaning (text, images, generic containers).
+   */
+  bool IsPlainContent() const {
+    switch (Role()) {
+      case roles::TEXT_LEAF:
+      case roles::STATICTEXT:
+      case roles::WHITESPACE:
+      case roles::GRAPHIC:
+      case roles::IMAGE_MAP:
+      case roles::CANVAS:
+      case roles::DIAGRAM:
+      case roles::TEXT:
+      case roles::TEXT_CONTAINER:
+      case roles::SECTION:
+      case roles::NOTHING:
+      case roles::GROUPING:
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  /**
    * Return true if the link is valid (e. g. points to a valid URL).
    */
   bool IsLinkValid();

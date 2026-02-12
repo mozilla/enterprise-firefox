@@ -12,9 +12,15 @@ const { SYSTEM_PROMPT_TYPE, MESSAGE_ROLE } = ChromeUtils.importESModule(
 const { Chat } = ChromeUtils.importESModule(
   "moz-src:///browser/components/aiwindow/models/Chat.sys.mjs"
 );
-const { MODEL_FEATURES, openAIEngine } = ChromeUtils.importESModule(
-  "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs"
-);
+const { MODEL_FEATURES, openAIEngine, FEATURE_MAJOR_VERSIONS } =
+  ChromeUtils.importESModule(
+    "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs"
+  );
+
+function getVersionForFeature(feature) {
+  const major = FEATURE_MAJOR_VERSIONS[feature] || 1;
+  return `${major}.0`;
+}
 
 const { sinon } = ChromeUtils.importESModule(
   "resource://testing-common/Sinon.sys.mjs"
@@ -49,6 +55,11 @@ add_task(async function test_Chat_real_tools_are_registered() {
     typeof Chat.toolMap.get_page_content,
     "function",
     "get_page_content should be registered in toolMap"
+  );
+  Assert.strictEqual(
+    typeof Chat.toolMap.get_user_memories,
+    "function",
+    "get_user_memories should be registered in the toolMap"
   );
 });
 
@@ -461,7 +472,7 @@ add_task(
 );
 
 add_task(async function test_Chat_modelId_reads_from_pref() {
-  const defaultModelId = "qwen3-235b-a22b-instruct-2507-maas";
+  const defaultModelId = "";
   const customModelId = "custom-model-id";
 
   Services.prefs.clearUserPref(PREF_MODEL);
@@ -469,7 +480,7 @@ add_task(async function test_Chat_modelId_reads_from_pref() {
   Assert.equal(
     Chat.modelId,
     defaultModelId,
-    "Should use default modelId when pref is not set"
+    "Should be '' when pref is not set"
   );
 
   Services.prefs.setStringPref(PREF_MODEL, customModelId);
@@ -498,7 +509,7 @@ add_task(async function test_Chat_fetchWithHistory_uses_modelId_from_pref() {
     const fakeRecords = [
       {
         feature: MODEL_FEATURES.CHAT,
-        version: "v1.0",
+        version: getVersionForFeature(MODEL_FEATURES.CHAT),
         model: customModelId,
         is_default: true,
       },

@@ -3,19 +3,25 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+import os
 import sys
 import time
 
+sys.path.append(os.path.dirname(__file__))
+
 import requests
 from felt_tests import FeltTests
-from selenium.common.exceptions import WebDriverException
+from marionette_driver.errors import UnknownException
 
 
 class BrowserAboutConfigBlocked(FeltTests):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def test_browser_about_config_blocked(self):
+        super().run_felt_base()
+        self.run_about_config_blocked_in_browser()
+        self.run_change_about_config_policy()
+        self.run_about_config_allowed_in_browser()
 
-    def test_felt_3_about_config_blocked_in_browser(self, exp):
+    def run_about_config_blocked_in_browser(self):
         self.connect_child_browser()
         self._logger.info(
             f"Value of BlockAboutConfig policy: {self.policy_block_about_config.value}"
@@ -24,14 +30,12 @@ class BrowserAboutConfigBlocked(FeltTests):
         try:
             self.open_tab_child("about:config")
             assert False, "about:config should have been blocked in Firefox"
-        except WebDriverException as ex:
-            assert ex.msg.startswith(
+        except UnknownException as ex:
+            assert ex.message.startswith(
                 "Reached error page: about:neterror?e=blockedByPolicy&u=about%3Aconfig"
             ), "about:config is blocked in Firefox"
 
-        return True
-
-    def test_felt_4_change_about_config_policy(self, exp):
+    def run_change_about_config_policy(self):
         self._logger.info("Changing BlockAboutConfig policy")
         self.policy_block_about_config.value = 0
         self._logger.info("Changed BlockAboutConfig policy")
@@ -61,9 +65,8 @@ class BrowserAboutConfigBlocked(FeltTests):
         time.sleep(2)
 
         self._logger.info("Policy update propagated, continue tests")
-        return True
 
-    def test_felt_5_about_config_allowed_in_browser(self, exp):
+    def run_about_config_allowed_in_browser(self):
         self._logger.info(
             f"Value of BlockAboutConfig policy: {self.policy_block_about_config.value}"
         )
@@ -72,15 +75,3 @@ class BrowserAboutConfigBlocked(FeltTests):
 
         warning = self.get_elem_child("#warningTitle")
         assert warning is not None, "about:config is loadable in FELT"
-
-        return True
-
-
-if __name__ == "__main__":
-    BrowserAboutConfigBlocked(
-        "felt_browser_about_config_blocked.json",
-        firefox=sys.argv[1],
-        geckodriver=sys.argv[2],
-        profile_root=sys.argv[3],
-        env_vars={"MOZ_FELT_UI": "1"},
-    )

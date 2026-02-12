@@ -33,10 +33,11 @@ class RelayEligibilityReducerTest {
     }
 
     @Test
-    fun `GIVEN AccountLoginStatusChanged WHEN isLoggedIn is true THEN NoRelay and resets lastEntitlementCheckMs`() {
+    fun `GIVEN AccountLoginStatusChanged WHEN isLoggedIn is true THEN NoRelay and keeps lastEntitlementCheckMs`() {
+        val initialEntitlementCheckMs = 999L
         val initial = RelayState(
             eligibilityState = Ineligible.FirefoxAccountNotLoggedIn,
-            lastEntitlementCheckMs = 999L,
+            lastEntitlementCheckMs = initialEntitlementCheckMs,
         )
 
         val result = relayEligibilityReducer(
@@ -45,7 +46,7 @@ class RelayEligibilityReducerTest {
         )
 
         assertEquals(Ineligible.NoRelay, result.eligibilityState)
-        assertEquals(NO_ENTITLEMENT_CHECK_YET_MS, result.lastEntitlementCheckMs)
+        assertEquals(initialEntitlementCheckMs, result.lastEntitlementCheckMs)
     }
 
     @Test

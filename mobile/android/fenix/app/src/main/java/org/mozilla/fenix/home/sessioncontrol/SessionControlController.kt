@@ -178,6 +178,7 @@ class DefaultSessionControlController(
     private val navControllerRef: WeakReference<NavController>,
     private val viewLifecycleScope: CoroutineScope,
     private val showAddSearchWidgetPrompt: () -> Unit,
+    private val requestSetDefaultBrowserPrompt: () -> Unit,
 ) : SessionControlController {
 
     private var callback: SessionControlControllerCallback? = null
@@ -384,7 +385,7 @@ class DefaultSessionControlController(
 
     @VisibleForTesting
     internal fun navigationActionFor(item: ChecklistItem.Task) = when (item.type) {
-        ChecklistItem.Task.Type.SET_AS_DEFAULT -> activity.showSetDefaultBrowserPrompt()
+        ChecklistItem.Task.Type.SET_AS_DEFAULT -> requestSetDefaultBrowserPrompt()
 
         ChecklistItem.Task.Type.SIGN_IN ->
             navigateTo(HomeFragmentDirections.actionGlobalTurnOnSync(FenixFxAEntryPoint.NewUserOnboarding))

@@ -55,7 +55,7 @@ moz-box-button-footer =
   },
 };
 
-function basicTemplate({ type, hasHeader, hasFooter, wrapped }) {
+function basicTemplate({ type, hasHeader, hasFooter, hasStatic }) {
   return html`<moz-box-group
       type=${ifDefined(type)}
       @reorder=${handleReorderEvent}
@@ -66,7 +66,7 @@ function basicTemplate({ type, hasHeader, hasFooter, wrapped }) {
             data-l10n-id="moz-box-item-header"
           ></moz-box-item>`
         : ""}
-      ${getInnerElements(type, wrapped)}
+      ${getInnerElements(type, hasStatic)}
       ${hasFooter
         ? html`<moz-box-button
             slot="footer"
@@ -81,31 +81,39 @@ function basicTemplate({ type, hasHeader, hasFooter, wrapped }) {
       : ""}`;
 }
 
-function getInnerElements(type) {
+function getInnerElements(type, hasStatic) {
   if (type == GROUP_TYPES.reorderable) {
-    return reorderableElements();
+    return reorderableElements(hasStatic);
   }
 
   return basicElements();
 }
 
-function reorderableElements() {
-  return Array.from({ length: 5 }).map((_, i) => {
-    return html`<moz-box-item
-      data-l10n-id=${`moz-box-item-reorderable-${i + 1}`}
-    >
-      <moz-button
-        iconsrc="chrome://global/skin/icons/edit-outline.svg"
-        data-l10n-id="moz-box-edit-action"
-        slot="actions-start"
-      ></moz-button>
-      <moz-toggle
-        slot="actions"
-        pressed
-        data-l10n-id="moz-box-toggle-action"
-      ></moz-toggle>
-    </moz-box-item>`;
-  });
+function reorderableElements(hasStatic) {
+  const createItems = (length, slot, startIndex = 0) =>
+    Array.from({ length }).map(
+      (_, i) =>
+        html`<moz-box-item
+          data-l10n-id=${`moz-box-item-reorderable-${startIndex + i + 1}`}
+          slot=${ifDefined(slot)}
+        >
+          <moz-button
+            iconsrc="chrome://global/skin/icons/edit-outline.svg"
+            data-l10n-id="moz-box-edit-action"
+            slot="actions-start"
+          ></moz-button>
+          <moz-toggle
+            slot="actions"
+            pressed
+            data-l10n-id="moz-box-toggle-action"
+          ></moz-toggle>
+        </moz-box-item>`
+    );
+
+  if (hasStatic) {
+    return html`${createItems(3)}${createItems(2, "static", 3)}`;
+  }
+  return html`${createItems(5)}`;
 }
 
 function basicElements() {
@@ -344,11 +352,18 @@ const standardTemplateHtml = ({ scrollable }) => html`
   </style>
 `;
 
-const Template = ({ type, hasHeader, hasFooter, scrollable, wrapped }) => html`
+const Template = ({
+  type,
+  hasHeader,
+  hasFooter,
+  scrollable,
+  wrapped,
+  hasStatic,
+}) => html`
   ${standardTemplateHtml({ scrollable })}
   ${wrapped
     ? wrappedTemplate({ type, hasHeader, hasFooter })
-    : basicTemplate({ type, hasHeader, hasFooter, wrapped })}
+    : basicTemplate({ type, hasHeader, hasFooter, hasStatic })}
 `;
 
 const ReorderableTemplate = ({
@@ -356,9 +371,10 @@ const ReorderableTemplate = ({
   hasHeader,
   hasFooter,
   scrollable,
+  hasStatic,
 }) => html`
   ${standardTemplateHtml({ scrollable })}
-  ${basicTemplate({ type, hasHeader, hasFooter })}
+  ${basicTemplate({ type, hasHeader, hasFooter, hasStatic })}
 `;
 
 export const Default = Template.bind({});
@@ -368,6 +384,7 @@ Default.args = {
   hasFooter: false,
   scrollable: false,
   wrapped: false,
+  hasStatic: false,
 };
 
 export const List = Template.bind({});
@@ -382,6 +399,12 @@ Reorderable.args = {
   hasHeader: false,
   hasFooter: false,
   scrollable: false,
+};
+
+export const ReorderableWithStatic = ReorderableTemplate.bind({});
+ReorderableWithStatic.args = {
+  ...Reorderable.args,
+  hasStatic: true,
 };
 
 export const ListWithHeaderAndFooter = Template.bind({});

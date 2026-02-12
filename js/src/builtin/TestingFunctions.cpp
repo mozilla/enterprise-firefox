@@ -913,6 +913,7 @@ static bool RelazifyFunctions(JSContext* cx, unsigned argc, Value* vp) {
 
   cx->runtime()->allowRelazificationForTesting = true;
 
+  js::gc::FinishGC(cx, JS::GCReason::API);
   JS::PrepareForFullGC(cx);
   JS::NonIncrementalGC(cx, JS::GCOptions::Shrink, JS::GCReason::API);
 

@@ -71,6 +71,7 @@ export let ON_ACCOUNT_DESTROYED_NOTIFICATION = "fxaccounts:account_destroyed";
 export let ON_COLLECTION_CHANGED_NOTIFICATION = "sync:collection_changed";
 export let ON_VERIFY_LOGIN_NOTIFICATION = "fxaccounts:verify_login";
 export let ON_COMMAND_RECEIVED_NOTIFICATION = "fxaccounts:command_received";
+export let ON_SERVICE_ENABLED_NOTIFICATION = "fxaccounts:service_enabled";
 
 export let FXA_PUSH_SCOPE_ACCOUNT_UPDATE = "chrome://fxa-device-update";
 

@@ -365,12 +365,15 @@ preferences-colors-manage-button =
     .label = Manage Colors…
     .accesskey = C
 
-preferences-fonts-header = Fonts
+preferences-fonts-header2 =
+  .label = Fonts
 
-default-font = Default font
-    .accesskey = D
-default-font-size = Size
-    .accesskey = S
+default-font-2 =
+  .label = Default font
+  .accesskey = D
+default-font-size-2 =
+  .label = Size
+  .accesskey = S
 
 advanced-fonts =
     .label = Advanced…
@@ -1140,6 +1143,9 @@ search-one-click-desc = Choose the alternative search engines that appear below 
 search-one-click-header-3 =
     .label = Additional search engines
     .description = Choose which search engines and shortcuts appear in your address bar.
+
+update-search-engine-success =
+    .message = Search engine successfully updated
 
 search-choose-engine-column =
     .label = Search Engine

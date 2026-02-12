@@ -55,8 +55,10 @@ class nsMathMLmspaceFrame final : public nsMathMLContainerFrame {
 
   nsresult AttributeChanged(int32_t aNameSpaceID, nsAtom* aAttribute,
                             AttrModType aModType) final;
-  nscoord CalculateAttributeValue(nsAtom* aAtom, Attribute& aAttribute,
-                                  uint32_t aFlags, float aFontSizeInflation);
+  nscoord CalculateAttributeValue(
+      nsAtom* aAtom, Attribute& aAttribute, float aFontSizeInflation,
+      mozilla::dom::MathMLElement::ParseFlags aFlags =
+          mozilla::dom::MathMLElement::ParseFlags());
   void Place(DrawTarget* aDrawTarget, const PlaceFlags& aFlags,
              ReflowOutput& aDesiredSize) final;
 };

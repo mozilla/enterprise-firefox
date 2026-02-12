@@ -236,14 +236,14 @@ add_task(async function test_deleteLoginsBackup_removeLogin() {
 
   storageUpdatePromise = TestUtils.topicObserved("password-storage-updated");
   info("Removing one login");
-  Services.logins.removeLogin(login1);
+  await Services.logins.removeLoginAsync(login1);
   await storageUpdatePromise;
   info("Writes to storage are complete after one removeLogin call");
   await loginBackupExists();
 
   storageUpdatePromise = TestUtils.topicObserved("password-storage-updated");
   info("Removing the last login");
-  Services.logins.removeLogin(login2);
+  await Services.logins.removeLoginAsync(login2);
   await storageUpdatePromise;
   info("Writes to storage are complete after the last removeLogin call");
   await loginBackupDeleted();
@@ -266,7 +266,7 @@ add_task(async function test_deleteLoginsBackup_removeLogin() {
 
   storageUpdatePromise = TestUtils.topicObserved("password-storage-updated");
   let backupUpdate = waitForBackupUpdate();
-  Services.logins.removeLogin(login1);
+  await Services.logins.removeLoginAsync(login1);
   await storageUpdatePromise;
   info("Writes to storage are complete after one removeLogin call");
   await backupUpdate;

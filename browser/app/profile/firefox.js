@@ -490,8 +490,7 @@ pref("browser.urlbar.suggest.quicksuggest.nonsponsored", false, sticky);
 pref("browser.urlbar.suggest.quicksuggest.sponsored", false, sticky);
 
 // Whether online Firefox Suggest is available to the user. This is only
-// relevant when Suggest overall is enabled [1]. When true, a checkbox will be
-// shown in the settings UI allowing to the user to toggle online Suggest.
+// relevant when Suggest overall is enabled [1].
 //
 // [1] browser.urlbar.quicksuggest.enabled
 pref("browser.urlbar.quicksuggest.online.available", false);
@@ -658,7 +657,25 @@ pref("browser.urlbar.keepPanelOpenDuringImeComposition", false);
 pref("browser.urlbar.groupLabels.enabled", true);
 
 // The Merino endpoint URL, not including parameters.
+#ifdef NIGHTLY_BUILD
+pref("browser.urlbar.merino.endpointURL", "https://prod.merino.prod.webservices.mozgcp.net/api/v1/suggest");
+#else
 pref("browser.urlbar.merino.endpointURL", "https://merino.services.mozilla.com/api/v1/suggest");
+#endif
+
+// OHTTP config URL for Merino requests
+#ifdef NIGHTLY_BUILD
+pref("browser.urlbar.merino.ohttpConfigURL", "https://prod.merino.prod.webservices.mozgcp.net/ohttp-configs");
+#else
+pref("browser.urlbar.merino.ohttpConfigURL", "");
+#endif
+
+// OHTTP relay URL for Merino requests
+#ifdef NIGHTLY_BUILD
+pref("browser.urlbar.merino.ohttpRelayURL", "https://ohttp-merino.mozilla.fastly-edge.com");
+#else
+pref("browser.urlbar.merino.ohttpRelayURL", "");
+#endif
 
 // Timeout for Merino fetches (ms).
 pref("browser.urlbar.merino.timeoutMs", 200);
@@ -668,12 +685,6 @@ pref("browser.urlbar.merino.providers", "");
 
 // Comma-separated list of client variants to send to Merino
 pref("browser.urlbar.merino.clientVariants", "");
-
-// OHTTP config URL for Merino requests
-pref("browser.urlbar.merino.ohttpConfigURL", "");
-
-// OHTTP relay URL for Merino requests
-pref("browser.urlbar.merino.ohttpRelayURL", "");
 
 // OHTTP hpke for DAP
 pref("dap.ohttp.hpke", "gAAgJSO22Y3HKzRSese15JtQVuuFfOIcTrZ56lQ5kDQwS0oABAABAAE");
@@ -1375,6 +1386,9 @@ pref("browser.preferences.experimental.hidden", false);
 pref("browser.preferences.moreFromMozilla", true);
 // Whether we show the "AI Controls" pane.
 pref("browser.preferences.aiControls", true);
+// Whether to show unavailable AI controls regardless of region/locale
+// restrictions. This is intended for localizers to be able to see the strings.
+pref("browser.preferences.aiControls.showUnavailable", false);
 
 // Used by settings to track whether the user customized advanced
 // performance settings. Not used directly elsewhere.
@@ -2262,8 +2276,9 @@ pref("browser.smartwindow.memoriesLogLevel", "Warn");
 pref("browser.smartwindow.firstrun.autoAdvanceMS", 3000);
 pref("browser.smartwindow.firstrun.hasCompleted", false);
 pref("browser.smartwindow.firstrun.modelChoice", "");
-pref("browser.smartwindow.model", "qwen3-235b-a22b-instruct-2507-maas");
+pref("browser.smartwindow.model", "");
 pref("browser.smartwindow.preferences.enabled", false);
+pref("browser.smartwindow.preferences.endpoint", "");
 
 // Block insecure active content on https pages
 pref("security.mixed_content.block_active_content", true);
@@ -3098,6 +3113,9 @@ pref("devtools.application.enabled", true);
 // The internal Anti tracking debugging panel
 pref("devtools.anti-tracking.enabled", false);
 
+// Session History panel
+pref("devtools.application.sessionHistory.enabled", false);
+
 // Enable the custom formatters feature
 // This preference represents the user's choice to enable the custom formatters feature.
 // While the preference above will be removed once the feature is stable, this one is menat to stay.
@@ -3320,6 +3338,9 @@ pref("devtools.debugger.features.map-await-expression", true);
 // This relies on javascript.options.asyncstack as well or it has no effect.
 pref("devtools.debugger.features.async-captured-stacks", true);
 pref("devtools.debugger.features.async-live-stacks", false);
+
+// This supports showing stylesheet sources in the debugger
+pref("devtools.debugger.features.stylesheets-in-debugger", false);
 
 // When debugging a website, this pref controls if extension content scripts applied
 // to the currently debugged page should be shown in the Debugger Source Tree
@@ -3572,8 +3593,12 @@ pref("browser.ipProtection.siteExceptionsHintsEnabled", true);
 pref("browser.ipProtection.log", false);
 pref("browser.ipProtection.guardian.endpoint", "https://vpn.mozilla.org/");
 pref("browser.ipProtection.added", false);
+// Pref to track whether the user has upgraded to Mozilla VPN
+pref("browser.ipProtection.hasUpgraded", false);
 // Pref that enables bandwidth usage feature
 pref("browser.ipProtection.bandwidth.enabled", false);
+// Pref that displays egress location in VPN panel
+pref("browser.ipProtection.egressLocationEnabled", false);
 // Pref that flips at 50%, 75%, and 90% bandwidth usage thresholds
 pref("browser.ipProtection.bandwidthThreshold", 0);
 

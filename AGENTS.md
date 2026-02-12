@@ -22,6 +22,7 @@ that has definitely changed locally. If you're unsure, ask.
 - `./mach build`: Build the project. Full builds can take a long time, up to tens of minutes.
 - `./mach test --auto`: Run tests
 - `./mach run`: Run the project
+- `./mach doc --no-serve --no-open`: Build the documentation
 - `treeherder-check`: Pull CI results for a try push
 - Use the MCP resource `@moz:bugzilla://bug/{bug_id}` to retrieve a bug
 - Use the MCP resource `@moz:phabricator://revision/D{revision_id}` to retrieve a Phabricator revision

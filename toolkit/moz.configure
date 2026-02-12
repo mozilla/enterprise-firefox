@@ -94,6 +94,12 @@ option(
 )
 set_config("MOZ_DISTRIBUTION_ID", depends("--with-distribution-id")(lambda v: v[0]))
 
+option(
+    "--built-by-mozilla",
+    help="Enable Mozilla official build designation",
+)
+set_config("BUILT_BY_MOZILLA", depends("--built-by-mozilla")(lambda v: bool(v) or None))
+set_define("BUILT_BY_MOZILLA", depends("--built-by-mozilla")(lambda v: bool(v) or None))
 
 @depends("MOZ_APP_VENDOR", build_project)
 def check_moz_app_vendor(moz_app_vendor, build_project):

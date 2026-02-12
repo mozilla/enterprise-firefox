@@ -557,6 +557,9 @@ static const bool NurseryEnabled = true;
 /* JSGC_PARALLEL_MARKING_ENABLED */
 static const bool ParallelMarkingEnabled = false;
 
+/* JSGC_CONCURRENT_MARKING_ENABLED */
+static const bool ConcurrentMarkingEnabled = false;
+
 /* JSGC_INCREMENTAL_WEAKMAP_ENABLED */
 static const bool IncrementalWeakMapMarkingEnabled = true;
 

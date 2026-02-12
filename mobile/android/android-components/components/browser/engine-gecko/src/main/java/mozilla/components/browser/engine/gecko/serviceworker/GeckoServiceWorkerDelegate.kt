@@ -25,12 +25,10 @@ class GeckoServiceWorkerDelegate(
     internal val delegate: ServiceWorkerDelegate,
     internal val runtime: GeckoRuntime,
     internal val engineSettings: Settings?,
-    private val downloadFileUtils: DownloadFileUtils,
 ) : GeckoRuntime.ServiceWorkerDelegate {
     override fun onOpenWindow(url: String): GeckoResult<GeckoSession> {
         val newEngineSession = GeckoEngineSession(
             runtime = runtime,
-            downloadFileUtils = downloadFileUtils,
             privateMode = false,
             defaultSettings = engineSettings,
             openGeckoSession = false,

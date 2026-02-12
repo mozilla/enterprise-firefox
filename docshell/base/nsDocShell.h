@@ -1072,7 +1072,8 @@ class nsDocShell final : public nsDocLoader,
   nsresult GetHttpChannel(nsIChannel* aChannel, nsIHttpChannel** aReturn);
   nsresult ConfirmRepost(bool* aRepost);
   nsresult GetPromptAndStringBundle(nsIPrompt** aPrompt,
-                                    nsIStringBundle** aStringBundle);
+                                    nsIStringBundle** aStringBundle,
+                                    nsIStringBundle** aEnterpriseStringBundle);
   nsresult SetCurScrollPosEx(int32_t aCurHorizontalPos,
                              int32_t aCurVerticalPos);
   nsPoint GetCurScrollPos();

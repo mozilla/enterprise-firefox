@@ -709,6 +709,7 @@ export default [
     "  ├ ondrag: null",
     "  ├ ondragend: null",
     "  ├ ondragenter: null",
+    "  ├ ondragexit: null",
     "  ├ ondragleave: null",
     "  ├ ondragover: null",
     "  ├ ondragstart: null",

@@ -8619,6 +8619,9 @@ bool FunctionCompiler::emitSpeculativeInlineCallRef(
     elseBlocks.infallibleAppend(elseBlock);
   }
 
+  // The block that performs the fallback call should be cold.
+  curBlock_->setFrequency(Frequency::Unlikely);
+
   DefVector callResults;
   if (!callRef(funcType, actualCalleeFunc, bytecodeOffset, args,
                &callResults)) {

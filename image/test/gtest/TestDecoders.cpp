@@ -535,8 +535,12 @@ static void CheckDecoderFrameFirst(const ImageTestCase& aTestCase) {
 
   Progress imageProgress = tracker->GetProgress();
 
-  EXPECT_TRUE(bool(imageProgress & FLAG_HAS_TRANSPARENCY) == false);
   EXPECT_TRUE(bool(imageProgress & FLAG_IS_ANIMATED) == true);
+
+  EXPECT_EQ(bool(aTestCase.mFlags & TEST_CASE_IS_TRANSPARENT),
+            bool(imageProgress & FLAG_HAS_TRANSPARENCY));
+  EXPECT_EQ(bool(aTestCase.mFlags & TEST_CASE_IS_ANIMATED),
+            bool(imageProgress & FLAG_IS_ANIMATED));
 
   // Ensure that we decoded the static version of the image.
   {
@@ -643,8 +647,12 @@ static void CheckDecoderFrameCurrent(const ImageTestCase& aTestCase) {
 
   Progress imageProgress = tracker->GetProgress();
 
-  EXPECT_TRUE(bool(imageProgress & FLAG_HAS_TRANSPARENCY) == false);
   EXPECT_TRUE(bool(imageProgress & FLAG_IS_ANIMATED) == true);
+
+  EXPECT_EQ(bool(aTestCase.mFlags & TEST_CASE_IS_TRANSPARENT),
+            bool(imageProgress & FLAG_HAS_TRANSPARENCY));
+  EXPECT_EQ(bool(aTestCase.mFlags & TEST_CASE_IS_ANIMATED),
+            bool(imageProgress & FLAG_IS_ANIMATED));
 
   // Ensure that we decoded both frames of the animated version of the image.
   {
@@ -978,6 +986,20 @@ TEST_F(ImageDecoders, AnimatedAVIFWithBlendedFrames) {
   CheckAnimationDecoderSingleChunk(GreenFirstFrameAnimatedAVIFTestCase());
 }
 
+#ifdef MOZ_JXL
+TEST_F(ImageDecoders, AnimatedJXLSingleChunk) {
+  CheckDecoderSingleChunk(GreenFirstFrameAnimatedJXLTestCase());
+}
+
+TEST_F(ImageDecoders, AnimatedJXLMultiChunk) {
+  CheckDecoderMultiChunk(GreenFirstFrameAnimatedJXLTestCase());
+}
+
+TEST_F(ImageDecoders, AnimatedJXLWithBlendedFrames) {
+  CheckAnimationDecoderSingleChunk(GreenFirstFrameAnimatedJXLTestCase());
+}
+#endif
+
 TEST_F(ImageDecoders, CorruptSingleChunk) {
   CheckDecoderSingleChunk(CorruptTestCase());
 }
@@ -1032,6 +1054,40 @@ TEST_F(ImageDecoders, AnimatedGIFWithFRAME_CURRENT) {
   CheckDecoderFrameCurrent(GreenFirstFrameAnimatedGIFTestCase());
 }
 
+TEST_F(ImageDecoders, AnimatedWebPWithFRAME_FIRST) {
+  CheckDecoderFrameFirst(GreenFirstFrameAnimatedWebPTestCase());
+}
+
+TEST_F(ImageDecoders, AnimatedWebPWithFRAME_CURRENT) {
+  CheckDecoderFrameCurrent(GreenFirstFrameAnimatedWebPTestCase());
+}
+
+TEST_F(ImageDecoders, AnimatedPNGWithFRAME_FIRST) {
+  CheckDecoderFrameFirst(GreenFirstFrameAnimatedPNGTestCase());
+}
+
+TEST_F(ImageDecoders, AnimatedPNGWithFRAME_CURRENT) {
+  CheckDecoderFrameCurrent(GreenFirstFrameAnimatedPNGTestCase());
+}
+
+TEST_F(ImageDecoders, AnimatedAVIFWithFRAME_FIRST) {
+  CheckDecoderFrameFirst(GreenFirstFrameAnimatedAVIFTestCase());
+}
+
+TEST_F(ImageDecoders, AnimatedAVIFWithFRAME_CURRENT) {
+  CheckDecoderFrameCurrent(GreenFirstFrameAnimatedAVIFTestCase());
+}
+
+#ifdef MOZ_JXL
+TEST_F(ImageDecoders, AnimatedJXLWithFRAME_FIRST) {
+  CheckDecoderFrameFirst(GreenFirstFrameAnimatedJXLTestCase());
+}
+
+TEST_F(ImageDecoders, AnimatedJXLWithFRAME_CURRENT) {
+  CheckDecoderFrameCurrent(GreenFirstFrameAnimatedJXLTestCase());
+}
+#endif
+
 TEST_F(ImageDecoders, AnimatedGIFWithExtraImageSubBlocks) {
   ImageTestCase testCase = ExtraImageSubBlocksAnimatedGIFTestCase();
 
@@ -1055,8 +1111,12 @@ TEST_F(ImageDecoders, AnimatedGIFWithExtraImageSubBlocks) {
   RefPtr<ProgressTracker> tracker = image->GetProgressTracker();
   Progress imageProgress = tracker->GetProgress();
 
-  EXPECT_TRUE(bool(imageProgress & FLAG_HAS_TRANSPARENCY) == false);
   EXPECT_TRUE(bool(imageProgress & FLAG_IS_ANIMATED) == true);
+
+  EXPECT_EQ(bool(testCase.mFlags & TEST_CASE_IS_TRANSPARENT),
+            bool(imageProgress & FLAG_HAS_TRANSPARENCY));
+  EXPECT_EQ(bool(testCase.mFlags & TEST_CASE_IS_ANIMATED),
+            bool(imageProgress & FLAG_IS_ANIMATED));
 
   // Ensure that we decoded both frames of the image.
   LookupResult result =
@@ -1071,14 +1131,6 @@ TEST_F(ImageDecoders, AnimatedGIFWithExtraImageSubBlocks) {
 
   RefPtr<imgFrame> partialFrame = result.Surface().GetFrame(1);
   EXPECT_TRUE(bool(partialFrame));
-}
-
-TEST_F(ImageDecoders, AnimatedWebPWithFRAME_FIRST) {
-  CheckDecoderFrameFirst(GreenFirstFrameAnimatedWebPTestCase());
-}
-
-TEST_F(ImageDecoders, AnimatedWebPWithFRAME_CURRENT) {
-  CheckDecoderFrameCurrent(GreenFirstFrameAnimatedWebPTestCase());
 }
 
 TEST_F(ImageDecoders, TruncatedSmallGIFSingleChunk) {

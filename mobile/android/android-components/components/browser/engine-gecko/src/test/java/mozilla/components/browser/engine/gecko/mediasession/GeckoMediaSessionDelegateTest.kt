@@ -10,7 +10,6 @@ import mozilla.components.concept.engine.EngineSession
 import mozilla.components.concept.engine.mediasession.MediaSession
 import mozilla.components.support.test.mock
 import mozilla.components.support.test.whenever
-import mozilla.components.support.utils.FakeDownloadFileUtils
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -24,7 +23,6 @@ import org.mozilla.geckoview.MediaSession as GeckoViewMediaSession
 @RunWith(AndroidJUnit4::class)
 class GeckoMediaSessionDelegateTest {
     private lateinit var runtime: GeckoRuntime
-    private var downloadFileUtils = FakeDownloadFileUtils()
 
     @Before
     fun setup() {
@@ -34,10 +32,7 @@ class GeckoMediaSessionDelegateTest {
 
     @Test
     fun `media session activated is forwarded to observer`() {
-        val engineSession = GeckoEngineSession(
-            runtime,
-            downloadFileUtils = downloadFileUtils,
-        )
+        val engineSession = GeckoEngineSession(runtime)
         val geckoViewMediaSession: GeckoViewMediaSession = mock()
 
         var observedController: MediaSession.Controller? = null
@@ -59,10 +54,7 @@ class GeckoMediaSessionDelegateTest {
 
     @Test
     fun `media session deactivated is forwarded to observer`() {
-        val engineSession = GeckoEngineSession(
-            runtime,
-            downloadFileUtils = downloadFileUtils,
-        )
+        val engineSession = GeckoEngineSession(runtime)
         val geckoViewMediaSession: GeckoViewMediaSession = mock()
 
         var observedActivated = true
@@ -82,10 +74,7 @@ class GeckoMediaSessionDelegateTest {
 
     @Test
     fun `media session metadata is forwarded to observer`() {
-        val engineSession = GeckoEngineSession(
-            runtime,
-            downloadFileUtils = downloadFileUtils,
-        )
+        val engineSession = GeckoEngineSession(runtime)
         val geckoViewMediaSession: GeckoViewMediaSession = mock()
 
         var observedMetadata: MediaSession.Metadata? = null
@@ -112,10 +101,7 @@ class GeckoMediaSessionDelegateTest {
 
     @Test
     fun `media session feature is forwarded to observer`() {
-        val engineSession = GeckoEngineSession(
-            runtime,
-            downloadFileUtils = downloadFileUtils,
-        )
+        val engineSession = GeckoEngineSession(runtime)
         val geckoViewMediaSession: GeckoViewMediaSession = mock()
 
         var observedFeature: MediaSession.Feature? = null
@@ -138,10 +124,7 @@ class GeckoMediaSessionDelegateTest {
 
     @Test
     fun `media session play state is forwarded to observer`() {
-        val engineSession = GeckoEngineSession(
-            runtime,
-            downloadFileUtils = downloadFileUtils,
-        )
+        val engineSession = GeckoEngineSession(runtime)
         val geckoViewMediaSession: GeckoViewMediaSession = mock()
 
         var observedPlaybackState: MediaSession.PlaybackState? = null
@@ -176,10 +159,7 @@ class GeckoMediaSessionDelegateTest {
 
     @Test
     fun `media session position state is forwarded to observer`() {
-        val engineSession = GeckoEngineSession(
-            runtime,
-            downloadFileUtils = downloadFileUtils,
-        )
+        val engineSession = GeckoEngineSession(runtime)
         val geckoViewMediaSession: GeckoViewMediaSession = mock()
 
         var observedPositionState: MediaSession.PositionState? = null
@@ -205,10 +185,7 @@ class GeckoMediaSessionDelegateTest {
 
     @Test
     fun `media session fullscreen state is forwarded to observer`() {
-        val engineSession = GeckoEngineSession(
-            runtime,
-            downloadFileUtils = downloadFileUtils,
-        )
+        val engineSession = GeckoEngineSession(runtime)
         val geckoViewMediaSession: GeckoViewMediaSession = mock()
 
         var observedFullscreen: Boolean? = null

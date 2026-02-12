@@ -15,20 +15,6 @@
 
 namespace mozilla {
 
-SMILTimeContainer::SMILTimeContainer()
-    : mParent(nullptr),
-      mCurrentTime(0L),
-      mParentOffset(0L),
-      mPauseStart(0L),
-      mNeedsPauseSample(false),
-      mNeedsRewind(false),
-      mIsSeeking(false),
-#ifdef DEBUG
-      mHoldingEntries(false),
-#endif
-      mPauseTypes(PauseType::Begin) {
-}
-
 SMILTimeContainer::~SMILTimeContainer() {
   if (mParent) {
     mParent->RemoveChild(*this);

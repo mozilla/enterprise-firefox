@@ -247,8 +247,16 @@ RenderPassEncoder::RenderPassEncoder(CommandEncoder* const aParent, RawId aId,
 
   for (const auto& atOrNull : aDesc.mColorAttachments) {
     if (!atOrNull.IsNull()) {
+      const dom::GPURenderPassColorAttachment& colorAttachment =
+          atOrNull.Value();
+
       mUsedTextureViews.AppendElement(
-          atOrNull.Value().mView.GetAsGPUTextureView());
+          colorAttachment.mView.GetAsGPUTextureView());
+
+      if (colorAttachment.mResolveTarget.WasPassed()) {
+        mUsedTextureViews.AppendElement(
+            colorAttachment.mResolveTarget.Value().GetAsGPUTextureView());
+      }
     }
   }
   if (aDesc.mDepthStencilAttachment.WasPassed()) {

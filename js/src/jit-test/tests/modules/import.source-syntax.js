@@ -1,4 +1,4 @@
-// |jit-test| skip-if: !getBuildConfiguration("source-phase-imports");
+// |jit-test| skip-if: !getBuildConfiguration("source-phase-imports"); --enable-source-phase-imports
 
 load(libdir + "asserts.js");
 

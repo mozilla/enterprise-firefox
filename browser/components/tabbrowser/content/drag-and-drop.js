@@ -850,6 +850,12 @@
      */
     _getDragTarget(event, { ignoreSides = false } = {}) {
       let { target } = event;
+      if (
+        target === this._tabbrowserTabs.arrowScrollbox &&
+        !this._tabbrowserTabs.verticalMode
+      ) {
+        return this.#getHorizontalScrollboxDragTarget(event, ignoreSides);
+      }
       while (target) {
         if (
           isTab(target) ||
@@ -873,6 +879,30 @@
         }
       }
       return target;
+    }
+
+    /**
+     * Locates the drag target that horizontally overlaps with the event
+     * coordinates.
+     *
+     * @param {Event} event
+     *   The event for which we want to know on which element it happened.
+     * @param {boolean} ignoreSides
+     *   If set to true: events will only be associated with an element if they
+     *   happened on its central part (from 25% to 75%).
+     * @returns {Element}
+     *   The element that matches the horizontal bounds of the event, or
+     *   `undefined` if no matching element is found.
+     */
+    #getHorizontalScrollboxDragTarget(event, ignoreSides) {
+      function isWithinBounds(el) {
+        let { width } = window.windowUtils.getBoundsWithoutFlushing(el);
+        const offset = ignoreSides ? width * 0.25 : 0;
+        const startX = el.screenX + offset;
+        const endX = el.screenX + width - offset;
+        return startX <= event.screenX && event.screenX <= endX;
+      }
+      return this._tabbrowserTabs.dragAndDropElements.find(isWithinBounds);
     }
 
     #isMovingTab() {

@@ -42,7 +42,7 @@ bool js::intl::ChainLegacyIntlFormat(JSContext* cx, JSProtoKey protoKey,
     Rooted<JSObject*> thisValue(cx, &args.thisv().toObject());
 
     Rooted<JSObject*> proto(cx,
-                            cx->global()->getOrCreatePrototype(cx, protoKey));
+                            GlobalObject::getOrCreatePrototype(cx, protoKey));
     if (!proto) {
       return false;
     }
@@ -87,7 +87,7 @@ bool js::intl::UnwrapLegacyIntlFormat(JSContext* cx, JSProtoKey protoKey,
   // Step 1. (Performed in caller)
 
   // Step 2. (Partial)
-  Rooted<JSObject*> proto(cx, cx->global()->getOrCreatePrototype(cx, protoKey));
+  Rooted<JSObject*> proto(cx, GlobalObject::getOrCreatePrototype(cx, protoKey));
   if (!proto) {
     return false;
   }
@@ -132,13 +132,6 @@ void js::intl::ReportInternalError(JSContext* cx,
   }
   MOZ_CRASH("Unexpected ICU error");
 }
-
-const js::intl::OldStyleLanguageTagMapping
-    js::intl::oldStyleLanguageTagMappings[] = {
-        {"pa-PK", "pa-Arab-PK"}, {"zh-CN", "zh-Hans-CN"},
-        {"zh-HK", "zh-Hant-HK"}, {"zh-SG", "zh-Hans-SG"},
-        {"zh-TW", "zh-Hant-TW"},
-};
 
 js::UniqueChars js::intl::EncodeLocale(JSContext* cx, JSString* locale) {
   MOZ_ASSERT(locale->length() > 0);

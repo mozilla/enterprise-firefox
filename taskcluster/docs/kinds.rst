@@ -799,6 +799,10 @@ geckodriver-mac-notarization
 ----------------------------
 Apple notarization for mac geckodriver binary.
 
+mark-as-merged
+--------------
+Mark merge automation as completed in shipit.
+
 maybe-release
 -------------
 A shipitscript task that does the following:
@@ -966,10 +970,6 @@ Run Macrobenchmark for Android on Firebase TestLab.
 instrumented-build-macrobenchmark-apk
 -------------------------------------
 Generate instrumented apks used to run Macrobenchmark for Android apps.
-
-enterprise-test
----------------
-Firefox Enterprise specific tests, Selenium based. Legacy from GitHub Actions migration, to be moved to marionette.
 
 enterprise-repack
 -----------------

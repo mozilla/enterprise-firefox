@@ -23,10 +23,10 @@ struct PluralRulesOptions;
 }  // namespace mozilla::intl
 
 namespace js {
-
 class ArrayObject;
+}
 
-namespace intl {
+namespace js::intl {
 
 struct NumberFormatDigitOptions {
   // integer ∈ (1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000, 2000, 2500,
@@ -105,8 +105,6 @@ struct NumberFormatOptions {
   SignDisplay signDisplay = SignDisplay::Auto;
 };
 
-}  // namespace intl
-
 class NumberFormatObject : public NativeObject {
  public:
   static const JSClass class_;
@@ -166,15 +164,15 @@ class NumberFormatObject : public NativeObject {
     setFixedSlot(NUMBERING_SYSTEM_SLOT, JS::StringValue(numberingSystem));
   }
 
-  intl::NumberFormatOptions* getOptions() const {
+  NumberFormatOptions* getOptions() const {
     const auto& slot = getFixedSlot(OPTIONS_SLOT);
     if (slot.isUndefined()) {
       return nullptr;
     }
-    return static_cast<intl::NumberFormatOptions*>(slot.toPrivate());
+    return static_cast<NumberFormatOptions*>(slot.toPrivate());
   }
 
-  void setOptions(intl::NumberFormatOptions* options) {
+  void setOptions(NumberFormatOptions* options) {
     setFixedSlot(OPTIONS_SLOT, JS::PrivateValue(options));
   }
 
@@ -221,7 +219,6 @@ class NumberFormatObject : public NativeObject {
   static void finalize(JS::GCContext* gcx, JSObject* obj);
 };
 
-namespace intl {
 struct PluralRulesOptions;
 
 /**
@@ -293,8 +290,6 @@ using NumberFormatUnit = js::ImmutableTenuredPtr<PropertyName*> JSAtomState::*;
     JSContext* cx, mozilla::intl::NumberFormat* numberFormat,
     std::string_view x, NumberFormatUnit unit = nullptr);
 
-}  // namespace intl
-
-}  // namespace js
+}  // namespace js::intl
 
 #endif /* builtin_intl_NumberFormat_h */

@@ -1397,6 +1397,33 @@ def android_gtest(
 
 
 @Command(
+    "source-package",
+    category="misc",
+    description="Package source for distribution.",
+)
+def source_package(command_context, verbose=False):
+    if conditions.is_jsshell(command_context):
+        js_src = os.path.join(command_context.topsrcdir, "js", "src")
+        command_context.run_process(
+            [sys.executable, os.path.join(js_src, "make-source-package.py")],
+            cwd=js_src,
+            append_env={
+                "DIST": command_context.substs["DIST"],
+                "MOZJS_MAJOR_VERSION": command_context.substs["MOZJS_MAJOR_VERSION"],
+                "MOZJS_MINOR_VERSION": command_context.substs["MOZJS_MINOR_VERSION"],
+                "MOZJS_PATCH_VERSION": command_context.substs["MOZJS_PATCH_VERSION"],
+                "MOZJS_ALPHA": command_context.substs["MOZJS_ALPHA"],
+            },
+            ensure_exit_code=0,
+        )
+    else:
+        command_context._run_make(
+            directory=".", target="source-package", ensure_exit_code=True
+        )
+    command_context.notify("Packaging complete")
+
+
+@Command(
     "package",
     category="post-build",
     description="Package the built product for distribution as an APK, DMG, etc.",

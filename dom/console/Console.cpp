@@ -15,6 +15,7 @@
 #include "mozilla/Maybe.h"
 #include "mozilla/Mutex.h"
 #include "mozilla/Preferences.h"
+#include "mozilla/ProfilerMarkers.h"
 #include "mozilla/StaticPrefs_devtools.h"
 #include "mozilla/StaticPrefs_dom.h"
 #include "mozilla/dom/BlobBinding.h"
@@ -1143,10 +1144,14 @@ void Console::ProfileMethod(const GlobalObject& aGlobal, MethodName aName,
 void Console::ProfileMethodInternal(JSContext* aCx, MethodName aMethodName,
                                     const nsAString& aAction,
                                     const Sequence<JS::Value>& aData) {
+  if (ShouldLogToMozLog(aMethodName)) {
+    LogToMozLog(aCx, aMethodName, aAction, aData, nullptr,
+                DOMHighResTimeStamp(0.0));
+  }
+
   if (!ShouldProceed(aMethodName)) {
     return;
   }
-
   MaybeExecuteDumpFunction(aCx, aMethodName, aAction, aData, nullptr,
                            DOMHighResTimeStamp(0.0));
 
@@ -1292,10 +1297,36 @@ void Console::Method(const GlobalObject& aGlobal, MethodName aMethodName,
   console->MethodInternal(aGlobal.Context(), aMethodName, aMethodString, aData);
 }
 
+struct ConsoleTimingMarker : public BaseMarkerType<ConsoleTimingMarker> {
+  static constexpr const char* Name = "ConsoleTiming";
+  static constexpr const char* Description =
+      "Console timing timeStampers created using the Console API methods "
+      "console.time(), console.timeEnd(), and console.timeStamp().";
+
+  using MS = MarkerSchema;
+  static constexpr MS::PayloadField PayloadFields[] = {
+      {"label", MS::InputType::String, "Label", MS::Format::String},
+      {"entryType", MS::InputType::CString, "Entry Type", MS::Format::String}};
+
+  static constexpr MS::Location Locations[] = {MS::Location::MarkerChart,
+                                               MS::Location::MarkerTable};
+  static constexpr const char* AllLabels = "{timeStamper.data.label}";
+
+  static constexpr MS::ETWMarkerGroup Group = MS::ETWMarkerGroup::UserMarkers;
+
+  static void StreamJSONMarkerData(baseprofiler::SpliceableJSONWriter& aWriter,
+                                   const ProfilerString8View& aLabel,
+                                   const ProfilerString8View& aEntryType) {
+    StreamJSONMarkerDataImpl(aWriter, aLabel, aEntryType);
+  }
+};
+
 void Console::MethodInternal(JSContext* aCx, MethodName aMethodName,
                              const nsAString& aMethodString,
                              const Sequence<JS::Value>& aData) {
-  if (!ShouldProceed(aMethodName)) {
+  // Drop any further computation if the console **and* moz_log levels
+  // are not matching the current call's level.
+  if (!ShouldProceed(aMethodName) && !ShouldLogToMozLog(aMethodName)) {
     return;
   }
 
@@ -1387,6 +1418,15 @@ void Console::MethodInternal(JSContext* aCx, MethodName aMethodName,
     return;
   }
 
+  if (ShouldLogToMozLog(aMethodName)) {
+    LogToMozLog(aCx, aMethodName, aMethodString, aData, stack, monotonicTimer);
+  }
+
+  // Stop any further computation if we only had to log to moz_log
+  if (!ShouldProceed(aMethodName)) {
+    return;
+  }
+
   if (aMethodName == MethodTime && !aData.IsEmpty()) {
     callData->mStartTimerStatus =
         StartTimer(aCx, aData[0], monotonicTimer, callData->mStartTimerLabel,
@@ -1403,6 +1443,21 @@ void Console::MethodInternal(JSContext* aCx, MethodName aMethodName,
     callData->mLogTimerStatus =
         LogTimer(aCx, aData[0], monotonicTimer, callData->mLogTimerLabel,
                  &callData->mLogTimerDuration, false /* Cancel timer */);
+  }
+
+  else if (aMethodName == MethodTimeStamp &&
+           profiler_thread_is_being_profiled_for_markers()) {
+    nsAutoJSString label;
+    if (!aData.IsEmpty()) {
+      JS::Rooted<JS::Value> name(aCx, aData[0]);
+      JS::Rooted<JSString*> jsString(aCx, JS::ToString(aCx, name));
+      if (!NS_WARN_IF(!jsString)) {
+        (void)NS_WARN_IF(!label.init(aCx, jsString));
+      }
+    }
+    profiler_add_marker("ConsoleTiming", geckoprofiler::category::DOM, {},
+                        ConsoleTimingMarker{}, NS_ConvertUTF16toUTF8(label),
+                        "timeStamp");
   }
 
   else if (aMethodName == MethodCount) {
@@ -2213,6 +2268,21 @@ Console::TimerStatus Console::LogTimer(JSContext* aCx, const JS::Value& aName,
   }
 
   *aTimerDuration = aTimestamp - value;
+
+  if (aCancelTimer && profiler_thread_is_being_profiled_for_markers()) {
+    mozilla::TimeStamp creationTimeStamp = GetCreationTimeStamp();
+    if (!creationTimeStamp.IsNull()) {
+      mozilla::TimeStamp startTimeStamp =
+          creationTimeStamp + TimeDuration::FromMilliseconds(value);
+      mozilla::TimeStamp endTimeStamp =
+          creationTimeStamp + TimeDuration::FromMilliseconds(aTimestamp);
+      profiler_add_marker("ConsoleTiming", geckoprofiler::category::DOM,
+                          MarkerTiming::Interval(startTimeStamp, endTimeStamp),
+                          ConsoleTimingMarker{},
+                          NS_ConvertUTF16toUTF8(aTimerLabel), "time");
+    }
+  }
+
   return eTimerDone;
 }
 
@@ -2661,6 +2731,34 @@ bool Console::MonotonicTimer(JSContext* aCx, MethodName aMethodName,
   return true;
 }
 
+mozilla::TimeStamp Console::GetCreationTimeStamp() const {
+  if (nsCOMPtr<nsPIDOMWindowInner> innerWindow = do_QueryInterface(mGlobal)) {
+    nsGlobalWindowInner* win = nsGlobalWindowInner::Cast(innerWindow);
+    MOZ_ASSERT(win);
+
+    RefPtr<Performance> performance = win->GetPerformance();
+    if (performance) {
+      return performance->CreationTimeStamp();
+    }
+    return mozilla::TimeStamp();
+  }
+
+  if (NS_IsMainThread()) {
+    return mCreationTimeStamp;
+  }
+
+  if (nsCOMPtr<WorkletGlobalScope> workletGlobal = do_QueryInterface(mGlobal)) {
+    return workletGlobal->CreationTimeStamp();
+  }
+
+  WorkerPrivate* workerPrivate = GetCurrentThreadWorkerPrivate();
+  if (workerPrivate) {
+    return workerPrivate->CreationTimeStamp();
+  }
+
+  return mozilla::TimeStamp();
+}
+
 /* static */
 already_AddRefed<ConsoleInstance> Console::CreateInstance(
     const GlobalObject& aGlobal, const ConsoleInstanceOptions& aOptions) {
@@ -2720,19 +2818,23 @@ void Console::StringifyElement(Element* aElement, nsAString& aOut) {
   aOut.AppendLiteral(">");
 }
 
+void Console::LogToMozLog(JSContext* aCx, MethodName aMethodName,
+                          const nsAString& aMethodString,
+                          const Sequence<JS::Value>& aData,
+                          nsIStackFrame* aStack,
+                          DOMHighResTimeStamp aMonotonicTimer) {
+  nsString message = GetDumpMessage(aCx, aMethodName, aMethodString, aData,
+                                    aStack, aMonotonicTimer, true);
+
+  MOZ_LOG(mLogModule, InternalLogLevelToMozLog(aMethodName),
+          ("%s", NS_ConvertUTF16toUTF8(message).get()));
+}
+
 void Console::MaybeExecuteDumpFunction(JSContext* aCx, MethodName aMethodName,
                                        const nsAString& aMethodString,
                                        const Sequence<JS::Value>& aData,
                                        nsIStackFrame* aStack,
                                        DOMHighResTimeStamp aMonotonicTimer) {
-  if (mLogModule->ShouldLog(InternalLogLevelToMozLog(aMethodName))) {
-    nsString message = GetDumpMessage(aCx, aMethodName, aMethodString, aData,
-                                      aStack, aMonotonicTimer, true);
-
-    MOZ_LOG(mLogModule, InternalLogLevelToMozLog(aMethodName),
-            ("%s", NS_ConvertUTF16toUTF8(message).get()));
-  }
-
   if (!mDumpFunction && !mDumpToStdout) {
     return;
   }
@@ -2812,33 +2914,36 @@ nsString Console::GetDumpMessage(JSContext* aCx, MethodName aMethodName,
 
   message.AppendLiteral("\n");
 
-  // aStack can be null.
+  // When logging to MOZ_LOG, only dump stack willingly when MOZ_LOG includes
+  // "jsstacks".
+  if (!aIsForMozLog || mLogModule->GetLogJSStacks()) {
+    // aStack can be null.
+    nsCOMPtr<nsIStackFrame> stack(aStack);
 
-  nsCOMPtr<nsIStackFrame> stack(aStack);
+    while (stack) {
+      nsAutoCString filename;
+      stack->GetFilename(aCx, filename);
 
-  while (stack) {
-    nsAutoCString filename;
-    stack->GetFilename(aCx, filename);
+      AppendUTF8toUTF16(filename, message);
+      message.AppendLiteral(" ");
 
-    AppendUTF8toUTF16(filename, message);
-    message.AppendLiteral(" ");
+      message.AppendInt(stack->GetLineNumber(aCx));
+      message.AppendLiteral(" ");
 
-    message.AppendInt(stack->GetLineNumber(aCx));
-    message.AppendLiteral(" ");
+      nsAutoString functionName;
+      stack->GetName(aCx, functionName);
 
-    nsAutoString functionName;
-    stack->GetName(aCx, functionName);
+      message.Append(functionName);
+      message.AppendLiteral("\n");
 
-    message.Append(functionName);
-    message.AppendLiteral("\n");
+      nsCOMPtr<nsIStackFrame> caller = stack->GetCaller(aCx);
 
-    nsCOMPtr<nsIStackFrame> caller = stack->GetCaller(aCx);
+      if (!caller) {
+        caller = stack->GetAsyncCaller(aCx);
+      }
 
-    if (!caller) {
-      caller = stack->GetAsyncCaller(aCx);
+      stack.swap(caller);
     }
-
-    stack.swap(caller);
   }
 
   return message;
@@ -2858,6 +2963,10 @@ void Console::ExecuteDumpFunction(const nsAString& aMessage) {
 #endif
   fputs(str.get(), stdout);
   fflush(stdout);
+}
+
+bool Console::ShouldLogToMozLog(MethodName aName) const {
+  return mLogModule->ShouldLog(InternalLogLevelToMozLog(aName));
 }
 
 bool Console::ShouldProceed(MethodName aName) const {

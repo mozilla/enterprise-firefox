@@ -6,7 +6,9 @@
 
 const fs = require("fs");
 const path = require("path");
-const rollouts = require("./stylelint-rollouts.config");
+const rollouts = process.env.STYLELINT_SKIP_ROLLOUTS
+  ? []
+  : require("./stylelint-rollouts.config");
 
 function readFile(filePath) {
   return fs

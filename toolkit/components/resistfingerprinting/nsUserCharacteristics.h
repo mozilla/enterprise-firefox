@@ -30,6 +30,9 @@ extern "C" {  // Needed to call these in the gtest
 
 int MaxTouchPoints();
 
+// Populates only the MathML prefs metric for testing
+void PopulateMathMLPrefs();
+
 }  // extern "C"
 };  // namespace testing
 

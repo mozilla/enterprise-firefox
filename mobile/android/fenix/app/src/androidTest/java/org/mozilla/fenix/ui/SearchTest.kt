@@ -293,6 +293,7 @@ class SearchTest : TestSetup() {
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/1623441
+    @Ignore("Failing: https://bugzilla.mozilla.org/show_bug.cgi?id=1930244")
     @SmokeTest
     @Test
     fun searchResultsOpenedInNewTabsGenerateSearchGroupsTest() {
@@ -323,7 +324,6 @@ class SearchTest : TestSetup() {
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/1592229
-    @Ignore("disabled - https://bugzilla.mozilla.org/show_bug.cgi?id=1989405")
     @Test
     fun verifyAPageIsAddedToASearchGroupOnlyOnceTest() {
         val firstPageUrl = searchMockServer.getGenericAsset(1).url
@@ -394,7 +394,6 @@ class SearchTest : TestSetup() {
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/1591781
     @SmokeTest
-    @Ignore("disabled - https://bugzilla.mozilla.org/show_bug.cgi?id=1989405")
     @Test
     fun searchGroupIsNotGeneratedForLinksOpenedInPrivateTabsTest() {
         // setting our custom mockWebServer search URL
@@ -426,7 +425,6 @@ class SearchTest : TestSetup() {
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/1592269
-    @Ignore("disabled - https://bugzilla.mozilla.org/show_bug.cgi?id=1989405")
     @SmokeTest
     @Test
     fun deleteIndividualHistoryItemsFromSearchGroupTest() {
@@ -471,7 +469,6 @@ class SearchTest : TestSetup() {
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/1592242
-    @Ignore("disabled - https://bugzilla.mozilla.org/show_bug.cgi?id=1989405")
     @Test
     fun deleteSearchGroupFromHomeScreenTest() {
         val firstPageUrl = searchMockServer.getGenericAsset(1).url
@@ -513,7 +510,7 @@ class SearchTest : TestSetup() {
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/1592235
-    @Ignore("disabled - https://bugzilla.mozilla.org/show_bug.cgi?id=1989405")
+    @SkipLeaks(reasons = ["https://bugzilla.mozilla.org/show_bug.cgi?id=2011676"])
     @Test
     fun openAPageFromHomeScreenSearchGroupTest() {
         val firstPageUrl = searchMockServer.getGenericAsset(1).url
@@ -540,7 +537,11 @@ class SearchTest : TestSetup() {
         }.openTabDrawer(composeTestRule) {
         }.openThreeDotMenu {
         }.closeAllTabs {
-            verifyRecentlyVisitedSearchGroupDisplayed(shouldBeDisplayed = true, searchTerm = queryString, groupSize = 3)
+            verifyRecentlyVisitedSearchGroupDisplayed(
+                shouldBeDisplayed = true,
+                searchTerm = queryString,
+                groupSize = 3,
+            )
         }.openRecentlyVisitedSearchGroupHistoryList(queryString) {
         }.openWebsiteFromSearchGroup(firstPageUrl) {
             verifyUrl(firstPageUrl.toString())
@@ -550,20 +551,23 @@ class SearchTest : TestSetup() {
             longTapSelectItem(secondPageUrl)
             openActionBarOverflowOrOptionsMenu(composeTestRule.activity)
         }
-
         multipleSelectionToolbar(composeTestRule) {
         }.clickOpenNewTab {
             verifyNormalBrowsingButtonIsSelected()
-        }.closeTabDrawer {}
-        Espresso.openActionBarOverflowOrOptionsMenu(composeTestRule.activity)
-        multipleSelectionToolbar(composeTestRule) {
-        }.clickOpenPrivateTab {
-            verifyPrivateBrowsingButtonIsSelected()
+        }.openThreeDotMenu {
+        }.closeAllTabs {
+        }.openRecentlyVisitedSearchGroupHistoryList(queryString) {
+            longTapSelectItem(firstPageUrl)
+            longTapSelectItem(secondPageUrl)
+            openActionBarOverflowOrOptionsMenu(composeTestRule.activity)
+            multipleSelectionToolbar(composeTestRule) {
+            }.clickOpenPrivateTab {
+                verifyPrivateBrowsingButtonIsSelected()
+            }
         }
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/1592238
-    @Ignore("disabled - https://bugzilla.mozilla.org/show_bug.cgi?id=1989405")
     @Test
     fun shareAPageFromHomeScreenSearchGroupTest() {
         val firstPageUrl = searchMockServer.getGenericAsset(1).url

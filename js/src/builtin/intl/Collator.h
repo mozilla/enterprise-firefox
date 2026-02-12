@@ -21,9 +21,8 @@ namespace mozilla::intl {
 class Collator;
 }
 
-namespace js {
+namespace js::intl {
 
-namespace intl {
 struct CollatorOptions {
   enum class Usage : int8_t { Sort, Search };
   Usage usage = Usage::Sort;
@@ -38,7 +37,6 @@ struct CollatorOptions {
   enum class CaseFirst : int8_t { Upper, Lower, False };
   mozilla::Maybe<CaseFirst> caseFirst{};
 };
-}  // namespace intl
 
 class CollatorObject : public NativeObject {
  public:
@@ -93,15 +91,15 @@ class CollatorObject : public NativeObject {
     setFixedSlot(COLLATION_SLOT, JS::StringValue(collation));
   }
 
-  intl::CollatorOptions* getOptions() const {
+  CollatorOptions* getOptions() const {
     const auto& slot = getFixedSlot(OPTIONS_SLOT);
     if (slot.isUndefined()) {
       return nullptr;
     }
-    return static_cast<intl::CollatorOptions*>(slot.toPrivate());
+    return static_cast<CollatorOptions*>(slot.toPrivate());
   }
 
-  void setOptions(intl::CollatorOptions* options) {
+  void setOptions(CollatorOptions* options) {
     setFixedSlot(OPTIONS_SLOT, JS::PrivateValue(options));
   }
 
@@ -136,8 +134,6 @@ class CollatorObject : public NativeObject {
   static void finalize(JS::GCContext* gcx, JSObject* obj);
 };
 
-namespace intl {
-
 /**
  * Returns a new instance of the standard built-in Collator constructor.
  */
@@ -164,8 +160,6 @@ namespace intl {
                                          JS::Handle<JSString*> str2,
                                          JS::MutableHandle<JS::Value> result);
 
-}  // namespace intl
-
-}  // namespace js
+}  // namespace js::intl
 
 #endif /* builtin_intl_Collator_h */

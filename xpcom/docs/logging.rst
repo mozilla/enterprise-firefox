@@ -100,6 +100,9 @@ terms:
 | profilerstacks       | Profiler| | When profiling with the Firefox Profiler and log modules are enabled, capture the call  |
 |                      |         | | stack for each log statement.                                                           |
 +----------------------+---------+-------------------------------------------------------------------------------------------+
+| jsstacks             | Any     | Enables logging JavaScript stack traces when logging JavaScript console messages.         |
+|                      |         | (this may be extended outside of only console messages)                                   |
++----------------------+---------+-------------------------------------------------------------------------------------------+
 
 This syntax is used for most methods of enabling logging.
 

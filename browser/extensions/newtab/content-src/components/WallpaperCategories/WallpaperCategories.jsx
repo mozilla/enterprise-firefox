@@ -571,7 +571,7 @@ export class _WallpaperCategories extends React.PureComponent {
               }
               let style = {};
               if (thumbnail?.wallpaperUrl) {
-                style.backgroundImage = `url(${thumbnail.wallpaperUrl})`;
+                style.backgroundImage = `url(${thumbnail?.thumbnail || thumbnail?.wallpaperUrl})`;
                 style.backgroundPosition =
                   thumbnail.background_position || "center";
               } else {
@@ -673,13 +673,14 @@ export class _WallpaperCategories extends React.PureComponent {
                       solid_color,
                       theme,
                       title,
+                      thumbnail,
                       wallpaperUrl,
                     },
                     index
                   ) => {
                     let style = {};
                     if (wallpaperUrl) {
-                      style.backgroundImage = `url(${wallpaperUrl})`;
+                      style.backgroundImage = `url(${thumbnail || wallpaperUrl})`;
                       style.backgroundPosition =
                         background_position || "center";
                     } else {

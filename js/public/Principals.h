@@ -53,10 +53,23 @@ struct JSPrincipals {
   virtual bool write(JSContext* cx, JSStructuredCloneWriter* writer) = 0;
 
   /*
-   * Whether the principal corresponds to a System or AddOn Principal.
+   * Whether the principal corresponds to a System Principal.
+   */
+  virtual bool isSystemPrincipal() = 0;
+
+  /*
+   * Whether the principal corresponds to an AddOn Principal.
    * Technically this also checks for an ExpandedAddonPrincipal.
    */
-  virtual bool isSystemOrAddonPrincipal() = 0;
+  virtual bool isAddonPrincipal() = 0;
+
+  /*
+   * Whether the principal corresponds to a System or AddOn Principal using the
+   * above two methods.
+   */
+  bool isSystemOrAddonPrincipal() {
+    return isSystemPrincipal() || isAddonPrincipal();
+  }
 
   /*
    * This is not defined by the JS engine but should be provided by the

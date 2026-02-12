@@ -638,7 +638,7 @@ export class _DSCard extends React.PureComponent {
         >
           <div className="img-wrapper">
             {images}
-            {this.props.isDailyBriefV2 && this.props.topic && (
+            {this.props.isDailyBrief && this.props.topic && (
               <span
                 className="ds-card-daily-brief-topic"
                 data-l10n-id={`newtab-topic-label-${this.props.topic}`}

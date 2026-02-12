@@ -103,8 +103,8 @@ export default class IPProtectionStatusCard extends MozLitElement {
     return this.bandwidthUsage
       ? html`<bandwidth-usage
           slot="bandwidth"
-          value=${this.bandwidthUsage.currentBandwidthUsage}
-          max=${this.bandwidthUsage.maxBandwidth}
+          remaining=${this.bandwidthUsage.remaining}
+          max=${this.bandwidthUsage.max}
           numeric
         ></bandwidth-usage>`
       : null;

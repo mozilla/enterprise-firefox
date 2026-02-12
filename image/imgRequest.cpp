@@ -851,6 +851,7 @@ struct NewPartResult final {
         mShouldResetCacheEntry(false) {}
 
   nsAutoCString mContentType;
+  int64_t mContentLength;
   nsAutoCString mContentDisposition;
   RefPtr<image::Image> mImage;
   const bool mIsFirstPart;
@@ -892,6 +893,7 @@ static NewPartResult PrepareForNewPart(nsIRequest* aRequest,
 
   if (chan) {
     chan->GetContentDispositionHeader(result.mContentDisposition);
+    chan->GetContentLength(&result.mContentLength);
   }
 
   MOZ_LOG(gImgLog, LogLevel::Debug,
@@ -969,6 +971,7 @@ void imgRequest::FinishPreparingForNewPart(const NewPartResult& aResult) {
   MOZ_ASSERT(NS_IsMainThread());
 
   mContentType = aResult.mContentType;
+  mContentLength = aResult.mContentLength;
 
   SetProperties(aResult.mContentType, aResult.mContentDisposition);
 

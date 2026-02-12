@@ -5,7 +5,10 @@
 const lazy = {};
 
 ChromeUtils.defineLazyGetter(lazy, "localization", () => {
-  return new Localization(["preview/enterprise.ftl", "branding/brand.ftl"]);
+  return new Localization([
+    "browser/enterprise/enterprise.ftl",
+    "branding/brand.ftl",
+  ]);
 });
 
 ChromeUtils.defineESModuleGetters(lazy, {

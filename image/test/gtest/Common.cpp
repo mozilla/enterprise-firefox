@@ -754,6 +754,14 @@ ImageTestCase GreenFirstFrameAnimatedAVIFTestCase() {
                        /* aFrameCount */ 2);
 }
 
+#ifdef MOZ_JXL
+ImageTestCase GreenFirstFrameAnimatedJXLTestCase() {
+  return ImageTestCase("first-frame-green.jxl", "image/jxl", IntSize(100, 100),
+                       TEST_CASE_IS_TRANSPARENT | TEST_CASE_IS_ANIMATED,
+                       /* aFrameCount */ 2);
+}
+#endif
+
 ImageTestCase BlendAnimatedGIFTestCase() {
   return ImageTestCase("blend.gif", "image/gif", IntSize(100, 100),
                        TEST_CASE_IS_ANIMATED, /* aFrameCount */ 2);
@@ -881,7 +889,8 @@ ImageTestCase ExtraImageSubBlocksAnimatedGIFTestCase() {
   // This is a corrupt GIF that has extra image sub blocks between the first and
   // second frame.
   return ImageTestCase("animated-with-extra-image-sub-blocks.gif", "image/gif",
-                       IntSize(100, 100));
+                       IntSize(100, 100), TEST_CASE_IS_ANIMATED,
+                       /* aFrameCount */ 2);
 }
 
 ImageTestCase DownscaledPNGTestCase() {

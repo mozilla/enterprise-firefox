@@ -270,7 +270,7 @@ constexpr auto& CalendarEraNames(CalendarId calendar, EraCode era) {
 }
 
 constexpr auto CalendarEraName(CalendarId calendar, EraCode era) {
-  auto& names = CalendarEraNames(calendar, era);
+  const auto& names = CalendarEraNames(calendar, era);
   MOZ_ASSERT(names.size() > 0);
   return *names.begin();
 }

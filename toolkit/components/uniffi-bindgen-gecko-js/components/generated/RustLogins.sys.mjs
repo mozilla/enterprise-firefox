@@ -421,51 +421,51 @@ export class Login {
             throw e;
         }
         /**
-         * id
+         * @type {string}
          */
         this.id = id;
         /**
-         * timesUsed
+         * @type {number}
          */
         this.timesUsed = timesUsed;
         /**
-         * timeCreated
+         * @type {number}
          */
         this.timeCreated = timeCreated;
         /**
-         * timeLastUsed
+         * @type {number}
          */
         this.timeLastUsed = timeLastUsed;
         /**
-         * timePasswordChanged
+         * @type {number}
          */
         this.timePasswordChanged = timePasswordChanged;
         /**
-         * origin
+         * @type {string}
          */
         this.origin = origin;
         /**
-         * httpRealm
+         * @type {?string}
          */
         this.httpRealm = httpRealm;
         /**
-         * formActionOrigin
+         * @type {?string}
          */
         this.formActionOrigin = formActionOrigin;
         /**
-         * usernameField
+         * @type {string}
          */
         this.usernameField = usernameField;
         /**
-         * passwordField
+         * @type {string}
          */
         this.passwordField = passwordField;
         /**
-         * password
+         * @type {string}
          */
         this.password = password;
         /**
-         * username
+         * @type {string}
          */
         this.username = username;
         /**
@@ -474,10 +474,11 @@ export class Login {
          * record_breach(), reset_all_breaches(), is_potentially_breached(),
          * record_breach_alert_dismissal(), record_breach_alert_dismissal_time(),
          * and is_breach_alert_dismissed().
+         * @type {?number}
          */
         this.timeOfLastBreach = timeOfLastBreach;
         /**
-         * timeLastBreachAlertDismissed
+         * @type {?number}
          */
         this.timeLastBreachAlertDismissed = timeLastBreachAlertDismissed;
     }
@@ -758,31 +759,31 @@ export class LoginEntry {
             throw e;
         }
         /**
-         * origin
+         * @type {string}
          */
         this.origin = origin;
         /**
-         * httpRealm
+         * @type {?string}
          */
         this.httpRealm = httpRealm;
         /**
-         * formActionOrigin
+         * @type {?string}
          */
         this.formActionOrigin = formActionOrigin;
         /**
-         * usernameField
+         * @type {string}
          */
         this.usernameField = usernameField;
         /**
-         * passwordField
+         * @type {string}
          */
         this.passwordField = passwordField;
         /**
-         * password
+         * @type {string}
          */
         this.password = password;
         /**
-         * username
+         * @type {string}
          */
         this.username = username;
     }
@@ -959,23 +960,23 @@ export class LoginMeta {
             throw e;
         }
         /**
-         * id
+         * @type {string}
          */
         this.id = id;
         /**
-         * timesUsed
+         * @type {number}
          */
         this.timesUsed = timesUsed;
         /**
-         * timeCreated
+         * @type {number}
          */
         this.timeCreated = timeCreated;
         /**
-         * timeLastUsed
+         * @type {number}
          */
         this.timeLastUsed = timeLastUsed;
         /**
-         * timePasswordChanged
+         * @type {number}
          */
         this.timePasswordChanged = timePasswordChanged;
     }
@@ -1098,11 +1099,11 @@ export class LoginEntryWithMeta {
             throw e;
         }
         /**
-         * entry
+         * @type {LoginEntry}
          */
         this.entry = entry;
         /**
-         * meta
+         * @type {LoginMeta}
          */
         this.meta = meta;
     }
@@ -1191,11 +1192,11 @@ export class LoginsDeletionMetrics {
             throw e;
         }
         /**
-         * localDeleted
+         * @type {number}
          */
         this.localDeleted = localDeleted;
         /**
-         * mirrorDeleted
+         * @type {number}
          */
         this.mirrorDeleted = mirrorDeleted;
     }
@@ -1348,7 +1349,7 @@ export class FfiConverterTypeBulkResultEntry extends FfiConverterArrayBuffer {
 /**
  * LoginOrErrorMessage
  */
-export const LoginOrErrorMessage = {
+export const LoginOrErrorMessage = Object.freeze({
     /**
      * LOGIN
      */
@@ -1357,8 +1358,7 @@ export const LoginOrErrorMessage = {
      * STRING
      */
     STRING: 1,
-};
-Object.freeze(LoginOrErrorMessage);
+});
 
 // Export the FFIConverter object to make external types work.
 export class FfiConverterTypeLoginOrErrorMessage extends FfiConverterArrayBuffer {
@@ -2437,7 +2437,7 @@ export class LoginStoreInterface {
     /**
      * addMany
      * @param {Array.<LoginEntry>} logins
-     * @returns {Array.<BulkResultEntry>}
+     * @returns {Array.<BulkResultEntry[keyof BulkResultEntry]>}
      */
     addMany(
         logins) {
@@ -2446,7 +2446,7 @@ export class LoginStoreInterface {
     /**
      * addManyWithMeta
      * @param {Array.<LoginEntryWithMeta>} entriesWithMeta
-     * @returns {Array.<BulkResultEntry>}
+     * @returns {Array.<BulkResultEntry[keyof BulkResultEntry]>}
      */
     addManyWithMeta(
         entriesWithMeta) {
@@ -2773,7 +2773,7 @@ export class LoginStore extends LoginStoreInterface {
     /**
      * addMany
      * @param {Array.<LoginEntry>} logins
-     * @returns {Array.<BulkResultEntry>}
+     * @returns {Array.<BulkResultEntry[keyof BulkResultEntry]>}
      */
     addMany(
         logins) {
@@ -2794,7 +2794,7 @@ export class LoginStore extends LoginStoreInterface {
     /**
      * addManyWithMeta
      * @param {Array.<LoginEntryWithMeta>} entriesWithMeta
-     * @returns {Array.<BulkResultEntry>}
+     * @returns {Array.<BulkResultEntry[keyof BulkResultEntry]>}
      */
     addManyWithMeta(
         entriesWithMeta) {

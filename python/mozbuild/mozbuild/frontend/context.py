@@ -1030,8 +1030,8 @@ def ContextDerivedTypedRecord(*fields):
     .. code-block:: python
 
         VARIABLE_NAME.property += [
-          'item1',
-          'item2',
+            "item1",
+            "item2",
         ]
     """
 

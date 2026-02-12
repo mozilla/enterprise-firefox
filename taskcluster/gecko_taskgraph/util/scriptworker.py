@@ -110,7 +110,7 @@ ENTERPRISE_SIGNING_SCOPE_ALIAS_TO_PROJECT = [
     ]
 ]
 
-ENTERPRISE_MAIN_SIGNING_TYPES = {
+ENTERPRISE_MAIN_OR_RELEASE_SIGNING_TYPES = {
     "enterprise-nightly": "nightly-signing",
     "default": "dep-signing",
 }
@@ -414,10 +414,10 @@ get_devedition_signing_type = functools.partial(
     alias_to_signing_type_map=DEVEDITION_SIGNING_TYPES,
 )
 
-get_enterprise_main_signing_type = functools.partial(
+get_enterprise_main_or_release_signing_type = functools.partial(
     get_signing_type_from_project,
     alias_to_project_map=ENTERPRISE_SIGNING_SCOPE_ALIAS_TO_PROJECT,
-    alias_to_signing_type_map=ENTERPRISE_MAIN_SIGNING_TYPES,
+    alias_to_signing_type_map=ENTERPRISE_MAIN_OR_RELEASE_SIGNING_TYPES,
 )
 
 get_enterprise_try_signing_type = functools.partial(
@@ -509,10 +509,13 @@ def get_signing_type_per_platform(build_platform, is_shippable, config):
     if "enterprise" in build_platform:
         if (
             is_shippable
-            and "enterprise-main" in config.params["head_ref"]
+            and any(
+                name in config.params["head_ref"]
+                for name in ["enterprise-main", "enterprise-release"]
+            )
             and int(config.params["level"]) == 3
         ):
-            return get_enterprise_main_signing_type(config)
+            return get_enterprise_main_or_release_signing_type(config)
         else:
             return get_enterprise_try_signing_type(config)
     if is_shippable:

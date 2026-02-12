@@ -60,7 +60,7 @@ macosx64/debug:
         mozconfig-variant: debug
     run-on-projects: ["enterprise-firefox"]
     run-on-repo-type: ["git"]
-    use-sccache: false
+    use-sccache: true
     use-python: "3.11"
     fetches:
         toolchain:
@@ -97,7 +97,7 @@ macosx64-enterprise/debug:
             mozconfig_platform: macosx64-aarch64
     run-on-projects: ["enterprise-firefox"]
     run-on-repo-type: ["git"]
-    use-sccache: false
+    use-sccache: true
     use-python: "3.11"
     fetches:
         toolchain:
@@ -135,7 +135,7 @@ macosx64-aarch64/debug:
                 - ac_add_options --target=aarch64-apple-darwin
     run-on-projects: ['integration', "enterprise-firefox"]
     run-on-repo-type: ["git"]
-    use-sccache: false
+    use-sccache: true
     fetches:
         toolchain:
             - linux64-clang
@@ -197,7 +197,7 @@ macosx64/opt:
             - builds/releng_base_mac_64_cross_builds.py
     run-on-projects: ['integration', 'enterprise-firefox']
     run-on-repo-type: ['git']
-    use-sccache: false
+    use-sccache: true
     use-python: "3.11"
     fetches:
         toolchain:
@@ -275,7 +275,7 @@ macosx64-enterprise/opt:
             mozconfig_platform: macosx64-aarch64
     run-on-projects: ["enterprise-firefox"]
     run-on-repo-type: ["git"]
-    use-sccache: false
+    use-sccache: true
     use-python: "3.11"
     fetches:
         toolchain:

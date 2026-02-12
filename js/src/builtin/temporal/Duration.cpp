@@ -2030,8 +2030,8 @@ static UnsignedRoundingMode GetUnsignedRoundingMode(
 }
 
 struct NudgeWindow {
-  int64_t r1;
-  int64_t r2;
+  int64_t r1 = 0;
+  int64_t r2 = 0;
   EpochNanoseconds startEpochNs;
   EpochNanoseconds endEpochNs;
   DateDuration startDuration;
@@ -4126,7 +4126,7 @@ static bool Duration_toJSON(JSContext* cx, unsigned argc, Value* vp) {
  */
 static bool Duration_toLocaleString(JSContext* cx, const CallArgs& args) {
   // Steps 3-7.
-  return TemporalDurationToLocaleString(cx, args);
+  return intl::TemporalDurationToLocaleString(cx, args);
 }
 
 /**

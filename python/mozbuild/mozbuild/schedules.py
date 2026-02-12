@@ -57,6 +57,7 @@ EXCLUSIVE_COMPONENTS = [
     "gtest",
     "marionette-unittest",
     "marionette-integration",
+    "marionette-enterprise",
     "mochitest",
     "raptor",
     "reftest",

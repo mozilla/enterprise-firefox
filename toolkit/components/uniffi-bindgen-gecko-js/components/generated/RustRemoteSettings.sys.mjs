@@ -98,23 +98,23 @@ export class Attachment {
             throw e;
         }
         /**
-         * filename
+         * @type {string}
          */
         this.filename = filename;
         /**
-         * mimetype
+         * @type {string}
          */
         this.mimetype = mimetype;
         /**
-         * location
+         * @type {string}
          */
         this.location = location;
         /**
-         * hash
+         * @type {string}
          */
         this.hash = hash;
         /**
-         * size
+         * @type {number}
          */
         this.size = size;
     }
@@ -447,19 +447,19 @@ export class RemoteSettingsConfig {
             throw e;
         }
         /**
-         * collectionName
+         * @type {string}
          */
         this.collectionName = collectionName;
         /**
-         * bucketName
+         * @type {?string}
          */
         this.bucketName = bucketName;
         /**
-         * serverUrl
+         * @type {?string}
          */
         this.serverUrl = serverUrl;
         /**
-         * server
+         * @type {?RemoteSettingsServer[keyof RemoteSettingsServer]}
          */
         this.server = server;
     }
@@ -737,30 +737,37 @@ export class RemoteSettingsContext {
         }
         /**
          * The delivery channel of the application (e.g "nightly")
+         * @type {?string}
          */
         this.channel = channel;
         /**
          * User visible version string (e.g. "1.0.3")
+         * @type {?string}
          */
         this.appVersion = appVersion;
         /**
          * String containing the XUL application app_id
+         * @type {?string}
          */
         this.appId = appId;
         /**
          * The locale of the application during initialization (e.g. "es-ES")
+         * @type {?string}
          */
         this.locale = locale;
         /**
          * The name of the operating system (e.g. "Android", "iOS", "Darwin", "WINNT")
+         * @type {?string}
          */
         this.os = os;
         /**
          * The user-visible version of the operating system (e.g. "1.2.3")
+         * @type {?string}
          */
         this.osVersion = osVersion;
         /**
          * Form-factor of the device ("phone", "tablet", or "desktop")
+         * @type {?string}
          */
         this.formFactor = formFactor;
         /**
@@ -771,6 +778,7 @@ export class RemoteSettingsContext {
          * - By using a geolocation service, which determines country via the user's IP.
          * Firefox apps usually have a module that integrates with these services,
          * for example `Region` on Desktop and `RegionMiddleware` on Android.
+         * @type {?string}
          */
         this.country = country;
         /**
@@ -778,6 +786,7 @@ export class RemoteSettingsContext {
          * 
          * Use this for prototyping / testing new features.  In the long-term, new fields should be
          * added to the official list and supported by both the Rust and Gecko clients.
+         * @type {?object}
          */
         this.customTargettingAttributes = customTargettingAttributes;
     }
@@ -998,14 +1007,17 @@ export class RemoteSettingsConfig2 {
         }
         /**
          * The Remote Settings server to use. Defaults to [RemoteSettingsServer::Prod],
+         * @type {?RemoteSettingsServer[keyof RemoteSettingsServer]}
          */
         this.server = server;
         /**
          * Bucket name to use, defaults to "main".  Use "main-preview" for a preview bucket
+         * @type {?string}
          */
         this.bucketName = bucketName;
         /**
          * App context to use for JEXL filtering (when the `jexl` feature is present).
+         * @type {?RemoteSettingsContext}
          */
         this.appContext = appContext;
     }
@@ -1200,23 +1212,24 @@ export class RemoteSettingsRecord {
             throw e;
         }
         /**
-         * id
+         * @type {string}
          */
         this.id = id;
         /**
-         * lastModified
+         * @type {number}
          */
         this.lastModified = lastModified;
         /**
          * Tombstone flag (see https://remote-settings.readthedocs.io/en/latest/client-specifications.html#local-state)
+         * @type {boolean}
          */
         this.deleted = deleted;
         /**
-         * attachment
+         * @type {?Attachment}
          */
         this.attachment = attachment;
         /**
-         * fields
+         * @type {RsJsonObject}
          */
         this.fields = fields;
     }
@@ -1382,11 +1395,11 @@ export class RemoteSettingsResponse {
             throw e;
         }
         /**
-         * records
+         * @type {Array.<RemoteSettingsRecord>}
          */
         this.records = records;
         /**
-         * lastModified
+         * @type {number}
          */
         this.lastModified = lastModified;
     }

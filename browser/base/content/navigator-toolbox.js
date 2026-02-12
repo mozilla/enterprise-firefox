@@ -304,7 +304,7 @@ document.addEventListener(
 
         case "smartwindow-ask-button":
           if (isLeftClick) {
-            AIWindowUI.toggleSidebarFromAskButton(window, event);
+            AIWindowUI.toggleSidebar(window);
           }
           break;
 
@@ -431,7 +431,7 @@ document.addEventListener(
 
         case "smartwindow-ask-button":
           if (isLikeLeftClick) {
-            AIWindowUI.toggleSidebarFromAskButton(window, event);
+            AIWindowUI.toggleSidebar(window);
           }
           break;
 

@@ -17,6 +17,7 @@ MOZ_SRC_FILES += [
     "IPPEnrollAndEntitleManager.sys.mjs",
     "IPPExceptionsManager.sys.mjs",
     "IPPNetworkErrorObserver.sys.mjs",
+    "IPPNetworkUtils.sys.mjs",
     "IPPNimbusHelper.sys.mjs",
     "IPPOnboardingMessageHelper.sys.mjs",
     "IPPOptOutHelper.sys.mjs",

@@ -15,6 +15,39 @@ ai-window-personalize-button =
 ai-window-personalize-header =
     .heading = Smart Window
 
+smart-window-model-section =
+    .label = Assistant model
+    .description = Choose a model based on what’s important to you.
+smart-window-model-learn-link = Learn about models
+
+## Variables:
+##   $modelName (String) - The name of the AI model
+
+smart-window-model-fast =
+    .label = Fast: Answers quickly
+    .description = { $modelName }
+smart-window-model-flexible =
+    .label = Flexible: Solid fit for most needs
+    .description = { $modelName }
+smart-window-model-personal =
+    .label = Personal: Most tailored answers
+    .description = { $modelName }
+smart-window-model-custom =
+    .label = Custom: Use your own LLM
+smart-window-model-custom-name =
+    .label = Model name
+    .placeholder = Example: glm4
+smart-window-model-custom-url =
+    .label = Model endpoint
+    .placeholder = Example: http://localhost:11434/v1/chat/completions
+smart-window-model-custom-token =
+    .label = API key or auth token, if required
+smart-window-model-custom-help =
+    .message = Heads up! When you use a custom model, Smart Window may not work as expected.
+smart-window-model-custom-more-link = More about custom models
+smart-window-model-custom-save =
+    .label = Save
+
 ai-window-memories-section =
     .label = Memories
     .description = Manage what Smart Window learns from your activity.

@@ -690,9 +690,13 @@ class Rule {
       if (
         prop.enabled &&
         prop.isValid() &&
-        // Update if it's using light-dark and the color scheme changed
-        colorSchemeChanged &&
-        prop.value.includes("light-dark")
+        // Update if:
+        // - it's using light-dark() and the color scheme changed
+        ((colorSchemeChanged && prop.value.includes("light-dark(")) ||
+          // - it's using attr() (we don't check if the attribute changed as it would be
+          //   cumbersome and this is unlikely to be perf sensitive as the function might
+          //   not be used that much)
+          prop.value.includes("attr("))
       ) {
         prop.updateEditor();
       }

@@ -33,7 +33,7 @@ import { html, nothing } from "chrome://global/content/vendor/lit.all.mjs";
  *   - "toggle-applied-memories"
  *       detail: { messageId, open }
  *   - "remove-applied-memory"
- *       detail: { messageId, index, memory }
+ *       detail: { memoryId }
  *   - "retry-without-memories"
  *       detail: { messageId }
  */
@@ -116,28 +116,16 @@ export class AppliedMemoriesButton extends MozLitElement {
     );
   }
 
-  _onRemoveMemory(event, index) {
+  _onRemoveMemory(event, memory) {
     event.stopPropagation();
-
-    if (!Array.isArray(this.appliedMemories)) {
-      return;
-    }
-
-    const memory = this.appliedMemories[index];
-
-    // Remove memory visually, but update will be done by parent
-    this.appliedMemories = this.appliedMemories.filter((_, i) => {
-      return i !== index;
-    });
 
     this.dispatchEvent(
       new CustomEvent("remove-applied-memory", {
         bubbles: true,
         composed: true,
         detail: {
-          messageId: this.messageId,
-          index,
           memory,
+          messageId: this.messageId,
         },
       })
     );
@@ -157,14 +145,6 @@ export class AppliedMemoriesButton extends MozLitElement {
     );
   }
 
-  // TODO: Update formatting function once shape of memories passed is confirmed
-  _formatMemoryLabel(memory) {
-    if (typeof memory === "string") {
-      return memory;
-    }
-    return "";
-  }
-
   renderPopover() {
     if (!this._hasMemories) {
       return nothing;
@@ -181,24 +161,19 @@ export class AppliedMemoriesButton extends MozLitElement {
         @click=${event => this._onPopoverClick(event)}
       >
         <ul class="memories-list">
-          ${visibleMemories.map((memory, index) => {
-            const label = this._formatMemoryLabel(memory);
-            if (!label) {
-              return nothing;
-            }
-
+          ${visibleMemories.map(memory => {
             // @todo Bug 2010069
             // Localize aria-label
             return html`
               <li class="memories-list-item">
-                <span class="memories-list-label">${label}</span>
+                <span class="memories-list-label">${memory}</span>
                 <moz-button
                   class="memories-remove-button"
                   type="ghost"
                   size="small"
                   iconsrc="chrome://global/skin/icons/close.svg"
                   aria-label="Remove this memory"
-                  @click=${event => this._onRemoveMemory(event, index)}
+                  @click=${event => this._onRemoveMemory(event, memory)}
                 ></moz-button>
               </li>
             `;
@@ -214,6 +189,7 @@ export class AppliedMemoriesButton extends MozLitElement {
             class="retry-row-button"
             data-l10n-id="aiwindow-retry-without-memories"
             data-l10n-attrs="label"
+            @click=${event => this._onRetryWithoutMemories(event)}
           ></moz-button>
         </div>
       </div>
@@ -235,7 +211,7 @@ export class AppliedMemoriesButton extends MozLitElement {
         type="ghost"
         size="small"
         iconposition="start"
-        iconsrc="chrome://global/skin/icons/highlights.svg"
+        iconsrc="chrome://browser/content/aiwindow/assets/memories-on.svg"
         aria-haspopup="dialog"
         aria-expanded=${this.open && this._hasMemories}
         data-l10n-id="aiwindow-memories-used"

@@ -27,7 +27,6 @@ FEATURE_CHECK_NEEDED = {
     "SharedArrayBuffer": "!this.hasOwnProperty('SharedArrayBuffer')",
     "Temporal": "!this.hasOwnProperty('Temporal')",
     "decorators": "!(this.hasOwnProperty('getBuildConfiguration')&&getBuildConfiguration('decorators'))",  # Bug 1435869
-    "uint8array-base64": "!Uint8Array.fromBase64",  # Bug 1985120
     "explicit-resource-management": "!(this.hasOwnProperty('getBuildConfiguration')&&getBuildConfiguration('explicit-resource-management'))",  # Bug 1569081
     "Atomics.pause": "!this.hasOwnProperty('Atomics')||!Atomics.pause",  # Bug 1918717
     "Error.isError": "!Error.isError",  # Bug 1923733

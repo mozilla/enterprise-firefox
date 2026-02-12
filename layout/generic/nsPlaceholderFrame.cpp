@@ -111,7 +111,7 @@ void nsPlaceholderFrame::Reflow(nsPresContext* aPresContext,
   // placeholder being reflowed first.
   if (HasAnyStateBits(NS_FRAME_FIRST_REFLOW) &&
       !mOutOfFlowFrame->IsMenuPopupFrame() &&
-      mOutOfFlowFrame->Style()->GetPseudoType() != PseudoStyleType::backdrop &&
+      mOutOfFlowFrame->Style()->GetPseudoType() != PseudoStyleType::Backdrop &&
       !mOutOfFlowFrame->HasAnyStateBits(NS_FRAME_FIRST_REFLOW) &&
       !mOutOfFlowFrame->GetWritingMode().IsOrthogonalTo(GetWritingMode())) {
     // Unfortunately, this can currently happen when the placeholder is in a

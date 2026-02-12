@@ -42,9 +42,9 @@ class JarStruct:
     .. code-block:: python
 
         STRUCT = [
-            ('version', 'uint32'),
-            ('filename_size', 'uint16'),
-            ('filename', 'filename_size')
+            ("version", "uint32"),
+            ("filename_size", "uint16"),
+            ("filename", "filename_size"),
         ]
 
     describes a structure with a 'version' 32-bits unsigned integer field,

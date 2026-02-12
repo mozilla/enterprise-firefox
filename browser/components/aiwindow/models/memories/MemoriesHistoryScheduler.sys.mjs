@@ -29,7 +29,7 @@ ChromeUtils.defineLazyGetter(lazy, "console", function () {
 const INITIAL_MEMORIES_PAGES_THRESHOLD = 0;
 
 // Only run if at least this many pages have been visited.
-const MEMORIES_SCHEDULER_PAGES_THRESHOLD = 2;
+const MEMORIES_SCHEDULER_PAGES_THRESHOLD = 30;
 
 // Memories history schedule every 2 mins
 const MEMORIES_SCHEDULER_INTERVAL_MS = 2 * 60 * 1000;

@@ -1104,8 +1104,8 @@ return handleRustResult(
 
 /**
  * roundtripComplexEnum
- * @param {ComplexEnum} en
- * @returns {ComplexEnum}
+ * @param {ComplexEnum[keyof ComplexEnum]} en
+ * @returns {ComplexEnum[keyof ComplexEnum]}
  */
 export function roundtripComplexEnum(
     en) {
@@ -1176,8 +1176,8 @@ return handleRustResult(
 
 /**
  * roundtripEnumNoData
- * @param {EnumNoData} en
- * @returns {EnumNoData}
+ * @param {EnumNoData[keyof EnumNoData]} en
+ * @returns {EnumNoData[keyof EnumNoData]}
  */
 export function roundtripEnumNoData(
     en) {
@@ -1200,8 +1200,8 @@ return handleRustResult(
 
 /**
  * roundtripEnumWithData
- * @param {EnumWithData} en
- * @returns {EnumWithData}
+ * @param {EnumWithData[keyof EnumWithData]} en
+ * @returns {EnumWithData[keyof EnumWithData]}
  */
 export function roundtripEnumWithData(
     en) {
@@ -1902,11 +1902,11 @@ export class CallbackInterfaceNumbers {
             throw e;
         }
         /**
-         * a
+         * @type {number}
          */
         this.a = a;
         /**
-         * b
+         * @type {number}
          */
         this.b = b;
     }
@@ -2002,7 +2002,7 @@ export class SimpleRec {
             throw e;
         }
         /**
-         * a
+         * @type {number}
          */
         this.a = a;
     }
@@ -2176,51 +2176,51 @@ export class ComplexRec {
             throw e;
         }
         /**
-         * fieldU8
+         * @type {number}
          */
         this.fieldU8 = fieldU8;
         /**
-         * fieldI8
+         * @type {number}
          */
         this.fieldI8 = fieldI8;
         /**
-         * fieldU16
+         * @type {number}
          */
         this.fieldU16 = fieldU16;
         /**
-         * fieldI16
+         * @type {number}
          */
         this.fieldI16 = fieldI16;
         /**
-         * fieldU32
+         * @type {number}
          */
         this.fieldU32 = fieldU32;
         /**
-         * fieldI32
+         * @type {number}
          */
         this.fieldI32 = fieldI32;
         /**
-         * fieldU64
+         * @type {number}
          */
         this.fieldU64 = fieldU64;
         /**
-         * fieldI64
+         * @type {number}
          */
         this.fieldI64 = fieldI64;
         /**
-         * fieldF32
+         * @type {number}
          */
         this.fieldF32 = fieldF32;
         /**
-         * fieldF64
+         * @type {number}
          */
         this.fieldF64 = fieldF64;
         /**
-         * fieldString
+         * @type {string}
          */
         this.fieldString = fieldString;
         /**
-         * fieldRec
+         * @type {SimpleRec}
          */
         this.fieldRec = fieldRec;
     }
@@ -2617,23 +2617,23 @@ export class CustomTypesDemo {
             throw e;
         }
         /**
-         * url
+         * @type {Url}
          */
         this.url = url;
         /**
-         * handle
+         * @type {Handle}
          */
         this.handle = handle;
         /**
-         * timeIntervalMs
+         * @type {TimeIntervalMs}
          */
         this.timeIntervalMs = timeIntervalMs;
         /**
-         * timeIntervalSecDbl
+         * @type {TimeIntervalSecDbl}
          */
         this.timeIntervalSecDbl = timeIntervalSecDbl;
         /**
-         * timeIntervalSecFlt
+         * @type {TimeIntervalSecFlt}
          */
         this.timeIntervalSecFlt = timeIntervalSecFlt;
     }
@@ -2745,7 +2745,7 @@ export class RecWithDefault {
             throw e;
         }
         /**
-         * a
+         * @type {number}
          */
         this.a = a;
     }
@@ -2956,11 +2956,11 @@ export class TwoTestInterfaces {
             throw e;
         }
         /**
-         * first
+         * @type {TestInterface}
          */
         this.first = first;
         /**
-         * second
+         * @type {TestInterface}
          */
         this.second = second;
     }
@@ -3020,7 +3020,7 @@ export class FfiConverterTypeTwoTestInterfaces extends FfiConverterArrayBuffer {
 /**
  * EnumNoData
  */
-export const EnumNoData = {
+export const EnumNoData = Object.freeze({
     /**
      * A
      */
@@ -3033,8 +3033,7 @@ export const EnumNoData = {
      * C
      */
     C: 2,
-};
-Object.freeze(EnumNoData);
+});
 
 // Export the FFIConverter object to make external types work.
 export class FfiConverterTypeEnumNoData extends FfiConverterArrayBuffer {
@@ -3319,7 +3318,7 @@ export class FfiConverterTypeComplexEnum extends FfiConverterArrayBuffer {
 /**
  * ExplicitValuedEnum
  */
-export const ExplicitValuedEnum = {
+export const ExplicitValuedEnum = Object.freeze({
     /**
      * FIRST
      */
@@ -3344,8 +3343,7 @@ export const ExplicitValuedEnum = {
      * THIRTEENTH
      */
     THIRTEENTH: 13,
-};
-Object.freeze(ExplicitValuedEnum);
+});
 
 // Export the FFIConverter object to make external types work.
 export class FfiConverterTypeExplicitValuedEnum extends FfiConverterArrayBuffer {
@@ -3415,7 +3413,7 @@ export class FfiConverterTypeExplicitValuedEnum extends FfiConverterArrayBuffer 
 /**
  * GappedEnum
  */
-export const GappedEnum = {
+export const GappedEnum = Object.freeze({
     /**
      * ONE
      */
@@ -3428,8 +3426,7 @@ export const GappedEnum = {
      * THREE
      */
     THREE: 14,
-};
-Object.freeze(GappedEnum);
+});
 
 // Export the FFIConverter object to make external types work.
 export class FfiConverterTypeGappedEnum extends FfiConverterArrayBuffer {

@@ -103,7 +103,7 @@ class BaseSearchTelemetryTest {
     @Test
     fun `GIVEN an engine WHEN installWebExtension is called THEN the provided extension is installed in engine`() {
         val engine: Engine = mock()
-        val store: BrowserStore = mock()
+        val store = BrowserStore()
         val id = "id"
         val resourceUrl = "resourceUrl"
         val messageId = "messageId"

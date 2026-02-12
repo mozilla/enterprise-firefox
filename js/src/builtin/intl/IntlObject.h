@@ -9,10 +9,10 @@
 
 #include "js/Class.h"
 
-namespace js {
+namespace js::intl {
 
 extern const JSClass IntlClass;
 
-}  // namespace js
+}  // namespace js::intl
 
 #endif /* builtin_intl_IntlObject_h */

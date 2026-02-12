@@ -92,6 +92,12 @@ hr {
   margin: 0;
 }
 
+ipprotection-message-bar.vpn-top-content {
+  margin-inline: var(--space-small);
+  margin-block-start: 0;
+  margin-block-end: var(--space-small);
+}
+
 @media (prefers-color-scheme: dark) {
   #unauthenticated-vpn-img {
     content: url("chrome://browser/content/ipprotection/assets/vpn-panel-get-started-dark.svg");

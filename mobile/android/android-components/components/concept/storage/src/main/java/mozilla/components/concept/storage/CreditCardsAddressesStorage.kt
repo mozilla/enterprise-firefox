@@ -19,7 +19,7 @@ import java.util.Locale
 /**
  * An interface which defines read/write methods for credit card and address data.
  */
-interface CreditCardsAddressesStorage {
+interface CreditCardsAddressesStorage : Storage, StorageMaintenanceRegistry {
 
     /**
      * Inserts the provided credit card into the database, and returns
@@ -126,6 +126,22 @@ interface CreditCardsAddressesStorage {
      * Removes any encrypted data from this storage. Useful after encountering key loss.
      */
     suspend fun scrubEncryptedData()
+
+    override suspend fun runMaintenance(dbSizeLimit: UInt) {
+        // Implemented by concrete implementation of `CreditCardsAddressesStorage`
+    }
+
+    override suspend fun warmUp() {
+        // Implemented by concrete implementation of `CreditCardsAddressesStorage`
+    }
+
+    override fun registerStorageMaintenanceWorker() {
+        // Implemented by concrete implementation of `CreditCardsAddressesStorage`
+    }
+
+    override fun unregisterStorageMaintenanceWorker(uniqueWorkName: String) {
+        // Implemented by concrete implementation of `CreditCardsAddressesStorage`
+    }
 }
 
 /**

@@ -19,9 +19,8 @@ class ListFormat;
 class NumberFormat;
 }  // namespace mozilla::intl
 
-namespace js {
+namespace js::intl {
 
-namespace intl {
 enum class DurationDisplay : uint8_t { Auto, Always };
 enum class DurationStyle : uint8_t { Long, Short, Narrow, Numeric, TwoDigit };
 enum class DurationBaseStyle : uint8_t { Long, Short, Narrow, Digital };
@@ -54,8 +53,6 @@ struct DurationUnitOptions {
   DurationDisplay display : 1;
   DurationStyle style : 3;
 };
-
-}  // namespace intl
 
 class DurationFormatObject : public NativeObject {
  public:
@@ -131,15 +128,15 @@ class DurationFormatObject : public NativeObject {
     setFixedSlot(NUMBERING_SYSTEM, JS::StringValue(numberingSystem));
   }
 
-  intl::DurationFormatOptions* getOptions() const {
+  DurationFormatOptions* getOptions() const {
     const auto& slot = getFixedSlot(OPTIONS_SLOT);
     if (slot.isUndefined()) {
       return nullptr;
     }
-    return static_cast<intl::DurationFormatOptions*>(slot.toPrivate());
+    return static_cast<DurationFormatOptions*>(slot.toPrivate());
   }
 
-  void setOptions(intl::DurationFormatOptions* options) {
+  void setOptions(DurationFormatOptions* options) {
     setFixedSlot(OPTIONS_SLOT, JS::PrivateValue(options));
   }
 
@@ -194,6 +191,6 @@ class DurationFormatObject : public NativeObject {
 [[nodiscard]] extern bool TemporalDurationToLocaleString(
     JSContext* cx, const JS::CallArgs& args);
 
-}  // namespace js
+}  // namespace js::intl
 
 #endif /* builtin_intl_DurationFormat_h */

@@ -235,7 +235,6 @@ class TranslationsTest : TestSetup() {
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/2439960
-    @Ignore("Failing, see https://bugzilla.mozilla.org/show_bug.cgi?id=2012459")
     @Test
     fun verifyTheSiteDeletionFromTheNeverTranslateListTest() {
         val firstTestPage = mockWebServer.firstForeignWebPageAsset
@@ -249,9 +248,6 @@ class TranslationsTest : TestSetup() {
             verifyTheNeverTranslateThisSiteOptionIsChecked(isChecked = false)
             clickNeverTranslateThisSiteOption()
             verifyTheNeverTranslateThisSiteOptionIsChecked(isChecked = true)
-            verifyAlwaysOfferToTranslateOptionIsEnabled(isEnabled = false)
-            verifyAlwaysTranslateOptionIsEnabled(isEnabled = false)
-            verifyTheNeverTranslateLanguageOptionIsEnabled(isEnabled = false)
         }.clickTranslationSettingsButton {
             clickNeverTranslateTheseSitesButton()
             verifyNeverTranslateThisSiteRemoveButton("${firstTestPage.url.scheme}://${firstTestPage.url.authority}")
@@ -263,6 +259,7 @@ class TranslationsTest : TestSetup() {
             clickConfirmDeleteNeverTranslateThisSiteDialog()
         }.goBackToTranslationSettingsSubMenu {
         }.goBackToTranslationOptionSheet {
+            verifyAlwaysOfferToTranslateOptionIsChecked(isChecked = true)
             verifyTheNeverTranslateThisSiteOptionIsChecked(isChecked = false)
         }
     }

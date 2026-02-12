@@ -18,6 +18,11 @@
   }
 }
 
+:host([static]) {
+  /* Indent static items the width of the handle button + gap */
+  padding-inline-start: calc(var(--button-size-icon) + var(--space-small));
+}
+
 .text-content.has-support-page {
   display: flex;
 
@@ -73,7 +78,9 @@ slot[name="actions-start"] {
   background-repeat: no-repeat;
   border-radius: var(--button-border-radius);
   -moz-context-properties: fill;
-  fill: currentColor;
+  /** Override the text color set by description-deemphasized for the handle.
+      This cannot be disabled, hence the color should remain the default. */
+  fill: var(--text-color);
   flex-shrink: 0;
 }
 

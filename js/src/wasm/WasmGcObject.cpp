@@ -373,7 +373,8 @@ size_t WasmArrayObject::obj_moved(JSObject* objNew, JSObject* objOld) {
     MOZ_RELEASE_ASSERT(oolBlockSize > sizeof(OOLDataHeader));
     if (nursery.isInside(oolHeaderOld)) {
       // Store the forwarding word, with bit 0 set.
-      oolHeaderOld->word = uintptr_t(oolHeaderNew) & 1;
+      MOZ_ASSERT((uintptr_t(oolHeaderNew) & 1) == 0);
+      oolHeaderOld->word = uintptr_t(oolHeaderNew) | 1;
       oolHeaderNew->word = WasmArrayObject::OOLDataHeader_Magic;
     }
   }

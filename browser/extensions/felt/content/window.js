@@ -25,6 +25,13 @@ const ErrorReport = {
 
   init() {
     this._wrapper = document.querySelector(".felt-browser-error");
+
+    this._stringBundles = {};
+    ChromeUtils.defineLazyGetter(this._stringBundles, "app", () => {
+      return Services.strings.createBundle(
+        "chrome://global/locale/appstrings.properties"
+      );
+    });
   },
 
   reset() {
@@ -41,7 +48,7 @@ const ErrorReport = {
     errors.forEach(e => e.classList.add("is-hidden"));
   },
 
-  async update(errorType, details = null) {
+  async update(errorType, details = null, cause = null) {
     if (!this._wrapper) {
       return;
     }
@@ -54,13 +61,33 @@ const ErrorReport = {
         ".felt-browser-error-details"
       );
       if (detailsElement) {
-        const l10nId = `felt-error-${details}`;
-        const translated = await document.l10n.formatValue(l10nId);
-        detailsElement.textContent = translated || details;
+        const message = await this.getLocalisedErrorString(details, cause);
+        detailsElement.textContent = message || details;
       }
     }
     errorElement.classList.remove("is-hidden");
     this._wrapper.classList.remove("is-hidden");
+  },
+
+  async getLocalisedErrorString(details, cause) {
+    const errorMessage = await document.l10n.formatValue(
+      `felt-error-${details}`
+    );
+    if (errorMessage) {
+      return errorMessage;
+    }
+    return this.formatStringBundle(details, cause);
+  },
+
+  formatStringBundle(msgId, cause) {
+    try {
+      return this._stringBundles.app.formatStringFromName(msgId, [cause?.host]);
+    } catch (ex) {
+      console.error(
+        `FELT error localization failed for '${msgId}'. Expected for NSS errors.`
+      );
+      return null;
+    }
   },
 };
 
@@ -72,7 +99,7 @@ async function connectToConsole(email) {
     posture = await lazy.ConsoleClient.sendDevicePosture();
   } catch (err) {
     console.error(`FeltExtension: Failed to connect to console: ${err}`);
-    ErrorReport.update("felt-browser-error-connection", err.message);
+    ErrorReport.update("felt-browser-error-connection", err.message, err.cause);
     return;
   }
 

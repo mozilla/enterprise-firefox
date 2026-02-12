@@ -16,7 +16,7 @@ namespace mozilla::dom {
 
 CSSKeywordValue::CSSKeywordValue(nsCOMPtr<nsISupports> aParent,
                                  const nsACString& aValue)
-    : CSSStyleValue(std::move(aParent), ValueType::KeywordValue),
+    : CSSStyleValue(std::move(aParent), StyleValueType::KeywordValue),
       mValue(aValue) {}
 
 JSObject* CSSKeywordValue::WrapObject(JSContext* aCx,
@@ -67,7 +67,7 @@ void CSSKeywordValue::ToCssTextWithProperty(const CSSPropertyId& aPropertyId,
 }
 
 CSSKeywordValue& CSSStyleValue::GetAsCSSKeywordValue() {
-  MOZ_DIAGNOSTIC_ASSERT(mValueType == ValueType::KeywordValue);
+  MOZ_DIAGNOSTIC_ASSERT(mStyleValueType == StyleValueType::KeywordValue);
 
   return *static_cast<CSSKeywordValue*>(this);
 }

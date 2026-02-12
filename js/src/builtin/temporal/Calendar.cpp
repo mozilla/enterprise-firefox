@@ -421,7 +421,7 @@ bool js::temporal::CanonicalizeCalendar(JSContext* cx, Handle<JSString*> id,
     }
 
     // Step 1.
-    static constexpr auto& calendars = AvailableCalendars();
+    static constexpr const auto& calendars = AvailableCalendars();
 
     // Steps 2-3.
     for (auto identifier : calendars) {
@@ -1398,7 +1398,7 @@ static MonthCode CalendarDateMonthCode(CalendarId calendar,
 
 class MonthCodeString {
   // Zero-terminated month code string.
-  char str_[4 + 1];
+  char str_[4 + 1] = {};
 
  public:
   explicit MonthCodeString(MonthCodeField field) {
@@ -2227,7 +2227,7 @@ static bool NonISOMonthDayToISOReferenceDate(JSContext* cx, CalendarId calendar,
   };
 
   UniqueICU4XDate date;
-  for (auto& [start, end] : candidates) {
+  for (const auto& [start, end] : candidates) {
     if (!NonISOMonthDayToISOReferenceDate(cx, calendar, cal.get(), start, end,
                                           monthCode, day, &date)) {
       return false;
@@ -3284,7 +3284,7 @@ static bool AddISODate(JSContext* cx, const ISODate& isoDate,
 
 struct CalendarDate {
   int32_t year = 0;
-  MonthCode monthCode = {};
+  MonthCode monthCode;
   int32_t day = 0;
 };
 
@@ -3465,9 +3465,11 @@ static bool AddYearMonthDuration(JSContext* cx, CalendarId calendarId,
         }
       }
     }
+    MOZ_ASSERT(std::abs(months) <= CalendarMonthsPerYear(calendarId));
 
     // Compute the actual month to find the correct month code.
-    int32_t month = OrdinalMonth(firstDayOfMonth.get()) + months;
+    int32_t month =
+        OrdinalMonth(firstDayOfMonth.get()) + static_cast<int32_t>(months);
     firstDayOfMonth = CreateDateFrom(cx, calendarId, calendar, year, month, 1,
                                      TemporalOverflow::Constrain);
     if (!firstDayOfMonth) {
@@ -3773,9 +3775,9 @@ static bool DifferenceNonISODate(JSContext* cx, CalendarId calendarId,
   auto balanced = BalanceYearMonth(oneDate.year + years, oneDate.month + months,
                                    monthsPerYear);
 
-  auto constrained =
-      CreateDateFrom(cx, calendarId, cal.get(), balanced.year, balanced.month,
-                     oneDate.day, TemporalOverflow::Constrain);
+  auto constrained = CreateDateFrom(
+      cx, calendarId, cal.get(), static_cast<int32_t>(balanced.year),
+      balanced.month, oneDate.day, TemporalOverflow::Constrain);
   if (!constrained) {
     return false;
   }

@@ -219,8 +219,7 @@ this.felt = class extends ExtensionAPI {
 
       case "FeltParent:FirefoxStarting": {
         Services.startup.enterLastWindowClosingSurvivalArea();
-        Services.ww.unregisterNotification(this._winObserver);
-        this._win.close();
+        this.closeWindow();
         const success = Services.felt.makeBackgroundProcess(true);
         console.debug(`FeltExtension: makeBackgroundProcess? ${success}`);
         break;
@@ -246,7 +245,17 @@ this.felt = class extends ExtensionAPI {
     }
   }
 
+  closeWindow() {
+    console.debug(`FeltExtension: closeWindow: this._win=${this._win}`);
+    Services.ww.unregisterNotification(this._winObserver);
+    this._win.close();
+    this._win = null;
+    this._winObserver = null;
+  }
+
   showWindow(errorMessage = "") {
+    console.debug(`FeltExtension: showWindow: this._win=${this._win}`);
+
     // Height and width are for now set to fit the sso.mozilla.com without the need to resize the window
     let flags =
       "chrome,private,centerscreen,titlebar,resizable,width=727,height=744";

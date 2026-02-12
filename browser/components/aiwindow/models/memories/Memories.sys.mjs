@@ -209,7 +209,7 @@ function sanitizeMemory(memory) {
   }
 
   // Check that the candidate memory object has all the required string fields
-  for (const field of ["category", "intent", "memory_summary"]) {
+  for (const field of ["category", "intent", "memory_summary", "reasoning"]) {
     if (!(field in memory) && typeof memory[field] !== "string") {
       return null;
     }
@@ -227,6 +227,7 @@ function sanitizeMemory(memory) {
     category: memory.category,
     intent: memory.intent,
     memory_summary: memory.memory_summary,
+    reasoning: memory.reasoning,
     score,
   };
 }

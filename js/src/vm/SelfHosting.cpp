@@ -1780,18 +1780,19 @@ static const JSFunctionSpec intrinsic_functions[] = {
 // Intrinsics and standard functions used by Intl API implementation.
 #ifdef JS_HAS_INTL_API
     JS_FN("intl_CallSegmentIteratorMethodIfWrapped",
-          CallNonGenericSelfhostedMethod<Is<SegmentIteratorObject>>, 2, 0),
+          CallNonGenericSelfhostedMethod<Is<intl::SegmentIteratorObject>>, 2,
+          0),
     JS_FN("intl_CallSegmentsMethodIfWrapped",
-          CallNonGenericSelfhostedMethod<Is<SegmentsObject>>, 2, 0),
+          CallNonGenericSelfhostedMethod<Is<intl::SegmentsObject>>, 2, 0),
     JS_FN("intl_CreateSegmentIterator", intl_CreateSegmentIterator, 1, 0),
     JS_FN("intl_FindNextSegmentBoundaries", intl_FindNextSegmentBoundaries, 1,
           0),
     JS_FN("intl_FindSegmentBoundaries", intl_FindSegmentBoundaries, 2, 0),
     JS_INLINABLE_FN("intl_GuardToSegmentIterator",
-                    intrinsic_GuardToBuiltin<SegmentIteratorObject>, 1, 0,
+                    intrinsic_GuardToBuiltin<intl::SegmentIteratorObject>, 1, 0,
                     IntlGuardToSegmentIterator),
     JS_INLINABLE_FN("intl_GuardToSegments",
-                    intrinsic_GuardToBuiltin<SegmentsObject>, 1, 0,
+                    intrinsic_GuardToBuiltin<intl::SegmentsObject>, 1, 0,
                     IntlGuardToSegments),
 #endif  // JS_HAS_INTL_API
 

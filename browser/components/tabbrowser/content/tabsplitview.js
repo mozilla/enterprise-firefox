@@ -302,9 +302,10 @@
         }
       }
 
-      this.#activate();
-      gBrowser.setIsSplitViewActive(this.hasActiveTab, this.#tabs);
-
+      if (this.hasActiveTab || isSessionRestore) {
+        this.#activate();
+        gBrowser.setIsSplitViewActive(this.hasActiveTab, this.#tabs);
+      }
       // Attempt to update uriCount metric using the resulting tabs collection,
       // as tabs may not be added to the splitview if they are pinned etc.
       for (let tab of this.tabs) {

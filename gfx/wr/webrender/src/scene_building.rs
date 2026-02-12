@@ -54,7 +54,7 @@ use crate::clip::{ClipIntern, ClipItemKey, ClipItemKeyKind, ClipStore};
 use crate::clip::{ClipInternData, ClipNodeId, ClipLeafId};
 use crate::clip::{PolygonDataHandle, ClipTreeBuilder};
 use crate::gpu_types::BlurEdgeMode;
-use crate::segment::EdgeAaSegmentMask;
+use crate::segment::EdgeMask;
 use crate::spatial_tree::{SceneSpatialTree, SpatialNodeContainer, SpatialNodeIndex, get_external_scroll_offset};
 use crate::frame_builder::FrameBuilderConfig;
 use glyph_rasterizer::{FontInstance, SharedFontResources};
@@ -1695,7 +1695,7 @@ impl<'a> SceneBuilder<'a> {
                         tile_size,
                         info.tile_spacing,
                         None,
-                        EdgeAaSegmentMask::all(),
+                        EdgeMask::all(),
                     ) {
                         self.add_nonshadowable_primitive(
                             spatial_node_index,
@@ -3364,7 +3364,7 @@ impl<'a> SceneBuilder<'a> {
                             LayoutSize::new(border.height as f32, border.width as f32),
                             LayoutSize::zero(),
                             Some(Box::new(nine_patch)),
-                            EdgeAaSegmentMask::all(),
+                            EdgeMask::all(),
                         ) {
                             Some(prim) => prim,
                             None => return,
@@ -3446,7 +3446,7 @@ impl<'a> SceneBuilder<'a> {
         stretch_size: LayoutSize,
         mut tile_spacing: LayoutSize,
         nine_patch: Option<Box<NinePatchDescriptor>>,
-        edge_aa_mask: EdgeAaSegmentMask,
+        edge_aa_mask: EdgeMask,
     ) -> Option<LinearGradient> {
         let mut prim_rect = info.rect;
         simplify_repeated_primitive(&stretch_size, &mut tile_spacing, &mut prim_rect);

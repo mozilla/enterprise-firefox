@@ -352,7 +352,18 @@ void MacroAssembler::nurseryAllocateObject(Register result, Register temp,
             Address(result, thingSize + ObjectSlots::offsetOfMaybeUniqueId()));
     computeEffectiveAddress(
         Address(result, thingSize + ObjectSlots::offsetOfSlots()), temp);
+
     storePtr(temp, Address(result, NativeObject::offsetOfSlots()));
+
+#ifdef JS_GC_CONCURRENT_MARKING
+    // For concurrent marking we currently preinitialize all dynamic slots.
+    //
+    // TODO: This will unnecessarily initialize slots that are explicitly
+    // initialized after this call.
+    push(result);
+    fillSlotsWithUndefined(Address(temp, 0), result, 0, nDynamicSlots);
+    pop(result);
+#endif
   }
 }
 
@@ -8230,7 +8241,7 @@ void MacroAssembler::emitValueReadBarrierFastPath(
 
   // Otherwise, we don't need a barrier unless we're in the middle of
   // an incremental GC.
-  branchTestNeedsIncrementalBarrierAnyZone(Assembler::NonZero, barrier, temp1);
+  branchTestNeedsMarkingBarrierAnyZone(Assembler::NonZero, barrier, temp1);
   bind(&done);
 }
 

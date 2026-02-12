@@ -154,6 +154,7 @@ use style::thread_state;
 use style::traversal::resolve_style;
 use style::traversal::DomTraversal;
 use style::traversal_flags::{self, TraversalFlags};
+use style::typed_om::numeric_declaration::NumericDeclaration;
 use style::use_counters::{CustomUseCounter, UseCounters};
 use style::values::animated::{Animate, Procedure, ToAnimatedZero};
 use style::values::computed::easing::ComputedTimingFunction;
@@ -178,7 +179,7 @@ use style::values::specified::source_size_list::SourceSizeList;
 use style::values::specified::svg_path::PathCommand;
 use style::values::specified::{AbsoluteLength, NoCalcLength};
 use style::values::{specified, AtomIdent, CustomIdent, KeyframesName};
-use style_traits::{CssWriter, ParseError, ParsingMode, ToCss, TypedValue};
+use style_traits::{CssWriter, NumericValue, ParseError, ParsingMode, ToCss, ToTyped, TypedValue};
 use thin_vec::ThinVec as nsTArray;
 use to_shmem::SharedMemoryBuilder;
 
@@ -1584,6 +1585,22 @@ pub extern "C" fn Servo_Element_MayHaveStartingStyle(element: &RawGeckoElement) 
     };
     data.flags
         .contains(data::ElementDataFlags::MAY_HAVE_STARTING_STYLE)
+}
+
+#[no_mangle]
+pub extern "C" fn Servo_Element_ReferencesAttribute(
+    element: &RawGeckoElement,
+    attr: *const nsAtom,
+) -> bool {
+    let element = GeckoElement(element);
+    let Some(data) = element.borrow_data() else {
+        return false;
+    };
+    let Some(ref attrs) = data.styles.primary().attribute_references else {
+        return false;
+    };
+
+    unsafe { Atom::with(attr, |attr| attrs.contains(AtomIdent::cast(attr))) }
 }
 
 fn mode_to_origin(mode: SheetParsingMode) -> Origin {
@@ -4434,14 +4451,14 @@ pub unsafe extern "C" fn Servo_ComputedValues_GetForPageContent(
 
     let rule_node = data.stylist.rule_node_for_precomputed_pseudo(
         &guards,
-        &PseudoElement::PageContent,
+        &PseudoElement::MozPageContent,
         extra_declarations,
     );
 
     data.stylist
         .precomputed_values_for_pseudo_with_rule_node::<GeckoElement>(
             &guards,
-            &PseudoElement::PageContent,
+            &PseudoElement::MozPageContent,
             None,
             rule_node,
         )
@@ -4473,7 +4490,7 @@ pub unsafe extern "C" fn Servo_ComputedValues_GetForAnonymousBox(
 ) -> Strong<ComputedValues> {
     let pseudo = PseudoElement::from_pseudo_type(pseudo, None).unwrap();
     debug_assert!(pseudo.is_anon_box());
-    debug_assert_ne!(pseudo, PseudoElement::PageContent);
+    debug_assert_ne!(pseudo, PseudoElement::MozPageContent);
     let global_style_data = &*GLOBAL_STYLE_DATA;
     let guard = global_style_data.shared_lock.read();
     let guards = StylesheetGuards::same(&guard);
@@ -4600,7 +4617,7 @@ fn debug_atom_array(atoms: &nsTArray<structs::RefPtr<nsAtom>>) -> String {
 #[no_mangle]
 pub extern "C" fn Servo_ComputedValues_ResolveXULTreePseudoStyle(
     element: &RawGeckoElement,
-    pseudo_tag: *mut nsAtom,
+    pseudo_type: PseudoStyleType,
     inherited_style: &ComputedValues,
     input_word: &nsTArray<structs::RefPtr<nsAtom>>,
     raw_data: &PerDocumentStyleData,
@@ -4610,12 +4627,8 @@ pub extern "C" fn Servo_ComputedValues_ResolveXULTreePseudoStyle(
         .borrow_data()
         .expect("Calling ResolveXULTreePseudoStyle on unstyled element?");
 
-    let pseudo = unsafe {
-        Atom::with(pseudo_tag, |atom| {
-            PseudoElement::from_tree_pseudo_atom(atom, Box::new([]))
-        })
-        .expect("ResolveXULTreePseudoStyle with a non-tree pseudo?")
-    };
+    let pseudo = PseudoElement::from_pseudo_type(pseudo_type, None)
+        .expect("ResolveXULTreePseudoStyle with wrong pseudo?");
     let doc_data = raw_data.borrow();
 
     debug!(
@@ -4626,10 +4639,9 @@ pub extern "C" fn Servo_ComputedValues_ResolveXULTreePseudoStyle(
     );
 
     let matching_fn = |pseudo: &PseudoElement| {
-        let args = pseudo
+        pseudo
             .tree_pseudo_args()
-            .expect("Not a tree pseudo-element?");
-        args.iter()
+            .iter()
             .all(|atom| input_word.iter().any(|item| atom.as_ptr() == item.mRawPtr))
     };
 
@@ -5179,8 +5191,14 @@ pub unsafe extern "C" fn Servo_ParseStyleAttribute(
 }
 
 #[no_mangle]
+pub extern "C" fn Servo_PseudoStyleType_EnabledForAllContent(ty: PseudoStyleType) -> bool {
+    PseudoElement::type_enabled_in_content(ty)
+}
+
+#[no_mangle]
 pub extern "C" fn Servo_ParsePseudoElement(
     data: &nsAString,
+    ignore_enabled_state: bool,
     request: &mut structs::PseudoStyleRequest, /* output */
 ) -> bool {
     let string = data.to_string();
@@ -5200,7 +5218,9 @@ pub extern "C" fn Servo_ParsePseudoElement(
     if parser.next_including_whitespace().is_ok() {
         return false;
     }
-
+    if !ignore_enabled_state && !pseudo.enabled_in_content() {
+        return false;
+    }
     let (pseudo_type, name) = pseudo.pseudo_type_and_argument();
     let name_ptr = name.map_or(std::ptr::null_mut(), |name| name.as_ptr());
     request.mType = pseudo_type;
@@ -5288,17 +5308,8 @@ pub unsafe extern "C" fn Servo_SerializeFontValueForCanvas(
     declarations: &LockedDeclarationBlock,
     buffer: &mut nsACString,
 ) {
-    use style::properties::shorthands::font;
     read_locked_arc(declarations, |decls: &PropertyDeclarationBlock| {
-        let longhands = match font::LonghandsToSerialize::from_iter(decls.declarations().iter()) {
-            Ok(l) => l,
-            Err(()) => {
-                warn!("Unexpected property!");
-                return;
-            },
-        };
-
-        let rv = longhands.to_css(&mut CssWriter::new(buffer));
+        let rv = decls.shorthand_to_css(ShorthandId::Font, buffer);
         debug_assert!(rv.is_ok());
     })
 }
@@ -5667,6 +5678,71 @@ pub extern "C" fn Servo_DeclarationBlock_RemovePropertyById(
         get_property_id_from_noncustomcsspropertyid!(property, false),
         before_change_closure,
     )
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn Servo_NumericDeclaration_Parse(
+    text: &nsACString,
+) -> *mut NumericDeclaration {
+    let context = ParserContext::new(
+        Origin::Author,
+        dummy_url_data(),
+        Some(CssRuleType::Style),
+        ParsingMode::DEFAULT,
+        QuirksMode::NoQuirks,
+        /* namespaces = */ Default::default(),
+        None,
+        None,
+    );
+
+    let string = text.as_str_unchecked();
+    let mut input = ParserInput::new(&string);
+    let mut parser = Parser::new(&mut input);
+
+    let declaration = match NumericDeclaration::parse(&context, &mut parser) {
+        Ok(declaration) => declaration,
+        Err(..) => return ptr::null_mut(),
+    };
+
+    Box::into_raw(Box::new(declaration))
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn Servo_NumericDeclaration_Drop(declaration: *mut NumericDeclaration) {
+    let _ = Box::from_raw(declaration);
+}
+
+/// A result of reifying a standalone numeric value into a `NumericValue`.
+///
+/// Numeric values are normally reified as part of property value reification.
+/// This type is used for a special case where a numeric value is parsed and
+/// reified without being associated with a specific property.
+///
+/// The `Unsupported` case is not expected in normal operation and indicates
+/// that the numeric value could not be represented as a `NumericValue`.
+#[repr(C)]
+pub enum NumericValueResult {
+    /// The numeric value could not be reified as a `NumericValue`.
+    ///
+    /// This may indicate that a `ToTyped` implementation for one of the
+    /// underlying types is incomplete, or that reification produced a
+    /// non-numeric `TypedValue`. In this case, the caller is expected to
+    /// throw an error.
+    Unsupported,
+
+    /// The numeric value was successfully reified into a `NumericValue`.
+    Numeric(NumericValue),
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn Servo_NumericDeclaration_GetValue(
+    declaration: &NumericDeclaration,
+    result: *mut NumericValueResult,
+) {
+    *result = match declaration.to_typed() {
+        Some(TypedValue::Numeric(numeric)) => NumericValueResult::Numeric(numeric),
+        _ => NumericValueResult::Unsupported,
+    };
 }
 
 #[no_mangle]

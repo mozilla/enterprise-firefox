@@ -28,7 +28,7 @@ use crate::render_task::{RenderTask, RenderTaskKind};
 use crate::render_task_graph::RenderTaskId;
 use crate::render_task_cache::{RenderTaskCacheKeyKind, RenderTaskCacheKey, RenderTaskParent};
 use crate::renderer::{GpuBufferAddress, GpuBufferBuilder};
-use crate::segment::EdgeAaSegmentMask;
+use crate::segment::EdgeMask;
 use super::{stops_and_min_alpha, GradientStopKey, GradientGpuBlockBuilder, apply_gradient_local_clip};
 use std::ops::{Deref, DerefMut};
 use std::mem::swap;
@@ -50,7 +50,7 @@ pub struct LinearGradientKey {
     pub reverse_stops: bool,
     pub cached: bool,
     pub nine_patch: Option<Box<NinePatchDescriptor>>,
-    pub edge_aa_mask: EdgeAaSegmentMask,
+    pub edge_aa_mask: EdgeMask,
     pub enable_dithering: bool,
 }
 
@@ -111,10 +111,13 @@ impl PatternBuilder for LinearGradientTemplate {
         } else {
             (self.start_point, self.end_point)
         };
-
+        // LinearGradientTemplate stores the start and end points relative to the
+        // primitive origin, but the shader works with start/end points in "proper"
+        // layout coordinates (relative to the primitive's spatial node).
+        let offset = self.common.prim_rect.min.to_vector();
         linear_gradient_pattern(
-            start,
-            end,
+            start + offset,
+            end + offset,
             self.extend_mode,
             &self.stops,
             ctx.fb_config.is_software,
@@ -164,7 +167,7 @@ pub fn optimize_linear_gradient(
     stops: &mut [GradientStopKey],
     enable_dithering: bool,
     // Callback called for each fast-path segment (rect, start end, stops).
-    callback: &mut dyn FnMut(&LayoutRect, LayoutPoint, LayoutPoint, &[GradientStopKey], EdgeAaSegmentMask)
+    callback: &mut dyn FnMut(&LayoutRect, LayoutPoint, LayoutPoint, &[GradientStopKey], EdgeMask)
 ) -> bool {
     // First sanitize the gradient parameters. See if we can remove repetitions,
     // tighten the primitive bounds, etc.
@@ -295,15 +298,15 @@ pub fn optimize_linear_gradient(
 
     let (side_edges, first_edge, last_edge) = if vertical {
         (
-            EdgeAaSegmentMask::LEFT | EdgeAaSegmentMask::RIGHT,
-            EdgeAaSegmentMask::TOP,
-            EdgeAaSegmentMask::BOTTOM
+            EdgeMask::LEFT | EdgeMask::RIGHT,
+            EdgeMask::TOP,
+            EdgeMask::BOTTOM
         )
     } else {
         (
-            EdgeAaSegmentMask::TOP | EdgeAaSegmentMask::BOTTOM,
-            EdgeAaSegmentMask::LEFT,
-            EdgeAaSegmentMask::RIGHT
+            EdgeMask::TOP | EdgeMask::BOTTOM,
+            EdgeMask::LEFT,
+            EdgeMask::RIGHT
         )
     };
 
@@ -624,7 +627,7 @@ pub struct LinearGradient {
     pub reverse_stops: bool,
     pub nine_patch: Option<Box<NinePatchDescriptor>>,
     pub cached: bool,
-    pub edge_aa_mask: EdgeAaSegmentMask,
+    pub edge_aa_mask: EdgeMask,
     pub enable_dithering: bool,
 }
 

@@ -616,6 +616,13 @@ export class LoginManagerRustStorage {
     this.#storageAdapter.delete(idToDelete);
   }
 
+  async removeLoginAsync(login, _fromSync) {
+    let result = this.removeLogin(login, _fromSync);
+
+    // Emulate being async:
+    return Promise.resolve(result);
+  }
+
   /**
    * Removes all logins from local storage, including FxA Sync key.
    *

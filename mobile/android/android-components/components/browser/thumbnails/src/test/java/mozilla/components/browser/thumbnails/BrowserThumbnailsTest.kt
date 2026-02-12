@@ -7,21 +7,22 @@ package mozilla.components.browser.thumbnails
 import android.graphics.Bitmap
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import kotlinx.coroutines.test.StandardTestDispatcher
+import mozilla.components.browser.state.action.BrowserAction
 import mozilla.components.browser.state.action.ContentAction
 import mozilla.components.browser.state.state.BrowserState
 import mozilla.components.browser.state.state.createTab
 import mozilla.components.browser.state.store.BrowserStore
 import mozilla.components.concept.engine.EngineView
 import mozilla.components.support.test.any
+import mozilla.components.support.test.middleware.CaptureActionsMiddleware
 import mozilla.components.support.test.mock
 import mozilla.components.support.test.robolectric.testContext
+import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.Mockito.never
-import org.mockito.Mockito.spy
 import org.mockito.Mockito.verify
-import org.mockito.Mockito.verifyNoInteractions
 import org.mockito.Mockito.verifyNoMoreInteractions
 import org.mockito.Mockito.`when`
 
@@ -32,20 +33,21 @@ class BrowserThumbnailsTest {
     private lateinit var engineView: EngineView
     private lateinit var thumbnails: BrowserThumbnails
     private val tabId = "test-tab"
+    private val tab = createTab("https://www.mozilla.org", id = tabId)
 
     private val testDispatcher = StandardTestDispatcher()
+    private val captureActionsMiddleware = CaptureActionsMiddleware<BrowserState, BrowserAction>()
 
     @Before
     fun setup() {
-        store = spy(
-            BrowserStore(
-                BrowserState(
-                    tabs = listOf(
-                        createTab("https://www.mozilla.org", id = tabId),
-                    ),
-                    selectedTabId = tabId,
-                ),
-                middleware = listOf(ThumbnailsMiddleware(mock())),
+        store = BrowserStore(
+            BrowserState(
+                tabs = listOf(tab),
+                selectedTabId = tabId,
+            ),
+            middleware = listOf(
+                captureActionsMiddleware,
+                ThumbnailsMiddleware(mock()),
             ),
         )
         engineView = mock()
@@ -79,24 +81,29 @@ class BrowserThumbnailsTest {
                 (it.arguments[0] as (Bitmap?) -> Unit).invoke(bitmap)
             }
 
-        verify(store, never()).dispatch(ContentAction.UpdateThumbnailAction(tabId, bitmap))
+        captureActionsMiddleware.assertNotDispatched(ContentAction.UpdateThumbnailAction::class)
 
         store.dispatch(ContentAction.UpdateLoadingStateAction(tabId, false))
         store.dispatch(ContentAction.UpdateFirstContentfulPaintStateAction(tabId, true))
         testDispatcher.scheduler.advanceUntilIdle()
 
-        verify(store).dispatch(ContentAction.UpdateThumbnailAction(tabId, bitmap))
+        captureActionsMiddleware.assertFirstAction(ContentAction.UpdateThumbnailAction::class) { action ->
+            assertEquals(tabId, action.sessionId)
+            assertEquals(bitmap, action.thumbnail)
+        }
     }
 
     @Suppress("UNCHECKED_CAST")
     @Test
     fun `feature never updates the store if there is no thumbnail bitmap`() {
-        val store: BrowserStore = mock()
-        val state: BrowserState = mock()
+        val store = BrowserStore(mock(), middleware = listOf(captureActionsMiddleware))
+
+        // clear InitAction
+        captureActionsMiddleware.reset()
+
         val engineView: EngineView = mock()
         val feature = BrowserThumbnails(testContext, engineView, store)
 
-        `when`(store.state).thenReturn(state)
         `when`(engineView.captureThumbnail(any()))
             .thenAnswer {
                 // if engineView responds with a bitmap
@@ -105,20 +112,27 @@ class BrowserThumbnailsTest {
 
         feature.requestScreenshot()
 
-        verifyNoInteractions(store)
+        captureActionsMiddleware.assertNoActionDispatched()
     }
 
     @Suppress("UNCHECKED_CAST")
     @Test
     fun `feature never updates the store if there is no tab ID`() {
-        val store: BrowserStore = mock()
-        val state: BrowserState = mock()
+        val store = BrowserStore(
+            BrowserState(
+                tabs = listOf(tab),
+                selectedTabId = tabId,
+            ),
+            middleware = listOf(
+                captureActionsMiddleware,
+                ThumbnailsMiddleware(mock()),
+            ),
+        )
+
         val engineView: EngineView = mock()
         val feature = BrowserThumbnails(testContext, engineView, store)
         val bitmap: Bitmap = mock()
 
-        `when`(store.state).thenReturn(state)
-        `when`(state.selectedTabId).thenReturn(tabId)
         `when`(engineView.captureThumbnail(any()))
             .thenAnswer {
                 // if engineView responds with a bitmap
@@ -127,7 +141,10 @@ class BrowserThumbnailsTest {
 
         feature.requestScreenshot()
 
-        verify(store).dispatch(ContentAction.UpdateThumbnailAction(tabId, bitmap))
+        captureActionsMiddleware.assertFirstAction(ContentAction.UpdateThumbnailAction::class) { action ->
+            assertEquals(tabId, action.sessionId)
+            assertEquals(bitmap, action.thumbnail)
+        }
     }
 
     @Test

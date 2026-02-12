@@ -15,6 +15,7 @@ import androidx.core.content.getSystemService
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.test.TestScope
+import mozilla.components.browser.state.action.BrowserAction
 import mozilla.components.browser.state.action.LocaleAction
 import mozilla.components.browser.state.action.TabListAction
 import mozilla.components.browser.state.state.BrowserState
@@ -23,6 +24,7 @@ import mozilla.components.feature.privatemode.notification.AbstractPrivateNotifi
 import mozilla.components.feature.privatemode.notification.AbstractPrivateNotificationService.Companion.defaultIgnoreTaskActions
 import mozilla.components.support.base.android.NotificationsDelegate
 import mozilla.components.support.test.argumentCaptor
+import mozilla.components.support.test.middleware.CaptureActionsMiddleware
 import mozilla.components.support.test.mock
 import mozilla.components.support.test.robolectric.testContext
 import mozilla.components.support.test.rule.MainCoroutineRule
@@ -53,6 +55,8 @@ class AbstractPrivateNotificationServiceTest {
     private lateinit var preferences: SharedPreferences
     private lateinit var notificationManager: NotificationManager
 
+    private val captureActionsMiddleware = CaptureActionsMiddleware<BrowserState, BrowserAction>()
+
     @Before
     fun setup() {
         preferences = mock()
@@ -66,7 +70,7 @@ class AbstractPrivateNotificationServiceTest {
     @Test
     fun `WHEN the service is created THEN start foreground is called`() = runTestOnMain {
         val service = spy(
-            object : MockService(scope = this@runTestOnMain) {
+            object : MockServiceWithStore(scope = this@runTestOnMain, captureActionsMiddleware) {
                 override fun NotificationCompat.Builder.buildNotification() {
                     setCategory(Notification.CATEGORY_STATUS)
                 }
@@ -87,26 +91,27 @@ class AbstractPrivateNotificationServiceTest {
 
     @Test
     fun `GIVEN an erase intent is received THEN remove all private tabs`() {
-        val service = MockService()
+        val service = MockServiceWithStore(captureActionsMiddleware = captureActionsMiddleware)
         val result = service.onStartCommand(Intent(ACTION_ERASE), 0, 0)
 
-        verify(service.store).dispatch(TabListAction.RemoveAllPrivateTabsAction)
+        captureActionsMiddleware.findFirstAction(TabListAction.RemoveAllPrivateTabsAction::class)
         assertEquals(Service.START_NOT_STICKY, result)
     }
 
     @Test
     fun `WHEN task is removed THEN all private tabs are removed`() {
-        val service = spy(MockService())
+        val service = spy(MockServiceWithStore(captureActionsMiddleware = captureActionsMiddleware))
         service.onTaskRemoved(mock())
 
-        verify(service.store).dispatch(TabListAction.RemoveAllPrivateTabsAction)
+        captureActionsMiddleware.findFirstAction(TabListAction.RemoveAllPrivateTabsAction::class)
+
         verify(service).stopForegroundCompat(true)
         verify(service).stopSelf()
     }
 
     @Test
     fun `WHEN task is removed with ignored intents THEN do nothing`() {
-        val service = spy(MockService())
+        val service = spy(MockServiceWithStore(captureActionsMiddleware = captureActionsMiddleware))
 
         val mockTaskActions = listOf("action1", "action2")
         whenever(service.ignoreTaskActions()).then { mockTaskActions }
@@ -114,7 +119,7 @@ class AbstractPrivateNotificationServiceTest {
         (mockTaskActions + defaultIgnoreTaskActions).forEach { it ->
             service.onTaskRemoved(Intent(it))
 
-            verify(service.store, never()).dispatch(TabListAction.RemoveAllPrivateTabsAction)
+            captureActionsMiddleware.assertNotDispatched(TabListAction.RemoveAllPrivateTabsAction::class)
             verify(service, never()).stopForegroundCompat(true)
             verify(service, never()).stopSelf()
         }
@@ -130,7 +135,7 @@ class AbstractPrivateNotificationServiceTest {
         mockTaskCompoentClasses.forEach { it ->
             service.onTaskRemoved(Intent().setComponent(ComponentName(testContext, it)))
 
-            verify(service.store, never()).dispatch(TabListAction.RemoveAllPrivateTabsAction)
+            captureActionsMiddleware.assertNotDispatched(TabListAction.RemoveAllPrivateTabsAction::class)
             verify(service, never()).stopForegroundCompat(true)
             verify(service, never()).stopSelf()
         }
@@ -138,7 +143,7 @@ class AbstractPrivateNotificationServiceTest {
 
     @Test
     fun `WHEN a locale change is made in the browser store THEN the service should notify`() {
-        val service = spy(MockServiceWithStore())
+        val service = spy(MockServiceWithStore(captureActionsMiddleware = captureActionsMiddleware))
         attachContext(service)
         service.onCreate()
 
@@ -149,25 +154,11 @@ class AbstractPrivateNotificationServiceTest {
         verify(service).notifyLocaleChanged()
     }
 
-    private open class MockService(scope: CoroutineScope = TestScope()) :
+    private open class MockServiceWithStore(scope: CoroutineScope = TestScope(), captureActionsMiddleware: CaptureActionsMiddleware<BrowserState, BrowserAction>) :
         AbstractPrivateNotificationService(scope) {
-        override val store: BrowserStore = spy(BrowserStore())
-        override val notificationsDelegate: NotificationsDelegate = mock()
-
-        override fun NotificationCompat.Builder.buildNotification() = Unit
-        override fun notifyLocaleChanged() {
-            // NOOP
-        }
-
-        override fun ignoreTaskActions(): List<String> = mock()
-        override fun ignoreTaskComponentClasses(): List<String> = mock()
-    }
-
-    private open class MockServiceWithStore : AbstractPrivateNotificationService() {
         override val store = BrowserStore(
-            BrowserState(
-                locale = null,
-            ),
+            initialState = BrowserState(),
+            middleware = listOf(captureActionsMiddleware),
         )
         override val notificationsDelegate: NotificationsDelegate = mock()
 

@@ -252,7 +252,7 @@ Tell me a joke about my favorite animals.`.trim(),
         return {
           finalOutput: `[
   {
-    "why": "User likes dogs and cats.",
+    "reasoning": "User likes dogs and cats.",
     "category": "Pets & Animals",
     "intent": "Entertain / Relax",
     "memory_summary": "Likes both dogs and cats",
@@ -299,7 +299,7 @@ Tell me a joke about my favorite animals.`.trim(),
 });
 
 /**
- * Tests successful initial memories generation
+ * Test successful initial memories generation
  */
 add_task(async function test_generateInitialMemoriesList_happy_path() {
   const sb = sinon.createSandbox();
@@ -316,7 +316,7 @@ add_task(async function test_generateInitialMemoriesList_happy_path() {
         return {
           finalOutput: `[
   {
-    "why": "User has recently searched for Firefox history and visited mozilla.org.",
+    "reasoning": "User has recently searched for Firefox history and visited mozilla.org.",
     "category": "Internet & Telecom",
     "intent": "Research / Learn",
     "memory_summary": "Searches for Firefox information",
@@ -333,7 +333,7 @@ add_task(async function test_generateInitialMemoriesList_happy_path() {
     ]
   },
   {
-    "why": "User buys dog food online regularly from multiple sources.",
+    "reasoning": "User buys dog food online regularly from multiple sources.",
     "category": "Pets & Animals",
     "intent": "Buy / Acquire",
     "memory_summary": "Purchases dog food online",
@@ -380,8 +380,8 @@ add_task(async function test_generateInitialMemoriesList_happy_path() {
     );
     Assert.equal(
       Object.keys(firstMemory).length,
-      4,
-      "First memory should have 4 keys"
+      5,
+      "First memory should have 5 keys"
     );
     Assert.equal(
       firstMemory.category,
@@ -555,7 +555,7 @@ add_task(
           return {
             finalOutput: `[
   {
-    "why": "User has recently searched for Firefox history and visited mozilla.org.",
+    "reasoning": "User has recently searched for Firefox history and visited mozilla.org.",
     "intent": "Research / Learn",
     "memory_summary": "Searches for Firefox information",
     "score": 7,
@@ -571,7 +571,7 @@ add_task(
     ]
   },
   {
-    "why": "User buys dog food online regularly from multiple sources.",
+    "reasoning": "User buys dog food online regularly from multiple sources.",
     "category": "Pets & Animals",
     "intent": "Buy / Acquire",
     "memory_summary": "Purchases dog food online",

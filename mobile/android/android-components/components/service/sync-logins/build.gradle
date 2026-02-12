@@ -25,12 +25,22 @@ dependencies {
       exclude group: 'org.mozilla.telemetry', module: 'glean'
     }
     api ComponentsDependencies.mozilla_appservices_sync15
+    implementation libs.androidx.work.runtime
 
     implementation project(':components:concept-storage')
     implementation project(':components:support-utils')
 
     implementation libs.kotlinx.coroutines
     implementation libs.mozilla.glean
+
+    testImplementation project(':components:support-test')
+
+    testImplementation libs.androidx.test.core
+    testImplementation libs.androidx.test.junit
+    testImplementation libs.androidx.work.testing
+    testImplementation libs.kotlin.reflect
+    testImplementation libs.kotlinx.coroutines.test
+    testImplementation libs.robolectric
 }
 
 apply from: '../../../common-config.gradle'

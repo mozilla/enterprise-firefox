@@ -2,10 +2,20 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-const { openAIEngine, MODEL_FEATURES, DEFAULT_MODEL, parseVersion } =
-  ChromeUtils.importESModule(
-    "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs"
-  );
+const {
+  openAIEngine,
+  MODEL_FEATURES,
+  DEFAULT_MODEL,
+  parseVersion,
+  FEATURE_MAJOR_VERSIONS,
+} = ChromeUtils.importESModule(
+  "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs"
+);
+
+function getVersionForFeature(feature) {
+  const major = FEATURE_MAJOR_VERSIONS[feature] || 1;
+  return `${major}.0`;
+}
 
 const { sinon } = ChromeUtils.importESModule(
   "resource://testing-common/Sinon.sys.mjs"
@@ -14,6 +24,7 @@ const { sinon } = ChromeUtils.importESModule(
 const PREF_API_KEY = "browser.smartwindow.apiKey";
 const PREF_ENDPOINT = "browser.smartwindow.endpoint";
 const PREF_MODEL = "browser.smartwindow.model";
+const PREF_MODEL_CHOICE = "browser.smartwindow.firstrun.modelChoice";
 
 const API_KEY = "fake-key";
 const ENDPOINT = "https://api.fake-endpoint.com/v1";
@@ -31,69 +42,16 @@ add_setup(async function () {
 });
 
 registerCleanupFunction(() => {
-  for (let pref of [PREF_API_KEY, PREF_ENDPOINT, PREF_MODEL]) {
+  for (let pref of [
+    PREF_API_KEY,
+    PREF_ENDPOINT,
+    PREF_MODEL,
+    PREF_MODEL_CHOICE,
+  ]) {
     if (Services.prefs.prefHasUserValue(pref)) {
       Services.prefs.clearUserPref(pref);
     }
   }
-});
-
-add_task(async function test_parseVersion_with_v_prefix() {
-  const result = parseVersion("v1.0");
-  Assert.ok(result, "Should parse version with v prefix");
-  Assert.equal(result.major, 1, "Major version should be 1");
-  Assert.equal(result.minor, 0, "Minor version should be 0");
-  Assert.equal(result.original, "v1.0", "Original should be preserved");
-});
-
-add_task(async function test_parseVersion_without_v_prefix() {
-  const result = parseVersion("1.0");
-  Assert.ok(result, "Should parse version without v prefix");
-  Assert.equal(result.major, 1, "Major version should be 1");
-  Assert.equal(result.minor, 0, "Minor version should be 0");
-  Assert.equal(result.original, "1.0", "Original should be preserved");
-});
-
-add_task(async function test_parseVersion_with_higher_numbers() {
-  const result = parseVersion("2.15");
-  Assert.ok(result, "Should parse version with higher numbers");
-  Assert.equal(result.major, 2, "Major version should be 2");
-  Assert.equal(result.minor, 15, "Minor version should be 15");
-  Assert.equal(result.original, "2.15", "Original should be preserved");
-});
-
-add_task(async function test_parseVersion_invalid_format() {
-  Assert.equal(
-    parseVersion("v1"),
-    null,
-    "Should return null for version without minor"
-  );
-  Assert.equal(parseVersion("1"), null, "Should return null for single number");
-  Assert.equal(
-    parseVersion("v1.0.0"),
-    null,
-    "Should return null for three part version"
-  );
-  Assert.equal(
-    parseVersion("invalid"),
-    null,
-    "Should return null for non-numeric version"
-  );
-});
-
-add_task(async function test_parseVersion_edge_cases() {
-  Assert.equal(parseVersion(""), null, "Should return null for empty string");
-  Assert.equal(parseVersion(null), null, "Should return null for null");
-  Assert.equal(
-    parseVersion(undefined),
-    null,
-    "Should return null for undefined"
-  );
-  Assert.equal(
-    parseVersion("v1.0extra"),
-    null,
-    "Should return null for version with extra text after"
-  );
 });
 
 add_task(async function test_loadConfig_basic_with_real_snapshot() {
@@ -231,7 +189,7 @@ add_task(async function test_loadConfig_filters_by_major_version() {
         model: "future-model",
         feature: "chat",
         prompts: "Future version prompt",
-        version: "v3.0",
+        version: "3.0",
         is_default: true,
       },
     ];
@@ -244,8 +202,11 @@ add_task(async function test_loadConfig_filters_by_major_version() {
     await engine.loadConfig(MODEL_FEATURES.CHAT);
 
     const config = engine.getConfig(MODEL_FEATURES.CHAT);
-    // Should get 1.x, not 3.0
-    Assert.ok(config.version.startsWith("1."), "Should select 1.x, not 3.0");
+    const expectedMajor = FEATURE_MAJOR_VERSIONS[MODEL_FEATURES.CHAT];
+    Assert.ok(
+      config.version.startsWith(`${expectedMajor}.`),
+      `Should select ${expectedMajor}.x, not 3.0`
+    );
   } finally {
     sb.restore();
   }
@@ -285,7 +246,11 @@ add_task(async function test_loadConfig_fallback_when_user_model_not_found() {
       engine.model,
       "Engine model should match the default config's model"
     );
-    Assert.equal(config.version, "1.0", "Should use 1.0");
+    Assert.equal(
+      config.version,
+      getVersionForFeature(MODEL_FEATURES.CHAT),
+      "Should use current chat version"
+    );
   } finally {
     sb.restore();
     Services.prefs.clearUserPref(PREF_MODEL);
@@ -302,7 +267,7 @@ add_task(async function test_loadConfig_custom_endpoint_with_custom_model() {
     const fakeRecords = [
       {
         feature: MODEL_FEATURES.CHAT,
-        version: "1.0",
+        version: getVersionForFeature(MODEL_FEATURES.CHAT),
         model: "some-other-model",
         is_default: true,
       },
@@ -332,6 +297,7 @@ add_task(async function test_loadConfig_custom_endpoint_without_custom_model() {
   Services.prefs.clearUserPref(PREF_ENDPOINT);
 
   Services.prefs.setStringPref(PREF_ENDPOINT, "http://localhost:11434/v1");
+  Services.prefs.setStringPref(PREF_MODEL, "my_custom_model");
 
   const sb = sinon.createSandbox();
   try {
@@ -339,7 +305,7 @@ add_task(async function test_loadConfig_custom_endpoint_without_custom_model() {
     const fakeRecords = [
       {
         feature: MODEL_FEATURES.CHAT,
-        version: "1.0",
+        version: getVersionForFeature(MODEL_FEATURES.CHAT),
         model: "remote-default-model",
         is_default: true,
       },
@@ -354,8 +320,8 @@ add_task(async function test_loadConfig_custom_endpoint_without_custom_model() {
 
     Assert.equal(
       engine.model,
-      "qwen3-235b-a22b-instruct-2507-maas",
-      "Should use default model from pref when custom endpoint is set"
+      "my_custom_model",
+      "Should use custom_model from pref when both custom endpoint and custom model are set"
     );
   } finally {
     sb.restore();
@@ -559,6 +525,410 @@ add_task(async function test_inference_params_from_config() {
   }
 });
 
+add_task(async function test_loadConfig_with_model_choice_id_found() {
+  Services.prefs.clearUserPref(PREF_MODEL); // ensures model pref not set
+
+  Services.prefs.setStringPref(PREF_API_KEY, API_KEY);
+  Services.prefs.setStringPref(PREF_ENDPOINT, ENDPOINT);
+  Services.prefs.setStringPref(PREF_MODEL_CHOICE, "1");
+
+  const sb = sinon.createSandbox();
+  try {
+    const fakeEngine = {
+      runWithGenerator() {
+        throw new Error("not used");
+      },
+    };
+    sb.stub(openAIEngine, "_createEngine").resolves(fakeEngine);
+
+    const fakeRecords = [
+      {
+        feature: MODEL_FEATURES.CHAT,
+        version: getVersionForFeature(MODEL_FEATURES.CHAT),
+        model: "model-for-choice-123",
+        model_choice_id: "1",
+        prompts: "Test prompt",
+        is_default: false,
+      },
+      {
+        feature: MODEL_FEATURES.CHAT,
+        version: getVersionForFeature(MODEL_FEATURES.CHAT),
+        model: "my-other-model",
+        model_choice_id: "2",
+        prompts: "Test prompt",
+        is_default: false,
+      },
+      {
+        feature: MODEL_FEATURES.CHAT,
+        version: getVersionForFeature(MODEL_FEATURES.CHAT),
+        model: "default-model",
+        prompts: "Default prompt",
+        is_default: true,
+      },
+    ];
+
+    sb.stub(openAIEngine, "getRemoteClient").returns({
+      get: sb.stub().resolves(fakeRecords),
+    });
+
+    const engine = new openAIEngine();
+    await engine.loadConfig(MODEL_FEATURES.CHAT);
+
+    Assert.equal(
+      engine.model,
+      "model-for-choice-123",
+      "Should select model matching model_choice_id"
+    );
+
+    Services.prefs.setStringPref(PREF_MODEL, "my-other-model");
+
+    const engine2 = new openAIEngine();
+    await engine2.loadConfig(MODEL_FEATURES.CHAT);
+
+    Assert.equal(
+      engine2.model,
+      "my-other-model",
+      "Should select model matching model; ignore over model-choice-id"
+    );
+  } finally {
+    sb.restore();
+    Services.prefs.clearUserPref(PREF_MODEL_CHOICE);
+    Services.prefs.clearUserPref(PREF_MODEL);
+  }
+});
+
+add_task(async function test_loadConfig_with_model_choice_id_not_found() {
+  Services.prefs.setStringPref(PREF_API_KEY, API_KEY);
+  Services.prefs.setStringPref(PREF_ENDPOINT, ENDPOINT);
+  Services.prefs.setStringPref(PREF_MODEL_CHOICE, "1");
+
+  const sb = sinon.createSandbox();
+  try {
+    const fakeEngine = {
+      runWithGenerator() {
+        throw new Error("not used");
+      },
+    };
+    sb.stub(openAIEngine, "_createEngine").resolves(fakeEngine);
+
+    const fakeRecords = [
+      {
+        feature: MODEL_FEATURES.CHAT,
+        version: getVersionForFeature(MODEL_FEATURES.CHAT),
+        model: "model-for-choice-123",
+        model_choice_id: "1",
+        prompts: "Test prompt",
+        is_default: false,
+      },
+      {
+        feature: MODEL_FEATURES.TITLE_GENERATION,
+        version: getVersionForFeature(MODEL_FEATURES.TITLE_GENERATION),
+        model: "default-model",
+        prompts: "Default prompt",
+        is_default: true,
+      },
+    ];
+
+    sb.stub(openAIEngine, "getRemoteClient").returns({
+      get: sb.stub().resolves(fakeRecords),
+    });
+
+    const engine = new openAIEngine();
+    await engine.loadConfig(MODEL_FEATURES.TITLE_GENERATION);
+
+    Assert.equal(
+      engine.model,
+      "default-model",
+      "Should fall back to default model when model_choice_id not found"
+    );
+  } finally {
+    sb.restore();
+    Services.prefs.clearUserPref(PREF_MODEL_CHOICE);
+  }
+});
+
+add_task(
+  async function test_loadConfig_userModel_precedence_over_modelChoiceId() {
+    Services.prefs.setStringPref(PREF_MODEL, "model-for-choice-2");
+    Services.prefs.setStringPref(PREF_MODEL_CHOICE, "1");
+
+    const sb = sinon.createSandbox();
+    try {
+      const fakeEngine = {
+        runWithGenerator() {
+          throw new Error("not used");
+        },
+      };
+      sb.stub(openAIEngine, "_createEngine").resolves(fakeEngine);
+
+      const fakeRecords = [
+        {
+          feature: MODEL_FEATURES.CHAT,
+          version: getVersionForFeature(MODEL_FEATURES.CHAT),
+          model: "model-for-choice-1",
+          model_choice_id: "1",
+          prompts: "Test prompt",
+          is_default: false,
+        },
+        {
+          feature: MODEL_FEATURES.CHAT,
+          version: getVersionForFeature(MODEL_FEATURES.CHAT),
+          model: "model-for-choice-2",
+          model_choice_id: "2",
+          prompts: "Test prompt",
+          is_default: false,
+        },
+        {
+          feature: MODEL_FEATURES.CHAT,
+          version: getVersionForFeature(MODEL_FEATURES.CHAT),
+          model: "default-model",
+          prompts: "Default prompt",
+          is_default: true,
+        },
+      ];
+
+      sb.stub(openAIEngine, "getRemoteClient").returns({
+        get: sb.stub().resolves(fakeRecords),
+      });
+
+      const engine = new openAIEngine();
+      await engine.loadConfig(MODEL_FEATURES.CHAT);
+
+      Assert.equal(
+        engine.model,
+        "model-for-choice-2",
+        "userModel pref should take precedence over modelChoiceId"
+      );
+    } finally {
+      sb.restore();
+      Services.prefs.clearUserPref(PREF_MODEL);
+      Services.prefs.clearUserPref(PREF_MODEL_CHOICE);
+    }
+  }
+);
+
+add_task(
+  async function test_loadConfig_userModel_precedence_over_modelChoiceId_fallback() {
+    Services.prefs.setStringPref(PREF_MODEL, "model-not-in-remote-settings");
+    Services.prefs.setStringPref(PREF_MODEL_CHOICE, "1");
+    Services.prefs.clearUserPref(PREF_ENDPOINT);
+
+    const sb = sinon.createSandbox();
+    try {
+      const fakeEngine = {
+        runWithGenerator() {
+          throw new Error("not used");
+        },
+      };
+      sb.stub(openAIEngine, "_createEngine").resolves(fakeEngine);
+
+      const fakeRecords = [
+        {
+          feature: MODEL_FEATURES.CHAT,
+          version: getVersionForFeature(MODEL_FEATURES.CHAT),
+          model: "model-for-choice-1",
+          model_choice_id: "1",
+          prompts: "Test prompt",
+          is_default: false,
+        },
+        {
+          feature: MODEL_FEATURES.CHAT,
+          version: getVersionForFeature(MODEL_FEATURES.CHAT),
+          model: "model-for-choice-2",
+          model_choice_id: "2",
+          prompts: "Test prompt",
+          is_default: false,
+        },
+        {
+          feature: MODEL_FEATURES.CHAT,
+          version: getVersionForFeature(MODEL_FEATURES.CHAT),
+          model: "default-model",
+          prompts: "Default prompt",
+          is_default: true,
+        },
+      ];
+
+      sb.stub(openAIEngine, "getRemoteClient").returns({
+        get: sb.stub().resolves(fakeRecords),
+      });
+
+      const engine = new openAIEngine();
+      await engine.loadConfig(MODEL_FEATURES.CHAT);
+
+      Assert.equal(
+        engine.model,
+        "model-for-choice-1",
+        "modelChoiceId used when customModel not found on MLPA endpoint"
+      );
+    } finally {
+      sb.restore();
+      Services.prefs.clearUserPref(PREF_MODEL);
+      Services.prefs.clearUserPref(PREF_MODEL_CHOICE);
+    }
+  }
+);
+
+add_task(
+  async function test_loadConfig_non_chat_feature_ignores_modelChoiceId() {
+    Services.prefs.setStringPref(PREF_MODEL_CHOICE, "1");
+
+    const sb = sinon.createSandbox();
+    try {
+      const fakeEngine = {
+        runWithGenerator() {
+          throw new Error("not used");
+        },
+      };
+      sb.stub(openAIEngine, "_createEngine").resolves(fakeEngine);
+
+      const fakeRecords = [
+        {
+          feature: MODEL_FEATURES.CHAT,
+          version: getVersionForFeature(MODEL_FEATURES.CHAT),
+          model: "model-for-choice-1",
+          model_choice_id: "1",
+          prompts: "Test prompt",
+          is_default: false,
+        },
+        {
+          feature: MODEL_FEATURES.TITLE_GENERATION,
+          version: getVersionForFeature(MODEL_FEATURES.TITLE_GENERATION),
+          model: "model-for-choice-1",
+          prompts: "Test prompt",
+          is_default: false,
+        },
+        {
+          feature: MODEL_FEATURES.TITLE_GENERATION,
+          version: getVersionForFeature(MODEL_FEATURES.TITLE_GENERATION),
+          model: "default-title-model",
+          prompts: "Default prompt",
+          is_default: true,
+        },
+      ];
+
+      sb.stub(openAIEngine, "getRemoteClient").returns({
+        get: sb.stub().resolves(fakeRecords),
+      });
+
+      const engine = new openAIEngine();
+      await engine.loadConfig(MODEL_FEATURES.TITLE_GENERATION);
+
+      Assert.equal(
+        engine.model,
+        "default-title-model",
+        "Non-CHAT features should ignore modelChoiceId and use default"
+      );
+    } finally {
+      sb.restore();
+      Services.prefs.clearUserPref(PREF_MODEL_CHOICE);
+    }
+  }
+);
+
+add_task(async function test_loadConfig_no_feature_prefs_exist() {
+  const sb = sinon.createSandbox();
+  try {
+    const fakeEngine = {
+      runWithGenerator() {
+        throw new Error("not used");
+      },
+    };
+    sb.stub(openAIEngine, "_createEngine").resolves(fakeEngine);
+
+    const fakeRecords = [
+      {
+        feature: MODEL_FEATURES.CHAT,
+        version: getVersionForFeature(MODEL_FEATURES.CHAT),
+        model: "model-1",
+        model_choice_id: "1",
+        prompts: "Test prompt",
+        is_default: false,
+      },
+      {
+        feature: MODEL_FEATURES.CHAT,
+        version: getVersionForFeature(MODEL_FEATURES.CHAT),
+        model: "model-2",
+        model_choice_id: "2",
+        prompts: "Test prompt",
+        is_default: false,
+      },
+      {
+        feature: MODEL_FEATURES.CHAT,
+        version: getVersionForFeature(MODEL_FEATURES.CHAT),
+        model: "default-model",
+        model_choice_id: "3",
+        prompts: "Test prompt",
+        is_default: true,
+      },
+    ];
+
+    sb.stub(openAIEngine, "getRemoteClient").returns({
+      get: sb.stub().resolves(fakeRecords),
+    });
+
+    const engine = new openAIEngine();
+    await engine.loadConfig(MODEL_FEATURES.CHAT);
+
+    Assert.equal(
+      engine.model,
+      "default-model",
+      "Should use default when no prefs exists"
+    );
+  } finally {
+    sb.restore();
+  }
+});
+
+add_task(async function test_custom_endpoint_override() {
+  Services.prefs.setStringPref(PREF_ENDPOINT, ENDPOINT);
+  Services.prefs.setStringPref(PREF_MODEL_CHOICE, "1");
+  Services.prefs.setStringPref(PREF_MODEL, "my_custom_model");
+
+  const sb = sinon.createSandbox();
+  try {
+    const fakeEngine = {
+      runWithGenerator() {
+        throw new Error("not used");
+      },
+    };
+    sb.stub(openAIEngine, "_createEngine").resolves(fakeEngine);
+
+    const fakeRecords = [
+      {
+        feature: MODEL_FEATURES.CHAT,
+        version: getVersionForFeature(MODEL_FEATURES.CHAT),
+        model: "future-model",
+        model_choice_id: "1",
+        prompts: "Test prompt",
+        is_default: false,
+      },
+      {
+        feature: MODEL_FEATURES.CHAT,
+        version: getVersionForFeature(MODEL_FEATURES.CHAT),
+        model: "future-default",
+        prompts: "Default prompt",
+        is_default: true,
+      },
+    ];
+
+    sb.stub(openAIEngine, "getRemoteClient").returns({
+      get: sb.stub().resolves(fakeRecords),
+    });
+
+    const engine = new openAIEngine();
+    await engine.loadConfig(MODEL_FEATURES.CHAT);
+
+    Assert.equal(
+      engine.model,
+      "my_custom_model",
+      "Should use custom model when custom endpoint is set"
+    );
+  } finally {
+    sb.restore();
+    Services.prefs.clearUserPref(PREF_MODEL_CHOICE);
+  }
+});
+
 add_task(async function test_loadConfig_with_additional_components() {
   Services.prefs.setStringPref(PREF_API_KEY, API_KEY);
   Services.prefs.setStringPref(PREF_ENDPOINT, ENDPOINT);
@@ -650,4 +1020,62 @@ add_task(async function test_loadConfig_with_additional_components() {
   } finally {
     sb.restore();
   }
+});
+
+add_task(async function test_parseVersion_with_v_prefix() {
+  const result = parseVersion("v1.0");
+  Assert.ok(result, "Should parse version with v prefix");
+  Assert.equal(result.major, 1, "Major version should be 1");
+  Assert.equal(result.minor, 0, "Minor version should be 0");
+  Assert.equal(result.original, "v1.0", "Original should be preserved");
+});
+
+add_task(async function test_parseVersion_without_v_prefix() {
+  const result = parseVersion("1.0");
+  Assert.ok(result, "Should parse version without v prefix");
+  Assert.equal(result.major, 1, "Major version should be 1");
+  Assert.equal(result.minor, 0, "Minor version should be 0");
+  Assert.equal(result.original, "1.0", "Original should be preserved");
+});
+
+add_task(async function test_parseVersion_with_higher_numbers() {
+  const result = parseVersion("2.15");
+  Assert.ok(result, "Should parse version with higher numbers");
+  Assert.equal(result.major, 2, "Major version should be 2");
+  Assert.equal(result.minor, 15, "Minor version should be 15");
+  Assert.equal(result.original, "2.15", "Original should be preserved");
+});
+
+add_task(async function test_parseVersion_invalid_format() {
+  Assert.equal(
+    parseVersion("v1"),
+    null,
+    "Should return null for version without minor"
+  );
+  Assert.equal(parseVersion("1"), null, "Should return null for single number");
+  Assert.equal(
+    parseVersion("v1.0.0"),
+    null,
+    "Should return null for three part version"
+  );
+  Assert.equal(
+    parseVersion("invalid"),
+    null,
+    "Should return null for non-numeric version"
+  );
+});
+
+add_task(async function test_parseVersion_edge_cases() {
+  Assert.equal(parseVersion(""), null, "Should return null for empty string");
+  Assert.equal(parseVersion(null), null, "Should return null for null");
+  Assert.equal(
+    parseVersion(undefined),
+    null,
+    "Should return null for undefined"
+  );
+  Assert.equal(
+    parseVersion("v1.0extra"),
+    null,
+    "Should return null for version with extra text after"
+  );
 });

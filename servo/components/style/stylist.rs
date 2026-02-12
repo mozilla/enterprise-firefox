@@ -1825,15 +1825,11 @@ impl Stylist {
     where
         E: TElement,
     {
-        // NB: `MatchingMode` doesn't really matter, given we don't share style
-        // between pseudos.
-        let mut matching_context = MatchingContext::new(
-            MatchingMode::Normal,
+        let mut matching_context = MatchingContext::new_for_revalidation(
             bloom,
             selector_caches,
             self.quirks_mode,
             needs_selector_flags,
-            MatchingForInvalidation::No,
         );
 
         // Note that, by the time we're revalidating, we're guaranteed that the
@@ -2042,7 +2038,6 @@ impl<T> Default for LayerOrderedMap<T> {
     }
 }
 
-#[cfg(feature = "gecko")]
 impl<T: 'static> LayerOrderedVec<T> {
     fn clear(&mut self) {
         self.0.clear();
@@ -3604,7 +3599,6 @@ impl CascadeData {
                 order.inc();
             }
         }
-        #[cfg(feature = "gecko")]
         self.extra_data.sort_by_layer(&self.layers);
         self.animations
             .sort_with(&self.layers, compare_keyframes_in_same_layer);
@@ -4533,7 +4527,6 @@ impl CascadeData {
             .push(ContainerConditionReference::none());
         self.scope_conditions.clear();
         self.scope_conditions.push(ScopeConditionReference::none());
-        #[cfg(feature = "gecko")]
         self.extra_data.clear();
         self.rules_source_order = 0;
         self.num_selectors = 0;

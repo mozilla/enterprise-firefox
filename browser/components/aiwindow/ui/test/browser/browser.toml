@@ -16,6 +16,8 @@ support-files = [
 
 ["browser_aichat_content_actors.js"]
 
+["browser_aichat_content_message_event.js"]
+
 ["browser_aichat_message.js"]
 
 ["browser_aiwindow_account_auth.js"]
@@ -27,6 +29,8 @@ support-files = [
 ["browser_aiwindow_assistant_message_footer.js"]
 
 ["browser_aiwindow_firstrun.js"]
+
+["browser_aiwindow_immersive.js"]
 
 ["browser_aiwindow_integration.js"]
 
@@ -60,8 +64,12 @@ support-files = [
 
 ["browser_sidebar_aiwindow.js"]
 
+["browser_smartwindow_content.js"]
+
 ["browser_smartwindow_init.js"]
 
 ["browser_smartwindow_prompts.js"]
 
 ["browser_smartwindow_tab_move.js"]
+
+["browser_smartwindow_tab_switching.js"]

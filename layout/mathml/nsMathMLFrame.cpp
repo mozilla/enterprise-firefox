@@ -6,13 +6,13 @@
 
 #include "nsMathMLFrame.h"
 
+#include "PseudoStyleType.h"
 #include "gfxContext.h"
 #include "gfxMathTable.h"
 #include "gfxUtils.h"
 #include "mozilla/StaticPrefs_mathml.h"
 #include "mozilla/dom/MathMLElement.h"
 #include "mozilla/gfx/2D.h"
-#include "nsCSSPseudoElements.h"
 #include "nsCSSValue.h"
 #include "nsLayoutUtils.h"
 #include "nsMathMLChar.h"
@@ -219,15 +219,13 @@ void nsMathMLFrame::GetSupDropFromChild(nsIFrame* aChild, nscoord& aSupDrop,
 }
 
 /* static */
-void nsMathMLFrame::ParseAndCalcNumericValue(const nsString& aString,
-                                             nscoord* aLengthValue,
-                                             uint32_t aFlags,
-                                             float aFontSizeInflation,
-                                             nsIFrame* aFrame) {
+void nsMathMLFrame::ParseAndCalcNumericValue(
+    const nsString& aString, nscoord* aLengthValue, float aFontSizeInflation,
+    nsIFrame* aFrame, dom::MathMLElement::ParseFlags aFlags) {
   nsCSSValue cssValue;
 
   if (!dom::MathMLElement::ParseNumericValue(
-          aString, cssValue, aFlags, aFrame->PresContext()->Document())) {
+          aString, cssValue, aFrame->PresContext()->Document(), aFlags)) {
     // Invalid attribute value. aLengthValue remains unchanged, so the default
     // length value is used.
     return;

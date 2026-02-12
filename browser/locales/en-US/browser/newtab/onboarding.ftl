@@ -573,3 +573,20 @@ onboarding-personalization-motivation-title = Which features of { -brand-short-n
 onboarding-personalization-motivation-privacy-option = Privacy and Security
 onboarding-personalization-motivation-productivity-option = Productivity
 onboarding-personalization-motivation-other-option = Other
+
+## Onboarding 2026 brand refresh
+
+onboarding-refresh-pin-set-default-subtitle = We protect your data and block companies from spying on your clicks — automatically.
+# "safe paws" is a play on "safe hands", meaning you're being well taken care of or protected
+# If it doesn’t translate well, you can use the alternative: “You’re safe with Firefox.”
+onboarding-refresh-pin-set-default-title = You’re in safe paws
+onboarding-refresh-import-subtitle = Bring over your passwords, bookmarks, history and more.
+onboarding-refresh-import-title = Make { -brand-short-name } feel more like home
+onboarding-refresh-onboarding-addons-subtitle = Extensions are tiny apps that let you customize { -brand-short-name }. They can power up your privacy, enhance productivity, change the way { -brand-short-name } looks, and so much more.
+# "Give your browsing a boost" means to enhance or improve the browsing experience
+onboarding-refresh-onboarding-addons-title = Give your browsing a boost
+onboarding-refresh-sync-subtitle = Grab bookmarks, passwords, and more everywhere you’re signed in to { -brand-short-name }. Plus, your data is encrypted so only you can see it.
+onboarding-refresh-sync-title = Go anywhere. Sync everything.
+onboarding-refresh-gratitude-subtitle = Thank you for using { -brand-short-name }, the only major browser backed by a non-profit. With your support, we’re working to make the internet safer and more accessible for everyone.
+# "has your back" is an idiom suggesting support and protection
+onboarding-refresh-gratitude-title = { -brand-short-name } has your back

@@ -342,6 +342,10 @@ tasks:
         symbol: I(idx)
     funsize-update-generator:
         symbol: I(pg)
+    partials-zuc:
+        symbol: I(pz)
+        parent: debian13-base
+        definition: partials-zucchini
     update-verify:
         symbol: I(uv)
         parent: debian12-base

@@ -185,7 +185,7 @@ class Navigation final : public DOMEventTargetHelper {
       JSContext* aCx, JS::Handle<JS::Value> aError = JS::UndefinedHandleValue);
 
   MOZ_CAN_RUN_SCRIPT
-  void AbortNavigateEvent(JSContext* aCx, NavigateEvent* aEvent,
+  void AbortNavigateEvent(JSContext* aCx, const NavigateEvent* aEvent,
                           JS::Handle<JS::Value> aReason);
 
   MOZ_CAN_RUN_SCRIPT

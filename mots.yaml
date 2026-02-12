@@ -8,7 +8,7 @@
 # documentation and how to modify this file.
 repo: mozilla-central
 created_at: '2021-10-14T12:50:40.073465'
-updated_at: '2026-02-02T15:13:45.743395+00:00'
+updated_at: '2026-02-04T21:37:00.601823+00:00'
 export:
   path: ./docs/mots/index.rst
   format: rst
@@ -201,6 +201,10 @@ people:
     bmo_id: 525693
     name: Nazım Can Altınova
     nick: canova
+  - &cdupuis
+    bmo_id: 760375
+    name: Chris DuPuis
+    nick: cdupuis
   - &charlie
     bmo_id: 710471
     name: Charlie Humphreys
@@ -3550,13 +3554,16 @@ modules:
         includes:
           - toolkit/mozapps/update/**/*
         owners:
-          - *bytesized
+          - *cdupuis
         peers:
-          - *molly
+          - *bytesized
         machine_name: application_update
         meta:
+          owners_emeritus:
+            - Robin Steuber
           peers_emeritus:
             - Adam Gashlin
+            - Molly Howell
           review_group: application-update-reviewers
 
 
@@ -4011,8 +4018,10 @@ modules:
           components:
             - Firefox::Installer
           review_group: browser-installer-reviewers
+          owners_emeritus:
+            - Molly Howell
         owners:
-          - *molly
+          - *cdupuis
         peers:
           - *agashlin
           - *nalexander
@@ -4707,5 +4716,5 @@ modules:
         - Ryan Tilder
       group: dev-platform
 hashes:
-  config: 2db07f7fa261720687b12b3253afccfda3a3ebfe
-  export: 8ca12e00a0c82974b57bbb2a3df9ad5ce251ca61
+  config: dca905ad82c5bb43b44a4db068dfe988b592fe13
+  export: bbece186da876a62b4777ffa92f8241e22d5630a

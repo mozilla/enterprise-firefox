@@ -702,6 +702,9 @@ skip script test262/staging/explicit-resource-management/await-using-in-switch-c
 # https://github.com/tc39/test262/pull/4898
 skip script test262/staging/sm/String/string-upper-lower-mapping.js
 
+# https://github.com/tc39/test262/pull/4910
+skip script test262/staging/Intl402/Temporal/old/datetime-toLocaleString.js
+
 
 ##############################################
 # Enable Iterator Helpers tests in the shell #

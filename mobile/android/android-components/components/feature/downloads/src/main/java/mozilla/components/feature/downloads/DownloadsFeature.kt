@@ -136,7 +136,7 @@ class DownloadsFeature(
     onDownloadStopped: onDownloadStopped = noop,
     private val downloadFileUtils: DownloadFileUtils = DefaultDownloadFileUtils(
         context = applicationContext,
-        downloadLocationGetter = {
+        downloadLocation = {
             Environment.getExternalStoragePublicDirectory(
                 Environment.DIRECTORY_DOWNLOADS,
             ).path

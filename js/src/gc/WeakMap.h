@@ -169,9 +169,10 @@ class WeakMapBase : public mozilla::LinkedListElement<WeakMapBase> {
  protected:
   // Instance member functions called by the above. Instantiations of WeakMap
   // override these with definitions appropriate for their Key and Value types.
+  virtual bool empty() const = 0;
   virtual void trace(JSTracer* tracer) = 0;
   virtual bool findSweepGroupEdges(Zone* atomsZone) = 0;
-  virtual void traceWeakEdges(JSTracer* trc) = 0;
+  virtual void traceWeakEdgesDuringSweeping(JSTracer* trc) = 0;
   virtual void traceMappings(WeakMapTracer* tracer) = 0;
   virtual void clearAndCompact() = 0;
 
@@ -321,7 +322,7 @@ class WeakMap : public WeakMapBase {
 
   // The keys of entries where either the key or value is allocated in the
   // nursery.
-  GCVector<Key, 0, SystemAllocPolicy> nurseryKeys;
+  GCVector<Key, 0, AllocPolicy> nurseryKeys;
 
  public:
   using Lookup = typename Map::Lookup;
@@ -361,23 +362,20 @@ class WeakMap : public WeakMapBase {
     explicit Enum(WeakMap& map) : Map::Enum(map.map()) {}
   };
 
-  explicit WeakMap(JSContext* cx, JSObject* memOf = nullptr);
-  explicit WeakMap(JS::Zone* zone, JSObject* memOf = nullptr);
+  // Create a weak map owned by a JS object. Used for script-facing objects.
+  explicit WeakMap(JSContext* cx, JSObject* memOf);
+
+  // Create a weak map associated with a zone. For internal use by the engine.
+  explicit WeakMap(JS::Zone* zone);
+
   ~WeakMap() override;
 
   Range all() const { return map().all(); }
   uint32_t count() const { return map().count(); }
-  bool empty() const { return map().empty(); }
+  bool empty() const override { return map().empty(); }
   bool has(const Lookup& lookup) const { return map().has(lookup); }
   void remove(const Lookup& lookup) { return map().remove(lookup); }
   void remove(Ptr ptr) { return map().remove(ptr.ptr); }
-
-  size_t shallowSizeOfExcludingThis(mozilla::MallocSizeOf aMallocSizeOf) const {
-    return map().shallowSizeOfExcludingThis(aMallocSizeOf);
-  }
-  size_t shallowSizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf) const {
-    return aMallocSizeOf(this) + shallowSizeOfExcludingThis(aMallocSizeOf);
-  }
 
   // Get the value associated with a key, or a default constructed Value if the
   // key is not present in the map.
@@ -457,7 +455,7 @@ class WeakMap : public WeakMapBase {
   void traceKeys(JSTracer* trc);
   void traceKey(JSTracer* trc, Enum& iter);
 
-  size_t sizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf);
+  size_t shallowSizeOfExcludingThis(mozilla::MallocSizeOf mallocSizeOf);
 
   static size_t offsetOfHashShift() {
     return offsetof(WeakMap, map_) + UnbarrieredMap::offsetOfHashShift();
@@ -491,6 +489,8 @@ class WeakMap : public WeakMapBase {
 #endif
 
  private:
+  static void staticAssertions();
+
   // Map accessor uses a cast to add barriers.
   Map& map() { return reinterpret_cast<Map&>(map_); }
   const Map& map() const { return reinterpret_cast<const Map&>(map_); }
@@ -542,7 +542,7 @@ class WeakMap : public WeakMapBase {
 
   void addNurseryKey(const Key& key);
 
-  void traceWeakEdges(JSTracer* trc) override;
+  void traceWeakEdgesDuringSweeping(JSTracer* trc) override;
 
   void clearAndCompact() override {
     clear();

@@ -334,7 +334,7 @@ static void MaybeMarkAncestorsAsHavingDescendantDependentOnItsStaticPos(
 
 static bool IsSnapshotContainingBlock(const nsIFrame* aFrame) {
   return aFrame->Style()->GetPseudoType() ==
-         PseudoStyleType::mozSnapshotContainingBlock;
+         PseudoStyleType::MozSnapshotContainingBlock;
 }
 
 static PhysicalAxes CheckEarlyCompensatingForScroll(const nsIFrame* aKidFrame) {
@@ -352,8 +352,28 @@ static PhysicalAxes CheckEarlyCompensatingForScroll(const nsIFrame* aKidFrame) {
 }
 
 static AnchorPosResolutionCache PopulateAnchorResolutionCache(
-    const nsIFrame* aKidFrame, AnchorPosReferenceData* aData) {
+    const nsIFrame* aKidFrame, AnchorPosReferenceData* aData,
+    bool aReuseUnfragmentedAnchorPosReferences) {
   MOZ_ASSERT(aKidFrame->HasAnchorPosReference());
+  if (aReuseUnfragmentedAnchorPosReferences) [[unlikely]] {
+    MOZ_ASSERT(
+        aKidFrame->FirstInFlow()->HasProperty(UnfragmentedPositionProperty()));
+    // We inherited reference data from unfragmented reflow, but still need to
+    // repopulate the cache.
+    AnchorPosDefaultAnchorCache cache;
+    if (aData->mDefaultAnchorName) {
+      const auto* presShell = aKidFrame->PresShell();
+      cache.mAnchor = presShell->GetAnchorPosAnchor(
+          ScopedNameRef{aData->mDefaultAnchorName, aData->mAnchorTreeScope},
+          aKidFrame->FirstInFlow());
+      MOZ_ASSERT(cache.mAnchor);
+      cache.mScrollContainer =
+          AnchorPositioningUtils::GetNearestScrollFrame(cache.mAnchor)
+              .mScrollContainer;
+    }
+    return {aData, cache};
+  }
+
   // If the default anchor exists, it will likely be referenced (Except when
   // authors then use `anchor()` without referring to anchors whose nearest
   // scroller that of the default anchor, but that seems
@@ -376,8 +396,8 @@ static nsRect ComputeScrollableContainingBlock(
     const nsContainerFrame* aDelegatingFrame, const nsRect& aContainingBlock,
     const OverflowAreas* aOverflowAreas) {
   switch (aDelegatingFrame->Style()->GetPseudoType()) {
-    case PseudoStyleType::scrolledContent:
-    case PseudoStyleType::scrolledCanvas: {
+    case PseudoStyleType::MozScrolledContent:
+    case PseudoStyleType::MozScrolledCanvas: {
       if (!aOverflowAreas) {
         break;
       }
@@ -393,6 +413,170 @@ static nsRect ComputeScrollableContainingBlock(
       break;
   }
   return aContainingBlock;
+}
+
+static SideBits GetScrollCompensatedSidesFor(
+    const StylePositionArea& aPositionArea) {
+  SideBits sides{SideBits::eNone};
+  // The opposite side of the direction keyword is attached to the
+  // position-anchor grid, which is then attached to the anchor, and so is
+  // scroll compensated. `center` is constrained by the position-area grid
+  // on both sides. `span-all` is unconstrained in that axis.
+  if (aPositionArea.first == StylePositionAreaKeyword::Left ||
+      aPositionArea.first == StylePositionAreaKeyword::SpanLeft) {
+    sides |= SideBits::eRight;
+  } else if (aPositionArea.first == StylePositionAreaKeyword::Right ||
+             aPositionArea.first == StylePositionAreaKeyword::SpanRight) {
+    sides |= SideBits::eLeft;
+  } else if (aPositionArea.first == StylePositionAreaKeyword::Center) {
+    sides |= SideBits::eLeftRight;
+  }
+
+  if (aPositionArea.second == StylePositionAreaKeyword::Top ||
+      aPositionArea.second == StylePositionAreaKeyword::SpanTop) {
+    sides |= SideBits::eBottom;
+  } else if (aPositionArea.second == StylePositionAreaKeyword::Bottom ||
+             aPositionArea.second == StylePositionAreaKeyword::SpanBottom) {
+    sides |= SideBits::eTop;
+  } else if (aPositionArea.first == StylePositionAreaKeyword::Center) {
+    sides |= SideBits::eTopBottom;
+  }
+
+  return sides;
+}
+
+struct AnchorShiftInfo {
+  nsPoint mOffset;
+  StylePositionArea mResolvedArea;
+};
+
+struct ModifiedContainingBlock {
+  Maybe<AnchorShiftInfo> mAnchorShiftInfo;
+  // Unmodified scrollable or local containing block
+  nsRect mMaybeScrollableRect;
+  // Containing block after all its modifications e.g. By grid/position-area.
+  nsRect mFinalRect;
+
+  explicit ModifiedContainingBlock(const nsRect& aRect)
+      : mMaybeScrollableRect{aRect}, mFinalRect{aRect} {}
+  ModifiedContainingBlock(const nsRect& aMaybeScrollableRect,
+                          const nsRect& aFinalRect)
+      : mMaybeScrollableRect{aMaybeScrollableRect}, mFinalRect{aFinalRect} {}
+  ModifiedContainingBlock(const nsPoint& aOffset,
+                          const StylePositionArea& aResolvedArea,
+                          const nsRect& aMaybeScrollableRect,
+                          const nsRect& aFinalRect)
+      : mAnchorShiftInfo{Some(AnchorShiftInfo{aOffset, aResolvedArea})},
+        mMaybeScrollableRect{aMaybeScrollableRect},
+        mFinalRect{aFinalRect} {}
+
+  StylePositionArea ResolvedPositionArea() const {
+    return mAnchorShiftInfo
+        .map([](const AnchorShiftInfo& aInfo) { return aInfo.mResolvedArea; })
+        .valueOr(StylePositionArea{});
+  }
+};
+
+static ModifiedContainingBlock ComputeContainingBlock(
+    bool aIsGrid, const nsContainerFrame* aDelegatingFrame,
+    const ReflowInput& aReflowInput,
+    const AbsoluteContainingBlock::ContainingBlockRects& aContainingBlockRects,
+    nsIFrame* aKidFrame, AnchorPosResolutionCache* aAnchorPosResolutionCache,
+    bool aReuseUnfragmentedAnchorPosReferences) {
+  if (aReuseUnfragmentedAnchorPosReferences) {
+    MOZ_ASSERT(aAnchorPosResolutionCache);
+    const auto* referenceData = aAnchorPosResolutionCache->mReferenceData;
+    if (const auto positionArea = aKidFrame->StylePosition()->mPositionArea;
+        !positionArea.IsNone()) {
+      return ModifiedContainingBlock{
+          referenceData->mDefaultScrollShift,
+          AnchorPositioningUtils::PhysicalizePositionArea(positionArea,
+                                                          aKidFrame),
+          referenceData->mOriginalContainingBlockRect,
+          referenceData->mAdjustedContainingBlock};
+    }
+    return ModifiedContainingBlock{referenceData->mOriginalContainingBlockRect,
+                                   referenceData->mAdjustedContainingBlock};
+  }
+  // The current containing block, with ongoing modifications.
+  // Starts as a local containing block.
+  nsRect containingBlock = aContainingBlockRects.mLocal;
+  nsRect scrollableContainingBlock = aContainingBlockRects.mScrollable;
+  const auto defaultAnchorInfo = [&]() -> Maybe<AnchorPosInfo> {
+    if (!aAnchorPosResolutionCache) {
+      return Nothing{};
+    }
+    return AnchorPositioningUtils::ResolveAnchorPosRect(
+        aKidFrame, aDelegatingFrame, {nullptr, StyleCascadeLevel::Default()},
+        false, aAnchorPosResolutionCache);
+  }();
+  if (defaultAnchorInfo) {
+    // Presence of a valid default anchor causes us to use the scrollable
+    // containing block.
+    // https://github.com/w3c/csswg-drafts/issues/12552#issuecomment-3210696721
+    containingBlock = aContainingBlockRects.mScrollable;
+  }
+
+  if (const ViewportFrame* viewport = do_QueryFrame(aDelegatingFrame)) {
+    if (IsSnapshotContainingBlock(aKidFrame)) {
+      return ModifiedContainingBlock{
+          dom::ViewTransition::SnapshotContainingBlockRect(
+              viewport->PresContext())};
+    }
+    MOZ_ASSERT(aContainingBlockRects.mScrollable ==
+               aContainingBlockRects.mLocal);
+    containingBlock = scrollableContainingBlock =
+        viewport->GetContainingBlockAdjustedForScrollbars(aReflowInput);
+  }
+
+  // https://drafts.csswg.org/css-position/#original-cb
+  // Handle grid-based adjustment first...
+  if (aIsGrid) {
+    const auto border = aDelegatingFrame->GetUsedBorder();
+    const nsPoint borderShift{border.left, border.top};
+    // Shift in by border of the overall grid container.
+    containingBlock = nsGridContainerFrame::GridItemCB(aKidFrame) + borderShift;
+    if (!defaultAnchorInfo) {
+      return ModifiedContainingBlock{containingBlock};
+    }
+  }
+  // ... Then the position-area based adjustment.
+  if (defaultAnchorInfo) {
+    auto positionArea = aKidFrame->StylePosition()->mPositionArea;
+    if (!positionArea.IsNone()) {
+      // Offset should be up to, but not including the containing block's
+      // scroll offset.
+      const auto offset = AnchorPositioningUtils::GetScrollOffsetFor(
+          aAnchorPosResolutionCache->mReferenceData
+              ->CompensatingForScrollAxes(),
+          aKidFrame, aAnchorPosResolutionCache->mDefaultAnchorCache);
+      // Imagine an abspos container with a scroller in it, and then an
+      // anchor in it, where the anchor is visually in the middle of the
+      // scrollport. Then, when the scroller moves such that the anchor's
+      // left edge is on that of the scrollports, w.r.t. containing block,
+      // the anchor is zero left offset horizontally. The position-area
+      // grid needs to account for this.
+      const auto scrolledAnchorRect = defaultAnchorInfo->mRect - offset;
+      StylePositionArea resolvedPositionArea{};
+      const auto scrolledAnchorCb = AnchorPositioningUtils::
+          AdjustAbsoluteContainingBlockRectForPositionArea(
+              scrolledAnchorRect + aContainingBlockRects.mLocal.TopLeft(),
+              containingBlock, aKidFrame->GetWritingMode(),
+              aDelegatingFrame->GetWritingMode(), positionArea,
+              &resolvedPositionArea);
+      // By definition, we're using the default anchor, and are scroll
+      // compensated.
+      aAnchorPosResolutionCache->mReferenceData->mScrollCompensatedSides =
+          GetScrollCompensatedSidesFor(resolvedPositionArea);
+      return ModifiedContainingBlock{
+          offset, resolvedPositionArea, scrollableContainingBlock,
+          // Unscroll the CB by canceling out the previously applied
+          // scroll offset (See above), the offset will be applied later.
+          scrolledAnchorCb + offset};
+    }
+    return ModifiedContainingBlock{scrollableContainingBlock, containingBlock};
+  }
+  return ModifiedContainingBlock{containingBlock};
 }
 
 void AbsoluteContainingBlock::Reflow(nsContainerFrame* aDelegatingFrame,
@@ -463,12 +647,27 @@ void AbsoluteContainingBlock::Reflow(nsContainerFrame* aDelegatingFrame,
   for (auto iter = mAbsoluteFrames.begin(); iter != mAbsoluteFrames.end();) {
     // Advance the iterator first, so it's safe to move |kidFrame|.
     nsIFrame* const kidFrame = *iter++;
+    bool reuseUnfragmentedAnchorPosReferences = false;
     Maybe<AnchorPosResolutionCache> anchorPosResolutionCache;
     if (kidFrame->HasAnchorPosReference()) {
-      auto* referenceData = kidFrame->SetOrUpdateDeletableProperty(
-          nsIFrame::AnchorPosReferences());
-      anchorPosResolutionCache =
-          Some(PopulateAnchorResolutionCache(kidFrame, referenceData));
+      AnchorPosReferenceData* referenceData = nullptr;
+      if (const auto* firstInFlow = kidFrame->FirstInFlow();
+          aPresContext->FragmentainerAwarePositioningEnabled() &&
+          GetUnfragmentedPosition(aReflowInput, firstInFlow)) {
+        // Ok, we've done a measuring reflow with no fragmentation, and so the
+        // unfragmented position property is now set. Use the existing
+        // references, which contains the anchor lookup data from the measuring
+        // reflow.
+        referenceData =
+            firstInFlow->GetProperty(nsIFrame::AnchorPosReferences());
+        reuseUnfragmentedAnchorPosReferences = true;
+      }
+      if (!referenceData) {
+        referenceData = kidFrame->SetOrUpdateDeletableProperty(
+            nsIFrame::AnchorPosReferences());
+      }
+      anchorPosResolutionCache = Some(PopulateAnchorResolutionCache(
+          kidFrame, referenceData, reuseUnfragmentedAnchorPosReferences));
     } else {
       kidFrame->RemoveProperty(nsIFrame::AnchorPosReferences());
     }
@@ -550,7 +749,8 @@ void AbsoluteContainingBlock::Reflow(nsContainerFrame* aDelegatingFrame,
                             *unfragmentedContainingBlockRects, aFlags, kidFrame,
                             kidStatus, aOverflowAreas,
                             fragmentedContainingBlockRects,
-                            anchorPosResolutionCache.ptrOr(nullptr));
+                            anchorPosResolutionCache.ptrOr(nullptr),
+                            reuseUnfragmentedAnchorPosReferences);
 
         // TODO(TYLin, Bug 2009647): We'll support a measuring reflow in
         // printing scenario for fragmentainer-aware abspos positioning such
@@ -1304,7 +1504,11 @@ struct MOZ_STACK_CLASS MOZ_RAII AutoFallbackStyleSetter {
                            aFrame->StylePosition()->mPositionAnchor) {
         mOldCacheState =
             OldCacheState{aCache->TryPositionWithDifferentDefaultAnchor()};
-        *aCache = PopulateAnchorResolutionCache(aFrame, aCache->mReferenceData);
+        // TODO(dshin, bug 2014913): Fragmentation _can_ change the containing
+        // block size from its unfragmented version, and that may cause us to
+        // choose a different fallback, and hit this code path.
+        *aCache = PopulateAnchorResolutionCache(aFrame, aCache->mReferenceData,
+                                                false);
       } else {
         mOldCacheState =
             OldCacheState{aCache->TryPositionWithSameDefaultAnchor()};
@@ -1353,68 +1557,6 @@ struct MOZ_STACK_CLASS MOZ_RAII AutoFallbackStyleSetter {
   OldCacheState mOldCacheState;
 };
 
-struct AnchorShiftInfo {
-  nsPoint mOffset;
-  StylePositionArea mResolvedArea;
-};
-
-struct ModifiedContainingBlock {
-  Maybe<AnchorShiftInfo> mAnchorShiftInfo;
-  // Unmodified scrollable or local containing block
-  nsRect mMaybeScrollableRect;
-  // Containing block after all its modifications e.g. By grid/position-area.
-  nsRect mFinalRect;
-
-  explicit ModifiedContainingBlock(const nsRect& aRect)
-      : mMaybeScrollableRect{aRect}, mFinalRect{aRect} {}
-  ModifiedContainingBlock(const nsRect& aMaybeScrollableRect,
-                          const nsRect& aFinalRect)
-      : mMaybeScrollableRect{aMaybeScrollableRect}, mFinalRect{aFinalRect} {}
-  ModifiedContainingBlock(const nsPoint& aOffset,
-                          const StylePositionArea& aResolvedArea,
-                          const nsRect& aMaybeScrollableRect,
-                          const nsRect& aFinalRect)
-      : mAnchorShiftInfo{Some(AnchorShiftInfo{aOffset, aResolvedArea})},
-        mMaybeScrollableRect{aMaybeScrollableRect},
-        mFinalRect{aFinalRect} {}
-
-  StylePositionArea ResolvedPositionArea() const {
-    return mAnchorShiftInfo
-        .map([](const AnchorShiftInfo& aInfo) { return aInfo.mResolvedArea; })
-        .valueOr(StylePositionArea{});
-  }
-};
-
-static SideBits GetScrollCompensatedSidesFor(
-    const StylePositionArea& aPositionArea) {
-  SideBits sides{SideBits::eNone};
-  // The opposite side of the direction keyword is attached to the
-  // position-anchor grid, which is then attached to the anchor, and so is
-  // scroll compensated. `center` is constrained by the position-area grid
-  // on both sides. `span-all` is unconstrained in that axis.
-  if (aPositionArea.first == StylePositionAreaKeyword::Left ||
-      aPositionArea.first == StylePositionAreaKeyword::SpanLeft) {
-    sides |= SideBits::eRight;
-  } else if (aPositionArea.first == StylePositionAreaKeyword::Right ||
-             aPositionArea.first == StylePositionAreaKeyword::SpanRight) {
-    sides |= SideBits::eLeft;
-  } else if (aPositionArea.first == StylePositionAreaKeyword::Center) {
-    sides |= SideBits::eLeftRight;
-  }
-
-  if (aPositionArea.second == StylePositionAreaKeyword::Top ||
-      aPositionArea.second == StylePositionAreaKeyword::SpanTop) {
-    sides |= SideBits::eBottom;
-  } else if (aPositionArea.second == StylePositionAreaKeyword::Bottom ||
-             aPositionArea.second == StylePositionAreaKeyword::SpanBottom) {
-    sides |= SideBits::eTop;
-  } else if (aPositionArea.first == StylePositionAreaKeyword::Center) {
-    sides |= SideBits::eTopBottom;
-  }
-
-  return sides;
-}
-
 // XXX Optimize the case where it's a resize reflow and the absolutely
 // positioned child has the exact same size and position and skip the
 // reflow...
@@ -1424,7 +1566,8 @@ void AbsoluteContainingBlock::ReflowAbsoluteFrame(
     const ContainingBlockRects& aContainingBlockRects, AbsPosReflowFlags aFlags,
     nsIFrame* aKidFrame, nsReflowStatus& aStatus, OverflowAreas* aOverflowAreas,
     const ContainingBlockRects* aFragmentedContainingBlockRects,
-    AnchorPosResolutionCache* aAnchorPosResolutionCache) {
+    AnchorPosResolutionCache* aAnchorPosResolutionCache,
+    bool aReuseUnfragmentedAnchorPosReferences) {
   MOZ_ASSERT(aStatus.IsEmpty(), "Caller should pass a fresh reflow status!");
 
 #ifdef DEBUG
@@ -1552,90 +1695,10 @@ void AbsoluteContainingBlock::ReflowAbsoluteFrame(
     AutoFallbackStyleSetter fallback(aKidFrame, currentFallbackStyle,
                                      aAnchorPosResolutionCache,
                                      firstTryIndex == currentFallbackIndex);
-    auto cb = [&]() {
-      // The current containing block, with ongoing modifications.
-      // Starts as a local containing block.
-      nsRect containingBlock = aContainingBlockRects.mLocal;
-      nsRect scrollableContainingBlock = aContainingBlockRects.mScrollable;
-      const auto defaultAnchorInfo = [&]() -> Maybe<AnchorPosInfo> {
-        if (!aAnchorPosResolutionCache) {
-          return Nothing{};
-        }
-        return AnchorPositioningUtils::ResolveAnchorPosRect(
-            aKidFrame, aDelegatingFrame,
-            {nullptr, StyleCascadeLevel::Default()}, false,
-            aAnchorPosResolutionCache);
-      }();
-      if (defaultAnchorInfo) {
-        // Presence of a valid default anchor causes us to use the scrollable
-        // containing block.
-        // https://github.com/w3c/csswg-drafts/issues/12552#issuecomment-3210696721
-        containingBlock = aContainingBlockRects.mScrollable;
-      }
-
-      if (ViewportFrame* viewport = do_QueryFrame(aDelegatingFrame)) {
-        if (IsSnapshotContainingBlock(aKidFrame)) {
-          return ModifiedContainingBlock{
-              dom::ViewTransition::SnapshotContainingBlockRect(
-                  viewport->PresContext())};
-        }
-        MOZ_ASSERT(aContainingBlockRects.mScrollable ==
-                   aContainingBlockRects.mLocal);
-        containingBlock = scrollableContainingBlock =
-            viewport->GetContainingBlockAdjustedForScrollbars(aReflowInput);
-      }
-
-      // https://drafts.csswg.org/css-position/#original-cb
-      // Handle grid-based adjustment first...
-      if (isGrid) {
-        const auto border = aDelegatingFrame->GetUsedBorder();
-        const nsPoint borderShift{border.left, border.top};
-        // Shift in by border of the overall grid container.
-        containingBlock =
-            nsGridContainerFrame::GridItemCB(aKidFrame) + borderShift;
-        if (!defaultAnchorInfo) {
-          return ModifiedContainingBlock{containingBlock};
-        }
-      }
-      // ... Then the position-area based adjustment.
-      if (defaultAnchorInfo) {
-        auto positionArea = aKidFrame->StylePosition()->mPositionArea;
-        if (!positionArea.IsNone()) {
-          // Offset should be up to, but not including the containing block's
-          // scroll offset.
-          const auto offset = AnchorPositioningUtils::GetScrollOffsetFor(
-              aAnchorPosResolutionCache->mReferenceData
-                  ->CompensatingForScrollAxes(),
-              aKidFrame, aAnchorPosResolutionCache->mDefaultAnchorCache);
-          // Imagine an abspos container with a scroller in it, and then an
-          // anchor in it, where the anchor is visually in the middle of the
-          // scrollport. Then, when the scroller moves such that the anchor's
-          // left edge is on that of the scrollports, w.r.t. containing block,
-          // the anchor is zero left offset horizontally. The position-area
-          // grid needs to account for this.
-          const auto scrolledAnchorRect = defaultAnchorInfo->mRect - offset;
-          StylePositionArea resolvedPositionArea{};
-          const auto scrolledAnchorCb = AnchorPositioningUtils::
-              AdjustAbsoluteContainingBlockRectForPositionArea(
-                  scrolledAnchorRect + aContainingBlockRects.mLocal.TopLeft(),
-                  containingBlock, aKidFrame->GetWritingMode(),
-                  aDelegatingFrame->GetWritingMode(), positionArea,
-                  &resolvedPositionArea);
-          // By definition, we're using the default anchor, and are scroll
-          // compensated.
-          aAnchorPosResolutionCache->mReferenceData->mScrollCompensatedSides =
-              GetScrollCompensatedSidesFor(resolvedPositionArea);
-          return ModifiedContainingBlock{
-              offset, resolvedPositionArea, scrollableContainingBlock,
-              // Unscroll the CB by canceling out the previously applied
-              // scroll offset (See above), the offset will be applied later.
-              scrolledAnchorCb + offset};
-        }
-        return ModifiedContainingBlock{scrollableContainingBlock,
-                                       containingBlock};
-      }
-      return ModifiedContainingBlock{containingBlock};
-    }();
+    auto cb = ComputeContainingBlock(isGrid, aDelegatingFrame, aReflowInput,
+                                     aContainingBlockRects, aKidFrame,
+                                     aAnchorPosResolutionCache,
+                                     aReuseUnfragmentedAnchorPosReferences);
     if (aAnchorPosResolutionCache) {
       const auto& originalCb = cb.mMaybeScrollableRect;
       aAnchorPosResolutionCache->mReferenceData->mOriginalContainingBlockRect =

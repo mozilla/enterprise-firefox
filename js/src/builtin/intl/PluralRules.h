@@ -20,9 +20,8 @@ namespace mozilla::intl {
 class PluralRules;
 }
 
-namespace js {
+namespace js::intl {
 
-namespace intl {
 struct PluralRulesOptions {
   NumberFormatDigitOptions digitOptions{};
 
@@ -35,7 +34,6 @@ struct PluralRulesOptions {
   using CompactDisplay = NumberFormatOptions::CompactDisplay;
   CompactDisplay compactDisplay = CompactDisplay::Short;
 };
-}  // namespace intl
 
 class PluralRulesObject : public NativeObject {
  public:
@@ -79,15 +77,15 @@ class PluralRulesObject : public NativeObject {
     setFixedSlot(LOCALE_SLOT, JS::StringValue(locale));
   }
 
-  intl::PluralRulesOptions* getOptions() const {
+  PluralRulesOptions* getOptions() const {
     const auto& slot = getFixedSlot(OPTIONS_SLOT);
     if (slot.isUndefined()) {
       return nullptr;
     }
-    return static_cast<intl::PluralRulesOptions*>(slot.toPrivate());
+    return static_cast<PluralRulesOptions*>(slot.toPrivate());
   }
 
-  void setOptions(intl::PluralRulesOptions* options) {
+  void setOptions(PluralRulesOptions* options) {
     setFixedSlot(OPTIONS_SLOT, JS::PrivateValue(options));
   }
 
@@ -110,6 +108,6 @@ class PluralRulesObject : public NativeObject {
   static void finalize(JS::GCContext* gcx, JSObject* obj);
 };
 
-}  // namespace js
+}  // namespace js::intl
 
 #endif /* builtin_intl_PluralRules_h */

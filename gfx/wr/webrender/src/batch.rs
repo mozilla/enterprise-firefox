@@ -36,7 +36,7 @@ use crate::visibility::{PrimitiveVisibilityFlags, VisibilityState};
 use smallvec::SmallVec;
 use std::{f32, i32, usize};
 use crate::util::{project_rect, MaxRect, ScaleOffset};
-use crate::segment::EdgeAaSegmentMask;
+use crate::segment::EdgeMask;
 
 
 // Special sentinel value recognized by the shader. It is considered to be
@@ -752,7 +752,7 @@ impl BatchBuilder {
         bounding_rect: &PictureRect,
         z_id: ZBufferId,
         segment_index: i32,
-        edge_flags: EdgeAaSegmentMask,
+        edge_flags: EdgeMask,
         clip_task_address: RenderTaskAddress,
         brush_flags: BrushFlags,
         prim_header_index: PrimitiveHeaderIndex,
@@ -1176,7 +1176,7 @@ impl BatchBuilder {
                                             bounding_rect,
                                             z_id,
                                             INVALID_SEGMENT_INDEX,
-                                            EdgeAaSegmentMask::all(),
+                                            EdgeMask::all(),
                                             clip_task_address,
                                             brush_flags,
                                             shadow_prim_header_index,
@@ -1389,7 +1389,7 @@ impl BatchBuilder {
 
                             let instance = BrushInstance {
                                 segment_index: INVALID_SEGMENT_INDEX,
-                                edge_flags: EdgeAaSegmentMask::all(),
+                                edge_flags: EdgeMask::all(),
                                 clip_task_address,
                                 brush_flags,
                                 prim_header_index,
@@ -1501,7 +1501,7 @@ impl BatchBuilder {
                                         blend_mode,
                                         batch_features,
                                         brush_flags,
-                                        EdgeAaSegmentMask::all(),
+                                        EdgeMask::all(),
                                         prim_header_index,
                                         bounding_rect,
                                         transform_metadata,
@@ -1549,7 +1549,7 @@ impl BatchBuilder {
                         bounding_rect,
                         z_id,
                         INVALID_SEGMENT_INDEX,
-                        EdgeAaSegmentMask::all(),
+                        EdgeMask::all(),
                         clip_task_address,
                         brush_flags,
                         prim_header_index,
@@ -2553,7 +2553,7 @@ impl BatchBuilder {
                     bounding_rect,
                     z_id,
                     INVALID_SEGMENT_INDEX,
-                    EdgeAaSegmentMask::all(),
+                    EdgeMask::all(),
                     clip_task_address,
                     brush_flags,
                     prim_header_index,
@@ -2605,7 +2605,7 @@ impl BatchBuilder {
             bounding_rect,
             z_id,
             INVALID_SEGMENT_INDEX,
-            EdgeAaSegmentMask::empty(),
+            EdgeMask::empty(),
             clip_task_address,
             BrushFlags::empty(),
             prim_header_index,
@@ -2629,7 +2629,7 @@ impl BatchBuilder {
         alpha_blend_mode: BlendMode,
         features: BatchFeatures,
         brush_flags: BrushFlags,
-        edge_aa_mask: EdgeAaSegmentMask,
+        edge_aa_mask: EdgeMask,
         bounding_rect: &PictureRect,
         transform_metadata: TransformMetadata,
         z_id: ZBufferId,
@@ -2694,7 +2694,7 @@ impl BatchBuilder {
         blend_mode: BlendMode,
         features: BatchFeatures,
         brush_flags: BrushFlags,
-        edge_aa_mask: EdgeAaSegmentMask,
+        edge_aa_mask: EdgeMask,
         prim_header_index: PrimitiveHeaderIndex,
         bounding_rect: &PictureRect,
         transform_metadata: TransformMetadata,

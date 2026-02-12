@@ -65,17 +65,17 @@ class SVGGradientElement : public SVGGradientElementBase {
   EnumAttributesInfo GetEnumInfo() override;
   StringAttributesInfo GetStringInfo() override;
 
-  enum { GRADIENTUNITS, SPREADMETHOD };
-  SVGAnimatedEnumeration mEnumAttributes[2];
-  static SVGEnumMapping sSpreadMethodMap[];
-  static EnumInfo sEnumInfo[2];
+  // SVGGradientElement values
+  std::unique_ptr<SVGAnimatedTransformList> mGradientTransform;
 
   enum { HREF, XLINK_HREF };
   SVGAnimatedString mStringAttributes[2];
   static StringInfo sStringInfo[2];
 
-  // SVGGradientElement values
-  std::unique_ptr<SVGAnimatedTransformList> mGradientTransform;
+  enum { GRADIENTUNITS, SPREADMETHOD };
+  SVGAnimatedEnumeration mEnumAttributes[2];
+  static SVGEnumMapping sSpreadMethodMap[];
+  static EnumInfo sEnumInfo[2];
 };
 
 //---------------------Linear Gradients------------------------

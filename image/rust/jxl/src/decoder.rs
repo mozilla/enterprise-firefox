@@ -13,6 +13,7 @@ pub struct JxlApiDecoder {
     metadata_only: bool,
     pixel_format_set: bool,
     pub frame_ready: bool,
+    pub frame_duration: Option<f64>,
 }
 
 pub struct BasicInfo {
@@ -20,6 +21,8 @@ pub struct BasicInfo {
     pub height: u32,
     pub has_alpha: bool,
     pub alpha_premultiplied: bool,
+    pub is_animated: bool,
+    pub num_loops: u32,
 }
 
 #[derive(Debug)]
@@ -35,19 +38,17 @@ impl From<jxl::error::Error> for Error {
 }
 
 impl JxlApiDecoder {
-    pub fn new(metadata_only: bool) -> Self {
-        let options = JxlDecoderOptions::default();
+    pub fn new(metadata_only: bool, premultiply: bool) -> Self {
+        let mut options = JxlDecoderOptions::default();
+        options.premultiply_output = premultiply;
         let inner = JxlDecoderInner::new(options);
-
-        // Note: We don't set output_color_profile here because we don't have
-        // CMS support yet. The CMS commit will add proper color management.
-        // For now, output is in the image's native color space.
 
         Self {
             inner,
             metadata_only,
             pixel_format_set: false,
             frame_ready: false,
+            frame_duration: None,
         }
     }
 
@@ -59,11 +60,19 @@ impl JxlApiDecoder {
             .iter()
             .find(|ec| ec.ec_type == ExtraChannel::Alpha);
 
+        let (is_animated, num_loops) = basic_info
+            .animation
+            .as_ref()
+            .map(|anim| (true, anim.num_loops))
+            .unwrap_or((false, 0));
+
         Some(BasicInfo {
             width: basic_info.size.0 as u32,
             height: basic_info.size.1 as u32,
             has_alpha: alpha_channel.is_some(),
             alpha_premultiplied: alpha_channel.is_some_and(|ec| ec.alpha_associated),
+            is_animated,
+            num_loops,
         })
     }
 
@@ -96,11 +105,15 @@ impl JxlApiDecoder {
                 }
                 Ok(r) => match r {
                     ProcessingResult::Complete { .. } => {
-                        let has_basic_info = self.inner.basic_info().is_some();
-
-                        // For metadata-only decode, return as soon as we have basic_info
-                        if self.metadata_only && has_basic_info {
-                            return Ok(true);
+                        // For metadata-only decode of non-animated images, return once
+                        // we have basic_info. For animated images, continue until frame
+                        // header is available to get the first frame's duration.
+                        if self.metadata_only {
+                            if let Some(basic_info) = self.inner.basic_info() {
+                                if basic_info.animation.is_none() {
+                                    return Ok(true);
+                                }
+                            }
                         }
 
                         if !self.pixel_format_set {
@@ -120,14 +133,19 @@ impl JxlApiDecoder {
                             }
                         }
 
-                        // Check if we have rendered a frame
-                        if self.inner.frame_header().is_some() {
+                        // Check if we have a frame header ready
+                        let frame_header = self.inner.frame_header();
+                        if let Some(frame_header) = frame_header {
+                            self.frame_duration = frame_header.duration.or(Some(0.0));
                             self.frame_ready = true;
                             // process() with a buffer should have consumed the frame header
-                            assert!(!has_output_buffer, "frame_header present with output buffer");
+                            assert!(
+                                !has_output_buffer,
+                                "frame_header present with output buffer"
+                            );
                             return Ok(true);
                         } else if self.frame_ready {
-                            // Frame was consumed (rendered to buffer)
+                            // Frame was rendered
                             self.frame_ready = false;
                             return Ok(true);
                         }

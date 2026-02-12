@@ -17,12 +17,13 @@ kind-dependencies:
     - shippable-l10n-signing
 
 task-defaults:
-    run-on-repo-type: [hg]
+    run-on-repo-type: [hg, git]
 
 only-for-build-platforms:
     # Langpacks support all CPU architectures. We just need to pick one
     - linux64-devedition/opt
     - linux64-shippable/opt
+    - linux64-enterprise-shippable/opt
 
 tasks:
     repackage-deb-l10n:
@@ -37,7 +38,11 @@ tasks:
             use-caches: false
             config:
                 by-build-platform:
-                    linux64\b.*:
+                    linux64-enterprise\b.*:
+                        - repackage/base.py
+                        - repackage/base_enterprise.py
+                        - repackage/linux64_signed.py
+                    linux64(?!-enterprise)\b.*:
                         - repackage/base.py
                         - repackage/linux64_signed.py
         package-formats:

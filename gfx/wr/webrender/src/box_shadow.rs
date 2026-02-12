@@ -15,13 +15,13 @@ use crate::quad;
 use crate::render_target::RenderTargetKind;
 use crate::render_task::{BlurTask, PrimTask, RenderTask, RenderTaskKind};
 use crate::scene_building::{SceneBuilder, IsVisible};
-use crate::segment::EdgeAaSegmentMask;
+use crate::segment::EdgeMask;
 use crate::spatial_tree::SpatialNodeIndex;
 use crate::gpu_types::{BoxShadowStretchMode, UvRectKind, BlurEdgeMode};
 use crate::render_task_graph::RenderTaskId;
 use crate::transform::GpuTransformId;
 use crate::internal_types::LayoutPrimitiveInfo;
-use crate::util::{extract_inner_rect_k, ScaleOffset};
+use crate::util::extract_inner_rect_k;
 
 pub type BoxShadowKey = PrimKey<BoxShadow>;
 
@@ -100,14 +100,13 @@ impl PatternBuilder for BoxShadowTemplate {
         let clips_range = state.clip_store.push_clip_instance(self.kind.clip);
         let color_pattern = Pattern::color(self.kind.color);
 
-        let pattern_prim_address_f = quad::write_prim_blocks(
+        let pattern_prim_address_f = quad::write_layout_prim_blocks(
             &mut state.frame_gpu_data.f32,
-            pattern_rect.to_untyped(),
-            pattern_rect.to_untyped(),
+            &pattern_rect,
+            &pattern_rect,
             color_pattern.base_color,
             color_pattern.texture_input.task_id,
             &[],
-            ScaleOffset::identity(),
         );
 
         let pattern_task_id = state.rg_builder.add().init(RenderTask::new_dynamic(
@@ -115,12 +114,10 @@ impl PatternBuilder for BoxShadowTemplate {
             RenderTaskKind::Prim(PrimTask {
                 pattern: color_pattern.kind,
                 pattern_input: color_pattern.shader_input,
-                raster_spatial_node_index,
-                device_pixel_scale: DevicePixelScale::new(1.0),
                 content_origin,
                 prim_address_f: pattern_prim_address_f,
                 transform_id: GpuTransformId::IDENTITY,
-                edge_flags: EdgeAaSegmentMask::empty(),
+                edge_flags: EdgeMask::empty(),
                 quad_flags: QuadFlags::APPLY_RENDER_TASK_CLIP,
                 prim_needs_scissor_rect: false,
                 texture_input: color_pattern.texture_input.task_id,
@@ -135,8 +132,8 @@ impl PatternBuilder for BoxShadowTemplate {
         crate::quad::prepare_clip_range(
             clips_range,
             pattern_task_id,
-            task_rect,
-            pattern_prim_address_f,
+            &task_rect,
+            &pattern_rect,
             raster_spatial_node_index,
             raster_spatial_node_index,
             scale_factor,

@@ -58,8 +58,8 @@ return handleRustResult(
 
 /**
  * roundtripExtEnum
- * @param {EnumWithData} en
- * @returns {EnumWithData}
+ * @param {EnumWithData[keyof EnumWithData]} en
+ * @returns {EnumWithData[keyof EnumWithData]}
  */
 export function roundtripExtEnum(
     en) {

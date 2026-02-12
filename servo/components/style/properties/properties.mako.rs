@@ -15,6 +15,7 @@ use std::{ops, ptr, fmt, mem};
 #[cfg(feature = "gecko")] use crate::gecko_bindings::structs::{self, NonCustomCSSPropertyId};
 #[cfg(feature = "servo")] use crate::logical_geometry::LogicalMargin;
 #[cfg(feature = "servo")] use crate::computed_values;
+#[cfg(feature = "servo")] use crate::dom::AttributeReferences;
 use crate::logical_geometry::WritingMode;
 use malloc_size_of::{MallocSizeOf, MallocSizeOfOps};
 use crate::computed_value_flags::*;
@@ -80,7 +81,7 @@ pub mod gecko {
 /// A module with code for all the shorthand css properties, and a few
 /// serialization helpers.
 #[allow(missing_docs)]
-pub mod shorthands_generated {
+pub mod shorthands {
 <%
     for shorthand in data.shorthands_except_all():
         helpers.shorthand(shorthand)
@@ -500,7 +501,7 @@ impl NonCustomPropertyId {
             % if prop.name == "all":
                 0, // 'all' accepts no value other than CSS-wide keywords
             % else:
-                <shorthands_generated::${prop.ident}::Longhands as SpecifiedValueInfo>::SUPPORTED_TYPES,
+                <shorthands::${prop.ident}::Longhands as SpecifiedValueInfo>::SUPPORTED_TYPES,
             % endif
             % endfor
         ];
@@ -519,7 +520,7 @@ impl NonCustomPropertyId {
             % if prop.name == "all":
                 do_nothing, // 'all' accepts no value other than CSS-wide keywords
             % else:
-                <shorthands_generated::${prop.ident}::Longhands as SpecifiedValueInfo>::
+                <shorthands::${prop.ident}::Longhands as SpecifiedValueInfo>::
                     collect_completion_keywords,
             % endif
             % endfor
@@ -997,7 +998,7 @@ impl ShorthandId {
             % if shorthand.ident == "all":
                 all_to_css,
             % else:
-                shorthands_generated::${shorthand.ident}::to_css,
+                shorthands::${shorthand.ident}::to_css,
             % endif
             % endfor
         ];
@@ -1064,7 +1065,7 @@ impl ShorthandId {
             % if shorthand.ident == "all":
             parse_all,
             % else:
-            shorthands_generated::${shorthand.ident}::parse_into,
+            shorthands::${shorthand.ident}::parse_into,
             % endif
             % endfor
         ];
@@ -1886,6 +1887,7 @@ impl ComputedValues {
                     }),
                 % endfor
                 custom_properties: crate::custom_properties::ComputedCustomProperties::default(),
+                attribute_references: AttributeReferences::default(),
                 writing_mode: WritingMode::empty(),
                 rules: None,
                 visited_style: None,
@@ -2821,7 +2823,7 @@ macro_rules! longhand_properties_idents {
 #[cfg(feature = "gecko")]
 size_of_test!(ComputedValues, 256);
 #[cfg(feature = "servo")]
-size_of_test!(ComputedValues, 216);
+size_of_test!(ComputedValues, 224);
 
 // FFI relies on this.
 size_of_test!(Option<Arc<ComputedValues>>, 8);

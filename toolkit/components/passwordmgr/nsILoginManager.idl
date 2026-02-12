@@ -60,6 +60,7 @@ interface nsILoginManager : nsISupports {
 
   /**
    * Remove a login from the login manager.
+   * Deprecated: use removeLoginAsync instead.
    *
    * @param aLogin
    *        The login to be removed.
@@ -68,6 +69,17 @@ interface nsILoginManager : nsISupports {
    * values of any nsILoginMetaInfo properties are ignored.
    */
   void removeLogin(in nsILoginInfo aLogin);
+
+  /**
+   * Remove a login from the login manager.
+   *
+   * @param aLogin
+   *        The login to be removed.
+   *
+   * The specified login must exactly match a stored login. However, the
+   * values of any nsILoginMetaInfo properties are ignored.
+   */
+  Promise removeLoginAsync(in nsILoginInfo aLogin);
 
   /**
    * Modify an existing login in the login manager.

@@ -17,7 +17,13 @@ internal fun relayEligibilityReducer(
         is RelayEligibilityAction.AccountLoginStatusChanged ->
             relayState.copy(
                 eligibilityState = if (action.isLoggedIn) Ineligible.NoRelay else Ineligible.FirefoxAccountNotLoggedIn,
-                lastEntitlementCheckMs = NO_ENTITLEMENT_CHECK_YET_MS,
+                // If the user logs out, reset the last entitlement check for the previous account.
+                // Otherwise, keep it to preserve the entitlement check cooldown.
+                lastEntitlementCheckMs = if (!action.isLoggedIn) {
+                    NO_ENTITLEMENT_CHECK_YET_MS
+                } else {
+                    relayState.lastEntitlementCheckMs
+                },
             )
 
         is RelayEligibilityAction.RelayStatusResult -> {

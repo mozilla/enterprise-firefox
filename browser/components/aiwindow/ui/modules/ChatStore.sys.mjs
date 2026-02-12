@@ -287,7 +287,7 @@ class ChatStore {
       {
         conv_id: conversationId,
       }
-    );
+    ).catch(() => []);
 
     return conversations[0] ?? null;
   }

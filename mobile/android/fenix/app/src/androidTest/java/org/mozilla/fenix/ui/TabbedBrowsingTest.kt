@@ -62,7 +62,6 @@ class TabbedBrowsingTest : TestSetup() {
     // val retryTestRule = RetryTestRule(3)
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/903599
-    @Ignore("disabled - https://bugzilla.mozilla.org/show_bug.cgi?id=1989405")
     @Test
     fun closeAllTabsTest() {
         val defaultWebPage = mockWebServer.getGenericAsset(1)
@@ -89,7 +88,7 @@ class TabbedBrowsingTest : TestSetup() {
         }.openThreeDotMenu {
             verifyCloseAllTabsButton()
         }.closeAllTabs {
-            verifyTabCounter("0")
+            verifyTabCounter("0", isPrivateBrowsingEnabled = true)
         }
     }
 

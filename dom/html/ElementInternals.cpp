@@ -219,23 +219,22 @@ void ElementInternals::SetValidity(
   mValidationMessage =
       (!aMessage.WasPassed() || IsValid()) ? EmptyString() : aMessage.Value();
 
-  /**
-   * 7. Set element's validation anchor to null if anchor is not given.
-   *    Otherwise, if anchor is not a shadow-including descendant of element,
-   *    then throw a "NotFoundError" DOMException. Otherwise, set element's
-   *    validation anchor to anchor.
-   */
-  nsGenericHTMLElement* anchor =
-      aAnchor.WasPassed() ? &aAnchor.Value() : nullptr;
-  // TODO: maybe create something like IsShadowIncludingDescendantOf if there
-  //       are other places also need such check.
-  if (anchor && (anchor == mTarget ||
-                 !anchor->IsShadowIncludingInclusiveDescendantOf(mTarget))) {
-    aRv.ThrowNotFoundError(
-        "Validation anchor is not a shadow-including descendant of target"
-        "element");
-    return;
+  nsGenericHTMLElement* anchor;
+  if (!aAnchor.WasPassed()) {
+    // 7. If anchor is not given, then set it to element.
+    anchor = mTarget;
+  } else {
+    anchor = &aAnchor.Value();
+    // 8. Otherwise, if anchor is not a shadow-including inclusive
+    //    descendant of element, then throw a "NotFoundError" DOMException.
+    if (!anchor->IsShadowIncludingInclusiveDescendantOf(mTarget)) {
+      aRv.ThrowNotFoundError(
+          "Validation anchor is not a shadow-including inclusive "
+          "descendant of target element");
+      return;
+    }
   }
+  // 9. Set element's validation anchor to anchor.
   mValidationAnchor = anchor;
 }
 

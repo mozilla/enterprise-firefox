@@ -492,8 +492,7 @@ struct AddRemoveTimerMarker {
   static MarkerSchema MarkerTypeDisplay() {
     using MS = MarkerSchema;
     MS schema{MS::Location::MarkerChart, MS::Location::MarkerTable};
-    schema.AddKeyLabelFormat("name", "Name", MS::Format::String,
-                             MS::PayloadFlags::Searchable);
+    schema.AddKeyLabelFormat("name", "Name", MS::Format::String);
     schema.AddKeyLabelFormat("delay", "Delay", MS::Format::Milliseconds);
     schema.SetTableLabel("{marker.data.name} - {marker.data.delay}");
     return schema;

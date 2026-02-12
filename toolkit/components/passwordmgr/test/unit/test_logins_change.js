@@ -58,7 +58,7 @@ async function checkLoginInvalid(aLoginInfo, aExpectedError) {
 
   // Verify that no data was stored by the previous calls.
   await LoginTestUtils.checkLogins([testLogin]);
-  Services.logins.removeLogin(testLogin);
+  await Services.logins.removeLoginAsync(testLogin);
 }
 
 /**
@@ -104,7 +104,7 @@ add_task(async function test_addLogin_removeLogin() {
 
   // Removing each login should succeed.
   for (let loginInfo of TestData.loginList()) {
-    Services.logins.removeLogin(loginInfo);
+    await Services.logins.removeLoginAsync(loginInfo);
   }
 
   await LoginTestUtils.checkLogins([]);
@@ -271,9 +271,9 @@ add_task(async function test_invalid_characters() {
 /**
  * Tests removing a login that does not exists.
  */
-add_task(function test_removeLogin_nonexisting() {
-  Assert.throws(
-    () => Services.logins.removeLogin(TestData.formLogin()),
+add_task(async function test_removeLogin_nonexisting() {
+  await Assert.rejects(
+    Services.logins.removeLoginAsync(TestData.formLogin()),
     /No matching logins/
   );
 });

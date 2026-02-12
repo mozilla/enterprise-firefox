@@ -38,7 +38,7 @@
   --toolbar-field-focus-color: FieldText;
   --toolbar-field-focus-border-color: color-mix(in srgb, var(--focus-outline-color) 50%, transparent);
 
-  --toolbar-bgcolor: color-mix(in srgb, -moz-dialog 85%, white);
+  --toolbar-bgcolor: color-mix(in srgb, -moz-dialog 85%, var(--color-white));
   --toolbar-color: -moz-dialogtext;
   --toolbarseparator-color: color-mix(in srgb, currentColor 60%, transparent);
 
@@ -49,12 +49,12 @@
    * the toolbar background applies some white unconditionally.
    */
   @media not (prefers-contrast) {
-    --toolbar-field-border-color: transparent;
-    --toolbar-field-background-color: light-dark(rgba(0, 0, 0, 0.05), rgba(0, 0, 0, 0.3));
+    --toolbar-field-border-color: var(--border-color-transparent);
+    --toolbar-field-background-color: light-dark(rgba(0, 0, 0, 0.05), var(--color-black-alpha-30));
     --toolbar-field-color: inherit;
 
     @media (prefers-color-scheme: light) {
-      --toolbar-bgcolor: white;
+      --toolbar-bgcolor: var(--color-white);
     }
   }
 
@@ -79,12 +79,12 @@
   }
 
   &[lwtheme] {
-    --toolbar-bgcolor: rgba(255, 255, 255, 0.4);
+    --toolbar-bgcolor: var(--color-white-alpha-40);
     --toolbar-color: var(--lwt-text-color, inherit);
 
-    --toolbarbutton-icon-fill-attention: light-dark(rgb(0, 97, 224), rgb(0, 221, 255));
-    --toolbarbutton-icon-fill-attention-text-light: rgb(240, 240, 244);
-    --toolbarbutton-icon-fill-attention-text-dark: rgb(28, 27, 34);
+    --toolbarbutton-icon-fill-attention: light-dark(var(--color-blue-60), var(--color-cyan-30));
+    --toolbarbutton-icon-fill-attention-text-light: var(--color-gray-20);
+    --toolbarbutton-icon-fill-attention-text-dark: var(--color-gray-90);
     --toolbarbutton-icon-fill-attention-text: light-dark(
       var(--toolbarbutton-icon-fill-attention-text-light),
       var(--toolbarbutton-icon-fill-attention-text-dark)
@@ -99,17 +99,17 @@
  */
 @media not ((forced-colors) or (-moz-native-theme)) {
   :root:not([lwtheme]) {
-    --toolbar-color: light-dark(rgb(21, 20, 26), rgb(251, 251, 254));
+    --toolbar-color: light-dark(var(--color-gray-100), var(--color-gray-05));
     --toolbar-bgcolor: light-dark(#f9f9fb, rgb(43, 42, 51));
 
-    --toolbar-field-border-color: transparent;
-    --toolbar-field-background-color: light-dark(rgba(0, 0, 0, 0.05), rgba(0, 0, 0, 0.3));
-    --toolbar-field-color: light-dark(rgb(21, 20, 26), rgb(251, 251, 254));
-    --toolbar-field-focus-background-color: light-dark(white, rgb(66, 65, 77));
-    --toolbar-field-focus-color: light-dark(black, rgb(251, 251, 254));
+    --toolbar-field-border-color: var(--border-color-transparent);
+    --toolbar-field-background-color: light-dark(rgba(0, 0, 0, 0.05), var(--color-black-alpha-30));
+    --toolbar-field-color: light-dark(var(--color-gray-100), var(--color-gray-05));
+    --toolbar-field-focus-background-color: light-dark(var(--color-white), rgb(66, 65, 77));
+    --toolbar-field-focus-color: light-dark(var(--color-black), var(--color-gray-05));
 
-    --toolbarbutton-icon-fill: light-dark(rgb(91, 91, 102), rgb(251, 251, 254));
-    --toolbarbutton-icon-fill-attention: light-dark(rgb(0, 97, 224), rgb(0, 221, 255));
-    --toolbarbutton-icon-fill-attention-text: light-dark(rgb(240, 240, 244), rgb(28, 27, 34));
+    --toolbarbutton-icon-fill: light-dark(var(--color-gray-70), var(--color-gray-05));
+    --toolbarbutton-icon-fill-attention: light-dark(var(--color-blue-60), var(--color-cyan-30));
+    --toolbarbutton-icon-fill-attention-text: light-dark(var(--color-gray-20), var(--color-gray-90));
   }
 }

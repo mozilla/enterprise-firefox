@@ -36,12 +36,12 @@ parent:
   async MaxToolbarHeight(int32_t aHeight);
   async FixedBottomOffset(int32_t aOffset);
   async DefaultClearColor(uint32_t aColor);
-  async RequestScreenPixels(IntRect aSourceRect, IntSize aDestSize);
+  async RequestScreenPixels(uint64_t aRequestId, IntRect aSourceRect, IntSize aDestSize);
   async EnableLayerUpdateNotifications(bool aEnable);
 child:
   async ToolbarAnimatorMessageFromCompositor(int32_t aMessage);
   async NotifyCompositorScrollUpdate(CompositorScrollUpdate aUpdate);
-  async ScreenPixels(FileDescriptor? aHardwareBuffer, FileDescriptor? aAcquireFence);
+  async ScreenPixels(uint64_t aRequestId, FileDescriptor? aHardwareBuffer, FileDescriptor? aAcquireFence);
 };
 
 } // layers

@@ -42,7 +42,7 @@ const MR_ABOUT_WELCOME_DEFAULT = {
     {
       id: "AW_BACKUP_RESTORE_EMBEDDED_BACKUP_FOUND",
       targeting:
-        "backupRestoreEnabled && (backupsInfo.found || backupsInfo.multipleBackupsFound)",
+        "backupRestoreEnabled && !hasSelectableProfiles && (backupsInfo.found || backupsInfo.multipleBackupsFound)",
       content: {
         fullscreen: true,
         logo: {},

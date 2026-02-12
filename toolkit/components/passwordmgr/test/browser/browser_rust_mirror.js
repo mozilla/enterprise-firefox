@@ -121,7 +121,7 @@ add_task(async function test_mirror_removeLogin() {
   const removeLoginFinishedPromise = TestUtils.topicObserved(
     "rust-mirror.event.removeLogin.finished"
   );
-  Services.logins.removeLogin(storedLoginInfo);
+  await Services.logins.removeLoginAsync(storedLoginInfo);
   await removeLoginFinishedPromise;
 
   const rustStorage = new LoginManagerRustStorage();

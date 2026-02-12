@@ -627,6 +627,11 @@ class TabPanel extends HoverPanel {
    */
   set #noteExpanded(val) {
     this.panelElement.toggleAttribute("note-expanded", val);
+    if (val && this.#tab) {
+      this.#tab.dispatchEvent(
+        new CustomEvent("TabNote:Expand", { bubbles: true })
+      );
+    }
   }
 
   /**

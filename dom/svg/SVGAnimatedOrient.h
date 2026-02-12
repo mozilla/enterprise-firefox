@@ -88,8 +88,8 @@ class SVGAnimatedOrient {
  private:
   float mAnimVal;
   float mBaseVal;
-  uint8_t mAnimType;
-  uint8_t mBaseType;
+  uint8_t mAnimType : 4;
+  uint8_t mBaseType : 4;
   uint8_t mAnimValUnit;
   uint8_t mBaseValUnit;
   bool mIsAnimated;

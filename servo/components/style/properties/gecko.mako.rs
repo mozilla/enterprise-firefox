@@ -142,6 +142,25 @@ impl ComputedValues {
         })
     }
 
+    /// Calls the given function for each cached lazy pseudo-element style.
+    pub fn each_cached_lazy_pseudo<F>(&self, mut f: F)
+    where
+        F: FnMut(&Self),
+    {
+        thin_vec::auto_thin_vec!(let array: [*const structs::ComputedStyle; 4]);
+        unsafe {
+            bindings::Gecko_GetCachedLazyPseudoStyles(
+                self.as_gecko_computed_style(),
+                array.as_mut().as_mut_ptr(),
+            );
+        }
+        for style in array.iter() {
+            // ComputedValues is a newtype around ComputedStyle, so same layout
+            let values: &ComputedValues = unsafe { &*(*style as *const ComputedValues) };
+            f(values);
+        }
+    }
+
 }
 
 impl Drop for ComputedValues {
@@ -197,7 +216,7 @@ impl ComputedValuesInner {
 
     fn to_outer(self, pseudo: Option<&PseudoElement>) -> Arc<ComputedValues> {
         let pseudo_ty = match pseudo {
-            Some(p) => p.pseudo_type_and_argument().0,
+            Some(p) => p.pseudo_type(),
             None => structs::PseudoStyleType::NotPseudo,
         };
         unsafe {

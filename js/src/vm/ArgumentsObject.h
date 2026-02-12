@@ -96,7 +96,7 @@ struct ArgumentsData {
 static const unsigned ARGS_LENGTH_MAX = 500 * 1000;
 
 // Maximum number of arguments supported in jitcode. This bounds the
-// maximum number of arguments that can be supplied to a spread call
+// maximum number of arguments that can be supplied to a call, spread call,
 // or Function.prototype.apply without entering the VM. We limit the
 // number of parameters we can handle to a number that does not risk
 // us allocating too much stack, notably on Windows where there is a

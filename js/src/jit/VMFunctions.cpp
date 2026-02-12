@@ -1549,27 +1549,35 @@ bool ObjectKeysLength(JSContext* cx, HandleObject obj, int32_t* length) {
 void JitValuePreWriteBarrier(JSRuntime* rt, Value* vp) {
   AutoUnsafeCallWithABI unsafe;
   MOZ_ASSERT(vp->isGCThing());
+#ifndef JS_GC_CONCURRENT_MARKING
   MOZ_ASSERT(!vp->toGCThing()->isMarkedBlack());
+#endif
   gc::ValuePreWriteBarrier(*vp);
 }
 
 void JitStringPreWriteBarrier(JSRuntime* rt, JSString** stringp) {
   AutoUnsafeCallWithABI unsafe;
   MOZ_ASSERT(*stringp);
+#ifndef JS_GC_CONCURRENT_MARKING
   MOZ_ASSERT(!(*stringp)->isMarkedBlack());
+#endif
   gc::PreWriteBarrier(*stringp);
 }
 
 void JitObjectPreWriteBarrier(JSRuntime* rt, JSObject** objp) {
   AutoUnsafeCallWithABI unsafe;
   MOZ_ASSERT(*objp);
+#ifndef JS_GC_CONCURRENT_MARKING
   MOZ_ASSERT(!(*objp)->isMarkedBlack());
+#endif
   gc::PreWriteBarrier(*objp);
 }
 
 void JitShapePreWriteBarrier(JSRuntime* rt, Shape** shapep) {
   AutoUnsafeCallWithABI unsafe;
+#ifndef JS_GC_CONCURRENT_MARKING
   MOZ_ASSERT(!(*shapep)->isMarkedBlack());
+#endif
   gc::PreWriteBarrier(*shapep);
 }
 
@@ -3358,7 +3366,7 @@ void ReadBarrier(gc::Cell* cell) {
   MOZ_ASSERT(!gc::detail::TenuredCellIsMarkedBlack(tenured));
 
   Zone* zone = tenured->zone();
-  if (zone->needsIncrementalBarrier()) {
+  if (zone->needsMarkingBarrier()) {
     gc::PerformIncrementalReadBarrier(tenured);
   } else if (!zone->isGCPreparing() &&
              gc::detail::NonBlackCellIsMarkedGray(tenured)) {

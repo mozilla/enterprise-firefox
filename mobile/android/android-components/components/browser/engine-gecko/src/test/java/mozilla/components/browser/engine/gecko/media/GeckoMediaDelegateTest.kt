@@ -13,7 +13,6 @@ import mozilla.components.concept.engine.EngineSession
 import mozilla.components.concept.engine.media.RecordingDevice
 import mozilla.components.support.test.mock
 import mozilla.components.support.test.whenever
-import mozilla.components.support.utils.FakeDownloadFileUtils
 import mozilla.components.test.ReflectionUtils
 import org.junit.Before
 import org.junit.Test
@@ -25,7 +24,6 @@ import org.mozilla.geckoview.GeckoSession.MediaDelegate.RecordingDevice as Gecko
 @RunWith(AndroidJUnit4::class)
 class GeckoMediaDelegateTest {
     private lateinit var runtime: GeckoRuntime
-    private var downloadFileUtils = FakeDownloadFileUtils()
 
     @Before
     fun setup() {
@@ -35,10 +33,7 @@ class GeckoMediaDelegateTest {
 
     @Test
     fun `WHEN onRecordingStatusChanged is called THEN notify onRecordingStateChanged`() {
-        val mockSession = GeckoEngineSession(
-            runtime,
-            downloadFileUtils = downloadFileUtils,
-            )
+        val mockSession = GeckoEngineSession(runtime)
         var onRecordingWasCalled = false
         val geckoRecordingDevice = createGeckoRecordingDevice(
             status = GeckoRecordingDevice.Status.RECORDING,

@@ -610,6 +610,7 @@ static const char* sObserverTopics[] = {
     "application-background",
     "application-foreground",
     "memory-pressure",
+    "memory-pressure-stop",
     "child-gc-request",
     "child-cc-request",
     "child-mmu-request",
@@ -3792,7 +3793,9 @@ ContentParent::Observe(nsISupports* aSubject, const char* aTopic,
 
   // listening for memory pressure event
   if (!strcmp(aTopic, "memory-pressure")) {
-    (void)SendFlushMemory(nsDependentString(aData));
+    (void)SendMemoryPressure(nsDependentString(aData));
+  } else if (!strcmp(aTopic, "memory-pressure-stop")) {
+    (void)SendMemoryPressureStop();
   } else if (!strcmp(aTopic, "application-background")) {
     (void)SendApplicationBackground();
   } else if (!strcmp(aTopic, "application-foreground")) {
@@ -6477,6 +6480,9 @@ mozilla::ipc::IPCResult ContentParent::RecvPURLClassifierLocalByNameConstructor(
   for (nsCString& featureName : aFeatureNames) {
     RefPtr<nsIUrlClassifierFeature> feature =
         UrlClassifierFeatureFactory::GetFeatureByName(featureName);
+    if (!feature) {
+      continue;
+    }
     nsAutoCString name;
     nsresult rv = feature->GetName(name);
     if (NS_WARN_IF(NS_FAILED(rv))) {
@@ -6765,6 +6771,11 @@ mozilla::ipc::IPCResult ContentParent::RecvTestCookiePermissionDecided(
 
   RefPtr<WindowGlobalParent> wgp =
       aContext.get_canonical()->GetCurrentWindowGlobal();
+
+  if (!wgp) {
+    return IPC_FAIL(this, "No current window global");
+  }
+
   nsCOMPtr<nsICookieJarSettings> cjs = wgp->CookieJarSettings();
 
   Maybe<bool> result =

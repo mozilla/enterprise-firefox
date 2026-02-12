@@ -11,7 +11,7 @@ In addition to the WPT tests, geckodriver and webdriver have
 unit tests.  These are written in Rust, but you must explicitly
 tell mach to build these by adding the following line to your [mozconfig]:
 
-```make
+```shell
 ac_add_options --enable-rust-tests
 ```
 

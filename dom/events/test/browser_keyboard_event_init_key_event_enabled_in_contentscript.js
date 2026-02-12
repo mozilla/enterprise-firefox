@@ -39,10 +39,7 @@ async function installAndStartExtension() {
 
 add_task(async function () {
   await SpecialPowers.pushPrefEnv({
-    set: [
-      ["dom.keyboardevent.init_key_event.enabled", false],
-      ["dom.keyboardevent.init_key_event.enabled_in_addons", true],
-    ],
+    set: [["dom.keyboardevent.init_key_event.enabled_in_addons", true]],
   });
 
   const extension = await installAndStartExtension();

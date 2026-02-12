@@ -57,7 +57,7 @@ dependencies = [
     "six~=1.16",
     "slugid~=2.0",
     "taskcluster-urls==13.0.1",
-    "taskcluster~=91.0",
+    "taskcluster~=93.0",
     "toml~=0.10",
     "tomlkit~=0.12",
     "tqdm~=4.66",

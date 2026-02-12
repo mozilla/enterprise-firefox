@@ -460,14 +460,6 @@ export const PREFS_CONFIG = new Map([
     },
   ],
   [
-    "weather.placement",
-    {
-      title:
-        "weather widget can be rendered in a variety of positions. Either in `header` or `sections`",
-      value: "header",
-    },
-  ],
-  [
     "images.smart",
     {
       title: "Smart crop images on newtab",
@@ -735,7 +727,7 @@ export const PREFS_CONFIG = new Map([
     {
       title:
         "Boolean flag to enable personalized sections layout. Allows users to follow/unfollow topic sections.",
-      value: false,
+      value: true,
     },
   ],
   [
@@ -743,7 +735,7 @@ export const PREFS_CONFIG = new Map([
     {
       title:
         "Boolean flag to enable the setions management panel in Customize menu",
-      value: false,
+      value: true,
     },
   ],
   [
@@ -777,13 +769,6 @@ export const PREFS_CONFIG = new Map([
     },
   ],
   [
-    "discoverystream.dailyBrief.enabled",
-    {
-      title: "Boolean flag to enable the daily brief section",
-      value: false,
-    },
-  ],
-  [
     "discoverystream.dailyBrief.sectionId",
     {
       title: "sectionId for the Daily brief section",
@@ -791,9 +776,9 @@ export const PREFS_CONFIG = new Map([
     },
   ],
   [
-    "discoverystream.dailyBrief.v2.enabled",
+    "discoverystream.dailyBrief.enabled",
     {
-      title: "Boolean flag to enable daily brief v2 with Briefing Card",
+      title: "Boolean flag to enable daily briefing",
       value: false,
     },
   ],
@@ -1413,6 +1398,20 @@ export const PREFS_CONFIG = new Map([
           "app.support.baseURL"
         );
         return `${baseUrl}new-tab`;
+      },
+    },
+  ],
+  [
+    "privacyInfo.url",
+    {
+      title: "Link to HNT's sponsor privacy page",
+      getValue: () => {
+        // Services.urlFormatter completes the in-product SUMO page URL:
+        // https://support.mozilla.org/1/firefox/%VERSION%/%OS%/%LOCALE%/sponsor-privacy
+        const baseUrl = Services.urlFormatter.formatURLPref(
+          "app.support.baseURL"
+        );
+        return `${baseUrl}sponsor-privacy`;
       },
     },
   ],

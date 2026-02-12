@@ -4,7 +4,7 @@
 
 "use strict";
 
-const { LINKS } = ChromeUtils.importESModule(
+const { LINKS, BANDWIDTH } = ChromeUtils.importESModule(
   "chrome://browser/content/ipprotection/ipprotection-constants.mjs"
 );
 const { IPPExceptionsManager } = ChromeUtils.importESModule(
@@ -17,11 +17,23 @@ const mockLocation = {
 };
 
 const mockBandwidthUsage = {
-  currentBandwidthUsage: 25,
-  maxBandwidth: 50,
+  remaining: 30 * BANDWIDTH.BYTES_IN_GB,
+  remainingMB: 30 * (BANDWIDTH.BYTES_IN_GB / BANDWIDTH.BYTES_IN_MB),
+  remainingGB: 30,
+  max: 50 * BANDWIDTH.BYTES_IN_GB,
+  maxGB: 50,
+  used: 20 * BANDWIDTH.BYTES_IN_GB,
+  usedGB: 20,
+  percent: "40",
+  remainingRounded: 30,
+  gbCount: 2,
+  mbCount: 0,
 };
 
-async function setupStatusCardTest() {
+async function setupStatusCardTest(
+  opts = { bandwidthEnabled: true, egressEnabled: true }
+) {
+  const { bandwidthEnabled, egressEnabled } = opts;
   setupService({
     isSignedIn: true,
     isEnrolledAndEntitled: true,
@@ -30,16 +42,25 @@ async function setupStatusCardTest() {
       status: 200,
       error: undefined,
       pass: makePass(),
+      usage: makeUsage(),
     },
   });
   await IPPEnrollAndEntitleManager.refetchEntitlement();
+
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      ["browser.ipProtection.bandwidth.enabled", bandwidthEnabled],
+      ["browser.ipProtection.egressLocationEnabled", egressEnabled],
+    ],
+  });
 }
 
 async function cleanupStatusCardTest() {
+  await SpecialPowers.popPrefEnv();
   cleanupService();
 }
 
-function checkLocationAndBandwidth(statusBoxEl, location, bandwidth) {
+function checkLocationAndBandwidth(statusBoxEl, location, bandwidthUsage) {
   const locationEl = statusBoxEl.shadowRoot
     .querySelector(`slot[name="location"]`)
     .assignedElements()[0];
@@ -60,20 +81,66 @@ function checkLocationAndBandwidth(statusBoxEl, location, bandwidth) {
     BrowserTestUtils.isVisible(bandwidthEl),
     "bandwidth-usage should be present and visible"
   );
+
   Assert.equal(
-    bandwidthEl.value,
-    bandwidth.currentBandwidthUsage,
-    `Bandwidth should have ${bandwidth.currentBandwidthUsage} GB used`
+    bandwidthEl.bandwidthPercent,
+    bandwidthUsage.percent,
+    `Bandwidth should have ${bandwidthUsage.percent} % used`
   );
+
   Assert.equal(
-    bandwidthEl.bandwidthLeft,
-    bandwidth.maxBandwidth - bandwidth.currentBandwidthUsage,
-    `Bandwidth should have ${bandwidth.maxBandwidth - bandwidth.currentBandwidthUsage} GB left`
+    bandwidthEl.remainingMB,
+    bandwidthUsage.remainingMB,
+    `Bandwidth should have ${bandwidthUsage.remainingMB} MB remaining`
   );
+
+  Assert.equal(
+    bandwidthEl.remainingGB,
+    bandwidthUsage.remainingGB,
+    `Bandwidth should have ${bandwidthUsage.remainingGB} GB remaining`
+  );
+
   Assert.equal(
     bandwidthEl.max,
-    bandwidth.maxBandwidth,
-    `Bandwidth should have a max value of ${bandwidth.maxBandwidth}`
+    bandwidthUsage.max,
+    `Bandwidth should have max of ${bandwidthUsage.max} bytes`
+  );
+
+  Assert.equal(
+    bandwidthEl.maxGB,
+    bandwidthUsage.maxGB,
+    `Bandwidth should have ${bandwidthUsage.maxGB} GB remaining`
+  );
+
+  Assert.equal(
+    bandwidthEl.bandwidthUsed,
+    bandwidthUsage.used,
+    `Bandwidth should have ${bandwidthUsage.used} bytes used`
+  );
+
+  Assert.equal(
+    bandwidthEl.bandwidthUsedGB,
+    bandwidthUsage.usedGB,
+    `Bandwidth should have ${bandwidthUsage.usedGB} GB used`
+  );
+
+  Assert.equal(
+    bandwidthEl.remainingRounded,
+    bandwidthUsage.remainingRounded,
+    `Bandwidth should have ${bandwidthUsage.remainingRounded} GB remaining`
+  );
+
+  let descriptionTextArray = bandwidthEl.description.textContent.split(" ");
+  console.log(descriptionTextArray);
+  Assert.equal(
+    descriptionTextArray.filter(word => word === "GB").length,
+    bandwidthUsage.gbCount,
+    `GB used ${bandwidthUsage.gbCount} times`
+  );
+  Assert.equal(
+    descriptionTextArray.filter(word => word === "MB").length,
+    bandwidthUsage.mbCount,
+    `MB used ${bandwidthUsage.mbCount} times`
   );
 }
 
@@ -326,4 +393,142 @@ add_task(async function test_status_card_connecting() {
 
   await closePanel();
   await cleanupStatusCardTest();
+});
+
+/**
+ * Tests that location is not displayed when the pref is disabled.
+ */
+add_task(async function test_status_card_location_disabled() {
+  // Reset service state.
+  cleanupService();
+  IPProtectionService.updateState();
+
+  await setupStatusCardTest({ egressEnabled: false });
+
+  let content = await openPanel({
+    isProtectionEnabled: true,
+    bandwidthUsage: mockBandwidthUsage,
+  });
+
+  Assert.ok(
+    BrowserTestUtils.isVisible(content),
+    "ipprotection content component should be present"
+  );
+
+  let statusCard = content.statusCardEl;
+  Assert.ok(content.statusCardEl, "ipprotection-status-card should be present");
+
+  let statusBoxEl = statusCard.statusBoxEl;
+  Assert.ok(statusBoxEl, "Status box should be present");
+
+  const locationElements = statusBoxEl.shadowRoot
+    .querySelector(`slot[name="location"]`)
+    .assignedElements();
+  Assert.ok(
+    !locationElements.length,
+    "Location element should not be present when pref is disabled"
+  );
+
+  const bandwidthEl = statusBoxEl.shadowRoot
+    .querySelector(`slot[name="bandwidth"]`)
+    .assignedElements()[0];
+  Assert.ok(
+    BrowserTestUtils.isVisible(bandwidthEl),
+    "bandwidth-usage should still be present and visible"
+  );
+
+  await closePanel();
+  await cleanupStatusCardTest();
+});
+
+/**
+ * Tests the connected state UI.
+ */
+add_task(async function test_bandwidth_states() {
+  const mockUsages = [
+    {
+      remaining: 50 * BANDWIDTH.BYTES_IN_GB,
+      remainingMB: 50 * (BANDWIDTH.BYTES_IN_GB / BANDWIDTH.BYTES_IN_MB),
+      remainingGB: 50,
+      max: 50 * BANDWIDTH.BYTES_IN_GB,
+      maxGB: 50,
+      used: 0,
+      usedGB: 0,
+      percent: "0",
+      remainingRounded: 50,
+      gbCount: 2,
+      mbCount: 0,
+    },
+    {
+      remaining: 12.1 * BANDWIDTH.BYTES_IN_GB,
+      remainingMB: 12.1 * (BANDWIDTH.BYTES_IN_GB / BANDWIDTH.BYTES_IN_MB),
+      remainingGB: 12.1,
+      max: 50 * BANDWIDTH.BYTES_IN_GB,
+      maxGB: 50,
+      used: 37.9 * BANDWIDTH.BYTES_IN_GB,
+      usedGB: 37.9,
+      percent: "75",
+      remainingRounded: 12, // 12.1 is rounded down
+      gbCount: 2,
+      mbCount: 0,
+    },
+    {
+      remaining: 4.9 * BANDWIDTH.BYTES_IN_GB,
+      remainingMB: 4.9 * (BANDWIDTH.BYTES_IN_GB / BANDWIDTH.BYTES_IN_MB),
+      remainingGB: 4.9,
+      max: 50 * BANDWIDTH.BYTES_IN_GB,
+      maxGB: 50,
+      used: 45.1 * BANDWIDTH.BYTES_IN_GB,
+      usedGB: 45.1,
+      percent: "90",
+      remainingRounded: 5, // 4.9 is rounded up
+      gbCount: 2,
+      mbCount: 0,
+    },
+    {
+      remaining: 0.9 * BANDWIDTH.BYTES_IN_GB,
+      remainingMB: 0.9 * (BANDWIDTH.BYTES_IN_GB / BANDWIDTH.BYTES_IN_MB),
+      remainingGB: 0.9,
+      max: 50 * BANDWIDTH.BYTES_IN_GB,
+      maxGB: 50,
+      used: 49.1 * BANDWIDTH.BYTES_IN_GB,
+      usedGB: 49.1,
+      percent: "90",
+      remainingRounded: 0.9 * (BANDWIDTH.BYTES_IN_GB / BANDWIDTH.BYTES_IN_MB), // in MB
+      gbCount: 1,
+      mbCount: 1,
+    },
+  ];
+
+  for (let mockUsage of mockUsages) {
+    await setupStatusCardTest();
+
+    let content = await openPanel({
+      location: mockLocation,
+      isProtectionEnabled: true,
+      bandwidthUsage: mockUsage,
+    });
+
+    Assert.ok(
+      BrowserTestUtils.isVisible(content),
+      "ipprotection content component should be present"
+    );
+
+    let statusCard = content.statusCardEl;
+    Assert.ok(
+      content.statusCardEl,
+      "ipprotection-status-card should be present"
+    );
+
+    let statusBoxEl = statusCard.statusBoxEl;
+    Assert.ok(statusBoxEl, "Status box should be present");
+
+    checkLocationAndBandwidth(statusBoxEl, mockLocation, mockUsage);
+
+    const turnOffVPNButtonEl = statusCard.actionButtonEl;
+    Assert.ok(turnOffVPNButtonEl, "Button to turn off VPN should be present");
+
+    await closePanel();
+    await cleanupStatusCardTest();
+  }
 });

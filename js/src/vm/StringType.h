@@ -215,6 +215,7 @@ class JSString : public js::gc::CellWithLengthAndFlags {
   size_t length() const { return headerLengthField(); }
   MOZ_ALWAYS_INLINE
   uint32_t flags() const { return headerFlagsField(); }
+  uint32_t getFlagsAtomic() const { return headerFlagsFieldAtomic(); }
 
   // Class for temporarily holding character data that will be used for JSString
   // contents. The data may be allocated in the nursery, the malloc heap, or as
@@ -663,6 +664,8 @@ class JSString : public js::gc::CellWithLengthAndFlags {
 
   MOZ_ALWAYS_INLINE
   bool isRope() const { return !(flags() & LINEAR_BIT); }
+  MOZ_ALWAYS_INLINE
+  bool isRopeAtomic() const { return !(getFlagsAtomic() & LINEAR_BIT); }
 
   MOZ_ALWAYS_INLINE
   JSRope& asRope() const {
@@ -885,6 +888,11 @@ class JSString : public js::gc::CellWithLengthAndFlags {
   }
   void changeStringType(uint32_t len, uint32_t flags) {
     setHeaderLengthAndFlags(len, flags);
+#ifdef JS_GC_CONCURRENT_MARKING
+    // Synchronize with concurrent marking. See comments in
+    // GCMarker::eagerlyMarkChildren(JSRope* rope) for details
+    js::gc::MemoryReleaseFence(this);
+#endif
   }
 
 #ifdef DEBUG

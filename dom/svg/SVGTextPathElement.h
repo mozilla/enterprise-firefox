@@ -65,6 +65,11 @@ class SVGTextPathElement final : public SVGTextPathElementBase {
   SVGAnimatedLength* LengthAttributes() override { return mLengthAttributes; }
   static LengthInfo sLengthInfo[2];
 
+  enum { HREF, XLINK_HREF };
+  SVGAnimatedString mStringAttributes[2];
+  static StringInfo sStringInfo[2];
+
+  SVGAnimatedPathSegList mPath;
   enum { /* LENGTHADJUST, */ METHOD = 1, SPACING, SIDE };
   SVGAnimatedEnumeration mEnumAttributes[4];
   SVGAnimatedEnumeration* EnumAttributes() override { return mEnumAttributes; }
@@ -72,12 +77,6 @@ class SVGTextPathElement final : public SVGTextPathElementBase {
   static SVGEnumMapping sSpacingMap[];
   static SVGEnumMapping sSideMap[];
   static EnumInfo sEnumInfo[4];
-
-  enum { HREF, XLINK_HREF };
-  SVGAnimatedString mStringAttributes[2];
-  static StringInfo sStringInfo[2];
-
-  SVGAnimatedPathSegList mPath;
 };
 
 }  // namespace mozilla::dom

@@ -250,7 +250,7 @@ bool nsFrameSelection::NodeIsInLimiters(
   // the Text in it.
   if (aIndependentSelectionLimiterElement) {
     MOZ_ASSERT(aIndependentSelectionLimiterElement->GetPseudoElementType() ==
-               PseudoStyleType::mozTextControlEditingRoot);
+               PseudoStyleType::MozTextControlEditingRoot);
     MOZ_ASSERT(
         aIndependentSelectionLimiterElement->IsHTMLElement(nsGkAtoms::div));
     if (aIndependentSelectionLimiterElement == aContainerNode) {
@@ -425,7 +425,7 @@ nsFrameSelection::nsFrameSelection(
 
   MOZ_ASSERT_IF(aEditorRootAnonymousDiv,
                 aEditorRootAnonymousDiv->GetPseudoElementType() ==
-                    PseudoStyleType::mozTextControlEditingRoot);
+                    PseudoStyleType::MozTextControlEditingRoot);
   MOZ_ASSERT_IF(aEditorRootAnonymousDiv,
                 aEditorRootAnonymousDiv->IsHTMLElement(nsGkAtoms::div));
   mLimiters.mIndependentSelectionRootElement = aEditorRootAnonymousDiv;

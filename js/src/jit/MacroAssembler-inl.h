@@ -774,24 +774,25 @@ void MacroAssembler::branchTestProxyHandlerFamily(Condition cond,
   branchPtr(cond, familyAddr, ImmPtr(handlerp), label);
 }
 
-void MacroAssembler::branchTestNeedsIncrementalBarrier(Condition cond,
-                                                       Label* label) {
+void MacroAssembler::branchTestNeedsMarkingBarrier(Condition cond,
+                                                   Label* label) {
   MOZ_ASSERT(cond == Zero || cond == NonZero);
   CompileZone* zone = realm()->zone();
-  const uint32_t* needsBarrierAddr = zone->addressOfNeedsIncrementalBarrier();
+  const uint32_t* needsBarrierAddr = zone->addressOfNeedsMarkingBarrier();
   branchTest32(cond, AbsoluteAddress(needsBarrierAddr), Imm32(0x1), label);
 }
 
-void MacroAssembler::branchTestNeedsIncrementalBarrierAnyZone(
-    Condition cond, Label* label, Register scratch) {
+void MacroAssembler::branchTestNeedsMarkingBarrierAnyZone(Condition cond,
+                                                          Label* label,
+                                                          Register scratch) {
   MOZ_ASSERT(cond == Zero || cond == NonZero);
   if (maybeRealm_) {
-    branchTestNeedsIncrementalBarrier(cond, label);
+    branchTestNeedsMarkingBarrier(cond, label);
   } else {
     // We are compiling the interpreter or another runtime-wide trampoline, so
     // we have to load cx->zone.
     loadPtr(AbsoluteAddress(runtime()->addressOfZone()), scratch);
-    Address needsBarrierAddr(scratch, Zone::offsetOfNeedsIncrementalBarrier());
+    Address needsBarrierAddr(scratch, Zone::offsetOfNeedsMarkingBarrier());
     branchTest32(cond, needsBarrierAddr, Imm32(0x1), label);
   }
 }

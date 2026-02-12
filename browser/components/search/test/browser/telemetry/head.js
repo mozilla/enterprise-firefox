@@ -43,6 +43,14 @@ ChromeUtils.defineLazyGetter(this, "UrlbarTestUtils", () => {
   return module;
 });
 
+ChromeUtils.defineLazyGetter(this, "SearchbarTestUtils", () => {
+  const { SearchbarTestUtils: module } = ChromeUtils.importESModule(
+    "resource://testing-common/UrlbarTestUtils.sys.mjs"
+  );
+  module.init(this);
+  return module;
+});
+
 ChromeUtils.defineLazyGetter(this, "searchCounts", () => {
   return Services.telemetry.getKeyedHistogramById("SEARCH_COUNTS");
 });

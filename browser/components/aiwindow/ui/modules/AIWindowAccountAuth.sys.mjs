@@ -32,9 +32,10 @@ ChromeUtils.defineLazyGetter(lazy, "log", function () {
 XPCOMUtils.defineLazyPreferenceGetter(
   lazy,
   "hasAIWindowToSConsent",
-  "browser.smartwindow.tos.hasConsent",
-  false
+  "browser.smartwindow.tos.consentTime",
+  0
 );
+
 XPCOMUtils.defineLazyPreferenceGetter(
   lazy,
   "hasFirstrunCompleted",
@@ -44,11 +45,16 @@ XPCOMUtils.defineLazyPreferenceGetter(
 
 export const AIWindowAccountAuth = {
   get hasToSConsent() {
-    return lazy.hasAIWindowToSConsent;
+    return !!lazy.hasAIWindowToSConsent;
   },
 
   set hasToSConsent(value) {
-    Services.prefs.setBoolPref("browser.smartwindow.tos.hasConsent", value);
+    const nowSeconds = Math.floor(Date.now() / 1000);
+
+    Services.prefs.setIntPref(
+      "browser.smartwindow.tos.consentTime",
+      value ? nowSeconds : 0
+    );
   },
 
   async isSignedIn() {

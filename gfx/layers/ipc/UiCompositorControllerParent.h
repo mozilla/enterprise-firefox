@@ -43,7 +43,8 @@ class UiCompositorControllerParent final
   mozilla::ipc::IPCResult RecvMaxToolbarHeight(const int32_t& aHeight);
   mozilla::ipc::IPCResult RecvFixedBottomOffset(const int32_t& aOffset);
   mozilla::ipc::IPCResult RecvDefaultClearColor(const uint32_t& aColor);
-  mozilla::ipc::IPCResult RecvRequestScreenPixels(gfx::IntRect aSourceRect,
+  mozilla::ipc::IPCResult RecvRequestScreenPixels(uint64_t aRequestId,
+                                                  gfx::IntRect aSourceRect,
                                                   gfx::IntSize aDestSize);
   mozilla::ipc::IPCResult RecvEnableLayerUpdateNotifications(
       const bool& aEnable);

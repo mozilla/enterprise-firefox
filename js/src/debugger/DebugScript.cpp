@@ -419,6 +419,8 @@ void DebugScript::delete_(JS::GCContext* gcx, DebugScriptObject* owner) {
   gcx->free_(owner, this, allocSize(codeLength), MemoryUse::ScriptDebugScript);
 }
 
+DebugScriptMap::DebugScriptMap(JSContext* cx) : WeakMap(cx->zone()) {}
+
 #ifdef JSGC_HASH_TABLE_CHECKS
 /* static */
 void DebugAPI::checkDebugScriptAfterMovingGC(DebugScript* ds) {

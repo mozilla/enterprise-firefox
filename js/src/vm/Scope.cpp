@@ -20,6 +20,7 @@
 #include "wasm/WasmDebug.h"
 #include "wasm/WasmInstance.h"
 
+#include "gc/Allocator-inl.h"
 #include "gc/BufferAllocator-inl.h"
 #include "gc/GCContext-inl.h"
 #include "gc/ObjectKind-inl.h"
@@ -161,11 +162,22 @@ SharedShape* js::CreateEnvironmentShapeForSyntheticModule(
 
   RootedId id(cx);
   uint32_t slotIndex = numSlots;
+
+  auto addProperty = [&](PropertyName* name) {
+    id = NameToId(name);
+    return SharedPropMap::addPropertyWithKnownSlot(
+        cx, cls, &map, &mapLength, id, propFlags, slotIndex, &objectFlags);
+  };
+
+  // Add internal *namespace* property.
+  if (!addProperty(cx->names().star_namespace_star_)) {
+    return nullptr;
+  }
+  slotIndex++;
+
+  // Add synthetic exports.
   for (JSAtom* exportName : module->syntheticExportNames()) {
-    id = NameToId(exportName->asPropertyName());
-    if (!SharedPropMap::addPropertyWithKnownSlot(cx, cls, &map, &mapLength, id,
-                                                 propFlags, slotIndex,
-                                                 &objectFlags)) {
+    if (!addProperty(exportName->asPropertyName())) {
       return nullptr;
     }
     slotIndex++;
@@ -238,7 +250,7 @@ static typename ConcreteScope::RuntimeData* NewEmptyScopeData(
   using Data = typename ConcreteScope::RuntimeData;
 
   size_t dataSize = SizeOfScopeData<Data>(length);
-  Data* data = gc::NewBuffer<Data>(cx->zone(), dataSize, false, length);
+  Data* data = gc::NewSizedBuffer<Data>(cx->zone(), dataSize, false, length);
   if (!data) {
     ReportOutOfMemory(cx);
     return nullptr;

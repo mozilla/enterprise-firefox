@@ -425,6 +425,12 @@ class DocAccessible : public HyperTextAccessible,
    */
   void RefreshAnchorRelationCacheForTarget(LocalAccessible* aTarget);
 
+  /**
+   * Queue cache updates for all invokers (popovertarget/commandfor) of a
+   * popover element.
+   */
+  void QueueCacheUpdateForPopoverInvokers(dom::Element* aPopoverEl);
+
  protected:
   virtual ~DocAccessible();
 

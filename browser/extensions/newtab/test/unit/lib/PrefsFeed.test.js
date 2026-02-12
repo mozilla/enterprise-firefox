@@ -9,6 +9,7 @@ describe("PrefsFeed", () => {
   let FAKE_PREFS;
   let sandbox;
   let ServicesStub;
+  let SelectableProfileServiceStub;
   beforeEach(() => {
     sandbox = sinon.createSandbox();
     FAKE_PREFS = new Map([
@@ -28,6 +29,11 @@ describe("PrefsFeed", () => {
       obs: {
         removeObserver: sinon.spy(),
         addObserver: sinon.spy(),
+      },
+    };
+    SelectableProfileServiceStub = {
+      hasCreatedSelectableProfiles() {
+        return false;
       },
     };
     sinon.spy(feed, "_setPref");
@@ -51,6 +57,7 @@ describe("PrefsFeed", () => {
     overrider.set({
       PrivateBrowsingUtils: { enabled: true },
       Services: ServicesStub,
+      SelectableProfileService: SelectableProfileServiceStub,
     });
   });
   afterEach(() => {
@@ -726,6 +733,21 @@ describe("PrefsFeed", () => {
       it("should not evaluate when config is disabled", () => {
         feed.store.state.Prefs.values.trainhopConfig.activationWindowBehavior.enabled = false;
 
+        feed.checkForActivationWindow(mockNowInstant);
+
+        assert.notCalled(feed.enterActivationWindowState);
+        assert.notCalled(feed.exitActivationWindowState);
+      });
+
+      it("should not enter the activation window if 1 or more selectable profiles have been created", () => {
+        // First call: createdInstant < now (comparison returns -1)
+        // Second call: createdInstant > (now - 48 hours) (comparison returns 1)
+        global.Temporal.Instant.compare.onFirstCall().returns(-1);
+        global.Temporal.Instant.compare.onSecondCall().returns(1);
+
+        sandbox
+          .stub(SelectableProfileServiceStub, "hasCreatedSelectableProfiles")
+          .returns(true);
         feed.checkForActivationWindow(mockNowInstant);
 
         assert.notCalled(feed.enterActivationWindowState);

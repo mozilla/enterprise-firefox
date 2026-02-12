@@ -3562,7 +3562,8 @@ Element* nsINode::GetParentFlexElement() {
 
 Element* nsINode::GetNearestInclusiveOpenPopover() const {
   for (auto* el : InclusiveFlatTreeAncestorsOfType<Element>()) {
-    if (el->IsPopoverOpenedInMode(PopoverAttributeState::Auto)) {
+    if (el->IsPopoverOpenedInMode(PopoverAttributeState::Auto) ||
+        el->IsPopoverOpenedInMode(PopoverAttributeState::Hint)) {
       return el;
     }
   }
@@ -3572,12 +3573,14 @@ Element* nsINode::GetNearestInclusiveOpenPopover() const {
 Element* nsINode::GetNearestInclusiveTargetPopoverForInvoker() const {
   for (auto* el : InclusiveFlatTreeAncestorsOfType<Element>()) {
     if (auto* popover = el->GetEffectiveCommandForElement()) {
-      if (popover->IsPopoverOpenedInMode(PopoverAttributeState::Auto)) {
+      if (popover->IsPopoverOpenedInMode(PopoverAttributeState::Auto) ||
+          popover->IsPopoverOpenedInMode(PopoverAttributeState::Hint)) {
         return popover;
       }
     }
     if (auto* popover = el->GetEffectivePopoverTargetElement()) {
-      if (popover->IsPopoverOpenedInMode(PopoverAttributeState::Auto)) {
+      if (popover->IsPopoverOpenedInMode(PopoverAttributeState::Auto) ||
+          popover->IsPopoverOpenedInMode(PopoverAttributeState::Hint)) {
         return popover;
       }
     }
@@ -3630,8 +3633,18 @@ Element* nsINode::GetTopmostClickedPopover() const {
   if (!clickedPopover) {
     return invokedPopover;
   }
+  auto hintPopoverList =
+      clickedPopover->OwnerDoc()->PopoverListOf(PopoverAttributeState::Hint);
+
+  for (Element* el : Reversed(hintPopoverList)) {
+    if (el == clickedPopover || el == invokedPopover) {
+      return el;
+    }
+  }
+
   auto autoPopoverList =
       clickedPopover->OwnerDoc()->PopoverListOf(PopoverAttributeState::Auto);
+
   for (Element* el : Reversed(autoPopoverList)) {
     if (el == clickedPopover || el == invokedPopover) {
       return el;

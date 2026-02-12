@@ -553,30 +553,24 @@ class CssLogic {
 
   /**
    * Process the CssSelector objects that match the highlighted element and its
-   * parent elements. scope.callback() is executed for each CssSelector
-   * object, being passed the CssSelector object and the match status.
+   * parent elements.
    *
    * This method also includes all of the element.style properties, for each
    * highlighted element parent and for the highlighted element itself.
    *
-   * Note that the matched selectors are cached, such that next time your
-   * callback is invoked for the cached list of CssSelector objects.
-   *
-   * @param {function} callback the function you want to execute for each of
-   * the matched selectors.
-   * @param {object} scope the scope you want for the callback function. scope
-   * will be the this object when callback executes.
+   * @returns {Array} An array of arrays with the following items:
+   *          - 0: {CssSelector} selector
+   *          - 1: {number} status (from STATUS)
+   *          - 2: {number} distance
    */
-  processMatchedSelectors(callback, scope) {
+  processMatchedSelectors() {
     if (this.#matchedSelectors) {
-      if (callback) {
-        this.passId++;
-        this.#matchedSelectors.forEach(function (value) {
-          callback.call(scope, value[0], value[1]);
-          value[0].cssRule.passId = this.passId;
-        }, this);
+      this.passId++;
+      for (const [rule] of this.#matchedRules) {
+        rule.passId = this.passId;
       }
-      return;
+
+      return this.#matchedSelectors;
     }
 
     if (!this.#matchedRules) {
@@ -595,7 +589,7 @@ class CssLogic {
         // (which should be `&`), and it should be included
         ChromeUtils.getClassName(rule.domRule) === "CSSNestedDeclarations";
 
-      rule.selectors.forEach(function (selector) {
+      for (const selector of rule.selectors) {
         if (
           selector.matchId !== this.matchId &&
           (includeAllSelectors ||
@@ -603,14 +597,13 @@ class CssLogic {
         ) {
           selector.matchId = this.matchId;
           this.#matchedSelectors.push([selector, status, distance]);
-          if (callback) {
-            callback.call(scope, selector, status, distance);
-          }
         }
-      }, this);
+      }
 
       rule.passId = this.passId;
     }
+
+    return this.#matchedSelectors;
   }
 
   /**
@@ -1401,7 +1394,13 @@ class CssPropertyInfo {
     this.#matchedSelectors = [];
     this.needRefilter = false;
 
-    this.#cssLogic.processMatchedSelectors(this.#processMatchedSelector, this);
+    for (const [
+      selector,
+      status,
+      distance,
+    ] of this.#cssLogic.processMatchedSelectors()) {
+      this.#processMatchedSelector(selector, status, distance);
+    }
 
     // Sort the selectors by how well they match the given element.
     this.#matchedSelectors.sort((selectorInfo1, selectorInfo2) =>

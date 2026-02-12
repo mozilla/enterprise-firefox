@@ -9,6 +9,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <string_view>
 
 #include "js/ProtoKey.h"
 #include "js/RootingAPI.h"
@@ -54,24 +55,7 @@ extern void ReportInternalError(JSContext* cx, mozilla::intl::ICUError error);
  * an implementation, and that en-GB is more representative of the English used
  * in other locales.
  */
-static inline const char* LastDitchLocale() { return "en-GB"; }
-
-/**
- * Certain old, commonly-used language tags that lack a script, are expected to
- * nonetheless imply one. This object maps these old-style tags to modern
- * equivalents.
- */
-struct OldStyleLanguageTagMapping {
-  const char* const oldStyle;
-  const char* const modernStyle;
-
-  // Provide a constructor to catch missing initializers in the mappings array.
-  constexpr OldStyleLanguageTagMapping(const char* oldStyle,
-                                       const char* modernStyle)
-      : oldStyle(oldStyle), modernStyle(modernStyle) {}
-};
-
-extern const OldStyleLanguageTagMapping oldStyleLanguageTagMappings[5];
+static constexpr std::string_view LastDitchLocale() { return "en-GB"; }
 
 extern JS::UniqueChars EncodeLocale(JSContext* cx, JSString* locale);
 

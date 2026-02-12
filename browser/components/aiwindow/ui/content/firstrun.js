@@ -14,7 +14,6 @@ const MODEL_PREF = "browser.smartwindow.firstrun.modelChoice";
 const AUTO_ADVANCE_PREF = "browser.smartwindow.firstrun.autoAdvanceMS";
 const FIRST_RUN_COMPLETE_PREF = "browser.smartwindow.firstrun.hasCompleted";
 const EXPLAINER_PAGE_PREF = "browser.smartwindow.firstrun.explainerURL";
-const BRAND_DARK_PURPLE = "#210340";
 
 const autoAdvanceMS = Services.prefs.getIntPref(AUTO_ADVANCE_PREF);
 
@@ -77,7 +76,6 @@ const AI_WINDOW_CONFIG = {
           string_id: "aiwindow-firstrun-model-subtitle",
           fontSize: "17px",
           fontWeight: 320,
-          color: BRAND_DARK_PURPLE,
         },
         tiles: {
           type: "single-select",
@@ -93,7 +91,6 @@ const AI_WINDOW_CONFIG = {
                 string_id: "aiwindow-firstrun-model-fast-label",
                 fontSize: "20px",
                 fontWeight: 613,
-                color: BRAND_DARK_PURPLE,
               },
               icon: {
                 background:
@@ -101,7 +98,6 @@ const AI_WINDOW_CONFIG = {
               },
               body: {
                 string_id: "aiwindow-firstrun-model-fast-body",
-                color: BRAND_DARK_PURPLE,
                 fontSize: "15px",
                 fontWeight: 320,
               },
@@ -121,7 +117,6 @@ const AI_WINDOW_CONFIG = {
                 string_id: "aiwindow-firstrun-model-allpurpose-label",
                 fontSize: "20px",
                 fontWeight: 613,
-                color: BRAND_DARK_PURPLE,
               },
               icon: {
                 background:
@@ -129,7 +124,6 @@ const AI_WINDOW_CONFIG = {
               },
               body: {
                 string_id: "aiwindow-firstrun-model-allpurpose-body",
-                color: BRAND_DARK_PURPLE,
                 fontSize: "15px",
                 fontWeight: 320,
               },
@@ -149,7 +143,6 @@ const AI_WINDOW_CONFIG = {
                 string_id: "aiwindow-firstrun-model-personal-label",
                 fontSize: "20px",
                 fontWeight: 613,
-                color: BRAND_DARK_PURPLE,
               },
               icon: {
                 background:
@@ -157,7 +150,6 @@ const AI_WINDOW_CONFIG = {
               },
               body: {
                 string_id: "aiwindow-firstrun-model-personal-body",
-                color: BRAND_DARK_PURPLE,
                 fontSize: "15px",
                 fontWeight: 320,
               },

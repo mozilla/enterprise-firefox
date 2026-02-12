@@ -1906,10 +1906,9 @@ class MacroAssembler : public MacroAssemblerSpecific {
                                            Register scratch,
                                            const void* handlerp, Label* label);
 
-  inline void branchTestNeedsIncrementalBarrier(Condition cond, Label* label);
-  inline void branchTestNeedsIncrementalBarrierAnyZone(Condition cond,
-                                                       Label* label,
-                                                       Register scratch);
+  inline void branchTestNeedsMarkingBarrier(Condition cond, Label* label);
+  inline void branchTestNeedsMarkingBarrierAnyZone(Condition cond, Label* label,
+                                                   Register scratch);
 
   // Perform a type-test on a tag of a Value (32bits boxing), or the tagged
   // value (64bits boxing).
@@ -5239,7 +5238,7 @@ class MacroAssembler : public MacroAssemblerSpecific {
   template <typename T>
   void guardedCallPreBarrier(const T& address, MIRType type) {
     Label done;
-    branchTestNeedsIncrementalBarrier(Assembler::Zero, &done);
+    branchTestNeedsMarkingBarrier(Assembler::Zero, &done);
     unguardedCallPreBarrier(address, type);
     bind(&done);
   }
@@ -5251,7 +5250,7 @@ class MacroAssembler : public MacroAssemblerSpecific {
   void guardedCallPreBarrierAnyZone(const T& address, MIRType type,
                                     Register scratch) {
     Label done;
-    branchTestNeedsIncrementalBarrierAnyZone(Assembler::Zero, &done, scratch);
+    branchTestNeedsMarkingBarrierAnyZone(Assembler::Zero, &done, scratch);
     unguardedCallPreBarrier(address, type);
     bind(&done);
   }

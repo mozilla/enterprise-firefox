@@ -139,14 +139,29 @@ bool UiCompositorControllerChild::SetDefaultClearColor(const uint32_t& aColor) {
   return SendDefaultClearColor(aColor);
 }
 
-bool UiCompositorControllerChild::RequestScreenPixels(gfx::IntRect aSourceRect,
-                                                      gfx::IntSize aDestSize) {
+#ifdef MOZ_WIDGET_ANDROID
+RefPtr<UiCompositorControllerChild::ScreenPixelsPromise>
+UiCompositorControllerChild::RequestScreenPixels(gfx::IntRect aSourceRect,
+                                                 gfx::IntSize aDestSize) {
   if (!mIsOpen) {
-    return false;
+    return ScreenPixelsPromise::CreateAndReject(NS_ERROR_NOT_AVAILABLE,
+                                                __func__);
   }
 
-  return SendRequestScreenPixels(aSourceRect, aDestSize);
+  // We only support one request at a time. If an old request is still
+  // outstanding when a new request is made, just reject the old request.
+  if (mScreenPixelsPromise) {
+    mScreenPixelsPromise.extract().second->Reject(NS_ERROR_ABORT, __func__);
+  }
+
+  static uint64_t nextRequestId = 0;
+  const uint64_t requestId = nextRequestId++;
+  auto promise = MakeRefPtr<ScreenPixelsPromise::Private>(__func__);
+  mScreenPixelsPromise.emplace(requestId, promise);
+  (void)SendRequestScreenPixels(requestId, aSourceRect, aDestSize);
+  return promise;
 }
+#endif
 
 bool UiCompositorControllerChild::EnableLayerUpdateNotifications(
     const bool& aEnable) {
@@ -195,6 +210,11 @@ void UiCompositorControllerChild::ActorDestroy(ActorDestroyReason aWhy) {
   mIsOpen = false;
   mParent = nullptr;
 
+#ifdef MOZ_WIDGET_ANDROID
+  if (mScreenPixelsPromise) {
+    mScreenPixelsPromise->second->Reject(NS_ERROR_ABORT, __func__);
+  }
+#endif
   if (mProcessToken) {
     gfx::GPUProcessManager::Get()->NotifyRemoteActorDestroyed(mProcessToken);
     mProcessToken = 0;
@@ -236,9 +256,15 @@ UiCompositorControllerChild::RecvNotifyCompositorScrollUpdate(
 }
 
 mozilla::ipc::IPCResult UiCompositorControllerChild::RecvScreenPixels(
-    Maybe<ipc::FileDescriptor>&& aHardwareBuffer,
+    uint64_t aRequestId, Maybe<ipc::FileDescriptor>&& aHardwareBuffer,
     Maybe<ipc::FileDescriptor>&& aAcquireFence) {
 #if defined(MOZ_WIDGET_ANDROID)
+  if (!mScreenPixelsPromise || mScreenPixelsPromise->first != aRequestId) {
+    // Response is for an outdated request whose promise will have already been
+    // rejected. Just ignore it.
+    return IPC_OK();
+  }
+
   RefPtr<layers::AndroidHardwareBuffer> hardwareBuffer;
   if (aHardwareBuffer) {
     hardwareBuffer =
@@ -248,9 +274,8 @@ mozilla::ipc::IPCResult UiCompositorControllerChild::RecvScreenPixels(
   if (hardwareBuffer && aAcquireFence) {
     hardwareBuffer->SetAcquireFence(aAcquireFence->TakePlatformHandle());
   }
-  if (mWidget) {
-    mWidget->RecvScreenPixels(hardwareBuffer);
-  }
+  mScreenPixelsPromise->second->Resolve(std::move(hardwareBuffer), __func__);
+  mScreenPixelsPromise.reset();
 #endif  // defined(MOZ_WIDGET_ANDROID)
 
   return IPC_OK();

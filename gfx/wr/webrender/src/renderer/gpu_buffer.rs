@@ -423,7 +423,7 @@ impl<T> GpuBufferBuilderImpl<T> where T: Texel + std::convert::From<DeviceIntRec
     }
 
     #[allow(dead_code)]
-    pub fn push(
+    pub fn push_blocks(
         &mut self,
         blocks: &[T],
     ) -> GpuBufferAddress {
@@ -543,6 +543,28 @@ impl<T> GpuBufferBuilderImpl<T> where T: Texel + std::convert::From<DeviceIntRec
     }
 }
 
+impl GpuBufferBuilderF {
+    pub fn push<D>(&mut self, data: &D) -> GpuBufferAddress
+        where D: GpuBufferDataF
+    {
+        let mut writer = self.write_blocks(D::NUM_BLOCKS);
+        data.write(&mut writer);
+
+        writer.finish()
+    }
+}
+
+impl GpuBufferBuilderI {
+    pub fn push<D>(&mut self, data: &D) -> GpuBufferAddress
+        where D: GpuBufferDataI
+    {
+        let mut writer = self.write_blocks(D::NUM_BLOCKS);
+        data.write(&mut writer);
+
+        writer.finish()
+    }
+}
+
 fn ensure_row_capacity<T: Default>(data: &mut FrameVec<T>, cap: usize) {
     if (data.len() % MAX_VERTEX_TEXTURE_WIDTH) + cap > MAX_VERTEX_TEXTURE_WIDTH {
         finish_row(data);
@@ -589,10 +611,10 @@ fn test_gpu_buffer_sizing_push() {
     let mut builder = GpuBufferBuilderF::new(&frame_memory, 0, FrameId::first());
 
     let row = vec![GpuBufferBlockF::EMPTY; MAX_VERTEX_TEXTURE_WIDTH];
-    builder.push(&row);
+    builder.push_blocks(&row);
 
-    builder.push(&[GpuBufferBlockF::EMPTY]);
-    builder.push(&[GpuBufferBlockF::EMPTY]);
+    builder.push_blocks(&[GpuBufferBlockF::EMPTY]);
+    builder.push_blocks(&[GpuBufferBlockF::EMPTY]);
 
     let buffer = builder.finalize(&render_task_graph);
     assert_eq!(buffer.data.len(), MAX_VERTEX_TEXTURE_WIDTH * 2);

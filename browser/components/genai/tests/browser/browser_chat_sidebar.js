@@ -373,3 +373,13 @@ add_task(async function test_pip_actor_not_chat_sidebar() {
     await SidebarController.hide();
   });
 });
+
+/**
+ * Check that the sidebar is focused when opened
+ */
+add_task(async function test_sidebar_browser_focus() {
+  const sidebar = document.getElementById("sidebar");
+  await SidebarController.show("viewGenaiChatSidebar");
+  Assert.equal(document.activeElement, sidebar, "Sidebar is focused");
+  await SidebarController.hide();
+});

@@ -194,8 +194,6 @@ treeherder:
         'Attr-L10n': 'Build Attribution'
         'android-l10n': 'Import strings from android-l10n repo'
         'updt-tst': 'Test updates to release from older firefox versions'
-        'Tent': 'Enterprise specific selenium tests'
-        'TentChaos': 'Enterprise specific selenium tests (MOZ_CHAOSMODE)'
         'Rpk-Ent': 'Enterprise repacks'
         'Rpk-Ent-Rpk': 'Enterprise repacks repackage'
         'Rpk': 'Classic repacks'
@@ -204,6 +202,7 @@ treeherder:
         'DEB-Ent': "Debian Enterprise repacks"
         'BMS-Ent': "Mac signing for Enterprise repacks"
         'BMN-Ent': "Mac notarization for Enterprise repacks"
+        'MnEnt': 'Marionette tests Enterprise'
 
         # The below symbols are from firefox-android (fenix/focus/android-components)
         'buildconfig': 'Make sure the content of .buildconfig.yml matches what gradle knows about its projects'
@@ -244,6 +243,7 @@ treeherder:
         'compose-engine': 'compose-engine'
         'compose-tabstray': 'compose-tabstray'
         'concept-accelerometer': 'concept-accelerometer'
+        'concept-integrity': 'concept-integrity'
         'concept-awesomebar': 'concept-awesomebar'
         'concept-base': 'concept-base'
         'compose-base': 'compose-base'
@@ -303,6 +303,7 @@ treeherder:
         'lib-jexl': 'lib-jexl'
         'lib-llm-gemininano': 'lib-llm-gemininano'
         'lib-llm-mlpa': 'lib-llm-mlpa'
+        'lib-integrity-googleplay': 'lib-integrity-googleplay'
         'lib-shake': 'lib-shake'
         'lib-publicsuffixlist': 'lib-publicsuffixlist'
         'lib-push-firebase': 'lib-push-firebase'
@@ -398,6 +399,7 @@ try:
             - 'sm-arm-sim-linux32'
             - 'sm-arm64-sim-linux64'
             - 'sm-compacting-linux64'
+            - 'sm-concurrent-linux64'
             - 'sm-rootanalysis-linux64'
             - 'sm-package-linux64'
             - 'sm-tsan-linux64'
@@ -499,11 +501,11 @@ partner-urls:
                     beta|release.*:
                         by-release-level:
                             production: 'git@github.com:mozilla-partners/repack-manifests.git'
-                            staging: 'git@github.com:moz-releng-automation-stage/repack-manifests.git'
+                            staging: 'git@github.com:mozilla-partners/staging-repack-manifests.git'
                     esr.*:
                         by-release-level:
                             production: 'git@github.com:mozilla-partners/esr-repack-manifests.git'
-                            staging: 'git@github.com:moz-releng-automation-stage/esr-repack-manifests.git'
+                            staging: 'git@github.com:mozilla-partners/staging-esr-repack-manifests.git'
     release-partner-attribution:
         by-release-product:
             default: null
@@ -513,11 +515,11 @@ partner-urls:
                     beta|release.*:
                         by-release-level:
                             production: 'git@github.com:mozilla-partners/repack-manifests.git'
-                            staging: 'git@github.com:moz-releng-automation-stage/repack-manifests.git'
+                            staging: 'git@github.com:mozilla-partners/staging-repack-manifests.git'
                     esr.*:
                         by-release-level:
                             production: 'git@github.com:mozilla-partners/esr-repack-manifests.git'
-                            staging: 'git@github.com:moz-releng-automation-stage/esr-repack-manifests.git'
+                            staging: 'git@github.com:mozilla-partners/staging-esr-repack-manifests.git'
     release-eme-free-repack:
         by-release-product:
             default: null
@@ -527,17 +529,14 @@ partner-urls:
                     beta|release.*:
                         by-release-level:
                             production: 'git@github.com:mozilla-partners/mozilla-EME-free-manifest.git'
-                            staging: 'git@github.com:moz-releng-automation-stage/mozilla-EME-free-manifest.git'
+                            staging: 'git@github.com:mozilla-partners/staging-mozilla-EME-free-manifest.git'
     enterprise-repack:
         by-release-product:
             default: null
             firefox-enterprise:
-                by-release-type:
-                    default: 'git@github.com:mozilla/enterprise-manifests.git'
-                    beta|release.*:
-                        by-release-level:
-                            production: 'git@github.com:mozilla/enterprise-manifests.git'
-                            staging: 'git@github.com:mozilla/enterprise-manifests.git'
+                by-release-level:
+                    staging: 'git@github.com:mozilla-partners/staging-enterprise-manifests.git'
+                    production: 'git@github.com:mozilla-partners/enterprise-manifests.git'
 
 
 task-priority:
@@ -857,7 +856,7 @@ workers:
             provisioner: '{trust-domain}-t'
             implementation: generic-worker
             os: windows
-            worker-type: '{alias}-alpha'
+            worker-type: '{alias}'
         win11-a64-24h2:
             provisioner: '{trust-domain}-t'
             implementation: generic-worker

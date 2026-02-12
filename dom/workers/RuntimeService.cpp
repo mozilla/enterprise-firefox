@@ -376,6 +376,10 @@ void LoadJSGCMemoryOptions(const char* aPrefName, void* /* aClosure */) {
       PREF("gc_parallel_marking_threshold_mb",
            JSGC_PARALLEL_MARKING_THRESHOLD_MB),
       PREF("gc_max_parallel_marking_threads", JSGC_MAX_MARKING_THREADS),
+#ifdef JS_GC_CONCURRENT_MARKING
+      PREF("gc_experimental_concurrent_marking",
+           JSGC_CONCURRENT_MARKING_ENABLED),
+#endif
 #ifdef NIGHTLY_BUILD
       PREF("gc_experimental_semispace_nursery", JSGC_SEMISPACE_NURSERY_ENABLED),
 #endif
@@ -434,6 +438,9 @@ void LoadJSGCMemoryOptions(const char* aPrefName, void* /* aClosure */) {
       }
       case JSGC_COMPACTING_ENABLED:
       case JSGC_PARALLEL_MARKING_ENABLED:
+#ifdef JS_GC_CONCURRENT_MARKING
+      case JSGC_CONCURRENT_MARKING_ENABLED:
+#endif
 #ifdef NIGHTLY_BUILD
       case JSGC_SEMISPACE_NURSERY_ENABLED:
 #endif

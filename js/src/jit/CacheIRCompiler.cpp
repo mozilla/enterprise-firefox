@@ -1238,8 +1238,8 @@ ICCacheIRStub* ICCacheIRStub::clone(JSRuntime* rt, ICStubSpace& newSpace,
   uint8_t* dest = newStub->stubDataStart();
 
   // Because this can be called during sweeping when discarding JIT code, we
-  // have to lock the store buffer
-  gc::AutoLockStoreBuffer lock(rt);
+  // have to lock.
+  gc::AutoLockSweepingLock lock(rt);
 
   uint32_t field = 0;
   while (true) {

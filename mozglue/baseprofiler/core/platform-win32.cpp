@@ -241,6 +241,10 @@ SamplerThread::SamplerThread(PSLockRef aLock, uint32_t aActivityGeneration,
 }
 
 SamplerThread::~SamplerThread() {
+  if (mHiResTimer) {
+    CloseHandle(mHiResTimer);
+  }
+
   WaitForSingleObject(mThread, INFINITE);
 
   // Close our own handle for the thread.

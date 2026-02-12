@@ -255,80 +255,209 @@ describe("<WeatherForecast>", () => {
     });
 
     it("should dispatch WEATHER_SEARCH_ACTIVE when 'Change location' is clicked", () => {
+      wrapper = mount(
+        <WrapWithProvider state={mockState}>
+          <WeatherForecast
+            dispatch={dispatch}
+            isMaximized={false}
+            widgetsMayBeMaximized={true}
+          />
+        </WrapWithProvider>
+      );
+
       const changeLocationItem = wrapper.find(
         "panel-item[data-l10n-id='newtab-weather-menu-change-location']"
       );
       changeLocationItem.props().onClick();
 
-      assert.ok(dispatch.calledOnce);
+      assert.ok(dispatch.calledTwice);
       const [action] = dispatch.getCall(0).args;
       assert.equal(action.type, at.WEATHER_SEARCH_ACTIVE);
       assert.equal(action.data, true);
+
+      // Verify telemetry
+      const [telemetryAction] = dispatch.getCall(1).args;
+      assert.equal(telemetryAction.type, at.WIDGETS_USER_EVENT);
+      assert.equal(telemetryAction.data.widget_name, "weather");
+      assert.equal(telemetryAction.data.widget_source, "context_menu");
+      assert.equal(telemetryAction.data.user_action, "change_location");
+      assert.equal(telemetryAction.data.widget_size, "small");
     });
 
     it("should dispatch WEATHER_USER_OPT_IN_LOCATION when 'Detect my location' is clicked", () => {
+      wrapper = mount(
+        <WrapWithProvider state={mockState}>
+          <WeatherForecast
+            dispatch={dispatch}
+            isMaximized={false}
+            widgetsMayBeMaximized={true}
+          />
+        </WrapWithProvider>
+      );
+
       const detectLocationItem = wrapper.find(
         "panel-item[data-l10n-id='newtab-weather-menu-detect-my-location']"
       );
       detectLocationItem.props().onClick();
 
-      assert.ok(dispatch.calledOnce);
+      assert.ok(dispatch.calledTwice);
       const [action] = dispatch.getCall(0).args;
       assert.equal(action.type, at.WEATHER_USER_OPT_IN_LOCATION);
+
+      // Verify telemetry
+      const [telemetryAction] = dispatch.getCall(1).args;
+      assert.equal(telemetryAction.type, at.WIDGETS_USER_EVENT);
+      assert.equal(telemetryAction.data.widget_name, "weather");
+      assert.equal(telemetryAction.data.widget_source, "context_menu");
+      assert.equal(telemetryAction.data.user_action, "detect_location");
+      assert.equal(telemetryAction.data.widget_size, "small");
     });
 
     it("should dispatch SET_PREF to change temperature units to Celsius", () => {
+      wrapper = mount(
+        <WrapWithProvider state={mockState}>
+          <WeatherForecast
+            dispatch={dispatch}
+            isMaximized={false}
+            widgetsMayBeMaximized={true}
+          />
+        </WrapWithProvider>
+      );
+
       const changeTempItem = wrapper.find(
         "panel-item[data-l10n-id='newtab-weather-menu-change-temperature-units-celsius']"
       );
       changeTempItem.props().onClick();
 
-      assert.ok(dispatch.calledOnce);
+      assert.ok(dispatch.calledTwice);
       const [action] = dispatch.getCall(0).args;
       assert.equal(action.type, at.SET_PREF);
       assert.equal(action.data.name, "weather.temperatureUnits");
       assert.equal(action.data.value, "c");
+
+      // Verify telemetry
+      const [telemetryAction] = dispatch.getCall(1).args;
+      assert.equal(telemetryAction.type, at.WIDGETS_USER_EVENT);
+      assert.equal(telemetryAction.data.widget_name, "weather");
+      assert.equal(telemetryAction.data.widget_source, "context_menu");
+      assert.equal(
+        telemetryAction.data.user_action,
+        "change_temperature_units"
+      );
+      assert.equal(telemetryAction.data.widget_size, "small");
+      assert.equal(telemetryAction.data.action_value, "c");
     });
 
     it("should dispatch SET_PREF to change display to simple", () => {
+      wrapper = mount(
+        <WrapWithProvider state={mockState}>
+          <WeatherForecast
+            dispatch={dispatch}
+            isMaximized={false}
+            widgetsMayBeMaximized={true}
+          />
+        </WrapWithProvider>
+      );
+
       const changeDisplayItem = wrapper.find(
         "panel-item[data-l10n-id='newtab-weather-menu-change-weather-display-simple']"
       );
       changeDisplayItem.props().onClick();
 
-      assert.ok(dispatch.calledOnce);
+      assert.ok(dispatch.calledTwice);
       const [action] = dispatch.getCall(0).args;
       assert.equal(action.type, at.SET_PREF);
       assert.equal(action.data.name, "weather.display");
       assert.equal(action.data.value, "simple");
+
+      // Verify telemetry
+      const [telemetryAction] = dispatch.getCall(1).args;
+      assert.equal(telemetryAction.type, at.WIDGETS_USER_EVENT);
+      assert.equal(telemetryAction.data.widget_name, "weather");
+      assert.equal(telemetryAction.data.widget_source, "context_menu");
+      assert.equal(telemetryAction.data.user_action, "change_weather_display");
+      assert.equal(telemetryAction.data.widget_size, "small");
     });
 
     it("should dispatch SET_PREF to hide weather when 'Hide weather' is clicked", () => {
+      wrapper = mount(
+        <WrapWithProvider state={mockState}>
+          <WeatherForecast
+            dispatch={dispatch}
+            isMaximized={false}
+            widgetsMayBeMaximized={true}
+          />
+        </WrapWithProvider>
+      );
+
       const hideWeatherItem = wrapper.find(
         "panel-item[data-l10n-id='newtab-weather-menu-hide-weather-v2']"
       );
       hideWeatherItem.props().onClick();
 
-      assert.ok(dispatch.calledOnce);
+      assert.ok(dispatch.calledTwice);
       const [action] = dispatch.getCall(0).args;
       assert.equal(action.type, at.SET_PREF);
       assert.equal(action.data.name, "showWeather");
       assert.equal(action.data.value, false);
+
+      // Verify telemetry
+      const [telemetryAction] = dispatch.getCall(1).args;
+      assert.equal(telemetryAction.type, at.WIDGETS_ENABLED);
+      assert.equal(telemetryAction.data.widget_name, "weather");
+      assert.equal(telemetryAction.data.widget_source, "context_menu");
+      assert.equal(telemetryAction.data.enabled, false);
+      assert.equal(telemetryAction.data.widget_size, "small");
     });
 
     it("should dispatch OPEN_LINK when 'Learn more' is clicked", () => {
+      wrapper = mount(
+        <WrapWithProvider state={mockState}>
+          <WeatherForecast
+            dispatch={dispatch}
+            isMaximized={false}
+            widgetsMayBeMaximized={true}
+          />
+        </WrapWithProvider>
+      );
+
       const learnMoreItem = wrapper.find(
         "panel-item[data-l10n-id='newtab-weather-menu-learn-more']"
       );
       learnMoreItem.props().onClick();
 
-      assert.ok(dispatch.calledOnce);
+      assert.ok(dispatch.calledTwice);
       const [action] = dispatch.getCall(0).args;
       assert.equal(action.type, at.OPEN_LINK);
       assert.equal(
         action.data.url,
         "https://support.mozilla.org/kb/firefox-new-tab-widgets"
       );
+
+      // Verify telemetry
+      const [telemetryAction] = dispatch.getCall(1).args;
+      assert.equal(telemetryAction.type, at.WIDGETS_USER_EVENT);
+      assert.equal(telemetryAction.data.widget_name, "weather");
+      assert.equal(telemetryAction.data.widget_source, "context_menu");
+      assert.equal(telemetryAction.data.user_action, "learn_more");
+      assert.equal(telemetryAction.data.widget_size, "small");
+    });
+
+    it("should report widget_size as 'medium' when widget is maximized", () => {
+      wrapper = mount(
+        <WrapWithProvider state={mockState}>
+          <WeatherForecast dispatch={dispatch} isMaximized={true} />
+        </WrapWithProvider>
+      );
+
+      const changeLocationItem = wrapper.find(
+        "panel-item[data-l10n-id='newtab-weather-menu-change-location']"
+      );
+      changeLocationItem.props().onClick();
+
+      const [telemetryAction] = dispatch.getCall(1).args;
+      assert.equal(telemetryAction.type, at.WIDGETS_USER_EVENT);
+      assert.equal(telemetryAction.data.widget_size, "medium");
     });
   });
 });

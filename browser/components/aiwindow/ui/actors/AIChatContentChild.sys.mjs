@@ -2,8 +2,17 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
+
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {});
+
+XPCOMUtils.defineLazyServiceGetter(
+  lazy,
+  "ClipboardHelper",
+  "@mozilla.org/widget/clipboardhelper;1",
+  Ci.nsIClipboardHelper
+);
 
 /**
  * Represents a child actor for getting page data from the browser.
@@ -13,11 +22,18 @@ export class AIChatContentChild extends JSWindowActorChild {
     "AIChatContent:DispatchMessage": {
       event: "aiChatContentActor:message",
     },
+    "AIChatContent:TruncateConversation": {
+      event: "aiChatContentActor:truncate",
+    },
+    "AIChatContent:RemoveAppliedMemory": {
+      event: "aiChatContentActor:remove-applied-memory",
+    },
   };
 
   static #VALID_EVENTS_FROM_CONTENT = new Set([
     "AIChatContent:DispatchSearch",
     "AIChatContent:Ready",
+    "AIChatContent:DispatchFooterAction",
   ]);
 
   /**
@@ -36,6 +52,11 @@ export class AIChatContentChild extends JSWindowActorChild {
         this.#handleSearchDispatch(event);
         break;
 
+      case "AIChatContent:DispatchFooterAction": {
+        this.#handleFooterActionDispatch(event);
+        break;
+      }
+
       case "AIChatContent:Ready":
         this.sendAsyncMessage("AIChatContent:Ready");
         break;
@@ -49,6 +70,18 @@ export class AIChatContentChild extends JSWindowActorChild {
 
   #handleSearchDispatch(event) {
     this.sendAsyncMessage("aiChatContentActor:search", event.detail);
+  }
+
+  #handleFooterActionDispatch(event) {
+    const { action, text } = event.detail ?? {};
+    // Copy is handled in the child actor since it depends on content-side
+    // selection and clipboard context.
+    if (action === "copy") {
+      if (text) {
+        lazy.ClipboardHelper.copyString(text, this.windowContext);
+      }
+    }
+    this.sendAsyncMessage("aiChatContentActor:footer-action", event.detail);
   }
 
   async receiveMessage(message) {

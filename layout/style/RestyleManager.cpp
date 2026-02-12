@@ -2245,12 +2245,12 @@ void ServoRestyleState::AddPendingWrapperRestyle(nsIFrame* aWrapperFrame) {
   MOZ_ASSERT(aWrapperFrame->Style()->IsInheritingAnonBox(),
              "All our wrappers are anon boxes, and why would we restyle "
              "non-inheriting ones?");
-  MOZ_ASSERT(
-      aWrapperFrame->Style()->GetPseudoType() != PseudoStyleType::cellContent,
-      "Someone should be using TableAwareParentFor");
-  MOZ_ASSERT(
-      aWrapperFrame->Style()->GetPseudoType() != PseudoStyleType::tableWrapper,
-      "Someone should be using TableAwareParentFor");
+  MOZ_ASSERT(aWrapperFrame->Style()->GetPseudoType() !=
+                 PseudoStyleType::MozCellContent,
+             "Someone should be using TableAwareParentFor");
+  MOZ_ASSERT(aWrapperFrame->Style()->GetPseudoType() !=
+                 PseudoStyleType::MozTableWrapper,
+             "Someone should be using TableAwareParentFor");
   // Make sure we only add first continuations.
   aWrapperFrame = aWrapperFrame->FirstContinuation();
   nsIFrame* last = mPendingWrapperRestyles.SafeLastElement(nullptr);
@@ -2371,7 +2371,7 @@ nsIFrame* ServoRestyleState::TableAwareParentFor(const nsIFrame* aChild) {
 
   nsIFrame* parent = aChild->GetParent();
   // Now if parent is a cell-content frame, we actually want the cellframe.
-  if (parent->Style()->GetPseudoType() == PseudoStyleType::cellContent) {
+  if (parent->Style()->GetPseudoType() == PseudoStyleType::MozCellContent) {
     return parent->GetParent();
   }
   if (const nsTableWrapperFrame* wrapper = do_QueryFrame(parent)) {
@@ -2540,14 +2540,14 @@ struct RestyleManager::TextPostTraversalState {
   void ComputeHintIfNeeded(nsIContent* aContent, nsIFrame* aTextFrame,
                            ComputedStyle& aNewStyle) {
     MOZ_ASSERT(aTextFrame);
-    MOZ_ASSERT(aNewStyle.GetPseudoType() == PseudoStyleType::mozText);
+    MOZ_ASSERT(aNewStyle.GetPseudoType() == PseudoStyleType::MozText);
 
     if (MOZ_LIKELY(!mShouldPostHints)) {
       return;
     }
 
     ComputedStyle* oldStyle = aTextFrame->Style();
-    MOZ_ASSERT(oldStyle->GetPseudoType() == PseudoStyleType::mozText);
+    MOZ_ASSERT(oldStyle->GetPseudoType() == PseudoStyleType::MozText);
 
     // We rely on the fact that all the text children for the same element share
     // style to avoid recomputing style differences for all of them.
@@ -2607,53 +2607,6 @@ static void UpdateFirstLetterIfNeeded(nsIFrame* aFrame,
 
   static_cast<nsBlockFrame*>(block->FirstContinuation())
       ->UpdateFirstLetterStyle(aRestyleState);
-}
-
-static void UpdateOneAdditionalComputedStyle(nsIFrame* aFrame, uint32_t aIndex,
-                                             ComputedStyle& aOldContext,
-                                             ServoRestyleState& aRestyleState) {
-  auto pseudoType = aOldContext.GetPseudoType();
-  MOZ_ASSERT(pseudoType != PseudoStyleType::NotPseudo);
-  MOZ_ASSERT(
-      !nsCSSPseudoElements::PseudoElementSupportsUserActionState(pseudoType));
-
-  RefPtr<ComputedStyle> newStyle =
-      aRestyleState.StyleSet().ResolvePseudoElementStyle(
-          *aFrame->GetContent()->AsElement(), pseudoType, nullptr,
-          aFrame->Style());
-
-  uint32_t equalStructs;  // Not used, actually.
-  nsChangeHint childHint =
-      aOldContext.CalcStyleDifference(*newStyle, &equalStructs);
-  if (CanUseHandledHintsFromAncestors(aFrame)) {
-    childHint = NS_RemoveSubsumedHints(childHint,
-                                       aRestyleState.ChangesHandledFor(aFrame));
-  }
-
-  if (childHint) {
-    if (childHint & nsChangeHint_ReconstructFrame) {
-      // If we generate a reconstruct here, remove any non-reconstruct hints we
-      // may have already generated for this content.
-      aRestyleState.ChangeList().PopChangesForContent(aFrame->GetContent());
-    }
-    aRestyleState.ChangeList().AppendChange(aFrame, aFrame->GetContent(),
-                                            childHint);
-  }
-
-  aFrame->SetAdditionalComputedStyle(aIndex, newStyle);
-}
-
-static void UpdateAdditionalComputedStyles(nsIFrame* aFrame,
-                                           ServoRestyleState& aRestyleState) {
-  MOZ_ASSERT(aFrame);
-  MOZ_ASSERT(aFrame->GetContent() && aFrame->GetContent()->IsElement());
-
-  // FIXME(emilio): Consider adding a bit or something to avoid the initial
-  // virtual call?
-  uint32_t index = 0;
-  while (auto* oldStyle = aFrame->GetAdditionalComputedStyle(index)) {
-    UpdateOneAdditionalComputedStyle(aFrame, index++, *oldStyle, aRestyleState);
-  }
 }
 
 static void UpdateFramePseudoElementStyles(nsIFrame* aFrame,
@@ -2770,15 +2723,12 @@ static ServoPostTraversalFlags SendA11yNotifications(
 static bool NeedsToReframeForConditionallyCreatedPseudoElement(
     Element* aElement, ComputedStyle* aNewStyle, nsIFrame* aStyleFrame,
     ServoRestyleState& aRestyleState) {
-  if (MOZ_UNLIKELY(aStyleFrame->IsLeaf())) {
-    return false;
-  }
   const auto& disp = *aStyleFrame->StyleDisplay();
   if (disp.IsListItem() && aStyleFrame->IsBlockFrameOrSubclass() &&
-      !nsLayoutUtils::GetMarkerPseudo(aElement)) {
+      !aStyleFrame->IsLeaf() && !nsLayoutUtils::GetMarkerPseudo(aElement)) {
     RefPtr<ComputedStyle> pseudoStyle =
         aRestyleState.StyleSet().ProbePseudoElementStyle(
-            *aElement, PseudoStyleType::marker, nullptr, aNewStyle);
+            *aElement, PseudoStyleType::Marker, nullptr, aNewStyle);
     if (pseudoStyle) {
       return true;
     }
@@ -2788,7 +2738,7 @@ static bool NeedsToReframeForConditionallyCreatedPseudoElement(
       !nsLayoutUtils::GetBackdropPseudo(aElement)) {
     RefPtr<ComputedStyle> pseudoStyle =
         aRestyleState.StyleSet().ProbePseudoElementStyle(
-            *aElement, PseudoStyleType::backdrop, nullptr, aNewStyle);
+            *aElement, PseudoStyleType::Backdrop, nullptr, aNewStyle);
     if (pseudoStyle) {
       return true;
     }
@@ -2965,12 +2915,7 @@ bool RestyleManager::ProcessPostTraversal(Element* aElement,
     // This does mean that we may be setting the wrong ComputedStyle on our
     // initial continuations; ::first-line fixes that up after the fact.
     for (nsIFrame* f = styleFrame; f; f = f->GetNextContinuation()) {
-      MOZ_ASSERT_IF(f != styleFrame, !f->GetAdditionalComputedStyle(0));
       f->SetComputedStyle(upToDateStyle);
-    }
-
-    if (styleFrame) {
-      UpdateAdditionalComputedStyles(styleFrame, aRestyleState);
     }
 
     if (!aElement->GetParent()) {
@@ -3286,6 +3231,15 @@ void RestyleManager::DoProcessPendingRestyles(ServoTraversalFlags aFlags) {
       // In any case, we don't need to increment the restyle generation in that
       // case.
       IncrementRestyleGeneration();
+      // Repaint highlight pseudo-element selections if any were invalidated
+      // during this restyle. Highlight pseudos (::selection, ::highlight,
+      // ::target-text) have their styles resolved lazily during painting
+      // rather than during the restyle traversal, so style changes don't
+      // automatically generate repaint hints for them.
+      if (mNeedsPseudoElementSelectionsRepaint) {
+        presShell->RepaintPseudoElementStyledSelections();
+        mNeedsPseudoElementSelectionsRepaint = false;
+      }
     }
 
     // See https://bugzilla.mozilla.org/show_bug.cgi?id=1980206
@@ -3541,6 +3495,9 @@ void RestyleManager::AttributeWillChange(Element* aElement,
                                          int32_t aNameSpaceID,
                                          nsAtom* aAttribute,
                                          AttrModType aModType) {
+  if (Servo_Element_ReferencesAttribute(aElement, aAttribute)) {
+    PostRestyleEvent(aElement, RestyleHint::RECASCADE_SELF, nsChangeHint(0));
+  }
   TakeSnapshotForAttributeChange(*aElement, aNameSpaceID, aAttribute);
 }
 
@@ -3859,23 +3816,6 @@ void RestyleManager::DoReparentComputedStyleForFirstLine(
   RefPtr<ComputedStyle> newStyle = aStyleSet.ReparentComputedStyle(
       oldStyle, newParent, layoutParent, ourElement);
   aFrame->SetComputedStyle(newStyle);
-
-  // This logic somewhat mirrors the logic in
-  // RestyleManager::ProcessPostTraversal.
-  if (isElement) {
-    // We can't use UpdateAdditionalComputedStyles as-is because it needs a
-    // ServoRestyleState and maintaining one of those during a _frametree_
-    // traversal is basically impossible.
-    int32_t index = 0;
-    while (auto* oldAdditionalStyle =
-               aFrame->GetAdditionalComputedStyle(index)) {
-      RefPtr<ComputedStyle> newAdditionalContext =
-          aStyleSet.ReparentComputedStyle(oldAdditionalStyle, newStyle,
-                                          newStyle, nullptr);
-      aFrame->SetAdditionalComputedStyle(index, newAdditionalContext);
-      ++index;
-    }
-  }
 
   // Generally, owned anon boxes are our descendants.  The only exceptions are
   // tables (for the table wrapper) and inline frames (for the block part of the

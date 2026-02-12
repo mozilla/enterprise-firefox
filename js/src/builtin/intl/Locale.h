@@ -12,7 +12,7 @@
 #include "js/Class.h"
 #include "vm/NativeObject.h"
 
-namespace js {
+namespace js::intl {
 
 class LocaleObject : public NativeObject {
  public:
@@ -46,6 +46,6 @@ class LocaleObject : public NativeObject {
   static const ClassSpec classSpec_;
 };
 
-}  // namespace js
+}  // namespace js::intl
 
 #endif /* builtin_intl_Locale_h */

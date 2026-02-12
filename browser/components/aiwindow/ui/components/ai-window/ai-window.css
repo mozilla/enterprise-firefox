@@ -64,6 +64,7 @@
 #ai-window-smartbar {
   grid-area: smartbar;
   width: 100%;
+  max-width: calc(var(--size-item-xsmall) * 45.5);
 }
 
 smartwindow-prompts {

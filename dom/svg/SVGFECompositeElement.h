@@ -65,14 +65,14 @@ class SVGFECompositeElement final : public SVGFECompositeElementBase {
   SVGAnimatedNumber mNumberAttributes[4];
   static NumberInfo sNumberInfo[4];
 
+  enum { RESULT, IN1, IN2 };
+  SVGAnimatedString mStringAttributes[3];
+  static StringInfo sStringInfo[3];
+
   enum { OPERATOR };
   SVGAnimatedEnumeration mEnumAttributes[1];
   static SVGEnumMapping sOperatorMap[];
   static EnumInfo sEnumInfo[1];
-
-  enum { RESULT, IN1, IN2 };
-  SVGAnimatedString mStringAttributes[3];
-  static StringInfo sStringInfo[3];
 };
 
 }  // namespace mozilla::dom

@@ -200,6 +200,8 @@ static int32_t CurrencyDigits(
     return digits;
     CURRENCIES_WITH_NON_DEFAULT_DIGITS(CURRENCY)
 #undef CURRENCY
+    default:
+      break;
   }
 
   // Defaults to two digits if no override was found.
@@ -321,14 +323,9 @@ static bool IsWellFormedUnitIdentifier(std::string_view unitIdentifier) {
   // Step 6.
   auto denominator = unitIdentifier.substr(pos + separator.length());
 
-  // Step 7.
-  if (IsSanctionedSingleUnitIdentifier(numerator) &&
-      IsSanctionedSingleUnitIdentifier(denominator)) {
-    return true;
-  }
-
-  // Step 8.
-  return false;
+  // Steps 7-8.
+  return IsSanctionedSingleUnitIdentifier(numerator) &&
+         IsSanctionedSingleUnitIdentifier(denominator);
 }
 
 /**
@@ -788,7 +785,7 @@ bool js::intl::SetNumberFormatDigitOptions(
   }
 
   // Step 6.
-  obj.minimumIntegerDigits = mnid;
+  obj.minimumIntegerDigits = static_cast<int8_t>(mnid);
 
   // Step 7.
   int32_t roundingIncrement;
@@ -879,7 +876,7 @@ bool js::intl::SetNumberFormatDigitOptions(
   }
 
   // Step 14.
-  obj.roundingIncrement = roundingIncrement;
+  obj.roundingIncrement = static_cast<int16_t>(roundingIncrement);
 
   // Step 15.
   obj.roundingMode = roundingMode;
@@ -920,7 +917,8 @@ bool js::intl::SetNumberFormatDigitOptions(
       if (!DefaultNumberOption(cx, mnsd, 1, 21, 1, &minimumSignificantDigits)) {
         return false;
       }
-      obj.minimumSignificantDigits = minimumSignificantDigits;
+      obj.minimumSignificantDigits =
+          static_cast<int8_t>(minimumSignificantDigits);
 
       // Step 22.a.i.
       int32_t maximumSignificantDigits;
@@ -928,7 +926,8 @@ bool js::intl::SetNumberFormatDigitOptions(
                                &maximumSignificantDigits)) {
         return false;
       }
-      obj.maximumSignificantDigits = maximumSignificantDigits;
+      obj.maximumSignificantDigits =
+          static_cast<int8_t>(maximumSignificantDigits);
     } else {
       // Step 22.b.i.
       obj.minimumSignificantDigits = 1;
@@ -978,16 +977,16 @@ bool js::intl::SetNumberFormatDigitOptions(
       }
 
       // Step 23.a.vi.
-      obj.minimumFractionDigits = *minFracDigits;
+      obj.minimumFractionDigits = static_cast<int8_t>(*minFracDigits);
 
       // Step 23.a.vii.
-      obj.maximumFractionDigits = *maxFracDigits;
+      obj.maximumFractionDigits = static_cast<int8_t>(*maxFracDigits);
     } else {
       // Step 23.b.i.
-      obj.minimumFractionDigits = mnfdDefault;
+      obj.minimumFractionDigits = static_cast<int8_t>(mnfdDefault);
 
       // Step 23.b.ii.
-      obj.maximumFractionDigits = mxfdDefault;
+      obj.maximumFractionDigits = static_cast<int8_t>(mxfdDefault);
     }
   } else {
     // Set to a negative value to mark fraction digits as absent.
@@ -1435,7 +1434,7 @@ NumberFormatObject* js::intl::GetOrCreateNumberFormat(JSContext* cx,
   return CreateNumberFormat(cx, locales, options);
 }
 
-void js::NumberFormatObject::finalize(JS::GCContext* gcx, JSObject* obj) {
+void js::intl::NumberFormatObject::finalize(JS::GCContext* gcx, JSObject* obj) {
   auto* numberFormat = &obj->as<NumberFormatObject>();
   auto* nf = numberFormat->getNumberFormatter();
   auto* nrf = numberFormat->getNumberRangeFormatter();
@@ -1479,7 +1478,7 @@ static bool ResolveLocale(JSContext* cx,
 
   // Initialize locale options from constructor arguments.
   Rooted<LocaleOptions> localeOptions(cx);
-  if (auto nu = numberFormat->getNumberingSystem()) {
+  if (auto* nu = numberFormat->getNumberingSystem()) {
     localeOptions.setUnicodeExtension(UnicodeExtensionKey::NumberingSystem, nu);
   }
 
@@ -2221,7 +2220,7 @@ static JSLinearString* FormattedResultToString(
     JSContext* cx,
     mozilla::Result<std::u16string_view, mozilla::intl::ICUError>& result) {
   if (result.isErr()) {
-    intl::ReportInternalError(cx, result.unwrapErr());
+    ReportInternalError(cx, result.unwrapErr());
     return nullptr;
   }
   return NewStringCopy<CanGC>(cx, result.unwrap());

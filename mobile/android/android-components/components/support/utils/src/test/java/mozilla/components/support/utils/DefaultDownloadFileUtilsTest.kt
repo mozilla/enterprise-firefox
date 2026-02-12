@@ -27,7 +27,7 @@ class DefaultDownloadFileUtilsTest {
 
     val defaultDownloadFileUtils: DefaultDownloadFileUtils = DefaultDownloadFileUtils(
         context = testContext,
-        downloadLocationGetter = {
+        downloadLocation = {
             rootPath
         },
     )
@@ -402,7 +402,7 @@ class DefaultDownloadFileUtilsTest {
                 expected,
                 DefaultDownloadFileUtils(
                     context = testContext,
-                    downloadLocationGetter = {
+                    downloadLocation = {
                         Environment.getExternalStoragePublicDirectory(
                             Environment.DIRECTORY_DOWNLOADS,
                         ).path

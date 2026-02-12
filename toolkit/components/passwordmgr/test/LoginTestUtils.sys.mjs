@@ -71,7 +71,7 @@ export const LoginTestUtils = {
    * Removes a login from the store
    */
   async removeLogin(login) {
-    return Services.logins.removeLogin(login);
+    return Services.logins.removeLoginAsync(login);
   },
 
   async modifyLogin(oldLogin, newLogin) {

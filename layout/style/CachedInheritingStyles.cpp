@@ -65,6 +65,22 @@ ComputedStyle* CachedInheritingStyles::Lookup(
   return direct && direct->GetPseudoType() == aRequest.mType ? direct : nullptr;
 }
 
+void CachedInheritingStyles::AppendTo(
+    nsTArray<const ComputedStyle*>& aArray) const {
+  if (IsEmpty()) {
+    return;
+  }
+
+  if (IsIndirect()) {
+    for (const auto& entry : *AsIndirect()) {
+      aArray.AppendElement(entry.mStyle.get());
+    }
+    return;
+  }
+
+  aArray.AppendElement(AsDirect());
+}
+
 void CachedInheritingStyles::AddSizeOfIncludingThis(nsWindowSizes& aSizes,
                                                     size_t* aCVsSize) const {
   if (IsIndirect()) {

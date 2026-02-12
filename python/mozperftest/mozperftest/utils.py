@@ -31,7 +31,8 @@ MULTI_REVISION_ROOT = f"{API_ROOT}/namespaces"
 MULTI_TASK_ROOT = f"{API_ROOT}/tasks"
 ON_TRY = "MOZ_AUTOMATION" in os.environ
 DOWNLOAD_TIMEOUT = 30
-METRICS_MATCHER = re.compile(r"(perfMetrics.*)")
+PERF_METRICS_MATCHER = re.compile(r"(perfMetrics.*)")
+EVAL_DATA_MATCHER = re.compile(r"(evalDataPayload.*)")
 PRETTY_APP_NAMES = {
     "org.mozilla.fenix": "fenix",
     "org.mozilla.firefox": "fenix",
@@ -55,6 +56,17 @@ class NoPerfMetricsError(Exception):
         super().__init__(
             f"No perftest results were found in the {flavor} test. Results must be "
             'reported using:\n info("perfMetrics", { metricName: metricValue });'
+        )
+
+
+class NoEvalDataError(Exception):
+    """Raised when evalDataPayload was not found, or were not output
+    during a test run."""
+
+    def __init__(self, flavor):
+        super().__init__(
+            f"No eval data was found in the {flavor} test. Results must be "
+            'reported using:\n info("evalDataPayload", { evalData: evalValue });'
         )
 
 
@@ -358,6 +370,8 @@ def build_test_list(tests):
             res.append(str(resolved_test))
         elif resolved_test.is_dir():
             for file in resolved_test.rglob("perftest_*.js"):
+                res.append(str(file))
+            for file in resolved_test.rglob("eval_*.js"):
                 res.append(str(file))
         else:
             raise FileNotFoundError(str(resolved_test))

@@ -141,3 +141,4 @@ exclude = [
 # Enable preview mode for --output-format=json to get improved line/column reporting.
 # TODO: Remove preview once these features are in the stable release.
 preview = true
+docstring-code-format = true

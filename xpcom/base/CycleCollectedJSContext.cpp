@@ -269,15 +269,6 @@ bool CycleCollectedJSContext::getHostDefinedData(
   return true;
 }
 
-bool CycleCollectedJSContext::enqueuePromiseJob(
-    JSContext* aCx, JS::Handle<JSObject*> aPromise, JS::Handle<JSObject*> aJob,
-    JS::Handle<JSObject*> aAllocationSite,
-    JS::Handle<JSObject*> hostDefinedData) {
-  MOZ_CRASH(
-      "This method should never be called: Gecko no longer supports the"
-      "pref javascript.options.use_js_microtask_queue being false.");
-}
-
 // Used only by the SpiderMonkey Debugger API, and even then only via
 // JS::AutoDebuggerJobQueueInterruption, to ensure that the debuggee's queue is
 // not affected; see comments in js/public/Promise.h.
@@ -285,12 +276,6 @@ void CycleCollectedJSContext::runJobs(JSContext* aCx) {
   MOZ_ASSERT(aCx == Context());
   MOZ_ASSERT(Get() == this);
   PerformMicroTaskCheckPoint();
-}
-
-bool CycleCollectedJSContext::empty() const {
-  MOZ_CRASH(
-      "This method should never be called: Gecko no longer supports the"
-      "pref javascript.options.use_js_microtask_queue being false.");
 }
 
 MicroTaskRunnable* MustConsumeMicroTask::MaybeUnwrapTaskToRunnable() const {
@@ -664,13 +649,11 @@ JS::GenericMicroTask RunnableToMicroTask(
 
 bool EnqueueMicroTask(JSContext* aCx,
                       already_AddRefed<MicroTaskRunnable> aRunnable) {
-  MOZ_ASSERT(StaticPrefs::javascript_options_use_js_microtask_queue());
   JS::GenericMicroTask v = RunnableToMicroTask(aRunnable);
   return JS::EnqueueMicroTask(aCx, v);
 }
 bool EnqueueDebugMicroTask(JSContext* aCx,
                            already_AddRefed<MicroTaskRunnable> aRunnable) {
-  MOZ_ASSERT(StaticPrefs::javascript_options_use_js_microtask_queue());
   JS::GenericMicroTask v = RunnableToMicroTask(aRunnable);
   return JS::EnqueueDebugMicroTask(aCx, v);
 }
@@ -718,7 +701,6 @@ bool SuppressedMicroTaskList::Suppressed() {
     return true;
   }
 
-  MOZ_ASSERT(StaticPrefs::javascript_options_use_js_microtask_queue());
   MOZ_ASSERT(mContext->mSuppressedMicroTaskList == this);
 
   MOZ_LOG_FMT(gLog, LogLevel::Verbose, "Prepending %zu suppressed microtasks",

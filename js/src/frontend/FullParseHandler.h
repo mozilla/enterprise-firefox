@@ -692,6 +692,15 @@ class FullParseHandler {
                                  moduleRequest);
   }
 
+#ifdef ENABLE_SOURCE_PHASE_IMPORTS
+  BinaryNodeResult newImportSourceDeclaration(Node importedBinding,
+                                              Node moduleRequest,
+                                              const TokenPos& pos) {
+    return newResult<BinaryNode>(ParseNodeKind::ImportSourceDecl, pos,
+                                 importedBinding, moduleRequest);
+  }
+#endif
+
   BinaryNodeResult newImportSpec(Node importNameNode, Node bindingName) {
     return newBinary(ParseNodeKind::ImportSpec, importNameNode, bindingName);
   }

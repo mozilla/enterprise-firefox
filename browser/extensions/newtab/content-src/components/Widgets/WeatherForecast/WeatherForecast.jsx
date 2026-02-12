@@ -2,14 +2,48 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-import React from "react";
-import { useSelector } from "react-redux";
+import React, { useCallback, useRef } from "react";
+import { useSelector, batch } from "react-redux";
 import { actionCreators as ac, actionTypes as at } from "common/Actions.mjs";
+import { useIntersectionObserver } from "../../../lib/utils";
 import { LocationSearch } from "content-src/components/Weather/LocationSearch";
 
-function WeatherForecast({ dispatch }) {
+const USER_ACTION_TYPES = {
+  CHANGE_LOCATION: "change_location",
+  DETECT_LOCATION: "detect_location",
+  CHANGE_TEMP_UNIT: "change_temperature_units",
+  CHANGE_DISPLAY: "change_weather_display",
+  LEARN_MORE: "learn_more",
+  PROVIDER_LINK_CLICK: "provider_link_click",
+};
+
+function WeatherForecast({ dispatch, isMaximized, widgetsMayBeMaximized }) {
   const prefs = useSelector(state => state.Prefs.values);
   const weatherData = useSelector(state => state.Weather);
+  const impressionFired = useRef(false);
+
+  const isSmallSize = !isMaximized && widgetsMayBeMaximized;
+  const widgetSize = isSmallSize ? "small" : "medium";
+
+  const handleIntersection = useCallback(() => {
+    if (impressionFired.current) {
+      return;
+    }
+    impressionFired.current = true;
+
+    const telemetryData = {
+      widget_name: "weather",
+      widget_size: widgetsMayBeMaximized ? widgetSize : "medium",
+    };
+    dispatch(
+      ac.AlsoToMain({
+        type: at.WIDGETS_IMPRESSION,
+        data: telemetryData,
+      })
+    );
+  }, [dispatch, widgetSize, widgetsMayBeMaximized]);
+
+  const forecastRef = useIntersectionObserver(handleIntersection);
 
   const WEATHER_SUGGESTION = weatherData.suggestions?.[0];
 
@@ -53,75 +87,178 @@ function WeatherForecast({ dispatch }) {
   const isOptInEnabled = weatherOptIn || nimbusWeatherOptInEnabled;
 
   const { searchActive } = weatherData;
-  const maximizedWidgets = prefs["widgets.maximized"];
 
   function handleChangeLocation() {
-    dispatch(
-      ac.BroadcastToContent({
-        type: at.WEATHER_SEARCH_ACTIVE,
-        data: true,
-      })
-    );
+    batch(() => {
+      dispatch(
+        ac.BroadcastToContent({
+          type: at.WEATHER_SEARCH_ACTIVE,
+          data: true,
+        })
+      );
+      const telemetryData = {
+        widget_name: "weather",
+        widget_source: "context_menu",
+        user_action: USER_ACTION_TYPES.CHANGE_LOCATION,
+        widget_size: widgetsMayBeMaximized ? widgetSize : "medium",
+      };
+      dispatch(
+        ac.OnlyToMain({
+          type: at.WIDGETS_USER_EVENT,
+          data: telemetryData,
+        })
+      );
+    });
   }
 
   function handleDetectLocation() {
-    dispatch(
-      ac.AlsoToMain({
-        type: at.WEATHER_USER_OPT_IN_LOCATION,
-      })
-    );
+    batch(() => {
+      dispatch(
+        ac.AlsoToMain({
+          type: at.WEATHER_USER_OPT_IN_LOCATION,
+        })
+      );
+      const telemetryData = {
+        widget_name: "weather",
+        widget_source: "context_menu",
+        user_action: USER_ACTION_TYPES.DETECT_LOCATION,
+        widget_size: widgetsMayBeMaximized ? widgetSize : "medium",
+      };
+      dispatch(
+        ac.OnlyToMain({
+          type: at.WIDGETS_USER_EVENT,
+          data: telemetryData,
+        })
+      );
+    });
   }
 
   function handleChangeTempUnit(unit) {
-    dispatch(
-      ac.OnlyToMain({
-        type: at.SET_PREF,
-        data: {
-          name: "weather.temperatureUnits",
-          value: unit,
-        },
-      })
-    );
+    batch(() => {
+      dispatch(
+        ac.OnlyToMain({
+          type: at.SET_PREF,
+          data: {
+            name: "weather.temperatureUnits",
+            value: unit,
+          },
+        })
+      );
+      const telemetryData = {
+        widget_name: "weather",
+        widget_source: "context_menu",
+        user_action: USER_ACTION_TYPES.CHANGE_TEMP_UNIT,
+        widget_size: widgetsMayBeMaximized ? widgetSize : "medium",
+        action_value: unit,
+      };
+      dispatch(
+        ac.OnlyToMain({
+          type: at.WIDGETS_USER_EVENT,
+          data: telemetryData,
+        })
+      );
+    });
   }
 
   function handleChangeDisplay(display) {
-    dispatch(
-      ac.OnlyToMain({
-        type: at.SET_PREF,
-        data: {
-          name: "weather.display",
-          value: display,
-        },
-      })
-    );
+    batch(() => {
+      dispatch(
+        ac.OnlyToMain({
+          type: at.SET_PREF,
+          data: {
+            name: "weather.display",
+            value: display,
+          },
+        })
+      );
+      const telemetryData = {
+        widget_name: "weather",
+        widget_source: "context_menu",
+        user_action: USER_ACTION_TYPES.CHANGE_DISPLAY,
+        action_value: "switch_to_mini_widget",
+        widget_size: widgetsMayBeMaximized ? widgetSize : "medium",
+      };
+      dispatch(
+        ac.OnlyToMain({
+          type: at.WIDGETS_USER_EVENT,
+          data: telemetryData,
+        })
+      );
+    });
   }
 
   function handleHideWeather() {
-    dispatch(
-      ac.OnlyToMain({
-        type: at.SET_PREF,
-        data: {
-          name: "showWeather",
-          value: false,
-        },
-      })
-    );
+    batch(() => {
+      dispatch(
+        ac.OnlyToMain({
+          type: at.SET_PREF,
+          data: {
+            name: "showWeather",
+            value: false,
+          },
+        })
+      );
+      const telemetryData = {
+        widget_name: "weather",
+        widget_source: "context_menu",
+        enabled: false,
+        widget_size: widgetsMayBeMaximized ? widgetSize : "medium",
+      };
+      dispatch(
+        ac.OnlyToMain({
+          type: at.WIDGETS_ENABLED,
+          data: telemetryData,
+        })
+      );
+    });
   }
 
   function handleLearnMore() {
+    batch(() => {
+      dispatch(
+        ac.OnlyToMain({
+          type: at.OPEN_LINK,
+          data: {
+            url: "https://support.mozilla.org/kb/firefox-new-tab-widgets",
+          },
+        })
+      );
+      const telemetryData = {
+        widget_name: "weather",
+        widget_source: "context_menu",
+        user_action: USER_ACTION_TYPES.LEARN_MORE,
+        widget_size: widgetsMayBeMaximized ? widgetSize : "medium",
+      };
+      dispatch(
+        ac.OnlyToMain({
+          type: at.WIDGETS_USER_EVENT,
+          data: telemetryData,
+        })
+      );
+    });
+  }
+
+  function handleProviderLinkClick() {
+    const telemetryData = {
+      widget_name: "weather",
+      widget_source: "widget",
+      user_action: USER_ACTION_TYPES.PROVIDER_LINK_CLICK,
+      widget_size: widgetsMayBeMaximized ? widgetSize : "medium",
+    };
     dispatch(
       ac.OnlyToMain({
-        type: at.OPEN_LINK,
-        data: {
-          url: "https://support.mozilla.org/kb/firefox-new-tab-widgets",
-        },
+        type: at.WIDGETS_USER_EVENT,
+        data: telemetryData,
       })
     );
   }
 
   return (
     <article
-      className={`weather-forecast-widget${maximizedWidgets ? "" : " small-widget"}`}
+      className={`weather-forecast-widget${isSmallSize ? " small-widget" : ""}`}
+      ref={el => {
+        forecastRef.current = [el];
+      }}
     >
       <div className="city-wrapper">
         <div className="city-name">
@@ -137,7 +274,7 @@ function WeatherForecast({ dispatch }) {
             iconSrc="chrome://global/skin/icons/more.svg"
             menuId="weather-forecast-context-menu"
             type="ghost"
-            size={`${maximizedWidgets ? "default" : "small"}`}
+            size={`${isSmallSize ? "small" : "default"}`}
           />
           <panel-list id="weather-forecast-context-menu">
             {prefs["weather.locationSearchEnabled"] && (
@@ -185,7 +322,7 @@ function WeatherForecast({ dispatch }) {
           </panel-list>
         </div>
       </div>
-      {maximizedWidgets && (
+      {!isSmallSize && (
         <>
           <div className="current-weather-wrapper">
             <div className="weather-icon-column">
@@ -232,7 +369,7 @@ function WeatherForecast({ dispatch }) {
         </>
       )}
       <div className="forecast-row">
-        {maximizedWidgets && (
+        {!isSmallSize && (
           <p
             className="today-forecast"
             data-l10n-id="newtab-weather-todays-forecast"
@@ -279,9 +416,10 @@ function WeatherForecast({ dispatch }) {
 
       <div className="forecast-footer">
         <a
-          href="#"
+          href={WEATHER_SUGGESTION.forecast.url}
           className="full-forecast"
           data-l10n-id="newtab-weather-see-full-forecast"
+          onClick={handleProviderLinkClick}
         ></a>
         <span
           className="sponsored-text"

@@ -1,8 +1,0 @@
-{
-    "test_about_support": {
-        "version_box": "#RUNTIME_VERSION#"
-    },
-    "test_about_buildconfig_enterprise_branding": {
-        "enterprise": "--enable-enterprise"
-    }
-}

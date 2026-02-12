@@ -31,7 +31,6 @@ struct nsGenConInitializer;
 class nsBlockFrame;
 class nsContainerFrame;
 class nsCanvasFrame;
-class nsCSSAnonBoxPseudoStaticAtom;
 class nsFirstLetterFrame;
 class nsFirstLineFrame;
 class nsFrameConstructorState;

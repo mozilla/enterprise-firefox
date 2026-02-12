@@ -121,7 +121,6 @@ def _get_secrets_keys_and_target_files(task):
                 f"app/src/{gradle_build_type}/res/values/firebase.xml",
             ),
             ("wallpaper_url", ".wallpaper_url"),
-            ("pocket_consumer_key", ".pocket_consumer_key"),
         ])
 
     return secrets

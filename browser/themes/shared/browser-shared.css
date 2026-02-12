@@ -1400,12 +1400,18 @@ popupnotificationcontent {
   padding-inline-end: var(--space-small);
   border-radius: var(--border-radius-medium);
 
-  :root[ai-window] & {
-    list-style-image: url("chrome://browser/skin/ai-window.svg");
-  }
-
+  /* Toggle button icon is designed to be slightly larger at 20px */
   > .toolbarbutton-icon {
     padding: 8px;
+    box-shadow: 0 0 16px 4px var(--box-shadow-color-darker-layer-1) inset;
+  }
+
+  :root[ai-window] & {
+    list-style-image: url("chrome://browser/skin/ai-window.svg");
+
+    > .toolbarbutton-icon {
+      box-shadow: 0 0 16px 4px var(--smartwindow-toggle-shadow-color) inset;
+    }
   }
 }
 

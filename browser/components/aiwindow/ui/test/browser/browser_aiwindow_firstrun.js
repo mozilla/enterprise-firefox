@@ -199,6 +199,7 @@ add_task(async function test_firstrun_explainer_page_opens() {
     set: [
       ["browser.smartwindow.enabled", true],
       ["browser.smartwindow.firstrun.hasCompleted", false],
+      ["browser.smartwindow.firstrun.modelChoice", ""],
       [explainerPref, exampleURL],
     ],
   });
@@ -283,58 +284,5 @@ add_task(async function test_firstrun_explainer_page_opens() {
   restoreSignIn();
   BrowserTestUtils.removeTab(aiWindowTab);
   win.openLinkIn = originalOpenLinkIn;
-  await SpecialPowers.popPrefEnv();
-});
-
-add_task(async function test_firstrun_immersive_view() {
-  await SpecialPowers.pushPrefEnv({
-    set: [
-      ["browser.smartwindow.enabled", true],
-      ["browser.smartwindow.firstrun.hasCompleted", false],
-    ],
-  });
-
-  const restoreSignIn = skipSignIn();
-
-  const exampleUrl = "https://example.com/";
-  const win = await openAIWindow();
-
-  await BrowserTestUtils.loadURIString({
-    browser: win.gBrowser.selectedTab.linkedBrowser,
-    uriString: FIRSTRUN_URL,
-  });
-
-  const chromeRoot = win.document.documentElement;
-  Assert.ok(
-    chromeRoot.hasAttribute("aiwindow-immersive-view"),
-    "Chrome window has the aiwindow-immersive-view attribute"
-  );
-  Assert.ok(
-    chromeRoot.hasAttribute("aiwindow-first-run"),
-    "Chrome window has the aiwindow-first-run attribute"
-  );
-
-  await BrowserTestUtils.loadURIString({
-    browser: win.gBrowser.selectedTab.linkedBrowser,
-    uriString: exampleUrl,
-  });
-
-  Assert.equal(
-    win.gBrowser.selectedTab.linkedBrowser.currentURI.spec,
-    exampleUrl,
-    "Example url tab should be open"
-  );
-
-  Assert.ok(
-    !chromeRoot.hasAttribute("aiwindow-immersive-view"),
-    "After firstrun tab is closed, the chrome window no longer has the aiwindow-immersive-view attribute"
-  );
-  Assert.ok(
-    !chromeRoot.hasAttribute("aiwindow-first-run"),
-    "After firstrun tab is closed, the chrome window no longer has the aiwindow-first-run attribute"
-  );
-
-  restoreSignIn();
-  await BrowserTestUtils.closeWindow(win);
   await SpecialPowers.popPrefEnv();
 });

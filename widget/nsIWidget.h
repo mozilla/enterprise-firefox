@@ -95,7 +95,6 @@ class DrawTarget;
 class SourceSurface;
 }  // namespace gfx
 namespace layers {
-class AndroidHardwareBuffer;
 class APZEventState;
 class AsyncDragMetrics;
 class Compositor;
@@ -2302,16 +2301,6 @@ class nsIWidget : public nsSupportsWeakReference {
    * @param aMessage message being sent to Android UI thread.
    */
   virtual void RecvToolbarAnimatorMessageFromCompositor(int32_t aMessage) {}
-
-  /**
-   * RecvScreenPixels Buffer containing the pixel from the frame buffer. Used
-   * for android robocop tests.
-   *
-   * @param aHardwareBuffer Android HardwareBuffer containing the frame buffer
-   * pixels.
-   */
-  virtual void RecvScreenPixels(
-      RefPtr<mozilla::layers::AndroidHardwareBuffer> aHardwareBuffer) {}
 
   virtual void UpdateDynamicToolbarMaxHeight(mozilla::ScreenIntCoord aHeight) {}
   virtual mozilla::ScreenIntCoord GetDynamicToolbarMaxHeight() const {

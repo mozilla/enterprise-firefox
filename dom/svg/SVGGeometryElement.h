@@ -268,9 +268,9 @@ class SVGGeometryElement : public SVGGeometryElementBase {
 
   MOZ_CAN_RUN_SCRIPT void FlushIfNeeded();
 
-  SVGAnimatedNumber mPathLength;
   static NumberInfo sNumberInfo;
   mutable RefPtr<Path> mCachedPath;
+  SVGAnimatedNumber mPathLength;
 
  private:
   already_AddRefed<Path> GetOrBuildPathForHitTest();

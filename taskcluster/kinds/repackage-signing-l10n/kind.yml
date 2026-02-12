@@ -15,13 +15,14 @@ kind-dependencies:
     - repackage-l10n
 
 task-defaults:
-    run-on-repo-type: [hg]
+    run-on-repo-type: [hg, git]
 
 only-for-build-platforms:
     - win32-shippable/opt
     - win32-devedition/opt
     - win32/opt
     - win64-shippable/opt
+    - win64-enterprise-shippable/opt
     - win64-devedition/opt
     - win64/opt
     - win64-aarch64-shippable/opt

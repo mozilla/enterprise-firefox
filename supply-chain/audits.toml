@@ -7972,7 +7972,7 @@ end = "2024-05-03"
 criteria = "safe-to-deploy"
 user-id = 6741 # Alice Ryhl (Darksonn)
 start = "2021-01-11"
-end = "2024-05-05"
+end = "2027-02-06"
 
 [[trusted.cc]]
 criteria = "safe-to-deploy"

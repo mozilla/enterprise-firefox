@@ -18,7 +18,6 @@ import androidx.navigation.fragment.findNavController
 import kotlinx.coroutines.flow.map
 import mozilla.components.feature.top.sites.presenter.DefaultTopSitesPresenter
 import mozilla.components.support.base.feature.ViewBoundFeatureWrapper
-import org.mozilla.fenix.HomeActivity
 import org.mozilla.fenix.components.components
 import org.mozilla.fenix.ext.requireComponents
 import org.mozilla.fenix.home.topsites.controller.DefaultTopSiteController
@@ -44,7 +43,7 @@ class ShortcutsFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         controller = DefaultTopSiteController(
-            activityRef = WeakReference(activity as HomeActivity),
+            activityRef = WeakReference(requireActivity()),
             store = requireComponents.core.store,
             navControllerRef = WeakReference(findNavController()),
             settings = requireComponents.settings,

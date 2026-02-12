@@ -10,11 +10,13 @@
 
 import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
+import { TelemetryReportingPolicy } from "resource://gre/modules/TelemetryReportingPolicy.sys.mjs";
+
 const lazy = XPCOMUtils.declareLazy({
-  NimbusFeatures: "resource://nimbus/ExperimentAPI.sys.mjs",
-  UrlbarUtils: "moz-src:///browser/components/urlbar/UrlbarUtils.sys.mjs",
   CustomizableUI:
     "moz-src:///browser/components/customizableui/CustomizableUI.sys.mjs",
+  NimbusFeatures: "resource://nimbus/ExperimentAPI.sys.mjs",
+  UrlbarUtils: "moz-src:///browser/components/urlbar/UrlbarUtils.sys.mjs",
 });
 
 const PREF_URLBAR_BRANCH = "browser.urlbar.";
@@ -231,7 +233,7 @@ const PREF_URLBAR_DEFAULTS = /** @type {PreferenceDefinition[]} */ ([
   ["merino.clientVariants", ""],
 
   // The Merino endpoint URL, not including parameters.
-  ["merino.endpointURL", "https://merino.services.mozilla.com/api/v1/suggest"],
+  ["merino.endpointURL", ""],
 
   // OHTTP config URL for Merino requests.
   ["merino.ohttpConfigURL", ""],
@@ -696,7 +698,7 @@ const PREF_URLBAR_DEFAULTS = /** @type {PreferenceDefinition[]} */ ([
 // the array so that we can preserve blame.
 const PREF_URLBAR_DEFAULTS_MAP = new Map(PREF_URLBAR_DEFAULTS);
 
-const PREF_OTHER_DEFAULTS = new Map([
+const PREF_OTHER_DEFAULTS = /** @type {PreferenceDefinition[]} */ ([
   ["browser.fixup.dns_first_for_single_words", false],
   ["browser.ml.enable", false],
   ["browser.search.openintab", false],
@@ -705,8 +707,11 @@ const PREF_OTHER_DEFAULTS = new Map([
   ["browser.search.widget.new", false],
   ["keyword.enabled", true],
   ["security.insecure_connection_text.enabled", true],
+  [TelemetryReportingPolicy.TOU_ACCEPTED_DATE_PREF, 0],
   ["ui.popup.disable_autohide", false],
 ]);
+
+const PREF_OTHER_DEFAULTS_MAP = new Map(PREF_OTHER_DEFAULTS);
 
 // Default values for Nimbus urlbar variables that do not have fallback prefs.
 // Variables with fallback prefs do not need to be defined here because their
@@ -997,7 +1002,7 @@ class Preferences {
     ]);
 
     Services.prefs.addObserver(PREF_URLBAR_BRANCH, this, true);
-    for (let pref of PREF_OTHER_DEFAULTS.keys()) {
+    for (let pref of PREF_OTHER_DEFAULTS_MAP.keys()) {
       Services.prefs.addObserver(pref, this, true);
     }
     this._observerWeakRefs = [];
@@ -1018,7 +1023,7 @@ class Preferences {
    * Returns the value for the preference with the given name.
    * For preferences in the "browser.urlbar."" branch, the passed-in name
    * should be relative to the branch. It's also possible to get prefs from the
-   * PREF_OTHER_DEFAULTS Map, specifying their full name.
+   * PREF_OTHER_DEFAULTS_MAP Map, specifying their full name.
    *
    * @param {string} pref
    *        The name of the preference to get.
@@ -1037,7 +1042,7 @@ class Preferences {
    * Sets the value for the preference with the given name.
    * For preferences in the "browser.urlbar."" branch, the passed-in name
    * should be relative to the branch. It's also possible to set prefs from the
-   * PREF_OTHER_DEFAULTS Map, specifying their full name.
+   * PREF_OTHER_DEFAULTS_MAP Map, specifying their full name.
    *
    * @param {string} pref
    *        The name of the preference to set.
@@ -1195,7 +1200,10 @@ class Preferences {
    */
   observe(subject, topic, data) {
     let pref = data.replace(PREF_URLBAR_BRANCH, "");
-    if (!PREF_URLBAR_DEFAULTS_MAP.has(pref) && !PREF_OTHER_DEFAULTS.has(pref)) {
+    if (
+      !PREF_URLBAR_DEFAULTS_MAP.has(pref) &&
+      !PREF_OTHER_DEFAULTS_MAP.has(pref)
+    ) {
       return;
     }
     this.#notifyObservers("onPrefChanged", pref);
@@ -1359,7 +1367,7 @@ class Preferences {
     let defaultValue = PREF_URLBAR_DEFAULTS_MAP.get(pref);
     if (defaultValue === undefined) {
       branch = Services.prefs;
-      defaultValue = PREF_OTHER_DEFAULTS.get(pref);
+      defaultValue = PREF_OTHER_DEFAULTS_MAP.get(pref);
       if (defaultValue === undefined) {
         let nimbus = this._getNimbusDescriptor(pref);
         if (nimbus) {

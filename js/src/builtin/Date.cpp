@@ -4131,7 +4131,7 @@ static bool ToLocaleFormatHelper(JSContext* cx, DateObject* unwrapped,
     return true;
   }
 
-  Rooted<DateTimeFormatObject*> dateTimeFormat(
+  Rooted<intl::DateTimeFormatObject*> dateTimeFormat(
       cx, intl::GetOrCreateDateTimeFormat(cx, locales, options, kind));
   if (!dateTimeFormat) {
     return false;

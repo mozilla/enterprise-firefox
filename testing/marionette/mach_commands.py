@@ -89,6 +89,13 @@ def marionette_test(command_context, tests, allow_nonlocal_connections=False, **
                     "comm/testing/marionette/unit-tests.toml",
                 )
             ]
+        elif "subsuite" in kwargs and kwargs["subsuite"] == "enterprise":
+            tests = [
+                os.path.join(
+                    command_context.topsrcdir,
+                    "testing/enterprise/manifest.toml",
+                )
+            ]
         else:
             tests = [
                 os.path.join(

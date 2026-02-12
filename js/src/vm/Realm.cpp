@@ -32,6 +32,7 @@
 #include "wasm/WasmInstance.h"
 
 #include "gc/Marking-inl.h"
+#include "gc/WeakMap-inl.h"
 #include "vm/JSObject-inl.h"
 
 using namespace js;
@@ -148,7 +149,7 @@ ObjectRealm::getOrCreateNonSyntacticLexicalEnvironment(JSContext* cx,
   MOZ_ASSERT(&ObjectRealm::get(enclosing) == this);
 
   if (!nonSyntacticLexicalEnvironments_) {
-    auto map = cx->make_unique<NonSyntacticLexialEnvironmentsMap>(cx);
+    auto map = cx->make_unique<NonSyntacticLexialEnvironmentsMap>(cx->zone());
     if (!map) {
       return nullptr;
     }
@@ -251,6 +252,12 @@ void Realm::traceGlobalData(JSTracer* trc) {
   DebugAPI::traceFromRealm(trc, this);
 }
 
+void Realm::traceGlobalRoot(JSTracer* trc, const char* name) {
+  if (global_) {
+    TraceRoot(trc, global_.unbarrieredAddress(), name);
+  }
+}
+
 void ObjectRealm::trace(JSTracer* trc) {
   if (objectMetadataTable) {
     objectMetadataTable->trace(trc);
@@ -273,8 +280,8 @@ void Realm::traceRoots(JSTracer* trc,
     //
     // If a realm is on-stack, we mark its global so that JSContext::global()
     // remains valid.
-    if (shouldTraceGlobal() && global_) {
-      TraceRoot(trc, global_.unbarrieredAddress(), "on-stack realm global");
+    if (shouldTraceGlobal()) {
+      traceGlobalRoot(trc, "on-stack realm global");
     }
 
     // If the realm is still being initialized we set a flag so that it doesn't
@@ -419,7 +426,8 @@ void Realm::setNewObjectMetadata(JSContext* cx, HandleObject obj) {
     cx->check(metadata);
 
     if (!objects_.objectMetadataTable) {
-      auto table = cx->make_unique<ObjectRealm::ObjectMetadataTable>(cx);
+      auto table =
+          cx->make_unique<ObjectRealm::ObjectMetadataTable>(cx->zone());
       if (!table) {
         oomUnsafe.crash("setNewObjectMetadata");
       }
@@ -596,12 +604,13 @@ void ObjectRealm::addSizeOfExcludingThis(
 
   if (objectMetadataTable) {
     *objectMetadataTablesArg +=
-        objectMetadataTable->shallowSizeOfIncludingThis(mallocSizeOf);
+        mallocSizeOf(objectMetadataTable.get()) +
+        objectMetadataTable->shallowSizeOfExcludingThis(mallocSizeOf);
   }
 
   if (auto& map = nonSyntacticLexicalEnvironments_) {
     *nonSyntacticLexicalEnvironmentsArg +=
-        map->shallowSizeOfIncludingThis(mallocSizeOf);
+        mallocSizeOf(map.get()) + map->shallowSizeOfExcludingThis(mallocSizeOf);
   }
 }
 
@@ -687,16 +696,16 @@ void AutoSetNewObjectMetadata::setPendingMetadata() {
   (void)SetNewObjectMetadata(cx_, obj);
 }
 
-JS_PUBLIC_API void gc::TraceRealm(JSTracer* trc, JS::Realm* realm,
-                                  const char* name) {
-  // The way GC works with compartments is basically incomprehensible.
-  // For Realms, what we want is very simple: each Realm has a strong
-  // reference to its GlobalObject, and vice versa.
+JS_PUBLIC_API void gc::TraceRealmRoot(JSTracer* trc, JS::Realm* realm,
+                                      const char* name) {
+  // Trace the realm's global object to keep the realm alive.
   //
-  // Here we simply trace our side of that edge. During GC,
-  // GCRuntime::traceRuntimeCommon() marks all other realm roots, for
-  // all realms.
-  realm->traceGlobalData(trc);
+  // Note: this is called for Rooted<Realm*>. If a realm has been entered with
+  // AutoRealm, the global object is traced in Realm::traceRoots.
+  MOZ_RELEASE_ASSERT(realm->hasLiveGlobal(),
+                     "we need to have a global to keep the realm alive");
+  gc::AssertRootMarkingPhase(trc);
+  realm->traceGlobalRoot(trc, "rooted realm");
 }
 
 JS_PUBLIC_API JS::Realm* JS::GetCurrentRealmOrNull(JSContext* cx) {

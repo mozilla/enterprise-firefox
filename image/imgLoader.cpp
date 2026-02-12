@@ -1938,7 +1938,7 @@ void imgLoader::NotifyObserversForCachedImage(
     newChannel->SetContentType(nsDependentCString(request->GetMimeType()));
     RefPtr<mozilla::image::Image> image = request->GetImage();
     if (image) {
-      newChannel->SetContentLength(aEntry->GetDataSize());
+      newChannel->SetContentLength(request->GetContentLength());
     }
     obsService->NotifyObservers(newChannel, "http-on-resource-cache-response",
                                 nullptr);

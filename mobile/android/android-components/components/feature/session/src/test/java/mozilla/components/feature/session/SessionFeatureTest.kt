@@ -32,7 +32,6 @@ import org.junit.Test
 import org.mockito.Mockito.atLeastOnce
 import org.mockito.Mockito.doReturn
 import org.mockito.Mockito.never
-import org.mockito.Mockito.spy
 import org.mockito.Mockito.verify
 
 class SessionFeatureTest {
@@ -122,7 +121,9 @@ class SessionFeatureTest {
 
     @Test
     fun `creates engine session if needed`() {
-        val store = spy(prepareStore())
+        val captureActionsMiddleware = CaptureActionsMiddleware<BrowserState, BrowserAction>()
+
+        val store = prepareStore(captureActionsMiddleware)
         val actualView: View = mock()
         val view: EngineView = mock()
         doReturn(actualView).`when`(view).asView()
@@ -131,7 +132,9 @@ class SessionFeatureTest {
         verify(view, never()).render(any())
 
         feature.start()
-        verify(store).dispatch(EngineAction.CreateEngineSessionAction("B"))
+        captureActionsMiddleware.assertFirstAction(EngineAction.CreateEngineSessionAction::class) { action ->
+            assertEquals("B", action.tabId)
+        }
     }
 
     @Test

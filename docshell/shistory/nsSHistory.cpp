@@ -158,6 +158,7 @@ class MOZ_STACK_CLASS SHistoryChangeNotifier {
     }
   }
 
+  MOZ_CAN_RUN_SCRIPT
   ~SHistoryChangeNotifier() {
     if (mSHistory) {
       MOZ_ASSERT(mSHistory->HasOngoingUpdate());
@@ -165,7 +166,8 @@ class MOZ_STACK_CLASS SHistoryChangeNotifier {
 
       RefPtr<BrowsingContext> rootBC = mSHistory->GetBrowsingContext();
       if (mozilla::SessionHistoryInParent() && rootBC) {
-        rootBC->Canonical()->HistoryCommitIndexAndLength();
+        RefPtr canonical = rootBC->Canonical();
+        canonical->HistoryCommitIndexAndLength();
       }
     }
   }
@@ -1285,6 +1287,12 @@ nsSHistory::NotifyOnHistoryReload(bool* aCanReload) {
     }
   }
 
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsSHistory::NotifyOnHistoryCommit() {
+  NotifyListeners(mListeners, [](auto l) { l->OnHistoryCommit(); });
   return NS_OK;
 }
 

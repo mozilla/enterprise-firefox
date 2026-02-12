@@ -61,7 +61,7 @@ const KNOWN_ERROR_TITLE_IDS = new Set([
   "corruptedContentErrorv2-title",
   "sslv3Used-title",
   "inadequateSecurityError-title",
-  "blocked-by-policy-title",
+  "blocked-by-policy-title-enterprise",
   "blocked-by-corp-headers-title",
   "clockSkewError-title",
   "networkProtocolError-title",
@@ -309,8 +309,8 @@ function initTitleAndBodyIds(baseURL, isTRROnlyFailure) {
       tryAgain.hidden = true;
       break;
     case "blockedByPolicy": {
-      pageTitleId = "neterror-blocked-by-policy-page-title2";
-      bodyTitleId = "blocked-by-policy-title";
+      pageTitleId = "neterror-blocked-by-policy-page-title-enterprise";
+      bodyTitleId = "blocked-by-policy-title-enterprise";
       document.body.classList.add("blocked");
 
       // Remove the "Try again" button from pages that don't need it.

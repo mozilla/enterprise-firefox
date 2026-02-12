@@ -103,7 +103,7 @@ export class AboutLoginsParent extends JSWindowActorParent {
         break;
       }
       case "AboutLogins:DeleteLogin": {
-        this.#deleteLogin(message.data.login);
+        await this.#deleteLogin(message.data.login);
         break;
       }
       case "AboutLogins:SortChanged": {
@@ -207,9 +207,9 @@ export class AboutLoginsParent extends JSWindowActorParent {
     return preselectedLogin || null;
   }
 
-  #deleteLogin(loginObject) {
+  async #deleteLogin(loginObject) {
     let login = lazy.LoginHelper.vanillaObjectToLogin(loginObject);
-    Services.logins.removeLogin(login);
+    await Services.logins.removeLoginAsync(login);
   }
 
   #sortChanged(sort) {
@@ -578,7 +578,7 @@ class AboutLoginsInternal {
             break;
           }
           case "modifyLogin": {
-            this.#modifyLogin(subject);
+            await this.#modifyLogin(subject);
             break;
           }
           case "removeLogin": {

@@ -1131,6 +1131,9 @@ restart:
 
     // These affect visible names in this code, or in other code.
     case ParseNodeKind::ImportDecl:
+#ifdef ENABLE_SOURCE_PHASE_IMPORTS
+    case ParseNodeKind::ImportSourceDecl:
+#endif
     case ParseNodeKind::ExportFromStmt:
     case ParseNodeKind::ExportDefaultStmt:
       MOZ_ASSERT(pn->is<BinaryNode>());
@@ -12919,6 +12922,12 @@ bool BytecodeEmitter::emitTree(
     case ParseNodeKind::ImportDecl:
       MOZ_ASSERT(sc->isModuleContext());
       break;
+
+#ifdef ENABLE_SOURCE_PHASE_IMPORTS
+    case ParseNodeKind::ImportSourceDecl:
+      MOZ_ASSERT(sc->isModuleContext());
+      break;
+#endif
 
     case ParseNodeKind::ExportStmt: {
       MOZ_ASSERT(sc->isModuleContext());

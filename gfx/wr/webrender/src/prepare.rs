@@ -16,7 +16,6 @@ use crate::command_buffer::{CommandBufferIndex, PrimitiveCommand};
 use crate::image_tiling::{self, Repetition};
 use crate::border::{get_max_scale_for_border, build_border_instances};
 use crate::clip::{ClipStore, ClipNodeRange};
-use crate::pattern::Pattern;
 use crate::renderer::{GpuBufferAddress, GpuBufferBuilderF, GpuBufferWriterF, GpuBufferDataF};
 use crate::spatial_tree::{SpatialNodeIndex, SpatialTree};
 use crate::clip::{ClipDataStore, ClipNodeFlags, ClipChainInstance, ClipItemKind};
@@ -36,7 +35,7 @@ use crate::render_task_cache::RenderTaskCacheKeyKind;
 use crate::render_task_cache::{RenderTaskCacheKey, to_cache_size, RenderTaskParent};
 use crate::render_task::{EmptyTask, RenderTask, RenderTaskKind};
 use crate::segment::SegmentBuilder;
-use crate::util::{clamp_to_scale_factor, ScaleOffset};
+use crate::util::clamp_to_scale_factor;
 use crate::visibility::{compute_conservative_visible_rect, PrimitiveVisibility, VisibilityState};
 
 
@@ -374,7 +373,6 @@ fn prepare_interned_prim_for_render(
                 targets,
                 &data_stores.clip,
                 frame_state,
-                pic_state,
                 scratch,
             );
 
@@ -667,7 +665,6 @@ fn prepare_interned_prim_for_render(
                     targets,
                     &data_stores.clip,
                     frame_state,
-                    pic_state,
                     scratch,
                 );
 
@@ -748,7 +745,6 @@ fn prepare_interned_prim_for_render(
                     targets,
                     &data_stores.clip,
                     frame_state,
-                    pic_state,
                     scratch,
                 );
 
@@ -861,7 +857,6 @@ fn prepare_interned_prim_for_render(
                     targets,
                     &data_stores.clip,
                     frame_state,
-                    pic_state,
                     scratch,
                 );
 
@@ -949,7 +944,6 @@ fn prepare_interned_prim_for_render(
                     targets,
                     &data_stores.clip,
                     frame_state,
-                    pic_state,
                     scratch,
                 );
 
@@ -1034,18 +1028,6 @@ fn prepare_interned_prim_for_render(
                     .clipped_local_rect
                     .cast_unit();
 
-                let pattern = Pattern::color(ColorF::WHITE);
-
-                let prim_address_f = quad::write_prim_blocks(
-                    &mut frame_state.frame_gpu_data.f32,
-                    prim_local_rect.to_untyped(),
-                    prim_instance.vis.clip_chain.local_clip_rect.to_untyped(),
-                    pattern.base_color,
-                    pattern.texture_input.task_id,
-                    &[],
-                    ScaleOffset::identity(),
-                );
-
                 // Handle masks on the source. This is the common case, and occurs for:
                 // (a) Any masks in the same coord space as the surface
                 // (b) All masks if the surface and parent are axis-aligned
@@ -1086,8 +1068,8 @@ fn prepare_interned_prim_for_render(
                     quad::prepare_clip_range(
                         clip_node_range,
                         pic_task_id,
-                        task_rect,
-                        prim_address_f,
+                        &task_rect,
+                        &prim_local_rect,
                         prim_spatial_node_index,
                         info.raster_spatial_node_index,
                         info.device_pixel_scale,
@@ -1156,8 +1138,8 @@ fn prepare_interned_prim_for_render(
                     quad::prepare_clip_range(
                         clip_node_range,
                         clip_task_id,
-                        task_rect,
-                        prim_address_f,
+                        &task_rect,
+                        &prim_local_rect,
                         prim_spatial_node_index,
                         raster_spatial_node_index,
                         device_pixel_scale,

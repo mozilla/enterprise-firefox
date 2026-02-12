@@ -8,7 +8,7 @@ use euclid::HomogeneousVector;
 use crate::composite::{CompositeFeatures, CompositorClip};
 use crate::pattern::PatternShaderInput;
 use crate::quad::LayoutOrDeviceRect;
-use crate::segment::EdgeAaSegmentMask;
+use crate::segment::EdgeMask;
 use crate::transform::GpuTransformId;
 use crate::internal_types::{FrameVec, FrameMemory};
 use crate::prim_store::{ClipData, VECS_PER_SEGMENT};
@@ -831,7 +831,7 @@ pub struct BrushInstance {
     pub prim_header_index: PrimitiveHeaderIndex,
     pub clip_task_address: RenderTaskAddress,
     pub segment_index: i32,
-    pub edge_flags: EdgeAaSegmentMask,
+    pub edge_flags: EdgeMask,
     pub brush_flags: BrushFlags,
     pub resource_address: i32,
 }

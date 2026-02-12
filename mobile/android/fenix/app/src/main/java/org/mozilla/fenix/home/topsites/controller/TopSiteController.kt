@@ -5,6 +5,7 @@
 package org.mozilla.fenix.home.topsites.controller
 
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.content.res.ColorStateList
 import android.view.LayoutInflater
 import android.widget.EditText
@@ -36,9 +37,9 @@ import mozilla.telemetry.glean.private.NoExtras
 import org.mozilla.fenix.GleanMetrics.Pings
 import org.mozilla.fenix.GleanMetrics.ShortcutsLibrary
 import org.mozilla.fenix.GleanMetrics.TopSites
-import org.mozilla.fenix.HomeActivity
 import org.mozilla.fenix.R
 import org.mozilla.fenix.browser.browsingmode.BrowsingMode
+import org.mozilla.fenix.components.appstate.AppAction
 import org.mozilla.fenix.components.metrics.MetricsUtils
 import org.mozilla.fenix.components.usecases.FenixBrowserUseCases
 import org.mozilla.fenix.ext.components
@@ -112,7 +113,7 @@ interface TopSiteController {
  */
 @Suppress("LongParameterList")
 class DefaultTopSiteController(
-    private val activityRef: WeakReference<HomeActivity>,
+    private val activityRef: WeakReference<Activity>,
     private val navControllerRef: WeakReference<NavController>,
     private val store: BrowserStore,
     private val settings: Settings,
@@ -125,7 +126,7 @@ class DefaultTopSiteController(
     private val viewLifecycleScope: CoroutineScope,
 ) : TopSiteController {
 
-    private val activity: HomeActivity
+    private val activity: Activity
         get() = requireNotNull(activityRef.get())
 
     private val navController: NavController
@@ -138,7 +139,9 @@ class DefaultTopSiteController(
             TopSites.openInPrivateTab.record(NoExtras())
         }
 
-        activity.browsingModeManager.mode = BrowsingMode.Private
+        activity.components.appStore.dispatch(
+            AppAction.BrowsingModeManagerModeChanged(BrowsingMode.Private),
+        )
 
         if (navController.currentDestination?.id == R.id.shortcutsFragment) {
             navController.navigate(ShortcutsFragmentDirections.actionShortcutsFragmentToBrowserFragment())

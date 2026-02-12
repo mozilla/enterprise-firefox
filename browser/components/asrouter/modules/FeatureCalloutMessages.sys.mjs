@@ -712,80 +712,6 @@ const MESSAGES = () => {
       },
     },
     {
-      id: "FIREFOX_VIEW_TAB_PICKUP_REMINDER",
-      template: "feature_callout",
-      content: {
-        id: "FIREFOX_VIEW_TAB_PICKUP_REMINDER",
-        template: "multistage",
-        backdrop: "transparent",
-        transitions: false,
-        disableHistoryUpdates: true,
-        screens: [
-          {
-            id: "FIREFOX_VIEW_TAB_PICKUP_REMINDER",
-            anchors: [
-              {
-                selector: "#tab-pickup-container",
-                arrow_position: "top",
-              },
-            ],
-            content: {
-              position: "callout",
-              title: {
-                string_id:
-                  "continuous-onboarding-firefox-view-tab-pickup-title",
-              },
-              subtitle: {
-                string_id:
-                  "continuous-onboarding-firefox-view-tab-pickup-subtitle",
-              },
-              logo: {
-                imageURL: "chrome://browser/content/callout-tab-pickup.svg",
-                darkModeImageURL:
-                  "chrome://browser/content/callout-tab-pickup-dark.svg",
-                height: "128px",
-              },
-              primary_button: {
-                label: {
-                  string_id: "mr1-onboarding-get-started-primary-button-label",
-                },
-                style: "secondary",
-                action: {
-                  type: "CLICK_ELEMENT",
-                  navigate: true,
-                  data: {
-                    selector:
-                      "#tab-pickup-container button.primary:not(#error-state-button)",
-                  },
-                },
-              },
-              dismiss_button: {
-                action: {
-                  navigate: true,
-                },
-              },
-              page_event_listeners: [
-                {
-                  params: {
-                    type: "toggle",
-                    selectors: "#tab-pickup-container",
-                  },
-                  action: { reposition: true },
-                },
-              ],
-            },
-          },
-        ],
-      },
-      priority: 2,
-      targeting: `source == "about:firefoxview" && "browser.firefox-view.view-count" | preferenceValue > 2
-    && (("identity.fxaccounts.enabled" | preferenceValue == false) || !(("services.sync.engine.tabs" | preferenceValue == true) && ("services.sync.username" | preferenceValue))) && (!messageImpressions.FIREFOX_VIEW_SPOTLIGHT[messageImpressions.FIREFOX_VIEW_SPOTLIGHT | length - 1] || messageImpressions.FIREFOX_VIEW_SPOTLIGHT[messageImpressions.FIREFOX_VIEW_SPOTLIGHT | length - 1] < currentDate|date - ${ONE_DAY_IN_MS})`,
-      frequency: {
-        lifetime: 1,
-      },
-      trigger: { id: "featureCalloutCheck" },
-    },
-    {
       id: "PDFJS_FEATURE_TOUR_A",
       template: "feature_callout",
       content: {
@@ -1223,6 +1149,7 @@ const MESSAGES = () => {
       },
       targeting:
         "isAIWindow && 'browser.smartwindow.firstrun.hasCompleted' | preferenceValue",
+      skip_in_tests: "it's not tested in automation",
       trigger: {
         id: "smartWindowNewTab",
       },

@@ -155,6 +155,8 @@ class AccessibilityRow extends Component {
     }
   }
 
+  #flashMutationTimer = null;
+
   scrollIntoView() {
     const row = findDOMNode(this);
     // Row might not be rendered in the DOM tree if it is filtered out during
@@ -190,11 +192,11 @@ class AccessibilityRow extends Component {
     const value = row.querySelector(".objectBox");
 
     flashElementOn(value);
-    if (this._flashMutationTimer) {
-      clearTimeout(this._flashMutationTimer);
-      this._flashMutationTimer = null;
+    if (this.#flashMutationTimer) {
+      clearTimeout(this.#flashMutationTimer);
+      this.#flashMutationTimer = null;
     }
-    this._flashMutationTimer = setTimeout(() => {
+    this.#flashMutationTimer = setTimeout(() => {
       flashElementOff(value);
     }, VALUE_FLASHING_DURATION);
   }

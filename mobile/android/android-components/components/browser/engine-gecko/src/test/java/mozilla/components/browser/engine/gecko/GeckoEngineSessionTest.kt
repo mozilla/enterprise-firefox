@@ -16,6 +16,8 @@ import mozilla.components.browser.engine.gecko.ext.geckoTrackingProtectionPermis
 import mozilla.components.browser.engine.gecko.ext.isExcludedForTrackingProtection
 import mozilla.components.browser.engine.gecko.permission.geckoContentPermission
 import mozilla.components.browser.engine.gecko.translate.GeckoTranslationUtils.intoTranslationError
+import mozilla.components.browser.engine.gecko.util.EngineDownloadDelegate
+import mozilla.components.browser.engine.gecko.util.FakeEngineDownloadDelegate
 import mozilla.components.browser.errorpages.ErrorType
 import mozilla.components.concept.engine.DefaultSettings
 import mozilla.components.concept.engine.EngineSession
@@ -116,7 +118,6 @@ class GeckoEngineSessionTest {
     private lateinit var runtime: GeckoRuntime
     private lateinit var geckoSession: GeckoSession
     private lateinit var geckoSessionProvider: () -> GeckoSession
-    private var downloadFileUtils = FakeDownloadFileUtils()
 
     private lateinit var navigationDelegate: ArgumentCaptor<GeckoSession.NavigationDelegate>
     private lateinit var progressDelegate: ArgumentCaptor<GeckoSession.ProgressDelegate>
@@ -175,11 +176,7 @@ class GeckoEngineSessionTest {
 
     @Test
     fun engineSessionInitialization() {
-        GeckoEngineSession(
-            runtime,
-            geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
-            )
+        GeckoEngineSession(runtime, geckoSessionProvider = geckoSessionProvider)
 
         verify(geckoSession).open(any())
 
@@ -191,11 +188,7 @@ class GeckoEngineSessionTest {
 
     @Test
     fun isIgnoredForTrackingProtection() {
-        val session = GeckoEngineSession(
-            runtime,
-            geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
-            )
+        val session = GeckoEngineSession(runtime, geckoSessionProvider = geckoSessionProvider)
 
         session.geckoPermissions =
             listOf(geckoContentPermission(type = PERMISSION_TRACKING, value = VALUE_ALLOW))
@@ -229,11 +222,7 @@ class GeckoEngineSessionTest {
 
     @Test
     fun `WHEN calling geckoTrackingProtectionPermission on a session THEN provide the gecko tracking protection permission`() {
-        val session = GeckoEngineSession(
-            runtime,
-            geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
-            )
+        val session = GeckoEngineSession(runtime, geckoSessionProvider = geckoSessionProvider)
         val trackingProtectionPermission = geckoContentPermission(type = PERMISSION_TRACKING, value = VALUE_ALLOW)
         val storagePermission = geckoContentPermission(type = PERMISSION_STORAGE_ACCESS, value = VALUE_DENY)
 
@@ -251,7 +240,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
         )
 
         var observedProgress = 0
@@ -301,11 +289,7 @@ class GeckoEngineSessionTest {
 
     @Test
     fun navigationDelegateNotifiesObservers() {
-        val engineSession = GeckoEngineSession(
-            runtime,
-            geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
-            )
+        val engineSession = GeckoEngineSession(runtime, geckoSessionProvider = geckoSessionProvider)
 
         var observedUrl = ""
         var observedUserGesture = true
@@ -356,7 +340,11 @@ class GeckoEngineSessionTest {
             mock(),
             geckoSessionProvider = geckoSessionProvider,
             privateMode = true,
-            downloadFileUtils = FakeDownloadFileUtils(guessFileName = { _, _, _ -> "image name.png" }),
+            defaultSettings = DefaultSettings(
+                downloadDelegate = FakeEngineDownloadDelegate(
+                    guessFileName = { _, _, _ -> "image name.png" },
+                ),
+            ),
         )
 
         val observer: EngineSession.Observer = mock()
@@ -396,7 +384,11 @@ class GeckoEngineSessionTest {
             mock(),
             geckoSessionProvider = geckoSessionProvider,
             privateMode = true,
-            downloadFileUtils = FakeDownloadFileUtils(guessFileName = { _, _, _ -> "image image.png" }),
+            defaultSettings = DefaultSettings(
+                downloadDelegate = FakeEngineDownloadDelegate(
+                    guessFileName = { _, _, _ -> "image image.png" },
+                ),
+            ),
         )
 
         val observer: EngineSession.Observer = mock()
@@ -437,7 +429,11 @@ class GeckoEngineSessionTest {
             mock(),
             geckoSessionProvider = geckoSessionProvider,
             privateMode = true,
-            downloadFileUtils = FakeDownloadFileUtils(guessFileName = { _, _, _ -> "image.png" }),
+            defaultSettings = DefaultSettings(
+                downloadDelegate = FakeEngineDownloadDelegate(
+                    guessFileName = { _, _, _ -> "image.png" },
+                ),
+            ),
         )
 
         val observer: EngineSession.Observer = mock()
@@ -475,7 +471,11 @@ class GeckoEngineSessionTest {
             mock(),
             geckoSessionProvider = geckoSessionProvider,
             privateMode = true,
-            downloadFileUtils = FakeDownloadFileUtils(guessFileName = { _, _, _ -> "image.png" }),
+            defaultSettings = DefaultSettings(
+                downloadDelegate = FakeEngineDownloadDelegate(
+                    guessFileName = { _, _, _ -> "image.png" },
+                ),
+            ),
         )
 
         val observer: EngineSession.Observer = mock()
@@ -512,7 +512,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
         )
 
         val observer: EngineSession.Observer = mock()
@@ -538,7 +537,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
         )
 
         val observedContentPermissionRequests: MutableList<PermissionRequest> = mutableListOf()
@@ -608,7 +606,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
         )
 
         val observedScrollChanges: MutableList<Pair<Int, Int>> = mutableListOf()
@@ -641,16 +638,8 @@ class GeckoEngineSessionTest {
 
     @Test
     fun loadUrl() {
-        val engineSession = GeckoEngineSession(
-            mock(),
-            geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
-            )
-        val parentEngineSession = GeckoEngineSession(
-            mock(),
-            geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
-            )
+        val engineSession = GeckoEngineSession(mock(), geckoSessionProvider = geckoSessionProvider)
+        val parentEngineSession = GeckoEngineSession(mock(), geckoSessionProvider = geckoSessionProvider)
 
         engineSession.loadUrl("http://mozilla.org")
         verify(geckoSession).load(
@@ -702,11 +691,7 @@ class GeckoEngineSessionTest {
 
     @Test
     fun `loadUrl doesn't load URLs with blocked schemes`() {
-        val engineSession = GeckoEngineSession(
-            mock(),
-            geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
-            )
+        val engineSession = GeckoEngineSession(mock(), geckoSessionProvider = geckoSessionProvider)
 
         engineSession.loadUrl("file://test.txt")
         engineSession.loadUrl("FILE://test.txt")
@@ -729,7 +714,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
         )
 
         engineSession.loadData("<html><body>Hello!</body></html>")
@@ -775,7 +759,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
         )
 
         engineSession.loadData("Hello!", "text/plain", "UTF-8")
@@ -799,7 +782,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
         )
 
         engineSession.stopLoading()
@@ -809,11 +791,7 @@ class GeckoEngineSessionTest {
 
     @Test
     fun reload() {
-        val engineSession = GeckoEngineSession(
-            mock(),
-            geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
-            )
+        val engineSession = GeckoEngineSession(mock(), geckoSessionProvider = geckoSessionProvider)
         engineSession.loadUrl("http://mozilla.org")
 
         // Initial load is still in progress so reload should not be called.
@@ -839,7 +817,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
         )
 
         engineSession.goBack()
@@ -852,7 +829,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
         )
 
         engineSession.goForward()
@@ -865,7 +841,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
         )
 
         engineSession.goToHistoryIndex(0)
@@ -878,7 +853,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
         )
 
         val actualState: GeckoSession.SessionState = mock()
@@ -893,7 +867,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
         )
 
         val state = GeckoEngineSessionState(null)
@@ -907,7 +880,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
         )
 
         var observedSecurityChange = false
@@ -962,11 +934,7 @@ class GeckoEngineSessionTest {
 
     @Test
     fun navigationDelegateIgnoresInitialLoadOfAboutBlank() {
-        val engineSession = GeckoEngineSession(
-            runtime,
-            geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
-            )
+        val engineSession = GeckoEngineSession(runtime, geckoSessionProvider = geckoSessionProvider)
 
         var observedUrl = ""
         engineSession.register(
@@ -992,11 +960,7 @@ class GeckoEngineSessionTest {
 
     @Test
     fun `onLoadRequest will reset initial load flag on process switch to ignore about blank loads`() {
-        val session = GeckoEngineSession(
-            runtime,
-            geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
-            )
+        val session = GeckoEngineSession(runtime, geckoSessionProvider = geckoSessionProvider)
         captureDelegates()
         assertTrue(session.initialLoad)
 
@@ -1027,7 +991,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
         )
 
         captureDelegates()
@@ -1042,11 +1005,7 @@ class GeckoEngineSessionTest {
 
     @Test
     fun `keeps track of current url via onLocationChange events`() {
-        val engineSession = GeckoEngineSession(
-            runtime,
-            geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
-            )
+        val engineSession = GeckoEngineSession(runtime, geckoSessionProvider = geckoSessionProvider)
         val geckoResult = GeckoResult<Boolean?>()
 
         captureDelegates()
@@ -1062,11 +1021,7 @@ class GeckoEngineSessionTest {
 
     @Test
     fun `WHEN onLocationChange is called THEN geckoPermissions is assigned`() {
-        val engineSession = GeckoEngineSession(
-            runtime,
-            geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
-            )
+        val engineSession = GeckoEngineSession(runtime, geckoSessionProvider = geckoSessionProvider)
 
         captureDelegates()
 
@@ -1077,11 +1032,7 @@ class GeckoEngineSessionTest {
 
     @Test
     fun `WHEN onLocationChange is called with null URL THEN geckoPermissions is assigned`() {
-        val engineSession = GeckoEngineSession(
-            runtime,
-            geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
-            )
+        val engineSession = GeckoEngineSession(runtime, geckoSessionProvider = geckoSessionProvider)
 
         captureDelegates()
 
@@ -1095,7 +1046,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             runtime,
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
             context = coroutineContext,
         )
         val historyTrackingDelegate: HistoryTrackingDelegate = mock()
@@ -1129,7 +1079,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
             context = coroutineContext,
             privateMode = true,
         )
@@ -1162,7 +1111,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
             context = coroutineContext,
         )
 
@@ -1231,7 +1179,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
             context = coroutineContext,
         )
 
@@ -1259,7 +1206,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             runtime,
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
             context = coroutineContext,
         )
         val historyTrackingDelegate: HistoryTrackingDelegate = mock()
@@ -1297,7 +1243,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
             context = coroutineContext,
             privateMode = true,
         )
@@ -1335,7 +1280,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
             context = coroutineContext,
         )
         val historyTrackingDelegate: HistoryTrackingDelegate = mock()
@@ -1361,7 +1305,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
             context = coroutineContext,
         )
         val historyTrackingDelegate: HistoryTrackingDelegate = mock()
@@ -1381,7 +1324,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
             context = coroutineContext,
         )
         val historyTrackingDelegate: HistoryTrackingDelegate = mock()
@@ -1401,7 +1343,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
             context = coroutineContext,
         )
         val historyTrackingDelegate: HistoryTrackingDelegate = mock()
@@ -1430,7 +1371,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
             context = coroutineContext,
         )
         val historyTrackingDelegate: HistoryTrackingDelegate = mock()
@@ -1493,7 +1433,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
             context = coroutineContext,
             privateMode = true,
         )
@@ -1513,7 +1452,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
             context = coroutineContext,
         )
         val historyTrackingDelegate: HistoryTrackingDelegate = mock()
@@ -1536,7 +1474,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
             context = coroutineContext,
             privateMode = true,
         )
@@ -1556,7 +1493,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
             context = coroutineContext,
         )
         val observer = mock<EngineSession.Observer>()
@@ -1607,7 +1543,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
         )
 
         val observer: EngineSession.Observer = mock()
@@ -1625,7 +1560,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
         )
 
         val observer: EngineSession.Observer = mock()
@@ -1644,7 +1578,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
         )
 
         var trackerBlocked: Tracker? = null
@@ -1735,13 +1668,7 @@ class GeckoEngineSessionTest {
         whenever(runtime.settings).thenReturn(mock())
         whenever(runtime.settings.contentBlocking).thenReturn(mock())
 
-        val session = spy(
-            GeckoEngineSession(
-            runtime,
-            geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
-            ),
-        )
+        val session = spy(GeckoEngineSession(runtime, geckoSessionProvider = geckoSessionProvider))
         var trackerBlockingObserved = false
 
         session.register(
@@ -1766,13 +1693,7 @@ class GeckoEngineSessionTest {
         whenever(runtime.settings).thenReturn(mock())
         whenever(runtime.settings.contentBlocking).thenReturn(mock())
 
-        val session = spy(
-            GeckoEngineSession(
-            runtime,
-            geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
-            ),
-        )
+        val session = spy(GeckoEngineSession(runtime, geckoSessionProvider = geckoSessionProvider))
         var trackerBlockingObserved = false
 
         session.register(
@@ -1800,7 +1721,6 @@ class GeckoEngineSessionTest {
             GeckoEngineSession(
                 runtime = runtime,
                 geckoSessionProvider = geckoSessionProvider,
-                downloadFileUtils = downloadFileUtils,
                 privateMode = true,
             ),
         )
@@ -1825,7 +1745,6 @@ class GeckoEngineSessionTest {
             GeckoEngineSession(
                 runtime = runtime,
                 geckoSessionProvider = geckoSessionProvider,
-                downloadFileUtils = downloadFileUtils,
                 privateMode = false,
             ),
         )
@@ -1850,7 +1769,6 @@ class GeckoEngineSessionTest {
             GeckoEngineSession(
                 runtime = runtime,
                 geckoSessionProvider = geckoSessionProvider,
-                downloadFileUtils = downloadFileUtils,
                 privateMode = false,
             ),
         )
@@ -1868,7 +1786,6 @@ class GeckoEngineSessionTest {
             GeckoEngineSession(
                 runtime = runtime,
                 geckoSessionProvider = geckoSessionProvider,
-                downloadFileUtils = downloadFileUtils,
                 privateMode = true,
             ),
         )
@@ -1885,11 +1802,7 @@ class GeckoEngineSessionTest {
     fun `changes to updateTrackingProtection will be notified to all new observers`() {
         whenever(runtime.settings).thenReturn(mock())
         whenever(runtime.settings.contentBlocking).thenReturn(mock())
-        val session = GeckoEngineSession(
-            runtime,
-            geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
-            )
+        val session = GeckoEngineSession(runtime, geckoSessionProvider = geckoSessionProvider)
         val observers = mutableListOf<EngineSession.Observer>()
         val policy = TrackingProtectionPolicy.strict()
 
@@ -1960,7 +1873,6 @@ class GeckoEngineSessionTest {
         GeckoEngineSession(
             runtime,
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
             defaultSettings = DefaultSettings(),
         )
         verify(geckoSession.settings).fullAccessibilityTree = false
@@ -1968,7 +1880,6 @@ class GeckoEngineSessionTest {
         GeckoEngineSession(
             runtime,
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
             defaultSettings = DefaultSettings(testingModeEnabled = true),
         )
         verify(geckoSession.settings).fullAccessibilityTree = true
@@ -1976,11 +1887,7 @@ class GeckoEngineSessionTest {
 
     @Test
     fun settingUserAgent() {
-        val engineSession = GeckoEngineSession(
-            runtime,
-            geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
-            )
+        val engineSession = GeckoEngineSession(runtime, geckoSessionProvider = geckoSessionProvider)
         engineSession.settings.userAgentString
 
         verify(geckoSession.settings).userAgentOverride
@@ -1995,7 +1902,6 @@ class GeckoEngineSessionTest {
         GeckoEngineSession(
             runtime,
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
             defaultSettings = DefaultSettings(userAgentString = "test-ua"),
         )
 
@@ -2004,11 +1910,7 @@ class GeckoEngineSessionTest {
 
     @Test
     fun settingSuspendMediaWhenInactive() {
-        val engineSession = GeckoEngineSession(
-            runtime,
-            geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
-            )
+        val engineSession = GeckoEngineSession(runtime, geckoSessionProvider = geckoSessionProvider)
         verify(geckoSession.settings, never()).suspendMediaWhenInactive = anyBoolean()
 
         assertFalse(engineSession.settings.suspendMediaWhenInactive)
@@ -2020,17 +1922,12 @@ class GeckoEngineSessionTest {
 
     @Test
     fun settingSuspendMediaWhenInactiveDefault() {
-        GeckoEngineSession(
-            runtime,
-            geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
-            )
+        GeckoEngineSession(runtime, geckoSessionProvider = geckoSessionProvider)
         verify(geckoSession.settings, never()).suspendMediaWhenInactive = anyBoolean()
 
         GeckoEngineSession(
             runtime,
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
             defaultSettings = DefaultSettings(),
         )
         verify(geckoSession.settings).suspendMediaWhenInactive = false
@@ -2038,7 +1935,6 @@ class GeckoEngineSessionTest {
         GeckoEngineSession(
             runtime,
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
             defaultSettings = DefaultSettings(suspendMediaWhenInactive = true),
         )
         verify(geckoSession.settings).suspendMediaWhenInactive = true
@@ -2048,18 +1944,13 @@ class GeckoEngineSessionTest {
     fun settingClearColorDefault() {
         whenever(geckoSession.compositorController).thenReturn(mock())
 
-        GeckoEngineSession(
-            runtime,
-            geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
-            )
+        GeckoEngineSession(runtime, geckoSessionProvider = geckoSessionProvider)
 
         verify(geckoSession.compositorController, never()).clearColor = anyInt()
 
         GeckoEngineSession(
             runtime,
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
             defaultSettings = DefaultSettings(),
         )
         verify(geckoSession.compositorController, never()).clearColor = anyInt()
@@ -2067,7 +1958,6 @@ class GeckoEngineSessionTest {
         GeckoEngineSession(
             runtime,
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
             defaultSettings = DefaultSettings(clearColor = Color.BLUE),
         )
         verify(geckoSession.compositorController).clearColor = Color.BLUE
@@ -2078,7 +1968,6 @@ class GeckoEngineSessionTest {
         whenever(geckoSession.compositorController).thenReturn(mock())
         val engineSession = GeckoEngineSession(
             mock(),
-            downloadFileUtils = downloadFileUtils,
             geckoSessionProvider = geckoSessionProvider,
         )
         engineSession.onPipModeChanged(true)
@@ -2091,7 +1980,6 @@ class GeckoEngineSessionTest {
     fun unsupportedSettings() {
         val settings = GeckoEngineSession(
             runtime,
-            downloadFileUtils = downloadFileUtils,
             geckoSessionProvider = geckoSessionProvider,
         ).settings
 
@@ -2131,12 +2019,7 @@ class GeckoEngineSessionTest {
         }
 
         val defaultSettings = DefaultSettings(requestInterceptor = interceptor)
-        GeckoEngineSession(
-            mock(),
-            geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
-            defaultSettings = defaultSettings,
-            )
+        GeckoEngineSession(mock(), geckoSessionProvider = geckoSessionProvider, defaultSettings = defaultSettings)
         captureDelegates()
 
         navigationDelegate.value.onLoadRequest(geckoSession, mockLoadRequest("sample:about"))
@@ -2170,12 +2053,7 @@ class GeckoEngineSessionTest {
         }
 
         val defaultSettings = DefaultSettings(requestInterceptor = interceptor)
-        GeckoEngineSession(
-            mock(),
-            geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
-            defaultSettings = defaultSettings,
-            )
+        GeckoEngineSession(mock(), geckoSessionProvider = geckoSessionProvider, defaultSettings = defaultSettings)
         captureDelegates()
 
         navigationDelegate.value.onLoadRequest(geckoSession, mockLoadRequest("sample:about", "trigger:uri"))
@@ -2209,12 +2087,7 @@ class GeckoEngineSessionTest {
         }
 
         val defaultSettings = DefaultSettings(requestInterceptor = interceptor)
-        GeckoEngineSession(
-            mock(),
-            geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
-            defaultSettings = defaultSettings,
-            )
+        GeckoEngineSession(mock(), geckoSessionProvider = geckoSessionProvider, defaultSettings = defaultSettings)
         captureDelegates()
 
         navigationDelegate.value.onLoadRequest(geckoSession, mockLoadRequest("sample:about", isDirectNavigation = true))
@@ -2231,7 +2104,6 @@ class GeckoEngineSessionTest {
         GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
             defaultSettings = defaultSettings,
         )
 
@@ -2269,7 +2141,6 @@ class GeckoEngineSessionTest {
         GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
             defaultSettings = defaultSettings,
         )
 
@@ -2289,7 +2160,6 @@ class GeckoEngineSessionTest {
         var engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
             defaultSettings = defaultSettings,
         )
 
@@ -2317,7 +2187,6 @@ class GeckoEngineSessionTest {
         engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
             defaultSettings = defaultSettings,
         )
 
@@ -2355,7 +2224,6 @@ class GeckoEngineSessionTest {
         GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
             defaultSettings = defaultSettings,
         )
 
@@ -2379,11 +2247,7 @@ class GeckoEngineSessionTest {
     fun onLoadErrorCallsInterceptorWithInvalidUri() {
         val requestInterceptor: RequestInterceptor = mock()
         val defaultSettings = DefaultSettings(requestInterceptor = requestInterceptor)
-        val engineSession = GeckoEngineSession(
-            runtime,
-            defaultSettings = defaultSettings,
-            downloadFileUtils = downloadFileUtils,
-            )
+        val engineSession = GeckoEngineSession(runtime, defaultSettings = defaultSettings)
 
         engineSession.geckoSession.navigationDelegate!!.onLoadError(
             engineSession.geckoSession,
@@ -2524,7 +2388,6 @@ class GeckoEngineSessionTest {
         GeckoEngineSession(
             runtime,
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
             privateMode = false,
             defaultSettings = defaultSettings,
         )
@@ -2541,7 +2404,6 @@ class GeckoEngineSessionTest {
         GeckoEngineSession(
             runtime,
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
             privateMode = false,
             defaultSettings = defaultSettings,
         )
@@ -2554,7 +2416,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
         )
         val delegate = engineSession.createContentDelegate()
 
@@ -2619,7 +2480,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
         )
         val delegate = engineSession.createContentDelegate()
 
@@ -2650,7 +2510,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
         )
 
         var result = engineSession.handleLongClick("file.mp3", TYPE_AUDIO)
@@ -2708,11 +2567,7 @@ class GeckoEngineSessionTest {
 
     @Test
     fun setDesktopMode() {
-        val engineSession = GeckoEngineSession(
-            runtime,
-            geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
-            )
+        val engineSession = GeckoEngineSession(runtime, geckoSessionProvider = geckoSessionProvider)
 
         var desktopModeToggled = false
         engineSession.register(
@@ -2745,13 +2600,7 @@ class GeckoEngineSessionTest {
     fun `toggleDesktopMode should reload a non-mobile url when set to desktop mode`() {
         val mobileUrl = "https://m.example.com"
         val nonMobileUrl = "https://example.com"
-        val engineSession = spy(
-            GeckoEngineSession(
-            runtime,
-            geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
-            ),
-        )
+        val engineSession = spy(GeckoEngineSession(runtime, geckoSessionProvider = geckoSessionProvider))
         engineSession.currentUrl = mobileUrl
         engineSession.pageLoadingUrl = "https://before-redirection.com"
 
@@ -2764,13 +2613,7 @@ class GeckoEngineSessionTest {
 
     @Test
     fun `toggleDesktopMode should reload a pageLoadingUrl when set to desktop mode if it is different from currentUrl`() {
-        val engineSession = spy(
-            GeckoEngineSession(
-            runtime,
-            geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
-            ),
-            )
+        val engineSession = spy(GeckoEngineSession(runtime, geckoSessionProvider = geckoSessionProvider))
         engineSession.currentUrl = "https://redirected.com"
         engineSession.pageLoadingUrl = "https://example.com"
 
@@ -2786,7 +2629,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
         )
         var onResultCalled = false
         var onExceptionCalled = false
@@ -2811,7 +2653,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
         )
 
         var onResultCalled = false
@@ -2837,7 +2678,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
         )
 
         var onResultCalled = false
@@ -2863,7 +2703,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
         )
         var onResultCalled = false
         var onExceptionCalled = false
@@ -2888,7 +2727,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
         )
         var onResultCalled = false
         var onExceptionCalled = false
@@ -2919,11 +2757,7 @@ class GeckoEngineSessionTest {
 
     @Test
     fun `sendMoreWebCompatInfo should correctly process a GV response`() {
-        val engineSession = GeckoEngineSession(
-            mock(),
-            geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
-            )
+        val engineSession = GeckoEngineSession(mock(), geckoSessionProvider = geckoSessionProvider)
         var onResultCalled = false
         var onExceptionCalled = false
 
@@ -2956,11 +2790,7 @@ class GeckoEngineSessionTest {
 
     @Test
     fun `WHEN session requestTranslate is successful THEN notify of completion`() {
-        val engineSession = GeckoEngineSession(
-            mock(),
-            geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
-            )
+        val engineSession = GeckoEngineSession(mock(), geckoSessionProvider = geckoSessionProvider)
         val mockedGeckoController: TranslationsController.SessionTranslation = mock()
 
         val geckoResult = GeckoResult<Void>()
@@ -2996,11 +2826,7 @@ class GeckoEngineSessionTest {
 
     @Test
     fun `WHEN session requestTranslationRestore is successful THEN notify of completion`() {
-        val engineSession = GeckoEngineSession(
-            mock(),
-            geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
-            )
+        val engineSession = GeckoEngineSession(mock(), geckoSessionProvider = geckoSessionProvider)
         val mockedGeckoController: TranslationsController.SessionTranslation = mock()
 
         val geckoResult = GeckoResult<Void>()
@@ -3027,11 +2853,7 @@ class GeckoEngineSessionTest {
 
     @Test
     fun `WHEN session requestTranslate is unsuccessful THEN notify of failure`() {
-        val engineSession = GeckoEngineSession(
-            mock(),
-            geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
-            )
+        val engineSession = GeckoEngineSession(mock(), geckoSessionProvider = geckoSessionProvider)
         val mockedGeckoController: TranslationsController.SessionTranslation = mock()
 
         val geckoResult = GeckoResult<Void>()
@@ -3067,11 +2889,7 @@ class GeckoEngineSessionTest {
 
     @Test
     fun `WHEN session requestTranslationRestore is unsuccessful THEN notify of failure`() {
-        val engineSession = GeckoEngineSession(
-            mock(),
-            geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
-            )
+        val engineSession = GeckoEngineSession(mock(), geckoSessionProvider = geckoSessionProvider)
         val mockedGeckoController: TranslationsController.SessionTranslation = mock()
 
         val geckoResult = GeckoResult<Void>()
@@ -3098,11 +2916,7 @@ class GeckoEngineSessionTest {
 
     @Test
     fun `WHEN session getNeverTranslateSiteSetting is successful THEN onResult should be called`() {
-        val engineSession = GeckoEngineSession(
-            mock(),
-            geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
-            )
+        val engineSession = GeckoEngineSession(mock(), geckoSessionProvider = geckoSessionProvider)
         val mockedGeckoController: TranslationsController.SessionTranslation = mock()
 
         val geckoResult = GeckoResult<Boolean>()
@@ -3130,11 +2944,7 @@ class GeckoEngineSessionTest {
 
     @Test
     fun `WHEN session getNeverTranslateSiteSetting has an error THEN onException should be called`() {
-        val engineSession = GeckoEngineSession(
-            mock(),
-            geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
-            )
+        val engineSession = GeckoEngineSession(mock(), geckoSessionProvider = geckoSessionProvider)
         val mockedGeckoController: TranslationsController.SessionTranslation = mock()
 
         val geckoResult = GeckoResult<Boolean>()
@@ -3159,11 +2969,7 @@ class GeckoEngineSessionTest {
 
     @Test
     fun `WHEN session setNeverTranslateSiteSetting is successful THEN onResult should be called`() {
-        val engineSession = GeckoEngineSession(
-            mock(),
-            geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
-            )
+        val engineSession = GeckoEngineSession(mock(), geckoSessionProvider = geckoSessionProvider)
         val mockedGeckoController: TranslationsController.SessionTranslation = mock()
 
         val geckoResult = GeckoResult<Void>()
@@ -3189,11 +2995,7 @@ class GeckoEngineSessionTest {
 
     @Test
     fun `WHEN session setNeverTranslateSiteSetting has an error THEN onException should be called`() {
-        val engineSession = GeckoEngineSession(
-            mock(),
-            geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
-            )
+        val engineSession = GeckoEngineSession(mock(), geckoSessionProvider = geckoSessionProvider)
         val mockedGeckoController: TranslationsController.SessionTranslation = mock()
 
         val geckoResult = GeckoResult<Void>()
@@ -3438,11 +3240,7 @@ class GeckoEngineSessionTest {
 
     @Test
     fun containsFormData() {
-        val engineSession = GeckoEngineSession(
-            runtime = mock(),
-            geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
-            )
+        val engineSession = GeckoEngineSession(runtime = mock(), geckoSessionProvider = geckoSessionProvider)
         var formData = false
         engineSession.register(
             object : EngineSession.Observer {
@@ -3467,11 +3265,7 @@ class GeckoEngineSessionTest {
         val unrecognizedMobilePrefixUrl = "https://phone.example.com"
         val nonMobileUrl = "https://example.com"
 
-        val engineSession = GeckoEngineSession(
-            runtime,
-            geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
-            )
+        val engineSession = GeckoEngineSession(runtime, geckoSessionProvider = geckoSessionProvider)
 
         assertNull(engineSession.checkForMobileSite(nonAuthorityUrl))
         assertNull(engineSession.checkForMobileSite(unrecognizedMobilePrefixUrl))
@@ -3491,7 +3285,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
         )
 
         var findObserved: String? = null
@@ -3531,7 +3324,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
         )
 
         var findResultObserved = false
@@ -3567,7 +3359,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
         )
 
         engineSession.clearFindMatches()
@@ -3580,7 +3371,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
         )
         val observer: EngineSession.Observer = mock()
 
@@ -3603,7 +3393,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
         )
 
         engineSession.exitFullScreenMode()
@@ -3615,7 +3404,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
         )
         val observer: EngineSession.Observer = mock()
 
@@ -3645,7 +3433,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
         )
         val observer: EngineSession.Observer = mock()
 
@@ -3660,11 +3447,7 @@ class GeckoEngineSessionTest {
 
     @Test
     fun clearData() {
-        val engineSession = GeckoEngineSession(
-            runtime,
-            geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
-            )
+        val engineSession = GeckoEngineSession(runtime, geckoSessionProvider = geckoSessionProvider)
         val observer: EngineSession.Observer = mock()
 
         engineSession.register(observer)
@@ -3678,11 +3461,7 @@ class GeckoEngineSessionTest {
     fun `Closing engine session should close underlying gecko session`() {
         val geckoSession = mockGeckoSession()
 
-        val engineSession = GeckoEngineSession(
-            mock(),
-            geckoSessionProvider = { geckoSession },
-            downloadFileUtils = downloadFileUtils,
-            )
+        val engineSession = GeckoEngineSession(mock(), geckoSessionProvider = { geckoSession })
 
         engineSession.close()
 
@@ -3694,7 +3473,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
         )
 
         captureDelegates()
@@ -3792,7 +3570,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
         )
 
         captureDelegates()
@@ -3892,7 +3669,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
         )
 
         captureDelegates()
@@ -3947,7 +3723,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
         )
 
         captureDelegates()
@@ -3978,7 +3753,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
         )
 
         captureDelegates()
@@ -4002,7 +3776,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
         )
 
         captureDelegates()
@@ -4026,7 +3799,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
         )
 
         captureDelegates()
@@ -4051,7 +3823,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
         )
 
         captureDelegates()
@@ -4144,7 +3915,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
         )
 
         captureDelegates()
@@ -4184,7 +3954,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
         )
 
         captureDelegates()
@@ -4264,7 +4033,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
         )
 
         captureDelegates()
@@ -4355,7 +4123,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
         )
 
         captureDelegates()
@@ -4431,7 +4198,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
         )
 
         captureDelegates()
@@ -4551,11 +4317,7 @@ class GeckoEngineSessionTest {
 
     @Test
     fun `onLoadRequest will return correct GeckoResult if no observer is available`() {
-        GeckoEngineSession(
-            mock(),
-            geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
-            )
+        GeckoEngineSession(mock(), geckoSessionProvider = geckoSessionProvider)
         captureDelegates()
 
         val geckoResult = navigationDelegate.value.onLoadRequest(
@@ -4582,7 +4344,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
         )
 
         captureDelegates()
@@ -4607,13 +4368,7 @@ class GeckoEngineSessionTest {
 
     @Test
     fun `onNewSession creates window request`() {
-        val defaultSettings = DefaultSettings(userAgentString = "test-ua")
-        val engineSession = GeckoEngineSession(
-            mock(),
-            geckoSessionProvider = geckoSessionProvider,
-            defaultSettings = defaultSettings,
-            downloadFileUtils = downloadFileUtils,
-            )
+        val engineSession = GeckoEngineSession(mock(), geckoSessionProvider = geckoSessionProvider)
 
         captureDelegates()
 
@@ -4631,20 +4386,12 @@ class GeckoEngineSessionTest {
 
         assertNotNull(receivedWindowRequest)
         assertEquals("mozilla.org", receivedWindowRequest!!.url)
-        assertEquals(
-            defaultSettings.userAgentString,
-            receivedWindowRequest.prepare().settings.userAgentString,
-            )
         assertEquals(WindowRequest.Type.OPEN, receivedWindowRequest.type)
     }
 
     @Test
     fun `onCloseRequest creates window request`() {
-        val engineSession = GeckoEngineSession(
-            mock(),
-            geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
-            )
+        val engineSession = GeckoEngineSession(mock(), geckoSessionProvider = geckoSessionProvider)
 
         captureDelegates()
 
@@ -4681,11 +4428,7 @@ class GeckoEngineSessionTest {
 
     @Test
     fun `certificate issuer is parsed and provided onSecurityChange`() {
-        val engineSession = GeckoEngineSession(
-            mock(),
-            geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
-            )
+        val engineSession = GeckoEngineSession(mock(), geckoSessionProvider = geckoSessionProvider)
 
         var observedIssuer: String? = null
         var observedCertificate: X509Certificate? = null
@@ -4718,7 +4461,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
             )
 
         var observedIssuer: String? = null
@@ -4753,7 +4495,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
         )
         engineSession.register(
             object : EngineSession.Observer {
@@ -4775,7 +4516,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
         )
         engineSession.register(
             object : EngineSession.Observer {
@@ -4797,7 +4537,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
         )
         engineSession.register(
             object : EngineSession.Observer {
@@ -4819,7 +4558,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
         )
         engineSession.register(
             object : EngineSession.Observer {
@@ -4841,7 +4579,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
         )
         engineSession.register(
             object : EngineSession.Observer {
@@ -4862,7 +4599,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
         )
         engineSession.register(
             object : EngineSession.Observer {
@@ -4883,7 +4619,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
         )
         engineSession.register(
             object : EngineSession.Observer {
@@ -4900,11 +4635,7 @@ class GeckoEngineSessionTest {
 
     @Test
     fun `GIVEN a list of blocked schemes set WHEN getBlockedSchemes is called THEN it returns that list`() {
-        val engineSession = GeckoEngineSession(
-            mock(),
-            geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
-            )
+        val engineSession = GeckoEngineSession(mock(), geckoSessionProvider = geckoSessionProvider)
 
         assertSame(GeckoEngineSession.BLOCKED_SCHEMES, engineSession.getBlockedSchemes())
     }
@@ -4914,7 +4645,11 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             runtime = mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = FakeDownloadFileUtils(guessFileName = { _, _, _ -> "Mozilla.pdf" }),
+            defaultSettings = DefaultSettings(
+                downloadDelegate = FakeEngineDownloadDelegate(
+                    guessFileName = { _, _, _ -> "Mozilla.pdf" },
+                ),
+            ),
         ).apply {
             currentUrl = "https://mozilla.org"
             currentTitle = "Mozilla"
@@ -4952,7 +4687,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             runtime = mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
         )
         engineSession.register(
             object : EngineSession.Observer {
@@ -4994,7 +4728,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
         )
 
         whenever(geckoSession.settings).thenReturn(geckoSetting)
@@ -5018,7 +4751,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             runtime = mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
         )
         whenever(geckoSession.didPrintPageContent()).thenReturn(GeckoResult.fromValue(true))
 
@@ -5040,7 +4772,6 @@ class GeckoEngineSessionTest {
         val engineSession = GeckoEngineSession(
             runtime = mock(),
             geckoSessionProvider = geckoSessionProvider,
-            downloadFileUtils = downloadFileUtils,
         )
         class MockGeckoPrintException() : GeckoPrintException()
         whenever(geckoSession.didPrintPageContent()).thenReturn(GeckoResult.fromException(MockGeckoPrintException()))

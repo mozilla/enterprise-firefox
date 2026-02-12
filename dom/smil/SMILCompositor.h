@@ -35,13 +35,11 @@ class SMILCompositor : public PLDHashEntryHdr {
   using KeyTypeRef = const KeyType&;
   using KeyTypePointer = const KeyType*;
 
-  explicit SMILCompositor(KeyTypePointer aKey)
-      : mKey(*aKey), mForceCompositing(false) {}
+  explicit SMILCompositor(KeyTypePointer aKey) : mKey(*aKey) {}
   SMILCompositor(SMILCompositor&& toMove) noexcept
       : PLDHashEntryHdr(std::move(toMove)),
         mKey(std::move(toMove.mKey)),
-        mAnimationFunctions(std::move(toMove.mAnimationFunctions)),
-        mForceCompositing(false) {}
+        mAnimationFunctions(std::move(toMove.mAnimationFunctions)) {}
 
   // PLDHashEntryHdr methods
   KeyTypeRef GetKey() const { return mKey; }
@@ -115,17 +113,17 @@ class SMILCompositor : public PLDHashEntryHdr {
   // Hash Value: List of animation functions that animate the specified attr
   nsTArray<SMILAnimationFunction*> mAnimationFunctions;
 
-  // Member data for detecting when we need to force-recompose
-  // ---------------------------------------------------------
-  // Flag for tracking whether we need to compose. Initialized to false, but
-  // gets flipped to true if we detect that something has changed.
-  bool mForceCompositing;
-
   // Cached base value, so we can detect & force-recompose when it changes
   // from one sample to the next. (SMILAnimationController moves this
   // forward from the previous sample's compositor by calling
   // StealCachedBaseValue.)
   SMILValue mCachedBaseValue;
+
+  // Member data for detecting when we need to force-recompose
+  // ---------------------------------------------------------
+  // Flag for tracking whether we need to compose. Initialized to false, but
+  // gets flipped to true if we detect that something has changed.
+  bool mForceCompositing = false;
 };
 
 }  // namespace mozilla

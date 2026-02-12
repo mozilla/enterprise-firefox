@@ -215,6 +215,7 @@ ASSERT_NODE_FLAGS_SPACE(ELEMENT_TYPE_SPECIFIC_BITS_OFFSET);
 
 namespace mozilla {
 enum class PseudoStyleType : uint8_t;
+struct PseudoStyleRequest;
 class EventChainPostVisitor;
 class EventChainPreVisitor;
 class EventChainVisitor;

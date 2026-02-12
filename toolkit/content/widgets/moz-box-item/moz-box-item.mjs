@@ -109,7 +109,8 @@ export default class MozBoxItem extends MozBoxBase {
     return (
       reorderableParent?.type == GROUP_TYPES.reorderable &&
       this.slot != "header" &&
-      this.slot != "footer"
+      this.slot != "footer" &&
+      !this.slot.includes("static")
     );
   }
 

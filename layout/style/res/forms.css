@@ -356,25 +356,6 @@ optgroup:before {
   }
 }
 
-*|*::-moz-dropdown-list {
-  content: inherit;
-  z-index: 2147483647;
-  background-color: inherit;
-  user-select: none;
-  position: static !important;
-  float: none !important;
-
-  /*
-   * We can't change the padding here, because that would affect our
-   * intrinsic inline-size, since we scroll.  But at the same time, we want
-   * to make sure that our inline-start border+padding matches the inline-start
-   * border+padding of a combobox so that our scrollbar will line up
-   * with the dropmarker.  So set our inline-start border to 2px.
-   */
-  border: 1px outset black !important;
-  border-inline-start-width: 2px !important;
-}
-
 input:disabled,
 textarea:disabled,
 option:disabled,

@@ -10,14 +10,14 @@ from datetime import date, timedelta
 from taskgraph.transforms.base import TransformSequence
 from taskgraph.util import json
 from taskgraph.util.copy import deepcopy
-from taskgraph.util.schema import Schema, optionally_keyed_by, resolve_keyed_by
+from taskgraph.util.schema import LegacySchema, optionally_keyed_by, resolve_keyed_by
 from taskgraph.util.treeherder import join_symbol, split_symbol
 from voluptuous import Any, Extra, Optional
 
 transforms = TransformSequence()
 
 
-perftest_description_schema = Schema({
+perftest_description_schema = LegacySchema({
     # The test names and the symbols to use for them: [test-symbol, test-path]
     Optional("perftest"): [[str]],
     # Metrics to gather for the test. These will be merged

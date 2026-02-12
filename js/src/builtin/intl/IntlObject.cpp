@@ -308,7 +308,7 @@ static bool EnumerationIntoList(JSContext* cx, auto values,
                                 MutableHandle<StringList> list) {
   for (auto value : values) {
     if (value.isErr()) {
-      intl::ReportInternalError(cx);
+      ReportInternalError(cx);
       return false;
     }
     auto span = value.unwrap();
@@ -356,7 +356,7 @@ static ArrayObject* AvailableCalendars(JSContext* cx) {
     // separate block.
     auto keywords = mozilla::intl::Calendar::GetBcp47KeywordValuesForLocale("");
     if (keywords.isErr()) {
-      intl::ReportInternalError(cx, keywords.unwrapErr());
+      ReportInternalError(cx, keywords.unwrapErr());
       return nullptr;
     }
 
@@ -394,7 +394,7 @@ static ArrayObject* AvailableCollations(JSContext* cx) {
     // separate block.
     auto keywords = mozilla::intl::Collator::GetBcp47KeywordValues();
     if (keywords.isErr()) {
-      intl::ReportInternalError(cx, keywords.unwrapErr());
+      ReportInternalError(cx, keywords.unwrapErr());
       return nullptr;
     }
 
@@ -434,7 +434,7 @@ static ArrayObject* AvailableCurrencies(JSContext* cx) {
     // separate block.
     auto currencies = mozilla::intl::Currency::GetISOCurrencies();
     if (currencies.isErr()) {
-      intl::ReportInternalError(cx, currencies.unwrapErr());
+      ReportInternalError(cx, currencies.unwrapErr());
       return nullptr;
     }
 
@@ -465,7 +465,7 @@ static ArrayObject* AvailableTimeZones(JSContext* cx) {
   // Unsorted list of canonical time zone names, possibly containing duplicates.
   Rooted<StringList> timeZones(cx, StringList(cx));
 
-  intl::SharedIntlData& sharedIntlData = cx->runtime()->sharedIntlData.ref();
+  auto& sharedIntlData = cx->runtime()->sharedIntlData.ref();
   auto iterResult = sharedIntlData.availableTimeZonesIteration(cx);
   if (iterResult.isErr()) {
     return nullptr;
@@ -597,7 +597,7 @@ static const JSPropertySpec intl_static_properties[] = {
 };
 
 static JSObject* CreateIntlObject(JSContext* cx, JSProtoKey key) {
-  RootedObject proto(cx, &cx->global()->getObjectPrototype());
+  Rooted<JSObject*> proto(cx, &cx->global()->getObjectPrototype());
 
   // The |Intl| object is just a plain object with some "static" function
   // properties and some constructor properties.
@@ -608,11 +608,11 @@ static JSObject* CreateIntlObject(JSContext* cx, JSProtoKey key) {
  * Initializes the Intl Object and its standard built-in properties.
  * Spec: ECMAScript Internationalization API Specification, 8.0, 8.1
  */
-static bool IntlClassFinish(JSContext* cx, HandleObject intl,
-                            HandleObject proto) {
+static bool IntlClassFinish(JSContext* cx, Handle<JSObject*> intl,
+                            Handle<JSObject*> proto) {
   // Add the constructor properties.
-  RootedId ctorId(cx);
-  RootedValue ctorValue(cx);
+  Rooted<JS::PropertyKey> ctorId(cx);
+  Rooted<JS::Value> ctorValue(cx);
   for (const auto& protoKey : {
            JSProto_Collator,
            JSProto_DateTimeFormat,
@@ -649,7 +649,7 @@ static const ClassSpec IntlClassSpec = {
     nullptr,          nullptr, IntlClassFinish,
 };
 
-const JSClass js::IntlClass = {
+const JSClass js::intl::IntlClass = {
     "Intl",
     JSCLASS_HAS_CACHED_PROTO(JSProto_Intl),
     JS_NULL_CLASS_OPS,

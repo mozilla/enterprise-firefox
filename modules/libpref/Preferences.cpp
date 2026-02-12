@@ -540,8 +540,7 @@ struct PreferenceMarker {
   static MarkerSchema MarkerTypeDisplay() {
     using MS = MarkerSchema;
     MS schema{MS::Location::MarkerChart, MS::Location::MarkerTable};
-    schema.AddKeyLabelFormat("prefName", "Name", MS::Format::String,
-                             MS::PayloadFlags::Searchable);
+    schema.AddKeyLabelFormat("prefName", "Name", MS::Format::String);
     schema.AddKeyLabelFormat("prefKind", "Kind", MS::Format::String);
     schema.AddKeyLabelFormat("prefType", "Type", MS::Format::String);
     schema.AddKeyLabelFormat("prefValue", "Value", MS::Format::String);
@@ -2062,9 +2061,12 @@ typedef void (*PrefsParserPrefFn)(const char* aPrefName, PrefType aType,
 
 // Keep this in sync with ErrorFn in parser/src/lib.rs.
 //
-// `aMsg` is just a borrow of the string, and must be copied if it is used
+// `aFullMsg` is just a borrow of the string, and must be copied if it is used
 // outside the lifetime of the prefs_parser_parse() call.
-typedef void (*PrefsParserErrorFn)(const char* aMsg);
+// `aStaticMsgOffset` is the offset of the static part of the string, which
+// extends to the end of `aFullMsg` and is safe to send to telemetry.
+typedef void (*PrefsParserErrorFn)(const char* aFullMsg,
+                                   uint64_t aStaticMsgOffset);
 
 // Keep this in sync with prefs_parser_parse() in parser/src/lib.rs.
 bool prefs_parser_parse(const char* aPath, PrefValueKind aKind,
@@ -2093,17 +2095,29 @@ class Parser {
                  /* fromInit */ true);
   }
 
-  static void HandleError(const char* aMsg) {
+  static void HandleError(const char* aFullMsg, uint64_t aStaticMsgOffset) {
     nsresult rv;
     nsCOMPtr<nsIConsoleService> console =
         do_GetService("@mozilla.org/consoleservice;1", &rv);
     if (NS_SUCCEEDED(rv)) {
-      console->LogStringMessage(NS_ConvertUTF8toUTF16(aMsg).get());
+      console->LogStringMessage(NS_ConvertUTF8toUTF16(aFullMsg).get());
+    }
+    // We're just going to log one of these per session of Firefox,
+    // because we just want to get a sample of errors users are
+    // encountering.
+    static Atomic<bool, Relaxed> haveLoggedError(false);
+    if (haveLoggedError.compareExchange(false, true)) {
+      MOZ_RELEASE_ASSERT(aStaticMsgOffset < strlen(aFullMsg));
+      // Since aFullMsg is a borrow of the string, we need to copy it
+      // if we want to use it outside the lifetime of the prefs_parser_parse()
+      // call, which I think Glean does. So don't use nsDependentCString here.
+      glean::preferences::prefs_file_first_parse_error.Set(
+          nsCString(aFullMsg + aStaticMsgOffset));
     }
 #ifdef DEBUG
-    NS_ERROR(aMsg);
+    NS_ERROR(aFullMsg);
 #else
-    printf_stderr("%s\n", aMsg);
+    printf_stderr("%s\n", aFullMsg);
 #endif
   }
 };
@@ -2116,8 +2130,11 @@ static void TestParseErrorHandlePref(const char* aPrefName, PrefType aType,
 
 constinit static nsCString gTestParseErrorMsgs;
 
-static void TestParseErrorHandleError(const char* aMsg) {
-  gTestParseErrorMsgs.Append(aMsg);
+static void TestParseErrorHandleError(const char* aFullMsg,
+                                      uint64_t aStaticMsgOffset) {
+  gTestParseErrorMsgs.Append(aFullMsg);
+  gTestParseErrorMsgs.Append('\n');
+  gTestParseErrorMsgs.Append(aFullMsg + aStaticMsgOffset);
   gTestParseErrorMsgs.Append('\n');
 }
 
@@ -4450,14 +4467,15 @@ void HandlePref(const char* aPrefName, PrefType aType, PrefValueKind aKind,
   }
 }
 
-void HandleError(const char* aMsg) {
+void HandleError(const char* aFullMsg, uint64_t aStaticMsgOffset) {
   MOZ_ASSERT(NS_IsMainThread());
 
   if (!PrefObserver) {
     return;
   }
 
-  PrefObserver->OnError(aMsg);
+  // No need to use the static message here
+  PrefObserver->OnError(aFullMsg);
 }
 
 NS_IMETHODIMP
@@ -4995,7 +5013,7 @@ struct Internals {
       // (Note that this case won't happen for a deletion via DeleteBranch()
       // unless bug 343600 is fixed, but it will happen for a deletion via
       // ClearUserPref().)
-      NS_WARNING(nsPrintfCString("Pref changed failure: %s\n", aPref).get());
+      NS_WARNING(nsPrintfCString("Pref changed failure: %s", aPref).get());
       MOZ_ASSERT(false);
     }
   }
@@ -5892,7 +5910,6 @@ static void InitAlwaysPref(const nsCString& aName, DataMutexString& aCache,
 }
 
 static Atomic<bool> sOncePrefRead(false);
-static StaticMutex sOncePrefMutex MOZ_UNANNOTATED;
 
 namespace StaticPrefs {
 
@@ -5902,16 +5919,18 @@ void MaybeInitOncePrefs() {
     // value.
     return;
   }
-  StaticMutexAutoLock lock(sOncePrefMutex);
+
   if (NS_IsMainThread()) {
+    // sOncePrefRead could not have changed since the last check since it is
+    // only set by the main thread.
     InitOncePrefs();
+    sOncePrefRead = true;
   } else {
     RefPtr<Runnable> runnable = NS_NewRunnableFunction(
-        "Preferences::MaybeInitOncePrefs", [&]() { InitOncePrefs(); });
+        "Preferences::MaybeInitOncePrefs", [&]() { MaybeInitOncePrefs(); });
     // This logic needs to run on the main thread
     SyncRunnable::DispatchToThread(GetMainThreadSerialEventTarget(), runnable);
   }
-  sOncePrefRead = true;
 }
 
 // For mirrored prefs we generate a variable definition.
@@ -5973,7 +5992,7 @@ static void StartObservingAlwaysPrefs() {
 #undef ONCE_PREF
 }
 
-static void InitOncePrefs() {
+static void InitOncePrefs() MOZ_REQUIRES(sMainThreadCapability) {
   // For `once`-mirrored prefs we generate some initialization code. This is
   // done in case the pref value was updated when reading pref data files. It's
   // necessary because we don't have callbacks registered for `once`-mirrored

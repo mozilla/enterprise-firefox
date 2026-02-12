@@ -22,10 +22,6 @@ export default class IPProtectionUnauthenticatedContentElement extends MozLitEle
     this.dispatchEvent(
       new CustomEvent("IPProtection:OptIn", { bubbles: true, composed: true })
     );
-    // Close the panel
-    this.dispatchEvent(
-      new CustomEvent("IPProtection:Close", { bubbles: true, composed: true })
-    );
   }
 
   render() {
@@ -47,7 +43,12 @@ export default class IPProtectionUnauthenticatedContentElement extends MozLitEle
         ></h2>
         <ul id="unauthenticated-vpn-message" class="vpn-description">
           <li data-l10n-id="unauthenticated-hide-location-message"></li>
-          <li data-l10n-id="unauthenticated-bandwidth-limit-message"></li>
+          <li
+            data-l10n-id="unauthenticated-bandwidth-limit-message"
+            data-l10n-args=${JSON.stringify({
+              maxUsage: 150,
+            })}
+          ></li>
         </ul>
         <moz-button
           id="unauthenticated-get-started"

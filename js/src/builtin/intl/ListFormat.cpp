@@ -242,7 +242,7 @@ static bool ListFormat(JSContext* cx, unsigned argc, Value* vp) {
   return true;
 }
 
-void js::ListFormatObject::finalize(JS::GCContext* gcx, JSObject* obj) {
+void js::intl::ListFormatObject::finalize(JS::GCContext* gcx, JSObject* obj) {
   auto* listFormat = &obj->as<ListFormatObject>();
 
   if (auto* options = listFormat->getOptions()) {
@@ -382,7 +382,7 @@ class TwoByteStringList final {
   // 'strings' takes the ownership of those strings, and 'list' will be passed
   // to mozilla::intl::ListFormat as a Span.
   Vector<UniqueTwoByteChars, mozilla::intl::DEFAULT_LIST_LENGTH> strings_;
-  mozilla::intl::ListFormat::StringList list_{};
+  mozilla::intl::ListFormat::StringList list_;
 
  public:
   explicit TwoByteStringList(JSContext* cx) : cx_(cx), strings_(cx) {}

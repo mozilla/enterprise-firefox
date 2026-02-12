@@ -41,8 +41,6 @@ policy-BlockAboutProfiles = Block access to the about:profiles page.
 
 policy-BlockAboutSupport = Block access to the about:support page.
 
-policy-BlocklistDomainBrowsedTelemetry = Enable and configure security logging/telemetry when { -brand-short-name } blocks a visit to a blocklisted domain.
-
 policy-Bookmarks = Create bookmarks in the Bookmarks toolbar, Bookmarks menu, or a specified folder inside them.
 
 policy-CaptivePortal = Enable or disable captive portal support.
@@ -120,15 +118,11 @@ policy-DontCheckDefaultBrowser = Disable check for default browser on startup.
 
 policy-DownloadDirectory = Set and lock the download directory.
 
-policy-DownloadTelemetry = Enable and configure security logging/telemetry when a download is triggered.
-
 # “lock” means that the user won’t be able to change this setting
 policy-EnableTrackingProtection = Enable or disable Content Blocking and optionally lock it.
 
 # “lock” means that the user won’t be able to change this setting
 policy-EncryptedMediaExtensions = Enable or disable Encrypted Media Extensions and optionally lock it.
-
-policy-EnterpriseStorageEncryption = Enable enterprise-managed primary password for encrypted storage.
 
 policy-ExemptDomainFileTypePairsFromFileTypeDownloadWarnings = Disable warnings based on file extension for specific file types on domains.
 
@@ -216,8 +210,6 @@ policy-PictureInPicture = Enable or disable Picture-in-Picture.
 policy-PopupBlocking2 = Allow certain websites to display popups and be redirected by third-party frames.
 
 policy-Preferences = Set and lock the value for a subset of preferences.
-
-policy-PrintPageTelemetry = Enable and configure security logging/telemetry when a page is printed.
 
 policy-PrivateBrowsingModeAvailability = Set availability of private browsing mode.
 

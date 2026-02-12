@@ -20,9 +20,18 @@ class FakeIPProtectionPanelElement {
       isProtectionEnabled: false,
     };
     this.isConnected = false;
+    this.ownerDocument = {
+      removeEventListener() {
+        /* NOOP */
+      },
+    };
   }
 
   requestUpdate() {
+    /* NOOP */
+  }
+
+  remove() {
     /* NOOP */
   }
 
@@ -137,11 +146,7 @@ add_task(async function test_IPProtectionPanel_signedIn() {
   sandbox.stub(IPProtectionService.guardian, "fetchUserInfo").resolves({
     status: 200,
     error: null,
-    entitlement: {
-      subscribed: true,
-      uid: 42,
-      created_at: "2023-01-01T12:00:00.000Z",
-    },
+    entitlement: createTestEntitlement({ subscribed: true }),
   });
 
   let ipProtectionPanel = new IPProtectionPanel();
@@ -230,19 +235,27 @@ add_task(async function test_IPProtectionPanel_started_stopped() {
   sandbox.stub(IPProtectionService.guardian, "fetchUserInfo").resolves({
     status: 200,
     error: null,
-    entitlement: {
-      subscribed: true,
-      uid: 42,
-      created_at: "2023-01-01T12:00:00.000Z",
-    },
+    entitlement: createTestEntitlement({ subscribed: true }),
   });
   sandbox.stub(IPProtectionService.guardian, "fetchProxyPass").resolves({
     status: 200,
     error: undefined,
     pass: new ProxyPass(createProxyPassToken()),
+    usage: new ProxyUsage(
+      "5368709120",
+      "4294967296",
+      "2026-02-01T00:00:00.000Z"
+    ),
   });
+  sandbox.stub(IPProtectionService.guardian, "enroll").resolves({ ok: true });
 
   IPProtectionService.updateState();
+
+  Assert.equal(
+    IPProtectionService.state,
+    IPProtectionStates.READY,
+    "IP Protection service should be in READY state before starting"
+  );
 
   let startedEventPromise = waitForEvent(
     IPPProxyManager,
@@ -350,4 +363,55 @@ add_task(async function test_IPProtectionPanel_isAlpha_false() {
   );
 
   sandbox.restore();
+});
+
+/**
+ * Tests that egress location preference changes update the state.
+ */
+add_task(async function test_IPProtectionPanel_egressLocation_pref() {
+  let ipProtectionPanel = new IPProtectionPanel();
+  let fakeElement = new FakeIPProtectionPanelElement();
+  ipProtectionPanel.panel = fakeElement;
+  fakeElement.isConnected = true;
+
+  const expectedLocation = {
+    name: "United States",
+    code: "us",
+  };
+
+  Services.prefs.setBoolPref(
+    "browser.ipProtection.egressLocationEnabled",
+    true
+  );
+
+  Assert.deepEqual(
+    ipProtectionPanel.state.location,
+    expectedLocation,
+    "location should be set when preference is true"
+  );
+
+  Assert.deepEqual(
+    fakeElement.state.location,
+    expectedLocation,
+    "location should be set on the fake element when preference is true"
+  );
+
+  Services.prefs.setBoolPref(
+    "browser.ipProtection.egressLocationEnabled",
+    false
+  );
+
+  Assert.ok(
+    !ipProtectionPanel.state.location,
+    "location should be null when preference is false"
+  );
+
+  Assert.ok(
+    !fakeElement.state.location,
+    "location should be null on the fake element when preference is false"
+  );
+
+  ipProtectionPanel.uninit();
+
+  Services.prefs.clearUserPref("browser.ipProtection.egressLocationEnabled");
 });

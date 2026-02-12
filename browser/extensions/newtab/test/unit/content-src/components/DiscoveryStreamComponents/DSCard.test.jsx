@@ -843,11 +843,11 @@ describe("<DSCard>", () => {
     });
   });
 
-  it("should render topic label when isDailyBriefV2 is true", () => {
+  it("should render topic label when isDailyBrief is true", () => {
     const store = createStore(combineReducers(reducers), INITIAL_STATE);
     wrapper = mount(
       <Provider store={store}>
-        <DSCard {...DEFAULT_PROPS} isDailyBriefV2={true} topic="technology" />
+        <DSCard {...DEFAULT_PROPS} isDailyBrief={true} topic="technology" />
       </Provider>
     );
 

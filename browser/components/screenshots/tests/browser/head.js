@@ -1004,6 +1004,18 @@ class ScreenshotsHelper {
 }
 
 /**
+ * Create a new tab in the current window and wait for its browser to be loaded
+ *
+ * @param {string} [url] Optional url to load, defaults to value of TEST_PAGE
+ * @returns The tab
+ */
+async function addTabAndLoadBrowser(url = TEST_PAGE) {
+  const tab = BrowserTestUtils.addTab(gBrowser, url);
+  await BrowserTestUtils.browserLoaded(tab.linkedBrowser);
+  return tab;
+}
+
+/**
  * Get the raw clipboard data
  *
  * @param flavor Type of data to get from clipboard

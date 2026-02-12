@@ -133,7 +133,8 @@ const ClassSpec DurationFormatObject::classSpec_ = {
     ClassSpec::DontDefineConstructor,
 };
 
-void js::DurationFormatObject::finalize(JS::GCContext* gcx, JSObject* obj) {
+void js::intl::DurationFormatObject::finalize(JS::GCContext* gcx,
+                                              JSObject* obj) {
   auto* durationFormat = &obj->as<DurationFormatObject>();
 
   for (auto unit : durationUnits) {
@@ -683,7 +684,8 @@ static bool InitializeDurationFormat(
                          &fractionalDigits)) {
       return false;
     }
-    dfOptions->fractionalDigits = fractionalDigits.valueOr(-1);
+    dfOptions->fractionalDigits =
+        static_cast<int8_t>(fractionalDigits.valueOr(-1));
   }
   durationFormat->setOptions(dfOptions.release());
   AddCellMemory(durationFormat, sizeof(DurationFormatOptions),
@@ -2169,8 +2171,8 @@ static bool durationFormat_supportedLocalesOf(JSContext* cx, unsigned argc,
   return true;
 }
 
-bool js::TemporalDurationToLocaleString(JSContext* cx,
-                                        const JS::CallArgs& args) {
+bool js::intl::TemporalDurationToLocaleString(JSContext* cx,
+                                              const JS::CallArgs& args) {
   MOZ_ASSERT(args.thisv().isObject());
   MOZ_ASSERT(args.thisv().toObject().is<temporal::DurationObject>());
 

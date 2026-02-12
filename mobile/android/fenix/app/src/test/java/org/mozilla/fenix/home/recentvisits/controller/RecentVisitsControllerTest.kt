@@ -71,7 +71,7 @@ class RecentVisitsControllerTest {
         }
         storage = mockk(relaxed = true)
         appStore = mockk(relaxed = true)
-        store = mockk(relaxed = true)
+        store = BrowserStore()
 
         controller = spyk(
             DefaultRecentVisitsController(

@@ -12,7 +12,7 @@ from textwrap import dedent
 
 from mozpack import path as mozpath
 from taskgraph.util import json
-from taskgraph.util.schema import Schema
+from taskgraph.util.schema import LegacySchema
 from voluptuous import Any, Optional, Required
 from voluptuous.validators import Match
 
@@ -25,7 +25,7 @@ from gecko_taskgraph.transforms.job.common import (
 )
 from gecko_taskgraph.util.attributes import is_try
 
-mozharness_run_schema = Schema({
+mozharness_run_schema = LegacySchema({
     Required("using"): "mozharness",
     # the mozharness script used to run this task, relative to the testing/
     # directory and using forward slashes even on Windows

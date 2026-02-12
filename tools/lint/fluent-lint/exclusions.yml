@@ -85,6 +85,7 @@ ID01:
         # policies-descriptions.ftl
         # These IDs are generated programmatically from policy names.
         - browser/locales/en-US/browser/policies/policies-descriptions.ftl
+        - browser/locales/en-US/browser/enterprise/enterprise-policies-descriptions.ftl
         # The webext-perms-description-* IDs are generated programmatically
         # from permission names.
         - toolkit/locales/en-US/toolkit/global/extensionPermissions.ftl
@@ -139,6 +140,7 @@ CO01:
         - addon-install-error-hard-blocked
         # browser/appExtensionFields.ftl
         - extension-firefox-alpenglow-name
+        # browser/enterprise/enterprise.ftl
         - extension-firefox-enterprise-light-name
         - extension-firefox-enterprise-dark-name
         # browser/browser.ftl

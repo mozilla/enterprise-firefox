@@ -54,6 +54,15 @@ Networking and routing
 ``browser.ipProtection.override.serverlist`` (string)
   A JSON Payload that overrides the server list. Follows the Remote-Settings Schema.
 
+UI Features
+~~~~~~~~~~~
+
+``browser.ipProtection.bandwidth.enabled`` (boolean, default: ``false``)
+  Controls whether bandwidth usage information is displayed in the status panel.
+
+``browser.ipProtection.egressLocationEnabled`` (boolean, default: ``false``)
+  Controls whether the VPN egress location is displayed in the status panel.
+
 Diagnostics
 ~~~~~~~~~~~
 

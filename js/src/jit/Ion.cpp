@@ -920,7 +920,7 @@ void IonScript::Destroy(JS::GCContext* gcx, IonScript* script) {
   // nursery objects list or constants list in the store buffer. Because this
   // can be called during sweeping when discarding JIT code, we have to lock the
   // store buffer when we find a pointer that's (still) in the nursery.
-  mozilla::Maybe<gc::AutoLockStoreBuffer> lock;
+  mozilla::Maybe<gc::AutoLockSweepingLock> lock;
   for (size_t i = 0, len = script->numNurseryObjects(); i < len; i++) {
     JSObject* obj = script->nurseryObjects()[i];
     if (lock.isNothing() && IsInsideNursery(obj)) {

@@ -615,7 +615,7 @@ private fun defaultPreviewPages() = listOf(
 @Composable
 private fun touPageUIData() = OnboardingPageUiData(
     type = OnboardingPageUiData.Type.TERMS_OF_SERVICE,
-    title = stringResource(id = R.string.nova_onboarding_tou_title),
+    title = stringResource(id = R.string.onboarding_welcome_to_firefox),
     description = "",
     termsOfService = OnboardingTermsOfService(
         subheaderOneText = stringResource(id = R.string.nova_onboarding_tou_subtitle),

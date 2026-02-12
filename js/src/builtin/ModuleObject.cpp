@@ -941,8 +941,9 @@ bool ModuleObject::isInstance(HandleValue value) {
 }
 
 bool ModuleObject::hasCyclicModuleFields() const {
-  // This currently only returns false if we GC during initialization.
-  return !getReservedSlot(CyclicModuleFieldsSlot).isUndefined();
+  bool result = !getReservedSlot(CyclicModuleFieldsSlot).isUndefined();
+  MOZ_ASSERT_IF(result, !hasSyntheticModuleFields());
+  return result;
 }
 
 CyclicModuleFields* ModuleObject::cyclicModuleFields() {
@@ -1482,7 +1483,9 @@ bool ModuleObject::createSyntheticEnvironment(JSContext* cx,
     return false;
   }
 
-  MOZ_ASSERT(env->shape()->propMapLength() == values.length());
+  // We expect one property per synthetic value plus one for the *namespace*
+  // binding.
+  MOZ_ASSERT(env->shape()->propMapLength() == values.length() + 1);
 
   for (uint32_t i = 0; i < values.length(); i++) {
     env->setAliasedBinding(env->firstSyntheticValueSlot() + i, values[i]);
@@ -2090,6 +2093,19 @@ bool ModuleBuilder::processImport(frontend::BinaryNode* importNode) {
 
   return true;
 }
+
+#ifdef ENABLE_SOURCE_PHASE_IMPORTS
+bool ModuleBuilder::processImportSource(frontend::BinaryNode* importNode) {
+  using namespace js::frontend;
+
+  MOZ_ASSERT(importNode->isKind(ParseNodeKind::ImportSourceDecl));
+
+  // TODO: Support for import source will be added in Bug 2011284.
+  // For now, we'll return true rather than signal an error, so we
+  // can write tests for parsing.
+  return true;
+}
+#endif
 
 bool ModuleBuilder::processExport(frontend::ParseNode* exportNode) {
   using namespace js::frontend;

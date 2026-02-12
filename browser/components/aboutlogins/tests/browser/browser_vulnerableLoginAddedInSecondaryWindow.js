@@ -28,7 +28,7 @@ add_setup(async function () {
 
   // Remove the breached login so the 'alerts' option
   // is hidden when opening about:logins.
-  Services.logins.removeLogin(TEST_LOGIN3);
+  await Services.logins.removeLoginAsync(TEST_LOGIN3);
 
   await BrowserTestUtils.openNewForegroundTab({
     gBrowser,

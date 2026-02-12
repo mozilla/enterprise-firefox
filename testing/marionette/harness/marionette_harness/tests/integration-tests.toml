@@ -58,6 +58,10 @@
 
 ["include:../../../../../netwerk/test/marionette/manifest.toml"]
 
+# enterprise tests
+
+["include:../../../../../testing/enterprise/manifest.toml"]
+
 # toolkit tests
 
 ["include:../../../../../toolkit/components/antitracking/bouncetrackingprotection/test/marionette/manifest.toml"]

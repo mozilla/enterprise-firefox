@@ -12,7 +12,7 @@ from taskgraph.util import json
 from taskgraph.util.attributes import keymatch
 from taskgraph.util.keyed_by import evaluate_keyed_by
 from taskgraph.util.readonlydict import ReadOnlyDict
-from taskgraph.util.schema import Schema, resolve_keyed_by
+from taskgraph.util.schema import LegacySchema, resolve_keyed_by
 from taskgraph.util.taskcluster import get_artifact_path
 from taskgraph.util.templates import merge
 from voluptuous import Any, Optional, Required
@@ -766,7 +766,7 @@ def ensure_spi_disabled_on_all_but_spi(config, tasks):
         yield task
 
 
-test_setting_description_schema = Schema(
+test_setting_description_schema = LegacySchema(
     {
         Required("_hash"): str,
         "platform": {

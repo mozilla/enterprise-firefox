@@ -40,19 +40,6 @@ namespace mozilla {
 //----------------------------------------------------------------------
 // Constructors etc.
 
-SMILAnimationFunction::SMILAnimationFunction()
-    : mSampleTime(-1),
-      mRepeatIteration(0),
-      mBeginTime(std::numeric_limits<SMILTime>::min()),
-      mAnimationElement(nullptr),
-      mIsActive(false),
-      mIsFrozen(false),
-      mLastValue(false),
-      mHasChanged(true),
-      mValueNeedsReparsingEverySample(false),
-      mPrevSampleWasSingleValueAnimation(false),
-      mWasSkippedInPrevSample(false) {}
-
 void SMILAnimationFunction::SetAnimationElement(
     SVGAnimationElement* aAnimationElement) {
   mAnimationElement = aAnimationElement;

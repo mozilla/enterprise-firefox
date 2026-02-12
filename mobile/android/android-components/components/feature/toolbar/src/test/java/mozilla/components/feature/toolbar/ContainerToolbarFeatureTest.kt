@@ -35,23 +35,20 @@ class ContainerToolbarFeatureTest {
     @Test
     fun `render a container action from browser state`() = runTest(testDispatcher) {
         val toolbar: Toolbar = mock()
-        val store = spy(
-            BrowserStore(
-                BrowserState(
-                    tabs = listOf(
-                        createTab("https://www.example.org", id = "tab1", contextId = "1"),
-                    ),
-                    selectedTabId = "tab1",
-                    containers = mapOf(
-                        container.contextId to container,
-                    ),
+        val store = BrowserStore(
+            BrowserState(
+                tabs = listOf(
+                    createTab("https://www.example.org", id = "tab1", contextId = "1"),
+                ),
+                selectedTabId = "tab1",
+                containers = mapOf(
+                    container.contextId to container,
                 ),
             ),
         )
         val containerToolbarFeature = getContainerToolbarFeature(toolbar, store)
         testDispatcher.scheduler.advanceUntilIdle()
 
-        verify(store).observeManually(any())
         verify(containerToolbarFeature).renderContainerAction(any(), any())
 
         val pageActionCaptor = argumentCaptor<ContainerToolbarAction>()
@@ -62,17 +59,15 @@ class ContainerToolbarFeatureTest {
     @Test
     fun `remove container page action when selecting a normal tab`() = runTest(testDispatcher) {
         val toolbar: Toolbar = mock()
-        val store = spy(
-            BrowserStore(
-                BrowserState(
-                    tabs = listOf(
-                        createTab("https://www.example.org", id = "tab1", contextId = "1"),
-                        createTab("https://www.mozilla.org", id = "tab2"),
-                    ),
-                    selectedTabId = "tab1",
-                    containers = mapOf(
-                        container.contextId to container,
-                    ),
+        val store = BrowserStore(
+            BrowserState(
+                tabs = listOf(
+                    createTab("https://www.example.org", id = "tab1", contextId = "1"),
+                    createTab("https://www.mozilla.org", id = "tab2"),
+                ),
+                selectedTabId = "tab1",
+                containers = mapOf(
+                    container.contextId to container,
                 ),
             ),
         )
@@ -80,7 +75,6 @@ class ContainerToolbarFeatureTest {
         store.dispatch(TabListAction.SelectTabAction("tab2"))
         testDispatcher.scheduler.advanceUntilIdle()
 
-        verify(store).observeManually(any())
         verify(containerToolbarFeature, times(2)).renderContainerAction(any(), any())
         verify(toolbar).removePageAction(any())
     }

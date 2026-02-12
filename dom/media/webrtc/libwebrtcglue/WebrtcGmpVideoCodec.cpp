@@ -104,7 +104,7 @@ static webrtc::ScalabilityMode GmpCodecParamsToScalabilityMode(
     case 3:
       return webrtc::ScalabilityMode::kL1T3;
     default:
-      NS_WARNING(nsPrintfCString("Expected 1-3 temporal layers but got %d.\n",
+      NS_WARNING(nsPrintfCString("Expected 1-3 temporal layers but got %d.",
                                  aParams.mTemporalLayerNum)
                      .get());
       MOZ_CRASH("Unexpected number of temporal layers");
@@ -910,6 +910,15 @@ int32_t WebrtcGmpVideoDecoder::Decode(const webrtc::EncodedImage& aInputImage,
 }
 
 void WebrtcGmpVideoDecoder::Decode_g(UniquePtr<GMPDecodeData>&& aDecodeData) {
+  CheckedInt<uint32_t> dataSize(aDecodeData->mImage.size());
+  dataSize -= 4;
+  if (!dataSize.isValid()) {
+    GMP_LOG_ERROR("%s: bad input size (%zu)!", __PRETTY_FUNCTION__,
+                  aDecodeData->mImage.size());
+    mDecoderStatus = GMPInvalidArgErr;
+    return;
+  }
+
   if (!mGMP) {
     if (mInitting) {
       // InitDone hasn't been called yet (race)

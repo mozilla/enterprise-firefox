@@ -1159,18 +1159,18 @@ tab-split-view-wrapper[dragtarget] {
 }
 
 #tabbrowser-tabs[orient="horizontal"] > #pinned-drop-indicator {
-  transition-property: width;
+  transition-property: min-width;
 
   &[visible] {
     margin-inline: var(--space-small);
     align-self: center;
     align-items: flex-start;
-    width: calc(2 * var(--size-item-large));
+    min-width: calc(2 * var(--size-item-large));
     height: var(--tab-min-height);
     padding-inline-start: var(--space-small);
 
     @starting-style {
-      width: 0;
+      min-width: 0;
     }
 
     > #pinned-drop-indicator-text {

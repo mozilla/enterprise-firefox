@@ -89,7 +89,7 @@ class FindInPagePresenterTest {
     fun `bind updates session and focuses view`() {
         val view: FindInPageView = mock()
 
-        val presenter = FindInPagePresenter(mock(), view)
+        val presenter = FindInPagePresenter(BrowserStore(), view)
         val session = Mockito.mock(SessionState::class.java, Mockito.RETURNS_DEEP_STUBS)
         `when`(session.content.private).thenReturn(false)
         presenter.bind(session)
@@ -102,7 +102,7 @@ class FindInPagePresenterTest {
     fun `unbind clears session and view`() {
         val view: FindInPageView = mock()
 
-        val presenter = FindInPagePresenter(mock(), view)
+        val presenter = FindInPagePresenter(BrowserStore(), view)
         val session = Mockito.mock(SessionState::class.java, Mockito.RETURNS_DEEP_STUBS)
         `when`(session.content.private).thenReturn(false)
         presenter.bind(session)

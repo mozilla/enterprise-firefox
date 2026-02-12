@@ -19,14 +19,7 @@ SMILInstanceTime::SMILInstanceTime(const SMILTimeValue& aTime,
                                    SMILInstanceTimeSource aSource,
                                    SMILTimeValueSpec* aCreator,
                                    SMILInterval* aBaseInterval)
-    : mTime(aTime),
-      mVisited(false),
-      mFixedEndpointRefCnt(0),
-      mSerial(0),
-      mCreator(aCreator),
-      mBaseInterval(nullptr)  // This will get set to aBaseInterval in a call to
-                              // SetBaseInterval() at end of constructor
-{
+    : mCreator(aCreator), mTime(aTime) {
   switch (aSource) {
     case SMILInstanceTimeSource::None:
       // No special flags

@@ -37,11 +37,15 @@ import { EveryWindow } from "resource:///modules/EveryWindow.sys.mjs";
 import { AIWindowAccountAuth } from "moz-src:///browser/components/aiwindow/ui/modules/AIWindowAccountAuth.sys.mjs";
 
 const K_DOMAINS_FULL = 100;
-const K_TITLES_FULL = 60;
+const K_TITLES_FULL = 100;
 const K_SEARCHES_FULL = 10;
+
 const K_DOMAINS_DELTA = 30;
 const K_TITLES_DELTA = 60;
 const K_SEARCHES_DELTA = 10;
+
+// for initial memory generation batches
+const TOKEN_BUDGET = 2000;
 
 const DEFAULT_HISTORY_FULL_LOOKUP_DAYS = 60;
 const DEFAULT_HISTORY_FULL_MAX_RESULTS = 3000;
@@ -240,10 +244,24 @@ export class MemoriesManager {
       return [];
     }
 
-    return await this.generateAndSaveMemoriesFromSources(
-      sources,
-      SOURCE_HISTORY
+    const batches = this._createHistoryBatches(
+      domainItems,
+      titleItems,
+      searchItems,
+      TOKEN_BUDGET
     );
+
+    const allGeneratedMemories = [];
+    for (let i = 0; i < batches.length; i++) {
+      const batchSources = { history: batches[i] };
+      const batchMemories = await this.generateAndSaveMemoriesFromSources(
+        batchSources,
+        SOURCE_HISTORY
+      );
+      allGeneratedMemories.push(...batchMemories);
+    }
+
+    return allGeneratedMemories;
   }
 
   /**
@@ -599,5 +617,100 @@ export class MemoriesManager {
    */
   static async countRecentVisits(opts = {}) {
     return await countRecentVisits(opts);
+  }
+
+  // Helper: Estimate token count for history items
+  static _estimateHistoryTokens(domainItems, titleItems, searchItems) {
+    let chars = 0;
+
+    // Domains: "domain.com,99.5\n"
+    chars += domainItems.reduce(
+      (sum, [domain, _score]) => sum + domain.length + 10,
+      0
+    );
+
+    // Titles: "Long Title | domain.com,99.5\n"
+    chars += titleItems.reduce(
+      (sum, [title, _score]) => sum + title.length + 10,
+      0
+    );
+
+    // Searches: can have multiple queries per item
+    chars += searchItems.reduce(
+      (sum, item) => sum + (item.q || []).join(",").length + 20,
+      0
+    );
+
+    // CSV headers and formatting overhead
+    chars += 1000;
+
+    // Rough conversion: 1 token ≈ 4 characters
+    return Math.ceil(chars / 4);
+  }
+
+  // Helper: Split history items into token-budget-compliant batches
+  static _createHistoryBatches(
+    domainItems,
+    titleItems,
+    searchItems,
+    tokenBudget
+  ) {
+    const batches = [];
+
+    // Calculate how many items per batch based on average item size
+    const totalItems =
+      domainItems.length + titleItems.length + searchItems.length;
+    const avgTokensPerItem =
+      this._estimateHistoryTokens(domainItems, titleItems, searchItems) /
+      totalItems;
+
+    const itemsPerBatch = Math.max(
+      10, // Minimum batch size
+      Math.floor((tokenBudget * 0.9) / avgTokensPerItem) // 0.9 for safety margin
+    );
+
+    // Calculate proportional splits
+    const domainRatio = domainItems.length / totalItems;
+    const titleRatio = titleItems.length / totalItems;
+    const searchRatio = searchItems.length / totalItems;
+
+    const domainsPerBatch = Math.ceil(itemsPerBatch * domainRatio);
+    const titlesPerBatch = Math.ceil(itemsPerBatch * titleRatio);
+    const searchesPerBatch = Math.ceil(itemsPerBatch * searchRatio);
+
+    let domainIdx = 0;
+    let titleIdx = 0;
+    let searchIdx = 0;
+
+    while (
+      domainIdx < domainItems.length ||
+      titleIdx < titleItems.length ||
+      searchIdx < searchItems.length
+    ) {
+      const batchDomains = domainItems.slice(
+        domainIdx,
+        domainIdx + domainsPerBatch
+      );
+      const batchTitles = titleItems.slice(titleIdx, titleIdx + titlesPerBatch);
+      const batchSearches = searchItems.slice(
+        searchIdx,
+        searchIdx + searchesPerBatch
+      );
+
+      // Only add batch if it has content
+      if (
+        !!batchDomains.length ||
+        !!batchTitles.length ||
+        batchSearches.length
+      ) {
+        batches.push([batchDomains, batchTitles, batchSearches]);
+      }
+
+      domainIdx += domainsPerBatch;
+      titleIdx += titlesPerBatch;
+      searchIdx += searchesPerBatch;
+    }
+
+    return batches;
   }
 }

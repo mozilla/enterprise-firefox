@@ -6,6 +6,7 @@ package mozilla.components.browser.engine.gecko
 
 import android.os.Build
 import android.view.WindowManager
+import androidx.annotation.OptIn
 import androidx.annotation.VisibleForTesting
 import androidx.core.net.toUri
 import kotlinx.coroutines.CoroutineScope
@@ -17,12 +18,14 @@ import mozilla.components.browser.engine.gecko.ext.isExcludedForTrackingProtecti
 import mozilla.components.browser.engine.gecko.fetch.toResponse
 import mozilla.components.browser.engine.gecko.media.GeckoMediaDelegate
 import mozilla.components.browser.engine.gecko.mediasession.GeckoMediaSessionDelegate
+import mozilla.components.browser.engine.gecko.pageextraction.intoPageExtractionError
 import mozilla.components.browser.engine.gecko.permission.GeckoPermissionRequest
 import mozilla.components.browser.engine.gecko.prompt.GeckoPromptDelegate
 import mozilla.components.browser.engine.gecko.translate.GeckoTranslateSessionDelegate
 import mozilla.components.browser.engine.gecko.translate.GeckoTranslationUtils.intoTranslationError
 import mozilla.components.browser.engine.gecko.window.GeckoWindowRequest
 import mozilla.components.browser.errorpages.ErrorType
+import mozilla.components.concept.engine.DownloadDelegate
 import mozilla.components.concept.engine.EngineSession
 import mozilla.components.concept.engine.EngineSession.LoadUrlFlags.Companion.ALLOW_ADDITIONAL_HEADERS
 import mozilla.components.concept.engine.EngineSession.LoadUrlFlags.Companion.ALLOW_JAVASCRIPT_URL
@@ -34,6 +37,7 @@ import mozilla.components.concept.engine.history.HistoryItem
 import mozilla.components.concept.engine.history.HistoryTrackingDelegate
 import mozilla.components.concept.engine.manifest.WebAppManifest
 import mozilla.components.concept.engine.manifest.WebAppManifestParser
+import mozilla.components.concept.engine.pageextraction.PageExtractionError
 import mozilla.components.concept.engine.request.RequestInterceptor
 import mozilla.components.concept.engine.request.RequestInterceptor.InterceptionResponse
 import mozilla.components.concept.engine.translate.TranslationError
@@ -60,13 +64,13 @@ import mozilla.components.support.ktx.kotlin.isPhone
 import mozilla.components.support.ktx.kotlin.sanitizeFileName
 import mozilla.components.support.ktx.kotlin.tryGetHostFromUrl
 import mozilla.components.support.utils.CertificateUtils
-import mozilla.components.support.utils.DownloadFileUtils
 import mozilla.components.support.utils.DownloadUtils
 import mozilla.components.support.utils.DownloadUtils.RESPONSE_CODE_SUCCESS
 import mozilla.components.support.utils.DownloadUtils.makePdfContentDisposition
 import org.json.JSONObject
 import org.mozilla.geckoview.AllowOrDeny
 import org.mozilla.geckoview.ContentBlocking
+import org.mozilla.geckoview.ExperimentalGeckoViewApi
 import org.mozilla.geckoview.GeckoResult
 import org.mozilla.geckoview.GeckoRuntime
 import org.mozilla.geckoview.GeckoSession
@@ -91,7 +95,6 @@ class GeckoEngineSession(
     private val runtime: GeckoRuntime,
     private val privateMode: Boolean = false,
     private val defaultSettings: Settings? = null,
-    private val downloadFileUtils: DownloadFileUtils,
     contextId: String? = null,
     private val geckoSessionProvider: () -> GeckoSession = {
         val settings = GeckoSessionSettings.Builder()
@@ -132,6 +135,8 @@ class GeckoEngineSession(
     override val settings: Settings = object : Settings() {
         override var requestInterceptor: RequestInterceptor? = null
         override var historyTrackingDelegate: HistoryTrackingDelegate? = null
+        override var downloadDelegate: DownloadDelegate? = null
+
         override var userAgentString: String?
             get() = geckoSession.settings.userAgentOverride
             set(value) {
@@ -260,7 +265,7 @@ class GeckoEngineSession(
                 val contentLength = 0L
                 // NB: If the title is an empty string, there is a chance the PDF will not have a name.
                 // See https://github.com/mozilla-mobile/android-components/issues/12276
-                val fileName = downloadFileUtils.guessFileName(
+                val fileName = settings.downloadDelegate?.guessFileName(
                     contentDisposition = disposition,
                     url = url,
                     mimeType = contentType,
@@ -851,6 +856,28 @@ class GeckoEngineSession(
     }
 
     /**
+     * See [EngineSession.getPageContent]
+     */
+    @OptIn(ExperimentalGeckoViewApi::class)
+    override fun getPageContent(onResult: (String) -> Unit, onException: (Throwable) -> Unit) {
+        geckoSession.sessionPageExtractor.pageContent
+            .then(
+                { content ->
+                    if (content == null) {
+                        onException(PageExtractionError.UnexpectedNull())
+                        return@then GeckoResult()
+                    }
+                    onResult(content)
+                    GeckoResult<Unit>()
+                },
+                { error ->
+                    onException(error.intoPageExtractionError())
+                    GeckoResult()
+                },
+            )
+    }
+
+    /**
      * Purges the history for the session (back and forward history).
      */
     override fun purgeHistory() {
@@ -987,7 +1014,6 @@ class GeckoEngineSession(
                     runtime = runtime,
                     privateMode = privateMode,
                     defaultSettings = defaultSettings,
-                    downloadFileUtils = downloadFileUtils,
                     openGeckoSession = false,
                 )
             notifyObservers {
@@ -1302,7 +1328,8 @@ class GeckoEngineSession(
                 val contentLength = headers[CONTENT_LENGTH]?.trim()?.toLongOrNull()
                 val contentDisposition = headers[CONTENT_DISPOSITION]?.trim()
                 val url = uri
-                val fileName = downloadFileUtils.guessFileName(
+
+                val fileName = settings.downloadDelegate?.guessFileName(
                     contentDisposition = contentDisposition,
                     url = url,
                     mimeType = contentType,
@@ -1313,7 +1340,7 @@ class GeckoEngineSession(
                         url = url,
                         contentLength = contentLength,
                         contentType = DownloadUtils.sanitizeMimeType(contentType),
-                        fileName = fileName.sanitizeFileName(),
+                        fileName = fileName?.sanitizeFileName(),
                         response = response,
                         isPrivate = privateMode,
                         openInApp = webResponse.requestExternalApp,
@@ -1584,6 +1611,7 @@ class GeckoEngineSession(
         defaultSettings?.trackingProtectionPolicy?.let { updateTrackingProtection(it) }
         defaultSettings?.requestInterceptor?.let { settings.requestInterceptor = it }
         defaultSettings?.historyTrackingDelegate?.let { settings.historyTrackingDelegate = it }
+        defaultSettings?.downloadDelegate?.let { settings.downloadDelegate = it }
         defaultSettings?.testingModeEnabled?.let {
             geckoSession.settings.fullAccessibilityTree = it
         }

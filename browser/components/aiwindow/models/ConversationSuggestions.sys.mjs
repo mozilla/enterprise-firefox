@@ -227,13 +227,14 @@ export async function generateConversationStartersSidebar(
     const inferenceParams = config?.parameters || {};
 
     const result = await engineInstance.run({
-      messages: [
+      args: [
         {
           role: "system",
           content: "Return only the requested suggestions, one per line.",
         },
         { role: "user", content: filled },
       ],
+      fxAccountToken: await openAIEngine.getFxAccountToken(),
       ...inferenceParams,
     });
 

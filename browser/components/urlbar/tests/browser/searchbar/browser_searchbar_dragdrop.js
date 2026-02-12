@@ -41,6 +41,7 @@ function simulateSearchbarDrop(content) {
 
 add_task(async function checkDragURL() {
   searchbar.value = "";
+  Assert.ok(!searchbar.hasAttribute("usertyping"), "Go button invisible");
   await BrowserTestUtils.withNewTab(TEST_URL, async () => {
     info("Check dragging a normal url onto the searchbar");
     const DRAG_URL = "https://www.example.com/";
@@ -50,6 +51,7 @@ add_task(async function checkDragURL() {
     Assert.equal(searchbar.value, DRAG_URL, "Inserted value");
     let queryContext = await SearchbarTestUtils.promiseSearchComplete(window);
     Assert.equal(queryContext.searchString, DRAG_URL, "Started query");
+    Assert.ok(searchbar.hasAttribute("usertyping"), "Go button visible");
   });
 });
 
@@ -62,6 +64,20 @@ add_task(async function checkDragLoadedURL() {
 
     Assert.ok(openLinkSpy.notCalled, "Not navigating");
     Assert.equal(searchbar.value, DRAG_URL, "Inserted value");
+    let queryContext = await SearchbarTestUtils.promiseSearchComplete(window);
+    Assert.equal(queryContext.searchString, DRAG_URL, "Started query");
+  });
+});
+
+add_task(async function checkDragURLLike() {
+  searchbar.value = "";
+  await BrowserTestUtils.withNewTab(TEST_URL, async () => {
+    info("Check dragging url-like text onto the searchbar");
+    const DRAG_URL = "www.example.com";
+    simulateSearchbarDrop({ type: "text/plain", data: DRAG_URL });
+
+    Assert.ok(openLinkSpy.notCalled, "Not navigating");
+    Assert.equal(searchbar.value, DRAG_URL, "Didn't add a protocol");
     let queryContext = await SearchbarTestUtils.promiseSearchComplete(window);
     Assert.equal(queryContext.searchString, DRAG_URL, "Started query");
   });

@@ -88,14 +88,10 @@ struct ScalarMarker {
   using MS = mozilla::MarkerSchema;
   static MS MarkerTypeDisplay() {
     MS schema{MS::Location::MarkerChart, MS::Location::MarkerTable};
-    schema.AddKeyLabelFormat("id", "Scalar Name", MS::Format::UniqueString,
-                             MS::PayloadFlags::Searchable);
-    schema.AddKeyLabelFormat("key", "Key", MS::Format::String,
-                             MS::PayloadFlags::Searchable);
-    schema.AddKeyLabelFormat("scalarType", "Type", MS::Format::UniqueString,
-                             MS::PayloadFlags::Searchable);
-    schema.AddKeyLabelFormat("val", "Value", MS::Format::String,
-                             MS::PayloadFlags::Searchable);
+    schema.AddKeyLabelFormat("id", "Scalar Name", MS::Format::UniqueString);
+    schema.AddKeyLabelFormat("key", "Key", MS::Format::String);
+    schema.AddKeyLabelFormat("scalarType", "Type", MS::Format::UniqueString);
+    schema.AddKeyLabelFormat("val", "Value", MS::Format::String);
     schema.SetTooltipLabel(
         "{marker.data.id}[{marker.data.key}] {marker.data.val}");
     schema.SetTableLabel(

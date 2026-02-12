@@ -573,11 +573,33 @@ add_task(async function test_withMemories_ChatConversation_retryMessage() {
   conversation.addToolCallMessage({ some: "more tool call details" });
   conversation.addAssistantMessage("text", "the second llm response");
 
-  await conversation.retryMessage(conversation.messages[1], true);
+  const retryTarget = conversation.messages[1];
+  const retryIndexBefore = conversation.messages.findIndex(
+    m => m.id === retryTarget.id
+  );
+
+  if (retryIndexBefore === -1) {
+    throw new Error("Retry target must exist in messages");
+  }
+
+  const deleted = await conversation.retryMessage(retryTarget);
 
   Assert.withSoftAssertions(function (soft) {
-    soft.equal(conversation.messages.length, 4, "Incorrect number of messages");
-    soft.equal(conversation.messages[3].content.body, "a user's prompt");
+    soft.equal(
+      conversation.messages.length,
+      retryIndexBefore,
+      "Conversation should be truncated to messages before the retried user message"
+    );
+
+    soft.ok(
+      Array.isArray(deleted),
+      "retryMessage should return an array of deleted messages"
+    );
+    soft.equal(
+      deleted[0].content.body,
+      "a user's prompt",
+      "First deleted message should be the retried user message"
+    );
   });
 
   sandbox.restore();
@@ -595,7 +617,7 @@ add_task(async function test_withoutMemories_ChatConversation_retryMessage() {
     );
   });
 
-  sandbox.stub(conversation, "getMemoriesContext");
+  const memoriesStub = sandbox.stub(conversation, "getMemoriesContext");
 
   conversation.addSystemMessage("text", "the system prompt");
   conversation.addUserMessage("a user's prompt", "https://www.somesite.com");
@@ -605,11 +627,38 @@ add_task(async function test_withoutMemories_ChatConversation_retryMessage() {
   conversation.addToolCallMessage({ some: "more tool call details" });
   conversation.addAssistantMessage("text", "the second llm response");
 
-  await conversation.retryMessage(conversation.messages[1], false);
+  const retryTarget = conversation.messages[1];
+  const retryIndexBefore = conversation.messages.findIndex(
+    m => m.id === retryTarget.id
+  );
+  if (retryIndexBefore === -1) {
+    throw new Error("Retry target must exist in messages");
+  }
+
+  const deleted = await conversation.retryMessage(retryTarget);
 
   Assert.withSoftAssertions(function (soft) {
-    soft.equal(conversation.messages.length, 3, "Incorrect number of messages");
-    soft.equal(conversation.messages[2].content.body, "a user's prompt");
+    soft.equal(
+      conversation.messages.length,
+      retryIndexBefore,
+      "Conversation should be truncated to messages before the retried user message"
+    );
+
+    soft.ok(
+      Array.isArray(deleted),
+      "retryMessage should return an array of deleted messages"
+    );
+    soft.equal(
+      deleted[0].content.body,
+      "a user's prompt",
+      "First deleted message should be the retried user message"
+    );
+
+    soft.equal(
+      memoriesStub.called,
+      false,
+      "getMemoriesContext should not have been called by retryMessage"
+    );
   });
 
   sandbox.restore();
@@ -644,8 +693,7 @@ add_task(
     conversation.addAssistantMessage("text", "the second llm response");
 
     const toDeleteMessages = await conversation.retryMessage(
-      conversation.messages[1],
-      true
+      conversation.messages[1]
     );
 
     Assert.withSoftAssertions(function (soft) {

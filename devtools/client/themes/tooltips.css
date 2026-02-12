@@ -1026,6 +1026,16 @@ strong {
   }
 }
 
+/* Tooltip: attr() */
+.devtools-tooltip-css-attr {
+  padding: 5px 10px;
+  width: max-content;
+  max-width: 400px;
+  max-height: 200px;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+
 /* Indent the content script items */
 .webconsole-evaluation-selector-item.indented::before {
   content: "\2514\2500" !important;

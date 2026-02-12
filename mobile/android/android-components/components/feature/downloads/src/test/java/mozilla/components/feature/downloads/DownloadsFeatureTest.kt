@@ -847,7 +847,7 @@ class DownloadsFeatureTest {
         val feature = spy(
             DownloadsFeature(
                 applicationContext = testContext,
-                store = mock(),
+                store = BrowserStore(),
                 useCases = usecases,
                 downloadManager = downloadManager,
                 shouldForwardToThirdParties = { true },
@@ -1121,7 +1121,7 @@ class DownloadsFeatureTest {
         val feature = spy(
             DownloadsFeature(
                 applicationContext = testContext,
-                store = mock(),
+                store = BrowserStore(),
                 useCases = usecases,
                 onNeedToRequestPermissions = { wasPermissionsRequested = true },
             ),
@@ -1150,7 +1150,7 @@ class DownloadsFeatureTest {
         val feature = spy(
             DownloadsFeature(
                 applicationContext = testContext,
-                store = mock(),
+                store = BrowserStore(),
                 useCases = usecases,
                 onNeedToRequestPermissions = { wasPermissionsRequested = true },
             ),
@@ -1183,7 +1183,7 @@ class DownloadsFeatureTest {
         val feature = spy(
             DownloadsFeature(
                 applicationContext = spyContext,
-                store = mock(),
+                store = BrowserStore(),
                 useCases = usecases,
             ),
         )
@@ -1218,7 +1218,7 @@ class DownloadsFeatureTest {
         val feature = spy(
             DownloadsFeature(
                 applicationContext = spyContext,
-                store = mock(),
+                store = BrowserStore(),
                 useCases = usecases,
             ),
         )
@@ -1491,7 +1491,7 @@ class DownloadsFeatureTest {
         val feature = spy(
             DownloadsFeature(
                 applicationContext = testContext,
-                store = mock(),
+                store = BrowserStore(),
                 useCases = downloadsUseCases,
                 fileHasNotEnoughStorageDialog = fileHasNotEnoughStorageDialog,
             ),
@@ -1608,7 +1608,7 @@ class DownloadsFeatureTest {
         val feature = spy(
             DownloadsFeature(
                 applicationContext = testContext,
-                store = mock(),
+                store = BrowserStore(),
                 useCases = mock(),
                 fileSystemHelper = FakeFileSystemHelper(
                     availableBitesInDirectory = 10L,
@@ -1634,7 +1634,7 @@ class DownloadsFeatureTest {
         val feature = spy(
             DownloadsFeature(
                 applicationContext = testContext,
-                store = mock(),
+                store = BrowserStore(),
                 useCases = mock(),
                 fileSystemHelper = FakeFileSystemHelper(
                     availableBitesInDirectory = 10L,
@@ -1661,7 +1661,7 @@ class DownloadsFeatureTest {
         val feature = spy(
             DownloadsFeature(
                 applicationContext = testContext,
-                store = mock(),
+                store = BrowserStore(),
                 useCases = mock(),
                 fileSystemHelper = FakeFileSystemHelper(
                     availableBitesInDirectory = 1000L,
@@ -1685,7 +1685,7 @@ class DownloadsFeatureTest {
         val feature = spy(
             DownloadsFeature(
                 applicationContext = testContext,
-                store = mock(),
+                store = BrowserStore(),
                 useCases = mock(),
                 fileSystemHelper = FakeFileSystemHelper(
                     availableBitesInDirectory = 10L,

@@ -401,6 +401,7 @@ class NavigationToolbarTest : TestSetup() {
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/3135012
+    @Ignore("Failing: https://bugzilla.mozilla.org/show_bug.cgi?id=2014561")
     @SmokeTest
     @Test
     fun searchResultsOpenedInNewTabsGenerateSearchGroupsTest() {

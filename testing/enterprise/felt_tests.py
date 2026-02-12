@@ -9,6 +9,7 @@ import os
 import random
 import shutil
 import sys
+import tempfile
 import time
 import urllib.parse
 import uuid
@@ -16,16 +17,18 @@ from ctypes import c_wchar_p
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from multiprocessing import Manager, Process, Value
 
-import psutil
+import felt_consts
 import requests
 from base_test import EnterpriseTestsBase
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support import expected_conditions as EC
+from marionette_driver import expected
+from marionette_driver.by import By
 
 
 class LocalHttpRequestHandler(BaseHTTPRequestHandler):
-    def reply(self, payload, code=200, status="Success"):
+    def reply(self, payload, code=200, status="Success", contentType=None):
         self.send_response(code, status)
+        if contentType:
+            self.send_header("Content-Type", contentType)
         self.send_header("Content-Length", len(payload))
         self.end_headers()
         self.wfile.write(bytes(payload, "utf8"))
@@ -38,6 +41,9 @@ class LocalHttpRequestHandler(BaseHTTPRequestHandler):
             self.reply("OK")
             setattr(self.server, "_BaseServer__shutdown_request", True)
             self.server.server_close()
+            return json.dumps({})
+
+        return None
 
     def not_found(self, path=None):
         self.send_response(404, "Not Found")
@@ -93,7 +99,7 @@ class SsoHttpHandler(LocalHttpRequestHandler):
             return
 
         if m is not None:
-            self.reply(m)
+            self.reply(m, contentType="text/html")
         else:
             self.not_found(path)
 
@@ -117,6 +123,7 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
     def do_GET(self):
         print("GET", self.path)
         m = None
+        contentType = None
 
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
@@ -145,26 +152,21 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
         elif path == "/api/browser/hacks/default":
             # Browser prefs that can be applied live
             m = json.dumps({
-                "prefs": [
-                    ["browser.sessionstore.restore_on_demand", False],
-                    ["browser.sessionstore.resume_from_crash", False],
-                    ["browser.policies.live_polling.frequency", 500],
+                "prefs": felt_consts.live_prefs
+                + [
                     [
                         "identity.sync.tokenserver.uri",
                         "https://ent-dev-tokenserver.sync.nonprod.webservices.mozgcp.net/1.0/sync/1.5",
-                    ],
+                    ]
                 ]
             })
+            contentType = "application/json"
         elif path == "/api/browser/hacks/startup":
             # Browser prefs that needs to be set in the prefs.js file
             m = json.dumps({
-                "prefs": [
-                    ["devtools.browsertoolbox.scope", "everything"],
-                    ["marionette.port", 0],
-                    ["enterprise.console.test_float", 1.5],
-                    ["enterprise.console.test_bool", True],
-                ]
+                "prefs": felt_consts.userjs_prefs + [["marionette.port", 0]],
             })
+            contentType = "application/json"
 
         elif path == "/api/browser/policies":
             self.check_auth()
@@ -192,6 +194,7 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
             )
 
             m = json.dumps({"policies": policy_content})
+            contentType = "application/json"
 
         elif path == "/api/browser/whoami":
             self.check_auth()
@@ -200,13 +203,14 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
                 "id": str(uuid.uuid4()),
                 "email": "nobody@mozilla.org",
                 "name": "moz user",
-                "picture": "https://s.gravatar.com/avatar/something",
+                "picture": f"http://localhost:{self.server.console_port}/avatar/something",
                 "is_active": True,
                 "last_login_at": "2025-11-14T14:27:23.575030Z",
                 "created_at": "2025-10-31T15:11:50.735175Z",
                 "updated_at": "2025-11-14T14:27:23.602803Z",
                 "policy_roles_id": None,
             })
+            contentType = "application/json"
 
         elif path == "/sso/callback":
             policy_access_token = self.server.policy_access_token.value
@@ -238,6 +242,7 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
 </body>
 </html>
             """
+            contentType = "text/html"
 
         elif path == "/ping":
             m = """
@@ -249,10 +254,12 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
 </body>
 </html>
             """
+            contentType = "text/html"
 
         # Not a real end point, just used for tests
         elif path == "/sso/get_device_posture":
             m = json.dumps(self.server.device_posture_payload)
+            contentType = "application/json"
 
         elif path.startswith("/downloads/"):
             filename = os.path.join(os.path.dirname(__file__), os.path.basename(path))
@@ -269,15 +276,13 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
                 return
 
         if m is not None:
-            self.reply(m)
+            self.reply(m, contentType=contentType)
         else:
             self.not_found(path)
 
     def do_POST(self):
-        super().do_POST()
-
         print("POST", self.path)
-        m = None
+        m = super().do_POST()
 
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
@@ -303,7 +308,7 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
             m = json.dumps(None)
 
         if m is not None:
-            self.reply(m)
+            self.reply(m, contentType="application/json")
         else:
             self.not_found(path)
 
@@ -352,16 +357,11 @@ def serve(
 
 
 class FeltTestsBase(EnterpriseTestsBase):
-    def __init__(
-        self,
-        json,
-        firefox,
-        geckodriver,
-        profile_root,
-        test_prefs=[],
-        cli_args=[],
-        env_vars={},
-    ):
+    EXTRA_ENV = {}
+
+    def setUp(self):
+        # test_prefs = kwargs.get("test_prefs", [])
+
         self._manually_closed_child = False
         self.console_port = random.randrange(10000, 14999)
         self.sso_port = random.randrange(15000, 20000)
@@ -372,11 +372,18 @@ class FeltTestsBase(EnterpriseTestsBase):
         self.device_posture_reply_forbidden = Value("B", 0)
         """
 
+        self._extra_prefs = {
+            "enterprise.console.address": f"http://localhost:{self.console_port}",
+            "enterprise.is_testing": True,
+        }  # + test_prefs
+
+        if hasattr(self, "EXTRA_PREFS"):
+            self._extra_prefs.update(self.EXTRA_PREFS)
+
         manager = Manager()
         self.policy_access_token = manager.Value(c_wchar_p, str(uuid.uuid4()))
         self.policy_refresh_token = manager.Value(c_wchar_p, str(uuid.uuid4()))
 
-        print(f"Starting console server: {self.console_port}")
         self.console_httpd = Process(
             target=serve,
             args=(self.console_port, ConsoleHttpHandler),
@@ -395,7 +402,6 @@ class FeltTestsBase(EnterpriseTestsBase):
 
         self.cookie_name = manager.Value(c_wchar_p, str(uuid.uuid1()).split("-")[0])
         self.cookie_value = manager.Value(c_wchar_p, str(uuid.uuid4()).split("-")[4])
-        print(f"Starting SSO server: {self.sso_port}")
         self.sso_httpd = Process(
             target=serve,
             args=(self.sso_port, SsoHttpHandler),
@@ -408,21 +414,15 @@ class FeltTestsBase(EnterpriseTestsBase):
         )
         self.sso_httpd.start()
 
-        prefs = [
-            ["enterprise.console.address", f"http://localhost:{self.console_port}"],
-            ["enterprise.is_testing", True],
-        ] + test_prefs
+        self._profile_root = tempfile.mkdtemp(prefix="mozrunner-enterprise-test")
 
-        super().__init__(
-            json,
-            firefox,
-            geckodriver,
-            profile_root,
-            extra_cli_args=cli_args,
-            extra_env=env_vars,
-            extra_prefs=prefs,
-            dont_maximize=True,
-        )
+        if "MOZ_BYPASS_FELT" in os.environ.keys():
+            del os.environ["MOZ_BYPASS_FELT"]
+
+        super().setUp()
+
+        self._logger.info(f"Starting console server: {self.console_port}")
+        self._logger.info(f"Starting SSO server: {self.sso_port}")
 
     def setup(self):
         console_addr = f"http://localhost:{self.console_port}"
@@ -449,12 +449,11 @@ class FeltTestsBase(EnterpriseTestsBase):
         else:
             self._child_profile_path_value = self._child_profile_path
 
-        # self.set_string_pref("enterprise.console.address", console_addr)
         self.set_string_pref("enterprise.profile_path", self._child_profile_path_value)
-        # self.set_bool_pref("enterprise.is_testing", True)
 
         self._driver.set_context("chrome")
-        windows = len(self._driver.window_handles)
+        self._wait.until(lambda mn: len(mn.chrome_window_handles) == 1)
+        windows = len(self._driver.chrome_window_handles)
         self._logger.info(f"Checking number of windows: {windows}")
         assert windows == 1, "There should only be one Felt window"
 
@@ -469,15 +468,15 @@ class FeltTestsBase(EnterpriseTestsBase):
         else:
             self._logger.info("Browser was already manually closed.")
 
-        print("Shutting down console")
+        self._logger.info("Shutting down console")
         requests.post(f"http://localhost:{self.console_port}/:shutdown", timeout=2)
-        print("Shutting down SSO")
+        self._logger.info("Shutting down SSO")
         requests.post(f"http://localhost:{self.sso_port}/:shutdown", timeout=2)
-        print("Stopping process console")
+        self._logger.info("Stopping process console")
         self.console_httpd.join()
-        print("Stopping process SSO")
+        self._logger.info("Stopping process SSO")
         self.sso_httpd.join()
-        print("All stopped")
+        self._logger.info("All stopped")
 
         self._logger.info(f"Removing browser profile at {self._child_profile_path}")
         shutil.rmtree(self._child_profile_path, ignore_errors=True)
@@ -512,33 +511,34 @@ class FeltTestsBase(EnterpriseTestsBase):
         self._driver.set_context("content")
         return rv
 
-    def get_elem(self, e):
+    def _get_elem(self, el, driver, waiter, long_waiter):
         # Windows is slower?
+        found = False
         if sys.platform == "win32":
-            return self._longwait.until(
-                EC.visibility_of_element_located((By.CSS_SELECTOR, e))
-            )
+            found = long_waiter.until(expected.element_displayed(By.CSS_SELECTOR, el))
         else:
-            return self._wait.until(
-                EC.visibility_of_element_located((By.CSS_SELECTOR, e))
-            )
+            found = waiter.until(expected.element_displayed(By.CSS_SELECTOR, el))
+        if found:
+            return driver.find_element(By.CSS_SELECTOR, el)
+        else:
+            raise ValueError
+
+    def get_elem(self, e):
+        return self._get_elem(e, self._driver, self._wait, self._longwait)
+
+    def get_elem_child(self, e):
+        return self._get_elem(
+            e,
+            self._child_driver,
+            self._child_wait,
+            self._child_longwait,
+        )
 
     def find_elem_by_id(self, e):
         return self._driver.find_element(By.ID, e)
 
     def find_elem_child(self, e):
         return self._child_driver.find_element(By.CSS_SELECTOR, e)
-
-    def get_elem_child(self, e):
-        # Windows is slower?
-        if sys.platform == "win32":
-            return self._child_longwait.until(
-                EC.visibility_of_element_located((By.CSS_SELECTOR, e))
-            )
-        else:
-            return self._child_wait.until(
-                EC.visibility_of_element_located((By.CSS_SELECTOR, e))
-            )
 
     def wait_process_exit(self):
         self._logger.info("Waiting a few seconds ...")
@@ -547,6 +547,8 @@ class FeltTestsBase(EnterpriseTestsBase):
         else:
             time.sleep(3)
         self._logger.info(f"Checking PID {self._browser_pid}")
+
+        import psutil
 
         if not psutil.pid_exists(self._browser_pid):
             self._logger.info(f"No more PID {self._browser_pid}")
@@ -563,7 +565,11 @@ class FeltTestsBase(EnterpriseTestsBase):
                 assert process_basename != "firefox", "Process is not Firefox"
             except psutil.ZombieProcess:
                 self._logger.info(f"Zombie found as {self._browser_pid}")
-                return True
+
+    def run_felt_base(self):
+        self.run_felt_chrome_on_email_submit()
+        self.run_felt_load_sso()
+        self.run_felt_perform_sso_auth()
 
     def submit_email(self, email_address="random@mozilla.com"):
         self._driver.set_context("chrome")
@@ -579,8 +585,7 @@ class FeltTestsBase(EnterpriseTestsBase):
             arguments[0].value = arguments[1];
             arguments[0].dispatchEvent(new Event('input', { bubbles: true }));
             """,
-            email,
-            email_address,
+            [email, email_address],
         )
 
         self._logger.info("Submitting email by clicking")
@@ -590,7 +595,7 @@ class FeltTestsBase(EnterpriseTestsBase):
 
 
 class FeltTests(FeltTestsBase):
-    def test_felt_00_chrome_on_email_submit(self, exp):
+    def run_felt_chrome_on_email_submit(self):
         self.submit_email()
 
         self._driver.set_context("chrome")
@@ -600,25 +605,29 @@ class FeltTests(FeltTestsBase):
         self._logger.info(
             f"Email submitted and SSO browser displayed correctly: {sso_content_ready}"
         )
-
         self._driver.set_context("content")
 
-        return True
-
-    def test_felt_0_load_sso(self, exp):
+    def run_felt_load_sso(self):
         self._logger.info("Checking SSO page")
-        for element in exp["elements"]:
-            elem = self.get_elem(element[0])
-            assert elem.get_property("name") == element[1], f"Has {element[1]} in page"
+        self._driver.set_context("content")
+        self._wait.until(lambda mn: mn.get_url().endswith("/sso_url"))
+        self._logger.info(f"URL {self._driver.get_url()}")
+        assert self.get_elem("#login").get_property("name") == "login", (
+            "Has 'login' in page"
+        )
+        assert self.get_elem("#password").get_property("name") == "password", (
+            "Has 'password' in page"
+        )
         self._logger.info("SSO page OK")
 
-        return True
-
-    def test_felt_1_perform_sso_auth(self, exp):
+    def run_felt_perform_sso_auth(self):
         self._logger.info("Performing SSO auth")
+        self._wait.until(lambda mn: mn.get_url().endswith("/sso_url"))
+        self._logger.info(f"URL {self._driver.get_url()}")
         self.get_elem("#login").send_keys("username@company.tld")
         self.get_elem("#password").send_keys("86c53cba7ccd")
         self.get_elem("#submit").click()
         self._logger.info("Performed SSO auth")
 
-        return True
+    def await_felt_auth_window(self):
+        self._wait.until(lambda mn: len(self._driver.chrome_window_handles) == 1)

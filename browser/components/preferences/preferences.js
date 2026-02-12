@@ -293,10 +293,10 @@ const CONFIG_PANES = Object.freeze({
     groupIds: ["customHomepage"],
   },
   personalizeSmartWindow: {
-    parent: "aiFeatures",
+    parent: "ai",
     l10nId: "ai-window-personalize-header",
     iconSrc: "chrome://devtools/skin/images/globe.svg",
-    groupIds: ["memoriesGroup"],
+    groupIds: ["assistantModelGroup", "memoriesGroup"],
     module: "chrome://browser/content/preferences/config/aiFeatures.mjs",
   },
   manageMemories: {

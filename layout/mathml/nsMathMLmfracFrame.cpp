@@ -93,8 +93,8 @@ nscoord nsMathMLmfracFrame::CalcLineThickness(nsString& aThicknessAttribute,
   if (!aThicknessAttribute.IsEmpty()) {
     lineThickness = defaultThickness;
     ParseAndCalcNumericValue(aThicknessAttribute, &lineThickness,
-                             dom::MathMLElement::PARSE_ALLOW_NEGATIVE,
-                             aFontSizeInflation, this);
+                             aFontSizeInflation, this,
+                             dom::MathMLElement::ParseFlag::AllowNegative);
     // MathML Core says a negative value is interpreted as 0.
     if (lineThickness < 0) {
       lineThickness = 0;

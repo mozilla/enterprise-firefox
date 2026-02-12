@@ -84,10 +84,13 @@ using namespace js;
 
 namespace js {
 
-extern const JSClass IntlClass;
 extern const JSClass JSONClass;
 extern const JSClass MathClass;
 extern const JSClass ReflectClass;
+
+namespace intl {
+extern const JSClass IntlClass;
+}
 
 }  // namespace js
 
@@ -1074,8 +1077,6 @@ void GlobalObjectData::trace(JSTracer* trc, GlobalObject* global) {
   TraceNullableEdge(trc, &setObjectTemplate, "set-object-template");
 
   TraceNullableEdge(trc, &iterResultTemplate, "iter-result-template_");
-  TraceNullableEdge(trc, &iterResultWithoutPrototypeTemplate,
-                    "iter-result-without-prototype-template");
 
   TraceNullableEdge(trc, &selfHostingScriptSource,
                     "self-hosting-script-source");

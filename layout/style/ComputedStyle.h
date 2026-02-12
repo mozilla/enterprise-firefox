@@ -15,7 +15,6 @@
 #include "mozilla/PseudoStyleType.h"
 #include "mozilla/ServoComputedData.h"
 #include "mozilla/ServoStyleConsts.h"
-#include "nsCSSPseudoElements.h"
 #include "nsColor.h"
 #include "nsStyleStructFwd.h"
 
@@ -97,7 +96,7 @@ class ComputedStyle {
 
   bool IsLazilyCascadedPseudoElement() const {
     return IsPseudoElement() &&
-           !nsCSSPseudoElements::IsEagerlyCascadedInServo(GetPseudoType());
+           !PseudoStyle::IsEagerlyCascadedInServo(GetPseudoType());
   }
 
   PseudoStyleType GetPseudoType() const { return mPseudoType; }
@@ -189,6 +188,16 @@ class ComputedStyle {
     return bool(Flags() & Flag::USES_CONTAINER_UNITS);
   }
 
+  // Whether the style uses viewport units (vw, vh, etc.).
+  bool UsesViewportUnits() const {
+    return bool(Flags() & Flag::USES_VIEWPORT_UNITS);
+  }
+
+  // Appends all cached lazy pseudo-element styles to the given array.
+  void GetCachedLazyPseudoStyles(nsTArray<const ComputedStyle*>& aArray) const {
+    mCachedInheritingStyles.AppendTo(aArray);
+  }
+
   // Is the only link whose visitedness is allowed to influence the
   // style of the node this ComputedStyle is for (which is that element
   // or its nearest ancestor that is a link) visited?
@@ -237,14 +246,7 @@ class ComputedStyle {
     //
     // The one place this optimization breaks is with pseudo-elements that
     // support state (like :hover). So we just avoid sharing in those cases.
-    if (nsCSSPseudoElements::PseudoElementSupportsUserActionState(
-            aStyle->GetPseudoType())) {
-      return;
-    }
-
-    // Styles using container query units can become stale when container sizes
-    // change without the parent style changing, so don't cache them.
-    if (aStyle->UsesContainerUnits()) {
+    if (PseudoStyle::SupportsUserActionState(aStyle->GetPseudoType())) {
       return;
     }
 

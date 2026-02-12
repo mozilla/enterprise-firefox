@@ -1266,6 +1266,20 @@ Relation RemoteAccessible::RelationByType(RelationType aType) const {
           }
         }
 
+        // For popovertarget/commandfor, check the PopoverInvokerIsDetails flag
+        // to determine whether this should be a DETAILS or DESCRIBED_BY
+        // relation.
+        if (data.mAtom == nsGkAtoms::popovertarget ||
+            data.mAtom == nsGkAtoms::commandfor) {
+          auto isDetails = aAcc->mCachedFields->GetAttribute<bool>(
+              CacheKey::PopoverInvokerIsDetails);
+          bool isDetailsValue = isDetails.isSome() && *isDetails;
+          bool wantDetails = aRelType == RelationType::DETAILS;
+          if (isDetailsValue != wantDetails) {
+            continue;
+          }
+        }
+
         // Relations can have several cached attributes in order of precedence,
         // if one is found we use it.
         return maybeIds;
@@ -1956,9 +1970,19 @@ already_AddRefed<AccAttributes> RemoteAccessible::Attributes() {
     if (mCachedFields->HasAttribute(nsGkAtoms::aria_details)) {
       detailsFrom.AssignLiteral("aria-details");
     } else if (mCachedFields->HasAttribute(nsGkAtoms::commandfor)) {
-      detailsFrom.AssignLiteral("command-for");
+      // Only expose details_from if this is actually a DETAILS relation
+      auto isDetails =
+          mCachedFields->GetAttribute<bool>(CacheKey::PopoverInvokerIsDetails);
+      if (isDetails && *isDetails) {
+        detailsFrom.AssignLiteral("command-for");
+      }
     } else if (mCachedFields->HasAttribute(nsGkAtoms::popovertarget)) {
-      detailsFrom.AssignLiteral("popover-target");
+      // Only expose details_from if this is actually a DETAILS relation
+      auto isDetails =
+          mCachedFields->GetAttribute<bool>(CacheKey::PopoverInvokerIsDetails);
+      if (isDetails && *isDetails) {
+        detailsFrom.AssignLiteral("popover-target");
+      }
     } else if (mCachedFields->HasAttribute(nsGkAtoms::target)) {
       detailsFrom.AssignLiteral("css-anchor");
     }

@@ -15,7 +15,7 @@ add_task(async function test_autoClose_false_when_firstrun_not_completed() {
   await SpecialPowers.pushPrefEnv({
     set: [
       ["browser.smartwindow.firstrun.hasCompleted", false],
-      ["browser.smartwindow.tos.hasConsent", false],
+      ["browser.smartwindow.tos.consentTime", 0],
     ],
   });
 
@@ -44,7 +44,7 @@ add_task(async function test_autoClose_true_when_firstrun_completed() {
   await SpecialPowers.pushPrefEnv({
     set: [
       ["browser.smartwindow.firstrun.hasCompleted", true],
-      ["browser.smartwindow.tos.hasConsent", true],
+      ["browser.smartwindow.tos.consentTime", 1735689600],
     ],
   });
 

@@ -13,6 +13,7 @@
 #include "ImageEncoder.h"
 #include "ImageRegion.h"
 #include "LayerUserData.h"
+#include "PseudoStyleType.h"
 #include "Units.h"
 #include "WindowRenderer.h"
 #include "gfxBlur.h"
@@ -89,7 +90,6 @@
 #include "mozilla/layers/WebRenderUserData.h"
 #include "nsBidiPresUtils.h"
 #include "nsCCUncollectableMarker.h"
-#include "nsCSSPseudoElements.h"
 #include "nsCSSValue.h"
 #include "nsColor.h"
 #include "nsComputedDOMStyle.h"
@@ -5226,7 +5226,7 @@ UniquePtr<TextMetrics> CanvasRenderingContext2D::DrawOrMeasureText(
 
   switch (state.textBaseline) {
     case CanvasTextBaseline::Hanging:
-      baselineAnchor = font->GetBaselines(fontOrientation).mHanging;
+      baselineAnchor = font->GetBaseline(gfxFont::kHanging, fontOrientation);
       break;
     case CanvasTextBaseline::Top:
       baselineAnchor = fontMetrics.emAscent;
@@ -5235,10 +5235,11 @@ UniquePtr<TextMetrics> CanvasRenderingContext2D::DrawOrMeasureText(
       baselineAnchor = (fontMetrics.emAscent - fontMetrics.emDescent) * .5f;
       break;
     case CanvasTextBaseline::Alphabetic:
-      baselineAnchor = font->GetBaselines(fontOrientation).mAlphabetic;
+      baselineAnchor = font->GetBaseline(gfxFont::kAlphabetic, fontOrientation);
       break;
     case CanvasTextBaseline::Ideographic:
-      baselineAnchor = font->GetBaselines(fontOrientation).mIdeographicUnder;
+      baselineAnchor =
+          font->GetBaseline(gfxFont::kIdeographicUnder, fontOrientation);
       break;
     case CanvasTextBaseline::Bottom:
       baselineAnchor = -fontMetrics.emDescent;
@@ -5271,7 +5272,6 @@ UniquePtr<TextMetrics> CanvasRenderingContext2D::DrawOrMeasureText(
         -processor.mBoundingBox.Y() - baselineAnchor;
     double actualBoundingBoxDescent =
         processor.mBoundingBox.YMost() + baselineAnchor;
-    auto baselines = font->GetBaselines(fontOrientation);
     return MakeUnique<TextMetrics>(
         totalWidth, actualBoundingBoxLeft, actualBoundingBoxRight,
         fontMetrics.maxAscent - baselineAnchor,   // fontBBAscent
@@ -5279,9 +5279,11 @@ UniquePtr<TextMetrics> CanvasRenderingContext2D::DrawOrMeasureText(
         actualBoundingBoxAscent, actualBoundingBoxDescent,
         fontMetrics.emAscent - baselineAnchor,   // emHeightAscent
         fontMetrics.emDescent + baselineAnchor,  // emHeightDescent
-        baselines.mHanging - baselineAnchor,
-        baselines.mAlphabetic - baselineAnchor,
-        baselines.mIdeographicUnder - baselineAnchor);
+        font->GetBaseline(gfxFont::kHanging, fontOrientation) - baselineAnchor,
+        font->GetBaseline(gfxFont::kAlphabetic, fontOrientation) -
+            baselineAnchor,
+        font->GetBaseline(gfxFont::kIdeographicUnder, fontOrientation) -
+            baselineAnchor);
   }
 
   // If we did not actually calculate bounds, set up a simple bounding box

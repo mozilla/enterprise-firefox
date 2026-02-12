@@ -1187,12 +1187,10 @@ void nsLabelsNodeList::ContentWillBeRemoved(nsIContent* aChild,
 }
 
 void nsLabelsNodeList::NodeWillBeDestroyed(nsINode* aNode) {
-  if (ShadowRoot* shadow = ShadowRoot::FromNodeOrNull(aNode)) {
-    if (Element* host = shadow->GetHost()) {
-      host->RemoveReferenceTargetChangeObserver(ResetRootsCallback, this);
-    }
-  }
-  mRoots.RemoveElement(aNode);
+  nsContentList::NodeWillBeDestroyed(aNode);
+
+  mData = nullptr;
+  mRoots.Clear();
 }
 
 // static
@@ -1356,6 +1354,10 @@ nsINode* nsLabelsNodeList::GetNextNode(nsINode* aCurrent) {
 
 void nsLabelsNodeList::PopulateSelf(uint32_t aNeededLength,
                                     uint32_t aExpectedElementsIfDirty) {
+  if (!mRootNode) {
+    return;
+  }
+
   // Start searching at the root.
   nsINode* cur = mRootNode;
   if (mElements.IsEmpty() && cur->IsElement() && Match(cur->AsElement())) {

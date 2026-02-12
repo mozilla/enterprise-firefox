@@ -2,7 +2,7 @@
   "manifest_version": 2,
   "name": "Web Compatibility Interventions",
   "description": "Urgent post-release fixes for web compatibility.",
-  "version": "149.5.0",
+  "version": "149.7.0",
   "browser_specific_settings": {
     "gecko": {
       "id": "webcompat@mozilla.org",
@@ -135,7 +135,6 @@
     "shims/facebook.svg",
     "shims/fastclick.js",
     "shims/figshare.js",
-    "shims/firebase.js",
     "shims/google-ads.js",
     "shims/google-analytics-and-tag-manager.js",
     "shims/google-analytics-ecommerce-plugin.js",

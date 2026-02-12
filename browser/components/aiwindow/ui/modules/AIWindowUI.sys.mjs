@@ -119,6 +119,7 @@ export const AIWindowUI = {
     const aiBrowser = this.ensureBrowserIsAppended(win.document, box);
 
     this._showSidebarElements(box, splitter);
+    this._setAskButtonStyle(win, true);
 
     if (conversation) {
       aiBrowser.setAttribute("data-conversation-id", conversation.id);
@@ -150,6 +151,7 @@ export const AIWindowUI = {
     // constantly being reloaded as result of tab switches
     box.hidden = true;
     splitter.hidden = true;
+    this._setAskButtonStyle(win, false);
   },
 
   /**
@@ -168,24 +170,28 @@ export const AIWindowUI = {
     if (!box.hidden) {
       box.hidden = true;
       splitter.hidden = true;
+      this._setAskButtonStyle(win, false);
       return false;
     }
 
     this.ensureBrowserIsAppended(chromeDoc, box);
     this._showSidebarElements(box, splitter);
+    this._setAskButtonStyle(win, true);
     return true;
   },
 
   /**
-   * If the toolbar Ask Button is clicked, toggle the sidebar.
+   * Update the Ask Button style based on the sidebar state.
    *
    * @param {Window} win
-   * @param {Event} event
+   * @param {boolean} sidebarIsOpen
    */
-  toggleSidebarFromAskButton(win, event) {
-    const askBtn = event.target.closest("#smartwindow-ask-button");
-    askBtn.classList.toggle("sidebar-is-open");
-    this.toggleSidebar(win);
+  _setAskButtonStyle(win, sidebarIsOpen) {
+    const askBtn = win.document.querySelector("#smartwindow-ask-button");
+    if (!askBtn) {
+      return;
+    }
+    askBtn.classList.toggle("sidebar-is-open", sidebarIsOpen);
   },
 
   /**

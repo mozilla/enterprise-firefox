@@ -3,16 +3,21 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+import os
 import sys
 import time
+
+sys.path.append(os.path.dirname(__file__))
 
 import requests
 from felt_tests import FeltTests
 
 
 class FeltDevicePosture(FeltTests):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def test_felt_device_posture(self):
+        super().run_felt_base()
+        self.run_device_posture_content()
+        self.run_access()
 
     def get_device_posture(self):
         console_addr = f"http://localhost:{self.console_port}"
@@ -27,7 +32,7 @@ class FeltDevicePosture(FeltTests):
                 time.sleep(0.5)
 
         """
-    def test_felt_1_perform_sso_auth(self, exp):
+    def test_felt_1_perform_sso_auth(self):
         TODO: Behavior is not yet clearly defined
         self._logger.info("Setting forbidden device posture")
         self.device_posture_reply_forbidden.value = 1
@@ -36,7 +41,7 @@ class FeltDevicePosture(FeltTests):
         return super().test_felt_1_perform_sso_auth(exp)
         """
 
-    def test_felt_2_device_posture_content(self, exp):
+    def run_device_posture_content(self):
         device_posture = self.get_device_posture()
         assert "name" in device_posture["os"], "Device posture reports OS name"
         assert "version" in device_posture["os"], "Device posture reports OS version"
@@ -89,9 +94,7 @@ class FeltDevicePosture(FeltTests):
 
         assert found_one_ipv6, "Device posture reports network interfaces (IPv6)"
 
-        return True
-
-    def test_felt_3_access(self, exp):
+    def run_access(self):
         """
         TODO: Behavior is not yet clearly defined
         token_data = json.loads(
@@ -101,14 +104,3 @@ class FeltDevicePosture(FeltTests):
         assert len(token_data["refresh_token"]) == 0, "There is not refresh token"
         """
         self.connect_child_browser()
-        return True
-
-
-if __name__ == "__main__":
-    FeltDevicePosture(
-        "felt_device_posture.json",
-        firefox=sys.argv[1],
-        geckodriver=sys.argv[2],
-        profile_root=sys.argv[3],
-        cli_args=["-feltUI"],
-    )

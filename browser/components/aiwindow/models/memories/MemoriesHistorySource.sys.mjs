@@ -212,7 +212,8 @@ export async function getRecentHistory(opts = {}) {
           const onlyTitle = row.getResultByName("title") || "";
           let title;
           if (onlyTitle) {
-            title = onlyTitle + " | " + host;
+            const sanitizedTitle = sanitizeTitle(onlyTitle);
+            title = sanitizedTitle + " | " + host;
           } else {
             title = onlyTitle;
           }
@@ -761,9 +762,37 @@ function round2(x) {
   return Math.round(Number(x) * 100) / 100;
 }
 
+/**
+ * Sanitize title text to prevent JSON parsing issues in LLM outputs.
+ * Removes/replaces characters that commonly cause problems:
+ * - Backslashes (replaced with forward slashes)
+ * - Control characters (replaced with spaces)
+ *
+ * @param {string} title - Raw title from Places database
+ * @returns {string} - Sanitized title
+ */
+function sanitizeTitle(title) {
+  if (typeof title !== "string") {
+    return "";
+  }
+
+  return (
+    title
+      .replace(/\\/g, "/") // Replace backslash with forward slash
+      // eslint-disable-next-line no-control-regex
+      .replace(/[\x00-\x1F\x7F]/g, " ") // Replace control chars (0-31, 127) with space
+      .replace(/\s+/g, " ") // Collapse multiple spaces
+      .trim()
+  );
+}
+
 // for tests only
 export function _setBlockListManagerForTesting(mgr) {
   _mgr = mgr;
+}
+
+export function _sanitizeTitleForTesting(title) {
+  return sanitizeTitle(title);
 }
 
 /**

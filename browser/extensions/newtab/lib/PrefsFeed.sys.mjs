@@ -35,6 +35,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   NimbusFeatures: "resource://nimbus/ExperimentAPI.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   Region: "resource://gre/modules/Region.sys.mjs",
+  SelectableProfileService:
+    "resource:///modules/profiles/SelectableProfileService.sys.mjs",
 });
 
 const ACTIVATION_WINDOW_VARIANT_PREF = "activationWindow.variant";
@@ -483,7 +485,12 @@ export class PrefsFeed {
 
     const { createdInstant } = lazy.AboutNewTab.activityStream;
 
-    if (!enabled || !createdInstant || !variant) {
+    if (
+      !enabled ||
+      !createdInstant ||
+      !variant ||
+      lazy.SelectableProfileService.hasCreatedSelectableProfiles()
+    ) {
       lazy.logConsole.log("Activation window evaluation skipped.");
       lazy.logConsole.debug(
         `enabled:${enabled}, createdInstant:${createdInstant}, variant: ${variant}`

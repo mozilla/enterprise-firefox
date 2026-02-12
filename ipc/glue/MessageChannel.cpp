@@ -950,10 +950,18 @@ class IPCFlowMarker : public BaseMarkerType<IPCFlowMarker> {
 
   using MS = MarkerSchema;
   static constexpr MS::PayloadField PayloadFields[] = {
-      {"name", MS::InputType::CString, "Details", MS::Format::String,
-       MS::PayloadFlags::Searchable},
-      {"flow", MS::InputType::Uint64, "Flow", MS::Format::Flow,
-       MS::PayloadFlags::Searchable}};
+      {
+          "name",
+          MS::InputType::CString,
+          "Details",
+          MS::Format::String,
+      },
+      {
+          "flow",
+          MS::InputType::Uint64,
+          "Flow",
+          MS::Format::Flow,
+      }};
 
   static constexpr MS::Location Locations[] = {MS::Location::MarkerChart,
                                                MS::Location::MarkerTable};

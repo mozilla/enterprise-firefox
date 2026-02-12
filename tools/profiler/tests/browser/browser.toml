@@ -110,6 +110,9 @@ support-files = ["simple.html"]
 ["browser_test_marker_network_sts.js"]
 support-files = ["simple.html"]
 
+["browser_test_markers_console_timing.js"]
+support-files = ["single_frame.html"]
+
 ["browser_test_markers_gc_cc.js"]
 
 ["browser_test_markers_parent_process.js"]

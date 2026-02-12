@@ -1336,6 +1336,15 @@ class PresShell final : public nsStubDocumentObserver,
       ControllerScrollFlags aFlags) override;
   using nsISelectionController::ScrollSelectionIntoView;
   NS_IMETHOD RepaintSelection(RawSelectionType aRawSelectionType) override;
+
+  /**
+   * Repaint highlight pseudo-element selections (::selection, ::target-text,
+   * ::highlight). These pseudos have their styles resolved lazily during
+   * painting, so style changes don't automatically generate repaint hints for
+   * them.
+   */
+  void RepaintPseudoElementStyledSelections();
+
   void SelectionWillTakeFocus() override;
   void SelectionWillLoseFocus() override;
 

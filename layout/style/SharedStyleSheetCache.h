@@ -9,15 +9,6 @@
 
 // The shared style sheet cache is a cache that allows us to share sheets across
 // documents.
-//
-// It's generally a singleton, but it is different from GlobalStyleSheetCache in
-// the sense that:
-//
-//  * It needs to be cycle-collectable, as it can keep alive style sheets from
-//    various documents.
-//
-//  * It is conceptually a singleton, but given its cycle-collectable nature, we
-//    might re-create it.
 
 #include "mozilla/MemoryReporting.h"
 #include "mozilla/SharedSubResourceCache.h"

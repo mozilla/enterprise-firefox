@@ -613,7 +613,7 @@ class Shims {
     const oldReadyPromise = this._readyPromise;
     this._readyPromise = new Promise(done => (this._resolveReady = done));
     await oldReadyPromise;
-    this._updateShims(updatedShims);
+    await this._updateShims(updatedShims);
   }
 
   async _updateShims(updatedShims) {

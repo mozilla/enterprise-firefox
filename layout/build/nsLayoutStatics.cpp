@@ -33,9 +33,7 @@
 #include "nsAttrValue.h"
 #include "nsCCUncollectableMarker.h"
 #include "nsCORSListenerProxy.h"
-#include "nsCSSAnonBoxes.h"
 #include "nsCSSProps.h"
-#include "nsCSSPseudoElements.h"
 #include "nsCSSRendering.h"
 #include "nsCellMap.h"
 #include "nsComputedDOMStyle.h"
@@ -140,8 +138,6 @@ nsresult nsLayoutStatics::Initialize() {
   nsCSSProps::Init();
 
 #ifdef DEBUG
-  nsCSSPseudoElements::AssertAtoms();
-  nsCSSAnonBoxes::AssertAtoms();
   DebugVerifyFrameStateBits();
 #endif
 

@@ -1361,8 +1361,9 @@ void nsColumnSetFrame::AppendDirectlyOwnedAnonBoxes(
     return;
   }
 
-  MOZ_ASSERT(column->Style()->GetPseudoType() == PseudoStyleType::columnContent,
-             "What sort of child is this?");
+  MOZ_ASSERT(
+      column->Style()->GetPseudoType() == PseudoStyleType::MozColumnContent,
+      "What sort of child is this?");
   aResult.AppendElement(OwnedAnonBox(column));
 }
 

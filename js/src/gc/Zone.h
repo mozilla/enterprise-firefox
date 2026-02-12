@@ -640,7 +640,7 @@ class Zone : public js::ZoneAllocator, public js::gc::GraphNodeBase<JS::Zone> {
     return lastDiscardedCodeTime_;
   }
 
-  void changeGCState(GCState prev, GCState next);
+  void changeGCState(js::gc::GCRuntime* gc, GCState prev, GCState next);
 
   bool isCollecting() const {
     MOZ_ASSERT(js::CurrentThreadCanAccessRuntime(runtimeFromMainThread()));
@@ -648,7 +648,7 @@ class Zone : public js::ZoneAllocator, public js::gc::GraphNodeBase<JS::Zone> {
   }
 
   inline bool isCollectingFromAnyThread() const {
-    return needsIncrementalBarrier() || wasGCStarted();
+    return needsMarkingBarrier() || wasGCStarted();
   }
 
   GCState initialMarkingState() const;
@@ -669,13 +669,13 @@ class Zone : public js::ZoneAllocator, public js::gc::GraphNodeBase<JS::Zone> {
   bool wasCollected() const { return wasCollected_; }
   void setWasCollected(bool v) { wasCollected_ = v; }
 
-  void setNeedsIncrementalBarrier(bool needs);
-  const BarrierState* addressOfNeedsIncrementalBarrier() const {
-    return &needsIncrementalBarrier_;
+  void setNeedsMarkingBarrier(js::gc::GCRuntime* gc, bool needs);
+  const BarrierState* addressOfNeedsMarkingBarrier() const {
+    return &needsMarkingBarrier_;
   }
 
-  static constexpr size_t offsetOfNeedsIncrementalBarrier() {
-    return offsetof(Zone, needsIncrementalBarrier_);
+  static constexpr size_t offsetOfNeedsMarkingBarrier() {
+    return offsetof(Zone, needsMarkingBarrier_);
   }
   static constexpr size_t offsetOfJitZone() { return offsetof(Zone, jitZone_); }
 
@@ -846,7 +846,7 @@ class Zone : public js::ZoneAllocator, public js::gc::GraphNodeBase<JS::Zone> {
   }
 
   void beforeClearDelegate(JSObject* wrapper, JSObject* delegate) {
-    if (needsIncrementalBarrier()) {
+    if (needsMarkingBarrier()) {
       beforeClearDelegateInternal(wrapper, delegate);
     }
   }

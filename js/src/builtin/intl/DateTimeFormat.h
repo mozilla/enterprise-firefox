@@ -14,7 +14,6 @@
 
 #include "builtin/SelfHostingDefines.h"
 #include "builtin/temporal/Calendar.h"
-#include "builtin/temporal/TimeZone.h"
 #include "js/Class.h"
 #include "vm/NativeObject.h"
 #include "vm/StringType.h"
@@ -24,9 +23,8 @@ class DateTimeFormat;
 class DateIntervalFormat;
 }  // namespace mozilla::intl
 
-namespace js {
+namespace js::intl {
 
-namespace intl {
 struct DateTimeFormatOptions {
   enum class Required : int8_t { Any, Date, Time };
   Required required = Required::Any;
@@ -88,7 +86,6 @@ struct DateTimeFormatOptions {
   };
   mozilla::Maybe<TimeZoneName> timeZoneName{};
 };
-}  // namespace intl
 
 enum class DateTimeValueKind {
   Number,
@@ -113,12 +110,11 @@ class DateTimeFormatObject : public NativeObject {
   static constexpr uint32_t OPTIONS_SLOT = 4;
   static constexpr uint32_t PATTERN_SLOT = 5;
   static constexpr uint32_t CALENDAR_VALUE_SLOT = 6;
-  static constexpr uint32_t TIMEZONE_VALUE_SLOT = 7;
-  static constexpr uint32_t DATE_FORMAT_SLOT = 8;
-  static constexpr uint32_t DATE_INTERVAL_FORMAT_SLOT = 9;
-  static constexpr uint32_t DATE_TIME_VALUE_KIND_SLOT = 10;
-  static constexpr uint32_t BOUND_FORMAT_SLOT = 11;
-  static constexpr uint32_t SLOT_COUNT = 12;
+  static constexpr uint32_t DATE_FORMAT_SLOT = 7;
+  static constexpr uint32_t DATE_INTERVAL_FORMAT_SLOT = 8;
+  static constexpr uint32_t DATE_TIME_VALUE_KIND_SLOT = 9;
+  static constexpr uint32_t BOUND_FORMAT_SLOT = 10;
+  static constexpr uint32_t SLOT_COUNT = 11;
 
   // Estimated memory use for UDateFormat (see IcuMemoryUsage).
   static constexpr size_t UDateFormatEstimatedMemoryUse = 72440;
@@ -188,15 +184,15 @@ class DateTimeFormatObject : public NativeObject {
     setFixedSlot(TIMEZONE_SLOT, JS::StringValue(timeZone));
   }
 
-  intl::DateTimeFormatOptions* getOptions() const {
+  DateTimeFormatOptions* getOptions() const {
     const auto& slot = getFixedSlot(OPTIONS_SLOT);
     if (slot.isUndefined()) {
       return nullptr;
     }
-    return static_cast<intl::DateTimeFormatOptions*>(slot.toPrivate());
+    return static_cast<DateTimeFormatOptions*>(slot.toPrivate());
   }
 
-  void setOptions(intl::DateTimeFormatOptions* options) {
+  void setOptions(DateTimeFormatOptions* options) {
     setFixedSlot(OPTIONS_SLOT, JS::PrivateValue(options));
   }
 
@@ -222,18 +218,6 @@ class DateTimeFormatObject : public NativeObject {
 
   void setCalendarValue(const temporal::CalendarValue& calendar) {
     setFixedSlot(CALENDAR_VALUE_SLOT, calendar.toSlotValue());
-  }
-
-  temporal::TimeZoneValue getTimeZoneValue() const {
-    const auto& slot = getFixedSlot(TIMEZONE_VALUE_SLOT);
-    if (slot.isUndefined()) {
-      return temporal::TimeZoneValue();
-    }
-    return temporal::TimeZoneValue(slot);
-  }
-
-  void setTimeZoneValue(const temporal::TimeZoneValue& timeZone) {
-    setFixedSlot(TIMEZONE_VALUE_SLOT, timeZone.toSlotValue());
   }
 
   mozilla::intl::DateTimeFormat* getDateFormat() const {
@@ -296,8 +280,6 @@ class DateTimeFormatObject : public NativeObject {
   static void finalize(JS::GCContext* gcx, JSObject* obj);
 };
 
-namespace intl {
-
 enum class DateTimeFormatKind {
   /**
    * Call CreateDateTimeFormat with `required = Any` and `defaults = All`.
@@ -346,8 +328,6 @@ enum class DateTimeFormatKind {
     JSContext* cx, const JS::CallArgs& args, DateTimeFormatKind formatKind,
     JS::Handle<JSLinearString*> toLocaleStringTimeZone = nullptr);
 
-}  // namespace intl
-
-}  // namespace js
+}  // namespace js::intl
 
 #endif /* builtin_intl_DateTimeFormat_h */

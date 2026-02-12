@@ -256,11 +256,10 @@ class WebExtensionPromptFeatureTest {
             UpdatePromptRequestWebExtensionAction(
                 WebExtensionPromptRequest.AfterInstallation.Permissions.Optional(
                     mockk(relaxed = true),
-                    mockk(),
-                    mockk(),
-                    mockk(),
-                    mockk(),
-                ),
+                    emptyList(),
+                    emptyList(),
+                    emptyList(),
+                ) {},
             ),
         )
         testDispatcher.scheduler.advanceUntilIdle()

@@ -223,7 +223,7 @@ already_AddRefed<dom::Promise> Instance::RequestAdapter(
       child->GetClient(), power_preference, aOptions.mForceFallbackAdapter);
 
   child->EnqueueRequestAdapterPromise(
-      PendingRequestAdapterPromise{RefPtr(promise), RefPtr(this), adapter_id});
+      PendingRequestAdapterPromise{promise, this, adapter_id});
 
   return promise.forget();
 }

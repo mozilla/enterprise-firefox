@@ -18,14 +18,18 @@ kind-dependencies:
     - toolchain
 
 task-defaults:
-    run-on-repo-type: [hg]
+    run-on-repo-type: [hg, git]
 
 only-for-build-platforms:
     - linux64-shippable/opt
+    - linux64-enterprise-shippable/opt
     - linux64-aarch64-shippable/opt
+    - linux64-aarch64-enterprise-shippable/opt
     - macosx64-shippable/opt
+    - macosx64-enterprise-shippable/opt
     - win32-shippable/opt
     - win64-shippable/opt
+    - win64-enterprise-shippable/opt
     - win64-aarch64-shippable/opt
     - linux64-devedition/opt
     - linux64-aarch64-devedition/opt
@@ -39,11 +43,14 @@ tasks:
         description: Localization
         from-deps:
             group-by: platform
-        locales-file: browser/locales/l10n-changesets.json
+        locales-file:
+            by-build-platform:
+                default: browser/locales/l10n-changesets.json
+                .*-enterprise.*: browser/locales/enterprise-l10n-changesets.json
         locales-per-chunk: 5
-        run-on-projects: ['release']
+        run-on-projects: ["release", "enterprise-firefox"]
         attributes:
-            shipping_phase: promote
+            shipping_phase: build
         ignore-locales:
             by-build-platform:
                 # OSX has a special locale for japanese
@@ -79,9 +86,13 @@ tasks:
                 by-build-platform:
                     linux64-shippable: linux64-opt
                     linux64-aarch64-shippable: linux64-aarch64-opt
+                    linux64-enterprise-shippable: linux64-enterprise-shippable-opt
+                    linux64-aarch64-enterprise-shippable: linux64-aarch64-enterprise-shippable-opt
                     macosx64-shippable: macosx64-opt
+                    macosx64-enterprise-shippable: macosx64-enterprise-opt
                     win32-shippable: win32-opt
                     win64-shippable: win64-opt
+                    win64-enterprise-shippable: win64-enterprise-opt
                     win64-aarch64-shippable: win64-aarch64-opt
                     linux64-devedition: linux64-devedition-opt
                     linux64-aarch64-devedition: linux64-aarch64-devedition-opt
@@ -96,10 +107,14 @@ tasks:
             platform:
                 by-build-platform:
                     linux64-shippable: linux64-shippable/opt
+                    linux64-enterprise-shippable: linux64-enterprise-shippable/opt
                     linux64-aarch64-shippable: linux64-aarch64-shippable/opt
+                    linux64-aarch64-enterprise-shippable: linux64-aarch64-enterprise-shippable/opt
                     macosx64-shippable: osx-shippable/opt
+                    macosx64-enterprise-shippable: osx-cross-enterprise-shippable/opt
                     win32-shippable: windows2012-32-shippable/opt
                     win64-shippable: windows2012-64-shippable/opt
+                    win64-enterprise-shippable: windows2012-64-enterprise-shippable/opt
                     win64-aarch64-shippable: windows2012-aarch64-shippable/opt
                     linux64-devedition: linux64-devedition/opt
                     linux64-aarch64-devedition: linux64-aarch64-devedition/opt
@@ -130,8 +145,26 @@ tasks:
                         - single_locale/tc_common.py
                         - single_locale/tc_linux_common.py
                         - taskcluster_nightly.py
+                    linux64-enterprise-shippable:
+                        - single_locale/enterprise.py
+                        - single_locale/linux64.py
+                        - single_locale/tc_common.py
+                        - single_locale/tc_linux_common.py
+                        - taskcluster_nightly.py
+                    linux64-aarch64-enterprise-shippable:
+                        - single_locale/enterprise.py
+                        - single_locale/linux64.py
+                        - single_locale/tc_common.py
+                        - single_locale/tc_linux_common.py
+                        - taskcluster_nightly.py
                     macosx64-shippable:
                         - single_locale/firefox.py
+                        - single_locale/macosx64.py
+                        - single_locale/tc_common.py
+                        - single_locale/tc_macosx64.py
+                        - taskcluster_nightly.py
+                    macosx64-enterprise-shippable:
+                        - single_locale/enterprise.py
                         - single_locale/macosx64.py
                         - single_locale/tc_common.py
                         - single_locale/tc_macosx64.py
@@ -144,6 +177,12 @@ tasks:
                         - taskcluster_nightly.py
                     win64-shippable:
                         - single_locale/firefox.py
+                        - single_locale/win64.py
+                        - single_locale/tc_common.py
+                        - single_locale/tc_win64.py
+                        - taskcluster_nightly.py
+                    win64-enterprise-shippable:
+                        - single_locale/enterprise.py
                         - single_locale/win64.py
                         - single_locale/tc_common.py
                         - single_locale/tc_win64.py

@@ -41,6 +41,8 @@ support-files = [
 
 ["test_css_property_is_shorthand.html"]
 
+["test_getAnchorFor.html"]
+
 ["test_getCSSPseudoElementNames.html"]
 
 ["test_getGridContainerType.html"]

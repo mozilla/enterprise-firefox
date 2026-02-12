@@ -138,8 +138,8 @@ class SVGAnimatedViewBox {
  private:
   void SetBaseField(float aHeight, SVGElement* aSVGElement, float& aElement);
 
-  SVGViewBox mBaseVal;
   std::unique_ptr<SVGViewBox> mAnimVal;
+  SVGViewBox mBaseVal;
   bool mHasBaseVal;
 
  public:

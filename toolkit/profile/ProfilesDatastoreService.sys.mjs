@@ -521,14 +521,10 @@ class ProfilesDatastoreServiceClass {
     this.#connection = null;
   }
 
-  async maybeCreateProfilesStorePath() {
+  maybeCreateStoreID() {
     if (this.#storeID) {
       return;
     }
-
-    await IOUtils.makeDirectory(
-      ProfilesDatastoreServiceClass.PROFILE_GROUPS_DIR
-    );
 
     const storageID = Services.uuid
       .generateUUID()
@@ -541,7 +537,7 @@ class ProfilesDatastoreServiceClass {
   }
 
   async getProfilesStorePath() {
-    await this.maybeCreateProfilesStorePath();
+    this.maybeCreateStoreID();
 
     // If we are not running in a named nsIToolkitProfile, the datastore path
     // should be in the profile directory. This is true in a local build or a
@@ -552,6 +548,10 @@ class ProfilesDatastoreServiceClass {
         `${this.#storeID}.sqlite`
       );
     }
+
+    await IOUtils.makeDirectory(
+      ProfilesDatastoreServiceClass.PROFILE_GROUPS_DIR
+    );
 
     return getSharedProfilesStorePath(this.#storeID);
   }

@@ -463,7 +463,7 @@ Principals
 
 In Gecko, a *website* loaded in a session is represented by an abstraction
 called `principal
-<https://searchfox.org/mozilla-central/rev/5b2d2863bd315f232a3f769f76e0eb16cdca7cb0/caps/nsIPrincipal.idl>`_.
+<https://searchfox.org/mozilla-central/rev/5b2d2863bd315f232a3f769f76e0eb16cdca7cb0/caps/nsIPrincipal.idl>`__.
 Principals contain information that is used to determine what permissions have
 been granted to the website instance, what APIs are available to it, which
 container the page is loaded in, is the page in private browsing or not, etc.

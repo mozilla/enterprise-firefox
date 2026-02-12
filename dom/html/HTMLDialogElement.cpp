@@ -71,7 +71,7 @@ class DialogCloseWatcherListener : public nsIDOMEventListener {
         // 3. - closeAction being to close the dialog given dialog, dialog's
         // request close return value, and dialog's request close source
         // element.
-        Optional<nsAString> retValue;
+        Maybe<nsAutoString> retValue;
         dialog->GetRequestCloseReturnValue(retValue);
         RefPtr<Element> source = dialog->GetRequestCloseSourceElement();
         dialog->Close(source, retValue);
@@ -144,8 +144,8 @@ bool HTMLDialogElement::ParseAttribute(int32_t aNamespaceID, nsAtom* aAttribute,
 
 // https://html.spec.whatwg.org/#dom-dialog-close
 // https://html.spec.whatwg.org/#close-the-dialog
-void HTMLDialogElement::Close(
-    Element* aSource, const mozilla::dom::Optional<nsAString>& aReturnValue) {
+void HTMLDialogElement::Close(Element* aSource,
+                              const Maybe<nsAutoString>& aReturnValue) {
   // 1. If subject does not have an open attribute, then return.
   if (!Open()) {
     return;
@@ -176,8 +176,8 @@ void HTMLDialogElement::Close(
 
   // 9. If result is not null, then set subject's returnValue attribute to
   // result.
-  if (aReturnValue.WasPassed()) {
-    SetReturnValue(aReturnValue.Value());
+  if (aReturnValue.isSome()) {
+    SetReturnValue(aReturnValue.ref());
   }
 
   // 10. Set subject's request close return value to null.
@@ -217,8 +217,8 @@ void HTMLDialogElement::Close(
 
 // https://html.spec.whatwg.org/#dom-dialog-requestclose
 // https://html.spec.whatwg.org/#dialog-request-close
-void HTMLDialogElement::RequestClose(
-    Element* aSource, const mozilla::dom::Optional<nsAString>& aReturnValue) {
+void HTMLDialogElement::RequestClose(Element* aSource,
+                                     const Maybe<nsAutoString>& aReturnValue) {
   RefPtr closeWatcher = mCloseWatcher;
   // 1. If subject does not have an open attribute, then return.
   if (!Open()) {
@@ -245,8 +245,8 @@ void HTMLDialogElement::RequestClose(
   }
 
   // 5. Set subject's request close return value to returnValue.
-  if (aReturnValue.WasPassed()) {
-    SetRequestCloseReturnValue(aReturnValue.Value());
+  if (aReturnValue.isSome()) {
+    SetRequestCloseReturnValue(aReturnValue.ref());
   }
 
   // 6. Set subject's request close source element to source.
@@ -315,12 +315,15 @@ void HTMLDialogElement::Show(ErrorResult& aError) {
   // 9. Let hideUntil be the result of running topmost popover ancestor given
   // this, document's showing hint popover list, null, and false.
   RefPtr<nsINode> hideUntil =
-      GetTopmostPopoverAncestor(PopoverAttributeState::Auto, nullptr, false);
+      GetTopmostPopoverAncestor(PopoverAttributeState::Hint, nullptr, false);
 
   // 10. If hideUntil is null, then set hideUntil to the result of running
   // topmost popover ancestor given this, document's showing auto popover list,
   // null, and false.
-  // TODO(keithamus): Popover hint
+  if (!hideUntil) {
+    hideUntil =
+        GetTopmostPopoverAncestor(PopoverAttributeState::Auto, nullptr, false);
+  }
 
   // 11. If hideUntil is null, then set hideUntil to document.
   if (!hideUntil) {
@@ -494,12 +497,15 @@ void HTMLDialogElement::ShowModal(Element* aSource, ErrorResult& aError) {
   // 18. Let hideUntil be the result of running topmost popover ancestor given
   // subject, document's showing hint popover list, null, and false.
   RefPtr<nsINode> hideUntil =
-      GetTopmostPopoverAncestor(PopoverAttributeState::Auto, nullptr, false);
+      GetTopmostPopoverAncestor(PopoverAttributeState::Hint, nullptr, false);
 
   // 19. If hideUntil is null, then set hideUntil to the result of running
   // topmost popover ancestor given subject, document's showing auto popover
   // list, null, and false.
-  // TODO(keithamus): Popover hint
+  if (!hideUntil) {
+    hideUntil =
+        GetTopmostPopoverAncestor(PopoverAttributeState::Auto, nullptr, false);
+  }
 
   // 20. If hideUntil is null, then set hideUntil to document.
   if (!hideUntil) {
@@ -610,21 +616,21 @@ void HTMLDialogElement::QueueCancelDialog() {
 }
 
 void HTMLDialogElement::RunCancelDialogSteps() {
-  // 1) Let close be the result of firing an event named cancel at dialog, with
-  // the cancelable attribute initialized to true.
+  // 1) Let close be the result of firing an event named cancel at dialog,
+  // with the cancelable attribute initialized to true.
   bool defaultAction = true;
   nsContentUtils::DispatchTrustedEvent(OwnerDoc(), this, u"cancel"_ns,
                                        CanBubble::eNo, Cancelable::eYes,
                                        &defaultAction);
 
-  // 2) If close is true and dialog has an open attribute, then close the dialog
-  // with ~~no return value.~~
+  // 2) If close is true and dialog has an open attribute, then close the
+  // dialog with ~~no return value.~~
   // XXX(keithamus): RequestClose's steps expect the return value to be
   // RequestCloseReturnValue. RunCancelDialogSteps has been refactored out of
   // the spec, over CloseWatcher though, so one day this code will need to be
   // refactored when the CloseWatcher specifications settle.
   if (defaultAction) {
-    Optional<nsAString> retValue;
+    Maybe<nsAutoString> retValue;
     GetRequestCloseReturnValue(retValue);
     RefPtr<Element> source = GetRequestCloseSourceElement();
     Close(source, retValue);
@@ -648,19 +654,18 @@ bool HTMLDialogElement::HandleCommandInternal(Element* aSource,
 
   if ((aCommand == Command::Close || aCommand == Command::RequestClose) &&
       Open()) {
-    Optional<nsAString> retValueOpt;
-    nsString retValue;
+    Maybe<nsAutoString> retValue;
     if (aSource->HasAttr(nsGkAtoms::value)) {
       if (auto* button = HTMLButtonElement::FromNodeOrNull(aSource)) {
-        button->GetValue(retValue);
-        retValueOpt = &retValue;
+        retValue.emplace();
+        button->GetValue(retValue.ref());
       }
     }
     if (aCommand == Command::Close) {
-      Close(aSource, retValueOpt);
+      Close(aSource, retValue);
     } else {
       MOZ_ASSERT(aCommand == Command::RequestClose);
-      RequestClose(aSource, retValueOpt);
+      RequestClose(aSource, retValue);
     }
     return true;
   }
@@ -696,21 +701,21 @@ void HTMLDialogElement::SetDialogCloseWatcherIfNeeded() {
   // 1. Assert: dialog's close watcher is null.
   MOZ_ASSERT(!mCloseWatcher);
 
-  // 2. Assert: dialog has an open attribute and dialog's node document is fully
-  // active.
+  // 2. Assert: dialog has an open attribute and dialog's node document is
+  // fully active.
   RefPtr<Document> doc = OwnerDoc();
   RefPtr window = doc->GetInnerWindow();
   MOZ_ASSERT(Open() && window && window->IsFullyActive());
 
-  // 3. Set dialog's close watcher to the result of establishing a close watcher
-  // given dialog's relevant global object, with:
+  // 3. Set dialog's close watcher to the result of establishing a close
+  // watcher given dialog's relevant global object, with:
   mCloseWatcher = new CloseWatcher(window);
   RefPtr<DialogCloseWatcherListener> eventListener =
       new DialogCloseWatcherListener(this);
 
   // - cancelAction given canPreventClose being to return the result of firing
-  // an event named cancel at dialog, with the cancelable attribute initialized
-  // to canPreventClose.
+  // an event named cancel at dialog, with the cancelable attribute
+  // initialized to canPreventClose.
   mCloseWatcher->AddSystemEventListener(u"cancel"_ns, eventListener,
                                         false /* aUseCapture */,
                                         false /* aWantsUntrusted */);
@@ -721,9 +726,9 @@ void HTMLDialogElement::SetDialogCloseWatcherIfNeeded() {
                                         false /* aUseCapture */,
                                         false /* aWantsUntrusted */);
 
-  // - getEnabledState being to return true if dialog's enable close watcher for
-  // requestClose() is true or dialog's computed closed-by state is not None;
-  // otherwise false.
+  // - getEnabledState being to return true if dialog's enable close watcher
+  // for requestClose() is true or dialog's computed closed-by state is not
+  // None; otherwise false.
   //
   // XXX: Rather than creating a function pointer to manage the state of two
   // boolean conditions, we set the enabled state of the close watcher

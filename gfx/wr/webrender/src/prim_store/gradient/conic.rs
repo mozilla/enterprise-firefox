@@ -91,7 +91,7 @@ impl InternDebug for ConicGradientKey {}
 pub struct ConicGradientTemplate {
     pub common: PrimTemplateCommonData,
     pub extend_mode: ExtendMode,
-    pub center: DevicePoint,
+    pub center: LayoutPoint,
     pub params: ConicGradientParams,
     pub task_size: DeviceIntSize,
     pub scale: DeviceVector2D,
@@ -114,9 +114,14 @@ impl PatternBuilder for ConicGradientTemplate {
         // of the render task for cached gradients. Here we aren't applying any.
         let no_scale = DeviceVector2D::one();
 
+        // ConicGradientTemplate stores the center point relative to the primitive
+        // origin, but the shader works with start/end points in "proper" layout
+        // coordinates (relative to the primitive's spatial node).
+        let center = self.center + self.common.prim_rect.min.to_vector();
+
         if ctx.fb_config.precise_conic_gradients {
             conic_gradient_pattern(
-                self.center,
+                center,
                 no_scale,
                 &self.params,
                 self.extend_mode,
@@ -125,7 +130,7 @@ impl PatternBuilder for ConicGradientTemplate {
             )
         } else {
             conic_gradient_pattern_with_table(
-                self.center,
+                center,
                 no_scale,
                 &self.params,
                 self.extend_mode,
@@ -238,7 +243,7 @@ impl From<ConicGradientKey> for ConicGradientTemplate {
 
         ConicGradientTemplate {
             common,
-            center: DevicePoint::new(item.center.x, item.center.y),
+            center: item.center.into(),
             extend_mode: item.extend_mode,
             params: item.params,
             stretch_size,
@@ -308,7 +313,10 @@ impl ConicGradientTemplate {
                     RenderTaskKind::ConicGradient(ConicGradientTask {
                         extend_mode: self.extend_mode,
                         scale: self.scale,
-                        center: self.center,
+                        // In this code path we chose to render the gradient as if
+                        // layout coordinates were equivalent to device coordinates.
+                        // This can lead to loss of precision.
+                        center: self.center.cast_unit(),
                         params: self.params.clone(),
                         stops,
                     }),
@@ -434,7 +442,7 @@ pub struct ConicGradientCacheKey {
 }
 
 pub fn conic_gradient_pattern_with_table(
-    center: DevicePoint,
+    center: LayoutPoint,
     scale: DeviceVector2D,
     params: &ConicGradientParams,
     extend_mode: ExtendMode,
@@ -477,7 +485,7 @@ pub fn conic_gradient_pattern_with_table(
 }
 
 pub fn conic_gradient_pattern(
-    center: DevicePoint,
+    center: LayoutPoint,
     scale: DeviceVector2D,
     params: &ConicGradientParams,
     extend_mode: ExtendMode,

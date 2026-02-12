@@ -1747,10 +1747,10 @@ export class DiscoveryStreamFeed {
           const useClientLayout =
             prefs.trainhopConfig?.clientLayout?.enabled ||
             prefs[PREF_CLIENT_LAYOUT_ENABLED];
-          const dailyBriefV2Enabled =
-            prefs.trainhopConfig?.dailyBriefing?.v2Enabled ||
+          const dailyBriefEnabled =
+            prefs.trainhopConfig?.dailyBriefing?.enabled ||
             this.store.getState().Prefs.values[
-              "discoverystream.dailyBrief.v2.enabled"
+              "discoverystream.dailyBrief.enabled"
             ];
           const dailyBriefSectionId =
             prefs.trainhopConfig?.dailyBriefing?.sectionId ||
@@ -1763,7 +1763,7 @@ export class DiscoveryStreamFeed {
             if (sectionData) {
               let headlineCount = 0;
               const shouldMarkHeadlines =
-                dailyBriefV2Enabled && sectionKey === dailyBriefSectionId;
+                dailyBriefEnabled && sectionKey === dailyBriefSectionId;
 
               for (const item of sectionData.recommendations) {
                 const isHeadline = shouldMarkHeadlines && headlineCount < 3;

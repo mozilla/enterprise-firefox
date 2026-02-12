@@ -267,6 +267,7 @@ LoginManager.prototype = {
 
   /**
    * Remove the specified login from the stored logins.
+   * Deprecated: use removeLoginAsync instead
    */
   removeLogin(login) {
     lazy.log.debug(
@@ -274,6 +275,17 @@ LoginManager.prototype = {
       login.QueryInterface(Ci.nsILoginMetaInfo).guid
     );
     return this._storage.removeLogin(login);
+  },
+
+  /**
+   * Remove the specified login from the stored logins.
+   */
+  async removeLoginAsync(login) {
+    lazy.log.debug(
+      "Removing login",
+      login.QueryInterface(Ci.nsILoginMetaInfo).guid
+    );
+    return this._storage.removeLoginAsync(login);
   },
 
   /**

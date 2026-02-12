@@ -70,17 +70,30 @@ tasks:
         mozharness:
             config:
                 by-build-platform:
-                    linux64\b.*:
+                    linux64-enterprise\b.*:
+                        - repackage/base.py
+                        - repackage/base_enterprise.py
+                        - repackage/linux64_signed.py
+                    linux64(?!-enterprise)\b.*:
                         - repackage/base.py
                         - repackage/linux64_signed.py
-                    macosx64\b.*:
+                    macosx64-enterprise\b.*:
+                        - repackage/base.py
+                        - repackage/base_enterprise.py
+                        - repackage/osx_signed.py
+                    macosx64(?!-enterprise)\b.*:
                         - repackage/base.py
                         - repackage/osx_signed.py
                     win32\b.*:
                         - repackage/base.py
                         - repackage/win32_sfx_stub.py
                         - repackage/win32_signed.py
-                    win64(?!-aarch64)\b.*:
+                    win64(?!-aarch64)-enterprise\b.*:
+                        - repackage/base.py
+                        - repackage/base_enterprise.py
+                        - repackage/win32_sfx_stub.py
+                        - repackage/win64_signed.py
+                    win64(?!-aarch64)(?!-enterprise)\b.*:
                         - repackage/base.py
                         - repackage/win32_sfx_stub.py
                         - repackage/win64_signed.py

@@ -35,18 +35,8 @@ impl gecko_profiler::ProfilerMarker for DatetimeMetricMarker {
         let mut schema = MarkerSchema::new(&[Location::MarkerChart, Location::MarkerTable]);
         schema.set_tooltip_label("{marker.data.cat}.{marker.data.id} {marker.data.time}");
         schema.set_table_label("{marker.data.cat}.{marker.data.id}: {marker.data.time}");
-        schema.add_key_label_format_with_flags(
-            "cat",
-            "Category",
-            Format::UniqueString,
-            PayloadFlags::Searchable,
-        );
-        schema.add_key_label_format_with_flags(
-            "id",
-            "Metric",
-            Format::UniqueString,
-            PayloadFlags::Searchable,
-        );
+        schema.add_key_label_format("cat", "Category", Format::UniqueString);
+        schema.add_key_label_format("id", "Metric", Format::UniqueString);
         // Note: there is no native profiler format for timestamps.
         // Bug 1926644 tracks the work of adding this.
         schema.add_key_label_format("time", "Time", Format::String);

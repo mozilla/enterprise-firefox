@@ -32,6 +32,7 @@ import {
   COMMAND_OAUTH_FLOW_BEGIN,
   OAUTH_CLIENT_ID,
   ON_PROFILE_CHANGE_NOTIFICATION,
+  ON_SERVICE_ENABLED_NOTIFICATION,
   PREF_LAST_FXA_USER_UID,
   PREF_LAST_FXA_USER_EMAIL,
   WEBCHANNEL_ID,
@@ -613,13 +614,21 @@ FxAccountsWebChannelHelpers.prototype = {
       );
       return;
     }
-    log.debug(`services requested are ${Object.keys(requestedServices)}`);
+    let services = Object.keys(requestedServices);
+    log.debug(`services requested are ${services}`);
     if (requestedServices.sync) {
       const xps = await this._initializeSync();
       const { offeredEngines, declinedEngines } = requestedServices.sync;
       this._setEnabledEngines(offeredEngines, declinedEngines);
       log.debug("Webchannel is enabling sync");
       await xps.Weave.Service.configure();
+    }
+    for (let service of services) {
+      Services.obs.notifyObservers(
+        null,
+        ON_SERVICE_ENABLED_NOTIFICATION,
+        service
+      );
     }
   },
 

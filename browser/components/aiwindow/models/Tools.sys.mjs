@@ -18,6 +18,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
   clearTimeout: "resource://gre/modules/Timer.sys.mjs",
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
+  MemoriesManager:
+    "moz-src:///browser/components/aiwindow/models/memories/MemoriesManager.sys.mjs",
   // @todo Bug 2009194
   // PageDataService:
   //   "moz-src:///browser/components/pagedata/PageDataService.sys.mjs",
@@ -27,12 +29,14 @@ const GET_OPEN_TABS = "get_open_tabs";
 const SEARCH_BROWSING_HISTORY = "search_browsing_history";
 const GET_PAGE_CONTENT = "get_page_content";
 const RUN_SEARCH = "run_search";
+const GET_USER_MEMORIES = "get_user_memories";
 
 export const TOOLS = [
   GET_OPEN_TABS,
   SEARCH_BROWSING_HISTORY,
   GET_PAGE_CONTENT,
   RUN_SEARCH,
+  GET_USER_MEMORIES,
 ];
 
 export const toolsConfig = [
@@ -126,6 +130,18 @@ export const toolsConfig = [
           },
         },
         required: ["query"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: GET_USER_MEMORIES,
+      description:
+        'Retrieves all memories saved about the user to answer questions like "What do you know about me?", "What memories have you saved?", "What do you remember about me?", etc. Respond to the user that these are memories.',
+      parameters: {
+        type: "object",
+        properties: {},
       },
     },
   },
@@ -664,4 +680,10 @@ export class GetPageContent {
 
     return `Content (${modeLabel}) from ${label}:\n\n${cleanContent}`;
   }
+}
+
+export async function getUserMemories() {
+  const memories = await lazy.MemoriesManager.getAllMemories();
+
+  return memories.map(memory => memory.memory_summary);
 }

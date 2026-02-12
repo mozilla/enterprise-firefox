@@ -143,7 +143,9 @@
     opacity: 0;
   }
 
-  browser[type="content"] {
+  /* Exclude browsers with smartwindow-content attribute which inherit
+     color-scheme from chrome to follow the browser theme */
+  browser[type="content"]:not([smartwindow-content]) {
     color-scheme: env(-moz-content-preferred-color-scheme);
   }
 

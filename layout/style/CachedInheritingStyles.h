@@ -40,6 +40,9 @@ class CachedInheritingStyles {
               nsAtom* aFunctionalPseudoParameter = nullptr);
   ComputedStyle* Lookup(const PseudoStyleRequest& aRequest) const;
 
+  // Appends all cached styles to the given array.
+  void AppendTo(nsTArray<const ComputedStyle*>& aArray) const;
+
   CachedInheritingStyles() : mBits(0) {}
   ~CachedInheritingStyles() {
     if (IsIndirect()) {

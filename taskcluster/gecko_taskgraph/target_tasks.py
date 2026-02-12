@@ -458,7 +458,7 @@ def target_tasks_enterprise_firefox(full_task_graph, parameters, graph_config):
     )
 
     def filter(task):
-        if task.kind in TEST_KINDS or task.kind == "enterprise-test":
+        if task.kind in TEST_KINDS:
             return False
 
         return True
@@ -473,9 +473,6 @@ def target_tasks_enterprise_firefox_with_tests(
     """
     Filter to run Enterprise-specific builds, i.e., those allowed to run from
     GitHub repos and that matches the "enterprise-firefox" project.
-    Also run enterprise-specific selenium-based tests of the kind
-    "enterprise-test" until those are migrated to marionette and classic test
-    suites.
     """
 
     filtered_for_project = target_tasks_default(
@@ -501,9 +498,6 @@ def target_tasks_enterprise_firefox_with_tests(
         level = int(parameters["level"])
         if ("shippable" in task.label or shippable) and level < 3:
             return False
-
-        if task.kind == "enterprise-test":
-            return True
 
         if not build_platform or not build_type:
             return True
@@ -1255,8 +1249,7 @@ def target_tasks_merge_automation(full_task_graph, parameters, graph_config):
     """Select the set of tasks required to perform repository merges."""
 
     def filter(task):
-        # For now any task in the repo-update kind is ok
-        return task.kind in ["merge-automation"]
+        return task.kind in ["merge-automation", "mark-as-merged"]
 
     return [l for l, t in full_task_graph.tasks.items() if filter(t)]
 

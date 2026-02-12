@@ -175,7 +175,7 @@ class BrowserToolbarCFRPresenterTest {
             every { getColor(any()) } returns 0
         },
         anchor: View = mockk(relaxed = true),
-        browserStore: BrowserStore = mockk(),
+        browserStore: BrowserStore = BrowserStore(),
         settings: Settings = mockk(relaxed = true) {
             every { openTabsCount } returns 5
             every { shouldShowCookieBannersCFR } returns true

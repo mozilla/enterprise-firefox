@@ -170,10 +170,12 @@ export class ClientSettings {
         }
         /**
          * Timeout for the entire request in ms (0 indicates no timeout).
+         * @type {number}
          */
         this.timeout = timeout;
         /**
          * Maximum amount of redirects to follow (0 means redirects are not allowed)
+         * @type {number}
          */
         this.redirectLimit = redirectLimit;
         /**
@@ -181,6 +183,7 @@ export class ClientSettings {
          * 
          * This overrides the global default user-agent and is used when no `User-agent` header is set
          * directly in the Request.
+         * @type {?string}
          */
         this.userAgent = userAgent;
     }
@@ -254,7 +257,7 @@ export class FfiConverterTypeClientSettings extends FfiConverterArrayBuffer {
  * 
  * The supported methods are the limited to what's supported by android-components.
  */
-export const Method = {
+export const Method = Object.freeze({
     /**
      * GET
      */
@@ -291,8 +294,7 @@ export const Method = {
      * PATCH
      */
     PATCH: 8,
-};
-Object.freeze(Method);
+});
 
 // Export the FFIConverter object to make external types work.
 export class FfiConverterTypeMethod extends FfiConverterArrayBuffer {
@@ -574,19 +576,19 @@ export class Request {
             throw e;
         }
         /**
-         * method
+         * @type {Method[keyof Method]}
          */
         this.method = method;
         /**
-         * url
+         * @type {ViaductUrl}
          */
         this.url = url;
         /**
-         * headers
+         * @type {Headers}
          */
         this.headers = headers;
         /**
-         * body
+         * @type {?string}
          */
         this.body = body;
     }
@@ -729,22 +731,27 @@ export class Response {
         }
         /**
          * The method used to request this response.
+         * @type {Method[keyof Method]}
          */
         this.requestMethod = requestMethod;
         /**
          * The URL of this response.
+         * @type {ViaductUrl}
          */
         this.url = url;
         /**
          * The HTTP Status code of this response.
+         * @type {number}
          */
         this.status = status;
         /**
          * The headers returned with this response.
+         * @type {Headers}
          */
         this.headers = headers;
         /**
          * The body of the response.
+         * @type {string}
          */
         this.body = body;
     }

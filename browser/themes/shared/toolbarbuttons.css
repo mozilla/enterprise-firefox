@@ -56,6 +56,10 @@
   --smartwindow-ask-btn-icon-stroke-color: light-dark(#ecbcea, var(--color-violet-40));
   --smartwindow-ask-btn-icon-height: var(--size-item-small);
   --smartwindow-ask-btn-icon-width: var(--size-item-small);
+  --smartwindow-toggle-shadow-color: light-dark(
+    color-mix(in srgb, var(--color-violet-60) 20%, transparent),
+    color-mix(in srgb, var(--color-violet-40) 20%, transparent)
+  );
 }
 
 #TabsToolbar {

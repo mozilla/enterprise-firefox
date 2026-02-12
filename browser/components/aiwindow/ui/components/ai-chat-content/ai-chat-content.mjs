@@ -6,23 +6,33 @@ import { html, nothing } from "chrome://global/content/vendor/lit.all.mjs";
 import { MozLitElement } from "chrome://global/content/lit-utils.mjs";
 // eslint-disable-next-line import/no-unassigned-import
 import "chrome://browser/content/aiwindow/components/assistant-message-footer.mjs";
+// eslint-disable-next-line import/no-unassigned-import
+import "chrome://browser/content/aiwindow/components/chat-assistant-error.mjs";
+// eslint-disable-next-line import/no-unassigned-import
+import "chrome://browser/content/aiwindow/components/chat-assistant-loader.mjs";
 
 /**
  * A custom element for managing AI Chat Content
  */
 export class AIChatContent extends MozLitElement {
   static properties = {
+    assistantIsLoading: { type: Boolean },
     conversationState: { type: Array },
-    tokens: { type: Object },
+    errorStatus: { type: String },
     isSearching: { type: Boolean },
     searchQuery: { type: String },
+    showErrorMessage: { type: Boolean },
+    tokens: { type: Object },
   };
 
   constructor() {
     super();
+    this.assistantIsLoading = false;
     this.conversationState = [];
+    this.errorStatus = null;
     this.isSearching = false;
     this.searchQuery = null;
+    this.showErrorMessage = false;
   }
 
   connectedCallback() {
@@ -31,6 +41,20 @@ export class AIChatContent extends MozLitElement {
 
     this.dispatchEvent(
       new CustomEvent("AIChatContent:Ready", { bubbles: true })
+    );
+    this.#initFooterActionListeners();
+  }
+
+  #dispatchFooterAction(action, detail) {
+    this.dispatchEvent(
+      new CustomEvent("AIChatContent:DispatchFooterAction", {
+        bubbles: true,
+        composed: true,
+        detail: {
+          action,
+          ...(detail ?? {}),
+        },
+      })
     );
   }
 
@@ -43,10 +67,65 @@ export class AIChatContent extends MozLitElement {
       "aiChatContentActor:message",
       this.messageEvent.bind(this)
     );
+
+    this.addEventListener(
+      "aiChatContentActor:truncate",
+      this.truncateEvent.bind(this)
+    );
+
+    this.addEventListener(
+      "aiChatContentActor:remove-applied-memory",
+      this.removeAppliedMemoryEvent.bind(this)
+    );
+  }
+
+  /**
+   * Initialize event listeners for footer actions (retry, copy, etc.)
+   * emitted by child components.
+   */
+
+  #initFooterActionListeners() {
+    this.addEventListener("copy-message", event => {
+      const { messageId } = event.detail ?? {};
+      const text = this.#getAssistantMessageBody(messageId);
+      this.#dispatchFooterAction("copy", { messageId, text });
+    });
+
+    this.addEventListener("retry-message", event => {
+      this.#dispatchFooterAction("retry", event.detail);
+    });
+
+    this.addEventListener("retry-without-memories", event => {
+      this.#dispatchFooterAction("retry-without-memories", event.detail);
+    });
+
+    this.addEventListener("remove-applied-memory", event => {
+      this.#dispatchFooterAction("remove-applied-memory", event.detail);
+    });
+  }
+
+  #getAssistantMessageBody(messageId) {
+    if (!messageId) {
+      return "";
+    }
+
+    const msg = this.conversationState.find(m => {
+      return m?.role === "assistant" && m?.messageId === messageId;
+    });
+
+    return msg?.body ?? "";
   }
 
   messageEvent(event) {
     const message = event.detail;
+
+    if (message?.content?.isError) {
+      this.handleErrorEvent(message?.content?.status);
+      return;
+    }
+
+    this.showErrorMessage = false;
+    this.#checkConversationState(message);
 
     switch (message.role) {
       case "loading":
@@ -60,6 +139,9 @@ export class AIChatContent extends MozLitElement {
         this.#checkConversationState(message);
         this.handleUserPromptEvent(event);
         break;
+      // Used to clear the conversation state via side effects ( new conv id )
+      case "clear-conversation":
+        this.#checkConversationState(message);
     }
   }
 
@@ -84,11 +166,17 @@ export class AIChatContent extends MozLitElement {
   }
 
   handleLoadingEvent(event) {
-    const { isSearching, searchQuery } = event.detail;
+    const { isSearching } = event.detail;
     this.isSearching = !!isSearching;
-    this.searchQuery = searchQuery || null;
+    this.assistantIsLoading = true;
     this.requestUpdate();
     this.#scrollToBottom();
+  }
+
+  handleErrorEvent(errorStatus) {
+    this.errorStatus = errorStatus;
+    this.showErrorMessage = true;
+    this.requestUpdate();
   }
 
   /**
@@ -99,6 +187,7 @@ export class AIChatContent extends MozLitElement {
 
   handleUserPromptEvent(event) {
     const { convId, content, ordinal } = event.detail;
+    this.assistantIsLoading = true;
     this.conversationState[ordinal] = {
       role: "user",
       body: content.body,
@@ -117,7 +206,7 @@ export class AIChatContent extends MozLitElement {
 
   handleAIResponseEvent(event) {
     this.isSearching = false;
-    this.searchQuery = null;
+    this.assistantIsLoading = false;
 
     const {
       convId,
@@ -156,6 +245,36 @@ export class AIChatContent extends MozLitElement {
     });
   }
 
+  truncateEvent(event) {
+    const { messageId } = event.detail ?? {};
+    if (!messageId) {
+      return;
+    }
+
+    const idx = this.conversationState.findIndex(m => {
+      return m?.role === "assistant" && m?.messageId === messageId;
+    });
+
+    if (idx === -1) {
+      return;
+    }
+
+    this.conversationState = this.conversationState.slice(0, idx);
+    this.requestUpdate();
+  }
+
+  removeAppliedMemoryEvent(event) {
+    const { messageId, memoryId } = event.detail ?? {};
+    const msg = this.conversationState.find(m => {
+      return m?.role === "assistant" && m?.messageId === messageId;
+    });
+
+    msg.appliedMemories = msg.appliedMemories.filter(
+      memory => memory?.id !== memoryId
+    );
+    this.requestUpdate();
+  }
+
   render() {
     return html`
       <link
@@ -186,18 +305,15 @@ export class AIChatContent extends MozLitElement {
             </div>
           `;
         })}
-        ${this.isSearching
-          ? html`
-              <div
-                class="chat-bubble chat-bubble-assistant searching-indicator"
-              >
-                <span class="searching-text">
-                  ${this.searchQuery
-                    ? `Searching for: "${this.searchQuery}"`
-                    : "Searching the web..."}
-                </span>
-              </div>
-            `
+        ${this.assistantIsLoading
+          ? html`<chat-assistant-loader
+              .isSearch=${this.isSearching}
+            ></chat-assistant-loader>`
+          : nothing}
+        ${this.showErrorMessage
+          ? html`<chat-assistant-error
+              .errorStatus=${this.errorStatus}
+            ></chat-assistant-error>`
           : nothing}
       </div>
     `;

@@ -243,7 +243,7 @@ class GleanCrashReporterService(
             extras[Annotation.ProcessType] = JsonPrimitive("main")
             appChannel?.let { extras[Annotation.ReleaseChannel] = JsonPrimitive(it) }
             appVersion?.let { extras[Annotation.Version] = JsonPrimitive(it) }
-            appBuildId?.let { extras[Annotation.ApplicationBuildID] = JsonPrimitive(it) }
+            appBuildId?.let { extras[Annotation.BuildID] = JsonPrimitive(it) }
             extras[Annotation.JavaException] = JsonPrimitive(crash.throwable.getStacktraceAsJsonString())
             extras[Annotation.CrashType] = JsonPrimitive("uncaught exception")
 

@@ -1174,6 +1174,22 @@ html {
               width: 100%;
             }
           }
+
+          .message-text.simple {
+            margin-block: auto;
+            margin-inline: 17% auto;
+            text-align: start;
+            width: 100%;
+            max-width: 450px;
+
+            h1 {
+              font-weight: var(--heading-font-weight);
+              font-size: 84px;
+              margin: 0;
+              width: 100%;
+              max-width: 100%;
+            }
+          }
         }
 
         .addons-picker-container {
@@ -2138,6 +2154,31 @@ html {
       > input {
         flex-grow: 0;
         flex-shrink: 0;
+      }
+    }
+  }
+
+  .textarea-container {
+    display: flex;
+    flex-flow: column nowrap;
+
+    .textarea-char-counter {
+      font-size: 13px;
+      color: var(--text-color-deemphasized);
+      text-align: end;
+      margin-block: -10px 4px;
+
+      &.invalid {
+        color: var(--text-color-error)
+      }
+    }
+
+    .textarea-input {
+      resize: none;
+
+      &.invalid {
+        border-color: var(--outline-color-error);
+        outline-color: var(--outline-color-error);
       }
     }
   }

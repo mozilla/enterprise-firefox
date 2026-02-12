@@ -291,6 +291,10 @@ for (const type of [
   "WEATHER_USER_OPT_IN_LOCATION",
   "WEBEXT_CLICK",
   "WEBEXT_DISMISS",
+  "WIDGETS_CONTAINER_ACTION",
+  "WIDGETS_ENABLED",
+  "WIDGETS_ERROR",
+  "WIDGETS_IMPRESSION",
   "WIDGETS_LISTS_CHANGE_SELECTED",
   "WIDGETS_LISTS_SET",
   "WIDGETS_LISTS_SET_SELECTED",
@@ -306,6 +310,7 @@ for (const type of [
   "WIDGETS_TIMER_SET_TYPE",
   "WIDGETS_TIMER_USER_EVENT",
   "WIDGETS_TIMER_USER_IMPRESSION",
+  "WIDGETS_USER_EVENT",
 ]) {
   actionTypes[type] = type;
 }
@@ -2057,77 +2062,6 @@ const LinkMenuOptions = {
       : LinkMenuOptions.PinTopSite(site, index),
   OpenInPrivateWindow: (site, index, eventSource, isEnabled) =>
     isEnabled ? _OpenInPrivateWindow(site) : LinkMenuOptions.EmptyItem(),
-  ChangeWeatherLocation: () => ({
-    id: "newtab-weather-menu-change-location",
-    action: actionCreators.BroadcastToContent({
-      type: actionTypes.WEATHER_SEARCH_ACTIVE,
-      data: true,
-    }),
-  }),
-  DetectLocation: () => ({
-    id: "newtab-weather-menu-detect-my-location",
-    action: actionCreators.AlsoToMain({
-      type: actionTypes.WEATHER_USER_OPT_IN_LOCATION,
-    }),
-    userEvent: "WEATHER_DETECT_LOCATION",
-  }),
-  ChangeWeatherDisplaySimple: () => ({
-    id: "newtab-weather-menu-change-weather-display-simple",
-    action: actionCreators.OnlyToMain({
-      type: actionTypes.SET_PREF,
-      data: {
-        name: "weather.display",
-        value: "simple",
-      },
-    }),
-  }),
-  ChangeWeatherDisplayDetailed: () => ({
-    id: "newtab-weather-menu-change-weather-display-detailed",
-    action: actionCreators.OnlyToMain({
-      type: actionTypes.SET_PREF,
-      data: {
-        name: "weather.display",
-        value: "detailed",
-      },
-    }),
-  }),
-  ChangeTempUnitFahrenheit: () => ({
-    id: "newtab-weather-menu-change-temperature-units-fahrenheit",
-    action: actionCreators.OnlyToMain({
-      type: actionTypes.SET_PREF,
-      data: {
-        name: "weather.temperatureUnits",
-        value: "f",
-      },
-    }),
-  }),
-  ChangeTempUnitCelsius: () => ({
-    id: "newtab-weather-menu-change-temperature-units-celsius",
-    action: actionCreators.OnlyToMain({
-      type: actionTypes.SET_PREF,
-      data: {
-        name: "weather.temperatureUnits",
-        value: "c",
-      },
-    }),
-  }),
-  HideWeather: () => ({
-    id: "newtab-weather-menu-hide-weather-v2",
-    action: actionCreators.OnlyToMain({
-      type: actionTypes.SET_PREF,
-      data: {
-        name: "showWeather",
-        value: false,
-      },
-    }),
-  }),
-  OpenLearnMoreURL: site => ({
-    id: "newtab-weather-menu-learn-more",
-    action: actionCreators.OnlyToMain({
-      type: actionTypes.OPEN_LINK,
-      data: { url: site.url },
-    }),
-  }),
   SectionBlock: ({
     sectionPersonalization,
     sectionKey,
@@ -2207,12 +2141,21 @@ const LinkMenuOptions = {
     action: actionCreators.OnlyToMain({ type: actionTypes.SETTINGS_OPEN }),
     userEvent: "OPEN_NEWTAB_PREFS",
   }),
-  OurSponsorsAndYourPrivacy: () => ({
+  // eslint-disable-next-line max-params
+  OurSponsorsAndYourPrivacy: (
+    site,
+    index,
+    source,
+    isPrivateBrowsingEnabled,
+    siteInfo,
+    platform,
+    privacyInfoUrl
+  ) => ({
     id: "newtab-menu-our-sponsors-and-your-privacy",
     action: actionCreators.OnlyToMain({
       type: actionTypes.OPEN_LINK,
       data: {
-        url: "https://support.mozilla.org/kb/pocket-sponsored-stories-new-tabs",
+        url: privacyInfoUrl,
       },
     }),
     userEvent: "CLICK_PRIVACY_INFO",
@@ -2275,6 +2218,7 @@ class _LinkMenu extends (external_React_default()).PureComponent {
       isPrivateBrowsingEnabled,
       siteInfo,
       platform,
+      privacyInfoUrl,
       dispatch,
       options,
       shouldSendImpressionStats,
@@ -2283,7 +2227,7 @@ class _LinkMenu extends (external_React_default()).PureComponent {
 
     // Handle special case of default site
     const propOptions = site.isDefault && !site.searchTopSite && !site.sponsored_position ? DEFAULT_SITE_MENU_OPTIONS : options;
-    const linkMenuOptions = propOptions.map(o => LinkMenuOptions[o](site, index, source, isPrivateBrowsingEnabled, siteInfo, platform)).map(option => {
+    const linkMenuOptions = propOptions.map(o => LinkMenuOptions[o](site, index, source, isPrivateBrowsingEnabled, siteInfo, platform, privacyInfoUrl)).map(option => {
       const {
         action,
         impression,
@@ -2392,7 +2336,8 @@ class _LinkMenu extends (external_React_default()).PureComponent {
 }
 const getState = state => ({
   isPrivateBrowsingEnabled: state.Prefs.values.isPrivateBrowsingEnabled,
-  platform: state.Prefs.values.platform
+  platform: state.Prefs.values.platform,
+  privacyInfoUrl: state.Prefs.values["privacyInfo.url"]
 });
 const LinkMenu = (0,external_ReactRedux_namespaceObject.connect)(getState)(_LinkMenu);
 ;// CONCATENATED MODULE: ./content-src/components/ContextMenu/ContextMenuButton.jsx
@@ -2552,11 +2497,6 @@ const DSLinkMenu = (0,external_ReactRedux_namespaceObject.connect)(state => ({
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-const PREF_WEATHER_PLACEMENT = "weather.placement";
-const PREF_DAILY_BRIEF_SECTIONID = "discoverystream.dailyBrief.sectionId";
-const PREF_DAILY_BRIEF_ENABLED = "discoverystream.dailyBrief.enabled";
-const PREF_STORIES_ENABLED = "feeds.section.topstories";
-const PREF_SYSTEM_STORIES_ENABLED = "feeds.system.topstories";
 
 /**
  * A custom react hook that sets up an IntersectionObserver to observe a single
@@ -2792,31 +2732,6 @@ function useConfetti(count = 80, spread = Math.PI / 3) {
     }
   }, [initializeConfetti, animateParticles, prefersReducedMotion]);
   return [canvasRef, fireConfetti];
-}
-function selectWeatherPlacement(state) {
-  const prefs = state.Prefs.values || {};
-
-  // Intent: only placed in section if explicitly requested
-  const placementPref = prefs.trainhopConfig?.dailyBriefing?.placement || prefs[PREF_WEATHER_PLACEMENT];
-  if (placementPref === "header" || !placementPref) {
-    return "header";
-  }
-  const sections = state.DiscoveryStream.feeds.data["https://merino.services.mozilla.com/api/v1/curated-recommendations"]?.data.sections ?? [];
-  // check the following prefs to make sure weather is elligible to be placed in sections
-  // 1. The daily brieifng section must be availible and in the top position
-  // 2. That the daily briefing section has not been blocked
-  // 3. That reccomended stories are truned on
-  // Otherwise it should be placed in the header
-  const pocketEnabled = prefs[PREF_STORIES_ENABLED] && prefs[PREF_SYSTEM_STORIES_ENABLED];
-  const sectionPersonalization = state.DiscoveryStream?.sectionPersonalization || {};
-  const dailyBriefEnabled = prefs.trainhopConfig?.dailyBriefing?.enabled || prefs[PREF_DAILY_BRIEF_ENABLED];
-  const sectionId = prefs.trainhopConfig?.dailyBriefing?.sectionId || prefs[PREF_DAILY_BRIEF_SECTIONID];
-  const notBlocked = sectionId && !sectionPersonalization[sectionId]?.isBlocked;
-  let filteredSections = sections.filter(section => !sectionPersonalization[section.sectionKey]?.isBlocked);
-  const foundSection = filteredSections.find(section => section.sectionKey === sectionId);
-  const isTopSection = foundSection?.receivedRank === 0 || filteredSections.indexOf(foundSection) === 0;
-  const eligible = pocketEnabled && dailyBriefEnabled && sectionId && notBlocked && isTopSection;
-  return eligible ? "section" : "header";
 }
 
 ;// CONCATENATED MODULE: ./content-src/components/TopSites/TopSitesConstants.mjs
@@ -3933,7 +3848,7 @@ class _DSCard extends (external_React_default()).PureComponent {
       onFocus: this.props.onFocus
     }, /*#__PURE__*/external_React_default().createElement("div", {
       className: "img-wrapper"
-    }, images, this.props.isDailyBriefV2 && this.props.topic && /*#__PURE__*/external_React_default().createElement("span", {
+    }, images, this.props.isDailyBrief && this.props.topic && /*#__PURE__*/external_React_default().createElement("span", {
       className: "ds-card-daily-brief-topic",
       "data-l10n-id": `newtab-topic-label-${this.props.topic}`
     })), /*#__PURE__*/external_React_default().createElement(ImpressionStats_ImpressionStats, {
@@ -10535,7 +10450,7 @@ const PersonalizedCard = ({
     type: "icon ghost",
     iconSrc: "chrome://global/skin/icons/close.svg",
     onClick: onDismiss,
-    "data-l10n-id": "newtab-toast-dismiss-button"
+    "data-l10n-id": "newtab-card-dismiss-button"
   })), /*#__PURE__*/external_React_default().createElement("div", {
     className: "personalized-card-inner"
   }, /*#__PURE__*/external_React_default().createElement("img", {
@@ -10618,508 +10533,6 @@ function FollowSectionButtonHighlight({
     outsideClickCallback: handleDismiss
   }));
 }
-;// CONCATENATED MODULE: ./content-src/components/Weather/LocationSearch.jsx
-/* This Source Code Form is subject to the terms of the Mozilla Public
- * License, v. 2.0. If a copy of the MPL was not distributed with this file,
- * You can obtain one at http://mozilla.org/MPL/2.0/. */
-
-
-
-
-function LocationSearch({
-  outerClassName
-}) {
-  // should be the location object from suggestedLocations
-  const [selectedLocation, setSelectedLocation] = (0,external_React_namespaceObject.useState)("");
-  const suggestedLocations = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.Weather.suggestedLocations);
-  const locationSearchString = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.Weather.locationSearchString);
-  const [userInput, setUserInput] = (0,external_React_namespaceObject.useState)(locationSearchString || "");
-  const inputRef = (0,external_React_namespaceObject.useRef)(null);
-  const dispatch = (0,external_ReactRedux_namespaceObject.useDispatch)();
-  (0,external_React_namespaceObject.useEffect)(() => {
-    if (selectedLocation) {
-      dispatch(actionCreators.AlsoToMain({
-        type: actionTypes.WEATHER_LOCATION_DATA_UPDATE,
-        data: {
-          city: selectedLocation.localized_name,
-          adminName: selectedLocation.administrative_area,
-          country: selectedLocation.country
-        }
-      }));
-      dispatch(actionCreators.SetPref("weather.query", selectedLocation.key));
-      dispatch(actionCreators.BroadcastToContent({
-        type: actionTypes.WEATHER_SEARCH_ACTIVE,
-        data: false
-      }));
-    }
-  }, [selectedLocation, dispatch]);
-
-  // when component mounts, set focus to input
-  (0,external_React_namespaceObject.useEffect)(() => {
-    inputRef?.current?.focus();
-  }, [inputRef]);
-  function handleChange(event) {
-    const {
-      value
-    } = event.target;
-    setUserInput(value);
-
-    // if the user input contains less than three characters and suggestedLocations is not an empty array,
-    // reset suggestedLocations to [] so there aren't incorrect items in the datalist
-    if (value.length < 3 && suggestedLocations.length) {
-      dispatch(actionCreators.AlsoToMain({
-        type: actionTypes.WEATHER_LOCATION_SUGGESTIONS_UPDATE,
-        data: []
-      }));
-    }
-    // find match in suggestedLocation array
-    const match = suggestedLocations?.find(({
-      key
-    }) => key === value);
-    if (match) {
-      setSelectedLocation(match);
-      setUserInput(`${match.localized_name}, ${match.administrative_area.localized_name}`);
-    } else if (value.length >= 3 && !match) {
-      dispatch(actionCreators.AlsoToMain({
-        type: actionTypes.WEATHER_LOCATION_SEARCH_UPDATE,
-        data: value
-      }));
-    }
-  }
-  function handleCloseSearch() {
-    dispatch(actionCreators.BroadcastToContent({
-      type: actionTypes.WEATHER_SEARCH_ACTIVE,
-      data: false
-    }));
-    setUserInput("");
-  }
-  function handleKeyDown(e) {
-    if (e.key === "Escape") {
-      handleCloseSearch();
-    }
-  }
-  return /*#__PURE__*/external_React_default().createElement("div", {
-    className: `${outerClassName} location-search`
-  }, /*#__PURE__*/external_React_default().createElement("div", {
-    className: "location-input-wrapper"
-  }, /*#__PURE__*/external_React_default().createElement("div", {
-    className: "search-icon"
-  }), /*#__PURE__*/external_React_default().createElement("input", {
-    ref: inputRef,
-    list: "merino-location-list",
-    type: "text",
-    "data-l10n-id": "newtab-weather-change-location-search-input-placeholder",
-    onChange: handleChange,
-    value: userInput,
-    onKeyDown: handleKeyDown
-  }), /*#__PURE__*/external_React_default().createElement("moz-button", {
-    class: "close-icon",
-    type: "icon ghost",
-    size: "small",
-    iconSrc: "chrome://global/skin/icons/close.svg",
-    onClick: handleCloseSearch
-  }), /*#__PURE__*/external_React_default().createElement("datalist", {
-    id: "merino-location-list"
-  }, (suggestedLocations || []).map(merinoLocation => /*#__PURE__*/external_React_default().createElement("option", {
-    value: merinoLocation.key,
-    key: merinoLocation.key
-  }, merinoLocation.localized_name, ",", " ", merinoLocation.administrative_area.localized_name)))));
-}
-
-;// CONCATENATED MODULE: ./content-src/components/Weather/Weather.jsx
-/* This Source Code Form is subject to the terms of the Mozilla Public
- * License, v. 2.0. If a copy of the MPL was not distributed with this file,
- * You can obtain one at http://mozilla.org/MPL/2.0/. */
-
-
-
-
-
-
-
-const Weather_VISIBLE = "visible";
-const Weather_VISIBILITY_CHANGE_EVENT = "visibilitychange";
-const PREF_SYSTEM_SHOW_WEATHER = "system.showWeather";
-function WeatherPlaceholder() {
-  const [isSeen, setIsSeen] = (0,external_React_namespaceObject.useState)(false);
-
-  // We are setting up a visibility and intersection event
-  // so animations don't happen with headless automation.
-  // The animations causes tests to fail beause they never stop,
-  // and many tests wait until everything has stopped before passing.
-  const ref = useIntersectionObserver(() => setIsSeen(true), 1);
-  const isSeenClassName = isSeen ? `placeholder-seen` : ``;
-  return /*#__PURE__*/external_React_default().createElement("div", {
-    className: `weather weather-placeholder ${isSeenClassName}`,
-    ref: el => {
-      ref.current = [el];
-    }
-  }, /*#__PURE__*/external_React_default().createElement("div", {
-    className: "placeholder-image placeholder-fill"
-  }), /*#__PURE__*/external_React_default().createElement("div", {
-    className: "placeholder-context"
-  }, /*#__PURE__*/external_React_default().createElement("div", {
-    className: "placeholder-header placeholder-fill"
-  }), /*#__PURE__*/external_React_default().createElement("div", {
-    className: "placeholder-description placeholder-fill"
-  })));
-}
-class _Weather extends (external_React_default()).PureComponent {
-  constructor(props) {
-    super(props);
-    this.state = {
-      contextMenuKeyboard: false,
-      showContextMenu: false,
-      url: "https://example.com",
-      impressionSeen: false,
-      errorSeen: false
-    };
-    this.setImpressionRef = element => {
-      this.impressionElement = element;
-    };
-    this.setErrorRef = element => {
-      this.errorElement = element;
-    };
-    this.onClick = this.onClick.bind(this);
-    this.onKeyDown = this.onKeyDown.bind(this);
-    this.onUpdate = this.onUpdate.bind(this);
-    this.onProviderClick = this.onProviderClick.bind(this);
-  }
-  componentDidMount() {
-    const {
-      props
-    } = this;
-    if (!props.dispatch) {
-      return;
-    }
-    if (props.document.visibilityState === Weather_VISIBLE) {
-      // Setup the impression observer once the page is visible.
-      this.setImpressionObservers();
-    } else {
-      // We should only ever send the latest impression stats ping, so remove any
-      // older listeners.
-      if (this._onVisibilityChange) {
-        props.document.removeEventListener(Weather_VISIBILITY_CHANGE_EVENT, this._onVisibilityChange);
-      }
-      this._onVisibilityChange = () => {
-        if (props.document.visibilityState === Weather_VISIBLE) {
-          // Setup the impression observer once the page is visible.
-          this.setImpressionObservers();
-          props.document.removeEventListener(Weather_VISIBILITY_CHANGE_EVENT, this._onVisibilityChange);
-        }
-      };
-      props.document.addEventListener(Weather_VISIBILITY_CHANGE_EVENT, this._onVisibilityChange);
-    }
-  }
-  componentWillUnmount() {
-    // Remove observers on unmount
-    if (this.observer && this.impressionElement) {
-      this.observer.unobserve(this.impressionElement);
-    }
-    if (this.observer && this.errorElement) {
-      this.observer.unobserve(this.errorElement);
-    }
-    if (this._onVisibilityChange) {
-      this.props.document.removeEventListener(Weather_VISIBILITY_CHANGE_EVENT, this._onVisibilityChange);
-    }
-  }
-  setImpressionObservers() {
-    if (this.impressionElement) {
-      this.observer = new IntersectionObserver(this.onImpression.bind(this));
-      this.observer.observe(this.impressionElement);
-    }
-    if (this.errorElement) {
-      this.observer = new IntersectionObserver(this.onError.bind(this));
-      this.observer.observe(this.errorElement);
-    }
-  }
-  onImpression(entries) {
-    if (this.state) {
-      const entry = entries.find(e => e.isIntersecting);
-      if (entry) {
-        if (this.impressionElement) {
-          this.observer.unobserve(this.impressionElement);
-        }
-        this.props.dispatch(actionCreators.OnlyToMain({
-          type: actionTypes.WEATHER_IMPRESSION
-        }));
-
-        // Stop observing since element has been seen
-        this.setState({
-          impressionSeen: true
-        });
-      }
-    }
-  }
-  onError(entries) {
-    if (this.state) {
-      const entry = entries.find(e => e.isIntersecting);
-      if (entry) {
-        if (this.errorElement) {
-          this.observer.unobserve(this.errorElement);
-        }
-        this.props.dispatch(actionCreators.OnlyToMain({
-          type: actionTypes.WEATHER_LOAD_ERROR
-        }));
-
-        // Stop observing since element has been seen
-        this.setState({
-          errorSeen: true
-        });
-      }
-    }
-  }
-  openContextMenu(isKeyBoard) {
-    if (this.props.onUpdate) {
-      this.props.onUpdate(true);
-    }
-    this.setState({
-      showContextMenu: true,
-      contextMenuKeyboard: isKeyBoard
-    });
-  }
-  onClick(event) {
-    event.preventDefault();
-    this.openContextMenu(false, event);
-  }
-  onKeyDown(event) {
-    if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
-      this.openContextMenu(true, event);
-    }
-  }
-  onUpdate(showContextMenu) {
-    if (this.props.onUpdate) {
-      this.props.onUpdate(showContextMenu);
-    }
-    this.setState({
-      showContextMenu
-    });
-  }
-  onProviderClick() {
-    this.props.dispatch(actionCreators.OnlyToMain({
-      type: actionTypes.WEATHER_OPEN_PROVIDER_URL,
-      data: {
-        source: "WEATHER"
-      }
-    }));
-  }
-  handleRejectOptIn = () => {
-    (0,external_ReactRedux_namespaceObject.batch)(() => {
-      this.props.dispatch(actionCreators.SetPref("weather.optInAccepted", false));
-      this.props.dispatch(actionCreators.SetPref("weather.optInDisplayed", false));
-      this.props.dispatch(actionCreators.AlsoToMain({
-        type: actionTypes.WEATHER_OPT_IN_PROMPT_SELECTION,
-        data: "rejected opt-in"
-      }));
-    });
-  };
-  handleAcceptOptIn = () => {
-    (0,external_ReactRedux_namespaceObject.batch)(() => {
-      this.props.dispatch(actionCreators.AlsoToMain({
-        type: actionTypes.WEATHER_USER_OPT_IN_LOCATION
-      }));
-      this.props.dispatch(actionCreators.AlsoToMain({
-        type: actionTypes.WEATHER_OPT_IN_PROMPT_SELECTION,
-        data: "accepted opt-in"
-      }));
-    });
-  };
-  isEnabled() {
-    const {
-      values
-    } = this.props.Prefs;
-    const systemValue = values[PREF_SYSTEM_SHOW_WEATHER] && values["feeds.weatherfeed"];
-    const experimentValue = values.trainhopConfig?.weather?.enabled;
-    return systemValue || experimentValue;
-  }
-  render() {
-    // Check if weather should be rendered
-    if (!this.isEnabled()) {
-      return false;
-    }
-    if (this.props.App.isForStartupCache.Weather || !this.props.Weather.initialized) {
-      return /*#__PURE__*/external_React_default().createElement(WeatherPlaceholder, null);
-    }
-    const {
-      showContextMenu
-    } = this.state;
-    const {
-      props
-    } = this;
-    const {
-      dispatch,
-      Prefs,
-      Weather
-    } = props;
-    const WEATHER_SUGGESTION = Weather.suggestions?.[0];
-    const nimbusWeatherDisplay = Prefs.values.trainhopConfig?.weather?.display;
-    const showDetailedView = nimbusWeatherDisplay === "detailed" || Prefs.values["weather.display"] === "detailed";
-    const nimbusWeatherForecastTrainhopEnabled = Prefs.values.trainhopConfig?.widgets?.weatherForecastEnabled;
-    const weatherForecastWidgetEnabled = nimbusWeatherForecastTrainhopEnabled || Prefs.values["widgets.system.weatherForecast.enabled"];
-    if (showDetailedView && weatherForecastWidgetEnabled) {
-      return null;
-    }
-    const outerClassName = ["weather", Weather.searchActive && "search", props.isInSection && "section-weather"].filter(v => v).join(" ");
-    const weatherOptIn = Prefs.values["system.showWeatherOptIn"];
-    const nimbusWeatherOptInEnabled = Prefs.values.trainhopConfig?.weather?.weatherOptInEnabled;
-    // Bug 2009484: Controls button order in opt-in dialog for A/B testing.
-    // When true, "Not now" gets slot="primary";
-    // when false/undefined, "Yes" gets slot="primary".
-    // Also note the primary button's position varies by platform:
-    // on Windows, it appears on the left,
-    // while on Linux and macOS, it appears on the right.
-    const reverseOptInButtons = Prefs.values.trainhopConfig?.weather?.reverseOptInButtons;
-    const optInDisplayed = Prefs.values["weather.optInDisplayed"];
-    const optInUserChoice = Prefs.values["weather.optInAccepted"];
-    const staticWeather = Prefs.values["weather.staticData.enabled"];
-
-    // Conditionals for rendering feature based on prefs + nimbus experiment variables
-    const isOptInEnabled = weatherOptIn || nimbusWeatherOptInEnabled;
-
-    // Opt-in dialog should only show if:
-    // - weather enabled on customization menu
-    // - weather opt-in pref is enabled
-    // - opt-in prompt is enabled
-    // - user hasn't accepted the opt-in yet
-    const shouldShowOptInDialog = isOptInEnabled && optInDisplayed && !optInUserChoice;
-
-    // Show static weather data only if:
-    // - weather is enabled on customization menu
-    // - weather opt-in pref is enabled
-    // - static weather data is enabled
-    const showStaticData = isOptInEnabled && staticWeather;
-
-    // Note: The temperature units/display options will become secondary menu items
-    const WEATHER_SOURCE_CONTEXT_MENU_OPTIONS = [...(Prefs.values["weather.locationSearchEnabled"] ? ["ChangeWeatherLocation"] : []), ...(isOptInEnabled ? ["DetectLocation"] : []), ...(Prefs.values["weather.temperatureUnits"] === "f" ? ["ChangeTempUnitCelsius"] : ["ChangeTempUnitFahrenheit"]), ...(Prefs.values["weather.display"] === "simple" ? ["ChangeWeatherDisplayDetailed"] : ["ChangeWeatherDisplaySimple"]), "HideWeather", "OpenLearnMoreURL"];
-    const WEATHER_SOURCE_SHORTENED_CONTEXT_MENU_OPTIONS = [...(Prefs.values["weather.locationSearchEnabled"] ? ["ChangeWeatherLocation"] : []), ...(isOptInEnabled ? ["DetectLocation"] : []), "HideWeather", "OpenLearnMoreURL"];
-    const contextMenu = contextOpts => /*#__PURE__*/external_React_default().createElement("div", {
-      className: "weatherButtonContextMenuWrapper"
-    }, /*#__PURE__*/external_React_default().createElement("button", {
-      "aria-haspopup": "true",
-      onKeyDown: this.onKeyDown,
-      onClick: this.onClick,
-      "data-l10n-id": "newtab-menu-section-tooltip",
-      className: "weatherButtonContextMenu"
-    }, showContextMenu ? /*#__PURE__*/external_React_default().createElement(LinkMenu, {
-      dispatch: dispatch,
-      index: 0,
-      source: "WEATHER",
-      onUpdate: this.onUpdate,
-      options: contextOpts,
-      site: {
-        url: "https://support.mozilla.org/kb/customize-items-on-firefox-new-tab-page"
-      },
-      link: "https://support.mozilla.org/kb/customize-items-on-firefox-new-tab-page",
-      shouldSendImpressionStats: false
-    }) : null));
-    if (Weather.searchActive) {
-      return /*#__PURE__*/external_React_default().createElement(LocationSearch, {
-        outerClassName: outerClassName
-      });
-    } else if (WEATHER_SUGGESTION) {
-      return /*#__PURE__*/external_React_default().createElement("div", {
-        ref: this.setImpressionRef,
-        className: outerClassName
-      }, /*#__PURE__*/external_React_default().createElement("div", {
-        className: "weatherCard"
-      }, showStaticData ? /*#__PURE__*/external_React_default().createElement("div", {
-        className: "weatherInfoLink staticWeatherInfo"
-      }, /*#__PURE__*/external_React_default().createElement("div", {
-        className: "weatherIconCol"
-      }, /*#__PURE__*/external_React_default().createElement("span", {
-        className: "weatherIcon iconId3"
-      })), /*#__PURE__*/external_React_default().createElement("div", {
-        className: "weatherText"
-      }, /*#__PURE__*/external_React_default().createElement("div", {
-        className: "weatherForecastRow"
-      }, /*#__PURE__*/external_React_default().createElement("span", {
-        className: "weatherTemperature"
-      }, "22\xB0", Prefs.values["weather.temperatureUnits"])), /*#__PURE__*/external_React_default().createElement("div", {
-        className: "weatherCityRow"
-      }, /*#__PURE__*/external_React_default().createElement("span", {
-        className: "weatherCity",
-        "data-l10n-id": "newtab-weather-static-city"
-      })))) : /*#__PURE__*/external_React_default().createElement("a", {
-        "data-l10n-id": "newtab-weather-see-forecast-description",
-        "data-l10n-args": "{\"provider\": \"AccuWeather\xAE\"}",
-        "data-l10n-attrs": "aria-description",
-        href: WEATHER_SUGGESTION.forecast.url,
-        className: "weatherInfoLink",
-        onClick: this.onProviderClick
-      }, /*#__PURE__*/external_React_default().createElement("div", {
-        className: "weatherIconCol"
-      }, /*#__PURE__*/external_React_default().createElement("span", {
-        className: `weatherIcon iconId${WEATHER_SUGGESTION.current_conditions.icon_id}`
-      })), /*#__PURE__*/external_React_default().createElement("div", {
-        className: "weatherText"
-      }, /*#__PURE__*/external_React_default().createElement("div", {
-        className: "weatherForecastRow"
-      }, /*#__PURE__*/external_React_default().createElement("span", {
-        className: "weatherTemperature"
-      }, WEATHER_SUGGESTION.current_conditions.temperature[Prefs.values["weather.temperatureUnits"]], "\xB0", Prefs.values["weather.temperatureUnits"])), /*#__PURE__*/external_React_default().createElement("div", {
-        className: "weatherCityRow"
-      }, /*#__PURE__*/external_React_default().createElement("span", {
-        className: "weatherCity"
-      }, Weather.locationData.city)), showDetailedView && !weatherForecastWidgetEnabled ? /*#__PURE__*/external_React_default().createElement("div", {
-        className: "weatherDetailedSummaryRow"
-      }, /*#__PURE__*/external_React_default().createElement("div", {
-        className: "weatherHighLowTemps"
-      }, /*#__PURE__*/external_React_default().createElement("span", null, WEATHER_SUGGESTION.forecast.high[Prefs.values["weather.temperatureUnits"]], "\xB0", Prefs.values["weather.temperatureUnits"]), /*#__PURE__*/external_React_default().createElement("span", null, "\u2022"), /*#__PURE__*/external_React_default().createElement("span", null, WEATHER_SUGGESTION.forecast.low[Prefs.values["weather.temperatureUnits"]], "\xB0", Prefs.values["weather.temperatureUnits"])), /*#__PURE__*/external_React_default().createElement("span", {
-        className: "weatherTextSummary"
-      }, WEATHER_SUGGESTION.current_conditions.summary)) : null)), contextMenu(showStaticData ? WEATHER_SOURCE_SHORTENED_CONTEXT_MENU_OPTIONS : WEATHER_SOURCE_CONTEXT_MENU_OPTIONS)), /*#__PURE__*/external_React_default().createElement("span", {
-        className: "weatherSponsorText",
-        "aria-hidden": "true"
-      }, /*#__PURE__*/external_React_default().createElement("span", {
-        "data-l10n-id": "newtab-weather-sponsored",
-        "data-l10n-args": "{\"provider\": \"AccuWeather\xAE\"}"
-      })), shouldShowOptInDialog && /*#__PURE__*/external_React_default().createElement("div", {
-        className: "weatherOptIn"
-      }, /*#__PURE__*/external_React_default().createElement("dialog", {
-        open: true
-      }, /*#__PURE__*/external_React_default().createElement("span", {
-        className: "weatherOptInImg"
-      }), /*#__PURE__*/external_React_default().createElement("div", {
-        className: "weatherOptInContent"
-      }, /*#__PURE__*/external_React_default().createElement("h3", {
-        "data-l10n-id": "newtab-weather-opt-in-see-weather"
-      }), /*#__PURE__*/external_React_default().createElement("moz-button-group", {
-        className: "button-group"
-      }, /*#__PURE__*/external_React_default().createElement("moz-button", {
-        size: "small",
-        type: "default",
-        "data-l10n-id": "newtab-weather-opt-in-yes",
-        onClick: this.handleAcceptOptIn,
-        id: "accept-opt-in",
-        slot: reverseOptInButtons ? "" : "primary"
-      }), /*#__PURE__*/external_React_default().createElement("moz-button", {
-        size: "small",
-        type: "default",
-        "data-l10n-id": "newtab-weather-opt-in-not-now",
-        onClick: this.handleRejectOptIn,
-        id: "reject-opt-in",
-        slot: reverseOptInButtons ? "primary" : ""
-      }))))));
-    }
-    return /*#__PURE__*/external_React_default().createElement("div", {
-      ref: this.setErrorRef,
-      className: outerClassName
-    }, /*#__PURE__*/external_React_default().createElement("div", {
-      className: "weatherNotAvailable"
-    }, /*#__PURE__*/external_React_default().createElement("span", {
-      className: "icon icon-info-warning"
-    }), " ", /*#__PURE__*/external_React_default().createElement("p", {
-      "data-l10n-id": "newtab-weather-error-not-available"
-    }), contextMenu(WEATHER_SOURCE_SHORTENED_CONTEXT_MENU_OPTIONS)));
-  }
-}
-const Weather_Weather = (0,external_ReactRedux_namespaceObject.connect)(state => ({
-  App: state.App,
-  Weather: state.Weather,
-  Prefs: state.Prefs,
-  IntersectionObserver: globalThis.IntersectionObserver,
-  document: globalThis.document
-}))(_Weather);
 ;// CONCATENATED MODULE: ./content-src/components/DiscoveryStreamComponents/BriefingCard/BriefingCard.jsx
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
@@ -11312,7 +10725,6 @@ const BriefingCard = ({
 
 
 
-
 // Prefs
 const CardSections_PREF_SECTIONS_CARDS_ENABLED = "discoverystream.sections.cards.enabled";
 const PREF_SECTIONS_PERSONALIZATION_ENABLED = "discoverystream.sections.personalization.enabled";
@@ -11326,8 +10738,8 @@ const CardSections_PREF_BILLBOARD_POSITION = "newtabAdSize.billboard.position";
 const CardSections_PREF_LEADERBOARD_ENABLED = "newtabAdSize.leaderboard";
 const CardSections_PREF_LEADERBOARD_POSITION = "newtabAdSize.leaderboard.position";
 const PREF_INFERRED_PERSONALIZATION_USER = "discoverystream.sections.personalization.inferred.user.enabled";
-const CardSections_PREF_DAILY_BRIEF_SECTIONID = "discoverystream.dailyBrief.sectionId";
-const PREF_DAILY_BRIEF_V2_ENABLED = "discoverystream.dailyBrief.v2.enabled";
+const PREF_DAILY_BRIEF_SECTIONID = "discoverystream.dailyBrief.sectionId";
+const PREF_DAILY_BRIEF_ENABLED = "discoverystream.dailyBrief.enabled";
 const CardSections_PREF_SPOCS_STARTUPCACHE_ENABLED = "discoverystream.spocs.startupCache.enabled";
 
 // Feed URL
@@ -11404,7 +10816,6 @@ function CardSection({
   ctaButtonVariant,
   ctaButtonSponsors,
   anySectionsFollowed,
-  showWeather,
   placeholder
 }) {
   const prefs = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.Prefs.values);
@@ -11468,8 +10879,8 @@ function CardSection({
   const selectedTopics = prefs[CardSections_PREF_TOPICS_SELECTED];
   const availableTopics = prefs[CardSections_PREF_TOPICS_AVAILABLE];
   const spocsStartupCacheEnabled = prefs[CardSections_PREF_SPOCS_STARTUPCACHE_ENABLED];
-  const dailyBriefV2Enabled = prefs.trainhopConfig?.dailyBriefing?.v2Enabled || prefs[PREF_DAILY_BRIEF_V2_ENABLED];
-  const dailyBriefSectionId = prefs.trainhopConfig?.dailyBriefing?.sectionId || prefs[CardSections_PREF_DAILY_BRIEF_SECTIONID];
+  const dailyBriefEnabled = prefs.trainhopConfig?.dailyBriefing?.enabled || prefs[PREF_DAILY_BRIEF_ENABLED];
+  const dailyBriefSectionId = prefs.trainhopConfig?.dailyBriefing?.sectionId || prefs[PREF_DAILY_BRIEF_SECTIONID];
   const mayHaveSectionsPersonalization = prefs[PREF_SECTIONS_PERSONALIZATION_ENABLED];
   const {
     sectionKey,
@@ -11546,7 +10957,7 @@ function CardSection({
     // So it can be displayed without orphans in grids with 2, 3, and 4 columns.
     maxTile = 12;
   }
-  const shouldShowBriefingCard = sectionKey === dailyBriefSectionId && dailyBriefV2Enabled;
+  const shouldShowBriefingCard = sectionKey === dailyBriefSectionId && dailyBriefEnabled;
   const getBriefingData = () => {
     const EMPTY_BRIEFING = {
       headlines: [],
@@ -11665,7 +11076,7 @@ function CardSection({
           tabIndex: currentIndex === focusedIndex ? 0 : -1,
           onFocus: () => onCardFocus(currentIndex),
           attribution: rec.attribution,
-          isDailyBriefV2: shouldShowBriefingCard
+          isDailyBrief: shouldShowBriefingCard
         }));
       }
       dataIndex++;
@@ -11724,16 +11135,12 @@ function CardSection({
   }, /*#__PURE__*/external_React_default().createElement("div", {
     className: "section-heading"
   }, /*#__PURE__*/external_React_default().createElement("div", {
-    className: "section-heading-inline-start"
-  }, /*#__PURE__*/external_React_default().createElement("div", {
     className: "section-title-wrapper"
   }, /*#__PURE__*/external_React_default().createElement("h2", {
     className: "section-title"
   }, title), subtitle && /*#__PURE__*/external_React_default().createElement("p", {
     className: "section-subtitle"
-  }, subtitle)), showWeather && /*#__PURE__*/external_React_default().createElement(Weather_Weather, {
-    isInSection: true
-  })), mayHaveSectionsPersonalization ? sectionContextWrapper : null), /*#__PURE__*/external_React_default().createElement("div", {
+  }, subtitle)), mayHaveSectionsPersonalization ? sectionContextWrapper : null), /*#__PURE__*/external_React_default().createElement("div", {
     className: `ds-section-grid ds-card-grid`,
     onKeyDown: handleCardKeyDown
   }, cards));
@@ -11756,9 +11163,6 @@ function CardSections({
   const {
     messageData
   } = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.Messages);
-  const weatherPlacement = (0,external_ReactRedux_namespaceObject.useSelector)(selectWeatherPlacement);
-  const dailyBriefSectionId = prefs.trainhopConfig?.dailyBriefing?.sectionId || prefs[CardSections_PREF_DAILY_BRIEF_SECTIONID];
-  const weatherEnabled = prefs.showWeather;
   const personalizationEnabled = prefs[PREF_SECTIONS_PERSONALIZATION_ENABLED];
   const interestPickerEnabled = prefs[PREF_INTEREST_PICKER_ENABLED];
 
@@ -11808,8 +11212,7 @@ function CardSections({
     ctaButtonVariant: ctaButtonVariant,
     ctaButtonSponsors: ctaButtonSponsors,
     anySectionsFollowed: anySectionsFollowed,
-    placeholder: placeholder,
-    showWeather: weatherEnabled && weatherPlacement === "section" && sectionPosition === 0 && section.sectionKey === dailyBriefSectionId
+    placeholder: placeholder
   }));
 
   // Add a billboard/leaderboard IAB ad to the sectionsToRender array (if enabled/possible).
@@ -11905,10 +11308,13 @@ const PREF_WIDGETS_LISTS_MAX_LISTS = "widgets.lists.maxLists";
 const PREF_WIDGETS_LISTS_MAX_LISTITEMS = "widgets.lists.maxListItems";
 const PREF_WIDGETS_LISTS_BADGE_ENABLED = "widgets.lists.badge.enabled";
 const PREF_WIDGETS_LISTS_BADGE_LABEL = "widgets.lists.badge.label";
+
+// eslint-disable-next-line max-statements
 function Lists({
   dispatch,
   handleUserInteraction,
-  isMaximized
+  isMaximized,
+  widgetsMayBeMaximized
 }) {
   const prefs = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.Prefs.values);
   const {
@@ -11919,20 +11325,39 @@ function Lists({
   const [isEditing, setIsEditing] = (0,external_React_namespaceObject.useState)(false);
   const [pendingNewList, setPendingNewList] = (0,external_React_namespaceObject.useState)(null);
   const selectedList = (0,external_React_namespaceObject.useMemo)(() => lists[selected], [lists, selected]);
+
+  // Bug 2012829 - Calculate widget size dynamically based on isMaximized prop.
+  // Future sizes: mini, medium, large.
+  const widgetSize = isMaximized ? "medium" : "small";
   const prevCompletedCount = (0,external_React_namespaceObject.useRef)(selectedList?.completed?.length || 0);
   const inputRef = (0,external_React_namespaceObject.useRef)(null);
   const selectRef = (0,external_React_namespaceObject.useRef)(null);
   const reorderListRef = (0,external_React_namespaceObject.useRef)(null);
   const [canvasRef, fireConfetti] = useConfetti();
+  const impressionFired = (0,external_React_namespaceObject.useRef)(false);
   const handleListInteraction = (0,external_React_namespaceObject.useCallback)(() => handleUserInteraction("lists"), [handleUserInteraction]);
 
   // store selectedList with useMemo so it isnt re-calculated on every re-render
   const isValidUrl = (0,external_React_namespaceObject.useCallback)(str => URL.canParse(str), []);
   const handleIntersection = (0,external_React_namespaceObject.useCallback)(() => {
-    dispatch(actionCreators.AlsoToMain({
-      type: actionTypes.WIDGETS_LISTS_USER_IMPRESSION
-    }));
-  }, [dispatch]);
+    if (impressionFired.current) {
+      return;
+    }
+    impressionFired.current = true;
+    (0,external_ReactRedux_namespaceObject.batch)(() => {
+      dispatch(actionCreators.AlsoToMain({
+        type: actionTypes.WIDGETS_LISTS_USER_IMPRESSION
+      }));
+      const telemetryData = {
+        widget_name: "lists",
+        widget_size: widgetsMayBeMaximized ? widgetSize : "medium"
+      };
+      dispatch(actionCreators.AlsoToMain({
+        type: actionTypes.WIDGETS_IMPRESSION,
+        data: telemetryData
+      }));
+    });
+  }, [dispatch, widgetsMayBeMaximized, widgetSize]);
   const listsRef = useIntersectionObserver(handleIntersection);
   const reorderLists = (0,external_React_namespaceObject.useCallback)((draggedElement, targetElement, before = false) => {
     const draggedIndex = selectedList.tasks.findIndex(({
@@ -12048,6 +11473,16 @@ function Lists({
             userAction: USER_ACTION_TYPES.TASK_CREATE
           }
         }));
+        const telemetryData = {
+          widget_name: "lists",
+          widget_source: "widget",
+          user_action: USER_ACTION_TYPES.TASK_CREATE,
+          widget_size: widgetsMayBeMaximized ? widgetSize : "medium"
+        };
+        dispatch(actionCreators.OnlyToMain({
+          type: actionTypes.WIDGETS_USER_EVENT,
+          data: telemetryData
+        }));
       });
       setNewTask("");
       handleListInteraction();
@@ -12108,6 +11543,16 @@ function Lists({
             userAction
           }
         }));
+        const telemetryData = {
+          widget_name: "lists",
+          widget_source: "widget",
+          user_action: userAction,
+          widget_size: widgetsMayBeMaximized ? widgetSize : "medium"
+        };
+        dispatch(actionCreators.AlsoToMain({
+          type: actionTypes.WIDGETS_USER_EVENT,
+          data: telemetryData
+        }));
       }
     });
     handleListInteraction();
@@ -12136,6 +11581,16 @@ function Lists({
         data: {
           userAction: USER_ACTION_TYPES.TASK_DELETE
         }
+      }));
+      const telemetryData = {
+        widget_name: "lists",
+        widget_source: "widget",
+        user_action: USER_ACTION_TYPES.TASK_DELETE,
+        widget_size: widgetsMayBeMaximized ? widgetSize : "medium"
+      };
+      dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.WIDGETS_USER_EVENT,
+        data: telemetryData
       }));
     });
     handleListInteraction();
@@ -12171,6 +11626,16 @@ function Lists({
             userAction: USER_ACTION_TYPES.LIST_EDIT
           }
         }));
+        const telemetryData = {
+          widget_name: "lists",
+          widget_source: "widget",
+          user_action: USER_ACTION_TYPES.LIST_EDIT,
+          widget_size: widgetsMayBeMaximized ? widgetSize : "medium"
+        };
+        dispatch(actionCreators.OnlyToMain({
+          type: actionTypes.WIDGETS_USER_EVENT,
+          data: telemetryData
+        }));
       });
       setIsEditing(false);
       handleListInteraction();
@@ -12203,6 +11668,16 @@ function Lists({
           userAction: USER_ACTION_TYPES.LIST_CREATE
         }
       }));
+      const telemetryData = {
+        widget_name: "lists",
+        widget_source: "widget",
+        user_action: USER_ACTION_TYPES.LIST_CREATE,
+        widget_size: widgetsMayBeMaximized ? widgetSize : "medium"
+      };
+      dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.WIDGETS_USER_EVENT,
+        data: telemetryData
+      }));
     });
     setPendingNewList(id);
     handleListInteraction();
@@ -12232,6 +11707,16 @@ function Lists({
           data: {
             userAction: USER_ACTION_TYPES.LIST_DELETE
           }
+        }));
+        const telemetryData = {
+          widget_name: "lists",
+          widget_source: "widget",
+          user_action: USER_ACTION_TYPES.LIST_DELETE,
+          widget_size: widgetsMayBeMaximized ? widgetSize : "medium"
+        };
+        dispatch(actionCreators.OnlyToMain({
+          type: actionTypes.WIDGETS_USER_EVENT,
+          data: telemetryData
         }));
       });
     }
@@ -12273,18 +11758,40 @@ function Lists({
             userAction: USER_ACTION_TYPES.LIST_DELETE
           }
         }));
+        const telemetryData = {
+          widget_name: "lists",
+          widget_source: "widget",
+          user_action: USER_ACTION_TYPES.LIST_DELETE,
+          widget_size: widgetsMayBeMaximized ? widgetSize : "medium"
+        };
+        dispatch(actionCreators.OnlyToMain({
+          type: actionTypes.WIDGETS_USER_EVENT,
+          data: telemetryData
+        }));
       });
     }
     handleListInteraction();
   }
   function handleHideLists() {
-    dispatch(actionCreators.OnlyToMain({
-      type: actionTypes.SET_PREF,
-      data: {
-        name: "widgets.lists.enabled",
-        value: false
-      }
-    }));
+    (0,external_ReactRedux_namespaceObject.batch)(() => {
+      dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.SET_PREF,
+        data: {
+          name: "widgets.lists.enabled",
+          value: false
+        }
+      }));
+      const telemetryData = {
+        widget_name: "lists",
+        widget_source: "context_menu",
+        enabled: false,
+        widget_size: widgetsMayBeMaximized ? widgetSize : "medium"
+      };
+      dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.WIDGETS_ENABLED,
+        data: telemetryData
+      }));
+    });
     handleListInteraction();
   }
   function handleCopyListToClipboard() {
@@ -12307,12 +11814,24 @@ function Lists({
     } catch (err) {
       console.error("Copy failed", err);
     }
-    dispatch(actionCreators.OnlyToMain({
-      type: actionTypes.WIDGETS_LISTS_USER_EVENT,
-      data: {
-        userAction: USER_ACTION_TYPES.LIST_COPY
-      }
-    }));
+    (0,external_ReactRedux_namespaceObject.batch)(() => {
+      dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.WIDGETS_LISTS_USER_EVENT,
+        data: {
+          userAction: USER_ACTION_TYPES.LIST_COPY
+        }
+      }));
+      const telemetryData = {
+        widget_name: "lists",
+        widget_source: "widget",
+        user_action: USER_ACTION_TYPES.LIST_COPY,
+        widget_size: widgetsMayBeMaximized ? widgetSize : "medium"
+      };
+      dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.WIDGETS_USER_EVENT,
+        data: telemetryData
+      }));
+    });
     handleListInteraction();
   }
   function handleLearnMore() {
@@ -12775,7 +12294,8 @@ const getClipPath = progress => {
 const FocusTimer = ({
   dispatch,
   handleUserInteraction,
-  isMaximized
+  isMaximized,
+  widgetsMayBeMaximized
 }) => {
   const [timeLeft, setTimeLeft] = (0,external_React_namespaceObject.useState)(0);
   // calculated value for the progress circle; 1 = 100%
@@ -12783,6 +12303,7 @@ const FocusTimer = ({
   const activeMinutesRef = (0,external_React_namespaceObject.useRef)(null);
   const activeSecondsRef = (0,external_React_namespaceObject.useRef)(null);
   const arcRef = (0,external_React_namespaceObject.useRef)(null);
+  const impressionFired = (0,external_React_namespaceObject.useRef)(false);
   const timerType = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.TimerWidget.timerType);
   const timerData = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.TimerWidget);
   const {
@@ -12792,12 +12313,27 @@ const FocusTimer = ({
     isRunning
   } = timerData[timerType];
   const initialTimerDuration = timerData[timerType].initialDuration;
+  const widgetSize = isMaximized ? "medium" : "small";
   const handleTimerInteraction = (0,external_React_namespaceObject.useCallback)(() => handleUserInteraction("focusTimer"), [handleUserInteraction]);
   const handleIntersection = (0,external_React_namespaceObject.useCallback)(() => {
-    dispatch(actionCreators.AlsoToMain({
-      type: actionTypes.WIDGETS_TIMER_USER_IMPRESSION
-    }));
-  }, [dispatch]);
+    if (impressionFired.current) {
+      return;
+    }
+    impressionFired.current = true;
+    (0,external_ReactRedux_namespaceObject.batch)(() => {
+      dispatch(actionCreators.AlsoToMain({
+        type: actionTypes.WIDGETS_TIMER_USER_IMPRESSION
+      }));
+      const telemetryData = {
+        widget_name: "focus_timer",
+        widget_size: widgetsMayBeMaximized ? widgetSize : "medium"
+      };
+      dispatch(actionCreators.AlsoToMain({
+        type: actionTypes.WIDGETS_IMPRESSION,
+        data: telemetryData
+      }));
+    });
+  }, [dispatch, widgetsMayBeMaximized, widgetSize]);
   const timerRef = useIntersectionObserver(handleIntersection);
   const resetProgressCircle = (0,external_React_namespaceObject.useCallback)(() => {
     if (arcRef?.current) {
@@ -12839,6 +12375,16 @@ const FocusTimer = ({
                 userAction: FocusTimer_USER_ACTION_TYPES.TIMER_END
               }
             }));
+            const telemetryData = {
+              widget_name: "focus_timer",
+              widget_source: "widget",
+              user_action: FocusTimer_USER_ACTION_TYPES.TIMER_END,
+              widget_size: widgetsMayBeMaximized ? widgetSize : "medium"
+            };
+            dispatch(actionCreators.OnlyToMain({
+              type: actionTypes.WIDGETS_USER_EVENT,
+              data: telemetryData
+            }));
           });
 
           // animate the progress circle to turn solid green
@@ -12860,11 +12406,22 @@ const FocusTimer = ({
                     timerType: timerType === "focus" ? "break" : "focus"
                   }
                 }));
+                const userAction = timerType === "focus" ? FocusTimer_USER_ACTION_TYPES.TIMER_TOGGLE_BREAK : FocusTimer_USER_ACTION_TYPES.TIMER_TOGGLE_FOCUS;
                 dispatch(actionCreators.OnlyToMain({
                   type: actionTypes.WIDGETS_TIMER_USER_EVENT,
                   data: {
-                    userAction: timerType === "focus" ? FocusTimer_USER_ACTION_TYPES.TIMER_TOGGLE_BREAK : FocusTimer_USER_ACTION_TYPES.TIMER_TOGGLE_FOCUS
+                    userAction
                   }
+                }));
+                const telemetryData = {
+                  widget_name: "focus_timer",
+                  widget_source: "widget",
+                  user_action: userAction,
+                  widget_size: widgetsMayBeMaximized ? widgetSize : "medium"
+                };
+                dispatch(actionCreators.OnlyToMain({
+                  type: actionTypes.WIDGETS_USER_EVENT,
+                  data: telemetryData
                 }));
               });
             }, 500);
@@ -12888,7 +12445,7 @@ const FocusTimer = ({
       setProgress(0);
     }
     return () => clearInterval(interval);
-  }, [isRunning, startTime, duration, initialDuration, dispatch, resetProgressCircle, timerType, initialTimerDuration]);
+  }, [isRunning, startTime, duration, initialDuration, dispatch, resetProgressCircle, timerType, initialTimerDuration, widgetSize, widgetsMayBeMaximized]);
 
   // Update the clip-path of the gradient circle to match the current progress value
   (0,external_React_namespaceObject.useEffect)(() => {
@@ -12931,6 +12488,16 @@ const FocusTimer = ({
             userAction: FocusTimer_USER_ACTION_TYPES.TIMER_SET
           }
         }));
+        const telemetryData = {
+          widget_name: "focus_timer",
+          widget_source: "widget",
+          user_action: FocusTimer_USER_ACTION_TYPES.TIMER_SET,
+          widget_size: widgetsMayBeMaximized ? widgetSize : "medium"
+        };
+        dispatch(actionCreators.OnlyToMain({
+          type: actionTypes.WIDGETS_USER_EVENT,
+          data: telemetryData
+        }));
       });
     }
     handleTimerInteraction();
@@ -12952,6 +12519,16 @@ const FocusTimer = ({
             userAction: FocusTimer_USER_ACTION_TYPES.TIMER_PLAY
           }
         }));
+        const telemetryData = {
+          widget_name: "focus_timer",
+          widget_source: "widget",
+          user_action: FocusTimer_USER_ACTION_TYPES.TIMER_PLAY,
+          widget_size: widgetsMayBeMaximized ? widgetSize : "medium"
+        };
+        dispatch(actionCreators.OnlyToMain({
+          type: actionTypes.WIDGETS_USER_EVENT,
+          data: telemetryData
+        }));
       });
     } else if (isRunning) {
       // calculated to get the new baseline of the timer when it starts or resumes
@@ -12969,6 +12546,16 @@ const FocusTimer = ({
           data: {
             userAction: FocusTimer_USER_ACTION_TYPES.TIMER_PAUSE
           }
+        }));
+        const telemetryData = {
+          widget_name: "focus_timer",
+          widget_source: "widget",
+          user_action: FocusTimer_USER_ACTION_TYPES.TIMER_PAUSE,
+          widget_size: widgetsMayBeMaximized ? widgetSize : "medium"
+        };
+        dispatch(actionCreators.OnlyToMain({
+          type: actionTypes.WIDGETS_USER_EVENT,
+          data: telemetryData
         }));
       });
     }
@@ -12991,6 +12578,16 @@ const FocusTimer = ({
         data: {
           userAction: FocusTimer_USER_ACTION_TYPES.TIMER_RESET
         }
+      }));
+      const telemetryData = {
+        widget_name: "focus_timer",
+        widget_source: "widget",
+        user_action: FocusTimer_USER_ACTION_TYPES.TIMER_RESET,
+        widget_size: widgetsMayBeMaximized ? widgetSize : "medium"
+      };
+      dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.WIDGETS_USER_EVENT,
+        data: telemetryData
       }));
     });
 
@@ -13017,6 +12614,16 @@ const FocusTimer = ({
           userAction: FocusTimer_USER_ACTION_TYPES.TIMER_PAUSE
         }
       }));
+      const pauseTelemetryData = {
+        widget_name: "focus_timer",
+        widget_source: "widget",
+        user_action: FocusTimer_USER_ACTION_TYPES.TIMER_PAUSE,
+        widget_size: widgetsMayBeMaximized ? widgetSize : "medium"
+      };
+      dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.WIDGETS_USER_EVENT,
+        data: pauseTelemetryData
+      }));
 
       // Sets the current timer type so it persists when opening a new tab
       dispatch(actionCreators.AlsoToMain({
@@ -13025,11 +12632,22 @@ const FocusTimer = ({
           timerType: type
         }
       }));
+      const toggleUserAction = type === "focus" ? FocusTimer_USER_ACTION_TYPES.TIMER_TOGGLE_FOCUS : FocusTimer_USER_ACTION_TYPES.TIMER_TOGGLE_BREAK;
       dispatch(actionCreators.OnlyToMain({
         type: actionTypes.WIDGETS_TIMER_USER_EVENT,
         data: {
-          userAction: type === "focus" ? FocusTimer_USER_ACTION_TYPES.TIMER_TOGGLE_FOCUS : FocusTimer_USER_ACTION_TYPES.TIMER_TOGGLE_BREAK
+          userAction: toggleUserAction
         }
+      }));
+      const toggleTelemetryData = {
+        widget_name: "focus_timer",
+        widget_source: "widget",
+        user_action: toggleUserAction,
+        widget_size: widgetsMayBeMaximized ? widgetSize : "medium"
+      };
+      dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.WIDGETS_USER_EVENT,
+        data: toggleTelemetryData
       }));
     });
     handleTimerInteraction();
@@ -13096,6 +12714,16 @@ const FocusTimer = ({
             userAction: FocusTimer_USER_ACTION_TYPES.TIMER_PAUSE
           }
         }));
+        const telemetryData = {
+          widget_name: "focus_timer",
+          widget_source: "widget",
+          user_action: FocusTimer_USER_ACTION_TYPES.TIMER_PAUSE,
+          widget_size: widgetsMayBeMaximized ? widgetSize : "medium"
+        };
+        dispatch(actionCreators.OnlyToMain({
+          type: actionTypes.WIDGETS_USER_EVENT,
+          data: telemetryData
+        }));
       });
     }
 
@@ -13155,7 +12783,19 @@ const FocusTimer = ({
   }), /*#__PURE__*/external_React_default().createElement("panel-item", {
     "data-l10n-id": "newtab-widget-timer-menu-hide",
     onClick: () => {
-      handlePrefUpdate("widgets.focusTimer.enabled", false);
+      (0,external_ReactRedux_namespaceObject.batch)(() => {
+        handlePrefUpdate("widgets.focusTimer.enabled", false);
+        const telemetryData = {
+          widget_name: "focus_timer",
+          widget_source: "context_menu",
+          enabled: false,
+          widget_size: widgetsMayBeMaximized ? widgetSize : "medium"
+        };
+        dispatch(actionCreators.OnlyToMain({
+          type: actionTypes.WIDGETS_ENABLED,
+          data: telemetryData
+        }));
+      });
     }
   }), /*#__PURE__*/external_React_default().createElement("panel-item", {
     "data-l10n-id": "newtab-widget-timer-menu-learn-more",
@@ -13244,6 +12884,114 @@ function EditableTimerFields({
     tabIndex: tabIndex
   }, formatTime(props.timeLeft).split(":")[1]));
 }
+;// CONCATENATED MODULE: ./content-src/components/Weather/LocationSearch.jsx
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+
+
+
+function LocationSearch({
+  outerClassName
+}) {
+  // should be the location object from suggestedLocations
+  const [selectedLocation, setSelectedLocation] = (0,external_React_namespaceObject.useState)("");
+  const suggestedLocations = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.Weather.suggestedLocations);
+  const locationSearchString = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.Weather.locationSearchString);
+  const [userInput, setUserInput] = (0,external_React_namespaceObject.useState)(locationSearchString || "");
+  const inputRef = (0,external_React_namespaceObject.useRef)(null);
+  const dispatch = (0,external_ReactRedux_namespaceObject.useDispatch)();
+  (0,external_React_namespaceObject.useEffect)(() => {
+    if (selectedLocation) {
+      dispatch(actionCreators.AlsoToMain({
+        type: actionTypes.WEATHER_LOCATION_DATA_UPDATE,
+        data: {
+          city: selectedLocation.localized_name,
+          adminName: selectedLocation.administrative_area,
+          country: selectedLocation.country
+        }
+      }));
+      dispatch(actionCreators.SetPref("weather.query", selectedLocation.key));
+      dispatch(actionCreators.BroadcastToContent({
+        type: actionTypes.WEATHER_SEARCH_ACTIVE,
+        data: false
+      }));
+    }
+  }, [selectedLocation, dispatch]);
+
+  // when component mounts, set focus to input
+  (0,external_React_namespaceObject.useEffect)(() => {
+    inputRef?.current?.focus();
+  }, [inputRef]);
+  function handleChange(event) {
+    const {
+      value
+    } = event.target;
+    setUserInput(value);
+
+    // if the user input contains less than three characters and suggestedLocations is not an empty array,
+    // reset suggestedLocations to [] so there aren't incorrect items in the datalist
+    if (value.length < 3 && suggestedLocations.length) {
+      dispatch(actionCreators.AlsoToMain({
+        type: actionTypes.WEATHER_LOCATION_SUGGESTIONS_UPDATE,
+        data: []
+      }));
+    }
+    // find match in suggestedLocation array
+    const match = suggestedLocations?.find(({
+      key
+    }) => key === value);
+    if (match) {
+      setSelectedLocation(match);
+      setUserInput(`${match.localized_name}, ${match.administrative_area.localized_name}`);
+    } else if (value.length >= 3 && !match) {
+      dispatch(actionCreators.AlsoToMain({
+        type: actionTypes.WEATHER_LOCATION_SEARCH_UPDATE,
+        data: value
+      }));
+    }
+  }
+  function handleCloseSearch() {
+    dispatch(actionCreators.BroadcastToContent({
+      type: actionTypes.WEATHER_SEARCH_ACTIVE,
+      data: false
+    }));
+    setUserInput("");
+  }
+  function handleKeyDown(e) {
+    if (e.key === "Escape") {
+      handleCloseSearch();
+    }
+  }
+  return /*#__PURE__*/external_React_default().createElement("div", {
+    className: `${outerClassName} location-search`
+  }, /*#__PURE__*/external_React_default().createElement("div", {
+    className: "location-input-wrapper"
+  }, /*#__PURE__*/external_React_default().createElement("div", {
+    className: "search-icon"
+  }), /*#__PURE__*/external_React_default().createElement("input", {
+    ref: inputRef,
+    list: "merino-location-list",
+    type: "text",
+    "data-l10n-id": "newtab-weather-change-location-search-input-placeholder",
+    onChange: handleChange,
+    value: userInput,
+    onKeyDown: handleKeyDown
+  }), /*#__PURE__*/external_React_default().createElement("moz-button", {
+    class: "close-icon",
+    type: "icon ghost",
+    size: "small",
+    iconSrc: "chrome://global/skin/icons/close.svg",
+    onClick: handleCloseSearch
+  }), /*#__PURE__*/external_React_default().createElement("datalist", {
+    id: "merino-location-list"
+  }, (suggestedLocations || []).map(merinoLocation => /*#__PURE__*/external_React_default().createElement("option", {
+    value: merinoLocation.key,
+    key: merinoLocation.key
+  }, merinoLocation.localized_name, ",", " ", merinoLocation.administrative_area.localized_name)))));
+}
+
 ;// CONCATENATED MODULE: ./content-src/components/Widgets/WeatherForecast/WeatherForecast.jsx
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -13253,11 +13001,40 @@ function EditableTimerFields({
 
 
 
+
+const WeatherForecast_USER_ACTION_TYPES = {
+  CHANGE_LOCATION: "change_location",
+  DETECT_LOCATION: "detect_location",
+  CHANGE_TEMP_UNIT: "change_temperature_units",
+  CHANGE_DISPLAY: "change_weather_display",
+  LEARN_MORE: "learn_more",
+  PROVIDER_LINK_CLICK: "provider_link_click"
+};
 function WeatherForecast({
-  dispatch
+  dispatch,
+  isMaximized,
+  widgetsMayBeMaximized
 }) {
   const prefs = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.Prefs.values);
   const weatherData = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.Weather);
+  const impressionFired = (0,external_React_namespaceObject.useRef)(false);
+  const isSmallSize = !isMaximized && widgetsMayBeMaximized;
+  const widgetSize = isSmallSize ? "small" : "medium";
+  const handleIntersection = (0,external_React_namespaceObject.useCallback)(() => {
+    if (impressionFired.current) {
+      return;
+    }
+    impressionFired.current = true;
+    const telemetryData = {
+      widget_name: "weather",
+      widget_size: widgetsMayBeMaximized ? widgetSize : "medium"
+    };
+    dispatch(actionCreators.AlsoToMain({
+      type: actionTypes.WIDGETS_IMPRESSION,
+      data: telemetryData
+    }));
+  }, [dispatch, widgetSize, widgetsMayBeMaximized]);
+  const forecastRef = useIntersectionObserver(handleIntersection);
   const WEATHER_SUGGESTION = weatherData.suggestions?.[0];
   const nimbusWeatherDisplay = prefs.trainhopConfig?.weather?.display;
   const showDetailedView = nimbusWeatherDisplay === "detailed" || prefs["weather.display"] === "detailed";
@@ -13288,55 +13065,143 @@ function WeatherForecast({
   const {
     searchActive
   } = weatherData;
-  const maximizedWidgets = prefs["widgets.maximized"];
   function handleChangeLocation() {
-    dispatch(actionCreators.BroadcastToContent({
-      type: actionTypes.WEATHER_SEARCH_ACTIVE,
-      data: true
-    }));
+    (0,external_ReactRedux_namespaceObject.batch)(() => {
+      dispatch(actionCreators.BroadcastToContent({
+        type: actionTypes.WEATHER_SEARCH_ACTIVE,
+        data: true
+      }));
+      const telemetryData = {
+        widget_name: "weather",
+        widget_source: "context_menu",
+        user_action: WeatherForecast_USER_ACTION_TYPES.CHANGE_LOCATION,
+        widget_size: widgetsMayBeMaximized ? widgetSize : "medium"
+      };
+      dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.WIDGETS_USER_EVENT,
+        data: telemetryData
+      }));
+    });
   }
   function handleDetectLocation() {
-    dispatch(actionCreators.AlsoToMain({
-      type: actionTypes.WEATHER_USER_OPT_IN_LOCATION
-    }));
+    (0,external_ReactRedux_namespaceObject.batch)(() => {
+      dispatch(actionCreators.AlsoToMain({
+        type: actionTypes.WEATHER_USER_OPT_IN_LOCATION
+      }));
+      const telemetryData = {
+        widget_name: "weather",
+        widget_source: "context_menu",
+        user_action: WeatherForecast_USER_ACTION_TYPES.DETECT_LOCATION,
+        widget_size: widgetsMayBeMaximized ? widgetSize : "medium"
+      };
+      dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.WIDGETS_USER_EVENT,
+        data: telemetryData
+      }));
+    });
   }
   function handleChangeTempUnit(unit) {
-    dispatch(actionCreators.OnlyToMain({
-      type: actionTypes.SET_PREF,
-      data: {
-        name: "weather.temperatureUnits",
-        value: unit
-      }
-    }));
+    (0,external_ReactRedux_namespaceObject.batch)(() => {
+      dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.SET_PREF,
+        data: {
+          name: "weather.temperatureUnits",
+          value: unit
+        }
+      }));
+      const telemetryData = {
+        widget_name: "weather",
+        widget_source: "context_menu",
+        user_action: WeatherForecast_USER_ACTION_TYPES.CHANGE_TEMP_UNIT,
+        widget_size: widgetsMayBeMaximized ? widgetSize : "medium",
+        action_value: unit
+      };
+      dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.WIDGETS_USER_EVENT,
+        data: telemetryData
+      }));
+    });
   }
   function handleChangeDisplay(display) {
-    dispatch(actionCreators.OnlyToMain({
-      type: actionTypes.SET_PREF,
-      data: {
-        name: "weather.display",
-        value: display
-      }
-    }));
+    (0,external_ReactRedux_namespaceObject.batch)(() => {
+      dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.SET_PREF,
+        data: {
+          name: "weather.display",
+          value: display
+        }
+      }));
+      const telemetryData = {
+        widget_name: "weather",
+        widget_source: "context_menu",
+        user_action: WeatherForecast_USER_ACTION_TYPES.CHANGE_DISPLAY,
+        action_value: "switch_to_mini_widget",
+        widget_size: widgetsMayBeMaximized ? widgetSize : "medium"
+      };
+      dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.WIDGETS_USER_EVENT,
+        data: telemetryData
+      }));
+    });
   }
   function handleHideWeather() {
-    dispatch(actionCreators.OnlyToMain({
-      type: actionTypes.SET_PREF,
-      data: {
-        name: "showWeather",
-        value: false
-      }
-    }));
+    (0,external_ReactRedux_namespaceObject.batch)(() => {
+      dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.SET_PREF,
+        data: {
+          name: "showWeather",
+          value: false
+        }
+      }));
+      const telemetryData = {
+        widget_name: "weather",
+        widget_source: "context_menu",
+        enabled: false,
+        widget_size: widgetsMayBeMaximized ? widgetSize : "medium"
+      };
+      dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.WIDGETS_ENABLED,
+        data: telemetryData
+      }));
+    });
   }
   function handleLearnMore() {
+    (0,external_ReactRedux_namespaceObject.batch)(() => {
+      dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.OPEN_LINK,
+        data: {
+          url: "https://support.mozilla.org/kb/firefox-new-tab-widgets"
+        }
+      }));
+      const telemetryData = {
+        widget_name: "weather",
+        widget_source: "context_menu",
+        user_action: WeatherForecast_USER_ACTION_TYPES.LEARN_MORE,
+        widget_size: widgetsMayBeMaximized ? widgetSize : "medium"
+      };
+      dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.WIDGETS_USER_EVENT,
+        data: telemetryData
+      }));
+    });
+  }
+  function handleProviderLinkClick() {
+    const telemetryData = {
+      widget_name: "weather",
+      widget_source: "widget",
+      user_action: WeatherForecast_USER_ACTION_TYPES.PROVIDER_LINK_CLICK,
+      widget_size: widgetsMayBeMaximized ? widgetSize : "medium"
+    };
     dispatch(actionCreators.OnlyToMain({
-      type: actionTypes.OPEN_LINK,
-      data: {
-        url: "https://support.mozilla.org/kb/firefox-new-tab-widgets"
-      }
+      type: actionTypes.WIDGETS_USER_EVENT,
+      data: telemetryData
     }));
   }
   return /*#__PURE__*/external_React_default().createElement("article", {
-    className: `weather-forecast-widget${maximizedWidgets ? "" : " small-widget"}`
+    className: `weather-forecast-widget${isSmallSize ? " small-widget" : ""}`,
+    ref: el => {
+      forecastRef.current = [el];
+    }
   }, /*#__PURE__*/external_React_default().createElement("div", {
     className: "city-wrapper"
   }, /*#__PURE__*/external_React_default().createElement("div", {
@@ -13350,7 +13215,7 @@ function WeatherForecast({
     iconSrc: "chrome://global/skin/icons/more.svg",
     menuId: "weather-forecast-context-menu",
     type: "ghost",
-    size: `${maximizedWidgets ? "default" : "small"}`
+    size: `${isSmallSize ? "small" : "default"}`
   }), /*#__PURE__*/external_React_default().createElement("panel-list", {
     id: "weather-forecast-context-menu"
   }, prefs["weather.locationSearchEnabled"] && /*#__PURE__*/external_React_default().createElement("panel-item", {
@@ -13377,7 +13242,7 @@ function WeatherForecast({
   }), /*#__PURE__*/external_React_default().createElement("panel-item", {
     "data-l10n-id": "newtab-weather-menu-learn-more",
     onClick: handleLearnMore
-  })))), maximizedWidgets && /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, /*#__PURE__*/external_React_default().createElement("div", {
+  })))), !isSmallSize && /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, /*#__PURE__*/external_React_default().createElement("div", {
     className: "current-weather-wrapper"
   }, /*#__PURE__*/external_React_default().createElement("div", {
     className: "weather-icon-column"
@@ -13401,7 +13266,7 @@ function WeatherForecast({
     className: "arrow-icon arrow-down"
   }), WEATHER_SUGGESTION.forecast.low[prefs["weather.temperatureUnits"]], "\xB0"))), /*#__PURE__*/external_React_default().createElement("hr", null)), /*#__PURE__*/external_React_default().createElement("div", {
     className: "forecast-row"
-  }, maximizedWidgets && /*#__PURE__*/external_React_default().createElement("p", {
+  }, !isSmallSize && /*#__PURE__*/external_React_default().createElement("p", {
     className: "today-forecast",
     "data-l10n-id": "newtab-weather-todays-forecast"
   }), /*#__PURE__*/external_React_default().createElement("ul", {
@@ -13419,9 +13284,10 @@ function WeatherForecast({
   }), /*#__PURE__*/external_React_default().createElement("span", null, "7:00")))), /*#__PURE__*/external_React_default().createElement("div", {
     className: "forecast-footer"
   }, /*#__PURE__*/external_React_default().createElement("a", {
-    href: "#",
+    href: WEATHER_SUGGESTION.forecast.url,
     className: "full-forecast",
-    "data-l10n-id": "newtab-weather-see-full-forecast"
+    "data-l10n-id": "newtab-weather-see-full-forecast",
+    onClick: handleProviderLinkClick
   }), /*#__PURE__*/external_React_default().createElement("span", {
     className: "sponsored-text",
     "data-l10n-id": "newtab-weather-sponsored",
@@ -13483,6 +13349,10 @@ function WidgetsFeatureHighlight({
 
 
 
+const CONTAINER_ACTION_TYPES = {
+  HIDE_ALL: "hide_all",
+  CHANGE_SIZE_ALL: "change_size_all"
+};
 const PREF_WIDGETS_LISTS_ENABLED = "widgets.lists.enabled";
 const PREF_WIDGETS_SYSTEM_LISTS_ENABLED = "widgets.system.lists.enabled";
 const PREF_WIDGETS_TIMER_ENABLED = "widgets.focusTimer.enabled";
@@ -13526,6 +13396,7 @@ function Widgets() {
   const timerType = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.TimerWidget.timerType);
   const timerData = (0,external_ReactRedux_namespaceObject.useSelector)(state => state.TimerWidget);
   const isMaximized = prefs[PREF_WIDGETS_MAXIMIZED];
+  const widgetsMayBeMaximized = prefs[PREF_WIDGETS_SYSTEM_MAXIMIZED];
   const dispatch = (0,external_ReactRedux_namespaceObject.useDispatch)();
   const nimbusListsEnabled = prefs.widgetsConfig?.listsEnabled;
   const nimbusTimerEnabled = prefs.widgetsConfig?.timerEnabled;
@@ -13536,6 +13407,10 @@ function Widgets() {
   const listsEnabled = (nimbusListsTrainhopEnabled || nimbusListsEnabled || prefs[PREF_WIDGETS_SYSTEM_LISTS_ENABLED]) && prefs[PREF_WIDGETS_LISTS_ENABLED];
   const timerEnabled = (nimbusTimerTrainhopEnabled || nimbusTimerEnabled || prefs[PREF_WIDGETS_SYSTEM_TIMER_ENABLED]) && prefs[PREF_WIDGETS_TIMER_ENABLED];
   const weatherForecastEnabled = nimbusWeatherForecastTrainhopEnabled || prefs[PREF_WIDGETS_SYSTEM_WEATHER_FORECAST_ENABLED];
+
+  // Widget size is "small" only when maximize feature is enabled and widgets
+  // are currently minimized. Otherwise defaults to "medium".
+  const widgetSize = widgetsMayBeMaximized && !isMaximized ? "small" : "medium";
 
   // track previous timerEnabled state to detect when it becomes disabled
   const prevTimerEnabledRef = (0,external_React_namespaceObject.useRef)(timerEnabled);
@@ -13554,33 +13429,79 @@ function Widgets() {
     prevTimerEnabledRef.current = isTimerEnabled;
   }, [timerEnabled, timerData, dispatch, timerType]);
 
-  // Sends a dispatch to disable all widgets
-  function handleHideAllWidgetsClick(e) {
-    e.preventDefault();
+  // Bug 2013978 - Replace hardcoded widget list with programmatic registry
+  function hideAllWidgets() {
     (0,external_ReactRedux_namespaceObject.batch)(() => {
       dispatch(actionCreators.SetPref(PREF_WIDGETS_LISTS_ENABLED, false));
       dispatch(actionCreators.SetPref(PREF_WIDGETS_TIMER_ENABLED, false));
+      const telemetryData = {
+        action_type: CONTAINER_ACTION_TYPES.HIDE_ALL,
+        widget_size: widgetSize
+      };
+      dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.WIDGETS_CONTAINER_ACTION,
+        data: telemetryData
+      }));
+
+      // Dispatch WIDGETS_ENABLED for each widget being hidden
+      if (listsEnabled) {
+        dispatch(actionCreators.OnlyToMain({
+          type: actionTypes.WIDGETS_ENABLED,
+          data: {
+            widget_name: "lists",
+            widget_source: "widget",
+            enabled: false,
+            widget_size: widgetSize
+          }
+        }));
+      }
+      if (timerEnabled) {
+        dispatch(actionCreators.OnlyToMain({
+          type: actionTypes.WIDGETS_ENABLED,
+          data: {
+            widget_name: "focus_timer",
+            widget_source: "widget",
+            enabled: false,
+            widget_size: widgetSize
+          }
+        }));
+      }
     });
+  }
+  function handleHideAllWidgetsClick(e) {
+    e.preventDefault();
+    hideAllWidgets();
   }
   function handleHideAllWidgetsKeyDown(e) {
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
-      (0,external_ReactRedux_namespaceObject.batch)(() => {
-        dispatch(actionCreators.SetPref(PREF_WIDGETS_LISTS_ENABLED, false));
-        dispatch(actionCreators.SetPref(PREF_WIDGETS_TIMER_ENABLED, false));
-      });
+      hideAllWidgets();
     }
   }
-
-  // Toggles the maximized state of widgets
+  function toggleMaximize() {
+    const newMaximizedState = !isMaximized;
+    const newWidgetSize = widgetsMayBeMaximized && !newMaximizedState ? "small" : "medium";
+    (0,external_ReactRedux_namespaceObject.batch)(() => {
+      dispatch(actionCreators.SetPref(PREF_WIDGETS_MAXIMIZED, newMaximizedState));
+      const telemetryData = {
+        action_type: CONTAINER_ACTION_TYPES.CHANGE_SIZE_ALL,
+        action_value: newMaximizedState ? "maximize_widgets" : "minimize_widgets",
+        widget_size: newWidgetSize
+      };
+      dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.WIDGETS_CONTAINER_ACTION,
+        data: telemetryData
+      }));
+    });
+  }
   function handleToggleMaximizeClick(e) {
     e.preventDefault();
-    dispatch(actionCreators.SetPref(PREF_WIDGETS_MAXIMIZED, !isMaximized));
+    toggleMaximize();
   }
   function handleToggleMaximizeKeyDown(e) {
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
-      dispatch(actionCreators.SetPref(PREF_WIDGETS_MAXIMIZED, !isMaximized));
+      toggleMaximize();
     }
   }
   function handleUserInteraction(widgetName) {
@@ -13625,15 +13546,18 @@ function Widgets() {
   }, listsEnabled && /*#__PURE__*/external_React_default().createElement(Lists, {
     dispatch: dispatch,
     handleUserInteraction: handleUserInteraction,
-    isMaximized: isMaximized
+    isMaximized: isMaximized,
+    widgetsMayBeMaximized: widgetsMayBeMaximized
   }), timerEnabled && /*#__PURE__*/external_React_default().createElement(FocusTimer, {
     dispatch: dispatch,
     handleUserInteraction: handleUserInteraction,
-    isMaximized: isMaximized
+    isMaximized: isMaximized,
+    widgetsMayBeMaximized: widgetsMayBeMaximized
   }), weatherForecastEnabled && /*#__PURE__*/external_React_default().createElement(WeatherForecast, {
     dispatch: dispatch,
     handleUserInteraction: handleUserInteraction,
-    isMaximized: isMaximized
+    isMaximized: isMaximized,
+    widgetsMayBeMaximized: widgetsMayBeMaximized
   }))), messageData?.content?.messageType === "WidgetMessage" && /*#__PURE__*/external_React_default().createElement(MessageWrapper, {
     dispatch: dispatch
   }, /*#__PURE__*/external_React_default().createElement(WidgetsFeatureHighlight, {
@@ -14715,7 +14639,7 @@ class _WallpaperCategories extends (external_React_default()).PureComponent {
       }
       let style = {};
       if (thumbnail?.wallpaperUrl) {
-        style.backgroundImage = `url(${thumbnail.wallpaperUrl})`;
+        style.backgroundImage = `url(${thumbnail?.thumbnail || thumbnail?.wallpaperUrl})`;
         style.backgroundPosition = thumbnail.background_position || "center";
       } else {
         style.backgroundColor = thumbnail?.solid_color || "";
@@ -14800,11 +14724,12 @@ class _WallpaperCategories extends (external_React_default()).PureComponent {
       solid_color,
       theme,
       title,
+      thumbnail,
       wallpaperUrl
     }, index) => {
       let style = {};
       if (wallpaperUrl) {
-        style.backgroundImage = `url(${wallpaperUrl})`;
+        style.backgroundImage = `url(${thumbnail || wallpaperUrl})`;
         style.backgroundPosition = background_position || "center";
       } else {
         style.backgroundColor = solid_color || "";
@@ -14852,6 +14777,7 @@ function ContentSection_extends() { return ContentSection_extends = Object.assig
 
 
 
+
 class ContentSection extends (external_React_default()).PureComponent {
   constructor(props) {
     super(props);
@@ -14862,14 +14788,58 @@ class ContentSection extends (external_React_default()).PureComponent {
     this.pocketDrawerRef = /*#__PURE__*/external_React_default().createRef();
   }
   inputUserEvent(eventSource, eventValue) {
-    this.props.dispatch(actionCreators.UserEvent({
-      event: "PREF_CHANGED",
-      source: eventSource,
-      value: {
-        status: eventValue,
-        menu_source: "CUSTOMIZE_MENU"
+    (0,external_ReactRedux_namespaceObject.batch)(() => {
+      this.props.dispatch(actionCreators.UserEvent({
+        event: "PREF_CHANGED",
+        source: eventSource,
+        value: {
+          status: eventValue,
+          menu_source: "CUSTOMIZE_MENU"
+        }
+      }));
+
+      // Dispatch unified widget telemetry for widget toggles.
+      // Map the event source from the customize panel to the widget name
+      // for the unified telemetry event.
+      let widgetName;
+      switch (eventSource) {
+        case "WEATHER":
+          widgetName = "weather";
+          break;
+        case "WIDGET_LISTS":
+          widgetName = "lists";
+          break;
+        case "WIDGET_TIMER":
+          widgetName = "focus_timer";
+          break;
       }
-    }));
+      if (widgetName) {
+        const {
+          widgetsMaximized,
+          widgetsMayBeMaximized
+        } = this.props.enabledWidgets;
+        let widgetSize;
+        if (widgetName === "weather") {
+          if (this.props.mayHaveWeatherForecast && this.props.weatherDisplay === "detailed") {
+            widgetSize = widgetsMayBeMaximized && !widgetsMaximized ? "small" : "medium";
+          } else {
+            widgetSize = "mini";
+          }
+        } else {
+          widgetSize = widgetsMayBeMaximized && !widgetsMaximized ? "small" : "medium";
+        }
+        const data = {
+          widget_name: widgetName,
+          widget_source: "customize_panel",
+          enabled: eventValue,
+          widget_size: widgetSize
+        };
+        this.props.dispatch(actionCreators.OnlyToMain({
+          type: actionTypes.WIDGETS_ENABLED,
+          data
+        }));
+      }
+    });
   }
   onPreferenceSelect(e) {
     // eventSource: WEATHER | TOP_SITES | TOP_STORIES | WIDGET_LISTS | WIDGET_TIMER
@@ -14982,7 +14952,7 @@ class ContentSection extends (external_React_default()).PureComponent {
       pressed: weatherEnabled || null,
       onToggle: this.onPreferenceSelect,
       "data-preference": "showWeather",
-      "data-eventSource": "WEATHER",
+      "data-event-source": "WEATHER",
       "data-l10n-id": "newtab-custom-widget-weather-toggle"
     })), mayHaveListsWidget && /*#__PURE__*/external_React_default().createElement("div", {
       id: "lists-widget-section",
@@ -14992,7 +14962,7 @@ class ContentSection extends (external_React_default()).PureComponent {
       pressed: listsEnabled || null,
       onToggle: this.onPreferenceSelect,
       "data-preference": "widgets.lists.enabled",
-      "data-eventSource": "WIDGET_LISTS",
+      "data-event-source": "WIDGET_LISTS",
       "data-l10n-id": "newtab-custom-widget-lists-toggle"
     })), mayHaveTimerWidget && /*#__PURE__*/external_React_default().createElement("div", {
       id: "timer-widget-section",
@@ -15002,7 +14972,7 @@ class ContentSection extends (external_React_default()).PureComponent {
       pressed: timerEnabled || null,
       onToggle: this.onPreferenceSelect,
       "data-preference": "widgets.focusTimer.enabled",
-      "data-eventSource": "WIDGET_TIMER",
+      "data-event-source": "WIDGET_TIMER",
       "data-l10n-id": "newtab-custom-widget-timer-toggle"
     })), /*#__PURE__*/external_React_default().createElement("span", {
       className: "divider",
@@ -15017,7 +14987,7 @@ class ContentSection extends (external_React_default()).PureComponent {
       pressed: weatherEnabled || null,
       onToggle: this.onPreferenceSelect,
       "data-preference": "showWeather",
-      "data-eventSource": "WEATHER",
+      "data-event-source": "WEATHER",
       "data-l10n-id": "newtab-custom-weather-toggle"
     })), /*#__PURE__*/external_React_default().createElement("div", {
       id: "shortcuts-section",
@@ -15027,7 +14997,7 @@ class ContentSection extends (external_React_default()).PureComponent {
       pressed: topSitesEnabled || null,
       onToggle: this.onPreferenceSelect,
       "data-preference": "feeds.topsites",
-      "data-eventSource": "TOP_SITES",
+      "data-event-source": "TOP_SITES",
       "data-l10n-id": "newtab-custom-shortcuts-toggle"
     }, /*#__PURE__*/external_React_default().createElement("div", {
       slot: "nested"
@@ -15070,7 +15040,7 @@ class ContentSection extends (external_React_default()).PureComponent {
       onToggle: this.onPreferenceSelect,
       "aria-describedby": "custom-pocket-subtitle",
       "data-preference": "feeds.section.topstories",
-      "data-eventSource": "TOP_STORIES"
+      "data-event-source": "TOP_STORIES"
     }, mayHaveInferredPersonalization ? {
       "data-l10n-id": "newtab-custom-stories-personalized-toggle"
     } : {
@@ -15093,7 +15063,7 @@ class ContentSection extends (external_React_default()).PureComponent {
       type: "checkbox",
       onChange: this.onPreferenceSelect,
       "data-preference": "discoverystream.sections.personalization.inferred.user.enabled",
-      "data-eventSource": "INFERRED_PERSONALIZATION"
+      "data-event-source": "INFERRED_PERSONALIZATION"
     }), /*#__PURE__*/external_React_default().createElement("label", {
       className: "customize-menu-checkbox-label",
       htmlFor: "inferred-personalization",
@@ -15214,6 +15184,8 @@ class _CustomizeMenu extends (external_React_default()).PureComponent {
       mayHaveInferredPersonalization: this.props.mayHaveInferredPersonalization,
       mayHaveWeather: this.props.mayHaveWeather,
       mayHaveWidgets: this.props.mayHaveWidgets,
+      mayHaveWeatherForecast: this.props.mayHaveWeatherForecast,
+      weatherDisplay: this.props.weatherDisplay,
       mayHaveTimerWidget: this.props.mayHaveTimerWidget,
       mayHaveListsWidget: this.props.mayHaveListsWidget,
       dispatch: this.props.dispatch,
@@ -15540,6 +15512,621 @@ class _Search extends (external_React_default()).PureComponent {
 const Search_Search = (0,external_ReactRedux_namespaceObject.connect)(state => ({
   Prefs: state.Prefs
 }))(_Search);
+;// CONCATENATED MODULE: ./content-src/components/Weather/Weather.jsx
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+
+
+
+
+
+const Weather_USER_ACTION_TYPES = {
+  CHANGE_DISPLAY: "change_weather_display",
+  CHANGE_LOCATION: "change_location",
+  CHANGE_TEMP_UNIT: "change_temperature_units",
+  DETECT_LOCATION: "detect_location",
+  LEARN_MORE: "learn_more",
+  OPT_IN_ACCEPTED: "opt_in_accepted",
+  PROVIDER_LINK_CLICK: "provider_link_click"
+};
+const Weather_VISIBLE = "visible";
+const Weather_VISIBILITY_CHANGE_EVENT = "visibilitychange";
+const PREF_SYSTEM_SHOW_WEATHER = "system.showWeather";
+function WeatherPlaceholder() {
+  const [isSeen, setIsSeen] = (0,external_React_namespaceObject.useState)(false);
+
+  // We are setting up a visibility and intersection event
+  // so animations don't happen with headless automation.
+  // The animations causes tests to fail beause they never stop,
+  // and many tests wait until everything has stopped before passing.
+  const ref = useIntersectionObserver(() => setIsSeen(true), 1);
+  const isSeenClassName = isSeen ? `placeholder-seen` : ``;
+  return /*#__PURE__*/external_React_default().createElement("div", {
+    className: `weather weather-placeholder ${isSeenClassName}`,
+    ref: el => {
+      ref.current = [el];
+    }
+  }, /*#__PURE__*/external_React_default().createElement("div", {
+    className: "placeholder-image placeholder-fill"
+  }), /*#__PURE__*/external_React_default().createElement("div", {
+    className: "placeholder-context"
+  }, /*#__PURE__*/external_React_default().createElement("div", {
+    className: "placeholder-header placeholder-fill"
+  }), /*#__PURE__*/external_React_default().createElement("div", {
+    className: "placeholder-description placeholder-fill"
+  })));
+}
+class _Weather extends (external_React_default()).PureComponent {
+  constructor(props) {
+    super(props);
+    this.state = {
+      url: "https://example.com",
+      impressionSeen: false,
+      errorSeen: false
+    };
+    this.setImpressionRef = element => {
+      this.impressionElement = element;
+    };
+    this.setErrorRef = element => {
+      this.errorElement = element;
+    };
+    this.setPanelRef = element => {
+      this.panelElement = element;
+    };
+    this.onProviderClick = this.onProviderClick.bind(this);
+    this.onMenuButtonClick = this.onMenuButtonClick.bind(this);
+    this.onMenuButtonKeyDown = this.onMenuButtonKeyDown.bind(this);
+  }
+  componentDidMount() {
+    const {
+      props
+    } = this;
+    if (!props.dispatch) {
+      return;
+    }
+    if (props.document.visibilityState === Weather_VISIBLE) {
+      // Setup the impression observer once the page is visible.
+      this.setImpressionObservers();
+    } else {
+      // We should only ever send the latest impression stats ping, so remove any
+      // older listeners.
+      if (this._onVisibilityChange) {
+        props.document.removeEventListener(Weather_VISIBILITY_CHANGE_EVENT, this._onVisibilityChange);
+      }
+      this._onVisibilityChange = () => {
+        if (props.document.visibilityState === Weather_VISIBLE) {
+          // Setup the impression observer once the page is visible.
+          this.setImpressionObservers();
+          props.document.removeEventListener(Weather_VISIBILITY_CHANGE_EVENT, this._onVisibilityChange);
+        }
+      };
+      props.document.addEventListener(Weather_VISIBILITY_CHANGE_EVENT, this._onVisibilityChange);
+    }
+  }
+  componentWillUnmount() {
+    // Remove observers on unmount
+    if (this.observer && this.impressionElement) {
+      this.observer.unobserve(this.impressionElement);
+    }
+    if (this.observer && this.errorElement) {
+      this.observer.unobserve(this.errorElement);
+    }
+    if (this._onVisibilityChange) {
+      this.props.document.removeEventListener(Weather_VISIBILITY_CHANGE_EVENT, this._onVisibilityChange);
+    }
+  }
+  setImpressionObservers() {
+    if (this.impressionElement) {
+      this.observer = new IntersectionObserver(this.onImpression.bind(this));
+      this.observer.observe(this.impressionElement);
+    }
+    if (this.errorElement) {
+      this.observer = new IntersectionObserver(this.onError.bind(this));
+      this.observer.observe(this.errorElement);
+    }
+  }
+  onImpression(entries) {
+    if (this.state) {
+      const entry = entries.find(e => e.isIntersecting);
+      if (entry) {
+        if (this.impressionElement) {
+          this.observer.unobserve(this.impressionElement);
+        }
+        (0,external_ReactRedux_namespaceObject.batch)(() => {
+          // Old event (keep for backward compatibility)
+          this.props.dispatch(actionCreators.OnlyToMain({
+            type: actionTypes.WEATHER_IMPRESSION
+          }));
+
+          // New unified event
+          this.props.dispatch(actionCreators.OnlyToMain({
+            type: actionTypes.WIDGETS_IMPRESSION,
+            data: {
+              widget_name: "weather",
+              widget_size: "mini"
+            }
+          }));
+        });
+
+        // Stop observing since element has been seen
+        this.setState({
+          impressionSeen: true
+        });
+      }
+    }
+  }
+  onError(entries) {
+    if (this.state) {
+      const entry = entries.find(e => e.isIntersecting);
+      if (entry) {
+        if (this.errorElement) {
+          this.observer.unobserve(this.errorElement);
+        }
+        (0,external_ReactRedux_namespaceObject.batch)(() => {
+          // Old event (keep for backward compatibility)
+          this.props.dispatch(actionCreators.OnlyToMain({
+            type: actionTypes.WEATHER_LOAD_ERROR
+          }));
+
+          // New unified event
+          this.props.dispatch(actionCreators.OnlyToMain({
+            type: actionTypes.WIDGETS_ERROR,
+            data: {
+              widget_name: "weather",
+              widget_size: "mini",
+              error_type: "load_error"
+            }
+          }));
+        });
+
+        // Stop observing since element has been seen
+        this.setState({
+          errorSeen: true
+        });
+      }
+    }
+  }
+  onProviderClick() {
+    (0,external_ReactRedux_namespaceObject.batch)(() => {
+      // Old event (keep for backward compatibility)
+      this.props.dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.WEATHER_OPEN_PROVIDER_URL,
+        data: {
+          source: "WEATHER"
+        }
+      }));
+
+      // New unified event
+      this.props.dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.WIDGETS_USER_EVENT,
+        data: {
+          widget_name: "weather",
+          widget_source: "widget",
+          user_action: Weather_USER_ACTION_TYPES.PROVIDER_LINK_CLICK,
+          widget_size: "mini"
+        }
+      }));
+    });
+  }
+  handleChangeLocation = () => {
+    if (this.panelElement) {
+      this.panelElement.hide();
+    }
+    (0,external_ReactRedux_namespaceObject.batch)(() => {
+      this.props.dispatch(actionCreators.BroadcastToContent({
+        type: actionTypes.WEATHER_SEARCH_ACTIVE,
+        data: true
+      }));
+      this.props.dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.WIDGETS_USER_EVENT,
+        data: {
+          widget_name: "weather",
+          widget_source: "context_menu",
+          user_action: Weather_USER_ACTION_TYPES.CHANGE_LOCATION,
+          widget_size: "mini"
+        }
+      }));
+    });
+  };
+  handleDetectLocation = () => {
+    if (this.panelElement) {
+      this.panelElement.hide();
+    }
+    (0,external_ReactRedux_namespaceObject.batch)(() => {
+      // Old event (keep for backward compatibility)
+      this.props.dispatch(actionCreators.AlsoToMain({
+        type: actionTypes.WEATHER_USER_OPT_IN_LOCATION
+      }));
+
+      // New unified event
+      this.props.dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.WIDGETS_USER_EVENT,
+        data: {
+          widget_name: "weather",
+          widget_source: "context_menu",
+          user_action: Weather_USER_ACTION_TYPES.DETECT_LOCATION,
+          widget_size: "mini"
+        }
+      }));
+    });
+  };
+  handleChangeTempUnit = value => {
+    if (this.panelElement) {
+      this.panelElement.hide();
+    }
+    (0,external_ReactRedux_namespaceObject.batch)(() => {
+      this.props.dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.SET_PREF,
+        data: {
+          name: "weather.temperatureUnits",
+          value
+        }
+      }));
+      this.props.dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.WIDGETS_USER_EVENT,
+        data: {
+          widget_name: "weather",
+          widget_source: "context_menu",
+          user_action: Weather_USER_ACTION_TYPES.CHANGE_TEMP_UNIT,
+          widget_size: "mini",
+          action_value: value
+        }
+      }));
+    });
+  };
+  handleChangeDisplay = value => {
+    const weatherForecastEnabled = this.props.Prefs.values["widgets.system.weatherForecast.enabled"];
+    if (this.panelElement) {
+      this.panelElement.hide();
+    }
+    (0,external_ReactRedux_namespaceObject.batch)(() => {
+      this.props.dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.SET_PREF,
+        data: {
+          name: "weather.display",
+          value
+        }
+      }));
+      this.props.dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.WIDGETS_USER_EVENT,
+        data: {
+          widget_name: "weather",
+          widget_source: "context_menu",
+          user_action: Weather_USER_ACTION_TYPES.CHANGE_DISPLAY,
+          widget_size: "mini",
+          action_value: weatherForecastEnabled ? "switch_to_forecast_widget" : value
+        }
+      }));
+    });
+  };
+  handleHideWeather = () => {
+    if (this.panelElement) {
+      this.panelElement.hide();
+    }
+    (0,external_ReactRedux_namespaceObject.batch)(() => {
+      this.props.dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.SET_PREF,
+        data: {
+          name: "showWeather",
+          value: false
+        }
+      }));
+      this.props.dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.WIDGETS_ENABLED,
+        data: {
+          widget_name: "weather",
+          widget_source: "context_menu",
+          enabled: false,
+          widget_size: "mini"
+        }
+      }));
+    });
+  };
+  handleLearnMore = () => {
+    if (this.panelElement) {
+      this.panelElement.hide();
+    }
+    (0,external_ReactRedux_namespaceObject.batch)(() => {
+      this.props.dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.OPEN_LINK,
+        data: {
+          url: "https://support.mozilla.org/kb/customize-items-on-firefox-new-tab-page"
+        }
+      }));
+      this.props.dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.WIDGETS_USER_EVENT,
+        data: {
+          widget_name: "weather",
+          widget_source: "context_menu",
+          user_action: Weather_USER_ACTION_TYPES.LEARN_MORE,
+          widget_size: "mini"
+        }
+      }));
+    });
+  };
+  onMenuButtonClick(e) {
+    e.preventDefault();
+    if (this.panelElement) {
+      this.panelElement.toggle(e.currentTarget);
+    }
+  }
+  onMenuButtonKeyDown(e) {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      if (this.panelElement) {
+        this.panelElement.toggle(e.currentTarget);
+      }
+    } else if (e.key === "Escape") {
+      if (this.panelElement) {
+        this.panelElement.hide();
+      }
+    }
+  }
+  handleRejectOptIn = () => {
+    (0,external_ReactRedux_namespaceObject.batch)(() => {
+      this.props.dispatch(actionCreators.SetPref("weather.optInAccepted", false));
+      this.props.dispatch(actionCreators.SetPref("weather.optInDisplayed", false));
+
+      // Old event (keep for backward compatibility)
+      this.props.dispatch(actionCreators.AlsoToMain({
+        type: actionTypes.WEATHER_OPT_IN_PROMPT_SELECTION,
+        data: "rejected opt-in"
+      }));
+
+      // New unified event
+      this.props.dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.WIDGETS_USER_EVENT,
+        data: {
+          widget_name: "weather",
+          widget_source: "widget",
+          user_action: Weather_USER_ACTION_TYPES.OPT_IN_ACCEPTED,
+          widget_size: "mini",
+          action_value: false
+        }
+      }));
+    });
+  };
+  handleAcceptOptIn = () => {
+    (0,external_ReactRedux_namespaceObject.batch)(() => {
+      // Old events (keep for backward compatibility)
+      this.props.dispatch(actionCreators.AlsoToMain({
+        type: actionTypes.WEATHER_USER_OPT_IN_LOCATION
+      }));
+      this.props.dispatch(actionCreators.AlsoToMain({
+        type: actionTypes.WEATHER_OPT_IN_PROMPT_SELECTION,
+        data: "accepted opt-in"
+      }));
+
+      // New unified event
+      this.props.dispatch(actionCreators.OnlyToMain({
+        type: actionTypes.WIDGETS_USER_EVENT,
+        data: {
+          widget_name: "weather",
+          widget_source: "widget",
+          user_action: Weather_USER_ACTION_TYPES.OPT_IN_ACCEPTED,
+          widget_size: "mini",
+          action_value: true
+        }
+      }));
+    });
+  };
+  isEnabled() {
+    const {
+      values
+    } = this.props.Prefs;
+    const systemValue = values[PREF_SYSTEM_SHOW_WEATHER] && values["feeds.weatherfeed"];
+    const experimentValue = values.trainhopConfig?.weather?.enabled;
+    return systemValue || experimentValue;
+  }
+  render() {
+    // Check if weather should be rendered
+    if (!this.isEnabled()) {
+      return false;
+    }
+    if (this.props.App.isForStartupCache.Weather || !this.props.Weather.initialized) {
+      return /*#__PURE__*/external_React_default().createElement(WeatherPlaceholder, null);
+    }
+    const {
+      props
+    } = this;
+    const {
+      Prefs,
+      Weather
+    } = props;
+    const WEATHER_SUGGESTION = Weather.suggestions?.[0];
+    const nimbusWeatherDisplay = Prefs.values.trainhopConfig?.weather?.display;
+    const showDetailedView = nimbusWeatherDisplay === "detailed" || Prefs.values["weather.display"] === "detailed";
+    const nimbusWeatherForecastTrainhopEnabled = Prefs.values.trainhopConfig?.widgets?.weatherForecastEnabled;
+    const weatherForecastWidgetEnabled = nimbusWeatherForecastTrainhopEnabled || Prefs.values["widgets.system.weatherForecast.enabled"];
+    if (showDetailedView && weatherForecastWidgetEnabled) {
+      return null;
+    }
+    const outerClassName = ["weather", Weather.searchActive && "search"].filter(v => v).join(" ");
+    const weatherOptIn = Prefs.values["system.showWeatherOptIn"];
+    const nimbusWeatherOptInEnabled = Prefs.values.trainhopConfig?.weather?.weatherOptInEnabled;
+    // Bug 2009484: Controls button order in opt-in dialog for A/B testing.
+    // When true, "Not now" gets slot="primary";
+    // when false/undefined, "Yes" gets slot="primary".
+    // Also note the primary button's position varies by platform:
+    // on Windows, it appears on the left,
+    // while on Linux and macOS, it appears on the right.
+    const reverseOptInButtons = Prefs.values.trainhopConfig?.weather?.reverseOptInButtons;
+    const optInDisplayed = Prefs.values["weather.optInDisplayed"];
+    const optInUserChoice = Prefs.values["weather.optInAccepted"];
+    const staticWeather = Prefs.values["weather.staticData.enabled"];
+
+    // Conditionals for rendering feature based on prefs + nimbus experiment variables
+    const isOptInEnabled = weatherOptIn || nimbusWeatherOptInEnabled;
+
+    // Opt-in dialog should only show if:
+    // - weather enabled on customization menu
+    // - weather opt-in pref is enabled
+    // - opt-in prompt is enabled
+    // - user hasn't accepted the opt-in yet
+    const shouldShowOptInDialog = isOptInEnabled && optInDisplayed && !optInUserChoice;
+
+    // Show static weather data only if:
+    // - weather is enabled on customization menu
+    // - weather opt-in pref is enabled
+    // - static weather data is enabled
+    const showStaticData = isOptInEnabled && staticWeather;
+    const showFullMenu = !showStaticData;
+    const isLocationSearchEnabled = Prefs.values["weather.locationSearchEnabled"];
+    const isFahrenheit = Prefs.values["weather.temperatureUnits"] === "f";
+    const isSimpleDisplay = Prefs.values["weather.display"] === "simple";
+    const contextMenu = (showFullContextMenu = true) => /*#__PURE__*/external_React_default().createElement("div", {
+      className: "weatherButtonContextMenuWrapper"
+    }, /*#__PURE__*/external_React_default().createElement("button", {
+      "aria-haspopup": "true",
+      onKeyDown: this.onMenuButtonKeyDown,
+      onClick: this.onMenuButtonClick,
+      "data-l10n-id": "newtab-menu-section-tooltip",
+      className: "weatherButtonContextMenu"
+    }), /*#__PURE__*/external_React_default().createElement("panel-list", {
+      id: "weather-context-menu",
+      ref: this.setPanelRef
+    }, isLocationSearchEnabled && /*#__PURE__*/external_React_default().createElement("panel-item", {
+      id: "weather-menu-change-location",
+      "data-l10n-id": "newtab-weather-menu-change-location",
+      onClick: this.handleChangeLocation
+    }), isOptInEnabled && /*#__PURE__*/external_React_default().createElement("panel-item", {
+      id: "weather-menu-detect-location",
+      "data-l10n-id": "newtab-weather-menu-detect-my-location",
+      onClick: this.handleDetectLocation
+    }), showFullContextMenu && (isFahrenheit ? /*#__PURE__*/external_React_default().createElement("panel-item", {
+      id: "weather-menu-temp-celsius",
+      "data-l10n-id": "newtab-weather-menu-change-temperature-units-celsius",
+      onClick: () => this.handleChangeTempUnit("c")
+    }) : /*#__PURE__*/external_React_default().createElement("panel-item", {
+      id: "weather-menu-temp-fahrenheit",
+      "data-l10n-id": "newtab-weather-menu-change-temperature-units-fahrenheit",
+      onClick: () => this.handleChangeTempUnit("f")
+    })), showFullContextMenu && (isSimpleDisplay ? /*#__PURE__*/external_React_default().createElement("panel-item", {
+      id: "weather-menu-display-detailed",
+      "data-l10n-id": "newtab-weather-menu-change-weather-display-detailed",
+      onClick: () => this.handleChangeDisplay("detailed")
+    }) : /*#__PURE__*/external_React_default().createElement("panel-item", {
+      id: "weather-menu-display-simple",
+      "data-l10n-id": "newtab-weather-menu-change-weather-display-simple",
+      onClick: () => this.handleChangeDisplay("simple")
+    })), /*#__PURE__*/external_React_default().createElement("panel-item", {
+      id: "weather-menu-hide",
+      "data-l10n-id": "newtab-weather-menu-hide-weather-v2",
+      onClick: this.handleHideWeather
+    }), /*#__PURE__*/external_React_default().createElement("panel-item", {
+      id: "weather-menu-learn-more",
+      "data-l10n-id": "newtab-weather-menu-learn-more",
+      onClick: this.handleLearnMore
+    })));
+    if (Weather.searchActive) {
+      return /*#__PURE__*/external_React_default().createElement(LocationSearch, {
+        outerClassName: outerClassName
+      });
+    } else if (WEATHER_SUGGESTION) {
+      return /*#__PURE__*/external_React_default().createElement("div", {
+        ref: this.setImpressionRef,
+        className: outerClassName
+      }, /*#__PURE__*/external_React_default().createElement("div", {
+        className: "weatherCard"
+      }, showStaticData ? /*#__PURE__*/external_React_default().createElement("div", {
+        className: "weatherInfoLink staticWeatherInfo"
+      }, /*#__PURE__*/external_React_default().createElement("div", {
+        className: "weatherIconCol"
+      }, /*#__PURE__*/external_React_default().createElement("span", {
+        className: "weatherIcon iconId3"
+      })), /*#__PURE__*/external_React_default().createElement("div", {
+        className: "weatherText"
+      }, /*#__PURE__*/external_React_default().createElement("div", {
+        className: "weatherForecastRow"
+      }, /*#__PURE__*/external_React_default().createElement("span", {
+        className: "weatherTemperature"
+      }, "22\xB0", Prefs.values["weather.temperatureUnits"])), /*#__PURE__*/external_React_default().createElement("div", {
+        className: "weatherCityRow"
+      }, /*#__PURE__*/external_React_default().createElement("span", {
+        className: "weatherCity",
+        "data-l10n-id": "newtab-weather-static-city"
+      })))) : /*#__PURE__*/external_React_default().createElement("a", {
+        "data-l10n-id": "newtab-weather-see-forecast-description",
+        "data-l10n-args": "{\"provider\": \"AccuWeather\xAE\"}",
+        "data-l10n-attrs": "aria-description",
+        href: WEATHER_SUGGESTION.forecast.url,
+        className: "weatherInfoLink",
+        onClick: this.onProviderClick
+      }, /*#__PURE__*/external_React_default().createElement("div", {
+        className: "weatherIconCol"
+      }, /*#__PURE__*/external_React_default().createElement("span", {
+        className: `weatherIcon iconId${WEATHER_SUGGESTION.current_conditions.icon_id}`
+      })), /*#__PURE__*/external_React_default().createElement("div", {
+        className: "weatherText"
+      }, /*#__PURE__*/external_React_default().createElement("div", {
+        className: "weatherForecastRow"
+      }, /*#__PURE__*/external_React_default().createElement("span", {
+        className: "weatherTemperature"
+      }, WEATHER_SUGGESTION.current_conditions.temperature[Prefs.values["weather.temperatureUnits"]], "\xB0", Prefs.values["weather.temperatureUnits"])), /*#__PURE__*/external_React_default().createElement("div", {
+        className: "weatherCityRow"
+      }, /*#__PURE__*/external_React_default().createElement("span", {
+        className: "weatherCity"
+      }, Weather.locationData.city)), showDetailedView && !weatherForecastWidgetEnabled ? /*#__PURE__*/external_React_default().createElement("div", {
+        className: "weatherDetailedSummaryRow"
+      }, /*#__PURE__*/external_React_default().createElement("div", {
+        className: "weatherHighLowTemps"
+      }, /*#__PURE__*/external_React_default().createElement("span", null, WEATHER_SUGGESTION.forecast.high[Prefs.values["weather.temperatureUnits"]], "\xB0", Prefs.values["weather.temperatureUnits"]), /*#__PURE__*/external_React_default().createElement("span", null, "\u2022"), /*#__PURE__*/external_React_default().createElement("span", null, WEATHER_SUGGESTION.forecast.low[Prefs.values["weather.temperatureUnits"]], "\xB0", Prefs.values["weather.temperatureUnits"])), /*#__PURE__*/external_React_default().createElement("span", {
+        className: "weatherTextSummary"
+      }, WEATHER_SUGGESTION.current_conditions.summary)) : null)), contextMenu(showFullMenu)), /*#__PURE__*/external_React_default().createElement("span", {
+        className: "weatherSponsorText",
+        "aria-hidden": "true"
+      }, /*#__PURE__*/external_React_default().createElement("span", {
+        "data-l10n-id": "newtab-weather-sponsored",
+        "data-l10n-args": "{\"provider\": \"AccuWeather\xAE\"}"
+      })), shouldShowOptInDialog && /*#__PURE__*/external_React_default().createElement("div", {
+        className: "weatherOptIn"
+      }, /*#__PURE__*/external_React_default().createElement("dialog", {
+        open: true
+      }, /*#__PURE__*/external_React_default().createElement("span", {
+        className: "weatherOptInImg"
+      }), /*#__PURE__*/external_React_default().createElement("div", {
+        className: "weatherOptInContent"
+      }, /*#__PURE__*/external_React_default().createElement("h3", {
+        "data-l10n-id": "newtab-weather-opt-in-see-weather"
+      }), /*#__PURE__*/external_React_default().createElement("moz-button-group", {
+        className: "button-group"
+      }, /*#__PURE__*/external_React_default().createElement("moz-button", {
+        size: "small",
+        type: "default",
+        "data-l10n-id": "newtab-weather-opt-in-yes",
+        onClick: this.handleAcceptOptIn,
+        id: "accept-opt-in",
+        slot: reverseOptInButtons ? "" : "primary"
+      }), /*#__PURE__*/external_React_default().createElement("moz-button", {
+        size: "small",
+        type: "default",
+        "data-l10n-id": "newtab-weather-opt-in-not-now",
+        onClick: this.handleRejectOptIn,
+        id: "reject-opt-in",
+        slot: reverseOptInButtons ? "primary" : ""
+      }))))));
+    }
+    return /*#__PURE__*/external_React_default().createElement("div", {
+      ref: this.setErrorRef,
+      className: outerClassName
+    }, /*#__PURE__*/external_React_default().createElement("div", {
+      className: "weatherNotAvailable"
+    }, /*#__PURE__*/external_React_default().createElement("span", {
+      className: "icon icon-info-warning"
+    }), " ", /*#__PURE__*/external_React_default().createElement("p", {
+      "data-l10n-id": "newtab-weather-error-not-available"
+    }), contextMenu(false)));
+  }
+}
+const Weather_Weather = (0,external_ReactRedux_namespaceObject.connect)(state => ({
+  App: state.App,
+  Weather: state.Weather,
+  Prefs: state.Prefs,
+  IntersectionObserver: globalThis.IntersectionObserver,
+  document: globalThis.document
+}))(_Weather);
 ;// CONCATENATED MODULE: ./content-src/components/DownloadModalToggle/DownloadModalToggle.jsx
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
@@ -16181,7 +16768,6 @@ function Base_extends() { return Base_extends = Object.assign ? Object.assign.bi
 
 
 
-
 const Base_VISIBLE = "visible";
 const Base_VISIBILITY_CHANGE_EVENT = "visibilitychange";
 const PREF_INFERRED_PERSONALIZATION_SYSTEM = "discoverystream.sections.personalization.inferred.enabled";
@@ -16799,9 +17385,6 @@ class BaseContent extends (external_React_default()).PureComponent {
     const mayHaveWeather = prefs["system.showWeather"] || prefs.trainhopConfig?.weather?.enabled;
     const supportUrl = prefs["support.url"];
 
-    // Weather can be enabled and not rendered in the top right corner
-    const shouldDisplayWeather = prefs.showWeather && this.props.weatherPlacement === "header";
-
     // Widgets experiment pref check
     const nimbusWidgetsEnabled = prefs.widgetsConfig?.enabled;
     const nimbusListsEnabled = prefs.widgetsConfig?.listsEnabled;
@@ -16817,7 +17400,9 @@ class BaseContent extends (external_React_default()).PureComponent {
     const enabledWidgets = {
       listsEnabled: prefs["widgets.lists.enabled"],
       timerEnabled: prefs["widgets.focusTimer.enabled"],
-      weatherEnabled: prefs.showWeather
+      weatherEnabled: prefs.showWeather,
+      widgetsMaximized: prefs["widgets.maximized"],
+      widgetsMayBeMaximized: prefs["widgets.system.maximized"]
     };
 
     // Mobile Download Promo Pref Checks
@@ -16826,17 +17411,16 @@ class BaseContent extends (external_React_default()).PureComponent {
     const mobileDownloadPromoVariantBEnabled = prefs["mobileDownloadModal.variant-b"];
     const mobileDownloadPromoVariantCEnabled = prefs["mobileDownloadModal.variant-c"];
     const mobileDownloadPromoVariantABorC = mobileDownloadPromoVariantAEnabled || mobileDownloadPromoVariantBEnabled || mobileDownloadPromoVariantCEnabled;
-    const mobileDownloadPromoWrapperHeightModifier = prefs["weather.display"] === "detailed" && weatherEnabled && shouldDisplayWeather && mayHaveWeather ? "is-tall" : "";
+    const mobileDownloadPromoWrapperHeightModifier = prefs["weather.display"] === "detailed" && weatherEnabled && mayHaveWeather ? "is-tall" : "";
     const sectionsEnabled = prefs["discoverystream.sections.enabled"];
-    const topicLabelsEnabled = prefs["discoverystream.topicLabels.enabled"];
     const sectionsCustomizeMenuPanelEnabled = prefs["discoverystream.sections.customizeMenuPanel.enabled"];
     const sectionsPersonalizationEnabled = prefs["discoverystream.sections.personalization.enabled"];
 
     // Logic to show follow/block topic mgmt panel in Customize panel
-    const mayHavePersonalizedTopicSections = sectionsPersonalizationEnabled && topicLabelsEnabled && sectionsEnabled && sectionsCustomizeMenuPanelEnabled && DiscoveryStream.feeds.loaded;
+    const mayHavePersonalizedTopicSections = sectionsPersonalizationEnabled && sectionsEnabled && sectionsCustomizeMenuPanelEnabled && DiscoveryStream.feeds.loaded;
     const featureClassName = [mobileDownloadPromoEnabled && mobileDownloadPromoVariantABorC && "has-mobile-download-promo",
     // Mobile download promo modal is enabled/visible
-    weatherEnabled && mayHaveWeather && shouldDisplayWeather && "has-weather",
+    weatherEnabled && mayHaveWeather && "has-weather",
     // Weather widget is enabled/visible
     prefs.showSearch ? "has-search" : "no-search",
     // layoutsVariantAEnabled ? "layout-variant-a" : "", // Layout experiment variant A
@@ -16851,7 +17435,7 @@ class BaseContent extends (external_React_default()).PureComponent {
       className: featureClassName
     }, /*#__PURE__*/external_React_default().createElement("div", {
       className: "weatherWrapper"
-    }, shouldDisplayWeather && /*#__PURE__*/external_React_default().createElement(ErrorBoundary, null, /*#__PURE__*/external_React_default().createElement(Weather_Weather, null))), /*#__PURE__*/external_React_default().createElement("div", {
+    }, weatherEnabled && /*#__PURE__*/external_React_default().createElement(ErrorBoundary, null, /*#__PURE__*/external_React_default().createElement(Weather_Weather, null))), /*#__PURE__*/external_React_default().createElement("div", {
       className: `mobileDownloadPromoWrapper ${mobileDownloadPromoWrapperHeightModifier}`
     }, mobileDownloadPromoEnabled && mobileDownloadPromoVariantABorC && /*#__PURE__*/external_React_default().createElement(ErrorBoundary, null, /*#__PURE__*/external_React_default().createElement(DownloadModalToggle, {
       isActive: shouldShowDownloadHighlight,
@@ -16908,6 +17492,8 @@ class BaseContent extends (external_React_default()).PureComponent {
       mayHaveWidgets: mayHaveWidgets,
       mayHaveTimerWidget: mayHaveTimerWidget,
       mayHaveListsWidget: mayHaveListsWidget,
+      mayHaveWeatherForecast: prefs["widgets.system.weatherForecast.enabled"],
+      weatherDisplay: prefs["weather.display"],
       showing: customizeMenuVisible,
       toggleSectionsMgmtPanel: this.toggleSectionsMgmtPanel,
       showSectionsMgmtPanel: this.state.showSectionsMgmtPanel
@@ -16931,8 +17517,7 @@ const Base = (0,external_ReactRedux_namespaceObject.connect)(state => ({
   Notifications: state.Notifications,
   Search: state.Search,
   Wallpapers: state.Wallpapers,
-  Weather: state.Weather,
-  weatherPlacement: selectWeatherPlacement(state)
+  Weather: state.Weather
 }))(_Base);
 ;// CONCATENATED MODULE: ./content-src/lib/detect-user-session-start.mjs
 /* This Source Code Form is subject to the terms of the Mozilla Public

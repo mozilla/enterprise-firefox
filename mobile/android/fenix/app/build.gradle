@@ -410,6 +410,21 @@ android.applicationVariants.configureEach { variant ->
     }
 
 // -------------------------------------------------------------------------------------------------
+// Google Play Integrity: Read token from local file if it exists
+// -------------------------------------------------------------------------------------------------
+
+    project.logger.debug("Google Play Integrity: ")
+
+    try {
+        def token = new File("${rootDir}/.gps_integrity_token").text.trim()
+        buildConfigField 'String', 'GPS_INTEGRITY_TOKEN', '"' + token + '"'
+        project.logger.debug("(Added from .gps_integrity_token file)")
+    } catch (FileNotFoundException ignored) {
+        buildConfigField 'String', 'GPS_INTEGRITY_TOKEN', '""'
+        project.logger.debug("X_X")
+    }
+
+// -------------------------------------------------------------------------------------------------
 // Nimbus: Read endpoint from local.properties of a local file if it exists
 // -------------------------------------------------------------------------------------------------
 
@@ -470,21 +485,6 @@ android.applicationVariants.configureEach { variant ->
         project.logger.debug("(Added from .wallpaper_url file)")
     } catch (FileNotFoundException ignored) {
         buildConfigField 'String', 'WALLPAPER_URL', '""'
-        project.logger.debug("--")
-    }
-
-// -------------------------------------------------------------------------------------------------
-// BuildConfig: Set the Pocket consumer key from a local file if it exists
-// -------------------------------------------------------------------------------------------------
-
-    project.logger.debug("Pocket consumer key: ")
-
-    try {
-        def token = new File("${rootDir}/.pocket_consumer_key").text.trim()
-        buildConfigField 'String', 'POCKET_CONSUMER_KEY', '"' + token + '"'
-        project.logger.debug("(Added from .pocket_consumer_key file)")
-    } catch (FileNotFoundException ignored) {
-        buildConfigField 'String', 'POCKET_CONSUMER_KEY', '""'
         project.logger.debug("--")
     }
 
@@ -624,6 +624,9 @@ dependencies {
     implementation project(':components:lib-dataprotect')
     implementation project(':components:lib-push-firebase')
     implementation project(':components:lib-state')
+    implementation project(':components:lib-accelerometer-sensormanager')
+    implementation project(':components:lib-integrity-googleplay')
+    implementation project(':components:lib-shake')
 
     implementation ComponentsDependencies.mozilla_appservices_syncmanager
     implementation libs.accompanist.drawablepainter

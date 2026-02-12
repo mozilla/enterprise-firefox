@@ -85,7 +85,7 @@ add_task(async function test_local_searchmode_after_result_nav() {
 
   info("Press on the bing menu button and enter search mode");
   let popupHidden = UrlbarTestUtils.searchModeSwitcherPopupClosed(window);
-  popup.querySelector("menuitem[label=Bookmarks]").click();
+  popup.querySelector("#search-button-bookmarks").click();
   await popupHidden;
 
   await UrlbarTestUtils.assertSearchMode(window, {

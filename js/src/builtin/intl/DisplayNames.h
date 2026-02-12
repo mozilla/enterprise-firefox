@@ -27,8 +27,10 @@ class DisplayNames;
 
 namespace js {
 struct ClassSpec;
+}
 
-namespace intl {
+namespace js::intl {
+
 // Similar to enums in mozilla::intl::DisplayNames, except uses smaller int
 // types to require less memory when allocating on the heap.
 struct DisplayNamesOptions {
@@ -57,7 +59,6 @@ struct DisplayNamesOptions {
 
   bool mozExtensions = false;
 };
-}  // namespace intl
 
 class DisplayNamesObject : public NativeObject {
  public:
@@ -111,15 +112,15 @@ class DisplayNamesObject : public NativeObject {
     setFixedSlot(CALENDAR, StringValue(calendar));
   }
 
-  intl::DisplayNamesOptions* getOptions() const {
+  DisplayNamesOptions* getOptions() const {
     const auto& slot = getFixedSlot(OPTIONS);
     if (slot.isUndefined()) {
       return nullptr;
     }
-    return static_cast<intl::DisplayNamesOptions*>(slot.toPrivate());
+    return static_cast<DisplayNamesOptions*>(slot.toPrivate());
   }
 
-  void setOptions(intl::DisplayNamesOptions* options) {
+  void setOptions(DisplayNamesOptions* options) {
     setFixedSlot(OPTIONS, PrivateValue(options));
   }
 
@@ -142,6 +143,6 @@ class DisplayNamesObject : public NativeObject {
   static void finalize(JS::GCContext* gcx, JSObject* obj);
 };
 
-}  // namespace js
+}  // namespace js::intl
 
 #endif /* builtin_intl_DisplayNames_h */

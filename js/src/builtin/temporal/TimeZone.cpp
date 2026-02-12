@@ -1064,7 +1064,8 @@ bool js::temporal::DisambiguatePossibleEpochNanoseconds(
                "subtracting nanoseconds is at most one day");
 
     // Step 16.c.
-    auto earlierDate = BalanceISODate(isoDateTime.date, earlierTime.days);
+    auto earlierDate = BalanceISODate(isoDateTime.date,
+                                      static_cast<int32_t>(earlierTime.days));
 
     // Step 16.d.
     auto earlierDateTime = ISODateTime{earlierDate, earlierTime.time};
@@ -1094,7 +1095,8 @@ bool js::temporal::DisambiguatePossibleEpochNanoseconds(
              "adding nanoseconds is at most one day");
 
   // Step 20.
-  auto laterDate = BalanceISODate(isoDateTime.date, laterTime.days);
+  auto laterDate =
+      BalanceISODate(isoDateTime.date, static_cast<int32_t>(laterTime.days));
 
   // Step 21.
   auto laterDateTime = ISODateTime{laterDate, laterTime.time};

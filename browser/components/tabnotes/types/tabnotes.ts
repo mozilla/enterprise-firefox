@@ -57,6 +57,16 @@ interface TabNoteRemovedEvent extends CustomEvent {
   };
 }
 
+/**
+ * If a tab note with a long text string is displayed in truncated form, this
+ * event will be fired when the user requests to expand the text to see the
+ * full note text.
+ */
+interface TabNoteExpandEvent extends CustomEvent {
+  type: "TabNote:Expand";
+  target: MozTabbrowserTab;
+}
+
 type TabbrowserWebProgressListener<
   ListenerName extends keyof nsIWebProgressListener,
   F = nsIWebProgressListener[ListenerName],

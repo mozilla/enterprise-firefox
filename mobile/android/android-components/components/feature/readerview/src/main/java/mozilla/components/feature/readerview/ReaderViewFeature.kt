@@ -6,9 +6,10 @@ package mozilla.components.feature.readerview
 
 import android.content.Context
 import androidx.annotation.VisibleForTesting
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.mapNotNull
 import mozilla.components.browser.state.action.EngineAction
 import mozilla.components.browser.state.action.ReaderAction
@@ -56,8 +57,9 @@ class ReaderViewFeature(
     private val engine: Engine,
     private val store: BrowserStore,
     controlsView: ReaderViewControlsView,
+    private val mainDispatcher: CoroutineDispatcher = Dispatchers.Main,
     private val createUUID: UUIDCreator = { UUID.randomUUID().toString() },
-    private val onReaderViewStatusChange: onReaderViewStatusChange = { _, _ -> Unit },
+    private val onReaderViewStatusChange: onReaderViewStatusChange = { _, _ -> },
 ) : LifecycleAwareFeature, UserInteractionHandler {
 
     private var scope: CoroutineScope? = null
@@ -87,7 +89,7 @@ class ReaderViewFeature(
     override fun start() {
         ensureExtensionInstalled()
 
-        scope = store.flowScoped { flow ->
+        scope = store.flowScoped(dispatcher = mainDispatcher) { flow ->
             flow.mapNotNull { state -> state.tabs }
                 .filterChanged {
                     it.readerState

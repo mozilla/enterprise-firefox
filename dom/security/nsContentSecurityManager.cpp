@@ -28,10 +28,6 @@
 #include "mozilla/dom/nsMixedContentBlocker.h"
 #include "mozilla/extensions/WebExtensionPolicy.h"
 #include "mozilla/glean/DomSecurityMetrics.h"
-#if defined(MOZ_ENTERPRISE)
-#  include "mozilla/glean/EnterprisepoliciesMetrics.h"
-#  include "mozilla/glean/GleanPings.h"
-#endif
 #include "nsAboutProtocolUtils.h"
 #include "nsArray.h"
 #include "nsCORSListenerProxy.h"
@@ -59,6 +55,14 @@
 #include "nsScriptSecurityManager.h"
 #include "xpcpublic.h"
 
+#if defined(MOZ_ENTERPRISE)
+#  include <deque>
+#  include <utility>
+
+#  include "mozilla/glean/EnterprisepoliciesMetrics.h"
+#  include "mozilla/glean/GleanPings.h"
+#endif
+
 using namespace mozilla;
 using namespace mozilla::dom;
 
@@ -69,6 +73,47 @@ mozilla::LazyLogModule sCSMLog("CSMLog");
 mozilla::LazyLogModule sUELLog("UnexpectedLoad");
 
 #if defined(MOZ_ENTERPRISE)
+
+class RecentBlockedUrlCache {
+ public:
+  bool RecentlyBlocked(nsIURI* aURI) {
+    if (!aURI) {
+      return false;
+    }
+    auto now = TimeStamp::Now();
+    nsCString url;
+    aURI->GetSpec(url);
+    ClearStaleEntries(now);
+    bool recentlyBlocked = ContainsUrl(url);
+    if (!recentlyBlocked) {
+      mEntries.push_back(std::make_pair(url, now));
+    }
+    return recentlyBlocked;
+  }
+
+ private:
+  std::deque<std::pair<nsCString, TimeStamp>> mEntries;
+  const TimeDuration kLookbackWindow = TimeDuration::FromSeconds(1);
+
+  void ClearStaleEntries(const TimeStamp& aNow) {
+    while (!mEntries.empty()) {
+      if (mEntries.front().second < (aNow - kLookbackWindow)) {
+        mEntries.pop_front();
+      } else {
+        break;
+      }
+    }
+  }
+
+  bool ContainsUrl(const nsACString& aUrl) {
+    for ([[maybe_unused]] const auto& [entryUrl, _] : mEntries) {
+      if (aUrl.Equals(entryUrl)) {
+        return true;
+      }
+    }
+    return false;
+  }
+};
 
 static bool BlocklistDomainBrowsedTelemetryIsEnabled() {
   return Preferences::GetBool(
@@ -109,6 +154,12 @@ static nsCString ProcessBlocklistDomainBrowsedTelemetryUrl(
 static void RecordBlocklistDomainBrowsedTelemetry(nsIChannel* aChannel,
                                                   nsIURI* aURI) {
   if (!BlocklistDomainBrowsedTelemetryIsEnabled()) {
+    return;
+  }
+
+  MOZ_ASSERT(NS_IsMainThread());
+  static RecentBlockedUrlCache cache;
+  if (cache.RecentlyBlocked(aURI)) {
     return;
   }
 

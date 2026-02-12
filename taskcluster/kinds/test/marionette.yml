@@ -101,3 +101,65 @@ marionette-integration:
                     .*-asan.*: 2
                     .*-tsan.*: 2
                     default: 1
+
+marionette-enterprise:
+    description: "Marionette integration enterprise run"
+    treeherder-symbol: MnEnt()
+    suite:
+        name: marionette-enterprise
+    attributes:
+        required_checks: true
+    variants:
+        - webrender-sw
+        - headless
+        - inc-origin-init
+    run-on-projects:
+        by-variant:
+            headless:
+                by-test-platform:
+                    linux.*64(-shippable)?(-qr)?/opt: built-projects
+                    default: []
+            webrender-sw:
+                by-test-platform:
+                    .*-wayland.*: []
+                    .*/debug: built-projects
+                    default: []
+            inc-origin-init: []
+            default:
+                by-test-platform:
+                    .*-wayland.*: []
+                    default: built-projects
+    tier:
+        by-variant:
+            headless: 2
+            default: default
+    max-run-time:
+        by-test-platform:
+            .*-asan.*: 3600
+            .*-tsan.*: 3600
+            .*-ccov.*: 3600
+            .*-debug.*: 3600
+            default: 2700
+    instance-size: default
+    chunks:
+        by-variant:
+            inc-origin-init: dynamic
+            default:
+                by-test-platform:
+                    .*-asan.*: 2
+                    .*-tsan.*: 2
+                    default: 1
+    mozharness:
+        config:
+            by-test-platform:
+                macosx.*:
+                    - marionette/prod_config.py
+                    - marionette/mac_taskcluster_config.py
+                    - marionette/enterprise_config.py
+                windows.*:
+                    - marionette/windows_taskcluster_config.py
+                    - marionette/enterprise_config.py
+                default:
+                    - marionette/prod_config.py
+                    - marionette/enterprise_config.py
+                    - remove_executables.py

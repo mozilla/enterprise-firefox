@@ -35,6 +35,7 @@ import org.mozilla.fenix.helpers.TestAssetHelper.refreshAsset
 import org.mozilla.fenix.helpers.TestAssetHelper.waitingTime
 import org.mozilla.fenix.helpers.TestAssetHelper.waitingTimeLong
 import org.mozilla.fenix.helpers.TestAssetHelper.waitingTimeVeryShort
+import org.mozilla.fenix.helpers.TestHelper.clickSnackbarButton
 import org.mozilla.fenix.helpers.TestHelper.closeApp
 import org.mozilla.fenix.helpers.TestHelper.exitMenu
 import org.mozilla.fenix.helpers.TestHelper.mDevice
@@ -334,7 +335,6 @@ class MainMenuTest : TestSetup() {
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/3080129
-    @Ignore("Failing, see https://bugzilla.mozilla.org/show_bug.cgi?id=1968653")
     @SmokeTest
     @Test
     fun verifyTheBookmarkPageMenuOptionTest() {
@@ -343,17 +343,14 @@ class MainMenuTest : TestSetup() {
         navigationToolbar(composeTestRule) {
         }.enterURLAndEnterToBrowser(testPage.url) {
         }.openThreeDotMenu {
-            clickSaveButton()
         }.clickBookmarkThisPageButton {
         }.openThreeDotMenu {
-            clickSaveButton()
         }.clickEditBookmarkButton {
             verifyEditBookmarksView()
             clickDeleteBookmarkButtonInEditMode()
         }
         browserScreen(composeTestRule) {
         }.openThreeDotMenu {
-            clickSaveButton()
             verifyBookmarkThisPageButton()
         }
     }
@@ -442,7 +439,6 @@ class MainMenuTest : TestSetup() {
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/3080118
-    @Ignore("Failing, see https://bugzilla.mozilla.org/show_bug.cgi?id=1968653")
     @SmokeTest
     @Test
     fun verifyTheSaveAsPDFSubMenuOptionTest() {
@@ -451,11 +447,11 @@ class MainMenuTest : TestSetup() {
         navigationToolbar(composeTestRule) {
         }.enterURLAndEnterToBrowser(testPage.url) {
         }.openThreeDotMenu {
-            clickSaveButton()
+            clickTheMoreButton()
         }.clickSaveAsPDFButton {
             verifyDownloadPrompt(testPage.title + ".pdf")
         }.clickDownload {
-        }.clickOpen("application/pdf") {
+            clickSnackbarButton(composeTestRule = composeTestRule, "OPEN")
             assertExternalAppOpens(GOOGLE_DOCS)
         }
     }
@@ -879,7 +875,6 @@ class MainMenuTest : TestSetup() {
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/2937927
-    @Ignore("Failing, see https://bugzilla.mozilla.org/show_bug.cgi?id=1968653")
     @Test
     fun verifyTheBrokenSiteFormSubmissionWithOptionalFieldsTest() {
         val defaultWebPage = mockWebServer.getGenericAsset(1)
@@ -887,7 +882,7 @@ class MainMenuTest : TestSetup() {
         navigationToolbar(composeTestRule) {
         }.enterURLAndEnterToBrowser(defaultWebPage.url) {
         }.openThreeDotMenu {
-            clickTheToolsButton()
+            clickTheMoreButton()
         }.clickReportBrokenSiteButton {
             verifyWebCompatReporterViewItems(defaultWebPage.url.toString())
             clickChooseReasonField(composeTestRule)
@@ -898,7 +893,7 @@ class MainMenuTest : TestSetup() {
         browserScreen(composeTestRule) {
             verifySnackBarText("Report sent")
         }.openThreeDotMenu {
-            clickTheToolsButton()
+            clickTheMoreButton()
         }.clickReportBrokenSiteButton {
             verifyWhatIsBrokenField(composeTestRule)
             verifyBrokenSiteProblem(

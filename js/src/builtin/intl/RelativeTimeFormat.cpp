@@ -256,7 +256,8 @@ static bool RelativeTimeFormat(JSContext* cx, unsigned argc, Value* vp) {
   return true;
 }
 
-void js::RelativeTimeFormatObject::finalize(JS::GCContext* gcx, JSObject* obj) {
+void js::intl::RelativeTimeFormatObject::finalize(JS::GCContext* gcx,
+                                                  JSObject* obj) {
   auto* rtf = &obj->as<RelativeTimeFormatObject>();
 
   if (auto* options = rtf->getOptions()) {

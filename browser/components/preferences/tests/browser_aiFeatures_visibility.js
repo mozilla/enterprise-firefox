@@ -282,4 +282,63 @@ describe("settings ai features", () => {
       BrowserTestUtils.removeTab(generalTab);
     });
   });
+
+  describe("showUnavailable pref", () => {
+    it("shows Link Preview control in restricted regions when enabled", async () => {
+      const { Region } = ChromeUtils.importESModule(
+        "resource://gre/modules/Region.sys.mjs"
+      );
+      const currentRegion = Region.home;
+
+      // We need a region to have a way to hide the row, skip if this didn't work.
+      if (!currentRegion) {
+        Assert.ok(true, "Skipping: Region.home is not set in test environment");
+        return;
+      }
+
+      // Block the system's region.
+      // Unset showUnavailable to trigger a change which will do the region check.
+      await SpecialPowers.pushPrefEnv({
+        set: [
+          ["browser.ml.linkPreview.noKeyPointsRegions", currentRegion],
+          ["browser.preferences.aiControls.showUnavailable", false],
+        ],
+      });
+
+      // Manually trigger a Setting change to re-calculate visibility based on noKeyPointsRegions.
+      let aiControlsShowUnavailable = win.Preferences.getSetting(
+        "aiControlsShowUnavailable"
+      );
+      aiControlsShowUnavailable.onChange();
+
+      await openAiFeaturePanel();
+
+      let linkPreviewControl = doc.getElementById(
+        "aiControlLinkPreviewKeyPointsSelect"
+      );
+      Assert.ok(
+        !BrowserTestUtils.isVisible(linkPreviewControl),
+        "Link Preview control is hidden in restricted region"
+      );
+
+      // Set showUnavailable to verify the hidden row gets shown
+      let linkPreviewSetting = win.Preferences.getSetting(
+        "aiControlLinkPreviewKeyPointsSelect"
+      );
+      await waitForSettingChange(linkPreviewSetting, () => {
+        Services.prefs.setBoolPref(
+          "browser.preferences.aiControls.showUnavailable",
+          true
+        );
+      });
+
+      Assert.ok(
+        BrowserTestUtils.isVisible(linkPreviewControl),
+        "Link Preview control is visible when showUnavailable is enabled"
+      );
+
+      // Clear the change to showUnavailable and noKeyPointsRegions.
+      await SpecialPowers.popPrefEnv();
+    });
+  });
 });

@@ -371,7 +371,7 @@ add_task(async function test_password_removed() {
   await Services.logins.addLoginAsync(login);
 
   await expectRegeneration(async () => {
-    Services.logins.removeLogin(login);
+    await Services.logins.removeLoginAsync(login);
   }, "Saw regeneration on password removed.");
 });
 

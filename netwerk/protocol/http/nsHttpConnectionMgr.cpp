@@ -75,7 +75,7 @@ struct UrlMarker {
     using MS = MarkerSchema;
     MS schema(MS::Location::MarkerChart, MS::Location::MarkerTable);
     schema.SetTableLabel("{marker.data.url}");
-    schema.AddKeyFormat("url", MS::Format::Url, MS::PayloadFlags::Searchable);
+    schema.AddKeyFormat("url", MS::Format::Url);
     schema.AddKeyLabelFormat("duration", "Duration", MS::Format::Duration);
     return schema;
   }

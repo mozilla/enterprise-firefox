@@ -4,4 +4,26 @@
 
 smartwindow-messages-document-title = Smart window chat messages
 
-smartwindow-document-title = Smart window chat
+## TO BE UPDATED: https://mozilla-hub.atlassian.net/browse/GENAI-3450
+## Error messages in the chat content
+
+smartwindow-assistant-error-generic-header = We could not proceed with your request, please try again.
+smartwindow-assistant-error-budget-header = You’ve hit the maximum number of interactions allowed in a single day. Your access will reset at midnight ET.
+smartwindow-assistant-error-budget-body = You can still search and navigate in Smart Window but chat functionality will be limited.
+smartwindow-assistant-error-long-message-header = This chat has reached the maximum length. Clear the chat or start a new conversation to continue.
+smartwindow-assistant-error-connection-header = Connection was lost or unsuccessful. Check your connection and try again.
+smartwindow-retry-btn = Retry
+smartwindow-switch-btn = Switch to Classic Window
+smartwindow-clear-btn = Clear chat
+
+## Assistant Message footer
+
+aiwindow-memories-used = Memories used
+aiwindow-retry-without-memories =
+    .label = Retry without memories
+aiwindow-retry =
+  .tooltiptext = Retry
+  .aria-label = Retry
+aiwindow-copy-message =
+    .tooltiptext = Copy
+    .aria-label = Copy message

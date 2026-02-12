@@ -345,7 +345,7 @@ struct BufferChunk
 #endif
 
   MainThreadOrGCTaskData<bool> allocatedDuringCollection;
-  MainThreadData<bool> hasNurseryOwnedAllocs;
+  MainThreadOrGCTaskData<bool> hasNurseryOwnedAllocs;
   MainThreadOrGCTaskData<bool> hasNurseryOwnedAllocsAfterSweep;
 
   static constexpr size_t MaxAllocsPerChunk = MaxAllocCount;  // todo remove

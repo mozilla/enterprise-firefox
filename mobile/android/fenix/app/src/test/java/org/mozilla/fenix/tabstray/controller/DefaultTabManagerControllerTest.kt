@@ -24,6 +24,7 @@ import kotlinx.coroutines.test.runTest
 import mozilla.appservices.places.BookmarkRoot
 import mozilla.components.browser.state.action.TabListAction
 import mozilla.components.browser.state.selector.findTab
+import mozilla.components.browser.state.selector.selectedTab
 import mozilla.components.browser.state.state.BrowserState
 import mozilla.components.browser.state.state.ContentState
 import mozilla.components.browser.state.state.TabSessionState
@@ -34,6 +35,7 @@ import mozilla.components.browser.storage.sync.Tab
 import mozilla.components.browser.storage.sync.TabEntry
 import mozilla.components.concept.base.profiler.Profiler
 import mozilla.components.concept.engine.EngineSession
+import mozilla.components.concept.engine.utils.ABOUT_HOME_URL
 import mozilla.components.concept.storage.BookmarkNode
 import mozilla.components.concept.storage.BookmarkNodeType
 import mozilla.components.concept.storage.BookmarksStorage
@@ -122,10 +124,19 @@ class DefaultTabManagerControllerTest {
 
     private val mockPrivateTab = mockk<TabSessionState> {
         every { content.private } returns true
+        every { id } returns "privateTestTabId"
     }
 
     private val mockNormalTab = mockk<TabSessionState> {
         every { content.private } returns false
+        every { id } returns "testTabId"
+        every { content.url } returns "https://www.mozilla.org"
+    }
+
+    private val mockHomeTab = mockk<TabSessionState> {
+        every { content.private } returns false
+        every { id } returns "testHomeTabId"
+        every { content.url } returns ABOUT_HOME_URL
     }
 
     @get:Rule
@@ -372,11 +383,11 @@ class DefaultTabManagerControllerTest {
     fun `GIVEN not already on browserFragment WHEN handleNavigateToBrowser is called and popBackStack fails THEN it navigates to browserFragment`() {
         every { navController.currentDestination?.id } returns R.id.browserFragment + 1
         every { navController.popBackStack(R.id.browserFragment, false) } returns false
+        every { browserStore.state.selectedTab?.content?.url } returns "https://www.mozilla.org"
 
         createController().handleNavigateToBrowser()
 
         verify { navController.popBackStack(R.id.browserFragment, false) }
-        verify { navController.popBackStack() }
         verify { navController.navigate(R.id.browserFragment) }
     }
 
@@ -424,7 +435,6 @@ class DefaultTabManagerControllerTest {
         createController().handleNavigateToHome()
 
         verify { navController.popBackStack(R.id.homeFragment, false) }
-        verify { navController.popBackStack() }
         verify { navController.navigate(TabManagementFragmentDirections.actionGlobalHome()) }
     }
 
@@ -547,6 +557,7 @@ class DefaultTabManagerControllerTest {
 
         every { browserStore.state } returns mockk {
             every { tabs } returns listOf(mockNormalTab, mockNormalTab)
+            every { selectedTabId } returns mockNormalTab.id
         }
 
         controller.deleteMultipleTabs(listOf(privateTab))
@@ -682,6 +693,10 @@ class DefaultTabManagerControllerTest {
 
     @Test
     fun `GIVEN no tabs selected and the user is not in multi select mode WHEN the user long taps a tab THEN that tab will become selected`() {
+        every { browserStore.state } returns mockk {
+            every { tabs } returns emptyList()
+            every { selectedTabId } returns null
+        }
         trayStore = TabsTrayStore()
         val controller = spyk(createController())
         val tab1 = TabSessionState(
@@ -993,6 +1008,10 @@ class DefaultTabManagerControllerTest {
             ),
         )
         val source = INACTIVE_TABS_FEATURE_NAME
+        every { browserStore.state } returns mockk {
+            every { tabs } returns listOf(tab, mockNormalTab, mockNormalTab)
+            every { selectedTabId } returns tab.id
+        }
 
         every { controller.handleNavigateToBrowser() } just runs
 
@@ -1012,7 +1031,6 @@ class DefaultTabManagerControllerTest {
     @Test
     fun `GIVEN homepage as a new tab is enabled WHEN a homepage tab is selected THEN report the metric, update the state, and show the homepage`() {
         every { settings.enableHomepageAsNewTab } returns true
-
         trayStore = TabsTrayStore()
         val controller = spyk(createController())
         val tab = TabSessionState(
@@ -1022,6 +1040,10 @@ class DefaultTabManagerControllerTest {
             ),
         )
         val source = "Tab Manager"
+        every { browserStore.state } returns mockk {
+            every { tabs } returns listOf(tab, mockNormalTab, mockNormalTab)
+            every { selectedTabId } returns tab.id
+        }
 
         every { controller.handleNavigateToHome() } just runs
 
@@ -1049,6 +1071,10 @@ class DefaultTabManagerControllerTest {
             ),
         )
         val sourceText = "unknown"
+        every { browserStore.state } returns mockk {
+            every { tabs } returns listOf(tab, mockNormalTab, mockNormalTab)
+            every { selectedTabId } returns tab.id
+        }
 
         every { controller.handleNavigateToBrowser() } just runs
 
@@ -1527,6 +1553,34 @@ class DefaultTabManagerControllerTest {
         createController(showCancelledDownloadWarning = { _, _, _ -> showCancelledDownloadWarningInvoked = true }).onCloseAllTabsClicked(true)
 
         assertFalse(showCancelledDownloadWarningInvoked)
+    }
+
+    @Test
+    fun `GIVEN selected tab is home page WHEN navigation is called THEN user navigates to home`() {
+        every { navController.currentDestination?.id } returns R.id.browserFragment
+        every { navController.popBackStack(R.id.homeFragment, false) } returns false
+        every { browserStore.state } returns mockk {
+            every { tabs } returns listOf(mockNormalTab, mockHomeTab)
+            every { selectedTabId } returns mockHomeTab.id
+        }
+
+        createController().handleNavigationRequested()
+
+        verify { navController.navigate(TabManagementFragmentDirections.actionGlobalHome()) }
+    }
+
+    @Test
+    fun `GIVEN selected tab is not home page WHEN navigation is called THEN user navigates to browser`() {
+        every { navController.currentDestination?.id } returns R.id.homeFragment
+        every { navController.popBackStack(R.id.browserFragment, false) } returns false
+        every { browserStore.state } returns mockk {
+            every { tabs } returns listOf(mockNormalTab, mockHomeTab)
+            every { selectedTabId } returns mockNormalTab.id
+        }
+
+        createController().handleNavigationRequested()
+
+        verify { navController.navigate(R.id.browserFragment) }
     }
 
     private fun makeBookmarkFolder(guid: String) = BookmarkNode(

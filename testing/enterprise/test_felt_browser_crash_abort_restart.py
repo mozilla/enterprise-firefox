@@ -3,37 +3,28 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+import os
 import sys
+
+sys.path.append(os.path.dirname(__file__))
 
 from felt_browser_crashes import BrowserCrashes
 
 
 class BrowserCrashAbortRestart(BrowserCrashes):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    EXTRA_PREFS = {
+        "enterprise.browser.abnormal_exit_limit": 2,
+        "enterprise.browser.abnormal_exit_period": 120,
+    }
 
-    def test_felt_2_crash_parent_once(self, exp):
-        self.connect_and_crash()
-        return True
+    def test_browser_crash_abort_restart(self):
+        super().run_felt_base()
+        self.run_felt_crash_parent_once()
+        self.run_felt_proper_restart()
+        self.run_felt_crash_parent_twice()
+        self.run_felt_check_error_message()
 
-    def test_felt_3_proper_restart(self, exp):
-        self.wait_process_exit()
-        self._logger.info("Connecting to new browser")
-        self.connect_child_browser()
-        self._browser_pid = self._child_driver.capabilities["moz:processID"]
-        self._logger.info(f"Connected to {self._browser_pid}")
-        self.open_tab_child("about:support")
-
-        version_box = self.get_elem_child("#version-box")
-        self._child_wait.until(lambda d: len(version_box.text) > 0)
-        return True
-
-    def test_felt_4_crash_parent_twice(self, exp):
-        self._manually_closed_child = True
-        self.crash_parent()
-        return True
-
-    def test_felt_5_check_error_message(self, exp):
+    def run_felt_check_error_message(self):
         self.await_felt_auth_window()
         self.force_window()
 
@@ -42,19 +33,3 @@ class BrowserCrashAbortRestart(BrowserCrashes):
 
         error_msg = self.get_elem(".felt-browser-error-multiple-crashes")
         assert "crashed multiple times" in error_msg.text, "Error message about crashes"
-
-        return True
-
-
-if __name__ == "__main__":
-    BrowserCrashAbortRestart(
-        "felt_browser_crash_abort_restart.json",
-        firefox=sys.argv[1],
-        geckodriver=sys.argv[2],
-        profile_root=sys.argv[3],
-        env_vars={"MOZ_FELT_UI": "1", "MOZ_GDB_SLEEP": "1"},
-        test_prefs=[
-            ["enterprise.browser.abnormal_exit_limit", 2],
-            ["enterprise.browser.abnormal_exit_period", 120],
-        ],
-    )

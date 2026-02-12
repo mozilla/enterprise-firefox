@@ -12,7 +12,6 @@ import androidx.navigation.NavController
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
 import mozilla.appservices.places.BookmarkRoot
 import mozilla.components.browser.state.action.EngineAction
@@ -116,7 +115,7 @@ class DefaultBrowserToolbarMenuController(
             // todo === Start ===
             is ToolbarMenu.Item.InstallPwaToHomeScreen -> {
                 settings.installPwaOpened = true
-                MainScope().launch {
+                scope.launch {
                     with(components.useCases.webAppUseCases) {
                         if (isInstallable()) {
                             addToHomescreen()
@@ -291,7 +290,7 @@ class DefaultBrowserToolbarMenuController(
             }
             is ToolbarMenu.Item.AddToHomeScreen -> {
                 settings.installPwaOpened = true
-                MainScope().launch {
+                scope.launch {
                     with(components.useCases.webAppUseCases) {
                         if (isInstallable()) {
                             addToHomescreen()

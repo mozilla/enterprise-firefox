@@ -44,7 +44,10 @@ function generateDefaultTitle(message) {
 export async function generateChatTitle(message, current_tab) {
   try {
     // Build the OpenAI engine
-    const engine = await openAIEngine.build(MODEL_FEATURES.TITLE_GENERATION);
+    const engine = await openAIEngine.build(
+      MODEL_FEATURES.TITLE_GENERATION,
+      "smart-openai-title"
+    );
 
     const tabInfo = current_tab || { url: "", title: "", description: "" };
 

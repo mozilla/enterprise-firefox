@@ -190,7 +190,8 @@ class AbsoluteContainingBlock {
       AbsPosReflowFlags aFlags, nsIFrame* aKidFrame, nsReflowStatus& aStatus,
       OverflowAreas* aOverflowAreas,
       const ContainingBlockRects* aFragmentedContainingBlockRects,
-      mozilla::AnchorPosResolutionCache* aAnchorPosResolutionCache = nullptr);
+      AnchorPosResolutionCache* aAnchorPosResolutionCache,
+      bool aReuseUnfragmentedAnchorPosReferences);
 
   /**
    * Mark our absolute frames dirty.

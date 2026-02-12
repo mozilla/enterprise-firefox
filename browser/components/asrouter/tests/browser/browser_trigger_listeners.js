@@ -783,14 +783,32 @@ add_task(async function test_tabSwitch() {
   await BrowserTestUtils.switchTab(gBrowser, tab2);
   await BrowserTestUtils.switchTab(gBrowser, tab1);
 
-  let tabSwitchTrigger = await receivedTrigger;
+  await receivedTrigger;
   Assert.ok(
-    tabSwitchTrigger,
+    ASRouter.sendTriggerMessage.calledWith(sinon.match({ id: "tabSwitch" })),
     "tabSwitch trigger sent after switching between tabs 3 times"
+  );
+
+  ASRouter.sendTriggerMessage.resetHistory();
+
+  let aboutTab = await BrowserTestUtils.openNewForegroundTab(
+    gBrowser,
+    "about:blank"
+  );
+
+  await BrowserTestUtils.switchTab(gBrowser, tab1);
+  await BrowserTestUtils.switchTab(gBrowser, aboutTab);
+  await BrowserTestUtils.switchTab(gBrowser, tab1);
+
+  await sleepMs(100);
+  Assert.ok(
+    !ASRouter.sendTriggerMessage.calledWith(sinon.match({ id: "tabSwitch" })),
+    "tabSwitch trigger not sent when switching to/from about: pages"
   );
 
   BrowserTestUtils.removeTab(tab1);
   BrowserTestUtils.removeTab(tab2);
+  BrowserTestUtils.removeTab(aboutTab);
 
   await SpecialPowers.popPrefEnv();
   sandbox.restore();

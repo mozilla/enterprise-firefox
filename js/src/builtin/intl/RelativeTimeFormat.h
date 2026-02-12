@@ -21,9 +21,8 @@ namespace mozilla::intl {
 class RelativeTimeFormat;
 }
 
-namespace js {
+namespace js::intl {
 
-namespace intl {
 // Similar to mozilla::intl::RelativeTimeFormatOptions, except uses smaller
 // int types to require less memory when allocating on the heap.
 struct RelativeTimeFormatOptions {
@@ -33,7 +32,6 @@ struct RelativeTimeFormatOptions {
   enum class Numeric : int8_t { Always, Auto };
   Numeric numeric = Numeric::Always;
 };
-}  // namespace intl
 
 class RelativeTimeFormatObject : public NativeObject {
  public:
@@ -87,15 +85,15 @@ class RelativeTimeFormatObject : public NativeObject {
     setFixedSlot(NUMBERING_SYSTEM, StringValue(numberingSystem));
   }
 
-  intl::RelativeTimeFormatOptions* getOptions() const {
+  RelativeTimeFormatOptions* getOptions() const {
     const auto& slot = getFixedSlot(OPTIONS);
     if (slot.isUndefined()) {
       return nullptr;
     }
-    return static_cast<intl::RelativeTimeFormatOptions*>(slot.toPrivate());
+    return static_cast<RelativeTimeFormatOptions*>(slot.toPrivate());
   }
 
-  void setOptions(intl::RelativeTimeFormatOptions* options) {
+  void setOptions(RelativeTimeFormatOptions* options) {
     setFixedSlot(OPTIONS, PrivateValue(options));
   }
 
@@ -118,17 +116,14 @@ class RelativeTimeFormatObject : public NativeObject {
   static void finalize(JS::GCContext* gcx, JSObject* obj);
 };
 
-namespace intl {
-
 using RelativeTimeFormatUnit =
     js::ImmutableTenuredPtr<PropertyName*> JSAtomState::*;
 
 [[nodiscard]] bool FormattedRelativeTimeToParts(
-    JSContext* cx, HandleString str,
+    JSContext* cx, Handle<JSString*> str,
     const mozilla::intl::NumberPartVector& parts,
-    RelativeTimeFormatUnit relativeTimeUnit, MutableHandleValue result);
+    RelativeTimeFormatUnit relativeTimeUnit, MutableHandle<JS::Value> result);
 
-}  // namespace intl
-}  // namespace js
+}  // namespace js::intl
 
 #endif /* builtin_intl_RelativeTimeFormat_h */

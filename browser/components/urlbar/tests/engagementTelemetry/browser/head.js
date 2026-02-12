@@ -9,6 +9,8 @@ Services.scriptloader.loadSubScript(
 );
 
 ChromeUtils.defineESModuleGetters(this, {
+  CustomizableUITestUtils:
+    "resource://testing-common/CustomizableUITestUtils.sys.mjs",
   QuickSuggest: "moz-src:///browser/components/urlbar/QuickSuggest.sys.mjs",
   sinon: "resource://testing-common/Sinon.sys.mjs",
 });
@@ -170,9 +172,9 @@ async function ensureQuickSuggestInit({ ...args } = {}) {
   });
 }
 
-async function doBlur() {
-  await UrlbarTestUtils.promisePopupClose(window, () => {
-    gURLBar.blur();
+async function doBlur(testUtils = UrlbarTestUtils) {
+  await testUtils.promisePopupClose(window, () => {
+    testUtils.getUrlbar(window).blur();
   });
 }
 
@@ -402,11 +404,11 @@ async function loadRemoteTab(url) {
   };
 }
 
-async function openPopup(input) {
-  await UrlbarTestUtils.promisePopupOpen(window, async () => {
-    await UrlbarTestUtils.inputIntoURLBar(window, input);
+async function openPopup(input, testUtils = UrlbarTestUtils) {
+  await testUtils.promisePopupOpen(window, async () => {
+    await testUtils.inputIntoURLBar(window, input);
   });
-  await UrlbarTestUtils.promiseSearchComplete(window);
+  await testUtils.promiseSearchComplete(window);
 }
 
 async function selectRowByURL(url) {

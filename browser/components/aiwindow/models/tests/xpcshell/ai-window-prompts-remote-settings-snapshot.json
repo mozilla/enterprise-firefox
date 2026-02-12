@@ -24,7 +24,7 @@
     "model": "qwen3-235b-a22b-instruct-2507-maas",
     "feature": "chat",
     "prompts": "You are a helpful browser assistant.",
-    "version": "1.0",
+    "version": "2.0",
     "is_default": true,
     "parameters": {
       "temperature": 1.0
@@ -35,7 +35,7 @@
     "model": "gpt-oss-120b",
     "feature": "chat",
     "prompts": "You are a helpful browser assistant.",
-    "version": "1.0",
+    "version": "2.0",
     "is_default": false,
     "parameters": {
       "temperature": 1.0
@@ -46,7 +46,7 @@
     "model": "gemini-2.5-flash-lite",
     "feature": "chat",
     "prompts": "You are a helpful browser assistant.",
-    "version": "1.0",
+    "version": "2.0",
     "is_default": false,
     "parameters": {
       "temperature": 1.0

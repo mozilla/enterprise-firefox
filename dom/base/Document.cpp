@@ -29,6 +29,7 @@
 #include "NodeUbiReporting.h"
 #include "NonCustomCSSPropertyId.h"
 #include "PLDHashTable.h"
+#include "PseudoStyleType.h"
 #include "StorageAccessPermissionRequest.h"
 #include "ThirdPartyUtil.h"
 #include "domstubs.h"
@@ -296,7 +297,6 @@
 #include "nsBidiUtils.h"
 #include "nsCRT.h"
 #include "nsCSSProps.h"
-#include "nsCSSPseudoElements.h"
 #include "nsCSSRendering.h"
 #include "nsCanvasFrame.h"
 #include "nsCaseTreatment.h"
@@ -9076,9 +9076,9 @@ already_AddRefed<Element> Document::CreateElement(
     // with CSS_PSEUDO_ELEMENT_IS_JS_CREATED_NAC.
     if (options.mPseudo.WasPassed()) {
       Maybe<PseudoStyleRequest> request =
-          nsCSSPseudoElements::ParsePseudoElement(options.mPseudo.Value());
+          PseudoStyleRequest::Parse(options.mPseudo.Value());
       if (!request || request->IsNotPseudo() ||
-          !nsCSSPseudoElements::PseudoElementIsJSCreatedNAC(request->mType)) {
+          !PseudoStyle::IsJSCreatedNAC(request->mType)) {
         rv.ThrowNotSupportedError("Invalid pseudo-element");
         return nullptr;
       }
@@ -15345,6 +15345,10 @@ void Document::HandleEscKey() {
   for (const nsWeakPtr& weakPtr : Reversed(mTopLayer)) {
     nsCOMPtr<Element> element(do_QueryReferent(weakPtr));
     if (RefPtr popoverHTMLEl = nsGenericHTMLElement::FromNodeOrNull(element)) {
+      if (element->IsPopoverOpenedInMode(PopoverAttributeState::Hint)) {
+        popoverHTMLEl->HidePopover(IgnoreErrors());
+        return;
+      }
       if (element->IsPopoverOpenedInMode(PopoverAttributeState::Auto)) {
         popoverHTMLEl->HidePopover(IgnoreErrors());
         return;
@@ -16078,16 +16082,27 @@ void Document::HideAllPopoversUntil(nsINode& aEndpoint,
 
   // 2. Let document be endpoint's node document.
   MOZ_ASSERT(aEndpoint.OwnerDoc() == this);
+
   // 3. Assert: endpoint is a Document or endpoint's popover visibility state is
   // showing.
+  MOZ_ASSERT(aEndpoint.IsDocument() ||
+             (endpointHTMLEl && endpointHTMLEl->PopoverOpen()));
+
   // 4. Assert: endpoint is a Document or endpoint's popover attribute is in the
   // Auto state or endpoint's popover attribute is in the Hint state.
-  // todo(keithamus): Implement this
+  // Note: We check the opened mode rather than attribute state, as the
+  // attribute can be changed via JavaScript during re-entrancy.
+  MOZ_ASSERT(
+      aEndpoint.IsDocument() ||
+      endpointHTMLEl->IsPopoverOpenedInMode(PopoverAttributeState::Auto) ||
+      endpointHTMLEl->IsPopoverOpenedInMode(PopoverAttributeState::Hint));
 
   // 5. If endpoint is a Document:
   if (&aEndpoint == this) {
     // 5.1. Run close entire popover list given document's showing hint popover
     // list, focusPreviousElement, and fireEvents.
+    CloseEntirePopoverList(PopoverAttributeState::Hint, aFocusPreviousElement,
+                           aFireEvents);
     // 5.2. Run close entire popover list given document's showing auto popover
     // list, focusPreviousElement, and fireEvents.
     CloseEntirePopoverList(PopoverAttributeState::Auto, aFocusPreviousElement,
@@ -16097,16 +16112,28 @@ void Document::HideAllPopoversUntil(nsINode& aEndpoint,
   }
 
   // 6. If document's showing hint popover list contains endpoint:
-  // 6.1. Assert: endpoint's popover attribute is in the Hint state.
-  // 6.2. Run hide popover stack until given endpoint, document's showing hint
-  // popover list, focusPreviousElement, and fireEvents.
-  // 6.3. Return.
-  // todo(keithamus): Implement this
+  if (PopoverListOf(PopoverAttributeState::Hint).Contains(&aEndpoint)) {
+    // 6.1. Assert: endpoint's popover attribute is in the Hint state.
+    MOZ_ASSERT(endpointHTMLEl && endpointHTMLEl->IsPopoverOpenedInMode(
+                                     PopoverAttributeState::Hint));
+    // 6.2. Run hide popover stack until given endpoint, document's showing hint
+    // popover list, focusPreviousElement, and fireEvents.
+    HidePopoverStackUntil(PopoverAttributeState::Hint, aEndpoint,
+                          aFocusPreviousElement, aFireEvents);
+    // 6.3. Return.
+    return;
+  }
 
   // 7. Run close entire popover list given document's showing hint popover
   // list, focusPreviousElement, and fireEvents.
+  CloseEntirePopoverList(PopoverAttributeState::Hint, aFocusPreviousElement,
+                         aFireEvents);
+
   // 8. If document's showing auto popover list does not contain endpoint, then
   // return.
+  if (!PopoverListOf(PopoverAttributeState::Auto).Contains(&aEndpoint)) {
+    return;
+  }
 
   // 9. Run hide popover stack until given endpoint, document's showing auto
   // popover list, focusPreviousElement, and fireEvents.
@@ -16157,22 +16184,20 @@ void Document::HidePopoverStackUntil(PopoverAttributeState aMode,
     // 2.4. While lastToHide's popover visibility state is showing:
     while (lastToHide && lastToHide->IsPopoverOpen()) {
       // 2.4.1. Assert: popoverList is not empty.
-      // todo(keithamus): Assert
+      MOZ_ASSERT(!PopoverListOf(aMode).IsEmpty());
+
+      RefPtr topmost = GetTopmostPopoverOf(aMode);
 
       // 2.4.2. Run the hide popover algorithm given the last item in
       // popoverList, focusPreviousElement, fireEvents, false, and null.
-      RefPtr<Element> topmost =
-          GetTopmostPopoverOf(PopoverAttributeState::Auto);
-      if (!topmost) {
-        break;
-      }
       HidePopover(*topmost, aFocusPreviousElement, fireEvents,
                   /* aSource */ nullptr, IgnoreErrors());
     }
 
     // 2.5. Assert: repeatingHide is false or popoverList's last item is
     // endpoint.
-    // todo(keithamus): Assert
+    MOZ_ASSERT(!repeatingHide ||
+               PopoverListOf(aMode).LastElement() == &aEndpoint);
 
     // 2.6. Set repeatingHide to true if popoverList contains endpoint and
     // popoverList's last item is not endpoint, otherwise false.
@@ -16225,42 +16250,28 @@ void Document::HidePopover(Element& aPopover, bool aFocusPreviousElement,
     }
   });
 
-  PopoverData* popoverData = popoverHTMLEl->GetPopoverData();
-
   // 7. If element's opened in popover mode is "auto" or "hint", then:
-  if (popoverData &&
-      popoverData->GetOpenedInMode() == PopoverAttributeState::Auto) {
-    // 7.1. Run hide all popovers until given element, focusPreviousElement, and
-    // fireEvents.
+  if (PopoverData* popoverData = popoverHTMLEl->GetPopoverData();
+      popoverData &&
+      (popoverData->GetOpenedInMode() == PopoverAttributeState::Auto ||
+       popoverData->GetOpenedInMode() == PopoverAttributeState::Hint)) {
+    // 7.1. Run hide all popovers until given element, focusPreviousElement,
+    // and fireEvents.
     HideAllPopoversUntil(*popoverHTMLEl, aFocusPreviousElement, fireEvents);
 
-    // 7.2. If the result of running check popover validity given element, true,
-    // and throwExceptions is false, then run cleanupSteps and return.
+    // 7.2. If the result of running check popover validity given element,
+    // true, and throwExceptions is false, then run cleanupSteps and return.
     if (!popoverHTMLEl->CheckPopoverValidity(PopoverVisibilityState::Showing,
                                              nullptr, aRv)) {
       return;
     }
-
-    // TODO: we can't always guarantee:
-    // The last item in document's auto popover list is popoverHTMLEl.
-    // See, https://github.com/whatwg/html/issues/9197
-    // If popoverHTMLEl is not on top, hide popovers again without firing
-    // events.
-    if (NS_WARN_IF(GetTopmostPopoverOf(PopoverAttributeState::Auto) !=
-                   popoverHTMLEl)) {
-      HideAllPopoversUntil(*popoverHTMLEl, aFocusPreviousElement, false);
-      if (!popoverHTMLEl->CheckPopoverValidity(PopoverVisibilityState::Showing,
-                                               nullptr, aRv)) {
-        return;
-      }
-      MOZ_ASSERT(
-          GetTopmostPopoverOf(PopoverAttributeState::Auto) == popoverHTMLEl,
-          "popoverHTMLEl should be on top of auto popover list");
-    }
   }
 
-  auto* data = popoverHTMLEl->GetPopoverData();
-  MOZ_ASSERT(data, "Should have popover data");
+  // 8. Let autoPopoverListContainsElement be true if document's showing auto
+  // popover list's last item is element, otherwise false.
+  auto autoList = PopoverListOf(PopoverAttributeState::Auto);
+  bool autoPopoverListContainsElement =
+      !autoList.IsEmpty() && autoList.LastElement() == popoverHTMLEl;
 
   // 9. If fireEvents is true:
   // Fire beforetoggle event and re-check popover validity.
@@ -16277,9 +16288,11 @@ void Document::HidePopover(Element& aPopover, bool aFocusPreviousElement,
     // auto popover list's last item is not element, then run hide all popovers
     // until given element, focusPreviousElement, and false. Hide all popovers
     // when beforetoggle shows a popover.
-    if (popoverHTMLEl->IsPopoverOpenedInMode(PopoverAttributeState::Auto) &&
-        GetTopmostPopoverOf(PopoverAttributeState::Auto) != popoverHTMLEl) {
-      HideAllPopoversUntil(*popoverHTMLEl, aFocusPreviousElement, false);
+    if (autoPopoverListContainsElement) {
+      auto* topmostAuto = GetTopmostPopoverOf(PopoverAttributeState::Auto);
+      if (!topmostAuto || topmostAuto != popoverHTMLEl) {
+        HideAllPopoversUntil(*popoverHTMLEl, aFocusPreviousElement, false);
+      }
     }
 
     // 9.3. If the result of running check popover validity given element, true,
@@ -16289,27 +16302,28 @@ void Document::HidePopover(Element& aPopover, bool aFocusPreviousElement,
       return;
     }
 
-    // 9.4. XXX: See below
-
+    // 9.4. Request an element to be removed from the top layer given element.
     // 9.5. Set element's implicit anchor element to null.
-    data->SetInvoker(nullptr);
+    // XXX: Dropped below if, as both of these steps happen unconditionally.
+    //      (See  step 10, 11 below). The implicit anchor for a popover is its
+    //      invoker, so removing the invoker is the same step.
   }
 
-  // 9.4. Request an element to be removed from the top layer given element.
   // 10. Otherwise, remove an element from the top layer immediately given
   // element.
   RemovePopoverFromTopLayer(aPopover);
 
-  // 11. Set element's popover invoker to null.
-  data->SetInvoker(nullptr);
+  if (PopoverData* popoverData = popoverHTMLEl->GetPopoverData()) {
+    // 11. Set element's popover invoker to null.
+    popoverData->SetInvoker(nullptr);
 
-  // 12. Set element's opened in popover mode to null.
-  popoverHTMLEl->GetPopoverData()->SetOpenedInMode(PopoverAttributeState::None);
+    // 12. Set element's opened in popover mode to null.
+    popoverData->SetOpenedInMode(PopoverAttributeState::None);
 
-  // 13. Set element's popover visibility state to hidden.
-  popoverHTMLEl->PopoverPseudoStateUpdate(false, true);
-  popoverHTMLEl->GetPopoverData()->SetPopoverVisibilityState(
-      PopoverVisibilityState::Hidden);
+    // 13. Set element's popover visibility state to hidden.
+    popoverHTMLEl->PopoverPseudoStateUpdate(false, true);
+    popoverData->SetPopoverVisibilityState(PopoverVisibilityState::Hidden);
+  }
 
   // 14. If fireEvents is true, then queue a popover toggle event task given
   // element, "open", and "closed". Queue popover toggle event task.
@@ -16748,8 +16762,14 @@ bool Document::ApplyFullscreen(UniquePtr<FullscreenRequest> aRequest) {
 
   Element* elem = aRequest->Element();
 
+  // Hide auto popovers until the topmost auto ancestor (or document if none).
   RefPtr<nsINode> hideUntil = elem->GetTopmostPopoverAncestor(
-      PopoverAttributeState::Auto, nullptr, false);
+      PopoverAttributeState::Hint, nullptr, false);
+  if (!hideUntil) {
+    hideUntil = elem->GetTopmostPopoverAncestor(PopoverAttributeState::Auto,
+                                                nullptr, false);
+  }
+
   if (!hideUntil) {
     hideUntil = OwnerDoc();
   }

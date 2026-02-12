@@ -342,7 +342,12 @@ class ContentChild final : public PContentChild,
 
   mozilla::ipc::IPCResult RecvRemoveAllPermissions();
 
-  mozilla::ipc::IPCResult RecvFlushMemory(const nsString& reason);
+ private:
+  void NotifyMemoryPressure(const char* aTopic, const char16_t* aReason);
+
+ public:
+  mozilla::ipc::IPCResult RecvMemoryPressure(const nsString& reason);
+  mozilla::ipc::IPCResult RecvMemoryPressureStop();
 
   mozilla::ipc::IPCResult RecvActivateA11y(uint64_t aCacheDomains);
   mozilla::ipc::IPCResult RecvShutdownA11y();

@@ -35,7 +35,7 @@ export var UnitTestObjs = {
 /**
  * registerEventSink
  * @param {string} target
- * @param {TracingLevel} level
+ * @param {TracingLevel[keyof TracingLevel]} level
  * @param {EventSink} sink
  */
 export function registerEventSink(
@@ -61,7 +61,7 @@ return handleRustResult(
 
 /**
  * registerMinLevelEventSink
- * @param {TracingLevel} level
+ * @param {TracingLevel[keyof TracingLevel]} level
  * @param {EventSink} sink
  */
 export function registerMinLevelEventSink(
@@ -121,7 +121,7 @@ return handleRustResult(
 /**
  * TracingLevel
  */
-export const TracingLevel = {
+export const TracingLevel = Object.freeze({
     /**
      * ERROR
      */
@@ -142,8 +142,7 @@ export const TracingLevel = {
      * TRACE
      */
     TRACE: 4,
-};
-Object.freeze(TracingLevel);
+});
 
 // Export the FFIConverter object to make external types work.
 export class FfiConverterTypeTracingLevel extends FfiConverterArrayBuffer {
@@ -293,23 +292,23 @@ export class TracingEvent {
             throw e;
         }
         /**
-         * level
+         * @type {TracingLevel[keyof TracingLevel]}
          */
         this.level = level;
         /**
-         * target
+         * @type {string}
          */
         this.target = target;
         /**
-         * name
+         * @type {string}
          */
         this.name = name;
         /**
-         * message
+         * @type {string}
          */
         this.message = message;
         /**
-         * fields
+         * @type {TracingJsonValue}
          */
         this.fields = fields;
     }

@@ -8,10 +8,12 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.os.Environment
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.app.NotificationManagerCompat
 import mozilla.components.browser.engine.gecko.cookiebanners.GeckoCookieBannersStorage
+import mozilla.components.browser.engine.gecko.util.EngineDownloadDelegate
 import mozilla.components.browser.icons.BrowserIcons
 import mozilla.components.browser.state.engine.EngineMiddleware
 import mozilla.components.browser.state.store.BrowserStore
@@ -155,6 +157,14 @@ class Components(
             preferredColorScheme = settings.getPreferredColorScheme(),
             cookieBannerHandlingModePrivateBrowsing = settings.getCurrentCookieBannerOptionFromSharePref().mode,
             certificateTransparencyMode = FocusNimbus.features.pki.value().certificateTransparencyMode,
+            downloadDelegate = EngineDownloadDelegate(
+                context = context,
+                downloadLocationGetter = {
+                    Environment.getExternalStoragePublicDirectory(
+                        Environment.DIRECTORY_DOWNLOADS,
+                    ).absolutePath
+                },
+            ),
         )
     }
 

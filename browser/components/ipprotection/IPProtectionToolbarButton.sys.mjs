@@ -12,6 +12,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///browser/components/customizableui/CustomizableUI.sys.mjs",
   IPPExceptionsManager:
     "moz-src:///browser/components/ipprotection/IPPExceptionsManager.sys.mjs",
+  IPPNetworkUtils:
+    "moz-src:///browser/components/ipprotection/IPPNetworkUtils.sys.mjs",
   IPPProxyManager:
     "moz-src:///browser/components/ipprotection/IPPProxyManager.sys.mjs",
   IPProtectionService:
@@ -40,7 +42,8 @@ XPCOMUtils.defineLazyPreferenceGetter(
  *
  * Each instance:
  * - Tracks location changes via a progress listener
- * - Updates the button icon according to the proxy state, errors, and site exclusions
+ * - Updates the button icon according to the proxy state, proxy errors,
+ *  offline status, and site exclusions
  * - Handles the visual state of the toolbar button
  */
 export class IPProtectionToolbarButton {
@@ -103,6 +106,7 @@ export class IPProtectionToolbarButton {
     this.#window = Cu.getWeakReference(window);
     this.#widgetId = widgetId;
     this.handleEvent = this.#handleEvent.bind(this);
+    this.observeOfflineStatus = this.#observeOfflineStatus.bind(this);
 
     this.#addProgressListener();
     lazy.IPProtectionService.addEventListener(
@@ -112,6 +116,11 @@ export class IPProtectionToolbarButton {
     lazy.IPPProxyManager.addEventListener(
       "IPPProxyManager:StateChanged",
       this.handleEvent
+    );
+
+    Services.obs.addObserver(
+      this.observeOfflineStatus,
+      "network:offline-status-changed"
     );
 
     if (this.gBrowser?.tabContainer) {
@@ -180,6 +189,20 @@ export class IPProtectionToolbarButton {
   }
 
   /**
+   * Observer for network offline status changes.
+   * Updates the state for every change in case we need to show a different icon.
+   *
+   * @param {nsISupports} _subject
+   * @param {string} topic
+   * @param {string} _data
+   */
+  #observeOfflineStatus(_subject, topic, _data) {
+    if (topic === "network:offline-status-changed") {
+      this.updateState();
+    }
+  }
+
+  /**
    * Updates the button to reflect the current state.
    *
    * This method is called under these circumstances:
@@ -189,6 +212,7 @@ export class IPProtectionToolbarButton {
    *    exclusion state for a site has changed in ipp-vpn
    * 4. After a location change / page navigation
    * 5. After tab switching
+   * 6. After offline network status changes
    *
    * @param {XULElement|null} [toolbaritem]
    *  Optional toolbaritem to update directly.
@@ -216,9 +240,14 @@ export class IPProtectionToolbarButton {
     let isExcluded = this.#isExcludedSite(principal);
 
     let isActive = lazy.IPPProxyManager.state === lazy.IPPProxyStates.ACTIVE;
-    let isError =
+
+    // Show error icon when proxy manager is in ERROR state or when offline
+    let hasProxyError =
       lazy.IPPProxyManager.state === lazy.IPPProxyStates.ERROR &&
-      lazy.IPPProxyManager.errors.includes(ERRORS.GENERIC);
+      (lazy.IPPProxyManager.errors.includes(ERRORS.GENERIC) ||
+        lazy.IPPProxyManager.errors.includes(ERRORS.NETWORK));
+    let isOffline = lazy.IPPNetworkUtils.isOffline;
+    let isError = hasProxyError || isOffline;
 
     const showConfirmationHint = options.showConfirmationHint ?? true;
     if (showConfirmationHint) {
@@ -342,7 +371,7 @@ export class IPProtectionToolbarButton {
   }
 
   /**
-   * Cleans up listeners when the button is destroyed.
+   * Cleans up listeners and observers when the button is destroyed.
    */
   uninit() {
     if (this.gBrowser && this.#progressListener) {
@@ -361,6 +390,11 @@ export class IPProtectionToolbarButton {
     lazy.IPPProxyManager.removeEventListener(
       "IPPProxyManager:StateChanged",
       this.handleEvent
+    );
+
+    Services.obs.removeObserver(
+      this.observeOfflineStatus,
+      "network:offline-status-changed"
     );
   }
 }

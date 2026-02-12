@@ -9,6 +9,9 @@ const { HttpServer, HTTP_404 } = ChromeUtils.importESModule(
 const { GuardianClient } = ChromeUtils.importESModule(
   "moz-src:///browser/components/ipprotection/GuardianClient.sys.mjs"
 );
+const { JsonSchemaValidator } = ChromeUtils.importESModule(
+  "resource://gre/modules/components-utils/JsonSchemaValidator.sys.mjs"
+);
 
 function makeGuardianServer(
   arg = {
@@ -57,43 +60,46 @@ add_task(async function test_fetchUserInfo() {
   const fail = status => () => {
     throw status;
   };
+  const DEFAULT_OK_RESPONSE = {
+    subscribed: true,
+    uid: 42,
+    created_at: "2023-01-01T12:00:00.000Z",
+    limited_bandwidth: false,
+    location_controls: false,
+    autostart: false,
+    website_inclusion: false,
+    maxBytes: "1073741824",
+  };
+  const DEFAULT_EXPECTED_VALUES = {
+    subscribed: true,
+    uid: 42,
+    created_at: "2023-01-01T12:00:00.000Z",
+    limited_bandwidth: false,
+    location_controls: false,
+    autostart: false,
+    website_inclusion: false,
+    maxBytes: BigInt(1073741824),
+  };
+
   const testcases = [
     {
       name: "It should parse a valid response",
       sends: ok({
-        subscribed: true,
-        uid: 42,
-        created_at: "2023-01-01T12:00:00.000Z",
-        limited_bandwidth: false,
-        location_controls: false,
-        autostart: false,
-        website_inclusion: false,
+        ...DEFAULT_OK_RESPONSE,
       }),
       expects: {
         status: 200,
         error: null,
         validEntitlement: true,
         entitlement: {
-          subscribed: true,
-          uid: 42,
-          created_at: "2023-01-01T12:00:00.000Z",
-          limited_bandwidth: false,
-          location_controls: false,
-          autostart: false,
-          website_inclusion: false,
+          ...DEFAULT_EXPECTED_VALUES,
         },
       },
     },
     {
       name: "Alpha experiment",
       sends: ok({
-        autostart: false,
-        created_at: "2023-09-24T12:00:00.000Z",
-        limited_bandwidth: false,
-        location_controls: false,
-        subscribed: true,
-        uid: 12345,
-        website_inclusion: false,
+        ...DEFAULT_OK_RESPONSE,
         type: "alpha",
       }),
       expects: {
@@ -101,25 +107,18 @@ add_task(async function test_fetchUserInfo() {
         error: null,
         validEntitlement: true,
         entitlement: {
-          autostart: false,
-          limited_bandwidth: false,
-          location_controls: false,
-          subscribed: true,
-          uid: 12345,
+          ...DEFAULT_EXPECTED_VALUES,
           website_inclusion: false,
-          created_at: "2023-09-24T12:00:00.000Z",
         },
       },
     },
     {
       name: "Beta experiment",
       sends: ok({
+        ...DEFAULT_OK_RESPONSE,
         autostart: true,
-        created_at: "2023-09-24T12:30:00.000Z",
         limited_bandwidth: false,
         location_controls: false,
-        subscribed: false,
-        uid: 67890,
         website_inclusion: true,
         type: "beta",
       }),
@@ -128,25 +127,22 @@ add_task(async function test_fetchUserInfo() {
         error: null,
         validEntitlement: true,
         entitlement: {
+          ...DEFAULT_EXPECTED_VALUES,
           autostart: true,
           limited_bandwidth: false,
           location_controls: false,
-          subscribed: false,
-          uid: 67890,
           website_inclusion: true,
-          created_at: "2023-09-24T12:30:00.000Z",
         },
       },
     },
     {
       name: "gamma experiment",
       sends: ok({
+        ...DEFAULT_OK_RESPONSE,
         autostart: true,
-        created_at: "2023-09-24T13:00:00.000Z",
         limited_bandwidth: false,
         location_controls: true,
         subscribed: true,
-        uid: 54321,
         website_inclusion: false,
         type: "gamma",
       }),
@@ -155,25 +151,23 @@ add_task(async function test_fetchUserInfo() {
         error: null,
         validEntitlement: true,
         entitlement: {
+          ...DEFAULT_EXPECTED_VALUES,
           autostart: true,
           limited_bandwidth: false,
           location_controls: true,
           subscribed: true,
-          uid: 54321,
           website_inclusion: false,
-          created_at: "2023-09-24T13:00:00.000Z",
         },
       },
     },
     {
       name: "Delta experiment",
       sends: ok({
+        ...DEFAULT_OK_RESPONSE,
         autostart: true,
-        created_at: "2023-09-24T13:30:00.000Z",
         limited_bandwidth: true,
         location_controls: true,
         subscribed: true,
-        uid: 13579,
         website_inclusion: true,
         type: "delta",
       }),
@@ -182,13 +176,11 @@ add_task(async function test_fetchUserInfo() {
         error: null,
         validEntitlement: true,
         entitlement: {
+          ...DEFAULT_EXPECTED_VALUES,
           autostart: true,
           limited_bandwidth: true,
           location_controls: true,
-          subscribed: true,
-          uid: 13579,
           website_inclusion: true,
-          created_at: "2023-09-24T13:30:00.000Z",
         },
       },
     },
@@ -297,9 +289,21 @@ add_task(async function test_fetchProxyPass() {
       if (!headers["Cache-Control"]) {
         r.setHeader("Cache-Control", "max-age=3600", false);
       }
-      // Set any custom headers
+      // Set default quota headers
+      if (!("X-Quota-Limit" in headers)) {
+        r.setHeader("X-Quota-Limit", "5368709120", false);
+      }
+      if (!("X-Quota-Remaining" in headers)) {
+        r.setHeader("X-Quota-Remaining", "4294967296", false);
+      }
+      if (!("X-Quota-Reset" in headers)) {
+        r.setHeader("X-Quota-Reset", "2026-02-01T00:00:00.000Z", false);
+      }
+      // Set any custom headers (undefined values will skip setting)
       for (const [name, value] of Object.entries(headers)) {
-        r.setHeader(name, value, false);
+        if (value !== undefined) {
+          r.setHeader(name, value, false);
+        }
       }
       r.write(JSON.stringify(data));
     };
@@ -309,12 +313,34 @@ add_task(async function test_fetchProxyPass() {
   };
   const testcases = [
     {
-      name: "It should parse a valid response",
+      name: "It should parse a valid response with usage headers",
       sends: ok({ token: createProxyPassToken() }),
       expects: {
         status: 200,
         error: null,
         validPass: true,
+        validUsage: true,
+        usage: {
+          max: BigInt("5368709120"),
+          remaining: BigInt("4294967296"),
+        },
+      },
+    },
+    {
+      name: "It should handle missing usage headers gracefully",
+      sends: ok(
+        { token: createProxyPassToken() },
+        {
+          "X-Quota-Limit": undefined,
+          "X-Quota-Remaining": undefined,
+          "X-Quota-Reset": undefined,
+        }
+      ),
+      expects: {
+        status: 200,
+        error: null,
+        validPass: true,
+        validUsage: false,
       },
     },
     {
@@ -324,6 +350,7 @@ add_task(async function test_fetchProxyPass() {
         status: 404,
         error: "invalid_response",
         validPass: false,
+        validUsage: false,
       },
     },
     {
@@ -333,6 +360,7 @@ add_task(async function test_fetchProxyPass() {
         status: 200,
         error: "invalid_response",
         validPass: false,
+        validUsage: true,
       },
     },
     {
@@ -342,6 +370,7 @@ add_task(async function test_fetchProxyPass() {
         status: 200,
         error: "invalid_response",
         validPass: false,
+        validUsage: true,
       },
     },
   ];
@@ -351,7 +380,7 @@ add_task(async function test_fetchProxyPass() {
         const server = makeGuardianServer({ token: sends });
         const client = new GuardianClient(testGuardianConfig(server));
 
-        const { status, pass, error } = await client.fetchProxyPass();
+        const { status, pass, error, usage } = await client.fetchProxyPass();
 
         if (expects.status !== undefined) {
           Assert.equal(status, expects.status, `${name}: status should match`);
@@ -383,6 +412,256 @@ add_task(async function test_fetchProxyPass() {
           Assert.ok(pass.isValid(), `${name}: pass should be valid`);
         } else {
           Assert.equal(pass, null, `${name}: pass should be null`);
+        }
+
+        if (expects.validUsage) {
+          Assert.notEqual(usage, null, `${name}: usage should not be null`);
+          if (expects.usage) {
+            Assert.equal(
+              usage.max,
+              expects.usage.max,
+              `${name}: usage.max should match`
+            );
+            Assert.equal(
+              usage.remaining,
+              expects.usage.remaining,
+              `${name}: usage.remaining should match`
+            );
+          }
+          Assert.ok(
+            usage.reset && typeof usage.reset.epochMilliseconds === "number",
+            `${name}: usage.reset should be Temporal.Instant`
+          );
+        } else if (expects.validUsage === false) {
+          Assert.equal(usage, null, `${name}: usage should be null`);
+        }
+
+        server.stop();
+      };
+    })
+    .forEach(test => add_task(test));
+});
+
+add_task(async function test_ProxyUsage_fromResponse() {
+  const testcases = [
+    {
+      name: "Valid quota headers",
+      headers: {
+        "X-Quota-Limit": "5368709120",
+        "X-Quota-Remaining": "4294967296",
+        "X-Quota-Reset": "2026-02-01T00:00:00.000Z",
+      },
+      expects: {
+        validUsage: true,
+        max: BigInt("5368709120"),
+        remaining: BigInt("4294967296"),
+      },
+    },
+    {
+      name: "Zero remaining (quota exceeded)",
+      headers: {
+        "X-Quota-Limit": "5368709120",
+        "X-Quota-Remaining": "0",
+        "X-Quota-Reset": "2026-02-01T00:00:00.000Z",
+      },
+      expects: {
+        validUsage: true,
+        max: BigInt("5368709120"),
+        remaining: BigInt("0"),
+      },
+    },
+    {
+      name: "Missing X-Quota-Limit header",
+      headers: {
+        "X-Quota-Remaining": "1000",
+        "X-Quota-Reset": "2026-02-01T00:00:00.000Z",
+      },
+      expects: { validUsage: false },
+    },
+    {
+      name: "Missing X-Quota-Remaining header",
+      headers: {
+        "X-Quota-Limit": "5000",
+        "X-Quota-Reset": "2026-02-01T00:00:00.000Z",
+      },
+      expects: { validUsage: false },
+    },
+    {
+      name: "Missing X-Quota-Reset header",
+      headers: {
+        "X-Quota-Limit": "5000",
+        "X-Quota-Remaining": "1000",
+      },
+      expects: { validUsage: false },
+    },
+    {
+      name: "Invalid ISO timestamp",
+      headers: {
+        "X-Quota-Limit": "5000",
+        "X-Quota-Remaining": "1000",
+        "X-Quota-Reset": "not-a-date",
+      },
+      expects: { validUsage: false },
+    },
+    {
+      name: "Invalid BigInt value",
+      headers: {
+        "X-Quota-Limit": "not-a-number",
+        "X-Quota-Remaining": "1000",
+        "X-Quota-Reset": "2026-02-01T00:00:00.000Z",
+      },
+      expects: { validUsage: false },
+    },
+  ];
+
+  testcases.forEach(({ name, headers, expects }) => {
+    info(`Running test case: ${name}`);
+
+    const mockHeaders = new Map(Object.entries(headers));
+    const mockResponse = {
+      headers: {
+        get(key) {
+          return mockHeaders.get(key) || null;
+        },
+      },
+    };
+
+    if (expects.validUsage) {
+      const usage = ProxyUsage.fromResponse(mockResponse);
+      Assert.notEqual(usage, null, `${name}: usage should not be null`);
+      Assert.equal(usage.max, expects.max, `${name}: max should match`);
+      Assert.equal(
+        usage.remaining,
+        expects.remaining,
+        `${name}: remaining should match`
+      );
+      Assert.ok(
+        usage.reset && typeof usage.reset.epochMilliseconds === "number",
+        `${name}: reset should be Temporal.Instant`
+      );
+      return;
+    }
+
+    Assert.throws(
+      () => ProxyUsage.fromResponse(mockResponse),
+      /Missing required header|invalid|must be non-negative|cannot exceed max|can't parse instant/i,
+      `${name}: should throw error for invalid data`
+    );
+  });
+});
+
+add_task(async function test_fetchProxyPass_quotaExceeded() {
+  const quota429 = (headers = {}) => {
+    return (request, r) => {
+      r.setStatusLine(request.httpVersion, 429, "Too Many Requests");
+      for (const [name, value] of Object.entries(headers)) {
+        if (value !== undefined) {
+          r.setHeader(name, value, false);
+        }
+      }
+      r.write(JSON.stringify({ error: "quota_exceeded" }));
+    };
+  };
+
+  const testcases = [
+    {
+      name: "429 with usage headers and Retry-After",
+      sends: quota429({
+        "X-Quota-Limit": "5368709120",
+        "X-Quota-Remaining": "0",
+        "X-Quota-Reset": "2026-02-01T00:00:00.000Z",
+        "Retry-After": "Sat, 01 Feb 2026 00:00:00 GMT",
+      }),
+      expects: {
+        status: 429,
+        error: "quota_exceeded",
+        validPass: false,
+        validUsage: true,
+        usage: {
+          max: BigInt("5368709120"),
+          remaining: BigInt("0"),
+        },
+        retryAfter: "Sat, 01 Feb 2026 00:00:00 GMT",
+      },
+    },
+    {
+      name: "429 without usage headers returns quota_exceeded with null usage",
+      sends: quota429({
+        "Retry-After": "3600",
+      }),
+      expects: {
+        status: 429,
+        error: "quota_exceeded",
+        validPass: false,
+        usage: null,
+        retryAfter: "3600",
+      },
+    },
+    {
+      name: "429 without Retry-After",
+      sends: quota429({
+        "X-Quota-Limit": "5368709120",
+        "X-Quota-Remaining": "0",
+        "X-Quota-Reset": "2026-02-01T00:00:00.000Z",
+      }),
+      expects: {
+        status: 429,
+        error: "quota_exceeded",
+        validPass: false,
+        validUsage: true,
+        usage: {
+          max: BigInt("5368709120"),
+          remaining: BigInt("0"),
+        },
+        retryAfter: null,
+      },
+    },
+  ];
+
+  testcases
+    .map(({ name, sends, expects }) => {
+      return async () => {
+        const server = makeGuardianServer({ token: sends });
+        const client = new GuardianClient(testGuardianConfig(server));
+
+        const { status, pass, error, usage, retryAfter } =
+          await client.fetchProxyPass();
+
+        Assert.equal(status, expects.status, `${name}: status should match`);
+        Assert.equal(error, expects.error, `${name}: error should match`);
+
+        if (expects.validPass) {
+          Assert.notEqual(pass, null, `${name}: pass should not be null`);
+        } else {
+          Assert.equal(pass, undefined, `${name}: pass should be undefined`);
+        }
+
+        if (expects.validUsage) {
+          Assert.notEqual(usage, null, `${name}: usage should not be null`);
+          Assert.equal(
+            usage.max,
+            expects.usage.max,
+            `${name}: usage.max should match`
+          );
+          Assert.equal(
+            usage.remaining,
+            expects.usage.remaining,
+            `${name}: usage.remaining should match`
+          );
+          Assert.ok(
+            usage.reset && typeof usage.reset.epochMilliseconds === "number",
+            `${name}: usage.reset should be Temporal.Instant`
+          );
+        } else if (expects.usage === null) {
+          Assert.equal(usage, null, `${name}: usage should be null`);
+        }
+
+        if (expects.retryAfter !== undefined) {
+          Assert.equal(
+            retryAfter,
+            expects.retryAfter,
+            `${name}: retryAfter should match`
+          );
         }
 
         server.stop();
@@ -465,4 +744,93 @@ add_task(async function test_proxyPassShouldRotate() {
       `${name}: shouldRotate should match`
     );
   });
+});
+
+add_task(async function test_entitlement_toString_schema_validation() {
+  const entitlement = new Entitlement({
+    autostart: true,
+    created_at: "2024-01-15T10:30:00.000Z",
+    limited_bandwidth: false,
+    location_controls: true,
+    subscribed: true,
+    uid: 12345,
+    website_inclusion: false,
+    maxBytes: "1000000000",
+  });
+
+  const serialized = entitlement.toString();
+  Assert.ok(serialized, "toString() should return a non-empty string");
+
+  const parsed = JSON.parse(serialized);
+  Assert.ok(parsed, "toString() output should be valid JSON");
+
+  const result = JsonSchemaValidator.validate(parsed, Entitlement.schema);
+  Assert.ok(
+    result.valid,
+    `toString() output should match schema. Errors: ${JSON.stringify(
+      result.errors
+    )}`
+  );
+
+  const recreated = new Entitlement(parsed);
+  Assert.ok(recreated, "Should be able to create Entitlement from parsed data");
+
+  for (const key of Object.keys(entitlement)) {
+    const expected = entitlement[key];
+    const actual = recreated[key];
+    if (typeof expected === "bigint") {
+      Assert.equal(
+        actual.toString(),
+        expected.toString(),
+        `${key} matches after round-trip`
+      );
+    } else if (key === "created_at") {
+      Assert.equal(
+        actual.toISOString(),
+        expected.toISOString(),
+        `${key} matches after round-trip`
+      );
+    } else {
+      Assert.equal(actual, expected, `${key} matches after round-trip`);
+    }
+  }
+});
+
+add_task(async function test_ProxyUsage_serialization() {
+  const originalUsage = new ProxyUsage(
+    "1000000000",
+    "750000000",
+    "2026-02-01T00:00:00Z"
+  );
+
+  const serialized = JSON.stringify({
+    max: originalUsage.max.toString(),
+    remaining: originalUsage.remaining.toString(),
+    reset: originalUsage.reset.toString(),
+  });
+
+  Assert.greater(serialized.length, 0, "Serialization produces output");
+
+  const data = JSON.parse(serialized);
+  const deserializedUsage = new ProxyUsage(
+    data.max,
+    data.remaining,
+    data.reset
+  );
+
+  Assert.equal(
+    deserializedUsage.max.toString(),
+    originalUsage.max.toString(),
+    "max preserved through serialization"
+  );
+  Assert.equal(
+    deserializedUsage.remaining.toString(),
+    originalUsage.remaining.toString(),
+    "remaining preserved through serialization"
+  );
+  Assert.equal(
+    deserializedUsage.reset.toString(),
+    originalUsage.reset.toString(),
+    "reset preserved through serialization"
+  );
 });

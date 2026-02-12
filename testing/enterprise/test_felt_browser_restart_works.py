@@ -3,45 +3,51 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+import os
 import sys
 
+sys.path.append(os.path.dirname(__file__))
+
 from felt_tests import FeltTests
-from selenium.common.exceptions import NoSuchWindowException, WebDriverException
+from marionette_driver.errors import (
+    NoSuchWindowException,
+    UnknownException,
+)
 
 
 class BrowserRestartWorks(FeltTests):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def test_browser_resart_works(self):
+        super().run_felt_base()
+        self.run_felt_perform_restart()
+        self.run_felt_restart_new_process()
 
-    def test_felt_3_perform_restart(self, exp):
+    def run_felt_perform_restart(self):
         self._logger.info("Connecting to browser")
         self.connect_child_browser()
-        self._browser_pid = self._child_driver.capabilities["moz:processID"]
+        self._browser_pid = self._child_driver.session_capabilities["moz:processID"]
         self._logger.info(f"Connected to {self._browser_pid}")
 
         try:
-            self._logger.info("Issuing restart, expecting restart being done by felt")
+            self._logger.info("Issuing restartecting restart being done by felt")
             self._child_driver.set_context("chrome")
             self._child_driver.execute_script(
                 "Services.startup.quit(Ci.nsIAppStartup.eRestart | Ci.nsIAppStartup.eAttemptQuit);"
             )
-        except WebDriverException:
-            self._logger.info("Received expected WebDriverException")
+        except UnknownException:
+            self._logger.info("Received expected UnknownException")
         except NoSuchWindowException:
             self._logger.info("Received expected NoSuchWindowException")
         finally:
             self._logger.info(
-                f"Issued restart, expecting quit underway, checking PID {self._browser_pid}"
+                f"Issued restartecting quit underway, checking PID {self._browser_pid}"
             )
             self._manually_closed_child = True
 
-        return True
-
-    def test_felt_4_restart_new_process(self, exp):
+    def run_felt_restart_new_process(self):
         self.wait_process_exit()
         self._logger.info("Connecting to new browser")
         self.connect_child_browser()
-        new_browser_pid = self._child_driver.capabilities["moz:processID"]
+        new_browser_pid = self._child_driver.session_capabilities["moz:processID"]
         self._logger.info(f"Connected to new brower with PID {new_browser_pid}")
 
         self._logger.info(
@@ -56,15 +62,3 @@ class BrowserRestartWorks(FeltTests):
         self._child_driver.execute_script(
             "Services.startup.quit(Ci.nsIAppStartup.eForceQuit);"
         )
-
-        return True
-
-
-if __name__ == "__main__":
-    BrowserRestartWorks(
-        "felt_browser_restart_works.json",
-        firefox=sys.argv[1],
-        geckodriver=sys.argv[2],
-        profile_root=sys.argv[3],
-        env_vars={"MOZ_FELT_UI": "1"},
-    )

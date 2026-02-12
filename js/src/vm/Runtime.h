@@ -432,9 +432,6 @@ struct JSRuntime {
   bool getHostDefinedData(JSContext* cx,
                           JS::MutableHandle<JSObject*> data) const;
 
-  bool enqueuePromiseJob(JSContext* cx, js::HandleFunction job,
-                         js::HandleObject promise,
-                         js::HandleObject hostDefinedData);
   void addUnhandledRejectedPromise(JSContext* cx, js::HandleObject promise);
   void removeUnhandledRejectedPromise(JSContext* cx, js::HandleObject promise);
 
@@ -990,7 +987,7 @@ struct JSRuntime {
   js::MainThreadData<JS::AfterWaitCallback> afterWaitCallback;
 
  public:
-  void reportAllocationOverflow() {
+  void reportAllocOverflow() {
     js::ReportAllocationOverflow(static_cast<JSContext*>(nullptr));
   }
 

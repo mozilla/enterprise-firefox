@@ -17,7 +17,10 @@ export const FeltStorage = {
    *
    * @type {string}
    */
-  FELT_FILE_PATH: PathUtils.join(PathUtils.profileDir, "felt.json"),
+  FELT_FILE_PATH: PathUtils.join(
+    Services.dirsvc.get("UAppData", Ci.nsIFile).path,
+    "felt.json"
+  ),
 
   async init() {
     this._feltStorage = new lazy.JSONFile({

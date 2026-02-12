@@ -68,7 +68,7 @@ class MediaSessionServiceDelegateTest {
 
     @Test
     fun `WHEN the service is created THEN create a new notification scope audio focus manager`() = runTest {
-        val delegate = MediaSessionServiceDelegate(testContext, mock(), mock(), mock(), mock(), this)
+        val delegate = MediaSessionServiceDelegate(testContext, mock(), BrowserStore(), mock(), mock(), this)
         delegate.mediaSession = mock()
         val mediaCallbackCaptor = argumentCaptor<MediaSessionCallback>()
 
@@ -80,7 +80,7 @@ class MediaSessionServiceDelegateTest {
 
     @Test
     fun `WHEN the service is destroyed THEN stop notification updates and abandon audio focus`() = runTest {
-        val delegate = MediaSessionServiceDelegate(testContext, mock(), mock(), mock(), mock(), this)
+        val delegate = MediaSessionServiceDelegate(testContext, mock(), BrowserStore(), mock(), mock(), this)
         delegate.audioFocus = mock()
 
         delegate.onDestroy()
@@ -92,7 +92,7 @@ class MediaSessionServiceDelegateTest {
 
     @Test
     fun `GIVEN media playing started WHEN a new play command is received THEN resume media and emit telemetry`() = runTest {
-        val delegate = MediaSessionServiceDelegate(testContext, mock(), mock(), mock(), mock(), this)
+        val delegate = MediaSessionServiceDelegate(testContext, mock(), BrowserStore(), mock(), mock(), this)
         delegate.controller = mock() // simulate media already started playing
 
         CollectionProcessor.withFactCollection { facts ->
@@ -110,7 +110,7 @@ class MediaSessionServiceDelegateTest {
 
     @Test
     fun `GIVEN media playing started WHEN a new pause command is received THEN pause media and emit telemetry`() = runTest {
-        val delegate = MediaSessionServiceDelegate(testContext, mock(), mock(), mock(), mock(), this)
+        val delegate = MediaSessionServiceDelegate(testContext, mock(), BrowserStore(), mock(), mock(), this)
         delegate.controller = mock() // simulate media already started playing
 
         CollectionProcessor.withFactCollection { facts ->
@@ -153,7 +153,7 @@ class MediaSessionServiceDelegateTest {
     @Test
     fun `WHEN handling playing media THEN emit telemetry`() = runTest {
         val mediaTab = getMediaTab()
-        val delegate = MediaSessionServiceDelegate(testContext, mock(), mock(), mock(), mock(), this)
+        val delegate = MediaSessionServiceDelegate(testContext, mock(), BrowserStore(), mock(), mock(), this)
         delegate.audioFocus = mock()
 
         CollectionProcessor.withFactCollection { facts ->
@@ -171,7 +171,7 @@ class MediaSessionServiceDelegateTest {
     @Test
     fun `WHEN handling playing media THEN setup internal properties`() = runTest {
         val mediaTab = getMediaTab()
-        val delegate = spy(MediaSessionServiceDelegate(testContext, mock(), mock(), mock(), mock()))
+        val delegate = spy(MediaSessionServiceDelegate(testContext, mock(), BrowserStore(), mock(), mock()))
         delegate.audioFocus = mock()
 
         delegate.handleMediaPlaying(mediaTab)
@@ -185,7 +185,7 @@ class MediaSessionServiceDelegateTest {
     fun `GIVEN the service is already in foreground WHEN handling playing media THEN setup internal properties`() = runTest {
         val mediaTab = getMediaTab()
         val notificationsDelegate: NotificationsDelegate = mock()
-        val delegate = MediaSessionServiceDelegate(testContext, mock(), mock(), mock(), notificationsDelegate, this)
+        val delegate = MediaSessionServiceDelegate(testContext, mock(), BrowserStore(), mock(), notificationsDelegate, this)
         delegate.onCreate()
         delegate.audioFocus = mock()
         delegate.isForegroundService = true
@@ -199,7 +199,7 @@ class MediaSessionServiceDelegateTest {
     @Test
     fun `GIVEN the service is not in foreground WHEN handling playing media THEN start the media service as foreground`() = runTest {
         val mediaTab = getMediaTab()
-        val delegate = MediaSessionServiceDelegate(testContext, mock(), mock(), mock(), mock(), this)
+        val delegate = MediaSessionServiceDelegate(testContext, mock(), BrowserStore(), mock(), mock(), this)
         delegate.onCreate()
         delegate.audioFocus = mock()
         delegate.isForegroundService = false
@@ -215,7 +215,7 @@ class MediaSessionServiceDelegateTest {
     fun `WHEN updating the notification for a new media state THEN post a new notification`() = runTest {
         val mediaTab = getMediaTab()
         val notificationsDelegate: NotificationsDelegate = mock()
-        val delegate = MediaSessionServiceDelegate(testContext, mock(), mock(), mock(), notificationsDelegate, this)
+        val delegate = MediaSessionServiceDelegate(testContext, mock(), BrowserStore(), mock(), notificationsDelegate, this)
         delegate.onCreate()
         val notification: Notification = mock()
         delegate.notificationHelper = coMock {
@@ -231,7 +231,7 @@ class MediaSessionServiceDelegateTest {
     @Test
     fun `WHEN starting the service as foreground THEN use start with a new notification for the current media state`() = runTest {
         val mediaTab = getMediaTab()
-        val delegate = MediaSessionServiceDelegate(testContext, mock(), mock(), mock(), mock(), this)
+        val delegate = MediaSessionServiceDelegate(testContext, mock(), BrowserStore(), mock(), mock(), this)
         delegate.onCreate()
         val notification: Notification = mock()
         delegate.notificationHelper = coMock {
@@ -270,7 +270,7 @@ class MediaSessionServiceDelegateTest {
     @Test
     fun `WHEN handling paused media THEN emit telemetry`() = runTest {
         val mediaTab = getMediaTab(PlaybackState.PAUSED)
-        val delegate = MediaSessionServiceDelegate(testContext, mock(), mock(), mock(), mock(), this)
+        val delegate = MediaSessionServiceDelegate(testContext, mock(), BrowserStore(), mock(), mock(), this)
 
         CollectionProcessor.withFactCollection { facts ->
             delegate.handleMediaPaused(mediaTab)
@@ -296,7 +296,7 @@ class MediaSessionServiceDelegateTest {
         val mediaSession: MediaSessionCompat = mock()
         val notificationId = SharedIdsHelper.getIdForTag(testContext, AbstractMediaSessionService.NOTIFICATION_TAG)
 
-        val delegate = spy(MediaSessionServiceDelegate(testContext, mock(), mock(), mock(), notificationsDelegate, this))
+        val delegate = spy(MediaSessionServiceDelegate(testContext, mock(), BrowserStore(), mock(), notificationsDelegate, this))
         delegate.isForegroundService = true
         delegate.mediaSession = mediaSession
         delegate.notificationHelper = notificationHelper
@@ -318,7 +318,7 @@ class MediaSessionServiceDelegateTest {
     @Test
     fun `WHEN handling stopped media THEN emit telemetry`() = runTest {
         val mediaTab = getMediaTab(PlaybackState.STOPPED)
-        val delegate = MediaSessionServiceDelegate(testContext, mock(), mock(), mock(), mock(), this)
+        val delegate = MediaSessionServiceDelegate(testContext, mock(), BrowserStore(), mock(), mock(), this)
 
         CollectionProcessor.withFactCollection { facts ->
             delegate.handleMediaStopped(mediaTab)
@@ -337,7 +337,7 @@ class MediaSessionServiceDelegateTest {
         val mediaTab = getMediaTab(PlaybackState.STOPPED)
         val notificationsDelegate: NotificationsDelegate = mock()
 
-        val delegate = spy(MediaSessionServiceDelegate(testContext, mock(), mock(), mock(), notificationsDelegate, this))
+        val delegate = spy(MediaSessionServiceDelegate(testContext, mock(), BrowserStore(), mock(), notificationsDelegate, this))
         delegate.isForegroundService = true
         delegate.onCreate()
 
@@ -357,7 +357,7 @@ class MediaSessionServiceDelegateTest {
         val notificationsDelegate: NotificationsDelegate = mock()
         whenever(notificationsDelegate.notificationManagerCompat).thenReturn(notificationManagerCompat)
 
-        val delegate = MediaSessionServiceDelegate(testContext, mock(), mock(), mock(), notificationsDelegate)
+        val delegate = MediaSessionServiceDelegate(testContext, mock(), BrowserStore(), mock(), notificationsDelegate)
         delegate.audioFocus = mock()
         delegate.mediaSession = mock()
 
@@ -380,7 +380,7 @@ class MediaSessionServiceDelegateTest {
             mediaSessionState = MediaSessionState(mock(), metadata = metadata),
         )
 
-        val delegate = MediaSessionServiceDelegate(testContext, mock(), mock(), mock(), mock(), this)
+        val delegate = MediaSessionServiceDelegate(testContext, mock(), BrowserStore(), mock(), mock(), this)
         delegate.mediaSession = mock()
         delegate.onCreate()
         val metadataCaptor = argumentCaptor<MediaMetadataCompat>()
@@ -426,7 +426,7 @@ class MediaSessionServiceDelegateTest {
 
     @Test
     fun `WHEN stopping running in foreground THEN stop the foreground service`() = runTest {
-        val delegate = MediaSessionServiceDelegate(testContext, mock(), mock(), mock(), mock(), this)
+        val delegate = MediaSessionServiceDelegate(testContext, mock(), BrowserStore(), mock(), mock(), this)
         delegate.isForegroundService = true
 
         delegate.stopForeground()
@@ -438,7 +438,7 @@ class MediaSessionServiceDelegateTest {
     @Test
     fun `GIVEN a audio noisy receiver is already registered WHEN trying to register a new one THEN return early`() = runTest {
         val context = spy(testContext)
-        val delegate = MediaSessionServiceDelegate(context, mock(), mock(), mock(), mock())
+        val delegate = MediaSessionServiceDelegate(context, mock(), BrowserStore(), mock(), mock())
         delegate.noisyAudioStreamReceiver = mock()
 
         delegate.registerBecomingNoisyListenerIfNeeded(mock())
@@ -448,7 +448,7 @@ class MediaSessionServiceDelegateTest {
 
     @Test
     fun `GIVEN a audio noisy receiver is not already registered WHEN trying to register a new one THEN register it`() = runTest {
-        val delegate = spy(MediaSessionServiceDelegate(testContext, mock(), mock(), mock(), mock()))
+        val delegate = spy(MediaSessionServiceDelegate(testContext, mock(), BrowserStore(), mock(), mock()))
         val receiverCaptor = argumentCaptor<BroadcastReceiver>()
 
         delegate.registerBecomingNoisyListenerIfNeeded(mock())
@@ -460,7 +460,7 @@ class MediaSessionServiceDelegateTest {
     @Test
     fun `GIVEN a audio noisy receiver is already registered WHEN trying to unregister one THEN unregister it`() = runTest {
         val context = spy(testContext)
-        val delegate = MediaSessionServiceDelegate(context, mock(), mock(), mock(), mock())
+        val delegate = MediaSessionServiceDelegate(context, mock(), BrowserStore(mock()), mock(), mock(), this)
         delegate.noisyAudioStreamReceiver = mock()
         context.registerReceiver(
             delegate.noisyAudioStreamReceiver,
@@ -479,7 +479,7 @@ class MediaSessionServiceDelegateTest {
     @Test
     fun `GIVEN a audio noisy receiver is not already registered WHEN trying to unregister one THEN return early`() = runTest {
         val context = spy(testContext)
-        val delegate = MediaSessionServiceDelegate(context, mock(), mock(), mock(), mock())
+        val delegate = MediaSessionServiceDelegate(context, mock(), BrowserStore(), mock(), mock())
 
         delegate.unregisterBecomingNoisyListenerIfNeeded()
 
@@ -492,7 +492,7 @@ class MediaSessionServiceDelegateTest {
         val notificationsDelegate: NotificationsDelegate = mock()
         whenever(notificationsDelegate.notificationManagerCompat).thenReturn(notificationManagerCompat)
 
-        val delegate = MediaSessionServiceDelegate(testContext, mock(), mock(), mock(), notificationsDelegate)
+        val delegate = MediaSessionServiceDelegate(testContext, mock(), BrowserStore(), mock(), notificationsDelegate)
         delegate.mediaSession = mock()
 
         delegate.shutdown()
@@ -528,7 +528,7 @@ class MediaSessionServiceDelegateTest {
     fun `GIVEN device is at least API level 31 WHEN startForeground throws an exception THEN catch and pass the exception to the crash reporter`() = runTest {
         val crashReporter: CrashReporting = mock()
         val service: AbstractMediaSessionService = mock()
-        val delegate = MediaSessionServiceDelegate(testContext, service, mock(), crashReporter, mock(), this)
+        val delegate = MediaSessionServiceDelegate(testContext, service, BrowserStore(), crashReporter, mock(), this)
         delegate.onCreate()
         val notification: Notification = mock()
         delegate.notificationHelper = coMock {
@@ -558,7 +558,7 @@ class MediaSessionServiceDelegateTest {
             val delegate = MediaSessionServiceDelegate(
                 testContext,
                 service,
-                mock(),
+                BrowserStore(),
                 crashReporter,
                 mock(),
                 this,

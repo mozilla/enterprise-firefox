@@ -24,9 +24,9 @@ android {
 }
 
 dependencies {
+    implementation project(':components:concept-engine')
     implementation project(':components:lib-state')
-
-    testImplementation libs.androidx.test.junit
+    implementation project(':components:compose-base')
 
     implementation libs.androidx.compose.foundation
     implementation libs.androidx.compose.ui.tooling.preview
@@ -34,6 +34,9 @@ dependencies {
     implementation libs.androidx.compose.material3
     debugImplementation libs.androidx.compose.ui.tooling
 
+    testImplementation libs.androidx.test.junit
+    testImplementation libs.kotlinx.coroutines.test
+    testImplementation project(":components:support-test-fakes")
 }
 
 apply from: '../../../common-config.gradle'

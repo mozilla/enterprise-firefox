@@ -517,6 +517,13 @@ class NodeBuilder {
   [[nodiscard]] bool importDeclaration(NodeVector& elts, HandleValue moduleSpec,
                                        TokenPos* pos, MutableHandleValue dst);
 
+#ifdef ENABLE_SOURCE_PHASE_IMPORTS
+  [[nodiscard]] bool importSourceDeclaration(HandleValue bindingName,
+                                             HandleValue moduleSpec,
+                                             TokenPos* pos,
+                                             MutableHandleValue dst);
+#endif
+
   [[nodiscard]] bool importSpecifier(HandleValue importName,
                                      HandleValue bindingName, TokenPos* pos,
                                      MutableHandleValue dst);
@@ -1172,6 +1179,16 @@ bool NodeBuilder::importDeclaration(NodeVector& elts, HandleValue moduleRequest,
                  moduleRequest, dst);
 }
 
+#ifdef ENABLE_SOURCE_PHASE_IMPORTS
+bool NodeBuilder::importSourceDeclaration(HandleValue bindingName,
+                                          HandleValue moduleRequest,
+                                          TokenPos* pos,
+                                          MutableHandleValue dst) {
+  return newNode(AST_IMPORT_SOURCE_DECL, pos, "binding", bindingName,
+                 "moduleRequest", moduleRequest, dst);
+}
+#endif
+
 bool NodeBuilder::importSpecifier(HandleValue importName,
                                   HandleValue bindingName, TokenPos* pos,
                                   MutableHandleValue dst) {
@@ -1445,6 +1462,9 @@ class ASTSerializer {
                            MutableHandleValue dst);
   bool variableDeclarator(ParseNode* pn, MutableHandleValue dst);
   bool importDeclaration(BinaryNode* importNode, MutableHandleValue dst);
+#ifdef ENABLE_SOURCE_PHASE_IMPORTS
+  bool importSourceDeclaration(BinaryNode* importNode, MutableHandleValue dst);
+#endif
   bool importSpecifier(BinaryNode* importSpec, MutableHandleValue dst);
   bool importNamespaceSpecifier(UnaryNode* importSpec, MutableHandleValue dst);
   bool exportDeclaration(ParseNode* exportNode, MutableHandleValue dst);
@@ -1889,6 +1909,45 @@ bool ASTSerializer::importDeclaration(BinaryNode* importNode,
                                    &importNode->pn_pos, dst);
 }
 
+#ifdef ENABLE_SOURCE_PHASE_IMPORTS
+bool ASTSerializer::importSourceDeclaration(BinaryNode* importNode,
+                                            MutableHandleValue dst) {
+  MOZ_ASSERT(importNode->isKind(ParseNodeKind::ImportSourceDecl));
+
+  NameNode* bindingName = &importNode->left()->as<NameNode>();
+  MOZ_ASSERT(bindingName->isKind(ParseNodeKind::Name));
+
+  auto* moduleRequest = &importNode->right()->as<BinaryNode>();
+  MOZ_ASSERT(moduleRequest->isKind(ParseNodeKind::ImportModuleRequest));
+
+  ParseNode* moduleSpecNode = moduleRequest->left();
+  MOZ_ASSERT(moduleSpecNode->isKind(ParseNodeKind::StringExpr));
+
+  RootedValue bindingNameValue(cx);
+  if (!identifier(bindingName, &bindingNameValue)) {
+    return false;
+  }
+
+  RootedValue moduleSpec(cx);
+  if (!literal(moduleSpecNode, &moduleSpec)) {
+    return false;
+  }
+
+  // Import source declarations do not have import attributes.
+  MOZ_ASSERT(moduleRequest->right()->isKind(ParseNodeKind::PosHolder));
+  NodeVector attributes(cx);
+
+  RootedValue moduleRequestValue(cx);
+  if (!builder.moduleRequest(moduleSpec, attributes, &importNode->pn_pos,
+                             &moduleRequestValue)) {
+    return false;
+  }
+
+  return builder.importSourceDeclaration(bindingNameValue, moduleRequestValue,
+                                         &importNode->pn_pos, dst);
+}
+#endif
+
 bool ASTSerializer::importSpecifier(BinaryNode* importSpec,
                                     MutableHandleValue dst) {
   MOZ_ASSERT(importSpec->isKind(ParseNodeKind::ImportSpec));
@@ -2263,6 +2322,11 @@ bool ASTSerializer::statement(ParseNode* pn, MutableHandleValue dst) {
 
     case ParseNodeKind::ImportDecl:
       return importDeclaration(&pn->as<BinaryNode>(), dst);
+
+#ifdef ENABLE_SOURCE_PHASE_IMPORTS
+    case ParseNodeKind::ImportSourceDecl:
+      return importSourceDeclaration(&pn->as<BinaryNode>(), dst);
+#endif
 
     case ParseNodeKind::ExportStmt:
     case ParseNodeKind::ExportDefaultStmt:

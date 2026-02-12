@@ -715,11 +715,12 @@ def StrictOrderingOnAppendListWithFlagsFactory(flags):
     .. code-block:: python
 
         FooList = StrictOrderingOnAppendListWithFlagsFactory({
-            'foo': bool, 'bar': unicode
+            "foo": bool,
+            "bar": unicode,
         })
-        foo = FooList(['a', 'b', 'c'])
-        foo['a'].foo = True
-        foo['b'].bar = 'bar'
+        foo = FooList(["a", "b", "c"])
+        foo["a"].foo = True
+        foo["b"].bar = "bar"
     """
 
     class StrictOrderingOnAppendListWithFlagsSpecialization(
@@ -1097,9 +1098,9 @@ def group_unified_files(files, unified_prefix, unified_suffix, files_per_unified
     ``a.cpp``, ``b.cpp``, and ``c.cpp`` separately, we compile a single file
     that looks approximately like::
 
-       #include "a.cpp"
-       #include "b.cpp"
-       #include "c.cpp"
+       # include "a.cpp"
+       # include "b.cpp"
+       # include "c.cpp"
 
     This function handles the details of generating names for the unified
     files, and determining which original source files go in which unified

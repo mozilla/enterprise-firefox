@@ -53,7 +53,7 @@ void pattern_vertex(PrimitiveInfo info) {
 
     v_angle = PI / 2.0 - gradient.angle;
     v_start_offset = gradient.start_offset * v_offset_scale;
-    v_dir = ((info.local_pos - info.local_prim_rect.p0) * gradient.scale - gradient.center);
+    v_dir = (info.local_pos * gradient.scale - gradient.center);
 }
 
 #endif

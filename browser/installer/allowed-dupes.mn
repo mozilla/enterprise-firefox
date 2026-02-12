@@ -105,6 +105,3 @@ browser/chrome/browser/builtin-addons/newtab/data/data/content/assets/glyph-mail
 # Bug 1946597 - Move glyph-webextension-16.svg in browser/themes/shared/icons
 browser/chrome/browser/content/activity-stream/data/content/assets/glyph-webextension-16.svg
 browser/chrome/browser/content/newtab/data/content/assets/glyph-webextension-16.svg
-
-# Bug 1998760 - Fix duplicated felt localization
-browser/chrome/browser/builtin-addons/felt/content/locales/felt.ftl

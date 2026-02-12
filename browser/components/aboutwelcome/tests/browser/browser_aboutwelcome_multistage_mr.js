@@ -902,7 +902,7 @@ add_task(async function test_aboutwelcome_backup_found() {
     .stub(AWScreenUtils, "evaluateScreenTargeting")
     .resolves(false)
     .withArgs(
-      "backupRestoreEnabled && (backupsInfo.found || backupsInfo.multipleBackupsFound)"
+      "backupRestoreEnabled && !hasSelectableProfiles && (backupsInfo.found || backupsInfo.multipleBackupsFound)"
     )
     .resolves(true)
     .withArgs("isDeviceMigration")

@@ -208,6 +208,15 @@ class MozlintParser(ArgumentParser):
             },
         ],
         [
+            ["--skip-rollouts"],
+            {
+                "dest": "skip_rollouts",
+                "default": False,
+                "action": "store_true",
+                "help": "Skip loading stylelint-rollouts.config.js (stylelint only).",
+            },
+        ],
+        [
             ["extra_args"],
             {
                 "nargs": REMAINDER,

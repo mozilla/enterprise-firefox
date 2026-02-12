@@ -1719,9 +1719,11 @@ toolbar#nav-bar {
             if options.test_tags:
                 filters.append(tags(options.test_tags))
 
+            path_filter = None
             if options.test_paths:
                 options.test_paths = self.normalize_paths(options.test_paths)
-                filters.append(pathprefix(options.test_paths))
+                path_filter = pathprefix(options.test_paths)
+                filters.append(path_filter)
 
             # Add chunking filters if specified
             if options.totalChunks:
@@ -1783,6 +1785,16 @@ toolbar#nav-bar {
                 strictExpressions=True,
                 **info,
             )
+
+            # Store missing manifests for later use in structured logging
+            self.missing_manifests = set()
+            if path_filter and path_filter.missing:
+                self.missing_manifests = path_filter.missing
+                self.log.warning(
+                    "The following path(s) didn't resolve any tests:\n  {}".format(
+                        "  \n".join(sorted(path_filter.missing))
+                    )
+                )
 
             if len(tests) == 0:
                 self.log.error(
@@ -1916,6 +1928,11 @@ toolbar#nav-bar {
 
             self.log.info("Dumping active_tests to %s file." % options.dump_tests)
             sys.exit()
+
+        # Add missing manifests with empty test lists so they appear in
+        # group_result output with SKIP status
+        for missing_path in self.missing_manifests:
+            self.tests_by_manifest[missing_path] = []
 
         # Upload a list of test manifests that were executed in this run.
         if "MOZ_UPLOAD_DIR" in os.environ:

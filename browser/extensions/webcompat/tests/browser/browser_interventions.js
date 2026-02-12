@@ -321,6 +321,13 @@ add_task(async function test_json_data() {
             `all_frames key is true or false for content_scripts for id ${id}`
           );
         }
+        if ("isolated" in content_scripts) {
+          const isolated = content_scripts.isolated;
+          ok(
+            isolated === false || isolated === true,
+            `isolated key is true or false for content_scripts for id ${id}`
+          );
+        }
         for (const type of ["css", "js"]) {
           if (!(type in content_scripts)) {
             continue;

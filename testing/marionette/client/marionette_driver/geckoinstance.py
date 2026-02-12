@@ -676,6 +676,8 @@ class DesktopInstance(GeckoInstance):
         # Turn off Merino suggestions in the location bar so as not to trigger network
         # connections.
         "browser.urlbar.merino.endpointURL": "",
+        "browser.urlbar.merino.ohttpConfigURL": "",
+        "browser.urlbar.merino.ohttpRelayURL": "",
         # Turn off search suggestions in the location bar so as not to trigger network
         # connections.
         "browser.urlbar.suggest.searches": False,

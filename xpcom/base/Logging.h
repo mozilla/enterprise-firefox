@@ -86,6 +86,12 @@ class LogModule {
   static void SetCaptureStacks(bool aCaptureStacks);
 
   /**
+   * @return If we should log JS Stacks when logging js console messages.
+   * (may be extended outside of just the js console)
+   */
+  static bool GetLogJSStacks();
+
+  /**
    * Indicates whether or not the given log level is enabled.
    */
   bool ShouldLog(LogLevel aLevel) const { return mLevel >= aLevel; }

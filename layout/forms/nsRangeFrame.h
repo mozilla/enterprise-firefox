@@ -162,10 +162,10 @@ class nsRangeFrame final : public nsContainerFrame,
   nscoord AutoCrossSize();
 
   // Helper function which reflows the anonymous div frames.
-  void ReflowAnonymousContent(nsPresContext* aPresContext,
-                              ReflowOutput& aDesiredSize,
-                              const mozilla::LogicalSize& aContentBoxSize,
-                              const ReflowInput& aReflowInput);
+  void ReflowChildFrames(nsPresContext* aPresContext,
+                         ReflowOutput& aDesiredSize,
+                         const mozilla::LogicalSize& aContentBoxSize,
+                         const ReflowInput& aReflowInput);
 
   void DoUpdateThumbPosition(nsIFrame* aThumbFrame,
                              const nsSize& aRangeContentBoxSize);

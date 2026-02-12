@@ -13,10 +13,9 @@
  *
  * Focus: Critical paths and edge cases that affect security
  */
-const { normalizeUrl, areSameSite, TabLedger, SessionLedger } =
-  ChromeUtils.importESModule(
-    "chrome://global/content/ml/security/SecurityUtils.sys.mjs"
-  );
+const { normalizeUrl, TabLedger, SessionLedger } = ChromeUtils.importESModule(
+  "chrome://global/content/ml/security/SecurityUtils.sys.mjs"
+);
 
 /**
  * Test: valid HTTP URLs normalize successfully.
@@ -190,90 +189,6 @@ add_task(async function test_normalizeUrl_relative_with_base() {
     result.url.includes("example.com/page"),
     "Should resolve relative URL"
   );
-});
-
-/**
- * Test: same domain returns true for areSameSite.
- *
- * Reason:
- * Identical domains share the same eTLD+1. This is the baseline case
- * for same-site validation.
- */
-add_task(async function test_areSameSite_same_domain() {
-  const result = areSameSite("https://example.com", "https://example.com");
-
-  Assert.ok(result, "Should return true for same domain");
-});
-
-/**
- * Test: subdomain and apex domain return true.
- *
- * Reason:
- * www.example.com and example.com share the same eTLD+1 (example.com).
- * They should be considered same-site for security purposes.
- */
-add_task(async function test_areSameSite_subdomain() {
-  const result = areSameSite("https://www.example.com", "https://example.com");
-
-  Assert.ok(result, "Should return true for subdomain vs apex");
-});
-
-/**
- * Test: different subdomains of same eTLD+1 return true.
- *
- * Reason:
- * blog.example.com and shop.example.com share the same eTLD+1.
- * They should be considered same-site for security purposes.
- */
-add_task(async function test_areSameSite_different_subdomains() {
-  const result = areSameSite(
-    "https://blog.example.com",
-    "https://shop.example.com"
-  );
-
-  Assert.ok(result, "Should return true for different subdomains");
-});
-
-/**
- * Test: different domains return false.
- *
- * Reason:
- * example.com and evil.com have different eTLD+1 values. They must
- * be treated as different sites to prevent cross-site attacks.
- */
-add_task(async function test_areSameSite_different_domains() {
-  const result = areSameSite("https://example.com", "https://evil.com");
-
-  Assert.ok(!result, "Should return false for different domains");
-});
-
-/**
- * Test: subdomain injection attempt returns false.
- *
- * Reason:
- * example.com.evil.com has eTLD+1 of evil.com, not example.com.
- * This attack pattern must be detected and rejected.
- */
-add_task(async function test_areSameSite_injection_attempt() {
-  const result = areSameSite(
-    "https://example.com",
-    "https://example.com.evil.com"
-  );
-
-  Assert.ok(!result, "Should return false for subdomain injection attempt");
-});
-
-/**
- * Test: invalid URLs return false (fail-closed).
- *
- * Reason:
- * If either URL is invalid, same-site comparison should return false.
- * Fail-closed behavior ensures malformed input doesn't bypass checks.
- */
-add_task(async function test_areSameSite_invalid_urls() {
-  const result = areSameSite("not-a-url", "https://example.com");
-
-  Assert.ok(!result, "Should return false for invalid URL (fail-closed)");
 });
 
 /**

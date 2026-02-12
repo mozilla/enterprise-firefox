@@ -167,16 +167,6 @@ class SMILAnimationController final : public SMILTimeContainer {
   // differently such as not dispatching events).
   SMILTime mAvgTimeBetweenSamples = 0;
 
-  bool mResampleNeeded = false;
-  bool mRunningSample = false;
-
-  // Have we updated animated values without adding them to the restyle tracker?
-  bool mMightHavePendingStyleUpdates = false;
-
-  // Whether we've started sampling. This is only needed because the first
-  // sample is supposed to run sync.
-  bool mIsSampling = false;
-
   // Store raw ptr to mDocument.  It owns the controller, so controller
   // shouldn't outlive it
   mozilla::dom::Document* mDocument;
@@ -186,6 +176,16 @@ class SMILAnimationController final : public SMILTimeContainer {
   // but isn't anymore for some reason. (e.g. if its <animate> element is
   // removed or retargeted)
   std::unique_ptr<SMILCompositorTable> mLastCompositorTable;
+
+  bool mResampleNeeded = false;
+  bool mRunningSample = false;
+
+  // Have we updated animated values without adding them to the restyle tracker?
+  bool mMightHavePendingStyleUpdates = false;
+
+  // Whether we've started sampling. This is only needed because the first
+  // sample is supposed to run sync.
+  bool mIsSampling = false;
 };
 
 }  // namespace mozilla

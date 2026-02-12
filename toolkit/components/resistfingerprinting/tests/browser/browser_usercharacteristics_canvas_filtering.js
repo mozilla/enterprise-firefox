@@ -76,8 +76,10 @@ add_task(async function test_all_known_hashes_removed() {
   const probability = getHashProbability(KNOWN_HASH);
   info(`Known hash ${KNOWN_HASH} has probability ${probability}`);
 
-  // Run multiple iterations to verify statistical behavior
-  const iterations = 50;
+  // With the default channel (multiplier 1) the base probability for the first
+  // hash is ~0.0075, giving expectedKept ~0.196 per iteration. 200 iterations
+  // keep the failure probability below 0.1%.
+  const iterations = 200;
   const totalEntries = 26; // Number of canvas types
   let totalKept = 0;
 

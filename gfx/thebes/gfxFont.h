@@ -7,6 +7,7 @@
 #ifndef GFX_FONT_H
 #define GFX_FONT_H
 
+#include <limits>
 #include <new>
 #include <functional>
 #include "PLDHashTable.h"
@@ -14,6 +15,8 @@
 #include "gfxFontVariations.h"
 #include "gfxRect.h"
 #include "gfxTypes.h"
+#include "harfbuzz/hb.h"
+#include "harfbuzz/hb-ot.h"
 #include "mozilla/AlreadyAddRefed.h"
 #include "mozilla/Attributes.h"
 #include "mozilla/FontPropertyTypes.h"
@@ -1640,24 +1643,51 @@ class gfxFont {
   }
 
   struct Baselines {
-    gfxFloat mAlphabetic;
-    gfxFloat mHanging;
-    gfxFloat mIdeographicUnder;
-    gfxFloat mIdeographicOver;
-    gfxFloat mIdeographicInkUnder;
-    gfxFloat mIdeographicInkOver;
-    gfxFloat mCentral;
-    gfxFloat mMath;
+    std::atomic<gfxFloat> mAlphabetic;
+    std::atomic<gfxFloat> mHanging;
+    std::atomic<gfxFloat> mIdeographicUnder;
+    std::atomic<gfxFloat> mIdeographicOver;
+    std::atomic<gfxFloat> mIdeographicInkUnder;
+    std::atomic<gfxFloat> mIdeographicInkOver;
+    std::atomic<gfxFloat> mCentral;
+    std::atomic<gfxFloat> mMath;
+
+    Baselines()
+        : mAlphabetic(std::numeric_limits<gfxFloat>::quiet_NaN()),
+          mHanging(std::numeric_limits<gfxFloat>::quiet_NaN()),
+          mIdeographicUnder(std::numeric_limits<gfxFloat>::quiet_NaN()),
+          mIdeographicOver(std::numeric_limits<gfxFloat>::quiet_NaN()),
+          mIdeographicInkUnder(std::numeric_limits<gfxFloat>::quiet_NaN()),
+          mIdeographicInkOver(std::numeric_limits<gfxFloat>::quiet_NaN()),
+          mCentral(std::numeric_limits<gfxFloat>::quiet_NaN()),
+          mMath(std::numeric_limits<gfxFloat>::quiet_NaN()) {}
   };
-  const Baselines& GetBaselines(Orientation aOrientation) {
-    if (aOrientation == nsFontMetrics::eHorizontal) {
-      return mHorizontalBaselines;
-    }
-    if (!mVerticalBaselines) {
-      CreateVerticalBaselines();
-    }
-    return *mVerticalBaselines;
-  }
+
+  typedef std::atomic<gfxFloat> Baselines::* BaselinePtr;
+  typedef std::pair<BaselinePtr, hb_ot_layout_baseline_tag_t> Baseline;
+
+  static constexpr Baseline kAlphabetic = {&Baselines::mAlphabetic,
+                                           HB_OT_LAYOUT_BASELINE_TAG_ROMAN};
+  static constexpr Baseline kHanging = {&Baselines::mHanging,
+                                        HB_OT_LAYOUT_BASELINE_TAG_HANGING};
+  static constexpr Baseline kIdeographicUnder = {
+      &Baselines::mIdeographicUnder,
+      HB_OT_LAYOUT_BASELINE_TAG_IDEO_EMBOX_BOTTOM_OR_LEFT};
+  static constexpr Baseline kIdeographicOver = {
+      &Baselines::mIdeographicOver,
+      HB_OT_LAYOUT_BASELINE_TAG_IDEO_EMBOX_TOP_OR_RIGHT};
+  static constexpr Baseline kIdeographicInkUnder = {
+      &Baselines::mIdeographicInkUnder,
+      HB_OT_LAYOUT_BASELINE_TAG_IDEO_FACE_BOTTOM_OR_LEFT};
+  static constexpr Baseline kIdeographicInkOver = {
+      &Baselines::mIdeographicInkOver,
+      HB_OT_LAYOUT_BASELINE_TAG_IDEO_FACE_TOP_OR_RIGHT};
+  static constexpr Baseline kCentral = {
+      &Baselines::mCentral, HB_OT_LAYOUT_BASELINE_TAG_IDEO_EMBOX_CENTRAL};
+  static constexpr Baseline kMath = {&Baselines::mMath,
+                                     HB_OT_LAYOUT_BASELINE_TAG_MATH};
+
+  gfxFloat GetBaseline(const Baseline& aBaseline, Orientation aOrientation);
 
   /**
    * We let layout specify spacing on either side of any
@@ -1964,7 +1994,16 @@ class gfxFont {
 
   void CreateVerticalMetrics();
   void CreateVerticalBaselines();
-  void InitBaselines(Baselines& aBaselines, Orientation aOrientation);
+
+  Baselines& GetBaselines(Orientation aOrientation) {
+    if (aOrientation == nsFontMetrics::eHorizontal) {
+      return mHorizontalBaselines;
+    }
+    if (!mVerticalBaselines) {
+      CreateVerticalBaselines();
+    }
+    return *mVerticalBaselines;
+  }
 
   bool MeasureGlyphs(const gfxTextRun* aTextRun, uint32_t aStart, uint32_t aEnd,
                      BoundingBoxType aBoundingBoxType,

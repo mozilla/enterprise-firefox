@@ -45,7 +45,7 @@ class DownloadStateKtTest {
         val guessedName = with(download) {
             DefaultDownloadFileUtils(
                 testContext,
-                downloadLocationGetter = { "downloads" },
+                downloadLocation = { "downloads" },
             ).guessFileName(null, url, contentType)
         }
 

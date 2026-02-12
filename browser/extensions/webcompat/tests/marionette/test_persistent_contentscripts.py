@@ -88,11 +88,24 @@ class ContentScriptsAreCorrectlyPersistedTest(MarionetteTestCase):
         bug3 = self.buildInterventionConfig("bug3", interventionContentScriptPath)
 
         def getInterventionScriptId(bug):
-            return f"""webcompat intervention for {bug}: {{"js":["{interventionContentScriptPath}"]}}"""
+            return self.marionette.execute_script(
+                """
+                    const config = arguments[0];
+                    const bgWin = window.wrappedJSObject.browser.extension.getBackgroundPage();
+                    const { id } =
+                      bgWin.interventions.buildContentScriptRegistrations(
+                        config.label,
+                        config.interventions[0],
+                        bgWin.interventions.getBlocksAndMatchesFor(config).matches
+                      )[0];
+                      return id;
+              """,
+                [bug],
+            )
 
-        expectedBug1ScriptId = getInterventionScriptId("bug1")
-        expectedBug2ScriptId = getInterventionScriptId("bug2")
-        expectedBug3ScriptId = getInterventionScriptId("bug3")
+        expectedBug1ScriptId = getInterventionScriptId(bug1)
+        expectedBug2ScriptId = getInterventionScriptId(bug2)
+        expectedBug3ScriptId = getInterventionScriptId(bug3)
 
         shim1 = self.buildShimConfig("bug1", shimContentScriptPath)
         shim2 = self.buildShimConfig("bug2", shimContentScriptPath)

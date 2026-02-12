@@ -70,7 +70,7 @@ add_task(async function test_reencrypt_race() {
   const newLogins = EXPECTED_LOGINS.slice();
 
   newLogins.splice(0, 1);
-  Services.logins.removeLogin(EXPECTED_LOGINS[0]);
+  await Services.logins.removeLoginAsync(EXPECTED_LOGINS[0]);
 
   newLogins[0] = EXPECTED_LOGINS[1].clone();
   newLogins[0].password = "different password";

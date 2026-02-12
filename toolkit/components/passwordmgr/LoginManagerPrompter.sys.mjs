@@ -441,7 +441,7 @@ export class LoginManagerPrompter {
 
       if (loginToRemove) {
         lazy.log.debug(`Removing login ${loginToRemove.guid}.`);
-        Services.logins.removeLogin(loginToRemove);
+        await Services.logins.removeLoginAsync(loginToRemove);
       }
     };
 
@@ -570,7 +570,7 @@ export class LoginManagerPrompter {
             guid: login.guid,
             origin: login.origin,
           });
-          Services.logins.removeLogin(matchingLogins[0]);
+          await Services.logins.removeLoginAsync(matchingLogins[0]);
           browser.focus();
           lazy.log.debug("Showing the ConfirmationHint");
           showConfirmation(browser, "confirmation-hint-password-removed");

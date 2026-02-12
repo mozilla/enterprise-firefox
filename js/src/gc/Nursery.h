@@ -322,8 +322,8 @@ class Nursery {
     return weakMapsWithNurseryEntries_.append(wm);
   }
 
-  void joinSweepTask();
-  void joinDecommitTask();
+  bool joinSweepTask();
+  bool joinDecommitTask();
 
 #ifdef DEBUG
   bool sweepTaskIsIdle();

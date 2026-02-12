@@ -1212,6 +1212,7 @@ add_task(async function checkPatternsValid() {
 
 add_task(async function check_isChinaRepack() {
   const prefDefaultBranch = Services.prefs.getDefaultBranch("distribution.");
+  const originalDistributionId = prefDefaultBranch.getCharPref("id", "");
   const messages = [
     { id: "msg_for_china_repack", targeting: "isChinaRepack == true" },
     { id: "msg_for_everyone_else", targeting: "isChinaRepack == false" },
@@ -1254,7 +1255,7 @@ add_task(async function check_isChinaRepack() {
     "should select the message for non China repack users"
   );
 
-  prefDefaultBranch.deleteBranch("");
+  prefDefaultBranch.setCharPref("id", originalDistributionId);
 });
 
 add_task(async function check_userId() {
@@ -1513,22 +1514,29 @@ add_task(async function check_userPrefersReducedMotion() {
 });
 
 add_task(async function test_distributionId() {
+  let expectedDefault = Services.prefs
+    .getDefaultBranch(null)
+    .getCharPref("distribution.id", "");
   is(
     ASRouterTargeting.Environment.distributionId,
-    "",
-    "Should return an empty distribution Id"
+    expectedDefault,
+    "Should return the expected default distribution Id"
   );
 
   Services.prefs.getDefaultBranch(null).setCharPref("distribution.id", "test");
-
   is(
     ASRouterTargeting.Environment.distributionId,
     "test",
     "Should return the correct distribution Id"
   );
 
-  // clean up default branch distribution.id
-  Services.prefs.getDefaultBranch(null).deleteBranch("distribution.id");
+  if (expectedDefault) {
+    Services.prefs
+      .getDefaultBranch(null)
+      .setCharPref("distribution.id", expectedDefault);
+  } else {
+    Services.prefs.getDefaultBranch(null).deleteBranch("distribution.id");
+  }
 });
 
 add_task(async function test_fxViewButtonAreaType_default() {

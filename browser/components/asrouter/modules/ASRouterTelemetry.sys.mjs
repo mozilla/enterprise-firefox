@@ -93,9 +93,6 @@ export class ASRouterTelemetry {
       locale: Services.locale.appLocaleAsBCP47,
     };
 
-    if (event.event_context && typeof event.event_context === "object") {
-      event.event_context = JSON.stringify(event.event_context);
-    }
     switch (event.action) {
       case "cfr_user_event":
         event = await this.applyCFRPolicy(event);
@@ -238,7 +235,7 @@ export class ASRouterTelemetry {
 
     // Now that the action has become a ping, we can echo it to Glean.
     if (this.telemetryEnabled) {
-      lazy.Telemetry.submitGleanPingForPing({ ...ping, pingType });
+      lazy.Telemetry.parseAndSubmitPing({ ...ping, pingType });
     }
   }
 

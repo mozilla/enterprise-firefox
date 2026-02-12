@@ -21,7 +21,6 @@ import { DownloadMobilePromoHighlight } from "../DiscoveryStreamComponents/Featu
 import { WallpaperFeatureHighlight } from "../DiscoveryStreamComponents/FeatureHighlight/WallpaperFeatureHighlight";
 import { ActivationWindowMessage } from "../ActivationWindowMessage/ActivationWindowMessage";
 import { MessageWrapper } from "content-src/components/MessageWrapper/MessageWrapper";
-import { selectWeatherPlacement } from "../../lib/utils";
 
 const VISIBLE = "visible";
 const VISIBILITY_CHANGE_EVENT = "visibilitychange";
@@ -761,10 +760,6 @@ export class BaseContent extends React.PureComponent {
       prefs["system.showWeather"] || prefs.trainhopConfig?.weather?.enabled;
     const supportUrl = prefs["support.url"];
 
-    // Weather can be enabled and not rendered in the top right corner
-    const shouldDisplayWeather =
-      prefs.showWeather && this.props.weatherPlacement === "header";
-
     // Widgets experiment pref check
     const nimbusWidgetsEnabled = prefs.widgetsConfig?.enabled;
     const nimbusListsEnabled = prefs.widgetsConfig?.listsEnabled;
@@ -793,6 +788,8 @@ export class BaseContent extends React.PureComponent {
       listsEnabled: prefs["widgets.lists.enabled"],
       timerEnabled: prefs["widgets.focusTimer.enabled"],
       weatherEnabled: prefs.showWeather,
+      widgetsMaximized: prefs["widgets.maximized"],
+      widgetsMayBeMaximized: prefs["widgets.system.maximized"],
     };
 
     // Mobile Download Promo Pref Checks
@@ -810,12 +807,10 @@ export class BaseContent extends React.PureComponent {
     const mobileDownloadPromoWrapperHeightModifier =
       prefs["weather.display"] === "detailed" &&
       weatherEnabled &&
-      shouldDisplayWeather &&
       mayHaveWeather
         ? "is-tall"
         : "";
     const sectionsEnabled = prefs["discoverystream.sections.enabled"];
-    const topicLabelsEnabled = prefs["discoverystream.topicLabels.enabled"];
     const sectionsCustomizeMenuPanelEnabled =
       prefs["discoverystream.sections.customizeMenuPanel.enabled"];
     const sectionsPersonalizationEnabled =
@@ -824,7 +819,6 @@ export class BaseContent extends React.PureComponent {
     // Logic to show follow/block topic mgmt panel in Customize panel
     const mayHavePersonalizedTopicSections =
       sectionsPersonalizationEnabled &&
-      topicLabelsEnabled &&
       sectionsEnabled &&
       sectionsCustomizeMenuPanelEnabled &&
       DiscoveryStream.feeds.loaded;
@@ -833,7 +827,7 @@ export class BaseContent extends React.PureComponent {
       mobileDownloadPromoEnabled &&
         mobileDownloadPromoVariantABorC &&
         "has-mobile-download-promo", // Mobile download promo modal is enabled/visible
-      weatherEnabled && mayHaveWeather && shouldDisplayWeather && "has-weather", // Weather widget is enabled/visible
+      weatherEnabled && mayHaveWeather && "has-weather", // Weather widget is enabled/visible
       prefs.showSearch ? "has-search" : "no-search",
       // layoutsVariantAEnabled ? "layout-variant-a" : "", // Layout experiment variant A
       // layoutsVariantBEnabled ? "layout-variant-b" : "", // Layout experiment variant B
@@ -871,7 +865,7 @@ export class BaseContent extends React.PureComponent {
     return (
       <div className={featureClassName}>
         <div className="weatherWrapper">
-          {shouldDisplayWeather && (
+          {weatherEnabled && (
             <ErrorBoundary>
               <Weather />
             </ErrorBoundary>
@@ -973,6 +967,10 @@ export class BaseContent extends React.PureComponent {
             mayHaveWidgets={mayHaveWidgets}
             mayHaveTimerWidget={mayHaveTimerWidget}
             mayHaveListsWidget={mayHaveListsWidget}
+            mayHaveWeatherForecast={
+              prefs["widgets.system.weatherForecast.enabled"]
+            }
+            weatherDisplay={prefs["weather.display"]}
             showing={customizeMenuVisible}
             toggleSectionsMgmtPanel={this.toggleSectionsMgmtPanel}
             showSectionsMgmtPanel={this.state.showSectionsMgmtPanel}
@@ -1005,5 +1003,4 @@ export const Base = connect(state => ({
   Search: state.Search,
   Wallpapers: state.Wallpapers,
   Weather: state.Weather,
-  weatherPlacement: selectWeatherPlacement(state),
 }))(_Base);

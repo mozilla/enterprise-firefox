@@ -50,7 +50,7 @@ void pattern_vertex(PrimitiveInfo info) {
 
     // v_pos is in a coordinate space relative to the task rect
     // (so it is independent of the task origin).
-    v_pos = ((info.local_pos - info.local_prim_rect.p0) * gradient.scale - gradient.center) * radius_scale;
+    v_pos = (info.local_pos * gradient.scale - gradient.center) * radius_scale;
     v_pos.y *= gradient.xy_ratio;
 
     v_gradient_repeat.x = gradient.repeat;

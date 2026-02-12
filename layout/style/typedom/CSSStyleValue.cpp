@@ -14,13 +14,14 @@
 namespace mozilla::dom {
 
 CSSStyleValue::CSSStyleValue(nsCOMPtr<nsISupports> aParent)
-    : mParent(std::move(aParent)), mValueType(ValueType::Uninitialized) {
+    : mParent(std::move(aParent)),
+      mStyleValueType(StyleValueType::Uninitialized) {
   MOZ_ASSERT(mParent);
 }
 
 CSSStyleValue::CSSStyleValue(nsCOMPtr<nsISupports> aParent,
-                             ValueType aValueType)
-    : mParent(std::move(aParent)), mValueType(aValueType) {
+                             StyleValueType aStyleValueType)
+    : mParent(std::move(aParent)), mStyleValueType(aStyleValueType) {
   MOZ_ASSERT(mParent);
 }
 
@@ -64,19 +65,15 @@ void CSSStyleValue::Stringify(nsAString& aRetVal) const {}
 // end of CSSStyleValue Web IDL implementation
 
 bool CSSStyleValue::IsCSSUnsupportedValue() const {
-  return mValueType == ValueType::UnsupportedValue;
+  return mStyleValueType == StyleValueType::UnsupportedValue;
 }
 
 bool CSSStyleValue::IsCSSKeywordValue() const {
-  return mValueType == ValueType::KeywordValue;
+  return mStyleValueType == StyleValueType::KeywordValue;
 }
 
-bool CSSStyleValue::IsCSSUnitValue() const {
-  return mValueType == ValueType::UnitValue;
-}
-
-bool CSSStyleValue::IsCSSMathSum() const {
-  return mValueType == ValueType::MathSum;
+bool CSSStyleValue::IsCSSNumericValue() const {
+  return mStyleValueType == StyleValueType::NumericValue;
 }
 
 }  // namespace mozilla::dom

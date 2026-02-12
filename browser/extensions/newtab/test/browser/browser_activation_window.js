@@ -9,6 +9,7 @@ ChromeUtils.defineESModuleGetters(this, {
   NimbusFeatures: "resource://nimbus/ExperimentAPI.sys.mjs",
   NimbusTestUtils: "resource://testing-common/NimbusTestUtils.sys.mjs",
   ObjectUtils: "resource://gre/modules/ObjectUtils.sys.mjs",
+  ProfileAge: "resource://gre/modules/ProfileAge.sys.mjs",
 });
 
 const PREF_PREFIX = "browser.newtabpage.activity-stream.";
@@ -156,6 +157,37 @@ if (Services.vc.compare(AppConstants.MOZ_APP_VERSION, "149.0a1") < 0) {
     "The activation window mechanism is only supported in 149 onwards."
   );
 }
+
+/**
+ * Tests that the createdInstant getter is being populated with the current
+ * profile creation date.
+ */
+add_task(
+  {
+    /**
+     * @backward-compat { version 149 }
+     *
+     * The activation window mechanism is only supported in 149 onwards.
+     */
+    skip_if: () => {
+      return Services.vc.compare(AppConstants.MOZ_APP_VERSION, "149.0a1") < 0;
+    },
+  },
+  async function test_createdInstant_getter() {
+    let profileAccessor = await ProfileAge();
+    let createdInstant = Temporal.Instant.fromEpochMilliseconds(
+      await profileAccessor.created
+    );
+    Assert.ok(
+      AboutNewTab.activityStream.createdInstant,
+      "Should have been constructed with a createdInstant"
+    );
+    Assert.ok(
+      AboutNewTab.activityStream.createdInstant.equals(createdInstant),
+      "ActivityStream.createdInstant should equal the profile creation instant."
+    );
+  }
+);
 
 /**
  * Tests that entering the activation window correctly hides top sites and

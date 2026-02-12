@@ -407,6 +407,23 @@ struct AnchorPositioningUtils {
   // Trigger a layout for positioned items that are currently overflowing their
   // abs-cb and that have available fallbacks to try.
   static bool TriggerLayoutOnOverflow(PresShell*, bool aFirstIteration);
+
+  static StylePositionArea PhysicalizePositionArea(StylePositionArea aPosArea,
+                                                   const nsIFrame* aPositioned);
+
+  /**
+   * When an anchor is split across fragmentainers such as multiple columns or
+   * pages, this function reconstructs what its unfragmented bounding rect would
+   * be by walking through the containing block's continuations and stacking all
+   * the anchor's fragment rects vertically in the containing block's block-axis
+   * direction. The returned rect is relative to the containing block's
+   * first-continuation. During reflow, we simply cache the unfragmented anchor
+   * rect as the resolution cache is populated, and use it, so this isn't
+   * required. However, we need to be able to recompute the anchor out-of-reflow
+   * to see if we need to trigger reflow.
+   */
+  static nsRect ReassembleAnchorRect(const nsIFrame* aAnchor,
+                                     const nsIFrame* aContainingBlock);
 };
 
 }  // namespace mozilla

@@ -519,31 +519,6 @@ const AVAILABLE_SHIMS = [
     onlyIfBlockedByETP: true,
   },
   {
-    id: "Firebase",
-    platform: "all",
-    name: "Firebase",
-    bug: "1771783",
-    onlyIfPrivateBrowsing: true,
-    runFirst: "firebase.js",
-    matches: [
-      // bugs 1750699, 1767407
-      "*://www.gstatic.com/firebasejs/*/firebase-messaging.js*",
-    ],
-    contentScripts: [
-      {
-        js: "firebase.js",
-        runAt: "document_start",
-        matches: [
-          "*://www.homedepot.ca/*", // bug 1778993
-          "*://orangerie.eu/*", // bug 1758442
-          "*://web.whatsapp.com/*", // bug 1767407
-          "*://www.tripadvisor.com/*", // bug 1779536
-          "*://www.office.com/*", // bug 1783921
-        ],
-      },
-    ],
-  },
-  {
     id: "StickyAdsTV",
     platform: "all",
     name: "StickyAdsTV",

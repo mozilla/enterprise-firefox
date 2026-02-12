@@ -17,6 +17,7 @@
 #include "ImageRegion.h"
 #include "LayoutLogging.h"
 #include "MobileViewportManager.h"
+#include "PseudoStyleType.h"
 #include "RegionBuilder.h"
 #include "RetainedDisplayListBuilder.h"
 #include "TextDrawTarget.h"
@@ -117,11 +118,9 @@
 #include "nsBidiPresUtils.h"
 #include "nsBlockFrame.h"
 #include "nsCOMPtr.h"
-#include "nsCSSAnonBoxes.h"
 #include "nsCSSColorUtils.h"
 #include "nsCSSFrameConstructor.h"
 #include "nsCSSProps.h"
-#include "nsCSSPseudoElements.h"
 #include "nsCSSRendering.h"
 #include "nsCanvasFrame.h"
 #include "nsCaret.h"
@@ -3376,15 +3375,15 @@ void nsLayoutUtils::AddBoxesForFrame(nsIFrame* aFrame,
                                      nsLayoutUtils::BoxCallback* aCallback) {
   auto pseudoType = aFrame->Style()->GetPseudoType();
 
-  if (pseudoType == PseudoStyleType::tableWrapper) {
+  if (pseudoType == PseudoStyleType::MozTableWrapper) {
     for (nsIFrame* kid : aFrame->PrincipalChildList()) {
       AddBoxesForFrame(kid, aCallback);
       if (!aCallback->mIncludeCaptionBoxForTable) {
         break;
       }
     }
-  } else if (pseudoType == PseudoStyleType::mozBlockInsideInlineWrapper ||
-             pseudoType == PseudoStyleType::mozMathMLAnonymousBlock) {
+  } else if (pseudoType == PseudoStyleType::MozBlockInsideInlineWrapper ||
+             pseudoType == PseudoStyleType::MozMathmlAnonymousBlock) {
     for (nsIFrame* kid : aFrame->PrincipalChildList()) {
       AddBoxesForFrame(kid, aCallback);
     }
@@ -3406,9 +3405,9 @@ void nsLayoutUtils::GetAllInFlowBoxes(nsIFrame* aFrame,
 nsIFrame* nsLayoutUtils::GetFirstNonAnonymousFrame(nsIFrame* aFrame) {
   while (aFrame) {
     auto pseudoType = aFrame->Style()->GetPseudoType();
-    if (pseudoType == PseudoStyleType::tableWrapper ||
-        pseudoType == PseudoStyleType::mozBlockInsideInlineWrapper ||
-        pseudoType == PseudoStyleType::mozMathMLAnonymousBlock) {
+    if (pseudoType == PseudoStyleType::MozTableWrapper ||
+        pseudoType == PseudoStyleType::MozBlockInsideInlineWrapper ||
+        pseudoType == PseudoStyleType::MozMathmlAnonymousBlock) {
       for (nsIFrame* kid : aFrame->PrincipalChildList()) {
         if (nsIFrame* f = GetFirstNonAnonymousFrame(kid)) {
           return f;
@@ -3475,6 +3474,9 @@ struct BoxToRect : public nsLayoutUtils::BoxCallback {
           }
         }
         r.Inflate(usedMargin);
+      } else if (mFlags.contains(nsLayoutUtils::GetAllInFlowRectsFlag::
+                                     UseInkOverflowAsBox)) {
+        r = aFrame->InkOverflowRectRelativeToSelf();
       } else {
         // Use the border-box.
         r = aFrame->GetRectRelativeToSelf();
@@ -9998,8 +10000,17 @@ nsSize nsLayoutUtils::ExpandHeightForDynamicToolbar(
   return ExpandHeightForDynamicToolbarImpl(aPresContext, aSize);
 }
 
-nsRect nsLayoutUtils::GetCombinedFragmentRects(const nsIFrame* aFrame,
-                                               bool aRelativeToSelf) {
+auto nsLayoutUtils::GetCombinedFragmentRects(const nsIFrame* aFrame,
+                                             const nsIFrame* aContainingBlock)
+    -> CombinedFragments {
+  bool mustCheckCBFragment = false;
+  nsPoint offset{};
+  if (aContainingBlock) {
+    MOZ_ASSERT(nsLayoutUtils::IsProperAncestorFrame(aContainingBlock, aFrame));
+    mustCheckCBFragment = aContainingBlock->GetPrevContinuation() ||
+                          aContainingBlock->GetNextContinuation();
+    offset = aFrame->GetOffsetToIgnoringScrolling(aContainingBlock);
+  }
   bool isPaginated = aFrame->PresContext()->IsPaginated();
 
   // Lazy getter for aFrame's page-frame ancestor, if any.
@@ -10019,17 +10030,26 @@ nsRect nsLayoutUtils::GetCombinedFragmentRects(const nsIFrame* aFrame,
            nsLayoutUtils::GetPageFrame(aContinuation) == currPageFrame();
   };
 
+  auto inSameCBFragment = [&](const nsIFrame* aContinuation) {
+    return !mustCheckCBFragment || nsLayoutUtils::IsProperAncestorFrame(
+                                       aContainingBlock, aContinuation);
+  };
+
   // Collect rects from our continuations (limited to those that are on the
   // same page if the context is paginated).
   nsRect rect = aFrame->GetRectRelativeToSelf();
-  for (const nsIFrame* f = aFrame->GetNextContinuation(); f && onSamePage(f);
-       f = f->GetNextContinuation()) {
-    rect = rect.Union(f->GetRectRelativeToSelf() + f->GetOffsetTo(aFrame));
+  const auto* next = aFrame->GetNextContinuation();
+  for (; next && onSamePage(next) && inSameCBFragment(next);
+       next = next->GetNextContinuation()) {
+    rect =
+        rect.Union(next->GetRectRelativeToSelf() + next->GetOffsetTo(aFrame));
   }
-  for (const nsIFrame* f = aFrame->GetPrevContinuation(); f && onSamePage(f);
-       f = f->GetPrevContinuation()) {
-    rect = rect.Union(f->GetRectRelativeToSelf() + f->GetOffsetTo(aFrame));
+  const auto* prev = aFrame->GetPrevContinuation();
+  for (; prev && onSamePage(prev) && inSameCBFragment(prev);
+       prev = prev->GetPrevContinuation()) {
+    rect =
+        rect.Union(prev->GetRectRelativeToSelf() + prev->GetOffsetTo(aFrame));
   }
 
-  return aRelativeToSelf ? rect : rect + aFrame->GetPosition();
+  return CombinedFragments{prev, next, rect + offset};
 }

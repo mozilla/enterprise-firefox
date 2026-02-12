@@ -123,6 +123,22 @@ def get_app_version(product_dir="browser"):
     return get_contents(app_version_path)
 
 
+def get_release_type(parameters):
+    if parameters["project"] != "enterprise-firefox":
+        return ""
+
+    if (
+        not parameters["base_repository"]
+        == "https://github.com/mozilla/enterprise-firefox"
+    ):
+        return ""
+
+    if parameters["head_ref"] == "refs/heads/enterprise-release":
+        return "release-enterprise"
+    else:
+        return "nightly-enterprise"
+
+
 def get_defaults(repo_root=None):
     return {
         "android_perftest_backstop": False,

@@ -6,7 +6,7 @@
 
 # Thunderbird builds will set prior to including this file
 aws_prefix=${aws_prefix:-taskcluster}
-gcp_prefix=${gcp_prefix:-sccache}
+gcp_prefix=${gcp_prefix:-ent-sccache}
 
 if test -n "$SCCACHE_DISABLE" -a -n "$USE_SCCACHE"; then
     echo "SetupError: SCCACHE_DISABLE and USE_SCCACHE should not be set at the same time" >&2

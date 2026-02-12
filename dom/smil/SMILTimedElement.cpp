@@ -191,39 +191,10 @@ void SMILTimedElement::RemoveInstanceTimes(InstanceTimeList& aArray,
 }
 
 //----------------------------------------------------------------------
-// Static members
-
-// The thresholds at which point we start filtering intervals and instance times
-// indiscriminately.
-// See FilterIntervals and FilterInstanceTimes.
-const uint8_t SMILTimedElement::sMaxNumIntervals = 20;
-const uint8_t SMILTimedElement::sMaxNumInstanceTimes = 100;
-
-// Detect if we arrive in some sort of undetected recursive syncbase dependency
-// relationship
-const uint8_t SMILTimedElement::sMaxUpdateIntervalRecursionDepth = 20;
-
-//----------------------------------------------------------------------
 // Ctor, dtor
 
-SMILTimedElement::SMILTimedElement()
-    : mAnimationElement(nullptr),
-      mFillMode(SMILFillMode::Remove),
-      mRestartMode(SMILRestartMode::Always),
-      mInstanceSerialIndex(0),
-      mClient(nullptr),
-      mCurrentInterval(nullptr),
-      mCurrentRepeatIteration(0),
-      mPrevRegisteredMilestone(sMaxMilestone),
-      mElementState(SMILElementState::Startup),
-      mSeekState(SMILSeekState::NotSeeking),
-      mDeferIntervalUpdates(false),
-      mDoDeferredUpdate(false),
-      mIsDisabled(false),
-      mDeleteCount(0),
-      mUpdateIntervalRecursionDepth(0) {
+SMILTimedElement::SMILTimedElement() {
   mSimpleDur.SetIndefinite();
-  mMin = SMILTimeValue::Zero();
   mMax.SetIndefinite();
 }
 

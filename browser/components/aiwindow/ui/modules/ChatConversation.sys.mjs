@@ -261,11 +261,11 @@ export class ChatConversation {
         message.role === MESSAGE_ROLE.SYSTEM &&
         message.content.type === SYSTEM_PROMPT_TYPE.REAL_TIME;
 
-      const isInsightsInjection =
+      const isMemoriesInjection =
         message.role === MESSAGE_ROLE.SYSTEM &&
-        message.content.type === SYSTEM_PROMPT_TYPE.INSIGHTS;
+        message.content.type === SYSTEM_PROMPT_TYPE.MEMORIES;
 
-      return !isRealTimeInjection && !isInsightsInjection;
+      return !isRealTimeInjection && !isMemoriesInjection;
     });
 
     if (!this.#messages.length) {
@@ -290,11 +290,10 @@ export class ChatConversation {
    * being retried.
    *
    * @param {ChatMessage} message
-   * @param {boolean} withMemories
    *
    * @returns {Array<ChatMessage>} - Array of messages removed from the conversation
    */
-  async retryMessage(message, withMemories) {
+  async retryMessage(message) {
     if (message.role !== MESSAGE_ROLE.USER) {
       throw new Error("Not a user message");
     }
@@ -308,15 +307,6 @@ export class ChatConversation {
     }
 
     const toDeleteMessages = this.#messages.splice(retryMessageIndex);
-
-    await this.getRealTimeInfo();
-
-    if (withMemories ?? message.memoriesEnabled) {
-      await this.getMemoriesContext(message.content.body);
-    }
-
-    this.addUserMessage(message.content.body, message.pageUrl);
-
     return toDeleteMessages;
   }
 

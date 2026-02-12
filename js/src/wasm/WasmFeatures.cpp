@@ -231,10 +231,8 @@ JS_FOR_WASM_FEATURES(WASM_FEATURE)
 #undef WASM_FEATURE
 
 bool wasm::IsPrivilegedContext(JSContext* cx) {
-  // This may be slightly more lenient than we want in an ideal world, but it
-  // remains safe.
   return cx->realm() && cx->realm()->principals() &&
-         cx->realm()->principals()->isSystemOrAddonPrincipal();
+         cx->realm()->principals()->isSystemPrincipal();
 }
 
 bool wasm::SimdAvailable(JSContext* cx) {

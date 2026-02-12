@@ -11,7 +11,6 @@ import mozilla.components.concept.engine.EngineSession
 import mozilla.components.concept.engine.content.blocking.TrackingProtectionException
 import mozilla.components.support.test.mock
 import mozilla.components.support.test.whenever
-import mozilla.components.support.utils.FakeDownloadFileUtils
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -38,7 +37,6 @@ class GeckoTrackingProtectionExceptionStorageTest {
     private lateinit var runtime: GeckoRuntime
 
     private lateinit var storage: GeckoTrackingProtectionExceptionStorage
-    private var downloadFileUtils = FakeDownloadFileUtils()
 
     @Before
     fun setup() {
@@ -51,13 +49,7 @@ class GeckoTrackingProtectionExceptionStorageTest {
     fun `GIVEN a new exception WHEN adding THEN the exception is stored on the gecko storage`() {
         val storageController = mock<StorageController>()
         val mockGeckoSession = mock<GeckoSession>()
-        val session = spy(
-            GeckoEngineSession(
-            runtime,
-            geckoSessionProvider = { mockGeckoSession },
-            downloadFileUtils = downloadFileUtils,
-            ),
-        )
+        val session = spy(GeckoEngineSession(runtime, geckoSessionProvider = { mockGeckoSession }))
 
         val geckoPermission = geckoContentPermission(type = PERMISSION_TRACKING, value = VALUE_ALLOW)
         session.geckoPermissions = listOf(geckoPermission)
@@ -85,13 +77,7 @@ class GeckoTrackingProtectionExceptionStorageTest {
     fun `GIVEN a persistInPrivateMode new exception WHEN adding THEN the exception is stored on the gecko storage`() {
         val storageController = mock<StorageController>()
         val mockGeckoSession = mock<GeckoSession>()
-        val session = spy(
-            GeckoEngineSession(
-            runtime,
-            geckoSessionProvider = { mockGeckoSession },
-            downloadFileUtils = downloadFileUtils,
-            ),
-        )
+        val session = spy(GeckoEngineSession(runtime, geckoSessionProvider = { mockGeckoSession }))
 
         val geckoPermission = geckoContentPermission(type = PERMISSION_TRACKING, value = VALUE_ALLOW)
         session.geckoPermissions = listOf(geckoPermission)
@@ -118,13 +104,7 @@ class GeckoTrackingProtectionExceptionStorageTest {
     @Test
     fun `WHEN removing an exception by session THEN the session is removed of the exception list`() {
         val mockGeckoSession = mock<GeckoSession>()
-        val session = spy(
-            GeckoEngineSession(
-            runtime,
-            geckoSessionProvider = { mockGeckoSession },
-            downloadFileUtils = downloadFileUtils,
-            ),
-        )
+        val session = spy(GeckoEngineSession(runtime, geckoSessionProvider = { mockGeckoSession }))
 
         whenever(session.geckoSession).thenReturn(mockGeckoSession)
         whenever(session.currentUrl).thenReturn("https://example.com/")
@@ -202,11 +182,7 @@ class GeckoTrackingProtectionExceptionStorageTest {
     @Test
     fun `WHEN removing all exceptions THEN remove all the exceptions in the gecko store`() {
         val mockGeckoSession = mock<GeckoSession>()
-        val session = GeckoEngineSession(
-            runtime,
-            geckoSessionProvider = { mockGeckoSession },
-            downloadFileUtils = downloadFileUtils,
-            )
+        val session = GeckoEngineSession(runtime, geckoSessionProvider = { mockGeckoSession })
 
         val contentPermission =
             geckoContentPermission("https://example.com/", PERMISSION_TRACKING, VALUE_ALLOW)

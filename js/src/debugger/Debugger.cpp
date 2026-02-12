@@ -410,6 +410,10 @@ bool js::ParseEvalOptions(JSContext* cx, HandleValue value,
   return true;
 }
 
+template <class R, class W, bool IKO>
+DebuggerWeakMap<R, W, IKO>::DebuggerWeakMap(JSContext* cx)
+    : Base(cx->zone()), compartment(cx->compartment()) {}
+
 /*** Breakpoints ************************************************************/
 
 bool BreakpointSite::isEmpty() const { return breakpoints.isEmpty(); }

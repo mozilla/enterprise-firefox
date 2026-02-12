@@ -5496,9 +5496,7 @@ static bool WebAssembly_promising(JSContext* cx, unsigned argc, Value* vp) {
   }
 
   RootedObject func(cx, &args[0].toObject());
-  RootedFunction promise(
-      cx, WasmPromisingFunctionCreate(cx, func, wasm::ValTypeVector(),
-                                      wasm::ValTypeVector()));
+  RootedFunction promise(cx, WasmPromisingFunctionCreate(cx, func));
   if (!promise) {
     return false;
   }

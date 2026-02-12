@@ -1020,7 +1020,7 @@ JSLinearString* JSRope::flatten(JSContext* maybecx) {
 }
 
 JSLinearString* JSRope::flattenInternal() {
-  if (zone()->needsIncrementalBarrier()) {
+  if (zone()->needsMarkingBarrier()) {
     return flattenInternal<WithIncrementalBarrier>();
   }
 

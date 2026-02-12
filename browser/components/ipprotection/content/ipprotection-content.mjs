@@ -7,6 +7,7 @@ import { html, ifDefined } from "chrome://global/content/vendor/lit.all.mjs";
 import {
   LINKS,
   ERRORS,
+  BANDWIDTH,
 } from "chrome://browser/content/ipprotection/ipprotection-constants.mjs";
 
 // eslint-disable-next-line import/no-unassigned-import
@@ -177,7 +178,14 @@ export default class IPProtectionContentElement extends MozLitElement {
       this._showMessageBar = false;
       this._messageDismissed = true;
       this.state.error = "";
-      this.state.bandwidthWarning = false;
+
+      if (this.state.bandwidthWarning) {
+        this.dispatchEvent(
+          new CustomEvent("IPProtection:DismissBandwidthWarning", {
+            bubbles: true,
+          })
+        );
+      }
     }
   }
 
@@ -224,18 +232,13 @@ export default class IPProtectionContentElement extends MozLitElement {
     let messageLinkl10nId;
     let messageLinkL10nArgs;
     let messageType = "info";
-    // If there are errors, the error message should take precedence
-    if (this.#hasErrors) {
-      messageId = "ipprotection-message-generic-error";
-      messageType = ERRORS.GENERIC;
-    } else if (this.state.bandwidthWarning) {
+
+    if (this.state.bandwidthWarning) {
       messageId = "ipprotection-message-bandwidth-warning";
       messageType = "warning";
       messageLinkL10nArgs = JSON.stringify({
-        usageLeft:
-          this.state.bandwidthUsage.maxBandwidth -
-          this.state.bandwidthUsage.currentBandwidthUsage,
-        maxUsage: this.state.bandwidthUsage.maxBandwidth,
+        usageLeft: this.state.bandwidthUsage.remaining / BANDWIDTH.BYTES_IN_GB,
+        maxUsage: this.state.bandwidthUsage.max / BANDWIDTH.BYTES_IN_GB,
       });
     } else if (this.state.onboardingMessage) {
       messageId = this.state.onboardingMessage;
@@ -263,6 +266,7 @@ export default class IPProtectionContentElement extends MozLitElement {
         .messageLink=${ifDefined(messageLink)}
         .messageLinkl10nId=${ifDefined(messageLinkl10nId)}
         .messageLinkL10nArgs=${ifDefined(messageLinkL10nArgs)}
+        .bandwidthUsage=${ifDefined(this.state.bandwidthUsage)}
       ></ipprotection-message-bar>
     `;
   }
@@ -313,13 +317,46 @@ export default class IPProtectionContentElement extends MozLitElement {
     </div>`;
   }
 
+  errorTemplate() {
+    const isNetworkError = this.state.error === ERRORS.NETWORK;
+
+    const headerL10nId = isNetworkError
+      ? "ipprotection-connection-status-network-error-title"
+      : "ipprotection-connection-status-generic-error-title";
+
+    const descriptionL10nId = isNetworkError
+      ? "ipprotection-connection-status-network-error-description"
+      : "ipprotection-connection-status-generic-error-description";
+
+    const errorType = isNetworkError ? ERRORS.NETWORK : ERRORS.GENERIC;
+
+    return html`
+      <ipprotection-status-box
+        .headerL10nId=${headerL10nId}
+        .descriptionL10nId=${descriptionL10nId}
+        .type=${errorType}
+      >
+        ${isNetworkError
+          ? html`
+              <img
+                slot="icon"
+                role="presentation"
+                class="icon"
+                src="chrome://browser/content/ipprotection/assets/states/ipprotection-error.svg"
+              />
+            `
+          : null}
+      </ipprotection-status-box>
+    `;
+  }
+
   pausedTemplate() {
     return html`
       <ipprotection-status-box
         headerL10nId="ipprotection-connection-status-paused-title"
         descriptionL10nId="ipprotection-connection-status-paused-description"
         .descriptionL10nArgs=${JSON.stringify({
-          maxUsage: this.state.bandwidthUsage.maxBandwidth,
+          maxUsage: this.state.bandwidthUsage.max / BANDWIDTH.BYTES_IN_GB,
         })}
         type="disconnected"
       >
@@ -388,6 +425,10 @@ export default class IPProtectionContentElement extends MozLitElement {
       `;
     }
 
+    if (this.#hasErrors) {
+      return html` ${this.errorTemplate()}${this.footerTemplate()}`;
+    }
+
     if (this.state.paused) {
       return html` ${this.pausedTemplate()} ${this.footerTemplate()}`;
     }
@@ -400,9 +441,7 @@ export default class IPProtectionContentElement extends MozLitElement {
 
   render() {
     if (
-      (this.#hasErrors ||
-        this.state.onboardingMessage ||
-        this.state.bandwidthWarning) &&
+      (this.state.onboardingMessage || this.state.bandwidthWarning) &&
       !this._messageDismissed
     ) {
       this._showMessageBar = true;

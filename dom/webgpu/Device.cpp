@@ -694,8 +694,8 @@ already_AddRefed<ShaderModule> Device::CreateShaderModule(
 
   shaderModule->SetLabel(aDesc.mLabel);
 
-  GetChild()->EnqueueCreateShaderModulePromise(PendingCreateShaderModulePromise{
-      RefPtr(promise), RefPtr(this), RefPtr(shaderModule)});
+  GetChild()->EnqueueCreateShaderModulePromise(
+      PendingCreateShaderModulePromise{std::move(promise), this, shaderModule});
 
   return shaderModule.forget();
 }
@@ -941,7 +941,7 @@ already_AddRefed<dom::Promise> Device::CreateComputePipelineAsync(
       CreateComputePipelineImpl(GetId(), GetChild(), aDesc, true);
 
   GetChild()->EnqueueCreatePipelinePromise(PendingCreatePipelinePromise{
-      RefPtr(promise), RefPtr(this), false, pipelineId, aDesc.mLabel});
+      promise, this, false, pipelineId, aDesc.mLabel});
 
   return promise.forget();
 }
@@ -956,7 +956,7 @@ already_AddRefed<dom::Promise> Device::CreateRenderPipelineAsync(
   RawId pipelineId = CreateRenderPipelineImpl(GetId(), GetChild(), aDesc, true);
 
   GetChild()->EnqueueCreatePipelinePromise(PendingCreatePipelinePromise{
-      RefPtr(promise), RefPtr(this), true, pipelineId, aDesc.mLabel});
+      promise, this, true, pipelineId, aDesc.mLabel});
 
   return promise.forget();
 }
@@ -1025,7 +1025,7 @@ already_AddRefed<dom::Promise> Device::PopErrorScope(ErrorResult& aRv) {
   ffi::wgpu_client_pop_error_scope(GetClient(), GetId());
 
   GetChild()->EnqueuePopErrorScopePromise(
-      PendingPopErrorScopePromise{RefPtr(promise), RefPtr(this)});
+      PendingPopErrorScopePromise{promise, this});
 
   return promise.forget();
 }

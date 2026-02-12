@@ -2233,6 +2233,193 @@ Preferences.addSetting({
   deps: ["zoomText"],
   visible: ({ zoomText }) => Boolean(zoomText.value),
 });
+
+/**
+ * Helper object for managing font-related settings.
+ */
+const FontHelpers = {
+  _enumerator: null,
+  _allFonts: null,
+
+  get enumerator() {
+    if (!this._enumerator) {
+      this._enumerator = Cc["@mozilla.org/gfx/fontenumerator;1"].createInstance(
+        Ci.nsIFontEnumerator
+      );
+    }
+    return this._enumerator;
+  },
+
+  ensurePref(prefId, type) {
+    let pref = Preferences.get(prefId);
+    if (!pref) {
+      pref = Preferences.add({ id: prefId, type });
+    }
+    return pref;
+  },
+
+  get langGroup() {
+    return Services.locale.fontLanguageGroup;
+  },
+
+  getFontTypePrefId(langGroup) {
+    return `font.default.${langGroup}`;
+  },
+
+  getFontType(langGroup) {
+    const prefId = this.getFontTypePrefId(langGroup);
+    return Services.prefs.getCharPref(prefId, "serif");
+  },
+
+  getFontPrefId(langGroup) {
+    const fontType = this.getFontType(langGroup);
+    return `font.name.${fontType}.${langGroup}`;
+  },
+
+  getSizePrefId(langGroup) {
+    return `font.size.variable.${langGroup}`;
+  },
+
+  buildFontOptions(langGroup, fontType) {
+    let fonts = this.enumerator.EnumerateFonts(langGroup, fontType);
+    let defaultFont = null;
+    if (fonts.length) {
+      defaultFont = this.enumerator.getDefaultFont(langGroup, fontType);
+    } else {
+      fonts = this.enumerator.EnumerateFonts(langGroup, "");
+      if (fonts.length) {
+        defaultFont = this.enumerator.getDefaultFont(langGroup, "");
+      }
+    }
+
+    if (!this._allFonts) {
+      this._allFonts = this.enumerator.EnumerateAllFonts();
+    }
+
+    const options = [];
+
+    if (fonts.length) {
+      if (defaultFont) {
+        options.push({
+          value: "",
+          l10nId: "fonts-label-default",
+          l10nArgs: { name: defaultFont },
+        });
+      } else {
+        options.push({
+          value: "",
+          l10nId: "fonts-label-default-unnamed",
+        });
+      }
+
+      for (const font of fonts) {
+        options.push({
+          value: font,
+          controlAttrs: { label: font },
+        });
+      }
+    }
+
+    if (this._allFonts.length > fonts.length) {
+      const fontSet = new Set(fonts);
+      for (const font of this._allFonts) {
+        if (!fontSet.has(font)) {
+          options.push({
+            value: font,
+            controlAttrs: { label: font },
+          });
+        }
+      }
+    }
+
+    return options;
+  },
+
+  fontSizeOptions: [
+    9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36,
+    40, 44, 48, 56, 64, 72,
+  ].map(size => ({ value: size, controlAttrs: { label: String(size) } })),
+};
+
+Preferences.addSetting({
+  id: "fontLanguageGroup",
+  pref: "font.language.group",
+});
+
+Preferences.addSetting({
+  id: "fontType",
+  deps: ["fontLanguageGroup"],
+  setup(emitChange, deps, setting) {
+    const handleChange = () => {
+      setting.pref = FontHelpers.ensurePref(
+        FontHelpers.getFontTypePrefId(FontHelpers.langGroup),
+        "string"
+      );
+      emitChange();
+    };
+
+    handleChange();
+    deps.fontLanguageGroup.on("change", handleChange);
+    return () => deps.fontLanguageGroup.off("change", handleChange);
+  },
+});
+
+Preferences.addSetting({
+  id: "defaultFont",
+  deps: ["fontType"],
+  optionsConfig: null,
+  setup(emitChange, deps, setting) {
+    const handleChange = () => {
+      setting.pref = FontHelpers.ensurePref(
+        FontHelpers.getFontPrefId(FontHelpers.langGroup),
+        "fontname"
+      );
+      this.optionsConfig = null;
+      emitChange();
+    };
+    handleChange();
+    deps.fontType.on("change", handleChange);
+    return () => deps.fontType.off("change", handleChange);
+  },
+  getControlConfig(config) {
+    if (!this.optionsConfig) {
+      this.optionsConfig = {
+        ...config,
+        options: FontHelpers.buildFontOptions(
+          FontHelpers.langGroup,
+          FontHelpers.getFontType(FontHelpers.langGroup)
+        ),
+      };
+    }
+    return this.optionsConfig;
+  },
+});
+
+Preferences.addSetting({
+  id: "defaultFontSize",
+  deps: ["fontLanguageGroup"],
+  setup(emitChange, deps, setting) {
+    const handleLangChange = () => {
+      setting.pref = FontHelpers.ensurePref(
+        FontHelpers.getSizePrefId(FontHelpers.langGroup),
+        "int"
+      );
+      emitChange();
+    };
+    handleLangChange();
+    deps.fontLanguageGroup.on("change", handleLangChange);
+    return () => deps.fontLanguageGroup.off("change", handleLangChange);
+  },
+  getControlConfig(config) {
+    return { ...config, options: FontHelpers.fontSizeOptions };
+  },
+});
+
+Preferences.addSetting({
+  id: "advancedFonts",
+  onUserClick: () => gMainPane.configureFonts(),
+});
+
 Preferences.addSetting({
   id: "contrastControlSettings",
   pref: "browser.display.document_color_use",
@@ -2742,6 +2929,31 @@ SettingGroupManager.registerGroups({
         control: "moz-message-bar",
         controlAttrs: {
           type: "warning",
+        },
+      },
+    ],
+  },
+  fonts: {
+    l10nId: "preferences-fonts-header2",
+    headingLevel: 2,
+    items: [
+      {
+        id: "defaultFont",
+        l10nId: "default-font-2",
+        control: "moz-select",
+      },
+      {
+        id: "defaultFontSize",
+        l10nId: "default-font-size-2",
+        control: "moz-select",
+      },
+      {
+        id: "advancedFonts",
+        l10nId: "advanced-fonts",
+        control: "moz-box-button",
+        controlAttrs: {
+          "search-l10n-ids":
+            "fonts-window.title,fonts-langgroup-header,fonts-proportional-size,fonts-proportional-header,fonts-serif,fonts-sans-serif,fonts-monospace,fonts-langgroup-arabic.label,fonts-langgroup-armenian.label,fonts-langgroup-bengali.label,fonts-langgroup-simpl-chinese.label,fonts-langgroup-trad-chinese-hk.label,fonts-langgroup-trad-chinese.label,fonts-langgroup-cyrillic.label,fonts-langgroup-devanagari.label,fonts-langgroup-ethiopic.label,fonts-langgroup-georgian.label,fonts-langgroup-el.label,fonts-langgroup-gujarati.label,fonts-langgroup-gurmukhi.label,fonts-langgroup-japanese.label,fonts-langgroup-hebrew.label,fonts-langgroup-kannada.label,fonts-langgroup-khmer.label,fonts-langgroup-korean.label,fonts-langgroup-latin.label,fonts-langgroup-malayalam.label,fonts-langgroup-math.label,fonts-langgroup-odia.label,fonts-langgroup-sinhala.label,fonts-langgroup-tamil.label,fonts-langgroup-telugu.label,fonts-langgroup-thai.label,fonts-langgroup-tibetan.label,fonts-langgroup-canadian.label,fonts-langgroup-other.label,fonts-minsize,fonts-minsize-none.label,fonts-default-serif.label,fonts-default-sans-serif.label,fonts-allow-own.label",
         },
       },
     ],
@@ -4004,6 +4216,15 @@ SettingGroupManager.registerGroups({
     headingLevel: 2,
     items: [
       {
+        id: "updateSearchEngineSuccess",
+        l10nId: "update-search-engine-success",
+        control: "moz-message-bar",
+        controlAttrs: {
+          type: "success",
+          dismissable: true,
+        },
+      },
+      {
         id: "addEngineButton",
         l10nId: "search-add-engine-2",
         control: "moz-button",
@@ -5064,6 +5285,7 @@ var gMainPane = {
     initSettingGroup("websiteLanguage");
     initSettingGroup("browsing");
     initSettingGroup("zoom");
+    initSettingGroup("fonts");
     initSettingGroup("support");
     initSettingGroup("translations");
     initSettingGroup("performance");
@@ -5107,20 +5329,12 @@ var gMainPane = {
       "command",
       gMainPane.showTranslationExceptions
     );
-    Preferences.get("font.language.group").on(
-      "change",
-      gMainPane._rebuildFonts.bind(gMainPane)
-    );
-    setEventListener("advancedFonts", "command", gMainPane.configureFonts);
 
     document
       .getElementById("migrationWizardDialog")
       .addEventListener("MigrationWizard:Close", function (e) {
         e.currentTarget.close();
       });
-
-    // Initializes the fonts dropdowns displayed in this pane.
-    this._rebuildFonts();
 
     // Firefox Translations settings panel
     // TODO (Bug 1817084) Remove this code when we disable the extension
@@ -5283,10 +5497,6 @@ var gMainPane = {
     // Notify observers that the UI is now ready
     Services.obs.notifyObservers(window, "main-pane-loaded");
 
-    Preferences.addSyncFromPrefListener(
-      document.getElementById("defaultFont"),
-      element => FontBuilder.readFontSelection(element)
-    );
     Preferences.addSyncFromPrefListener(
       document.getElementById("checkSpelling"),
       () => this.readCheckSpelling()
@@ -6229,105 +6439,6 @@ var gMainPane = {
     gSubDialog.open(
       "chrome://browser/content/preferences/dialogs/connection.xhtml"
     );
-  },
-
-  // FONTS
-
-  /**
-   * Populates the default font list in UI.
-   */
-  _rebuildFonts() {
-    var langGroup = Services.locale.fontLanguageGroup;
-    var isSerif = this._readDefaultFontTypeForLanguage(langGroup) == "serif";
-    this._selectDefaultLanguageGroup(langGroup, isSerif);
-  },
-
-  /**
-   * Returns the type of the current default font for the language denoted by
-   * aLanguageGroup.
-   */
-  _readDefaultFontTypeForLanguage(aLanguageGroup) {
-    const kDefaultFontType = "font.default.%LANG%";
-    var defaultFontTypePref = kDefaultFontType.replace(
-      /%LANG%/,
-      aLanguageGroup
-    );
-    var preference = Preferences.get(defaultFontTypePref);
-    if (!preference) {
-      preference = Preferences.add({ id: defaultFontTypePref, type: "string" });
-      preference.on("change", gMainPane._rebuildFonts.bind(gMainPane));
-    }
-    return preference.value;
-  },
-
-  _selectDefaultLanguageGroupPromise: Promise.resolve(),
-
-  _selectDefaultLanguageGroup(aLanguageGroup, aIsSerif) {
-    this._selectDefaultLanguageGroupPromise = (async () => {
-      // Avoid overlapping language group selections by awaiting the resolution
-      // of the previous one.  We do this because this function is re-entrant,
-      // as inserting <preference> elements into the DOM sometimes triggers a call
-      // back into this function.  And since this function is also asynchronous,
-      // that call can enter this function before the previous run has completed,
-      // which would corrupt the font menulists.  Awaiting the previous call's
-      // resolution avoids that fate.
-      await this._selectDefaultLanguageGroupPromise;
-
-      const kFontNameFmtSerif = "font.name.serif.%LANG%";
-      const kFontNameFmtSansSerif = "font.name.sans-serif.%LANG%";
-      const kFontNameListFmtSerif = "font.name-list.serif.%LANG%";
-      const kFontNameListFmtSansSerif = "font.name-list.sans-serif.%LANG%";
-      const kFontSizeFmtVariable = "font.size.variable.%LANG%";
-
-      var prefs = [
-        {
-          format: aIsSerif ? kFontNameFmtSerif : kFontNameFmtSansSerif,
-          type: "fontname",
-          element: "defaultFont",
-          fonttype: aIsSerif ? "serif" : "sans-serif",
-        },
-        {
-          format: aIsSerif ? kFontNameListFmtSerif : kFontNameListFmtSansSerif,
-          type: "unichar",
-          element: null,
-          fonttype: aIsSerif ? "serif" : "sans-serif",
-        },
-        {
-          format: kFontSizeFmtVariable,
-          type: "int",
-          element: "defaultFontSize",
-          fonttype: null,
-        },
-      ];
-      for (var i = 0; i < prefs.length; ++i) {
-        var preference = Preferences.get(
-          prefs[i].format.replace(/%LANG%/, aLanguageGroup)
-        );
-        if (!preference) {
-          var name = prefs[i].format.replace(/%LANG%/, aLanguageGroup);
-          preference = Preferences.add({ id: name, type: prefs[i].type });
-        }
-
-        if (!prefs[i].element) {
-          continue;
-        }
-
-        var element = document.getElementById(prefs[i].element);
-        if (element) {
-          element.setAttribute("preference", preference.id);
-
-          if (prefs[i].fonttype) {
-            await FontBuilder.buildFontList(
-              aLanguageGroup,
-              prefs[i].fonttype,
-              element
-            );
-          }
-
-          preference.setElementValue(element);
-        }
-      }
-    })().catch(console.error);
   },
 
   /**

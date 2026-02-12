@@ -14,7 +14,7 @@ kind-dependencies:
     - repackage
 
 task-defaults:
-    run-on-repo-type: [hg]
+    run-on-repo-type: [hg, git]
 
 only-for-build-platforms:
     - linux64-shippable/opt
@@ -31,6 +31,10 @@ only-for-build-platforms:
     - win64-aarch64-devedition/opt
     - linux64-asan-reporter-shippable/opt
     - win64-asan-reporter-shippable/opt
+    - linux64-enterprise-shippable/opt
+    - linux64-aarch64-enterprise-shippable/opt
+    - macosx64-enterprise-shippable/opt
+    - win64-enterprise-shippable/opt
 
 tasks:
     mar-signing:

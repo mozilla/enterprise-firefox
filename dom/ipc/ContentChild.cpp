@@ -2576,11 +2576,22 @@ mozilla::ipc::IPCResult ContentChild::RecvRemoveAllPermissions() {
   return IPC_OK();
 }
 
-mozilla::ipc::IPCResult ContentChild::RecvFlushMemory(const nsString& reason) {
+void ContentChild::NotifyMemoryPressure(const char* aTopic,
+                                        const char16_t* aReason) {
   nsCOMPtr<nsIObserverService> os = mozilla::services::GetObserverService();
   if (!mShuttingDown && os) {
-    os->NotifyObservers(nullptr, "memory-pressure", reason.get());
+    os->NotifyObservers(nullptr, aTopic, aReason);
   }
+}
+
+mozilla::ipc::IPCResult ContentChild::RecvMemoryPressure(
+    const nsString& reason) {
+  NotifyMemoryPressure("memory-pressure", reason.get());
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult ContentChild::RecvMemoryPressureStop() {
+  NotifyMemoryPressure("memory-pressure-stop", nullptr);
   return IPC_OK();
 }
 

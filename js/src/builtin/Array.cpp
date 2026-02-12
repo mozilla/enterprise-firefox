@@ -1616,7 +1616,7 @@ static DenseElementResult ArrayReverseDenseKernel(JSContext* cx,
   }
 
   if (!obj->denseElementsMaybeInIteration() &&
-      !cx->zone()->needsIncrementalBarrier()) {
+      !cx->zone()->needsMarkingBarrier()) {
     obj->reverseDenseElementsNoPreBarrier(length);
     return DenseElementResult::Success;
   }

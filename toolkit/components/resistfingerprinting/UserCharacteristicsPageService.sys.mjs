@@ -975,6 +975,11 @@ export class UserCharacteristicsPageService {
     Glean.characteristics.wgpuMaxcomputeworkgroupsperdimension.set(
       adapter.limits.maxComputeWorkgroupsPerDimension
     );
+
+    // Collect adapter metadata
+    Glean.characteristics.wgpuIsFallbackAdapter.set(
+      adapter.isFallbackAdapter || false
+    );
   }
 
   async populateUserAgent(window) {
@@ -998,6 +1003,14 @@ export class UserCharacteristicsPageService {
       }
     }
 
+    // Handle mathmlDiagValues array (similar to mathOps)
+    const mathmlDiagValues = data.get("mathmlDiagValues");
+    if (mathmlDiagValues) {
+      Glean.characteristics.mathmlDiagValues.set(
+        JSON.stringify(mathmlDiagValues)
+      );
+    }
+
     // We set non-canvas data from usercharacteristics.js
     // Keys must match to data returned from
     // usercharacteristics.js and the metric defined
@@ -1017,7 +1030,11 @@ export class UserCharacteristicsPageService {
         "mediaCapabilitiesNotSmooth",
         "mediaCapabilitiesNotEfficient",
         "mediaCapabilitiesH264",
+        "audioCompressorGainReduction",
         "audioFingerprint",
+        "audioFloatFrequencySum",
+        "audioFloatTimeDomainSum",
+        "audioFingerprint2",
         "jsErrors",
         "pointerType",
         "anyPointerType",
@@ -1039,13 +1056,75 @@ export class UserCharacteristicsPageService {
         "mathml8",
         "mathml9",
         "mathml10",
+        "mathmlDiagFontFamily",
         "monochrome",
+        "cssSystemColors",
+        "cssSystemFonts",
+        "clientrectsElementGcr01",
+        "clientrectsElementGcr02",
+        "clientrectsElementGcr03",
+        "clientrectsElementGcr04",
+        "clientrectsElementGcr05",
+        "clientrectsElementGcr06",
+        "clientrectsElementGcr07",
+        "clientrectsElementGcr08",
+        "clientrectsElementGcr09",
+        "clientrectsElementGcr10",
+        "clientrectsElementGcr11",
+        "clientrectsElementGcr12",
+        "clientrectsElementGbcr01",
+        "clientrectsElementGbcr02",
+        "clientrectsElementGbcr03",
+        "clientrectsElementGbcr04",
+        "clientrectsElementGbcr05",
+        "clientrectsElementGbcr06",
+        "clientrectsElementGbcr07",
+        "clientrectsElementGbcr08",
+        "clientrectsElementGbcr09",
+        "clientrectsElementGbcr10",
+        "clientrectsElementGbcr11",
+        "clientrectsElementGbcr12",
+        "clientrectsRangeGcr01",
+        "clientrectsRangeGcr02",
+        "clientrectsRangeGcr03",
+        "clientrectsRangeGcr04",
+        "clientrectsRangeGcr05",
+        "clientrectsRangeGcr06",
+        "clientrectsRangeGcr07",
+        "clientrectsRangeGcr08",
+        "clientrectsRangeGcr09",
+        "clientrectsRangeGcr10",
+        "clientrectsRangeGcr11",
+        "clientrectsRangeGcr12",
+        "clientrectsRangeGbcr01",
+        "clientrectsRangeGbcr02",
+        "clientrectsRangeGbcr03",
+        "clientrectsRangeGbcr04",
+        "clientrectsRangeGbcr05",
+        "clientrectsRangeGbcr06",
+        "clientrectsRangeGbcr07",
+        "clientrectsRangeGbcr08",
+        "clientrectsRangeGbcr09",
+        "clientrectsRangeGbcr10",
+        "clientrectsRangeGbcr11",
+        "clientrectsRangeGbcr12",
+        "clientrectsKnownDimensions",
+        "clientrectsGhostDimensions",
+        "clientrectsEmoji01",
+        "clientrectsEmoji02",
+        "clientrectsEmoji03",
+        "clientrectsEmoji04",
+        "clientrectsEmoji05",
+        "clientrectsEmoji06",
+        "clientrectsTextFontFamily",
+        "clientrectsEmojiFontFamily",
         "oscpu",
         "pdfViewer",
         "platform",
         "audioFrames",
         "audioRate",
         "audioChannels",
+        "audioUniqueSamples",
         "timezoneWeb",
         "timezoneOffsetWeb",
       ],
@@ -1283,6 +1362,11 @@ export class UserCharacteristicsPageService {
         "MAX_VERTEX_UNIFORM_VECTORS",
         "MAX_VIEWPORT_DIMS",
         "SHADING_LANGUAGE_VERSION",
+        "STENCIL_BACK_VALUE_MASK",
+        "STENCIL_BACK_WRITEMASK",
+        "STENCIL_VALUE_MASK",
+        "STENCIL_WRITEMASK",
+        "SUBPIXEL_BITS",
       ],
       v2: [
         "MAX_3D_TEXTURE_SIZE",

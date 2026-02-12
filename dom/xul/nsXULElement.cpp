@@ -828,7 +828,7 @@ nsresult nsXULElement::DispatchXULCommand(const EventChainVisitor& aVisitor,
         nullptr, orig->IsControl(), orig->IsAlt(), orig->IsShift(),
         orig->IsMeta(), inputSource, button);
   } else {
-    NS_WARNING("A XUL element is attached to a command that doesn't exist!\n");
+    NS_WARNING("A XUL element is attached to a command that doesn't exist!");
   }
   return NS_OK;
 }

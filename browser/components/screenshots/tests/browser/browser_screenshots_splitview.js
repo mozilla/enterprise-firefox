@@ -3,12 +3,6 @@
 
 "use strict";
 
-async function addTabAndLoadBrowser() {
-  const tab = BrowserTestUtils.addTab(gBrowser, TEST_PAGE);
-  await BrowserTestUtils.browserLoaded(tab.linkedBrowser);
-  return tab;
-}
-
 add_setup(async function () {
   await SpecialPowers.pushPrefEnv({
     set: [["test.wait300msAfterTabSwitch", true]],

@@ -70,6 +70,7 @@ class ArenaChunk;
   _("compactingEnabled", JSGC_COMPACTING_ENABLED, true)                     \
   _("nurseryEnabled", JSGC_NURSERY_ENABLED, true)                           \
   _("parallelMarkingEnabled", JSGC_PARALLEL_MARKING_ENABLED, true)          \
+  _("concurrentMarkingEnabled", JSGC_CONCURRENT_MARKING_ENABLED, true)      \
   _("parallelMarkingThresholdMB", JSGC_PARALLEL_MARKING_THRESHOLD_MB, true) \
   _("minLastDitchGCPeriod", JSGC_MIN_LAST_DITCH_GC_PERIOD, true)            \
   _("nurseryEagerCollectionThresholdKB",                                    \

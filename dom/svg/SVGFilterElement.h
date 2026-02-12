@@ -63,13 +63,13 @@ class SVGFilterElement final : public SVGFilterElementBase {
   SVGAnimatedLength mLengthAttributes[4];
   static LengthInfo sLengthInfo[4];
 
-  enum { FILTERUNITS, PRIMITIVEUNITS };
-  SVGAnimatedEnumeration mEnumAttributes[2];
-  static EnumInfo sEnumInfo[2];
-
   enum { HREF, XLINK_HREF };
   SVGAnimatedString mStringAttributes[2];
   static StringInfo sStringInfo[2];
+
+  enum { FILTERUNITS, PRIMITIVEUNITS };
+  SVGAnimatedEnumeration mEnumAttributes[2];
+  static EnumInfo sEnumInfo[2];
 };
 
 }  // namespace dom

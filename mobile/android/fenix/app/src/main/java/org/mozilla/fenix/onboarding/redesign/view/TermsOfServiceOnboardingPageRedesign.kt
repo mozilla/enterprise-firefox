@@ -227,7 +227,7 @@ private fun OnboardingPagePreview() {
     FirefoxTheme {
         TermsOfServiceOnboardingPageRedesign(
             pageState = OnboardingPageState(
-                title = stringResource(id = R.string.nova_onboarding_tou_title),
+                title = stringResource(id = R.string.onboarding_welcome_to_firefox),
                 description = "",
                 termsOfService = OnboardingTermsOfService(
                     subheaderOneText = stringResource(id = R.string.nova_onboarding_tou_subtitle),

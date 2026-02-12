@@ -182,6 +182,12 @@ interface nsISHistory: nsISupports
   boolean notifyOnHistoryReload();
 
   /**
+   * Notifies all registered session history listeners that history has been
+   * committed.
+   */
+  void notifyOnHistoryCommit();
+
+  /**
    * Evict content viewers which don't lie in the "safe" range around aIndex.
    * In practice, this should leave us with no more than gHistoryMaxViewers
    * viewers associated with this SHistory object.

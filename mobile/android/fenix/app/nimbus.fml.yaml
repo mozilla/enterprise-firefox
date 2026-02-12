@@ -964,6 +964,16 @@ features:
         type: Boolean
         default: false
 
+  # Created this in addition to the `custom-review-prompt` flag to keep changes minimal and make it easier to uplift.
+  # See: https://bugzilla.mozilla.org/show_bug.cgi?id=2014083
+  custom-review-prompt-ui:
+    description: Feature that controls the custom UI for review prompt.
+    variables:
+      enabled:
+        description: When enabled we show the custom review prompt UI. Otherwise we try to directly show the Play Store in-app review prompt.
+        type: Boolean
+        default: true
+
   default-browser-prompt:
     description: Feature that controls when the default browser prompt is shown.
     variables:
@@ -1025,6 +1035,26 @@ features:
     variables:
       enabled:
         description: If true, Mozilla Ads Client is enabled.
+        type: Boolean
+        default: false
+
+  search-optimization-option:
+    description: Feature to enable the Search Optimization cards for users on Firefox on Android.
+    variables:
+      enabled:
+        description: If true, Search Optimization is enabled.
+        type: Boolean
+        default: false
+      show-stocks-card:
+        description: If true, Search Optimization Stock cards are enabled.
+        type: Boolean
+        default: false
+      show-flights-card:
+        description: If true, Search Optimization Flights cards are enabled.
+        type: Boolean
+        default: false
+      show-sports-card:
+        description: If true, Search Optimization Sports cards are enabled.
         type: Boolean
         default: false
 

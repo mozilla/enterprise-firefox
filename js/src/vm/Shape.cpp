@@ -799,7 +799,13 @@ void NativeObject::maybeFreeDictionaryPropSlots(JSContext* cx,
 
   // Trigger write barriers on the old slots before reallocating.
   prepareSlotRangeForOverwrite(newSpan, oldSpan);
+
+#ifdef JS_GC_CONCURRENT_MARKING
+  // Clear previously used slots on shrink, including fixed slots.
+  initializeSlotRange(newSpan, oldSpan);
+#else
   invalidateSlotRange(newSpan, oldSpan);
+#endif
 
   uint32_t oldCapacity = numDynamicSlots();
   uint32_t newCapacity =

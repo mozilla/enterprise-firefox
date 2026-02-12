@@ -21,16 +21,6 @@
  * - Same eTLD+1 validation prevents injection via canonical/og:url
  */
 
-import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
-
-const lazy = XPCOMUtils.declareLazy({
-  console: () =>
-    console.createInstance({
-      maxLogLevelPref: "browser.ml.logLevel",
-      prefix: "SecurityUtils",
-    }),
-});
-
 /** TTL for ledger entries (30 minutes) */
 const DEFAULT_TTL_MS = 30 * 60 * 1000; // 30 minutes
 
@@ -121,28 +111,6 @@ export function normalizeUrl(urlString, baseUrl = null) {
       success: false,
       error: error.message || String(error),
     };
-  }
-}
-
-/**
- * Validates that two URLs share the same eTLD+1 (effective top-level domain).
- *
- * @param {string} url1 - First URL (typically page URL)
- * @param {string} url2 - Second URL (typically canonical/og:url)
- * @returns {boolean} True if both URLs share the same eTLD+1
- */
-export function areSameSite(url1, url2) {
-  try {
-    const parsed1 = new URL(url1);
-    const parsed2 = new URL(url2);
-
-    const eTLD1 = Services.eTLD.getBaseDomainFromHost(parsed1.hostname);
-    const eTLD2 = Services.eTLD.getBaseDomainFromHost(parsed2.hostname);
-
-    return eTLD1 === eTLD2;
-  } catch (error) {
-    lazy.console.error("areSameSite error:", error.message);
-    return false;
   }
 }
 

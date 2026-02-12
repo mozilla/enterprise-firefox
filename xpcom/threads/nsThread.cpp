@@ -1527,8 +1527,7 @@ void PerformanceCounterState::MaybeReportAccumulatedTime(const nsCString& aName,
         static MarkerSchema MarkerTypeDisplay() {
           using MS = MarkerSchema;
           MS schema{MS::Location::MarkerChart, MS::Location::MarkerTable};
-          schema.AddKeyLabelFormat("category", "Type", MS::Format::String,
-                                   MS::PayloadFlags::Searchable);
+          schema.AddKeyLabelFormat("category", "Type", MS::Format::String);
           return schema;
         }
       };

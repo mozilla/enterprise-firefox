@@ -34,7 +34,7 @@ Events and integration points
 - ``IPProtectionService:StateChanged`` is dispatched on state changes with
   ``detail.state`` and ``detail.prevState``.
 - Helpers can call ``IPProtectionService.updateState()`` to recompute the state immediately; update any helper-owned data first because the call is synchronous.
-- Public actions: ``start(userAction)``, ``stop(userAction)``, and ``startLoginFlow(browser)``.
+- Public actions: ``start(userAction)``, ``stop(userAction)``.
 
 Proxy manager state machine
 ---------------------------

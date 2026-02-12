@@ -10,7 +10,7 @@ use crate::batch::{ClipBatcher, BatchBuilder, INVALID_SEGMENT_INDEX, ClipMaskIns
 use crate::render_task::{SubTask, RectangleClipSubTask, ImageClipSubTask};
 use crate::command_buffer::CommandBufferList;
 use crate::pattern::{PatternKind, PatternShaderInput};
-use crate::segment::EdgeAaSegmentMask;
+use crate::segment::EdgeMask;
 use crate::spatial_tree::SpatialTree;
 use crate::clip::ClipStore;
 use crate::frame_builder::FrameGlobalResources;
@@ -886,7 +886,7 @@ fn add_rect_clip_task_to_batch(
         task.quad_transform_id,
         task.quad_address,
         task.quad_flags,
-        EdgeAaSegmentMask::all(),
+        EdgeMask::all(),
         INVALID_SEGMENT_INDEX as u8,
         RenderTaskId::INVALID,
         ZBufferId(0),
@@ -945,7 +945,7 @@ fn add_image_clip_task_to_batch(
         task.quad_transform_id,
         task.quad_address,
         task.quad_flags,
-        EdgeAaSegmentMask::empty(),
+        EdgeMask::empty(),
         segment_index,
         task.src_task,
         ZBufferId(0),

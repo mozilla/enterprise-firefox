@@ -1116,7 +1116,15 @@ class LayerViewSupport final
 
     IntSize mOutputSize;
   };
+  // Queue of outstanding screen pixels requests received from Java frontend.
+  // Only the request at the front of the queue has been sent to the compositor,
+  // and the next will be sent when the previous result is returned.
   std::queue<CaptureRequest> mCapturePixelsResults;
+  // Screen pixels request that has been sent to the compositor. If the
+  // corresponding entry in mCapturePixelsResults is pop()ped prior to receiving
+  // the result from the compositor, this must be Disconnect()ed.
+  MozPromiseRequestHolder<UiCompositorControllerChild::ScreenPixelsPromise>
+      mPendingScreenPixelsRequest;
 
   // In order to use Event::HasSameTypeAs in PostTo(), we cannot make
   // LayerViewEvent a template because each template instantiation is
@@ -1175,8 +1183,10 @@ class LayerViewSupport final
       uiThread->Dispatch(NS_NewRunnableFunction(
           "LayerViewSupport::OnWeakNonIntrusiveDetach",
           [compositor, disposer = std::move(disposer),
-           results = &mCapturePixelsResults, window = mWindow]() mutable {
+           results = &mCapturePixelsResults,
+           request = &mPendingScreenPixelsRequest, window = mWindow]() mutable {
             if (auto accWindow = window.Access()) {
+              request->DisconnectIfExists();
               while (!results->empty()) {
                 auto aResult =
                     java::GeckoResult::LocalRef(results->front().mResult);
@@ -1253,6 +1263,7 @@ class LayerViewSupport final
     }
 
     if (auto window = mWindow.Access()) {
+      mPendingScreenPixelsRequest.DisconnectIfExists();
       while (!mCapturePixelsResults.empty()) {
         auto result =
             java::GeckoResult::LocalRef(mCapturePixelsResults.front().mResult);
@@ -1402,6 +1413,7 @@ class LayerViewSupport final
     }
 
     if (auto lock{mWindow.Access()}) {
+      mPendingScreenPixelsRequest.DisconnectIfExists();
       while (!mCapturePixelsResults.empty()) {
         auto result =
             java::GeckoResult::LocalRef(mCapturePixelsResults.front().mResult);
@@ -1657,56 +1669,62 @@ class LayerViewSupport final
       return;
     }
 
-    int size = 0;
     if (auto window = mWindow.Access()) {
       mCapturePixelsResults.push(CaptureRequest(
           java::GeckoResult::GlobalRef(result),
           java::sdk::Bitmap::GlobalRef(java::sdk::Bitmap::LocalRef(aTarget)),
           IntRect(aXOffset, aYOffset, aSrcWidth, aSrcHeight),
           IntSize(aOutWidth, aOutHeight)));
-      size = mCapturePixelsResults.size();
+      if (mCapturePixelsResults.size() == 1) {
+        DoRequestScreenPixels();
+      }
     }
+  }
 
-    if (size == 1) {
-      mUiCompositorControllerChild->RequestScreenPixels(
-          IntRect(aXOffset, aYOffset, aSrcWidth, aSrcHeight),
-          IntSize(aOutWidth, aOutHeight));
+  void DoRequestScreenPixels() {
+    MOZ_ASSERT(AndroidBridge::IsJavaUiThread());
+    MOZ_ASSERT(mUiCompositorControllerChild);
+
+    if (auto accwindow = mWindow.Access()) {
+      MOZ_ASSERT(!mCapturePixelsResults.empty());
+      const auto& request = mCapturePixelsResults.front();
+      mUiCompositorControllerChild
+          ->RequestScreenPixels(request.mSource, request.mOutputSize)
+          ->Then(GetCurrentSerialEventTarget(), __func__,
+                 [this, window = mWindow](
+                     UiCompositorControllerChild::ScreenPixelsPromise::
+                         ResolveOrRejectValue&& aValue) {
+                   if (auto accWindow = window.Access()) {
+                     mPendingScreenPixelsRequest.Complete();
+                     if (aValue.IsResolve()) {
+                       RecvScreenPixels(aValue.ResolveValue());
+                     } else {
+                       RecvScreenPixels(nullptr);
+                     }
+                     // If there are still outstanding requests then send the
+                     // next request to the compositor.
+                     if (!mCapturePixelsResults.empty()) {
+                       // If the compositor was lost we should have already
+                       // rejected all the results.
+                       MOZ_ASSERT(mUiCompositorControllerChild);
+                       if (mUiCompositorControllerChild) {
+                         DoRequestScreenPixels();
+                       }
+                     }
+                   }
+                 })
+          ->Track(mPendingScreenPixelsRequest);
     }
   }
 
   void RecvScreenPixels(
       RefPtr<mozilla::layers::AndroidHardwareBuffer> aHardwareBuffer) {
     MOZ_ASSERT(AndroidBridge::IsJavaUiThread());
-    CaptureRequest request;
-    java::GeckoResult::LocalRef result = nullptr;
-    java::sdk::Bitmap::LocalRef bitmap = nullptr;
-    if (auto window = mWindow.Access()) {
-      // The result might have been already rejected if the compositor was
-      // detached from the session
-      if (!mCapturePixelsResults.empty()) {
-        request = mCapturePixelsResults.front();
-        result = java::GeckoResult::LocalRef(request.mResult);
-        bitmap = java::sdk::Bitmap::LocalRef(request.mBitmap);
-        mCapturePixelsResults.pop();
-      }
-
-      // If there are still outstanding requests then send the next request to
-      // the compositor.
-      if (!mCapturePixelsResults.empty()) {
-        // If the compositor was lost we should have already rejected all the
-        // results.
-        MOZ_ASSERT(mUiCompositorControllerChild);
-        if (mUiCompositorControllerChild) {
-          mUiCompositorControllerChild->RequestScreenPixels(
-              mCapturePixelsResults.front().mSource,
-              mCapturePixelsResults.front().mOutputSize);
-        }
-      }
-    }
-
-    if (!result) {
-      return;
-    }
+    MOZ_RELEASE_ASSERT(!mCapturePixelsResults.empty());
+    const CaptureRequest request = mCapturePixelsResults.front();
+    mCapturePixelsResults.pop();
+    java::GeckoResult::LocalRef result = request.mResult;
+    java::sdk::Bitmap::LocalRef bitmap = request.mBitmap;
 
     if (!aHardwareBuffer) {
       result->CompleteExceptionally(
@@ -3317,15 +3335,6 @@ void nsWindow::NotifyCompositorScrollUpdate(
         aUpdate.mMetrics.mVisualScrollOffset.x,
         aUpdate.mMetrics.mVisualScrollOffset.y, aUpdate.mMetrics.mZoom.scale,
         ConvertScrollUpdateSource(aUpdate.mSource));
-  }
-}
-
-void nsWindow::RecvScreenPixels(
-    RefPtr<mozilla::layers::AndroidHardwareBuffer> aHardwareBuffer) {
-  MOZ_ASSERT(AndroidBridge::IsJavaUiThread());
-  if (::mozilla::jni::NativeWeakPtr<LayerViewSupport>::Accessor lvs{
-          mLayerViewSupport.Access()}) {
-    lvs->RecvScreenPixels(aHardwareBuffer);
   }
 }
 

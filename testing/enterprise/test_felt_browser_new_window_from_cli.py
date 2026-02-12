@@ -3,9 +3,12 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+import os
 import subprocess
 import sys
 import time
+
+sys.path.append(os.path.dirname(__file__))
 
 from felt_tests import FeltTests
 
@@ -58,27 +61,34 @@ class FeltNewWindowFromCli(FeltTests):
             time.sleep(0.5)
         assert False, f"Expected window with url {url}"
 
-    def test_felt_3_browser_started(self, exp):
+    def test_new_window_from_cli(self):
+        super().run_felt_base()
         self.connect_child_browser()
-        return True
+        self.run_felt_open_new_window_from_cli()
+        self.run_felt_open_private_window_from_cli()
 
-    def test_felt_4_open_new_window_from_cli(self, exp):
+    def run_felt_open_new_window_from_cli(self):
         url = f"http://localhost:{self.console_port}/ping"
         windows = self._get_child_windows()
         initial_count = len(windows)
-        args = [sys.argv[1], "-profile", self._child_profile_path, "--new-window", url]
+        args = [
+            f"{self._driver.instance.binary}",
+            "-profile",
+            self._child_profile_path,
+            "--new-window",
+            url,
+        ]
         subprocess.check_call(args, shell=False)
 
         self._wait_for_window_count(initial_count + 1)
         self._wait_for_window_with_url(url, is_private=False)
-        return True
 
-    def test_felt_5_open_private_window_from_cli(self, exp):
+    def run_felt_open_private_window_from_cli(self):
         url = f"http://localhost:{self.sso_port}/sso_url"
         windows = self._get_child_windows()
         initial_count = len(windows)
         args = [
-            sys.argv[1],
+            f"{self._driver.instance.binary}",
             "-profile",
             self._child_profile_path,
             "--private-window",
@@ -88,14 +98,3 @@ class FeltNewWindowFromCli(FeltTests):
 
         self._wait_for_window_count(initial_count + 1)
         self._wait_for_window_with_url(url, is_private=True)
-        return True
-
-
-if __name__ == "__main__":
-    FeltNewWindowFromCli(
-        "felt_browser_new_window_from_cli.json",
-        firefox=sys.argv[1],
-        geckodriver=sys.argv[2],
-        profile_root=sys.argv[3],
-        cli_args=["-feltUI"],
-    )

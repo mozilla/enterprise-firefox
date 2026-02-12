@@ -253,15 +253,19 @@ export const ConsoleClient = {
       return nssErrorsService.getErrorName(status);
     } catch {
       // Not an NSS error, check common network error codes
+
+      // Mapping here should follow what nsDocShell::DisplayLoadError uses.
+      // Consumer code will expect those to fail when using Fluent to format
+      // and perform fallback to string bundles where they are defined.
       const networkErrors = {
-        [Cr.NS_ERROR_UNKNOWN_HOST]: "unknown-host",
-        [Cr.NS_ERROR_CONNECTION_REFUSED]: "connection-refused",
-        [Cr.NS_ERROR_NET_TIMEOUT]: "net-timeout",
-        [Cr.NS_ERROR_NET_RESET]: "net-reset",
-        [Cr.NS_ERROR_NET_INTERRUPT]: "net-interrupt",
-        [Cr.NS_ERROR_OFFLINE]: "offline",
+        [Cr.NS_ERROR_UNKNOWN_HOST]: "dnsNotFound2",
+        [Cr.NS_ERROR_CONNECTION_REFUSED]: "connectionFailure",
+        [Cr.NS_ERROR_NET_TIMEOUT]: "netTimeout",
+        [Cr.NS_ERROR_NET_RESET]: "netReset",
+        [Cr.NS_ERROR_NET_INTERRUPT]: "netInterrupt",
+        [Cr.NS_ERROR_OFFLINE]: "netOffline",
       };
-      return networkErrors[status] || `error-code-${status}`;
+      return networkErrors[status] || "network";
     }
   },
 
@@ -313,10 +317,10 @@ export const ConsoleClient = {
       };
 
       xhr.onerror = () => {
-        const errorName = xhr.channel
-          ? this._getErrorNameForStatus(xhr.channel.status)
-          : "NetworkError";
-        reject(new TypeError(errorName));
+        const errorName = this._getErrorNameForStatus(xhr.channel?.status);
+        reject(
+          new TypeError(errorName, { cause: { host: new URL(url).host } })
+        );
       };
 
       xhr.ontimeout = () => {

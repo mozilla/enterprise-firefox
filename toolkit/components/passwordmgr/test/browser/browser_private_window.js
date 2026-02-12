@@ -603,7 +603,7 @@ add_task(async function test_normal_with_login_6() {
         );
         await cleanupDoorhanger(notif);
       }
-      Services.logins.removeLogin(login);
+      await Services.logins.removeLoginAsync(login);
     }
   );
 });

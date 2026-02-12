@@ -337,7 +337,7 @@ CollatorObject* js::intl::GetOrCreateCollator(JSContext* cx,
   return CreateCollator(cx, locales, options);
 }
 
-void js::CollatorObject::finalize(JS::GCContext* gcx, JSObject* obj) {
+void js::intl::CollatorObject::finalize(JS::GCContext* gcx, JSObject* obj) {
   auto* collator = &obj->as<CollatorObject>();
 
   if (auto* options = collator->getOptions()) {

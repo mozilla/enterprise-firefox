@@ -11,7 +11,7 @@ from taskgraph.util import json
 from taskgraph.util.copy import deepcopy
 from taskgraph.util.dependencies import get_dependencies, get_primary_dependency
 from taskgraph.util.schema import (
-    Schema,
+    LegacySchema,
     optionally_keyed_by,
     resolve_keyed_by,
     taskref_or_string,
@@ -33,7 +33,7 @@ def _by_platform(arg):
     return optionally_keyed_by("build-platform", arg)
 
 
-l10n_description_schema = Schema({
+l10n_description_schema = LegacySchema({
     # Name for this job, inferred from the dependent job before validation
     Required("name"): str,
     # build-platform, inferred from dependent job before validation
@@ -196,7 +196,10 @@ def gather_required_signoffs(config, jobs):
 def remove_repackage_dependency(config, jobs):
     for job in jobs:
         build_platform = job["attributes"]["build_platform"]
-        if not build_platform.startswith("macosx"):
+        if (
+            not build_platform.startswith("macosx")
+            and "repackage" in job["dependencies"].keys()
+        ):
             del job["dependencies"]["repackage"]
 
         yield job
@@ -255,6 +258,7 @@ def all_locales_attribute(config, jobs):
     for job in jobs:
         locales_platform = job["attributes"]["build_platform"].replace("-shippable", "")
         locales_platform = locales_platform.replace("-pgo", "")
+        locales_platform = locales_platform.replace("-enterprise", "")
         locales_with_changesets = parse_locales_file(
             job["locales-file"], platform=locales_platform
         )

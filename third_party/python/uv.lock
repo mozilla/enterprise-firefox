@@ -939,7 +939,7 @@ requires-dist = [
     { name = "setuptools", specifier = "==75.3.1" },
     { name = "six", specifier = "~=1.16" },
     { name = "slugid", specifier = "~=2.0" },
-    { name = "taskcluster", specifier = "~=91.0" },
+    { name = "taskcluster", specifier = "~=93.0" },
     { name = "taskcluster-urls", specifier = "==13.0.1" },
     { name = "toml", specifier = "~=0.10" },
     { name = "tomlkit", specifier = "~=0.12" },
@@ -1560,7 +1560,7 @@ wheels = [
 
 [[package]]
 name = "taskcluster"
-version = "91.1.0"
+version = "93.1.5"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiohttp" },
@@ -1571,9 +1571,9 @@ dependencies = [
     { name = "slugid" },
     { name = "taskcluster-urls" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/cb/ae/1dd6efc5799ec026acd540424d3cc7aeab1ee2f172328ae320396f7a3da4/taskcluster-91.1.0.tar.gz", hash = "sha256:e58fbcdcd33ba9c4a4dbd5a71cb7cbe2dc7f4918cd92025dd53d590ab85f472b", size = 252537, upload-time = "2025-10-24T14:35:49.833Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/8c/d7/47503a1f972ae8957378eff4cdc29e38af771327a0342e9dc3f6d4734809/taskcluster-93.1.5.tar.gz", hash = "sha256:1b7ed171f5c22a5fdae60618f81a12b0ec27e3f6347539d0d823f26ff41a1d7b", size = 250646, upload-time = "2025-11-21T16:24:19.143Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/03/b0/f0cb3d746565152af23837c6541a5e8764b7bf90b00e4ce9956dbbdf5620/taskcluster-91.1.0-py3-none-any.whl", hash = "sha256:87cad1b7c54689c5d635a9422c59554cf648014d67af3cb3a30af20bb6f81879", size = 147170, upload-time = "2025-10-24T14:35:47.384Z" },
+    { url = "https://files.pythonhosted.org/packages/01/02/af3a8d0efacd91c932100c15a147623491f035d84780493e988235b4390f/taskcluster-93.1.5-py3-none-any.whl", hash = "sha256:e16606e13ad4881211fdc52ebaab8b05df7a56681ecbb236897f1c56e1149779", size = 146964, upload-time = "2025-11-21T16:24:17.513Z" },
 ]
 
 [[package]]

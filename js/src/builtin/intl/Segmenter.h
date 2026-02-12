@@ -23,7 +23,7 @@ namespace JS {
 class GCContext;
 }
 
-namespace js {
+namespace js::intl {
 
 enum class SegmenterGranularity : int8_t { Grapheme, Word, Sentence };
 
@@ -355,6 +355,10 @@ class SegmentIteratorObject : public NativeObject {
 
   static void finalize(JS::GCContext* gcx, JSObject* obj);
 };
+
+}  // namespace js::intl
+
+namespace js {
 
 /**
  * Create a new Segment Iterator object.

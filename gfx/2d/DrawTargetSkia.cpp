@@ -1202,7 +1202,7 @@ CGContextRef DrawTargetSkia::BorrowCGContext(const DrawOptions& aOptions) {
       mCanvas->restore();
     }
     ReleaseBits(mCanvasData);
-    NS_WARNING("Could not create bitmap around skia data\n");
+    NS_WARNING("Could not create bitmap around skia data");
     return nullptr;
   }
 

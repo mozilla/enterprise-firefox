@@ -57,9 +57,6 @@
 #  include "gfxWindowsPlatform.h"
 #endif
 
-#include "harfbuzz/hb.h"
-#include "harfbuzz/hb-ot.h"
-
 #include <algorithm>
 #include <limits>
 #include <cmath>
@@ -996,8 +993,6 @@ gfxFont::gfxFont(const RefPtr<UnscaledFont>& aUnscaledFont,
                    mFontEntry->FamilyName().EqualsLiteral("Ahem"))) {
     mAntialiasOption = kAntialiasNone;
   }
-
-  InitBaselines(mHorizontalBaselines, nsFontMetrics::eHorizontal);
 
   mKerningSet = HasFeatureSet(HB_TAG('k', 'e', 'r', 'n'), mKerningEnabled);
 
@@ -4427,58 +4422,33 @@ void gfxFont::SanitizeMetrics(gfxFont::Metrics* aMetrics,
   }
 }
 
-void gfxFont::InitBaselines(Baselines& aBaselines, Orientation aOrientation) {
-  // Use harfbuzz to try to read the font's baseline metrics. For
-  // missing baselines, harfbuzz will synthesize fallbacks according
-  // to the CSS Inline Layout Module Level 3 specification.
-  hb_font_t* hbFont = gfxHarfBuzzShaper::CreateHBFont(this);
-  hb_direction_t hbDir = aOrientation == nsFontMetrics::eHorizontal
-                             ? HB_DIRECTION_LTR
-                             : HB_DIRECTION_TTB;
-  hb_position_t position;
-  auto Fix2Float = [](hb_position_t f) -> gfxFloat { return f / 65536.0; };
+gfxFloat gfxFont::GetBaseline(const Baseline& aBaseline,
+                              Orientation aOrientation) {
+  std::atomic<gfxFloat>& baseline =
+      GetBaselines(aOrientation).*(aBaseline.first);
+  hb_ot_layout_baseline_tag_t tag = aBaseline.second;
 
-  hb_ot_layout_get_baseline_with_fallback(
-      hbFont, HB_OT_LAYOUT_BASELINE_TAG_ROMAN, hbDir, HB_OT_TAG_DEFAULT_SCRIPT,
-      HB_OT_TAG_DEFAULT_LANGUAGE, &position);
-  aBaselines.mAlphabetic = Fix2Float(position);
+  gfxFloat value = baseline;
+  if (std::isnan(value)) {
+    // Use harfbuzz to try to read the font's baseline metrics. For
+    // missing baselines, harfbuzz will synthesize fallbacks according
+    // to the CSS Inline Layout Module Level 3 specification.
+    hb_font_t* hbFont = gfxHarfBuzzShaper::CreateHBFont(this);
+    hb_direction_t hbDir = aOrientation == nsFontMetrics::eHorizontal
+                               ? HB_DIRECTION_LTR
+                               : HB_DIRECTION_TTB;
+    hb_position_t position;
+    hb_ot_layout_get_baseline_with_fallback(
+        hbFont, tag, hbDir, HB_OT_TAG_DEFAULT_SCRIPT,
+        HB_OT_TAG_DEFAULT_LANGUAGE, &position);
+    hb_font_destroy(hbFont);
+    value = position / 65536.0;
+    [[maybe_unused]] gfxFloat oldValue = baseline.exchange(value);
+    MOZ_ASSERT(std::isnan(oldValue) || oldValue == value,
+               "computed baseline mismatch");
+  }
 
-  hb_ot_layout_get_baseline_with_fallback(
-      hbFont, HB_OT_LAYOUT_BASELINE_TAG_HANGING, hbDir,
-      HB_OT_TAG_DEFAULT_SCRIPT, HB_OT_TAG_DEFAULT_LANGUAGE, &position);
-  aBaselines.mHanging = Fix2Float(position);
-
-  hb_ot_layout_get_baseline_with_fallback(
-      hbFont, HB_OT_LAYOUT_BASELINE_TAG_IDEO_EMBOX_BOTTOM_OR_LEFT, hbDir,
-      HB_OT_TAG_DEFAULT_SCRIPT, HB_OT_TAG_DEFAULT_LANGUAGE, &position);
-  aBaselines.mIdeographicUnder = Fix2Float(position);
-
-  hb_ot_layout_get_baseline_with_fallback(
-      hbFont, HB_OT_LAYOUT_BASELINE_TAG_IDEO_EMBOX_TOP_OR_RIGHT, hbDir,
-      HB_OT_TAG_DEFAULT_SCRIPT, HB_OT_TAG_DEFAULT_LANGUAGE, &position);
-  aBaselines.mIdeographicOver = Fix2Float(position);
-
-  hb_ot_layout_get_baseline_with_fallback(
-      hbFont, HB_OT_LAYOUT_BASELINE_TAG_IDEO_FACE_BOTTOM_OR_LEFT, hbDir,
-      HB_OT_TAG_DEFAULT_SCRIPT, HB_OT_TAG_DEFAULT_LANGUAGE, &position);
-  aBaselines.mIdeographicInkUnder = Fix2Float(position);
-
-  hb_ot_layout_get_baseline_with_fallback(
-      hbFont, HB_OT_LAYOUT_BASELINE_TAG_IDEO_FACE_TOP_OR_RIGHT, hbDir,
-      HB_OT_TAG_DEFAULT_SCRIPT, HB_OT_TAG_DEFAULT_LANGUAGE, &position);
-  aBaselines.mIdeographicInkOver = Fix2Float(position);
-
-  hb_ot_layout_get_baseline_with_fallback(
-      hbFont, HB_OT_LAYOUT_BASELINE_TAG_IDEO_EMBOX_CENTRAL, hbDir,
-      HB_OT_TAG_DEFAULT_SCRIPT, HB_OT_TAG_DEFAULT_LANGUAGE, &position);
-  aBaselines.mCentral = Fix2Float(position);
-
-  hb_ot_layout_get_baseline_with_fallback(
-      hbFont, HB_OT_LAYOUT_BASELINE_TAG_MATH, hbDir, HB_OT_TAG_DEFAULT_SCRIPT,
-      HB_OT_TAG_DEFAULT_LANGUAGE, &position);
-  aBaselines.mMath = Fix2Float(position);
-
-  hb_font_destroy(hbFont);
+  return value;
 }
 
 // Create a Metrics record to be used for vertical layout. This should never
@@ -4680,8 +4650,6 @@ void gfxFont::CreateVerticalMetrics() {
 
 void gfxFont::CreateVerticalBaselines() {
   auto* baselines = new Baselines();
-  InitBaselines(*baselines, nsFontMetrics::eVertical);
-
   if (!mVerticalBaselines.compareExchange(nullptr, baselines)) {
     delete baselines;
   }

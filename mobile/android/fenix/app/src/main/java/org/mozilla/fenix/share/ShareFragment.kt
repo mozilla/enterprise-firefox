@@ -4,20 +4,23 @@
 
 package org.mozilla.fenix.share
 
-import android.content.Context
+import android.net.ConnectivityManager
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.appcompat.app.AppCompatDialogFragment
 import androidx.compose.ui.platform.ViewCompositionStrategy
+import androidx.core.content.getSystemService
 import androidx.fragment.app.clearFragmentResult
 import androidx.fragment.app.setFragmentResult
 import androidx.fragment.app.viewModels
-import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
+import kotlinx.coroutines.launch
 import mozilla.components.browser.state.action.ContentAction
 import mozilla.components.browser.state.selector.findTabOrCustomTab
 import mozilla.components.concept.base.crash.Breadcrumb
@@ -36,17 +39,23 @@ class ShareFragment : AppCompatDialogFragment() {
 
     private val args by navArgs<ShareFragmentArgs>()
     private val viewModel: ShareViewModel by viewModels {
-        AndroidViewModelFactory(requireActivity().application)
+        object : ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                val app = requireActivity().application
+                return ShareViewModel(
+                    fxaAccountManager = requireComponents.backgroundServices.accountManager,
+                    recentAppsStorage = RecentAppsStorage(app),
+                    connectivityManager = app.getSystemService<ConnectivityManager>(),
+                ) as T
+            }
+        }
     }
+
     private lateinit var shareInteractor: ShareInteractor
     private lateinit var shareCloseView: ShareCloseView
     private lateinit var shareToAccountDevicesView: ShareToAccountDevicesView
     private lateinit var shareToAppsView: ShareToAppsView
-
-    override fun onAttach(context: Context) {
-        super.onAttach(context)
-        viewModel.loadDevicesAndApps(requireContext())
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -156,14 +165,14 @@ class ShareFragment : AppCompatDialogFragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        viewModel.devicesList.observe(viewLifecycleOwner) { devicesShareOptions ->
-            shareToAccountDevicesView.setShareTargets(devicesShareOptions)
-        }
-        viewModel.appsList.observe(viewLifecycleOwner) { appsToShareTo ->
-            shareToAppsView.setShareTargets(appsToShareTo)
-        }
-        viewModel.recentAppsList.observe(viewLifecycleOwner) { appsToShareTo ->
-            shareToAppsView.setRecentShareTargets(appsToShareTo)
+        viewModel.initDataLoad(requireContext())
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.uiState.collect { state ->
+                shareToAccountDevicesView.setShareTargets(state.devices)
+                shareToAppsView.setShareTargets(state.otherApps)
+                shareToAppsView.setRecentShareTargets(state.recentApps)
+            }
         }
     }
 

@@ -395,7 +395,7 @@ static bool MozDisplayNames(JSContext* cx, unsigned argc, Value* vp) {
   return DisplayNames(cx, args, DisplayNamesKind::EnableMozExtensions);
 }
 
-void js::DisplayNamesObject::finalize(JS::GCContext* gcx, JSObject* obj) {
+void js::intl::DisplayNamesObject::finalize(JS::GCContext* gcx, JSObject* obj) {
   auto* dn = &obj->as<DisplayNamesObject>();
 
   if (auto* options = dn->getOptions()) {

@@ -184,3 +184,90 @@ add_task(async function test_switchtab_override_scotch_bonnet_for_split_view() {
   gBrowser.removeTab(tab3);
   await SpecialPowers.popPrefEnv();
 });
+
+add_task(async function test_move_tab_to_split_view_from_another_window() {
+  await SpecialPowers.pushPrefEnv({
+    set: [["browser.urlbar.secondaryActions.switchToTab", false]],
+  });
+
+  info("Opening first window with a tab");
+  let win1 = await BrowserTestUtils.openNewBrowserWindow();
+  await BrowserTestUtils.openNewForegroundTab(win1.gBrowser, TEST_URL);
+
+  info("Opening second window with split view");
+  let win2 = await BrowserTestUtils.openNewBrowserWindow();
+  let tab2 = await BrowserTestUtils.openNewForegroundTab(
+    win2.gBrowser,
+    "about:opentabs"
+  );
+  let tab3 = await BrowserTestUtils.openNewForegroundTab(win2.gBrowser);
+
+  let tabbrowserTabs = win2.gBrowser.tabContainer;
+  let splitViewCreated = BrowserTestUtils.waitForEvent(
+    tabbrowserTabs,
+    "SplitViewCreated"
+  );
+  let splitView = win2.gBrowser.addTabSplitView([tab2, tab3], { id: "1" });
+  await splitViewCreated;
+
+  info("Wait for autocomplete in second window");
+  await UrlbarTestUtils.promiseAutocompleteResultPopup({
+    window: win2,
+    value: "dummy_page",
+  });
+
+  info("Select autocomplete entry for tab in first window");
+  EventUtils.synthesizeKey("KEY_ArrowDown", {}, win2);
+  let result = await UrlbarTestUtils.getDetailsOfResultAt(
+    win2,
+    UrlbarTestUtils.getSelectedRowIndex(win2)
+  );
+  Assert.equal(result.type, UrlbarUtils.RESULT_TYPE.TAB_SWITCH);
+
+  info("Check that action shows 'Move tab to Split View'");
+  let actionLabel = result.element.row.querySelector(".urlbarView-action");
+  Assert.ok(BrowserTestUtils.isVisible(actionLabel));
+  Assert.ok(actionLabel.textContent.includes("Move"));
+
+  info("Count tabs in both windows before action");
+  let win1TabCountBefore = win1.gBrowser.tabs.length;
+  let win2TabCountBefore = win2.gBrowser.tabs.length;
+
+  info("Press Enter to move tab to split view");
+  EventUtils.synthesizeKey("KEY_Enter", {}, win2);
+
+  await BrowserTestUtils.waitForCondition(
+    () =>
+      win1.gBrowser.tabs.length === win1TabCountBefore - 1 &&
+      win2.gBrowser.tabs.length === win2TabCountBefore,
+    "Wait for tab to be moved from window 1 and replaced in window 2 split view"
+  );
+
+  info("Verify tab was replaced in split view, not added as third tab");
+  Assert.equal(
+    win2.gBrowser.tabs.length,
+    win2TabCountBefore,
+    "Second window should still have same number of tabs (tab replaced, not added)"
+  );
+
+  info("Verify original tab was moved from first window");
+  Assert.equal(
+    win1.gBrowser.tabs.length,
+    win1TabCountBefore - 1,
+    "First window should have one fewer tab (tab was moved)"
+  );
+
+  info("Verify the moved tab has the expected URL in split view");
+  let tabWithTestUrl = splitView.tabs.find(
+    tab => tab.linkedBrowser.currentURI.spec === TEST_URL
+  );
+  Assert.ok(
+    tabWithTestUrl,
+    "One of the split view tabs should have the moved tab's URL"
+  );
+
+  info("Cleanup");
+  await BrowserTestUtils.closeWindow(win1);
+  await BrowserTestUtils.closeWindow(win2);
+  await SpecialPowers.popPrefEnv();
+});

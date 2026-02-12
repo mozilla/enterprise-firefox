@@ -226,39 +226,40 @@ export class RemoteTabRecord {
             throw e;
         }
         /**
-         * title
+         * @type {string}
          */
         this.title = title;
         /**
-         * urlHistory
+         * @type {Array.<string>}
          */
         this.urlHistory = urlHistory;
         /**
-         * icon
+         * @type {?string}
          */
         this.icon = icon;
         /**
-         * lastUsed
+         * @type {number}
          */
         this.lastUsed = lastUsed;
         /**
-         * inactive
+         * @type {boolean}
          */
         this.inactive = inactive;
         /**
-         * pinned
+         * @type {boolean}
          */
         this.pinned = pinned;
         /**
          * The index within the window_id.
+         * @type {number}
          */
         this.index = index;
         /**
-         * windowId
+         * @type {string}
          */
         this.windowId = windowId;
         /**
-         * tabGroupId
+         * @type {string}
          */
         this.tabGroupId = tabGroupId;
     }
@@ -491,19 +492,19 @@ export class TabGroup {
             throw e;
         }
         /**
-         * id
+         * @type {string}
          */
         this.id = id;
         /**
-         * name
+         * @type {string}
          */
         this.name = name;
         /**
-         * color
+         * @type {string}
          */
         this.color = color;
         /**
-         * collapsed
+         * @type {boolean}
          */
         this.collapsed = collapsed;
     }
@@ -669,13 +670,12 @@ export class FfiConverterTypeTimestamp extends FfiConverter {
 /**
  * WindowType
  */
-export const WindowType = {
+export const WindowType = Object.freeze({
     /**
      * NORMAL
      */
     NORMAL: 0,
-};
-Object.freeze(WindowType);
+});
 
 // Export the FFIConverter object to make external types work.
 export class FfiConverterTypeWindowType extends FfiConverterArrayBuffer {
@@ -761,19 +761,19 @@ export class Window {
             throw e;
         }
         /**
-         * id
+         * @type {string}
          */
         this.id = id;
         /**
-         * lastUsed
+         * @type {Timestamp}
          */
         this.lastUsed = lastUsed;
         /**
-         * index
+         * @type {number}
          */
         this.index = index;
         /**
-         * windowType
+         * @type {WindowType[keyof WindowType]}
          */
         this.windowType = windowType;
     }
@@ -988,30 +988,32 @@ export class ClientRemoteTabs {
         }
         /**
          * misnamed: this is the fxa_device_id of the client (which may or may not be the same as the corresponding ID in the `clients` collection)
+         * @type {string}
          */
         this.clientId = clientId;
         /**
-         * clientName
+         * @type {string}
          */
         this.clientName = clientName;
         /**
-         * deviceType
+         * @type {DeviceType[keyof DeviceType]}
          */
         this.deviceType = deviceType;
         /**
          * Number of ms since the unix epoch (as reported by the server's clock)
+         * @type {number}
          */
         this.lastModified = lastModified;
         /**
-         * remoteTabs
+         * @type {Array.<RemoteTabRecord>}
          */
         this.remoteTabs = remoteTabs;
         /**
-         * tabGroups
+         * @type {object}
          */
         this.tabGroups = tabGroups;
         /**
-         * windows
+         * @type {object}
          */
         this.windows = windows;
     }
@@ -1167,15 +1169,15 @@ export class LocalTabsInfo {
             throw e;
         }
         /**
-         * tabs
+         * @type {Array.<RemoteTabRecord>}
          */
         this.tabs = tabs;
         /**
-         * tabGroups
+         * @type {object}
          */
         this.tabGroups = tabGroups;
         /**
-         * windows
+         * @type {object}
          */
         this.windows = windows;
     }
@@ -1392,19 +1394,19 @@ export class PendingCommand {
             throw e;
         }
         /**
-         * deviceId
+         * @type {string}
          */
         this.deviceId = deviceId;
         /**
-         * command
+         * @type {RemoteCommand[keyof RemoteCommand]}
          */
         this.command = command;
         /**
-         * timeRequested
+         * @type {Timestamp}
          */
         this.timeRequested = timeRequested;
         /**
-         * timeSent
+         * @type {?Timestamp}
          */
         this.timeSent = timeSent;
     }
@@ -1682,7 +1684,7 @@ export class RemoteCommandStoreInterface {
     /**
      * Add a new command, after which it will be pending. Returns false if the command is already active.
      * @param {string} deviceId
-     * @param {RemoteCommand} command
+     * @param {RemoteCommand[keyof RemoteCommand]} command
      * @returns {Promise<boolean>}}
      */
     async addRemoteCommand(
@@ -1693,7 +1695,7 @@ export class RemoteCommandStoreInterface {
     /**
      * Add a new command with an explicit timestamp. Primarily used by tests.
      * @param {string} deviceId
-     * @param {RemoteCommand} command
+     * @param {RemoteCommand[keyof RemoteCommand]} command
      * @param {Timestamp} when
      * @returns {Promise<boolean>}}
      */
@@ -1714,7 +1716,7 @@ export class RemoteCommandStoreInterface {
      * Removes the remote command. Typically used to implement "undo" but may also be used by the queue
      * processor when it gives up trying to send a command.
      * @param {string} deviceId
-     * @param {RemoteCommand} command
+     * @param {RemoteCommand[keyof RemoteCommand]} command
      * @returns {Promise<boolean>}}
      */
     async removeRemoteCommand(
@@ -1755,7 +1757,7 @@ export class RemoteCommandStore extends RemoteCommandStoreInterface {
     /**
      * Add a new command, after which it will be pending. Returns false if the command is already active.
      * @param {string} deviceId
-     * @param {RemoteCommand} command
+     * @param {RemoteCommand[keyof RemoteCommand]} command
      * @returns {Promise<boolean>}}
      */
     async addRemoteCommand(
@@ -1780,7 +1782,7 @@ export class RemoteCommandStore extends RemoteCommandStoreInterface {
     /**
      * Add a new command with an explicit timestamp. Primarily used by tests.
      * @param {string} deviceId
-     * @param {RemoteCommand} command
+     * @param {RemoteCommand[keyof RemoteCommand]} command
      * @param {Timestamp} when
      * @returns {Promise<boolean>}}
      */
@@ -1827,7 +1829,7 @@ export class RemoteCommandStore extends RemoteCommandStoreInterface {
      * Removes the remote command. Typically used to implement "undo" but may also be used by the queue
      * processor when it gives up trying to send a command.
      * @param {string} deviceId
-     * @param {RemoteCommand} command
+     * @param {RemoteCommand[keyof RemoteCommand]} command
      * @returns {Promise<boolean>}}
      */
     async removeRemoteCommand(

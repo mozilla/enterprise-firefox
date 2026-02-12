@@ -4825,7 +4825,7 @@ var ConfirmationHint = {
     if (
       messageId === "confirmation-hint-ipprotection-navigated-to-excluded-site"
     ) {
-      MozXULElement.insertFTLIfNeeded("preview/ipProtection.ftl");
+      MozXULElement.insertFTLIfNeeded("browser/ipProtection.ftl");
     }
 
     document.l10n.setAttributes(this._message, messageId, options.l10nArgs);

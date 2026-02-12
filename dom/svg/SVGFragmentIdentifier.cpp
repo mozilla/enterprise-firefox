@@ -32,7 +32,7 @@ class MOZ_RAII AutoSVGViewHandler {
       : mRoot(aRoot), mValid(false) {
     mWasOverridden = mRoot->UseCurrentView();
     mRoot->mSVGView = nullptr;
-    mRoot->mCurrentViewID = nullptr;
+    mRoot->mCurrentViewID = VoidString();
   }
 
   ~AutoSVGViewHandler() {
@@ -203,10 +203,7 @@ bool SVGFragmentIdentifier::ProcessFragmentIdentifier(
   auto* rootElement = SVGSVGElement::FromNode(aDocument->GetRootElement());
 
   if (SVGViewElement::FromNodeOrNull(aDocument->GetElementById(aAnchorName))) {
-    if (!rootElement->mCurrentViewID) {
-      rootElement->mCurrentViewID = std::make_unique<nsString>();
-    }
-    *rootElement->mCurrentViewID = aAnchorName;
+    rootElement->mCurrentViewID = aAnchorName;
     rootElement->mSVGView = nullptr;
     rootElement->InvalidateTransformNotifyFrame();
     if (nsIFrame* f = rootElement->GetPrimaryFrame()) {

@@ -26,7 +26,7 @@ prototypes and implementations:
    variables.
  - :ref:`PR_IMPLEMENT` is used for definitions of external functions or
    variables.
- - :ref:`PR_CALLBACK` is used for definitions and declarations of functions
+ - ``PR_CALLBACK`` is used for definitions and declarations of functions
    that are called via function pointers. A typical example is a
    function implemented in an application but called from a shared
    library.

@@ -141,7 +141,7 @@ mozilla::ipc::IPCResult UiCompositorControllerParent::RecvDefaultClearColor(
 }
 
 mozilla::ipc::IPCResult UiCompositorControllerParent::RecvRequestScreenPixels(
-    gfx::IntRect aSourceRect, gfx::IntSize aDestSize) {
+    uint64_t aRequestId, gfx::IntRect aSourceRect, gfx::IntSize aDestSize) {
 #if defined(MOZ_WIDGET_ANDROID)
   LayerTreeState* state =
       CompositorBridgeParent::GetIndirectShadowTree(mRootLayerTreeId);
@@ -150,23 +150,23 @@ mozilla::ipc::IPCResult UiCompositorControllerParent::RecvRequestScreenPixels(
     state->mWrBridge->RequestScreenPixels(aSourceRect, aDestSize)
         ->Then(
             GetCurrentSerialEventTarget(), __func__,
-            [target =
-                 RefPtr{this}](RefPtr<AndroidHardwareBuffer> aHardwareBuffer) {
+            [target = RefPtr{this},
+             aRequestId](RefPtr<AndroidHardwareBuffer> aHardwareBuffer) {
               UniqueFileHandle bufferFd =
                   aHardwareBuffer->SerializeToFileDescriptor();
               UniqueFileHandle fenceFd =
                   aHardwareBuffer->GetAndResetAcquireFence();
               (void)target->SendScreenPixels(
+                  aRequestId,
                   aHardwareBuffer
                       ? Some(ipc::FileDescriptor(std::move(bufferFd)))
                       : Nothing(),
                   fenceFd ? Some(ipc::FileDescriptor(std::move(fenceFd)))
                           : Nothing());
             },
-            [target = RefPtr{this}](nsresult aError) {
-              (void)target->SendScreenPixels(Nothing(), Nothing());
+            [target = RefPtr{this}, aRequestId](nsresult aError) {
+              (void)target->SendScreenPixels(aRequestId, Nothing(), Nothing());
             });
-    ;
     state->mWrBridge->ScheduleForcedGenerateFrame(wr::RenderReasons::OTHER);
   }
 #endif  // defined(MOZ_WIDGET_ANDROID)

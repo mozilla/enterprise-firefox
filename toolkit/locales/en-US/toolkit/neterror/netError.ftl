@@ -7,7 +7,6 @@
 neterror-page-title = Problem loading page
 certerror-page-title = Warning: Potential Security Risk Ahead
 certerror-sts-page-title = Did Not Connect: Potential Security Issue
-neterror-blocked-by-policy-page-title2 = Access to this site is restricted
 neterror-captive-portal-page-title = Log in to network
 neterror-dns-not-found-title = Server Not Found
 neterror-malformed-uri-page-title = Invalid URL
@@ -149,8 +148,6 @@ neterror-clock-skew-error = Your computer thinks it is { DATETIME($now, dateStyl
 
 neterror-network-protocol-error-intro = The page you are trying to view cannot be shown because an error in the network protocol was detected.
 neterror-network-protocol-error-contact-website = Please contact the website owners to inform them of this problem.
-
-neterror-blocked-by-policy-contact-admin = If you believe this is an error or need access for work purposes, please contact your IT administrator.
 
 certerror-expired-cert-second-para = It’s likely the website’s certificate is expired, which prevents { -brand-short-name } from connecting securely. If you visit this site, attackers could try to steal information like your passwords, emails, or credit card details.
 certerror-expired-cert-sts-second-para = It’s likely the website’s certificate is expired, which prevents { -brand-short-name } from connecting securely.

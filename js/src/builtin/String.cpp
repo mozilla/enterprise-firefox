@@ -1505,7 +1505,7 @@ static bool str_localeCompare(JSContext* cx, unsigned argc, Value* vp) {
   HandleValue options = args.get(2);
 
   // Step 4.
-  Rooted<CollatorObject*> collator(
+  Rooted<intl::CollatorObject*> collator(
       cx, intl::GetOrCreateCollator(cx, locales, options));
   if (!collator) {
     return false;
