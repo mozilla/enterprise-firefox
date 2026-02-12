@@ -244,8 +244,6 @@ export class FeltProcessParent extends JSProcessActorParent {
 
     // Enables remote policies
     Services.felt.sendBoolPreference(lazy.PREF_REMOTE_POLICIES_ENABLED, true);
-    // Disables local policies
-    Services.felt.sendBoolPreference(lazy.PREF_LOCAL_POLICIES_ENABLED, false);
 
     // Enables live policy polling
     Services.felt.sendBoolPreference(
