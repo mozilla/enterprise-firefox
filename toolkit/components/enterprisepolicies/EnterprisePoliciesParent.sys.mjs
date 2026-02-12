@@ -573,8 +573,7 @@ EnterprisePoliciesManager.prototype = {
     this._topicsObserved.add(aTopic);
 
     switch (aTopic) {
-      case "policies-startup": 
-      // Before the first set of policy callbacks runs, we must
+      case "policies-startup": // Before the first set of policy callbacks runs, we must
       // initialize the service.
       {
         const initializedPromise = this._initialize();
