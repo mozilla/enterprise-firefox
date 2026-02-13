@@ -956,7 +956,6 @@ class JSONPoliciesProvider extends PoliciesProvider {
 
         if (!policies) {
           lazy.log.error("Policies file doesn't contain a 'policies' object");
-          this._policies = {};
           this._failed = true;
         } else {
           this._policies = policies;
@@ -1107,7 +1106,6 @@ class RemotePoliciesProvider extends PoliciesProvider {
 
     const res = await lazy.ConsoleClient.getRemotePolicies();
     if (!res.policies) {
-      this._policies = {};
       console.error(
         `Clearing remote policies because no policies were found in the response: ${JSON.stringify(res)}.`
       );
