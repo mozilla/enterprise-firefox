@@ -219,10 +219,12 @@ EnterprisePoliciesManager.prototype = {
   },
 
   /**
-   * Update engine status after parsing a new set of policies
+   * Update engine status after parsing policies
    */
   _updateStatus() {
-    if (this.hasActivePolicies()) {
+    if (this._provider.failed) {
+      this.status = Ci.nsIEnterprisePolicies.FAILED;
+    } else if (this.hasActivePolicies()) {
       this.status = Ci.nsIEnterprisePolicies.ACTIVE;
     } else {
       this.status = Ci.nsIEnterprisePolicies.INACTIVE;
