@@ -594,11 +594,11 @@ EnterprisePoliciesManager.prototype = {
         break;
 
       case "EnterprisePolicies:Reset":
-        this._resetEngine().then(null, console.error);
+        this._resetEngine().catch(console.error);
         break;
 
       case "EnterprisePolicies:Restart":
-        this._restart().then(null, console.error);
+        this._restart().catch(console.error);
         break;
 
       case "EnterprisePolicies:Update": {
