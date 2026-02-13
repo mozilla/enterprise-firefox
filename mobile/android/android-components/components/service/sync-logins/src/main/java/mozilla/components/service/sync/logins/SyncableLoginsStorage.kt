@@ -189,6 +189,16 @@ class SyncableLoginsStorage(
     }
 
     /**
+     * Counts logins in the database.
+     * @throws [LoginsApiException] if the storage is locked, and on unexpected
+     *              errors (IO failure, rust panics, etc)
+     */
+    @Throws(LoginsApiException::class)
+    override suspend fun count(): Long = withContext(coroutineContext) {
+        getStorage().count()
+    }
+
+    /**
      * @throws [InvalidRecordException] if the record is invalid.
      * @throws [InvalidKey] if the encryption key can't decrypt the login
      * @throws [LoginsApiException] if the storage is locked, and on unexpected

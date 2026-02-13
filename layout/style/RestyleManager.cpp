@@ -1053,6 +1053,11 @@ static bool RecomputePosition(nsIFrame* aFrame) {
 static bool ContainingBlockChangeAffectsDescendants(
     nsIFrame* aPossiblyChangingContainingBlock, nsIFrame* aFrame,
     bool aIsAbsPosContainingBlock, bool aIsFixedPosContainingBlock) {
+  MOZ_ASSERT(!nsLayoutUtils::GetPrevContinuationOrIBSplitSibling(
+                 aPossiblyChangingContainingBlock),
+             "This function cannot handle a containing block that is a "
+             "continuation or ib-split sibling!");
+
   // All fixed-pos containing blocks should also be abs-pos containing blocks.
   MOZ_ASSERT_IF(aIsFixedPosContainingBlock, aIsAbsPosContainingBlock);
 
@@ -1073,9 +1078,8 @@ static bool ContainingBlockChangeAffectsDescendants(
               aIsFixedPosContainingBlock ||
               (aIsAbsPosContainingBlock &&
                display->mPosition == StylePositionProperty::Absolute);
-          // NOTE(emilio): aPossiblyChangingContainingBlock is guaranteed to be
-          // a first continuation, see the assertion in the caller.
-          nsIFrame* parent = outOfFlow->GetParent()->FirstContinuation();
+          nsIFrame* parent = nsLayoutUtils::FirstContinuationOrIBSplitSibling(
+              outOfFlow->GetParent());
           if (isContainingBlock) {
             // If we are becoming a containing block, we only need to reframe if
             // this oof's current containing block is an ancestor of the new
@@ -1537,9 +1541,9 @@ static void TryToHandleContainingBlockChange(nsChangeHint& aHint,
         // we can't call MarkAsNotAbsoluteContainingBlock.  This
         // will remove a frame list that still has children in
         // it that we need to keep track of.
-        // The optimization of removing it isn't particularly
-        // important, although it does mean we skip some tests.
-        NS_WARNING("skipping removal of absolute containing block");
+        // In this scenario, NeedToReframeToUpdateContainingBlock()
+        // should've returned true to reframe the containing block.
+        MOZ_ASSERT_UNREACHABLE("We should've reframed the containing block!");
       } else {
         cont->MarkAsNotAbsoluteContainingBlock();
       }

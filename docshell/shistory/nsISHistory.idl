@@ -188,6 +188,14 @@ interface nsISHistory: nsISupports
   void notifyOnHistoryCommit();
 
   /**
+   * Notifies all registered session history listeners that aEntry's title has
+   * been updated.
+   *
+   * @param aEntry            The entry that has a new title.
+   */
+  void notifyOnEntryTitleUpdated(in nsISHEntry aEntry);
+
+  /**
    * Evict content viewers which don't lie in the "safe" range around aIndex.
    * In practice, this should leave us with no more than gHistoryMaxViewers
    * viewers associated with this SHistory object.

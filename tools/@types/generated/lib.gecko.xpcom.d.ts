@@ -10158,14 +10158,24 @@ interface nsITaggingService extends nsISupports {
 
 // https://searchfox.org/mozilla-central/source/modules/libpref/nsIPrefBranch.idl
 
-interface nsIPrefBranch extends nsISupports {
-  readonly PREF_INVALID?: 0;
-  readonly PREF_STRING?: 32;
-  readonly PREF_INT?: 64;
-  readonly PREF_BOOL?: 128;
+}  // global
 
+declare enum nsIPrefBranch_PreferenceType {
+  PREF_INVALID = 0,
+  PREF_STRING = 32,
+  PREF_INT = 64,
+  PREF_BOOL = 128,
+}
+
+declare global {
+
+namespace nsIPrefBranch {
+  type PreferenceType = nsIPrefBranch_PreferenceType;
+}
+
+interface nsIPrefBranch extends nsISupports, Enums<typeof nsIPrefBranch_PreferenceType> {
   readonly root: string;
-  getPrefType(aPrefName: string): i32;
+  getPrefType(aPrefName: string): nsIPrefBranch.PreferenceType;
   getBoolPref(aPrefName: string, aDefaultValue?: boolean): boolean;
   setBoolPref(aPrefName: string, aValue: boolean): void;
   getFloatPref(aPrefName: string, aDefaultValue?: float): float;
@@ -16088,7 +16098,7 @@ interface nsIXPCComponents_Interfaces {
   nsINavHistoryService: nsJSIID<nsINavHistoryService, typeof nsINavHistoryService_TransitionType>;
   nsIPlacesPreviewsHelperService: nsJSIID<nsIPlacesPreviewsHelperService>;
   nsITaggingService: nsJSIID<nsITaggingService>;
-  nsIPrefBranch: nsJSIID<nsIPrefBranch>;
+  nsIPrefBranch: nsJSIID<nsIPrefBranch, typeof nsIPrefBranch_PreferenceType>;
   nsIPrefLocalizedString: nsJSIID<nsIPrefLocalizedString>;
   nsIPrefOverrideMap: nsJSIID<nsIPrefOverrideMap>;
   nsIPrefStatsCallback: nsJSIID<nsIPrefStatsCallback>;

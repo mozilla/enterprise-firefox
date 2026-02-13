@@ -47,7 +47,7 @@ add_task(async function () {
   ]);
 
   info(`Disable background-image: linear-gradient${gradientText2};`);
-  const rule = view._elementStyle.rules[1];
+  const rule = view.elementStyle.rules[1];
   await togglePropStatus(view, rule.textProps[2]);
 
   await checkRuleViewContent(view, [

@@ -12,6 +12,7 @@
 #include "nsString.h"
 #include "nsIDNSService.h"
 #include "nsIProtocolProxyService2.h"
+#include "nsTHashMap.h"
 
 class nsICancelable;
 class nsIProxyInfo;
@@ -23,7 +24,6 @@ class nsHttpConnectionInfo;
 
 static const char kRolloutURIPref[] = "doh-rollout.uri";
 static const char kRolloutModePref[] = "doh-rollout.mode";
-static const char kRolloutHttp3FirstPref[] = "doh-rollout.force_http3_first";
 
 class TRRServiceBase : public nsIProxyConfigChangedCallback {
  public:
@@ -38,6 +38,9 @@ class TRRServiceBase : public nsIProxyConfigChangedCallback {
   // When aForceReinit is true, we always create the conncetion info again.
   virtual void InitTRRConnectionInfo(bool aForceReinit = false);
   bool TRRConnectionInfoInited() const { return mTRRConnectionInfoInited; }
+
+  void SetHttp3FirstForServer(const nsACString& aServer, bool aEnabled);
+  bool GetHttp3FirstForServer(const nsACString& aServer);
 
  protected:
   virtual ~TRRServiceBase();
@@ -71,6 +74,9 @@ class TRRServiceBase : public nsIProxyConfigChangedCallback {
   void RegisterProxyChangeListener();
   void UnregisterProxyChangeListener();
 
+  already_AddRefed<nsHttpConnectionInfo> CreateConnInfoHelper(
+      nsIURI* aURI, nsIProxyInfo* aProxyInfo);
+
   nsCString mPrivateURI;  // protected by mMutex
   // Pref caches should only be used on the main thread.
   nsCString mURIPref;
@@ -84,6 +90,9 @@ class TRRServiceBase : public nsIProxyConfigChangedCallback {
   Atomic<bool, Relaxed> mTRRConnectionInfoInited{false};
   DataMutex<RefPtr<nsHttpConnectionInfo>> mDefaultTRRConnectionInfo;
   bool mNativeHTTPSQueryEnabled{false};
+
+  Mutex mLock{"TRRService"};
+  nsTHashMap<nsCString, bool> mHttp3FirstServers MOZ_GUARDED_BY(mLock);
 };
 
 }  // namespace net

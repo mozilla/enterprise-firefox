@@ -88,13 +88,13 @@ import org.mozilla.fenix.browser.BrowserFragmentDirections
 import org.mozilla.fenix.browser.browsingmode.BrowsingMode
 import org.mozilla.fenix.browser.browsingmode.BrowsingMode.Normal
 import org.mozilla.fenix.browser.browsingmode.BrowsingMode.Private
-import org.mozilla.fenix.browser.browsingmode.BrowsingModeManager
 import org.mozilla.fenix.browser.readermode.ReaderModeController
 import org.mozilla.fenix.browser.store.BrowserScreenAction
 import org.mozilla.fenix.browser.store.BrowserScreenStore
 import org.mozilla.fenix.components.AppStore
 import org.mozilla.fenix.components.NimbusComponents
 import org.mozilla.fenix.components.UseCases
+import org.mozilla.fenix.components.appstate.AppAction
 import org.mozilla.fenix.components.appstate.AppAction.BookmarkAction
 import org.mozilla.fenix.components.appstate.AppAction.CurrentTabClosed
 import org.mozilla.fenix.components.appstate.AppAction.SearchAction.SearchEnded
@@ -198,7 +198,6 @@ internal sealed class PageEndActionsInteractions(override val source: Source) : 
  * @param publicSuffixList [PublicSuffixList] used to obtain the base domain of the current site.
  * @param settings [Settings] for accessing user preferences.
  * @param navController [NavController] to use for navigating to other in-app destinations.
- * @param browsingModeManager [BrowsingModeManager] for querying the current browsing mode.
  * @param readerModeController [ReaderModeController] for showing or hiding the reader view UX.
  * @param browserAnimator Helper for animating the browser content when navigating to other screens.
  * @param thumbnailsFeature [BrowserThumbnails] for requesting screenshots of the current tab.
@@ -224,7 +223,6 @@ class BrowserToolbarMiddleware(
     private val publicSuffixList: PublicSuffixList,
     private val settings: Settings,
     private val navController: NavController,
-    private val browsingModeManager: BrowsingModeManager,
     private val readerModeController: ReaderModeController,
     private val browserAnimator: BrowserAnimator,
     private val thumbnailsFeature: () -> BrowserThumbnails?,
@@ -293,7 +291,7 @@ class BrowserToolbarMiddleware(
                 navController.nav(
                     R.id.browserFragment,
                     BrowserFragmentDirections.actionGlobalTabManagementFragment(
-                        page = when (browsingModeManager.mode) {
+                        page = when (appStore.state.mode) {
                             Normal -> Page.NormalTabs
                             Private -> Page.PrivateTabs
                         },
@@ -416,7 +414,7 @@ class BrowserToolbarMiddleware(
                         searchTermOrURL = it,
                         newTab = false,
                         searchEngine = searchEngine,
-                        private = browsingModeManager.mode == Private,
+                        private = appStore.state.mode == Private,
                     )
                 } ?: run {
                     Logger("BrowserOriginContextMenu").error("Clipboard contains URL but unable to read text")
@@ -847,7 +845,7 @@ class BrowserToolbarMiddleware(
         } else {
             val focusOnAddressBar = !settings.enableHomepageSearchBar
 
-            browsingModeManager.mode = browsingMode
+            appStore.dispatch(AppAction.BrowsingModeManagerModeChanged(mode = browsingMode))
             navController.navigate(
                 BrowserFragmentDirections.actionGlobalHome(focusOnAddressBar = focusOnAddressBar),
             )
@@ -1091,12 +1089,12 @@ class BrowserToolbarMiddleware(
     ): Action = when (toolbarAction) {
         ToolbarAction.NewTab -> ActionButtonRes(
             drawableResId = iconsR.drawable.mozac_ic_plus_24,
-            contentDescription = if (browsingModeManager.mode == Private) {
+            contentDescription = if (appStore.state.mode == Private) {
                 R.string.home_screen_shortcut_open_new_private_tab_2
             } else {
                 R.string.home_screen_shortcut_open_new_tab_2
             },
-            onClick = if (browsingModeManager.mode == Private) {
+            onClick = if (appStore.state.mode == Private) {
                 AddNewPrivateTab(source)
             } else {
                 AddNewTab(source)
@@ -1182,7 +1180,7 @@ class BrowserToolbarMiddleware(
         )
 
         ToolbarAction.TabCounter -> {
-            val isInPrivateMode = browsingModeManager.mode.isPrivate
+            val isInPrivateMode = appStore.state.mode.isPrivate
             val tabsCount = browserStore.state.getNormalOrPrivateTabs(isInPrivateMode).size
 
             val tabCounterDescription = if (isInPrivateMode) {

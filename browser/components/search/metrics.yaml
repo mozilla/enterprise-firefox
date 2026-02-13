@@ -354,7 +354,9 @@ serp:
         type: boolean
       is_shopping_page:
         description:
-          Indicates if the page is a shopping page.
+          Indicates if the page is a shopping page. Has a value of unknown if
+          we weren't able to record the value before the impression was
+          recorded.
         type: boolean
       is_private:
         description:
@@ -365,6 +367,12 @@ serp:
         description:
           Indicates if the page was loaded while the user is signed in to a
           provider's account. Added in Firefox 127.
+        type: boolean
+      has_ai_summary:
+        description:
+          Indicates if the page has an AI summary. Has a value of unknown if
+          we weren't able to record the value before the impression was
+          recorded.
         type: boolean
 
   engagement:

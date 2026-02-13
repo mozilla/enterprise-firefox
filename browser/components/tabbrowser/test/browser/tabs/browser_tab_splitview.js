@@ -528,3 +528,47 @@ add_task(async function test_moving_tabs() {
     BrowserTestUtils.removeTab(tab);
   }
 });
+
+add_task(async function test_move_group_with_splitview_to_new_window() {
+  info("Create tabs for split view");
+  const tab1 = await addTabAndLoadBrowser();
+  const tab2 = await addTabAndLoadBrowser();
+  const tab3 = await addTabAndLoadBrowser();
+
+  info("Create a split view with tab1 and tab2");
+  const splitView = gBrowser.addTabSplitView([tab1, tab2]);
+  Assert.ok(splitView, "Split view was created");
+
+  info("Create a tab group containing the split view and tab3");
+  const group = gBrowser.addTabGroup([splitView, tab3]);
+  Assert.ok(group, "Tab group was created");
+  Assert.equal(group.tabs.length, 3, "Group has 3 tabs");
+
+  info("Move the group to a new window");
+  const promiseNewWindow = BrowserTestUtils.waitForNewWindow();
+  gBrowser.replaceGroupWithWindow(group);
+  const newWindow = await promiseNewWindow;
+
+  info("Verify the new window contains the expected tabs");
+  Assert.ok(newWindow, "New window was created");
+  Assert.equal(
+    newWindow.gBrowser.tabs.length,
+    3,
+    "New window has 3 tabs from the group"
+  );
+
+  info("Verify the split view was preserved in the new window");
+  const movedTabs = newWindow.gBrowser.tabs;
+  Assert.equal(movedTabs.length, 3, "Three tabs were moved");
+  Assert.ok(
+    movedTabs[0].splitview && movedTabs[1].splitview,
+    "First two tabs are still in a split view"
+  );
+  Assert.equal(
+    movedTabs[0].splitview,
+    movedTabs[1].splitview,
+    "Tabs are in the same split view"
+  );
+
+  await BrowserTestUtils.closeWindow(newWindow);
+});

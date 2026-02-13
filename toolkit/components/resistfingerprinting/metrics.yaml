@@ -1189,6 +1189,99 @@ characteristics:
     data_sensitivity:
       - technical
 
+# SVG Fingerprinting Metrics
+# Based on CreepJS (https://github.com/AbrahamJuliot/creepjs) src/svg/index.ts
+
+  svg_bbox:
+    type: string
+    description: >-
+      JSON object from SVGGraphicsElement.getBBox().
+      Format: {"x":N,"y":N,"w":N,"h":N}. Varies by browser rendering engine.
+    lifetime: application
+    send_in_pings:
+      - user-characteristics
+    notification_emails:
+      - tom@mozilla.com
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1879151
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1879151
+    expires: never
+    data_sensitivity:
+      - technical
+
+  svg_computed_text_length:
+    type: string
+    description: >-
+      SVGTextContentElement.getComputedTextLength() for emoji text element.
+      Returns the total length of rendered text, varies by font rendering.
+    lifetime: application
+    send_in_pings:
+      - user-characteristics
+    notification_emails:
+      - tom@mozilla.com
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1879151
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1879151
+    expires: never
+    data_sensitivity:
+      - technical
+
+  svg_extent_of_char:
+    type: string
+    description: >-
+      JSON object from SVGTextContentElement.getExtentOfChar(0).
+      Format: {"x":N,"y":N,"w":N,"h":N}. Varies by emoji rendering.
+    lifetime: application
+    send_in_pings:
+      - user-characteristics
+    notification_emails:
+      - tom@mozilla.com
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1879151
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1879151
+    expires: never
+    data_sensitivity:
+      - technical
+
+  svg_substring_length:
+    type: string
+    description: >-
+      SVGTextContentElement.getSubStringLength(0, 10) for first 10 characters.
+      Varies by font metrics and text shaping.
+    lifetime: application
+    send_in_pings:
+      - user-characteristics
+    notification_emails:
+      - tom@mozilla.com
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1879151
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1879151
+    expires: never
+    data_sensitivity:
+      - technical
+
+  svg_emoji_set:
+    type: string
+    description: >-
+      JSON array of emojis with unique rendering dimensions.
+      Tests which emojis render at distinct sizes, varies by OS/font support.
+    lifetime: application
+    send_in_pings:
+      - user-characteristics
+    notification_emails:
+      - tom@mozilla.com
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1879151
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1879151
+    expires: never
+    data_sensitivity:
+      - technical
+
   submission_schema:
     type: quantity
     unit: versions
@@ -7069,6 +7162,150 @@ characteristics:
     type: string
     description: >
       SHA256 of non-allowlisted fonts queried of variant E
+    lifetime: application
+    send_in_pings:
+      - user-characteristics
+    notification_emails:
+      - tom@mozilla.com
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1879151
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2014267
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2014267
+    expires: never
+    data_sensitivity:
+      - technical
+
+  fonts_variant_f_allowlisted:
+    type: string
+    description: >
+      SHA256 of allowlisted fonts used to render "A" with variant F font list
+    lifetime: application
+    send_in_pings:
+      - user-characteristics
+    notification_emails:
+      - tom@mozilla.com
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1879151
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2014267
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2014267
+    expires: never
+    data_sensitivity:
+      - technical
+
+  fonts_variant_f_nonallowlisted:
+    type: string
+    description: >
+      SHA256 of non-allowlisted fonts used to render "A" with variant F font list
+    lifetime: application
+    send_in_pings:
+      - user-characteristics
+    notification_emails:
+      - tom@mozilla.com
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1879151
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2014267
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2014267
+    expires: never
+    data_sensitivity:
+      - technical
+
+  fonts_variant_g_allowlisted:
+    type: string
+    description: >
+      SHA256 of allowlisted fonts used to render emoji (U+1F47E) with variant F font list
+    lifetime: application
+    send_in_pings:
+      - user-characteristics
+    notification_emails:
+      - tom@mozilla.com
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1879151
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2014267
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2014267
+    expires: never
+    data_sensitivity:
+      - technical
+
+  fonts_variant_g_nonallowlisted:
+    type: string
+    description: >
+      SHA256 of non-allowlisted fonts used to render emoji (U+1F47E) with variant F font list
+    lifetime: application
+    send_in_pings:
+      - user-characteristics
+    notification_emails:
+      - tom@mozilla.com
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1879151
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2014267
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2014267
+    expires: never
+    data_sensitivity:
+      - technical
+
+  fonts_variant_h_allowlisted:
+    type: string
+    description: >
+      SHA256 of allowlisted fonts used to render 89 emojis with variant F font list
+    lifetime: application
+    send_in_pings:
+      - user-characteristics
+    notification_emails:
+      - tom@mozilla.com
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1879151
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2014267
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2014267
+    expires: never
+    data_sensitivity:
+      - technical
+
+  fonts_variant_h_nonallowlisted:
+    type: string
+    description: >
+      SHA256 of non-allowlisted fonts used to render 89 emojis with variant F font list
+    lifetime: application
+    send_in_pings:
+      - user-characteristics
+    notification_emails:
+      - tom@mozilla.com
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1879151
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2014267
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2014267
+    expires: never
+    data_sensitivity:
+      - technical
+
+  fonts_variant_i_allowlisted:
+    type: string
+    description: >
+      SHA256 of allowlisted fonts used to render SVG emojis with emoji-specific font list
+    lifetime: application
+    send_in_pings:
+      - user-characteristics
+    notification_emails:
+      - tom@mozilla.com
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1879151
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2014267
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2014267
+    expires: never
+    data_sensitivity:
+      - technical
+
+  fonts_variant_i_nonallowlisted:
+    type: string
+    description: >
+      SHA256 of non-allowlisted fonts used to render SVG emojis with emoji-specific font list
     lifetime: application
     send_in_pings:
       - user-characteristics

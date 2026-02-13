@@ -783,6 +783,10 @@ bool BufferAllocator::hasAlloc(void* alloc) {
 size_t BufferAllocator::getAllocSize(void* alloc) {
   checkAccess();
 
+  if (!alloc) {
+    return 0;
+  }
+
   if (IsLargeAlloc(alloc)) {
     LargeBuffer* buffer = lookupLargeBuffer(alloc);
     return buffer->allocBytes();

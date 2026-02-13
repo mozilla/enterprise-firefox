@@ -131,6 +131,7 @@ class BookmarksTest : TestSetup() {
         homeScreen(composeTestRule) {
         }.openThreeDotMenu {
         }.clickBookmarksButton {
+            verifyBookmarkTitle(defaultWebPage.title)
         }.openThreeDotMenu(defaultWebPage.title) {
         }.clickShare {
             verifyShareTabLayout()
@@ -406,6 +407,7 @@ class BookmarksTest : TestSetup() {
         homeScreen(composeTestRule) {
         }.openThreeDotMenu {
         }.clickBookmarksButton {
+            verifyBookmarkTitle(defaultWebPage.title)
         }.openThreeDotMenu(defaultWebPage.title) {
         }.clickDelete {
             clickSnackbarButton(composeTestRule, "UNDO")

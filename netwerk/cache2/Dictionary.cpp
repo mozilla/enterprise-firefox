@@ -102,7 +102,7 @@ DictionaryCacheEntry::~DictionaryCacheEntry() {
       ("Destroyed DictionaryCacheEntry %p, uri=%s, pattern=%s, id=%s", this,
        mURI.get(), mPattern.get(), mId.get()));
   if (mCachedPattern.isSome()) {
-    urlp_pattern_free(mCachedPattern.value());
+    urlpattern_pattern_free(mCachedPattern.ref());
   }
 }
 
@@ -169,11 +169,11 @@ bool DictionaryCacheEntry::Match(const nsACString& aFilePath,
                 aType)) != mMatchDest.NoIndex) {
       // Check if we have a cached pattern, otherwise parse and cache it
       if (mCachedPattern.isNothing()) {
-        UrlpPattern pattern;
-        UrlpOptions options{};
+        UrlPatternGlue pattern;
+        UrlPatternOptions options{};
         const nsCString base(mURI);
-        if (!urlp_parse_pattern_from_string(&mPattern, &base, options,
-                                            &pattern)) {
+        if (!urlpattern_parse_pattern_from_string(&mPattern, &base, options,
+                                                  &pattern)) {
           DICTIONARY_LOG(
               ("Failed to parse dictionary pattern %s", mPattern.get()));
           return false;
@@ -181,10 +181,10 @@ bool DictionaryCacheEntry::Match(const nsACString& aFilePath,
         mCachedPattern.emplace(pattern);
       }
 
-      UrlpInput input = net::CreateUrlpInput(aFilePath);
+      UrlPatternInput input = net::CreateUrlPatternInput(aFilePath);
       const nsCString base(mURI);
       bool result =
-          net::UrlpPatternTest(mCachedPattern.value(), input, Some(base));
+          net::UrlPatternTest(mCachedPattern.ref(), input, Some(base));
       if (result) {
         aLongest = mPattern.Length();
         DICTIONARY_LOG(("Match: %p   %s to %s, %s (now=%u, expiration=%u)",

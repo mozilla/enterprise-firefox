@@ -243,3 +243,38 @@ add_task(async function test_mentions_insert_on_enter() {
 
   await BrowserTestUtils.closeWindow(win);
 });
+
+add_task(async function test_mentions_insert_from_context_button() {
+  const win = await openAIWindow();
+  const browser = win.gBrowser.selectedBrowser;
+
+  await BrowserTestUtils.browserLoaded(browser, false, AIWINDOW_URL);
+  await SpecialPowers.spawn(browser, [], async () => {
+    const aiWindowElement = content.document.querySelector("ai-window");
+    const smartbar = aiWindowElement.shadowRoot.querySelector(
+      "#ai-window-smartbar"
+    );
+    const contextButton = smartbar.querySelector("context-icon-button");
+    const button = contextButton.shadowRoot.querySelector("moz-button");
+    button.click();
+
+    const panelList = smartbar.querySelector("suggestions-panel-list");
+    const panel = panelList.shadowRoot.querySelector("panel-list");
+    await ContentTaskUtils.waitForCondition(
+      () => panel.querySelector("panel-item:not(.panel-section-header)"),
+      "Wait for panel items to be available"
+    );
+    const firstItem = panel.querySelector(
+      "panel-item:not(.panel-section-header)"
+    );
+    firstItem.click();
+  });
+
+  const hasMention = await waitForMentionInserted(browser);
+  Assert.ok(
+    hasMention,
+    "Editor should contain a mention after selecting from context button menu"
+  );
+
+  await BrowserTestUtils.closeWindow(win);
+});

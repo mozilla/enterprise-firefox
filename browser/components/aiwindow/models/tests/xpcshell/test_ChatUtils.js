@@ -322,7 +322,7 @@ add_task(async function test_constructRelevantMemoriesContextMessage() {
       "Relevant memories context prompt should pull from the correct base"
     );
     Assert.ok(
-      content.includes("- Loves drinking coffee"),
+      content.includes("- food_drink.16ec1838 - Loves drinking coffee"),
       "Content should include relevant memory"
     );
     Assert.ok(
@@ -412,7 +412,7 @@ add_task(async function test_parseContentWithTokens_single_search_token() {
 
 add_task(async function test_parseContentWithTokens_single_memory_token() {
   const content =
-    "I recommend trying herbal tea blends.§existing_memory: likes tea§";
+    "I recommend trying herbal tea blends.§existing_memory: food_drink.e45w65§";
   const result = await parseContentWithTokens(content);
 
   Assert.equal(
@@ -424,14 +424,14 @@ add_task(async function test_parseContentWithTokens_single_memory_token() {
   Assert.equal(result.usedMemories.length, 1, "Should have one used memory");
   Assert.equal(
     result.usedMemories[0],
-    "likes tea",
+    "food_drink.e45w65",
     "Should extract correct memory"
   );
 });
 
 add_task(async function test_parseContentWithTokens_multiple_mixed_tokens() {
   const content =
-    "I recommend checking out organic coffee options.§existing_memory: prefers organic§ They have great flavor profiles.§search: organic coffee beans reviews§§search: best organic cafes nearby§";
+    "I recommend checking out organic coffee options.§existing_memory: food_drink.e45w65§ They have great flavor profiles.§search: organic coffee beans reviews§§search: best organic cafes nearby§";
   const result = await parseContentWithTokens(content);
 
   Assert.equal(
@@ -452,7 +452,7 @@ add_task(async function test_parseContentWithTokens_multiple_mixed_tokens() {
   Assert.equal(result.usedMemories.length, 1, "Should have one used memory");
   Assert.equal(
     result.usedMemories[0],
-    "prefers organic",
+    "food_drink.e45w65",
     "Should extract correct memory"
   );
 });
@@ -477,7 +477,7 @@ add_task(async function test_parseContentWithTokens_tokens_with_whitespace() {
 
 add_task(async function test_parseContentWithTokens_adjacent_tokens() {
   const content =
-    "Here are some great Italian dining options.§existing_memory: prefers italian food§§search: local italian restaurants§";
+    "Here are some great Italian dining options.§existing_memory: food_drink.e45w65§§search: local italian restaurants§";
   const result = await parseContentWithTokens(content);
 
   Assert.equal(
@@ -494,7 +494,7 @@ add_task(async function test_parseContentWithTokens_adjacent_tokens() {
   Assert.equal(result.usedMemories.length, 1, "Should have one memory");
   Assert.equal(
     result.usedMemories[0],
-    "prefers italian food",
+    "food_drink.e45w65",
     "Should extract memory"
   );
 });

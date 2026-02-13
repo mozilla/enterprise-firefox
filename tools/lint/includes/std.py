@@ -457,6 +457,7 @@ capi = {
         "memset",
         "strerror",
         "strlen",
+        "strnlen",
     ],
     "stdint.h": [
         "int8_t",

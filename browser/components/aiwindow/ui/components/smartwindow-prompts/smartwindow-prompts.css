@@ -20,6 +20,17 @@
   align-items: flex-end;
 }
 
+:host([mode="followup"]) .sw-prompts-container {
+  flex-direction: column;
+  align-items: flex-start;
+  padding: var(--space-large);
+  padding-block-start: 0;
+}
+
+:host([mode="followup"]) moz-button.sw-prompt-button::part(button) {
+  justify-content: start;
+}
+
 moz-button.sw-prompt-button {
   --button-background-color: light-dark(var(--color-violet-0), var(--color-gray-80));
   --button-background-color-active: light-dark(color-mix(in srgb, var(--color-violet-50) 25%, transparent), color-mix(in srgb, white 15%, transparent));

@@ -5092,7 +5092,8 @@ static nsSize GetScrollPortSizeExcludingHeadersAndFooters(
     const nsRect& aScrollPort) {
   AutoTArray<TopAndBottom, 10> list;
   if (aViewportFrame) {
-    for (nsIFrame* f : aViewportFrame->GetChildList(FrameChildListID::Fixed)) {
+    for (nsIFrame* f :
+         aViewportFrame->GetChildList(FrameChildListID::Absolute)) {
       AddToListIfHeaderFooter(f, aViewportFrame, aScrollPort, list);
     }
   }
@@ -6172,13 +6173,13 @@ bool ScrollContainerFrame::ReflowFinished() {
   // Update scrollbar attributes.
   if (mMayHaveDirtyFixedChildren) {
     mMayHaveDirtyFixedChildren = false;
-    nsIFrame* parentFrame = GetParent();
-    for (nsIFrame* fixedChild =
-             parentFrame->GetChildList(FrameChildListID::Fixed).FirstChild();
-         fixedChild; fixedChild = fixedChild->GetNextSibling()) {
-      // force a reflow of the fixed child
-      PresShell()->FrameNeedsReflow(fixedChild, IntrinsicDirty::None,
-                                    NS_FRAME_HAS_DIRTY_CHILDREN);
+    nsIFrame* parent = GetParent();
+    if (parent->IsViewportFrame()) {
+      for (nsIFrame* fixedChild :
+           parent->GetChildList(FrameChildListID::Absolute)) {
+        // force a reflow of the fixed child
+        PresShell()->MarkPositionedFrameForReflow(fixedChild);
+      }
     }
   }
 

@@ -6638,6 +6638,12 @@ mozilla::BinPathType XRE_GetChildProcBinPathType(
   }
 
 #ifdef XP_WIN
+  // Removing this pref and always using the parent binary, along with other
+  // related clean up work, is tracked in Bug 2014843.
+  if (StaticPrefs::dom_ipc_alwaysUseParentBinary()) {
+    return BinPathType::Self;
+  }
+
   // On Windows, plugin-container may or may not be used depending on
   // the process type (e.g., actual plugins vs. content processes)
   switch (aProcessType) {

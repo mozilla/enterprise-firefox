@@ -827,8 +827,8 @@ void nsFrameConstructorState::ProcessFrameInsertionsForAllLists() {
   ProcessFrameInsertions(mFloatedList, FrameChildListID::Float);
   ProcessFrameInsertions(mAbsoluteList, FrameChildListID::Absolute);
   ProcessFrameInsertions(mTopLayerAbsoluteList, FrameChildListID::Absolute);
-  ProcessFrameInsertions(*mFixedList, FrameChildListID::Fixed);
-  ProcessFrameInsertions(mRealFixedList, FrameChildListID::Fixed);
+  ProcessFrameInsertions(*mFixedList, FrameChildListID::Absolute);
+  ProcessFrameInsertions(mRealFixedList, FrameChildListID::Absolute);
 }
 
 void nsFrameConstructorState::PushAbsoluteContainingBlock(
@@ -1121,16 +1121,15 @@ MOZ_NEVER_INLINE void nsFrameConstructorState::ProcessFrameInsertions(
   MOZ_ASSERT_IF(&aFrameList == &mFloatedList,
                 aChildListID == FrameChildListID::Float);
   MOZ_ASSERT_IF(&aFrameList == &mAbsoluteList || &aFrameList == mFixedList,
-                aChildListID == FrameChildListID::Absolute ||
-                    aChildListID == FrameChildListID::Fixed);
+                aChildListID == FrameChildListID::Absolute);
   MOZ_ASSERT_IF(&aFrameList == &mTopLayerAbsoluteList,
                 aChildListID == FrameChildListID::Absolute);
   MOZ_ASSERT_IF(&aFrameList == mFixedList && &aFrameList != &mAbsoluteList,
-                aChildListID == FrameChildListID::Fixed);
+                aChildListID == FrameChildListID::Absolute);
   MOZ_ASSERT_IF(&aFrameList == &mAncestorFixedList,
-                aChildListID == FrameChildListID::Fixed);
+                aChildListID == FrameChildListID::Absolute);
   MOZ_ASSERT_IF(&aFrameList == &mRealFixedList,
-                aChildListID == FrameChildListID::Fixed);
+                aChildListID == FrameChildListID::Absolute);
 
   if (aFrameList.IsEmpty()) {
     return;
@@ -1140,12 +1139,6 @@ MOZ_NEVER_INLINE void nsFrameConstructorState::ProcessFrameInsertions(
 
   NS_ASSERTION(containingBlock, "Child list without containing block?");
 
-  if (aChildListID == FrameChildListID::Fixed) {
-    // Put this frame on the transformed-frame's abs-pos list instead, if
-    // it has abs-pos children instead of fixed-pos children.
-    aChildListID = containingBlock->GetAbsoluteListID();
-  }
-
   // Insert the frames hanging out in aItems.  We can use SetInitialChildList()
   // if the containing block hasn't been reflowed yet (so NS_FRAME_FIRST_REFLOW
   // is set) and doesn't have any frames in the aChildListID child list yet.
@@ -1154,13 +1147,13 @@ MOZ_NEVER_INLINE void nsFrameConstructorState::ProcessFrameInsertions(
       containingBlock->HasAnyStateBits(NS_FRAME_FIRST_REFLOW)) {
     // If we're injecting absolutely positioned frames, inject them on the
     // absolute containing block
-    if (aChildListID == containingBlock->GetAbsoluteListID()) {
+    if (aChildListID == FrameChildListID::Absolute) {
       containingBlock->GetAbsoluteContainingBlock()->SetInitialChildList(
           containingBlock, aChildListID, std::move(aFrameList));
     } else {
       containingBlock->SetInitialChildList(aChildListID, std::move(aFrameList));
     }
-  } else if (childList.IsEmpty() || aChildListID == FrameChildListID::Fixed ||
+  } else if (childList.IsEmpty() ||
              aChildListID == FrameChildListID::Absolute) {
     // The order is not important for abs-pos/fixed-pos frame list, just
     // append the frame items to the list directly.
@@ -3710,7 +3703,6 @@ void nsCSSFrameConstructor::ConstructFrameFromItemInternal(
   CHECK_ONLY_ONE_BIT(FCDATA_FUNC_IS_FULL_CTOR,
                      FCDATA_FORCE_NULL_ABSPOS_CONTAINER);
   CHECK_ONLY_ONE_BIT(FCDATA_FUNC_IS_FULL_CTOR, FCDATA_WRAP_KIDS_IN_BLOCKS);
-  CHECK_ONLY_ONE_BIT(FCDATA_FUNC_IS_FULL_CTOR, FCDATA_IS_POPUP);
   CHECK_ONLY_ONE_BIT(FCDATA_FUNC_IS_FULL_CTOR, FCDATA_SKIP_ABSPOS_PUSH);
   CHECK_ONLY_ONE_BIT(FCDATA_FUNC_IS_FULL_CTOR,
                      FCDATA_DISALLOW_GENERATED_CONTENT);
@@ -3744,12 +3736,9 @@ void nsCSSFrameConstructor::ConstructFrameFromItemInternal(
     newFrame = (*data->mFunc.mCreationFunc)(mPresShell, computedStyle);
 
     const bool allowOutOfFlow = !(bits & FCDATA_DISALLOW_OUT_OF_FLOW);
-    const bool isPopup = aItem.mIsPopup;
-
     nsContainerFrame* geometricParent =
-        (isPopup || allowOutOfFlow)
-            ? aState.GetGeometricParent(*display, aParentFrame)
-            : aParentFrame;
+        allowOutOfFlow ? aState.GetGeometricParent(*display, aParentFrame)
+                       : aParentFrame;
 
     // In the non-scrollframe case, primaryFrame and newFrame are equal; in the
     // scrollframe case, newFrame is the scrolled frame while primaryFrame is
@@ -4056,8 +4045,7 @@ const nsCSSFrameConstructor::FrameConstructionData*
 nsCSSFrameConstructor::FindXULTagData(const Element& aElement,
                                       ComputedStyle& aStyle) {
   MOZ_ASSERT(aElement.IsXULElement());
-  static constexpr FrameConstructionData kPopupData(NS_NewMenuPopupFrame,
-                                                    FCDATA_IS_POPUP);
+  static constexpr FrameConstructionData kPopupData(NS_NewMenuPopupFrame);
 
   static constexpr FrameConstructionDataByTag sXULTagData[] = {
       SIMPLE_TAG_CREATE(image, NS_NewXULImageFrame),
@@ -5184,8 +5172,6 @@ void nsCSSFrameConstructor::AddFrameConstructionItemsInternal(
     return;
   }
 
-  const bool isPopup = data->mBits & FCDATA_IS_POPUP;
-
   const uint32_t bits = data->mBits;
 
   // Inside colgroups, suppress everything except columns.
@@ -5219,7 +5205,6 @@ void nsCSSFrameConstructor::AddFrameConstructionItemsInternal(
     // This corresponds to the Release in ConstructFramesFromItem.
     item->mContent->AddRef();
   }
-  item->mIsPopup = isPopup;
 
   if (canHavePageBreak && display.BreakAfter()) {
     AppendPageBreakItem(aContent, aItems);
@@ -5243,9 +5228,7 @@ void nsCSSFrameConstructor::AddFrameConstructionItemsInternal(
          (!aParentFrame ||  // No aParentFrame means inline
           aParentFrame->StyleDisplay()->IsInlineFlow())) ||
         // Things that are inline-outside but aren't inline frames are inline
-        display.IsInlineOutsideStyle() ||
-        // Popups that are certainly out of flow.
-        isPopup;
+        display.IsInlineOutsideStyle();
 
     // Set mIsAllInline conservatively.  It just might be that even an inline
     // that has mIsAllInline false doesn't need an {ib} split.  So this is just
@@ -7609,7 +7592,8 @@ nsresult nsCSSFrameConstructor::ReplicateFixedFrames(
 
   nsFrameList fixedPlaceholders;
   nsIFrame* firstFixed =
-      prevPageContentFrame->GetChildList(FrameChildListID::Fixed).FirstChild();
+      prevPageContentFrame->GetChildList(FrameChildListID::Absolute)
+          .FirstChild();
   if (!firstFixed) {
     return NS_OK;
   }
@@ -11307,9 +11291,8 @@ bool nsCSSFrameConstructor::FrameConstructionItem::NeedsAnonFlexOrGridItem(
       // anonymous flex item.
       return true;
     }
-    if (mIsPopup ||
-        (!(mFCData->mBits & FCDATA_DISALLOW_OUT_OF_FLOW) &&
-         aState.GetGeometricParent(*mComputedStyle->StyleDisplay(), nullptr))) {
+    if (!(mFCData->mBits & FCDATA_DISALLOW_OUT_OF_FLOW) &&
+        aState.GetGeometricParent(*mComputedStyle->StyleDisplay(), nullptr)) {
       // We're abspos or fixedpos (or a XUL popup), which means we'll spawn a
       // placeholder which (because our container is an emulated legacy box)
       // we'll need to wrap in an anonymous flex item.  So, we just treat

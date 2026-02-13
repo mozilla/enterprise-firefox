@@ -166,7 +166,9 @@ export class AppliedMemoriesButton extends MozLitElement {
             // Localize aria-label
             return html`
               <li class="memories-list-item">
-                <span class="memories-list-label">${memory}</span>
+                <span class="memories-list-label"
+                  >${memory.memory_summary}</span
+                >
                 <moz-button
                   class="memories-remove-button"
                   type="ghost"

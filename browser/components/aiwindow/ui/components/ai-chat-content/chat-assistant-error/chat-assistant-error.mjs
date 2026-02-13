@@ -5,6 +5,13 @@
 import { MozLitElement } from "chrome://global/content/lit-utils.mjs";
 import { html, nothing } from "chrome://global/content/vendor/lit.all.mjs";
 
+const ERROR_TYPES = {
+  PAYLOAD_TOO_LARGE: 413,
+  RATE_LIMIT: 429,
+  SERVER_ERROR_MIN: 500,
+  SERVER_ERROR_MAX: 599,
+};
+
 /**
  * Shows an error message based on an error status
  */
@@ -23,10 +30,6 @@ export class ChatAssistantError extends MozLitElement {
     };
   }
 
-  connectedCallback() {
-    super.connectedCallback();
-  }
-
   willUpdate(changed) {
     if (changed.has("errorStatus")) {
       this.getErrorInformation();
@@ -38,11 +41,13 @@ export class ChatAssistantError extends MozLitElement {
   /* https://mozilla-hub.atlassian.net/browse/GENAI-2863
   also needs its own error message/functionality */
 
-  /* https://mozilla-hub.atlassian.net/browse/GENAI-3168
   retryAssistantMessage() {
-    console.log("retrying..");
+    const event = new CustomEvent("aiChatError:retry-message", {
+      bubbles: true,
+      composed: true,
+    });
+    this.dispatchEvent(event);
   }
-  */
 
   /* https://mozilla-hub.atlassian.net/browse/GENAI-3170
   switchToClassic() {
@@ -57,7 +62,7 @@ export class ChatAssistantError extends MozLitElement {
   */
 
   getErrorInformation() {
-    if (this.errorStatus === 413) {
+    if (this.errorStatus === ERROR_TYPES.PAYLOAD_TOO_LARGE) {
       this.errorText = {
         header: "smartwindow-assistant-error-long-message-header",
       };
@@ -67,7 +72,7 @@ export class ChatAssistantError extends MozLitElement {
       // };
       return;
     }
-    if (this.errorStatus === 429) {
+    if (this.errorStatus === ERROR_TYPES.RATE_LIMIT) {
       this.errorText = {
         header: "smartwindow-assistant-error-budget-header",
         body: "smartwindow-assistant-error-budget-body",
@@ -78,14 +83,14 @@ export class ChatAssistantError extends MozLitElement {
       // };
       return;
     }
-    if (this.errorStatus >= 499 && this.errorStatus <= 512) {
-      this.errorText = {
-        header: "smartwindow-assistant-error-connection-header",
+    if (
+      this.errorStatus >= ERROR_TYPES.SERVER_ERROR_MIN &&
+      this.errorStatus <= ERROR_TYPES.SERVER_ERROR_MAX
+    ) {
+      this.actionButton = {
+        label: "smartwindow-retry-btn",
+        action: this.retryAssistantMessage.bind(this),
       };
-      // this.actionButton = {
-      //   label: "smartwindow-retry-btn",
-      //   action: this.retryAssistantMessage,
-      // };
     }
   }
 

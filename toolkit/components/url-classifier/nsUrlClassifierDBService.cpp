@@ -337,7 +337,7 @@ nsresult nsUrlClassifierDBServiceWorker::Init(
     uint32_t aGethashNoise, nsCOMPtr<nsIFile> aCacheDir,
     nsUrlClassifierDBService* aDBService) {
   mGethashNoise = aGethashNoise;
-  mCacheDir = aCacheDir;
+  mCacheDir = std::move(aCacheDir);
   mDBService = aDBService;
 
   ResetUpdate();

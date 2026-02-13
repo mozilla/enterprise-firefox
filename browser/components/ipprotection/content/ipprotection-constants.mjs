@@ -46,4 +46,5 @@ export const ONBOARDING_PREF_FLAGS = {
 export const BANDWIDTH = Object.freeze({
   BYTES_IN_GB: 1000000000,
   BYTES_IN_MB: 1000000,
+  MAX_IN_GB: 50,
 });

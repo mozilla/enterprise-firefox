@@ -69,6 +69,7 @@ import mozilla.components.support.locale.LocaleAwareApplication
 import mozilla.components.support.remotesettings.GlobalRemoteSettingsDependencyProvider
 import mozilla.components.support.rusthttp.RustHttpConfig
 import mozilla.components.support.utils.BrowsersCache
+import mozilla.components.support.utils.RunWhenReadyQueue
 import mozilla.components.support.utils.logElapsedTime
 import mozilla.components.support.webextensions.WebExtensionSupport
 import mozilla.telemetry.glean.Glean
@@ -537,6 +538,7 @@ open class FenixApplication : LocaleAwareApplication(), Provider, ThemeProvider 
         queueStorageMaintenance()
         queueIntegrityClientWarmUp()
         queueNimbusFetchInForeground()
+        queueSetAutofillMetrics(queue)
         queueDownloadWallpapers()
         if (settings().enableFxSuggest) {
             queueSuggestIngest()
@@ -552,6 +554,33 @@ open class FenixApplication : LocaleAwareApplication(), Provider, ThemeProvider 
             }
         }
     }
+
+    /**
+     * Sets autofill telemetry about Addresses, CreditCards, and Logins.
+     *
+     * @param queue The queue the function should use.
+     */
+        @OptIn(DelicateCoroutinesApi::class)
+        fun queueSetAutofillMetrics(queue: RunWhenReadyQueue) {
+            queue.runIfReadyOrQueue {
+                GlobalScope.launch(IO) {
+                    try {
+                        val autoFillStorage = applicationContext.components.core.autofillStorage
+                        Addresses.savedAll.set(autoFillStorage.countAllAddresses())
+                        CreditCards.savedAll.set(autoFillStorage.countAllCreditCards())
+                    } catch (e: AutofillApiException) {
+                        logger.error("Failed to fetch autofill data", e)
+                    }
+
+                    try {
+                        val passwordsStorage = applicationContext.components.core.passwordsStorage
+                        Logins.savedAll.set(passwordsStorage.count())
+                    } catch (e: LoginsApiException) {
+                        logger.error("Failed to fetch list of logins", e)
+                    }
+                }
+            }
+        }
 
     protected open fun setupLeakCanary() {
         // no-op, LeakCanary is disabled by default
@@ -932,8 +961,6 @@ open class FenixApplication : LocaleAwareApplication(), Provider, ThemeProvider 
                 }
             }
         }
-
-        setAutofillMetrics()
     }
 
     private fun setTermsOfUseStartUpMetrics(settings: Settings) {
@@ -1058,26 +1085,6 @@ open class FenixApplication : LocaleAwareApplication(), Provider, ThemeProvider 
             globalPrivacyControlEnabled.set(settings.shouldEnableGlobalPrivacyControl)
         }
         reportHomeScreenMetrics(settings)
-    }
-
-    private fun setAutofillMetrics() {
-        @OptIn(DelicateCoroutinesApi::class)
-        GlobalScope.launch(IO) {
-            try {
-                val autoFillStorage = applicationContext.components.core.autofillStorage
-                Addresses.savedAll.set(autoFillStorage.getAllAddresses().size.toLong())
-                CreditCards.savedAll.set(autoFillStorage.getAllCreditCards().size.toLong())
-            } catch (e: AutofillApiException) {
-                logger.error("Failed to fetch autofill data", e)
-            }
-
-            try {
-                val passwordsStorage = applicationContext.components.core.passwordsStorage
-                Logins.savedAll.set(passwordsStorage.list().size.toLong())
-            } catch (e: LoginsApiException) {
-                logger.error("Failed to fetch list of logins", e)
-            }
-        }
     }
 
     @VisibleForTesting

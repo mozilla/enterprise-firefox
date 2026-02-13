@@ -3830,13 +3830,6 @@ class Editor extends EventEmitter {
     this.clearSources();
 
     if (this.#prefObserver) {
-      this.#prefObserver.off(KEYMAP_PREF, this.setKeyMap);
-      this.#prefObserver.off(TAB_SIZE, this.reloadPreferences);
-      this.#prefObserver.off(EXPAND_TAB, this.reloadPreferences);
-      this.#prefObserver.off(AUTO_CLOSE, this.reloadPreferences);
-      this.#prefObserver.off(AUTOCOMPLETE, this.reloadPreferences);
-      this.#prefObserver.off(DETECT_INDENT, this.reloadPreferences);
-      this.#prefObserver.off(ENABLE_CODE_FOLDING, this.reloadPreferences);
       this.#prefObserver.destroy();
     }
 

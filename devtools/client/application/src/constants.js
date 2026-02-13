@@ -21,6 +21,7 @@ const actionTypes = {
   UPDATE_WORKERS: "UPDATE_WORKERS",
   // session history substate
   UPDATE_SESSION_HISTORY: "UPDATE_SESSION_HISTORY",
+  UPDATE_SESSION_HISTORY_ENTRY: "UPDATE_SESSION_HISTORY_ENTRY",
 };
 
 // NOTE: these const values are used as part of CSS selectors - be mindful of the characters used

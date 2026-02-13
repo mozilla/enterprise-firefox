@@ -25,6 +25,7 @@ EXPORTS.mozilla.ipc += [
     "CrossProcessMutex.h",
     "CrossProcessSemaphore.h",
     "DataPipe.h",
+    "EagerIPCStream.h",
     "Endpoint.h",
     "EnvironmentMap.h",
     "FileDescriptor.h",

@@ -430,19 +430,6 @@ struct ParamTraits<mozilla::TimeStamp> {
   };
 };
 
-template <>
-struct ParamTraits<mozilla::dom::ipc::StructuredCloneData> {
-  typedef mozilla::dom::ipc::StructuredCloneData paramType;
-
-  static void Write(MessageWriter* aWriter, const paramType& aParam) {
-    aParam.WriteIPCParams(aWriter);
-  }
-
-  static bool Read(MessageReader* aReader, paramType* aResult) {
-    return aResult->ReadIPCParams(aReader);
-  }
-};
-
 template <class T>
 struct ParamTraits<mozilla::Maybe<T>> {
   typedef mozilla::Maybe<T> paramType;

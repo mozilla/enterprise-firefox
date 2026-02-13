@@ -104,11 +104,7 @@ void CSSMathSum::ToCssTextWithProperty(const CSSPropertyId& aPropertyId,
 
   bool written = false;
 
-  for (uint32_t index = 0; index < mValues->Length(); index++) {
-    bool found;
-    CSSNumericValue* value = mValues->IndexedGetter(index, found);
-    MOZ_ASSERT(found);
-
+  for (const RefPtr<CSSNumericValue>& value : mValues->GetValues()) {
     if (value->IsCSSUnitValue()) {
       CSSUnitValue& unitValue = value->GetAsCSSUnitValue();
 
@@ -119,9 +115,28 @@ void CSSMathSum::ToCssTextWithProperty(const CSSPropertyId& aPropertyId,
       unitValue.ToCssTextWithProperty(aPropertyId, aDest);
       written = true;
     }
+
+    // TODO: Add support for other objects. See bug 2012324.
   }
 
   aDest.Append(")"_ns);
+}
+
+StyleMathSum CSSMathSum::ToStyleMathSum() const {
+  nsTArray<StyleNumericValue> values;
+
+  for (const RefPtr<CSSNumericValue>& value : mValues->GetValues()) {
+    if (value->IsCSSUnitValue()) {
+      CSSUnitValue& unitValue = value->GetAsCSSUnitValue();
+
+      values.AppendElement(
+          StyleNumericValue::Unit(unitValue.ToStyleUnitValue()));
+    }
+
+    // TODO: Add support for other objects. See bug 2012324.
+  }
+
+  return StyleMathSum{std::move(values)};
 }
 
 const CSSMathSum& CSSNumericValue::GetAsCSSMathSum() const {

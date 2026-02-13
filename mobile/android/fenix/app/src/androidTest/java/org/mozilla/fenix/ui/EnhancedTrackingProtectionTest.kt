@@ -8,8 +8,6 @@ import androidx.compose.ui.test.junit4.AndroidComposeTestRule
 import androidx.core.net.toUri
 import androidx.test.espresso.Espresso.pressBack
 import mozilla.components.concept.engine.utils.EngineReleaseChannel
-import okhttp3.internal.wait
-import org.junit.Ignore
 import org.junit.Rule
 import org.junit.Test
 import org.mozilla.fenix.customannotations.SmokeTest
@@ -27,7 +25,6 @@ import org.mozilla.fenix.helpers.TestHelper.scrollToElementByText
 import org.mozilla.fenix.helpers.TestSetup
 import org.mozilla.fenix.helpers.perf.DetectMemoryLeaksRule
 import org.mozilla.fenix.ui.robots.browserScreen
-import org.mozilla.fenix.ui.robots.enhancedTrackingProtection
 import org.mozilla.fenix.ui.robots.homeScreen
 import org.mozilla.fenix.ui.robots.navigationToolbar
 
@@ -55,7 +52,6 @@ class EnhancedTrackingProtectionTest : TestSetup() {
     val memoryLeaksRule = DetectMemoryLeaksRule()
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/416046
-    @Ignore("Failing, see https://bugzilla.mozilla.org/show_bug.cgi?id=1864598")
     @Test
     fun testETPSettingsItemsAndSubMenus() {
         homeScreen(composeTestRule) {

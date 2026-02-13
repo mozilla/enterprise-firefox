@@ -137,7 +137,7 @@ class Preferences final : public nsIPrefService,
   }
 
   // Gets the type of the pref.
-  static int32_t GetType(const char* aPrefName);
+  static nsIPrefBranch::PreferenceType GetType(const char* aPrefName);
 
   // Fallible value getters. When `aKind` is `User` they will get the user
   // value if possible, and fall back to the default value otherwise.

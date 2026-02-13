@@ -391,6 +391,20 @@ mozilla::ipc::IPCResult DocAccessibleChild::RecvAckMutationEvents() {
   return IPC_OK();
 }
 
+/* static */
+mozilla::LayoutDeviceIntRect DocAccessibleChild::GetCaretRectForIPCEvent(
+    LocalAccessible* aAcc) {
+  HyperTextAccessible* ht = aAcc->AsHyperText();
+  if (ht) {
+    auto [rect, widget] = ht->GetCaretRect();
+    // Remove doc offset and reapply in parent.
+    LayoutDeviceIntRect docBounds = ht->Document()->Bounds();
+    rect.MoveBy(-docBounds.X(), -docBounds.Y());
+    return rect;
+  }
+  return LayoutDeviceIntRect();
+}
+
 LocalAccessible* DocAccessibleChild::IdToAccessible(const uint64_t& aID) const {
   if (!aID) return mDoc;
 

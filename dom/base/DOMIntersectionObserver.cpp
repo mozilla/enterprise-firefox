@@ -194,9 +194,9 @@ static void LazyLoadCallback(
     Element* target = entry->Target();
     if (entry->IsIntersecting()) {
       if (auto* image = HTMLImageElement::FromNode(target)) {
-        image->StopLazyLoading();
+        image->StopLazyLoading(HTMLImageElement::StartLoad::Yes);
       } else if (auto* iframe = HTMLIFrameElement::FromNode(target)) {
-        iframe->StopLazyLoading();
+        iframe->StopLazyLoading(HTMLIFrameElement::TriggerLoad::Yes);
       } else {
         MOZ_ASSERT_UNREACHABLE(
             "Only <img> and <iframe> should be observed by lazy load observer");
@@ -262,6 +262,10 @@ void DOMIntersectionObserver::GetScrollMargin(nsACString& aRetVal) {
 
 void DOMIntersectionObserver::GetThresholds(nsTArray<double>& aRetVal) {
   aRetVal = mThresholds.Clone();
+}
+
+bool DOMIntersectionObserver::Observes(Element& aTarget) const {
+  return mObservationTargetMap.Contains(&aTarget);
 }
 
 // https://w3c.github.io/IntersectionObserver/#observe-target-element

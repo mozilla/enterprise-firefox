@@ -60,16 +60,17 @@ class SVGTextPathElement final : public SVGTextPathElementBase {
   EnumAttributesInfo GetEnumInfo() override;
   StringAttributesInfo GetStringInfo() override;
 
-  enum { /* TEXTLENGTH, */ STARTOFFSET = 1 };
-  SVGAnimatedLength mLengthAttributes[2];
-  SVGAnimatedLength* LengthAttributes() override { return mLengthAttributes; }
-  static LengthInfo sLengthInfo[2];
+  SVGAnimatedPathSegList mPath;
 
   enum { HREF, XLINK_HREF };
   SVGAnimatedString mStringAttributes[2];
   static StringInfo sStringInfo[2];
 
-  SVGAnimatedPathSegList mPath;
+  enum { /* TEXTLENGTH, */ STARTOFFSET = 1 };
+  SVGAnimatedLength mLengthAttributes[2];
+  SVGAnimatedLength* LengthAttributes() override { return mLengthAttributes; }
+  static LengthInfo sLengthInfo[2];
+
   enum { /* LENGTHADJUST, */ METHOD = 1, SPACING, SIDE };
   SVGAnimatedEnumeration mEnumAttributes[4];
   SVGAnimatedEnumeration* EnumAttributes() override { return mEnumAttributes; }

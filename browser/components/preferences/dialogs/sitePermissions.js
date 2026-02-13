@@ -432,6 +432,7 @@ var gSitePermissionsManager = {
     if (
       type !== this._type ||
       !PERMISSION_STATES.includes(perm.capability) ||
+      !SitePermissions.isSupportedPrincipal(perm.principal) ||
       // Skip private browsing session permissions
       (perm.principal.privateBrowsingId !==
         Services.scriptSecurityManager.DEFAULT_PRIVATE_BROWSING_ID &&

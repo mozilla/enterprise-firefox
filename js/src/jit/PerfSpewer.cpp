@@ -646,6 +646,10 @@ void WasmBaselinePerfSpewer::recordInstruction(MacroAssembler& masm,
                                                const wasm::OpBytes& op) {
   MOZ_ASSERT(needsToRecordInstruction());
 
+  if (!op.canBePacked()) {
+    return;
+  }
+
   recordOpcode(masm.currentOffset() - startOffset_, op.toPacked());
 }
 

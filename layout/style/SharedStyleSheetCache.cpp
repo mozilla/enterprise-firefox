@@ -22,7 +22,7 @@ extern mozilla::LazyLogModule sCssLoaderLog;
 
 namespace mozilla {
 
-NS_IMPL_ISUPPORTS(SharedStyleSheetCache, nsIMemoryReporter)
+NS_IMPL_ISUPPORTS(SharedStyleSheetCache, nsIMemoryReporter, nsIObserver)
 
 MOZ_DEFINE_MALLOC_SIZE_OF(SharedStyleSheetCacheMallocSizeOf)
 

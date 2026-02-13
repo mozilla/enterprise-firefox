@@ -35,8 +35,8 @@ dependencies {
     implementation libs.androidx.compose.ui
     implementation libs.androidx.core
     implementation libs.androidx.core.ktx
-    implementation libs.kotlinx.coroutines
     implementation libs.androidx.documentfile
+    implementation libs.kotlinx.coroutines
 
     testImplementation project(":components:support-test")
 

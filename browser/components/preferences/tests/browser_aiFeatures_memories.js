@@ -10,8 +10,8 @@ describe("settings ai features / Smart Window memories", () => {
     await SpecialPowers.pushPrefEnv({
       set: [
         ["browser.preferences.aiControls", true],
-        ["browser.smartwindow.preferences.enabled", true],
         ["browser.smartwindow.enabled", true],
+        ["browser.smartwindow.tos.consentTime", 1770830464],
       ],
     });
     await openPreferencesViaOpenPreferencesAPI("general", { leaveOpen: true });

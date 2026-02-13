@@ -54,7 +54,7 @@ add_task(async function () {
 
   info("Select the rule view");
   const ruleView = inspector.getPanel("ruleview").view;
-  const onRuleViewReady = ruleView.once("ruleview-refreshed");
+  const onRuleViewReady = inspector.once("rule-view-refreshed");
   await inspector.sidebar.select("ruleview");
   await onRuleViewReady;
 

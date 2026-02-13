@@ -164,14 +164,6 @@ void js::BaseScript::finalize(JS::GCContext* gcx) {
   }
 #endif
 
-  if (data_) {
-    // We don't need to triger any barriers here, just free the memory.
-    size_t size = data_->allocationSize();
-    AlwaysPoison(data_, JS_POISONED_JSSCRIPT_DATA_PATTERN, size,
-                 MemCheckKind::MakeNoAccess);
-    gcx->free_(this, data_, size, MemoryUse::ScriptPrivateData);
-  }
-
   freeSharedData();
 }
 
@@ -181,19 +173,16 @@ js::Scope* js::BaseScript::releaseEnclosingScope() {
   return enclosing;
 }
 
-void js::BaseScript::swapData(UniquePtr<PrivateScriptData>& other) {
-  if (data_) {
-    RemoveCellMemory(this, data_->allocationSize(),
-                     MemoryUse::ScriptPrivateData);
-  }
-
+void js::BaseScript::swapData(MutableHandleBuffer<PrivateScriptData> other) {
   PrivateScriptData* old = data_;
-  data_.set(zone(), other.release());
-  other.reset(old);
+  data_.set(zone(), other);  // GCStructPtr performs write barrier here.
+  other.set(old);
+}
 
-  if (data_) {
-    AddCellMemory(this, data_->allocationSize(), MemoryUse::ScriptPrivateData);
-  }
+PrivateScriptData* js::BaseScript::releaseData() {
+  PrivateScriptData* old = data_;
+  data_.set(zone(), nullptr);  // GCStructPtr performs write barrier here.
+  return old;
 }
 
 js::Scope* js::BaseScript::enclosingScope() const {
@@ -2280,7 +2269,7 @@ js::UniquePtr<ImmutableScriptData> js::ImmutableScriptData::new_(
     return nullptr;
   }
 
-  // Constuct the ImmutableScriptData. Trailing arrays are uninitialized but
+  // Construct the ImmutableScriptData. Trailing arrays are uninitialized but
   // GCPtrs are put into a safe state.
   UniquePtr<ImmutableScriptData> result(new (raw) ImmutableScriptData(
       codeLength, noteLength, numResumeOffsets, numScopeNotes, numTryNotes));
@@ -2346,7 +2335,6 @@ SharedImmutableScriptData* SharedImmutableScriptData::createWith(
 
 void JSScript::relazify(JSRuntime* rt) {
   js::Scope* scope = enclosingScope();
-  UniquePtr<PrivateScriptData> scriptData;
 
   // Any JIT compiles should have been released, so we already point to the
   // interpreter trampoline which supports lazy scripts.
@@ -2359,10 +2347,11 @@ void JSScript::relazify(JSRuntime* rt) {
   destroyScriptCounts();
 
   // Release the bytecode and gcthings list.
-  // NOTE: We clear the PrivateScriptData to nullptr. This is fine because we
-  //       only allowed relazification (via AllowRelazify) if the original lazy
-  //       script we compiled from had a nullptr PrivateScriptData.
-  swapData(scriptData);
+  // NOTE: This clears the PrivateScriptData to nullptr. This is fine because we
+  // only allowed relazification (via AllowRelazify) if the original lazy script
+  // we compiled from had a nullptr PrivateScriptData.
+  gc::FreeBuffer(zone(), releaseData());
+
   freeSharedData();
 
   // We should not still be in any side-tables for the debugger or
@@ -2470,21 +2459,17 @@ PrivateScriptData* PrivateScriptData::new_(JSContext* cx, uint32_t ngcthings) {
     return nullptr;
   }
 
-  // Allocate contiguous raw buffer for the trailing arrays.
-  void* raw = cx->pod_malloc<uint8_t>(size.value());
-  MOZ_ASSERT(uintptr_t(raw) % alignof(PrivateScriptData) == 0);
-  if (!raw) {
-    return nullptr;
-  }
-
-  // Constuct the PrivateScriptData. Trailing arrays are uninitialized but
-  // GCPtrs are put into a safe state.
-  PrivateScriptData* result = new (raw) PrivateScriptData(ngcthings);
+  // Allocate contiguous raw buffer and construct the PrivateScriptData in
+  // it. Trailing arrays are uninitialized but GCPtrs are put into a safe state.
+  auto* result = gc::NewSizedBuffer<PrivateScriptData>(cx->zone(), size.value(),
+                                                       false, ngcthings);
   if (!result) {
+    ReportOutOfMemory(cx);
     return nullptr;
   }
 
   // Sanity check.
+  MOZ_ASSERT(uintptr_t(result) % alignof(PrivateScriptData) == 0);
   MOZ_ASSERT(result->endOffset() == size.value());
 
   return result;
@@ -2566,12 +2551,13 @@ bool JSScript::createPrivateScriptData(JSContext* cx, HandleScript script,
                                        uint32_t ngcthings) {
   cx->check(script);
 
-  UniquePtr<PrivateScriptData> data(PrivateScriptData::new_(cx, ngcthings));
+  RootedBuffer<PrivateScriptData> data(cx,
+                                       PrivateScriptData::new_(cx, ngcthings));
   if (!data) {
     return false;
   }
 
-  script->swapData(data);
+  script->swapData(&data);
   MOZ_ASSERT(!data);
 
   return true;
@@ -2592,7 +2578,7 @@ bool JSScript::fullyInitFromStencil(
   // This is initialized by BaseScript::swapData() which will run pre-barriers
   // for us. On successful conversion to non-lazy script, the old script data
   // here will be released by the UniquePtr.
-  Rooted<UniquePtr<PrivateScriptData>> lazyData(cx);
+  RootedBuffer<PrivateScriptData> lazyData(cx);
 
   // Whether we are a newborn script or an existing lazy script, we should
   // already be pointing to the interpreter trampoline.
@@ -2604,7 +2590,7 @@ bool JSScript::fullyInitFromStencil(
   if (script->isReadyForDelazification()) {
     lazyMutableFlags = script->mutableFlags_;
     lazyEnclosingScope = script->releaseEnclosingScope();
-    script->swapData(lazyData.get());
+    script->swapData(&lazyData);
     MOZ_ASSERT(script->sharedData_ == nullptr);
   }
 
@@ -2614,7 +2600,7 @@ bool JSScript::fullyInitFromStencil(
     if (lazyEnclosingScope) {
       script->mutableFlags_ = lazyMutableFlags;
       script->warmUpData_.initEnclosingScope(lazyEnclosingScope);
-      script->swapData(lazyData.get());
+      script->swapData(&lazyData);
       script->sharedData_ = nullptr;
 
       MOZ_ASSERT(script->isReadyForDelazification());
@@ -2790,6 +2776,10 @@ void JSScript::assertValidJumpTargets() const {
   }
 }
 #endif
+
+size_t BaseScript::sizeOfExcludingThis(mozilla::MallocSizeOf mallocSizeOf) {
+  return gc::GetAllocSize(zone(), data_);
+}
 
 void JSScript::addSizeOfJitScript(mozilla::MallocSizeOf mallocSizeOf,
                                   size_t* sizeOfJitScript,
@@ -3396,11 +3386,12 @@ BaseScript* BaseScript::CreateRawLazy(JSContext* cx, uint32_t ngcthings,
   // This condition is implicit in BaseScript::hasPrivateScriptData, and should
   // be mirrored on InputScript::hasPrivateScriptData.
   if (ngcthings || lazy->useMemberInitializers()) {
-    UniquePtr<PrivateScriptData> data(PrivateScriptData::new_(cx, ngcthings));
+    RootedBuffer<PrivateScriptData> data(
+        cx, PrivateScriptData::new_(cx, ngcthings));
     if (!data) {
       return nullptr;
     }
-    lazy->swapData(data);
+    lazy->swapData(&data);
     MOZ_ASSERT(!data);
   }
 

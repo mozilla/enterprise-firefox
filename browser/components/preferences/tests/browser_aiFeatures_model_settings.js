@@ -11,8 +11,8 @@ describe("Smart Window model settings", () => {
     await SpecialPowers.pushPrefEnv({
       set: [
         ["browser.preferences.aiControls", true],
-        ["browser.smartwindow.preferences.enabled", true],
         ["browser.smartwindow.enabled", true],
+        ["browser.smartwindow.tos.consentTime", 1770830464],
       ],
     });
   });
@@ -346,6 +346,7 @@ describe("Smart Window model settings", () => {
     customModelAuthToken.value = "my-token";
     customModelAuthToken.dispatchEvent(new Event("input", { bubbles: true }));
 
+    customModelSaveButton.scrollIntoView({});
     EventUtils.synthesizeMouseAtCenter(customModelSaveButton, {}, win);
 
     await BrowserTestUtils.waitForCondition(

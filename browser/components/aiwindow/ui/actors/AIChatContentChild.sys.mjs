@@ -32,8 +32,9 @@ export class AIChatContentChild extends JSWindowActorChild {
 
   static #VALID_EVENTS_FROM_CONTENT = new Set([
     "AIChatContent:DispatchSearch",
+    "AIChatContent:DispatchFollowUp",
     "AIChatContent:Ready",
-    "AIChatContent:DispatchFooterAction",
+    "AIChatContent:DispatchAction",
   ]);
 
   /**
@@ -52,10 +53,14 @@ export class AIChatContentChild extends JSWindowActorChild {
         this.#handleSearchDispatch(event);
         break;
 
-      case "AIChatContent:DispatchFooterAction": {
-        this.#handleFooterActionDispatch(event);
+      case "AIChatContent:DispatchAction": {
+        this.#handleActionDispatch(event);
         break;
       }
+
+      case "AIChatContent:DispatchFollowUp":
+        this.#handleFollowUpDispatch(event);
+        break;
 
       case "AIChatContent:Ready":
         this.sendAsyncMessage("AIChatContent:Ready");
@@ -72,7 +77,7 @@ export class AIChatContentChild extends JSWindowActorChild {
     this.sendAsyncMessage("aiChatContentActor:search", event.detail);
   }
 
-  #handleFooterActionDispatch(event) {
+  #handleActionDispatch(event) {
     const { action, text } = event.detail ?? {};
     // Copy is handled in the child actor since it depends on content-side
     // selection and clipboard context.
@@ -82,6 +87,10 @@ export class AIChatContentChild extends JSWindowActorChild {
       }
     }
     this.sendAsyncMessage("aiChatContentActor:footer-action", event.detail);
+  }
+
+  #handleFollowUpDispatch(event) {
+    this.sendAsyncMessage("aiChatContentActor:followUp", event.detail);
   }
 
   async receiveMessage(message) {

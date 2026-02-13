@@ -803,9 +803,15 @@ export var DownloadIntegration = {
       }
     }
 
+    // If the download has a referrer, we pass the computed referrer spec to
+    // the platform to update any file meta-data. The computedReferrerSpec is
+    // the referrer URL after all referrer sanitization and policy checks have
+    // been applied.
     let aReferrer = null;
-    if (aDownload.source.referrerInfo) {
-      aReferrer = aDownload.source.referrerInfo.originalReferrer;
+    if (aDownload.source.referrerInfo?.computedReferrerSpec) {
+      aReferrer = lazy.NetUtil.newURI(
+        aDownload.source.referrerInfo.computedReferrerSpec
+      );
     }
 
     await lazy.gDownloadPlatform.downloadDone(

@@ -239,7 +239,7 @@ nsresult nsAvailableMemoryWatcher::Init() {
     // to our memory watcher thread.
     return rv;
   }
-  mThread = thread;
+  mThread = std::move(thread);
 
   // Set the crash annotation to its initial state.
   UpdatePSIInfo(lock);

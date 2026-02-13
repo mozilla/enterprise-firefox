@@ -135,6 +135,9 @@ class WeakMapBase : public mozilla::LinkedListElement<WeakMapBase> {
 
   // Unmark all weak maps in a zone.
   static void unmarkZone(JS::Zone* zone);
+#ifdef DEBUG
+  static void checkZoneUnmarked(JS::Zone* zone);
+#endif
 
   // Check all weak maps in a zone that have been marked as live in this garbage
   // collection, and mark the values of all entries that have become strong
@@ -151,12 +154,14 @@ class WeakMapBase : public mozilla::LinkedListElement<WeakMapBase> {
   // Trace all weak map bindings. Used by the cycle collector.
   static void traceAllMappings(WeakMapTracer* tracer);
 
+#if defined(JS_GC_ZEAL)
   // Save information about which weak maps are marked for a zone.
   static bool saveZoneMarkedWeakMaps(JS::Zone* zone,
                                      WeakMapColors& markedWeakMaps);
 
   // Restore information about which weak maps are marked for many zones.
   static void restoreMarkedWeakMaps(WeakMapColors& markedWeakMaps);
+#endif
 
 #if defined(JS_GC_ZEAL) || defined(DEBUG)
   static bool checkMarkingForZone(JS::Zone* zone);

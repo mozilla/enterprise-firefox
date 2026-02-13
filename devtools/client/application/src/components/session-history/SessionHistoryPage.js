@@ -25,18 +25,24 @@ class SessionHistoryPage extends PureComponent {
       count: PropTypes.number.isRequired,
       current: PropTypes.number.isRequired,
       rows: PropTypes.object.isRequired,
+      entriesByKey: PropTypes.object.isRequired,
     };
   }
 
   render() {
-    const { count, current, rows } = this.props;
+    const { count, current, rows, entriesByKey } = this.props;
     return section(
       {
         className: `app-page js-session-history-page`,
       },
       div(
         { id: "diagram-container" },
-        createElement(SessionHistoryDiagram, { count, current, rows })
+        createElement(SessionHistoryDiagram, {
+          count,
+          current,
+          rows,
+          entriesByKey,
+        })
       )
     );
   }

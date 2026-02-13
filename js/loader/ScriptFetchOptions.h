@@ -50,8 +50,7 @@ class ScriptFetchOptions {
   ~ScriptFetchOptions();
 
  public:
-  NS_INLINE_DECL_CYCLE_COLLECTING_NATIVE_REFCOUNTING(ScriptFetchOptions)
-  NS_DECL_CYCLE_COLLECTION_NATIVE_CLASS(ScriptFetchOptions)
+  NS_INLINE_DECL_THREADSAFE_REFCOUNTING(ScriptFetchOptions)
 
   ScriptFetchOptions(mozilla::CORSMode aCORSMode, const nsAString& aNonce,
                      mozilla::dom::RequestPriority aFetchPriority,

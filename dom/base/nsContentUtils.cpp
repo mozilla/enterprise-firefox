@@ -9758,6 +9758,11 @@ mozilla::Result<bool, nsresult> nsContentUtils::SynthesizeTouchEvent(
   uint32_t count = aTouches.Length();
   event.mTouches.SetCapacity(count);
   for (uint32_t i = 0; i < count; ++i) {
+    if (aTouches[i].mAltitudeAngle.WasPassed() !=
+        aTouches[i].mAzimuthAngle.WasPassed()) {
+      return Err(NS_ERROR_INVALID_ARG);
+    }
+
     LayoutDeviceIntPoint pt = nsContentUtils::ToWidgetPoint(
         CSSPoint(aTouches[i].mOffsetX, aTouches[i].mOffsetY), aWidgetOffset,
         aPresContext);
@@ -9768,9 +9773,15 @@ mozilla::Result<bool, nsresult> nsContentUtils::SynthesizeTouchEvent(
 
     RefPtr<Touch> t =
         new Touch(aTouches[i].mIdentifier, pt, radius,
-                  aTouches[i].mRotationAngle, aTouches[i].mPressure,
-                  aTouches[i].mTiltX, aTouches[i].mTiltY, aTouches[i].mTwist);
-
+                  aTouches[i].mRotationAngle, aTouches[i].mPressure);
+    if (aTouches[i].mAltitudeAngle.WasPassed()) {
+      MOZ_ASSERT(aTouches[i].mAzimuthAngle.WasPassed());
+      t->mAngle.emplace(aTouches[i].mAltitudeAngle.Value(),
+                        aTouches[i].mAzimuthAngle.Value());
+    } else {
+      t->mTilt.emplace(aTouches[i].mTiltX, aTouches[i].mTiltY);
+    }
+    t->twist = aTouches[i].mTwist;
     event.mTouches.AppendElement(t);
   }
 
@@ -11719,7 +11730,7 @@ void nsContentUtils::StructuredClone(JSContext* aCx, nsIGlobalObject* aGlobal,
     return;
   }
 
-  holder.Read(aGlobal, aCx, aRetval, clonePolicy, aError);
+  holder.Read(aCx, aRetval, clonePolicy, aError);
   if (NS_WARN_IF(aError.Failed())) {
     return;
   }

@@ -105,7 +105,7 @@ add_task(async function () {
   info("Click on a button to bring up entry info");
   tBodyRows[2].cells[1].firstChild.click();
 
-  const popover = doc.querySelector(":popover-open");
+  let popover = doc.querySelector(":popover-open");
   Assert.ok(HTMLDivElement.isInstance(popover));
   Assert.ok(HTMLDListElement.isInstance(popover.firstChild));
 
@@ -145,16 +145,45 @@ add_task(async function () {
 
   Assert.deepEqual(expectedDetails, actualDetails);
 
+  info("Navigate to a new top-level document with title");
+  const uri = new URL("index_with_title.html", TAB_URL);
   await BrowserTestUtils.loadURIString({
     browser: tab.linkedBrowser,
-    uriString: "about:blank",
+    uriString: uri.href,
   });
 
   table = doc.querySelector("table");
   tBodyRows = table.tBodies[0].rows;
 
   Assert.equal(2, tBodyRows[0].cells.length);
-  Assert.equal("blank", tBodyRows[0].cells[1].innerText);
+  Assert.equal(uri.pathname, tBodyRows[0].cells[1].innerText);
+
+  info("Click on a button to bring up entry info");
+  tBodyRows[0].cells[1].firstChild.click();
+
+  popover = doc.querySelector(":popover-open");
+  Assert.equal(
+    "title",
+    popover.firstChild.getElementsByTagName("dd")[1].innerText
+  );
+
+  info("Set a new title");
+  await SpecialPowers.spawn(tab.linkedBrowser, [], async function () {
+    content.document.title = "new title";
+  });
+
+  info("Wait until the title field in the popover is not the original one");
+  // We don't need to close and reopen the popover, because it should be updated dynamically.
+  await waitFor(() => {
+    return (
+      popover.firstChild.getElementsByTagName("dd")[1].innerText !== "title"
+    );
+  });
+
+  Assert.equal(
+    "new title",
+    popover.firstChild.getElementsByTagName("dd")[1].innerText
+  );
 
   info("Closing the tab.");
   await BrowserTestUtils.removeTab(tab);

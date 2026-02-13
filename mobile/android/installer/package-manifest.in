@@ -15,7 +15,6 @@
 #filter substitution
 
 [@AB_CD@]
-@BINPATH@/@PREF_DIR@/mobile-l10n.js
 @BINPATH@/default.locale
 @BINPATH@/hyphenation/*
 @BINPATH@/localization/*

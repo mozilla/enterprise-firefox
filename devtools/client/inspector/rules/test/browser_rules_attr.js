@@ -191,7 +191,7 @@ add_task(async function () {
   await selectNode(withoutAttrNodeFront, inspector);
 
   info("Add the missing attribute");
-  let onRuleViewRefreshed = view.once("ruleview-refreshed");
+  let onRuleViewRefreshed = inspector.once("rule-view-refreshed");
   await SpecialPowers.spawn(gBrowser.selectedBrowser, [], () => {
     content.document
       .querySelector("#without-attr")
@@ -213,7 +213,7 @@ add_task(async function () {
   });
 
   info("Update the attribute");
-  onRuleViewRefreshed = view.once("ruleview-refreshed");
+  onRuleViewRefreshed = inspector.once("rule-view-refreshed");
   await SpecialPowers.spawn(gBrowser.selectedBrowser, [], () => {
     content.document
       .querySelector("#without-attr")
@@ -235,7 +235,7 @@ add_task(async function () {
   });
 
   info("Remove the attribute");
-  onRuleViewRefreshed = view.once("ruleview-refreshed");
+  onRuleViewRefreshed = inspector.once("rule-view-refreshed");
   await SpecialPowers.spawn(gBrowser.selectedBrowser, [], () => {
     content.document
       .querySelector("#without-attr")

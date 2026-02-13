@@ -849,6 +849,7 @@ void nsMenuBarX::CreateApplicationMenu(nsMenuX* aMenu) {
       NSMenu* servicesMenu = [[GeckoNSMenu alloc] initWithTitle:@""];
       itemBeingAdded.submenu = servicesMenu;
       NSApp.servicesMenu = servicesMenu;
+      [servicesMenu release];
 
       [itemBeingAdded release];
       itemBeingAdded = nil;

@@ -394,7 +394,25 @@ def resource_usage(command_context, address=None, port=None, browser=None, url=N
     if url:
         server.add_resource_json_url("profile", url)
     else:
-        profile = get_latest_file(command_context._build_log_dir(), "profile")
+        from pathlib import Path
+
+        # Find the most recent profile across all log subdirectories
+        profile = None
+        logs_dir = os.path.join(command_context.statedir, "logs")
+
+        if os.path.isdir(logs_dir):
+            for subdir in os.listdir(logs_dir):
+                subdir_path = os.path.join(logs_dir, subdir)
+                if not os.path.isdir(subdir_path):
+                    continue
+                latest_in_subdir = get_latest_file(subdir_path, "profile")
+                if latest_in_subdir and (
+                    not profile
+                    or Path(latest_in_subdir).stat().st_mtime
+                    > Path(profile).stat().st_mtime
+                ):
+                    profile = latest_in_subdir
+
         if not profile:
             command_context.log(
                 logging.WARNING,

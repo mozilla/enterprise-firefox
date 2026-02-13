@@ -128,6 +128,7 @@ export class IPProtectionToolbarButton {
     }
 
     if (toolbaritem) {
+      toolbaritem.classList.add("subviewbutton-nav"); // adds the right arrow in overflow menu
       this.updateState(toolbaritem);
     }
   }

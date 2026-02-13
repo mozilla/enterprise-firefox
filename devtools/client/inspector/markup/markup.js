@@ -2747,14 +2747,6 @@ class MarkupView extends EventEmitter {
     this._walkerEventListener.destroy();
     this._walkerEventListener = null;
 
-    this._prefObserver.off(
-      ATTR_COLLAPSE_ENABLED_PREF,
-      this._onCollapseAttributesPrefChange
-    );
-    this._prefObserver.off(
-      ATTR_COLLAPSE_LENGTH_PREF,
-      this._onCollapseAttributesPrefChange
-    );
     this._prefObserver.destroy();
 
     for (const [, container] of this._containers) {

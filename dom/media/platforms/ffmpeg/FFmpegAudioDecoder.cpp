@@ -290,6 +290,14 @@ MediaResult FFmpegAudioDecoder<LIBAV_VER>::PostProcessOutput(
   if (!samplingRate) {
     samplingRate = mAudioInfo.mRate;
   }
+
+  if (!numChannels || !samplingRate) {
+    FFMPEG_LOG("Invalid audio configuration: channels=%u, rate=%u", numChannels,
+               samplingRate);
+    return MediaResult(NS_ERROR_DOM_MEDIA_DECODE_ERR,
+                       RESULT_DETAIL("Invalid audio configuration"));
+  }
+
   AlignedAudioBuffer audio =
       CopyAndPackAudio(mFrame, numChannels, mFrame->nb_samples);
   if (!audio) {

@@ -464,6 +464,7 @@ struct TimerMarker {
     schema.AddKeyLabelFormat("delay", "Delay", MS::Format::Milliseconds);
     schema.AddKeyLabelFormat("ttype", "Timer Type", MS::Format::String);
     schema.AddKeyLabelFormat("canceled", "Canceled", MS::Format::String);
+    schema.AddKeyFormat("prefix", MS::Format::String, MS::PayloadFlags::Hidden);
     schema.SetChartLabel("{marker.data.prefix} {marker.data.delay}");
     schema.SetTableLabel("{marker.data.prefix} {marker.data.delay}");
     return schema;

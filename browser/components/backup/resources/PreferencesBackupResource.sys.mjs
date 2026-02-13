@@ -10,6 +10,17 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   ExperimentAPI: "resource://nimbus/ExperimentAPI.sys.mjs",
   SearchUtils: "moz-src:///toolkit/components/search/SearchUtils.sys.mjs",
+  SelectableProfileService:
+    "resource:///modules/profiles/SelectableProfileService.sys.mjs",
+});
+
+ChromeUtils.defineLazyGetter(lazy, "logConsole", function () {
+  return console.createInstance({
+    prefix: "PreferencesBackupResource",
+    maxLogLevel: Services.prefs.getBoolPref("browser.backup.log", false)
+      ? "Debug"
+      : "Warn",
+  });
 });
 
 const PROFILE_RESTORATION_DATE_PREF = "browser.backup.profile-restoration-date";
@@ -190,8 +201,6 @@ export class PreferencesBackupResource extends BackupResource {
       simpleCopyFiles
     );
 
-    // Append browser.backup.scheduled.last-backup-file to prefs.js with the
-    // current timestamp.
     const LINEBREAK = AppConstants.platform === "win" ? "\r\n" : "\n";
     let prefsFile = await IOUtils.getFile(destProfilePath);
     prefsFile.append("prefs.js");
@@ -200,10 +209,27 @@ export class PreferencesBackupResource extends BackupResource {
     // prefs.js file, we need to add the preamble.
     const includePreamble = !(await IOUtils.exists(prefsFile.path));
     let addToPrefsJs = includePreamble ? Services.prefs.prefsJsPreamble : "";
+
+    // Append browser.backup.scheduled.last-backup-file to prefs.js with the
+    // current timestamp.
     addToPrefsJs += `user_pref("${PROFILE_RESTORATION_DATE_PREF}", ${Math.round(Date.now() / 1000)});${LINEBREAK}`;
+
     await IOUtils.writeUTF8(prefsFile.path, addToPrefsJs, {
       mode: "appendOrCreate",
     });
+
+    if (lazy.SelectableProfileService.currentProfile) {
+      lazy.logConsole.debug(
+        `We're recovering into a profile group, let's make sure to set the right selectable profile prefs`
+      );
+
+      // Since the user might have messed with their prefs, let's make sure to
+      // update the selectable profile specific ones (including the shared prefs db)
+      await lazy.SelectableProfileService.addSelectableProfilePrefs(
+        destProfilePath
+      );
+    }
+
     return null;
   }
 

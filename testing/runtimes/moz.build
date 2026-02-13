@@ -9,4 +9,4 @@ TEST_HARNESS_FILES.testing.mochitest.runtimes += [
 ]
 
 with Files("**"):
-    BUG_COMPONENT = ("Testing", "Mochitest")
+    BUG_COMPONENT = ("Testing", "General")

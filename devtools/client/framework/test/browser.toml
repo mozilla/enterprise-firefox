@@ -148,6 +148,8 @@ skip-if = [
   "os == 'linux' && os_version == '24.04' && arch == 'x86_64' && display == 'x11' && tsan",
 ]
 
+["browser_toolbox_content_modal_overlap.js"]
+
 ["browser_toolbox_contentpage_contextmenu.js"]
 
 ["browser_toolbox_disable_f12.js"]

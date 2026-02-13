@@ -108,8 +108,6 @@ import org.mozilla.fenix.browser.PageTranslationStatus
 import org.mozilla.fenix.browser.ReaderModeStatus
 import org.mozilla.fenix.browser.browsingmode.BrowsingMode.Normal
 import org.mozilla.fenix.browser.browsingmode.BrowsingMode.Private
-import org.mozilla.fenix.browser.browsingmode.BrowsingModeManager
-import org.mozilla.fenix.browser.browsingmode.SimpleBrowsingModeManager
 import org.mozilla.fenix.browser.readermode.ReaderModeController
 import org.mozilla.fenix.browser.store.BrowserScreenAction
 import org.mozilla.fenix.browser.store.BrowserScreenAction.ClosingLastPrivateTab
@@ -182,7 +180,6 @@ class BrowserToolbarMiddlewareTest {
     private val browserStore = BrowserStore()
     private val clipboard: ClipboardHandler = mockk(relaxed = true)
     private val navController: NavController = mockk(relaxed = true)
-    private val browsingModeManager = SimpleBrowsingModeManager(Normal)
     private val browserAnimator: BrowserAnimator = mockk(relaxed = true)
     private val thumbnailsFeature: BrowserThumbnails = mockk(relaxed = true)
     private val readerModeController: ReaderModeController = mockk(relaxed = true)
@@ -253,13 +250,13 @@ class BrowserToolbarMiddlewareTest {
 
     @Test
     fun `GIVEN normal browsing mode WHEN initializing the toolbar THEN show the number of normal tabs in the tabs counter button`() = runTest(testDispatcher) {
-        val browsingModeManager = SimpleBrowsingModeManager(Normal)
+        val appStore = AppStore(AppState(mode = Normal))
         val browserStore = BrowserStore(
             initialState = BrowserState(
                 tabs = listOf(createTab("test.com", private = false)),
             ),
         )
-        val middleware = buildMiddleware(browserStore = browserStore, browsingModeManager = browsingModeManager)
+        val middleware = buildMiddleware(appStore = appStore, browserStore = browserStore)
 
         val toolbarStore = buildStore(middleware)
 
@@ -270,7 +267,7 @@ class BrowserToolbarMiddlewareTest {
 
     @Test
     fun `GIVEN private browsing mode WHEN initializing the toolbar THEN show the number of private tabs in the tabs counter button`() = runTest(testDispatcher) {
-        val browsingModeManager = SimpleBrowsingModeManager(Private)
+        val appStore = AppStore(AppState(mode = Private))
         val browserStore = BrowserStore(
             initialState = BrowserState(
                 tabs = listOf(
@@ -279,7 +276,7 @@ class BrowserToolbarMiddlewareTest {
                 ),
             ),
         )
-        val middleware = buildMiddleware(browserStore = browserStore, browsingModeManager = browsingModeManager)
+        val middleware = buildMiddleware(appStore = appStore, browserStore = browserStore)
 
         val toolbarStore = buildStore(middleware)
 
@@ -416,9 +413,9 @@ class BrowserToolbarMiddlewareTest {
 
     @Test
     fun `GIVEN in normal browsing WHEN the number of normal opened tabs is modified THEN update the tab counter`() = runTest(testDispatcher) {
-        val browsingModeManager = SimpleBrowsingModeManager(Normal)
+        val appStore = AppStore(AppState(mode = Normal))
         val browserStore = BrowserStore()
-        val middleware = buildMiddleware(browserStore = browserStore, browsingModeManager = browsingModeManager)
+        val middleware = buildMiddleware(appStore = appStore, browserStore = browserStore)
 
         val toolbarStore = buildStore(middleware)
 
@@ -441,7 +438,7 @@ class BrowserToolbarMiddlewareTest {
 
     @Test
     fun `GIVEN in private browsing WHEN the number of private opened tabs is modified THEN update the tab counter`() = runTest(testDispatcher) {
-        val browsingModeManager = SimpleBrowsingModeManager(Private)
+        val appStore = AppStore(AppState(mode = Private))
         val initialNormalTab = createTab("test.com", private = false)
         val initialPrivateTab = createTab("test.com", private = true)
         val browserStore = BrowserStore(
@@ -449,7 +446,7 @@ class BrowserToolbarMiddlewareTest {
                 tabs = listOf(initialNormalTab, initialPrivateTab),
             ),
         )
-        val middleware = buildMiddleware(browserStore = browserStore, browsingModeManager = browsingModeManager)
+        val middleware = buildMiddleware(appStore = appStore, browserStore = browserStore)
 
         val toolbarStore = buildStore(middleware)
 
@@ -543,8 +540,8 @@ class BrowserToolbarMiddlewareTest {
     @Test
     fun `GIVEN browsing in normal mode WHEN clicking the tab counter button THEN open the tabs tray in normal mode`() {
         every { navController.currentDestination?.id } returns R.id.browserFragment
-        val browsingModeManager = SimpleBrowsingModeManager(Normal)
-        val middleware = buildMiddleware(browserStore = browserStore, browsingModeManager = browsingModeManager)
+        val appStore = AppStore(AppState(mode = Normal))
+        val middleware = buildMiddleware(appStore = appStore, browserStore = browserStore)
         val toolbarStore = buildStore(middleware)
         val tabCounterButton = toolbarStore.state.displayState.browserActionsEnd[1] as TabCounterAction
 
@@ -566,11 +563,11 @@ class BrowserToolbarMiddlewareTest {
         val navController: NavController = mockk(relaxed = true) {
             every { currentDestination?.id } returns R.id.browserFragment
         }
-        val browsingModeManager = SimpleBrowsingModeManager(Private)
+        val appStore = AppStore(AppState(mode = Private))
         val thumbnailsFeature: BrowserThumbnails = mockk(relaxed = true)
         val middleware = buildMiddleware(
             navController = navController,
-            browsingModeManager = browsingModeManager,
+            appStore = appStore,
             thumbnailsFeature = { thumbnailsFeature },
         )
         val toolbarStore = buildStore(middleware)
@@ -596,8 +593,8 @@ class BrowserToolbarMiddlewareTest {
     @Test
     fun `WHEN clicking on the first option in the toolbar long click menu THEN open a new normal tab`() {
         val navController: NavController = mockk(relaxed = true)
-        val browsingModeManager = SimpleBrowsingModeManager(Normal)
-        val middleware = buildMiddleware(navController = navController, browsingModeManager = browsingModeManager)
+        val appStore = AppStore(AppState(mode = Normal))
+        val middleware = buildMiddleware(appStore = appStore, navController = navController)
         val toolbarStore = buildStore(middleware)
         val tabCounterButton = toolbarStore.state.displayState.browserActionsEnd[1] as TabCounterAction
         assertEqualsTabCounterButton(expectedTabCounterButton(0, false), tabCounterButton)
@@ -605,7 +602,7 @@ class BrowserToolbarMiddlewareTest {
 
         toolbarStore.dispatch((tabCounterMenuItems[0] as BrowserToolbarMenuButton).onClick!!)
 
-        assertEquals(Normal, browsingModeManager.mode)
+        assertEquals(Normal, appStore.state.mode)
         verify {
             navController.navigate(
                 BrowserFragmentDirections.actionGlobalHome(focusOnAddressBar = true),
@@ -789,6 +786,7 @@ class BrowserToolbarMiddlewareTest {
         )
         val toolbarStore = buildStore(middleware)
 
+        every { appStore.state.mode } returns Normal
         every { appStore.state.searchState.selectedSearchEngine?.searchEngine } returns searchEngine
 
         toolbarStore.dispatch(LoadFromClipboardClicked)
@@ -809,8 +807,8 @@ class BrowserToolbarMiddlewareTest {
 
     @Test
     fun `WHEN clicking on the second option in the toolbar long click menu THEN open a new private tab`() {
-        val browsingModeManager = SimpleBrowsingModeManager(Normal)
-        val middleware = buildMiddleware(browsingModeManager = browsingModeManager)
+        val appStore = AppStore(AppState(mode = Normal))
+        val middleware = buildMiddleware(appStore = appStore)
         val toolbarStore = buildStore(middleware)
         val tabCounterButton = toolbarStore.state.displayState.browserActionsEnd[1] as TabCounterAction
         assertEqualsTabCounterButton(expectedTabCounterButton(0, false), tabCounterButton)
@@ -818,7 +816,7 @@ class BrowserToolbarMiddlewareTest {
 
         toolbarStore.dispatch((tabCounterMenuItems[1] as BrowserToolbarMenuButton).onClick!!)
 
-        assertEquals(Private, browsingModeManager.mode)
+        assertEquals(Private, appStore.state.mode)
         verify {
             navController.navigate(
                 BrowserFragmentDirections.actionGlobalHome(focusOnAddressBar = true),
@@ -828,7 +826,7 @@ class BrowserToolbarMiddlewareTest {
 
     @Test
     fun `GIVEN multiple tabs opened WHEN clicking on the close tab item in the tab counter long click menu THEN close the current tab`() {
-        val browsingModeManager = SimpleBrowsingModeManager(Private)
+        val appStore = AppStore(AppState(mode = Private))
         val currentTab = createTab("test.com", private = true)
         val browserStore = BrowserStore(
             BrowserState(
@@ -840,7 +838,7 @@ class BrowserToolbarMiddlewareTest {
         every { useCases.tabsUseCases } returns tabsUseCases
         val middleware = buildMiddleware(
             browserStore = browserStore,
-            browsingModeManager = browsingModeManager,
+            appStore = appStore,
         )
         val toolbarStore = buildStore(middleware)
         testDispatcher.scheduler.advanceUntilIdle()
@@ -851,7 +849,7 @@ class BrowserToolbarMiddlewareTest {
 
         toolbarStore.dispatch((tabCounterMenuItems[3] as BrowserToolbarMenuButton).onClick!!)
 
-        assertEquals(Private, browsingModeManager.mode)
+        assertEquals(Private, appStore.state.mode)
         verify {
             tabsUseCases.removeTab(currentTab.id, true)
             appStore.dispatch(CurrentTabClosed(true))
@@ -884,7 +882,7 @@ class BrowserToolbarMiddlewareTest {
 
         toolbarStore.dispatch((tabCounterMenuItems[3] as BrowserToolbarMenuButton).onClick!!)
 
-        assertEquals(Normal, browsingModeManager.mode)
+        assertEquals(Normal, appStore.state.mode)
         verify(exactly = 0) {
             tabsUseCases.removeTab(any(), any())
             appStore.dispatch(CurrentTabClosed(true))
@@ -901,7 +899,7 @@ class BrowserToolbarMiddlewareTest {
 
     @Test
     fun `GIVEN on the last open private tab and no private downloads WHEN clicking on the close tab item THEN navigate to home before closing the tab`() {
-        val browsingModeManager = SimpleBrowsingModeManager(Private)
+        val appStore = AppStore(AppState(mode = Private))
         val currentTab = createTab("test.com", private = true)
         val browserStore = BrowserStore(
             BrowserState(
@@ -913,7 +911,7 @@ class BrowserToolbarMiddlewareTest {
         every { useCases.tabsUseCases } returns tabsUseCases
         val middleware = buildMiddleware(
             browserStore = browserStore,
-            browsingModeManager = browsingModeManager,
+            appStore = appStore,
         )
         val toolbarStore = buildStore(middleware)
         testDispatcher.scheduler.advanceUntilIdle()
@@ -924,7 +922,7 @@ class BrowserToolbarMiddlewareTest {
 
         toolbarStore.dispatch((tabCounterMenuItems[3] as BrowserToolbarMenuButton).onClick!!)
 
-        assertEquals(Private, browsingModeManager.mode)
+        assertEquals(Private, appStore.state.mode)
         verify(exactly = 0) {
             tabsUseCases.removeTab(any(), any())
             appStore.dispatch(CurrentTabClosed(true))
@@ -944,7 +942,7 @@ class BrowserToolbarMiddlewareTest {
         every { browserScreenStore.state } returns BrowserScreenState(
             cancelPrivateDownloadsAccepted = false,
         )
-        val browsingModeManager = SimpleBrowsingModeManager(Private)
+        val appStore = AppStore(AppState(mode = Private))
         val currentTab = createTab("test.com", private = true)
         val browserStore = BrowserStore(
             BrowserState(
@@ -959,7 +957,6 @@ class BrowserToolbarMiddlewareTest {
             appStore = appStore,
             browserStore = browserStore,
             useCases = useCases,
-            browsingModeManager = browsingModeManager,
         )
         val toolbarStore = buildStore(middleware)
         testDispatcher.scheduler.advanceUntilIdle()
@@ -970,7 +967,7 @@ class BrowserToolbarMiddlewareTest {
 
         toolbarStore.dispatch((tabCounterMenuItems[3] as BrowserToolbarMenuButton).onClick!!)
 
-        assertEquals(Private, browsingModeManager.mode)
+        assertEquals(Private, appStore.state.mode)
         verify(exactly = 0) {
             tabsUseCases.removeTab(any(), any())
             appStore.dispatch(CurrentTabClosed(true))
@@ -996,7 +993,7 @@ class BrowserToolbarMiddlewareTest {
         every { browserScreenStore.state } returns BrowserScreenState(
             cancelPrivateDownloadsAccepted = true,
         )
-        val browsingModeManager = SimpleBrowsingModeManager(Private)
+        val appStore = AppStore(AppState(mode = Private))
         val currentTab = createTab("test.com", private = true)
         val browserStore = BrowserStore(
             BrowserState(
@@ -1011,7 +1008,6 @@ class BrowserToolbarMiddlewareTest {
             appStore = appStore,
             browserStore = browserStore,
             useCases = useCases,
-            browsingModeManager = browsingModeManager,
         )
         val toolbarStore = buildStore(middleware)
         testDispatcher.scheduler.advanceUntilIdle()
@@ -1022,7 +1018,7 @@ class BrowserToolbarMiddlewareTest {
 
         toolbarStore.dispatch((tabCounterMenuItems[3] as BrowserToolbarMenuButton).onClick!!)
 
-        assertEquals(Private, browsingModeManager.mode)
+        assertEquals(Private, appStore.state.mode)
         verify(exactly = 0) {
             tabsUseCases.removeTab(any(), any())
             appStore.dispatch(CurrentTabClosed(true))
@@ -1591,7 +1587,7 @@ class BrowserToolbarMiddlewareTest {
 
     @Test
     fun `GIVEN device has wide window WHEN a website is loaded THEN show refresh button`() = runTest(testDispatcher) {
-        val browsingModeManager = SimpleBrowsingModeManager(Private)
+        val appStore = AppStore(AppState(mode = Private))
         val currentNavDestination: NavDestination = mockk {
             every { id } returns R.id.browserFragment
         }
@@ -1624,7 +1620,7 @@ class BrowserToolbarMiddlewareTest {
             useCases = useCases,
             sessionUseCases = sessionUseCases,
             navController = navController,
-            browsingModeManager = browsingModeManager,
+            appStore = appStore,
             isWideScreen = { true },
         )
         val toolbarStore = buildStore(middleware)
@@ -1645,7 +1641,7 @@ class BrowserToolbarMiddlewareTest {
 
     @Test
     fun `GIVEN device have a wide window WHEN a website is loaded THEN show refresh button`() = runTest(testDispatcher) {
-        val browsingModeManager = SimpleBrowsingModeManager(Private)
+        val appStore = AppStore(AppState(mode = Private))
         val currentNavDestination: NavDestination = mockk {
             every { id } returns R.id.browserFragment
         }
@@ -1677,7 +1673,7 @@ class BrowserToolbarMiddlewareTest {
             useCases = useCases,
             sessionUseCases = sessionUseCases,
             navController = navController,
-            browsingModeManager = browsingModeManager,
+            appStore = appStore,
             isWideScreen = { true },
         )
         val toolbarStore = buildStore(middleware)
@@ -1699,7 +1695,7 @@ class BrowserToolbarMiddlewareTest {
 
     @Test
     fun `GIVEN a loaded tab WHEN the refresh button is pressed THEN show stop refresh button`() = runTest(testDispatcher) {
-        val browsingModeManager = SimpleBrowsingModeManager(Private)
+        val appStore = AppStore(AppState(mode = Private))
         val currentNavDestination: NavDestination = mockk {
             every { id } returns R.id.browserFragment
         }
@@ -1731,7 +1727,7 @@ class BrowserToolbarMiddlewareTest {
             useCases = useCases,
             sessionUseCases = sessionUseCases,
             navController = navController,
-            browsingModeManager = browsingModeManager,
+            appStore = appStore,
             isWideScreen = { true },
         )
         val toolbarStore = buildStore(middleware)
@@ -3257,7 +3253,6 @@ class BrowserToolbarMiddlewareTest {
         publicSuffixList: PublicSuffixList = this.publicSuffixList,
         settings: Settings = this.settings,
         navController: NavController = this.navController,
-        browsingModeManager: BrowsingModeManager = this.browsingModeManager,
         readerModeController: ReaderModeController = this.readerModeController,
         browserAnimator: BrowserAnimator = this.browserAnimator,
         thumbnailsFeature: () -> BrowserThumbnails = { this.thumbnailsFeature },
@@ -3279,7 +3274,6 @@ class BrowserToolbarMiddlewareTest {
         publicSuffixList = publicSuffixList,
         settings = settings,
         navController = navController,
-        browsingModeManager = browsingModeManager,
         readerModeController = readerModeController,
         browserAnimator = browserAnimator,
         thumbnailsFeature = thumbnailsFeature,

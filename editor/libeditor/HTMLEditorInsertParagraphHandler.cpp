@@ -1382,44 +1382,59 @@ Result<EditorDOMPoint, nsresult> HTMLEditor::AutoInsertParagraphHandler::
   const WSScanResult prevVisibleThing =
       WSRunScanner::ScanPreviousVisibleNodeOrBlockBoundary(
           {}, aPointToSplit, &aBlockElementToSplit);
-  Maybe<EditorLineBreak> precedingInvisibleLineBreak;
-  if (prevVisibleThing.ReachedBRElement()) {
-    precedingInvisibleLineBreak.emplace(*prevVisibleThing.BRElementPtr());
-  } else if (prevVisibleThing.ReachedPreformattedLineBreak()) {
-    precedingInvisibleLineBreak.emplace(*prevVisibleThing.TextPtr(),
-                                        prevVisibleThing.Offset_Deprecated());
-  } else {
+  if (!prevVisibleThing.ReachedLineBreak()) {
     return aPointToSplit;
   }
   EditorDOMPoint pointToSplit = aPointToSplit;
+  EditorLineBreak precedingLineBreak =
+      prevVisibleThing.CreateEditorLineBreak<EditorLineBreak>();
   {
     // FIXME: Once bug 1951041 is fixed in the layout level, we don't need to
     // treat collapsible white-spaces before invisible <br> elements here.
     AutoTrackDOMPoint trackPointToSplit(mHTMLEditor.RangeUpdaterRef(),
                                         &pointToSplit);
+    Maybe<AutoTrackLineBreak> trackPrecedingLineBreak;
+    if (precedingLineBreak.IsPreformattedLineBreak()) {
+      trackPrecedingLineBreak.emplace(mHTMLEditor.RangeUpdaterRef(),
+                                      &precedingLineBreak);
+    }
     Result<EditorDOMPoint, nsresult>
         normalizePrecedingWhiteSpacesResultOrError =
+            [&]() MOZ_CAN_RUN_SCRIPT -> Result<EditorDOMPoint, nsresult> {
+      if (precedingLineBreak.IsHTMLBRElement() ||
+          precedingLineBreak.IsPreformattedLineBreakAtStartOfText()) {
+        Result<EditorDOMPoint, nsresult> ret =
             WhiteSpaceVisibilityKeeper::NormalizeWhiteSpacesBefore(
-                mHTMLEditor, precedingInvisibleLineBreak->To<EditorDOMPoint>(),
-                {});
-    if (MOZ_UNLIKELY(normalizePrecedingWhiteSpacesResultOrError.isErr())) {
-      NS_WARNING(
-          "WhiteSpaceVisibilityKeeper::NormalizeWhiteSpacesBefore() failed");
+                mHTMLEditor, precedingLineBreak.To<EditorDOMPoint>(), {});
+        NS_WARNING_ASSERTION(
+            ret.isOk(),
+            "WhiteSpaceVisibilityKeeper::NormalizeWhiteSpacesBefore() failed");
+        return ret;
+      }
+      Result<EditorDOMPoint, nsresult> ret =
+          WhiteSpaceVisibilityKeeper::NormalizeWhiteSpacesToSplitAt(
+              mHTMLEditor, precedingLineBreak.To<EditorDOMPoint>(), {});
+      NS_WARNING_ASSERTION(
+          ret.isOk(),
+          "WhiteSpaceVisibilityKeeper::NormalizeWhiteSpacesToSplitAt() failed");
+      return ret;
+    }();
+    if (NS_WARN_IF(normalizePrecedingWhiteSpacesResultOrError.isErr())) {
       return normalizePrecedingWhiteSpacesResultOrError.propagateErr();
     }
   }
   if (NS_WARN_IF(!pointToSplit.IsInContentNodeAndValidInComposedDoc()) ||
       NS_WARN_IF(!pointToSplit.GetContainer()->IsInclusiveDescendantOf(
-          &aBlockElementToSplit))) {
+          &aBlockElementToSplit)) ||
+      NS_WARN_IF(!precedingLineBreak.IsDeletableFromComposedDoc())) {
     return Err(NS_ERROR_EDITOR_UNEXPECTED_DOM_TREE);
   }
   {
     AutoTrackDOMPoint trackPointToSplit(mHTMLEditor.RangeUpdaterRef(),
                                         &pointToSplit);
     Result<EditorDOMPoint, nsresult> deleteInvisibleLineBreakResult =
-        mHTMLEditor.DeleteLineBreakWithTransaction(*precedingInvisibleLineBreak,
-                                                   nsIEditor::eNoStrip,
-                                                   aBlockElementToSplit);
+        mHTMLEditor.DeleteLineBreakWithTransaction(
+            precedingLineBreak, nsIEditor::eNoStrip, aBlockElementToSplit);
     if (MOZ_UNLIKELY(deleteInvisibleLineBreakResult.isErr())) {
       NS_WARNING("HTMLEditor::DeleteLineBreakWithTransaction() failed");
       return deleteInvisibleLineBreakResult.propagateErr();
@@ -1503,8 +1518,8 @@ Result<EditorDOMPoint, nsresult> HTMLEditor::AutoInsertParagraphHandler::
         if (nextVisibleThing.ReachedBRElement()) {
           unnecessaryLineBreak.emplace(*nextVisibleThing.BRElementPtr());
         } else if (nextVisibleThing.ReachedPreformattedLineBreak()) {
-          unnecessaryLineBreak.emplace(*nextVisibleThing.TextPtr(),
-                                       nextVisibleThing.Offset_Deprecated());
+          unnecessaryLineBreak.emplace(
+              nextVisibleThing.CreateEditorLineBreak<EditorLineBreak>());
         }
         return candidatePoint;
       }();
@@ -1612,7 +1627,7 @@ HTMLEditor::AutoInsertParagraphHandler::SplitParagraphWithTransaction(
   // white-spaces at the split point.
   Result<EditorDOMPoint, nsresult> preparationResult =
       WhiteSpaceVisibilityKeeper::PrepareToSplitBlockElement(
-          mHTMLEditor, aPointToSplit, aBlockElementToSplit);
+          mHTMLEditor, pointToSplit, aBlockElementToSplit);
   if (MOZ_UNLIKELY(preparationResult.isErr())) {
     NS_WARNING(
         "WhiteSpaceVisibilityKeeper::PrepareToSplitBlockElement() failed");

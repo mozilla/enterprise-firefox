@@ -42,11 +42,20 @@
 #include "nsRefPtrHashtable.h"
 #include "nsTHashMap.h"
 
+class nsIObserver;
+
 namespace mozilla {
 
 namespace net {
 class nsHttpResponseHead;
 }
+
+namespace SharedSubResourceCacheUtils {
+
+void AddMemoryPressureObserver(nsIObserver* aObserver);
+void RemoveMemoryPressureObserver(nsIObserver* aObserver);
+
+}  // namespace SharedSubResourceCacheUtils
 
 // A struct to hold the network-related metadata associated with the cache.
 //
@@ -169,10 +178,16 @@ class SharedSubResourceCache {
     MOZ_DIAGNOSTIC_ASSERT(!sSingleton);
     sSingleton = new Derived();
     sSingleton->Init();
+    SharedSubResourceCacheUtils::AddMemoryPressureObserver(sSingleton);
     return sSingleton.get();
   }
 
-  static void DeleteSingleton() { sSingleton = nullptr; }
+  static void DeleteSingleton() {
+    if (sSingleton) {
+      SharedSubResourceCacheUtils::RemoveMemoryPressureObserver(sSingleton);
+    }
+    sSingleton = nullptr;
+  }
 
  protected:
   struct CompleteSubResource {
@@ -267,6 +282,42 @@ class SharedSubResourceCache {
                       const Maybe<OriginAttributesPattern>& aPattern,
                       const Maybe<nsCString>& aURL);
 
+  // Returns true if we're low on memory.
+  // The flag itself does nothing inside SharedSubResourceCache itself.
+  // The subclass and its consumer can use this flag to decide whether to
+  // put a new cache.
+  bool IsLowMemory() const { return mIsLowMemory; }
+
+ protected:
+  virtual bool ShouldIgnoreMemoryPressure() = 0;
+
+  // Due to the restriction around the inheritance,
+  // SharedSubResourceCache cannot directly implement nsIObserver.
+  // Subclass should implement nsIObserver and call this method.
+  nsresult DoObserve(nsISupports* aSubject, const char* aTopic,
+                     const char16_t* aData) {
+    if (ShouldIgnoreMemoryPressure()) {
+      return NS_OK;
+    }
+
+    if (strcmp(aTopic, "memory-pressure") == 0) {
+      ClearInProcessForMemoryPressure();
+      nsDependentString data(aData);
+      if (data.EqualsLiteral("low-memory")) {
+        mIsLowMemory = true;
+      }
+    } else if (strcmp(aTopic, "memory-pressure-stop") == 0) {
+      mIsLowMemory = false;
+    }
+
+    return NS_OK;
+  }
+
+ private:
+  void ClearInProcessForMemoryPressure() {
+    ClearInProcess(Nothing(), Nothing(), Nothing(), Nothing(), Nothing());
+  }
+
  protected:
   void CancelPendingLoadsForLoader(Loader&);
 
@@ -291,6 +342,9 @@ class SharedSubResourceCache {
   // Lazily created in the first Get() call.
   // The singleton should be deleted by DeleteSingleton() during shutdown.
   inline static MOZ_GLOBINIT StaticRefPtr<Derived> sSingleton;
+
+ private:
+  bool mIsLowMemory = false;
 };
 
 template <typename Traits, typename Derived>

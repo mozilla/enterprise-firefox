@@ -142,3 +142,53 @@ add_task(async function test_smartbar_empty_submit() {
     sb.restore();
   }
 });
+
+add_task(async function test_smartbar_cta_default_search_engine_label() {
+  const win = await openAIWindow();
+  const browser = win.gBrowser.selectedBrowser;
+
+  await BrowserTestUtils.browserLoaded(browser, false, AIWINDOW_URL);
+
+  const defaultSearchEngineInfo = await SpecialPowers.spawn(
+    browser,
+    [],
+    async () => {
+      const aiWindowElement = content.document.querySelector("ai-window");
+      const smartbar = aiWindowElement.shadowRoot.querySelector(
+        "#ai-window-smartbar"
+      );
+      const inputCta = smartbar.querySelector("input-cta");
+      await ContentTaskUtils.waitForMutationCondition(
+        inputCta,
+        { attributes: true, subtree: true },
+        () => inputCta.searchEngineInfo.name
+      );
+      const searchEngineName = inputCta.searchEngineInfo.name;
+      inputCta.action = "search";
+      await inputCta.updateComplete;
+      const searchLabel = await content.document.l10n.formatValue(
+        "aiwindow-input-cta-menu-label-search",
+        { searchEngineName }
+      );
+
+      return {
+        name: searchEngineName,
+        hasIcon: !!inputCta.searchEngineInfo.icon,
+        searchLabel,
+      };
+    }
+  );
+
+  Assert.ok(defaultSearchEngineInfo.name, "Search engine name should be set");
+  Assert.ok(
+    defaultSearchEngineInfo.hasIcon,
+    "Search engine icon should be set"
+  );
+  Assert.equal(
+    defaultSearchEngineInfo.searchLabel,
+    `Search with ${defaultSearchEngineInfo.name}`,
+    `Search label should include engine name: [${defaultSearchEngineInfo.searchLabel}]`
+  );
+
+  await BrowserTestUtils.closeWindow(win);
+});

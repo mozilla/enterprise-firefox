@@ -178,7 +178,7 @@ class RootedBuffer : public JS::Rooted<BufferHolder<T>> {
   using Base = JS::Rooted<BufferHolder<T>>;
 
  public:
-  RootedBuffer(JSContext* cx, T* buffer)
+  explicit RootedBuffer(JSContext* cx, T* buffer = nullptr)
       : Base(cx, BufferHolder<T>(cx, buffer)) {}
   T* get() const { return Base::get().get(); }
   operator T*() const { return get(); }

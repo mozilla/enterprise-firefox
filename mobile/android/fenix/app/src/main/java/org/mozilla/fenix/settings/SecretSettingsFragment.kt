@@ -171,7 +171,7 @@ class SecretSettingsFragment : PreferenceFragmentCompat() {
         }
 
         requirePreference<SwitchPreference>(R.string.pref_key_use_minimal_bottom_toolbar_while_entering_text).apply {
-            isVisible = Config.channel.isNightlyOrDebug
+            isVisible = false // disabled temporarily based on https://bugzilla.mozilla.org/show_bug.cgi?id=1943053#c31
             isEnabled = context.settings().shouldUseComposableToolbar
             isChecked = context.settings().shouldUseMinimalBottomToolbarWhenEnteringText
             summary = when (context.settings().shouldUseComposableToolbar) {

@@ -877,3 +877,164 @@ add_task(function test_sanitizeTitle_whitespace_trim() {
     "Both leading and trailing whitespace trimmed"
   );
 });
+
+add_task(async function test_sensitive_info_filtering() {
+  await PlacesUtils.history.clear();
+  const now = Date.now();
+
+  const seeded = [
+    makeVisit(
+      "https://example.com/page",
+      "Normal Page Title",
+      now,
+      -5 * 60 * 1000
+    ),
+    makeVisit(
+      "https://example.com/contact",
+      "Contact me at user@example.com",
+      now,
+      -10 * 60 * 1000
+    ),
+    makeVisit(
+      "https://example.com/phone",
+      "Call 555-123-4567 for support",
+      now,
+      -15 * 60 * 1000
+    ),
+    makeVisit(
+      "https://example.com/user?email=sensitive@test.com",
+      "User Profile",
+      now,
+      -20 * 60 * 1000
+    ),
+    makeVisit(
+      "https://example.com/ssn",
+      "SSN: 123-45-6789 on file",
+      now,
+      -25 * 60 * 1000
+    ),
+  ];
+
+  await PlacesUtils.history.insertMany(seeded);
+
+  const rows = await getRecentHistory({ days: 1, maxResults: 100 });
+
+  const urls = rows.map(r => r.url);
+  const titles = rows.map(r => r.title);
+
+  Assert.ok(
+    urls.includes("https://example.com/page"),
+    "Normal page without sensitive info included"
+  );
+
+  Assert.ok(
+    !titles.some(t => t.includes("user@example.com")),
+    "Title with email address filtered out"
+  );
+
+  Assert.ok(
+    !titles.some(t => t.includes("555-123-4567")),
+    "Title with phone number filtered out"
+  );
+
+  Assert.ok(
+    !urls.includes("https://example.com/user?email=sensitive@test.com"),
+    "URL with email parameter filtered out"
+  );
+
+  Assert.ok(
+    !titles.some(t => t.includes("123-45-6789")),
+    "Title with SSN filtered out"
+  );
+});
+
+add_task(async function test_sensitive_keywords_filtering() {
+  await PlacesUtils.history.clear();
+  const now = Date.now();
+
+  const seeded = [
+    makeVisit(
+      "https://example.com/normal",
+      "Best restaurants in Seattle",
+      now,
+      -5 * 60 * 1000
+    ),
+    makeVisit(
+      "https://example.com/medical",
+      "Cancer treatment options and therapy",
+      now,
+      -10 * 60 * 1000
+    ),
+    makeVisit(
+      "https://example.com/finance",
+      "How to improve credit score and mortgage rates",
+      now,
+      -15 * 60 * 1000
+    ),
+    makeVisit(
+      "https://example.com/legal",
+      "Divorce attorney in California",
+      now,
+      -20 * 60 * 1000
+    ),
+    makeVisit(
+      "https://example.com/political",
+      "Democrat vs Republican policies comparison",
+      now,
+      -25 * 60 * 1000
+    ),
+    makeVisit(
+      "https://healthcenter.com/pregnancy-test",
+      "Normal page title",
+      now,
+      -30 * 60 * 1000
+    ),
+  ];
+
+  await PlacesUtils.history.insertMany(seeded);
+
+  const rows = await getRecentHistory({ days: 1, maxResults: 100 });
+
+  const urls = rows.map(r => r.url);
+  const titles = rows.map(r => r.title);
+
+  Assert.ok(
+    urls.includes("https://example.com/normal"),
+    "Normal page without sensitive keywords included"
+  );
+
+  Assert.ok(
+    !titles.some(t => t.toLowerCase().includes("cancer")),
+    "Title with medical keyword (cancer) filtered out"
+  );
+
+  Assert.ok(
+    !titles.some(t => t.toLowerCase().includes("therapy")),
+    "Title with medical keyword (therapy) filtered out"
+  );
+
+  Assert.ok(
+    !titles.some(t => t.toLowerCase().includes("credit score")),
+    "Title with finance keyword (credit score) filtered out"
+  );
+
+  Assert.ok(
+    !titles.some(t => t.toLowerCase().includes("mortgage")),
+    "Title with finance keyword (mortgage) filtered out"
+  );
+
+  Assert.ok(
+    !titles.some(t => t.toLowerCase().includes("divorce")),
+    "Title with legal keyword (divorce) filtered out"
+  );
+
+  Assert.ok(
+    !titles.some(t => t.toLowerCase().includes("democrat")),
+    "Title with political keyword (democrat) filtered out"
+  );
+
+  Assert.ok(
+    !urls.includes("https://healthcenter.com/pregnancy-test"),
+    "URL with sensitive keyword (pregnancy) filtered out"
+  );
+});

@@ -266,6 +266,28 @@ XPCOMUtils.defineLazyPreferenceGetter(
   ""
 );
 
+XPCOMUtils.defineLazyPreferenceGetter(
+  lazy,
+  "ippEnabled",
+  "browser.ipProtection.enabled",
+  false,
+  (_pref, _oldVal, newVal) => {
+    if (!newVal) {
+      return;
+    }
+    let navbarPlacements = gAreas
+      .get(CustomizableUI.AREA_NAVBAR)
+      .get("defaultPlacements");
+
+    // If IPP wasn't available when the navbar area was registered,
+    // we need to add the buttons default placement now.
+    if (navbarPlacements && !navbarPlacements.includes("ipprotection-button")) {
+      let index = navbarPlacements.indexOf("fxa-toolbar-menu-button");
+      navbarPlacements.splice(index, 0, "ipprotection-button");
+    }
+  }
+);
+
 ChromeUtils.defineLazyGetter(lazy, "log", () => {
   let { ConsoleAPI } = ChromeUtils.importESModule(
     "resource://gre/modules/Console.sys.mjs"
@@ -345,6 +367,7 @@ var CustomizableUIInternal = {
       "spring",
       "downloads-button",
       AppConstants.MOZ_DEV_EDITION ? "developer-button" : null,
+      lazy.ippEnabled ? "ipprotection-button" : null,
       "fxa-toolbar-menu-button",
       lazy.resetPBMToolbarButtonEnabled ? "reset-pbm-toolbar-button" : null,
     ].filter(name => name);

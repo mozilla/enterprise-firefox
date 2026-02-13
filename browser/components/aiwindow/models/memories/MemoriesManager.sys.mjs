@@ -389,6 +389,22 @@ export class MemoriesManager {
   }
 
   /**
+   * Retrieves memories by ID.
+   * This is a quick-access wrapper around MemoryStore.getMemories() specifically requiring the memoryIds option.
+   *
+   * @param {Array<string>} memoryIds   List of memory IDs
+   * @returns {Promise<Array<Map<{
+   *  memory_summary: string,
+   *  category: string,
+   *  intent: string,
+   *  score: number,
+   * }>>>}
+   */
+  static async getMemoriesByID(memoryIds) {
+    return await MemoryStore.getMemories({ memoryIds });
+  }
+
+  /**
    * Returns the last timestamp (in ms since Unix epoch) when a history-based
    * memory was generated, as persisted in MemoryStore.meta.
    *

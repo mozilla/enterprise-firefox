@@ -10,7 +10,6 @@ import androidx.test.filters.SdkSuppress
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Before
-import org.junit.Ignore
 import org.junit.Rule
 import org.junit.Test
 import org.mozilla.fenix.customannotations.SkipLeaks
@@ -553,29 +552,23 @@ class SettingsSearchTest : TestSetup() {
     }
 
     // TestRail link: https://mozilla.testrail.io/index.php?/cases/view/412927
-    @Ignore("Disabled after enabling the composable toolbar and main menu: https://bugzilla.mozilla.org/show_bug.cgi?id=2006295")
     @Test
     fun verifyShowClipboardSuggestionsToggleTest() {
         val link = "https://www.mozilla.org/en-US/"
         setTextToClipBoard(appContext, link)
 
+        homeScreen(composeTestRule) {
+        }.openSearch {
+        }
         navigationToolbar(composeTestRule) {
-            verifyClipboardSuggestionsAreDisplayed(link, true)
+            verifyClipboardSuggestionsAreDisplayed(true)
         }.visitLinkFromClipboard {
             waitForPageToLoad(pageLoadWaitingTime = waitingTimeLong)
         }.openTabDrawer(composeTestRule) {
         }.openNewTab {
         }
         navigationToolbar(composeTestRule) {
-            // After visiting the link from clipboard it shouldn't be displayed again
-            verifyClipboardSuggestionsAreDisplayed(shouldBeDisplayed = false)
-        }.goBackToHomeScreen {
-            setTextToClipBoard(appContext, link)
-        }.openTabDrawer {
-        }.openNewTab {
-        }
-        navigationToolbar(composeTestRule) {
-            verifyClipboardSuggestionsAreDisplayed(link, true)
+            verifyClipboardSuggestionsAreDisplayed(shouldBeDisplayed = true)
         }.goBackToHomeScreen {
         }.openThreeDotMenu {
         }.clickSettingsButton {
@@ -590,7 +583,7 @@ class SettingsSearchTest : TestSetup() {
         }.openNewTab {
         }
         navigationToolbar(composeTestRule) {
-            verifyClipboardSuggestionsAreDisplayed(link, false)
+            verifyClipboardSuggestionsAreDisplayed(false)
         }
     }
 

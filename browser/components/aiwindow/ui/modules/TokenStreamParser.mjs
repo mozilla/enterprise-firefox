@@ -5,7 +5,7 @@
  */
 
 export const TOKEN_CHARACTER = "§";
-const ALLOWED_TOKEN_STARTS = ["search:", "existing_memory:"];
+const ALLOWED_TOKEN_STARTS = ["search:", "existing_memory:", "followup:"];
 const MAX_START_LEN = Math.max(
   ...ALLOWED_TOKEN_STARTS.map(string => string.length)
 );

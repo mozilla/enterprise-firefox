@@ -69,16 +69,14 @@ export class UrlbarProviderRecentSearches extends UrlbarProvider {
 
   onEngagement(queryContext, controller, details) {
     let { result } = details;
-    let engine = lazy.UrlbarSearchUtils.getDefaultEngine(
-      queryContext.isPrivate
-    );
 
     if (details.selType == "dismiss") {
+      // Unlike in startQuery, do not pass the engine as `source`,
+      // otherwise it will only remove the source relation.
       lazy.FormHistory.update({
         op: "remove",
         fieldname: lazy.DEFAULT_FORM_HISTORY_PARAM,
         value: result.payload.suggestion,
-        source: engine.name,
       }).catch(error =>
         console.error(`Removing form history failed: ${error}`)
       );

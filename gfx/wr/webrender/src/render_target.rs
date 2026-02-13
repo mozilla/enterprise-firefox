@@ -361,7 +361,6 @@ impl RenderTarget {
         match task.kind {
             RenderTaskKind::Prim(ref info) => {
                 let render_task_address = task_id.into();
-
                 quad::add_to_batch(
                     info.pattern,
                     info.pattern_input,
@@ -886,7 +885,7 @@ fn add_rect_clip_task_to_batch(
         task.quad_transform_id,
         task.quad_address,
         task.quad_flags,
-        EdgeMask::all(),
+        EdgeMask::empty(),
         INVALID_SEGMENT_INDEX as u8,
         RenderTaskId::INVALID,
         ZBufferId(0),

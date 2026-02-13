@@ -4740,7 +4740,7 @@ void nsHttpChannel::MaybeGenerateNELReport() {
   data.mFailures = 0;
   data.mCreationTime = TimeStamp::Now();
 
-  data.mPrincipal = channelPrincipal;
+  data.mPrincipal = std::move(channelPrincipal);
   data.mEndpointURL = endpointURL;
   data.mReportBodyJSON = body;
   nsAutoCString userAgent;
@@ -6389,14 +6389,15 @@ bool nsHttpChannel::ParseDictionary(nsICacheEntry* aEntry,
     }
 
     // Verify if the matchVal has regexp groups.  If so, reject it
-    UrlpPattern pattern;
-    UrlpOptions options{};
-    if (!urlp_parse_pattern_from_string(&matchVal, &mSpec, options, &pattern)) {
+    UrlPatternGlue pattern;
+    UrlPatternOptions options{};
+    if (!urlpattern_parse_pattern_from_string(&matchVal, &mSpec, options,
+                                              &pattern)) {
       LOG_DICTIONARIES(
           ("Failed to parse dictionary pattern %s", matchVal.get()));
       return false;
     }
-    if (urlp_get_has_regexp_groups(pattern)) {
+    if (urlpattern_get_has_regexp_groups(pattern)) {
       LOG_DICTIONARIES(("Pattern %s has regexp groups", matchVal.get()));
       return false;
     }

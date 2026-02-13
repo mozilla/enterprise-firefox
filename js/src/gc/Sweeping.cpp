@@ -642,9 +642,11 @@ IncrementalProgress GCRuntime::markWeakReferences(
   }
 
   if (marker().enterWeakMarkingMode()) {
-    // If there was an 'enter-weak-marking-mode' token in the queue, then it
-    // and everything after it will still be in the queue so we can process
-    // them now.
+    // If there was an 'enter-weak-marking-mode' token in the queue, then it and
+    // everything after it will still be in the queue so we can process them
+    // now. If there is an 'abort-weak-marking-mode' then we will leave weak
+    // marking mode.
+    MOZ_ASSERT(marker().isWeakMarking());
     while (processTestMarkQueue() == QueueYielded) {
     };
 
@@ -660,6 +662,10 @@ IncrementalProgress GCRuntime::markWeakReferences(
     }
 
     for (ZoneIterT zone(this); !zone.done(); zone.next()) {
+      if (!marker().isWeakMarking()) {
+        // Linear weak marking aborted by OOM or abort-weak-marking-mode action.
+        break;
+      }
       if (zone->enterWeakMarkingMode(&marker(), budget) == NotFinished) {
         return NotFinished;
       }
@@ -975,6 +981,7 @@ void GCRuntime::moveToNextSweepGroup() {
       zone->arenas.unmarkPreMarkedFreeCells();
       zone->arenas.mergeArenasFromCollectingLists();
       zone->clearGCSliceThresholds();
+      WeakMapBase::unmarkZone(zone);
 #ifdef DEBUG
       zone->cellsToAssertNotGray().clearAndFree();
 #endif

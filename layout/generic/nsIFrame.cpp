@@ -280,8 +280,7 @@ void nsIFrame::MarkAsAbsoluteContainingBlock() {
   NS_ASSERTION(!HasAnyStateBits(NS_FRAME_HAS_ABSPOS_CHILDREN),
                "Already has NS_FRAME_HAS_ABSPOS_CHILDREN state bit?");
   AddStateBits(NS_FRAME_HAS_ABSPOS_CHILDREN);
-  SetProperty(AbsoluteContainingBlockProperty(),
-              new AbsoluteContainingBlock(GetAbsoluteListID()));
+  SetProperty(AbsoluteContainingBlockProperty(), new AbsoluteContainingBlock());
 }
 
 void nsIFrame::MarkAsNotAbsoluteContainingBlock() {
@@ -2026,9 +2025,10 @@ nscoord nsIFrame::GetLogicalBaseline(
 
 const nsFrameList& nsIFrame::GetChildList(ChildListID aListID) const {
   if (IsAbsoluteContainer()) {
-    if (aListID == GetAbsoluteListID()) {
+    if (aListID == FrameChildListID::Absolute) {
       return GetAbsoluteContainingBlock()->GetChildList();
-    } else if (aListID == FrameChildListID::PushedAbsolute) {
+    }
+    if (aListID == FrameChildListID::PushedAbsolute) {
       return GetAbsoluteContainingBlock()->GetPushedChildList();
     }
   }
@@ -2038,7 +2038,7 @@ const nsFrameList& nsIFrame::GetChildList(ChildListID aListID) const {
 void nsIFrame::GetChildLists(nsTArray<ChildList>* aLists) const {
   if (const auto* absCB = GetAbsoluteContainingBlock()) {
     const nsFrameList& absoluteList = absCB->GetChildList();
-    absoluteList.AppendIfNonempty(aLists, GetAbsoluteListID());
+    absoluteList.AppendIfNonempty(aLists, FrameChildListID::Absolute);
     const nsFrameList& pushedAbsoluteList = absCB->GetPushedChildList();
     pushedAbsoluteList.AppendIfNonempty(aLists,
                                         FrameChildListID::PushedAbsolute);
@@ -10742,9 +10742,9 @@ static nsRect ComputeOutlineInnerRect(
 
   // Iterate over all children except pop-up, absolutely-positioned,
   // float, and overflow ones.
-  const FrameChildListIDs skip = {
-      FrameChildListID::Absolute, FrameChildListID::Fixed,
-      FrameChildListID::Float, FrameChildListID::Overflow};
+  const FrameChildListIDs skip = {FrameChildListID::Absolute,
+                                  FrameChildListID::Float,
+                                  FrameChildListID::Overflow};
   for (const auto& [list, listID] : aFrame->ChildLists()) {
     if (skip.contains(listID)) {
       continue;

@@ -6,6 +6,7 @@ package mozilla.components.feature.search.telemetry.incontent
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.StandardTestDispatcher
 import mozilla.components.browser.state.store.BrowserStore
 import mozilla.components.concept.engine.Engine
 import mozilla.components.feature.search.telemetry.ExtensionInfo
@@ -38,6 +39,7 @@ import org.mockito.Mockito.verify
 @RunWith(AndroidJUnit4::class)
 class InContentTelemetryTest {
     private lateinit var telemetry: InContentTelemetry
+    private val testDispatcher = StandardTestDispatcher()
 
     fun createMockProviderList(): List<SearchProviderModel> = listOf(
         SearchProviderModel(
@@ -130,7 +132,7 @@ class InContentTelemetryTest {
 
     @Before
     fun setup() {
-        telemetry = spy(InContentTelemetry())
+        telemetry = spy(InContentTelemetry(testDispatcher))
     }
 
     @Test

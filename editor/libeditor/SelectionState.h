@@ -379,7 +379,9 @@ class MOZ_STACK_CLASS AutoTrackDOMPoint final {
       mIsTracking = false;
     }
     if (mPoint.isSome()) {
-      mRangeUpdater.DropRangeItem(mRangeItem);
+      if (!mIsTracking) {
+        mRangeUpdater.DropRangeItem(mRangeItem);
+      }
       // Setting `mPoint` with invalid DOM point causes hitting `NS_ASSERTION()`
       // and the number of times may be too many.  (E.g., 1533913.html hits
       // over 700 times!)  We should just put warning instead.
@@ -404,7 +406,9 @@ class MOZ_STACK_CLASS AutoTrackDOMPoint final {
       mPoint.ref()->Set(mRangeItem->mStartContainer, mRangeItem->mStartOffset);
       return;
     }
-    mRangeUpdater.DropRangeItem(mRangeItem);
+    if (!mIsTracking) {
+      mRangeUpdater.DropRangeItem(mRangeItem);
+    }
     *mNode = mRangeItem->mStartContainer;
     *mOffset = mRangeItem->mStartOffset;
     if (!(*mNode)) {
@@ -595,6 +599,7 @@ class MOZ_STACK_CLASS AutoTrackLineBreak final {
  public:
   AutoTrackLineBreak() = delete;
   AutoTrackLineBreak(RangeUpdater& aRangeUpdater, EditorLineBreak* aLineBreak);
+  ~AutoTrackLineBreak() { FlushAndStopTracking(); }
 
   void FlushAndStopTracking();
   void StopTracking() { mTracker.StopTracking(); }

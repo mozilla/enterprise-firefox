@@ -7,6 +7,7 @@ const TEST_URI = `
     <a href="https://example.com/?s=search+terms&page=shopping&abc=ff">
       Shopping
     </a>
+    <div class="ai-summary">AI summary</div>
   </main>
 `;
 const URL =
@@ -99,13 +100,7 @@ add_task(async function test_impression_url_value() {
   let tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, URL);
   await waitForPageWithAdImpressions();
 
-  assertSERPTelemetry([
-    {
-      impression: {
-        is_shopping_page: "false",
-      },
-    },
-  ]);
+  assertSERPTelemetry([{}]);
 
   BrowserTestUtils.removeTab(tab);
 });
@@ -280,6 +275,12 @@ add_task(async function test_impression_combined() {
           },
         },
       },
+      {
+        key: "has_ai_summary",
+        element: {
+          selector: ".ai-summary",
+        },
+      },
     ],
   });
 
@@ -292,8 +293,8 @@ add_task(async function test_impression_combined() {
   assertSERPTelemetry([
     {
       impression: {
-        is_shopping_page: "false",
         shopping_tab_displayed: "true",
+        has_ai_summary: "true",
       },
       adImpressions: [
         {
@@ -316,7 +317,10 @@ add_task(async function test_impression_combined() {
 
   assertSERPTelemetry([
     {
-      impression: { is_shopping_page: "false", shopping_tab_displayed: "true" },
+      impression: {
+        shopping_tab_displayed: "true",
+        has_ai_summary: "true",
+      },
       adImpressions: [
         {
           component: SearchSERPTelemetryUtils.COMPONENTS.SHOPPING_TAB,
@@ -335,10 +339,67 @@ add_task(async function test_impression_combined() {
     {
       impression: {
         is_shopping_page: "true",
-        shopping_tab_displayed: "false",
       },
     },
   ]);
 
   BrowserTestUtils.removeTab(tab);
+});
+
+add_task(async function test_impression_undefined() {
+  resetTelemetry();
+
+  let config = createTestConfig({
+    impressionAttributes: [
+      {
+        key: "is_shopping_page",
+        url: {
+          regexp: "&page=shopping",
+        },
+      },
+      {
+        key: "shopping_tab_displayed",
+        element: {
+          selector: "a",
+          attributeName: "href",
+          regexp: "page=shopping",
+          component: {
+            type: "shopping_tab",
+            countImpressions: true,
+          },
+        },
+      },
+      {
+        key: "has_ai_summary",
+        element: {
+          selector: ".ai-summary",
+        },
+      },
+    ],
+  });
+
+  SearchSERPTelemetry.overrideSearchTelemetryForTests(config);
+  await waitForIdle();
+
+  let promise = waitForPageWithImpression();
+  let tab = await BrowserTestUtils.openNewForegroundTab(
+    gBrowser,
+    URL + "&page=shopping"
+  );
+  BrowserTestUtils.removeTab(tab);
+  await promise;
+
+  assertSERPTelemetry([
+    {
+      impression: {
+        is_shopping_page: "true",
+        has_ai_summary: "unknown",
+        shopping_tab_displayed: "unknown",
+      },
+      adImpressions: [],
+      abandonment: {
+        reason: SearchSERPTelemetryUtils.ABANDONMENTS.TAB_CLOSE,
+      },
+    },
+  ]);
 });

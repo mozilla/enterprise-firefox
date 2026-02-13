@@ -102,7 +102,6 @@ const NETWORK_TRR_URI_PREF = "network.trr.uri";
 
 const ROLLOUT_MODE_PREF = "doh-rollout.mode";
 const ROLLOUT_URI_PREF = "doh-rollout.uri";
-const ROLLOUT_HTTP3_FIRST_PREF = "doh-rollout.force_http3_first";
 
 const TRR_SELECT_DRY_RUN_RESULT_PREF =
   "doh-rollout.trr-selection.dry-run-result";
@@ -244,7 +243,6 @@ export const DoHController = {
     ) {
       await this.setState("manuallyDisabled");
       lazy.Preferences.set(DISABLED_PREF, true);
-      lazy.Preferences.reset(ROLLOUT_HTTP3_FIRST_PREF);
       return;
     }
 
@@ -265,13 +263,6 @@ export const DoHController = {
       }
 
       lazy.Preferences.set(ROLLOUT_URI_PREF, uri || "");
-
-      let http3FirstEnabled =
-        lazy.DoHConfigController.currentConfig.http3FirstEnabled;
-      lazy.Preferences.set(
-        ROLLOUT_HTTP3_FIRST_PREF,
-        http3FirstEnabled || false
-      );
     }
     this.runHeuristicsThrottled("startup");
     Services.obs.addObserver(this, kLinkStatusChangedTopic);
@@ -406,10 +397,6 @@ export const DoHController = {
     // When the OHTTP experiment is active we don't want to enable steering.
     if (results.steeredProvider && !oHTTPexperiment) {
       Services.dns.setDetectedTrrURI(results.steeredProvider.uri);
-      lazy.Preferences.set(
-        ROLLOUT_HTTP3_FIRST_PREF,
-        results.steeredProvider.http3First || false
-      );
       resultsForTelemetry.steeredProvider = results.steeredProvider.id;
     }
 
@@ -601,12 +588,6 @@ export const DoHController = {
       // For mochitests, just record telemetry with a dummy result.
       // TRRPerformance.sys.mjs is tested in xpcshell.
       setDryRunResultAndRecordTelemetry("https://example.com/dns-query");
-      let http3FirstEnabled =
-        lazy.DoHConfigController.currentConfig.http3FirstEnabled;
-      lazy.Preferences.set(
-        ROLLOUT_HTTP3_FIRST_PREF,
-        http3FirstEnabled || false
-      );
       return;
     }
 
@@ -656,7 +637,6 @@ export const DoHController = {
       case NETWORK_TRR_URI_PREF:
       case NETWORK_TRR_MODE_PREF:
         lazy.Preferences.set(DISABLED_PREF, true);
-        lazy.Preferences.reset(ROLLOUT_HTTP3_FIRST_PREF);
         await this.disableHeuristics("manuallyDisabled");
         break;
     }

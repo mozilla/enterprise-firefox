@@ -117,13 +117,14 @@ class BrowserFragment : BaseBrowserFragment(), UserInteractionHandler {
                 components.store,
                 components.sessionUseCases,
                 sessionId,
-            ) { inFullScreen ->
-                if (inFullScreen) {
-                    activity?.enterImmersiveMode()
-                } else {
-                    activity?.exitImmersiveMode()
-                }
-            },
+                fullScreenChanged = { inFullScreen ->
+                    if (inFullScreen) {
+                        activity?.enterImmersiveMode()
+                    } else {
+                        activity?.exitImmersiveMode()
+                    }
+                },
+            ),
             owner = this,
             view = binding.root,
         )

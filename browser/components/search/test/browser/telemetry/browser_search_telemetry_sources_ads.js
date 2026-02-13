@@ -66,6 +66,10 @@ add_task(async function test_simple_search_page_visit() {
 
   assertSERPTelemetry([
     {
+      impression: {
+        has_ai_summary: "unknown",
+        shopping_tab_displayed: "unknown",
+      },
       abandonment: {
         reason: SearchSERPTelemetryUtils.ABANDONMENTS.TAB_CLOSE,
       },
@@ -93,11 +97,19 @@ add_task(async function test_follow_on_visit() {
   );
   assertSERPTelemetry([
     {
+      impression: {
+        has_ai_summary: "unknown",
+        shopping_tab_displayed: "unknown",
+      },
       abandonment: {
         reason: SearchSERPTelemetryUtils.ABANDONMENTS.TAB_CLOSE,
       },
     },
     {
+      impression: {
+        has_ai_summary: "unknown",
+        shopping_tab_displayed: "unknown",
+      },
       abandonment: {
         reason: SearchSERPTelemetryUtils.ABANDONMENTS.TAB_CLOSE,
       },

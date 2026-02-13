@@ -433,7 +433,7 @@ nsClipboard::HasNativeClipboardDataMatchingFlavors(
   if (MOZ_CLIPBOARD_LOG_ENABLED()) {
     NSArray* types = [cocoaPasteboard types];
     uint32_t count = [types count];
-    MOZ_CLIPBOARD_LOG("    Pasteboard types (nums %d)\n", count);
+    MOZ_CLIPBOARD_LOG("    Pasteboard types (nums %u)\n", count);
     for (uint32_t i = 0; i < count; i++) {
       NSPasteboardType type = [types objectAtIndex:i];
       if (!type) {
@@ -549,7 +549,7 @@ NSDictionary* nsClipboard::PasteboardDictFromTransferable(
   for (uint32_t i = 0; i < flavors.Length(); i++) {
     nsCString& flavorStr = flavors[i];
 
-    MOZ_CLIPBOARD_LOG("writing out clipboard data of type %s (%d)\n",
+    MOZ_CLIPBOARD_LOG("writing out clipboard data of type %s (%u)\n",
                       flavorStr.get(), i);
 
     NSString* pboardType = nil;

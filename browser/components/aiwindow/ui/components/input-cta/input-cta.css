@@ -4,10 +4,13 @@
 
 :host {
   --button-background: linear-gradient(235deg, #d6b4fd -57%, #8341ca 219%);
+  --button-background-dark: linear-gradient(65deg, #4e2e9d -5%, #c1a9ff 135%);
   --button-border-color: color-mix(in srgb, white 20%, transparent);
   --button-border-width: var(--border-width);
   --button-box-shadow: inset 0 0 0 var(--button-border-width) var(--button-border-color);
   --button-separator-color: color-mix(in srgb, white 60%, transparent);
+  --panel-icon-fill-color: light-dark(var(--color-violet-70), white);
+  --panel-icon-stroke-color: light-dark(var(--color-pink-0), var(--button-separator-color));
   display: inline-flex;
 }
 
@@ -29,8 +32,9 @@ moz-button.input-cta {
 }
 
 moz-button[type="split"].input-cta {
+  --button-icon-fill: white;
   /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
-  background: var(--button-background);
+  background: light-dark(var(--button-background), var(--button-background-dark));
   /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
   box-shadow: var(--button-box-shadow);
   gap: 0;
@@ -46,9 +50,48 @@ moz-button[type="split"].input-cta::part(chevron-button)::before {
   content: "";
   display: block;
   height: var(--size-item-small);
-  left: 0;
+  inset-inline-start: 0;
   position: absolute;
-  transform: translateX(-100%);
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  margin-inline-start: calc(-1 * var(--button-border-width));
   /* stylelint-disable-next-line stylelint-plugin-mozilla/no-non-semantic-token-usage, stylelint-plugin-mozilla/use-size-tokens, stylelint-plugin-mozilla/use-design-tokens */
   width: var(--button-border-width);
+}
+
+:host(:dir(rtl)) moz-button.input-cta::part(button) {
+  padding-inline-end: var(--space-xsmall);
+}
+
+:host([action=""]) moz-button.input-cta::part(button) {
+  min-width: var(--size-item-xlarge);
+}
+
+:host([action="search"]) moz-button.input-cta::part(button) {
+  background-image: var(--search-icon);
+  background-position: left var(--space-small) center;
+  background-repeat: no-repeat;
+  background-size: var(--size-item-small);
+  padding-inline-start: calc(var(--space-small) + var(--size-item-small) + var(--space-xsmall));
+}
+
+:host([action="search"]:dir(rtl)) moz-button.input-cta::part(button) {
+  background-position-x: right var(--space-small);
+}
+
+panel-item::part(button) {
+  -moz-context-properties: fill, stroke;
+  fill: var(--panel-icon-fill-color);
+  stroke: var(--panel-icon-stroke-color);
+}
+
+panel-item[icon="chat"]::part(button) {
+  background-image: url("chrome://browser/content/aiwindow/assets/ask-icon.svg");
+}
+
+panel-item[icon="navigate"]::part(button) {
+  background-image: url("chrome://browser/skin/forward.svg");
+}
+
+panel-item[icon="search"]::part(button) {
+  background-image: var(--search-icon);
 }

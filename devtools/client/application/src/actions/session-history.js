@@ -6,6 +6,7 @@
 
 const {
   UPDATE_SESSION_HISTORY,
+  UPDATE_SESSION_HISTORY_ENTRY,
 } = require("resource://devtools/client/application/src/constants.js");
 
 function updateSessionHistory(sessionHistory) {
@@ -15,6 +16,14 @@ function updateSessionHistory(sessionHistory) {
   };
 }
 
+function updateSessionHistoryEntry(sessionHistoryEntry) {
+  return {
+    type: UPDATE_SESSION_HISTORY_ENTRY,
+    sessionHistoryEntry,
+  };
+}
+
 module.exports = {
   updateSessionHistory,
+  updateSessionHistoryEntry,
 };

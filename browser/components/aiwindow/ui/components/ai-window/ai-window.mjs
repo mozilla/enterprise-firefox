@@ -39,8 +39,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///browser/components/aiwindow/models/ConversationSuggestions.sys.mjs",
   generateConversationStartersSidebar:
     "moz-src:///browser/components/aiwindow/models/ConversationSuggestions.sys.mjs",
-  MemoryStore:
-    "moz-src:///browser/components/aiwindow/services/MemoryStore.sys.mjs",
+  MemoriesManager:
+    "moz-src:///browser/components/aiwindow/models/memories/MemoriesManager.sys.mjs",
 });
 
 ChromeUtils.defineLazyGetter(lazy, "log", function () {
@@ -469,9 +469,17 @@ export class AIWindow extends MozLitElement {
   #handleSmartbarCommit = event => {
     const { value, action } = event.detail;
     if (action === "chat") {
-      this.#fetchAIResponse(value, this.#createUserRoleOpts());
+      this.submitFollowUp(value);
     }
   };
+
+  submitFollowUp(text) {
+    const trimmed = String(text ?? "").trim();
+    if (!trimmed) {
+      return;
+    }
+    this.#fetchAIResponse(trimmed, this.#createUserRoleOpts());
+  }
 
   #handleMemoriesToggle = event => {
     this.#memoriesToggled = event.detail.pressed;
@@ -700,6 +708,7 @@ export class AIWindow extends MozLitElement {
           currentMessage.tokens = {
             search: [],
             existing_memory: [],
+            followup: [],
           };
         }
 
@@ -727,6 +736,15 @@ export class AIWindow extends MozLitElement {
         this.#updateConversation();
         this.#dispatchMessageToChatContent(currentMessage);
         this.requestUpdate?.();
+      }
+
+      if (currentMessage.memoriesApplied?.length) {
+        currentMessage.memoriesApplied =
+          await lazy.MemoriesManager.getMemoriesByID(
+            currentMessage.memoriesApplied
+          );
+        this.#updateConversation();
+        this.#dispatchMessageToChatContent(currentMessage);
       }
     } catch (e) {
       this.showSearchingIndicator(false, null);
@@ -957,6 +975,10 @@ export class AIWindow extends MozLitElement {
         this.#retryFromAssistantMessageId(messageId, false);
         break;
 
+      case "retry-after-error":
+        this.#retryAfterError();
+        break;
+
       case "remove-applied-memory":
         this.#removeAppliedMemory(messageId, memory);
         break;
@@ -974,6 +996,22 @@ export class AIWindow extends MozLitElement {
     }
 
     return this.#getMessageById(assistantMsg.parentMessageId) ?? null;
+  }
+
+  #retryAfterError() {
+    if (this._isRetrying) {
+      console.warn("ai-window: retry already in progress");
+      return;
+    }
+
+    this._isRetrying = true;
+    this.#fetchAIResponse(false)
+      .catch(error => {
+        console.error("Error retrying after error:", error);
+      })
+      .finally(() => {
+        this._isRetrying = false;
+      });
   }
 
   async #retryFromAssistantMessageId(assistantMessageId, withMemories) {
@@ -1011,15 +1049,16 @@ export class AIWindow extends MozLitElement {
 
   async #removeAppliedMemory(messageId, memory) {
     try {
-      const deleted = await lazy.MemoryStore.hardDeleteMemory(memory);
+      const memoryId = memory.id;
+      const deleted = await lazy.MemoriesManager.hardDeleteMemoryById(memoryId);
       if (!deleted) {
-        console.warn("hardDeleteMemory returned false", memory);
+        console.warn("hardDeleteMemory returned false", memoryId);
       }
 
       const actor = this.#getAIChatContentActor();
       actor?.dispatchRemoveAppliedMemoryToChatContent({
         messageId,
-        memory,
+        memoryId,
       });
     } catch (e) {
       console.error("Failed to delete memory", memory, e);
@@ -1028,6 +1067,7 @@ export class AIWindow extends MozLitElement {
 
   render() {
     return html`
+      <link rel="stylesheet" href="chrome://global/content/widgets.css" />
       <link
         rel="stylesheet"
         href="chrome://browser/content/aiwindow/components/ai-window.css"

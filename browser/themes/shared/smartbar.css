@@ -24,6 +24,13 @@
 
 .smartbar > .urlbar-input-container {
   overflow: visible;
+  /**
+   * The search mode switcher won’t be used for the Smartbar. Instead, it is
+   * part of the CTA action panel.
+   */
+  & > .searchmode-switcher {
+    display: none;
+  }
 }
 
 .smartbar > .urlbar-background {

@@ -13,9 +13,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LifecycleRegistry
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.consumeEach
@@ -400,10 +397,9 @@ class StoreExtensionsKtTest {
         var receivedValue = 0
         var latch = CountDownLatch(1)
 
-        val childScope = CoroutineScope(
-            SupervisorJob(coroutineContext[Job]) + StandardTestDispatcher(testScheduler),
-        )
-        val scope = store.flowScoped(coroutineScope = childScope) { flow ->
+        val dispatcher = StandardTestDispatcher(testScheduler)
+
+        val scope = store.flowScoped(dispatcher = dispatcher) { flow ->
             flow.collect { state ->
                 receivedValue = state.counter
                 latch.countDown()
@@ -460,11 +456,9 @@ class StoreExtensionsKtTest {
         var receivedValue = 0
         var latch = CountDownLatch(1)
 
-        // Create a child scope that shares the test dispatcher
-        val childScope = CoroutineScope(
-            SupervisorJob(coroutineContext[Job]) + StandardTestDispatcher(testScheduler),
-        )
-        val scope = store.flowScoped(owner, coroutineScope = childScope) { flow ->
+        val dispatcher = StandardTestDispatcher(testScheduler)
+
+        val scope = store.flowScoped(owner, dispatcher = dispatcher) { flow ->
             flow.collect { state ->
                 receivedValue = state.counter
                 latch.countDown()

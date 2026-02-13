@@ -34,6 +34,8 @@ support-files = [
 
 ["test_SearchBrowsingHistoryDomainBoost.js"]
 
+["test_SensitiveInfoDetector.js"]
+
 ["test_TitleGeneration.js"]
 
 ["test_ToolDefinitions.js"]

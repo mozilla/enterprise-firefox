@@ -220,6 +220,8 @@ skip-if = [
   "true",
 ]
 
+["browser_permissions_about_hidden.js"]
+
 ["browser_permissions_checkPermissionsWereAdded.js"]
 
 ["browser_permissions_dialog.js"]

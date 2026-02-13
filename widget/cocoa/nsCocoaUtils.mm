@@ -64,7 +64,7 @@ LazyLogModule gCocoaUtilsLog("nsCocoaUtils");
  * For each audio and video capture request, we hold an owning reference
  * to a promise to be resolved when the request's async callback is invoked.
  * sVideoCapturePromises and sAudioCapturePromises are arrays of video and
- * audio promises waiting for to be resolved. Each array is protected by a
+ * audio promises waiting to be resolved. Each array is protected by a
  * mutex.
  */
 nsCocoaUtils::PromiseArray nsCocoaUtils::sVideoCapturePromises;
@@ -1505,7 +1505,7 @@ nsresult nsCocoaUtils::RequestCapturePermission(
 
   sMediaCaptureMutex.Unlock();
 
-  LOG("RequestCapturePermission(%s): %ld promise(s) unresolved",
+  LOG("RequestCapturePermission(%s): %zu promise(s) unresolved",
       AVMediaTypeToString(aType), nPromises);
 
   // If we had one or more more existing promises waiting to be resolved

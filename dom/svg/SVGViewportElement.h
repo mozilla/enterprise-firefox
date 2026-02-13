@@ -154,6 +154,8 @@ class SVGViewportElement : public SVGGraphicsElement {
     return mViewBox;
   }
 
+  SVGAnimatedViewBox mViewBox;
+
   // The size of the rectangular SVG viewport into which we render. This is
   // not (necessarily) the same as the content area. See:
   //
@@ -164,7 +166,6 @@ class SVGViewportElement : public SVGGraphicsElement {
   // XXXjwatt our frame should probably reset this when it's destroyed.
   gfx::Size mViewportSize;
 
-  SVGAnimatedViewBox mViewBox;
   SVGAnimatedPreserveAspectRatio mPreserveAspectRatio;
 
   enum { ATTR_X, ATTR_Y, ATTR_WIDTH, ATTR_HEIGHT };

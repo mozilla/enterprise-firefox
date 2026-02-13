@@ -25,21 +25,19 @@ extern LazyLogModule gMediaDecoderLog;
 /* static */
 AudioDecoderInputTrack* AudioDecoderInputTrack::Create(
     MediaTrackGraph* aGraph, nsISerialEventTarget* aDecoderThread,
-    const AudioInfo& aInfo, float aPlaybackRate, float aVolume,
-    bool aPreservesPitch) {
+    const AudioInfo& aInfo, float aPlaybackRate, bool aPreservesPitch) {
   MOZ_ASSERT(aGraph);
   MOZ_ASSERT(aDecoderThread);
   AudioDecoderInputTrack* track =
       new AudioDecoderInputTrack(aDecoderThread, aGraph->GraphRate(), aInfo,
-                                 aPlaybackRate, aVolume, aPreservesPitch);
+                                 aPlaybackRate, aPreservesPitch);
   aGraph->AddTrack(track);
   return track;
 }
 
 AudioDecoderInputTrack::AudioDecoderInputTrack(
     nsISerialEventTarget* aDecoderThread, TrackRate aGraphRate,
-    const AudioInfo& aInfo, float aPlaybackRate, float aVolume,
-    bool aPreservesPitch)
+    const AudioInfo& aInfo, float aPlaybackRate, bool aPreservesPitch)
     : ProcessedMediaTrack(aGraphRate, MediaSegment::AUDIO, new AudioSegment()),
       mDecoderThread(aDecoderThread),
       mResamplerChannelCount(0),
@@ -47,7 +45,6 @@ AudioDecoderInputTrack::AudioDecoderInputTrack(
       mInputSampleRate(aInfo.mRate),
       mDelayedScheduler(mDecoderThread),
       mPlaybackRate(aPlaybackRate),
-      mVolume(aVolume),
       mPreservesPitch(aPreservesPitch) {}
 
 bool AudioDecoderInputTrack::ConvertAudioDataToSegment(
@@ -221,25 +218,6 @@ void AudioDecoderInputTrack::PushDataToSPSCQueue(SPSCData& data) {
   (void)rv;
 }
 
-void AudioDecoderInputTrack::SetVolume(float aVolume) {
-  AssertOnDecoderThread();
-  LOG("Set volume=%f", aVolume);
-  GetMainThreadSerialEventTarget()->Dispatch(
-      NS_NewRunnableFunction("AudioDecoderInputTrack::SetVolume",
-                             [self = RefPtr<AudioDecoderInputTrack>(this),
-                              aVolume] { self->SetVolumeImpl(aVolume); }));
-}
-
-void AudioDecoderInputTrack::SetVolumeImpl(float aVolume) {
-  MOZ_ASSERT(NS_IsMainThread());
-  QueueControlMessageWithNoShutdown([self = RefPtr{this}, this, aVolume] {
-    TRACE_COMMENT("AudioDecoderInputTrack::SetVolume ControlMessage", "%f",
-                  aVolume);
-    LOG_M("Apply volume=%f", this, aVolume);
-    mVolume = aVolume;
-  });
-}
-
 void AudioDecoderInputTrack::SetPlaybackRate(float aPlaybackRate) {
   AssertOnDecoderThread();
   LOG("Set playback rate=%f", aPlaybackRate);
@@ -395,7 +373,6 @@ TrackTime AudioDecoderInputTrack::AppendBufferedDataToOutput(
   // Apply any necessary change on the segement which would be outputed to the
   // graph.
   const TrackTime appendedDuration = outputSegment.GetDuration();
-  outputSegment.ApplyVolume(mVolume);
   ApplyTrackDisabling(&outputSegment);
   mSegment->AppendFrom(&outputSegment);
 

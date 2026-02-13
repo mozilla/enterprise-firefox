@@ -220,11 +220,11 @@ layout-all-platforms:
     selector: fuzzy
     description: >-
         Runs the tests most relevant to layout, in all platforms.
-        Consider running on linux only for faster results and less resource
-        consumption.
+        Consider using layout-linux, layout-linux-debug, or layout-linux-opt
+        for faster results and less resource consumption.
         This preset can be filtered down further to limit it to
         other platforms or build configurations. For example:
-        |mach try --preset layout -xq "linux64 'opt"|
+        |mach try --preset layout-all-platforms -xq "windows 'opt"|
     query: &layout-all-platforms-query
         # Most mochitest + reftest + crashtest + wpt
         - "!asan !tsan !jsreftest !shippable !webgl !condprof !media !webgpu !a11y-checks 'mochitest | 'web-platform | 'crashtest | 'reftest"
@@ -234,19 +234,19 @@ layout-all-platforms:
 layout-linux:
     selector: fuzzy
     description: >-
-        Like the layout-full preset, but runs only linux tests.
+        Like the layout-all-platforms preset, but runs only linux tests.
     query: *layout-all-platforms-query
     intersect_query: ["linux64"]
 
 layout-linux-debug:
     selector: fuzzy
-    description: Like layout-full, but runs only linux debug tests.
+    description: Like layout-all-platforms, but runs only linux debug tests.
     query: *layout-all-platforms-query
     intersect_query: ["linux64 'debug"]
 
 layout-linux-opt:
     selector: fuzzy
-    description: Like layout-full, but runs only linux opt tests.
+    description: Like layout-all-platforms, but runs only linux opt tests.
     query: *layout-all-platforms-query
     intersect_query: ["linux64 'opt"]
 
@@ -254,8 +254,11 @@ wpt-all-platforms:
     selector: fuzzy
     description: >-
         Runs web platform tests in all platforms.
-        Consider running on linux only for faster results and less resource
-        consumption.
+        Consider using wpt-linux, wpt-linux-debug, or wpt-linux-opt
+        for faster results and less resource consumption.
+        This preset can be filtered down further to limit it to
+        other platforms or build configurations. For example:
+        |mach try --preset wpt-all-platforms -xq "windows 'opt"|
     query: &wpt-all-platforms-query
         - "'web-platform !asan !tsan"
 

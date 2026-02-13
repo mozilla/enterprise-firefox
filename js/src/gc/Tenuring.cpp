@@ -1548,7 +1548,7 @@ void TenuringTracer::printPromotionReport(
   fprintf(stderr, "  Reason: %s\n", ExplainGCReason(reason));
   fprintf(stderr, "  Nursery size: %4.1f MB used of %4.1f MB\n", usedMB,
           capacityMB);
-  fprintf(stderr, "  Promotion rate: %5.1f%%\n", fractionPromoted);
+  fprintf(stderr, "  Promotion rate: %5.1f%%\n", 100 * fractionPromoted);
 
   promotionStats->printReport(cx, nogc);
 }

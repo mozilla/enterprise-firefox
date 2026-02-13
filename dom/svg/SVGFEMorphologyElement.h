@@ -63,13 +63,13 @@ class SVGFEMorphologyElement final : public SVGFEMorphologyElementBase {
 
   void UpdateUseCounter() const;
 
-  enum { RADIUS };
-  SVGAnimatedNumberPair mNumberPairAttributes[1];
-  static NumberPairInfo sNumberPairInfo[1];
-
   enum { RESULT, IN1 };
   SVGAnimatedString mStringAttributes[2];
   static StringInfo sStringInfo[2];
+
+  enum { RADIUS };
+  SVGAnimatedNumberPair mNumberPairAttributes[1];
+  static NumberPairInfo sNumberPairInfo[1];
 
   enum { OPERATOR };
   SVGAnimatedEnumeration mEnumAttributes[1];

@@ -69,6 +69,9 @@ skip-if = [
 
 ["test_ext_dnr_cache.js"]
 requesttimeoutfactor = 2 # Test has multiple long wait to absorb slow execution
+prefs = [
+  "dom.script_loader.experimental.navigation_cache.check_memory_pressure=false",
+]
 
 ["test_ext_experiments_glean.js"]
 

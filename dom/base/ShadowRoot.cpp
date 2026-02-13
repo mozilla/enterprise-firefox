@@ -199,12 +199,11 @@ nsresult ShadowRoot::Bind() {
 }
 
 void ShadowRoot::Unbind() {
+  UnbindContext context(*this, /* aBatchState = */ nullptr);
   if (IsInComposedDoc()) {
     SetIsConnected(false);
     OwnerDoc()->RemoveComposedDocShadowRoot(*this);
   }
-
-  UnbindContext context(*this, /* aBatchState = */ nullptr);
   for (nsIContent* child = GetFirstChild(); child;
        child = child->GetNextSibling()) {
     child->UnbindFromTree(context);

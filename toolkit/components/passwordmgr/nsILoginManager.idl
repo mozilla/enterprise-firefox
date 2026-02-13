@@ -162,6 +162,7 @@ interface nsILoginManager : nsISupports {
    */
   void removeAllUserFacingLogins();
 
+
   /**
    * Remove all stored user facing logins.
    *
@@ -178,9 +179,16 @@ interface nsILoginManager : nsISupports {
 
   /**
    * Completely remove all logins, including the user's FxA Sync key.
+   * Deprecated: use removeAllLoginsAsync instead.
    *
    */
   void removeAllLogins();
+
+   /**
+   * Completely remove all logins, including the user's FxA Sync key.
+   *
+   */
+  Promise removeAllLoginsAsync();
 
   /**
    * Fetch all logins in the login manager. An array is always returned;

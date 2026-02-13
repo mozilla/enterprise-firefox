@@ -205,6 +205,8 @@ add_task(async function nonPrivateWindow() {
         provider: "example-visual",
         search_mode: "image_search",
         source: "contextmenu_visual",
+        has_ai_summary: "unknown",
+        shopping_tab_displayed: "unknown",
       },
       abandonment: {
         reason: SearchSERPTelemetryUtils.ABANDONMENTS.TAB_CLOSE,
@@ -288,6 +290,8 @@ async function doPrivateWindowTest(shouldRecordCounts) {
           search_mode: "image_search",
           source: "contextmenu_visual",
           is_private: "true",
+          has_ai_summary: "unknown",
+          shopping_tab_displayed: "unknown",
         },
         abandonment: {
           reason: SearchSERPTelemetryUtils.ABANDONMENTS.TAB_CLOSE,

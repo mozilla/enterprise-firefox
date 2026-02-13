@@ -136,7 +136,7 @@ class IPProtectionWidget {
     let prevWidget =
       lazy.CustomizableUI.getPlacementOfWidget(FXA_WIDGET_ID) ||
       lazy.CustomizableUI.getPlacementOfWidget(EXT_WIDGET_ID);
-    let pos = prevWidget ? prevWidget.position - 1 : null;
+    let pos = prevWidget ? prevWidget.position : null;
 
     lazy.CustomizableUI.addWidgetToArea(
       IPProtectionWidget.WIDGET_ID,

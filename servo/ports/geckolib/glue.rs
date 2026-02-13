@@ -155,6 +155,7 @@ use style::traversal::resolve_style;
 use style::traversal::DomTraversal;
 use style::traversal_flags::{self, TraversalFlags};
 use style::typed_om::numeric_declaration::NumericDeclaration;
+use style::typed_om::sum_value::SumValue;
 use style::use_counters::{CustomUseCounter, UseCounters};
 use style::values::animated::{Animate, Procedure, ToAnimatedZero};
 use style::values::computed::easing::ComputedTimingFunction;
@@ -179,7 +180,9 @@ use style::values::specified::source_size_list::SourceSizeList;
 use style::values::specified::svg_path::PathCommand;
 use style::values::specified::{AbsoluteLength, NoCalcLength};
 use style::values::{specified, AtomIdent, CustomIdent, KeyframesName};
-use style_traits::{CssWriter, NumericValue, ParseError, ParsingMode, ToCss, ToTyped, TypedValue};
+use style_traits::{
+    CssWriter, NumericValue, ParseError, ParsingMode, ToCss, ToTyped, TypedValue, UnitValue,
+};
 use thin_vec::ThinVec as nsTArray;
 use to_shmem::SharedMemoryBuilder;
 
@@ -5746,6 +5749,54 @@ pub unsafe extern "C" fn Servo_NumericDeclaration_GetValue(
 }
 
 #[no_mangle]
+pub unsafe extern "C" fn Servo_SumValue_Create(numeric_value: &NumericValue) -> *mut SumValue {
+    let sum_value = match SumValue::try_from_numeric_value(numeric_value) {
+        Ok(sum_value) => sum_value,
+        Err(..) => return ptr::null_mut(),
+    };
+
+    Box::into_raw(Box::new(sum_value))
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn Servo_SumValue_Drop(sum_value: *mut SumValue) {
+    let _ = Box::from_raw(sum_value);
+}
+
+/// A result of attempting to convert a sum value to a concrete unit.
+///
+/// Unlike `NumericValueResult`, the `Unsupported` case here is a valid and
+/// expected outcome. It indicates that the sum value cannot be converted to
+/// the requested unit, for example because the value contains multiple items,
+/// or incompatible units.
+#[repr(C)]
+pub enum UnitValueResult {
+    /// The sum value could not be converted to the requested unit.
+    ///
+    /// This represents a valid conversion failure, such as attempting to
+    /// convert a multi-item sum value or converting between incompatible
+    /// units. In this case, the caller is expected to throw an error.
+    Unsupported,
+
+    /// The sum value was successfully converted to a `UnitValue`.
+    Unit(UnitValue),
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn Servo_SumValue_ToUnit(
+    sum_value: &SumValue,
+    unit: &nsACString,
+    result: *mut UnitValueResult,
+) {
+    let unit = unit.as_str_unchecked();
+
+    *result = match sum_value.resolve_to_unit(unit) {
+        Ok(unit_value) => UnitValueResult::Unit(unit_value),
+        Err(..) => UnitValueResult::Unsupported,
+    };
+}
+
+#[no_mangle]
 pub extern "C" fn Servo_MediaList_Create() -> Strong<LockedMediaList> {
     let global_style_data = &*GLOBAL_STYLE_DATA;
     Arc::new(global_style_data.shared_lock.wrap(MediaList::empty())).into()
@@ -6408,8 +6459,8 @@ pub extern "C" fn Servo_SVGPathData_Add(
     to_add: &specified::SVGPathData,
     count: u32,
 ) -> bool {
-    match dest.animate(
-        to_add,
+    match to_add.animate(
+        dest,
         Procedure::Accumulate {
             count: count as u64,
         },

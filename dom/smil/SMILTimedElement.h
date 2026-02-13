@@ -567,20 +567,7 @@ class SMILTimedElement {
   SMILTimeValue mMin = SMILTimeValue::Zero();
   SMILTimeValue mMax;
 
-  InstanceTimeList mBeginInstances;
-  InstanceTimeList mEndInstances;
-  uint32_t mInstanceSerialIndex = 0;
-
-  IntervalList mOldIntervals;
-  uint32_t mCurrentRepeatIteration = 0;
   SMILMilestone mPrevRegisteredMilestone = sMaxMilestone;
-  static constexpr SMILMilestone sMaxMilestone = {
-      std::numeric_limits<SMILTime>::max(), false};
-
-  // The thresholds at which point we start filtering intervals and instance
-  // times indiscriminately. See FilterIntervals and FilterInstanceTimes.
-  static constexpr uint8_t sMaxNumIntervals = 20;
-  static constexpr uint8_t sMaxNumInstanceTimes = 100;
 
   // Set of dependent time value specs to be notified when establishing a new
   // current interval. Change notifications and delete notifications are handled
@@ -589,6 +576,20 @@ class SMILTimedElement {
   // [weak] The SMILTimeValueSpec objects register themselves and unregister
   // on destruction. Likewise, we notify them when we are destroyed.
   TimeValueSpecHashSet mTimeDependents;
+
+  InstanceTimeList mBeginInstances;
+  InstanceTimeList mEndInstances;
+  IntervalList mOldIntervals;
+  uint32_t mInstanceSerialIndex = 0;
+
+  uint32_t mCurrentRepeatIteration = 0;
+  static constexpr SMILMilestone sMaxMilestone = {
+      std::numeric_limits<SMILTime>::max(), false};
+
+  // The thresholds at which point we start filtering intervals and instance
+  // times indiscriminately. See FilterIntervals and FilterInstanceTimes.
+  static constexpr uint8_t sMaxNumIntervals = 20;
+  static constexpr uint8_t sMaxNumInstanceTimes = 100;
 
   enum class SMILFillMode : uint8_t { Remove, Freeze };
   SMILFillMode mFillMode = SMILFillMode::Remove;
@@ -628,14 +629,14 @@ class SMILTimedElement {
 
   // Used to batch updates to the timing model
   class AutoIntervalUpdateBatcher;
-  bool mDeferIntervalUpdates = false;
+  bool mDeferIntervalUpdates : 1 = false;
 
   /**
    * Set if an update to the current interval was requested while
    * mDeferIntervalUpdates was set.
    */
-  bool mDoDeferredUpdate = false;
-  bool mIsDisabled = false;
+  bool mDoDeferredUpdate : 1 = false;
+  bool mIsDisabled : 1 = false;
 
   // Stack-based helper class to call UpdateCurrentInterval when it is destroyed
   class AutoIntervalUpdater;

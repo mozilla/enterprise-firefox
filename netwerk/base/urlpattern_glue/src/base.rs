@@ -39,16 +39,16 @@ impl MaybeString {
 // Used as opaque pointer to urlpattern::UrlPattern<R> (lib.rs, not quirks)
 // this used to hide info of internal urlpattern::url from C++ compiler
 // so cpp compilation doesn't fail since we don't expose url to gecko
-#[repr(C)]
-pub struct UrlpPattern(pub *mut c_void); // structs with unnamed fields
+#[repr(transparent)]
+pub struct UrlPatternGlue(pub *mut c_void);
 
 // opaque pointer to urlpattern::component::Component<SpiderMonkeyRegexp>;
 #[repr(transparent)]
-pub struct UrlpComponentPtr(pub *mut c_void);
+pub struct UrlPatternComponentPtr(pub *mut c_void);
 
 // opaque pointer to urlpattern::matcher::Matcher<SpiderMonkeyRegexp>;
 #[repr(transparent)]
-pub struct UrlpMatcherPtr(pub *mut c_void);
+pub struct UrlPatternMatcherPtr(pub *mut c_void);
 
 // opaque pointer for passing RegExpObjImpl across ffi API
 #[repr(transparent)]
@@ -56,7 +56,7 @@ pub struct RegExpObjWrapper(pub *mut c_void);
 
 #[derive(Debug, Clone)]
 #[repr(C)]
-pub struct UrlpInit {
+pub struct UrlPatternInit {
     pub protocol: MaybeString,
     pub username: MaybeString,
     pub password: MaybeString,
@@ -68,7 +68,7 @@ pub struct UrlpInit {
     pub base_url: MaybeString,
 }
 
-impl UrlpInit {
+impl UrlPatternInit {
     pub fn none() -> Self {
         Self {
             protocol: MaybeString::none(),
@@ -86,7 +86,7 @@ impl UrlpInit {
 
 #[derive(Debug)]
 #[repr(C)]
-pub struct UrlpMatchInput {
+pub struct UrlPatternMatchInput {
     pub protocol: nsCString,
     pub username: nsCString,
     pub password: nsCString,
@@ -99,7 +99,7 @@ pub struct UrlpMatchInput {
 
 #[derive(Debug)]
 #[repr(C)]
-pub enum UrlpStringOrInitType {
+pub enum UrlPatternStringOrInitType {
     String,
     Init,
 }
@@ -111,22 +111,22 @@ pub enum UrlpStringOrInitType {
 // of the ffi boundary
 #[derive(Debug)]
 #[repr(C)]
-pub struct UrlpInput {
-    pub string_or_init_type: UrlpStringOrInitType,
+pub struct UrlPatternInput {
+    pub string_or_init_type: UrlPatternStringOrInitType,
     pub str: nsCString,
-    pub init: UrlpInit,
+    pub init: UrlPatternInit,
     pub base: MaybeString,
 }
 
 #[derive(Debug)]
 #[repr(C)]
-pub struct UrlpMatchInputAndInputs {
-    pub input: UrlpMatchInput,
-    pub inputs: UrlpInput,
+pub struct UrlPatternMatchInputAndInputs {
+    pub input: UrlPatternMatchInput,
+    pub inputs: UrlPatternInput,
 }
 
 #[derive(Debug)]
 #[repr(C)]
-pub struct UrlpOptions {
+pub struct UrlPatternOptions {
     pub ignore_case: bool,
 }

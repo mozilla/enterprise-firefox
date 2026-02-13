@@ -304,8 +304,8 @@ class BoxModel {
    *         The name of the property.
    */
   onShowRulePreviewTooltip(target, property) {
-    const { highlightProperty } = this.inspector.getPanel("ruleview").view;
-    const isHighlighted = highlightProperty(property);
+    const ruleView = this.inspector.getPanel("ruleview").view;
+    const isHighlighted = ruleView.highlightProperty(property);
 
     // Only show the tooltip if the property is not highlighted.
     // TODO: In the future, use an associated ruleId for toggling the tooltip instead of

@@ -18,7 +18,6 @@ import kotlinx.coroutines.test.runTest
 import mozilla.components.feature.share.RecentApp
 import mozilla.components.feature.share.RecentAppsStorage
 import mozilla.components.service.fxa.manager.FxaAccountManager
-import mozilla.components.support.test.robolectric.testContext
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -36,7 +35,7 @@ class ShareViewModelTest {
 
     private val testDispatcher = StandardTestDispatcher()
 
-    private val packageName = testContext.packageName
+    private val packageName = "org.packageName"
     private lateinit var connectivityManager: ConnectivityManager
     private lateinit var fxaAccountManager: FxaAccountManager
     private lateinit var viewModel: ShareViewModel
@@ -48,12 +47,22 @@ class ShareViewModelTest {
         fxaAccountManager = mockk(relaxed = true)
         storage = mockk(relaxUnitFun = true)
 
+        val mockCopyApp = AppShareOption(
+            "Copy",
+            mockk(),
+            ACTION_COPY_LINK_TO_CLIPBOARD,
+            "",
+        )
+
         viewModel = spyk(
             ShareViewModel(
                 fxaAccountManager,
                 storage,
                 connectivityManager,
                 testDispatcher,
+                mockk(),
+                packageName,
+                { mockCopyApp },
             ),
         )
     }
@@ -78,10 +87,10 @@ class ShareViewModelTest {
         val recentAppOptions = listOf(appEntity)
 
         every { storage.getRecentAppsUpTo(RECENT_APPS_LIMIT) } returns recentAppOptions
-        coEvery { viewModel.buildAppsList(any(), any()) } returns appOptions
+        coEvery { viewModel.buildAppsList(any()) } returns appOptions
         coEvery { viewModel.buildDeviceList(any()) } returns listOf(SyncShareOption.Offline)
 
-        viewModel.initDataLoad(testContext)
+        viewModel.initDataLoad()
         testDispatcher.scheduler.advanceUntilIdle()
 
         verify {
@@ -113,7 +122,7 @@ class ShareViewModelTest {
             AppShareOption("App 1", icon2, "package 1", "activity 1"),
         )
 
-        val result = viewModel.buildAppsList(info, testContext)
+        val result = viewModel.buildAppsList(info)
         testDispatcher.scheduler.advanceUntilIdle()
 
         assertEquals(expected, result)
@@ -135,9 +144,9 @@ class ShareViewModelTest {
         )
 
         every { storage.getRecentAppsUpTo(RECENT_APPS_LIMIT) } returns emptyList()
-        coEvery { viewModel.buildAppsList(any(), any()) } returns appOptions
+        coEvery { viewModel.buildAppsList(any()) } returns appOptions
 
-        viewModel.initDataLoad(testContext)
+        viewModel.initDataLoad()
         testDispatcher.scheduler.advanceUntilIdle()
 
         val state = viewModel.uiState.value
@@ -150,10 +159,10 @@ class ShareViewModelTest {
     @Test
     fun `WHEN no apps found THEN at least have copy to clipboard available`() = runTest(testDispatcher) {
         every { storage.getRecentAppsUpTo(RECENT_APPS_LIMIT) } returns emptyList()
-        coEvery { viewModel.getIntentActivities(any(), any()) } returns emptyList()
-        coEvery { viewModel.buildAppsList(any(), any()) } returns emptyList()
+        coEvery { viewModel.getIntentActivities(any()) } returns emptyList()
+        coEvery { viewModel.buildAppsList(any()) } returns emptyList()
 
-        viewModel.initDataLoad(testContext)
+        viewModel.initDataLoad()
         testDispatcher.scheduler.advanceUntilIdle()
 
         val state = viewModel.uiState.value

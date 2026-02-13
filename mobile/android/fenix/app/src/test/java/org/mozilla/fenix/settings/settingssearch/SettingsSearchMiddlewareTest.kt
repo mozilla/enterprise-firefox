@@ -15,27 +15,23 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.spyk
 import io.mockk.verify
-import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import mozilla.components.support.test.robolectric.testContext
-import mozilla.components.support.test.rule.MainCoroutineRule
 import org.junit.After
 import org.junit.Before
-import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import kotlin.time.Duration.Companion.milliseconds
 
-@OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(AndroidJUnit4::class)
 class SettingsSearchMiddlewareTest {
 
-    @get:Rule
-    val coroutineRule = MainCoroutineRule()
-
+    private val testDispatcher = StandardTestDispatcher()
+    private val testScope = TestScope(testDispatcher)
     private val navController: NavController = mockk(relaxed = true)
     private lateinit var lifecycleOwner: FakeLifecycleOwner
     private lateinit var fragment: Fragment
@@ -43,7 +39,7 @@ class SettingsSearchMiddlewareTest {
     private val recentSearchesFlow = MutableStateFlow<List<SettingsSearchItem>>(emptyList())
 
     @Before
-    fun setUp() {
+    fun setUp() = runTest(testDispatcher) {
         every { recentSearchesRepository.recentSearches } returns recentSearchesFlow
         lifecycleOwner = FakeLifecycleOwner(Lifecycle.State.RESUMED)
         fragment = spyk(Fragment()).apply {
@@ -56,83 +52,79 @@ class SettingsSearchMiddlewareTest {
         fenixSettingsIndexer: SettingsIndexer = TestSettingsIndexer(),
         navController: NavController = this.navController,
         recentSettingsSearchesRepository: RecentSettingsSearchesRepository = this.recentSearchesRepository,
-        scope: CoroutineScope = coroutineRule.scope,
-        dispatcher: CoroutineDispatcher = coroutineRule.testDispatcher,
     ) = SettingsSearchMiddleware(
         fenixSettingsIndexer = fenixSettingsIndexer,
         navController = navController,
         recentSettingsSearchesRepository = recentSettingsSearchesRepository,
-        scope = scope,
-        dispatcher = dispatcher,
+        scope = testScope,
+        dispatcher = testDispatcher,
     )
 
     @Test
-    fun `WHEN the settings search query is updated and results are not found THEN the state is updated`() {
+    fun `WHEN the settings search query is updated and results are not found THEN the state is updated`() = runTest(testDispatcher) {
         val middleware = buildMiddleware(EmptyTestSettingsIndexer())
         val query = "longSample"
         val store = SettingsSearchStore(middleware = listOf(middleware))
         store.dispatch(SettingsSearchAction.SearchQueryUpdated(query))
+        testDispatcher.scheduler.advanceUntilIdle()
+
         assert(store.state is SettingsSearchState.NoSearchResults)
         assert(store.state.searchQuery == query)
         assert(store.state.searchResults.isEmpty())
     }
 
     @Test
-    fun `WHEN the settings search query is updated and results are found THEN the state is updated`() {
+    fun `WHEN the settings search query is updated and results are found THEN the state is updated`() = runTest(testDispatcher) {
         val middleware = buildMiddleware()
         val query = "a"
         val store = SettingsSearchStore(middleware = listOf(middleware))
         store.dispatch(SettingsSearchAction.Init)
+        testDispatcher.scheduler.advanceUntilIdle()
+
         store.dispatch(SettingsSearchAction.SearchQueryUpdated(query))
+        testDispatcher.scheduler.advanceUntilIdle()
+
         assert(store.state is SettingsSearchState.SearchInProgress)
         assert(store.state.searchQuery == query)
     }
 
     @Test
-    fun `WHEN a result item is clicked THEN it should be added to the recent searches repository`() {
+    fun `WHEN a result item is clicked THEN it should be added to the recent searches repository`() = runTest(testDispatcher) {
         val middleware = buildMiddleware()
         val store = SettingsSearchStore(middleware = listOf(middleware))
         val testItem = testList.first()
 
         store.dispatch(SettingsSearchAction.Init)
+        testDispatcher.scheduler.advanceUntilIdle()
 
         store.dispatch(SettingsSearchAction.ResultItemClicked(testItem))
+        testDispatcher.scheduler.advanceUntilIdle()
 
         coVerify { recentSearchesRepository.addRecentSearchItem(testItem) }
         verify { navController.navigate(testItem.preferenceFileInformation.fragmentId, any()) }
     }
 
     @Test
-    fun `WHEN RecentSearchesUpdated is dispatched THEN store state is updated correctly`() {
-        val middleware = buildMiddleware()
-        val store = SettingsSearchStore(middleware = listOf(middleware))
-        val updatedRecents = listOf(testList.first())
-
-        store.dispatch(SettingsSearchAction.RecentSearchesUpdated(updatedRecents))
-
-        assert(store.state.recentSearches == updatedRecents)
-    }
-
-    @Test
-    fun `WHEN ClearRecentSearchesClicked is dispatched THEN store state is updated correctly`() {
+    fun `WHEN ClearRecentSearchesClicked is dispatched THEN store state is updated correctly`() = runTest(testDispatcher) {
         val middleware = buildMiddleware()
         val store = SettingsSearchStore(middleware = listOf(middleware))
 
         store.dispatch(SettingsSearchAction.ClearRecentSearchesClicked)
+        testDispatcher.scheduler.advanceUntilIdle()
 
         assert(store.state.recentSearches.isEmpty())
     }
 
     @Test
-    fun `WHEN multiple search queries are dispatched rapidly THEN previous search job is cancelled`() {
+    fun `WHEN multiple search queries are dispatched rapidly THEN previous search job is cancelled`() = runTest(testDispatcher) {
         val indexer = SlowTestSettingsIndexer(delayMs = 1000L)
         val middleware = buildMiddleware(fenixSettingsIndexer = indexer)
         val store = SettingsSearchStore(middleware = listOf(middleware))
 
         store.dispatch(SettingsSearchAction.SearchQueryUpdated("query1"))
-        coroutineRule.testDispatcher.scheduler.advanceTimeBy(100)
+        testDispatcher.scheduler.advanceTimeBy(100.milliseconds)
         store.dispatch(SettingsSearchAction.SearchQueryUpdated("query2"))
-        coroutineRule.testDispatcher.scheduler.advanceUntilIdle()
+        testDispatcher.scheduler.advanceUntilIdle()
 
         assert(store.state.searchQuery == "query2")
         assert(store.state is SettingsSearchState.SearchInProgress)
@@ -140,12 +132,12 @@ class SettingsSearchMiddlewareTest {
     }
 
     @Test
-    fun `WHEN a search query completes without interruption THEN results are properly dispatched`() {
+    fun `WHEN a search query completes without interruption THEN results are properly dispatched`() = runTest(testDispatcher) {
         val middleware = buildMiddleware()
         val store = SettingsSearchStore(middleware = listOf(middleware))
 
         store.dispatch(SettingsSearchAction.SearchQueryUpdated("a"))
-        coroutineRule.testDispatcher.scheduler.advanceUntilIdle()
+        testDispatcher.scheduler.advanceUntilIdle()
 
         assert(store.state is SettingsSearchState.SearchInProgress)
         assert(store.state.searchQuery == "a")
@@ -154,15 +146,15 @@ class SettingsSearchMiddlewareTest {
     }
 
     @Test
-    fun `WHEN a slow search is in progress and a new query arrives THEN old search is cancelled and does not dispatch results`() {
+    fun `WHEN a slow search is in progress and a new query arrives THEN old search is cancelled and does not dispatch results`() = runTest(testDispatcher) {
         val indexer = DelayedTestSettingsIndexer(delayMs = 500L)
         val middleware = buildMiddleware(fenixSettingsIndexer = indexer)
         val store = SettingsSearchStore(middleware = listOf(middleware))
 
         store.dispatch(SettingsSearchAction.SearchQueryUpdated("slow"))
-        coroutineRule.testDispatcher.scheduler.advanceTimeBy(200)
+        testDispatcher.scheduler.advanceTimeBy(200.milliseconds)
         store.dispatch(SettingsSearchAction.SearchQueryUpdated("fast"))
-        coroutineRule.testDispatcher.scheduler.advanceUntilIdle()
+        testDispatcher.scheduler.advanceUntilIdle()
 
         assert(store.state.searchQuery == "fast")
         assert(indexer.queryCalls.size == 2)
@@ -171,15 +163,15 @@ class SettingsSearchMiddlewareTest {
     }
 
     @Test
-    fun `WHEN an empty query is dispatched while search is in progress THEN search is cancelled and state returns to default`() {
+    fun `WHEN an empty query is dispatched while search is in progress THEN search is cancelled and state returns to default`() = runTest(testDispatcher) {
         val indexer = SlowTestSettingsIndexer(delayMs = 1000L)
         val middleware = buildMiddleware(fenixSettingsIndexer = indexer)
         val store = SettingsSearchStore(middleware = listOf(middleware))
 
         store.dispatch(SettingsSearchAction.SearchQueryUpdated("query"))
-        coroutineRule.testDispatcher.scheduler.advanceTimeBy(100)
+        testDispatcher.scheduler.advanceTimeBy(100.milliseconds)
         store.dispatch(SettingsSearchAction.SearchQueryUpdated(""))
-        coroutineRule.testDispatcher.scheduler.advanceUntilIdle()
+        testDispatcher.scheduler.advanceUntilIdle()
 
         assert(store.state is SettingsSearchState.Default)
         assert(store.state.searchQuery.isEmpty())
@@ -187,17 +179,17 @@ class SettingsSearchMiddlewareTest {
     }
 
     @Test
-    fun `WHEN multiple queries are dispatched with varying completion times THEN only the most recent query results are displayed`() {
+    fun `WHEN multiple queries are dispatched with varying completion times THEN only the most recent query results are displayed`() = runTest(testDispatcher) {
         val indexer = VariableDelayTestSettingsIndexer()
         val middleware = buildMiddleware(fenixSettingsIndexer = indexer)
         val store = SettingsSearchStore(middleware = listOf(middleware))
 
         store.dispatch(SettingsSearchAction.SearchQueryUpdated("query1"))
-        coroutineRule.testDispatcher.scheduler.advanceTimeBy(50)
+        testDispatcher.scheduler.advanceTimeBy(50.milliseconds)
         store.dispatch(SettingsSearchAction.SearchQueryUpdated("query2"))
-        coroutineRule.testDispatcher.scheduler.advanceTimeBy(50)
+        testDispatcher.scheduler.advanceTimeBy(50.milliseconds)
         store.dispatch(SettingsSearchAction.SearchQueryUpdated("query3"))
-        coroutineRule.testDispatcher.scheduler.advanceUntilIdle()
+        testDispatcher.scheduler.advanceUntilIdle()
 
         assert(store.state.searchQuery == "query3")
         assert(store.state is SettingsSearchState.SearchInProgress)
@@ -209,12 +201,11 @@ class SettingsSearchMiddlewareTest {
         val indexer = spyk(TestSettingsIndexer())
         val middleware = buildMiddleware(
             fenixSettingsIndexer = indexer,
-            dispatcher = coroutineRule.testDispatcher,
         )
         val store = SettingsSearchStore(middleware = listOf(middleware))
 
         store.dispatch(SettingsSearchAction.Init)
-        coroutineRule.testDispatcher.scheduler.advanceUntilIdle()
+        testDispatcher.scheduler.advanceUntilIdle()
 
         coVerify { indexer.indexAllSettings() }
     }

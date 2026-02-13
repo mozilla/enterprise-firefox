@@ -11,6 +11,8 @@ import "chrome://browser/content/aiwindow/components/input-cta.mjs";
 import "chrome://browser/content/aiwindow/components/suggestions-panel-list.mjs";
 // eslint-disable-next-line import/no-unassigned-import
 import "chrome://browser/content/aiwindow/components/memories-icon-button.mjs";
+// eslint-disable-next-line import/no-unassigned-import
+import "chrome://browser/content/aiwindow/components/context-icon-button.mjs";
 
 const { XPCOMUtils } = ChromeUtils.importESModule(
   "resource://gre/modules/XPCOMUtils.sys.mjs"
@@ -154,6 +156,7 @@ export class SmartbarInput extends HTMLElement {
         <moz-urlbar-slot name="page-actions" hidden=""> </moz-urlbar-slot>
       </hbox>
       <hbox class="smartbar-button-container">
+        <html:context-icon-button></html:context-icon-button>
         <html:memories-icon-button></html:memories-icon-button>
         <html:input-cta action=""></html:input-cta>
       </hbox>
@@ -343,6 +346,7 @@ export class SmartbarInput extends HTMLElement {
       this.#ensureSmartbarEditor();
       this._inputCta = this.querySelector("input-cta");
       this._inputCta.setAttribute("action", this.smartbarAction);
+      this.#updateCtaSearchEngineInfo();
       this._inputCta.addEventListener(
         "aiwindow-input-cta:on-action-change",
         this
@@ -4580,6 +4584,23 @@ export class SmartbarInput extends HTMLElement {
   }
 
   /**
+   * Updates the input-cta based on the current search mode.
+   */
+  async #updateCtaSearchEngineInfo() {
+    if (!this.#isSmartbarMode) {
+      return;
+    }
+
+    // Get default engine from current search mode
+    const engine = lazy.UrlbarSearchUtils.getDefaultEngine(this.isPrivate);
+
+    this._inputCta.searchEngineInfo = {
+      name: engine.name,
+      icon: await engine.getIconURL(),
+    };
+  }
+
+  /**
    * Updates the UI so that search mode is either entered or exited.
    *
    * @param {object} searchMode
@@ -4605,6 +4626,7 @@ export class SmartbarInput extends HTMLElement {
     if (!engineName && !source) {
       this.removeAttribute("searchmode");
       this.initPlaceHolder(true);
+      this.#updateCtaSearchEngineInfo();
       return;
     }
 
@@ -4873,6 +4895,10 @@ export class SmartbarInput extends HTMLElement {
   _updatePlaceholder(engineName) {
     if (!engineName) {
       throw new Error("Expected an engineName to be specified");
+    }
+
+    if (this.#isSmartbarMode) {
+      this.#updateCtaSearchEngineInfo();
     }
 
     if (this.searchMode || !this.#isAddressbar) {

@@ -178,7 +178,7 @@ export class SidebarHistory extends SidebarPage {
     this.controller.deleteFromHistory().catch(console.error);
   }
 
-  onAuxAction(e) {
+  onMiddleClickAction(e) {
     if (this.isMultipleRowsSelected) {
       // Avoid opening multiple links at once.
       return;
@@ -358,7 +358,7 @@ export class SidebarHistory extends SidebarPage {
       .tabItems=${tabItems}
       @fxview-tab-list-primary-action=${this.onPrimaryAction}
       @fxview-tab-list-secondary-action=${this.onSecondaryAction}
-      @fxview-tab-list-aux-action=${this.onAuxAction}
+      @fxview-tab-list-middleclick-action=${this.onMiddleClickAction}
     >
     </sidebar-tab-list>`;
   }

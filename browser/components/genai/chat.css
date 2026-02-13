@@ -89,8 +89,8 @@ browser {
 
   .onboardingContainer {
     height: unset;
-    margin: var(--space-large);
-    margin-top: max(36px, 10vh - 31px);
+    margin: auto var(--space-large);
+    min-height: unset;
   }
 
   .screen {

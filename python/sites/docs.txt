@@ -21,6 +21,8 @@ pypi:sphinx-markdown-tables==0.0.17
 pypi:sphinx-rtd-theme==2.0.0
 pypi:sphinx-tabs==3.4.7
 pypi:sphinxcontrib-mermaid==1.0.0
+# psutil is needed for autodoc to import mozbuild.doctor and marionette_driver.processhandler
+requirements-txt:build/psutil_requirements.txt
 requirements-txt:taskcluster/requirements.txt
 vendored:third_party/python/aiohappyeyeballs
 vendored:third_party/python/aiohttp

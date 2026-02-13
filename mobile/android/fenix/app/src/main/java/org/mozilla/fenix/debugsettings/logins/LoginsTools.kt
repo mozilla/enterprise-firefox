@@ -156,6 +156,9 @@ internal class FakeLoginsStorage : LoginsStorage {
     override suspend fun get(guid: String): Login? = null
     override suspend fun touch(guid: String) = Unit
     override suspend fun list(): List<Login> = listOf()
+    override suspend fun count(): Long {
+        return list().size.toLong()
+    }
     override suspend fun findLoginToUpdate(entry: LoginEntry): Login? = null
     override suspend fun add(entry: LoginEntry): Login {
         val guid = UUID.randomUUID().toString()

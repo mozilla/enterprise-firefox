@@ -127,9 +127,8 @@ function getUpdateInstall(addon) {
 
 function isManualUpdate(install) {
   const isExistingHidden = install.existingAddon?.hidden;
-  // NOTE: some of the existing test cases are mocking an AddonInstall
-  // instance without an `install.addon` property set
-  // (e.g. browser_html_pending_updates.js).
+  // install.addon can be missing if the install was retrieved from an update
+  // check, without having downloaded and parsed the linked xpi yet.
   const isNewHidden = install.addon?.hidden;
   // Not a manual update installation if both the existing and old
   // addon are hidden (which also ensures we are going to hide pending
@@ -1420,10 +1419,25 @@ class CategoriesBox extends customElements.get("button-group") {
   }
 
   async updateAvailableCount() {
+    // Note: This list includes new installs and updates, potentially multiple
+    // for the same add-on (because they are not cleaned up - bug 2007749).
     let installs = await AddonManager.getAllInstalls();
-    var count = installs.filter(install => {
-      return isManualUpdate(install) && !install.installed;
-    }).length;
+    let addonIdsWithUpdate = new Set();
+    for (const install of installs) {
+      if (isManualUpdate(install) && install.existingAddon) {
+        // Note: install.existingAddon points to the existing addon at the time
+        // of the update check, which is not necessarily the current version.
+        const addon = await AddonManager.getAddonByID(install.existingAddon.id);
+        if (
+          addon &&
+          getUpdateInstall(addon) === install &&
+          Services.vc.compare(install.version, addon.version) > 0
+        ) {
+          addonIdsWithUpdate.add(addon.id);
+        }
+      }
+    }
+    const count = addonIdsWithUpdate.size;
     let availableButton = this.getButtonByName("available-updates");
     availableButton.hidden = !availableButton.selected && count == 0;
     availableButton.badgeCount = count;
@@ -4433,9 +4447,9 @@ gViewController.defineView("updates", async param => {
         filterFn: addon => {
           // Filter the addons visible in the updates view using the same
           // criteria that is being used to compute the counter on the
-          // available updates category button badge.
+          // available updates category button badge (updateAvailableCount).
           const install = getUpdateInstall(addon);
-          return install && isManualUpdate(install) && !install.installed;
+          return install && isManualUpdate(install);
         },
       },
     ]);

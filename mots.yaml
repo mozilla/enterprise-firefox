@@ -8,7 +8,7 @@
 # documentation and how to modify this file.
 repo: mozilla-central
 created_at: '2021-10-14T12:50:40.073465'
-updated_at: '2026-02-04T21:37:00.601823+00:00'
+updated_at: '2026-02-11T17:34:29.613108+00:00'
 export:
   path: ./docs/mots/index.rst
   format: rst
@@ -1155,6 +1155,10 @@ people:
     bmo_id: 373403
     name: Xidorn Quan
     nick: xidorn
+  - &yannis
+    bmo_id: 712696
+    name: Yannis Juglaret
+    nick: yannis
   - &yulia
     bmo_id: 600802
     name: Yulia Startsev
@@ -2766,6 +2770,7 @@ modules:
       - *bobowen
     peers:
       - *handyman
+      - *yannis
     machine_name: core_sandboxing_windows
 
   - name: 'Core: security'
@@ -4716,5 +4721,5 @@ modules:
         - Ryan Tilder
       group: dev-platform
 hashes:
-  config: dca905ad82c5bb43b44a4db068dfe988b592fe13
-  export: bbece186da876a62b4777ffa92f8241e22d5630a
+  config: 36a009ed334704bab5135624fdbbbaa301e3dd9e
+  export: 0414324b5b32471f3d1547a2c3efc6e5af58c00b

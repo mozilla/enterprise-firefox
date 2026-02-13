@@ -110,6 +110,10 @@ void CSSUnitValue::ToCssTextWithProperty(const CSSPropertyId& aPropertyId,
   }
 }
 
+StyleUnitValue CSSUnitValue::ToStyleUnitValue() const {
+  return StyleUnitValue(mValue, StyleCssString(mUnit));
+}
+
 const CSSUnitValue& CSSNumericValue::GetAsCSSUnitValue() const {
   MOZ_DIAGNOSTIC_ASSERT(mNumericValueType == NumericValueType::UnitValue);
 

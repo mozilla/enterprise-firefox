@@ -7,6 +7,7 @@
  */
 
 import { JSONFile } from "resource://gre/modules/JSONFile.sys.mjs";
+import { CATEGORY_TO_ID_PREFIX } from "moz-src:///browser/components/aiwindow/models/memories/MemoriesConstants.sys.mjs";
 
 /**
  * MemoryStore
@@ -306,12 +307,15 @@ export const MemoryStore = {
    *   Sort direction.
    * @param {boolean} [options.includeSoftDeleted=false]
    *   Whether to include soft-deleted memories.
+   * @param {Array<string>} [options.memoryIds=[]]
+   *   Optional list of memory IDs; will return all if list is empty
    * @returns {Promise<Memory[]>}
    */
   async getMemories({
     sortBy = "updated_at",
     sortDir = "desc",
     includeSoftDeleted = false,
+    memoryIds = [],
   } = {}) {
     await this.ensureInitialized();
 
@@ -319,6 +323,10 @@ export const MemoryStore = {
 
     if (!includeSoftDeleted) {
       res = res.filter(i => !i.is_deleted);
+    }
+
+    if (memoryIds.length) {
+      res = res.filter(i => memoryIds.includes(i.id));
     }
 
     if (sortBy) {
@@ -400,9 +408,17 @@ function hashStringToHex(str) {
  *
  * @param {object} memoryPartial
  */
-function makeMemoryId(memoryPartial) {
+export function makeMemoryId(memoryPartial) {
   if (memoryPartial.id) {
     return memoryPartial.id;
+  }
+
+  let id_prefix;
+  if (CATEGORY_TO_ID_PREFIX.hasOwnProperty(memoryPartial.category)) {
+    id_prefix = CATEGORY_TO_ID_PREFIX[memoryPartial.category];
+  } else {
+    // Fallback in case the model returns an invalid category
+    id_prefix = "mem";
   }
 
   const summary = (memoryPartial.memory_summary || "").trim().toLowerCase();
@@ -412,5 +428,5 @@ function makeMemoryId(memoryPartial) {
   const key = `${summary}||${category}||${intent}`;
   const hex = hashStringToHex(key);
 
-  return `ins-${hex}`;
+  return `${id_prefix}.${hex}`;
 }

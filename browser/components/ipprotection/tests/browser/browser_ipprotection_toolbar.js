@@ -15,6 +15,24 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///browser/components/ipprotection/IPProtectionService.sys.mjs",
 });
 
+async function resetCustomization() {
+  let customizationReadyPromise = BrowserTestUtils.waitForEvent(
+    window.gNavToolbox,
+    "customizationready"
+  );
+  gCustomizeMode.enter();
+  await customizationReadyPromise;
+
+  await gCustomizeMode.reset();
+
+  let afterCustomizationPromise = BrowserTestUtils.waitForEvent(
+    window.gNavToolbox,
+    "aftercustomization"
+  );
+  gCustomizeMode.exit();
+  await afterCustomizationPromise;
+}
+
 /**
  * Tests that toolbar widget is added and removed based on
  * `browser.ipProtection.enabled` controlled by Nimbus.
@@ -29,7 +47,7 @@ add_task(async function toolbar_added_and_removed() {
     IPProtectionWidget.WIDGET_ID
   ).position;
   // By default, the button for revamped sidebar is placed at the beginning of the navbar.
-  let expectedPosition = Services.prefs.getBoolPref("sidebar.revamp") ? 8 : 7;
+  let expectedPosition = Services.prefs.getBoolPref("sidebar.revamp") ? 9 : 8;
   Assert.equal(
     position,
     expectedPosition,
@@ -280,6 +298,11 @@ add_task(async function toolbar_removed() {
     isEnrolled: true,
   });
 
+  // Ensure that the added pref is still set, as it is unset at the end of each test.
+  await SpecialPowers.pushPrefEnv({
+    set: [[IPProtectionWidget.ADDED_PREF, true]],
+  });
+
   let start = CustomizableUI.getPlacementOfWidget(IPProtectionWidget.WIDGET_ID);
   Assert.equal(
     start.area,
@@ -319,5 +342,52 @@ add_task(async function toolbar_removed() {
     IPProtectionWidget.WIDGET_ID,
     start.area,
     start.position
+  );
+});
+
+/**
+ * Tests that toolbar widget can be moved and will reset
+ * back to the initial area on customize mode reset.
+ */
+add_task(async function toolbar_placement_reset() {
+  setupService({
+    isSignedIn: true,
+    isEnrolledAndEntitled: true,
+  });
+
+  let start = CustomizableUI.getPlacementOfWidget(IPProtectionWidget.WIDGET_ID);
+  Assert.equal(
+    start.area,
+    CustomizableUI.AREA_NAVBAR,
+    "IP Protection widget is initially added to the nav bar"
+  );
+
+  // Move widget to overflow
+  CustomizableUI.addWidgetToArea(
+    IPProtectionWidget.WIDGET_ID,
+    CustomizableUI.AREA_FIXED_OVERFLOW_PANEL
+  );
+
+  let end = CustomizableUI.getPlacementOfWidget(IPProtectionWidget.WIDGET_ID);
+  Assert.equal(
+    end.area,
+    CustomizableUI.AREA_FIXED_OVERFLOW_PANEL,
+    "IP Protection widget moved to the overflow area"
+  );
+
+  await resetCustomization();
+
+  let restored = CustomizableUI.getPlacementOfWidget(
+    IPProtectionWidget.WIDGET_ID
+  );
+  Assert.equal(
+    restored.area,
+    start.area,
+    "IP Protection widget is reset to the initial area after customize mode reset"
+  );
+  Assert.equal(
+    restored.position,
+    start.position,
+    "IP Protection widget is reset to the initial position after customize mode reset"
   );
 });

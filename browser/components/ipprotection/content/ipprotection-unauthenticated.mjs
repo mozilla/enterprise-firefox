@@ -4,6 +4,7 @@
 
 import { MozLitElement } from "chrome://global/content/lit-utils.mjs";
 import { html } from "chrome://global/content/vendor/lit.all.mjs";
+import { BANDWIDTH } from "chrome://browser/content/ipprotection/ipprotection-constants.mjs";
 
 /**
  * A custom element that handles the signed out status of IP Protection.
@@ -45,9 +46,7 @@ export default class IPProtectionUnauthenticatedContentElement extends MozLitEle
           <li data-l10n-id="unauthenticated-hide-location-message"></li>
           <li
             data-l10n-id="unauthenticated-bandwidth-limit-message"
-            data-l10n-args=${JSON.stringify({
-              maxUsage: 150,
-            })}
+            data-l10n-args=${JSON.stringify({ maxUsage: BANDWIDTH.MAX_IN_GB })}
           ></li>
         </ul>
         <moz-button

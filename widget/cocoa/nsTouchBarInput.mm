@@ -119,6 +119,7 @@
             [[TouchBarInput alloc] initWithXPCOM:child];
         if (convertedChild) {
           orderedChildren[i] = convertedChild;
+          [convertedChild release];
         }
       }
       [self setChildren:orderedChildren];

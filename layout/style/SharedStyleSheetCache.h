@@ -13,6 +13,8 @@
 #include "mozilla/MemoryReporting.h"
 #include "mozilla/SharedSubResourceCache.h"
 #include "mozilla/css/Loader.h"
+#include "nsIMemoryReporter.h"
+#include "nsIObserver.h"
 
 namespace mozilla {
 
@@ -38,7 +40,8 @@ struct SharedStyleSheetCacheTraits {
 class SharedStyleSheetCache final
     : public SharedSubResourceCache<SharedStyleSheetCacheTraits,
                                     SharedStyleSheetCache>,
-      public nsIMemoryReporter {
+      public nsIMemoryReporter,
+      public nsIObserver {
  public:
   using Base = SharedSubResourceCache<SharedStyleSheetCacheTraits,
                                       SharedStyleSheetCache>;
@@ -48,6 +51,11 @@ class SharedStyleSheetCache final
 
   SharedStyleSheetCache();
   void Init();
+
+  NS_IMETHOD Observe(nsISupports* aSubject, const char* aTopic,
+                     const char16_t* aData) override {
+    return Base::DoObserve(aSubject, aTopic, aData);
+  }
 
   // This has to be static because it's also called for loaders that don't have
   // a sheet cache (loaders that are not owned by a document).
@@ -101,6 +109,8 @@ class SharedStyleSheetCache final
   nsTHashMap<PrincipalHashKey,
              nsTHashMap<nsStringHashKey, InlineSheetCandidates>>
       mInlineSheets;
+
+  bool ShouldIgnoreMemoryPressure() override { return false; }
 
   ~SharedStyleSheetCache();
 };

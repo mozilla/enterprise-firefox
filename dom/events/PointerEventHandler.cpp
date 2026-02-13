@@ -1018,9 +1018,9 @@ void PointerEventHandler::InitPointerEventFromTouch(
   aPointerEvent.mModifiers = aTouchEvent.mModifiers;
   aPointerEvent.mWidth = aTouch.RadiusX(CallerType::System);
   aPointerEvent.mHeight = aTouch.RadiusY(CallerType::System);
-  aPointerEvent.tiltX = aTouch.tiltX;
-  aPointerEvent.tiltY = aTouch.tiltY;
+  aPointerEvent.mTilt = aTouch.mTilt;
   aPointerEvent.twist = aTouch.twist;
+  aPointerEvent.mAngle = aTouch.mAngle;
   aPointerEvent.mTimeStamp = aTouchEvent.mTimeStamp;
   aPointerEvent.mFlags = aTouchEvent.mFlags;
   aPointerEvent.mButton = button;

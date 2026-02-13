@@ -1434,6 +1434,8 @@ class BrowserRobot(private val composeTestRule: ComposeTestRule) {
             mDevice.pressBack()
             Log.i(TAG, "goToHomescreen: Clicked the device back button")
 
+            composeTestRule.waitForIdle()
+
             HomeScreenRobot(composeTestRule).interact()
             return HomeScreenRobot.Transition(composeTestRule)
         }

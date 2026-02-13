@@ -4,7 +4,7 @@
 
 "use strict";
 
-const { MemoryStore } = ChromeUtils.importESModule(
+const { MemoryStore, makeMemoryId } = ChromeUtils.importESModule(
   "moz-src:///browser/components/aiwindow/services/MemoryStore.sys.mjs"
 );
 
@@ -323,4 +323,32 @@ add_task(async function test_reasoning_field_persistence() {
   );
 
   await FreshStore.hardDeleteMemory(memory.id);
+});
+
+add_task(async function test_create_memory_id_from_valid_category() {
+  const memoryPartial = {
+    memory_summary: "Likes coffee",
+    category: "Food & Drink",
+    intent: "Communicate / Share",
+  };
+  const memoryId = makeMemoryId(memoryPartial);
+  Assert.equal(
+    memoryId.split(".")[0],
+    "food_drink",
+    "Memory ID should start with the correct category prefix"
+  );
+});
+
+add_task(async function test_create_memory_id_from_invalid_category() {
+  const memoryPartial = {
+    memory_summary: "Likes coffee",
+    category: "Foods & Drinks",
+    intent: "Communicate / Share",
+  };
+  const memoryId = makeMemoryId(memoryPartial);
+  Assert.equal(
+    memoryId.split(".")[0],
+    "mem",
+    "Memory ID should start with the correct category prefix"
+  );
 });

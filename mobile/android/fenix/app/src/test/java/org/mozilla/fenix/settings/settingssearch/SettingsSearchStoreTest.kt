@@ -199,6 +199,16 @@ class SettingsSearchStoreTest {
         assertEquals("test", store.state.searchQuery)
     }
 
+    @Test
+    fun `WHEN RecentSearchesUpdated is dispatched THEN store state is updated correctly`() {
+        val store = SettingsSearchStore()
+        val updatedRecents = listOf(testList.first())
+
+        store.dispatch(SettingsSearchAction.RecentSearchesUpdated(updatedRecents))
+
+        assert(store.state.recentSearches == updatedRecents)
+    }
+
     private fun createTestItem(title: String, category: String): SettingsSearchItem {
         return SettingsSearchItem(
             title = title,

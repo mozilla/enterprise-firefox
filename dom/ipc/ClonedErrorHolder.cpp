@@ -264,7 +264,7 @@ bool ClonedErrorHolder::ToErrorValue(JSContext* aCx,
   JS::Rooted<JSObject*> stack(aCx);
 
   IgnoredErrorResult rv;
-  mStack.Read(xpc::CurrentNativeGlobal(aCx), aCx, &stackVal, rv);
+  mStack.Read(aCx, &stackVal, rv);
   // Note: We continue even if reading the stack fails, since we can still
   // produce a useful error object even without a stack. That said, if decoding
   // the stack fails, there's a pretty good chance that the rest of the message

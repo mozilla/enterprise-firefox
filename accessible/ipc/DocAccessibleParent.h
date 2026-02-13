@@ -106,7 +106,7 @@ class DocAccessibleParent : public RemoteAccessible,
       const uint64_t& aID, const LayoutDeviceIntRect& aCaretRect,
       const int32_t& aOffset, const bool& aIsSelectionCollapsed,
       const bool& aIsAtEndOfLine, const int32_t& aGranularity,
-      const bool& aFromUser) final;
+      const bool& aFromUser, const bool& aSuppressEvent) final;
 
   virtual mozilla::ipc::IPCResult RecvMutationEvents(
       nsTArray<MutationEventData>&& aData) override;

@@ -12,7 +12,9 @@ import androidx.annotation.VisibleForTesting.Companion.PRIVATE
 import androidx.fragment.app.DialogFragment
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentManager
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.map
 import mozilla.components.browser.state.action.ContentAction
@@ -184,6 +186,7 @@ class PromptFeature private constructor(
     private val store: BrowserStore,
     private var customTabId: String?,
     private val fragmentManager: FragmentManager,
+    private val mainDispatcher: CoroutineDispatcher,
     private val identityCredentialColorsProvider: DialogColorsProvider = DialogColorsProvider {
         DialogColors.default()
     },
@@ -249,6 +252,7 @@ class PromptFeature private constructor(
         store: BrowserStore,
         customTabId: String? = null,
         fragmentManager: FragmentManager,
+        mainDispatcher: CoroutineDispatcher = Dispatchers.Main,
         tabsUseCases: TabsUseCases,
         identityCredentialColorsProvider: DialogColorsProvider = DialogColorsProvider { DialogColors.default() },
         shareDelegate: ShareDelegate = DefaultShareDelegate(),
@@ -281,8 +285,8 @@ class PromptFeature private constructor(
         store = store,
         customTabId = customTabId,
         fragmentManager = fragmentManager,
-        tabsUseCases = tabsUseCases,
         identityCredentialColorsProvider = identityCredentialColorsProvider,
+        tabsUseCases = tabsUseCases,
         shareDelegate = shareDelegate,
         exitFullscreenUsecase = exitFullscreenUsecase,
         creditCardValidationDelegate = creditCardValidationDelegate,
@@ -292,8 +296,6 @@ class PromptFeature private constructor(
         isCreditCardAutofillEnabled = isCreditCardAutofillEnabled,
         isAddressAutofillEnabled = isAddressAutofillEnabled,
         loginExceptionStorage = loginExceptionStorage,
-        fileUploadsDirCleaner = fileUploadsDirCleaner,
-        onNeedToRequestPermissions = onNeedToRequestPermissions,
         loginDelegate = loginDelegate,
         suggestStrongPasswordDelegate = suggestStrongPasswordDelegate,
         shouldAutomaticallyShowSuggestedPassword = shouldAutomaticallyShowSuggestedPassword,
@@ -305,7 +307,10 @@ class PromptFeature private constructor(
         removeLastSavedGeneratedPassword = removeLastSavedGeneratedPassword,
         creditCardDelegate = creditCardDelegate,
         addressDelegate = addressDelegate,
+        fileUploadsDirCleaner = fileUploadsDirCleaner,
+        onNeedToRequestPermissions = onNeedToRequestPermissions,
         androidPhotoPicker = androidPhotoPicker,
+        mainDispatcher = mainDispatcher,
     )
 
     constructor(
@@ -313,6 +318,7 @@ class PromptFeature private constructor(
         store: BrowserStore,
         customTabId: String? = null,
         fragmentManager: FragmentManager,
+        mainDispatcher: CoroutineDispatcher = Dispatchers.Main,
         tabsUseCases: TabsUseCases,
         shareDelegate: ShareDelegate = DefaultShareDelegate(),
         exitFullscreenUsecase: ExitFullScreenUseCase = SessionUseCases(store).exitFullscreen,
@@ -365,6 +371,7 @@ class PromptFeature private constructor(
         fileUploadsDirCleaner = fileUploadsDirCleaner,
         onNeedToRequestPermissions = onNeedToRequestPermissions,
         androidPhotoPicker = androidPhotoPicker,
+        mainDispatcher = mainDispatcher,
     )
 
     @VisibleForTesting
@@ -441,7 +448,7 @@ class PromptFeature private constructor(
     override fun start() {
         promptAbuserDetector.resetJSAlertAbuseState()
 
-        handlePromptScope = store.flowScoped { flow ->
+        handlePromptScope = store.flowScoped(dispatcher = mainDispatcher) { flow ->
             flow.map { state -> state.findTabOrCustomTabOrSelectedTab(customTabId) }
                 .ifAnyChanged {
                     arrayOf(it?.content?.promptRequests, it?.content?.loading)
@@ -511,7 +518,7 @@ class PromptFeature private constructor(
         }
 
         // Dismiss all prompts when page host or session id changes. See Fenix#5326
-        dismissPromptScope = store.flowScoped { flow ->
+        dismissPromptScope = store.flowScoped(dispatcher = mainDispatcher) { flow ->
             flow.ifAnyChanged { state ->
                 arrayOf(
                     state.selectedTabId,

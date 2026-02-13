@@ -97,10 +97,40 @@ bool CSSNumericValue::Equals(const Sequence<OwningCSSNumberish>& aValue) {
   return false;
 }
 
+// https://drafts.css-houdini.org/css-typed-om-1/#dom-cssnumericvalue-to
 already_AddRefed<CSSUnitValue> CSSNumericValue::To(const nsACString& aUnit,
                                                    ErrorResult& aRv) {
-  aRv.Throw(NS_ERROR_NOT_IMPLEMENTED);
-  return nullptr;
+  // Step 1.
+  // TODO: Let type be the result of creating a type from unit. If type is
+  // failure, throw a SyntaxError.
+
+  // Step 2.
+  auto styleNumericValueResult = ToStyleNumericValue();
+  if (styleNumericValueResult.IsUnsupported()) {
+    aRv.Throw(NS_ERROR_NOT_IMPLEMENTED);
+    return nullptr;
+  }
+
+  auto sumValue =
+      WrapUnique(Servo_SumValue_Create(&styleNumericValueResult.AsNumeric()));
+  if (!sumValue) {
+    aRv.ThrowTypeError("Failed to create a sum value");
+    return nullptr;
+  }
+
+  // Step 3.
+  StyleUnitValueResult styleUnitValueResult =
+      StyleUnitValueResult::Unsupported();
+  Servo_SumValue_ToUnit(sumValue.get(), &aUnit, &styleUnitValueResult);
+  if (styleUnitValueResult.IsUnsupported()) {
+    aRv.ThrowTypeError("Failed to convert to "_ns + aUnit);
+    return nullptr;
+  }
+
+  // Step 4.
+  RefPtr<CSSUnitValue> unitValue =
+      CSSUnitValue::Create(mParent, styleUnitValueResult.AsUnit());
+  return unitValue.forget();
 }
 
 already_AddRefed<CSSMathSum> CSSNumericValue::ToSum(
@@ -166,6 +196,28 @@ void CSSNumericValue::ToCssTextWithProperty(const CSSPropertyId& aPropertyId,
     case NumericValueType::Uninitialized:
       break;
   }
+}
+
+StyleNumericValueResult CSSNumericValue::ToStyleNumericValue() const {
+  switch (GetNumericValueType()) {
+    case NumericValueType::MathSum: {
+      const CSSMathSum& mathSum = GetAsCSSMathSum();
+
+      return StyleNumericValueResult::Numeric(
+          StyleNumericValue::Sum(mathSum.ToStyleMathSum()));
+    }
+
+    case NumericValueType::UnitValue: {
+      const CSSUnitValue& unitValue = GetAsCSSUnitValue();
+
+      return StyleNumericValueResult::Numeric(
+          StyleNumericValue::Unit(unitValue.ToStyleUnitValue()));
+    }
+
+    case NumericValueType::Uninitialized:
+      return StyleNumericValueResult::Unsupported();
+  }
+  MOZ_MAKE_COMPILER_ASSUME_IS_UNREACHABLE("Bad numeric value type!");
 }
 
 CSSNumericValue& CSSStyleValue::GetAsCSSNumericValue() {

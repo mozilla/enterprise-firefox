@@ -62,7 +62,7 @@ class NotificationCallback final
   void HandleActivation(LPCWSTR invokedArgs);
   mozilla::Maybe<ToastArgs> ParseToastArguments(LPCWSTR invokedArgs);
   std::tuple<path, mozilla::UniquePtr<wchar_t[]>> BuildRunCommand(
-      const ToastArgs& args);
+      const mozilla::Maybe<ToastArgs>& args);
 
   static mozilla::Maybe<nsAutoHandle> CreatePipe(const std::wstring& tag);
   static bool ConnectPipeWithTimeout(const nsAutoHandle& pipe);

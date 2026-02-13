@@ -146,16 +146,9 @@ static FrameChildListID ChildListIDForOutOfFlow(nsFrameState aPlaceholderState,
   if (aPlaceholderState & PLACEHOLDER_FOR_FLOAT) {
     return FrameChildListID::Float;
   }
-  if (aPlaceholderState & PLACEHOLDER_FOR_FIXEDPOS) {
-    return nsLayoutUtils::MayBeReallyFixedPos(aChild)
-               ? FrameChildListID::Fixed
-               : FrameChildListID::Absolute;
-  }
-  if (aPlaceholderState & PLACEHOLDER_FOR_ABSPOS) {
-    return FrameChildListID::Absolute;
-  }
-  MOZ_DIAGNOSTIC_CRASH("unknown list");
-  return FrameChildListID::Float;
+  MOZ_ASSERT(aPlaceholderState &
+             (PLACEHOLDER_FOR_FIXEDPOS | PLACEHOLDER_FOR_ABSPOS));
+  return FrameChildListID::Absolute;
 }
 
 void nsPlaceholderFrame::Destroy(DestroyContext& aContext) {

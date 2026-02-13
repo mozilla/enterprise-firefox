@@ -94,7 +94,6 @@ import mozilla.components.support.ktx.android.view.hideKeyboard
 import mozilla.components.support.ktx.kotlin.toShortUrl
 import mozilla.components.ui.widgets.withCenterAlignedButtons
 import mozilla.telemetry.glean.private.NoExtras
-import org.mozilla.fenix.HomeActivity
 import org.mozilla.fenix.NavHostActivity
 import org.mozilla.fenix.R
 import org.mozilla.fenix.addons.showSnackBar
@@ -109,6 +108,7 @@ import org.mozilla.fenix.components.search.HISTORY_SEARCH_ENGINE_ID
 import org.mozilla.fenix.databinding.FragmentHistoryBinding
 import org.mozilla.fenix.ext.components
 import org.mozilla.fenix.ext.getRootView
+import org.mozilla.fenix.ext.hideToolbar
 import org.mozilla.fenix.ext.nav
 import org.mozilla.fenix.ext.pixelSizeFor
 import org.mozilla.fenix.ext.requireComponents
@@ -303,7 +303,7 @@ class HistoryFragment : LibraryPageFragment<History>(), UserInteractionHandler, 
             updateDeleteMenuItemView(!it.isEmpty)
         }
 
-        requireContext().components.appStore.flowScoped(viewLifecycleOwner) { flow ->
+        requireContext().components.appStore.flowScoped(viewLifecycleOwner, Dispatchers.Main) { flow ->
             flow.mapNotNull { state -> state.pendingDeletionHistoryItems }.collect { items ->
                 historyStore.dispatch(
                     HistoryFragmentAction.UpdatePendingDeletionItems(pendingDeletionItems = items),
@@ -591,10 +591,13 @@ class HistoryFragment : LibraryPageFragment<History>(), UserInteractionHandler, 
             (selectedItem as? History.Regular)?.url ?: (selectedItem as? History.Metadata)?.url
         }
 
-        (activity as HomeActivity).apply {
-            browsingModeManager.mode = BrowsingMode.Private
-            supportActionBar?.hide()
-        }
+        requireComponents.appStore.dispatch(
+            AppAction.BrowsingModeManagerModeChanged(
+                mode =
+            BrowsingMode.Private,
+            ),
+        )
+        hideToolbar()
 
         showTabTray(openInPrivate = true)
         historyStore.dispatch(HistoryFragmentAction.ExitEditMode)
@@ -669,7 +672,7 @@ class HistoryFragment : LibraryPageFragment<History>(), UserInteractionHandler, 
         requireComponents.useCases.fenixBrowserUseCases.loadUrlOrSearch(
             searchTermOrURL = item.url,
             newTab = requireComponents.settings.enableHomepageAsNewTab.not(),
-            private = (requireActivity() as HomeActivity).browsingModeManager.mode.isPrivate,
+            private = requireComponents.appStore.state.mode.isPrivate,
         )
         findNavController().navigate(R.id.browserFragment)
     }
@@ -796,7 +799,6 @@ class HistoryFragment : LibraryPageFragment<History>(), UserInteractionHandler, 
                 BrowserToolbarSyncToHistoryMiddleware(historyStore),
                 BrowserToolbarSearchStatusSyncMiddleware(
                     appStore = requireComponents.appStore,
-                    browsingModeManager = (requireActivity() as HomeActivity).browsingModeManager,
                     scope = lifecycleScope,
                 ),
                 BrowserToolbarSearchMiddleware(
@@ -805,7 +807,6 @@ class HistoryFragment : LibraryPageFragment<History>(), UserInteractionHandler, 
                     browserStore = requireComponents.core.store,
                     components = requireComponents,
                     navController = findNavController(),
-                    browsingModeManager = (requireActivity() as HomeActivity).browsingModeManager,
                     settings = requireComponents.settings,
                     scope = lifecycleScope,
                 ),
@@ -830,8 +831,8 @@ class HistoryFragment : LibraryPageFragment<History>(), UserInteractionHandler, 
             initialState = it,
             middleware = listOf(
                 BrowserToolbarToFenixSearchMapperMiddleware(
+                    appStore = requireComponents.appStore,
                     toolbarStore = toolbarStore,
-                    browsingModeManager = (requireActivity() as HomeActivity).browsingModeManager,
                     scope = lifecycleScope,
                 ),
                 BrowserStoreToFenixSearchMapperMiddleware(
@@ -848,7 +849,6 @@ class HistoryFragment : LibraryPageFragment<History>(), UserInteractionHandler, 
                     browserStore = requireComponents.core.store,
                     toolbarStore = toolbarStore,
                     navController = findNavController(),
-                    browsingModeManager = (requireActivity() as HomeActivity).browsingModeManager,
                 ),
             ),
         )

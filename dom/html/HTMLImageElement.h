@@ -250,7 +250,7 @@ class HTMLImageElement final : public nsGenericHTMLElement,
       nsAString& aResult);
 
   enum class StartLoad : bool { No, Yes };
-  void StopLazyLoading(StartLoad = StartLoad::Yes);
+  void StopLazyLoading(StartLoad);
 
   // This is used when restyling, for retrieving the extra style from the source
   // element.

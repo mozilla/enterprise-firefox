@@ -13,10 +13,10 @@ class nsNSSVersion final : public nsINSSVersion {
   NS_DECL_ISUPPORTS
   NS_DECL_NSINSSVERSION
 
-  nsNSSVersion();
+  nsNSSVersion() = default;
 
  private:
-  ~nsNSSVersion();
+  ~nsNSSVersion() = default;
 };
 
 #define NS_NSSVERSION_CID \

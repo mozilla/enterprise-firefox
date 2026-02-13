@@ -30,13 +30,22 @@ const TEST_MEMORIES = [
     memory_summary: "Loves drinking coffee",
     category: "Food & Drink",
     intent: "Plan / Organize",
+    reasoning: "Frequeently orders coffee online for pickup",
     score: 3,
   },
   {
     memory_summary: "Buys dog food online",
     category: "Pets & Animals",
     intent: "Buy / Acquire",
+    reasoning: "Frequently buys dog food on websites like Chewy",
     score: 4,
+  },
+  {
+    memory_summary: "Plays games online",
+    category: "Games",
+    intent: "Entertain / Relax",
+    reasoning: "Visits a lot of gaming-related websites",
+    score: 5,
   },
 ];
 
@@ -172,6 +181,42 @@ add_task(async function test_getAllMemories() {
       `Memory summary "${memorySummary}" should be in the test memories.`
     );
   });
+
+  await deleteAllMemories();
+});
+
+/**
+ * Tests retrieving specific memories by ID
+ */
+add_task(async function test_getMemoriesByID() {
+  await addMemories();
+
+  const memories = await MemoriesManager.getAllMemories();
+  const firstMemoryToRetrieve = memories[0];
+  const secontMemoryToRetreive = memories[2];
+
+  const memoryRetrievedById = await MemoriesManager.getMemoriesByID([
+    firstMemoryToRetrieve.id,
+    secontMemoryToRetreive.id,
+  ]);
+  const retrievedMemorySummaries = memoryRetrievedById.map(
+    mem => mem.memory_summary
+  );
+
+  Assert.equal(
+    memoryRetrievedById.length,
+    2,
+    "Should have retrieved both memories by their IDs"
+  );
+
+  Assert.ok(
+    retrievedMemorySummaries.includes(firstMemoryToRetrieve.memory_summary),
+    "Memories retrieved by ID should include the first expected summary"
+  );
+  Assert.ok(
+    retrievedMemorySummaries.includes(secontMemoryToRetreive.memory_summary),
+    "Memories retrieved by ID should include the second expected summary"
+  );
 
   await deleteAllMemories();
 });

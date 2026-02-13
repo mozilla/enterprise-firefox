@@ -141,7 +141,7 @@ export async function constructRelevantMemoriesContextMessage(message) {
       "- " +
       relevantMemories
         .map(memory => {
-          return memory.memory_summary;
+          return `${memory.id} - ${memory.memory_summary}`;
         })
         .join("\n- ");
     const content = await lazy.renderPrompt(

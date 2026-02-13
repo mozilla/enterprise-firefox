@@ -92,6 +92,11 @@ prefs = [
 
 ["test_ext_action.html"]
 
+["test_ext_action_openPopup_multiple.html"]
+skip-if = [
+  "os == 'android'", # bug 2016283
+]
+
 ["test_ext_activityLog.html"]
 skip-if = [
   "http2",
@@ -135,9 +140,6 @@ skip-if = [
 ]
 
 ["test_ext_browserAction_openPopup_windowId.html"]
-skip-if = [
-  "os == 'android'", # only the current window is supported - bug 1795956
-]
 
 ["test_ext_browserAction_openPopup_without_pref.html"]
 

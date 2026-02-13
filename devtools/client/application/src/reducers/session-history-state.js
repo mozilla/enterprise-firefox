@@ -6,6 +6,7 @@
 
 const {
   UPDATE_SESSION_HISTORY,
+  UPDATE_SESSION_HISTORY_ENTRY,
 } = require("resource://devtools/client/application/src/constants.js");
 
 function SessionHistory() {
@@ -13,6 +14,7 @@ function SessionHistory() {
     count: 0,
     current: 0,
     rows: [],
+    entriesByKey: {},
   };
 }
 
@@ -20,13 +22,33 @@ function sessionHistoryReducer(state = SessionHistory(), action) {
   switch (action.type) {
     case UPDATE_SESSION_HISTORY: {
       const { sessionHistory } = action;
+      const entriesByKey = {};
       return Object.assign({}, state, {
         count: sessionHistory.count,
         current: sessionHistory.index,
-        rows: createRows(sessionHistory),
+        rows: createRows(sessionHistory, entriesByKey),
+        entriesByKey,
       });
     }
-
+    case UPDATE_SESSION_HISTORY_ENTRY: {
+      const { sessionHistoryEntry } = action;
+      const entryKey = key(sessionHistoryEntry.ID);
+      const entry = state.entriesByKey[entryKey];
+      if (!entry) {
+        return state;
+      }
+      return {
+        ...state,
+        entriesByKey: {
+          ...state.entriesByKey,
+          [entryKey]: {
+            ...entry,
+            // only title can be updated at the moment
+            title: sessionHistoryEntry.title,
+          },
+        },
+      };
+    }
     default:
       return state;
   }
@@ -121,7 +143,7 @@ class Diagram {
   }
 }
 
-function createRows(sessionHistory) {
+function createRows(sessionHistory, entriesByKey) {
   const lookup = new Map();
 
   const size = sessionHistory.count;
@@ -175,18 +197,12 @@ function createRows(sessionHistory) {
           const url = new URL(`${entry.URI.spec}`);
           newEntry = {
             age: 1,
-            fields: {
-              url,
-              title: entry.title,
-              name: entry.name,
-              id: entry.navigationId,
-              key: entry.navigationKey,
-              bfcache: entry.isInBFCache,
-            },
+            key: key(entry.ID),
           };
           const parent = entry.parent?.navigationId;
+          const extra = {};
           if (parent) {
-            newEntry.fields.parent = parent;
+            extra.parent = parent;
           }
           const numChildren = getChildCount(entry);
           if (numChildren) {
@@ -194,9 +210,18 @@ function createRows(sessionHistory) {
             for (let index = 0; index < numChildren; ++index) {
               children[index] = getChildAt(entry, index)?.navigationId;
             }
-            newEntry.fields.children = children;
+            extra.children = children;
           }
 
+          entriesByKey[key(entry.ID)] = {
+            url,
+            title: entry.title,
+            name: entry.name,
+            id: entry.navigationId,
+            key: entry.navigationKey,
+            bfcache: entry.isInBFCache,
+            ...extra,
+          };
           row.push(newEntry);
         } else if (entry !== Diagram.EMPTY || previous.empty == Diagram.EMPTY) {
           newEntry.age++;

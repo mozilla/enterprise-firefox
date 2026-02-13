@@ -323,7 +323,10 @@ def setup_vscode_or_vscodium(ide, command_context, interactive):
             "If you later switch to a full build, please re-run this command."
         )
     else:
-        new_settings = setup_clangd_rust_in_vscode(command_context)
+        return_value = setup_clangd_rust_in_vscode(command_context)
+        if isinstance(return_value, int):
+            return return_value
+        new_settings = return_value
 
     relobjdir = mozpath.relpath(command_context.topobjdir, command_context.topsrcdir)
 
@@ -495,20 +498,22 @@ def setup_clangd_rust_in_vscode(command_context):
 
     clangd_path = mozpath.join(
         clang_tidy_bin,
-        "clangd" + command_context.config_environment.substs.get("BIN_SUFFIX", ""),
+        "clangd" + command_context.config_environment.substs.get("HOST_BIN_SUFFIX", ""),
     )
 
     if not os.path.exists(clangd_path):
-        command_context.log(
-            logging.ERROR,
-            "ide",
-            {},
-            f"Unable to locate clangd in {clang_tidy_bin}.",
-        )
-        rc = get_clang_tools(command_context, clang_tools_path)
+        from mozbuild.bootstrap import bootstrap_toolchain
 
-        if rc != 0:
-            return rc
+        bootstrap_toolchain("clang-tools/clang-tidy")
+
+        if not os.path.exists(clangd_path):
+            command_context.log(
+                logging.ERROR,
+                "ide",
+                {},
+                f"Unable to locate clangd in {clang_tidy_bin}.",
+            )
+            return 1
 
     from mozbuild.code_analysis.utils import ClangTidyConfig
 
@@ -569,44 +574,6 @@ def setup_clangd_rust_in_vscode(command_context):
     add_flattened_keys("rust-analyzer", rust_analyzer_cfg)
 
     return config
-
-
-def get_clang_tools(command_context, clang_tools_path):
-    import shutil
-
-    if os.path.isdir(clang_tools_path):
-        shutil.rmtree(clang_tools_path)
-
-    # Create base directory where we store clang binary
-    os.mkdir(clang_tools_path)
-
-    from mozbuild.artifact_commands import artifact_toolchain
-
-    job, _ = command_context.platform
-
-    if job is None:
-        command_context.log(
-            logging.ERROR,
-            "ide",
-            {},
-            "The current platform isn't supported. "
-            "Currently only the following platforms are "
-            "supported: win32/win64, linux64 and macosx64.",
-        )
-        return 1
-
-    job += "-clang-tidy"
-
-    # We want to unpack data in the clang-tidy mozbuild folder
-    currentWorkingDir = os.getcwd()
-    os.chdir(clang_tools_path)
-    rc = artifact_toolchain(
-        command_context, verbose=False, from_build=[job], no_unpack=False, retry=0
-    )
-    # Change back the cwd
-    os.chdir(currentWorkingDir)
-
-    return rc
 
 
 def prompt_bool(prompt, limit=5):

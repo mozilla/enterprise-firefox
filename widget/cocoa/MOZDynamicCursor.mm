@@ -223,8 +223,9 @@ static constexpr nsCursor kCustomCursor = eCursorCount;
   uint32_t hotspotY =
       aCursor.mHotspotY > (uint32_t(size.height) - 1) ? 0 : aCursor.mHotspotY;
   NSPoint hotSpot = ::NSMakePoint(hotspotX, hotspotY);
-  [self setCursor:[[NSCursor alloc] initWithImage:cursorImage hotSpot:hotSpot]
-             type:kCustomCursor];
+  NSCursor* newCursor = [[[NSCursor alloc] initWithImage:cursorImage
+                                                 hotSpot:hotSpot] autorelease];
+  [self setCursor:newCursor type:kCustomCursor];
   [cursorImage release];
   return NS_OK;
 }

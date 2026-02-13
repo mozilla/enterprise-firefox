@@ -38,8 +38,10 @@ import org.mozilla.fenix.HomeActivity
 import org.mozilla.fenix.R
 import org.mozilla.fenix.components.accounts.FenixFxAEntryPoint
 import org.mozilla.fenix.components.initializeGlean
+import org.mozilla.fenix.components.metrics.installSourcePackage
 import org.mozilla.fenix.components.startMetricsIfEnabled
 import org.mozilla.fenix.compose.LinkTextState
+import org.mozilla.fenix.ext.application
 import org.mozilla.fenix.ext.components
 import org.mozilla.fenix.ext.hideToolbar
 import org.mozilla.fenix.ext.isDefaultBrowserPromptSupported
@@ -92,7 +94,19 @@ class OnboardingFragment : Fragment() {
             ).toMutableList()
         }
     }
-    private val telemetryRecorder by lazy { OnboardingTelemetryRecorder() }
+    private val telemetryRecorder by lazy {
+        OnboardingTelemetryRecorder(
+            onboardingReason = if (requireComponents.settings.enablePersistentOnboarding) {
+                OnboardingReason.EXISTING_USER
+            } else {
+                OnboardingReason.NEW_USER
+            },
+            installSource = installSourcePackage(
+                packageManager = requireContext().application.packageManager,
+                packageName = requireContext().application.packageName,
+            ),
+        )
+    }
 
     private val onboardingStore by fragmentStore(OnboardingState()) {
         OnboardingStore(
@@ -329,6 +343,9 @@ class OnboardingFragment : Fragment() {
             currentIndex = { index ->
                 removeMarketingFeature.withFeature { it.currentPageIndex = index }
             },
+            onNavigateToNextPage = {
+                telemetryRecorder.onNavigatedToNextPage()
+            },
         )
     }
 
@@ -450,6 +467,9 @@ class OnboardingFragment : Fragment() {
                     pagesToDisplay.telemetrySequenceId(),
                     pagesToDisplay.sequencePosition(OnboardingPageUiData.Type.THEME_SELECTION),
                 )
+            },
+            onNavigateToNextPage = {
+                telemetryRecorder.onNavigatedToNextPage()
             },
         )
     }

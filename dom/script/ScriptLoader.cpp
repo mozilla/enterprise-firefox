@@ -176,8 +176,9 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(ScriptLoader)
   }
   NS_IMPL_CYCLE_COLLECTION_UNLINK(
       mNonAsyncExternalScriptInsertedRequests, mLoadingAsyncRequests,
-      mLoadedAsyncRequests, mOffThreadCompilingRequests, mDeferRequests,
-      mXSLTRequests, mParserBlockingRequest, mDiskCacheQueue, mPreloads,
+      mLoadedAsyncRequests, mDeferRequests, mXSLTRequests,
+      mParserBlockingRequest, mOffThreadCompilingRequests,
+      mDiskCacheableDependencyModules, mDiskCacheQueue, mPreloads,
       mPendingChildLoaders, mModuleLoader, mWebExtModuleLoaders,
       mShadowRealmModuleLoaders)
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
@@ -185,8 +186,9 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(ScriptLoader)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(
       mNonAsyncExternalScriptInsertedRequests, mLoadingAsyncRequests,
-      mLoadedAsyncRequests, mOffThreadCompilingRequests, mDeferRequests,
-      mXSLTRequests, mParserBlockingRequest, mDiskCacheQueue, mPreloads,
+      mLoadedAsyncRequests, mDeferRequests, mXSLTRequests,
+      mParserBlockingRequest, mOffThreadCompilingRequests,
+      mDiskCacheableDependencyModules, mDiskCacheQueue, mPreloads,
       mPendingChildLoaders, mModuleLoader, mWebExtModuleLoaders,
       mShadowRealmModuleLoaders)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
@@ -2820,9 +2822,25 @@ void ScriptLoader::CalculateCacheFlag(ScriptLoadRequest* aRequest) {
   }
 
   if (mCache) {
-    LOG(("ScriptLoadRequest (%p): Bytecode-cache: Mark in-memory: Stencil",
-         aRequest));
-    aRequest->MarkPassedConditionForMemoryCache();
+    if (mCache->IsLowMemory()) {
+      // During the low-memory situation, we avoid creating another cache,
+      // with the following rationale.
+      //
+      // If there are multiple tabs that share single cache entry, the existence
+      // of the cache effectively reduces the memory consumption, but the
+      // most common use case is with a single tab, and in that case the cache
+      // does not reduce the memory consumption but only reduces the cost of
+      // the calculation across navigation.
+      LOG(
+          ("ScriptLoadRequest (%p): Bytecode-cache: Skip in-memory: memory "
+           "pressure",
+           aRequest));
+      aRequest->MarkSkippedMemoryCaching();
+    } else {
+      LOG(("ScriptLoadRequest (%p): Bytecode-cache: Mark in-memory: Stencil",
+           aRequest));
+      aRequest->MarkPassedConditionForMemoryCache();
+    }
 
     // Disk cache is handled by SharedScriptCache.
     return;
@@ -3402,6 +3420,11 @@ void ScriptLoader::TryCacheRequest(ScriptLoadRequest* aRequest) {
   }
 
   MOZ_ASSERT(mCache);
+
+  if (mCache->IsLowMemory()) {
+    TRACE_FOR_TEST(aRequest, "memorycache:memorypressure");
+    return;
+  }
 
   if (!JS::IsStencilCacheable(aRequest->GetStencil())) {
     // If the stencil is not compatible with the cache (e.g. contains asm.js),

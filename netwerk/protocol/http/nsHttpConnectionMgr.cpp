@@ -77,6 +77,8 @@ struct UrlMarker {
     schema.SetTableLabel("{marker.data.url}");
     schema.AddKeyFormat("url", MS::Format::Url);
     schema.AddKeyLabelFormat("duration", "Duration", MS::Format::Duration);
+    // Bug 1618687 - Use channelId to segment "Waiting for Socket Thread".
+    schema.AddKeyFormat("channelId", MS::Format::Integer);
     return schema;
   }
 };

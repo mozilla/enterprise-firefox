@@ -61,13 +61,13 @@ class SVGFECompositeElement final : public SVGFECompositeElementBase {
   EnumAttributesInfo GetEnumInfo() override;
   StringAttributesInfo GetStringInfo() override;
 
-  enum { ATTR_K1, ATTR_K2, ATTR_K3, ATTR_K4 };
-  SVGAnimatedNumber mNumberAttributes[4];
-  static NumberInfo sNumberInfo[4];
-
   enum { RESULT, IN1, IN2 };
   SVGAnimatedString mStringAttributes[3];
   static StringInfo sStringInfo[3];
+
+  enum { ATTR_K1, ATTR_K2, ATTR_K3, ATTR_K4 };
+  SVGAnimatedNumber mNumberAttributes[4];
+  static NumberInfo sNumberInfo[4];
 
   enum { OPERATOR };
   SVGAnimatedEnumeration mEnumAttributes[1];

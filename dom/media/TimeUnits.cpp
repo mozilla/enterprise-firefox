@@ -80,7 +80,7 @@ TimeUnit TimeUnit::FromSeconds(double aValue, int64_t aBase) {
   // base -- we can keep this for some time until we're confident this is
   // stable.
   double inBase = aValue * static_cast<double>(aBase);
-  if (std::abs(inBase) >
+  if (std::abs(inBase) >=
       static_cast<double>(std::numeric_limits<int64_t>::max())) {
     NS_WARNING(
         nsPrintfCString("Warning: base %" PRId64

@@ -410,13 +410,11 @@ bool OperatorIn(JSContext* cx, HandleValue key, HandleObject obj, bool* out);
                                      MutableHandleValue rval);
 
 [[nodiscard]] bool CreateThisFromIC(JSContext* cx, HandleObject callee,
-                                    HandleObject newTarget,
-                                    MutableHandleValue rval);
-[[nodiscard]] bool CreateThisFromICWithAllocSite(JSContext* cx,
-                                                 HandleObject callee,
-                                                 HandleObject newTarget,
-                                                 gc::AllocSite* site,
-                                                 MutableHandleValue rval);
+                                    HandleObject newTarget, Value* argv,
+                                    uint32_t argc, MutableHandleValue rval);
+[[nodiscard]] bool CreateThisFromICWithAllocSite(
+    JSContext* cx, HandleObject callee, HandleObject newTarget,
+    gc::AllocSite* site, Value* argv, uint32_t argc, MutableHandleValue rval);
 [[nodiscard]] bool CreateThisFromIon(JSContext* cx, HandleObject callee,
                                      HandleObject newTarget,
                                      MutableHandleValue rval);

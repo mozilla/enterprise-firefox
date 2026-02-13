@@ -21,7 +21,7 @@ namespace mozilla::dom {
 static const unsigned short SVG_STITCHTYPE_STITCH = 1;
 static const unsigned short SVG_STITCHTYPE_NOSTITCH = 2;
 
-static const int32_t MAX_OCTAVES = 10;
+static constexpr int32_t MAX_OCTAVES = 10;
 
 JSObject* SVGFETurbulenceElement::WrapNode(JSContext* aCx,
                                            JS::Handle<JSObject*> aGivenProto) {

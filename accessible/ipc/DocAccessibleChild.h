@@ -147,6 +147,13 @@ class DocAccessibleChild : public PDocAccessibleChild {
 
   virtual mozilla::ipc::IPCResult RecvAckMutationEvents() override;
 
+  /**
+   * Get the caret rect suitable to be sent via IPC. This is used with
+   * SendCaretMoveEvent and SendFocusEvent.
+   */
+  static mozilla::LayoutDeviceIntRect GetCaretRectForIPCEvent(
+      LocalAccessible* aAcc);
+
  private:
   // Set to true if we have sent mutation events that have not yet been
   // acknowledged by the parent process. We only request and receive one ACK per

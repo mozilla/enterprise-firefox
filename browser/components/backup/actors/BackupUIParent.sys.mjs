@@ -187,12 +187,11 @@ export class BackupUIParent extends JSWindowActorParent {
 
       if (existingBackupPath) {
         try {
-          let folder = (await IOUtils.getFile(existingBackupPath)).parent;
-          if (folder.exists()) {
-            fp.displayDirectory = folder;
-          }
+          let folder = await IOUtils.getFile(existingBackupPath);
+          // IOUtils.getFile creates the parent directory, so it should exist.
+          fp.displayDirectory = folder.parent;
         } catch (_) {
-          // If the file can not be found we will skip setting the displayDirectory.
+          // If the path isn't valid, don't bother setting the displayDirectory.
         }
       }
 

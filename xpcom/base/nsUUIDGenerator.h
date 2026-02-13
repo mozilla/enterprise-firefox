@@ -16,7 +16,7 @@ class nsUUIDGenerator final : public nsIUUIDGenerator {
   NS_DECL_NSIUUIDGENERATOR
 
  private:
-  ~nsUUIDGenerator();
+  ~nsUUIDGenerator() = default;
 };
 
 #define NS_UUID_GENERATOR_CONTRACTID "@mozilla.org/uuid-generator;1"

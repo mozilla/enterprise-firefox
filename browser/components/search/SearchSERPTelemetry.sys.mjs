@@ -2117,8 +2117,11 @@ class ContentHandler {
         source: impressionInfo.source,
         is_private: impressionInfo.isPrivate,
         is_signed_in: impressionInfo.isSignedIn,
-        ...impressionInfo.urlBasedAttributes,
-        ...info.elementBasedAttributes,
+        is_shopping_page:
+          impressionInfo.urlBasedAttributes?.is_shopping_page ?? "false",
+        shopping_tab_displayed:
+          info.elementBasedAttributes?.shopping_tab_displayed ?? "false",
+        has_ai_summary: info.elementBasedAttributes?.has_ai_summary ?? "false",
       });
 
       telemetryState.impressionRecorded = true;
@@ -2126,8 +2129,6 @@ class ContentHandler {
       lazy.logConsole.debug(`Reported Impression:`, {
         impressionId,
         ...impressionInfo,
-        ...impressionInfo.urlBasedAttributes,
-        ...info.elementBasedAttributes,
         searchMode: impressionInfo.searchMode,
       });
       Services.obs.notifyObservers(null, "reported-page-with-impression");
@@ -2152,7 +2153,10 @@ class ContentHandler {
       source: impressionInfo.source,
       is_private: impressionInfo.isPrivate,
       is_signed_in: impressionInfo.isSignedIn,
-      ...impressionInfo.urlBasedAttributes,
+      is_shopping_page:
+        impressionInfo.urlBasedAttributes?.is_shopping_page ?? "false",
+      shopping_tab_displayed: "unknown",
+      has_ai_summary: "unknown",
     });
 
     telemetryState.impressionRecorded = true;

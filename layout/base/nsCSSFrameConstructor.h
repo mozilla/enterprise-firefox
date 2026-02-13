@@ -677,9 +677,6 @@ class nsCSSFrameConstructor final : public nsFrameManager {
   /* If FCDATA_MAY_NEED_SCROLLFRAME is set, the new frame should be wrapped in
      a scrollframe if its overflow type so requires. */
 #define FCDATA_MAY_NEED_SCROLLFRAME 0x80
-  /* If FCDATA_IS_POPUP is set, the new frame is a XUL popup frame.  These need
-     some really weird special handling.  */
-#define FCDATA_IS_POPUP 0x100
   /* If FCDATA_SKIP_ABSPOS_PUSH is set, don't push this frame as an
      absolute containing block, no matter what its style says. */
 #define FCDATA_SKIP_ABSPOS_PUSH 0x200
@@ -1120,7 +1117,6 @@ class nsCSSFrameConstructor final : public nsFrameManager {
           mIsGeneratedContent(false),
           mIsAllInline(false),
           mIsBlock(false),
-          mIsPopup(false),
           mIsRenderedLegend(false) {
       MOZ_COUNT_CTOR(FrameConstructionItem);
     }
@@ -1188,9 +1184,6 @@ class nsCSSFrameConstructor final : public nsFrameManager {
     // they might still be blocks (and in particular, out-of-flows that didn't
     // find a containing block).
     bool mIsBlock : 1;
-    // Whether construction from this item will create a popup that needs to
-    // go into the global popup items.
-    bool mIsPopup : 1;
     // Whether this item is the rendered legend of a <fieldset>
     bool mIsRenderedLegend : 1;
 

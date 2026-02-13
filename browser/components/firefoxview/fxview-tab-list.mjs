@@ -597,11 +597,11 @@ export class FxviewTabRowBase extends MozLitElement {
   }
 
   auxActionHandler(event) {
-    if (event.type == "auxclick") {
+    if (event.type == "auxclick" && event.button == 1) {
       event.preventDefault();
       if (!window.IS_STORYBOOK) {
         this.dispatchEvent(
-          new CustomEvent("fxview-tab-list-aux-action", {
+          new CustomEvent("fxview-tab-list-middleclick-action", {
             bubbles: true,
             composed: true,
             detail: { originalEvent: event, item: this },

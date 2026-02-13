@@ -25,6 +25,7 @@ namespace mozilla {
 struct CSSPropertyId;
 class ErrorResult;
 struct StyleNumericValue;
+struct StyleNumericValueResult;
 
 namespace dom {
 
@@ -73,6 +74,7 @@ class CSSNumericValue : public CSSStyleValue {
 
   bool Equals(const Sequence<OwningCSSNumberish>& aValue);
 
+  // https://drafts.css-houdini.org/css-typed-om-1/#dom-cssnumericvalue-to
   already_AddRefed<CSSUnitValue> To(const nsACString& aUnit, ErrorResult& aRv);
 
   already_AddRefed<CSSMathSum> ToSum(const Sequence<nsCString>& aUnits,
@@ -107,6 +109,10 @@ class CSSNumericValue : public CSSStyleValue {
 
   void ToCssTextWithProperty(const CSSPropertyId& aPropertyId,
                              nsACString& aDest) const;
+
+  // TODO: This can be changed to return StyleNumericValue directly once the
+  // Unitialized type is removed.
+  StyleNumericValueResult ToStyleNumericValue() const;
 
  protected:
   virtual ~CSSNumericValue() = default;

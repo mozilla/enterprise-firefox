@@ -1313,19 +1313,13 @@ class Document : public nsINode,
 
   StorageAccessAPIHelper::PerformPermissionGrant CreatePermissionGrantPromise(
       nsPIDOMWindowInner* aInnerWindow, nsIPrincipal* aPrincipal,
-      bool aHasUserInteraction, bool aRequireUserInteraction,
-      const Maybe<nsCString>& aTopLevelBaseDomain, bool aFrameOnly);
+      bool aHasUserInteraction, bool aRequireUserInteraction, bool aFrameOnly);
 
   already_AddRefed<Promise> RequestStorageAccess(ErrorResult& aRv);
 
   already_AddRefed<Promise> RequestStorageAccessForOrigin(
       const nsAString& aThirdPartyOrigin, const bool aRequireUserInteraction,
       ErrorResult& aRv);
-
-  already_AddRefed<Promise> RequestStorageAccessUnderSite(
-      const nsAString& aSerializedSite, ErrorResult& aRv);
-  already_AddRefed<Promise> CompleteStorageAccessRequestFromSite(
-      const nsAString& aSerializedOrigin, ErrorResult& aRv);
 
   bool UseRegularPrincipal() const;
 

@@ -1243,7 +1243,7 @@ nsresult nsCORSListenerProxy::UpdateChannel(nsIChannel* aChannel,
     NS_ENSURE_SUCCESS(rv, rv);
   }
 
-  mHttpChannel = http;
+  mHttpChannel = std::move(http);
 
   return NS_OK;
 }

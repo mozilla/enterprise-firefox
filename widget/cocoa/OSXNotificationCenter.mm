@@ -169,7 +169,7 @@ OSXNotificationCenter::ShowAlert(nsIAlertNotification* aAlert,
   }
 
   Class unClass = NSClassFromString(@"NSUserNotification");
-  NSUserNotification* notification = [[unClass alloc] init];
+  NSUserNotification* notification = [[[unClass alloc] init] autorelease];
 
   nsAutoString title;
   nsresult rv = aAlert->GetTitle(title);
@@ -304,7 +304,6 @@ OSXNotificationCenter::ShowAlert(nsIAlertNotification* aAlert,
   CloseAlertCocoaString(alertName);
   mActiveAlerts.AppendElement(osxni);
   [GetNotificationCenter() deliverNotification:notification];
-  [notification release];
   if (aAlertListener) {
     aAlertListener->Observe(nullptr, "alertshow", cookie.get());
   }

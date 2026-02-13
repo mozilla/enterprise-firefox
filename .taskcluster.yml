@@ -518,12 +518,10 @@ tasks:
                                   # SCM levels all use different workerTypes, so there is no need for priority
                                   # between levels; "low" is the highest priority available at all levels, and
                                   # nothing runs at any higher priority on these workerTypes.
-                                  $if: "tasks_for == 'cron'"
-                                  then: low
-                                  else:
-                                      $if: "tasks_for == 'github-push'"
-                                      then: very-low
-                                      else: lowest  # tasks_for == 'action'
+                                  $switch:
+                                      'eventType == "cron"': "low"
+                                      'eventType == "action"': "lowest"
+                                      $default: "very-low"
                               retries: 5
 
                               payload:

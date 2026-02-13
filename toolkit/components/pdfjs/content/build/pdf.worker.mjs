@@ -21,8 +21,8 @@
  */
 
 /**
- * pdfjsVersion = 5.4.647
- * pdfjsBuild = 222a24c62
+ * pdfjsVersion = 5.5.23
+ * pdfjsBuild = 7077b2a99
  */
 /******/ // The require scope
 /******/ var __webpack_require__ = {};
@@ -3122,7 +3122,7 @@ class ChunkedStreamManager {
         return;
       }
       this.onReceiveData({
-        chunk: data,
+        chunk: data.buffer,
         begin
       });
     });
@@ -3284,7 +3284,7 @@ class ChunkedStreamManager {
       capability.resolve();
     }
     this.msgHandler.send("DocProgress", {
-      loaded: stream.numChunksLoaded * chunkSize,
+      loaded: MathClamp(stream.numChunksLoaded * chunkSize, stream.progressiveDataLength, length),
       total: length
     });
   }
@@ -3330,27 +3330,28 @@ function convertBlackAndWhiteToRGBA({
   const [zeroMapping, oneMapping] = inverseDecode ? [nonBlackColor, black] : [black, nonBlackColor];
   const widthInSource = width >> 3;
   const widthRemainder = width & 7;
+  const xorMask = zeroMapping ^ oneMapping;
   const srcLength = src.length;
   dest = new Uint32Array(dest.buffer);
   let destPos = 0;
-  for (let i = 0; i < height; i++) {
-    for (const max = srcPos + widthInSource; srcPos < max; srcPos++) {
-      const elem = srcPos < srcLength ? src[srcPos] : 255;
-      dest[destPos++] = elem & 0b10000000 ? oneMapping : zeroMapping;
-      dest[destPos++] = elem & 0b1000000 ? oneMapping : zeroMapping;
-      dest[destPos++] = elem & 0b100000 ? oneMapping : zeroMapping;
-      dest[destPos++] = elem & 0b10000 ? oneMapping : zeroMapping;
-      dest[destPos++] = elem & 0b1000 ? oneMapping : zeroMapping;
-      dest[destPos++] = elem & 0b100 ? oneMapping : zeroMapping;
-      dest[destPos++] = elem & 0b10 ? oneMapping : zeroMapping;
-      dest[destPos++] = elem & 0b1 ? oneMapping : zeroMapping;
+  for (let i = 0; i < height; ++i) {
+    for (const max = srcPos + widthInSource; srcPos < max; ++srcPos, destPos += 8) {
+      const elem = src[srcPos];
+      dest[destPos] = zeroMapping ^ -(elem >> 7 & 1) & xorMask;
+      dest[destPos + 1] = zeroMapping ^ -(elem >> 6 & 1) & xorMask;
+      dest[destPos + 2] = zeroMapping ^ -(elem >> 5 & 1) & xorMask;
+      dest[destPos + 3] = zeroMapping ^ -(elem >> 4 & 1) & xorMask;
+      dest[destPos + 4] = zeroMapping ^ -(elem >> 3 & 1) & xorMask;
+      dest[destPos + 5] = zeroMapping ^ -(elem >> 2 & 1) & xorMask;
+      dest[destPos + 6] = zeroMapping ^ -(elem >> 1 & 1) & xorMask;
+      dest[destPos + 7] = zeroMapping ^ -(elem & 1) & xorMask;
     }
     if (widthRemainder === 0) {
       continue;
     }
     const elem = srcPos < srcLength ? src[srcPos++] : 255;
-    for (let j = 0; j < widthRemainder; j++) {
-      dest[destPos++] = elem & 1 << 7 - j ? oneMapping : zeroMapping;
+    for (let j = 0; j < widthRemainder; ++j, ++destPos) {
+      dest[destPos] = zeroMapping ^ -(elem >> 7 - j & 1) & xorMask;
     }
   }
   return {
@@ -3370,31 +3371,32 @@ function convertRGBToRGBA({
   const len = width * height * 3;
   const len32 = len >> 2;
   const src32 = new Uint32Array(src.buffer, srcPos, len32);
+  const alphaMask = FeatureTest.isLittleEndian ? 0xff000000 : 0xff;
   if (FeatureTest.isLittleEndian) {
     for (; i < len32 - 2; i += 3, destPos += 4) {
-      const s1 = src32[i];
-      const s2 = src32[i + 1];
-      const s3 = src32[i + 2];
-      dest[destPos] = s1 | 0xff000000;
-      dest[destPos + 1] = s1 >>> 24 | s2 << 8 | 0xff000000;
-      dest[destPos + 2] = s2 >>> 16 | s3 << 16 | 0xff000000;
-      dest[destPos + 3] = s3 >>> 8 | 0xff000000;
+      const s1 = src32[i],
+        s2 = src32[i + 1],
+        s3 = src32[i + 2];
+      dest[destPos] = s1 | alphaMask;
+      dest[destPos + 1] = s1 >>> 24 | s2 << 8 | alphaMask;
+      dest[destPos + 2] = s2 >>> 16 | s3 << 16 | alphaMask;
+      dest[destPos + 3] = s3 >>> 8 | alphaMask;
     }
     for (let j = i * 4, jj = srcPos + len; j < jj; j += 3) {
-      dest[destPos++] = src[j] | src[j + 1] << 8 | src[j + 2] << 16 | 0xff000000;
+      dest[destPos++] = src[j] | src[j + 1] << 8 | src[j + 2] << 16 | alphaMask;
     }
   } else {
     for (; i < len32 - 2; i += 3, destPos += 4) {
-      const s1 = src32[i];
-      const s2 = src32[i + 1];
-      const s3 = src32[i + 2];
-      dest[destPos] = s1 | 0xff;
-      dest[destPos + 1] = s1 << 24 | s2 >>> 8 | 0xff;
-      dest[destPos + 2] = s2 << 16 | s3 >>> 16 | 0xff;
-      dest[destPos + 3] = s3 << 8 | 0xff;
+      const s1 = src32[i],
+        s2 = src32[i + 1],
+        s3 = src32[i + 2];
+      dest[destPos] = s1 | alphaMask;
+      dest[destPos + 1] = s1 << 24 | s2 >>> 8 | alphaMask;
+      dest[destPos + 2] = s2 << 16 | s3 >>> 16 | alphaMask;
+      dest[destPos + 3] = s3 << 8 | alphaMask;
     }
     for (let j = i * 4, jj = srcPos + len; j < jj; j += 3) {
-      dest[destPos++] = src[j] << 24 | src[j + 1] << 16 | src[j + 2] << 8 | 0xff;
+      dest[destPos++] = src[j] << 24 | src[j + 1] << 16 | src[j + 2] << 8 | alphaMask;
     }
   }
   return {
@@ -3419,7 +3421,7 @@ function grayToRGBA(src, dest) {
 
 
 const MIN_IMAGE_DIM = 2048;
-const MAX_IMAGE_DIM = 65537;
+const MAX_IMAGE_DIM = 32768;
 const MAX_ERROR = 128;
 class ImageResizer {
   static #goodSquareLength = MIN_IMAGE_DIM;
@@ -27835,7 +27837,7 @@ class Font {
         nonStdFontMap = getNonStdFontMap(),
         serifFonts = getSerifFonts();
       for (const namePart of name.split("+")) {
-        let fontName = namePart.replaceAll(/[,_]/g, "-");
+        let fontName = normalizeFontName(namePart);
         fontName = stdFontMap[fontName] || nonStdFontMap[fontName] || fontName;
         fontName = fontName.split("-", 1)[0];
         if (serifFonts[fontName]) {
@@ -36103,7 +36105,7 @@ class PartialEvaluator {
     const emptyXObjectCache = new LocalImageCache();
     const emptyGStateCache = new LocalGStateCache();
     const preprocessor = new EvaluatorPreprocessor(stream, xref, stateManager);
-    let textState;
+    let textState, currentTextState;
     function pushWhitespace({
       width = 0,
       height = 0,
@@ -36271,7 +36273,7 @@ class PartialEvaluator {
       if (textState.font.vertical) {
         const advanceY = (lastPosY - posY) / textContentItem.textAdvanceScale;
         const advanceX = posX - lastPosX;
-        const textOrientation = Math.sign(textContentItem.height);
+        const textOrientation = Math.sign(textContentItem.height || textContentItem.totalHeight);
         if (advanceY < textOrientation * textContentItem.negativeSpaceMax) {
           if (Math.abs(advanceX) > 0.5 * textContentItem.width) {
             appendEOL();
@@ -36315,7 +36317,7 @@ class PartialEvaluator {
       }
       const advanceX = (posX - lastPosX) / textContentItem.textAdvanceScale;
       const advanceY = posY - lastPosY;
-      const textOrientation = Math.sign(textContentItem.width);
+      const textOrientation = Math.sign(textContentItem.width || textContentItem.totalWidth);
       if (advanceX < textOrientation * textContentItem.negativeSpaceMax) {
         if (Math.abs(advanceY) > 0.5 * textContentItem.height) {
           appendEOL();
@@ -36361,6 +36363,10 @@ class PartialEvaluator {
       chars,
       extraSpacing
     }) {
+      if (currentTextState !== textState && (currentTextState.fontName !== textState.fontName || currentTextState.fontSize !== textState.fontSize)) {
+        flushTextContentItem();
+        currentTextState = textState.clone();
+      }
       const font = textState.font;
       if (!chars) {
         const charSpacing = textState.charSpacing + extraSpacing;
@@ -36543,8 +36549,8 @@ class PartialEvaluator {
         if (!preprocessor.read(operation)) {
           break;
         }
-        const previousState = textState;
         textState = stateManager.state;
+        currentTextState ||= textState.clone();
         const fn = operation.fn;
         args = operation.args;
         switch (fn | 0) {
@@ -36554,7 +36560,6 @@ class PartialEvaluator {
             if (textState.font && fontNameArg === textState.fontName && fontSizeArg === textState.fontSize) {
               break;
             }
-            flushTextContentItem();
             textState.fontName = fontNameArg;
             textState.fontSize = fontSizeArg;
             next(handleSetFont(fontNameArg, null));
@@ -36827,9 +36832,10 @@ class PartialEvaluator {
             }
             break;
           case OPS.restore:
-            if (previousState && (previousState.font !== textState.font || previousState.fontSize !== textState.fontSize || previousState.fontName !== textState.fontName)) {
-              flushTextContentItem();
-            }
+            stateManager.restore();
+            break;
+          case OPS.save:
+            stateManager.save();
             break;
         }
         if (textContent.items.length >= (sink?.desiredSize ?? 1)) {
@@ -37304,13 +37310,11 @@ class PartialEvaluator {
     let defaultWidth = 0;
     let widths = Object.create(null);
     let monospace = false;
+    let fontName = normalizeFontName(name);
     const stdFontMap = getStdFontMap();
-    let lookupName = stdFontMap[name] || name;
+    fontName = stdFontMap[fontName] || fontName;
     const Metrics = getMetrics();
-    if (!(lookupName in Metrics)) {
-      lookupName = this.isSerifFont(name) ? "Times-Roman" : "Helvetica";
-    }
-    const glyphWidths = Metrics[lookupName];
+    const glyphWidths = Metrics[fontName] ?? Metrics[this.isSerifFont(name) ? "Times-Roman" : "Helvetica"];
     if (typeof glyphWidths === "number") {
       defaultWidth = glyphWidths;
       monospace = true;
@@ -37480,7 +37484,7 @@ class PartialEvaluator {
         if (!(baseFontName instanceof Name)) {
           throw new FormatError("Base font is not specified");
         }
-        baseFontName = baseFontName.name.replaceAll(/[,_]/g, "-");
+        baseFontName = normalizeFontName(baseFontName.name);
         const metrics = this.getBaseFontMetrics(baseFontName);
         const fontNameWoStyle = baseFontName.split("-", 1)[0];
         const flags = (this.isSerifFont(fontNameWoStyle) ? FontFlags.Serif : 0) | (metrics.monospace ? FontFlags.FixedPitch : 0) | (getSymbolsFonts()[fontNameWoStyle] ? FontFlags.Symbolic : FontFlags.Nonsymbolic);
@@ -37963,7 +37967,7 @@ class TextState {
     this.textMatrix = this.textLineMatrix.slice();
   }
   clone() {
-    const clone = Object.create(this);
+    const clone = Object.assign(Object.create(this), this);
     clone.textMatrix = this.textMatrix.slice();
     clone.textLineMatrix = this.textLineMatrix.slice();
     clone.fontMatrix = this.fontMatrix.slice();
@@ -62435,7 +62439,7 @@ class WorkerMessageHandler {
       docId,
       apiVersion
     } = docParams;
-    const workerVersion = "5.4.647";
+    const workerVersion = "5.5.23";
     if (apiVersion !== workerVersion) {
       throw new Error(`The API version "${apiVersion}" does not match ` + `the Worker version "${workerVersion}".`);
     }
@@ -62582,7 +62586,9 @@ class WorkerMessageHandler {
         });
       }
       function onFailure(ex) {
-        ensureNotTerminated();
+        if (terminated) {
+          return;
+        }
         if (ex instanceof PasswordException) {
           const task = new WorkerTask(`PasswordException: response ${ex.code}`);
           startWorkerTask(task);

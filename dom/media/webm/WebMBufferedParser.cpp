@@ -305,9 +305,15 @@ MediaResult WebMBufferedParser::Append(const unsigned char* aBuffer,
                 // Avoid creating an entry if the timecode is out of order
                 // (invalid according to the WebM specification) so that
                 // ordering invariants of aMapping are not violated.
-                if (idx == 0 || aMapping[idx - 1].mTimecode <= absTimecode ||
-                    (idx + 1 < aMapping.Length() &&
-                     aMapping[idx + 1].mTimecode >= absTimecode)) {
+                // Only insert if absTimecode is properly ordered between its
+                // neighbors:
+                // - No predecessor OR predecessor's timecode <= absTimecode
+                // (lower bound check)
+                // - At end of array OR successor's timecode >= absTimecode
+                // (upper bound check)
+                if ((idx == 0 || aMapping[idx - 1].mTimecode <= absTimecode) &&
+                    (idx == aMapping.Length() ||
+                     aMapping[idx].mTimecode >= absTimecode)) {
                   WebMTimeDataOffset entry(endOffset, absTimecode,
                                            mLastInitStartOffset, mClusterOffset,
                                            mClusterEndOffset);

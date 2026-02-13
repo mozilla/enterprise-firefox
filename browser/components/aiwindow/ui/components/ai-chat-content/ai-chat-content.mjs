@@ -18,6 +18,7 @@ export class AIChatContent extends MozLitElement {
   static properties = {
     assistantIsLoading: { type: Boolean },
     conversationState: { type: Array },
+    followUpSuggestions: { type: Array },
     errorStatus: { type: String },
     isSearching: { type: Boolean },
     searchQuery: { type: String },
@@ -30,6 +31,7 @@ export class AIChatContent extends MozLitElement {
     this.assistantIsLoading = false;
     this.conversationState = [];
     this.errorStatus = null;
+    this.followUpSuggestions = [];
     this.isSearching = false;
     this.searchQuery = null;
     this.showErrorMessage = false;
@@ -45,9 +47,9 @@ export class AIChatContent extends MozLitElement {
     this.#initFooterActionListeners();
   }
 
-  #dispatchFooterAction(action, detail) {
+  #dispatchAction(action, detail) {
     this.dispatchEvent(
-      new CustomEvent("AIChatContent:DispatchFooterAction", {
+      new CustomEvent("AIChatContent:DispatchAction", {
         bubbles: true,
         composed: true,
         detail: {
@@ -77,6 +79,16 @@ export class AIChatContent extends MozLitElement {
       "aiChatContentActor:remove-applied-memory",
       this.removeAppliedMemoryEvent.bind(this)
     );
+
+    this.addEventListener(
+      "aiChatError:retry-message",
+      this.retryUserMessageAfterError.bind(this)
+    );
+
+    this.addEventListener(
+      "SmartWindowPrompt:prompt-selected",
+      this.#onFollowUpSelected.bind(this)
+    );
   }
 
   /**
@@ -88,19 +100,19 @@ export class AIChatContent extends MozLitElement {
     this.addEventListener("copy-message", event => {
       const { messageId } = event.detail ?? {};
       const text = this.#getAssistantMessageBody(messageId);
-      this.#dispatchFooterAction("copy", { messageId, text });
+      this.#dispatchAction("copy", { messageId, text });
     });
 
     this.addEventListener("retry-message", event => {
-      this.#dispatchFooterAction("retry", event.detail);
+      this.#dispatchAction("retry", event.detail);
     });
 
     this.addEventListener("retry-without-memories", event => {
-      this.#dispatchFooterAction("retry-without-memories", event.detail);
+      this.#dispatchAction("retry-without-memories", event.detail);
     });
 
     this.addEventListener("remove-applied-memory", event => {
-      this.#dispatchFooterAction("remove-applied-memory", event.detail);
+      this.#dispatchAction("remove-applied-memory", event.detail);
     });
   }
 
@@ -114,6 +126,17 @@ export class AIChatContent extends MozLitElement {
     });
 
     return msg?.body ?? "";
+  }
+
+  #onFollowUpSelected(event) {
+    event.stopPropagation();
+    this.followUpSuggestions = [];
+    this.dispatchEvent(
+      new CustomEvent("AIChatContent:DispatchFollowUp", {
+        detail: { text: event.detail.text },
+        bubbles: true,
+      })
+    );
   }
 
   messageEvent(event) {
@@ -174,6 +197,8 @@ export class AIChatContent extends MozLitElement {
   }
 
   handleErrorEvent(errorStatus) {
+    this.assistantIsLoading = false;
+    this.isSearching = false;
     this.errorStatus = errorStatus;
     this.showErrorMessage = true;
     this.requestUpdate();
@@ -186,6 +211,7 @@ export class AIChatContent extends MozLitElement {
    */
 
   handleUserPromptEvent(event) {
+    this.followUpSuggestions = [];
     const { convId, content, ordinal } = event.detail;
     this.assistantIsLoading = true;
     this.conversationState[ordinal] = {
@@ -196,6 +222,14 @@ export class AIChatContent extends MozLitElement {
     };
     this.requestUpdate();
     this.#scrollToBottom();
+  }
+
+  retryUserMessageAfterError() {
+    const lastMessage = this.conversationState.at(-1);
+    this.#dispatchAction("retry-after-error", {
+      ...lastMessage,
+      content: { type: "text", body: lastMessage.body },
+    });
   }
 
   /**
@@ -222,26 +256,35 @@ export class AIChatContent extends MozLitElement {
       return;
     }
 
+    // The "webSearchQueries" are coming from a conversation that is being initialized
+    // and "tokens" are streaming in from a live conversation.
+    const searchTokens = webSearchQueries ?? tokens?.search ?? [];
+
+    // Prefer showing web search handoff over followup suggestions.
+    this.followUpSuggestions = searchTokens.length
+      ? []
+      : (tokens?.followup ?? []).slice(0, 2);
+
     this.conversationState[ordinal] = {
       role: "assistant",
       convId,
       messageId,
       body: content.body,
       appliedMemories: memoriesApplied ?? [],
-      // The "webSearchQueries" are coming from a conversation that is being initialized
-      // and "tokens" are streaming in from a live conversation.
-      searchTokens: webSearchQueries ?? tokens?.search ?? [],
+      searchTokens,
     };
 
     this.requestUpdate();
+    this.#scrollToBottom();
   }
 
   #scrollToBottom() {
     this.updateComplete.then(() => {
       const wrapper = this.shadowRoot?.querySelector(".chat-content-wrapper");
-      if (wrapper) {
-        wrapper.scrollTop = wrapper.scrollHeight;
-      }
+      wrapper?.lastElementChild?.scrollIntoView({
+        behavior: "smooth",
+        block: "end",
+      });
     });
   }
 
@@ -275,6 +318,60 @@ export class AIChatContent extends MozLitElement {
     this.requestUpdate();
   }
 
+  #renderMessage(msg) {
+    if (!msg) {
+      return nothing;
+    }
+    return html`
+      <div class=${`chat-bubble chat-bubble-${msg.role}`}>
+        <ai-chat-message
+          .message=${msg.body}
+          .role=${msg.role}
+          .searchTokens=${msg.searchTokens || []}
+        ></ai-chat-message>
+        ${msg.role === "assistant"
+          ? html`
+              <assistant-message-footer
+                .messageId=${msg.messageId}
+                .appliedMemories=${msg.appliedMemories}
+              ></assistant-message-footer>
+            `
+          : nothing}
+      </div>
+    `;
+  }
+
+  #renderFollowUpSuggestions() {
+    if (!this.followUpSuggestions?.length) {
+      return nothing;
+    }
+    return html`<smartwindow-prompts
+      .prompts=${this.followUpSuggestions.map(text => ({
+        text,
+        type: "followup",
+      }))}
+      mode="followup"
+    ></smartwindow-prompts>`;
+  }
+
+  #renderLoader() {
+    if (!this.assistantIsLoading) {
+      return nothing;
+    }
+    return html`<chat-assistant-loader
+      .isSearch=${this.isSearching}
+    ></chat-assistant-loader>`;
+  }
+
+  #renderError() {
+    if (!this.showErrorMessage) {
+      return nothing;
+    }
+    return html`<chat-assistant-error
+      .errorStatus=${this.errorStatus}
+    ></chat-assistant-error>`;
+  }
+
   render() {
     return html`
       <link
@@ -282,39 +379,9 @@ export class AIChatContent extends MozLitElement {
         href="chrome://browser/content/aiwindow/components/ai-chat-content.css"
       />
       <div class="chat-content-wrapper">
-        ${this.conversationState.map(msg => {
-          if (!msg) {
-            return nothing;
-          }
-          return html`
-            <div class=${`chat-bubble chat-bubble-${msg.role}`}>
-              <ai-chat-message
-                .message=${msg.body}
-                .role=${msg.role}
-                .searchTokens=${msg.searchTokens || []}
-              ></ai-chat-message>
-
-              ${msg.role === "assistant"
-                ? html`
-                    <assistant-message-footer
-                      .messageId=${msg.messageId}
-                      .appliedMemories=${msg.appliedMemories}
-                    ></assistant-message-footer>
-                  `
-                : nothing}
-            </div>
-          `;
-        })}
-        ${this.assistantIsLoading
-          ? html`<chat-assistant-loader
-              .isSearch=${this.isSearching}
-            ></chat-assistant-loader>`
-          : nothing}
-        ${this.showErrorMessage
-          ? html`<chat-assistant-error
-              .errorStatus=${this.errorStatus}
-            ></chat-assistant-error>`
-          : nothing}
+        ${this.conversationState.map(msg => this.#renderMessage(msg))}
+        ${this.#renderFollowUpSuggestions()} ${this.#renderLoader()}
+        ${this.#renderError()}
       </div>
     `;
   }

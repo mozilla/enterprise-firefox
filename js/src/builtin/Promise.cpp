@@ -3828,20 +3828,17 @@ static bool IsPromiseSpecies(JSContext* cx, JSFunction* species);
  * Promise.prototype.then ( onFulfilled, onRejected )
  * https://tc39.es/ecma262/#sec-promise.prototype.then
  */
-template <typename T>
+template <typename GetNextFuncT, typename GetResolveAndRejectFuncT>
 [[nodiscard]] static bool CommonPerformPromiseCombinator(
-    JSContext* cx, PromiseForOfIterator& iterator, HandleObject C,
-    HandleObject resultPromise, HandleValue promiseResolve, bool* done,
-    bool resolveReturnsUndefined, T getResolveAndReject) {
+    JSContext* cx, HandleObject C, HandleObject resultPromise,
+    HandleValue promiseResolve, bool iterationMayHaveSideEffects, bool* done,
+    bool resolveReturnsUndefined, GetNextFuncT getNextFunc,
+    GetResolveAndRejectFuncT getResolveAndReject) {
   RootedObject promiseCtor(
       cx, GlobalObject::getOrCreatePromiseConstructor(cx, cx->global()));
   if (!promiseCtor) {
     return false;
   }
-
-  // Optimized dense array iteration ensures no side-effects take place
-  // during the iteration.
-  bool iterationMayHaveSideEffects = !iterator.isOptimizedDenseArrayIteration();
 
   // Try to optimize when the Promise object is in its default state, guarded
   // by |C == promiseCtor| because we can only perform this optimization
@@ -3868,10 +3865,9 @@ template <typename T>
   // PerformPromiseRace
   // Step 1.
   while (true) {
-    // Step a. Let next be ? IteratorStepValue(iteratorRecord).
+    // Step a.
     RootedValue& nextValue = nextValueOrNextPromise;
-    if (!iterator.next(&nextValue, done)) {
-      *done = true;
+    if (!getNextFunc(&nextValue, done)) {
       return false;
     }
 
@@ -4136,6 +4132,32 @@ template <typename T>
   }
 }
 
+template <typename T>
+[[nodiscard]] static bool CommonPerformIterPromiseCombinator(
+    JSContext* cx, PromiseForOfIterator& iterator, HandleObject C,
+    HandleObject resultPromise, HandleValue promiseResolve, bool* done,
+    bool resolveReturnsUndefined, T getResolveAndReject) {
+  // Optimized dense array iteration ensures no side-effects take place
+  // during the iteration.
+  bool iterationMayHaveSideEffects = !iterator.isOptimizedDenseArrayIteration();
+
+  auto getNextFunc = [&](JS::MutableHandle<JS::Value> nextValue, bool* done) {
+    // PerformPromiseAll, PerformPromiseAllSettled, PerformPromiseAny
+    // Step 4.a. Let next be ? IteratorStepValue(iteratorRecord).
+    // PerformPromiseRace
+    // Step 1.a. Let next be ? IteratorStepValue(iteratorRecord).
+    if (!iterator.next(nextValue, done)) {
+      *done = true;
+      return false;
+    }
+    return true;
+  };
+
+  return CommonPerformPromiseCombinator(
+      cx, C, resultPromise, promiseResolve, iterationMayHaveSideEffects, done,
+      resolveReturnsUndefined, getNextFunc, getResolveAndReject);
+}
+
 // Create the elements for the Promise combinators Promise.all and
 // Promise.allSettled.
 // Create the errors list for the Promise combinator Promise.any.
@@ -4390,7 +4412,7 @@ static bool PromiseCombinatorElementFunctionAlreadyCalled(
   };
 
   // Step 4. Repeat,
-  if (!CommonPerformPromiseCombinator(
+  if (!CommonPerformIterPromiseCombinator(
           cx, iterator, C, resultCapability.promise(), promiseResolve, done,
           true, getResolveAndReject)) {
     return false;
@@ -4521,7 +4543,7 @@ static bool Promise_static_race(JSContext* cx, unsigned argc, Value* vp) {
   };
 
   // Step 1. Repeat,
-  return CommonPerformPromiseCombinator(
+  return CommonPerformIterPromiseCombinator(
       cx, iterator, C, resultCapability.promise(), promiseResolve, done,
       isDefaultResolveFn, getResolveAndReject);
 }
@@ -4627,7 +4649,7 @@ static bool Promise_static_allSettled(JSContext* cx, unsigned argc, Value* vp) {
   };
 
   // Step 4. Repeat,
-  if (!CommonPerformPromiseCombinator(
+  if (!CommonPerformIterPromiseCombinator(
           cx, iterator, C, resultCapability.promise(), promiseResolve, done,
           true, getResolveAndReject)) {
     return false;
@@ -4849,7 +4871,7 @@ static void ThrowAggregateError(JSContext* cx,
       IsNativeFunction(resultCapability.resolve(), ResolvePromiseFunction);
 
   // Step 4. Repeat,
-  if (!CommonPerformPromiseCombinator(
+  if (!CommonPerformIterPromiseCombinator(
           cx, iterator, C, resultCapability.promise(), promiseResolve, done,
           isDefaultResolveFn, getResolveAndReject)) {
     return false;
