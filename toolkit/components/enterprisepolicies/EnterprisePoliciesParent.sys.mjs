@@ -574,13 +574,13 @@ EnterprisePoliciesManager.prototype = {
 
     switch (aTopic) {
       case "policies-startup": // Before the first set of policy callbacks runs, we must
-      // initialize the service.
-      {
-        const initializedPromise = this._initialize();
-        this.spinResolve(initializedPromise);
-        this._runPoliciesCallbacks("onBeforeAddons");
-        break;
-      }
+        // initialize the service.
+        {
+          const initializedPromise = this._initialize();
+          this.spinResolve(initializedPromise);
+          this._runPoliciesCallbacks("onBeforeAddons");
+          break;
+        }
       case "profile-after-change":
         this._runPoliciesCallbacks("onProfileAfterChange");
         break;
@@ -1145,8 +1145,8 @@ class WindowsGPOPoliciesProvider extends PoliciesProvider {
         lazy.log.debug(
           `root = ${
             root == wrk.ROOT_KEY_CURRENT_USER
-              ? "HKEY_CURRENT_USER"
-              : "HKEY_LOCAL_MACHINE"
+            ? "HKEY_CURRENT_USER"
+            : "HKEY_LOCAL_MACHINE"
           }`
         );
         this._policies = lazy.WindowsGPOParser.readPolicies(
@@ -1185,14 +1185,7 @@ class CombinedProvider extends PoliciesProvider {
   mergePolicies() {
     // Combine policies with primaryProvider taking precedence.
     // We only do this for top level policies.
-    this._policies = structuredClone(this._primaryProvider.policies);
-    for (let [policyName, policyParams] of Object.entries(
-      this._secondaryProvider.policies || {}
-    )) {
-      if (!(policyName in this._policies)) {
-        this._policies[policyName] = policyParams;
-      }
-    }
+    this._policies = Object.assign({}, this._secondaryProvider.policies ?? {}, this._primaryProvider.policies);
   }
 
   get failed() {
