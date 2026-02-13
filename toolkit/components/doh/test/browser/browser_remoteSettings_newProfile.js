@@ -72,16 +72,6 @@ add_task(async function testNewProfile() {
     "Provider list should be loaded"
   );
   is(
-    DoHConfigController.currentConfig.http3FirstEnabled,
-    true,
-    "http3First should be enabled"
-  );
-  is(
-    Preferences.get("doh-rollout.force_http3_first"),
-    true,
-    "http3First pref should be enabled"
-  );
-  is(
     DoHConfigController.currentConfig.providerSteering.enabled,
     true,
     "Steering should be enabled"

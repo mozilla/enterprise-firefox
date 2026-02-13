@@ -1760,9 +1760,9 @@ class StorageAccessPermissionPrompt extends PermissionPromptForRequest {
     let perm = types.queryElementAt(0, Ci.nsIContentPermissionType);
     let options = perm.options.QueryInterface(Ci.nsIArray);
     // If we have an option, the permission request is different in some way.
-    // We may be in a call from requestStorageAccessUnderSite or a frame-scoped
-    // request, which means that the embedding principal is not the current top-level
-    // or the permission key is different.
+    // We may be in a call from a frame-scoped request, which means that the
+    // embedding principal is not the current top-level or the permission key is
+    // different.
     if (options.length != 2) {
       return;
     }

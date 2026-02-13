@@ -189,6 +189,10 @@
   list-style-image: url("chrome://browser/skin/login.svg");
 }
 
+#share-tab-button {
+  list-style-image: url("chrome://browser/skin/share.svg");
+}
+
 #sidebar-button {
   /* stylelint-disable-next-line media-query-no-invalid */
   @media not -moz-pref("sidebar.revamp") {
@@ -319,14 +323,6 @@
 
   &:is([overflowedItem="true"], [cui-areatype="panel"]) {
     list-style-image: url("chrome://browser/content/ipprotection/assets/states/ipprotection-off.svg");
-
-    &::after {
-      -moz-context-properties: fill, fill-opacity;
-      content: url(chrome://global/skin/icons/arrow-right.svg);
-      fill: currentColor;
-      display: flex;
-      opacity: 0.6;
-    }
 
     > .toolbarbutton-icon {
       width: var(--icon-size-small);

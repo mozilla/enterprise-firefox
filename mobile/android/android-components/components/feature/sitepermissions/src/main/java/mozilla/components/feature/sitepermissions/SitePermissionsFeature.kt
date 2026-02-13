@@ -15,6 +15,7 @@ import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import androidx.annotation.VisibleForTesting
 import androidx.fragment.app.FragmentManager
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
@@ -115,6 +116,7 @@ class SitePermissionsFeature(
     private val store: BrowserStore,
     private val exitFullscreenUseCase: SessionUseCases.ExitFullScreenUseCase = SessionUseCases(store).exitFullscreen,
     private val shouldShowDoNotAskAgainCheckBox: Boolean = true,
+    private val mainDispatcher: CoroutineDispatcher = Dispatchers.Main,
 ) : LifecycleAwareFeature, PermissionsFeature {
     @VisibleForTesting
     internal val selectOrAddUseCase by lazy {
@@ -170,7 +172,7 @@ class SitePermissionsFeature(
 
     @VisibleForTesting
     internal fun setupLoadingCollector() {
-        loadingScope = store.flowScoped { flow ->
+        loadingScope = store.flowScoped(dispatcher = mainDispatcher) { flow ->
             flow.mapNotNull { state ->
                 state.findTabOrCustomTabOrSelectedTab(sessionId)
             }.distinctUntilChangedBy { it.content.loading }.collect { tab ->
@@ -187,7 +189,7 @@ class SitePermissionsFeature(
     @VisibleForTesting
     internal fun setupAppPermissionRequestsCollector() {
         appPermissionScope =
-            store.flowScoped { flow ->
+            store.flowScoped(dispatcher = mainDispatcher) { flow ->
                 flow.mapNotNull { state ->
                     state.findTabOrCustomTabOrSelectedTab(sessionId)?.content?.appPermissionRequestsList
                 }
@@ -202,7 +204,7 @@ class SitePermissionsFeature(
     @VisibleForTesting
     internal fun setupPermissionRequestsCollector() {
         sitePermissionScope =
-            store.flowScoped { flow ->
+            store.flowScoped(dispatcher = mainDispatcher) { flow ->
                 flow.mapNotNull { state ->
                     state.findTabOrCustomTabOrSelectedTab(sessionId)?.content?.permissionRequestsList
                 }

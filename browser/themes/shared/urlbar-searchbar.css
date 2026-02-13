@@ -57,6 +57,13 @@ toolbar[inactive="true"] .urlbar,
   display: none;
 }
 
+/* Document Picture-in-Picture API window */
+@media (display-mode: picture-in-picture) {
+  #page-action-buttons {
+    display: none;
+  }
+}
+
 /* When rich suggestions are enabled the urlbar identity icon is given extra padding to
  * align the results and urlbar text */
 /* stylelint-disable-next-line media-query-no-invalid */
@@ -652,8 +659,7 @@ toolbar[inactive="true"] .urlbar,
   }
 }
 
-#pageActionButton,
-.share-more-button {
+#pageActionButton {
   list-style-image: url("chrome://global/skin/icons/more.svg");
 }
 

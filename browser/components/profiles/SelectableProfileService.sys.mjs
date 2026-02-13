@@ -1070,7 +1070,17 @@ class SelectableProfileServiceClass extends EventEmitter {
       "prefs.js",
       0o600
     );
+    await IOUtils.writeUTF8(prefsJsFilePath, Services.prefs.prefsJsPreamble);
 
+    await this.addSelectableProfilePrefs(profileDir.path);
+  }
+
+  /**
+   * Adds the preferences needed for a selectable profile to work as intended.
+   *
+   * @param {string} profileDirPath
+   */
+  async addSelectableProfilePrefs(profileDirPath) {
     const sharedPrefs = await this.getAllDBPrefs();
 
     const filteredPrefs = sharedPrefs.filter(
@@ -1078,28 +1088,30 @@ class SelectableProfileServiceClass extends EventEmitter {
         !SelectableProfileServiceClass.ignoredSharedPrefs.includes(pref.name)
     );
 
-    const prefsJs = [];
+    const prefsToAdd = [];
     for (let pref of filteredPrefs) {
-      prefsJs.push(
+      prefsToAdd.push(
         `user_pref("${pref.name}", ${
           pref.type === "string" ? `"${pref.value}"` : `${pref.value}`
         });`
       );
     }
 
-    // Preferences that must be set in newly created profiles.
-    prefsJs.push(`user_pref("browser.profiles.profile-name.updated", false);`);
-    prefsJs.push(`user_pref("browser.profiles.enabled", true);`);
-    prefsJs.push(`user_pref("browser.profiles.created", true);`);
-    prefsJs.push(`user_pref("toolkit.profiles.storeID", "${this.storeID}");`);
-    prefsJs.push(
+    // Preferences that must be set for selectable profiles.
+    prefsToAdd.push(`user_pref("browser.profiles.enabled", true);`);
+    prefsToAdd.push(`user_pref("browser.profiles.created", true);`);
+    prefsToAdd.push(
+      `user_pref("toolkit.profiles.storeID", "${this.storeID}");`
+    );
+    prefsToAdd.push(
       `user_pref("${DAU_GROUPID_PREF_NAME}", "${await this.getDBPref(DAU_GROUPID_PREF_NAME)}");`
     );
 
     const LINEBREAK = AppConstants.platform === "win" ? "\r\n" : "\n";
     await IOUtils.writeUTF8(
-      prefsJsFilePath,
-      Services.prefs.prefsJsPreamble + prefsJs.join(LINEBREAK) + LINEBREAK
+      PathUtils.join(profileDirPath, "prefs.js"),
+      prefsToAdd.join(LINEBREAK) + LINEBREAK,
+      { mode: "appendOrCreate" }
     );
   }
 
@@ -1377,13 +1389,15 @@ class SelectableProfileServiceClass extends EventEmitter {
    *
    * @param {boolean} [launchProfile=true] Whether or not this should launch
    * the newly created profile.
+   * @param {nsIFile} [existingProfilePath=null] Optional path to use for the
+   * profile instead of creating new directories in the default location.
    *
    * @returns {SelectableProfile} The profile just created.
    */
-  async createNewProfile(launchProfile = true) {
+  async createNewProfile(launchProfile = true, existingProfilePath = null) {
     await this.maybeSetupDataStore();
 
-    let profile = await this.#createProfile();
+    let profile = await this.#createProfile(existingProfilePath);
     if (launchProfile) {
       this.launchInstance(profile, ["about:newprofile"]);
     }

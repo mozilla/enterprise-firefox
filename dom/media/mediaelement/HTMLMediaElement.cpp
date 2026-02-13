@@ -3745,6 +3745,7 @@ void HTMLMediaElement::SetVolumeInternal() {
 
   NotifyAudioPlaybackChanged(
       AudioChannelService::AudibleChangedReasons::eVolumeChanged);
+  mEffectiveVolumeChangeEvent.Notify(effectiveVolume);
 }
 
 void HTMLMediaElement::SetMuted(bool aMuted) {
@@ -4199,13 +4200,6 @@ already_AddRefed<DOMMediaStream> HTMLMediaElement::CaptureStreamInternal(
   }
 
   if (aStreamCaptureType == StreamCaptureType::CAPTURE_AUDIO) {
-    if (mSrcStream) {
-      // We don't support applying volume and mute to the captured stream, when
-      // capturing a MediaStream.
-      ReportToConsole(nsIScriptError::errorFlag,
-                      "MediaElementAudioCaptureOfMediaStreamError");
-    }
-
     // mAudioCaptured tells the user that the audio played by this media element
     // is being routed to the captureStreams *instead* of being played to
     // speakers.
@@ -4343,7 +4337,7 @@ already_AddRefed<DOMMediaStream> HTMLMediaElement::CaptureStream(
       .EnumGet(mozilla::glean::media::CaptureStreamUsageLabel::eCapturestream)
       .Add();
   RefPtr<DOMMediaStream> stream =
-      CaptureStreamInternal(StreamCaptureBehavior::FINISH_WHEN_ENDED,
+      CaptureStreamInternal(StreamCaptureBehavior::CONTINUE_WHEN_ENDED,
                             StreamCaptureType::CAPTURE_ALL_TRACKS,
                             AudioOutputConfig::Needed, nullptr);
   if (!stream) {

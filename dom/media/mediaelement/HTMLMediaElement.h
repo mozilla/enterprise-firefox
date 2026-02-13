@@ -816,8 +816,11 @@ class HTMLMediaElement : public nsGenericHTMLElement,
 
   virtual void OnVisibilityChange(Visibility aNewVisibility);
 
-  // Begin testing only methods
+  // Return the effective volume, taking mute and other factors that affect the
+  // final output volume into account.
   float ComputedVolume() const;
+
+  // Begin testing only methods
   bool ComputedMuted() const;
 
   // Return true if the media has been suspended media due to an inactive
@@ -872,6 +875,10 @@ class HTMLMediaElement : public nsGenericHTMLElement,
 
   // Return key system in use if we have one, otherwise return nothing.
   Maybe<nsAutoString> GetKeySystem() const override;
+
+  MediaEventSource<float>& EffectiveVolumeChangeEvent() {
+    return mEffectiveVolumeChangeEvent;
+  }
 
  protected:
   virtual ~HTMLMediaElement();
@@ -2004,6 +2011,8 @@ class HTMLMediaElement : public nsGenericHTMLElement,
   // Note: Once this becomes NotNeeded, it will never change back. The current
   // API design does not provide a way to revert this change.
   AudioOutputConfig mAudioOutputConfig = AudioOutputConfig::Needed;
+
+  MediaEventProducer<float> mEffectiveVolumeChangeEvent;
 };
 
 // Check if the context is chrome or has the debugger or tabs permission

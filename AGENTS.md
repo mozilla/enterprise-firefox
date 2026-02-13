@@ -12,7 +12,10 @@ searchfox-cli --define 'AudioSink' # get class definition
 searchfox-cli -q blob --path ipdl # search for a text string, restrict on path
 searchfox-cli --id AudioSink -l 150 --cpp # search for identifier audio sink in C++ code, 150 results max
 ```
-- Prefer searching for identifiers with `searchfox-cli`, falling back to text search restricted by path if that fails.
+- For C++, Rust and Java code, prefer searching for identifiers with `searchfox-cli`. Use text search restricted by path otherwise.
+- Do not try to use identifier search for front-end identifiers like JS object or function names, CSS classes or HTML custom element names.
+- `searchfox-cli`'s `--path` can only be provided once, but supports globs so you can combine a path with a file extension restriction.
+- If you must use regular expressions with `searchfox-cli`, don't forget the `--regexp` flag.
 - Use the `searchfox-cli` tool, only using `rg` or usual local tools if you need to find information about something
 that has definitely changed locally. If you're unsure, ask.
 - If you can't find something quickly, it is better to ask than run local searches.
@@ -46,3 +49,4 @@ You can find the review identifier by inspecting the commit log with:
 - It's better to just run `./mach build` without subdirectory, the build system is well optimized
 - Always build normally, never use subdirectories, e.g. `./mach build` is the only command to run
 - Never build with a subdirectory. Always simply do `./mach build`
+- The only exception is for Android and Desktop front-end-only changes, in which case you can use the special `./mach build faster` to skip all C++/Rust compilation.

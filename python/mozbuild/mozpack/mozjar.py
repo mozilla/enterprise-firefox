@@ -53,8 +53,9 @@ class JarStruct:
 
     Fields that are used as other fields size are not stored in objects. In the
     above example, an instance of such subclass would only have two attributes:
-      - obj['version']
-      - obj['filename']
+
+    - obj['version']
+    - obj['filename']
 
     filename_size would be obtained with len(obj['filename']).
 

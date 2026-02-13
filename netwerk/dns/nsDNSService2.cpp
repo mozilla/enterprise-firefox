@@ -1546,6 +1546,14 @@ nsresult nsDNSService::GetTRRDomainKey(nsACString& aTRRDomain) {
   return NS_OK;
 }
 
+NS_IMETHODIMP
+nsDNSService::SetHttp3FirstForServer(const nsACString& aServer, bool aEnabled) {
+  if (mTrrService) {
+    mTrrService->SetHttp3FirstForServer(aServer, aEnabled);
+  }
+  return NS_OK;
+}
+
 size_t nsDNSService::SizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf) {
   // Measurement of the following members may be added later if DMD finds it
   // is worthwhile:

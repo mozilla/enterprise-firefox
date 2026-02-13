@@ -528,8 +528,7 @@ nsresult nsAppShellService::JustCreateTopWindow(
 #endif
 
   if (widgetInitData.mWindowType == widget::WindowType::TopLevel &&
-      (aChromeMask & nsIWebBrowserChrome::CHROME_DOCUMENT_PICTURE_IN_PICTURE) ==
-          nsIWebBrowserChrome::CHROME_DOCUMENT_PICTURE_IN_PICTURE) {
+      (aChromeMask & nsIWebBrowserChrome::CHROME_DOCUMENT_PIP)) {
     widgetInitData.mPiPType = mozilla::widget::PiPType::DocumentPiP;
   }
 
@@ -642,23 +641,29 @@ nsresult nsAppShellService::JustCreateTopWindow(
     isPrivateBrowsingWindow = parentContext->UsePrivateBrowsing();
   }
 
-  if (RefPtr<nsDocShell> docShell = window->GetDocShell()) {
-    MOZ_ASSERT(docShell->GetBrowsingContext()->IsChrome());
+  RefPtr<nsDocShell> docShell = window->GetDocShell();
+  NS_ENSURE_TRUE(docShell, NS_ERROR_UNEXPECTED);
 
-    docShell->SetPrivateBrowsing(isPrivateBrowsingWindow);
-    docShell->SetRemoteTabs(aChromeMask &
-                            nsIWebBrowserChrome::CHROME_REMOTE_WINDOW);
-    docShell->SetRemoteSubframes(aChromeMask &
-                                 nsIWebBrowserChrome::CHROME_FISSION_WINDOW);
+  MOZ_ASSERT(docShell->GetBrowsingContext()->IsChrome());
 
-    // Begin loading the URL provided.
-    if (aUrl) {
-      RefPtr<nsDocShellLoadState> loadState = new nsDocShellLoadState(aUrl);
-      loadState->SetTriggeringPrincipal(nsContentUtils::GetSystemPrincipal());
-      loadState->SetFirstParty(true);
-      rv = docShell->LoadURI(loadState, /* aSetNavigating */ true);
-      NS_ENSURE_SUCCESS(rv, rv);
-    }
+  docShell->SetPrivateBrowsing(isPrivateBrowsingWindow);
+  docShell->SetRemoteTabs(aChromeMask &
+                          nsIWebBrowserChrome::CHROME_REMOTE_WINDOW);
+  docShell->SetRemoteSubframes(aChromeMask &
+                               nsIWebBrowserChrome::CHROME_FISSION_WINDOW);
+
+  if ((aChromeMask & nsIWebBrowserChrome::CHROME_DOCUMENT_PIP)) {
+    rv = docShell->GetBrowsingContext()->SetIsDocumentPiP(true);
+    NS_ENSURE_SUCCESS(rv, rv);
+  }
+
+  // Begin loading the URL provided.
+  if (aUrl) {
+    RefPtr<nsDocShellLoadState> loadState = new nsDocShellLoadState(aUrl);
+    loadState->SetTriggeringPrincipal(nsContentUtils::GetSystemPrincipal());
+    loadState->SetFirstParty(true);
+    rv = docShell->LoadURI(loadState, /* aSetNavigating */ true);
+    NS_ENSURE_SUCCESS(rv, rv);
   }
 
   window.forget(aResult);

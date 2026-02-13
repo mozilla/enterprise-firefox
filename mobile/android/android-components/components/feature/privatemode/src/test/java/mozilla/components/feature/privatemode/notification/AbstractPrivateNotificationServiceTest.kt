@@ -155,7 +155,7 @@ class AbstractPrivateNotificationServiceTest {
     }
 
     private open class MockServiceWithStore(scope: CoroutineScope = TestScope(), captureActionsMiddleware: CaptureActionsMiddleware<BrowserState, BrowserAction>) :
-        AbstractPrivateNotificationService(scope) {
+        AbstractPrivateNotificationService(notificationScope = scope) {
         override val store = BrowserStore(
             initialState = BrowserState(),
             middleware = listOf(captureActionsMiddleware),

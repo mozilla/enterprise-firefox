@@ -1326,7 +1326,7 @@ class Marionette:
             or requriedCapabilities), and only recognises extension
             capabilities that are specific to Marionette.
         :param process_forked: If True, the existing process forked itself due
-        to an internal restart.
+            to an internal restart.
         :param timeout: Optional timeout in seconds for the server to be ready.
 
         :returns: A dictionary of the capabilities offered.

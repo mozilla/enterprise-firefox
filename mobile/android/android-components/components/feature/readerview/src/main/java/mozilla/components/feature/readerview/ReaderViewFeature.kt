@@ -46,6 +46,7 @@ typealias UUIDCreator = () -> String
  * @property engine a reference to the application's browser engine.
  * @property store a reference to the application's [BrowserStore].
  * @param controlsView the view to use to display reader mode controls.
+ * @param mainDispatcher [CoroutineDispatcher] to be used for observing the store.
  * @property onReaderViewStatusChange a callback invoked to indicate whether
  * or not reader view is available and active for the page loaded by the
  * currently selected session. The callback will be invoked when a page is

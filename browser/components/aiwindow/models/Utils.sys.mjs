@@ -297,6 +297,20 @@ export class openAIEngine {
   model = null;
 
   /**
+   * Engine ID used for creating the engine instance
+   *
+   * @type {string | null}
+   */
+  #engineId = null;
+
+  /**
+   * Service type used for creating the engine instance
+   *
+   * @type {string | null}
+   */
+  #serviceType = null;
+
+  /**
    * Gets the Remote Settings client for AI window configurations.
    *
    * @returns {RemoteSettingsClient}
@@ -636,6 +650,9 @@ export class openAIEngine {
 
     await engine.loadConfig(feature);
 
+    engine.#engineId = engineId;
+    engine.#serviceType = serviceType;
+
     engine.engineInstance = await openAIEngine.#createOpenAIEngine(
       engineId,
       serviceType,
@@ -711,7 +728,90 @@ export class openAIEngine {
    * @returns {object}                  LLM response
    */
   async run(content) {
-    return await this.engineInstance.run(content);
+    return await this._runWithAuth(content);
+  }
+
+  /**
+   * Helper method to handle 401 authentication errors and retry with new token.
+   *
+   * @param {Map<string, any>} content  OpenAI formatted messages to be sent to the LLM
+   * @returns {object}                  LLM response
+   */
+  async _runWithAuth(content) {
+    try {
+      return await this.engineInstance.run(content);
+    } catch (ex) {
+      if (!this._is401Error(ex)) {
+        throw ex;
+      }
+
+      console.warn(
+        "LLM request returned a 401 - revoking our token and retrying"
+      );
+
+      const fxAccounts = getFxAccountsSingleton();
+      const oldToken = content.fxAccountToken;
+      if (oldToken) {
+        await fxAccounts.removeCachedOAuthToken({ token: oldToken });
+      }
+
+      await this._recreateEngine();
+
+      const newToken = await openAIEngine.getFxAccountToken();
+      const updatedContent = { ...content, fxAccountToken: newToken };
+
+      try {
+        return await this.engineInstance.run(updatedContent);
+      } catch (retryEx) {
+        if (!this._is401Error(retryEx)) {
+          throw retryEx;
+        }
+
+        console.warn(
+          "Retry LLM request still returned a 401 - revoking our token and failing"
+        );
+
+        if (newToken) {
+          await fxAccounts.removeCachedOAuthToken({ token: newToken });
+        }
+
+        throw retryEx;
+      }
+    }
+  }
+
+  /**
+   * Recreates the engine instance with current configuration.
+   *
+   * @returns {Promise<void>}
+   * @private
+   */
+  async _recreateEngine() {
+    if (!this.#engineId || !this.#serviceType) {
+      console.warn("Cannot recreate engine: missing engineId or serviceType");
+      return;
+    }
+
+    this.engineInstance = await openAIEngine.#createOpenAIEngine(
+      this.#engineId,
+      this.#serviceType,
+      this.model
+    );
+  }
+
+  /**
+   * Checks if an error is a 401 authentication error.
+   *
+   * @param {Error} error  The error to check
+   * @returns {boolean}    True if the error is a 401 error
+   * @private
+   */
+  _is401Error(error) {
+    if (!error || !error.message) {
+      return false;
+    }
+
+    return error.message.includes("401 status code");
   }
 
   /**

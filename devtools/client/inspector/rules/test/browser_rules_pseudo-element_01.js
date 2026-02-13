@@ -583,11 +583,11 @@ async function assertPseudoElementRulesNumbers(
   );
 
   const rules = {
-    elementRules: view._elementStyle.rules.filter(rule => !rule.pseudoElement),
+    elementRules: view.elementStyle.rules.filter(rule => !rule.pseudoElement),
     ...Object.fromEntries(
       Object.entries(PSEUDO_DICT).map(([key, pseudoElementSelector]) => [
         key,
-        view._elementStyle.rules.filter(rule =>
+        view.elementStyle.rules.filter(rule =>
           rule.pseudoElement.startsWith(pseudoElementSelector)
         ),
       ])

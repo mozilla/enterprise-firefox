@@ -21,7 +21,7 @@ WeakMapBase::WeakMapBase(JSObject* memOf, Zone* zone)
   MOZ_ASSERT(!IsMarked(mapColor()));
 
   zone->gcWeakMapList().insertFront(this);
-  if (zone->gcState() > Zone::Prepare) {
+  if (zone->isGCMarking()) {
     setMapColor(CellColor::Black);
   }
 }
@@ -32,6 +32,15 @@ void WeakMapBase::unmarkZone(JS::Zone* zone) {
     m->setMapColor(CellColor::White);
   }
 }
+
+#ifdef DEBUG
+void WeakMapBase::checkZoneUnmarked(JS::Zone* zone) {
+  MOZ_ASSERT(zone->gcEphemeronEdges().empty());
+  for (WeakMapBase* m : zone->gcWeakMapList()) {
+    MOZ_ASSERT(m->mapColor() == CellColor::White);
+  }
+}
+#endif
 
 void Zone::traceWeakMaps(JSTracer* trc) {
   MOZ_ASSERT(trc->weakMapAction() != JS::WeakMapTraceAction::Skip);
@@ -135,6 +144,8 @@ void WeakMapBase::checkWeakMapsAfterMovingGC(JS::Zone* zone) {
 #endif
 
 bool WeakMapBase::markZoneIteratively(JS::Zone* zone, GCMarker* marker) {
+  MOZ_ASSERT(zone->isGCMarking());
+
   bool markedAny = false;
   for (WeakMapBase* m : zone->gcWeakMapList()) {
     if (IsMarked(m->mapColor()) && m->markEntries(marker)) {
@@ -155,11 +166,15 @@ bool WeakMapBase::findSweepGroupEdgesForZone(JS::Zone* atomsZone,
 }
 
 void Zone::sweepWeakMaps(JSTracer* trc) {
+  MOZ_ASSERT(isGCSweeping());
+
   for (WeakMapBase* m = gcWeakMapList().getFirst(); m;) {
     WeakMapBase* next = m->getNext();
     if (IsMarked(m->mapColor())) {
       // Sweep live map to remove dead entries.
       m->traceWeakEdgesDuringSweeping(trc);
+      // Unmark swept weak map.
+      m->setMapColor(CellColor::White);
     } else {
       if (m->memberOf) {
         // Table will be cleaned up when owning object is finalized.
@@ -177,7 +192,7 @@ void Zone::sweepWeakMaps(JSTracer* trc) {
 
 #ifdef DEBUG
   for (WeakMapBase* m : gcWeakMapList()) {
-    MOZ_ASSERT(m->isInList() && IsMarked(m->mapColor()));
+    MOZ_ASSERT(!IsMarked(m->mapColor()));
   }
 #endif
 }
@@ -192,6 +207,8 @@ void WeakMapBase::traceAllMappings(WeakMapTracer* tracer) {
     }
   }
 }
+
+#if defined(JS_GC_ZEAL)
 
 bool WeakMapBase::saveZoneMarkedWeakMaps(JS::Zone* zone,
                                          WeakMapColors& markedWeakMaps) {
@@ -212,6 +229,8 @@ void WeakMapBase::restoreMarkedWeakMaps(WeakMapColors& markedWeakMaps) {
     map->setMapColor(r.front().value());
   }
 }
+
+#endif  // JS_GC_ZEAL
 
 void WeakMapBase::setHasNurseryEntries() {
   MOZ_ASSERT(!hasNurseryEntries);

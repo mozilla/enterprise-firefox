@@ -16,7 +16,7 @@ sys.path.insert(0, os.environ["PYTHON_PACKAGES"])
 import cv2
 import numpy as np
 from mozdevice import ADBDevice
-from mozperftest.profiler import ProfilingMediator
+from mozperftest.profiler import PROFILERS, ProfilingMediator
 
 """
 Homeview:
@@ -45,7 +45,7 @@ PROD_FENIX = "fenix"
 
 
 class ImageAnalzer:
-    def __init__(self, browser, test, test_url):
+    def __init__(self, browser, test, test_url, profilers):
         self.video = None
         self.browser = browser
         self.test = test
@@ -56,7 +56,7 @@ class ImageAnalzer:
         self.video_name = ""
         self.package_name = os.environ["BROWSER_BINARY"]
         self.device = ADBDevice()
-        self.profiler = ProfilingMediator()
+        self.profiler = ProfilingMediator(profilers)
         self.cpu_data = {"total": {"time": []}}
         if self.browser == PROD_FENIX:
             self.package_and_activity = (
@@ -303,6 +303,17 @@ class ImageAnalzer:
                 )
 
 
+def get_profiler_combinations():
+    """Returns a list of profiler combinations based on which one are enabled.
+    If multiple profilers are enabled, returns each profile,then all enabled profilers together
+    """
+    enabled = [name for name, cls in PROFILERS.items() if cls.is_enabled()]
+
+    if len(enabled) > 1:
+        return [[p] for p in enabled] + [enabled]
+    return [enabled] if enabled else []
+
+
 if __name__ == "__main__":
     if len(sys.argv) != 4:
         raise Exception("Didn't pass the args properly :(")
@@ -317,13 +328,27 @@ if __name__ == "__main__":
         "homeview_startup": "homeview_startup",
     }
 
-    ImageObject = ImageAnalzer(browser, test, test_url)
-    for iteration in range(ITERATIONS):
-        ImageObject.app_setup()
-        ImageObject.get_video(iteration)
-        nav_done_frame = ImageObject.get_page_loaded_time(iteration)
-        ImageObject.validate_end_frame(nav_done_frame)
-        start_video_timestamp += [ImageObject.get_time_from_frame_num(nav_done_frame)]
+    base_testing_dir = os.environ["TESTING_DIR"]
+    profiler_combinations = get_profiler_combinations()
+    if not profiler_combinations:
+        profiler_combinations = [[]]
+    for profilers in profiler_combinations:
+        if profilers:
+            subdir_name = "-".join(profilers)
+            output_path = pathlib.Path(base_testing_dir) / subdir_name
+            output_path.mkdir(parents=True, exist_ok=True)
+            os.environ["TESTING_DIR"] = str(output_path)
+        else:
+            os.environ["TESTING_DIR"] = base_testing_dir
+
+        ImageObject = ImageAnalzer(browser, test, test_url, profilers)
+        for iteration in range(ITERATIONS):
+            ImageObject.app_setup()
+            ImageObject.get_video(iteration)
+            nav_done_frame = ImageObject.get_page_loaded_time(iteration)
+            start_video_timestamp += [
+                ImageObject.get_time_from_frame_num(nav_done_frame)
+            ]
     print(
         'perfMetrics: {"values": '
         + str(start_video_timestamp)

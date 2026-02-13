@@ -1043,11 +1043,11 @@
         dataTransferOrderedTabs = [tab];
       } else {
         this._tabbrowserTabs.selectedItem = tab;
-        let selectedTabs = gBrowser.selectedTabs;
-        let otherSelectedTabs = selectedTabs.filter(
-          selectedTab => selectedTab != tab
+        let selectedElements = gBrowser.selectedElements;
+        let otherSelectedElements = selectedElements.filter(
+          selectedEle => selectedEle != tab
         );
-        dataTransferOrderedTabs = [tab].concat(otherSelectedTabs);
+        dataTransferOrderedTabs = [tab].concat(otherSelectedElements);
       }
 
       let dt = event.dataTransfer;

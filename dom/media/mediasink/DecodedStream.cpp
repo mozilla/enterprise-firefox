@@ -350,6 +350,7 @@ class DecodedStreamData final {
                            const TimeStamp& aTimeStamp, VideoSegment* aOutput,
                            const PrincipalHandle& aPrincipalHandle,
                            double aPlaybackRate);
+  void SetVolume(float aVolume);
 
   /* The following group of fields are protected by the decoder's monitor
    * and can be read or written on any thread.
@@ -414,7 +415,7 @@ DecodedStreamData::DecodedStreamData(
       mAudioTrack(aInit.mInfo.HasAudio()
                       ? AudioDecoderInputTrack::Create(
                             aGraph, aDecoderThread, aInit.mInfo.mAudio,
-                            aPlaybackRate, aVolume, aPreservesPitch)
+                            aPlaybackRate, aPreservesPitch)
                       : nullptr),
       mVideoTrack(aInit.mInfo.HasVideo()
                       ? aGraph->CreateSourceTrack(MediaSegment::VIDEO)
@@ -439,8 +440,7 @@ DecodedStreamData::DecodedStreamData(
     LOG_DSD(LogLevel::Debug, "Setting up audio output for key=%p device=%p",
             mAudioOutputKey, mDevice.get());
     mAudioOutputTrack->AddAudioOutput(mAudioOutputKey, mDevice);
-    // Output volume is fixed to 1.0 because we adjust volume in input track.
-    mAudioOutputTrack->SetAudioOutputVolume(mAudioOutputKey, 1.0);
+    mAudioOutputTrack->SetAudioOutputVolume(mAudioOutputKey, aVolume);
   }
 }
 
@@ -486,6 +486,15 @@ void DecodedStreamData::GetDebugInfo(dom::DecodedStreamDataDebugInfo& aInfo) {
           .ToMicroseconds();
   aInfo.mHaveSentFinishAudio = mHaveSentFinishAudio;
   aInfo.mHaveSentFinishVideo = mHaveSentFinishVideo;
+}
+
+void DecodedStreamData::SetVolume(float aVolume) {
+  MOZ_ASSERT(NS_IsMainThread());
+  if (!mAudioTrack || !mAudioOutputKey || !mAudioOutputTrack) {
+    return;
+  }
+  LOG_DSD(LogLevel::Debug, "Setting volume %f on output track", aVolume);
+  mAudioOutputTrack->SetAudioOutputVolume(mAudioOutputKey, aVolume);
 }
 
 DecodedStream::DecodedStream(
@@ -739,8 +748,14 @@ void DecodedStream::SetVolume(double aVolume) {
     return;
   }
   mVolume = aVolume;
-  if (mData && mData->mAudioTrack) {
-    mData->mAudioTrack->SetVolume(static_cast<float>(aVolume));
+  if (mData) {
+    NS_DispatchToMainThread(NS_NewRunnableFunction(
+        "DecodedStream::SetVolume",
+        [self = RefPtr<DecodedStream>(this), this, aVolume]() {
+          if (mData) {
+            mData->SetVolume(static_cast<float>(aVolume));
+          }
+        }));
   }
 }
 

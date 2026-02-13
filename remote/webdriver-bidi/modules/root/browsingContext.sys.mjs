@@ -1721,7 +1721,7 @@ class BrowsingContextModule extends RootBiDiModule {
           }
         );
         sessionDataItems.push({
-          category: "viewport-overrides",
+          category: "viewport-override",
           moduleName: "_configuration",
           values: [viewportOverride],
           contextDescriptor: {
@@ -1734,7 +1734,7 @@ class BrowsingContextModule extends RootBiDiModule {
     } else {
       for (const navigable of navigables) {
         sessionDataItems.push({
-          category: "viewport-overrides",
+          category: "viewport-override",
           moduleName: "_configuration",
           values: [viewportOverride],
           contextDescriptor: {
@@ -2543,12 +2543,10 @@ class BrowsingContextModule extends RootBiDiModule {
     }
 
     if (devicePixelRatio !== undefined) {
-      if (devicePixelRatio !== null) {
-        navigable.overrideDPPX = devicePixelRatio;
-      } else {
-        // Will reset to use the global default scaling factor.
-        navigable.overrideDPPX = 0;
-      }
+      setDevicePixelRatioForBrowsingContext({
+        context: navigable,
+        value: devicePixelRatio,
+      });
     }
 
     if (targetHeight !== currentHeight || targetWidth !== currentWidth) {
@@ -2662,6 +2660,33 @@ export const getBrowsingContextInfo = (context, options = {}) => {
   }
 
   return contextInfo;
+};
+
+/**
+ * Set the device pixel ratio override to the top-level browsing context.
+ *
+ * @param {object} options
+ * @param {BrowsingContext} options.context
+ *     Top-level browsing context object which is a target
+ *     for the device pixel ratio override.
+ * @param {number|null} options.value
+ *     A value to override device pixel ratio,
+ *     or `null` to reset it to the original value.
+ */
+export const setDevicePixelRatioForBrowsingContext = options => {
+  const { context, value } = options;
+  const contextId = lazy.NavigableManager.getIdForBrowsingContext(context);
+
+  if (value !== null) {
+    context.overrideDPPX = value;
+    lazy.logger.trace(
+      `[${contextId}] Updated device pixel ratio override to: ${value}`
+    );
+  } else {
+    // Will reset to use the global default scaling factor.
+    context.overrideDPPX = 0;
+    lazy.logger.trace(`[${contextId}] Reset device pixel ratio override`);
+  }
 };
 
 export const browsingContext = BrowsingContextModule;

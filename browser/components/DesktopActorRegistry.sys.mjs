@@ -135,6 +135,9 @@ let JSWINDOWACTORS = {
       },
     },
     matches: ["about:messagepreview", "about:messagepreview?*"],
+    remoteTypes: ["privilegedabout"],
+    enablePreference:
+      "browser.newtabpage.activity-stream.asrouter.devtoolsEnabled",
   },
 
   AboutPrivateBrowsing: {
@@ -231,7 +234,7 @@ let JSWINDOWACTORS = {
       events: {
         "AIChatContent:DispatchSearch": { wantUntrusted: true },
         "AIChatContent:Ready": { wantUntrusted: true },
-        "AIChatContent:DispatchFooterAction": { wantUntrusted: true },
+        "AIChatContent:DispatchAction": { wantUntrusted: true },
       },
     },
     allFrames: true,

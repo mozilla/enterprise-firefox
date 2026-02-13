@@ -8,6 +8,7 @@
 
 import { PlacesUtils } from "resource://gre/modules/PlacesUtils.sys.mjs";
 import { BlockListManager } from "chrome://global/content/ml/Utils.sys.mjs";
+import { SensitiveInfoDetector } from "moz-src:///browser/components/aiwindow/models/memories/SensitiveInfoDetector.sys.mjs";
 
 const MS_PER_DAY = 86_400_000;
 const MICROS_PER_MS = 1_000;
@@ -50,6 +51,7 @@ const SEARCH_ENGINE_PATTERN = new RegExp(
 );
 
 let _mgr = BlockListManager.initializeFromDefault({ language: "en" });
+let _sensitiveInfoDetector = new SensitiveInfoDetector();
 
 /**
  * Fetch recent browsing history from Places (SQL), aggregate by URL,
@@ -217,7 +219,13 @@ export async function getRecentHistory(opts = {}) {
           } else {
             title = onlyTitle;
           }
-          if (_mgr.matchAtWordBoundary({ text: title.toLowerCase() })) {
+          if (
+            _mgr.matchAtWordBoundary({ text: title.toLowerCase() }) ||
+            _sensitiveInfoDetector.containsSensitiveInfo(title) ||
+            _sensitiveInfoDetector.containsSensitiveInfo(url) ||
+            _sensitiveInfoDetector.containsSensitiveKeywords(title) ||
+            _sensitiveInfoDetector.containsSensitiveKeywords(url)
+          ) {
             continue;
           }
           const visitDateMicros = row.getResultByName("visit_date") || 0;

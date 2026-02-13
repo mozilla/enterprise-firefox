@@ -93,7 +93,7 @@ class IPProtectionServiceSingleton extends EventTarget {
     if (
       this.featureEnabled &&
       (Services.prefs.getBoolPref("browser.ipProtection.autoStartEnabled") ||
-        Services.prefs.getBoolPref("browser.ipProtection.userEnabled"))
+        Services.prefs.getBoolPref("browser.ipProtection.autoRestoreEnabled"))
     ) {
       await this.init();
     }

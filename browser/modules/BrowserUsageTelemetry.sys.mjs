@@ -828,6 +828,12 @@ export let BrowserUsageTelemetry = {
       return null;
     }
 
+    // Handle share menu items before checking customizable widgets,
+    // since they are children of share-tab-button.
+    if (node.hasAttribute("data-share-name")) {
+      return "share-macos-provider";
+    }
+
     // See if this is a customizable widget.
     if (node.ownerDocument.URL == AppConstants.BROWSER_CHROME_URL) {
       // First find if it is inside one of the customizable areas.
@@ -1022,6 +1028,7 @@ export let BrowserUsageTelemetry = {
       sourceEvent.originalTarget?.localName === "a"
         ? sourceEvent.originalTarget
         : sourceEvent.target;
+
     const isAboutPreferences =
       node.ownerDocument.URL.startsWith("about:preferences") ||
       node.ownerDocument.URL.startsWith("about:settings");

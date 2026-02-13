@@ -1494,6 +1494,7 @@ STATIC_ATOMS = [
     Atom("grad", "grad"),
     Atom("gradientTransform", "gradientTransform"),
     Atom("gradientUnits", "gradientUnits"),
+    Atom("gtktiledwindow", "gtktiledwindow"),
     Atom("hardLight", "hard-light"),
     Atom("hue", "hue"),
     Atom("hueRotate", "hueRotate"),

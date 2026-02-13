@@ -1049,6 +1049,10 @@ toolbar-button-new-private-window =
   .label = New private window
   .tooltiptext = Open a new private browsing window ({ $shortcut })
 
+toolbar-button-share-tab =
+  .label = Share
+  .tooltiptext = Share this page
+
 ## EME notification panel
 
 eme-notifications-drm-content-playing = Some audio or video on this site uses DRM software, which may limit what { -brand-short-name } can let you do with it.

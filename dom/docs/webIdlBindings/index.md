@@ -824,7 +824,7 @@ is the responsibility of the caller.
 
 For example, this Web IDL:
 
-``` webidl
+``` text
 dictionary Dict {
   long foo = 5;
   DOMString bar;
@@ -1065,7 +1065,7 @@ of the struct is the concatenation of the names of the types in the
 union, with "Or" inserted between them, and for an owning struct
 "Owning" prepended. So for example, this IDL:
 
-``` webidl
+``` text
 undefined passUnion((object or long) arg);
 (object or long) receiveUnion();
 undefined passSequenceOfUnions(sequence<(object or long)> arg);

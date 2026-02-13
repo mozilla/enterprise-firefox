@@ -17,14 +17,11 @@ import androidx.compose.ui.test.assertIsNotDisplayed
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.ComposeTestRule
-import androidx.compose.ui.test.onAllNodesWithTag
-import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performImeAction
-import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
 import androidx.test.espresso.AppNotIdleException
 import androidx.test.espresso.Espresso.onView
@@ -147,21 +144,13 @@ class NavigationToolbarRobot(private val composeTestRule: ComposeTestRule) {
         waitForAppWindowToBeUpdated()
     }
 
-    fun verifyClipboardSuggestionsAreDisplayed(link: String = "", shouldBeDisplayed: Boolean) {
-        assertUIObjectExists(
-            itemWithResId("$packageName:id/fill_link_from_clipboard"),
-            exists = shouldBeDisplayed,
-        )
-        // On Android 12 or above we don't SHOW the URL unless the user requests to do so.
-        // See for more information https://github.com/mozilla-mobile/fenix/issues/22271
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
-            assertUIObjectExists(
-                itemWithResIdAndText(
-                    "$packageName:id/clipboard_url",
-                    link,
-                ),
-                exists = shouldBeDisplayed,
-            )
+    fun verifyClipboardSuggestionsAreDisplayed(shouldBeDisplayed: Boolean) {
+        if (shouldBeDisplayed) {
+            composeTestRule.onNodeWithText(getStringResource(R.string.awesomebar_clipboard_title))
+                .assertIsDisplayed()
+        } else {
+            composeTestRule.onNodeWithText(getStringResource(R.string.awesomebar_clipboard_title))
+                .assertIsNotDisplayed()
         }
     }
 
@@ -323,14 +312,8 @@ class NavigationToolbarRobot(private val composeTestRule: ComposeTestRule) {
             url: Uri,
             interact: BrowserRobot.() -> Unit,
         ): BrowserRobot.Transition {
-            Log.i(TAG, "enterURLAndEnterToBrowser: Waiting for URL box node to appear and be ready for interaction")
-            composeTestRule.waitUntil(waitingTime) {
-                composeTestRule.onAllNodesWithTag(ADDRESSBAR_URL_BOX).fetchSemanticsNodes().isNotEmpty()
-            }
-            Log.i(TAG, "enterURLAndEnterToBrowser: URL box node is now present and ready")
-
             Log.i(TAG, "enterURLAndEnterToBrowser: Trying to click navigation toolbar")
-            composeTestRule.onAllNodesWithTag(ADDRESSBAR_URL_BOX).onLast().performClick()
+            itemWithResId("ADDRESSBAR_URL_BOX").click()
             Log.i(TAG, "enterURLAndEnterToBrowser: Clicked navigation toolbar")
 
             Log.i(TAG, "enterURLAndEnterToBrowser: Waiting for compose rule to be idle")
@@ -338,15 +321,24 @@ class NavigationToolbarRobot(private val composeTestRule: ComposeTestRule) {
             Log.i(TAG, "enterURLAndEnterToBrowser: Waited for compose rule to be idle")
 
             Log.i(TAG, "enterURLAndEnterToBrowser: Trying to set toolbar text to: $url")
-            composeTestRule.onNodeWithTag(ADDRESSBAR_SEARCH_BOX).performTextReplacement(url.toString())
+            itemWithResId("ADDRESSBAR_SEARCH_BOX").setText(url.toString())
             Log.i(TAG, "enterURLAndEnterToBrowser: Toolbar text was set to: $url")
+
             Log.i(TAG, "enterURLAndEnterToBrowser: Waiting for compose rule to be idle")
             composeTestRule.waitForIdle()
             Log.i(TAG, "enterURLAndEnterToBrowser: Waited for compose rule to be idle")
 
-            Log.i(TAG, "enterURLAndEnterToBrowser: Trying to perform IME action perform on the toolbar")
-            composeTestRule.onNodeWithTag(ADDRESSBAR_SEARCH_BOX).performImeAction()
-            Log.i(TAG, "enterURLAndEnterToBrowser: IME action performed on the toolbar")
+            runCatching {
+                Log.i(TAG, "enterURLAndEnterToBrowser: Trying to perform Compose IME action perform on the toolbar")
+                composeTestRule.onNodeWithTag(ADDRESSBAR_SEARCH_BOX).performImeAction()
+                Log.i(TAG, "enterURLAndEnterToBrowser: Compose IME action performed on the toolbar")
+            }.onFailure { throwable ->
+                Log.e(TAG, "enterURLAndEnterToBrowser: Compose IME action failed with: ${throwable::class.java.simpleName} - ${throwable.message}")
+                Log.d(TAG, "enterURLAndEnterToBrowser: Falling back to UiDevice pressEnter()")
+                mDevice.pressEnter()
+                Log.d(TAG, "enterURLAndEnterToBrowser: Fallback UiDevice pressEnter() completed")
+            }
+
             Log.i(TAG, "enterURLAndEnterToBrowser: Waiting for compose rule to be idle")
             composeTestRule.waitForIdle()
             Log.i(TAG, "enterURLAndEnterToBrowser: Waited for compose rule to be idle")

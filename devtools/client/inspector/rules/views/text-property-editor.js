@@ -578,7 +578,7 @@ class TextPropertyEditor {
       this.element.removeAttribute("dirty");
     }
 
-    const outputParser = this.ruleView._outputParser;
+    const { outputParser } = this.ruleView;
     this.outputParserOptions = {
       angleClass: "ruleview-angle",
       angleSwatchClass: SHARED_SWATCH_CLASS + " " + ANGLE_SWATCH_CLASS,
@@ -855,7 +855,7 @@ class TextPropertyEditor {
     this.#updateShorthandOverridden();
 
     // Update the rule property highlight.
-    this.ruleView._updatePropertyHighlight(this);
+    this.ruleView.updatePropertyHighlight(this);
 
     // Restore focus back to the element whose markup was recreated above, if
     // the focus is still in the current document (avoid stealing the focus, see
@@ -1271,7 +1271,7 @@ class TextPropertyEditor {
     });
     appendText(nameContainer, ": ");
 
-    const outputParser = this.ruleView._outputParser;
+    const { outputParser } = this.ruleView;
     const frag = outputParser.parseCssProperty(computed.name, computed.value, {
       colorSwatchClass: "inspector-swatch inspector-colorswatch",
       urlClass: "theme-link",

@@ -11915,10 +11915,9 @@ void PresShell::MarkPositionedFrameForReflow(nsIFrame* aFrame) {
 }
 
 void PresShell::MarkFixedFramesForReflow() {
-  nsIFrame* rootFrame = mFrameConstructor->GetRootFrame();
-  if (rootFrame) {
+  if (nsIFrame* rootFrame = mFrameConstructor->GetRootFrame()) {
     const nsFrameList& childList =
-        rootFrame->GetChildList(FrameChildListID::Fixed);
+        rootFrame->GetChildList(FrameChildListID::Absolute);
     for (nsIFrame* childFrame : childList) {
       MarkPositionedFrameForReflow(childFrame);
     }

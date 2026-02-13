@@ -11719,7 +11719,7 @@ void nsContentUtils::StructuredClone(JSContext* aCx, nsIGlobalObject* aGlobal,
     return;
   }
 
-  holder.Read(aGlobal, aCx, aRetval, clonePolicy, aError);
+  holder.Read(aCx, aRetval, clonePolicy, aError);
   if (NS_WARN_IF(aError.Failed())) {
     return;
   }

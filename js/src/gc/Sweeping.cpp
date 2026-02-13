@@ -975,6 +975,7 @@ void GCRuntime::moveToNextSweepGroup() {
       zone->arenas.unmarkPreMarkedFreeCells();
       zone->arenas.mergeArenasFromCollectingLists();
       zone->clearGCSliceThresholds();
+      WeakMapBase::unmarkZone(zone);
 #ifdef DEBUG
       zone->cellsToAssertNotGray().clearAndFree();
 #endif

@@ -50,7 +50,6 @@ pub struct LinearGradientKey {
     pub reverse_stops: bool,
     pub cached: bool,
     pub nine_patch: Option<Box<NinePatchDescriptor>>,
-    pub edge_aa_mask: EdgeMask,
     pub enable_dithering: bool,
 }
 
@@ -70,7 +69,6 @@ impl LinearGradientKey {
             reverse_stops: linear_grad.reverse_stops,
             cached: linear_grad.cached,
             nine_patch: linear_grad.nine_patch,
-            edge_aa_mask: linear_grad.edge_aa_mask,
             enable_dithering: linear_grad.enable_dithering,
         }
     }
@@ -384,8 +382,7 @@ pub fn optimize_linear_gradient(
 impl From<LinearGradientKey> for LinearGradientTemplate {
     fn from(item: LinearGradientKey) -> Self {
 
-        let mut common = PrimTemplateCommonData::with_key_common(item.common);
-        common.edge_aa_mask = item.edge_aa_mask;
+        let common = PrimTemplateCommonData::with_key_common(item.common);
 
         let (mut stops, min_alpha) = stops_and_min_alpha(&item.stops);
 

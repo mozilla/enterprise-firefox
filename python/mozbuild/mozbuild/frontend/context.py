@@ -849,11 +849,12 @@ class Path(ContextDerivedValue, str, metaclass=PathMeta):
 
     This class is used as a backing type for some of the sandbox variables.
     It expresses paths relative to a context. Supported paths are:
-      - '/topsrcdir/relative/paths'
-      - 'srcdir/relative/paths'
-      - '!/topobjdir/relative/paths'
-      - '!objdir/relative/paths'
-      - '%/filesystem/absolute/paths'
+
+    - '/topsrcdir/relative/paths'
+    - 'srcdir/relative/paths'
+    - '!/topobjdir/relative/paths'
+    - '!objdir/relative/paths'
+    - '%/filesystem/absolute/paths'
     """
 
     def __new__(cls, context, value=None):
@@ -1275,13 +1276,13 @@ class Files(SubContext):
             """Maps source files to the CI tasks that should be scheduled when
             they change.  The tasks are grouped by named components, and those
             names appear again in the taskgraph configuration
-            `($topsrcdir/taskgraph/).
+            (``$topsrcdir/taskgraph/``).
 
             Some components are "inclusive", meaning that changes to most files
             do not schedule them, aside from those described in a Files
             subcontext.  For example, py-lint tasks need not be scheduled for
             most changes, but should be scheduled when any Python file changes.
-            Such components are named by appending to `SCHEDULES.inclusive`:
+            Such components are named by appending to ``SCHEDULES.inclusive``:
 
             with Files('**.py'):
                 SCHEDULES.inclusive += ['py-lint']
@@ -1290,12 +1291,12 @@ class Files(SubContext):
             files schedule them, but some files affect only one or two
             components. For example, most files schedule builds and tests of
             Firefox for Android, OS X, Windows, and Linux, but files under
-            `mobile/android/` affect Android builds and tests exclusively, so
+            ``mobile/android/`` affect Android builds and tests exclusively, so
             builds for other operating systems are not needed.  Test suites
             provide another example: most files schedule reftests, but changes
             to reftest scripts need only schedule reftests and no other suites.
 
-            Exclusive components are named by setting `SCHEDULES.exclusive`:
+            Exclusive components are named by setting ``SCHEDULES.exclusive``:
 
             with Files('mobile/android/**'):
                 SCHEDULES.exclusive = ['android']

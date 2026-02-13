@@ -102,7 +102,7 @@ child:
 
 both:
   async RawMessage(JSActorMessageMeta aMetadata, JSIPCValue aData,
-                   UniquePtr<ClonedMessageData> aStack);
+                   nullable StructuredCloneData aStack);
 
 parent:
   // Load the given URI load state into the current owner process of the given

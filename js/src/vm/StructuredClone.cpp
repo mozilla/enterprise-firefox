@@ -3438,25 +3438,30 @@ bool JSStructuredCloneReader::readHeader() {
     storedScope = JS::StructuredCloneScope::DifferentProcessForIndexedDB;
   }
 
-  // Backward compatibility with old structured clone buffers. Value '0' was
-  // used for SameProcessSameThread scope.
-  if ((int)storedScope == 0) {
-    storedScope = JS::StructuredCloneScope::SameProcess;
+  if (allowedScope == JS::StructuredCloneScope::DifferentProcessForIndexedDB) {
+    // Bug 1434308 and bug 1458320 - the scopes stored in old IndexedDB clones
+    // are incorrect. IndexedDB callers will pass in the special
+    // DifferentProcessForIndexedDB allowedScope, which means: act like
+    // allowedScope=DifferentProcess and if an old stored scope of 0 is
+    // detected, pretend like it was DifferentProcess instead. Value '0' was
+    // SameProcessSameThread scope and incorrectly used back when the old clones
+    // were written.
+    allowedScope = JS::StructuredCloneScope::DifferentProcess;
+    if (int(storedScope) == 0) {
+      storedScope = JS::StructuredCloneScope::DifferentProcess;
+    }
   }
 
+  // Note that various tests have the scope stored in them as
+  // DifferentProcessForIndexedDB, which shouldn't ever have made it to disk.
+  // Given the number of test failures if I forbid it, I'm not confident it
+  // didn't make it into users' data, so will allow it without erroring.
   if (storedScope < JS::StructuredCloneScope::SameProcess ||
       storedScope > JS::StructuredCloneScope::DifferentProcessForIndexedDB) {
     JS_ReportErrorNumberASCII(context(), GetErrorMessage, nullptr,
                               JSMSG_SC_BAD_SERIALIZED_DATA,
                               "invalid structured clone scope");
     return false;
-  }
-
-  if (allowedScope == JS::StructuredCloneScope::DifferentProcessForIndexedDB) {
-    // Bug 1434308 and bug 1458320 - the scopes stored in old IndexedDB
-    // clones are incorrect. Treat them as if they were DifferentProcess.
-    allowedScope = JS::StructuredCloneScope::DifferentProcess;
-    return true;
   }
 
   if (storedScope < allowedScope) {
@@ -4289,14 +4294,11 @@ bool JSAutoStructuredCloneBuffer::write(
     const JS::CloneDataPolicy& cloneDataPolicy,
     const JSStructuredCloneCallbacks* optionalCallbacks, void* closure) {
   clear();
-  bool ok = JS_WriteStructuredClone(
+  version_ = JS_STRUCTURED_CLONE_VERSION;
+  return JS_WriteStructuredClone(
       cx, value, &data_, data_.scopeForInternalWriting(), cloneDataPolicy,
       optionalCallbacks ? optionalCallbacks : data_.callbacks_,
       optionalCallbacks ? closure : data_.closure_, transferable);
-  if (!ok) {
-    version_ = JS_STRUCTURED_CLONE_VERSION;
-  }
-  return ok;
 }
 
 JS_PUBLIC_API bool JS_ReadUint32Pair(JSStructuredCloneReader* r, uint32_t* p1,

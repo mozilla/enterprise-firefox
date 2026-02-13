@@ -45,9 +45,9 @@ export class AIChatContent extends MozLitElement {
     this.#initFooterActionListeners();
   }
 
-  #dispatchFooterAction(action, detail) {
+  #dispatchAction(action, detail) {
     this.dispatchEvent(
-      new CustomEvent("AIChatContent:DispatchFooterAction", {
+      new CustomEvent("AIChatContent:DispatchAction", {
         bubbles: true,
         composed: true,
         detail: {
@@ -77,6 +77,11 @@ export class AIChatContent extends MozLitElement {
       "aiChatContentActor:remove-applied-memory",
       this.removeAppliedMemoryEvent.bind(this)
     );
+
+    this.addEventListener(
+      "aiChatError:retry-message",
+      this.retryUserMessageAfterError.bind(this)
+    );
   }
 
   /**
@@ -88,19 +93,19 @@ export class AIChatContent extends MozLitElement {
     this.addEventListener("copy-message", event => {
       const { messageId } = event.detail ?? {};
       const text = this.#getAssistantMessageBody(messageId);
-      this.#dispatchFooterAction("copy", { messageId, text });
+      this.#dispatchAction("copy", { messageId, text });
     });
 
     this.addEventListener("retry-message", event => {
-      this.#dispatchFooterAction("retry", event.detail);
+      this.#dispatchAction("retry", event.detail);
     });
 
     this.addEventListener("retry-without-memories", event => {
-      this.#dispatchFooterAction("retry-without-memories", event.detail);
+      this.#dispatchAction("retry-without-memories", event.detail);
     });
 
     this.addEventListener("remove-applied-memory", event => {
-      this.#dispatchFooterAction("remove-applied-memory", event.detail);
+      this.#dispatchAction("remove-applied-memory", event.detail);
     });
   }
 
@@ -174,6 +179,8 @@ export class AIChatContent extends MozLitElement {
   }
 
   handleErrorEvent(errorStatus) {
+    this.assistantIsLoading = false;
+    this.isSearching = false;
     this.errorStatus = errorStatus;
     this.showErrorMessage = true;
     this.requestUpdate();
@@ -196,6 +203,14 @@ export class AIChatContent extends MozLitElement {
     };
     this.requestUpdate();
     this.#scrollToBottom();
+  }
+
+  retryUserMessageAfterError() {
+    const lastMessage = this.conversationState.at(-1);
+    this.#dispatchAction("retry-after-error", {
+      ...lastMessage,
+      content: { type: "text", body: lastMessage.body },
+    });
   }
 
   /**

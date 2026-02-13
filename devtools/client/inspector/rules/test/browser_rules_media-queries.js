@@ -14,7 +14,7 @@ add_task(async function () {
   const { inspector, view } = await openRuleView();
   await selectNode("div", inspector);
 
-  const elementStyle = view._elementStyle;
+  const elementStyle = view.elementStyle;
 
   const inline = STYLE_INSPECTOR_L10N.getStr("rule.sourceInline");
   const constructed = STYLE_INSPECTOR_L10N.getStr("rule.sourceConstructed");

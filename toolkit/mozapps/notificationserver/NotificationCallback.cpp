@@ -46,24 +46,21 @@ HRESULT STDMETHODCALLTYPE NotificationCallback::Activate(
 }
 
 void NotificationCallback::HandleActivation(LPCWSTR invokedArgs) {
-  auto maybeArgs = ParseToastArguments(invokedArgs);
-  if (maybeArgs) {
+  if (invokedArgs) {
     NOTIFY_LOG(mozilla::LogLevel::Info,
                (L"Invoked with arguments: '%s'", invokedArgs));
-  } else {
-    NOTIFY_LOG(mozilla::LogLevel::Info, (L"COM server disabled for toast"));
-    return;
   }
-  const auto& args = maybeArgs.value();
-  auto [programPath, cmdLine] = BuildRunCommand(args);
+  auto maybeArgs = ParseToastArguments(invokedArgs);
+
+  auto [programPath, cmdLine] = BuildRunCommand(maybeArgs);
 
   // This pipe object will let Firefox notify us when it has handled the
   // notification. Create this before interacting with the application so the
   // application can rely on it existing.
-  auto maybePipe = CreatePipe(args.windowsTag);
+  auto maybePipe = maybeArgs.isSome() ? CreatePipe(maybeArgs.value().windowsTag)
+                                      : mozilla::Nothing();
 
   // Run the application.
-
   STARTUPINFOW si = {};
   si.cb = sizeof(STARTUPINFOW);
   PROCESS_INFORMATION pi = {};
@@ -87,14 +84,21 @@ void NotificationCallback::HandleActivation(LPCWSTR invokedArgs) {
 
 mozilla::Maybe<ToastArgs> NotificationCallback::ParseToastArguments(
     LPCWSTR invokedArgs) {
+  if (!invokedArgs) {
+    // Don't try to parse a null string.
+    MOZ_WIN_EVENT_LOG_INFO_MESSAGE(MOZ_NOTIFICATION_SERVER_NAME,
+                                   L"Was invoked with null args");
+    return mozilla::Nothing();
+  }
   ToastArgs parsedArgs;
+
   std::wistringstream args(invokedArgs);
-  bool serverDisabled = true;
+  bool hasMozillaArgs = false;
 
   for (std::wstring key, value;
        std::getline(args, key) && std::getline(args, value);) {
     if (key == kLaunchArgProgram) {
-      serverDisabled = false;
+      hasMozillaArgs = true;
     } else if (key == kLaunchArgProfile) {
       parsedArgs.profile = value;
     } else if (key == kLaunchArgTag) {
@@ -106,7 +110,9 @@ mozilla::Maybe<ToastArgs> NotificationCallback::ParseToastArguments(
     }
   }
 
-  if (serverDisabled) {
+  if (!hasMozillaArgs) {
+    MOZ_WIN_EVENT_LOG_INFO_MESSAGE(MOZ_NOTIFICATION_SERVER_NAME,
+                                   L"Was invoked with args: %s", invokedArgs);
     return mozilla::Nothing();
   }
 
@@ -114,35 +120,39 @@ mozilla::Maybe<ToastArgs> NotificationCallback::ParseToastArguments(
 }
 
 std::tuple<path, mozilla::UniquePtr<wchar_t[]>>
-NotificationCallback::BuildRunCommand(const ToastArgs& args) {
+NotificationCallback::BuildRunCommand(
+    const mozilla::Maybe<ToastArgs>& maybeArgs) {
   path programPath = installDir / L"" MOZ_APP_NAME;
   programPath += L".exe";
 
   std::vector<const wchar_t*> childArgv;
   childArgv.push_back(programPath.c_str());
 
-  if (!args.profile.empty()) {
-    childArgv.push_back(L"--profile");
-    childArgv.push_back(args.profile.c_str());
-  } else {
-    NOTIFY_LOG(mozilla::LogLevel::Warning,
-               (L"No profile; invocation will choose default profile"));
-  }
+  if (maybeArgs.isSome()) {
+    const ToastArgs& args = maybeArgs.value();
+    if (!args.profile.empty()) {
+      childArgv.push_back(L"--profile");
+      childArgv.push_back(args.profile.c_str());
+    } else {
+      NOTIFY_LOG(mozilla::LogLevel::Warning,
+                 (L"No profile; invocation will choose default profile"));
+    }
 
-  if (!args.windowsTag.empty()) {
-    childArgv.push_back(L"--notification-windowsTag");
-    childArgv.push_back(args.windowsTag.c_str());
-  } else {
-    NOTIFY_LOG(mozilla::LogLevel::Warning, (L"No windowsTag; invoking anyway"));
-  }
+    if (!args.windowsTag.empty()) {
+      childArgv.push_back(L"--notification-windowsTag");
+      childArgv.push_back(args.windowsTag.c_str());
+    } else {
+      NOTIFY_LOG(mozilla::LogLevel::Warning,
+                 (L"No windowsTag; invoking anyway"));
+    }
 
-  if (!args.action.empty()) {
-    childArgv.push_back(L"--notification-windowsAction");
-    childArgv.push_back(args.action.c_str());
-  } else {
-    NOTIFY_LOG(mozilla::LogLevel::Warning, (L"No action; invoking anyway"));
+    if (!args.action.empty()) {
+      childArgv.push_back(L"--notification-windowsAction");
+      childArgv.push_back(args.action.c_str());
+    } else {
+      NOTIFY_LOG(mozilla::LogLevel::Warning, (L"No action; invoking anyway"));
+    }
   }
-
   return {programPath,
           mozilla::MakeCommandLine(childArgv.size(), childArgv.data())};
 }

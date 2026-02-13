@@ -303,7 +303,7 @@ class HistoryFragment : LibraryPageFragment<History>(), UserInteractionHandler, 
             updateDeleteMenuItemView(!it.isEmpty)
         }
 
-        requireContext().components.appStore.flowScoped(viewLifecycleOwner) { flow ->
+        requireContext().components.appStore.flowScoped(viewLifecycleOwner, Dispatchers.Main) { flow ->
             flow.mapNotNull { state -> state.pendingDeletionHistoryItems }.collect { items ->
                 historyStore.dispatch(
                     HistoryFragmentAction.UpdatePendingDeletionItems(pendingDeletionItems = items),

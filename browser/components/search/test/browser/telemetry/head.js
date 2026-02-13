@@ -233,6 +233,9 @@ const DEFAULT_IMPRESSION = {
   source: "unknown",
   is_private: "false",
   is_signed_in: "false",
+  is_shopping_page: "false",
+  shopping_tab_displayed: "false",
+  has_ai_summary: "false",
 };
 
 /**
@@ -249,7 +252,7 @@ function assertSERPTelemetry(expectedEvents) {
   // Do a deep copy of impressions in case the input is using constants, as
   // we insert impression id into the expected events to make it easier to
   // run Assert.deepEqual() on the expected and actual result.
-  expectedEvents = JSON.parse(JSON.stringify(expectedEvents));
+  expectedEvents = structuredClone(expectedEvents);
 
   for (let expectedEvent of expectedEvents) {
     if (expectedEvent.impression) {

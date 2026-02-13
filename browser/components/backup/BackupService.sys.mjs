@@ -47,6 +47,8 @@ const CREATED_MANAGED_PROFILES_PREF_NAME = "browser.profiles.created";
 const RESTORED_BACKUP_METADATA_PREF_NAME =
   "browser.backup.restored-backup-metadata";
 const SANITIZE_ON_SHUTDOWN_PREF_NAME = "privacy.sanitize.sanitizeOnShutdown";
+const FORCE_ENABLE_BACKUP_PROFILES_PREF_NAME =
+  "browser.backup.profiles.force-enable";
 
 const SCHEMAS = Object.freeze({
   BACKUP_MANIFEST: 1,
@@ -707,7 +709,13 @@ export class BackupService extends EventTarget {
       };
     }
 
-    if (lazy.SelectableProfileService.hasCreatedSelectableProfiles()) {
+    if (
+      !Services.prefs.getBoolPref(
+        FORCE_ENABLE_BACKUP_PROFILES_PREF_NAME,
+        false
+      ) &&
+      lazy.SelectableProfileService.hasCreatedSelectableProfiles()
+    ) {
       return {
         enabled: false,
         reason:
@@ -772,7 +780,13 @@ export class BackupService extends EventTarget {
       };
     }
 
-    if (lazy.SelectableProfileService.hasCreatedSelectableProfiles()) {
+    if (
+      !Services.prefs.getBoolPref(
+        FORCE_ENABLE_BACKUP_PROFILES_PREF_NAME,
+        false
+      ) &&
+      lazy.SelectableProfileService.hasCreatedSelectableProfiles()
+    ) {
       return {
         enabled: false,
         reason:
@@ -780,6 +794,7 @@ export class BackupService extends EventTarget {
         internalReason: "selectable profiles",
       };
     }
+
     if (
       !this.#osSupportsRestore &&
       !Services.prefs.getBoolPref(
@@ -3109,12 +3124,30 @@ export class BackupService extends EventTarget {
         // of recoverFromSnapshotFolder so that the finally will not execute
         // until after recoverFromSnapshotFolder has finished resolving or
         // rejecting.
-        let newProfile = await this.recoverFromSnapshotFolder(
-          RECOVERY_FOLDER_DEST_PATH,
-          shouldLaunch,
-          profileRootPath,
-          encState
-        );
+
+        // Depending on if the user is using selectable profiles, we change the recover
+        // method used
+        // TODO: Currently this supports going from a legacy -> selectable and legacy -> legacy.
+        // Later patches will add functionality for going between selectable -> legacy and
+        // selectable -> selectable.
+        let newProfile;
+        if (lazy.SelectableProfileService.currentProfile) {
+          newProfile =
+            await this.recoverFromSnapshotFolderIntoSelectableProfile(
+              RECOVERY_FOLDER_DEST_PATH,
+              shouldLaunch,
+              encState,
+              null,
+              profileRootPath
+            );
+        } else {
+          newProfile = await this.recoverFromSnapshotFolder(
+            RECOVERY_FOLDER_DEST_PATH,
+            shouldLaunch,
+            profileRootPath,
+            encState
+          );
+        }
 
         Glean.browserBackup.restoreComplete.record({
           restore_id: this.#_state.restoreID,
@@ -3497,6 +3530,9 @@ export class BackupService extends EventTarget {
    *   profile group. If we are copying a profile, we will use
    *   copiedProfile.name to show that the new profile is a copy of
    *   copiedProfile on about:editprofile.
+   * @param {string} [profileRootPath=null]
+   *   Optional path where the new profile directory should be created.
+   *   If not provided, the default profile location will be used.
    * @returns {Promise<SelectableProfile>}
    *   The SelectableProfile that was created for the recovered profile.
    * @throws {Exception}
@@ -3506,7 +3542,8 @@ export class BackupService extends EventTarget {
     recoveryPath,
     shouldLaunch = false,
     encState = null,
-    copiedProfile = null
+    copiedProfile = null,
+    profileRootPath = null
   ) {
     lazy.logConsole.debug(
       "Recovering SelectableProfile from backup at ",
@@ -3518,7 +3555,17 @@ export class BackupService extends EventTarget {
 
       // Okay, we have a valid backup-manifest.json. Let's create a new profile
       // and start invoking the recover() method on each BackupResource.
-      let profile = await lazy.SelectableProfileService.createNewProfile(false);
+      let existingProfilePath = null;
+      if (profileRootPath) {
+        let profileDirName = `recovered-${Date.now()}`;
+        let profileDirPath = PathUtils.join(profileRootPath, profileDirName);
+        await IOUtils.makeDirectory(profileDirPath, { permissions: 0o700 });
+        existingProfilePath = await IOUtils.getDirectory(profileDirPath);
+      }
+      let profile = await lazy.SelectableProfileService.createNewProfile(
+        false,
+        existingProfilePath
+      );
 
       let postRecovery = await this.#recoverResources(
         manifest,
@@ -3531,6 +3578,9 @@ export class BackupService extends EventTarget {
       await this.#writePostRecoveryData(postRecovery, profile.path);
 
       if (shouldLaunch) {
+        // TODO (see Bug 2011302) - if the user is recovering a legacy profile
+        // into a selectable profile, we should open a custom about:editprofile#recovered page
+
         lazy.SelectableProfileService.launchInstance(
           profile,
           // Using URL Search Params on this about: page didn't work because

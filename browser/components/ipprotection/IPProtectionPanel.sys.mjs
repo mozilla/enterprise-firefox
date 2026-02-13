@@ -29,14 +29,15 @@ ChromeUtils.defineESModuleGetters(lazy, {
 import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
 import {
-  LINKS,
+  BANDWIDTH,
   ERRORS,
+  LINKS,
   SIGNIN_DATA,
 } from "chrome://browser/content/ipprotection/ipprotection-constants.mjs";
 
-const EGRESS_LOCATION_PREF = "browser.ipProtection.egressLocationEnabled";
 const BANDWIDTH_THRESHOLD_PREF = "browser.ipProtection.bandwidthThreshold";
 const DEFAULT_EGRESS_LOCATION = { name: "United States", code: "us" };
+const EGRESS_LOCATION_PREF = "browser.ipProtection.egressLocationEnabled";
 
 XPCOMUtils.defineLazyPreferenceGetter(
   lazy,
@@ -204,7 +205,7 @@ export class IPProtectionPanel {
       isSiteExceptionsEnabled: this.isExceptionsFeatureEnabled,
       siteData: this.#getSiteData(),
       bandwidthUsage: lazy.BANDWIDTH_USAGE_ENABLED
-        ? { remaining: 50, max: 50 }
+        ? { remaining: 50, max: BANDWIDTH.MAX_IN_GB }
         : null,
       isActivating:
         lazy.IPPProxyManager.state === lazy.IPPProxyStates.ACTIVATING,

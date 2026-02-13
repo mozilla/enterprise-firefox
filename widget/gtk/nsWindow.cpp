@@ -1939,7 +1939,8 @@ void nsWindow::UpdateWaylandPopupHierarchy() {
         return false;
       }
       if (popup->WaylandPopupIsFirst() &&
-          popup->WaylandPopupFitsToplevelWindow()) {
+          popup->WaylandPopupFitsToplevelWindow() &&
+          !StaticPrefs::widget_wayland_force_move_to_rect()) {
         // Avoid move-to-rect if our requested rect fits the toplevel.
         // This serves as an optimization, but also as a workaround for
         // https://gitlab.gnome.org/GNOME/gtk/-/issues/1986
@@ -1964,17 +1965,17 @@ void nsWindow::UpdateWaylandPopupHierarchy() {
         // We can't use move-to-rect if there are more parents of
         // wl_subsurface popups types.
         //
-        // It's because wl_subsurface is ignored by xgd_popup
+        // It's because wl_subsurface is ignored by xdg_popup
         // (created by move-to-rect) so our popup scenario:
         //
-        // toplevel -> xgd_popup(1) -> wl_subsurface(2) -> xgd_popup(3)
+        // toplevel -> xdg_popup(1) -> wl_subsurface(2) -> xdg_popup(3)
         //
         // looks for Wayland compositor as:
         //
-        // toplevel -> xgd_popup(1) -> xgd_popup(3)
+        // toplevel -> xdg_popup(1) -> xdg_popup(3)
         //
-        // If xgd_popup(1) and xgd_popup(3) are not connected
-        // move-to-rect applied to xgd_popup(3) fails and we get missing popup.
+        // If xdg_popup(1) and xdg_popup(3) are not connected
+        // move-to-rect applied to xdg_popup(3) fails and we get missing popup.
         return false;
       }
       return true;

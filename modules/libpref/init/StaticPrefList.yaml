@@ -3350,6 +3350,13 @@
   mirror: once
 #endif
 
+#if defined(XP_WIN)
+-   name: dom.ipc.alwaysUseParentBinary
+    type: RelaxedAtomicBool
+    value: @IS_NIGHTLY_BUILD@
+    mirror: always
+#endif
+
 #if defined(XP_DARWIN)
 # Whether or not to use the mach-based IPC backend on macOS/iOS.
 # Only read once at startup by IOThreadParent's constructor.
@@ -3578,10 +3585,11 @@
   mirror: always
 
 # Enable/disable KeyboardEvent.initKeyEvent function in addons even if it's
-# disabled.
+# disabled. This is false on release since Firefox 147 on release, and
+# deprecated, see: https://bugzilla.mozilla.org/show_bug.cgi?id=2015079
 - name: dom.keyboardevent.init_key_event.enabled_in_addons
   type: bool
-  value: @IS_NOT_EARLY_BETA_OR_EARLIER@
+  value: false
   mirror: always
 
 # If this is true, keypress events for non-printable keys are dispatched only
@@ -4935,19 +4943,6 @@
 - name: dom.storage_access.headers.enabled
   type: bool
   value: true
-  mirror: always
-
-# Forward-Declared Storage-access API.
-- name: dom.storage_access.forward_declared.enabled
-  type: bool
-  value: false
-  mirror: always
-
-# How long the Forward-Declared Storage-access API allows between pair requests
-# in seconds
-- name: dom.storage_access.forward_declared.lifetime
-  type: uint32_t
-  value: 15 * 60
   mirror: always
 
 # The maximum number of origins that a given third-party tracker is allowed
@@ -19448,6 +19443,12 @@
 # Whether to keep firing vsync at layout.throttled_frame_rate after we've been
 # occluded.
 - name: widget.wayland.vsync.keep-firing-at-idle
+  type: bool
+  value: false
+  mirror: always
+
+# Force use gdk_window_move_to_rect to move Wayland popups when available.
+- name: widget.wayland.force-move-to-rect
   type: bool
   value: false
   mirror: always

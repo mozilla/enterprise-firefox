@@ -19,7 +19,7 @@ class URLPattern final : public nsISupports, public nsWrapperCache {
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_WRAPPERCACHE_CLASS(URLPattern)
 
-  explicit URLPattern(nsISupports* aParent, UrlpPattern aPattern,
+  explicit URLPattern(nsISupports* aParent, UrlPatternGlue aPattern,
                       bool aIgnoreCase)
       : mParent(aParent),
         mPattern(std::move(aPattern)),
@@ -61,7 +61,7 @@ class URLPattern final : public nsISupports, public nsWrapperCache {
   nsCOMPtr<nsISupports> mParent;
 
   // dom holds onto opaque pointer to urlpattern::UrlPattern (lib.rs)
-  UrlpPattern mPattern;
+  UrlPatternGlue mPattern;
   bool mIgnoreCase;
 };
 

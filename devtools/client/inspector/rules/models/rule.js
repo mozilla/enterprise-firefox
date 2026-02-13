@@ -438,7 +438,7 @@ class Rule {
 
         if (resultPromise === this._applyingModifications) {
           this._applyingModifications = null;
-          this.elementStyle._changed();
+          this.elementStyle.notifyChanged();
         }
       })
       .catch(promiseWarn);
@@ -521,7 +521,7 @@ class Rule {
     return modifications.apply().then(() => {
       // Ensure dispatching a ruleview-changed event
       // also for previews
-      this.elementStyle._changed();
+      this.elementStyle.notifyChanged();
     });
   }
 

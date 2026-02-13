@@ -21,7 +21,6 @@ import androidx.core.view.children
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.distinctUntilChangedBy
@@ -293,9 +292,7 @@ class BrowserToolbarIntegration(
     internal fun observeEraseCfr() {
         eraseTabsCfrScope =
             fragment.components?.appStore?.flowScoped(
-                coroutineScope = CoroutineScope(
-                    coroutineDispatcher + SupervisorJob(),
-                ),
+                dispatcher = coroutineDispatcher,
             ) { flow ->
                 flow.mapNotNull { state -> state.showEraseTabsCfr }
                     .distinctUntilChanged()
@@ -350,7 +347,7 @@ class BrowserToolbarIntegration(
     internal fun observeCookieBannerCfr() {
         cookieBannerCfrScope =
             fragment.components?.appStore?.flowScoped(
-                coroutineScope = CoroutineScope(coroutineDispatcher + SupervisorJob()),
+                dispatcher = coroutineDispatcher,
             ) { flow ->
                 flow.mapNotNull { state -> state.showCookieBannerCfr }
                     .distinctUntilChanged()
@@ -416,9 +413,7 @@ class BrowserToolbarIntegration(
     internal fun observeTrackingProtectionCfr() {
         trackingProtectionCfrScope =
             fragment.components?.appStore?.flowScoped(
-                coroutineScope = CoroutineScope(
-                    coroutineDispatcher + SupervisorJob(),
-                ),
+                dispatcher = coroutineDispatcher,
             ) { flow ->
                 flow.mapNotNull { state -> state.showTrackingProtectionCfrForTab }
                     .distinctUntilChanged()
@@ -490,7 +485,7 @@ class BrowserToolbarIntegration(
     @VisibleForTesting
     internal fun observerSecurityIndicatorChanges() {
         securityIndicatorScope =
-            store.flowScoped(coroutineScope = CoroutineScope(coroutineDispatcher + SupervisorJob())) { flow ->
+            store.flowScoped(dispatcher = coroutineDispatcher) { flow ->
                 flow.mapNotNull { state -> state.findCustomTabOrSelectedTab(customTabId) }
                     .distinctUntilChangedBy { tab -> tab.content.securityInfo }
                     .collect {

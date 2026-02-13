@@ -37,7 +37,7 @@ using namespace mozilla;
 void AbsoluteContainingBlock::SetInitialChildList(nsIFrame* aDelegatingFrame,
                                                   FrameChildListID aListID,
                                                   nsFrameList&& aChildList) {
-  MOZ_ASSERT(mChildListID == aListID, "unexpected child list name");
+  MOZ_ASSERT(aListID == FrameChildListID::Absolute, "unexpected child list");
 #ifdef DEBUG
   nsIFrame::VerifyDirtyBitSet(aChildList);
   for (nsIFrame* f : aChildList) {
@@ -50,7 +50,7 @@ void AbsoluteContainingBlock::SetInitialChildList(nsIFrame* aDelegatingFrame,
 void AbsoluteContainingBlock::AppendFrames(nsIFrame* aDelegatingFrame,
                                            FrameChildListID aListID,
                                            nsFrameList&& aFrameList) {
-  NS_ASSERTION(mChildListID == aListID, "unexpected child list");
+  MOZ_ASSERT(aListID == FrameChildListID::Absolute, "unexpected child list");
 
   // Append the frames to our list of absolutely positioned frames
 #ifdef DEBUG
@@ -68,7 +68,7 @@ void AbsoluteContainingBlock::InsertFrames(nsIFrame* aDelegatingFrame,
                                            FrameChildListID aListID,
                                            nsIFrame* aPrevFrame,
                                            nsFrameList&& aFrameList) {
-  NS_ASSERTION(mChildListID == aListID, "unexpected child list");
+  MOZ_ASSERT(aListID == FrameChildListID::Absolute, "unexpected child list");
   NS_ASSERTION(!aPrevFrame || aPrevFrame->GetParent() == aDelegatingFrame,
                "inserting after sibling frame with different parent");
 
@@ -86,7 +86,7 @@ void AbsoluteContainingBlock::InsertFrames(nsIFrame* aDelegatingFrame,
 void AbsoluteContainingBlock::RemoveFrame(FrameDestroyContext& aContext,
                                           FrameChildListID aListID,
                                           nsIFrame* aOldFrame) {
-  NS_ASSERTION(mChildListID == aListID, "unexpected child list");
+  MOZ_ASSERT(aListID == FrameChildListID::Absolute, "unexpected child list");
 
   if (!aOldFrame->PresContext()->FragmentainerAwarePositioningEnabled()) {
     if (nsIFrame* nif = aOldFrame->GetNextInFlow()) {

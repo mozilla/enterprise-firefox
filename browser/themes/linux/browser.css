@@ -34,7 +34,7 @@
   :root[customtitlebar] {
     background-color: transparent;
 
-    &[sizemode="normal"]:not([gtktiledwindow="true"]) {
+    &[sizemode="normal"]:not([gtktiledwindow]) {
       /* Firefox draws its contents to a child window, while GTK takes care of
        * drawing the toplevel (which in most cases is just the window
        * decorations).

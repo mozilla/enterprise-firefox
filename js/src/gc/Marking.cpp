@@ -2599,6 +2599,7 @@ bool GCMarker::enterWeakMarkingMode() {
 
 IncrementalProgress JS::Zone::enterWeakMarkingMode(GCMarker* marker,
                                                    SliceBudget& budget) {
+  MOZ_ASSERT(isGCMarking());
   MOZ_ASSERT(marker->isWeakMarking());
 
   if (!marker->incrementalWeakMapMarkingEnabled) {

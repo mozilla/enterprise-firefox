@@ -1515,7 +1515,9 @@ LocalAccessible* nsAccessibilityService::CreateAccessible(
   }
 
   // XUL accessibles.
-  if (!newAcc && content->IsXULElement()) {
+  // We don't support XUL in remote docs, so if this isn't the top process,
+  // don't create XUL accessible for it.
+  if (!newAcc && content->IsXULElement() && !IPCAccessibilityActive()) {
     if (content->IsXULElement(nsGkAtoms::panel)) {
       // We filter here instead of in the XUL map because
       // if we filter there and return null, we still end up

@@ -85,8 +85,7 @@ class nsContainerFrame : public nsSplittableFrame {
    * @param   aListID the child list identifier.
    * @param   aChildList list of child frames. Each of the frames has its
    *            NS_FRAME_IS_DIRTY bit set.  Must not be empty.
-   *            This method cannot handle the child list returned by
-   *            GetAbsoluteListID().
+   *            This method cannot handle ChildListID::Absolute frames.
    * @see     #Init()
    */
   virtual void SetInitialChildList(ChildListID aListID,

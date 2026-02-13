@@ -2944,13 +2944,6 @@ void GCRuntime::purgePendingWrapperPreservationBuffersForShrinkingGC() {
   }
 }
 
-void GCRuntime::unmarkWeakMaps() {
-  for (GCZonesIter zone(this); !zone.done(); zone.next()) {
-    /* Unmark all weak maps in the zones being collected. */
-    WeakMapBase::unmarkZone(zone);
-  }
-}
-
 bool GCRuntime::beginPreparePhase(JS::GCReason reason, AutoGCSession& session) {
   gcstats::AutoPhase ap(stats(), gcstats::PhaseKind::PREPARE);
 
@@ -3077,15 +3070,6 @@ void GCRuntime::endPreparePhase(JS::GCReason reason) {
 
   {
     gcstats::AutoPhase ap(stats(), gcstats::PhaseKind::PREPARE);
-
-    AutoLockHelperThreadState helperLock;
-
-    /* Clear mark state for WeakMaps in parallel with other work. */
-    AutoRunParallelTask unmarkWeakMaps(this, &GCRuntime::unmarkWeakMaps,
-                                       gcstats::PhaseKind::UNMARK_WEAKMAPS,
-                                       GCUse::Unspecified, helperLock);
-
-    AutoUnlockHelperThreadState unlock(helperLock);
 
     maybeDiscardJitCodeForGC();
 
@@ -3728,6 +3712,7 @@ void GCRuntime::checkGCStateNotInUse() {
     MOZ_ASSERT(!zone->gcNextGraphComponent);
     MOZ_ASSERT(zone->cellsToAssertNotGray().empty());
     zone->bufferAllocator.checkGCStateNotInUse();
+    WeakMapBase::checkZoneUnmarked(zone);
   }
 
   MOZ_ASSERT(zonesToMaybeCompact.ref().isEmpty());
@@ -3988,6 +3973,8 @@ GCRuntime::IncrementalResult GCRuntime::resetIncrementalGC(
 
           // Merge sized alloc data structures back without sweeping them.
           zone->bufferAllocator.finishMajorCollection(lock);
+
+          WeakMapBase::unmarkZone(zone);
         }
       }
 

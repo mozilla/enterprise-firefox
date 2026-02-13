@@ -30,44 +30,30 @@ add_setup(async function setupPrefs() {
 });
 
 describe("settings ai features", () => {
-  it("hides Smart Window when preferences not enabled", async () => {
+  it("shows Smart Window activate when preferences enabled and user has not given consent", async () => {
     await SpecialPowers.pushPrefEnv({
-      set: [["browser.smartwindow.preferences.enabled", false]],
-    });
-
-    await withPrefsPane("ai", async doc => {
-      const aiWindowFeatures = doc.getElementById("aiFeaturesSmartWindowGroup");
-      Assert.ok(
-        !BrowserTestUtils.isVisible(aiWindowFeatures),
-        "smartWindowFeatures is hidden when preferences not enabled"
-      );
-    });
-  });
-
-  it("shows Smart Window activate when preferences enabled and feature not enabled", async () => {
-    await SpecialPowers.pushPrefEnv({
-      set: [
-        ["browser.smartwindow.preferences.enabled", true],
-        ["browser.smartwindow.enabled", false],
-      ],
+      set: [["browser.smartwindow.enabled", true]],
     });
 
     await withPrefsPane("ai", async doc => {
       const smartWindowActivateLink = doc.getElementById(
         "activateSmartWindowLink"
       );
+
       Assert.ok(
         BrowserTestUtils.isVisible(smartWindowActivateLink),
-        "smartWindowActivateLink is visible when preferences enabled and feature not enabled"
+        "smartWindowActivateLink is visible"
       );
     });
+
+    await SpecialPowers.popPrefEnv();
   });
 
-  it("hides Smart Window activate and show personalize button when feature enabled", async () => {
+  it("hides Smart Window activate and show personalize button when feature enabled and has conset", async () => {
     await SpecialPowers.pushPrefEnv({
       set: [
-        ["browser.smartwindow.preferences.enabled", true],
         ["browser.smartwindow.enabled", true],
+        ["browser.smartwindow.tos.consentTime", 1770830464],
       ],
     });
 
@@ -78,12 +64,15 @@ describe("settings ai features", () => {
       const smartWindowPersonalizeButton = doc.getElementById(
         "personalizeSmartWindowButton"
       );
+
       Assert.ok(
         !BrowserTestUtils.isVisible(smartWindowActivateLink) &&
           BrowserTestUtils.isVisible(smartWindowPersonalizeButton),
-        "smartWindowActivateLink is hidden and smartWindowPersonalizeButton is visible when feature enabled"
+        "smartWindowActivateLink is hidden and smartWindowPersonalizeButton is visible"
       );
     });
+
+    await SpecialPowers.popPrefEnv();
   });
 
   describe("managed by policy", () => {

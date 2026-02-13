@@ -4,6 +4,7 @@
 
 package org.mozilla.fenix.home.sessioncontrol
 
+import android.app.Activity
 import androidx.annotation.VisibleForTesting
 import androidx.navigation.NavController
 import androidx.navigation.NavDirections
@@ -22,7 +23,6 @@ import mozilla.telemetry.glean.private.NoExtras
 import org.mozilla.fenix.GleanMetrics.Collections
 import org.mozilla.fenix.GleanMetrics.HomeBookmarks
 import org.mozilla.fenix.GleanMetrics.RecentTabs
-import org.mozilla.fenix.HomeActivity
 import org.mozilla.fenix.R
 import org.mozilla.fenix.collections.SaveCollectionStep
 import org.mozilla.fenix.components.AppStore
@@ -163,7 +163,7 @@ interface SessionControlControllerCallback {
 
 @Suppress("TooManyFunctions", "LargeClass", "LongParameterList")
 class DefaultSessionControlController(
-    private val activityRef: WeakReference<HomeActivity>,
+    private val activityRef: WeakReference<Activity>,
     private val settings: Settings,
     private val engine: Engine,
     private val messageController: MessageController,
@@ -182,7 +182,7 @@ class DefaultSessionControlController(
 ) : SessionControlController {
 
     private var callback: SessionControlControllerCallback? = null
-    private val activity: HomeActivity
+    private val activity: Activity
         get() = requireNotNull(activityRef.get())
 
     private val navController: NavController
@@ -324,7 +324,7 @@ class DefaultSessionControlController(
         callback?.registerCollectionStorageObserver()
 
         val tabIds = store.state
-            .getNormalOrPrivateTabs(private = activity.browsingModeManager.mode.isPrivate)
+            .getNormalOrPrivateTabs(private = appStore.state.mode.isPrivate)
             .map { session -> session.id }
             .toList()
             .toTypedArray()

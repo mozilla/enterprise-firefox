@@ -957,6 +957,10 @@ export class AIWindow extends MozLitElement {
         this.#retryFromAssistantMessageId(messageId, false);
         break;
 
+      case "retry-after-error":
+        this.#retryAfterError();
+        break;
+
       case "remove-applied-memory":
         this.#removeAppliedMemory(messageId, memory);
         break;
@@ -974,6 +978,22 @@ export class AIWindow extends MozLitElement {
     }
 
     return this.#getMessageById(assistantMsg.parentMessageId) ?? null;
+  }
+
+  #retryAfterError() {
+    if (this._isRetrying) {
+      console.warn("ai-window: retry already in progress");
+      return;
+    }
+
+    this._isRetrying = true;
+    this.#fetchAIResponse(false)
+      .catch(error => {
+        console.error("Error retrying after error:", error);
+      })
+      .finally(() => {
+        this._isRetrying = false;
+      });
   }
 
   async #retryFromAssistantMessageId(assistantMessageId, withMemories) {
@@ -1028,6 +1048,7 @@ export class AIWindow extends MozLitElement {
 
   render() {
     return html`
+      <link rel="stylesheet" href="chrome://global/content/widgets.css" />
       <link
         rel="stylesheet"
         href="chrome://browser/content/aiwindow/components/ai-window.css"

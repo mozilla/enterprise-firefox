@@ -17,16 +17,16 @@ mozilla::LazyLogModule gUrlPatternLog("urlpattern");
 
 namespace mozilla::net {
 
-UrlpInput CreateUrlpInput(const nsACString& url) {
-  UrlpInput input;
-  input.string_or_init_type = UrlpStringOrInitType::String;
+UrlPatternInput CreateUrlPatternInput(const nsACString& url) {
+  UrlPatternInput input;
+  input.string_or_init_type = UrlPatternStringOrInitType::String;
   input.str = url;
   return input;
 }
 
-UrlpInput CreateUrlpInput(const UrlpInit& init) {
-  UrlpInput input;
-  input.string_or_init_type = UrlpStringOrInitType::Init;
+UrlPatternInput CreateUrlPatternInput(const UrlPatternInit& init) {
+  UrlPatternInput input;
+  input.string_or_init_type = UrlPatternStringOrInitType::Init;
   input.init = init;
   return input;
 }
@@ -39,67 +39,69 @@ MaybeString CreateMaybeStringNone() {
   return MaybeString{.string = ""_ns, .valid = false};
 }
 
-nsAutoCString UrlpGetProtocol(const UrlpPattern aPattern) {
+nsAutoCString UrlPatternGetProtocol(const UrlPatternGlue aPattern) {
   nsAutoCString result;
-  urlp_component_get_pattern_string(urlp_get_protocol_component(aPattern),
-                                    &result);
+  urlpattern_component_get_pattern_string(
+      urlpattern_get_protocol_component(aPattern), &result);
   return result;
 }
 
-nsAutoCString UrlpGetUsername(const UrlpPattern aPattern) {
+nsAutoCString UrlPatternGetUsername(const UrlPatternGlue aPattern) {
   nsAutoCString result;
-  urlp_component_get_pattern_string(urlp_get_username_component(aPattern),
-                                    &result);
+  urlpattern_component_get_pattern_string(
+      urlpattern_get_username_component(aPattern), &result);
   return result;
 }
 
-nsAutoCString UrlpGetPassword(const UrlpPattern aPattern) {
+nsAutoCString UrlPatternGetPassword(const UrlPatternGlue aPattern) {
   nsAutoCString result;
-  urlp_component_get_pattern_string(urlp_get_password_component(aPattern),
-                                    &result);
+  urlpattern_component_get_pattern_string(
+      urlpattern_get_password_component(aPattern), &result);
   return result;
 }
 
-nsAutoCString UrlpGetHostname(const UrlpPattern aPattern) {
+nsAutoCString UrlPatternGetHostname(const UrlPatternGlue aPattern) {
   nsAutoCString result;
-  urlp_component_get_pattern_string(urlp_get_hostname_component(aPattern),
-                                    &result);
+  urlpattern_component_get_pattern_string(
+      urlpattern_get_hostname_component(aPattern), &result);
   return result;
 }
 
-nsAutoCString UrlpGetPort(const UrlpPattern aPattern) {
+nsAutoCString UrlPatternGetPort(const UrlPatternGlue aPattern) {
   nsAutoCString result;
-  urlp_component_get_pattern_string(urlp_get_port_component(aPattern), &result);
+  urlpattern_component_get_pattern_string(
+      urlpattern_get_port_component(aPattern), &result);
   return result;
 }
 
-nsAutoCString UrlpGetPathname(const UrlpPattern aPattern) {
+nsAutoCString UrlPatternGetPathname(const UrlPatternGlue aPattern) {
   nsAutoCString result;
-  urlp_component_get_pattern_string(urlp_get_pathname_component(aPattern),
-                                    &result);
+  urlpattern_component_get_pattern_string(
+      urlpattern_get_pathname_component(aPattern), &result);
   return result;
 }
 
-nsAutoCString UrlpGetSearch(const UrlpPattern aPattern) {
+nsAutoCString UrlPatternGetSearch(const UrlPatternGlue aPattern) {
   nsAutoCString result;
-  urlp_component_get_pattern_string(urlp_get_search_component(aPattern),
-                                    &result);
+  urlpattern_component_get_pattern_string(
+      urlpattern_get_search_component(aPattern), &result);
   return result;
 }
 
-nsAutoCString UrlpGetHash(const UrlpPattern aPattern) {
+nsAutoCString UrlPatternGetHash(const UrlPatternGlue aPattern) {
   nsAutoCString result;
-  urlp_component_get_pattern_string(urlp_get_hash_component(aPattern), &result);
+  urlpattern_component_get_pattern_string(
+      urlpattern_get_hash_component(aPattern), &result);
   return result;
 }
 
 // https://urlpattern.spec.whatwg.org/#create-a-component-match-result
-Maybe<UrlpComponentResult> ComponentMatches(UrlpComponentPtr* aComponentPtr,
-                                            nsACString& aInput,
-                                            bool aMatchOnly) {
-  UrlpComponentResult res;
+Maybe<UrlPatternComponentResult> ComponentMatches(
+    UrlPatternComponentPtr* aComponentPtr, nsACString& aInput,
+    bool aMatchOnly) {
+  UrlPatternComponentResult res;
   nsAutoCString regexpString;
-  urlp_component_get_regexp_string(aComponentPtr, &regexpString);
+  urlpattern_component_get_regexp_string(aComponentPtr, &regexpString);
   if (regexpString == "^$") {  // empty string
     if (aInput != "") {
       return Nothing();
@@ -107,12 +109,13 @@ Maybe<UrlpComponentResult> ComponentMatches(UrlpComponentPtr* aComponentPtr,
   } else {  // check deeper match
     nsTArray<MaybeString> matches;
 
-    if (!urlp_component_matches(aComponentPtr, &aInput, aMatchOnly, &matches)) {
+    if (!urlpattern_component_matches(aComponentPtr, &aInput, aMatchOnly,
+                                      &matches)) {
       return Nothing();
     }
 
     nsTArray<nsCString> groupNames;
-    urlp_component_get_group_name_list(aComponentPtr, &groupNames);
+    urlpattern_component_get_group_name_list(aComponentPtr, &groupNames);
 
     for (size_t i = 0; i < matches.Length(); i++) {
       // Insert all capture groups, both matched and unmatched
@@ -126,53 +129,53 @@ Maybe<UrlpComponentResult> ComponentMatches(UrlpComponentPtr* aComponentPtr,
   return Some(res);
 }
 
-Maybe<UrlpResult> AllComponentMatches(const UrlpPattern aPattern,
-                                      UrlpMatchInput& aMatchInput,
-                                      bool aMatchOnly) {
-  UrlpResult res;
-  res.mProtocol = ComponentMatches(urlp_get_protocol_component(aPattern),
+Maybe<UrlPatternResult> AllComponentMatches(const UrlPatternGlue aPattern,
+                                            UrlPatternMatchInput& aMatchInput,
+                                            bool aMatchOnly) {
+  UrlPatternResult res;
+  res.mProtocol = ComponentMatches(urlpattern_get_protocol_component(aPattern),
                                    aMatchInput.protocol, aMatchOnly);
   if (res.mProtocol.isNothing()) {
     return Nothing();
   }
 
-  res.mUsername = ComponentMatches(urlp_get_username_component(aPattern),
+  res.mUsername = ComponentMatches(urlpattern_get_username_component(aPattern),
                                    aMatchInput.username, aMatchOnly);
   if (res.mUsername.isNothing()) {
     return Nothing();
   }
 
-  res.mPassword = ComponentMatches(urlp_get_password_component(aPattern),
+  res.mPassword = ComponentMatches(urlpattern_get_password_component(aPattern),
                                    aMatchInput.password, aMatchOnly);
   if (res.mPassword.isNothing()) {
     return Nothing();
   }
 
-  res.mHostname = ComponentMatches(urlp_get_hostname_component(aPattern),
+  res.mHostname = ComponentMatches(urlpattern_get_hostname_component(aPattern),
                                    aMatchInput.hostname, aMatchOnly);
   if (res.mHostname.isNothing()) {
     return Nothing();
   }
 
-  res.mPort = ComponentMatches(urlp_get_port_component(aPattern),
+  res.mPort = ComponentMatches(urlpattern_get_port_component(aPattern),
                                aMatchInput.port, aMatchOnly);
   if (res.mPort.isNothing()) {
     return Nothing();
   }
 
-  res.mPathname = ComponentMatches(urlp_get_pathname_component(aPattern),
+  res.mPathname = ComponentMatches(urlpattern_get_pathname_component(aPattern),
                                    aMatchInput.pathname, aMatchOnly);
   if (res.mPathname.isNothing()) {
     return Nothing();
   }
 
-  res.mSearch = ComponentMatches(urlp_get_search_component(aPattern),
+  res.mSearch = ComponentMatches(urlpattern_get_search_component(aPattern),
                                  aMatchInput.search, aMatchOnly);
   if (res.mSearch.isNothing()) {
     return Nothing();
   }
 
-  res.mHash = ComponentMatches(urlp_get_hash_component(aPattern),
+  res.mHash = ComponentMatches(urlpattern_get_hash_component(aPattern),
                                aMatchInput.hash, aMatchOnly);
   if (res.mHash.isNothing()) {
     return Nothing();
@@ -181,15 +184,16 @@ Maybe<UrlpResult> AllComponentMatches(const UrlpPattern aPattern,
   return Some(res);
 }
 
-Maybe<UrlpResult> UrlpPatternExec(UrlpPattern aPattern, const UrlpInput& aInput,
-                                  Maybe<nsAutoCString> aMaybeBaseUrl,
-                                  bool aIgnoreCase) {
-  MOZ_LOG(gUrlPatternLog, LogLevel::Debug, ("UrlpPatternExec()...\n"));
-  UrlpMatchInputAndInputs matchInputAndInputs;
-  if (aInput.string_or_init_type == UrlpStringOrInitType::Init) {
+Maybe<UrlPatternResult> UrlPatternExec(UrlPatternGlue aPattern,
+                                       const UrlPatternInput& aInput,
+                                       Maybe<nsAutoCString> aMaybeBaseUrl,
+                                       bool aIgnoreCase) {
+  MOZ_LOG(gUrlPatternLog, LogLevel::Debug, ("UrlPatternExec()...\n"));
+  UrlPatternMatchInputAndInputs matchInputAndInputs;
+  if (aInput.string_or_init_type == UrlPatternStringOrInitType::Init) {
     MOZ_ASSERT(aMaybeBaseUrl.isNothing());
-    if (!urlp_process_match_input_from_init(&aInput.init, nullptr,
-                                            &matchInputAndInputs)) {
+    if (!urlpattern_process_match_input_from_init(&aInput.init, nullptr,
+                                                  &matchInputAndInputs)) {
       return Nothing();
     }
   } else {
@@ -197,43 +201,44 @@ Maybe<UrlpResult> UrlpPatternExec(UrlpPattern aPattern, const UrlpInput& aInput,
     if (aMaybeBaseUrl.isSome()) {
       baseUrl = &aMaybeBaseUrl.ref();
     }
-    if (!urlp_process_match_input_from_string(&aInput.str, baseUrl,
-                                              &matchInputAndInputs)) {
+    if (!urlpattern_process_match_input_from_string(&aInput.str, baseUrl,
+                                                    &matchInputAndInputs)) {
       return Nothing();
     }
   }
 
   // shouldn't be any need to convert the urlpatternwrapper to quirks wrapper
   // the all_component_matches signature should be able to receive as a wrapper
-  Maybe<UrlpResult> res =
+  Maybe<UrlPatternResult> res =
       AllComponentMatches(aPattern, matchInputAndInputs.input, false);
   if (res.isNothing()) {
     return Nothing();
   }
 
   if (matchInputAndInputs.inputs.string_or_init_type ==
-      UrlpStringOrInitType::Init) {
+      UrlPatternStringOrInitType::Init) {
     res->mInputs.AppendElement(
-        CreateUrlpInput(matchInputAndInputs.inputs.init));
+        CreateUrlPatternInput(matchInputAndInputs.inputs.init));
   } else {
-    res->mInputs.AppendElement(CreateUrlpInput(matchInputAndInputs.inputs.str));
+    res->mInputs.AppendElement(
+        CreateUrlPatternInput(matchInputAndInputs.inputs.str));
     if (matchInputAndInputs.inputs.base.valid) {
       res->mInputs.AppendElement(
-          CreateUrlpInput(matchInputAndInputs.inputs.base.string));
+          CreateUrlPatternInput(matchInputAndInputs.inputs.base.string));
     }
   }
 
   return res;
 }
 
-bool UrlpPatternTest(UrlpPattern aPattern, const UrlpInput& aInput,
-                     Maybe<nsAutoCString> aMaybeBaseUrl, bool aIgnoreCase) {
-  MOZ_LOG(gUrlPatternLog, LogLevel::Debug, ("UrlpPatternTest()...\n"));
-  UrlpMatchInputAndInputs matchInputAndInputs;
-  if (aInput.string_or_init_type == UrlpStringOrInitType::Init) {
+bool UrlPatternTest(UrlPatternGlue aPattern, const UrlPatternInput& aInput,
+                    Maybe<nsAutoCString> aMaybeBaseUrl, bool aIgnoreCase) {
+  MOZ_LOG(gUrlPatternLog, LogLevel::Debug, ("UrlPatternTest()...\n"));
+  UrlPatternMatchInputAndInputs matchInputAndInputs;
+  if (aInput.string_or_init_type == UrlPatternStringOrInitType::Init) {
     MOZ_ASSERT(aMaybeBaseUrl.isNothing());
-    if (!urlp_process_match_input_from_init(&aInput.init, nullptr,
-                                            &matchInputAndInputs)) {
+    if (!urlpattern_process_match_input_from_init(&aInput.init, nullptr,
+                                                  &matchInputAndInputs)) {
       return false;
     }
   } else {
@@ -241,15 +246,15 @@ bool UrlpPatternTest(UrlpPattern aPattern, const UrlpInput& aInput,
     if (aMaybeBaseUrl.isSome()) {
       baseUrl = &aMaybeBaseUrl.ref();
     }
-    if (!urlp_process_match_input_from_string(&aInput.str, baseUrl,
-                                              &matchInputAndInputs)) {
+    if (!urlpattern_process_match_input_from_string(&aInput.str, baseUrl,
+                                                    &matchInputAndInputs)) {
       return false;
     }
   }
 
   // shouldn't be any need to convert the urlpatternwrapper to quirks wrapper
   // the all_component_matches signature should be able to receive as a wrapper
-  Maybe<UrlpResult> res =
+  Maybe<UrlPatternResult> res =
       AllComponentMatches(aPattern, matchInputAndInputs.input, true);
   return !res.isNothing();
 }

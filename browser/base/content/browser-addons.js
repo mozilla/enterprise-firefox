@@ -2781,6 +2781,14 @@ var gUnifiedExtensions = {
     await this.togglePanel(event, reason);
   },
 
+  /**
+   * @returns {boolean} Whether we are showing the Extensions Panel, or another
+   * (browserAction) panel anchored to the extensions button.
+   */
+  isPanelOpen() {
+    return this._button?.open ?? false;
+  },
+
   updateContextMenu(menu, event) {
     // When the context menu is open, `onpopupshowing` is called when menu
     // items open sub-menus. We don't want to update the context menu in this

@@ -104,6 +104,31 @@ interface AwesomeBar {
     )
 
     /**
+     * Interface to be implemented by suggestion implementations.
+     */
+    interface SuggestionItem {
+        /**
+         * The provider this suggestion came from.
+         */
+        val provider: SuggestionProvider
+
+        /**
+         * A unique ID identifying this suggestion.
+         */
+        val id: String
+
+        /**
+         * A score used to rank suggestions of this provider against each other.
+         */
+        val score: Int
+
+        /**
+         * A callback to be executed when the suggestion was clicked by the user.
+         */
+        val onSuggestionClicked: (() -> Unit)?
+    }
+
+    /**
      * A [Suggestion] to be displayed by an [AwesomeBar] implementation.
      *
      * @property provider The provider this suggestion came from.
@@ -128,8 +153,8 @@ interface AwesomeBar {
      * to pass additional information about this suggestion.
      */
     data class Suggestion(
-        val provider: SuggestionProvider,
-        val id: String = UUID.randomUUID().toString(),
+        override val provider: SuggestionProvider,
+        override val id: String = UUID.randomUUID().toString(),
         val title: String? = null,
         val description: String? = null,
         val editSuggestion: String? = null,
@@ -138,12 +163,12 @@ interface AwesomeBar {
         val indicatorIcon: Drawable? = null,
         val chips: List<Chip> = emptyList(),
         val flags: Set<Flag> = emptySet(),
-        val onSuggestionClicked: (() -> Unit)? = null,
+        override val onSuggestionClicked: (() -> Unit)? = null,
         val onChipClicked: ((Chip) -> Unit)? = null,
         val onRemovalClicked: (() -> Unit)? = null,
-        val score: Int = 0,
+        override val score: Int = 0,
         val metadata: Map<String, Any>? = null,
-    ) {
+    ) : SuggestionItem {
         /**
          * Chips are compact actions that are shown as part of a suggestion. For example a [Suggestion] from a search
          * engine may offer multiple search suggestion chips for different search terms.
@@ -178,6 +203,35 @@ interface AwesomeBar {
                 flags == other.flags
         }
     }
+
+    /**
+     * [StockSuggestion] to be displayed by an [AwesomeBar] implementation for stock information.
+     *
+     * @property provider The provider this suggestion came from.
+     * @property id A unique ID (provider scope) identifying this [StockSuggestion].
+     * @property score A score used to rank suggestions of this provider against each other.
+     * @property onSuggestionClicked A callback to be executed when the [StockSuggestion] was clicked by the user.
+     * @property query The user input in the toolbar.
+     * @property ticker The stock ticker symbol (e.g., "AAPL", "GOOGL").
+     * @property name The full name of the stock.
+     * @property index The stock index or exchange where the stock is listed (e.g., "NASDAQ", "NYSE").
+     * @property lastPrice The ask price from the most recent quote for this ticker.
+     * @property currency The currency of the stock.
+     * @property changePercToday The percentage change since the previous day.
+     */
+    data class StockSuggestion(
+        override val provider: SuggestionProvider,
+        override val id: String = UUID.randomUUID().toString(),
+        override val score: Int = 0,
+        override val onSuggestionClicked: (() -> Unit)? = null,
+        val query: String,
+        val ticker: String,
+        val name: String,
+        val index: String,
+        val lastPrice: String,
+        val currency: String,
+        val changePercToday: String,
+    ) : SuggestionItem
 
     /**
      * A [SuggestionProvider] is queried by an [AwesomeBar] whenever the text in the address bar is changed by the user.

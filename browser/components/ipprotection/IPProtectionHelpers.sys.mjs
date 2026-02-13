@@ -31,6 +31,7 @@ import { IPPSignInWatcher } from "moz-src:///browser/components/ipprotection/IPP
 import { IPPStartupCache } from "moz-src:///browser/components/ipprotection/IPPStartupCache.sys.mjs";
 import { IPPOptOutHelper } from "moz-src:///browser/components/ipprotection/IPPOptOutHelper.sys.mjs";
 import { IPProtectionAlertManager } from "moz-src:///browser/components/ipprotection/IPProtectionAlertManager.sys.mjs";
+import { IPProtectionInfobarManager } from "moz-src:///browser/components/ipprotection/IPProtectionInfobarManager.sys.mjs";
 
 /**
  * This simple class controls the UI activation/deactivation.
@@ -94,6 +95,7 @@ const IPPHelpers = [
   IPPOptOutHelper,
   IPPNimbusHelper,
   IPProtectionAlertManager,
+  IPProtectionInfobarManager,
 ];
 
 export { IPPHelpers };

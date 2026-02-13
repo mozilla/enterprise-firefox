@@ -758,3 +758,10 @@ toolbarpaletteitem[place="palette"] > #ipprotection-button > .toolbarbutton-icon
     }
   }
 }
+
+/* Document Picture-in-Picture API window */
+@media (display-mode: picture-in-picture) {
+  #PanelUI-button {
+    display: none;
+  }
+}

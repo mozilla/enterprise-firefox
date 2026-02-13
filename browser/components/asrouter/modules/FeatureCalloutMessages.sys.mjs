@@ -84,6 +84,199 @@ function add24HourImpressionJEXLTargeting(
 const MESSAGES = () => {
   let messages = [
     {
+      weight: 100,
+      id: "IP_PROTECTION_CALLOUT_MOZILLA_VPN_UPGRADE",
+      template: "feature_callout",
+      groups: ["cfr"],
+      content: {
+        id: "IP_PROTECTION_CALLOUT_MOZILLA_VPN_UPGRADE",
+        template: "multistage",
+        backdrop: "transparent",
+        transitions: false,
+        disableHistoryUpdates: true,
+        screens: [
+          {
+            id: "IP_PROTECTION_CALLOUT_MOZILLA_VPN_UPGRADE",
+            anchors: [
+              {
+                selector: "#ipprotection-button",
+                panel_position: {
+                  anchor_attachment: "bottomcenter",
+                  callout_attachment: "topright",
+                },
+                no_open_on_anchor: true,
+              },
+            ],
+            content: {
+              position: "callout",
+              width: "352px",
+              padding: 16,
+              logo: {
+                imageURL:
+                  "chrome://browser/content/ipprotection/assets/cfr-mozilla-vpn-light.svg",
+                darkModeImageURL:
+                  "chrome://browser/content/ipprotection/assets/cfr-mozilla-vpn-dark.svg",
+                height: "175px",
+                width: "320px",
+              },
+              title: {
+                string_id: "ipprotection-bandwidth-upgrade-title",
+                fontSize: "0.8125em",
+                marginInline: "0 25px",
+              },
+              above_button_content: [
+                {
+                  type: "text",
+                  text: {
+                    string_id: "ipprotection-bandwidth-upgrade-text",
+                    textAlign: "start",
+                    fontSize: "0.8125em",
+                    marginBlock: "-4px 0",
+                  },
+                },
+              ],
+              primary_button: {
+                label: {
+                  string_id: "upgrade-vpn-button",
+                  fontSize: "0.8125em",
+                  paddingBlock: "3px",
+                  paddingInline: "14px",
+                  lineHeight: "24px",
+                },
+                action: {
+                  type: "OPEN_URL",
+                  data: {
+                    args: "https://www.mozilla.org/products/vpn/?utm_medium=firefox-desktop&utm_source=freevpnpilot&utm_campaign=evergreen&utm_content=vpnpanel#pricing",
+                    where: "tabshifted",
+                  },
+                  dismiss: true,
+                },
+              },
+              secondary_button: {
+                label: {
+                  string_id:
+                    "ipprotection-feature-introduction-button-secondary-not-now",
+                  fontSize: "0.8125em",
+                  paddingBlock: "3px",
+                  paddingInline: "14px",
+                  lineHeight: "24px",
+                },
+                action: {
+                  dismiss: true,
+                },
+              },
+            },
+          },
+        ],
+      },
+      targeting:
+        "'browser.ipProtection.hasUpgraded' | preferenceValue == false && 'browser.ipProtection.bandwidthThreshold' | preferenceValue == 50 && !hasActiveEnterprisePolicies && !activeNotifications && previousSessionEnd && (messageImpressions.IP_PROTECTION_CALLOUT_MOZILLA_VPN_UPGRADE_SECONDARY || []) | length == 0",
+      trigger: {
+        id: "preferenceObserver",
+        params: ["browser.ipProtection.bandwidthThreshold"],
+      },
+      frequency: {
+        lifetime: 1,
+      },
+      skip_in_tests: "it's not tested in automation",
+    },
+    {
+      weight: 100,
+      id: "IP_PROTECTION_CALLOUT_MOZILLA_VPN_UPGRADE_SECONDARY",
+      template: "feature_callout",
+      groups: ["cfr"],
+      content: {
+        id: "IP_PROTECTION_CALLOUT_MOZILLA_VPN_UPGRADE_SECONDARY",
+        template: "multistage",
+        backdrop: "transparent",
+        transitions: false,
+        disableHistoryUpdates: true,
+        screens: [
+          {
+            id: "IP_PROTECTION_CALLOUT_MOZILLA_VPN_UPGRADE_SECONDARY",
+            anchors: [
+              {
+                selector: "#ipprotection-button",
+                panel_position: {
+                  anchor_attachment: "bottomcenter",
+                  callout_attachment: "topright",
+                },
+                no_open_on_anchor: true,
+              },
+            ],
+            content: {
+              position: "callout",
+              width: "352px",
+              padding: 16,
+              logo: {
+                imageURL:
+                  "chrome://browser/content/ipprotection/assets/cfr-mozilla-vpn-light.svg",
+                darkModeImageURL:
+                  "chrome://browser/content/ipprotection/assets/cfr-mozilla-vpn-dark.svg",
+                height: "175px",
+                width: "320px",
+              },
+              title: {
+                string_id: "ipprotection-bandwidth-upgrade-title",
+                fontSize: "0.8125em",
+                marginInline: "0 25px",
+              },
+              above_button_content: [
+                {
+                  type: "text",
+                  text: {
+                    string_id: "ipprotection-bandwidth-upgrade-text",
+                    textAlign: "start",
+                    fontSize: "0.8125em",
+                    marginBlock: "-4px 0",
+                  },
+                },
+              ],
+              primary_button: {
+                label: {
+                  string_id: "upgrade-vpn-button",
+                  fontSize: "0.8125em",
+                  paddingBlock: "3px",
+                  paddingInline: "14px",
+                  lineHeight: "24px",
+                },
+                action: {
+                  type: "OPEN_URL",
+                  data: {
+                    args: "https://www.mozilla.org/products/vpn/?utm_medium=firefox-desktop&utm_source=freevpnpilot&utm_campaign=evergreen&utm_content=vpnpanel#pricing",
+                    where: "tabshifted",
+                  },
+                  dismiss: true,
+                },
+              },
+              secondary_button: {
+                label: {
+                  string_id:
+                    "ipprotection-feature-introduction-button-secondary-not-now",
+                  fontSize: "0.8125em",
+                  paddingBlock: "3px",
+                  paddingInline: "14px",
+                  lineHeight: "24px",
+                },
+                action: {
+                  dismiss: true,
+                },
+              },
+            },
+          },
+        ],
+      },
+      targeting:
+        "'browser.ipProtection.hasUpgraded' | preferenceValue == false && 'browser.ipProtection.bandwidthThreshold' | preferenceValue == 50 && !hasActiveEnterprisePolicies && !activeNotifications && previousSessionEnd && (messageImpressions.IP_PROTECTION_CALLOUT_MOZILLA_VPN_UPGRADE || []) | length == 0",
+      trigger: {
+        id: "ipProtectionReady",
+      },
+      frequency: {
+        lifetime: 1,
+      },
+      skip_in_tests: "it's not tested in automation",
+    },
+    {
       id: "TAB_GROUP_ONBOARDING_CALLOUT",
       template: "feature_callout",
       groups: ["cfr"],

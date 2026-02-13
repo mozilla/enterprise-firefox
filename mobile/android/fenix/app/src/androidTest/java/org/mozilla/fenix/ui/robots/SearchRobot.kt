@@ -533,7 +533,7 @@ class SearchRobot(private val composeTestRule: ComposeTestRule) {
             Log.i(TAG, "dismissSearchBar: Trying to click device back button")
             mDevice.pressBack()
             Log.i(TAG, "dismissSearchBar: Clicked device back button")
-            waitForAppWindowToBeUpdated()
+            composeTestRule.waitForIdle()
 
             HomeScreenRobot(composeTestRule).interact()
             return HomeScreenRobot.Transition(composeTestRule)

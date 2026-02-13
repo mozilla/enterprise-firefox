@@ -326,6 +326,12 @@ function promiseOverflowHidden(win) {
   return promisePanelElementHidden(win, panelEl);
 }
 
+function hideOverflow() {
+  let panelHidePromise = promiseOverflowHidden(window);
+  PanelUI.overflowPanel.hidePopup();
+  return panelHidePromise;
+}
+
 function promisePanelElementHidden(win, aPanel) {
   return new Promise((resolve, reject) => {
     let timeoutId = win.setTimeout(() => {

@@ -1588,6 +1588,16 @@ class Element : public FragmentOrElement {
   void GetLoading(nsAString& aValue) const;
   bool ParseLoadingAttribute(const nsAString& aValue, nsAttrValue& aResult);
 
+ protected:
+  // Returns whether the element started lazy-loading.
+  // If this function returns true, it is the caller's responsibility to call
+  // LazyLoadingElementBindToTree/UnbindFromTree and/or StopLazyLoading().
+  [[nodiscard]] bool MaybeStartLazyLoading();
+  void StopLazyLoading();
+  void LazyLoadingElementBindToTree(BindContext&);
+  void LazyLoadingElementUnbindFromTree(UnbindContext&);
+
+ public:
   // https://html.spec.whatwg.org/#potentially-render-blocking
   virtual bool IsPotentiallyRenderBlocking() { return false; }
   bool BlockingContainsRender() const;

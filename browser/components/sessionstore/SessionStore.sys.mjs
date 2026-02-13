@@ -6622,6 +6622,13 @@ var SessionStoreInternal = {
     var hidden = aWinData.hidden ? aWinData.hidden.split(",") : [];
     var isTaskbarTab =
       aWindow.document.documentElement.hasAttribute("taskbartab");
+
+    const shouldBeAIWindow =
+      !!aWinData.isAIWindow && lazy.AIWindow.isAIWindowEnabled();
+    if (lazy.AIWindow.isAIWindowActive(aWindow) !== shouldBeAIWindow) {
+      lazy.AIWindow.toggleAIWindow(aWindow, shouldBeAIWindow);
+    }
+
     if (!isTaskbarTab) {
       WINDOW_HIDEABLE_FEATURES.forEach(function (aItem) {
         aWindow[aItem].visible = !hidden.includes(aItem);

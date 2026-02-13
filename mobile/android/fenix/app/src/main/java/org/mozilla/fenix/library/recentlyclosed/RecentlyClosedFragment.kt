@@ -16,6 +16,7 @@ import androidx.core.view.MenuProvider
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import mozilla.components.browser.state.state.recover.RecoverableTab
@@ -156,7 +157,7 @@ class RecentlyClosedFragment :
             activity?.invalidateOptionsMenu()
         }
 
-        requireComponents.core.store.flowScoped(viewLifecycleOwner) { flow ->
+        requireComponents.core.store.flowScoped(viewLifecycleOwner, Dispatchers.Main) { flow ->
             flow.map { state -> state.closedTabs }
                 .distinctUntilChanged()
                 .collect { tabs ->

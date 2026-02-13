@@ -2577,6 +2577,11 @@
         b.setAttribute("transparent", "true");
       }
 
+      Services.obs.notifyObservers(
+        b,
+        "tabbrowser-browser-element-will-be-inserted"
+      );
+
       let stack = document.createXULElement("stack");
       stack.className = "browserStack";
       stack.appendChild(b);

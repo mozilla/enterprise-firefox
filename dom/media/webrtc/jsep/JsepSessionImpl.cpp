@@ -305,9 +305,12 @@ nsresult JsepSessionImpl::CreateOfferMsection(const JsepOfferOptions& options,
           new SdpFlagAttribute(SdpAttribute::kRtcpRsizeAttribute));
     }
   }
-  // Ditto for extmap-allow-mixed
-  msection->GetAttributeList().SetAttribute(
-      new SdpFlagAttribute(SdpAttribute::kExtmapAllowMixedAttribute));
+
+  if (msection->GetMediaType() != SdpMediaSection::MediaType::kApplication) {
+    // Ditto for extmap-allow-mixed
+    msection->GetAttributeList().SetAttribute(
+        new SdpFlagAttribute(SdpAttribute::kExtmapAllowMixedAttribute));
+  }
 
   nsresult rv = AddTransportAttributes(msection, SdpSetupAttribute::kActpass);
   NS_ENSURE_SUCCESS(rv, rv);

@@ -233,7 +233,17 @@ class ReaderViewFeatureTest {
         val engine: Engine = mock()
         val tab = createTab("https://www.mozilla.org", id = "test-tab")
         val store = BrowserStore(initialState = BrowserState(tabs = listOf(tab)))
-        val readerViewFeature = spy(ReaderViewFeature(testContext, engine, store, mock(), testDispatcher, { "test-uuid" }, onReaderViewStatusChange))
+        val readerViewFeature = spy(
+            ReaderViewFeature(
+                testContext,
+                engine,
+                store,
+                mock(),
+                testDispatcher,
+                { "test-uuid" },
+                onReaderViewStatusChange,
+            ),
+        )
         readerViewFeature.start()
         testDispatcher.scheduler.advanceUntilIdle()
 
@@ -300,7 +310,14 @@ class ReaderViewFeatureTest {
             middleware = listOf(captureActionsMiddleware) + EngineMiddleware.create(engine),
         )
 
-        val readerViewFeature = ReaderViewFeature(testContext, engine, store, mock(), testDispatcher, { "bbbbf5ce-3b0f-4f74-8a1f-986d89bffea7" })
+        val readerViewFeature = ReaderViewFeature(
+            testContext,
+            engine,
+            store,
+            mock(),
+            testDispatcher,
+            { "bbbbf5ce-3b0f-4f74-8a1f-986d89bffea7" },
+        )
         readerViewFeature.readerBaseUrl = "moz-extension://012345/"
         readerViewFeature.showReaderView()
 

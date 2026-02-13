@@ -193,7 +193,7 @@ class DictionaryCacheEntry final : public nsICacheEntryOpenCallback,
   //  nsCString mType;
 
   // Cached parsed URLPattern for performance
-  Maybe<UrlpPattern> mCachedPattern;
+  Maybe<UrlPatternGlue> mCachedPattern;
 
   // SHA-256 hash value ready to put into a header
   nsCString mHash;

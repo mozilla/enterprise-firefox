@@ -25,6 +25,7 @@ MOZ_SRC_FILES += [
     "IPProtection.sys.mjs",
     "IPProtectionAlertManager.sys.mjs",
     "IPProtectionHelpers.sys.mjs",
+    "IPProtectionInfobarManager.sys.mjs",
     "IPProtectionPanel.sys.mjs",
     "IPProtectionServerlist.sys.mjs",
     "IPProtectionService.sys.mjs",

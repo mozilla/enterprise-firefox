@@ -4,7 +4,9 @@
 
 package mozilla.components.service.fxrelay.eligibility
 
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
 import mozilla.components.concept.sync.AccountObserver
 import mozilla.components.concept.sync.AuthType
@@ -31,6 +33,7 @@ class RelayFeature(
     private val accountManager: FxaAccountManager,
     private val store: RelayEligibilityStore,
     private val fetchTimeoutMs: Long = FETCH_TIMEOUT_MS,
+    private val mainDispatcher: CoroutineDispatcher = Dispatchers.Main,
 ) : LifecycleAwareFeature {
 
     private val logger = Logger("RelayEligibilityFeature")
@@ -45,7 +48,7 @@ class RelayFeature(
         val isLoggedIn = accountManager.authenticatedAccount() != null
         store.dispatch(RelayEligibilityAction.AccountLoginStatusChanged(isLoggedIn))
 
-        scope = store.flowScoped { flow ->
+        scope = store.flowScoped(dispatcher = mainDispatcher) { flow ->
             flow
                 .ifAnyChanged { arrayOf(it.eligibilityState, it.lastEntitlementCheckMs) }
                 .collect { state ->
@@ -80,7 +83,7 @@ class RelayFeature(
             RelayEligibilityAction.RelayStatusResult(
                 fetchSucceeded = relayDetails != null,
                 relayPlanTier = relayDetails?.relayPlanTier,
-                remaining = relayDetails?.remainingMasksForFreeUsers ?: 0,
+                remaining = relayDetails?.totalMasksUsed ?: 0,
                 lastCheckedMs = System.currentTimeMillis(),
             ),
         )
@@ -97,6 +100,15 @@ class RelayFeature(
      */
     suspend fun fetchEmailMasks(): List<EmailMask>? {
         return fxRelay?.fetchEmailMasks()
+    }
+
+    /**
+     * Tries to create a new email mask and falls back to using a randomly selected existing one.
+     *
+     * @return an email masks or `null` if the operation fails.
+     */
+    suspend fun getOrCreateNewMask(generatedFor: String): EmailMask? {
+        return fxRelay?.createEmailMask(generatedFor)
     }
 
     private inner class RelayAccountObserver : AccountObserver {

@@ -200,7 +200,7 @@ tab-split-view-wrapper[dragtarget] {
   position: absolute !important;
   pointer-events: none; /* avoid blocking dragover events on scroll buttons */
 
-  &[multiselected]:not([small-stack], [big-stack]) {
+  &[multiselected]:not([small-stack], [big-stack], [hasactivetab]) {
     visibility: hidden;
   }
 }

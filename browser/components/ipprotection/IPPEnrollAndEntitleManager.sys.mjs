@@ -172,7 +172,7 @@ class IPPEnrollAndEntitleManagerSingleton extends EventTarget {
    */
   async #entitle(forceRefetch = false) {
     if (this.#entitlement && !forceRefetch) {
-      return { isEntitled: false };
+      return { isEntitled: true };
     }
 
     // Linked does not mean enrolled: it could be that the link comes from a

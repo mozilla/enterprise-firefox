@@ -431,6 +431,25 @@ add_task(async function test_history_auxclick() {
     BrowserTestUtils.removeTab(tab);
   }
 
+  {
+    const selectedTabAtStart = gBrowser.selectedTab;
+    const tabsLengthAtStart = gBrowser.tabs.length;
+
+    AccessibilityUtils.setEnv({ focusableRule: false });
+    EventUtils.synthesizeMouseAtCenter(
+      rows[0].mainEl,
+      {
+        button: 2,
+      },
+      contentWindow
+    );
+    AccessibilityUtils.resetEnv();
+
+    is(gBrowser.selectedTab, selectedTabAtStart, "No tab is opened");
+
+    is(gBrowser.tabs.length, tabsLengthAtStart, "No tab is opened");
+  }
+
   SidebarController.hide();
 });
 

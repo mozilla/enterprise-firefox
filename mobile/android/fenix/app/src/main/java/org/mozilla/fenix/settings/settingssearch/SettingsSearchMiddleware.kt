@@ -71,7 +71,7 @@ class SettingsSearchMiddleware(
                 scope.launch(dispatcher) {
                     recentSettingsSearchesRepository.addRecentSearchItem(searchItem)
                 }
-                scope.launch(Dispatchers.Main) {
+                scope.launch {
                     navController.navigate(fragmentId, bundle)
                 }
                 next(action)

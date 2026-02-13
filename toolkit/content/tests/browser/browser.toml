@@ -195,6 +195,8 @@ support-files = [
 
 ["browser_media_wakelock_webaudio.js"]
 
+["browser_move_preserving_browser_element.js"]
+
 ["browser_moz_support_link_open_links_in_chrome.js"]
 
 ["browser_popup_queue_panels.js"]
