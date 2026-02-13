@@ -64,6 +64,11 @@ add_task(async function test_policy_update_apply_new_policy() {
     { TestPolicy: POLICY_PARAM_STATE.APPLIED },
     "Expected remote policy TestPolicy with parameter APPLIED."
   );
+  Assert.equal(
+    policyValue,
+    POLICY_PARAM_STATE.APPLIED,
+    `Expected the policy parameter "applied".`
+  );
 });
 
 add_task(async function test_policy_update_apply_policy_param_update() {
@@ -83,6 +88,11 @@ add_task(async function test_policy_update_apply_policy_param_update() {
     { TestPolicy: POLICY_PARAM_STATE.APPLIED },
     "Expected remote policy TestPolicy with parameter APPLIED."
   );
+  Assert.equal(
+    policyValue,
+    POLICY_PARAM_STATE.APPLIED,
+    `Expected the policy parameter "applied".`
+  );
 
   policyValue = POLICY_PARAM_STATE.DEFAULT;
 
@@ -98,6 +108,11 @@ add_task(async function test_policy_update_apply_policy_param_update() {
     Services.policies.getActivePolicies(),
     { TestPolicy: POLICY_PARAM_STATE.UPDATED },
     "Expected remote policy TestPolicy with parameter UPDATED."
+  );
+  Assert.equal(
+    policyValue,
+    POLICY_PARAM_STATE.UPDATED,
+    `Expected the policy parameter "updated".`
   );
 });
 
@@ -117,6 +132,11 @@ add_task(async function test_policy_update_remove_old_policy() {
     Services.policies.getActivePolicies(),
     { TestPolicy: POLICY_PARAM_STATE.APPLIED },
     "Expected remote policy TestPolicy with parameter APPLIED."
+  );
+    Assert.equal(
+    policyValue,
+    POLICY_PARAM_STATE.APPLIED,
+    `Expected the policy parameter "applied".`
   );
 
   const policies = {
@@ -154,6 +174,11 @@ add_task(async function test_policy_update_no_changes() {
     { TestPolicy: POLICY_PARAM_STATE.APPLIED },
     "Expected remote policy TestPolicy with parameter APPLIED."
   );
+    Assert.equal(
+    policyValue,
+    POLICY_PARAM_STATE.APPLIED,
+    `Expected the policy parameter "applied".`
+  );
 
   // This is not really representative of how things can happen but rather to
   // verify that the policy's callback was not called a second time.
@@ -172,7 +197,7 @@ add_task(async function test_policy_update_no_changes() {
   //    incorrect WRT policy at the moment)
   //
 
-  // Revert back to DEFAULT
+  // Revert back to DEFAULT (pref is unlocked)
   policyValue = POLICY_PARAM_STATE.DEFAULT;
 
   // Wait for next policy update to complete
