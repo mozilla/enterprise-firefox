@@ -21,4 +21,4 @@ environment = [
 
 ["browser_remote_policies_missing_live.js"]
 
-["browser_remote_policies_prefs.js"]
+["browser_remote_policies_unsetAndUnlockPref.js"]

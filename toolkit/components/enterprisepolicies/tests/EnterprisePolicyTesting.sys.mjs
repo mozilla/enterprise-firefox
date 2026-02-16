@@ -240,6 +240,10 @@ export var PoliciesPrefTracker = {
     let defaults = new Preferences({ defaultBranch: true });
 
     for (let [prefName, stored] of this._originalValues) {
+      if (!Preferences.get(prefName)) {
+        // Pref might have been removed by the test.
+        continue;
+      }
       // If a pref was used through setDefaultPref instead
       // of setAndLockPref, it wasn't locked, but calling
       // unlockPref is harmless
