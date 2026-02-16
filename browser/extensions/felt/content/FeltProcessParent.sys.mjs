@@ -13,8 +13,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
   FeltStorage: "resource:///modules/FeltStorage.sys.mjs",
   PREF_REMOTE_POLICIES_ENABLED:
     "resource://gre/modules/EnterprisePoliciesParent.sys.mjs",
-  PREF_LOCAL_POLICIES_ENABLED:
-    "resource://gre/modules/EnterprisePoliciesParent.sys.mjs",
 });
 
 console.debug(`FeltExtension: FeltParentProcess.sys.mjs`);

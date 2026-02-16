@@ -47,7 +47,7 @@ const PREF_LOGLEVEL = "browser.policies.loglevel";
 const PREF_POLICIES_APPLIED = "browser.policies.applied";
 
 export const PREF_REMOTE_POLICIES_ENABLED = "browser.policies.remote.enabled";
-export const PREF_LOCAL_POLICIES_ENABLED = "browser.policies.local.enabled";
+const PREF_LOCAL_POLICIES_ENABLED = "browser.policies.local.enabled";
 
 ChromeUtils.defineLazyGetter(lazy, "log", () => {
   let { ConsoleAPI } = ChromeUtils.importESModule(
