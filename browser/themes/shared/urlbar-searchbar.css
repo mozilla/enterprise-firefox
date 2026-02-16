@@ -4,6 +4,7 @@
 
 @namespace html url("http://www.w3.org/1999/xhtml");
 
+:host,
 :root {
   --urlbar-container-min-width: 310px;
   /* Usually we wouldn't need snapping border widths manually, but we use this

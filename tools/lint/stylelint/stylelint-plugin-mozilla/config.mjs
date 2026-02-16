@@ -157,7 +157,7 @@ const BackgroundColor = {
     "--urlbarView-result-button-selected-background-color",
   ],
   tokenTypes: ["background-color"],
-  aliasTokenTypes: ["color", "text-color", "border-color"],
+  aliasTokenTypes: ["color", "text-color", "border-color", "icon-color"],
   customFixes: customColorFixes,
   customSuggestions: systemColorSuggestions,
 };
@@ -184,8 +184,9 @@ const BackgroundImage = {
 
 /** @type {PropertyTypeConfig} */
 const BackgroundPosition = {
-  allow: ["top", "bottom", "left", "right", "center"],
+  allow: ["0", "top", "bottom", "left", "right", "center"],
   tokenTypes: ["size", "space"],
+  aliasTokenTypes: ["dimension"],
   allowUnits: true,
 };
 
@@ -193,6 +194,7 @@ const BackgroundPosition = {
 const BackgroundSize = {
   allow: ["auto", "cover", "contain"],
   tokenTypes: ["size", "space", "icon-size"],
+  aliasTokenTypes: ["dimension"],
   allowUnits: true,
 };
 
@@ -210,6 +212,26 @@ const BackgroundClip = {
 const BoxShadow = {
   allow: ["none"],
   tokenTypes: ["box-shadow"],
+};
+
+/** @type {PropertyTypeConfig} */
+const Fill = {
+  allow: [
+    "none",
+    "context-fill",
+    "context-stroke",
+    "currentColor",
+    "transparent",
+  ],
+  allowFunctions: ["url"],
+  tokenTypes: ["icon-color"],
+  aliasTokenTypes: [
+    "background-color",
+    "border-color",
+    "text-color",
+    "outline",
+  ],
+  customFixes: customColorFixes,
 };
 
 /** @type {PropertyTypeConfig} */
@@ -267,7 +289,7 @@ const BorderColor = {
 };
 
 /** @type {PropertyTypeConfig} */
-const BorderWidth = {
+const BorderStyle = {
   allow: [
     "solid",
     "dashed",
@@ -280,7 +302,12 @@ const BorderWidth = {
     "none",
     "hidden",
   ],
-  tokenTypes: ["border-width"],
+};
+
+/** @type {PropertyTypeConfig} */
+const BorderWidth = {
+  allow: ["0"],
+  tokenTypes: ["border-width", "outline"],
   allowUnits: true,
 };
 
@@ -297,10 +324,37 @@ const BorderRadius = {
 };
 
 /** @type {PropertyTypeConfig} */
+const FlexBasis = {
+  allow: ["auto", "fit-content", "min-content", "max-content"],
+  allowUnits: true,
+  allowedUnits: ["%"],
+  tokenTypes: ["size", "icon-size"],
+};
+
+/** @type {PropertyTypeConfig} */
+const FlexShorthand = {
+  allow: [
+    "none",
+    "0",
+    "1",
+    "2",
+    "3",
+    "4",
+    "100",
+    "1000",
+    "10000",
+    ...FlexBasis.allow,
+  ],
+  allowUnits: true,
+  allowedUnits: ["%"],
+  tokenTypes: ["size", "icon-size"],
+};
+
+/** @type {PropertyTypeConfig} */
 const TextColor = {
   allow: ["currentColor", "white", "black"],
   allowAlias: [...SYSTEM_COLORS],
-  tokenTypes: ["text-color"],
+  tokenTypes: ["text-color", "icon-color"],
   aliasTokenTypes: ["color", "background-color", "border-color"],
   customFixes: customColorFixes,
   customSuggestions: systemColorSuggestions,
@@ -310,6 +364,7 @@ const TextColor = {
 const Space = {
   allow: ["0", "auto"],
   tokenTypes: ["space"],
+  aliasTokenTypes: ["dimension"],
   customFixes: {
     "2px": "var(--space-xxsmall)",
     "4px": "var(--space-xsmall)",
@@ -325,16 +380,36 @@ const Space = {
 const Size = {
   allow: ["0", "auto", "none", "fit-content", "min-content", "max-content"],
   tokenTypes: ["size", "icon-size"],
+  aliasTokenTypes: ["dimension"],
   allowUnits: true,
   allowedUnits: ["em", "ch", "%", "vh", "vw"],
   customFixes: {
     ...createRawValuesObject(["size", "icon-size"]),
     "0.75rem": "var(--size-item-xsmall)",
+    "12px": "var(--size-item-xsmall)",
     "1rem": "var(--size-item-small)",
+    "16px": "var(--size-item-small)",
     "1.5rem": "var(--size-item-medium)",
+    "24px": "var(--size-item-medium)",
     "2rem": "var(--size-item-large)",
+    "32px": "var(--size-item-large)",
     "3rem": "var(--size-item-xlarge)",
+    "48px": "var(--size-item-xlarge)",
   },
+};
+
+/** @type {PropertyTypeConfig} */
+const Stroke = {
+  allow: ["none", "context-stroke", "currentColor", "transparent"],
+  allowFunctions: ["url"],
+  tokenTypes: ["icon-color"],
+  aliasTokenTypes: [
+    "background-color",
+    "border-color",
+    "text-color",
+    "outline",
+  ],
+  customFixes: customColorFixes,
 };
 
 /**
@@ -364,6 +439,21 @@ export const propertyConfig = {
     multiple: true,
     slash: true,
   },
+  "background-position": {
+    validTypes: [BackgroundPosition],
+    shorthand: true,
+    multiple: true,
+  },
+  "background-position-x": {
+    validTypes: [BackgroundPosition],
+    shorthand: true,
+    multiple: true,
+  },
+  "background-position-y": {
+    validTypes: [BackgroundPosition],
+    shorthand: true,
+    multiple: true,
+  },
   "background-size": {
     validTypes: [BackgroundSize],
     shorthand: true,
@@ -373,85 +463,121 @@ export const propertyConfig = {
     multiple: true,
   },
   border: {
-    validTypes: [BorderColor, BorderWidth],
+    validTypes: [BorderColor, BorderStyle, BorderWidth],
     shorthand: true,
   },
+  "border-width": {
+    validTypes: [BorderWidth],
+  },
+  "border-color": {
+    validTypes: [BorderColor],
+  },
   "border-block": {
-    validTypes: [BorderColor, BorderWidth],
+    validTypes: [BorderColor, BorderStyle, BorderWidth],
     shorthand: true,
+  },
+  "border-block-width": {
+    validTypes: [BorderWidth],
   },
   "border-block-color": {
     validTypes: [BorderColor],
   },
   "border-block-end": {
-    validTypes: [BorderColor, BorderWidth],
+    validTypes: [BorderColor, BorderStyle, BorderWidth],
     shorthand: true,
+  },
+  "border-block-end-width": {
+    validTypes: [BorderWidth],
   },
   "border-block-end-color": {
     validTypes: [BorderColor],
   },
   "border-block-start": {
-    validTypes: [BorderColor, BorderWidth],
+    validTypes: [BorderColor, BorderStyle, BorderWidth],
     shorthand: true,
+  },
+  "border-block-start-width": {
+    validTypes: [BorderWidth],
   },
   "border-block-start-color": {
     validTypes: [BorderColor],
   },
-  "border-color": {
+  "border-bottom": {
+    validTypes: [BorderColor, BorderStyle, BorderWidth],
+    shorthand: true,
+  },
+  "border-bottom-width": {
+    validTypes: [BorderWidth],
+  },
+  "border-bottom-color": {
     validTypes: [BorderColor],
   },
   "border-inline": {
-    validTypes: [BorderColor, BorderWidth],
+    validTypes: [BorderColor, BorderStyle, BorderWidth],
     shorthand: true,
+  },
+  "border-inline-width": {
+    validTypes: [BorderWidth],
   },
   "border-inline-color": {
     validTypes: [BorderColor],
   },
   "border-inline-end": {
-    validTypes: [BorderColor, BorderWidth],
+    validTypes: [BorderColor, BorderStyle, BorderWidth],
     shorthand: true,
+  },
+  "border-inline-end-width": {
+    validTypes: [BorderWidth],
   },
   "border-inline-end-color": {
     validTypes: [BorderColor],
   },
   "border-inline-start": {
-    validTypes: [BorderColor, BorderWidth],
+    validTypes: [BorderColor, BorderStyle, BorderWidth],
     shorthand: true,
+  },
+  "border-inline-start-width": {
+    validTypes: [BorderWidth],
   },
   "border-inline-start-color": {
     validTypes: [BorderColor],
   },
-  "border-bottom": {
-    validTypes: [BorderColor, BorderWidth],
-    shorthand: true,
-  },
-  "border-bottom-color": {
-    validTypes: [BorderColor],
-  },
   "border-left": {
-    validTypes: [BorderColor, BorderWidth],
+    validTypes: [BorderColor, BorderStyle, BorderWidth],
     shorthand: true,
+  },
+  "border-left-width": {
+    validTypes: [BorderWidth],
   },
   "border-left-color": {
     validTypes: [BorderColor],
   },
   "border-right": {
-    validTypes: [BorderColor, BorderWidth],
+    validTypes: [BorderColor, BorderStyle, BorderWidth],
     shorthand: true,
+  },
+  "border-right-width": {
+    validTypes: [BorderWidth],
   },
   "border-right-color": {
     validTypes: [BorderColor],
   },
   "border-top": {
-    validTypes: [BorderColor, BorderWidth],
+    validTypes: [BorderColor, BorderStyle, BorderWidth],
     shorthand: true,
+  },
+  "border-top-width": {
+    validTypes: [BorderWidth],
   },
   "border-top-color": {
     validTypes: [BorderColor],
   },
   outline: {
-    validTypes: [BorderColor, BorderWidth],
+    validTypes: [BorderColor, BorderStyle, BorderWidth],
     shorthand: true,
+  },
+  "outline-width": {
+    validTypes: [BorderWidth],
   },
   "outline-color": {
     validTypes: [BorderColor],
@@ -484,8 +610,23 @@ export const propertyConfig = {
   "border-end-end-radius": {
     validTypes: [BorderRadius],
   },
+  "border-spacing": {
+    validTypes: [Space],
+    shorthand: true,
+  },
   color: {
     validTypes: [TextColor],
+  },
+  fill: {
+    validTypes: [Fill],
+    shorthand: true,
+  },
+  flex: {
+    validTypes: [FlexShorthand],
+    shorthand: true,
+  },
+  "flex-basis": {
+    validTypes: [FlexBasis],
   },
   "font-size": {
     validTypes: [FontSize],
@@ -569,10 +710,20 @@ export const propertyConfig = {
     validTypes: [Space],
     shorthand: true,
   },
+  "grid-gap": {
+    validTypes: [Space],
+    shorthand: true,
+  },
   "column-gap": {
     validTypes: [Space],
   },
   "row-gap": {
+    validTypes: [Space],
+  },
+  "grid-column-gap": {
+    validTypes: [Space],
+  },
+  "grid-row-gap": {
     validTypes: [Space],
   },
   width: {
@@ -611,6 +762,10 @@ export const propertyConfig = {
   "max-block-size": {
     validTypes: [Size],
   },
+  stroke: {
+    validTypes: [Stroke],
+    shorthand: true,
+  },
   inset: {
     validTypes: [Space, Size],
     shorthand: true,
@@ -646,5 +801,77 @@ export const propertyConfig = {
   },
   bottom: {
     validTypes: [Space, Size],
+  },
+  "scroll-margin": {
+    validTypes: [Space],
+    shorthand: true,
+  },
+  "scroll-margin-block": {
+    validTypes: [Space],
+    shorthand: true,
+  },
+  "scroll-margin-block-end": {
+    validTypes: [Space],
+  },
+  "scroll-margin-block-start": {
+    validTypes: [Space],
+  },
+  "scroll-margin-bottom": {
+    validTypes: [Space],
+  },
+  "scroll-margin-inline": {
+    validTypes: [Space],
+    shorthand: true,
+  },
+  "scroll-margin-inline-end": {
+    validTypes: [Space],
+  },
+  "scroll-margin-inline-start": {
+    validTypes: [Space],
+  },
+  "scroll-margin-left": {
+    validTypes: [Space],
+  },
+  "scroll-margin-right": {
+    validTypes: [Space],
+  },
+  "scroll-margin-top": {
+    validTypes: [Space],
+  },
+  "scroll-padding": {
+    validTypes: [Space],
+    shorthand: true,
+  },
+  "scroll-padding-block": {
+    validTypes: [Space],
+    shorthand: true,
+  },
+  "scroll-padding-block-end": {
+    validTypes: [Space],
+  },
+  "scroll-padding-block-start": {
+    validTypes: [Space],
+  },
+  "scroll-padding-bottom": {
+    validTypes: [Space],
+  },
+  "scroll-padding-inline": {
+    validTypes: [Space],
+    shorthand: true,
+  },
+  "scroll-padding-inline-end": {
+    validTypes: [Space],
+  },
+  "scroll-padding-inline-start": {
+    validTypes: [Space],
+  },
+  "scroll-padding-left": {
+    validTypes: [Space],
+  },
+  "scroll-padding-right": {
+    validTypes: [Space],
+  },
+  "scroll-padding-top": {
+    validTypes: [Space],
   },
 };

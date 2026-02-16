@@ -54,6 +54,13 @@ interface CreditCardsAddressesStorage : Storage, StorageMaintenanceRegistry {
     suspend fun getAllCreditCards(): List<CreditCard>
 
     /**
+     * Counts all of the credit cards.
+     *
+     * @return A count of all [CreditCard].
+     */
+    suspend fun countAllCreditCards(): Long
+
+    /**
      * Deletes the credit card with the given [guid].
      *
      * @param guid Unique identifier for the desired credit card.
@@ -91,6 +98,13 @@ interface CreditCardsAddressesStorage : Storage, StorageMaintenanceRegistry {
      * @return A list of all [Address].
      */
     suspend fun getAllAddresses(): List<Address>
+
+    /**
+     * Counts all of the addresses.
+     *
+     * @return A count of all [Address].
+     */
+    suspend fun countAllAddresses(): Long
 
     /**
      * Updates the fields in the provided address.

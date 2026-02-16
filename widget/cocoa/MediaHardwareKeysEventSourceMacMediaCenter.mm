@@ -220,7 +220,7 @@ void MediaHardwareKeysEventSourceMacMediaCenter::SetMediaMetadata(
     nsCOMPtr<imgIContainer> imageContainer =
         image::ImageOps::CreateFromDrawable(drawable);
 
-    NSImage* image;
+    NSImage* image = nil;
     nsresult rv =
         nsCocoaUtils::CreateDualRepresentationNSImageFromImageContainer(
             imageContainer, imgIContainer::FRAME_CURRENT, nullptr,

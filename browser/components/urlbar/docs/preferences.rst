@@ -1,5 +1,7 @@
-Preferences
-===========
+.. _urlbar-preferences:
+
+Address Bar Preferences
+=======================
 
 This document describes Preferences affecting the Firefox's address bar.
 Preferences that are generated and updated by code won't be described here.

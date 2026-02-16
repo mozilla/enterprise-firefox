@@ -79,6 +79,7 @@
       // Similar to above, always set up TabSelect listener, as this gets
       // removed in disconnectedCallback
       this.ownerGlobal.addEventListener("TabSelect", this);
+      this.addEventListener("SplitViewTabChange", this);
 
       if (this._initialized) {
         return;
@@ -152,6 +153,7 @@
 
     disconnectedCallback() {
       this.ownerGlobal.removeEventListener("TabSelect", this);
+      this.removeEventListener("SplitViewTabChange", this);
       this.#tabChangeObserver?.disconnect();
     }
 
@@ -696,6 +698,14 @@
       }
       if (previousTab.group === this) {
         this.#updateTabAriaHidden(previousTab);
+      }
+
+      this.#updateOverflowLabel();
+    }
+
+    on_SplitViewTabChange(event) {
+      for (const splitViewTab of event.target.tabs) {
+        this.#updateTabAriaHidden(splitViewTab);
       }
 
       this.#updateOverflowLabel();

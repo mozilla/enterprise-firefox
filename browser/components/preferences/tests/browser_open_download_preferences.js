@@ -3,6 +3,8 @@
 
 "use strict";
 
+/** @import { MozOption } from '../../../../toolkit/content/widgets/moz-select/moz-select.mjs';*/
+
 const { HandlerServiceTestUtils } = ChromeUtils.importESModule(
   "resource://testing-common/HandlerServiceTestUtils.sys.mjs"
 );
@@ -12,7 +14,7 @@ const TEST_PATH = getRootDirectory(gTestPath).replace(
   "https://example.com"
 );
 
-async function selectPdfCategoryItem() {
+async function getPdfCategoryItem() {
   await openPreferencesViaOpenPreferencesAPI("general", { leaveOpen: true });
   info("Preferences page opened on the general pane.");
 
@@ -21,29 +23,33 @@ async function selectPdfCategoryItem() {
 
   let win = gBrowser.selectedBrowser.contentWindow;
   let container = win.document.getElementById("handlersView");
-  let pdfCategory = container.querySelector(
-    "richlistitem[type='application/pdf']"
-  );
+  await container.updateComplete;
 
-  pdfCategory.closest("richlistbox").selectItem(pdfCategory);
-  Assert.ok(pdfCategory.selected, "Should be able to select our item.");
+  let pdfCategory = container.querySelector(
+    "moz-box-item[type='application/pdf']"
+  );
 
   return pdfCategory;
 }
 
-async function selectItemInPopup(item, list) {
-  let popup = list.menupopup;
-  let popupShown = BrowserTestUtils.waitForEvent(popup, "popupshown");
-  // Synthesizing the mouse on the .actionsMenu menulist somehow just selects
-  // the top row. Probably something to do with the multiple layers of anon
-  // content - workaround by using the `.open` setter instead.
-  list.open = true;
-  await popupShown;
-  let popupHidden = BrowserTestUtils.waitForEvent(popup, "popuphidden");
+/**
+ * Selects provided actions menu dropdown item
+ * and sets it as the actions menu value.
+ *
+ * @param {MozOption} item
+ * @returns {Promise<void>}
+ */
+async function selectItemInPopup(item) {
+  let list = item.closest(".actionsMenu");
 
-  item.doCommand();
-  popup.hidePopup();
-  await popupHidden;
+  list.value = item.value;
+  /**
+   * Must trigger change manually to replicate
+   * what the component does after selecting an option.
+   */
+  list.dispatchEvent(new CustomEvent("change"));
+
+  await list.updateComplete;
   return item;
 }
 
@@ -86,17 +92,16 @@ add_task(async function alwaysAskPreferenceWorks() {
     ],
   });
 
-  let pdfCategory = await selectPdfCategoryItem();
+  let pdfCategory = await getPdfCategoryItem();
   let list = pdfCategory.querySelector(".actionsMenu");
 
   let alwaysAskItem = list.querySelector(
-    `menuitem[action='${Ci.nsIHandlerInfo.alwaysAsk}']`
+    `moz-option[action='${Ci.nsIHandlerInfo.alwaysAsk}']`
   );
-
-  await selectItemInPopup(alwaysAskItem, list);
+  await selectItemInPopup(alwaysAskItem);
   Assert.equal(
-    list.selectedItem,
-    alwaysAskItem,
+    list.value,
+    Ci.nsIHandlerInfo.alwaysAsk + "",
     "Should have selected 'always ask' for pdf"
   );
   let alwaysAskBeforeHandling = HandlerServiceTestUtils.getHandlerInfo(
@@ -138,17 +143,19 @@ add_task(async function handleInternallyPreferenceWorks() {
     ],
   });
 
-  let pdfCategory = await selectPdfCategoryItem();
+  let pdfCategory = await getPdfCategoryItem();
+
   let list = pdfCategory.querySelector(".actionsMenu");
 
   let handleInternallyItem = list.querySelector(
-    `menuitem[action='${Ci.nsIHandlerInfo.handleInternally}']`
+    `moz-option[action='${Ci.nsIHandlerInfo.handleInternally}']`
   );
 
-  await selectItemInPopup(handleInternallyItem, list);
+  await selectItemInPopup(handleInternallyItem);
+
   Assert.equal(
-    list.selectedItem,
-    handleInternallyItem,
+    list.value,
+    handleInternallyItem.value,
     "Should have selected 'handle internally' for pdf"
   );
 
@@ -182,17 +189,17 @@ add_task(async function saveToDiskPreferenceWorks() {
     ],
   });
 
-  let pdfCategory = await selectPdfCategoryItem();
+  let pdfCategory = await getPdfCategoryItem();
   let list = pdfCategory.querySelector(".actionsMenu");
 
   let saveToDiskItem = list.querySelector(
-    `menuitem[action='${Ci.nsIHandlerInfo.saveToDisk}']`
+    `moz-option[action='${Ci.nsIHandlerInfo.saveToDisk}']`
   );
 
-  await selectItemInPopup(saveToDiskItem, list);
+  await selectItemInPopup(saveToDiskItem);
   Assert.equal(
-    list.selectedItem,
-    saveToDiskItem,
+    list.value,
+    saveToDiskItem.value,
     "Should have selected 'save to disk' for pdf"
   );
 
@@ -226,11 +233,11 @@ add_task(async function useSystemDefaultPreferenceWorks() {
     ],
   });
 
-  let pdfCategory = await selectPdfCategoryItem();
+  let pdfCategory = await getPdfCategoryItem();
   let list = pdfCategory.querySelector(".actionsMenu");
 
   let useSystemDefaultItem = list.querySelector(
-    `menuitem[action='${Ci.nsIHandlerInfo.useSystemDefault}']`
+    `moz-option[action='${Ci.nsIHandlerInfo.useSystemDefault}']`
   );
 
   // Whether there's a "use default" item depends on the OS, there might not be a system default viewer.
@@ -242,10 +249,10 @@ add_task(async function useSystemDefaultPreferenceWorks() {
     return;
   }
 
-  await selectItemInPopup(useSystemDefaultItem, list);
+  await selectItemInPopup(useSystemDefaultItem);
   Assert.equal(
-    list.selectedItem,
-    useSystemDefaultItem,
+    list.value,
+    useSystemDefaultItem.value,
     "Should have selected 'use system default' for pdf"
   );
 

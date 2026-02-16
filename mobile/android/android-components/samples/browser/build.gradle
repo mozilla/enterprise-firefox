@@ -147,7 +147,6 @@ dependencies {
     implementation libs.androidx.compose.ui.tooling
     implementation libs.androidx.constraintlayout
     implementation libs.androidx.core.ktx
-    implementation libs.androidx.localbroadcastmanager
     implementation libs.androidx.swiperefreshlayout
     implementation libs.google.material
     implementation libs.mozilla.glean

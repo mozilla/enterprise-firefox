@@ -521,7 +521,7 @@ public class ContentBlocking {
 
     /* package */ final Pref<String> mSbHarmfulAddonList =
         new Pref<String>(
-            "urlclassifier.features.harmfuladdon.blocklistTables",
+            "urlclassifier.features.harmfuladdonV2.blocklistTables",
             ContentBlocking.catToPref(AntiTracking.NONE, SafeBrowsing.HARMFULADDON, HARMFULADDON));
 
     /* package */ final Pref<String> mSafeBrowsingMalwareTable =

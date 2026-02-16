@@ -66,6 +66,12 @@ void CSSKeywordValue::ToCssTextWithProperty(const CSSPropertyId& aPropertyId,
   aDest.Append(mValue);
 }
 
+const CSSKeywordValue& CSSStyleValue::GetAsCSSKeywordValue() const {
+  MOZ_DIAGNOSTIC_ASSERT(mStyleValueType == StyleValueType::KeywordValue);
+
+  return *static_cast<const CSSKeywordValue*>(this);
+}
+
 CSSKeywordValue& CSSStyleValue::GetAsCSSKeywordValue() {
   MOZ_DIAGNOSTIC_ASSERT(mStyleValueType == StyleValueType::KeywordValue);
 

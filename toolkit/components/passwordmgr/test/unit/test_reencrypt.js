@@ -6,13 +6,13 @@ https://creativecommons.org/publicdomain/zero/1.0/ */
 const EXPECTED_LOGINS = LoginTestUtils.testData.loginList();
 
 add_setup(async function () {
-  registerCleanupFunction(() => {
+  registerCleanupFunction(async () => {
     Services.prefs.clearUserPref("security.sdr.mechanism");
-    Services.logins.removeAllLogins();
+    await Services.logins.removeAllLoginsAsync();
   });
 
   Services.prefs.setIntPref("security.sdr.mechanism", 0);
-  Services.logins.removeAllLogins();
+  await Services.logins.removeAllLoginsAsync();
   await Services.logins.addLogins(EXPECTED_LOGINS);
 });
 
@@ -85,7 +85,7 @@ add_task(async function test_reencrypt_race() {
 });
 
 add_task(async function test_reencrypt_no_logins_present() {
-  Services.logins.removeAllLogins();
+  await Services.logins.removeAllLoginsAsync();
 
   await Services.logins.reencryptAllLogins();
 

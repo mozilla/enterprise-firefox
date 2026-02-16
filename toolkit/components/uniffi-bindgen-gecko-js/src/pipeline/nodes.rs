@@ -465,7 +465,7 @@ pub struct VTableMethod {
 pub enum UniffiTrait {
     Debug { fmt: Method },
     Display { fmt: Method },
-    Eq { eq: Method, ne: Method },
+    Eq { eq: Method, ne: Box<Method> },
     Hash { hash: Method },
 }
 

@@ -971,6 +971,14 @@ void nsSHistory::NotifyOnHistoryReplaceEntry() {
   NotifyListeners(mListeners, [](auto l) { l->OnHistoryReplaceEntry(); });
 }
 
+NS_IMETHODIMP
+nsSHistory::NotifyOnEntryTitleUpdated(nsISHEntry* aEntry) {
+  NotifyListeners(mListeners, [entry = nsCOMPtr{aEntry}](auto l) {
+    l->OnEntryTitleUpdated(entry);
+  });
+  return NS_OK;
+}
+
 /* Get size of the history list */
 NS_IMETHODIMP
 nsSHistory::GetCount(int32_t* aResult) {

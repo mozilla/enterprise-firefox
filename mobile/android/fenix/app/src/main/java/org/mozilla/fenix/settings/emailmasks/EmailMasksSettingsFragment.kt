@@ -10,10 +10,11 @@ import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import androidx.fragment.compose.content
 import mozilla.components.lib.state.helpers.StoreProvider.Companion.fragmentStore
+import org.mozilla.fenix.BrowserDirection
+import org.mozilla.fenix.HomeActivity
 import org.mozilla.fenix.R
 import org.mozilla.fenix.ext.settings
 import org.mozilla.fenix.ext.showToolbar
-import org.mozilla.fenix.settings.SupportUtils
 import org.mozilla.fenix.settings.emailmasks.middleware.EmailMasksNavigationMiddleware
 import org.mozilla.fenix.settings.emailmasks.middleware.EmailMasksPreferencesMiddleware
 import org.mozilla.fenix.settings.emailmasks.middleware.EmailMasksTelemetryMiddleware
@@ -49,9 +50,10 @@ class EmailMasksSettingsFragment : Fragment() {
         middleware = listOf(
             EmailMasksNavigationMiddleware(
                 openTab = { url ->
-                    SupportUtils.launchSandboxCustomTab(
-                        context = requireContext(),
-                        url = url,
+                    (activity as? HomeActivity)?.openToBrowserAndLoad(
+                        searchTermOrURL = url,
+                        newTab = true,
+                        from = BrowserDirection.FromSettings,
                     )
                 },
             ),

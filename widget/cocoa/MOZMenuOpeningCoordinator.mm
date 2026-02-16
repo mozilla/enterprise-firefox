@@ -30,6 +30,12 @@ static BOOL sNeedToUnwindForMenuClosing = NO;
 @end
 
 @implementation MOZMenuOpeningInfo
+- (void)dealloc {
+  [_menu release];
+  [_view release];
+  [_appearance release];
+  [super dealloc];
+}
 @end
 
 @implementation MOZMenuOpeningCoordinator {
@@ -80,8 +86,7 @@ static BOOL sNeedToUnwindForMenuClosing = NO;
   info.view = aView;
   info.appearance = aAppearance;
   info.isContextMenu = aIsContextMenu;
-  mPendingOpening = [info retain];
-  [info release];
+  mPendingOpening = info;
 
   if (!mRunMenuIsOnTheStack) {
     // Call _runMenu from the event loop, so that it doesn't block this call.
@@ -97,8 +102,7 @@ static BOOL sNeedToUnwindForMenuClosing = NO;
   mRunMenuIsOnTheStack = YES;
 
   while (mPendingOpening) {
-    MOZMenuOpeningInfo* info = [mPendingOpening retain];
-    [mPendingOpening release];
+    MOZMenuOpeningInfo* info = mPendingOpening;
     mPendingOpening = nil;
 
     @try {

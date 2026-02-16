@@ -1184,6 +1184,7 @@ export class UrlbarInput extends HTMLElement {
       selType,
       searchString: typedValue,
       result: selectedResult || this._resultForCurrentValue || null,
+      searchSource: this.getSearchSource(event),
     });
 
     if (URL.canParse(url)) {
@@ -1405,6 +1406,7 @@ export class UrlbarInput extends HTMLElement {
         element,
         searchString: this._lastSearchString,
         selType: "dismiss",
+        searchSource: this.getSearchSource(event),
       });
       this.view.onQueryResultRemoved(result.rowIndex);
       return;
@@ -1446,6 +1448,7 @@ export class UrlbarInput extends HTMLElement {
         element,
         selType: "canonized",
         searchString: this._lastSearchString,
+        searchSource: this.getSearchSource(event),
       });
       this._loadURL(this._untrimmedValue, event, where, openParams, browser);
       return;
@@ -1530,6 +1533,7 @@ export class UrlbarInput extends HTMLElement {
             result,
             element
           ),
+          searchSource: this.getSearchSource(event),
         });
 
         let activeSplitView = this.window.gBrowser.selectedTab.splitview;
@@ -1582,6 +1586,7 @@ export class UrlbarInput extends HTMLElement {
               result,
               element
             ),
+            searchSource: this.getSearchSource(event),
           });
           this.maybeConfirmSearchModeFromResult({
             result,
@@ -1669,6 +1674,7 @@ export class UrlbarInput extends HTMLElement {
           element,
           selType: "tip",
           searchString: this._lastSearchString,
+          searchSource: this.getSearchSource(event),
         });
         return;
       }
@@ -1693,6 +1699,7 @@ export class UrlbarInput extends HTMLElement {
               result,
               element
             ),
+            searchSource: this.getSearchSource(event),
           });
           return;
         }
@@ -1704,6 +1711,7 @@ export class UrlbarInput extends HTMLElement {
           element,
           selType: "extension",
           searchString: this._lastSearchString,
+          searchSource: this.getSearchSource(event),
         });
 
         // The urlbar needs to revert to the loaded url when a command is
@@ -1732,6 +1740,7 @@ export class UrlbarInput extends HTMLElement {
             result,
             element
           ),
+          searchSource: this.getSearchSource(event),
         });
         this.maybeConfirmSearchModeFromResult({
           result,
@@ -1750,6 +1759,7 @@ export class UrlbarInput extends HTMLElement {
             result,
             element
           ),
+          searchSource: this.getSearchSource(event),
         });
         return;
       }
@@ -3700,6 +3710,7 @@ export class UrlbarInput extends HTMLElement {
       element,
       searchString: this._lastSearchString,
       selType: element.dataset.command,
+      searchSource: this.getSearchSource(event),
     });
 
     if (element.dataset.command == "manage") {

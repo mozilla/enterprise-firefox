@@ -16,4 +16,6 @@ tags = "vertical-tabs" # Might collapse tabs toolbar, changing outer size
 ["browser_pip_ui.js"]
 tags = "vertical-tabs" # Could change visibility of browser UI elements
 
+["browser_return_to_opener.js"]
+
 ["browser_sessionstore_ignore_dpip.js"]

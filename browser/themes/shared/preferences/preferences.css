@@ -361,62 +361,21 @@ setting-group:has(> moz-card).spotlight {
   margin: 2px 0;
 }
 
-#filter {
-  flex: 1;
-  margin: 4px 0 8px;
-}
-
 #handlersView {
-  height: 25em;
-  margin-inline-end: 0;
-}
+  --box-group-max-height: 500px;
 
-#handlersView > richlistitem {
-  min-height: 30px;
-}
-
-#handlersView .actionsMenu {
-  margin: 0;
-  min-height: 0;
-  padding: 0;
-  border: none;
-  padding-inline-end: 8px;
-}
-
-#handlersView .actionsMenu::part(label) {
-  margin: 0;
-}
-
-.typeIcon,
-.actionIcon,
-.actionsMenu::part(icon) {
-  height: 16px;
-  width: 16px;
-}
-
-.typeIcon {
-  margin-inline: 10px 9px !important;
-  &:not([srcset]) {
-    visibility: hidden;
+  moz-box-item.first label {
+    font-weight: var(--font-weight-semibold);
   }
-}
 
-#handlersView .actionsMenu::part(icon),
-.actionIcon {
-  margin-inline: 11px 8px !important;
-}
+  moz-box-item label[slot="actions"],
+  .actionsMenu {
+    width: 270px;
+  }
 
-.actionsMenu > menupopup > menuitem {
-  padding-inline-start: 10px !important;
-}
-
-.actionsMenu > menupopup > menuitem > .menu-icon {
-  margin-inline-end: 8px !important;
-}
-
-/* Increase the specifity to override common.inc.css */
-richlistitem[selected] .actionsMenu:focus-visible {
-  outline-offset: -3px;
+  moz-box-item[hidden] {
+    display: none;
+  }
 }
 
 /* Home Pane */
@@ -507,7 +466,6 @@ a[is="moz-support-link"]:not(.sidebar-footer-link, [hidden]) {
   #blocklistsTree > treechildren::-moz-tree-image(hover) {
     fill: var(--text-color-list-item-hover);
     /* fill allows icon and text colors, but we have no such rules for stroke */
-    /* stylelint-disable-next-line stylelint-plugin-mozilla/no-non-semantic-token-usage */
     stroke: var(--background-color-list-item-hover);
   }
 }
@@ -955,7 +913,6 @@ dialog > .sync-engines-list + hbox {
     content: "";
     width: 1px;
     height: 100%;
-    /* stylelint-disable-next-line stylelint-plugin-mozilla/no-non-semantic-token-usage */
     background-color: var(--border-color);
     top: 0;
     inset-inline-end: 0;

@@ -69,6 +69,7 @@ import mozilla.components.support.locale.LocaleAwareApplication
 import mozilla.components.support.remotesettings.GlobalRemoteSettingsDependencyProvider
 import mozilla.components.support.rusthttp.RustHttpConfig
 import mozilla.components.support.utils.BrowsersCache
+import mozilla.components.support.utils.RunWhenReadyQueue
 import mozilla.components.support.utils.logElapsedTime
 import mozilla.components.support.webextensions.WebExtensionSupport
 import mozilla.telemetry.glean.Glean
@@ -390,165 +391,187 @@ open class FenixApplication : LocaleAwareApplication(), Provider, ThemeProvider 
     private fun initVisualCompletenessQueueAndQueueTasks() {
         val queue = components.performance.visualCompletenessQueue
 
-        @OptIn(DelicateCoroutinesApi::class) // GlobalScope usage
-        fun queueInitStorageAndServices() {
-            queue.runIfReadyOrQueue {
-                GlobalScope.launch(IO) {
-                    logger.info("Running post-visual completeness tasks...")
-                    logElapsedTime(logger, "Storage initialization") {
-                        components.core.historyStorage.warmUp()
-                        components.core.bookmarksStorage.warmUp()
-                        components.core.passwordsStorage.warmUp()
-                        components.core.autofillStorage.warmUp()
-
-                        // Populate the top site cache to improve initial load experience
-                        // of the home fragment when the app is launched to a tab. The actual
-                        // database call is not expensive. However, the additional context
-                        // switches delay rendering top sites when the cache is empty, which
-                        // we can prevent with this.
-                        components.core.topSitesStorage.getTopSites(
-                            totalSites = components.settings.topSitesMaxLimit,
-                            frecencyConfig = if (FxNimbus.features.homepageHideFrecentTopSites.value().enabled) {
-                                null
-                            } else {
-                                TopSitesFrecencyConfig(
-                                    frecencyTresholdOption = FrecencyThresholdOption.SKIP_ONE_TIME_PAGES,
-                                ) {
-                                    !it.url.toUri()
-                                        .containsQueryParameters(components.settings.frecencyFilterQuery)
-                                }
-                            },
-                            providerConfig = TopSitesProviderConfig(
-                                showProviderTopSites = components.settings.showContileFeature,
-                                limit = TOP_SITES_PROVIDER_LIMIT,
-                                maxThreshold = TOP_SITES_PROVIDER_MAX_THRESHOLD,
-                            ),
-                        )
-
-                        // This service uses `historyStorage`, and so we can only touch it when we know
-                        // it's safe to touch `historyStorage. By 'safe', we mainly mean that underlying
-                        // places library will be able to load, which requires first running Megazord.init().
-                        // The visual completeness tasks are scheduled after the Megazord.init() call.
-                        components.core.historyMetadataService.cleanup(
-                            System.currentTimeMillis() - Core.HISTORY_METADATA_MAX_AGE_IN_MS,
-                        )
-
-                        // If Firefox Suggest is enabled, register a worker to periodically ingest
-                        // new search suggestions. The worker requires us to have called
-                        // `GlobalFxSuggestDependencyProvider.initialize`, which we did before
-                        // scheduling these tasks. When disabled we stop the periodic work.
-                        if (settings().enableFxSuggest) {
-                            components.fxSuggest.ingestionScheduler.startPeriodicIngestion()
-                        } else {
-                            components.fxSuggest.ingestionScheduler.stopPeriodicIngestion()
-                        }
-                    }
-                    components.core.fileUploadsDirCleaner.cleanUploadsDirectory()
-                }
-                // Account manager initialization needs to happen on the main thread.
-                GlobalScope.launch(Dispatchers.Main) {
-                    logElapsedTime(logger, "Kicking-off account manager") {
-                        components.backgroundServices.accountManager
-                    }
-                }
-            }
-        }
-
-        fun queueMetrics() {
-            queue.runIfReadyOrQueue {
-                // Because it may be slow to capture the storage stats, it might be preferred to
-                // create a WorkManager task for this metric, however, I ran out of
-                // implementation time and WorkManager is harder to test.
-                StorageStatsMetrics.report(this.applicationContext)
-            }
-        }
-
-        @OptIn(DelicateCoroutinesApi::class) // GlobalScope usage
-        fun queueIncrementNumberOfAppLaunches() {
-            queue.runIfReadyOrQueue {
-                GlobalScope.launch(IO) {
-                    settings().numberOfAppLaunches += 1
-                }
-            }
-        }
-
-        @OptIn(DelicateCoroutinesApi::class) // GlobalScope usage
-        fun queueRestoreLocale() {
-            queue.runIfReadyOrQueue {
-                GlobalScope.launch(IO) {
-                    components.useCases.localeUseCases.restore()
-                }
-            }
-        }
-
-        fun queueStorageMaintenance() {
-            queue.runIfReadyOrQueue {
-                // Make sure GlobalPlacesDependencyProvider.initialize(components.core.historyStorage)
-                // is called before this call. When app is not running and WorkManager wakes up
-                // the app for the periodic task, it will require a globally provided places storage
-                // to run the maintenance on.
-                components.core.historyStorage.registerStorageMaintenanceWorker()
-                components.core.passwordsStorage.registerStorageMaintenanceWorker()
-                components.core.autofillStorage.registerStorageMaintenanceWorker()
-            }
-        }
-
-        @OptIn(DelicateCoroutinesApi::class) // GlobalScope usage
-        fun queueIntegrityClientWarmUp() {
-            queue.runIfReadyOrQueue {
-                GlobalScope.launch(IO) {
-                    components.integrityClient.warmUp()
-                }
-            }
-        }
-
-        @OptIn(DelicateCoroutinesApi::class) // GlobalScope usage
-        fun queueNimbusFetchInForeground() {
-            queue.runIfReadyOrQueue {
-                GlobalScope.launch(IO) {
-                    components.nimbus.sdk.maybeFetchExperiments(
-                        context = this@FenixApplication,
-                    )
-                }
-            }
-        }
-
-        @OptIn(DelicateCoroutinesApi::class) // GlobalScope usage
-        fun queueSuggestIngest() {
-            queue.runIfReadyOrQueue {
-                GlobalScope.launch(IO) {
-                    components.fxSuggest.storage.runStartupIngestion()
-                }
-            }
-        }
-
-        fun queueDownloadWallpapers() {
-            queue.runIfReadyOrQueue {
-                downloadWallpapers()
-            }
-        }
-
         // We init these items in the visual completeness queue to avoid them initing in the critical
         // startup path, before the UI finishes drawing (i.e. visual completeness).
-        queueInitStorageAndServices()
-        queueMetrics()
-        queueIncrementNumberOfAppLaunches()
-        queueRestoreLocale()
-        queueStorageMaintenance()
-        queueIntegrityClientWarmUp()
-        queueNimbusFetchInForeground()
-        queueDownloadWallpapers()
+        queueInitStorageAndServices(queue)
+        queueMetrics(queue)
+        queueIncrementNumberOfAppLaunches(queue)
+        queueRestoreLocale(queue)
+        queueStorageMaintenance(queue)
+        queueIntegrityClientWarmUp(queue)
+        queueNimbusFetchInForeground(queue)
+        queueSetAutofillMetrics(queue)
+        queueDownloadWallpapers(queue)
+
         if (settings().enableFxSuggest) {
-            queueSuggestIngest()
+            queueSuggestIngest(queue)
         }
-        queueCollectProcessExitInfo()
+
+        queueCollectProcessExitInfo(queue)
+    }
+
+    private inline fun runOnVisualCompleteness(
+        queue: RunWhenReadyQueue,
+        crossinline block: () -> Unit,
+    ) {
+        queue.runIfReadyOrQueue { block() }
     }
 
     @OptIn(DelicateCoroutinesApi::class) // GlobalScope usage
-    private fun queueCollectProcessExitInfo() {
-        if (SDK_INT >= Build.VERSION_CODES.R && settings().isTelemetryEnabled) {
+    private fun queueInitStorageAndServices(queue: RunWhenReadyQueue) =
+        runOnVisualCompleteness(queue) {
             GlobalScope.launch(IO) {
-                ApplicationExitInfoMetrics.recordProcessExits(applicationContext)
+                logger.info("Running post-visual completeness tasks...")
+                logElapsedTime(logger, "Storage initialization") {
+                    components.core.historyStorage.warmUp()
+                    components.core.bookmarksStorage.warmUp()
+                    components.core.passwordsStorage.warmUp()
+                    components.core.autofillStorage.warmUp()
+
+                    // Populate the top site cache to improve initial load experience
+                    // of the home fragment when the app is launched to a tab. The actual
+                    // database call is not expensive. However, the additional context
+                    // switches delay rendering top sites when the cache is empty, which
+                    // we can prevent with this.
+                    components.core.topSitesStorage.getTopSites(
+                        totalSites = components.settings.topSitesMaxLimit,
+                        frecencyConfig = if (FxNimbus.features.homepageHideFrecentTopSites.value().enabled) {
+                            null
+                        } else {
+                            TopSitesFrecencyConfig(
+                                frecencyTresholdOption = FrecencyThresholdOption.SKIP_ONE_TIME_PAGES,
+                            ) {
+                                !it.url.toUri()
+                                    .containsQueryParameters(components.settings.frecencyFilterQuery)
+                            }
+                        },
+                        providerConfig = TopSitesProviderConfig(
+                            showProviderTopSites = components.settings.showContileFeature,
+                            limit = TOP_SITES_PROVIDER_LIMIT,
+                            maxThreshold = TOP_SITES_PROVIDER_MAX_THRESHOLD,
+                        ),
+                    )
+
+                    // This service uses `historyStorage`, and so we can only touch it when we know
+                    // it's safe to touch `historyStorage. By 'safe', we mainly mean that underlying
+                    // places library will be able to load, which requires first running Megazord.init().
+                    // The visual completeness tasks are scheduled after the Megazord.init() call.
+                    components.core.historyMetadataService.cleanup(
+                        System.currentTimeMillis() - Core.HISTORY_METADATA_MAX_AGE_IN_MS,
+                    )
+
+                    // If Firefox Suggest is enabled, register a worker to periodically ingest
+                    // new search suggestions. The worker requires us to have called
+                    // `GlobalFxSuggestDependencyProvider.initialize`, which we did before
+                    // scheduling these tasks. When disabled we stop the periodic work.
+                    if (settings().enableFxSuggest) {
+                        components.fxSuggest.ingestionScheduler.startPeriodicIngestion()
+                    } else {
+                        components.fxSuggest.ingestionScheduler.stopPeriodicIngestion()
+                    }
+                }
+                components.core.fileUploadsDirCleaner.cleanUploadsDirectory()
+            }
+            // Account manager initialization needs to happen on the main thread.
+            GlobalScope.launch(Dispatchers.Main) {
+                logElapsedTime(logger, "Kicking-off account manager") {
+                    components.backgroundServices.accountManager
+                }
+            }
+        }
+
+    private fun queueMetrics(queue: RunWhenReadyQueue) = runOnVisualCompleteness(queue) {
+        // Because it may be slow to capture the storage stats, it might be preferred to
+        // create a WorkManager task for this metric, however, I ran out of
+        // implementation time and WorkManager is harder to test.
+        StorageStatsMetrics.report(this.applicationContext)
+    }
+
+    @OptIn(DelicateCoroutinesApi::class) // GlobalScope usage
+    private fun queueIncrementNumberOfAppLaunches(queue: RunWhenReadyQueue) =
+        runOnVisualCompleteness(queue) {
+            GlobalScope.launch(IO) {
+                settings().numberOfAppLaunches += 1
+            }
+        }
+
+    @OptIn(DelicateCoroutinesApi::class) // GlobalScope usage
+    private fun queueRestoreLocale(queue: RunWhenReadyQueue) = runOnVisualCompleteness(queue) {
+        GlobalScope.launch(IO) {
+            components.useCases.localeUseCases.restore()
+        }
+    }
+
+    private fun queueStorageMaintenance(queue: RunWhenReadyQueue) = runOnVisualCompleteness(queue) {
+        // Make sure GlobalPlacesDependencyProvider.initialize(components.core.historyStorage)
+        // is called before this call. When app is not running and WorkManager wakes up
+        // the app for the periodic task, it will require a globally provided places storage
+        // to run the maintenance on.
+        components.core.historyStorage.registerStorageMaintenanceWorker()
+        components.core.passwordsStorage.registerStorageMaintenanceWorker()
+        components.core.autofillStorage.registerStorageMaintenanceWorker()
+    }
+
+    @OptIn(DelicateCoroutinesApi::class) // GlobalScope usage
+    private fun queueIntegrityClientWarmUp(queue: RunWhenReadyQueue) =
+        runOnVisualCompleteness(queue) {
+            GlobalScope.launch(IO) {
+                components.integrityClient.warmUp()
+            }
+        }
+
+    @OptIn(DelicateCoroutinesApi::class) // GlobalScope usage
+    private fun queueNimbusFetchInForeground(queue: RunWhenReadyQueue) =
+        runOnVisualCompleteness(queue) {
+            GlobalScope.launch(IO) {
+                components.nimbus.sdk.maybeFetchExperiments(
+                    context = this@FenixApplication,
+                )
+            }
+        }
+
+    @OptIn(DelicateCoroutinesApi::class) // GlobalScope usage
+    private fun queueSuggestIngest(queue: RunWhenReadyQueue) = runOnVisualCompleteness(queue) {
+        GlobalScope.launch(IO) {
+            components.fxSuggest.storage.runStartupIngestion()
+        }
+    }
+
+    private fun queueDownloadWallpapers(queue: RunWhenReadyQueue) = runOnVisualCompleteness(queue) {
+        downloadWallpapers()
+    }
+
+    @OptIn(DelicateCoroutinesApi::class) // GlobalScope usage
+    private fun queueCollectProcessExitInfo(queue: RunWhenReadyQueue) =
+        runOnVisualCompleteness(queue) {
+            if (SDK_INT >= Build.VERSION_CODES.R && settings().isTelemetryEnabled) {
+                GlobalScope.launch(IO) {
+                    ApplicationExitInfoMetrics.recordProcessExits(applicationContext)
+                }
+            }
+        }
+
+    /**
+     * Sets autofill telemetry about Addresses, CreditCards, and Logins.
+     *
+     * @param queue The queue the function should use.
+     */
+    @OptIn(DelicateCoroutinesApi::class)
+    private fun queueSetAutofillMetrics(queue: RunWhenReadyQueue) = runOnVisualCompleteness(queue) {
+        GlobalScope.launch(IO) {
+            try {
+                val autoFillStorage = applicationContext.components.core.autofillStorage
+                Addresses.savedAll.set(autoFillStorage.countAllAddresses())
+                CreditCards.savedAll.set(autoFillStorage.countAllCreditCards())
+            } catch (e: AutofillApiException) {
+                logger.error("Failed to fetch autofill data", e)
+            }
+
+            try {
+                val passwordsStorage = applicationContext.components.core.passwordsStorage
+                Logins.savedAll.set(passwordsStorage.count())
+            } catch (e: LoginsApiException) {
+                logger.error("Failed to fetch list of logins", e)
             }
         }
     }
@@ -932,8 +955,6 @@ open class FenixApplication : LocaleAwareApplication(), Provider, ThemeProvider 
                 }
             }
         }
-
-        setAutofillMetrics()
     }
 
     private fun setTermsOfUseStartUpMetrics(settings: Settings) {
@@ -1058,26 +1079,6 @@ open class FenixApplication : LocaleAwareApplication(), Provider, ThemeProvider 
             globalPrivacyControlEnabled.set(settings.shouldEnableGlobalPrivacyControl)
         }
         reportHomeScreenMetrics(settings)
-    }
-
-    private fun setAutofillMetrics() {
-        @OptIn(DelicateCoroutinesApi::class)
-        GlobalScope.launch(IO) {
-            try {
-                val autoFillStorage = applicationContext.components.core.autofillStorage
-                Addresses.savedAll.set(autoFillStorage.getAllAddresses().size.toLong())
-                CreditCards.savedAll.set(autoFillStorage.getAllCreditCards().size.toLong())
-            } catch (e: AutofillApiException) {
-                logger.error("Failed to fetch autofill data", e)
-            }
-
-            try {
-                val passwordsStorage = applicationContext.components.core.passwordsStorage
-                Logins.savedAll.set(passwordsStorage.list().size.toLong())
-            } catch (e: LoginsApiException) {
-                logger.error("Failed to fetch list of logins", e)
-            }
-        }
     }
 
     @VisibleForTesting

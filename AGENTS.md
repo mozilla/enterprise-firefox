@@ -9,7 +9,7 @@ The Firefox repository is very big and so it isn't advised to blindly run grep o
 ```
 searchfox-cli --define 'AudioContext::AudioContext' # get function impl
 searchfox-cli --define 'AudioSink' # get class definition
-searchfox-cli -q blob --path ipdl # search for a text string, restrict on path
+searchfox-cli --path ipdl -q 'MySearchTerm' # search for a text string, restrict on path
 searchfox-cli --id AudioSink -l 150 --cpp # search for identifier audio sink in C++ code, 150 results max
 ```
 - For C++, Rust and Java code, prefer searching for identifiers with `searchfox-cli`. Use text search restricted by path otherwise.

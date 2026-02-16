@@ -245,7 +245,7 @@ class PrototypeDocumentContentSink final : public nsIStreamLoaderObserver,
   nsresult InsertXMLStylesheetPI(const nsXULPrototypePI* aProtoPI,
                                  nsINode* aParent,
                                  XMLStylesheetProcessingInstruction* aPINode);
-  void CloseElement(Element* aElement, bool aHadChildren);
+  void CloseElement(Element* aElement);
 };
 
 }  // namespace mozilla::dom

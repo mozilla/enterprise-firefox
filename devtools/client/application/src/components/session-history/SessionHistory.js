@@ -17,7 +17,7 @@ const {
 const FluentReact = require("resource://devtools/client/shared/vendor/fluent-react.js");
 const Localized = createFactory(FluentReact.Localized);
 
-function Diagram({ rows }) {
+function Diagram({ rows, entriesByKey }) {
   let ctr = 0;
   return createElement(
     "tbody",
@@ -26,9 +26,9 @@ function Diagram({ rows }) {
       createElement(
         "tr",
         {},
-        row.map(({ age, fields }) => {
+        row.map(({ age, key }) => {
           const id = `entry-info-container-${ctr++}`;
-          return fields
+          return key
             ? createElement(
                 "td",
                 {
@@ -45,10 +45,10 @@ function Diagram({ rows }) {
                     {
                       popovertarget: id,
                     },
-                    `${fields.url.pathname}${fields.url.search}`
+                    `${entriesByKey[key].url.pathname}${entriesByKey[key].url.search}`
                   )
                 ),
-                createElement(EntryInfo, { fields, id })
+                createElement(EntryInfo, { fields: entriesByKey[key], id })
               )
             : createElement("td", {
                 colSpan: age,
@@ -61,6 +61,7 @@ function Diagram({ rows }) {
 
 Diagram.propTypes = {
   rows: PropTypes.object.isRequired,
+  entriesByKey: PropTypes.object.isRequired,
 };
 
 function EntryInfo({ fields, id }) {
@@ -93,7 +94,7 @@ EntryInfo.propTypes = {
   id: PropTypes.string.isRequired,
 };
 
-function SessionHistoryDiagram({ count, current, rows }) {
+function SessionHistoryDiagram({ count, current, rows, entriesByKey }) {
   const header = new Array(count);
   for (let index = 0; index < count; index++) {
     const props = index == current ? { id: "current" } : {};
@@ -106,6 +107,7 @@ function SessionHistoryDiagram({ count, current, rows }) {
     createElement("thead", {}, createElement("tr", {}, ...header)),
     createElement(Diagram, {
       rows,
+      entriesByKey,
     })
   );
 }
@@ -114,6 +116,7 @@ SessionHistoryDiagram.propTypes = {
   count: PropTypes.number.isRequired,
   current: PropTypes.number.isRequired,
   rows: PropTypes.object.isRequired,
+  entriesByKey: PropTypes.object.isRequired,
 };
 
 // Exports

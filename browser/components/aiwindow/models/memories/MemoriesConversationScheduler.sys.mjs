@@ -24,7 +24,11 @@ const MEMORIES_SCHEDULER_MESSAGES_THRESHOLD = 10;
 // Conversation scheduler tick every 2 mins
 const MEMORIES_SCHEDULER_INTERVAL_MS = 2 * 60 * 1000;
 // Cooldown period - don't run more than once every 4 hours
-const MEMORIES_SCHEDULER_COOLDOWN_MS = 4 * 60 * 60 * 1000;
+//TODO: pref only for test purposes. will be later reverted
+const MEMORIES_SCHEDULER_COOLDOWN_MS = Services.prefs.getIntPref(
+  "browser.smartwindow.memoriesSchedulerCooldownInMs",
+  4 * 60 * 60 * 1000
+);
 
 /**
  * Schedules periodic generation of conversation-based memories.

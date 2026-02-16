@@ -2042,5 +2042,16 @@ KeyframeEffect::MatchForCompositor KeyframeEffect::IsMatchForCompositor(
                                  : KeyframeEffect::MatchForCompositor::IfNeeded;
 }
 
+double KeyframeEffect::AnimationsPlayBackRateMultiplier() const {
+  if (!mTarget) {
+    return 1.0;
+  }
+  if (nsPresContext* presContext =
+          nsContentUtils::GetContextForContent(mTarget.mElement)) {
+    return presContext->AnimationsPlayBackRateMultiplier();
+  }
+  return 1.0;
+}
+
 }  // namespace dom
 }  // namespace mozilla

@@ -102,7 +102,7 @@ DictionaryCacheEntry::~DictionaryCacheEntry() {
       ("Destroyed DictionaryCacheEntry %p, uri=%s, pattern=%s, id=%s", this,
        mURI.get(), mPattern.get(), mId.get()));
   if (mCachedPattern.isSome()) {
-    urlpattern_pattern_free(mCachedPattern.value());
+    urlpattern_pattern_free(mCachedPattern.ref());
   }
 }
 
@@ -184,7 +184,7 @@ bool DictionaryCacheEntry::Match(const nsACString& aFilePath,
       UrlPatternInput input = net::CreateUrlPatternInput(aFilePath);
       const nsCString base(mURI);
       bool result =
-          net::UrlPatternTest(mCachedPattern.value(), input, Some(base));
+          net::UrlPatternTest(mCachedPattern.ref(), input, Some(base));
       if (result) {
         aLongest = mPattern.Length();
         DICTIONARY_LOG(("Match: %p   %s to %s, %s (now=%u, expiration=%u)",

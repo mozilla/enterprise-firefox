@@ -29,7 +29,6 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.mozilla.fenix.R
 import org.mozilla.fenix.browser.browsingmode.BrowsingMode
-import org.mozilla.fenix.browser.browsingmode.BrowsingModeManager
 import org.mozilla.fenix.components.appstate.AppAction
 import org.mozilla.fenix.components.appstate.AppAction.ContentRecommendationsAction
 import org.mozilla.fenix.components.appstate.AppAction.MessagingAction.UpdateMessageToShow
@@ -58,7 +57,6 @@ class AppStoreTest {
     private lateinit var context: Context
     private lateinit var accountManager: FxaAccountManager
     private lateinit var onboarding: FenixOnboarding
-    private lateinit var browsingModeManager: BrowsingModeManager
     private lateinit var appState: AppState
     private lateinit var appStore: AppStore
     private lateinit var recentSyncedTabsList: List<RecentSyncedTab>
@@ -68,7 +66,6 @@ class AppStoreTest {
         context = mockk(relaxed = true)
         accountManager = mockk(relaxed = true)
         onboarding = mockk(relaxed = true)
-        browsingModeManager = mockk(relaxed = true)
         recentSyncedTabsList = listOf(
             RecentSyncedTab(
                 deviceDisplayName = "",
@@ -81,12 +78,11 @@ class AppStoreTest {
 
         every { context.components.backgroundServices.accountManager } returns accountManager
         every { onboarding.userHasBeenOnboarded() } returns true
-        every { browsingModeManager.mode } returns BrowsingMode.Normal
 
         appState = AppState(
             collections = emptyList(),
             expandedCollections = emptySet(),
-            mode = browsingModeManager.mode,
+            mode = BrowsingMode.Normal,
             topSites = emptyList(),
             showCollectionPlaceholder = true,
             recentTabs = emptyList(),

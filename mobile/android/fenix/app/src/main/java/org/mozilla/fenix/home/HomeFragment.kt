@@ -208,8 +208,6 @@ class HomeFragment : Fragment() {
         )
     }
 
-    private val browsingModeManager get() = (activity as HomeActivity).browsingModeManager
-
     private val collectionStorageObserver = object : TabCollectionStorage.Observer {
         @SuppressLint("NotifyDataSetChanged")
         override fun onTabsAdded(tabCollection: TabCollection, sessions: List<TabSessionState>) {
@@ -461,10 +459,10 @@ class HomeFragment : Fragment() {
         }
         tabsCleanupFeature.set(
             feature = TabsCleanupFeature(
+                appStore = components.appStore,
                 context = requireContext(),
                 viewModel = homeViewModel,
                 browserStore = components.core.store,
-                browsingModeManager = browsingModeManager,
                 navController = findNavController(),
                 tabsUseCases = components.useCases.tabsUseCases,
                 fenixBrowserUseCases = components.useCases.fenixBrowserUseCases,
@@ -600,8 +598,8 @@ class HomeFragment : Fragment() {
                 viewLifecycleScope = viewLifecycleOwner.lifecycleScope,
             ),
             privateBrowsingController = DefaultPrivateBrowsingController(
+                appStore = components.appStore,
                 navController = findNavController(),
-                browsingModeManager = browsingModeManager,
                 fenixBrowserUseCases = requireComponents.useCases.fenixBrowserUseCases,
                 settings = components.settings,
             ),
@@ -621,6 +619,7 @@ class HomeFragment : Fragment() {
                 appStore = components.appStore,
             ),
             topSiteController = DefaultTopSiteController(
+                appStore = requireComponents.appStore,
                 activityRef = WeakReference(requireActivity()),
                 store = store,
                 navControllerRef = WeakReference(findNavController()),
@@ -667,9 +666,9 @@ class HomeFragment : Fragment() {
                 if (isEdgeToEdgeBackgroundEnabled() && homepageEdgeToEdgeFeature.get() == null) {
                     homepageEdgeToEdgeFeature.set(
                         feature = HomepageEdgeToEdgeFeature(
+                            appStore = activity.components.appStore,
                             activity = activity,
                             settings = activity.settings(),
-                            browsingModeManager = browsingModeManager,
                             toolbarStore = toolbarStore,
                         ),
                         owner = viewLifecycleOwner,
@@ -710,10 +709,10 @@ class HomeFragment : Fragment() {
             }
 
             false -> HomeToolbarView(
+                appStore = requireComponents.appStore,
                 homeBinding = binding,
                 interactor = sessionControlInteractor,
                 homeFragment = this,
-                homeActivity = activity,
             )
         }
 
@@ -723,7 +722,6 @@ class HomeFragment : Fragment() {
         navController = findNavController(),
         appStore = requireContext().components.appStore,
         browserStore = requireContext().components.core.store,
-        browsingModeManager = activity.browsingModeManager,
     )
 
     override fun onConfigurationChanged(newConfig: Configuration) {
@@ -825,7 +823,6 @@ class HomeFragment : Fragment() {
 
                                     MicrosurveyRequestPrompt(
                                         microsurvey = it,
-                                        activity = activity,
                                         onStartSurveyClicked = {
                                             context.components.appStore.dispatch(MicrosurveyAction.Started(it.id))
                                             findNavController().nav(
@@ -939,7 +936,7 @@ class HomeFragment : Fragment() {
         }
 
         HomeScreen.homeScreenViewCount.add()
-        if (!browsingModeManager.mode.isPrivate) {
+        if (!requireComponents.appStore.state.mode.isPrivate) {
             HomeScreen.standardHomepageViewCount.add()
         }
 
@@ -1076,7 +1073,6 @@ class HomeFragment : Fragment() {
                                 appState = appState.value,
                                 privacyNoticeBannerState = privacyNoticeBannerState.value,
                                 settings = settings,
-                                browsingModeManager = browsingModeManager,
                             ),
                             interactor = sessionControlInteractor,
                             onMiddleSearchBarVisibilityChanged = { isVisible ->
@@ -1094,7 +1090,6 @@ class HomeFragment : Fragment() {
                                 appState = appState.value,
                                 privacyNoticeBannerState = privacyNoticeBannerState.value,
                                 settings = settings,
-                                browsingModeManager = browsingModeManager,
                             ),
                             interactor = sessionControlInteractor,
                             onTopSitesItemBound = {
@@ -1165,7 +1160,7 @@ class HomeFragment : Fragment() {
                 onAddTabClick = {
                     if (requireContext().settings().enableHomepageAsNewTab) {
                         requireComponents.useCases.fenixBrowserUseCases.addNewHomepageTab(
-                            private = (requireActivity() as HomeActivity).browsingModeManager.mode.isPrivate,
+                            private = requireComponents.appStore.state.mode.isPrivate,
                         )
                     } else {
                         sessionControlInteractor.onNavigateSearch()
@@ -1345,7 +1340,7 @@ class HomeFragment : Fragment() {
         findNavController().nav(
             R.id.homeFragment,
             HomeFragmentDirections.actionGlobalTabManagementFragment(
-                page = when (browsingModeManager.mode) {
+                page = when (requireComponents.appStore.state.mode) {
                     BrowsingMode.Normal -> Page.NormalTabs
                     BrowsingMode.Private -> Page.PrivateTabs
                 },

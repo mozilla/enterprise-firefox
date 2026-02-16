@@ -19,6 +19,8 @@ const { XPCOMUtils } = ChromeUtils.importESModule(
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   Chat: "moz-src:///browser/components/aiwindow/models/Chat.sys.mjs",
+  MODEL_FEATURES: "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs",
+  openAIEngine: "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs",
   generateChatTitle:
     "moz-src:///browser/components/aiwindow/models/TitleGeneration.sys.mjs",
   AIWindow:
@@ -39,8 +41,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///browser/components/aiwindow/models/ConversationSuggestions.sys.mjs",
   generateConversationStartersSidebar:
     "moz-src:///browser/components/aiwindow/models/ConversationSuggestions.sys.mjs",
-  MemoryStore:
-    "moz-src:///browser/components/aiwindow/services/MemoryStore.sys.mjs",
+  MemoriesManager:
+    "moz-src:///browser/components/aiwindow/models/memories/MemoriesManager.sys.mjs",
 });
 
 ChromeUtils.defineLazyGetter(lazy, "log", function () {
@@ -98,6 +100,7 @@ export class AIWindow extends MozLitElement {
   #memoriesToggled = null;
   #visibilityChangeHandler;
   #starters = [];
+  #smartbarResizeObserver = null;
 
   /**
    * Flags whether the #conversation reference has been updated but the messages
@@ -196,6 +199,7 @@ export class AIWindow extends MozLitElement {
 
   connectedCallback() {
     super.connectedCallback();
+    this.setAttribute("mode", this.mode);
 
     this.ownerDocument.addEventListener("OpenConversation", this);
     this.ownerDocument.addEventListener(
@@ -210,6 +214,11 @@ export class AIWindow extends MozLitElement {
       "ai-window:connected",
       this.#getAIWindowEventOptions()
     );
+
+    // Ensure disconnectedCallback gets called to clean up listeners
+    this.ownerGlobal.addEventListener("unload", () => this.remove(), {
+      once: true,
+    });
   }
 
   get conversationId() {
@@ -244,6 +253,12 @@ export class AIWindow extends MozLitElement {
       this.#smartbar.remove();
       this.#smartbar = null;
       this.#memoriesButton = null;
+    }
+
+    // Clean up resize observer
+    if (this.#smartbarResizeObserver) {
+      this.#smartbarResizeObserver.disconnect();
+      this.#smartbarResizeObserver = null;
     }
 
     // Clean up browser
@@ -412,9 +427,19 @@ export class AIWindow extends MozLitElement {
       smartbar.setAttribute("pageproxystate", "invalid");
       smartbar.setAttribute("popover", "manual");
       smartbar.classList.add("smartbar", "urlbar");
-      container.after(smartbar);
 
-      smartbar.addEventListener("smartbar-commit", this.#handleSmartbarCommit);
+      const smartbarWrapper = doc.createElement("div");
+      smartbarWrapper.id = "smartbar-wrapper";
+      smartbarWrapper.appendChild(smartbar);
+      container.append(smartbarWrapper);
+
+      // Always show the list of suggestions above input in sidebar mode and
+      // below when in fullpage mode.
+      smartbar.setAttribute(
+        "suggestions-position",
+        this.mode === SIDEBAR ? "top" : "bottom"
+      );
+
       smartbar.addEventListener("input", this.#handleSmartbarInput);
       smartbar.addEventListener(
         "aiwindow-memories-toggle:on-change",
@@ -424,6 +449,23 @@ export class AIWindow extends MozLitElement {
     this.#smartbar = smartbar;
     this.#memoriesButton = smartbar.querySelector("memories-icon-button");
     this.#syncSmartbarMemoriesStateFromConversation();
+    this.#observeSmartbarHeight();
+  }
+
+  #observeSmartbarHeight() {
+    const updateSmartbarHeight = () => {
+      const urlbarView = this.#smartbar.querySelector(".urlbarView");
+      // The height calculation for the Smartbar assumes that `.urlbarView`
+      // is the only dynamically-sized child element.
+      const smartbarHeightClosed =
+        this.#smartbar.offsetHeight - urlbarView.offsetHeight;
+
+      this.style.setProperty("--smartbar-height", `${smartbarHeightClosed}px`);
+    };
+    updateSmartbarHeight();
+
+    this.#smartbarResizeObserver = new ResizeObserver(updateSmartbarHeight);
+    this.#smartbarResizeObserver.observe(this.#smartbar);
   }
 
   /**
@@ -469,9 +511,24 @@ export class AIWindow extends MozLitElement {
   #handleSmartbarCommit = event => {
     const { value, action } = event.detail;
     if (action === "chat") {
-      this.#fetchAIResponse(value, this.#createUserRoleOpts());
+      // Disable suggestions after the first chat message.
+      // We only want to show suggestions for the initial query,
+      // but not for follow-up messages in a conversation.
+      if (this.#conversation.messages.length === 0) {
+        this.#smartbar.suppressStartQuery({ permanent: true });
+      }
+
+      this.submitFollowUp(value);
     }
   };
+
+  submitFollowUp(text) {
+    const trimmed = String(text ?? "").trim();
+    if (!trimmed) {
+      return;
+    }
+    this.#fetchAIResponse(trimmed, this.#createUserRoleOpts());
+  }
 
   #handleMemoriesToggle = event => {
     this.#memoriesToggled = event.detail.pressed;
@@ -633,22 +690,21 @@ export class AIWindow extends MozLitElement {
     this.#updateTabFavicon();
     this.#setBrowserContainerActiveState(true);
 
-    const nextTurnIndex = this.#conversation.currentTurnIndex() + 1;
     try {
-      let stream;
+      const engineInstance = await lazy.openAIEngine.build(
+        lazy.MODEL_FEATURES.CHAT
+      );
 
       if (formattedPrompt) {
         const pageUrl = this.#getCurrentPageUrl();
-        stream = lazy.Chat.fetchWithHistory(
-          await this.#conversation.generatePrompt(
-            formattedPrompt,
-            pageUrl,
-            userOpts
-          ),
-          { win: window.browsingContext.topChromeWindow }
+
+        await this.#conversation.generatePrompt(
+          formattedPrompt,
+          pageUrl,
+          engineInstance,
+          userOpts
         );
 
-        // Handle User Prompt
         if (!skipUserDispatch) {
           this.#dispatchMessageToChatContent(
             this.#conversation.messages.at(-1)
@@ -658,17 +714,14 @@ export class AIWindow extends MozLitElement {
         // @todo
         // fill out these assistant message flags
         const assistantRoleOpts = new lazy.AssistantRoleOpts();
-        this.#conversation.addAssistantMessage(
-          "text",
-          "",
-          nextTurnIndex,
-          assistantRoleOpts
-        );
-      } else {
-        stream = lazy.Chat.fetchWithHistory(this.#conversation, {
-          win: window.browsingContext.topChromeWindow,
-        });
+        this.#conversation.addAssistantMessage("text", "", assistantRoleOpts);
       }
+
+      const stream = lazy.Chat.fetchWithHistory(
+        this.#conversation,
+        engineInstance,
+        { win: window.browsingContext.topChromeWindow }
+      );
 
       this.#updateConversation();
       this.#addConversationTitle();
@@ -700,6 +753,7 @@ export class AIWindow extends MozLitElement {
           currentMessage.tokens = {
             search: [],
             existing_memory: [],
+            followup: [],
           };
         }
 
@@ -727,6 +781,15 @@ export class AIWindow extends MozLitElement {
         this.#updateConversation();
         this.#dispatchMessageToChatContent(currentMessage);
         this.requestUpdate?.();
+      }
+
+      if (currentMessage.memoriesApplied?.length) {
+        currentMessage.memoriesApplied =
+          await lazy.MemoriesManager.getMemoriesByID(
+            currentMessage.memoriesApplied
+          );
+        this.#updateConversation();
+        this.#dispatchMessageToChatContent(currentMessage);
       }
     } catch (e) {
       this.showSearchingIndicator(false, null);
@@ -884,13 +947,16 @@ export class AIWindow extends MozLitElement {
     }
   }
 
-  #onCreateNewChatclick() {
+  #onCreateNewChatClick() {
     // Clear the conversation state locally
     this.#conversation = new lazy.ChatConversation({});
 
     // Reset memories toggle state
     this.#memoriesToggled = null;
     this.#syncMemoriesButtonUI();
+
+    // Show Smartbar suggestions for cleared chats
+    this.#smartbar.unsuppressStartQuery();
 
     // Submitting a message with a new convoId here.
     // This will clear the chat content area in the child process via side effect.
@@ -1031,15 +1097,16 @@ export class AIWindow extends MozLitElement {
 
   async #removeAppliedMemory(messageId, memory) {
     try {
-      const deleted = await lazy.MemoryStore.hardDeleteMemory(memory);
+      const memoryId = memory.id;
+      const deleted = await lazy.MemoriesManager.hardDeleteMemoryById(memoryId);
       if (!deleted) {
-        console.warn("hardDeleteMemory returned false", memory);
+        console.warn("hardDeleteMemory returned false", memoryId);
       }
 
       const actor = this.#getAIChatContentActor();
       actor?.dispatchRemoveAppliedMemoryToChatContent({
         messageId,
-        memory,
+        memoryId,
       });
     } catch (e) {
       console.error("Failed to delete memory", memory, e);
@@ -1063,7 +1130,7 @@ export class AIWindow extends MozLitElement {
               class="new-chat-icon-button"
               size="default"
               iconsrc="chrome://browser/content/aiwindow/assets/new-chat.svg"
-              @click=${this.#onCreateNewChatclick}
+              @click=${this.#onCreateNewChatClick}
             ></moz-button>
           </div>`
         : ""}

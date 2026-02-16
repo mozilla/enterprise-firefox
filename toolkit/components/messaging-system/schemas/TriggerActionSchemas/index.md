@@ -64,6 +64,7 @@ let patterns: string[];
 - [`sidebarToolOpened`](#sidebartoolopened)
 - [`elementClicked`](#elementclicked)
 - [`ipProtectionReady`](#ipprotectionready)
+- [`ipProtectionPanelClosed`](#ipprotectionpanelclosed)
 - [`selectableProfilesUpdated`](#selectableprofilesupdated)
 - [`smartWindowNewTab`](#smartwindownewtab)
 
@@ -439,6 +440,19 @@ Targets users with the `browser.ipProtection.enabled` pref set to true, along wi
   trigger: { "ipProtectionReady" },
   targeting: "'browser.ipProtection.enabled' | preferenceValue && !(messageImpressions.IP_PROTECTION_INTRODUCTION_CALLOUT[messageImpressions.IP_PROTECTION_INTRODUCTION_CALLOUT | length - 1] < currentDate|date - (3600000 * 24))",
 
+}
+```
+
+### `ipProtectionPanelClosed`
+
+Fires on close of the IP Protection Panel. Can be used to trigger messages or actions after the user closes the IP protection panel.
+
+The `hasUsedSiteExceptions` boolean context variable is available in targeting, and will evaluate to true if the user has added a site to their exceptions list either in-panel or at about:settings.
+
+```js
+{
+  trigger: { id: "ipProtectionPanelClosed" },
+  targeting: "!hasUsedSiteExceptions",
 }
 ```
 

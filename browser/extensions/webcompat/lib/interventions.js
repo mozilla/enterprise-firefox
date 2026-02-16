@@ -34,14 +34,15 @@ class InterventionsWebRequestListener {
     this.#opts = opts;
   }
 
-  getMatchingInterventions(url) {
+  getMatchingInterventions(url, type) {
     return [...this.#interventionsByTLD.get(getTLDForUrl(url))].filter(
       intervention => {
         // Matching the TLD may not be enough, so also check the MatchPatterns.
-        for (const matchPattern of this.#matchPatternsForInterventions.get(
-          intervention
-        )) {
-          if (matchPattern.matches(url)) {
+        for (const {
+          pattern,
+          types,
+        } of this.#matchPatternsForInterventions.get(intervention)) {
+          if ((!types || types.includes(type)) && pattern.matches(url)) {
             return true;
           }
         }
@@ -55,7 +56,7 @@ class InterventionsWebRequestListener {
     const urls = [...this.#matchPatternsForInterventions.values()]
       .map(setOfMatchPatterns => [...setOfMatchPatterns])
       .flat()
-      .map(matchPattern => matchPattern.patterns)
+      .map(config => config.pattern.patterns)
       .flat();
     if (urls.length) {
       browser.webRequest[this.#eventName].addListener(
@@ -75,7 +76,8 @@ class InterventionsWebRequestListener {
     return instance;
   }
 
-  interventionHandlesMatchPattern(intervention, patternString) {
+  interventionHandlesMatchPattern(intervention, infoOrPatternString) {
+    const patternString = infoOrPatternString.url ?? infoOrPatternString;
     const actualMatchPatternInstance =
       this.#getMatchPatternInstance(patternString);
 
@@ -84,7 +86,8 @@ class InterventionsWebRequestListener {
       set = new Set();
       this.#matchPatternsForInterventions.set(intervention, set);
     }
-    set.add(actualMatchPatternInstance);
+    const types = infoOrPatternString.types;
+    set.add({ pattern: actualMatchPatternInstance, types });
 
     const tld = getTLDForUrl(patternString);
     set = this.#interventionsByTLD.get(tld);
@@ -95,7 +98,8 @@ class InterventionsWebRequestListener {
     set.add(intervention);
   }
 
-  interventionNoLongerHandlesMatchPattern(intervention, patternString) {
+  interventionNoLongerHandlesMatchPattern(intervention, infoOrPatternString) {
+    const patternString = infoOrPatternString.url ?? infoOrPatternString;
     const actualMatchPatternInstance =
       this.#getMatchPatternInstance(patternString);
 
@@ -144,8 +148,22 @@ class Interventions {
 
   #requestBlocksListener = new InterventionsWebRequestListener(
     "onBeforeRequest",
-    () => {
-      return { cancel: true };
+    ({ type, url }) => {
+      const interventions =
+        this.#requestBlocksListener.getMatchingInterventions(url, type);
+      if (!interventions?.length) {
+        return {};
+      }
+
+      for (const intervention of interventions) {
+        const { enabled } = intervention;
+        if (enabled) {
+          console.info("webcompat addon blocked", type, "request to", url);
+          return { cancel: true };
+        }
+      }
+
+      return {};
     },
     ["blocking"]
   );
@@ -748,10 +766,10 @@ class Interventions {
     const { requestHeaders } = details;
 
     const interventions = this.#uaOverridesListener.getMatchingInterventions(
-      details.url
+      details.url,
+      details.type
     );
     if (!interventions?.length) {
-      console.error("Unexpectedly found no UA overrides matching", details.url);
       return { requestHeaders };
     }
 

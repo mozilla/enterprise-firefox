@@ -128,6 +128,8 @@ skip-if = [
   "os == 'linux' && os_version == '22.04' && display == 'wayland'", # Bug 1856971
 ]
 
+["test_pointerevent_altitude_azimuth_angle.html"]
+
 ["test_pointermove_drag_scrollbar.html"]
 run-if = [
   "os != 'android'", # scrollbar not showed on mobile

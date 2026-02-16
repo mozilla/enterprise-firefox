@@ -923,12 +923,6 @@ export let ProfileDataUpgrader = {
       Services.prefs.setBoolPref("signon.reencryptionNeeded", true);
     }
 
-    // Updating from 161 to 163 to trigger re-migrations of the Rusts store.
-    if (existingDataVersion < 163) {
-      // Force all logins to be re-migrated to the rust store.
-      Services.prefs.setBoolPref("signon.rustMirror.migrationNeeded", true);
-    }
-
     if (existingDataVersion < 164) {
       const { PREF_BOOL, PREF_INT, PREF_STRING } = Services.prefs;
       const METHODS = {
@@ -951,6 +945,12 @@ export let ProfileDataUpgrader = {
         Services.prefs[setter](newPref, Services.prefs[getter](oldPref));
         Services.prefs.clearUserPref(oldPref);
       }
+    }
+
+    // Updating from 161 to 165 to trigger re-migrations of the Rusts store.
+    if (existingDataVersion < 165) {
+      // Force all logins to be re-migrated to the rust store.
+      Services.prefs.setBoolPref("signon.rustMirror.migrationNeeded", true);
     }
 
     // Update the migration version.

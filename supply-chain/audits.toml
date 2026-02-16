@@ -7023,6 +7023,11 @@ who = "Ed Guloien <edgul@mozilla.com>"
 criteria = "safe-to-deploy"
 delta = "0.4.2 -> 0.5.2"
 
+[[audits.urlpattern]]
+who = "Ed Guloien <edgul@mozilla.com>"
+criteria = "safe-to-deploy"
+delta = "0.5.2 -> 0.6.0"
+
 [[audits.utf16_iter]]
 who = "Henri Sivonen <hsivonen@hsivonen.fi>"
 criteria = "safe-to-deploy"

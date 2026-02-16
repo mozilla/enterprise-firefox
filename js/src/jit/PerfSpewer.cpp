@@ -72,6 +72,7 @@ pid_t gettid_pthread() {
 #include "jit/MIR-wasm.h"
 #include "jit/MIR.h"
 #include "js/ColumnNumber.h"  // JS::LimitedColumnNumberOneOrigin, JS::ColumnNumberOffset
+#include "js/Exception.h"
 #include "js/JitCodeAPI.h"
 #include "js/Printf.h"
 #include "vm/BytecodeUtil.h"
@@ -372,7 +373,7 @@ void js::jit::ResetPerfSpewer(bool enabled) {
 }
 
 static void DisablePerfSpewer(AutoLockPerfSpewer& lock) {
-  fprintf(stderr, "Warning: Disabling PerfSpewer.");
+  fprintf(stderr, "Warning: Disabling PerfSpewer.\n");
 
 #ifdef XP_WIN
   etwCollection = false;
@@ -645,6 +646,10 @@ static void PrintStackValue(JSContext* maybeCx, StackValue* stackVal,
 void WasmBaselinePerfSpewer::recordInstruction(MacroAssembler& masm,
                                                const wasm::OpBytes& op) {
   MOZ_ASSERT(needsToRecordInstruction());
+
+  if (!op.canBePacked()) {
+    return;
+  }
 
   recordOpcode(masm.currentOffset() - startOffset_, op.toPacked());
 }
@@ -950,6 +955,9 @@ static UniqueChars GetFunctionDesc(const char* tierName, JSContext* cx,
   if (script->function() && script->function()->maybePartialDisplayAtom()) {
     funName = AtomToPrintableString(
         cx, script->function()->maybePartialDisplayAtom());
+    if (!funName) {
+      JS_ClearPendingException(cx);
+    }
   }
 
   if (stubName) {

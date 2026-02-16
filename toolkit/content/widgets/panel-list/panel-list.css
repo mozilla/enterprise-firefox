@@ -2,6 +2,14 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+/*
+ * Override the default popover styles to ensure the panel-list
+ * stays anchored to the element that opened it.
+ */
+:host([popover]) {
+  margin: 0;
+}
+
 :host([showing]) {
   visibility: hidden;
 }
@@ -11,6 +19,9 @@
 }
 
 :host {
+  /* display: block ensures dimensions are available during setAlign()
+     positioning, since the popover UA stylesheet hides [popover]:not(:popover-open). */
+  display: block;
   position: absolute;
   font: menu;
   background-color: var(--background-color-box);
@@ -28,7 +39,7 @@
 }
 
 :host([has-submenu]) {
-  overflow-y: visible;
+  overflow: visible;
 }
 
 :host(:not([slot="submenu"])) {

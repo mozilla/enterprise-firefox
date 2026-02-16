@@ -630,7 +630,7 @@ bool MessageChannel::Open(ScopedPort aPort, Side aSide,
     MOZ_ASSERT(mSide == UnknownSide);
 
     mMessageChannelId = aMessageChannelId;
-    mWorkerThread = eventTarget;
+    mWorkerThread = std::move(eventTarget);
     mShutdownTask = shutdownTask;
     mLink = MakeUnique<PortLink>(this, std::move(aPort));
     mChannelState = ChannelConnected;

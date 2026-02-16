@@ -413,15 +413,10 @@ private fun DownloadsScreenContent(
                 fileToRename.fileName ?: File(fileToRename.filePath).name
             DownloadRenameDialog(
                 originalFileName = originalName,
+                error = uiState.renameFileError,
                 onConfirmSave = { newName -> onRenameFileConfirmed(fileToRename, newName.trim()) },
                 onCancel = onRenameFileDismissed,
-            )
-        }
-
-        uiState.renameFileError?.let { error ->
-            DownloadRenameErrorDialog(
-                error = error,
-                onDismiss = onRenameFileFailureDismissed,
+                onCannotRenameDismiss = onRenameFileFailureDismissed,
             )
         }
 

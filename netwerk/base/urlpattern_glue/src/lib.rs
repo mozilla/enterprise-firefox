@@ -156,14 +156,13 @@ pub unsafe extern "C" fn urlpattern_component_get_pattern_string(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn urlpattern_component_get_regexp_string(
+pub unsafe extern "C" fn urlpattern_component_is_regexp_string_empty(
     component_ptr: *mut UrlPatternComponentPtr,
-    res: &mut nsCString,
-) {
+) -> bool {
     let component = &*(component_ptr as *const Component);
     match &component.regexp {
-        Ok(regexp) => res.assign(&nsCString::from(regexp.pattern_string())),
-        Err(_) => res.truncate(),
+        Ok(regexp) => return regexp.pattern_string() == "^$",
+        Err(_) => return false,
     }
 }
 
@@ -200,19 +199,24 @@ pub unsafe extern "C" fn urlpattern_component_matches(
     let matches = matcher_matches(matcher_ptr, input_str.as_ref(), match_only);
 
     if let Some(inner_vec) = matches {
-        for item in inner_vec {
-            match item {
-                Some(s) => {
-                    res.push(MaybeString {
-                        string: nsCString::from(s),
-                        valid: true,
-                    });
-                }
-                None => {
-                    res.push(MaybeString {
-                        string: nsCString::new(),
-                        valid: false,
-                    });
+        // urlpattern::test() does not need to populate matcher results
+        // it just needs to know if we got a match.
+        // So only iterate across results if it was Exec() that called
+        if !match_only {
+            for item in inner_vec {
+                match item {
+                    Some(s) => {
+                        res.push(MaybeString {
+                            string: nsCString::from(s),
+                            valid: true,
+                        });
+                    }
+                    None => {
+                        res.push(MaybeString {
+                            string: nsCString::new(),
+                            valid: false,
+                        });
+                    }
                 }
             }
         }
@@ -231,7 +235,7 @@ pub extern "C" fn urlpattern_process_match_input_from_string(
     res: *mut UrlPatternMatchInputAndInputs,
 ) -> bool {
     debug!("urlpattern_process_match_input_from_string()");
-    if let Some(url) = unsafe { url_str.as_ref().map(|x| x.to_utf8().into_owned()) } {
+    if let Some(url) = unsafe { url_str.as_ref().map(|x| x.to_utf8()) } {
         let str_or_init = quirks::StringOrInit::String(url);
         let maybe_base_url = if base_url.is_null() {
             None
@@ -270,7 +274,7 @@ pub extern "C" fn urlpattern_process_match_input_from_string(
                 input: maybe_match_input.unwrap().into(),
                 inputs: UrlPatternInput {
                     string_or_init_type: UrlPatternStringOrInitType::String,
-                    str: nsCString::from(string),
+                    str: nsCString::from(string.as_ref()),
                     init: UrlPatternInit::none(),
                     base,
                 },

@@ -42,13 +42,14 @@ class BrowserSearchTelemetryHandler {
     ["contextmenu_visual", "contextmenu_visual"],
     ["newtab", "about_newtab"],
     ["searchbar", "searchbar"],
+    ["smartbar", "smartbar"],
+    ["smartwindow_assistant", "smartwindow_assistant"],
     ["system", "system"],
     ["urlbar", "urlbar"],
     ["urlbar-handoff", "urlbar_handoff"],
     ["urlbar-persisted", "urlbar_persisted"],
     ["urlbar-searchmode", "urlbar_searchmode"],
     ["webextension", "webextension"],
-    ["aiwindow_assistant", "aiwindow_assistant"],
   ]);
 
   /**
@@ -221,6 +222,7 @@ class BrowserSearchTelemetryHandler {
       switch (source) {
         case "urlbar":
         case "searchbar":
+        case "smartbar":
         case "urlbar-searchmode":
         case "urlbar-persisted":
         case "urlbar-handoff":

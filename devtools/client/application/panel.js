@@ -41,6 +41,21 @@ class ApplicationPanel {
     this.toolbox = null;
     this.emit("destroyed");
   }
+
+  /**
+   * Called by toolbox.js on `Esc` keydown.
+   *
+   * @param {AbortController} abortController
+   */
+  onToolboxChromeEventHandlerEscapeKeyDown(abortController) {
+    // If a popover is displayed, prevent the Esc event listener of the toolbox to occur
+    // (i.e. don't toggle split console)
+    const popoverEl = this.panelWin.document.querySelector(":popover-open");
+    if (popoverEl) {
+      abortController.abort();
+      popoverEl.hidePopover();
+    }
+  }
 }
 
 exports.ApplicationPanel = ApplicationPanel;

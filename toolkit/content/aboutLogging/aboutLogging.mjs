@@ -533,20 +533,6 @@ function init() {
 
   $("#copy-as-url").onclick = copyAsURL;
 
-  function openMenu(event) {
-    if (
-      event.type == "mousedown" ||
-      event.inputSource == MouseEvent.MOZ_SOURCE_KEYBOARD ||
-      !event.detail
-    ) {
-      document.querySelector("panel-list").toggle(event);
-    }
-  }
-
-  let menuButton = $("#open-menu-button");
-  menuButton.addEventListener("mousedown", openMenu);
-  menuButton.addEventListener("click", openMenu);
-
   $$("input[type=radio]").forEach(radio => {
     radio.onchange = e => {
       updateLoggingOutputType(e.target.value);

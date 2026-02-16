@@ -165,7 +165,7 @@ class JujutsuRepository(Repository):
     def get_changed_files(self, diff_filter="ADM", mode="(ignored)", rev="@"):
         assert all(f.lower() in self._valid_diff_filter for f in diff_filter)
 
-        out = self._run_read_only(
+        out = self._run(
             "log",
             "-r",
             rev,

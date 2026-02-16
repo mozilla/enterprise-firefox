@@ -830,10 +830,11 @@ static void FetchAndAdjustPenData(WidgetMouseEvent& aGeckoEvent,
 
   // The range of xtilt and ytilt are -1 to 1. Normalize it to -90 to 90.
   if (gdk_event_get_axis(aEvent, GDK_AXIS_XTILT, &value)) {
-    aGeckoEvent.tiltX = int32_t(NS_round(value * 90));
-  }
-  if (gdk_event_get_axis(aEvent, GDK_AXIS_YTILT, &value)) {
-    aGeckoEvent.tiltY = int32_t(NS_round(value * 90));
+    int32_t tiltX = int32_t(NS_round(value * 90));
+    if (gdk_event_get_axis(aEvent, GDK_AXIS_YTILT, &value)) {
+      int32_t tiltY = int32_t(NS_round(value * 90));
+      aGeckoEvent.mTilt.emplace(tiltX, tiltY);
+    }
   }
   if (gdk_event_get_axis(aEvent, GDK_AXIS_PRESSURE, &value)) {
     aGeckoEvent.mPressure = (float)value;
@@ -1940,7 +1941,7 @@ void nsWindow::UpdateWaylandPopupHierarchy() {
       }
       if (popup->WaylandPopupIsFirst() &&
           popup->WaylandPopupFitsToplevelWindow() &&
-          !StaticPrefs::widget_wayland_force_move_to_rect()) {
+          !StaticPrefs::widget_wayland_force_move_to_rect_AtStartup()) {
         // Avoid move-to-rect if our requested rect fits the toplevel.
         // This serves as an optimization, but also as a workaround for
         // https://gitlab.gnome.org/GNOME/gtk/-/issues/1986

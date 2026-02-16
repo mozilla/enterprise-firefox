@@ -164,7 +164,7 @@ sealed interface RenameFileError {
     data class NameAlreadyExists(val proposedFileName: String) : RenameFileError
 
     /**
-     * The proposed file name is not valid.
+     * The proposed file name is not valid and has a path separator or slash.
      */
     data object InvalidFileName : RenameFileError
 

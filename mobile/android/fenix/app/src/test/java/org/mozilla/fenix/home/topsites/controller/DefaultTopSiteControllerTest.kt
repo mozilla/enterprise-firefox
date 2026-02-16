@@ -40,6 +40,8 @@ import org.mozilla.fenix.GleanMetrics.ShortcutsLibrary
 import org.mozilla.fenix.GleanMetrics.TopSites
 import org.mozilla.fenix.R
 import org.mozilla.fenix.components.Analytics
+import org.mozilla.fenix.components.AppStore
+import org.mozilla.fenix.components.appstate.AppState
 import org.mozilla.fenix.components.usecases.FenixBrowserUseCases
 import org.mozilla.fenix.ext.components
 import org.mozilla.fenix.helpers.FenixGleanTestRule
@@ -55,6 +57,7 @@ class DefaultTopSiteControllerTest {
     @get:Rule
     val gleanTestRule = FenixGleanTestRule(testContext)
 
+    private val appStore: AppStore = AppStore(AppState())
     private val activity: Activity = mockk(relaxed = true)
     private val navController: NavController = mockk(relaxed = true)
     private val tabsUseCases: TabsUseCases = mockk(relaxed = true)
@@ -1145,6 +1148,7 @@ class DefaultTopSiteControllerTest {
 
     private fun createController(scope: CoroutineScope): DefaultTopSiteController =
         DefaultTopSiteController(
+            appStore = appStore,
             activityRef = WeakReference(activity),
             navControllerRef = WeakReference(navController),
             store = store,

@@ -56,9 +56,12 @@ export class SuggestionsPanelList extends MozLitElement {
   updated(changedProperties) {
     super.updated(changedProperties);
     if (changedProperties.has("anchor")) {
-      this.#anchorElement = this.renderRoot.querySelector(
-        ".suggestions-panel-list-anchor"
-      );
+      // If anchor is an element use it directly,
+      // otherwise we can use the positioned span.
+      this.#anchorElement =
+        this.anchor instanceof Element
+          ? this.anchor
+          : this.renderRoot.querySelector(".suggestions-panel-list-anchor");
     }
   }
 
@@ -70,6 +73,11 @@ export class SuggestionsPanelList extends MozLitElement {
   async hide() {
     await this.updateComplete;
     this.#panelList.hide();
+  }
+
+  async toggle() {
+    await this.updateComplete;
+    this.#panelList.toggle(null, this.#anchorElement);
   }
 
   handlePanelClick(e) {
@@ -99,7 +107,7 @@ export class SuggestionsPanelList extends MozLitElement {
         href="chrome://browser/content/aiwindow/components/suggestions-panel-list.css"
       />
       ${when(
-        this.anchor,
+        this.anchor && !(this.anchor instanceof Element),
         () =>
           html`<span
             class="suggestions-panel-list-anchor"

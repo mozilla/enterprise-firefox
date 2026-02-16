@@ -164,7 +164,7 @@ class BCData {
  public:
   BCData();
 
-  ~BCData();
+  ~BCData() = default;
 
   nscoord GetIStartEdge(BCBorderOwner& aOwner, bool& aStart) const;
 
@@ -340,8 +340,6 @@ inline BCData::BCData() {
   mCornerSide = static_cast<uint8_t>(mozilla::LogicalSide::BStart);
   mCornerBevel = false;
 }
-
-inline BCData::~BCData() = default;
 
 inline nscoord BCData::GetIStartEdge(BCBorderOwner& aOwner,
                                      bool& aStart) const {

@@ -47,8 +47,8 @@ add_task(async function test_splitViewCreateAndAddTabs() {
   let tab4 = BrowserTestUtils.addTab(gBrowser, "about:blank");
 
   // Add tabs to split view
-  let splitview = gBrowser.addTabSplitView([tab1, tab2], { id: "1" });
-  let splitview2 = gBrowser.addTabSplitView([tab3, tab4], { id: "2" });
+  let splitview = gBrowser.addTabSplitView([tab1, tab2]);
+  let splitview2 = gBrowser.addTabSplitView([tab3, tab4]);
   let tabbrowserTabs = document.getElementById("tabbrowser-tabs");
   await BrowserTestUtils.waitForMutationCondition(
     tabbrowserTabs,
@@ -527,4 +527,102 @@ add_task(async function test_moving_tabs() {
   for (let tab of [tab1, tab2, tab3, tab4]) {
     BrowserTestUtils.removeTab(tab);
   }
+});
+
+add_task(async function test_move_group_with_splitview_to_new_window() {
+  info("Create tabs for split view");
+  const tab1 = await addTabAndLoadBrowser();
+  const tab2 = await addTabAndLoadBrowser();
+  const tab3 = await addTabAndLoadBrowser();
+
+  info("Create a split view with tab1 and tab2");
+  const splitView = gBrowser.addTabSplitView([tab1, tab2]);
+  Assert.ok(splitView, "Split view was created");
+
+  info("Create a tab group containing the split view and tab3");
+  const group = gBrowser.addTabGroup([splitView, tab3]);
+  Assert.ok(group, "Tab group was created");
+  Assert.equal(group.tabs.length, 3, "Group has 3 tabs");
+
+  info("Move the group to a new window");
+  const promiseNewWindow = BrowserTestUtils.waitForNewWindow();
+  gBrowser.replaceGroupWithWindow(group);
+  const newWindow = await promiseNewWindow;
+
+  info("Verify the new window contains the expected tabs");
+  Assert.ok(newWindow, "New window was created");
+  Assert.equal(
+    newWindow.gBrowser.tabs.length,
+    3,
+    "New window has 3 tabs from the group"
+  );
+
+  info("Verify the split view was preserved in the new window");
+  const movedTabs = newWindow.gBrowser.tabs;
+  Assert.equal(movedTabs.length, 3, "Three tabs were moved");
+  Assert.ok(
+    movedTabs[0].splitview && movedTabs[1].splitview,
+    "First two tabs are still in a split view"
+  );
+  Assert.equal(
+    movedTabs[0].splitview,
+    movedTabs[1].splitview,
+    "Tabs are in the same split view"
+  );
+
+  await BrowserTestUtils.closeWindow(newWindow);
+});
+
+add_task(async function test_createGroupFromPinnedTabWithSplitView() {
+  info(
+    "Test creating a tab group from a pinned tab when a split view follows it"
+  );
+
+  let pinnedTab = BrowserTestUtils.addTab(gBrowser, "about:blank");
+  gBrowser.pinTab(pinnedTab);
+
+  let tab1 = BrowserTestUtils.addTab(gBrowser, "about:blank");
+  let tab2 = BrowserTestUtils.addTab(gBrowser, "about:blank");
+
+  let splitview = gBrowser.addTabSplitView([tab1, tab2], {
+    insertBefore: tab1,
+  });
+
+  let tabScrollBoxChildren = Array.from(
+    document.getElementById("tabbrowser-arrowscrollbox").children
+  );
+  let splitViewPosition = tabScrollBoxChildren.indexOf(splitview);
+
+  Assert.ok(
+    tab1.splitview && tab2.splitview,
+    "Tab 1 and tab 2 are in a split view"
+  );
+  Assert.equal(pinnedTab._tPos, 0, "Pinned tab is at position 0");
+  Assert.less(
+    pinnedTab._tPos,
+    splitViewPosition,
+    "Pinned tab is before split view"
+  );
+
+  info("Create a tab group from the pinned tab using TabContextMenu");
+  TabContextMenu.contextTab = pinnedTab;
+  TabContextMenu.contextTabs = [pinnedTab];
+  TabContextMenu.moveTabsToNewGroup();
+
+  let group = pinnedTab.group;
+  Assert.ok(group, "Pinned tab is now in a group");
+
+  let groupPosition = tabScrollBoxChildren.indexOf(group);
+
+  Assert.less(
+    groupPosition,
+    splitViewPosition,
+    "Tab group is before split view"
+  );
+
+  Assert.equal(splitview.tabs.length, 2, "Split view still only has 2 tabs");
+
+  await removeTabGroup(group);
+  splitview.close();
+  BrowserTestUtils.removeTab(pinnedTab);
 });

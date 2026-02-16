@@ -45,7 +45,7 @@ export class PropertyValidator {
     this.config = config;
     this.allowedWords = new Set(
       this.config.validTypes
-        .flatMap(propType => propType.allow)
+        .flatMap(propType => propType.allow ?? [])
         .concat(...PropertyValidator.GLOBAL_WORDS)
     );
     this.allowedAliasWords = new Set(

@@ -7994,8 +7994,8 @@ bool nsWindow::DispatchTouchEventFromWMPointer(
                             ScreenSize(1, 1),  // pixel size radius for pen
                             0.0f,              // no radius rotation
                             aPointerInfo.mPressure);
-  touchData.mTiltX = aPointerInfo.tiltX;
-  touchData.mTiltY = aPointerInfo.tiltY;
+  touchData.mTiltX = aPointerInfo.ComputeTiltX();
+  touchData.mTiltY = aPointerInfo.ComputeTiltY();
   touchData.mTwist = aPointerInfo.twist;
 
   MultiTouchInput touchInput;

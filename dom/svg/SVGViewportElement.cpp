@@ -47,8 +47,7 @@ SVGElement::LengthInfo SVGViewportElement::sLengthInfo[4] = {
 
 SVGViewportElement::SVGViewportElement(
     already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo)
-    : SVGGraphicsElement(std::move(aNodeInfo)),
-      mHasChildrenOnlyTransform(false) {}
+    : SVGGraphicsElement(std::move(aNodeInfo)) {}
 
 //----------------------------------------------------------------------
 

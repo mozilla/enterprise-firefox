@@ -4,26 +4,49 @@
 
 /* TODO (Bug 2008938): Make in-page Smartbar styling not dependent on chrome styles */
 @import url("chrome://browser/skin/urlbar-searchbar.css");
+@import url("chrome://browser/skin/urlbarView.css");
 
 :host,
 :root {
   --smartbar-border-style-gradient: var(--border-width) solid;
   --smartbar-border-color-gradient: linear-gradient(172deg, #321bfd -18%, #cf30e2 53%, #ff9900 89%, #f5c451 109%);
   --smartbar-border-color-gradient-dark: linear-gradient(270deg, var(--color-orange-40) 0%, var(--color-violet-50) 105.15%);
+  --smartbar-max-height: 50vh;
   --smartbar-max-width: calc(var(--size-item-xlarge) * 12);
   --smartbar-shadow: 0 2px 14px color-mix(in srgb, var(--color-violet-40) 30%, transparent);
   --smartbar-background-color: light-dark(white, var(--color-violet-110));
 }
 
 .smartbar {
-  display: block;
-  height: auto;
+  display: flex;
+  flex-direction: column;
+  max-height: var(--smartbar-max-height);
   max-width: var(--smartbar-max-width);
   width: 100%;
+
+  > .urlbarView {
+    overflow-y: auto;
+  }
+
+  &[open] > .urlbarView {
+    display: block;
+  }
+
+  &[suggestions-position="top"] > .urlbarView {
+    order: -1;
+    z-index: 1;
+  }
 }
 
 .smartbar > .urlbar-input-container {
   overflow: visible;
+  /**
+   * The search mode switcher won’t be used for the Smartbar. Instead, it is
+   * part of the CTA action panel.
+   */
+  > .searchmode-switcher {
+    display: none;
+  }
 }
 
 .smartbar > .urlbar-background {

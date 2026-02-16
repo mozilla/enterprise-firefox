@@ -183,8 +183,8 @@ class nsMenuX final : public nsMenuParentX,
   static bool IsXULEditMenu(nsIContent* aMenuContent);
 
   // Set an observer that gets notified of menu opening and closing.
-  // The menu does not keep a strong reference the observer. The observer must
-  // remove itself before it is destroyed.
+  // The menu does not keep a strong reference to the observer. The observer
+  // must remove itself before it is destroyed.
   void SetObserver(Observer* aObserver) { mObserver = aObserver; }
 
   // Stop observing.

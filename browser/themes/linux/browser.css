@@ -306,3 +306,7 @@
     display: none;
   }
 }
+
+.titlebar-return-to-opener {
+  --titlebar-button-position: env(-moz-gtk-csd-minimize-button-position);
+}

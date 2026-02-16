@@ -121,33 +121,6 @@ const gTestSyntaxExamples = {
       {
         description: "a calc time",
         input: new CSSMathSum(new CSSUnitValue(0, 's'), new CSSUnitValue(0, 'ms')),
-        // Specified/computed calcs are usually simplified.
-        // FIXME: Test this properly
-        defaultSpecified: (_, result) => assert_is_calc_sum(result),
-        defaultComputed: (_, result) => assert_is_unit('s', result)
-      }
-    ],
-  },
-  '<time>': {
-    description: 'a time',
-    examples: [
-      {
-        description: "zero seconds",
-        input: new CSSUnitValue(0, 's')
-      },
-      {
-        description: "negative milliseconds",
-        input: new CSSUnitValue(-3.14, 'ms'),
-        // Computed values use canonical units
-        defaultComputed: (_, result) => assert_style_value_equals(result, new CSSUnitValue(-0.00314, 's'))
-      },
-      {
-        description: "positive seconds",
-        input: new CSSUnitValue(3.14, 's')
-      },
-      {
-        description: "a calc time",
-        input: new CSSMathSum(new CSSUnitValue(0, 's'), new CSSUnitValue(0, 'ms')),
         specifiedExpected: new CSSMathSum(new CSSUnitValue(0, 's'), new CSSUnitValue(0, 's')),
         defaultSpecified: (_, result) => assert_is_calc_sum(result),
         defaultComputed: (_, result) => assert_is_unit('s', result)
@@ -312,8 +285,7 @@ function testPropertyValid(propertyName, examples, specified, computed, descript
       if (specified || example.defaultSpecified) {
         (specified || example.defaultSpecified)(example.specifiedExpected || example.input, specifiedResult);
       } else {
-        assert_style_value_equals(specifiedResult, example.input,
-          `Setting ${example.description} and getting its specified value`);
+        assert_style_value_equals(specifiedResult, example.input);
       }
 
       // computed style
@@ -326,8 +298,7 @@ function testPropertyValid(propertyName, examples, specified, computed, descript
       if (computed || example.defaultComputed) {
         (computed || example.defaultComputed)(example.input, computedResult);
       } else {
-        assert_style_value_equals(computedResult, example.input,
-          `Setting ${example.description} and getting its computed value`);
+        assert_style_value_equals(computedResult, example.input);
       }
     }, `Can set '${propertyName}' to ${description}: ${example.input}`);
   }
@@ -379,9 +350,7 @@ function testUnsupportedValue(propertyName, cssText) {
       'Unsupported value can be set on different element');
 
     const resultAll = element2.attributeStyleMap.getAll(propertyName);
-    assert_style_value_equals(resultAll[0], result,
-      `getAll() with single unsupported value returns single-item list ` +
-      `with same result as get()`);
+    assert_style_value_equals(resultAll[0], result);
   }, `'${propertyName}' does not support '${cssText}'`);
 }
 

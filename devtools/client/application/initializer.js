@@ -115,6 +115,9 @@ window.Application = {
         OnHistoryCommit: () => {
           this.actions.updateSessionHistory(this._sessionHistory);
         },
+        OnEntryTitleUpdated: entry => {
+          this.actions.updateSessionHistoryEntry(entry);
+        },
       };
 
       this._sessionHistory.addSHistoryListener(this._sessionHistoryListener);

@@ -375,6 +375,7 @@ LoginManager.prototype = {
 
   /**
    * Remove all logins from data store, including the FxA Sync key.
+   * Deprecated: Use removeAllLoginsAsync() instead.
    *
    * NOTE: You probably want `removeAllUserFacingLogins()` instead of this function.
    * This function will remove the FxA Sync key, which will break syncing of saved user data
@@ -383,6 +384,18 @@ LoginManager.prototype = {
   removeAllLogins() {
     lazy.log.debug("Removing all logins from local store, including FxA key.");
     this._storage.removeAllLogins();
+  },
+
+  /**
+   * Remove all logins from data store, including the FxA Sync key.
+   *
+   * NOTE: You probably want `removeAllUserFacingLogins()` instead of this function.
+   * This function will remove the FxA Sync key, which will break syncing of saved user data
+   * e.g. bookmarks, history, open tabs, logins and passwords, add-ons, and options
+   */
+  async removeAllLoginsAsync() {
+    lazy.log.debug("Removing all logins from local store, including FxA key.");
+    await this._storage.removeAllLoginsAsync();
   },
 
   /**

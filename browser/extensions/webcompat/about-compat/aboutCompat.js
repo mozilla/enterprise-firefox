@@ -45,8 +45,7 @@ const DOMContentLoadedPromise = new Promise(resolve => {
   );
 });
 
-const ua = navigator.userAgent;
-if (ua.includes("Tablet") || ua.includes("Mobile")) {
+if (navigator.maxTouchPoints > 0) {
   document.documentElement.classList.add("mobile");
 }
 

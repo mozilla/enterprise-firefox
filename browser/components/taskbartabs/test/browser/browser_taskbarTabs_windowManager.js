@@ -236,22 +236,49 @@ add_task(async function testWindowIconSet() {
   };
   wm.testOnlyMockUIUtils(mockWindowsUIUtils);
 
-  let windowPromise = BrowserTestUtils.waitForNewWindow();
-  await wm.openWindow(taskbarTab1);
-  let win = await windowPromise;
+  async function check(win, cause) {
+    Assert.equal(
+      mockWindowsUIUtils.setWindowIcon.callCount,
+      1,
+      `${cause} set the window icon once`
+    );
+    Assert.equal(
+      mockWindowsUIUtils.setWindowIcon.firstCall.args[0],
+      win,
+      `${cause} passed the correct window`
+    );
+    Assert.equal(
+      mockWindowsUIUtils.setWindowIcon.firstCall.args[1],
+      img,
+      `${cause} passed the correct large icon`
+    );
+    Assert.equal(
+      mockWindowsUIUtils.setWindowIcon.firstCall.args[2],
+      img,
+      `${cause} passed the correct small icon`
+    );
 
-  ok(
-    mockWindowsUIUtils.setWindowIcon.calledOnce,
-    "The Window icon should have been set."
+    // `sinon.spy` will hold a reference to the window by virtue of holding its
+    // arguments, causing tests to fail from a "leaked" window. Release it before
+    // closing the window.
+    sinon.resetHistory();
+    await BrowserTestUtils.closeWindow(win);
+  }
+
+  let img = await TaskbarTabsUtils._imageFromLocalURI(
+    Services.io.newURI(
+      "chrome://mochitests/content/browser/browser/components/taskbartabs/test/browser/favicon-normal16.png"
+    )
   );
 
-  // `sinon.spy` will hold a reference to the window by virtue of holding it's
-  // arguments, causing tests to fail from a "leaked" window. Release it before
-  // closing the window.
-  sinon.resetHistory();
-  wm.testOnlyMockUIUtils(null);
+  let win = await wm.openWindow(taskbarTab1, img);
+  await check(win, "openWindow (explicit)");
 
-  await BrowserTestUtils.closeWindow(win);
+  let tab = BrowserTestUtils.addTab(window.gBrowser, url1.spec);
+  win = await wm.replaceTabWithWindow(taskbarTab1, tab, img);
+  await check(win, "replaceTabWithWindow (explicit)");
+
+  wm.testOnlyMockUIUtils(null);
 });
 
 add_task(async function test_taskbarTab_persistence() {

@@ -659,6 +659,10 @@ export class LoginManagerStorage_json {
     this.#removeLogins(false, true);
   }
 
+  async removeAllLoginsAsync() {
+    this.removeAllLogins();
+  }
+
   /**
    * Removes all user facing logins from storage. e.g. all logins except the FxA Sync key
    *

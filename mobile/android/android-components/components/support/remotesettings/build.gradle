@@ -29,6 +29,7 @@ dependencies {
     implementation project(':components:support-ktx')
     implementation project(':components:support-utils')
 
+    implementation ComponentsDependencies.mozilla_appservices_errorsupport
     implementation ComponentsDependencies.mozilla_remote_settings
     implementation libs.androidx.work.runtime
     implementation libs.kotlinx.serialization.json

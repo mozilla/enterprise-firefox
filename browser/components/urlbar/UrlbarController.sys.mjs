@@ -1185,7 +1185,13 @@ class TelemetryEvent {
           selected_result,
           provider,
           engagement_type:
-            selType === "help" || selType === "dismiss" ? selType : action,
+            selType === "help" ||
+            selType === "dismiss" ||
+            selType === "ask_button" ||
+            selType === "navigate_button" ||
+            selType === "search_button"
+              ? selType
+              : action,
           search_engine_default_id,
           groups,
           results,

@@ -65,6 +65,9 @@ document.addEventListener(
           case "cmd_closeWindow":
             BrowserCommands.tryToCloseWindow(event);
             break;
+          case "cmd_returnToOpener":
+            BrowserCommands.returnToOpenerFromPiP(event);
+            break;
           case "cmd_minimizeWindow":
             window.minimize();
             break;

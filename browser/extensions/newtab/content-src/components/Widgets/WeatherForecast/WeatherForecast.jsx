@@ -67,11 +67,12 @@ function WeatherForecast({ dispatch, isMaximized, widgetsMayBeMaximized }) {
     nimbusWeatherForecastTrainhopEnabled ||
     prefs["widgets.system.weatherForecast.enabled"];
 
-  // This weather forecast widget will only show when the following:
+  // This weather forecast widget will only show when the following are true:
   // - The weather view is set to "detailed" (can be checked with the weather.display pref)
   // - Weather is displayed on New Tab (system.showWeather)
-  // The weather forecast widget is enabled (system.weatherForecast.enabled)
-  // Note that if the view is set to "detailed" but the weather forecast widget is not enabled, then the mini weather widget will display with the "detailed" view
+  // - The weather forecast widget is enabled (system.weatherForecast.enabled)
+  // Note that if the view is set to "detailed" but the weather forecast widget is not enabled,
+  // then the mini weather widget will display with the "detailed" view
   if (
     !showDetailedView ||
     !weatherData?.initialized ||

@@ -3927,7 +3927,7 @@ nsresult CacheFileIOManager::FindTrashDirToRemove() {
     LOG(("CacheFileIOManager::FindTrashDirToRemove() - Returning directory %s",
          leafName.get()));
 
-    mTrashDir = file;
+    mTrashDir = std::move(file);
     return NS_OK;
   }
 

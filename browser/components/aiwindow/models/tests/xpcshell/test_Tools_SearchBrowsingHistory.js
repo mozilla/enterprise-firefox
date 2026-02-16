@@ -215,3 +215,95 @@ add_task(
     );
   }
 );
+
+/**
+ * searchBrowsingHistory wrapper robustness tests
+ *
+ * Ensures wrapper tolerates missing or invalid tool arguments.
+ */
+
+// test: tool called with no arguments
+add_task(async function test_searchBrowsingHistory_wrapper_no_args() {
+  const outputStr = await searchBrowsingHistory();
+  const output = JSON.parse(outputStr);
+
+  Assert.ok("searchTerm" in output, "searchTerm field present");
+  Assert.ok("results" in output, "results field present");
+  Assert.ok(Array.isArray(output.results), "results is an array");
+
+  // Wrapper may legitimately return an error (e.g. semantic DB not initialized).
+  Assert.ok(
+    "error" in output || "message" in output,
+    "error or message present"
+  );
+});
+
+// test: tool called with undefined
+add_task(async function test_searchBrowsingHistory_wrapper_undefined_args() {
+  const outputStr = await searchBrowsingHistory(undefined);
+  const output = JSON.parse(outputStr);
+
+  Assert.ok("searchTerm" in output, "searchTerm field present");
+  Assert.ok("results" in output, "results field present");
+  Assert.ok(Array.isArray(output.results), "results is an array");
+  Assert.ok(
+    "error" in output || "message" in output,
+    "error or message present"
+  );
+});
+
+// test: tool called with null
+add_task(async function test_searchBrowsingHistory_wrapper_null_args() {
+  const outputStr = await searchBrowsingHistory(null);
+  const output = JSON.parse(outputStr);
+
+  Assert.ok("searchTerm" in output, "searchTerm field present");
+  Assert.ok("results" in output, "results field present");
+  Assert.ok(Array.isArray(output.results), "results is an array");
+  Assert.ok(
+    "error" in output || "message" in output,
+    "error or message present"
+  );
+});
+
+// test: tool called with non-object (string)
+add_task(async function test_searchBrowsingHistory_wrapper_string_args() {
+  const outputStr = await searchBrowsingHistory("mozilla");
+  const output = JSON.parse(outputStr);
+
+  Assert.ok("searchTerm" in output, "searchTerm field present");
+  Assert.ok("results" in output, "results field present");
+  Assert.ok(Array.isArray(output.results), "results is an array");
+  Assert.ok(
+    "error" in output || "message" in output,
+    "error or message present"
+  );
+});
+
+// test: tool called with non-object (number)
+add_task(async function test_searchBrowsingHistory_wrapper_number_args() {
+  const outputStr = await searchBrowsingHistory(123);
+  const output = JSON.parse(outputStr);
+
+  Assert.ok("searchTerm" in output, "searchTerm field present");
+  Assert.ok("results" in output, "results field present");
+  Assert.ok(Array.isArray(output.results), "results is an array");
+  Assert.ok(
+    "error" in output || "message" in output,
+    "error or message present"
+  );
+});
+
+// test: tool called with non-object (boolean)
+add_task(async function test_searchBrowsingHistory_wrapper_boolean_args() {
+  const outputStr = await searchBrowsingHistory(true);
+  const output = JSON.parse(outputStr);
+
+  Assert.ok("searchTerm" in output, "searchTerm field present");
+  Assert.ok("results" in output, "results field present");
+  Assert.ok(Array.isArray(output.results), "results is an array");
+  Assert.ok(
+    "error" in output || "message" in output,
+    "error or message present"
+  );
+});

@@ -140,7 +140,7 @@ add_task(async function test_telemetry_chat_search_button() {
 
   Assert.ok(
     loadSearchSpy.calledOnce,
-    "SearchUIUtils.loadSearch was called from AI Window Perform Search"
+    "SearchUIUtils.loadSearch was called from Smart Window Perform Search"
   );
 
   const args = loadSearchSpy.firstCall.args[0];
@@ -151,14 +151,14 @@ add_task(async function test_telemetry_chat_search_button() {
   );
   Assert.equal(
     args.sapSource,
-    "aiwindow_assistant",
-    "AI Window sapSource passed"
+    "smartwindow_assistant",
+    "Smart Window sapSource passed"
   );
 
   await lazy.SearchUITestUtils.assertSAPTelemetry({
     engineId: "other",
     engineName: "other",
-    source: "aiwindow_assistant",
+    source: "smartwindow_assistant",
     count: 1,
   });
 

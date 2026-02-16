@@ -54,6 +54,9 @@
     },
     "selectedWindow": {
       "type": "integer"
+    },
+    "maxSplitViewId": {
+      "type": "integer"
     }
   },
   "required": ["version", "windows"],
@@ -147,6 +150,12 @@
         "selected": {
           "type": "integer"
         },
+        "splitViews": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/splitview"
+          }
+        },
         "title": {
           "type": "string"
         },
@@ -159,7 +168,7 @@
         "_closedTabs": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/tab"
+            "$ref": "#/definitions/closedTab"
           }
         },
         "_lastClosedTabGroupCount": {
@@ -244,6 +253,18 @@
       ],
       "required": ["closedAt", "closedId"],
       "additionalProperties": false
+    },
+    "splitview": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer"
+        },
+        "numberOfTabs": {
+          "type": "integer"
+        }
+      },
+      "required": ["id", "numberOfTabs"]
     },
     "tab": {
       "type": "object",
@@ -436,6 +457,15 @@
           }
         },
         "policyContainer": {
+          "type": "string"
+        },
+        "transient": {
+          "type": "boolean"
+        },
+        "navigationKey": {
+          "type": "string"
+        },
+        "navigationId": {
           "type": "string"
         }
       },

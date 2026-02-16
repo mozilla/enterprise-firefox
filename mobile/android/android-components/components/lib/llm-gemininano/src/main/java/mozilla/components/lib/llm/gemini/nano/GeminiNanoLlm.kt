@@ -4,8 +4,6 @@
 
 package mozilla.components.lib.llm.gemini.nano
 
-import com.google.mlkit.genai.common.DownloadStatus
-import com.google.mlkit.genai.common.FeatureStatus
 import com.google.mlkit.genai.common.GenAiException
 import com.google.mlkit.genai.prompt.Generation
 import com.google.mlkit.genai.prompt.GenerativeModel
@@ -14,8 +12,6 @@ import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import mozilla.components.concept.llm.Llm
 import mozilla.components.concept.llm.Prompt
 import mozilla.components.support.base.log.logger.Logger
@@ -24,7 +20,7 @@ import mozilla.components.support.base.log.logger.Logger
  * An instance of a LLM that uses local, on-device capabilities provided by Gemini Nano to handle
  * inference.
  */
-class GeminiNanoLlm(
+internal class GeminiNanoLlm(
     private val buildModel: () -> GenerativeModel = { Generation.getClient() },
     private val logger: (String) -> Unit = { message -> Logger("mozac/GeminiNanoLlm").info(message) },
 ) : Llm {
@@ -33,44 +29,8 @@ class GeminiNanoLlm(
         buildModel()
     }
 
-    private val downloadMutex = Mutex()
-
     override suspend fun prompt(prompt: Prompt): Flow<Llm.Response> = flow {
-        val model = model
-        when (model.checkStatus()) {
-            FeatureStatus.AVAILABLE -> {
-                streamPromptResponses(prompt)
-            }
-            FeatureStatus.DOWNLOADING -> {
-                emit(Llm.Response.Preparing("Downloading model"))
-                // await the completion of the ongoing download
-                downloadMutex.withLock {
-                    if (model.checkStatus() == FeatureStatus.AVAILABLE) {
-                        streamPromptResponses(prompt)
-                    } else {
-                        emit(Llm.Response.Failure("Model should be downloaded and is not"))
-                    }
-                }
-            }
-            FeatureStatus.DOWNLOADABLE -> {
-                emit(Llm.Response.Preparing("Downloading model"))
-                val result = downloadMutex.withLock {
-                     model.download().onEach { status ->
-                        logger("Download update: $status")
-                    }.first { status ->
-                        status == DownloadStatus.DownloadCompleted || status is DownloadStatus.DownloadFailed
-                    }
-                }
-                if (result is DownloadStatus.DownloadFailed) {
-                    val message = "Download failed ${result.e.message}"
-                    logger(message)
-                    emit(Llm.Response.Failure(message))
-                } else {
-                    streamPromptResponses(prompt)
-                }
-            }
-            else -> emit(Llm.Response.Failure("Unavailable"))
-        }
+        streamPromptResponses(prompt)
     }
 
     private suspend fun FlowCollector<Llm.Response>.streamPromptResponses(prompt: Prompt) = try {

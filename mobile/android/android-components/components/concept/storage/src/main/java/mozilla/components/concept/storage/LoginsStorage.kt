@@ -198,6 +198,13 @@ interface LoginsStorage : Storage, StorageMaintenanceRegistry, AutoCloseable {
     suspend fun list(): List<Login>
 
     /**
+     * Counts the full list of logins from the underlying storage layer.
+     *
+     * @return A count of stored [Login] records.
+     */
+    suspend fun count(): Long
+
+    /**
      * Calculate how we should save a login
      *
      * For a [LoginEntry] to save find an existing [Login] to be update (if

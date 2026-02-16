@@ -1127,6 +1127,8 @@ class nsPresContext : public nsISupports,
 
   void DoForceReflowForFontInfoUpdateFromStyle();
 
+  void UpdateAnimationsPlayBackRateMultiplier(double aMultiplier);
+
  public:
   // Used by the PresShell to force a reflow when some aspect of font info
   // has been updated, potentially affecting font selection and layout.
@@ -1161,6 +1163,10 @@ class nsPresContext : public nsISupports,
   float RubyPositioningFactor() const {
     MOZ_ASSERT(mRubyPositioningFactor > 0.0f);
     return mRubyPositioningFactor;
+  }
+
+  double AnimationsPlayBackRateMultiplier() const {
+    return mAnimationsPlayBackRateMultiplier;
   }
 
  protected:
@@ -1306,13 +1312,13 @@ class nsPresContext : public nsISupports,
   mozilla::TimeStamp mFirstMouseMoveTime;
   mozilla::TimeStamp mFirstScrollTime;
 
+  // last time we did a full style flush
+  mozilla::TimeStamp mLastStyleUpdateForAllAnimations;
+
   // incremented each time the root scroller scrolls, helpful to determine if
   // it has scrolled between the start and end of some deferred work (such as a
   // navigation intercept).
   uint32_t mLastScrollGeneration;
-
-  // last time we did a full style flush
-  mozilla::TimeStamp mLastStyleUpdateForAllAnimations;
 
   uint32_t mInterruptChecksToSkip;
 
@@ -1337,6 +1343,12 @@ class nsPresContext : public nsISupports,
   // been updated so far. This is necessary to avoid reentering on container
   // query style changes which cause us to do frame reconstruction.
   nsTHashSet<nsIContent*> mUpdatedContainerQueryContents;
+
+  // The cache of BrowsingContext.animationsPlayBackRateMultiplier.
+  // We need to cache it since the multiplier needs to be queried off the
+  // main-thread, unfortunately Document::GetBrowsingContext can not be used off
+  // the main-thread.
+  double mAnimationsPlayBackRateMultiplier = 1.0;
 
   ScrollStyles mViewportScrollStyles;
 

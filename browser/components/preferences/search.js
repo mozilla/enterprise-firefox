@@ -856,6 +856,7 @@ Preferences.addSetting(
       for (let engine of await lazy.SearchService.getEngines()) {
         let settingId = `engineList-${engine.id}`;
         let editId = `editEngine-${engine.id}`;
+        let outlinkId = `outlink-${engine.id}`;
 
         maybeMakeSetting(EngineListItemSetting(settingId, engine));
         maybeMakeSetting({
@@ -891,10 +892,29 @@ Preferences.addSetting(
           ],
         };
 
-        // Addon search engines do need an edit button to edit the alias names,
-        // but they should not have a toggle or a delete button.
-        if (!engine.loadPath.startsWith("[addon]")) {
+        // Addon search engines need an edit button to edit the alias names
+        // and an outlink icon, but they should not have a toggle or a delete
+        // button.
+        if (!(engine instanceof lazy.AddonSearchEngine)) {
           config.items.push(this.handleDeletionOptions(engine));
+        } else {
+          maybeMakeSetting({
+            id: outlinkId,
+            onUserClick(e) {
+              e.preventDefault();
+              // @ts-expect-error topChromeWindow global
+              window.browsingContext.topChromeWindow.BrowserAddonUI.manageAddon(
+                engine.extensionID
+              );
+            },
+          });
+
+          config.items.push({
+            id: outlinkId,
+            control: "moz-button",
+            iconSrc: "chrome://global/skin/icons/open-in-new.svg",
+            slot: "actions",
+          });
         }
 
         configs.push(config);

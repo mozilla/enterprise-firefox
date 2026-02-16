@@ -291,6 +291,12 @@ UtilityProcessManager::StartUtility(RefPtr<Actor> aActor,
         // The tests within browser_utility_multipleAudio.js should be able to
         // catch that behavior.
         if (!aActor->CanSend()) {
+          if (!utilityParent->CanSend()) {
+            NS_WARNING("Utility process died before IPC could be established");
+            return RetPromise::CreateAndReject(
+                LaunchError("UPM::UtilityParent died"), __func__);
+          }
+
           nsresult rv = aActor->BindToUtilityProcess(utilityParent);
           if (NS_FAILED(rv)) {
             MOZ_ASSERT(false, "Protocol endpoints failure");

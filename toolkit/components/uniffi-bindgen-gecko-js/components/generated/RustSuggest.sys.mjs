@@ -47,7 +47,7 @@ export function rawSuggestionUrlMatches(
 FfiConverterString.checkType(rawUrl);
 FfiConverterString.checkType(cookedUrl);
 const result = UniFFIScaffolding.callSync(
-    90, // uniffi_suggest_fn_func_raw_suggestion_url_matches
+    93, // uniffi_suggest_fn_func_raw_suggestion_url_matches
     FfiConverterString.lower(rawUrl),
     FfiConverterString.lower(cookedUrl),
 )
@@ -4278,7 +4278,7 @@ export class SuggestStore extends SuggestStoreInterface {
         FfiConverterString.checkType(path);
         FfiConverterTypeRemoteSettingsService.checkType(remoteSettingsService);
         const result = UniFFIScaffolding.callSync(
-            91, // uniffi_suggest_fn_constructor_suggeststore_new
+            94, // uniffi_suggest_fn_constructor_suggeststore_new
             FfiConverterString.lower(path),
             FfiConverterTypeRemoteSettingsService.lower(remoteSettingsService),
         )
@@ -4296,7 +4296,7 @@ export class SuggestStore extends SuggestStoreInterface {
     async anyDismissedSuggestions() {
        
         const result = await UniFFIScaffolding.callAsyncWrapper(
-            92, // uniffi_suggest_fn_method_suggeststore_any_dismissed_suggestions
+            95, // uniffi_suggest_fn_method_suggeststore_any_dismissed_suggestions
             FfiConverterTypeSuggestStore.lowerReceiver(this),
         )
         return handleRustResult(
@@ -4312,7 +4312,7 @@ export class SuggestStore extends SuggestStoreInterface {
     async clear() {
        
         const result = await UniFFIScaffolding.callAsyncWrapper(
-            93, // uniffi_suggest_fn_method_suggeststore_clear
+            96, // uniffi_suggest_fn_method_suggeststore_clear
             FfiConverterTypeSuggestStore.lowerReceiver(this),
         )
         return handleRustResult(
@@ -4328,7 +4328,7 @@ export class SuggestStore extends SuggestStoreInterface {
     async clearDismissedSuggestions() {
        
         const result = await UniFFIScaffolding.callAsyncWrapper(
-            94, // uniffi_suggest_fn_method_suggeststore_clear_dismissed_suggestions
+            97, // uniffi_suggest_fn_method_suggeststore_clear_dismissed_suggestions
             FfiConverterTypeSuggestStore.lowerReceiver(this),
         )
         return handleRustResult(
@@ -4353,7 +4353,7 @@ export class SuggestStore extends SuggestStoreInterface {
        
         FfiConverterString.checkType(key);
         const result = await UniFFIScaffolding.callAsyncWrapper(
-            95, // uniffi_suggest_fn_method_suggeststore_dismiss_by_key
+            98, // uniffi_suggest_fn_method_suggeststore_dismiss_by_key
             FfiConverterTypeSuggestStore.lowerReceiver(this),
             FfiConverterString.lower(key),
         )
@@ -4375,7 +4375,7 @@ export class SuggestStore extends SuggestStoreInterface {
        
         FfiConverterTypeSuggestion.checkType(suggestion);
         const result = await UniFFIScaffolding.callAsyncWrapper(
-            96, // uniffi_suggest_fn_method_suggeststore_dismiss_by_suggestion
+            99, // uniffi_suggest_fn_method_suggeststore_dismiss_by_suggestion
             FfiConverterTypeSuggestStore.lowerReceiver(this),
             FfiConverterTypeSuggestion.lower(suggestion),
         )
@@ -4400,7 +4400,7 @@ export class SuggestStore extends SuggestStoreInterface {
        
         FfiConverterString.checkType(suggestionUrl);
         const result = await UniFFIScaffolding.callAsyncWrapper(
-            97, // uniffi_suggest_fn_method_suggeststore_dismiss_suggestion
+            100, // uniffi_suggest_fn_method_suggeststore_dismiss_suggestion
             FfiConverterTypeSuggestStore.lowerReceiver(this),
             FfiConverterString.lower(suggestionUrl),
         )
@@ -4423,7 +4423,7 @@ export class SuggestStore extends SuggestStoreInterface {
        
         FfiConverterTypeGeoname.checkType(geoname);
         const result = await UniFFIScaffolding.callAsyncWrapper(
-            98, // uniffi_suggest_fn_method_suggeststore_fetch_geoname_alternates
+            101, // uniffi_suggest_fn_method_suggeststore_fetch_geoname_alternates
             FfiConverterTypeSuggestStore.lowerReceiver(this),
             FfiConverterTypeGeoname.lower(geoname),
         )
@@ -4453,7 +4453,7 @@ export class SuggestStore extends SuggestStoreInterface {
         FfiConverterBoolean.checkType(matchNamePrefix);
         FfiConverterOptionalSequenceTypeGeoname.checkType(filter);
         const result = await UniFFIScaffolding.callAsyncWrapper(
-            99, // uniffi_suggest_fn_method_suggeststore_fetch_geonames
+            102, // uniffi_suggest_fn_method_suggeststore_fetch_geonames
             FfiConverterTypeSuggestStore.lowerReceiver(this),
             FfiConverterString.lower(query),
             FfiConverterBoolean.lower(matchNamePrefix),
@@ -4473,7 +4473,7 @@ export class SuggestStore extends SuggestStoreInterface {
     async fetchGlobalConfig() {
        
         const result = await UniFFIScaffolding.callAsyncWrapper(
-            100, // uniffi_suggest_fn_method_suggeststore_fetch_global_config
+            103, // uniffi_suggest_fn_method_suggeststore_fetch_global_config
             FfiConverterTypeSuggestStore.lowerReceiver(this),
         )
         return handleRustResult(
@@ -4493,7 +4493,7 @@ export class SuggestStore extends SuggestStoreInterface {
        
         FfiConverterTypeSuggestionProvider.checkType(provider);
         const result = await UniFFIScaffolding.callAsyncWrapper(
-            101, // uniffi_suggest_fn_method_suggeststore_fetch_provider_config
+            104, // uniffi_suggest_fn_method_suggeststore_fetch_provider_config
             FfiConverterTypeSuggestStore.lowerReceiver(this),
             FfiConverterTypeSuggestionProvider.lower(provider),
         )
@@ -4514,7 +4514,7 @@ export class SuggestStore extends SuggestStoreInterface {
        
         FfiConverterTypeSuggestIngestionConstraints.checkType(constraints);
         const result = await UniFFIScaffolding.callAsyncWrapper(
-            102, // uniffi_suggest_fn_method_suggeststore_ingest
+            105, // uniffi_suggest_fn_method_suggeststore_ingest
             FfiConverterTypeSuggestStore.lowerReceiver(this),
             FfiConverterTypeSuggestIngestionConstraints.lower(constraints),
         )
@@ -4538,7 +4538,7 @@ export class SuggestStore extends SuggestStoreInterface {
        
         FfiConverterOptionalTypeInterruptKind.checkType(kind);
         const result = UniFFIScaffolding.callSync(
-            103, // uniffi_suggest_fn_method_suggeststore_interrupt
+            106, // uniffi_suggest_fn_method_suggeststore_interrupt
             FfiConverterTypeSuggestStore.lowerReceiver(this),
             FfiConverterOptionalTypeInterruptKind.lower(kind),
         )
@@ -4564,7 +4564,7 @@ export class SuggestStore extends SuggestStoreInterface {
        
         FfiConverterString.checkType(key);
         const result = await UniFFIScaffolding.callAsyncWrapper(
-            104, // uniffi_suggest_fn_method_suggeststore_is_dismissed_by_key
+            107, // uniffi_suggest_fn_method_suggeststore_is_dismissed_by_key
             FfiConverterTypeSuggestStore.lowerReceiver(this),
             FfiConverterString.lower(key),
         )
@@ -4589,7 +4589,7 @@ export class SuggestStore extends SuggestStoreInterface {
        
         FfiConverterTypeSuggestion.checkType(suggestion);
         const result = await UniFFIScaffolding.callAsyncWrapper(
-            105, // uniffi_suggest_fn_method_suggeststore_is_dismissed_by_suggestion
+            108, // uniffi_suggest_fn_method_suggeststore_is_dismissed_by_suggestion
             FfiConverterTypeSuggestStore.lowerReceiver(this),
             FfiConverterTypeSuggestion.lower(suggestion),
         )
@@ -4610,7 +4610,7 @@ export class SuggestStore extends SuggestStoreInterface {
        
         FfiConverterTypeSuggestionQuery.checkType(query);
         const result = await UniFFIScaffolding.callAsyncWrapper(
-            106, // uniffi_suggest_fn_method_suggeststore_query
+            109, // uniffi_suggest_fn_method_suggeststore_query
             FfiConverterTypeSuggestStore.lowerReceiver(this),
             FfiConverterTypeSuggestionQuery.lower(query),
         )
@@ -4631,7 +4631,7 @@ export class SuggestStore extends SuggestStoreInterface {
        
         FfiConverterTypeSuggestionQuery.checkType(query);
         const result = await UniFFIScaffolding.callAsyncWrapper(
-            107, // uniffi_suggest_fn_method_suggeststore_query_with_metrics
+            110, // uniffi_suggest_fn_method_suggeststore_query_with_metrics
             FfiConverterTypeSuggestStore.lowerReceiver(this),
             FfiConverterTypeSuggestionQuery.lower(query),
         )
@@ -4795,7 +4795,7 @@ export class SuggestStoreBuilder extends SuggestStoreBuilderInterface {
     static init() {
        
         const result = UniFFIScaffolding.callSync(
-            108, // uniffi_suggest_fn_constructor_suggeststorebuilder_new
+            111, // uniffi_suggest_fn_constructor_suggeststorebuilder_new
         )
         return handleRustResult(
             result,
@@ -4811,7 +4811,7 @@ export class SuggestStoreBuilder extends SuggestStoreBuilderInterface {
     build() {
        
         const result = UniFFIScaffolding.callSync(
-            109, // uniffi_suggest_fn_method_suggeststorebuilder_build
+            112, // uniffi_suggest_fn_method_suggeststorebuilder_build
             FfiConverterTypeSuggestStoreBuilder.lowerReceiver(this),
         )
         return handleRustResult(
@@ -4831,7 +4831,7 @@ export class SuggestStoreBuilder extends SuggestStoreBuilderInterface {
        
         FfiConverterString.checkType(path);
         const result = await UniFFIScaffolding.callAsyncWrapper(
-            110, // uniffi_suggest_fn_method_suggeststorebuilder_cache_path
+            113, // uniffi_suggest_fn_method_suggeststorebuilder_cache_path
             FfiConverterTypeSuggestStoreBuilder.lowerReceiver(this),
             FfiConverterString.lower(path),
         )
@@ -4852,7 +4852,7 @@ export class SuggestStoreBuilder extends SuggestStoreBuilderInterface {
        
         FfiConverterString.checkType(path);
         const result = UniFFIScaffolding.callSync(
-            111, // uniffi_suggest_fn_method_suggeststorebuilder_data_path
+            114, // uniffi_suggest_fn_method_suggeststorebuilder_data_path
             FfiConverterTypeSuggestStoreBuilder.lowerReceiver(this),
             FfiConverterString.lower(path),
         )
@@ -4880,7 +4880,7 @@ export class SuggestStoreBuilder extends SuggestStoreBuilderInterface {
         FfiConverterString.checkType(library);
         FfiConverterOptionalString.checkType(entryPoint);
         const result = UniFFIScaffolding.callSync(
-            112, // uniffi_suggest_fn_method_suggeststorebuilder_load_extension
+            115, // uniffi_suggest_fn_method_suggeststorebuilder_load_extension
             FfiConverterTypeSuggestStoreBuilder.lowerReceiver(this),
             FfiConverterString.lower(library),
             FfiConverterOptionalString.lower(entryPoint),
@@ -4902,7 +4902,7 @@ export class SuggestStoreBuilder extends SuggestStoreBuilderInterface {
        
         FfiConverterString.checkType(bucketName);
         const result = UniFFIScaffolding.callSync(
-            113, // uniffi_suggest_fn_method_suggeststorebuilder_remote_settings_bucket_name
+            116, // uniffi_suggest_fn_method_suggeststorebuilder_remote_settings_bucket_name
             FfiConverterTypeSuggestStoreBuilder.lowerReceiver(this),
             FfiConverterString.lower(bucketName),
         )
@@ -4923,7 +4923,7 @@ export class SuggestStoreBuilder extends SuggestStoreBuilderInterface {
        
         FfiConverterTypeRemoteSettingsServer.checkType(server);
         const result = UniFFIScaffolding.callSync(
-            114, // uniffi_suggest_fn_method_suggeststorebuilder_remote_settings_server
+            117, // uniffi_suggest_fn_method_suggeststorebuilder_remote_settings_server
             FfiConverterTypeSuggestStoreBuilder.lowerReceiver(this),
             FfiConverterTypeRemoteSettingsServer.lower(server),
         )
@@ -4944,7 +4944,7 @@ export class SuggestStoreBuilder extends SuggestStoreBuilderInterface {
        
         FfiConverterTypeRemoteSettingsService.checkType(rsService);
         const result = UniFFIScaffolding.callSync(
-            115, // uniffi_suggest_fn_method_suggeststorebuilder_remote_settings_service
+            118, // uniffi_suggest_fn_method_suggeststorebuilder_remote_settings_service
             FfiConverterTypeSuggestStoreBuilder.lowerReceiver(this),
             FfiConverterTypeRemoteSettingsService.lower(rsService),
         )

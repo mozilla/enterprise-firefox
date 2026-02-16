@@ -1008,6 +1008,10 @@ Result<Ok, nsresult> Moof::ParseTrun(const Box& aBox, const Mvhd& aMvhd,
   TimeUnit roundTime = MOZ_TRY(aMdhd.ToTimeUnit(sampleCount));
   mMaxRoundingError = roundTime + mMaxRoundingError;
 
+  if (!decodeTime.isValid()) {
+    LOG_WARN(Moof, "Decode time overflow in ParseTrun");
+    return Err(NS_ERROR_FAILURE);
+  }
   *aDecodeTime = decodeTime.value();
 
   LOG_DEBUG(Trun, "Done.");

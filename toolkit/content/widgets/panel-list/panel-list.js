@@ -43,6 +43,24 @@
 
     connectedCallback() {
       this.setAttribute("role", "menu");
+      this.initializePopover();
+    }
+
+    // Let the XUL panel handle the positioning and alignment of the
+    // panel-list. Submenus also don't support popover as they need
+    // to be anchored to the parent panel-list.
+    supportsPopover() {
+      return (
+        !this.parentIsXULPanel() &&
+        !this.lastAnchorNode?.hasSubmenu &&
+        this.getAttribute("slot") !== "submenu"
+      );
+    }
+
+    initializePopover() {
+      if (this.supportsPopover() && !this.hasAttribute("popover")) {
+        this.setAttribute("popover", "manual");
+      }
     }
 
     attributeChangedCallback(name, oldVal, newVal) {
@@ -96,8 +114,12 @@
           triggeringEvent.inputSource == MouseEvent.MOZ_SOURCE_UNKNOWN ||
           triggeringEvent.code == "ArrowRight" ||
           triggeringEvent.code == "ArrowLeft");
-      this.open = true;
 
+      // Bug 2010864 - We need to set `open` to true before calling this.onShow()
+      // when the panel-list supports popover, otherwise the panel
+      // height and width will be 0 and will be positioned incorrectly
+      // when calling setAlign.
+      this.open = true;
       if (this.parentIsXULPanel()) {
         this.toggleAttribute("inxulpanel", true);
         let panel = this.parentElement;
@@ -137,8 +159,8 @@
       }
       let openingEvent = this.triggeringEvent;
       this.triggeringEvent = triggeringEvent;
-      this.open = false;
 
+      this.open = false;
       if (this.parentIsXULPanel()) {
         // It's possible that we're being programattically hidden, in which
         // case, we need to hide the XUL panel we're embedded in. If, however,
@@ -304,7 +326,9 @@
         hostElement.style.overflow = "";
         // Decide positioning based on where this panel will be rendered
         const offsetParentIsBody =
-          this.offsetParent === document?.body || !this.offsetParent;
+          this.supportsPopover() ||
+          this.offsetParent === document?.body ||
+          !this.offsetParent;
         if (offsetParentIsBody) {
           // viewport-based
           this.style.left = `${leftOffset + winScrollX}px`;
@@ -376,12 +400,16 @@
         : e.target.closest && e.target.closest("panel-list") == this;
 
       switch (e.type) {
-        case "resize":
         case "scroll":
-          if (inPanelList) {
+        case "resize":
+          // Popover panels live in the top layer and remain visible during scroll,
+          // so we don't close them. Note: This means the panel may become visually
+          // disconnected from its anchor after scrolling.
+          if (inPanelList || this.supportsPopover()) {
             break;
           }
-        // Intentional fall-through
+          this.hide();
+          break;
         case "blur":
         case "popuphidden":
           this.hide();
@@ -578,6 +606,20 @@
         await this.setAlign();
       }
 
+      // If the panel was hidden during async alignment, bail out.
+      if (!this.open) {
+        return;
+      }
+
+      // Call showPopover() after positioning is set up
+      if (this.supportsPopover()) {
+        try {
+          this.showPopover();
+        } catch (ex) {
+          console.error("Failed to show popover:", ex);
+        }
+      }
+
       // Always reset this regardless of how the panel list is opened
       // so the first child will be focusable.
       this.focusWalker.currentNode = this;
@@ -597,6 +639,13 @@
     }
 
     onHide() {
+      if (this.supportsPopover()) {
+        try {
+          this.hidePopover();
+        } catch (ex) {
+          // hidePopover may throw if the popover was already hidden or was never shown
+        }
+      }
       requestAnimationFrame(() => {
         this.sendEvent("hidden");
         this.lastAnchorNode?.setAttribute("aria-expanded", "false");

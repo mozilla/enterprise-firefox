@@ -98,6 +98,8 @@ skip-if = ["os != 'linux'"]
 
 ["browser_usercharacteristics_mathml.js"]
 
+["browser_usercharacteristics_svg.js"]
+
 ["browser_usercharacteristics_timezone.js"]
 
 ["browser_worker_granular_overrides.js"]

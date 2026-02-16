@@ -29,6 +29,10 @@ skip-if = [
 
 ["document-timeline/test_request_animation_frame.html"]
 
+["mozilla/test_animations_playback_rate_multiplier.html"]
+
+["mozilla/test_animations_playback_rate_multiplier_on_compositor.html"]
+
 ["mozilla/test_cascade.html"]
 
 ["mozilla/test_cubic_bezier_limits.html"]

@@ -76,13 +76,13 @@ class SVGPatternElement final : public SVGPatternElementBase {
 
   std::unique_ptr<SVGAnimatedTransformList> mPatternTransform;
 
-  enum { ATTR_X, ATTR_Y, ATTR_WIDTH, ATTR_HEIGHT };
-  SVGAnimatedLength mLengthAttributes[4];
-  static LengthInfo sLengthInfo[4];
-
   enum { HREF, XLINK_HREF };
   SVGAnimatedString mStringAttributes[2];
   static StringInfo sStringInfo[2];
+
+  enum { ATTR_X, ATTR_Y, ATTR_WIDTH, ATTR_HEIGHT };
+  SVGAnimatedLength mLengthAttributes[4];
+  static LengthInfo sLengthInfo[4];
 
   // SVGFitToViewbox properties
   SVGAnimatedViewBox mViewBox;

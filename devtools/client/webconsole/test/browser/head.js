@@ -47,6 +47,21 @@ registerCleanupFunction(async function () {
   Services.cookies.removeAll();
 });
 
+const isCmNextEnabled = Services.prefs.getBoolPref(
+  "devtools.webconsole.codemirrorNext"
+);
+const codemirrorSelectors = {
+  cmScroller: isCmNextEnabled ? ".cm-scroller" : ".CodeMirror-scroll",
+  cmContent: isCmNextEnabled ? ".cm-content" : ".CodeMirror-wrap",
+  cmLine: isCmNextEnabled
+    ? ".cm-content .cm-line"
+    : ".CodeMirror-code pre.CodeMirror-line",
+  cmLineNumbers: isCmNextEnabled
+    ? ".cm-lineNumbers"
+    : ".CodeMirror-linenumbers",
+  cmEditor: `#response-panel .editor-row-container ${isCmNextEnabled ? ".cm-editor" : ".CodeMirror"}`,
+};
+
 /**
  * Add a new tab and open the toolbox in it, and select the webconsole.
  *

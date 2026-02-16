@@ -2549,6 +2549,21 @@ projects:
     publish: true
     upstream_dependencies:
     - components:tooling-lint
+  components:ui-richtext:
+    description: A UI model for display rich text component
+    path: components/ui/richtext
+    publish: true
+    upstream_dependencies:
+    - components:compose-base
+    - components:concept-base
+    - components:concept-fetch
+    - components:lib-publicsuffixlist
+    - components:support-base
+    - components:support-ktx
+    - components:support-utils
+    - components:tooling-lint
+    - components:ui-colors
+    - components:ui-icons
   components:ui-tabcounter:
     description: A tab counter for browsers.
     path: components/ui/tabcounter

@@ -139,7 +139,8 @@ static PRTime TimespecToMillis(const struct timespec& aTimeSpec) {
 class nsDirEnumeratorUnix final : public nsSimpleEnumerator,
                                   public nsIDirectoryEnumerator {
  public:
-  nsDirEnumeratorUnix();
+  static nsresult Create(nsLocalFile* aParent,
+                         RefPtr<nsDirEnumeratorUnix>& aResult);
 
   // nsISupports interface
   NS_DECL_ISUPPORTS_INHERITED
@@ -150,16 +151,14 @@ class nsDirEnumeratorUnix final : public nsSimpleEnumerator,
   // nsIDirectoryEnumerator interface
   NS_DECL_NSIDIRECTORYENUMERATOR
 
-  NS_IMETHOD Init(nsLocalFile* aParent);
-
   NS_FORWARD_NSISIMPLEENUMERATORBASE(nsSimpleEnumerator::)
 
   const nsID& DefaultInterface() override { return NS_GET_IID(nsIFile); }
 
  private:
+  nsDirEnumeratorUnix() : mDir(nullptr), mEntry(nullptr) {}
   ~nsDirEnumeratorUnix() override;
 
- protected:
   NS_IMETHOD GetNextEntry();
 
   DIR* mDir;
@@ -167,36 +166,39 @@ class nsDirEnumeratorUnix final : public nsSimpleEnumerator,
   nsCString mParentPath;
 };
 
-nsDirEnumeratorUnix::nsDirEnumeratorUnix() : mDir(nullptr), mEntry(nullptr) {}
-
 nsDirEnumeratorUnix::~nsDirEnumeratorUnix() { Close(); }
 
 NS_IMPL_ISUPPORTS_INHERITED(nsDirEnumeratorUnix, nsSimpleEnumerator,
                             nsIDirectoryEnumerator)
 
-NS_IMETHODIMP
-nsDirEnumeratorUnix::Init(nsLocalFile* aParent) {
-  nsAutoCString dirPath;
-  if (NS_FAILED(aParent->GetNativePath(dirPath)) || dirPath.IsEmpty()) {
+nsresult nsDirEnumeratorUnix::Create(nsLocalFile* aParent,
+                                     RefPtr<nsDirEnumeratorUnix>& aResult) {
+  RefPtr<nsDirEnumeratorUnix> self = new nsDirEnumeratorUnix();
+
+  if (NS_FAILED(aParent->GetNativePath(self->mParentPath)) ||
+      self->mParentPath.IsEmpty()) {
     return NS_ERROR_FILE_INVALID_PATH;
   }
 
   // When enumerating the directory, the paths must have a slash at the end.
-  nsAutoCString dirPathWithSlash(dirPath);
+  nsAutoCString dirPathWithSlash(self->mParentPath);
   dirPathWithSlash.Append('/');
   if (!FilePreferences::IsAllowedPath(dirPathWithSlash)) {
     return NS_ERROR_FILE_ACCESS_DENIED;
   }
 
-  if (NS_FAILED(aParent->GetNativePath(mParentPath))) {
-    return NS_ERROR_FAILURE;
-  }
-
-  mDir = opendir(dirPath.get());
-  if (!mDir) {
+  self->mDir = opendir(self->mParentPath.get());
+  if (!self->mDir) {
     return NSRESULT_FOR_ERRNO();
   }
-  return GetNextEntry();
+
+  nsresult rv = self->GetNextEntry();
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
+
+  aResult = std::move(self);
+  return NS_OK;
 }
 
 NS_IMETHODIMP
@@ -1283,8 +1285,8 @@ nsLocalFile::Remove(bool aRecursive, uint32_t* aRemoveCount) {
 
   if (isDir) {
     if (aRecursive) {
-      RefPtr<nsDirEnumeratorUnix> dirEnum = new nsDirEnumeratorUnix();
-      rv = dirEnum->Init(this);
+      RefPtr<nsDirEnumeratorUnix> dirEnum;
+      rv = nsDirEnumeratorUnix::Create(this, dirEnum);
       if (NS_FAILED(rv)) {
         return rv;
       }
@@ -2264,9 +2266,8 @@ nsLocalFile::GetNativeTarget(nsACString& aResult) {
 
 NS_IMETHODIMP
 nsLocalFile::GetDirectoryEntriesImpl(nsIDirectoryEnumerator** aEntries) {
-  RefPtr<nsDirEnumeratorUnix> dir = new nsDirEnumeratorUnix();
-
-  nsresult rv = dir->Init(this);
+  RefPtr<nsDirEnumeratorUnix> dir;
+  nsresult rv = nsDirEnumeratorUnix::Create(this, dir);
   if (NS_FAILED(rv)) {
     *aEntries = nullptr;
   } else {
@@ -2797,17 +2798,18 @@ nsLocalFile::IsPackage(bool* aResult) {
     return rv;
   }
 
-  LSItemInfoRecord info;
-  OSStatus status =
-      ::LSCopyItemInfoForURL(url, kLSRequestBasicFlagsOnly, &info);
+  CFBooleanRef isPackage = nullptr;
+  Boolean success = ::CFURLCopyResourcePropertyForKey(url, kCFURLIsPackageKey,
+                                                      &isPackage, nullptr);
 
   ::CFRelease(url);
 
-  if (status != noErr) {
+  if (!success) {
     return NS_ERROR_FAILURE;
   }
 
-  *aResult = !!(info.flags & kLSItemInfoIsPackage);
+  *aResult = ::CFBooleanGetValue(isPackage);
+  ::CFRelease(isPackage);
 
   return NS_OK;
 }

@@ -2,6 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+/**
+ * @typedef {import("../aiwindow/ui/actors/AISmartBarParent.sys.mjs").AISmartBarParent} AISmartBarParent
+ */
 import {
   SkippableTimer,
   UrlbarProvider,
@@ -27,8 +30,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///browser/components/urlbar/UrlbarSearchUtils.sys.mjs",
 });
 
-// Don't offer chat results for very short queries.
-const MIN_CHARS_FOR_CHAT = 3;
 // Debounce parameters for intent evaluation.
 const MAX_SEARCHSTRING_DIFF_FOR_DEBOUNCE = 3;
 const MAX_TIME_FOR_DEBOUNCE_MS = 200;
@@ -63,6 +64,9 @@ export class UrlbarProviderAiChat extends UrlbarProvider {
   static CHAT_ICON_URL =
     "chrome://browser/content/aiwindow/assets/ask-icon.svg";
 
+  // Don't offer chat results for very short queries.
+  static MIN_CHARS_FOR_CHAT = 3;
+
   /**
    * @returns {Values<typeof UrlbarUtils.PROVIDER_TYPE>}
    */
@@ -84,7 +88,8 @@ export class UrlbarProviderAiChat extends UrlbarProvider {
   async isActive(queryContext, controller) {
     return (
       lazy.AIWindow.isAIWindowActiveAndEnabled(controller.browserWindow) &&
-      queryContext.trimmedSearchString.length >= MIN_CHARS_FOR_CHAT &&
+      queryContext.trimmedSearchString.length >=
+        UrlbarProviderAiChat.MIN_CHARS_FOR_CHAT &&
       !queryContext.searchMode
     );
   }
@@ -121,9 +126,7 @@ export class UrlbarProviderAiChat extends UrlbarProvider {
     }
 
     let intent = await this.#determineIntent(queryContext);
-    // TODO (Bug 2008926): add controller argument to the startQuery call, and
-    // send out a CustomEvent to tell we've determined the intent.
-    this.logger.info("Determined intent: " + intent);
+
     if (
       instance != this.queryInstance ||
       intent == "navigate" ||
@@ -175,17 +178,19 @@ export class UrlbarProviderAiChat extends UrlbarProvider {
   }
 
   async onEngagement(queryContext, controller) {
-    let win = controller.browserWindow;
-    if (!lazy.AIWindowUI.isSidebarOpen(win)) {
-      await this.#openSidebarAndWaitForLoad(win);
+    let win = controller.input.inputField.ownerGlobal;
+    /** @type {AISmartBarParent} */
+    let actor;
+    if (queryContext.sapName == "urlbar") {
+      let browser = await this.#getSidebarBrowser(win);
       if (win.closed) {
         return;
       }
+      actor =
+        browser.browsingContext?.currentWindowGlobal.getActor("AISmartBar");
+    } else {
+      actor = win.browsingContext?.currentWindowGlobal.getActor("AISmartBar");
     }
-    let actor =
-      this.#getAiBrowser(win).browsingContext?.currentWindowGlobal.getActor(
-        "AISmartBar"
-      );
     if (!actor) {
       this.logger.error("AISmartBar actor not found");
       return;
@@ -193,9 +198,11 @@ export class UrlbarProviderAiChat extends UrlbarProvider {
     actor.ask(queryContext.searchString);
   }
 
-  async #openSidebarAndWaitForLoad(win) {
-    lazy.AIWindowUI.openSidebar(win);
-    let browser = this.#getAiBrowser(win);
+  async #getSidebarBrowser(win) {
+    if (!lazy.AIWindowUI.isSidebarOpen(win)) {
+      lazy.AIWindowUI.openSidebar(win);
+    }
+    let browser = win.document.getElementById(lazy.AIWindowUI.BROWSER_ID);
     if (browser.currentURI?.spec !== lazy.AIWINDOW_URL) {
       await new Promise(resolve => {
         browser.addEventListener(
@@ -209,10 +216,7 @@ export class UrlbarProviderAiChat extends UrlbarProvider {
         );
       });
     }
-  }
-
-  #getAiBrowser(win) {
-    return win.document.getElementById(lazy.AIWindowUI.BROWSER_ID);
+    return browser;
   }
 
   /**

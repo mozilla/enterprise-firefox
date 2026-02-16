@@ -1,8 +1,6 @@
 // Type sizes
-/* stylelint-disable-next-line stylelint-plugin-mozilla/no-non-semantic-token-usage */
 $header-font-size: var(--font-size-large);
 $header-line-height: normal;
-/* stylelint-disable-next-line stylelint-plugin-mozilla/no-non-semantic-token-usage */
 $excerpt-font-size: var(--font-size-small);
 $excerpt-line-height: normal;
 $ds-card-image-gradient-fade: rgba(0, 0, 0, 0%);
@@ -625,11 +623,13 @@ $ds-card-image-gradient-solid: rgba(0, 0, 0, 100%);
     justify-content: space-between;
     pointer-events: none;
     margin-block-start: var(--space-xsmall);
+    padding-inline-end: var(--space-large);
 
     .source-wrapper {
       margin-block-end: 0;
       margin-inline-end: var(--space-xxsmall);
-      max-width: 170px;
+      min-width: 0;
+      max-width: min(170px, 100%);
     }
 
     .card-stp-button-hover-background {

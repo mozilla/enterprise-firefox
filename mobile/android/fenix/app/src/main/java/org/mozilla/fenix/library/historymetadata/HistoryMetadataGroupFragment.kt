@@ -32,12 +32,13 @@ import mozilla.components.lib.state.helpers.StoreProvider.Companion.fragmentStor
 import mozilla.components.support.base.feature.UserInteractionHandler
 import mozilla.components.support.ktx.kotlin.toShortUrl
 import mozilla.components.ui.widgets.withCenterAlignedButtons
-import org.mozilla.fenix.HomeActivity
 import org.mozilla.fenix.R
 import org.mozilla.fenix.addons.showSnackBar
 import org.mozilla.fenix.browser.browsingmode.BrowsingMode
+import org.mozilla.fenix.components.appstate.AppAction
 import org.mozilla.fenix.databinding.FragmentHistoryMetadataGroupBinding
 import org.mozilla.fenix.ext.components
+import org.mozilla.fenix.ext.hideToolbar
 import org.mozilla.fenix.ext.nav
 import org.mozilla.fenix.ext.requireComponents
 import org.mozilla.fenix.ext.runIfFragmentIsAttached
@@ -220,10 +221,13 @@ class HistoryMetadataGroupFragment :
             selectedItem.url
         }
 
-        (activity as HomeActivity).apply {
-            browsingModeManager.mode = BrowsingMode.Private
-            supportActionBar?.hide()
-        }
+        requireComponents.appStore.dispatch(
+            AppAction.BrowsingModeManagerModeChanged(
+                mode = BrowsingMode.Private,
+            ),
+        )
+
+        hideToolbar()
 
         showTabTray(openInPrivate = true)
     }

@@ -54,6 +54,8 @@ support-files = [
 
 ["browser_aiwindow_transparency.js"]
 
+["browser_aiwindow_urlbar_chat.js"]
+
 ["browser_aiwindow_website_chip.js"]
 
 ["browser_aiwindowui.js"]
@@ -68,7 +70,11 @@ support-files = [
 
 ["browser_smartwindow_init.js"]
 
+["browser_smartwindow_leak.js"]
+
 ["browser_smartwindow_prompts.js"]
+
+["browser_smartwindow_shortcut.js"]
 
 ["browser_smartwindow_tab_move.js"]
 

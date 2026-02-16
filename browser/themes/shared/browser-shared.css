@@ -24,7 +24,7 @@
 @import url("chrome://browser/skin/places/editBookmarkPanel.css");
 @import url("chrome://browser/skin/searchbar.css");
 @import url("chrome://browser/skin/sidebar.css");
-@import url("chrome://browser/skin/smartbar.css");
+@import url("chrome://browser/skin/urlbar-variables.css");
 @import url("chrome://browser/skin/aiWindowSidebar.css");
 @import url("chrome://browser/skin/customizableui/customizeMode.css");
 @import url("chrome://browser/skin/UITour.css");
@@ -90,6 +90,7 @@ body {
   --browser-stack-z-index-devtools-splitter: 1;
   --browser-stack-z-index-dialog-stack: 2;
   --browser-stack-z-index-rdm-toolbar: 3;
+  --browser-stack-z-index-screenshots-panel: 4;
 
   /* z-indices that fight in the general browser / toolbox area */
   --browser-area-z-index-toolbox: 0;
@@ -100,17 +101,6 @@ body {
 
   /* on macOS the animation of the toolbox in fullscreen needs the toolbox to be higher */
   --browser-area-z-index-toolbox-while-animating: 4;
-
-  --identity-box-margin-inline: 4px;
-  --urlbar-min-height: max(32px, 1.4em);
-  --urlbar-icon-padding: calc((var(--urlbar-min-height) - 2px /* border */ - 2px /* padding */ - 16px /* icon */) / 2);
-
-  /* This should be used for icons and chiclets inside the input field, as well
-     as result rows. It makes the gap around them more uniform when they are
-     close to the field edges. */
-  --urlbar-inner-border-radius: calc(var(--toolbarbutton-border-radius) - 1px);
-  --urlbar-searchmodeswitcher-inline-padding: 6px;
-  --urlbar-searchmodeswitcher-margin-inline-end: 0.45em;
 
   --lwt-additional-images: none;
   --lwt-background-alignment: right top;
@@ -137,14 +127,6 @@ body {
 
   &[lwtheme] {
     color: var(--lwt-text-color);
-  }
-
-  &[uidensity="compact"] {
-    --urlbar-min-height: max(26px, 1.4em);
-  }
-
-  &[uidensity="touch"] {
-    --urlbar-min-height: max(34px, 1.4em);
   }
 }
 
@@ -684,7 +666,7 @@ menupopup::part(drop-indicator) {
 .screenshotsPagePanel {
   position: relative;
   max-height: 0;
-  z-index: 1; /* Above the web content in this stack. */
+  z-index: var(--browser-stack-z-index-screenshots-panel); /* Above the web content in this stack. */
 }
 
 /* Override theme colors since the picker uses extra colors that
@@ -801,7 +783,7 @@ menupopup::part(drop-indicator) {
 }
 
 #contextual-feature-recommendation-notification {
-  width: 400px;
+  width: var(--size-layout-large);
 
   .popup-notification-icon {
     margin-inline-end: 4px;
@@ -1466,10 +1448,10 @@ popupnotificationcontent {
   }
 
   #urlbar-container,
-  #aiwindow-ask-button,
   #nav-bar-customization-target > *:not(#sidebar-button),
   #nav-bar-overflow-button,
-  #PanelUI-button {
+  #PanelUI-button,
+  #smartwindow-ask-button {
     visibility: hidden;
   }
 

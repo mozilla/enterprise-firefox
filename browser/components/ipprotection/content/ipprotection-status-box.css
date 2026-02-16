@@ -53,7 +53,6 @@
 #content-container {
   display: flex;
   flex-direction: column;
-  margin-inline: var(--space-small);
   border-radius: var(--border-radius-medium);
   padding: var(--space-medium);
 }

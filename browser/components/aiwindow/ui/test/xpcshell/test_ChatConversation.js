@@ -712,48 +712,87 @@ add_task(
 
 add_task(async function test_returnsContent_ChatConversation_getRealTimeInfo() {
   console.log(Object.keys(lazy.sinon));
-  const constructRealTime = lazy.sinon
-    .stub()
-    .resolves({ content: "real time data" });
+  const mockGetRealTimeMapping = lazy.sinon.stub().resolves({
+    todayDate: "2024-01-15",
+    url: "https://example.com",
+    title: "Example",
+    hasTabInfo: false,
+    locale: "en-US",
+    timezone: "America/Los_Angeles",
+    isoTimestamp: "2024-01-15T10:30:00",
+  });
+  const mockEngineInstance = {
+    loadPrompt: lazy.sinon
+      .stub()
+      .resolves("Current date: {todayDate}\nLocale: {locale}"),
+  };
 
   const conversation = new ChatConversation({});
-  await conversation.getRealTimeInfo(constructRealTime);
+  await conversation.getRealTimeInfo(
+    mockEngineInstance,
+    mockGetRealTimeMapping
+  );
 
   Assert.withSoftAssertions(function (soft) {
-    soft.equal(conversation.messages[0].role, 2);
+    soft.ok(
+      mockEngineInstance.loadPrompt.called,
+      "loadPrompt should be called"
+    );
+    soft.equal(conversation.messages[0].role, MESSAGE_ROLE.SYSTEM);
     soft.deepEqual(conversation.messages[0].content, {
-      type: "injected_real_time_info",
-      body: "real time data",
+      type: SYSTEM_PROMPT_TYPE.REAL_TIME,
+      body: "Current date: 2024-01-15\nLocale: en-US",
     });
   });
 });
 
 add_task(
   async function test_returnsNoContent_ChatConversation_getRealTimeInfo() {
-    console.log(Object.keys(lazy.sinon));
-    const constructRealTime = lazy.sinon.stub().resolves({});
+    const mockEngineInstance = {
+      loadPrompt: lazy.sinon.stub().resolves("prompt text"),
+    };
+
+    const mockGetRealTimeMapping = lazy.sinon.stub().resolves(null);
 
     const conversation = new ChatConversation({});
-    await conversation.getRealTimeInfo(constructRealTime);
+    await conversation.getRealTimeInfo(
+      mockEngineInstance,
+      mockGetRealTimeMapping
+    );
 
-    Assert.equal(conversation.messages.length, 0);
+    Assert.equal(
+      conversation.messages.length,
+      0,
+      "Should not add message when mapping is null"
+    );
   }
 );
 
 add_task(
   async function test_returnsContent_ChatConversation_getMemoriesContext() {
     console.log(Object.keys(lazy.sinon));
+    const mockEngineInstance = {
+      loadPrompt: lazy.sinon.stub().resolves("prompt text"),
+    };
     const constructMemories = lazy.sinon
       .stub()
       .resolves({ content: "memories data" });
 
     const conversation = new ChatConversation({});
-    await conversation.getMemoriesContext("hello", constructMemories);
+    await conversation.getMemoriesContext(
+      "hello",
+      mockEngineInstance,
+      constructMemories
+    );
 
     Assert.withSoftAssertions(function (soft) {
-      soft.equal(conversation.messages[0].role, 2);
+      soft.ok(
+        constructMemories.calledWith("hello", mockEngineInstance),
+        "constructMemories should be called with message and engineInstance"
+      );
+      soft.equal(conversation.messages[0].role, MESSAGE_ROLE.SYSTEM);
       soft.deepEqual(conversation.messages[0].content, {
-        type: "injected_memories",
+        type: SYSTEM_PROMPT_TYPE.MEMORIES,
         body: "memories data",
       });
     });

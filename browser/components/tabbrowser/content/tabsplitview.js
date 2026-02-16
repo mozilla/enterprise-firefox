@@ -60,9 +60,9 @@
     /**
      * @typedef {object} TabSplitViewStateData
      *   State of a tab group inside of an open window.
-     * @property {string} id
+     * @property {number} id
      *   Unique ID of the tab splitview.
-     * @property {string} numberOfTabs
+     * @property {number} numberOfTabs
      *   Number of expected tabs in the splitview.
      *
      * Collect data related to a single tab splitview, synchronously.
@@ -151,6 +151,11 @@
               tab.setAttribute("aria-setsize", this.tabs.length);
               tab.updateSplitViewAriaLabel(index);
             });
+            this.dispatchEvent(
+              new CustomEvent("SplitViewTabChange", {
+                bubbles: true,
+              })
+            );
           } else {
             this.remove();
           }
@@ -166,7 +171,7 @@
     }
 
     get splitViewId() {
-      return this.getAttribute("splitViewId");
+      return parseInt(this.getAttribute("splitViewId"));
     }
 
     set splitViewId(val) {
@@ -279,9 +284,11 @@
      * add tabs to the split view wrapper
      *
      * @param {MozTabbrowserTab[]} tabs
-     * @param {boolean} isSessionRestore
+     * @param {object} [options]
+     * @param {boolean} [options.isSessionRestore]
+     * @param {int} [options.indexOfReplacedTab] [optional] Used if replacing a tab in the split view
      */
-    addTabs(tabs, isSessionRestore = false) {
+    addTabs(tabs, { isSessionRestore = false, indexOfReplacedTab = -1 } = {}) {
       for (let tab of tabs) {
         if (tab.pinned) {
           return;
@@ -293,10 +300,14 @@
                 tabIndex: gBrowser.tabs.at(-1)._tPos + 1,
                 selectTab: tab.selected,
               });
-        this.#tabs.push(tabToMove);
+        if (indexOfReplacedTab > -1 && indexOfReplacedTab < this.#tabs.length) {
+          this.#tabs[indexOfReplacedTab] = tabToMove;
+        } else {
+          this.#tabs.push(tabToMove);
+        }
         isSessionRestore
           ? this.appendChild(tab)
-          : gBrowser.moveTabToSplitView(tabToMove, this);
+          : gBrowser.moveTabToSplitView(tabToMove, this, indexOfReplacedTab);
         if (tab === gBrowser.selectedTab) {
           this.hasActiveTab = true;
         }
@@ -331,8 +342,8 @@
      * Replace a tab in the split view with another tab
      */
     replaceTab(tabToReplace, newTab) {
-      this.#tabs = this.#tabs.filter(tab => tab != tabToReplace);
-      this.addTabs([newTab]);
+      let indexOfReplacedTab = this.tabs.indexOf(tabToReplace);
+      this.addTabs([newTab], { isSessionRestore: false, indexOfReplacedTab });
       gBrowser.removeTab(tabToReplace);
     }
 

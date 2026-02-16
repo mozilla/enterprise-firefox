@@ -378,7 +378,9 @@ class BufferAllocPolicy : public AllocPolicyBase {
     if (gc::Cell* owner = maybeOwner) {
       MOZ_ASSERT(owner->zoneFromAnyThread() == zone);
       MOZ_ASSERT_IF(!nurseryOwned, owner->isTenured());
-      nurseryOwned = !owner->isTenured();
+      if (nurseryOwned && owner->isTenured()) {
+        nurseryOwned = false;
+      }
     }
   }
 

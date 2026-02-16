@@ -16,7 +16,7 @@ firefox-appdir = "browser"
 ["test_DownloadsTelemetry_enterprise.js"]
 # Only run in MOZ_ENTERPRISE builds
 skip-if = [
-  "!buildapp:firefox",
+  "buildapp != 'firefox'",
   "!enterprise",
 ]
 

@@ -44,6 +44,7 @@
   skin/classic/browser/urlbar/sports-hockey.svg                (../shared/urlbar/sports-hockey.svg)
   skin/classic/browser/urlbar-dynamic-results.css              (../shared/urlbar-dynamic-results.css)
   skin/classic/browser/urlbar-searchbar.css                    (../shared/urlbar-searchbar.css)
+  skin/classic/browser/urlbar-variables.css                    (../shared/urlbar-variables.css)
   skin/classic/browser/urlbarView.css                          (../shared/urlbarView.css)
   skin/classic/browser/UITour.css                              (../shared/UITour.css)
   skin/classic/browser/webRTC-indicator.css                    (../shared/webRTC-indicator.css)

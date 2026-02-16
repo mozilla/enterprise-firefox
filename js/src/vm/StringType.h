@@ -452,6 +452,7 @@ class JSString : public js::gc::CellWithLengthAndFlags {
   // Also see LATIN1_CHARS_BIT description under "Flag Encoding".
   static const uint32_t LATIN1_CHARS_BIT = js::Bit(10);
 
+  // Linear strings only.
   static const uint32_t INDEX_VALUE_BIT = js::Bit(11);
   static const uint32_t INDEX_VALUE_SHIFT = 16;
 
@@ -489,6 +490,28 @@ class JSString : public js::gc::CellWithLengthAndFlags {
   static const uint32_t PINNED_ATOM_BIT = js::Bit(15);
   static const uint32_t PERMANENT_ATOM_MASK =
       ATOM_BIT | PINNED_ATOM_BIT | ATOM_IS_PERMANENT_BIT;
+
+  // When doing a placement new or simple flags update to reinitialize a
+  // JSString with a different representation subtype, keep these bits. There
+  // are different bitsets here for which string type we're coming from.
+  //
+  // DEPENDED_ON_BIT - necessary for strings that depend on the current
+  // characters. (Does not apply to ropes.) Prevents future conversion to
+  // AtomRef from discarding depended-on character data.
+  //
+  // IN_STRING_TO_ATOM_CACHE - the string is not being mutated, so if its string
+  // data can be found in the cache, the replace operation won't affect that.
+  //
+  // INDEX_VALUE_BIT and the associated value - keep the index optimization
+  // working.
+  //
+  // Note that this does not include NON_DEDUP bit, which is only used for plain
+  // linear strings (none of the subtypes) and will need to be considered on a
+  // case-by-case basis.
+  static const uint32_t PRESERVE_LINEAR_NONATOM_BITS_ON_REPLACE =
+      DEPENDED_ON_BIT | IN_STRING_TO_ATOM_CACHE | INDEX_VALUE_BIT |
+      ~uint32_t(0) << INDEX_VALUE_SHIFT;
+  static const uint32_t PRESERVE_ROPE_BITS_ON_REPLACE = IN_STRING_TO_ATOM_CACHE;
 
   static const uint32_t MAX_LENGTH = JS::MaxStringLength;
 

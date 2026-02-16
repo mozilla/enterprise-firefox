@@ -355,6 +355,13 @@ void TraceBufferEdge(JSTracer* trc, gc::Cell* owner, T** bufferp,
   gc::TraceBufferEdgeInternal(trc, owner->zoneFromAnyThread(), owner, ptrp,
                               name);
 }
+template <typename T>
+void TraceBufferEdge(JSTracer* trc, gc::Cell* owner, GCStructPtr<T>* bufferp,
+                     const char* name) {
+  void** ptrp = reinterpret_cast<void**>(bufferp->unbarrieredAddress());
+  gc::TraceBufferEdgeInternal(trc, owner->zoneFromAnyThread(), owner, ptrp,
+                              name);
+}
 
 // As below but with manual barriers.
 template <typename T>

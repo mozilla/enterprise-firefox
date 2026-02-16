@@ -53,6 +53,7 @@ inline void js::BaseScript::traceChildrenCommon(JSTracer* trc) {
   TraceEdge(trc, &sourceObject_, "sourceObject");
 
   if (data_) {
+    TraceBufferEdge(trc, this, &data_, "PrivateScriptData");
     data_->trace(trc);
   }
 }

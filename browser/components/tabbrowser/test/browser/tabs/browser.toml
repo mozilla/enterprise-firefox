@@ -652,6 +652,8 @@ support-files = ["file_withicon.html"]
 
 ["browser_tab_splitview_splitter_keyboard.js"]
 
+["browser_tab_splitview_splitter_keyboard_boundary.js"]
+
 ["browser_tab_splitview_telemetry.js"]
 
 ["browser_tab_tooltips.js"]

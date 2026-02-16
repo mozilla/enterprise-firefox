@@ -240,12 +240,16 @@ export async function getOpenTabs(n = 15) {
  *  Includes `count` when matches exist, a `message` when none are found, or an
  *  `error` string on failure.
  */
-export async function searchBrowsingHistory({
-  searchTerm = "",
-  startTs = null,
-  endTs = null,
-  historyLimit = 15,
-}) {
+export async function searchBrowsingHistory(toolParams) {
+  const params = toolParams && typeof toolParams === "object" ? toolParams : {};
+
+  const {
+    searchTerm = "",
+    startTs = null,
+    endTs = null,
+    historyLimit = 15,
+  } = params;
+
   return implSearchBrowsingHistory({
     searchTerm,
     startTs,
@@ -297,11 +301,17 @@ export class RunSearch {
   static NAVIGATION_TIMEOUT_MS = 15000;
   static CONTENT_SETTLE_MS = 2000;
 
+  static #ensureTabSelected(tab) {
+    if (!tab.selected) {
+      tab.ownerGlobal.gBrowser.selectedTab = tab;
+    }
+  }
+
   /**
    * @param {object} toolParams
    * @param {string} toolParams.query
    * @param {object} [context]
-   * @param {Window} [context.win]
+   * @param {BrowsingContext} [context.browsingContext]
    * @returns {Promise<string>}
    */
   static async runSearch({ query }, context = {}) {
@@ -309,26 +319,40 @@ export class RunSearch {
       return "Error: a non-empty search query is required.";
     }
 
-    const win = context.win || lazy.BrowserWindowTracker.getTopWindow();
+    if (!context.browsingContext) {
+      return "Error: no browsingContext provided to perform search.";
+    }
+
+    const win = context.browsingContext.topChromeWindow;
     if (!win || win.closed) {
-      return "Error: no browser window available to perform search.";
+      return "Error: associated browser window not available or closed.";
     }
 
-    const currentTab = win.gBrowser.selectedTab;
-    const currentBrowser = currentTab.linkedBrowser;
+    // Get the original tab from the browsing context, not the currently selected tab
+    const originalBrowser = context.browsingContext.embedderElement;
+    let targetTab =
+      originalBrowser && win.gBrowser?.getTabForBrowser(originalBrowser);
 
-    // If the active tab is the AI Window page, move to sidebar first
-    if (lazy.AIWindow.isAIWindowContentPage(currentBrowser.currentURI)) {
-      await RunSearch.#moveToSidebarIfNeeded(win, currentTab);
+    if (targetTab) {
+      // Switch to the original tab if it's different from currently selected
+      RunSearch.#ensureTabSelected(targetTab);
+    } else {
+      return "Error: Original tab no longer exists, aborting search to avoid interfering with existing conversation.";
     }
 
-    const browser = win.gBrowser.selectedBrowser;
+    // If the original tab is the AI Window page, move to sidebar first
+    if (lazy.AIWindow.isAIWindowContentPage(originalBrowser.currentURI)) {
+      await RunSearch.#moveToSidebarIfNeeded(win, targetTab);
+
+      // Ensure we're still on the correct tab after the await
+      RunSearch.#ensureTabSelected(targetTab);
+    }
 
     RunSearch.#showSearchingIndicator(win, true, query.trim());
 
     try {
-      await RunSearch.#performSearchAndWait(win, browser, query.trim());
-      return RunSearch.#extractSerpContent(browser);
+      await RunSearch.#performSearchAndWait(win, originalBrowser, query.trim());
+      return RunSearch.#extractSerpContent(originalBrowser);
     } catch (e) {
       console.error("[RunSearch] search failed:", e);
       return `Error performing search for "${query}": ${e.message}`;
@@ -337,6 +361,16 @@ export class RunSearch {
     }
   }
 
+  // TODO - this may be dead code. The fetch with history already yields a
+  // searching state, and the sidebar implementation may not need this at all.
+  // Revisit this in the future:
+  // https://bugzilla.mozilla.org/show_bug.cgi?id=2016252 to find a more
+  // concrete way to target what side bar needs to show the indicator, if any
+  // at all. My guess is that this might be here because of the move to sidebar
+  // implementation, and the indicator state does not "transfer over". Possibly
+  // look into tapping into something more concrete like the conversation state
+  // in the AIWindow store to trigger this kind of UI state instead of trying
+  // to directly manipulate the sidebar UI from here.
   static #showSearchingIndicator(win, isSearching, searchQuery) {
     try {
       const sidebar = win.document.getElementById("ai-window-box");

@@ -12,10 +12,6 @@ const { Chat } = ChromeUtils.importESModule(
   "moz-src:///browser/components/aiwindow/models/Chat.sys.mjs"
 );
 
-const { sinon } = ChromeUtils.importESModule(
-  "resource://testing-common/Sinon.sys.mjs"
-);
-
 add_task(async function test_run_search_registered_in_toolMap() {
   Assert.strictEqual(
     typeof Chat.toolMap.run_search,
@@ -70,80 +66,42 @@ add_task(async function test_run_search_whitespace_query_returns_error() {
   );
 });
 
-add_task(async function test_run_search_no_browser_window_returns_error() {
-  const BrowserWindowTracker = ChromeUtils.importESModule(
-    "resource:///modules/BrowserWindowTracker.sys.mjs"
-  ).BrowserWindowTracker;
-
-  const sb = sinon.createSandbox();
-  try {
-    sb.stub(BrowserWindowTracker, "getTopWindow").returns(null);
-
-    const result = await RunSearch.runSearch({ query: "test query" });
-    Assert.ok(
-      result.includes("Error"),
-      "No browser window should return an error string"
-    );
-    Assert.ok(
-      result.includes("no browser window"),
-      "Error should mention no browser window"
-    );
-  } finally {
-    sb.restore();
-  }
+add_task(async function test_run_search_no_browsingContext_returns_error() {
+  const result = await RunSearch.runSearch({ query: "test query" });
+  Assert.ok(
+    result.includes("Error"),
+    "No browsingContext should return an error string"
+  );
+  Assert.ok(
+    result.includes("no browsingContext provided"),
+    "Error should mention no browsingContext provided"
+  );
 });
 
 add_task(async function test_run_search_closed_window_returns_error() {
-  const BrowserWindowTracker = ChromeUtils.importESModule(
-    "resource:///modules/BrowserWindowTracker.sys.mjs"
-  ).BrowserWindowTracker;
-
-  const sb = sinon.createSandbox();
-  try {
-    sb.stub(BrowserWindowTracker, "getTopWindow").returns({ closed: true });
-
-    const result = await RunSearch.runSearch({ query: "test query" });
-    Assert.ok(
-      result.includes("Error"),
-      "Closed window should return an error string"
-    );
-  } finally {
-    sb.restore();
-  }
-});
-
-add_task(async function test_run_search_uses_context_win_when_provided() {
   const result = await RunSearch.runSearch(
     { query: "test query" },
-    { win: { closed: true } }
+    { browsingContext: { topChromeWindow: { closed: true } } }
   );
   Assert.ok(
     result.includes("Error"),
-    "Closed context.win should return an error string"
+    "Closed window should return an error string"
+  );
+  Assert.ok(
+    result.includes("not available or closed"),
+    "Error should mention window not available or closed"
   );
 });
 
 add_task(
-  async function test_run_search_falls_back_to_getTopWindow_without_context() {
-    const BrowserWindowTracker = ChromeUtils.importESModule(
-      "resource:///modules/BrowserWindowTracker.sys.mjs"
-    ).BrowserWindowTracker;
-
-    const sb = sinon.createSandbox();
-    try {
-      sb.stub(BrowserWindowTracker, "getTopWindow").returns(null);
-
-      const result = await RunSearch.runSearch({ query: "test query" }, {});
-      Assert.ok(
-        result.includes("Error"),
-        "Empty context should fall back to getTopWindow"
-      );
-      Assert.ok(
-        result.includes("no browser window"),
-        "Should indicate no browser window available"
-      );
-    } finally {
-      sb.restore();
-    }
+  async function test_run_search_uses_context_browsingContext_when_provided() {
+    const result = await RunSearch.runSearch(
+      { query: "test query" },
+      { browsingContext: { topChromeWindow: { closed: true } } }
+    );
+    Assert.ok(
+      result.includes("Error"),
+      "Closed window from browsingContext should return an error string"
+    );
   }
 );

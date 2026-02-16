@@ -539,4 +539,7 @@
 
     <!-- Native Share Sheet -->
     <string name="pref_key_native_share_sheet" translatable="false">pref_key_native_share_sheet</string>
+    <!--  Search Optimization Cards  -->
+    <string name="pref_key_search_optimization_feature" translatable="false">pref_key_search_optimization_feature</string>
+    <string name="pref_key_search_optimization_stocks" translatable="false">pref_key_search_optimization_stocks</string>
 </resources>

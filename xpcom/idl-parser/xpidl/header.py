@@ -324,7 +324,7 @@ def print_header(idl, fd, filename, relpath):
         if p.kind == "include":
             continue
         if p.kind == "cdata":
-            fd.write(p.data)
+            fd.write(p.data_with_comment())
             continue
 
         if p.kind == "webidl":
@@ -596,7 +596,7 @@ def write_interface(iface, fd):
                 elif key == xpidl.Method:
                     write_method_decl(member)
                 elif key == xpidl.CDATA:
-                    fd.write(" %s" % member.data)
+                    fd.write(member.data_with_comment())
                 elif key == xpidl.CEnum:
                     write_cenum_decl(member)
                 else:

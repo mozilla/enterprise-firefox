@@ -301,6 +301,12 @@ void EncoderTemplate<EncoderType>::CloseInternal(const nsresult& aResult) {
   AssertIsOnOwningThread();
   MOZ_ASSERT(aResult != NS_ERROR_DOM_ABORT_ERR, "Use CloseInternalWithAbort");
 
+  // Return early if already closed. This can happen when async error handling
+  // tasks race with user-initiated close().
+  if (mState == CodecState::Closed) {
+    return;
+  }
+
   auto r = ResetInternal(aResult);
   if (r.isErr()) {
     nsCString name;
@@ -695,7 +701,6 @@ void EncoderTemplate<EncoderType>::Reconfigure(
                       self->QueueATask(
                           "Error during drain during reconfigure",
                           [self = RefPtr{self}]() MOZ_CAN_RUN_SCRIPT_BOUNDARY {
-                            MOZ_ASSERT(self->mState != CodecState::Closed);
                             self->CloseInternal(
                                 NS_ERROR_DOM_ENCODING_NOT_SUPPORTED_ERR);
                           });
@@ -778,7 +783,6 @@ void EncoderTemplate<EncoderType>::Configure(
     QueueATask(
         "Error when configuring encoder (encoder agent creation failed)",
         [self = RefPtr(this)]() MOZ_CAN_RUN_SCRIPT_BOUNDARY {
-          MOZ_ASSERT(self->mState != CodecState::Closed);
           LOGE(
               "%s %p ProcessConfigureMessage (async close): encoder agent "
               "creation failed",
@@ -828,7 +832,6 @@ void EncoderTemplate<EncoderType>::Configure(
                  self->QueueATask(
                      "Error during configure",
                      [self = RefPtr{self}]() MOZ_CAN_RUN_SCRIPT_BOUNDARY {
-                       MOZ_ASSERT(self->mState != CodecState::Closed);
                        self->CloseInternal(
                            NS_ERROR_DOM_ENCODING_NOT_SUPPORTED_ERR);
                      });
@@ -876,7 +879,6 @@ MessageProcessedResult EncoderTemplate<EncoderType>::ProcessEncodeMessage(
     mProcessingMessage = nullptr;
     QueueATask("Error during encode",
                [self = RefPtr{this}]() MOZ_CAN_RUN_SCRIPT_BOUNDARY {
-                 MOZ_ASSERT(self->mState != CodecState::Closed);
                  self->CloseInternal(NS_ERROR_DOM_ENCODING_NOT_SUPPORTED_ERR);
                });
     return MessageProcessedResult::Processed;
@@ -923,7 +925,6 @@ MessageProcessedResult EncoderTemplate<EncoderType>::ProcessEncodeMessage(
                  self->QueueATask(
                      "Error during encode runnable",
                      [self = RefPtr{self}]() MOZ_CAN_RUN_SCRIPT_BOUNDARY {
-                       MOZ_ASSERT(self->mState != CodecState::Closed);
                        self->CloseInternal(
                            NS_ERROR_DOM_ENCODING_NOT_SUPPORTED_ERR);
                      });
@@ -1027,7 +1028,6 @@ MessageProcessedResult EncoderTemplate<EncoderType>::ProcessFlushMessage(
                        // Otherwise, the promise is going to be rejected by
                        // CloseInternal() below.
                        self->mProcessingMessage = nullptr;
-                       MOZ_ASSERT(self->mState != CodecState::Closed);
                        self->CloseInternal(
                            NS_ERROR_DOM_ENCODING_NOT_SUPPORTED_ERR);
                      });

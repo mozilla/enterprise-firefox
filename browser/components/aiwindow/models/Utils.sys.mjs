@@ -82,6 +82,9 @@ export const MODEL_FEATURES = Object.freeze({
   MEMORIES_MESSAGE_CLASSIFICATION_SYSTEM:
     "memories-message-classification-system",
   MEMORIES_MESSAGE_CLASSIFICATION_USER: "memories-message-classification-user",
+  // real time context
+  REAL_TIME_CONTEXT_DATE: "real-time-context-date",
+  REAL_TIME_CONTEXT_TAB: "real-time-context-tab",
   MEMORIES_RELEVANT_CONTEXT: "memories-relevant-context",
 });
 
@@ -141,7 +144,7 @@ export const FEATURE_MAJOR_VERSIONS = Object.freeze({
   // memories usage feature versions
   [MODEL_FEATURES.MEMORIES_MESSAGE_CLASSIFICATION_SYSTEM]: 1,
   [MODEL_FEATURES.MEMORIES_MESSAGE_CLASSIFICATION_USER]: 1,
-  [MODEL_FEATURES.MEMORIES_RELEVANT_CONTEXT]: 1,
+  [MODEL_FEATURES.MEMORIES_RELEVANT_CONTEXT]: 2,
 });
 
 /**
@@ -409,7 +412,7 @@ export class openAIEngine {
         );
       } catch (e) {
         // Fallback: parse malformed array string like "[item1, item2, item3]"
-        const match = /^\[(.*)\]$/.exec(
+        const match = /^\[([^\]]*)\]$/.exec(
           mainConfig.additional_components.trim()
         );
         if (match) {
@@ -833,7 +836,7 @@ export class openAIEngine {
  * @param {Map<string, string>} stringsToReplace  A map of placeholder strings to their replacements
  * @returns {Promise<string>}                     The rendered prompt
  */
-export async function renderPrompt(rawPromptContent, stringsToReplace = {}) {
+export function renderPrompt(rawPromptContent, stringsToReplace = {}) {
   let finalPromptContent = rawPromptContent;
 
   for (const [orig, repl] of Object.entries(stringsToReplace)) {

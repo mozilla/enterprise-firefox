@@ -375,7 +375,7 @@ Maybe<nsMenuX::MenuChild> nsMenuX::GetVisibleItemAt(uint32_t aPos) {
     return GetItemAt(aPos);
   }
 
-  // Otherwise, traverse the array until we find the the item we're looking for.
+  // Otherwise, traverse the array until we find the item we're looking for.
   uint32_t visibleNodeIndex = 0;
   for (uint32_t i = 0; i < count; i++) {
     MenuChild item = *GetItemAt(i);

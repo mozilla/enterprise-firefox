@@ -128,7 +128,7 @@ add_task(async function test_contextMenuMoveTabsToNewSplitView() {
 
   [tabs[0], tabs[2]].forEach(t => {
     gBrowser.addToMultiSelectedTabs(t);
-    ok(t.multiselected, "added tab to mutliselection");
+    ok(t.multiselected, "added tab to multiselection");
   });
 
   await withTabMenu(

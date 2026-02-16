@@ -31,7 +31,7 @@ async function setPropertyOnAllRules(view, inspector) {
   const inlineStyleRuleEditor = view.elementStyle.rules[0].editor;
 
   const onMutation = inspector.once("markupmutation");
-  const onRuleViewRefreshed = view.once("ruleview-refreshed");
+  const onRuleViewRefreshed = inspector.once("rule-view-refreshed");
 
   inlineStyleRuleEditor.addProperty("font-weight", "bold", "", true);
 

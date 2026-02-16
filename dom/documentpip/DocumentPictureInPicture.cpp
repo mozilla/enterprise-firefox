@@ -108,6 +108,7 @@ const CSSIntSize DocumentPictureInPicture::sMinSize = {240, 50};
 
 static nsresult OpenPiPWindowUtility(nsPIDOMWindowOuter* aParent,
                                      const CSSIntRect& aExtent, bool aPrivate,
+                                     bool aDisallowReturnToOpener,
                                      mozilla::dom::BrowsingContext** aRet) {
   MOZ_DIAGNOSTIC_ASSERT(aParent);
 
@@ -126,9 +127,13 @@ static nsresult OpenPiPWindowUtility(nsPIDOMWindowOuter* aParent,
   RefPtr<nsDocShellLoadState> loadState =
       nsWindowWatcher::CreateLoadState(uri, aParent);
 
-  // pictureinpicture is a non-standard window feature not available from JS
+  // pictureinpicture, disallow_return_to_oopener are non-standard window
+  // features not available from JS
   nsPrintfCString features("pictureinpicture,top=%d,left=%d,width=%d,height=%d",
                            aExtent.y, aExtent.x, aExtent.width, aExtent.height);
+  if (aDisallowReturnToOpener) {
+    features += ",disallow_return_to_opener";
+  }
 
   rv = pww->OpenWindow2(aParent, uri, "_blank"_ns, features,
                         mozilla::dom::UserActivation::Modifiers::None(), false,
@@ -294,16 +299,13 @@ already_AddRefed<Promise> DocumentPictureInPicture::RequestWindow(
   // 9. Optionally, close any existing PIP windows
   // I think it's useful to have multiple PiP windows from different top pages.
 
-  // 15. aOptions.mDisallowReturnToOpener
-  // I think this button is redundant with close and the webpage won't know
-  // whether close or return was pressed. So let's not have that button at all.
-
   // 10. Create a new top-level traversable for target _blank
+  // 15. aOptions.mDisallowReturnToOpener
   // 16. Configure PIP to float on top via window features
   RefPtr<BrowsingContext> pipTraversable;
-  nsresult rv = OpenPiPWindowUtility(ownerWin->GetOuterWindow(), extent,
-                                     bc->UsePrivateBrowsing(),
-                                     getter_AddRefs(pipTraversable));
+  nsresult rv = OpenPiPWindowUtility(
+      ownerWin->GetOuterWindow(), extent, bc->UsePrivateBrowsing(),
+      aOptions.mDisallowReturnToOpener, getter_AddRefs(pipTraversable));
   if (NS_FAILED(rv)) {
     aRv.ThrowUnknownError("Failed to create PIP window");
     return nullptr;

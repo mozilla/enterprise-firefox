@@ -1,10 +1,11 @@
 package org.mozilla.fenix.downloads.listscreen
 
-import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextReplacement
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -81,6 +82,7 @@ class DownloadRenameDialogTest {
         assertFalse(result)
     }
 
+    @Test
     fun `GIVEN filename containing slash WHEN checking confirm button THEN button is disabled`() {
         val result = enableConfirmButton(
             originalFileName = "document.pdf",
@@ -90,6 +92,7 @@ class DownloadRenameDialogTest {
         assertFalse(result)
     }
 
+    @Test
     fun `GIVEN filename containing NUL WHEN checking confirm button THEN button is disabled`() {
         val result = enableConfirmButton(
             originalFileName = "document.pdf",
@@ -109,6 +112,7 @@ class DownloadRenameDialogTest {
                 originalFileName = "original.pdf",
                 onConfirmSave = { confirmedName = it },
                 onCancel = { cancelled = true },
+                onCannotRenameDismiss = {},
             )
         }
 
@@ -136,6 +140,7 @@ class DownloadRenameDialogTest {
                 originalFileName = "original.pdf",
                 onConfirmSave = {},
                 onCancel = { cancelled = true },
+                onCannotRenameDismiss = {},
             )
         }
 
@@ -149,38 +154,43 @@ class DownloadRenameDialogTest {
     }
 
     @Test
-    fun `GIVEN rename error dialog NameAlreadyExists WHEN shown THEN proposed filename is displayed`() {
-        val proposed = "original (1).pdf"
-
+    fun `GIVEN the rename dialog is shown WHEN proposed file name has a slash THEN the field is in an error state`() {
         composeTestRule.setContent {
-            DownloadRenameErrorDialog(
-                error = RenameFileError.NameAlreadyExists(proposedFileName = proposed),
-                onDismiss = {},
+            DownloadRenameDialog(
+                originalFileName = "file.pdf",
+                onConfirmSave = {},
+                onCancel = {},
+                onCannotRenameDismiss = {},
             )
         }
 
         composeTestRule
-            .onNodeWithText(proposed, substring = true)
-            .assertIsDisplayed()
+            .onNodeWithTag(DownloadsListTestTag.RENAME_DIALOG_TEXT_FIELD)
+            .performTextReplacement("bad/name")
+
+        composeTestRule.waitForIdle()
+
+        composeTestRule
+            .onNodeWithTag(DownloadsListTestTag.RENAME_DIALOG_TEXT_FIELD)
+            .assert(SemanticsMatcher.keyIsDefined(SemanticsProperties.Error))
     }
 
     @Test
-    fun `GIVEN rename error dialog WHEN OK clicked THEN onDismiss is called`() {
-        var dismissed = false
-
+    fun `GIVEN the rename dialog is shown WHEN proposed file name already exists THEN the field is in an error state`() {
         composeTestRule.setContent {
-            DownloadRenameErrorDialog(
-                error = RenameFileError.NameAlreadyExists(proposedFileName = "original (1).pdf"),
-                onDismiss = { dismissed = true },
+            DownloadRenameDialog(
+                originalFileName = "file.pdf",
+                error = RenameFileError.NameAlreadyExists(proposedFileName = "file.pdf"),
+                onConfirmSave = {},
+                onCancel = {},
+                onCannotRenameDismiss = {},
             )
         }
 
-        composeTestRule
-            .onNodeWithTag(DownloadsListTestTag.RENAME_DIALOG_FAILURE_DISMISS_BUTTON)
-            .performClick()
+        composeTestRule.waitForIdle()
 
-        composeTestRule.runOnIdle {
-            assertTrue(dismissed)
-        }
+        composeTestRule
+            .onNodeWithTag(DownloadsListTestTag.RENAME_DIALOG_TEXT_FIELD)
+            .assert(SemanticsMatcher.keyIsDefined(SemanticsProperties.Error))
     }
 }

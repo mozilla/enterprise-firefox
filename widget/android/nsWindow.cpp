@@ -1048,7 +1048,6 @@ class NPZCSupport final
     PostInputEvent([input = std::move(aInput), result](nsWindow* window) {
       WidgetTouchEvent touchEvent = input.ToWidgetEvent(window);
       window->ProcessUntransformedAPZEvent(&touchEvent, result);
-      window->DispatchHitTest(touchEvent);
     });
 
     if (aReturnResult && result.GetHandledResult() != Nothing()) {
@@ -2981,19 +2980,6 @@ void* nsWindow::GetNativeData(uint32_t aDataType) {
   }
 
   return nullptr;
-}
-
-void nsWindow::DispatchHitTest(const WidgetTouchEvent& aEvent) {
-  if (aEvent.mMessage == eTouchStart && aEvent.mTouches.Length() == 1) {
-    // Since touch events don't get retargeted by PositionedEventTargeting.cpp
-    // code, we dispatch a dummy mouse event that *does* get retargeted.
-    // Front-end code can use this to activate the highlight element in case
-    // this touchstart is the start of a tap.
-    WidgetMouseEvent hittest(true, eMouseHitTest, this,
-                             WidgetMouseEvent::eReal);
-    hittest.mRefPoint = aEvent.mTouches[0]->mRefPoint;
-    DispatchEvent(&hittest);
-  }
 }
 
 void nsWindow::PassExternalResponse(java::WebResponse::Param aResponse) {

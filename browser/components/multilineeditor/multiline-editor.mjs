@@ -272,6 +272,7 @@ export class MultilineEditor extends MozLitElement {
    */
   select() {
     this.setSelectionRange(0, this.value.length);
+    this.focus();
   }
 
   /**

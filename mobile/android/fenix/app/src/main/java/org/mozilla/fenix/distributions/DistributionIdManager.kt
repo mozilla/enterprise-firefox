@@ -126,7 +126,7 @@ class DistributionIdManager(
             Distribution.DT_002 -> true
             Distribution.DT_003 -> true
             Distribution.AURA_001 -> false
-            Distribution.XIAOMI_001 -> false
+            Distribution.XIAOMI_001 -> true
         }
     }
 

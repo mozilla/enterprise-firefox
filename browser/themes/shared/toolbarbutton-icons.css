@@ -393,3 +393,7 @@
     list-style-image: url("chrome://global/skin/icons/close.svg");
   }
 }
+
+#document-pip-return-to-opener-button {
+  list-style-image: url("chrome://global/skin/media/picture-in-picture-closed.svg");
+}

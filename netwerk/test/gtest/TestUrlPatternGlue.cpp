@@ -58,7 +58,7 @@ TEST(TestUrlPatternGlue, PatternFromStringOnlyPathname)
   bool res =
       urlpattern_parse_pattern_from_string(&str, nullptr, options, &pattern);
   ASSERT_FALSE(res);
-  ASSERT_FALSE(pattern._0);
+  ASSERT_FALSE(pattern);
 }
 
 TEST(TestUrlPatternGlue, PatternFromString)
@@ -69,7 +69,7 @@ TEST(TestUrlPatternGlue, PatternFromString)
   bool res =
       urlpattern_parse_pattern_from_string(&str, nullptr, options, &pattern);
   ASSERT_TRUE(res);
-  ASSERT_TRUE(pattern._0);
+  ASSERT_TRUE(pattern);
 }
 
 // pattern construction from init
@@ -80,7 +80,7 @@ TEST(TestUrlPatternGlue, PatternFromInit)
   UrlPatternInit init = CreateSimpleInit("https"_ns, "example.com"_ns, "/"_ns);
   bool res = urlpattern_parse_pattern_from_init(&init, options, &pattern);
   ASSERT_TRUE(res);
-  ASSERT_TRUE(pattern._0);
+  ASSERT_TRUE(pattern);
 
   auto proto = UrlPatternGetProtocol(pattern);
   ASSERT_EQ(proto, "https"_ns);
@@ -93,7 +93,7 @@ TEST(TestUrlPatternGlue, PatternFromInitOnlyPathname)
   UrlPatternInit init = CreateSimpleInit(""_ns, ""_ns, "/foo/thing"_ns);
   bool res = urlpattern_parse_pattern_from_init(&init, options, &pattern);
   ASSERT_TRUE(res);
-  ASSERT_TRUE(pattern._0);
+  ASSERT_TRUE(pattern);
 
   auto proto = UrlPatternGetProtocol(pattern);
   ASSERT_EQ(proto, nsCString("*"));
@@ -123,7 +123,7 @@ TEST(TestUrlPatternGlue, UrlPatternGetters)
                  "/"_ns, "find"_ns, "anchor"_ns, ""_ns);
   bool rv = urlpattern_parse_pattern_from_init(&init, options, &pattern);
   ASSERT_TRUE(rv);
-  ASSERT_TRUE(pattern._0);
+  ASSERT_TRUE(pattern);
 
   nsAutoCString res;
   res = UrlPatternGetProtocol(pattern);
@@ -746,7 +746,7 @@ TEST(TestUrlPatternGlue, UrlPatternExecFromString)
   bool res =
       urlpattern_parse_pattern_from_string(&str, nullptr, options, &pattern);
   ASSERT_TRUE(res);
-  ASSERT_TRUE(pattern._0);
+  ASSERT_TRUE(pattern);
 
   nsCString inputString("https://example.com/");
   UrlPatternInput input = CreateUrlPatternInput(inputString);
@@ -775,7 +775,7 @@ TEST(TestUrlPatternGlue, UrlPatternExecFromInit)
   UrlPatternOptions options = {.ignore_case = false};
   bool res = urlpattern_parse_pattern_from_init(&init, options, &pattern);
   ASSERT_TRUE(res);
-  ASSERT_TRUE(pattern._0);
+  ASSERT_TRUE(pattern);
 
   UrlPatternInput input = CreateUrlPatternInput(init);
   Optional<nsAutoCString> execBaseUrl;

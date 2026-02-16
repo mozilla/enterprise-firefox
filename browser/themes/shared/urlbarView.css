@@ -6,6 +6,7 @@
 
 @namespace html url("http://www.w3.org/1999/xhtml");
 
+:host,
 :root {
   --urlbarView-hover-background: var(--arrowpanel-dimmed);
   --urlbarView-separator-color: color-mix(in srgb, currentColor 14%, transparent);

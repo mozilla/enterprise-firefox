@@ -6,6 +6,7 @@
 
 #include "nsISupports.idl"
 
+interface nsISHEntry;
 interface nsIURI;
 
 /**
@@ -86,5 +87,13 @@ interface nsISHistoryListener : nsISupports
    */
   void OnDocumentViewerEvicted(in unsigned long aNumEvicted);
 
+  /**
+   * Called whenever a session history update has been committed.
+   */
   void OnHistoryCommit();
+
+  /**
+   * Called whenever a session history entry changes title.
+   */
+  void OnEntryTitleUpdated(in nsISHEntry aEntry);
 };

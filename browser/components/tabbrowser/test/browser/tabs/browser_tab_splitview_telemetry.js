@@ -67,7 +67,7 @@ add_task(async function test_splitview_uri_count_telemetry() {
 
   // Create split view (tab 0 is left/"1", tab 1 is right/"2")
   const splitView1 = gBrowser.addTabSplitView([tabs[0], tabs[1]], {
-    id: "test-1",
+    id: 11,
   });
   await tabIsInSplitView(tabs[0]);
   await tabIsInSplitView(tabs[1]);
@@ -118,7 +118,7 @@ add_task(async function test_splitview_uri_count_telemetry() {
   info("Create a splitview from tabs 3 and 4");
   await BrowserTestUtils.switchTab(gBrowser, tabs[3]);
   const splitView2 = gBrowser.addTabSplitView([tabs[2], tabs[3]], {
-    id: "test-2",
+    id: 21,
   });
   await tabIsInSplitView(tabs[2]);
   await tabIsInSplitView(tabs[3]);

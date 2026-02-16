@@ -32,6 +32,7 @@ export class AIChatContentChild extends JSWindowActorChild {
 
   static #VALID_EVENTS_FROM_CONTENT = new Set([
     "AIChatContent:DispatchSearch",
+    "AIChatContent:DispatchFollowUp",
     "AIChatContent:Ready",
     "AIChatContent:DispatchAction",
   ]);
@@ -56,6 +57,10 @@ export class AIChatContentChild extends JSWindowActorChild {
         this.#handleActionDispatch(event);
         break;
       }
+
+      case "AIChatContent:DispatchFollowUp":
+        this.#handleFollowUpDispatch(event);
+        break;
 
       case "AIChatContent:Ready":
         this.sendAsyncMessage("AIChatContent:Ready");
@@ -82,6 +87,10 @@ export class AIChatContentChild extends JSWindowActorChild {
       }
     }
     this.sendAsyncMessage("aiChatContentActor:footer-action", event.detail);
+  }
+
+  #handleFollowUpDispatch(event) {
+    this.sendAsyncMessage("aiChatContentActor:followUp", event.detail);
   }
 
   async receiveMessage(message) {

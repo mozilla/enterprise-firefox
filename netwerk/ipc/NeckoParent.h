@@ -13,6 +13,7 @@
 #include "mozilla/net/NeckoCommon.h"
 #include "mozilla/MozPromise.h"
 #include "nsIAuthPrompt2.h"
+#include "nsIInterfaceRequestor.h"
 #include "nsNetUtil.h"
 
 namespace mozilla {
@@ -142,6 +143,7 @@ class NeckoParent : public PNeckoParent {
       const OriginAttributes& aOriginAttributes,
       const nsIDNSService::DNSFlags& flags) override;
   mozilla::ipc::IPCResult RecvSpeculativeConnect(
+      PBrowserParent* aBrowser, const IPC::SerializedLoadContext& aSerialized,
       nsIURI* aURI, nsIPrincipal* aPrincipal,
       Maybe<OriginAttributes>&& aOriginAttributes, const bool& aAnonymous);
   mozilla::ipc::IPCResult RecvHTMLDNSPrefetch(

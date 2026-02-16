@@ -13,6 +13,7 @@
 #include "mozilla/dom/CSSKeywordValue.h"
 #include "mozilla/dom/CSSMathSum.h"
 #include "mozilla/dom/CSSStyleValue.h"
+#include "mozilla/dom/CSSTransformValue.h"
 #include "mozilla/dom/CSSUnitValue.h"
 #include "mozilla/dom/StylePropertyMapBinding.h"
 #include "nsCOMPtr.h"
@@ -82,6 +83,13 @@ void StylePropertyMap::Set(
   nsAutoCString cssText;
 
   switch (styleValue.GetStyleValueType()) {
+    case CSSStyleValue::StyleValueType::TransformValue: {
+      CSSTransformValue& transformValue = styleValue.GetAsCSSTransformValue();
+
+      transformValue.ToCssTextWithProperty(propertyId, cssText);
+      break;
+    }
+
     case CSSStyleValue::StyleValueType::NumericValue: {
       CSSNumericValue& numericValue = styleValue.GetAsCSSNumericValue();
 

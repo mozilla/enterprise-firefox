@@ -2234,7 +2234,7 @@ void nsXULPopupManager::UpdateKeyboardListeners() {
       newTarget->AddEventListener(u"keydown"_ns, this, true);
       newTarget->AddEventListener(u"keyup"_ns, this, true);
       nsContentUtils::NotifyInstalledMenuKeyboardListener(isForMenu);
-      mKeyListener = newTarget;
+      mKeyListener = std::move(newTarget);
     }
   }
 }

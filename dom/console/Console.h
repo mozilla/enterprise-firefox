@@ -386,11 +386,13 @@ class Console final : public nsIObserver, public nsSupportsWeakReference {
 
   bool ShouldProceed(MethodName aName) const;
   bool ShouldLogToMozLog(MethodName aName) const;
+  bool ShouldLogToMozLog(ConsoleLogLevel aLevel) const;
 
   uint32_t WebIDLLogLevelToInteger(ConsoleLogLevel aLevel) const;
-
   uint32_t InternalLogLevelToInteger(MethodName aName) const;
+
   LogLevel InternalLogLevelToMozLog(MethodName aName) const;
+  LogLevel ConsoleLevelIntegerToMozLog(uint32_t aLevel) const;
 
   class ArgumentData {
    public:

@@ -10,9 +10,9 @@ export default {
   component: "input-cta",
   parameters: {
     fluent: `
-aiwindow-input-cta-label-chat = Ask
-aiwindow-input-cta-label-search = Search
-aiwindow-input-cta-label-navigate = Go
+aiwindow-input-cta-submit-label-chat = Ask
+aiwindow-input-cta-submit-label-search = Search
+aiwindow-input-cta-submit-label-navigate = Go
     `,
   },
   argTypes: {

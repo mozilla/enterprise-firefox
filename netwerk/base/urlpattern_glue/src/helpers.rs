@@ -82,10 +82,8 @@ pub struct SpiderMonkeyRegexp(String, *mut RegExpObjWrapper);
 // spidermonkey regexp obj
 impl Drop for SpiderMonkeyRegexp {
     fn drop(&mut self) {
-        if !self.1.is_null() {
-            unsafe {
-                free_regexp_ffi(self.1);
-            }
+        unsafe {
+            free_regexp_ffi(self.1);
         }
     }
 }
@@ -113,8 +111,8 @@ impl RegExp for SpiderMonkeyRegexp {
         None
     }
 
-    fn pattern_string(&self) -> String {
-        self.0.clone()
+    fn pattern_string(&self) -> &str {
+        &self.0
     }
 }
 
@@ -158,12 +156,8 @@ pub fn spidermonkey_regexp_matches<'a>(
         )
     };
 
-    if !success {
-        return None;
-    }
-
-    // Check if the regex actually matched
-    if !match_result {
+    // early exit if the regex matching failed to run or if it wasn't a match
+    if !success || !match_result {
         return None;
     }
 
@@ -242,13 +236,10 @@ pub fn matcher_matches<'a>(
             Some(vec![Some(input.to_string())])
         }
         InnerMatcher::RegExp { regexp, .. } => {
-            if regexp.is_err() {
-                return None;
-            }
             // ignore_case not needed here because the regexp was already
             // compiled with the correct flags. spidermonkey_matches uses the
             // pre-compiled regexp which has the flags baked in.
-            let matches = spidermonkey_regexp_matches(regexp.as_ref().unwrap(), input, match_only)?;
+            let matches = spidermonkey_regexp_matches(regexp.as_ref().ok()?, input, match_only)?;
             Some(
                 matches
                     .into_iter()

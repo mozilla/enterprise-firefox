@@ -68,14 +68,14 @@ bool UrlPatternTest(UrlPatternGlue aPattern, const UrlPatternInput& aInput,
                     Maybe<nsAutoCString> aMaybeBaseUrl,
                     bool aIgnoreCase = false);
 
-nsAutoCString UrlPatternGetProtocol(const UrlPatternGlue aPatternWrapper);
-nsAutoCString UrlPatternGetUsername(const UrlPatternGlue aPatternWrapper);
-nsAutoCString UrlPatternGetPassword(const UrlPatternGlue aPatternWrapper);
-nsAutoCString UrlPatternGetHostname(const UrlPatternGlue aPatternWrapper);
-nsAutoCString UrlPatternGetPort(const UrlPatternGlue aPatternWrapper);
-nsAutoCString UrlPatternGetPathname(const UrlPatternGlue aPatternWrapper);
-nsAutoCString UrlPatternGetSearch(const UrlPatternGlue aPatternWrapper);
-nsAutoCString UrlPatternGetHash(const UrlPatternGlue aPatternWrapper);
+nsAutoCString UrlPatternGetProtocol(const UrlPatternGlue aPattern);
+nsAutoCString UrlPatternGetUsername(const UrlPatternGlue aPattern);
+nsAutoCString UrlPatternGetPassword(const UrlPatternGlue aPattern);
+nsAutoCString UrlPatternGetHostname(const UrlPatternGlue aPattern);
+nsAutoCString UrlPatternGetPort(const UrlPatternGlue aPattern);
+nsAutoCString UrlPatternGetPathname(const UrlPatternGlue aPattern);
+nsAutoCString UrlPatternGetSearch(const UrlPatternGlue aPattern);
+nsAutoCString UrlPatternGetHash(const UrlPatternGlue aPattern);
 
 }  // namespace mozilla::net
 

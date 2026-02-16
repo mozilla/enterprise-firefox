@@ -124,7 +124,7 @@ export class RootMessageHandler extends MessageHandler {
     return this.updateSessionData([sessionData]);
   }
 
-  emitEvent(name, eventPayload, contextInfo) {
+  emitEvent(name, eventPayload, relatedContexts) {
     // Intercept realm created and destroyed events to update internal map.
     if (name === "realm-created") {
       this.#onRealmCreated(eventPayload);
@@ -137,7 +137,7 @@ export class RootMessageHandler extends MessageHandler {
       );
     }
 
-    super.emitEvent(name, eventPayload, contextInfo);
+    super.emitEvent(name, eventPayload, relatedContexts);
   }
 
   /**
@@ -224,11 +224,11 @@ export class RootMessageHandler extends MessageHandler {
     }
 
     realms.forEach(realm => {
-      this.#realms.get(innerWindowId).delete(realm);
+      realms.delete(realm.realm);
 
       this.emitEvent("realm-destroyed", {
         context,
-        realm,
+        realm: realm.realm,
       });
     });
 
@@ -242,6 +242,8 @@ export class RootMessageHandler extends MessageHandler {
       this.#realms.set(innerWindowId, new Set());
     }
 
-    this.#realms.get(innerWindowId).add(realmInfo.realm);
+    this.#realms
+      .get(innerWindowId)
+      .add({ realm: realmInfo.realm, sandbox: realmInfo.sandbox });
   };
 }

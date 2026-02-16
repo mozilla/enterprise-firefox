@@ -523,13 +523,13 @@ nsresult WebMDemuxer::ReadMetadata() {
         return NS_ERROR_FAILURE;
       }
 
-      const uint32_t rate = AssertedCast<uint32_t>(std::max(0., params.rate));
-      if (rate > AudioInfo::MAX_RATE || rate == 0 ||
+      if (params.rate <= 0 || params.rate > AudioInfo::MAX_RATE ||
           params.channels > AudioConfig::ChannelLayout::MAX_CHANNELS) {
         WEBM_DEBUG("Invalid audio param rate: %lf channel count: %d",
                    params.rate, params.channels);
         return NS_ERROR_DOM_MEDIA_METADATA_ERR;
       }
+      const uint32_t rate = AssertedCast<uint32_t>(params.rate);
       params.rate = rate;
 
       nsresult rv = SetAudioCodecInfo(context, track, params);
@@ -925,6 +925,12 @@ nsresult WebMDemuxer::GetNextPacket(TrackInfo::TrackType aType,
 
           for (uint8_t i = 0; i < numPartitions; i++) {
             uint32_t partition = partitions[i];
+            if (partition > length || partition < lastOffset) {
+              WEBM_DEBUG(
+                  "Invalid partition offset: %u (length: %zu, lastOffset: %u)",
+                  partition, length, lastOffset);
+              return NS_ERROR_DOM_MEDIA_DEMUXER_ERR;
+            }
             uint32_t currentLength = partition - lastOffset;
 
             if (encrypted) {
@@ -935,8 +941,6 @@ nsresult WebMDemuxer::GetNextPacket(TrackInfo::TrackType aType,
 
             encrypted = !encrypted;
             lastOffset = partition;
-
-            MOZ_ASSERT(lastOffset <= length);
           }
 
           // Add the data between the last offset and the end of the data.

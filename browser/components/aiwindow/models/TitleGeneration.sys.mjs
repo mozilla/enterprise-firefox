@@ -46,14 +46,14 @@ export async function generateChatTitle(message, current_tab) {
     // Build the OpenAI engine
     const engine = await openAIEngine.build(
       MODEL_FEATURES.TITLE_GENERATION,
-      "smart-openai-title"
+      `${MODEL_FEATURES.TITLE_GENERATION}-engine`
     );
 
     const tabInfo = current_tab || { url: "", title: "", description: "" };
 
     // Load and render the prompt with actual values
     const rawPrompt = await engine.loadPrompt(MODEL_FEATURES.TITLE_GENERATION);
-    const systemPrompt = await renderPrompt(rawPrompt, {
+    const systemPrompt = renderPrompt(rawPrompt, {
       current_tab: JSON.stringify(tabInfo),
     });
 
@@ -76,6 +76,7 @@ export async function generateChatTitle(message, current_tab) {
     // Extract the generated title from the response
     const title =
       response?.finalOutput?.trim() || generateDefaultTitle(message);
+
     return title;
   } catch (error) {
     console.error("Failed to generate chat title:", error);

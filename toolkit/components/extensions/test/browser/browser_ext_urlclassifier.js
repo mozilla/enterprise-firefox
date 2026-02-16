@@ -25,7 +25,7 @@ add_task(async function test_extension_tab_create() {
   await SpecialPowers.pushPrefEnv({
     set: [
       [
-        "urlclassifier.features.harmfuladdon.blocklistHosts",
+        "urlclassifier.features.harmfuladdonV2.blocklistHosts",
         "expected.example.org",
       ],
     ],

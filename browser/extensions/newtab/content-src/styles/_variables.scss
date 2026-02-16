@@ -47,9 +47,7 @@ $email-input-invalid: var(--color-red-10);
 $newtab-wordmark-default-color: #20123A;
 $newtab-wordmark-darktheme-color: rgb(251, 251, 254);
 
-/* stylelint-disable-next-line stylelint-plugin-mozilla/no-non-semantic-token-usage */
 $in-content-page-color: var(--text-color);
-/* stylelint-disable-next-line stylelint-plugin-mozilla/no-non-semantic-token-usage */
 $in-content-page-color-dark: var(--text-color);
 
 // -------------------------------------------------------------------------- //
@@ -137,7 +135,6 @@ $debug-breakpoint-colors: (
   ultra-wide: violet
 );
 
-/* stylelint-disable-next-line stylelint-plugin-mozilla/no-non-semantic-token-usage */
 $section-title-font-size: var(--font-size-large);
 
 $card-width: $grid-unit-small * 2 + $base-gutter;

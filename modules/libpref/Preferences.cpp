@@ -2388,7 +2388,8 @@ nsPrefBranch::GetRoot(nsACString& aRoot) {
 }
 
 NS_IMETHODIMP
-nsPrefBranch::GetPrefType(const char* aPrefName, int32_t* aRetVal) {
+nsPrefBranch::GetPrefType(const char* aPrefName,
+                          nsIPrefBranch::PreferenceType* aRetVal) {
   NS_ENSURE_ARG(aPrefName);
 
   const PrefName& prefName = GetPrefName(aPrefName);
@@ -5541,7 +5542,7 @@ bool Preferences::HasDefaultValue(const char* aPrefName) {
 }
 
 /* static */
-int32_t Preferences::GetType(const char* aPrefName) {
+nsIPrefBranch::PreferenceType Preferences::GetType(const char* aPrefName) {
   NS_ENSURE_TRUE(InitStaticMembers(), nsIPrefBranch::PREF_INVALID);
 
   if (!HashTable()) {

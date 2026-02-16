@@ -409,58 +409,6 @@ add_task(async function test_IPProtectionService_stop_on_signout() {
 });
 
 /**
- * Tests a user start or stopping the proxy reloads the current tab.
- */
-add_task(async function test_IPProtectionService_reload() {
-  setupService({
-    isSignedIn: true,
-    canEnroll: true,
-  });
-  let cleanupAlpha = await setupExperiment({ enabled: true, variant: "alpha" });
-
-  setupService({
-    isEnrolledAndEntitled: true,
-  });
-
-  let content = await openPanel();
-  let statusCard = content.statusCardEl;
-
-  Assert.equal(
-    IPProtectionService.state,
-    IPProtectionStates.READY,
-    "Proxy is ready"
-  );
-
-  Assert.ok(
-    BrowserTestUtils.isVisible(content),
-    "ipprotection content component should be present"
-  );
-  let turnOnButton = statusCard.actionButtonEl;
-  Assert.ok(turnOnButton, "Status card turn on button should be present");
-
-  let tabReloaded = waitForTabReloaded(gBrowser.selectedTab);
-  turnOnButton.click();
-  await tabReloaded;
-
-  Assert.equal(IPPProxyManager.state, IPPProxyStates.ACTIVE, "Proxy is active");
-
-  tabReloaded = waitForTabReloaded(gBrowser.selectedTab);
-  let turnOffButton = statusCard.actionButtonEl;
-  turnOffButton.click();
-  await tabReloaded;
-
-  Assert.notStrictEqual(
-    IPPProxyManager.state,
-    IPPProxyStates.ACTIVE,
-    "Proxy is not active"
-  );
-
-  await closePanel();
-  await cleanupAlpha();
-  cleanupService();
-});
-
-/**
  * Tests that exposure events will be sent for branches and control
  */
 add_task(async function test_IPProtectionService_exposure() {

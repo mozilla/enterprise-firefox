@@ -309,8 +309,6 @@ lintpref:
             - 'browser/branding/unofficial/pref/firefox-branding.js'
             - 'browser/branding/aurora/pref/firefox-branding.js'
             - 'browser/app/profile/channel-prefs.js'
-            - 'mobile/android/installer/mobile-l10n.js'
-            - 'mobile/android/locales/en-US/mobile-l10n.js'
             - 'tools/lint/lintpref.yml'
 
 node-licenses:

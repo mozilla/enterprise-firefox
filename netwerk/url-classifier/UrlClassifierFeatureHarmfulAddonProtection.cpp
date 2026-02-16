@@ -30,15 +30,15 @@ namespace {
 #define HARMFULADDON_FEATURE_NAME "harmfuladdon-protection"
 
 #define URLCLASSIFIER_HARMFULADDON_BLOCKLIST \
-  "urlclassifier.features.harmfuladdon.blocklistTables"
+  "urlclassifier.features.harmfuladdonV2.blocklistTables"
 #define URLCLASSIFIER_HARMFULADDON_BLOCKLIST_TEST_ENTRIES \
-  "urlclassifier.features.harmfuladdon.blocklistHosts"
+  "urlclassifier.features.harmfuladdonV2.blocklistHosts"
 #define URLCLASSIFIER_HARMFULADDON_ENTITYLIST \
-  "urlclassifier.features.harmfuladdon.entitylistTables"
+  "urlclassifier.features.harmfuladdonV2.entitylistTables"
 #define URLCLASSIFIER_HARMFULADDON_ENTITYLIST_TEST_ENTRIES \
-  "urlclassifier.features.harmfuladdon.entitylistHosts"
+  "urlclassifier.features.harmfuladdonV2.entitylistHosts"
 #define URLCLASSIFIER_HARMFULADDON_EXCEPTION_URLS \
-  "urlclassifier.features.harmfuladdon.skipURLs"
+  "urlclassifier.features.harmfuladdonV2.skipURLs"
 #define TABLE_HARMFULADDON_BLOCKLIST_PREF "harmfuladdon-blocklist-pref"
 #define TABLE_HARMFULADDON_ENTITYLIST_PREF "harmfuladdon-entitylist-pref"
 

@@ -64,6 +64,10 @@ class SVGFETurbulenceElement final : public SVGFETurbulenceElementBase {
   EnumAttributesInfo GetEnumInfo() override;
   StringAttributesInfo GetStringInfo() override;
 
+  enum { RESULT };
+  SVGAnimatedString mStringAttributes[1];
+  static StringInfo sStringInfo[1];
+
   enum { SEED };  // floating point seed?!
   SVGAnimatedNumber mNumberAttributes[1];
   static NumberInfo sNumberInfo[1];
@@ -75,10 +79,6 @@ class SVGFETurbulenceElement final : public SVGFETurbulenceElementBase {
   enum { OCTAVES };
   SVGAnimatedInteger mIntegerAttributes[1];
   static IntegerInfo sIntegerInfo[1];
-
-  enum { RESULT };
-  SVGAnimatedString mStringAttributes[1];
-  static StringInfo sStringInfo[1];
 
   enum { TYPE, STITCHTILES };
   SVGAnimatedEnumeration mEnumAttributes[2];

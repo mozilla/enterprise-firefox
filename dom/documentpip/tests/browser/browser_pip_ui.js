@@ -64,7 +64,10 @@ add_task(async function pip_ui_buttons() {
   // UI buttons we expect to be shown. When introducing new buttons and
   // this test fails, implementers should consider whether it makes
   // sense to show this button for this kind of window.
-  const expectedButtons = ["trust-icon-container"];
+  const expectedButtons = [
+    "trust-icon-container",
+    "document-pip-return-to-opener-button",
+  ];
 
   buttons.forEach(btn => {
     const idx = expectedButtons.indexOf(btn.id);

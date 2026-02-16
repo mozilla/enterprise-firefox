@@ -7,6 +7,7 @@
 
 #include "mozilla/ErrorResult.h"
 #include "mozilla/net/MozURL.h"
+#include "mozilla/net/URLPatternGlue.h"
 
 namespace mozilla::dom {
 

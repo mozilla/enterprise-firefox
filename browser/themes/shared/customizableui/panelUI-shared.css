@@ -2447,10 +2447,19 @@ radiogroup:focus-visible > .subviewradio[focused="true"] {
 /* ----- IP Protection panel ----- */
 #PanelUI-ipprotection {
   width: 400px;
-}
+  padding: var(--space-small);
 
-#PanelUI-ipprotection > toolbarseparator {
-  display: none;
+  > .panel-header {
+    margin: 0;
+  }
+
+  > .panel-subview-body {
+    padding: 0;
+  }
+
+  > toolbarseparator {
+    display: none;
+  }
 }
 
 #ipprotection-experiment-badge {

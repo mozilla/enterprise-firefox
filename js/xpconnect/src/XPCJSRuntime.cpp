@@ -2875,18 +2875,6 @@ static void SetUseCounterCallback(JSObject* obj, JSUseCounter counter) {
     case JSUseCounter::OPTIMIZE_PROMISE_LOOKUP_FUSE:
       SetUseCounter(obj, eUseCounter_custom_JS_optimizePromiseLookup_fuse);
       return;
-    case JSUseCounter::THENABLE_USE:
-      SetUseCounter(obj, eUseCounter_custom_JS_thenable);
-      return;
-    case JSUseCounter::THENABLE_USE_PROTO:
-      SetUseCounter(obj, eUseCounter_custom_JS_thenable_proto);
-      return;
-    case JSUseCounter::THENABLE_USE_STANDARD_PROTO:
-      SetUseCounter(obj, eUseCounter_custom_JS_thenable_standard_proto);
-      return;
-    case JSUseCounter::THENABLE_USE_OBJECT_PROTO:
-      SetUseCounter(obj, eUseCounter_custom_JS_thenable_object_proto);
-      return;
     case JSUseCounter::LEGACY_LANG_SUBTAG:
       SetUseCounter(obj, eUseCounter_custom_JS_legacy_lang_subtag);
       return;

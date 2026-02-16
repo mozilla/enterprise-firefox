@@ -356,6 +356,7 @@ treeherder:
         'ui-colors': 'ui-colors'
         'ui-fonts': 'ui-fonts'
         'ui-icons': 'ui-icons'
+        'ui-richtext': 'ui-richtext'
         'ui-tabcounter': 'ui-tabcounter'
         'ui-widgets': 'ui-widgets'
 

@@ -71,13 +71,13 @@ class SVGFEDisplacementMapElement final
   EnumAttributesInfo GetEnumInfo() override;
   StringAttributesInfo GetStringInfo() override;
 
-  enum { SCALE };
-  SVGAnimatedNumber mNumberAttributes[1];
-  static NumberInfo sNumberInfo[1];
-
   enum { RESULT, IN1, IN2 };
   SVGAnimatedString mStringAttributes[3];
   static StringInfo sStringInfo[3];
+
+  enum { SCALE };
+  SVGAnimatedNumber mNumberAttributes[1];
+  static NumberInfo sNumberInfo[1];
 
   enum { CHANNEL_X, CHANNEL_Y };
   SVGAnimatedEnumeration mEnumAttributes[2];

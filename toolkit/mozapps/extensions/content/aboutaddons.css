@@ -25,7 +25,7 @@
 body {
   cursor: default;
   /* The page starts to look really bad lower than this. */
-  min-width: 500px;
+  min-width: var(--size-layout-xlarge);
 }
 
 h1 {
@@ -57,7 +57,6 @@ h2 {
     content: "";
     width: 1px;
     height: 100%;
-    /* stylelint-disable-next-line stylelint-plugin-mozilla/no-non-semantic-token-usage */
     background-color: var(--border-color);
     top: 0;
     inset-inline-end: 0;

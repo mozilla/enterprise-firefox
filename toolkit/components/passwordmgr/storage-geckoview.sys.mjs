@@ -193,9 +193,16 @@ export class LoginManagerStorage extends LoginManagerStorage_json {
   }
 
   /**
-   * Removes all logins from storage.
+   * Use `removeAllLoginsAsync` instead.
    */
   removeAllLogins() {
+    throw Components.Exception("", Cr.NS_ERROR_NOT_IMPLEMENTED);
+  }
+
+  /**
+   * Removes all logins from storage.
+   */
+  removeAllLoginsAsync() {
     throw Components.Exception("", Cr.NS_ERROR_NOT_IMPLEMENTED);
   }
 

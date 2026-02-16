@@ -571,6 +571,7 @@ urlbar:
       engagement_type:
         description: >
           Records how the user selected the result. The possible values are:
+          `ask_button`,
           `click`,
           `dismiss`,
           `drop_go`,
@@ -579,11 +580,13 @@ urlbar:
           `help`,
           `inaccurate_location`,
           `manage`,
+          `navigate_button`,
           `not_interested`,
           `not_now`,
           `not_relevant`,
           `opt_in`,
           `paste_go`,
+          `search_button`,
           `show_less_frequently`
         type: string
       groups:
@@ -695,11 +698,13 @@ urlbar:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1805717
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1842247
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2003067
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2008925
     data_reviews:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1797265#c3
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1805717#c4
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1842247#c3
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2003067
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2008925
     data_sensitivity:
       - interaction
     notification_emails:

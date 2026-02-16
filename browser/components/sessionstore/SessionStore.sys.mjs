@@ -300,6 +300,17 @@ export var SessionStore = {
     return SessionStoreInternal.getBrowserState();
   },
 
+  /**
+   * Restore the browser to a given state.
+   *
+   * This replaces all open windows with the windows in the provided state.
+   * Session-level state (cookies, global counters, etc.) is also restored.
+   *
+   * This is exclusively used for manual and automated testing purposes.
+   *
+   * @param {string} aState
+   *        A JSON-serialized session state string
+   */
   setBrowserState: function ss_setBrowserState(aState) {
     SessionStoreInternal.setBrowserState(aState);
   },
@@ -756,6 +767,19 @@ export var SessionStore = {
     return SessionStoreInternal.isBrowserInCrashedSet(browser);
   },
 
+  /**
+   * Returns the next available split view ID and increments the counter.
+   *
+   * @returns {number} A unique integer ID for a split view.
+   */
+  getNextSplitViewId() {
+    if (SessionStoreInternal._maxSplitViewId >= Number.MAX_SAFE_INTEGER) {
+      // pathological case, but let's throw rather than quietly continue
+      throw new Error("Maximum _maxSplitViewId exceeded");
+    }
+    return ++SessionStoreInternal._maxSplitViewId;
+  },
+
   // this is used for testing purposes
   resetNextClosedId() {
     SessionStoreInternal._nextClosedId = 0;
@@ -1099,6 +1123,9 @@ var SessionStoreInternal = {
   // counter for creating unique window IDs
   _nextWindowID: 0,
 
+  // counter for creating unique split view IDs
+  _maxSplitViewId: 0,
+
   // states for all recently closed windows
   _closedWindows: [],
 
@@ -1312,6 +1339,9 @@ var SessionStoreInternal = {
     );
 
     if (state) {
+      // Initialize the splitViewId counter and migrate any string-based splitViewIds
+      this._initSplitViewIds(state);
+
       try {
         // If we're doing a DEFERRED session, then we want to pull pinned tabs
         // out so they can be restored, and save any open groups so they are
@@ -3893,6 +3923,21 @@ var SessionStoreInternal = {
     return JSON.stringify(state);
   },
 
+  /**
+   * Restore the browser to a given state.
+   *
+   * This is the internal implementation of a test-only API that restores
+   * the session state from the provided state object. It:
+   * - Parses the state JSON string
+   * - Initializes session-level counters (split view IDs, etc.) from given values
+   * - Migrates legacy data formats in closed windows
+   * - Closes all windows except the top window
+   * - Restores windows, tabs, cookies, and global state
+   *
+   * @param {string} aState
+   *        A JSON-serialized session state string
+   * @throws {Components.Exception} If state is invalid or missing required properties
+   */
   setBrowserState: function ssi_setBrowserState(aState) {
     this._handleClosedWindows();
 
@@ -3910,6 +3955,10 @@ var SessionStoreInternal = {
     if (!state.windows) {
       throw Components.Exception("No windows", Cr.NS_ERROR_INVALID_ARG);
     }
+
+    // Initialize counter and migrate splitViewIds from persisted given state
+    this._maxSplitViewId = 0;
+    this._initSplitViewIds(state);
 
     this._browserSetState = true;
 
@@ -5656,6 +5705,7 @@ var SessionStoreInternal = {
       selectedWindow: ix + 1,
       _closedWindows: lastClosedWindowsCopy,
       savedGroups: this._savedGroups,
+      maxSplitViewId: this._maxSplitViewId,
       session,
       global: this._globalState.getState(),
     };
@@ -5826,6 +5876,93 @@ var SessionStoreInternal = {
     }
     return tabData;
   },
+
+  _initSplitViewIds(state) {
+    if (this._maxSplitViewId > 0) {
+      this._log.error(
+        `In _initSplitViewIds, _maxSplitViewId already has a value: ${this._maxSplitViewId}`
+      );
+    }
+    // The state object may have nested states in it for a deferred session state,
+    // or the last session state. See `getCurrentState` for details
+    for (let session of [
+      state.deferredInitialState,
+      state.lastSessionState,
+      state,
+    ]) {
+      if (!session) {
+        continue;
+      }
+      this._migrateSplitViewIds(session);
+      this._maxSplitViewId = Math.max(
+        this._maxSplitViewId,
+        session.maxSplitViewId
+      );
+    }
+  },
+
+  /**
+   * Establish a maxSplitViewId and migrate invalid splitViewIds to new integer-based IDs.
+   * We ensure all tabs in a splitview remain associated with an integer ID.
+   *
+   * @param state
+   *        A session state.
+   */
+  _migrateSplitViewIds(state) {
+    // we assume a state with the maxSplitViewId property doesn't need migrating
+    if (typeof state.maxSplitViewId == "number") {
+      return;
+    }
+    let oldToNewMap = new Map();
+    let windowsData = [...state.windows];
+    if (state._closedWindows?.length) {
+      windowsData.push.apply(windowsData, state._closedWindows);
+    }
+    for (let winData of windowsData) {
+      if (!winData || !winData.tabs?.length) {
+        continue;
+      }
+
+      // Tabs in a splitview will share a splitViewId property.
+      // Identify string/invalid IDs, map them to new integer IDs and ensure
+      // both tabs get the new id.
+      for (let tabData of winData.tabs) {
+        let idType = typeof tabData.splitViewId;
+        if (idType === "undefined") {
+          continue;
+        }
+        if (idType === "number") {
+          // This id is valid, so just update our counter so we don't assign new ids
+          // that would conflict with this one.
+          this._maxSplitViewId = Math.max(
+            this._maxSplitViewId,
+            tabData.splitViewId
+          );
+          continue;
+        }
+        if (!oldToNewMap.has(tabData.splitViewId)) {
+          oldToNewMap.set(
+            tabData.splitViewId,
+            SessionStore.getNextSplitViewId()
+          );
+          this._log.debug(
+            `Migrating splitViewId: "${tabData.splitViewId}" -> ${oldToNewMap.get(tabData.splitViewId)}`
+          );
+        }
+        tabData.splitViewId = oldToNewMap.get(tabData.splitViewId);
+      }
+
+      if (winData.splitViews) {
+        for (let splitViewData of winData.splitViews) {
+          if (oldToNewMap.has(splitViewData.id)) {
+            splitViewData.id = oldToNewMap.get(splitViewData.id);
+          }
+        }
+      }
+    }
+    state.maxSplitViewId = this._maxSplitViewId;
+  },
+
   /**
    * restore features to a single window
    *
@@ -6055,10 +6192,20 @@ var SessionStoreInternal = {
       let principal = Services.scriptSecurityManager.createNullPrincipal({
         userContextId: tab.userContextId,
       });
-      let sc = Services.io.QueryInterface(Ci.nsISpeculativeConnect);
-      let uri = Services.io.newURI(url);
+      let browsingContext = tab.linkedBrowser.browsingContext;
+      let callbacks = {
+        QueryInterface: ChromeUtils.generateQI(["nsIInterfaceRequestor"]),
+        getInterface(iid) {
+          if (iid.equals(Ci.nsILoadContext)) {
+            // return the cached context
+            return browsingContext;
+          }
+          throw Components.Exception("", Cr.NS_ERROR_NO_INTERFACE);
+        },
+      };
       try {
-        sc.speculativeConnect(uri, principal, null, false);
+        let uri = Services.io.newURI(url);
+        Services.io.speculativeConnect(uri, principal, callbacks, false);
         return true;
       } catch (error) {
         // Can't setup speculative connection for this url.

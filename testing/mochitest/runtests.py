@@ -997,7 +997,7 @@ class MochitestDesktop:
             self.log = logger_options["log"]
         else:
             self.log = commandline.setup_logging(
-                "mochitest", logger_options, {"tbpl": sys.stdout}
+                "mochitest", logger_options, {"raw": sys.stdout}
             )
 
         self.message_logger = MessageLogger(

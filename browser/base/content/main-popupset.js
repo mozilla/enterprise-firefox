@@ -90,6 +90,10 @@ document.addEventListener(
           gBrowser.tabNoteMenu.openPanel(TabContextMenu.contextTab, {
             telemetrySource: lazy.TabNotes.TELEMETRY_SOURCE.TAB_CONTEXT_MENU,
           });
+          Services.prefs.setBoolPref(
+            "browser.tabs.notes.newBadge.enabled",
+            false
+          );
           break;
         case "context_deleteNote":
           TabContextMenu.deleteTabNotes();
@@ -544,9 +548,6 @@ document.addEventListener(
           break;
         case "bhTooltip":
           BookmarksEventHandler.fillInBHTooltip(event.target, event);
-          break;
-        case "tabContextMenu":
-          TabContextMenu.addNewBadge();
           break;
         case "moveTabOptionsMenu":
           gProfiles.populateMoveTabMenu(event.target);

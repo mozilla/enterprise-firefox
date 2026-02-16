@@ -57,7 +57,7 @@ export async function addMemoriesToPrompt(base, conversationMemoriesPrompt) {
     );
   if (memorySummaries.length) {
     const memoriesBlock = memorySummaries.map(s => `- ${s}`).join("\n");
-    const memoryPrompt = await renderPrompt(conversationMemoriesPrompt, {
+    const memoryPrompt = renderPrompt(conversationMemoriesPrompt, {
       memories: memoriesBlock,
     });
     return `${base}\n${memoryPrompt}`;
@@ -206,7 +206,7 @@ export async function generateConversationStartersSidebar(
     );
 
     // Base template
-    const base = await renderPrompt(conversationStarterPrompt, {
+    const base = renderPrompt(conversationStarterPrompt, {
       current_tab: currentTab,
       open_tabs: openedTabs,
       n: String(n),
@@ -286,7 +286,7 @@ export async function generateFollowupPrompts(
       MODEL_FEATURES.CONVERSATION_SUGGESTIONS_ASSISTANT_LIMITATIONS
     );
 
-    const base = await renderPrompt(conversationFollowupPrompt, {
+    const base = renderPrompt(conversationFollowupPrompt, {
       current_tab: currentTabStr,
       conversation: formatJson(convo),
       n: String(n),

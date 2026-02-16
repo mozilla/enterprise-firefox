@@ -860,6 +860,7 @@ async function populateCSSSystemColors() {
     "ButtonFace",
     "ButtonText",
     "ButtonBorder",
+    "ButtonHighlight",
     "Field",
     "FieldText",
     "Highlight",
@@ -876,6 +877,7 @@ async function populateCSSSystemColors() {
     "AppWorkspace",
     "Background",
     "ButtonShadow",
+    "CaptionText",
     "InactiveBorder",
     "InactiveCaption",
     "InactiveCaptionText",
@@ -911,9 +913,15 @@ async function populateCSSSystemColors() {
 
   const results = [];
   for (const colorName of systemColors) {
+    div.style.backgroundColor = "";
     div.style.backgroundColor = colorName;
-    const computed = getComputedStyle(div).backgroundColor;
-    results.push({ [colorName]: rgbToHex(computed) });
+    if (!div.style.backgroundColor) {
+      results.push({ [colorName]: null });
+    } else {
+      results.push({
+        [colorName]: rgbToHex(getComputedStyle(div).backgroundColor),
+      });
+    }
   }
 
   document.body.removeChild(div);
@@ -1082,6 +1090,140 @@ async function populateClientRects() {
     );
   }
   results.clientrectsEmojiFontFamily = getComputedStyle(emojiDiv).fontFamily;
+
+  document.body.removeChild(container);
+
+  return results;
+}
+
+async function populateSVGRect() {
+  const SVG_NS = "http://www.w3.org/2000/svg";
+
+  const EMOJIS = [
+    "\u{1F600}",
+    "\u263A",
+    "\u{1F9D5}\u200D\u2642\uFE0F",
+    "\u2670",
+    "\u2638",
+    "\u26A7",
+    "\u2049",
+    "\u2139",
+    "\u{1F3F3}\uFE0F\u200D\u26A7\uFE0F",
+    "\u{1F972}",
+    "\u2639",
+    "\u2620",
+    "\u{1F9D1}\u200D\u{1F9B0}",
+    "\u{1F9CF}\u200D\u2642\uFE0F",
+    "\u26F7",
+    "\u{1F9D1}\u200D\u{1F91D}\u200D\u{1F9D1}",
+    "\u2618",
+    "\u26F0",
+    "\u26E9",
+    "\u26F4",
+    "\u2708",
+    "\u23F1",
+    "\u26C8",
+    "\u26C2",
+    "\u26F1",
+    "\u26C3",
+    "\u26C4",
+    "\u26F8",
+    "\u264F",
+    "\u26D1",
+    "\u2328",
+    "\u26F9",
+    "\u270F",
+  ];
+
+  const CSS_FONT_FAMILY = `
+    'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
+    'Noto Color Emoji', 'EmojiOne Color', 'Android Emoji',
+    sans-serif
+  `.trim();
+
+  const container = document.createElement("div");
+  container.id = "svg-container";
+  container.style.cssText = "position: absolute; left: -9999px; height: auto;";
+  document.body.appendChild(container);
+
+  const svg = document.createElementNS(SVG_NS, "svg");
+  const g = document.createElementNS(SVG_NS, "g");
+  g.id = "svgBox";
+  svg.appendChild(g);
+
+  const textElements = [];
+  for (const emoji of EMOJIS) {
+    const text = document.createElementNS(SVG_NS, "text");
+    text.setAttribute("x", "32");
+    text.setAttribute("y", "32");
+    text.setAttribute("class", "svgrect-emoji");
+    text.style.cssText = `
+      font-family: ${CSS_FONT_FAMILY};
+      font-size: 200px;
+      position: absolute;
+      transform: scale(1.000999);
+    `;
+    text.textContent = emoji;
+    g.appendChild(text);
+    textElements.push(text);
+  }
+
+  container.appendChild(svg);
+
+  function serializeSVGRect(rect) {
+    if (!rect) {
+      return null;
+    }
+    return { x: rect.x, y: rect.y, w: rect.width, h: rect.height };
+  }
+
+  const results = {};
+
+  try {
+    const bbox = g.getBBox();
+    results.svgBbox = JSON.stringify(serializeSVGRect(bbox));
+  } catch {
+    results.svgBbox = null;
+  }
+
+  try {
+    results.svgComputedTextLength = textElements[0]
+      .getComputedTextLength()
+      .toString();
+  } catch {
+    results.svgComputedTextLength = null;
+  }
+
+  try {
+    const extent = textElements[0].getExtentOfChar(0);
+    results.svgExtentOfChar = JSON.stringify(serializeSVGRect(extent));
+  } catch {
+    results.svgExtentOfChar = null;
+  }
+
+  try {
+    const numChars = textElements[0].getNumberOfChars();
+    results.svgSubstringLength = textElements[0]
+      .getSubStringLength(0, Math.min(10, numChars))
+      .toString();
+  } catch {
+    results.svgSubstringLength = null;
+  }
+
+  const pattern = new Set();
+  const emojiSet = [];
+  for (let i = 0; i < textElements.length; i++) {
+    try {
+      const dimensions = String(textElements[i].getComputedTextLength());
+      if (!pattern.has(dimensions)) {
+        pattern.add(dimensions);
+        emojiSet.push(EMOJIS[i]);
+      }
+    } catch {
+      // Skip failed measurements
+    }
+  }
+  results.svgEmojiSet = JSON.stringify(emojiSet);
 
   document.body.removeChild(container);
 
@@ -1443,6 +1585,7 @@ async function startPopulating() {
     populateCSSSystemColors,
     populateCSSSystemFonts,
     populateClientRects,
+    populateSVGRect,
     populateNavigatorProperties,
     populateAudioDeviceProperties,
     populateTimezoneWeb,

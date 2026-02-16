@@ -459,6 +459,13 @@ class HTMLEditUtils final {
   [[nodiscard]] static bool IsReplacedElement(const Element& aElement);
 
   /**
+   * Return true if aContent is a replaced element.
+   */
+  [[nodiscard]] static bool IsReplacedElement(const nsIContent& aContent) {
+    return aContent.IsElement() && IsReplacedElement(*aContent.AsElement());
+  }
+
+  /**
    * Return true if aElement is a non-void replaced element such as <iframe>,
    * <embed>, <audio>, <video>, <select>, etc.
    */

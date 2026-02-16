@@ -1467,6 +1467,24 @@ VARIABLES = {
         HostRustLibrary template instead.
         """,
     ),
+    "RUST_PROGRAM_FEATURES": (
+        List,
+        list,
+        """Cargo features to activate for this program.
+
+        This variable should not be used directly; you should be using the
+        RustProgram template instead.
+        """,
+    ),
+    "HOST_RUST_PROGRAM_FEATURES": (
+        List,
+        list,
+        """Cargo features to activate for this host program.
+
+        This variable should not be used directly; you should be using the
+        HostRustProgram template instead.
+        """,
+    ),
     "RUST_TESTS": (
         TypedList(str),
         list,

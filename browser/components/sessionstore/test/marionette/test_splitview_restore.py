@@ -44,7 +44,7 @@ class TestAutoRestoreWithSplitView(SessionStoreTestCase):
         self.marionette.execute_async_script(
             """
             let resolve = arguments[0];
-            gBrowser.addTabSplitView([gBrowser.tabs[0], gBrowser.tabs[1]], { id: "1" });
+            gBrowser.addTabSplitView([gBrowser.tabs[0], gBrowser.tabs[1]]);
             let { TabStateFlusher } = ChromeUtils.importESModule("resource:///modules/sessionstore/TabStateFlusher.sys.mjs");
             TabStateFlusher.flushWindow(gBrowser.ownerGlobal).then(resolve);
             """
@@ -82,7 +82,7 @@ class TestAutoRestoreWithSplitView(SessionStoreTestCase):
         self.marionette.execute_async_script(
             """
             let resolve = arguments[0];
-            gBrowser.addTabSplitView([gBrowser.tabs[0], gBrowser.tabs[1]], { id: "1" });
+            gBrowser.addTabSplitView([gBrowser.tabs[0], gBrowser.tabs[1]]);
             let { TabStateFlusher } = ChromeUtils.importESModule("resource:///modules/sessionstore/TabStateFlusher.sys.mjs");
             TabStateFlusher.flushWindow(gBrowser.ownerGlobal).then(resolve);
             """

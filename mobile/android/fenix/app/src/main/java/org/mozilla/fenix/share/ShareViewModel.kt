@@ -4,14 +4,13 @@
 
 package org.mozilla.fenix.share
 
-import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.pm.ResolveInfo
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkRequest
 import androidx.annotation.VisibleForTesting
-import androidx.appcompat.content.res.AppCompatResources
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.CoroutineDispatcher
@@ -26,10 +25,7 @@ import kotlinx.coroutines.withContext
 import mozilla.components.concept.sync.DeviceCapability
 import mozilla.components.feature.share.RecentAppsStorage
 import mozilla.components.service.fxa.manager.FxaAccountManager
-import mozilla.components.support.utils.ext.packageManagerCompatHelper
-import org.mozilla.fenix.R
 import org.mozilla.fenix.ext.isOnline
-import org.mozilla.fenix.share.DefaultShareController.Companion.ACTION_COPY_LINK_TO_CLIPBOARD
 import org.mozilla.fenix.share.listadapters.AppShareOption
 import org.mozilla.fenix.share.listadapters.SyncShareOption
 
@@ -46,12 +42,20 @@ import org.mozilla.fenix.share.listadapters.SyncShareOption
  * @param recentAppsStorage Storage for keeping track of frequently used share targets.
  * @param connectivityManager System service for monitoring network state changes.
  * @param ioDispatcher The [CoroutineDispatcher] used for background operations.
+ * @param packageManager The Android [PackageManager] used to load application labels and icons.
+ * @param packageName The package name of the current application to filter it out from share targets.
+ * @param getCopyApp A lambda that provides the "Copy" action as an [AppShareOption].
+ * @param queryIntentActivitiesCompat A lambda that handles querying for activities that can resolve a given intent.
  */
 class ShareViewModel(
     private val fxaAccountManager: FxaAccountManager,
     private val recentAppsStorage: RecentAppsStorage,
     private val connectivityManager: ConnectivityManager?,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    private val packageManager: PackageManager,
+    private val packageName: String,
+    private val getCopyApp: () -> AppShareOption? = { null },
+    private val queryIntentActivitiesCompat: (Intent) -> List<ResolveInfo> = { emptyList() },
 ) : ViewModel() {
     companion object {
         internal const val RECENT_APPS_LIMIT = 6
@@ -87,9 +91,8 @@ class ShareViewModel(
      * Once the data is retrieved, it updates the [_uiState] with the recent apps, other available
      * apps, and synchronized devices, and sets the loading state to false.
      *
-     * @param context The Android context used to query package information and load resources.
      */
-    internal fun initDataLoad(context: Context) {
+    internal fun initDataLoad() {
         if (!isNetworkCallbackRegistered) {
             val networkRequest = NetworkRequest.Builder().build()
             connectivityManager?.registerNetworkCallback(networkRequest, networkCallback)
@@ -98,7 +101,7 @@ class ShareViewModel(
 
         viewModelScope.launch {
             // Run apps loading and device loading in parallel
-            val appsDeferred = async { loadAppsWorkflow(context) }
+            val appsDeferred = async { loadAppsWorkflow() }
             val devicesDeferred = async { buildDeviceList() }
 
             val (recent, apps) = appsDeferred.await()
@@ -113,29 +116,27 @@ class ShareViewModel(
         }
     }
 
-    private suspend fun loadAppsWorkflow(context: Context): Pair<List<AppShareOption>, List<AppShareOption>> =
-        withContext(ioDispatcher) {
-            val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                type = "text/plain"
-            }
-
-            val resolveInfos = getIntentActivities(shareIntent, context)
-            val allApps = buildAppsList(resolveInfos, context)
-
-            // Update DB
-            recentAppsStorage.updateDatabaseWithNewApps(allApps.map { it.activityName })
-
-            val recentApps = fetchRecentApps(allApps)
-            val recentNames = recentApps.map { it.activityName }.toSet()
-
-            // Filter out recents and prepend Copy action
-            val otherApps = mutableListOf<AppShareOption>().apply {
-                getCopyApp(context)?.let { add(it) }
-                addAll(allApps.filterNot { it.activityName in recentNames })
-            }
-
-            return@withContext Pair(recentApps, otherApps)
+    private suspend fun loadAppsWorkflow(): Pair<List<AppShareOption>, List<AppShareOption>> {
+        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
         }
+
+        val resolveInfos = getIntentActivities(shareIntent)
+        val allApps = buildAppsList(resolveInfos)
+
+        updateRecentAppsStorage(allApps)
+
+        val recentApps = fetchRecentApps(allApps)
+        val recentNames = recentApps.map { it.activityName }.toSet()
+
+        // Filter out recents and prepend Copy action
+        val otherApps = mutableListOf<AppShareOption>().apply {
+            getCopyApp()?.let { add(it) }
+            addAll(allApps.filterNot { it.activityName in recentNames })
+        }
+
+        return Pair(recentApps, otherApps)
+    }
 
     private fun refreshDevices(network: Network?) {
         viewModelScope.launch {
@@ -149,11 +150,17 @@ class ShareViewModel(
         }
     }
 
-    private fun fetchRecentApps(allApps: List<AppShareOption>): List<AppShareOption> {
-        val recentRecords = recentAppsStorage.getRecentAppsUpTo(RECENT_APPS_LIMIT)
-        val appsMap = allApps.associateBy { it.activityName }
-        return recentRecords.mapNotNull { appsMap[it.activityName] }
+    private suspend fun updateRecentAppsStorage(apps: List<AppShareOption>) = withContext(ioDispatcher) {
+        recentAppsStorage.updateDatabaseWithNewApps(apps.map { it.activityName })
     }
+
+    private suspend fun fetchRecentApps(allApps: List<AppShareOption>): List<AppShareOption> =
+        withContext(ioDispatcher) {
+            val recentActivityNames = recentAppsStorage.getRecentAppsUpTo(RECENT_APPS_LIMIT)
+                .map { it.activityName }
+
+            allApps.filter { it.activityName in recentActivityNames }
+        }
 
     override fun onCleared() {
         if (isNetworkCallbackRegistered) {
@@ -161,44 +168,27 @@ class ShareViewModel(
         }
     }
 
-    private fun getCopyApp(context: Context): AppShareOption? {
-        val copyIcon = AppCompatResources.getDrawable(context, R.drawable.ic_share_clipboard)
-
-        return copyIcon?.let {
-            AppShareOption(
-                context.getString(R.string.share_copy_link_to_clipboard),
-                copyIcon,
-                ACTION_COPY_LINK_TO_CLIPBOARD,
-                "",
-            )
-        }
-    }
-
     internal suspend fun getIntentActivities(
         shareIntent: Intent,
-        context: Context,
     ): List<ResolveInfo> = withContext(ioDispatcher) {
-        context.packageManagerCompatHelper.queryIntentActivitiesCompat(shareIntent, 0).orEmpty()
+        queryIntentActivitiesCompat(shareIntent)
     }
 
     /**
      * Returns a list of apps that can be shared to.
      *
      * @param intentActivities List of activities from [getIntentActivities].
-     * @param context Android context.
      */
     @VisibleForTesting
     internal suspend fun buildAppsList(
-        intentActivities: List<ResolveInfo>?,
-        context: Context,
+        intentActivities: List<ResolveInfo>,
     ): List<AppShareOption> = withContext(ioDispatcher) {
         intentActivities
-            .orEmpty()
-            .filter { it.activityInfo.packageName != context.packageName }
+            .filter { it.activityInfo.packageName != packageName }
             .map { resolveInfo ->
                 AppShareOption(
-                    resolveInfo.loadLabel(context.packageManager).toString(),
-                    resolveInfo.loadIcon(context.packageManager),
+                    resolveInfo.loadLabel(packageManager).toString(),
+                    resolveInfo.loadIcon(packageManager),
                     resolveInfo.activityInfo.packageName,
                     resolveInfo.activityInfo.name,
                 )

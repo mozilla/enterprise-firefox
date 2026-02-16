@@ -64,7 +64,7 @@ LazyLogModule gCocoaUtilsLog("nsCocoaUtils");
  * For each audio and video capture request, we hold an owning reference
  * to a promise to be resolved when the request's async callback is invoked.
  * sVideoCapturePromises and sAudioCapturePromises are arrays of video and
- * audio promises waiting for to be resolved. Each array is protected by a
+ * audio promises waiting to be resolved. Each array is protected by a
  * mutex.
  */
 nsCocoaUtils::PromiseArray nsCocoaUtils::sVideoCapturePromises;
@@ -611,10 +611,10 @@ nsresult nsCocoaUtils::CreateNSImageFromImageContainer(
   }
 
   rv = nsCocoaUtils::CreateNSImageFromCGImage(imageRef, aResult);
-  if (NS_FAILED(rv) || !aResult) {
+  ::CGImageRelease(imageRef);
+  if (NS_FAILED(rv) || !*aResult) {
     return NS_ERROR_FAILURE;
   }
-  ::CGImageRelease(imageRef);
 
   // Ensure the image will be rendered the correct size on a retina display
   NSSize size = NSMakeSize(width, height);
@@ -649,6 +649,8 @@ nsresult nsCocoaUtils::CreateDualRepresentationNSImageFromImageContainer(
                                        aPreferredSize, &newRepresentation, 2.0f,
                                        aIsEntirelyBlack);
   if (NS_FAILED(rv) || !newRepresentation) {
+    [*aResult release];
+    *aResult = nil;
     return NS_ERROR_FAILURE;
   }
 
@@ -718,7 +720,7 @@ NSEvent* nsCocoaUtils::MakeNewCocoaEventWithType(NSEventType aEventType,
 }
 
 // static
-NSEvent* nsCocoaUtils::MakeNewCococaEventFromWidgetEvent(
+NSEvent* nsCocoaUtils::MakeNewCocoaEventFromWidgetEvent(
     const WidgetKeyboardEvent& aKeyEvent, NSInteger aWindowNumber,
     NSGraphicsContext* aContext) {
   NS_OBJC_BEGIN_TRY_BLOCK_RETURN;
@@ -1505,7 +1507,7 @@ nsresult nsCocoaUtils::RequestCapturePermission(
 
   sMediaCaptureMutex.Unlock();
 
-  LOG("RequestCapturePermission(%s): %ld promise(s) unresolved",
+  LOG("RequestCapturePermission(%s): %zu promise(s) unresolved",
       AVMediaTypeToString(aType), nPromises);
 
   // If we had one or more more existing promises waiting to be resolved
@@ -1686,6 +1688,9 @@ NSString* nsCocoaUtils::GetStringForTypeFromPasteboardItem(
       [aItem availableTypeFromArray:[NSArray arrayWithObjects:(id)aType, nil]];
   if (availableType && IsValidPasteboardType(availableType, aAllowFileURL)) {
     NSString* str = [aItem stringForType:(id)availableType];
+    if (!str) {
+      return nil;
+    }
     // Sanitize (remove NULs, etc) to align with other platforms.
     return [NSString stringWithCString:[str UTF8String]
                               encoding:NSUTF8StringEncoding];

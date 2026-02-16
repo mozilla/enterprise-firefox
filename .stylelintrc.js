@@ -275,7 +275,6 @@ module.exports = {
     "csstools/use-logical": null,
     "stylelint-plugin-mozilla/no-base-design-tokens": true,
     "stylelint-plugin-mozilla/use-design-tokens": true,
-    "stylelint-plugin-mozilla/no-non-semantic-token-usage": true,
   },
 
   overrides: [
@@ -439,7 +438,6 @@ module.exports = {
       ],
       rules: {
         "stylelint-plugin-mozilla/use-design-tokens": null,
-        "stylelint-plugin-mozilla/no-non-semantic-token-usage": null,
       },
     },
     {
@@ -450,7 +448,6 @@ module.exports = {
       ],
       rules: {
         "stylelint-plugin-mozilla/use-design-tokens": true,
-        "stylelint-plugin-mozilla/no-non-semantic-token-usage": true,
       },
     },
     {

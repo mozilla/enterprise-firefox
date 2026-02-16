@@ -29,9 +29,11 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -71,7 +73,7 @@ import org.mozilla.fenix.utils.isLargeScreenSize
 /**
  * The small device max height. The value comes from [org.mozilla.fenix.ext.isTallWindow].
  */
-private val SMALL_SCREEN_MAX_HEIGHT = 480.dp
+private val SMALL_SCREEN_MAX_HEIGHT = 570.dp
 private val logger: Logger = Logger("OnboardingScreenRedesign")
 
 /**
@@ -97,6 +99,7 @@ private val logger: Logger = Logger("OnboardingScreenRedesign")
  * @param onFinish Invoked when the onboarding is completed.
  * @param onImpression Invoked when a page in the pager is displayed.
  * @param currentIndex callback for when the current horizontal pager page changes
+ * @param onNavigateToNextPage callback for when the user navigates to the next page in onboarding.
  */
 @Composable
 @Suppress("LongParameterList", "LongMethod")
@@ -119,6 +122,7 @@ fun OnboardingScreenRedesign(
     onFinish: (pageType: OnboardingPageUiData) -> Unit,
     onImpression: (pageType: OnboardingPageUiData) -> Unit,
     currentIndex: (index: Int) -> Unit,
+    onNavigateToNextPage: () -> Unit,
 ) {
     val coroutineScope = rememberCoroutineScope()
     val pagerState = rememberPagerState(pageCount = { pagesToDisplay.size })
@@ -126,12 +130,17 @@ fun OnboardingScreenRedesign(
         .observeAsComposableState { it.account != null }
     val widgetPinnedFlow: StateFlow<Boolean> = WidgetPinnedState.isPinned
     val isWidgetPinnedState by widgetPinnedFlow.collectAsState()
+    var lastSettledPage by remember { mutableIntStateOf(pagerState.settledPage) }
 
     LaunchedEffect(pagerState) {
         snapshotFlow { pagerState.currentPage }
             .distinctUntilChanged()
             .collect { page ->
+                if (page > lastSettledPage) {
+                    onNavigateToNextPage()
+                }
                 currentIndex(page)
+                lastSettledPage = page
             }
     }
 
@@ -186,28 +195,28 @@ fun OnboardingScreenRedesign(
         pagesToDisplay = pagesToDisplay,
         pagerState = pagerState,
         onMakeFirefoxDefaultClick = {
-            scrollToNextPageOrDismiss()
             onMakeFirefoxDefaultClick()
+            scrollToNextPageOrDismiss()
         },
         onMakeFirefoxDefaultSkipClick = {
-            scrollToNextPageOrDismiss()
             onSkipDefaultClick()
+            scrollToNextPageOrDismiss()
         },
         onSignInButtonClick = {
             onSignInButtonClick()
             scrollToNextPageOrDismiss()
         },
         onSignInSkipClick = {
-            scrollToNextPageOrDismiss()
             onSkipSignInClick()
+            scrollToNextPageOrDismiss()
         },
         onNotificationPermissionButtonClick = {
-            scrollToNextPageOrDismiss()
             onNotificationPermissionButtonClick()
+            scrollToNextPageOrDismiss()
         },
         onNotificationPermissionSkipClick = {
-            scrollToNextPageOrDismiss()
             onSkipNotificationClick()
+            scrollToNextPageOrDismiss()
         },
         onAddFirefoxWidgetClick = {
             if (isWidgetPinnedState) {
@@ -217,17 +226,17 @@ fun OnboardingScreenRedesign(
             }
         },
         onSkipFirefoxWidgetClick = {
-            scrollToNextPageOrDismiss()
             onSkipFirefoxWidgetClick()
+            scrollToNextPageOrDismiss()
         },
         onCustomizeToolbarButtonClick = {
-            scrollToNextPageOrDismiss()
             onCustomizeToolbarClick()
+            scrollToNextPageOrDismiss()
         },
         termsOfServiceEventHandler = termsOfServiceEventHandler,
         onAgreeAndConfirmTermsOfService = {
-            scrollToNextPageOrDismiss()
             termsOfServiceEventHandler.onAcceptTermsButtonClicked()
+            scrollToNextPageOrDismiss()
         },
         onMarketingDataLearnMoreClick = onMarketingDataLearnMoreClick,
         onMarketingOptInToggle = onMarketingOptInToggle,
@@ -284,7 +293,6 @@ private fun OnboardingContent(
 ) {
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val layout = getOnboardingLayout(this)
-
         OnboardingBackground(
             isVisible = !isNonLargeScreenLandscape(
                 isLargeScreen = layout.isLarge,
@@ -297,15 +305,15 @@ private fun OnboardingContent(
             modifier = Modifier.systemBarsPadding(),
             verticalArrangement = Arrangement.Center,
         ) {
-            if (!layout.isSmall) {
-                Spacer(modifier = Modifier.weight(1f))
-            }
+            Spacer(Modifier.weight(1f)).takeIf { !layout.isSmall }
 
             HorizontalPager(
                 state = pagerState,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(layout.pagerHeight),
+                    .run {
+                        if (layout.isSmall) fillMaxSize() else height(layout.pagerHeight)
+                    },
                 userScrollEnabled = pagerState.currentPage != 0, // Disable scroll for the Terms of Use card.
                 contentPadding = layout.contentPadding,
                 pageSize = PageSize.Fill,
@@ -340,22 +348,23 @@ private fun OnboardingContent(
                     onMarketingDataLearnMoreClick = onMarketingDataLearnMoreClick,
                     onMarketingOptInToggle = onMarketingOptInToggle,
                     onMarketingDataContinueClick = onMarketingDataContinueClick,
+                    isSmallDevice = layout.isSmall,
                 )
             }
 
-            if (!layout.isSmall) {
-                Spacer(modifier = Modifier.weight(1f))
-            }
+            Spacer(Modifier.weight(1f)).takeIf { !layout.isSmall }
 
-            PagerIndicator(
-                pagerState = pagerState,
-                modifier = Modifier
-                    .align(Alignment.CenterHorizontally)
-                    .padding(bottom = 16.dp),
-                activeColor = MaterialTheme.colorScheme.onPrimary,
-                inactiveColor = MaterialTheme.colorScheme.surfaceVariant,
-                leaveTrail = true,
-            )
+            if (!layout.isSmall) {
+                PagerIndicator(
+                    pagerState = pagerState,
+                    modifier = Modifier
+                        .align(Alignment.CenterHorizontally)
+                        .padding(bottom = 16.dp),
+                    activeColor = MaterialTheme.colorScheme.onPrimary,
+                    inactiveColor = MaterialTheme.colorScheme.surfaceVariant,
+                    leaveTrail = true,
+                )
+            }
         }
     }
 }
@@ -389,13 +398,14 @@ private fun OnboardingPageForType(
     onMarketingDataLearnMoreClick: () -> Unit,
     onMarketingOptInToggle: (optIn: Boolean) -> Unit,
     onMarketingDataContinueClick: (allowMarketingDataCollection: Boolean) -> Unit,
+    isSmallDevice: Boolean,
 ) {
     when (type) {
         OnboardingPageUiData.Type.DEFAULT_BROWSER,
         OnboardingPageUiData.Type.SYNC_SIGN_IN,
         OnboardingPageUiData.Type.ADD_SEARCH_WIDGET,
         OnboardingPageUiData.Type.NOTIFICATION_PERMISSION,
-            -> OnboardingPageRedesign(state)
+            -> OnboardingPageRedesign(state, isSmallDevice)
 
         OnboardingPageUiData.Type.TOOLBAR_PLACEMENT -> {
             val context = LocalContext.current
@@ -426,6 +436,7 @@ private fun OnboardingPageForType(
         OnboardingPageUiData.Type.TERMS_OF_SERVICE -> TermsOfServiceOnboardingPageRedesign(
             state,
             termsOfServiceEventHandler,
+            isSmallDevice = isSmallDevice,
         )
 
         // no-ops
@@ -606,8 +617,8 @@ private fun OnboardingScreenPreview() {
 
 @Composable
 private fun defaultPreviewPages() = listOf(
-    touPageUIData(),
     defaultBrowserPageUiData(),
+    touPageUIData(),
     syncPageUiData(),
     toolbarPlacementPageUiData(),
 )

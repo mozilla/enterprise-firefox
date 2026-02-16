@@ -67,8 +67,8 @@ class Rule {
 
     // Populate the text properties with the style's current authoredText
     // value, and add in any disabled properties from the store.
-    this.textProps = this._getTextProperties();
-    this.textProps = this.textProps.concat(this._getDisabledProperties());
+    this.textProps = this.#getTextProperties();
+    this.textProps = this.textProps.concat(this.#getDisabledProperties());
 
     this.getUniqueSelector = this.getUniqueSelector.bind(this);
     this.onStyleRuleFrontUpdated = this.onStyleRuleFrontUpdated.bind(this);
@@ -77,10 +77,6 @@ class Rule {
   }
 
   destroy() {
-    if (this._unsubscribeSourceMap) {
-      this._unsubscribeSourceMap();
-    }
-
     this.domRule.off("rule-updated", this.onStyleRuleFrontUpdated);
     this.compatibilityIssues = null;
     this.destroyed = true;
@@ -114,11 +110,12 @@ class Rule {
     return title;
   }
 
+  #inheritedSectionLabel;
   get inheritedSectionLabel() {
-    if (this._inheritedSectionLabel) {
-      return this._inheritedSectionLabel;
+    if (this.#inheritedSectionLabel) {
+      return this.#inheritedSectionLabel;
     }
-    this._inheritedSectionLabel = "";
+    this.#inheritedSectionLabel = "";
     if (this.inherited) {
       let eltText = this.inherited.displayName;
       if (this.inherited.id) {
@@ -127,26 +124,27 @@ class Rule {
       if (CssLogic.ELEMENT_BACKED_PSEUDO_ELEMENTS.has(this.pseudoElement)) {
         eltText += this.pseudoElement;
       }
-      this._inheritedSectionLabel = STYLE_INSPECTOR_L10N.getFormatStr(
+      this.#inheritedSectionLabel = STYLE_INSPECTOR_L10N.getFormatStr(
         "rule.inheritedFrom",
         eltText
       );
     }
-    return this._inheritedSectionLabel;
+    return this.#inheritedSectionLabel;
   }
 
+  #keyframesName;
   get keyframesName() {
-    if (this._keyframesName) {
-      return this._keyframesName;
+    if (this.#keyframesName) {
+      return this.#keyframesName;
     }
-    this._keyframesName = "";
+    this.#keyframesName = "";
     if (this.keyframes) {
-      this._keyframesName = STYLE_INSPECTOR_L10N.getFormatStr(
+      this.#keyframesName = STYLE_INSPECTOR_L10N.getFormatStr(
         "rule.keyframe",
         this.keyframes.name
       );
     }
-    return this._keyframesName;
+    return this.#keyframesName;
   }
 
   get keyframesRule() {
@@ -317,7 +315,7 @@ class Rule {
    * does not support as-authored styles.  Store disabled properties
    * in the element style's store.
    */
-  _applyPropertiesNoAuthored(modifications) {
+  async #applyPropertiesNoAuthored(modifications) {
     this.elementStyle.onRuleUpdated();
 
     const disabledProps = [];
@@ -351,35 +349,35 @@ class Rule {
       disabled.delete(this.domRule);
     }
 
-    return modifications.apply().then(() => {
-      const cssProps = {};
-      // Note that even though StyleRuleActors normally provide parsed
-      // declarations already, _applyPropertiesNoAuthored is only used when
-      // connected to older backend that do not provide them. So parse here.
-      for (const cssProp of parseNamedDeclarations(
-        this.cssProperties.isKnown,
-        this.domRule.authoredText
-      )) {
-        cssProps[cssProp.name] = cssProp;
+    await modifications.apply();
+
+    const cssProps = {};
+    // Note that even though StyleRuleActors normally provide parsed
+    // declarations already, #applyPropertiesNoAuthored is only used when
+    // connected to older backend that do not provide them. So parse here.
+    for (const cssProp of parseNamedDeclarations(
+      this.cssProperties.isKnown,
+      this.domRule.authoredText
+    )) {
+      cssProps[cssProp.name] = cssProp;
+    }
+
+    for (const textProp of this.textProps) {
+      if (!textProp.enabled) {
+        continue;
+      }
+      let cssProp = cssProps[textProp.name];
+
+      if (!cssProp) {
+        cssProp = {
+          name: textProp.name,
+          value: "",
+          priority: "",
+        };
       }
 
-      for (const textProp of this.textProps) {
-        if (!textProp.enabled) {
-          continue;
-        }
-        let cssProp = cssProps[textProp.name];
-
-        if (!cssProp) {
-          cssProp = {
-            name: textProp.name,
-            value: "",
-            priority: "",
-          };
-        }
-
-        textProp.priority = cssProp.priority;
-      }
-    });
+      textProp.priority = cssProp.priority;
+    }
   }
 
   /**
@@ -387,29 +385,29 @@ class Rule {
    * authored" case; that is, when the StyleRuleActor supports
    * setRuleText.
    */
-  _applyPropertiesAuthored(modifications) {
-    return modifications.apply().then(() => {
-      // The rewriting may have required some other property values to
-      // change, e.g., to insert some needed terminators.  Update the
-      // relevant properties here.
-      for (const index in modifications.changedDeclarations) {
-        const newValue = modifications.changedDeclarations[index];
-        this.textProps[index].updateValue(newValue);
+  async #applyPropertiesAuthored(modifications) {
+    await modifications.apply();
+
+    // The rewriting may have required some other property values to
+    // change, e.g., to insert some needed terminators.  Update the
+    // relevant properties here.
+    for (const index in modifications.changedDeclarations) {
+      const newValue = modifications.changedDeclarations[index];
+      this.textProps[index].updateValue(newValue);
+    }
+    // Recompute and redisplay the computed properties.
+    for (const prop of this.textProps) {
+      if (!prop.invisible && prop.enabled) {
+        prop.updateComputed();
+        prop.updateEditor();
       }
-      // Recompute and redisplay the computed properties.
-      for (const prop of this.textProps) {
-        if (!prop.invisible && prop.enabled) {
-          prop.updateComputed();
-          prop.updateEditor();
-        }
-      }
-    });
+    }
   }
 
   /**
    * Reapply all the properties in this rule, and update their
    * computed styles.  Will re-mark overridden properties.  Sets the
-   * |_applyingModifications| property to a promise which will resolve
+   * |applyingModifications| property to a promise which will resolve
    * when the edit has completed.
    *
    * @param {Function} modifier a function that takes a RuleModificationList
@@ -421,7 +419,7 @@ class Rule {
   applyProperties(modifier) {
     // If there is already a pending modification, we have to wait
     // until it settles before applying the next modification.
-    const resultPromise = Promise.resolve(this._applyingModifications)
+    const resultPromise = Promise.resolve(this.applyingModifications)
       .then(() => {
         const modifications = this.domRule.startModifyingProperties(
           this.inspector.panelWin,
@@ -429,21 +427,23 @@ class Rule {
         );
         modifier(modifications);
         if (this.domRule.canSetRuleText) {
-          return this._applyPropertiesAuthored(modifications);
+          return this.#applyPropertiesAuthored(modifications);
         }
-        return this._applyPropertiesNoAuthored(modifications);
+        return this.#applyPropertiesNoAuthored(modifications);
       })
       .then(() => {
         this.elementStyle.onRuleUpdated();
 
-        if (resultPromise === this._applyingModifications) {
-          this._applyingModifications = null;
+        if (resultPromise === this.applyingModifications) {
+          this.applyingModifications = null;
           this.elementStyle.notifyChanged();
         }
       })
       .catch(promiseWarn);
 
-    this._applyingModifications = resultPromise;
+    // Expose as a public field as this is queried from CssRuleView class,
+    // as well as tests
+    this.applyingModifications = resultPromise;
     return resultPromise;
   }
 
@@ -506,7 +506,7 @@ class Rule {
    *        The property's priority (either "important" or an empty string).
    * @return {Promise}
    */
-  previewPropertyValue(property, value, priority) {
+  async previewPropertyValue(property, value, priority) {
     this.elementStyle.ruleView.emitForTests("start-preview-property-value");
     const modifications = this.domRule.startModifyingProperties(
       this.inspector.panelWin,
@@ -518,11 +518,11 @@ class Rule {
       value,
       priority
     );
-    return modifications.apply().then(() => {
-      // Ensure dispatching a ruleview-changed event
-      // also for previews
-      this.elementStyle.notifyChanged();
-    });
+    await modifications.apply();
+
+    // Ensure dispatching a ruleview-changed event
+    // also for previews
+    this.elementStyle.notifyChanged();
   }
 
   /**
@@ -580,7 +580,7 @@ class Rule {
    * Get the list of TextProperties from the style. Needs
    * to parse the style's authoredText.
    */
-  _getTextProperties() {
+  #getTextProperties() {
     const textProps = [];
     const store = this.elementStyle.store;
 
@@ -618,7 +618,7 @@ class Rule {
   /**
    * Return the list of disabled properties from the store for this rule.
    */
-  _getDisabledProperties() {
+  #getDisabledProperties() {
     const store = this.elementStyle.store;
 
     // Include properties from the disabled property store, if any.
@@ -657,7 +657,7 @@ class Rule {
     const colorSchemeChanged = this.darkColorScheme !== options.darkColorScheme;
     this.darkColorScheme = options.darkColorScheme;
 
-    const newTextProps = this._getTextProperties();
+    const newTextProps = this.#getTextProperties();
 
     // The element style rule behaves differently on refresh. We basically need to update
     // it to reflect the new text properties exactly. The order might have changed, some
@@ -678,7 +678,7 @@ class Rule {
     // Also keep track of properties that didn't exist in the current set of properties.
     const brandNewProps = [];
     for (const newProp of newTextProps) {
-      if (!this._updateTextProperty(newProp)) {
+      if (!this.#updateTextProperty(newProp)) {
         brandNewProps.push(newProp);
       }
     }
@@ -729,11 +729,11 @@ class Rule {
    *
    * @param {TextProperty} newProp
    *        The current version of the property, as parsed from the
-   *        authoredText in Rule._getTextProperties().
+   *        authoredText in Rule.#getTextProperties().
    * @return {boolean} true if a property was updated, false if no properties
    *         were updated.
    */
-  _updateTextProperty(newProp) {
+  #updateTextProperty(newProp) {
     const match = { rank: 0, prop: null };
 
     for (const prop of this.textProps) {

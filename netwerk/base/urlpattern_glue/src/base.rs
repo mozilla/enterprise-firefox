@@ -39,8 +39,8 @@ impl MaybeString {
 // Used as opaque pointer to urlpattern::UrlPattern<R> (lib.rs, not quirks)
 // this used to hide info of internal urlpattern::url from C++ compiler
 // so cpp compilation doesn't fail since we don't expose url to gecko
-#[repr(C)]
-pub struct UrlPatternGlue(pub *mut c_void); // structs with unnamed fields
+#[repr(transparent)]
+pub struct UrlPatternGlue(pub *mut c_void);
 
 // opaque pointer to urlpattern::component::Component<SpiderMonkeyRegexp>;
 #[repr(transparent)]

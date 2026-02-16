@@ -180,9 +180,15 @@ export default class IPProtectionContentElement extends MozLitElement {
       this.state.error = "";
 
       if (this.state.bandwidthWarning) {
+        const threshold = Services.prefs.getIntPref(
+          "browser.ipProtection.bandwidthThreshold",
+          0
+        );
         this.dispatchEvent(
           new CustomEvent("IPProtection:DismissBandwidthWarning", {
             bubbles: true,
+            composed: true,
+            detail: { threshold },
           })
         );
       }

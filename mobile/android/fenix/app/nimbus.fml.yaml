@@ -894,7 +894,7 @@ features:
           opening_animation_enabled: false
       - channel: nightly
         value:
-          opening_animation_enabled: false
+          opening_animation_enabled: true
 
   tab-search:
     description: Control the visibility of the tab search feature.

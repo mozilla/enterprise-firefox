@@ -117,6 +117,10 @@ export class IPProtectionToolbarButton {
       "IPPProxyManager:StateChanged",
       this.handleEvent
     );
+    lazy.IPPExceptionsManager.addEventListener(
+      "IPPExceptionsManager:ExclusionChanged",
+      this.handleEvent
+    );
 
     Services.obs.addObserver(
       this.observeOfflineStatus,
@@ -181,7 +185,8 @@ export class IPProtectionToolbarButton {
   #handleEvent(event) {
     if (
       event.type === "IPProtectionService:StateChanged" ||
-      event.type === "IPPProxyManager:StateChanged"
+      event.type === "IPPProxyManager:StateChanged" ||
+      event.type === "IPPExceptionsManager:ExclusionChanged"
     ) {
       this.updateState();
     } else if (event.type === "TabSelect") {
@@ -390,6 +395,10 @@ export class IPProtectionToolbarButton {
     );
     lazy.IPPProxyManager.removeEventListener(
       "IPPProxyManager:StateChanged",
+      this.handleEvent
+    );
+    lazy.IPPExceptionsManager.removeEventListener(
+      "IPPExceptionsManager:ExclusionChanged",
       this.handleEvent
     );
 

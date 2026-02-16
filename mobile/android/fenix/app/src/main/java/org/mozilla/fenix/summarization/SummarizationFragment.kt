@@ -12,6 +12,7 @@ import android.view.ViewGroup
 import androidx.fragment.compose.content
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import mozilla.components.feature.summarize.SummarizationUi
+import org.mozilla.fenix.R
 import org.mozilla.fenix.theme.FirefoxTheme
 import com.google.android.material.R as materialR
 
@@ -34,7 +35,9 @@ class SummarizationFragment : BottomSheetDialogFragment() {
         savedInstanceState: Bundle?,
     ): View = content {
         FirefoxTheme {
-            SummarizationUi()
+            SummarizationUi(
+                productName = getString(R.string.app_name),
+            )
         }
     }
 }

@@ -57,6 +57,8 @@ class CSSUnitValue final : public CSSNumericValue {
   void ToCssTextWithProperty(const CSSPropertyId& aPropertyId,
                              nsACString& aDest) const;
 
+  StyleUnitValue ToStyleUnitValue() const;
+
  private:
   virtual ~CSSUnitValue() = default;
 

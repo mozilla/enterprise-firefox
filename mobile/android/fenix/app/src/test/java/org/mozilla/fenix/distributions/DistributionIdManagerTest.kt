@@ -283,7 +283,7 @@ class DistributionIdManagerTest {
             assertEquals(false, subject.shouldSkipMarketingConsentScreen())
 
             subject.setDistribution(DistributionIdManager.Distribution.XIAOMI_001)
-            assertEquals(false, subject.shouldSkipMarketingConsentScreen())
+            assertEquals(true, subject.shouldSkipMarketingConsentScreen())
         }
 
     @Test

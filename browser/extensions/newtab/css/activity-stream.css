@@ -35,9 +35,6 @@ input {
   --newtab-card-height-small: 133px;
 }
 
-/* stylelint-disable-next-line stylelint-plugin-mozilla/no-non-semantic-token-usage */
-/* stylelint-disable-next-line stylelint-plugin-mozilla/no-non-semantic-token-usage */
-/* stylelint-disable-next-line stylelint-plugin-mozilla/no-non-semantic-token-usage */
 :root {
   color-scheme: light;
   --newtab-background-color: #F9F9FB;
@@ -1564,8 +1561,6 @@ main section {
     grid-template-columns: repeat(auto-fit, 309px);
   }
 }
-/* stylelint-disable-next-line stylelint-plugin-mozilla/no-non-semantic-token-usage */
-/* stylelint-disable-next-line stylelint-plugin-mozilla/no-non-semantic-token-usage */
 .search-wrapper {
   padding: 0;
   margin-block: var(--space-xxlarge);
@@ -4294,8 +4289,10 @@ dialog:dir(rtl)::after {
   align-items: center;
   gap: var(--space-medium);
 }
-.widgets-section-container .widgets-title-container h1 {
+.widgets-section-container .widgets-title-container .widgets-title-container-text {
+  display: inline-block;
   margin-inline-end: auto;
+  position: relative;
 }
 @media (min-width: 1122px) {
   .widgets-section-container {
@@ -4350,7 +4347,11 @@ dialog:dir(rtl)::after {
 
 .feature-highlight .feature-highlight-modal.widget-highlight-wrapper {
   width: auto;
+  max-width: min-content;
   border-radius: var(--border-radius-medium);
+}
+.feature-highlight .feature-highlight-modal.widget-highlight-wrapper.inset-block-end {
+  margin-block-start: var(--space-large);
 }
 .feature-highlight .feature-highlight-modal.widget-highlight-wrapper .content-wrapper {
   margin: 0;
@@ -4375,6 +4376,14 @@ dialog:dir(rtl)::after {
   position: absolute;
   inset-inline-end: var(--space-medium);
   inset-block-start: var(--space-medium);
+  --button-icon-fill: var(--color-gray-05);
+}
+.feature-highlight .feature-highlight-modal.widget-highlight-wrapper.no-image {
+  min-width: 370px;
+  padding-block-start: var(--space-small);
+}
+.feature-highlight .feature-highlight-modal.widget-highlight-wrapper.no-image moz-button {
+  --button-icon-fill: var(--icon-color);
 }
 
 /* This Source Code Form is subject to the terms of the Mozilla Public
@@ -7188,8 +7197,6 @@ hr {
   transition-delay: 333ms;
 }
 
-/* stylelint-disable-next-line stylelint-plugin-mozilla/no-non-semantic-token-usage */
-/* stylelint-disable-next-line stylelint-plugin-mozilla/no-non-semantic-token-usage */
 .ds-card {
   display: flex;
   flex-direction: column;
@@ -7691,11 +7698,13 @@ hr {
   justify-content: space-between;
   pointer-events: none;
   margin-block-start: var(--space-xsmall);
+  padding-inline-end: var(--space-large);
 }
 .ds-card-grid .ds-card .sections-card-footer .source-wrapper {
   margin-block-end: 0;
   margin-inline-end: var(--space-xxsmall);
-  max-width: 170px;
+  min-width: 0;
+  max-width: min(170px, 100%);
 }
 .ds-card-grid .ds-card .sections-card-footer .card-stp-button-hover-background {
   position: static;
@@ -7873,36 +7882,6 @@ hr {
   margin-inline-start: var(--placeholderBackgroundOffsetx);
   margin-block-start: var(--placeholderBackgroundOffsety);
   background-size: var(--placeholderBackgroundScale);
-}
-
-.ds-message {
-  margin: var(--space-small) 0 0;
-}
-.ds-message .title {
-  display: flex;
-  align-items: center;
-}
-.ds-message .title .glyph {
-  width: 16px;
-  height: 16px;
-  margin: 0 var(--space-small) 0 0;
-  -moz-context-properties: fill;
-  fill: var(--newtab-text-secondary-color);
-  background-position: center center;
-  background-size: 16px;
-  background-repeat: no-repeat;
-}
-.ds-message .title .title-text {
-  font-size: var(--font-size-small);
-  color: var(--newtab-text-secondary-color);
-  font-weight: var(--heading-font-weight);
-  padding-inline-end: var(--space-medium);
-}
-.ds-message .title .link {
-  font-size: var(--font-weight-small);
-}
-.ds-message .title .link:hover, .ds-message .title .link:focus {
-  text-decoration: underline;
 }
 
 .impression-observer {
@@ -8089,7 +8068,7 @@ hr {
 .feature-highlight {
   position: relative;
   pointer-events: auto;
-  z-index: 1;
+  z-index: 2;
 }
 .feature-highlight .feature-highlight-modal {
   position: absolute;
@@ -8187,6 +8166,13 @@ hr {
 .feature-highlight .feature-highlight-modal.arrow-top-center::after {
   inset-block-start: calc(var(--space-small) * -1);
   inset-inline-start: 50%;
+  transform: translateX(-50%) rotate(225deg);
+  height: 16px;
+  width: 16px;
+}
+.feature-highlight .feature-highlight-modal.arrow-top-start::after {
+  inset-block-start: calc(var(--space-small) * -1);
+  inset-inline-start: calc(var(--space-xlarge) * 2);
   transform: translateX(-50%) rotate(225deg);
   height: 16px;
   width: 16px;

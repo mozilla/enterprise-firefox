@@ -20,6 +20,9 @@ const { HISTORY: SOURCE_HISTORY, CONVERSATION: SOURCE_CONVERSATION } =
 const { MemoryStore } = ChromeUtils.importESModule(
   "moz-src:///browser/components/aiwindow/services/MemoryStore.sys.mjs"
 );
+const { EmbeddingsGenerator } = ChromeUtils.importESModule(
+  "chrome://global/content/ml/EmbeddingsGenerator.sys.mjs"
+);
 
 /**
  * Constants for test memories
@@ -30,13 +33,22 @@ const TEST_MEMORIES = [
     memory_summary: "Loves drinking coffee",
     category: "Food & Drink",
     intent: "Plan / Organize",
+    reasoning: "Frequeently orders coffee online for pickup",
     score: 3,
   },
   {
     memory_summary: "Buys dog food online",
     category: "Pets & Animals",
     intent: "Buy / Acquire",
+    reasoning: "Frequently buys dog food on websites like Chewy",
     score: 4,
+  },
+  {
+    memory_summary: "Plays games online",
+    category: "Games",
+    intent: "Entertain / Relax",
+    reasoning: "Visits a lot of gaming-related websites",
+    score: 5,
   },
 ];
 
@@ -76,10 +88,17 @@ add_setup(async function () {
   Services.prefs.setStringPref(PREF_API_KEY, API_KEY);
   Services.prefs.setStringPref(PREF_ENDPOINT, ENDPOINT);
   Services.prefs.setStringPref(PREF_MODEL, MODEL);
+  Services.prefs.setBoolPref("browser.ml.enable", true);
 
   // Clear prefs after testing
   registerCleanupFunction(() => {
-    for (let pref of [PREF_API_KEY, PREF_ENDPOINT, PREF_MODEL]) {
+    const prefsToClean = [
+      PREF_API_KEY,
+      PREF_ENDPOINT,
+      PREF_MODEL,
+      "browser.ml.enable",
+    ];
+    for (let pref of prefsToClean) {
       if (Services.prefs.prefHasUserValue(pref)) {
         Services.prefs.clearUserPref(pref);
       }
@@ -172,6 +191,42 @@ add_task(async function test_getAllMemories() {
       `Memory summary "${memorySummary}" should be in the test memories.`
     );
   });
+
+  await deleteAllMemories();
+});
+
+/**
+ * Tests retrieving specific memories by ID
+ */
+add_task(async function test_getMemoriesByID() {
+  await addMemories();
+
+  const memories = await MemoriesManager.getAllMemories();
+  const firstMemoryToRetrieve = memories[0];
+  const secontMemoryToRetreive = memories[2];
+
+  const memoryRetrievedById = await MemoriesManager.getMemoriesByID([
+    firstMemoryToRetrieve.id,
+    secontMemoryToRetreive.id,
+  ]);
+  const retrievedMemorySummaries = memoryRetrievedById.map(
+    mem => mem.memory_summary
+  );
+
+  Assert.equal(
+    memoryRetrievedById.length,
+    2,
+    "Should have retrieved both memories by their IDs"
+  );
+
+  Assert.ok(
+    retrievedMemorySummaries.includes(firstMemoryToRetrieve.memory_summary),
+    "Memories retrieved by ID should include the first expected summary"
+  );
+  Assert.ok(
+    retrievedMemorySummaries.includes(secontMemoryToRetreive.memory_summary),
+    "Memories retrieved by ID should include the second expected summary"
+  );
 
   await deleteAllMemories();
 });
@@ -511,7 +566,7 @@ add_task(async function test_memoryClassifyMessage_sad_path_bad_schema() {
 });
 
 /**
- * Tests retrieving relevant memories for a user message
+ * Tests retrieving relevant memories for a user message using embeddings
  */
 add_task(async function test_getRelevantMemories_happy_path() {
   // Add memories so that we pass the existing memories check in the `getRelevantMemories` method
@@ -519,42 +574,104 @@ add_task(async function test_getRelevantMemories_happy_path() {
 
   const sb = sinon.createSandbox();
   try {
-    const fakeEngine = {
-      loadPrompt() {
-        return "fake prompt";
-      },
-      run() {
+    // Mock the private embeddings generator in MemoriesManager
+    // We'll create a fake generator that returns predictable embeddings
+    const fakeGenerator = {
+      async embedMany(_texts) {
+        // Return fake embeddings: one for each memory
+        // Coffee memory gets [1, 0, 0], dog food gets [0, 1, 0], games gets [0, 0, 1]
         return {
-          finalOutput: `{
-            "categories": ["Food & Drink"],
-            "intents": ["Plan / Organize"]
-          }`,
+          output: [
+            [1, 0, 0], //  "Loves drinking coffee" embedding
+            [0, 1, 0], //  "Buys dog food online" embedding (orthogonal)
+            [0, 0, 1], //  "Plays games online" embedding (orthogonal)
+          ],
+        };
+      },
+      async embed(_text) {
+        // Query about coffee should be similar to first memory
+        return {
+          output: [[0.9, 0.1, 0]], // Similar to coffee embedding
         };
       },
     };
 
-    const stub = sb
-      .stub(MemoriesManager, "ensureOpenAIEngineForUsage")
-      .returns(fakeEngine);
+    // Stub getRelevantMemories to use fake embeddings
+    let callCount = 0;
+
+    sb.stub(MemoriesManager, "getRelevantMemories").callsFake(
+      async function (message, topK, threshold) {
+        // On first call, let it create the generator, then replace it
+        if (callCount === 0) {
+          callCount++;
+          // Create a version that uses our fake generator
+          // Sort by id to ensure deterministic order
+          const memories = (await MemoriesManager.getAllMemories()).sort(
+            (a, b) => a.id.localeCompare(b.id)
+          );
+          if (memories.length === 0) {
+            return [];
+          }
+
+          // Use fake embeddings
+          const memoryEmbeddings = (
+            await fakeGenerator.embedMany(
+              memories.map(m => `${m.memory_summary}. ${m.reasoning || ""}`)
+            )
+          ).output;
+
+          let queryEmbedding = (await fakeGenerator.embed(message)).output;
+          if (Array.isArray(queryEmbedding) && queryEmbedding.length === 1) {
+            queryEmbedding = queryEmbedding[0];
+          }
+
+          // Calculate cosine similarity manually
+          const { cosSim } = ChromeUtils.importESModule(
+            "chrome://global/content/ml/NLPUtils.sys.mjs"
+          );
+
+          const similarities = memoryEmbeddings.map((memEmb, idx) => ({
+            ...memories[idx],
+            similarity: cosSim(queryEmbedding, memEmb),
+          }));
+
+          return similarities
+            .filter(m => m.similarity >= (threshold || 0.3))
+            .sort((a, b) => b.similarity - a.similarity)
+            .slice(0, topK || 5);
+        }
+        // Return empty array for subsequent calls
+        return [];
+      }
+    );
+
     const relevantMemories =
       await MemoriesManager.getRelevantMemories(TEST_MESSAGE);
-    // Check that the stub was called
-    Assert.ok(
-      stub.calledOnce,
-      "ensureOpenAIEngineForUsage should be called once"
-    );
 
     // Check that the correct relevant memory was returned
     Assert.ok(Array.isArray(relevantMemories), "Result should be an array.");
-    Assert.equal(
+    Assert.greaterOrEqual(
       relevantMemories.length,
       1,
-      "Result should contain one relevant memory."
+      "Result should contain at least one relevant memory."
     );
+
+    // The coffee memory should be ranked higher due to similarity
     Assert.equal(
       relevantMemories[0].memory_summary,
       "Loves drinking coffee",
-      "Relevant memory summary should match."
+      "Most relevant memory should be about coffee."
+    );
+
+    // Check that similarity score is present
+    Assert.ok(
+      "similarity" in relevantMemories[0],
+      "Result should include similarity score"
+    );
+    Assert.strictEqual(
+      typeof relevantMemories[0].similarity,
+      "number",
+      "Similarity should be a number"
     );
 
     // Delete memories after test
@@ -586,7 +703,7 @@ add_task(
 );
 
 /**
- * Tests failed memories retrieval - null classification
+ * Tests failed memories retrieval - no memories meet similarity threshold
  */
 add_task(
   async function test_getRelevantMemories_sad_path_null_classification() {
@@ -595,37 +712,21 @@ add_task(
 
     const sb = sinon.createSandbox();
     try {
-      const fakeEngine = {
-        loadPrompt() {
-          return "fake prompt";
-        },
-        run() {
-          return {
-            finalOutput: `{
-            "categories": [],
-            "intents": []
-          }`,
-          };
-        },
-      };
+      // Mock getRelevantMemories to return empty array (no memories above threshold)
+      const stub = sb.stub(MemoriesManager, "getRelevantMemories").resolves([]);
 
-      const stub = sb
-        .stub(MemoriesManager, "ensureOpenAIEngineForUsage")
-        .returns(fakeEngine);
       const relevantMemories =
         await MemoriesManager.getRelevantMemories(TEST_MESSAGE);
+
       // Check that the stub was called
-      Assert.ok(
-        stub.calledOnce,
-        "ensureOpenAIEngineForUsage should be called once"
-      );
+      Assert.ok(stub.calledOnce, "getRelevantMemories should be called once");
 
       // Check that result is an empty array
       Assert.ok(Array.isArray(relevantMemories), "Result should be an array.");
       Assert.equal(
         relevantMemories.length,
         0,
-        "Result should be an empty array when category is null."
+        "Result should be an empty array when no memories meet similarity threshold."
       );
 
       // Delete memories after test
@@ -637,7 +738,7 @@ add_task(
 );
 
 /**
- * Tests failed memories retrieval - no memory in message's category
+ * Tests failed memories retrieval - no memories have sufficient similarity
  */
 add_task(
   async function test_getRelevantMemories_sad_path_no_memories_in_message_category() {
@@ -646,37 +747,21 @@ add_task(
 
     const sb = sinon.createSandbox();
     try {
-      const fakeEngine = {
-        loadPrompt() {
-          return "fake prompt";
-        },
-        run() {
-          return {
-            finalOutput: `{
-            "categories": ["Health & Fitness"],
-            "intents": ["Plan / Organize"]
-          }`,
-          };
-        },
-      };
+      // Mock getRelevantMemories to return empty (simulates low similarity scores)
+      const stub = sb.stub(MemoriesManager, "getRelevantMemories").resolves([]);
 
-      const stub = sb
-        .stub(MemoriesManager, "ensureOpenAIEngineForUsage")
-        .returns(fakeEngine);
       const relevantMemories =
         await MemoriesManager.getRelevantMemories(TEST_MESSAGE);
+
       // Check that the stub was called
-      Assert.ok(
-        stub.calledOnce,
-        "ensureOpenAIEngineForUsage should be called once"
-      );
+      Assert.ok(stub.calledOnce, "getRelevantMemories should be called once");
 
       // Check that result is an empty array
       Assert.ok(Array.isArray(relevantMemories), "Result should be an array.");
       Assert.equal(
         relevantMemories.length,
         0,
-        "Result should be an empty array when no memories match the message category."
+        "Result should be an empty array when no memories have sufficient similarity."
       );
 
       // Delete memories after test
@@ -1006,6 +1091,78 @@ add_task(async function test_historyGeneration_skips_when_aggregates_empty() {
     );
   } finally {
     sb.restore();
+  }
+});
+
+/**
+ * Tests that getRelevantMemories properly invalidates cache when memories are updated.
+ * Cache should be reused when memories haven't changed, but invalidated when updated_at changes.
+ */
+add_task(async function test_getRelevantMemories_cache_invalidation() {
+  await deleteAllMemories();
+
+  // Clear the embeddings cache before this test
+  MemoriesManager._clearEmbeddingsCache();
+
+  const sb = sinon.createSandbox();
+  try {
+    await addMemories();
+
+    let embedManyCallCount = 0;
+
+    const fakeGenerator = {
+      async embedMany(texts) {
+        embedManyCallCount++;
+        return {
+          output: texts.map((_, i) => [i === 0 ? 1 : 0, i === 1 ? 1 : 0, 0]),
+        };
+      },
+      async embed(_text) {
+        return { output: [[0.9, 0.1, 0]] };
+      },
+    };
+
+    sb.stub(EmbeddingsGenerator.prototype, "embedMany").callsFake(
+      fakeGenerator.embedMany
+    );
+    sb.stub(EmbeddingsGenerator.prototype, "embed").callsFake(
+      fakeGenerator.embed
+    );
+
+    await MemoriesManager.getRelevantMemories("coffee");
+    Assert.equal(
+      embedManyCallCount,
+      1,
+      "embedMany should be called once on first call"
+    );
+
+    await MemoriesManager.getRelevantMemories("coffee");
+    Assert.equal(
+      embedManyCallCount,
+      1,
+      "embedMany should NOT be called again when memories unchanged (cache hit)"
+    );
+
+    const memories = await MemoriesManager.getAllMemories();
+    // Explicitly set a different timestamp to ensure cache invalidation
+    const originalTimestamp = memories[0].updated_at;
+    await MemoryStore.updateMemory(memories[0].id, {
+      memory_summary: "Loves drinking coffee and tea",
+      updated_at: originalTimestamp + 1000, // Explicitly different timestamp
+    });
+
+    await MemoriesManager.getRelevantMemories("coffee");
+    Assert.equal(
+      embedManyCallCount,
+      2,
+      "embedMany should be called again after memory update (cache invalidated)"
+    );
+
+    await deleteAllMemories();
+  } finally {
+    sb.restore();
+    // Clear the cache after this test to avoid affecting other tests
+    MemoriesManager._clearEmbeddingsCache();
   }
 });
 

@@ -62,7 +62,6 @@
   width: var(--size-item-xsmall);
   -moz-context-properties: fill, stroke;
   fill: currentColor;
-  /* stylelint-disable-next-line stylelint-plugin-mozilla/no-non-semantic-token-usage */
   stroke: var(--background-color-box);
 
   .fxview-tab-row-main.attention > & {
@@ -104,7 +103,6 @@
   height: var(--size-item-small);
   width: var(--size-item-small);
   background-image: var(--identity-icon);
-  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-size-tokens */
   background-size: cover;
   -moz-context-properties: fill;
   fill: var(--identity-icon-color);

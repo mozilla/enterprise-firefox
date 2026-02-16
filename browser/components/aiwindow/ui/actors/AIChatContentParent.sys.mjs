@@ -30,6 +30,10 @@ export class AIChatContentParent extends JSWindowActorParent {
         this.#handleSearchFromChild(data);
         break;
 
+      case "aiChatContentActor:followUp":
+        this.#handleFollowUpFromChild(data);
+        break;
+
       case "AIChatContent:Ready":
         this.#notifyContentReady();
         break;
@@ -75,5 +79,14 @@ export class AIChatContentParent extends JSWindowActorParent {
       return root.host;
     }
     return browser?.ownerDocument?.querySelector("ai-window") ?? null;
+  }
+
+  #handleFollowUpFromChild(data) {
+    try {
+      const aiWindow = this.#getAIWindowElement();
+      aiWindow.submitFollowUp(data.text);
+    } catch (e) {
+      console.warn("Could not submit follow-up from AI Window chat", e);
+    }
   }
 }

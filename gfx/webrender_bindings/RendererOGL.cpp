@@ -479,6 +479,12 @@ Maybe<layers::FrameRecording> RendererOGL::EndRecording() {
 #ifdef MOZ_WIDGET_ANDROID
 RefPtr<RendererOGL::ScreenPixelsPromise> RendererOGL::RequestScreenPixels(
     gfx::IntRect aSourceRect, gfx::IntSize aDestSize) {
+  // If a new request is made we no longer care about the result of the previous
+  // one, so just reject it if it exists.
+  if (mPendingScreenPixelsRequest) {
+    mPendingScreenPixelsRequest.extract().mPromise->Reject(NS_ERROR_ABORT,
+                                                           __func__);
+  }
   mPendingScreenPixelsRequest.emplace(ScreenPixelsRequest{
       .mSourceRect = aSourceRect,
       .mDestSize = aDestSize,

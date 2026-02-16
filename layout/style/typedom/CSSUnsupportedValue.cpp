@@ -33,13 +33,29 @@ void CSSUnsupportedValue::ToCssTextWithProperty(
   aDest.Append(value);
 }
 
+const CSSUnsupportedValue& CSSStyleValue::GetAsCSSUnsupportedValue() const {
+  MOZ_DIAGNOSTIC_ASSERT(mStyleValueType == StyleValueType::UnsupportedValue);
+
+  return *static_cast<const CSSUnsupportedValue*>(this);
+}
+
 CSSUnsupportedValue& CSSStyleValue::GetAsCSSUnsupportedValue() {
   MOZ_DIAGNOSTIC_ASSERT(mStyleValueType == StyleValueType::UnsupportedValue);
 
   return *static_cast<CSSUnsupportedValue*>(this);
 }
 
-const CSSPropertyId* CSSStyleValue::GetPropertyId() {
+const CSSPropertyId* CSSStyleValue::GetPropertyId() const {
+  if (!IsCSSUnsupportedValue()) {
+    return nullptr;
+  }
+
+  const CSSUnsupportedValue& unsupportedValue = GetAsCSSUnsupportedValue();
+
+  return &unsupportedValue.GetPropertyId();
+}
+
+CSSPropertyId* CSSStyleValue::GetPropertyId() {
   if (!IsCSSUnsupportedValue()) {
     return nullptr;
   }

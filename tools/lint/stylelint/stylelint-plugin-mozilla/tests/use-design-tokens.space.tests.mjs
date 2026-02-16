@@ -43,6 +43,11 @@ testRule({
         "Using space token for margin with four shorthand values is valid.",
     },
     {
+      code: ".a { scroll-margin: var(--space-small) var(--space-large) var(--space-medium) var(--space-xlarge); }",
+      description:
+        "Using space token for scroll-margin with four shorthand values is valid.",
+    },
+    {
       code: ".a { margin-block: var(--space-small); }",
       description: "Using space token for margin-block is valid.",
     },
@@ -52,6 +57,11 @@ testRule({
         "Using space token for margin-block with two shorthand values is valid.",
     },
     {
+      code: ".a { scroll-margin-block: var(--space-small) var(--space-large); }",
+      description:
+        "Using space token for scroll-margin-block with two shorthand values is valid.",
+    },
+    {
       code: ".a { margin-inline: var(--space-small); }",
       description: "Using space token for margin-inline is valid.",
     },
@@ -59,6 +69,11 @@ testRule({
       code: ".a { margin-inline: var(--space-small) var(--space-large); }",
       description:
         "Using space token for margin-inline with two shorthand values is valid.",
+    },
+    {
+      code: ".a { scroll-margin-inline: var(--space-small) var(--space-large); }",
+      description:
+        "Using space token for scroll-margin-inline with two shorthand values is valid.",
     },
     {
       code: ".a { margin-block-end: var(--space-xxsmall); }",
@@ -77,6 +92,14 @@ testRule({
       description: "Using space token for margin-inline-start is valid.",
     },
     {
+      code: ".a { scroll-margin-inline-end: var(--space-small); }",
+      description: "Using space token for scroll-margin-inline-end is valid.",
+    },
+    {
+      code: ".a { scroll-margin-inline-start: var(--space-medium); }",
+      description: "Using space token for scroll-margin-inline-start is valid.",
+    },
+    {
       code: ".a { margin-top: var(--space-large); }",
       description: "Using space token for margin-top is valid.",
     },
@@ -93,8 +116,28 @@ testRule({
       description: "Using space token for margin-left is valid.",
     },
     {
+      code: ".a { scroll-margin-top: var(--space-large); }",
+      description: "Using space token for scroll-margin-top is valid.",
+    },
+    {
+      code: ".a { scroll-margin-right: var(--space-xlarge); }",
+      description: "Using space token for scroll-margin-right is valid.",
+    },
+    {
+      code: ".a { scroll-margin-bottom: var(--space-xxlarge); }",
+      description: "Using space token for scroll-margin-bottom is valid.",
+    },
+    {
+      code: ".a { scroll-margin-left: var(--space-small); }",
+      description: "Using space token for scroll-margin-left is valid.",
+    },
+    {
       code: ".a { padding: var(--space-small); }",
       description: "Using space token for padding is valid.",
+    },
+    {
+      code: ".a { scroll-padding: var(--space-small); }",
+      description: "Using space token for scroll-padding is valid.",
     },
     {
       code: ".a { padding: var(--space-small) var(--space-large); }",
@@ -116,6 +159,10 @@ testRule({
       description: "Using space token for padding-block is valid.",
     },
     {
+      code: ".a { scroll-padding-block: var(--space-small); }",
+      description: "Using space token for scroll-padding-block is valid.",
+    },
+    {
       code: ".a { padding-block: var(--space-small) var(--space-large); }",
       description:
         "Using space token for padding-block with two shorthand values is valid.",
@@ -123,6 +170,10 @@ testRule({
     {
       code: ".a { padding-inline: var(--space-small); }",
       description: "Using space token for padding-inline is valid.",
+    },
+    {
+      code: ".a { scroll-padding-inline: var(--space-small); }",
+      description: "Using space token for scroll-padding-inline is valid.",
     },
     {
       code: ".a { padding-inline: var(--space-small) var(--space-large); }",
@@ -146,6 +197,11 @@ testRule({
       description: "Using space token for padding-inline-start is valid.",
     },
     {
+      code: ".a { scroll-padding-inline-start: var(--space-medium); }",
+      description:
+        "Using space token for scroll-padding-inline-start is valid.",
+    },
+    {
       code: ".a { padding-top: var(--space-large); }",
       description: "Using space token for padding-top is valid.",
     },
@@ -160,6 +216,22 @@ testRule({
     {
       code: ".a { padding-left: var(--space-small); }",
       description: "Using space token for padding-left is valid.",
+    },
+    {
+      code: ".a { scroll-padding-top: var(--space-large); }",
+      description: "Using space token for scroll-padding-top is valid.",
+    },
+    {
+      code: ".a { scroll-padding-right: var(--space-xlarge); }",
+      description: "Using space token for scroll-padding-right is valid.",
+    },
+    {
+      code: ".a { scroll-padding-bottom: var(--space-xxlarge); }",
+      description: "Using space token for scroll-padding-bottom is valid.",
+    },
+    {
+      code: ".a { scroll-padding-left: var(--space-small); }",
+      description: "Using space token for scroll-padding-left is valid.",
     },
     {
       code: ".a { inset: var(--space-small); }",
@@ -282,6 +354,14 @@ testRule({
       `,
       description:
         "Using a locally declared variable that resolves to a space token is valid.",
+    },
+    {
+      code: `
+        :root { --local-padding: var(--dimension-relative-100); }
+        .a { padding: var(--local-padding); }
+      `,
+      description:
+        "Using a locally declared variable that resolves to a dimension token is valid.",
     },
     {
       code: ".a { padding: var(--random-padding, var(--space-small)); }",
@@ -626,6 +706,11 @@ testRule({
       message: messages.rejected("var(--random-padding, 5px)", ["space"]),
       description:
         "Using a variable that does not fall back to a space token is invalid.",
+    },
+    {
+      code: ".a { padding: var(--dimension-relative-150); }",
+      message: messages.rejected("var(--dimension-relative-150)", ["space"]),
+      description: "Using a dimension token directly is invalid.",
     },
   ],
 });

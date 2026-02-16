@@ -1969,6 +1969,16 @@ class Settings(
         default = { FxNimbus.features.settingsSearch.value().enabled },
     )
 
+    var isSearchOptimizationEnabled by booleanPreference(
+        key = appContext.getPreferenceKey(R.string.pref_key_search_optimization_feature),
+        default = { FxNimbus.features.searchOptimizationOption.value().enabled },
+    )
+
+    var shouldShowSearchOptimizationStockCard by booleanPreference(
+        key = appContext.getPreferenceKey(R.string.pref_key_search_optimization_stocks),
+        default = { FxNimbus.features.searchOptimizationOption.value().showStocksCard },
+    )
+
     var isTabStripEnabled by booleanPreference(
         appContext.getPreferenceKey(R.string.pref_key_tab_strip_show),
         default = FxNimbus.features.tabStrip.value().enabled &&

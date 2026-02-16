@@ -3353,7 +3353,7 @@
 #if defined(XP_WIN)
 -   name: dom.ipc.alwaysUseParentBinary
     type: RelaxedAtomicBool
-    value: @IS_NIGHTLY_BUILD@
+    value: false
     mirror: always
 #endif
 
@@ -4511,6 +4511,13 @@
 - name: dom.script_loader.experimental.navigation_cache
   type: bool
   value: false
+  mirror: always
+
+# Set to false to avoid clearing the navigation cache, to get the deterministic
+# result during the automated testing.
+- name: dom.script_loader.experimental.navigation_cache.check_memory_pressure
+  type: bool
+  value: true
   mirror: always
 
 - name: dom.securecontext.allowlist_onions
@@ -5862,7 +5869,7 @@
 # Block notifications and revoke permission for sites on Safe Browsing lists.
 - name: dom.webnotifications.block_if_on_safebrowsing
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
 
 - name: dom.worker.canceling.timeoutMilliseconds
@@ -12412,7 +12419,7 @@
 # This pref enables the HTMLMediaElement API captureStream.
 - name: media.captureStream.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # This pref disables the reception of RTCP. It is used for testing.
@@ -14000,6 +14007,12 @@
     login.microsoftonline.us,
     login-us.microsoftonline.com
   mirror: never
+
+# Whether to fallback to old mime-type parser when CMimeType::Parse fails
+- name: network.http.fallback_to_net_parse_ct
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
 
 # The factor by which to increase the keepalive timeout when the
 # NS_HTTP_LARGE_KEEPALIVE flag is used for a connection
@@ -17379,15 +17392,6 @@
     value: 0
     mirror: always
 
-  # Whether \\??\\pipe\\chrome.* rule is added to the sandbox configurations.
-  # We are removing this using a pref because we know that in the past some
-  # injected DLLs have relied on this rule existing for their own pipes.
-  # This gives users a work-around if they have issues.
--   name: security.sandbox.chrome-pipe-rule.enabled
-    type: RelaxedAtomicBool
-    value: false
-    mirror: always
-
   # Whether \Device\KsecDD is closed in content process. We are closing this
   # using a pref to give users a work-around if they have issues.
 -   name: security.sandbox.content.close-ksecdd-handle
@@ -19446,12 +19450,6 @@
   type: bool
   value: false
   mirror: always
-
-# Force use gdk_window_move_to_rect to move Wayland popups when available.
-- name: widget.wayland.force-move-to-rect
-  type: bool
-  value: false
-  mirror: always
 #endif
 
 #ifdef MOZ_WIDGET_GTK
@@ -19489,6 +19487,12 @@
 - name: widget.dmabuf-webgl.enabled
   type: bool
   value: true
+  mirror: once
+
+# Force use gdk_window_move_to_rect to move Wayland popups when available.
+- name: widget.wayland.force-move-to-rect
+  type: bool
+  value: false
   mirror: once
 
 # Use gdk_window_move_to_rect to move Wayland popups when available.

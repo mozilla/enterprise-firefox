@@ -59,6 +59,7 @@ export function resetTimerToDefaults(dispatch, timerType) {
 
 function Widgets() {
   const prefs = useSelector(state => state.Prefs.values);
+  const weatherData = useSelector(state => state.Weather);
   const { messageData } = useSelector(state => state.Messages);
   const timerType = useSelector(state => state.TimerWidget.timerType);
   const timerData = useSelector(state => state.TimerWidget);
@@ -89,9 +90,33 @@ function Widgets() {
       prefs[PREF_WIDGETS_SYSTEM_TIMER_ENABLED]) &&
     prefs[PREF_WIDGETS_TIMER_ENABLED];
 
-  const weatherForecastEnabled =
+  // This weather forecast widget will only show when the following are true:
+  // - The weather view is set to "detailed" (can be checked with the weather.display pref)
+  // - Weather is displayed on New Tab (system.showWeather)
+  // - The weather forecast widget is enabled (system.weatherForecast.enabled)
+  // Note that if the view is set to "detailed" but the weather forecast widget is not enabled,
+  // then the mini weather widget will display with the "detailed" view
+  const weatherForecastSystemEnabled =
     nimbusWeatherForecastTrainhopEnabled ||
     prefs[PREF_WIDGETS_SYSTEM_WEATHER_FORECAST_ENABLED];
+
+  const nimbusWeatherDisplay = prefs.trainhopConfig?.weather?.display;
+  const showDetailedView =
+    nimbusWeatherDisplay === "detailed" ||
+    prefs["weather.display"] === "detailed";
+
+  // Check if weather is enabled (browser.newtabpage.activity-stream.showWeather)
+  const { showWeather } = prefs;
+  const systemShowWeather = prefs["system.showWeather"];
+  const weatherExperimentEnabled = prefs.trainhopConfig?.weather?.enabled;
+  const isWeatherEnabled =
+    showWeather && (systemShowWeather || weatherExperimentEnabled);
+
+  const weatherForecastEnabled =
+    weatherForecastSystemEnabled &&
+    showDetailedView &&
+    weatherData?.initialized &&
+    isWeatherEnabled;
 
   // Widget size is "small" only when maximize feature is enabled and widgets
   // are currently minimized. Otherwise defaults to "medium".
@@ -119,6 +144,10 @@ function Widgets() {
     batch(() => {
       dispatch(ac.SetPref(PREF_WIDGETS_LISTS_ENABLED, false));
       dispatch(ac.SetPref(PREF_WIDGETS_TIMER_ENABLED, false));
+      // If weather forecast widget is visible, turn off the weather
+      if (weatherForecastEnabled) {
+        dispatch(ac.SetPref("showWeather", false));
+      }
 
       const telemetryData = {
         action_type: CONTAINER_ACTION_TYPES.HIDE_ALL,
@@ -153,6 +182,21 @@ function Widgets() {
             type: at.WIDGETS_ENABLED,
             data: {
               widget_name: "focus_timer",
+              widget_source: "widget",
+              enabled: false,
+              widget_size: widgetSize,
+            },
+          })
+        );
+      }
+
+      // Send telemetry for weather widget if it was visible when hiding all widgets
+      if (weatherForecastEnabled) {
+        dispatch(
+          ac.OnlyToMain({
+            type: at.WIDGETS_ENABLED,
+            data: {
+              widget_name: "weather",
               widget_source: "widget",
               enabled: false,
               widget_size: widgetSize,
@@ -229,7 +273,15 @@ function Widgets() {
     <div className="widgets-wrapper">
       <div className="widgets-section-container">
         <div className="widgets-title-container">
-          <h1 data-l10n-id="newtab-widget-section-title"></h1>
+          <div className="widgets-title-container-text">
+            <h1 data-l10n-id="newtab-widget-section-title"></h1>
+            {messageData?.content?.messageType === "WidgetMessage" && (
+              <MessageWrapper dispatch={dispatch}>
+                <WidgetsFeatureHighlight dispatch={dispatch} />
+              </MessageWrapper>
+            )}
+          </div>
+
           {(nimbusMaximizedTrainhopEnabled ||
             prefs[PREF_WIDGETS_SYSTEM_MAXIMIZED]) && (
             <moz-button
@@ -286,11 +338,6 @@ function Widgets() {
           )}
         </div>
       </div>
-      {messageData?.content?.messageType === "WidgetMessage" && (
-        <MessageWrapper dispatch={dispatch}>
-          <WidgetsFeatureHighlight dispatch={dispatch} />
-        </MessageWrapper>
-      )}
     </div>
   );
 }

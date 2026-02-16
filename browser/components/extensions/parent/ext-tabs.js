@@ -162,6 +162,7 @@ const allProperties = new Set([
   "discarded",
   "favIconUrl",
   "groupId",
+  "splitViewId",
   "hidden",
   "isArticle",
   "mutedInfo",
@@ -494,6 +495,13 @@ this.tabs = class extends ExtensionAPIPersistent {
             return;
           }
           needed.push("groupId");
+        } else if (event.type == "TabMove") {
+          const { previousTabState, currentTabState } = event.detail;
+          if (previousTabState.splitViewId === currentTabState.splitViewId) {
+            // Ignore all TabMove events except when the splitViewId changes.
+            return;
+          }
+          needed.push("splitViewId");
         } else if (event.type == "TabShow") {
           needed.push("hidden");
         } else if (event.type == "TabHide") {
@@ -563,6 +571,9 @@ this.tabs = class extends ExtensionAPIPersistent {
       if (filter.properties.has("groupId")) {
         listeners.set("TabGrouped", listener);
         listeners.set("TabUngrouped", listener);
+      }
+      if (filter.properties.has("splitViewId")) {
+        listeners.set("TabMove", listener);
       }
       if (filter.properties.has("hidden")) {
         listeners.set("TabShow", listener);

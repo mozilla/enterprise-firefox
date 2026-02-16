@@ -848,12 +848,23 @@ nsresult nsSplitterFrameInner::KeyDown(Event* aKeyEvent) {
     return NS_OK;
   }
 
-  // Initialize changed values
   for (auto& info : mChildInfosBefore) {
+    // If pref > current, its width/height attribute says it should be larger
+    // than it actually is (due to container constraints). Use current value so
+    // AdjustChildren() calculations start from reality.
+    if (info.pref > info.current) {
+      info.pref = info.current;
+    }
+
     info.changed = info.current;
   }
 
   for (auto& info : mChildInfosAfter) {
+    // If pref > current, sync them (see comment above)
+    if (info.pref > info.current) {
+      info.pref = info.current;
+    }
+
     info.changed = info.current;
   }
 

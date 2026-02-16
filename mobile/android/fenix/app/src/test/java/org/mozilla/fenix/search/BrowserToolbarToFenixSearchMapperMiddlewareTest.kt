@@ -4,7 +4,6 @@
 
 package org.mozilla.fenix.search
 
-import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.MainScope
@@ -25,7 +24,8 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mozilla.fenix.browser.browsingmode.BrowsingMode
-import org.mozilla.fenix.browser.browsingmode.BrowsingModeManager
+import org.mozilla.fenix.components.AppStore
+import org.mozilla.fenix.components.appstate.AppState
 import org.mozilla.fenix.search.SearchFragmentAction.SearchStarted
 import org.mozilla.fenix.search.fixtures.EMPTY_SEARCH_FRAGMENT_STATE
 import org.robolectric.RobolectricTestRunner
@@ -36,9 +36,7 @@ class BrowserToolbarToFenixSearchMapperMiddlewareTest {
     val mainLooperRule = MainLooperTestRule()
 
     val toolbarStore = BrowserToolbarStore()
-    private val browsingModeManager: BrowsingModeManager = mockk {
-        every { mode } returns BrowsingMode.Private
-    }
+    private val appStore = AppStore(AppState(mode = BrowsingMode.Private))
 
     @Test
     fun `WHEN entering in edit mode THEN consider it as search being started`() {
@@ -116,11 +114,11 @@ class BrowserToolbarToFenixSearchMapperMiddlewareTest {
     )
 
     private fun buildMiddleware(
+        appStore: AppStore = this.appStore,
         toolbarStore: BrowserToolbarStore = this.toolbarStore,
-        browsingModeManager: BrowsingModeManager = this.browsingModeManager,
         scope: CoroutineScope = MainScope(),
         browserStore: BrowserStore? = null,
-    ) = BrowserToolbarToFenixSearchMapperMiddleware(toolbarStore, browsingModeManager, scope, browserStore)
+    ) = BrowserToolbarToFenixSearchMapperMiddleware(appStore, toolbarStore, scope, browserStore)
 
     private val emptySearchState = EMPTY_SEARCH_FRAGMENT_STATE.copy(
         searchEngineSource = mockk(),

@@ -61,10 +61,25 @@
   height: 100%;
 }
 
-#ai-window-smartbar {
+#smartbar-wrapper {
   grid-area: smartbar;
+  height: var(--smartbar-height, auto);
   width: 100%;
   max-width: calc(var(--size-item-xsmall) * 45.5);
+  position: relative;
+}
+
+#ai-window-smartbar {
+  position: absolute;
+  z-index: 1;
+}
+
+:host([mode="fullpage"]) #ai-window-smartbar {
+  top: 0;
+}
+
+:host([mode="sidebar"]) #ai-window-smartbar {
+  bottom: 0;
 }
 
 smartwindow-prompts {

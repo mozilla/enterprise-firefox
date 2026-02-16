@@ -13,6 +13,7 @@
 #include "mozilla/EventForwards.h"
 #include "mozilla/Logging.h"
 #include "mozilla/MathAlgorithms.h"
+#include "mozilla/Maybe.h"
 #include "mozilla/dom/DataTransfer.h"
 #include "mozilla/dom/Event.h"
 #include "mozilla/ipc/IPCForwards.h"
@@ -45,10 +46,20 @@ class WidgetPointerEventHolder final {
 
 class WidgetPointerHelper {
  public:
+  struct Tilt {
+    int32_t mX = 0;
+    int32_t mY = 0;
+  };
+
+  struct Angle {
+    double mAltitude = 0.0;
+    double mAzimuth = 0.0;
+  };
+
   uint32_t pointerId = 0;
-  int32_t tiltX = 0;
-  int32_t tiltY = 0;
+  Maybe<Tilt> mTilt;
   int32_t twist = 0;
+  Maybe<Angle> mAngle;
   float tangentialPressure = 0.0f;
   bool convertToPointer = true;
   // When convertToPointerRawUpdate is set to true, the event or the touch may
@@ -64,11 +75,14 @@ class WidgetPointerHelper {
   WidgetPointerHelper(uint32_t aPointerId, uint32_t aTiltX, uint32_t aTiltY,
                       uint32_t aTwist = 0, float aTangentialPressure = 0)
       : pointerId(aPointerId),
-        tiltX(aTiltX),
-        tiltY(aTiltY),
+        mTilt(Some(
+            Tilt{static_cast<int32_t>(aTiltX), static_cast<int32_t>(aTiltY)})),
         twist(aTwist),
         tangentialPressure(aTangentialPressure),
-        convertToPointer(true) {}
+        convertToPointer(true) {
+    MOZ_ASSERT(aTiltX <= INT32_MAX);
+    MOZ_ASSERT(aTiltY <= INT32_MAX);
+  }
 
   explicit WidgetPointerHelper(const WidgetPointerHelper& aHelper) = default;
 
@@ -90,14 +104,48 @@ class WidgetPointerHelper {
   constexpr static double GetDefaultAzimuthAngle() { return 0.0; }
 
   double ComputeAltitudeAngle() const {
-    return ComputeAltitudeAngle(tiltX, tiltY);
+    if (mAngle.isSome()) {
+      return mAngle->mAltitude;
+    }
+    if (mTilt.isSome()) {
+      return ComputeAltitudeAngle(mTilt->mX, mTilt->mY);
+    }
+    return GetDefaultAltitudeAngle();
   }
   double ComputeAzimuthAngle() const {
-    return ComputeAzimuthAngle(tiltX, tiltY);
+    if (mAngle.isSome()) {
+      return mAngle->mAzimuth;
+    }
+    if (mTilt.isSome()) {
+      return ComputeAzimuthAngle(mTilt->mX, mTilt->mY);
+    }
+    return GetDefaultAzimuthAngle();
   }
 
   static double ComputeAltitudeAngle(int32_t aTiltX, int32_t aTiltY);
   static double ComputeAzimuthAngle(int32_t aTiltX, int32_t aTiltY);
+
+  constexpr static int32_t GetDefaultTiltX() { return 0; }
+  constexpr static int32_t GetDefaultTiltY() { return 0; }
+
+  int32_t ComputeTiltX() const {
+    if (mTilt.isSome()) {
+      return mTilt->mX;
+    }
+    if (mAngle.isSome()) {
+      return ComputeTiltX(mAngle->mAltitude, mAngle->mAzimuth);
+    }
+    return GetDefaultTiltX();
+  }
+  int32_t ComputeTiltY() const {
+    if (mTilt.isSome()) {
+      return mTilt->mY;
+    }
+    if (mAngle.isSome()) {
+      return ComputeTiltY(mAngle->mAltitude, mAngle->mAzimuth);
+    }
+    return GetDefaultTiltY();
+  }
 
   static double ComputeTiltX(double aAltitudeAngle, double aAzimuthAngle);
   static double ComputeTiltY(double aAltitudeAngle, double aAzimuthAngle);
@@ -105,8 +153,7 @@ class WidgetPointerHelper {
   void AssignPointerHelperData(const WidgetPointerHelper& aEvent,
                                bool aCopyCoalescedEvents = false) {
     pointerId = aEvent.pointerId;
-    tiltX = aEvent.tiltX;
-    tiltY = aEvent.tiltY;
+    mTilt = aEvent.mTilt;
     twist = aEvent.twist;
     tangentialPressure = aEvent.tangentialPressure;
     convertToPointer = aEvent.convertToPointer;

@@ -13,7 +13,6 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.Looper.getMainLooper
-import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import mozilla.components.browser.state.state.content.DownloadState
 import mozilla.components.browser.state.store.BrowserStore
@@ -49,7 +48,6 @@ import org.robolectric.Shadows.shadowOf
 @RunWith(AndroidJUnit4::class)
 class FetchDownloadManagerTest {
 
-    private lateinit var broadcastManager: LocalBroadcastManager
     private lateinit var service: MockDownloadService
     private lateinit var download: DownloadState
     private lateinit var downloadManager: FetchDownloadManager<MockDownloadService>
@@ -58,7 +56,6 @@ class FetchDownloadManagerTest {
 
     @Before
     fun setup() {
-        broadcastManager = LocalBroadcastManager.getInstance(testContext)
         service = MockDownloadService()
         store = BrowserStore()
         notificationsDelegate = mock()

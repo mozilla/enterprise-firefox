@@ -533,6 +533,18 @@
           "properties": {
             "id": {
               "type": "string",
+              "enum": ["ipProtectionPanelClosed"]
+            }
+          },
+          "additionalProperties": false,
+          "required": ["id"],
+          "description": "Fires on close of the IP Protection Panel"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
               "enum": ["selectableProfilesUpdated"]
             },
             "context": {

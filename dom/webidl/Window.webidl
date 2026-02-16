@@ -429,12 +429,20 @@ dictionary SynthesizeTouchEventData : SynthesizeEventData {
   float rotationAngle = 0;
   // Touch input pressure (0.0 -> 1.0).
   float pressure = 1;
-  // X tilt in degrees (-90 -> 90).
+  // X tilt in degrees (-90 -> 90). If altitudeAngle and azimuthAngle are
+  // specified, tiltX is ignored.
   long tiltX = 0;
-  // Y tilt in degrees (-90 -> 90).
+  // Y tilt in degrees (-90 -> 90). If altitudeAngle and azimuthAngle are
+  // specified, tiltY is ignored.
   long tiltY = 0;
   // Twist in degrees (0 -> 360).
   long twist = 0;
+  // Altitude angle in radians (0 -> π/2). If altitudeAngle is specified,
+  // azimuthAngle must also be specified.
+  double altitudeAngle;
+  // Azimuth angle in radians (0 -> 2π). If azimuthAngle is specified,
+  // altitudeAngle must also be specified.
+  double azimuthAngle;
 };
 
 // Mozilla-specific stuff

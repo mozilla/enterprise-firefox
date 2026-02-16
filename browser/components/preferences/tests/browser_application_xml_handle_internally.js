@@ -25,21 +25,14 @@ add_task(async function applicationXmlHandleInternally() {
   let container = win.document.getElementById("handlersView");
 
   // First, find the application/xml item.
-  let xmlItem = container.querySelector("richlistitem[type='application/xml']");
+  let xmlItem = container.querySelector("moz-box-item[type='application/xml']");
   Assert.ok(xmlItem, "application/xml is present in handlersView");
   if (xmlItem) {
     xmlItem.scrollIntoView({ block: "center" });
-    xmlItem.closest("richlistbox").selectItem(xmlItem);
-
-    // Open its menu
-    let list = xmlItem.querySelector(".actionsMenu");
-    let popup = list.menupopup;
-    let popupShown = BrowserTestUtils.waitForEvent(popup, "popupshown");
-    EventUtils.synthesizeMouseAtCenter(list, {}, win);
-    await popupShown;
+    let list = xmlItem.closest("moz-box-group");
 
     let handleInternallyItem = list.querySelector(
-      `menuitem[action='${Ci.nsIHandlerInfo.handleInternally}']`
+      `moz-option[action='${Ci.nsIHandlerInfo.handleInternally}']`
     );
 
     ok(!!handleInternallyItem, "handle internally is present");

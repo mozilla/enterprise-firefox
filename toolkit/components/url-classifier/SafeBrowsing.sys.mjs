@@ -332,8 +332,8 @@ const FEATURES = [
   {
     name: "harmfuladdon-protection",
     list: [
-      "urlclassifier.features.harmfuladdon.blocklistTables",
-      "urlclassifier.features.harmfuladdon.entitylistTables",
+      "urlclassifier.features.harmfuladdonV2.blocklistTables",
+      "urlclassifier.features.harmfuladdonV2.entitylistTables",
     ],
     enabled() {
       return Services.prefs.getBoolPref(

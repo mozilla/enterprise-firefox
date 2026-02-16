@@ -10,9 +10,12 @@
 #include "chrome/common/ipc_message_utils.h"
 
 #ifdef XP_DARWIN
-#  include <IOSurface/IOSurfaceRef.h>
 #  include "mozilla/UniquePtrExtensions.h"
-#  include "CFTypeRefPtr.h"
+
+template <typename T>
+class CFTypeRefPtr;
+struct __IOSurface;
+typedef __IOSurface* IOSurfaceRef;
 #endif
 
 // This header file defines an IOSurface struct.
@@ -32,17 +35,10 @@ struct IOSurfacePort {
 #ifdef XP_DARWIN
   UniqueMachSendRight mPort;
 
-  CFTypeRefPtr<IOSurfaceRef> GetSurface() const {
-    // Note that IOSurfaceLookupFromMachPort does *not* consume the port.
-    if (IOSurfaceRef s = IOSurfaceLookupFromMachPort(mPort.get())) {
-      return CFTypeRefPtr<IOSurfaceRef>::WrapUnderCreateRule(s);
-    }
-    return {};
-  }
+  CFTypeRefPtr<IOSurfaceRef> GetSurface() const;
+  static IOSurfacePort FromSurface(const CFTypeRefPtr<IOSurfaceRef>& aSurface);
 
-  static IOSurfacePort FromSurface(const CFTypeRefPtr<IOSurfaceRef>& aSurface) {
-    return {UniqueMachSendRight(IOSurfaceCreateMachPort(aSurface.get()))};
-  }
+  bool operator==(const IOSurfacePort& aOther) const;
 #endif
 };
 

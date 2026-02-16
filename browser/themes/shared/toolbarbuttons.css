@@ -760,8 +760,19 @@ toolbarpaletteitem[place="palette"] > #ipprotection-button > .toolbarbutton-icon
 }
 
 /* Document Picture-in-Picture API window */
+
 @media (display-mode: picture-in-picture) {
   #PanelUI-button {
+    display: none;
+  }
+}
+
+#document-pip-return-to-opener-button {
+  @media not (display-mode: picture-in-picture) {
+    display: none;
+  }
+
+  :root[disallowReturnToOpener] & {
     display: none;
   }
 }

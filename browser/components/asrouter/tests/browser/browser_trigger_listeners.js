@@ -813,3 +813,44 @@ add_task(async function test_tabSwitch() {
   await SpecialPowers.popPrefEnv();
   sandbox.restore();
 });
+
+add_task(async function test_ipprotection_panel_closed() {
+  const sandbox = sinon.createSandbox();
+  const receivedTrigger = new Promise(resolve => {
+    sandbox.stub(ASRouter, "sendTriggerMessage").callsFake(({ id }) => {
+      if (id === "ipProtectionPanelClosed") {
+        resolve(true);
+      }
+    });
+  });
+
+  IPProtection.init();
+
+  // Get the panel for the window
+  const panel = IPProtection.getPanel(window);
+
+  // Open the panel
+  await panel.open(window);
+
+  // Close the panel, which should trigger ipProtectionPanelClosed
+  panel.close();
+
+  Assert.ok(
+    await receivedTrigger,
+    "ipProtectionPanelClosed trigger sent on closing IP Protection panel"
+  );
+
+  // Open and close the panel again
+  await panel.open(window);
+  panel.close();
+
+  await TestUtils.waitForTick();
+
+  // Clean up prefs
+  Services.prefs.clearUserPref("browser.ipProtection.added");
+  Services.prefs.clearUserPref("browser.ipProtection.panelOpenCount");
+
+  IPProtection.uninit();
+  await SpecialPowers.popPrefEnv();
+  sandbox.restore();
+});

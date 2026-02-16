@@ -2973,6 +2973,11 @@ bool Console::ShouldLogToMozLog(MethodName aName) const {
   return mLogModule->ShouldLog(InternalLogLevelToMozLog(aName));
 }
 
+bool Console::ShouldLogToMozLog(ConsoleLogLevel aLevel) const {
+  return mLogModule->ShouldLog(
+      ConsoleLevelIntegerToMozLog(WebIDLLogLevelToInteger(aLevel)));
+}
+
 bool Console::ShouldProceed(MethodName aName) const {
   return mCurrentLogLevel <= InternalLogLevelToInteger(aName);
 }
@@ -3126,6 +3131,29 @@ LogLevel Console::InternalLogLevelToMozLog(MethodName aName) const {
       return LogLevel::Info;
     default:
       MOZ_CRASH("MethodName is out of sync with the Console implementation!");
+      return LogLevel::Disabled;
+  }
+}
+
+LogLevel Console::ConsoleLevelIntegerToMozLog(uint32_t aLevel) const {
+  switch (aLevel) {
+    case 5:
+      return LogLevel::Error;
+    case 4:
+      return LogLevel::Warning;
+    case 3:
+      return LogLevel::Info;
+    case 2:
+      return LogLevel::Debug;
+    case 1:
+      return LogLevel::Verbose;
+    case 0:
+      return LogLevel::Verbose;
+    case UINT32_MAX:
+      return LogLevel::Disabled;
+    default:
+      MOZ_CRASH(
+          "Unexpected console integer level in the Console implementation!");
       return LogLevel::Disabled;
   }
 }

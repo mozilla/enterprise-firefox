@@ -514,6 +514,8 @@ already_AddRefed<BrowsingContext> BrowsingContext::CreateDetached(
         StaticPrefs::media_block_autoplay_until_in_foreground();
   }
 
+  fields.Get<IDX_AnimationsPlayBackRateMultiplier>() = 1.0;
+
   RefPtr<BrowsingContext> context;
   if (XRE_IsParentProcess()) {
     context = new CanonicalBrowsingContext(parentWC, group, id,

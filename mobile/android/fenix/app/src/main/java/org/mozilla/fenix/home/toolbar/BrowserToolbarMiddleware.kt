@@ -56,9 +56,9 @@ import org.mozilla.fenix.R
 import org.mozilla.fenix.browser.browsingmode.BrowsingMode
 import org.mozilla.fenix.browser.browsingmode.BrowsingMode.Normal
 import org.mozilla.fenix.browser.browsingmode.BrowsingMode.Private
-import org.mozilla.fenix.browser.browsingmode.BrowsingModeManager
 import org.mozilla.fenix.components.AppStore
 import org.mozilla.fenix.components.UseCases
+import org.mozilla.fenix.components.appstate.AppAction
 import org.mozilla.fenix.components.appstate.AppAction.SearchAction.SearchStarted
 import org.mozilla.fenix.components.appstate.SupportedMenuNotifications
 import org.mozilla.fenix.components.menu.MenuAccessPoint
@@ -106,7 +106,6 @@ internal sealed class PageOriginInteractions : BrowserToolbarEvent {
  * @param clipboard [ClipboardHandler] to use for reading from device's clipboard.
  * @param useCases [UseCases] helping this integrate with other features of the applications.
  * @param navController [NavController] to use for navigating to other in-app destinations.
- * @param browsingModeManager [BrowsingModeManager] for querying the current browsing mode.
  * @param settings [Settings] for accessing application settings.
  * @param isWideScreen Callback for checking if the screen is wide.
  * @param isTallScreen Callback for checking if the screen is tall.
@@ -120,7 +119,6 @@ class BrowserToolbarMiddleware(
     private val clipboard: ClipboardHandler,
     private val useCases: UseCases,
     private val navController: NavController,
-    private val browsingModeManager: BrowsingModeManager,
     private val settings: Settings,
     private val isWideScreen: () -> Boolean,
     private val isTallScreen: () -> Boolean,
@@ -177,7 +175,7 @@ class BrowserToolbarMiddleware(
                 navController.nav(
                     R.id.homeFragment,
                     NavGraphDirections.actionGlobalTabManagementFragment(
-                        page = when (browsingModeManager.mode) {
+                        page = when (appStore.state.mode) {
                             Normal -> Page.NormalTabs
                             Private -> Page.PrivateTabs
                         },
@@ -206,7 +204,7 @@ class BrowserToolbarMiddleware(
                     useCases.fenixBrowserUseCases.loadUrlOrSearch(
                         searchTermOrURL = it,
                         newTab = true,
-                        private = browsingModeManager.mode == Private,
+                        private = appStore.state.mode == Private,
                         searchEngine = reconcileSelectedEngine(),
                     )
                     navController.navigate(R.id.browserFragment)
@@ -224,7 +222,7 @@ class BrowserToolbarMiddleware(
         browsingMode: BrowsingMode? = null,
         searchTerms: String? = null,
     ) {
-        browsingMode?.let { browsingModeManager.mode = it }
+        browsingMode?.let { appStore.dispatch(AppAction.BrowsingModeManagerModeChanged(mode = it)) }
         store.dispatch(SearchQueryUpdated(BrowserToolbarQuery(searchTerms ?: "")))
         appStore.dispatch(SearchStarted())
     }
@@ -367,7 +365,7 @@ class BrowserToolbarMiddleware(
     }
 
     private fun buildTabCounterMenu(source: Source): CombinedEventAndMenu? {
-        val currentBrowsingMode = browsingModeManager.mode
+        val currentBrowsingMode = appStore.state.mode
 
         return CombinedEventAndMenu(TabCounterLongClicked(source)) {
             when (currentBrowsingMode) {
@@ -459,7 +457,7 @@ class BrowserToolbarMiddleware(
         source: Source = Source.Unknown,
     ): Action = when (action) {
         HomeToolbarAction.TabCounter -> {
-            val isInPrivateMode = browsingModeManager.mode.isPrivate
+            val isInPrivateMode = appStore.state.mode.isPrivate
             val tabsCount = browserStore.state.getNormalOrPrivateTabs(isInPrivateMode).size
 
             val tabCounterDescription = if (isInPrivateMode) {
@@ -504,12 +502,12 @@ class BrowserToolbarMiddleware(
 
         HomeToolbarAction.NewTab -> ActionButtonRes(
             drawableResId = iconsR.drawable.mozac_ic_plus_24,
-            contentDescription = if (browsingModeManager.mode == Private) {
+            contentDescription = if (appStore.state.mode == Private) {
                 R.string.home_screen_shortcut_open_new_private_tab_2
             } else {
                 R.string.home_screen_shortcut_open_new_tab_2
             },
-            onClick = if (browsingModeManager.mode == Private) {
+            onClick = if (appStore.state.mode == Private) {
                 AddNewPrivateTab(source)
             } else {
                 AddNewTab(source)

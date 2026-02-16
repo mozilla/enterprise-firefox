@@ -3,6 +3,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
+
+/**
+ * @import {SmartbarInput} from "chrome://browser/content/urlbar/SmartbarInput.mjs"
+ */
+
 import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
 export const AIWINDOW_URL = "chrome://browser/content/aiwindow/aiWindow.html";
@@ -443,7 +448,7 @@ export const AIWindow = {
       policyContainer: null,
       engine,
       searchUrlType: null,
-      sapSource: "aiwindow_assistant",
+      sapSource: "smartwindow_assistant",
     });
   },
 
@@ -583,10 +588,7 @@ export const AIWindow = {
     }
 
     /* any URL that should have the immersive view */
-    const validImmersiveURIs = [FIRSTRUN_URI, AIWINDOW_URI];
-    const isImmersiveView = validImmersiveURIs.some(uri =>
-      uri.equalsExceptRef(currentURI)
-    );
+    const isImmersiveView = this.shouldUseImmersiveView(currentURI);
 
     root.toggleAttribute("hide-ai-sidebar", isImmersiveView);
 
@@ -608,6 +610,38 @@ export const AIWindow = {
     } else {
       selectedTab?.removeAttribute("tabindex");
     }
+  },
+
+  immersiveViewURIs: [FIRSTRUN_URI, AIWINDOW_URI],
+  /**
+   * Whether the URI should trigger immersive view (hiding the address bar and disabling tabs)
+   *
+   * @param {nsIURI} uri
+   */
+  shouldUseImmersiveView(uri) {
+    return (
+      !!uri &&
+      this.immersiveViewURIs.some(immersiveURI =>
+        immersiveURI.equalsExceptRef(uri)
+      )
+    );
+  },
+
+  /**
+   * Optimistically try to get the smartbar for the currently selected
+   * browser in the window.
+   *
+   * @param {Window} window
+   * @returns {SmartbarInput | null}
+   */
+  getSmartbarForWindow(window) {
+    // In principle we could be called when some other tab is loaded, even in
+    // a remote process, which means contentDocument would be null.
+    // Even if we _do_ have aiWindow.html loaded, the smartbar might not be in
+    // the DOM yet (it gets constructed lazily) - hence the nullchecks.
+    let { contentDocument } = window.gBrowser.selectedBrowser;
+    let aiWindowCE = contentDocument?.querySelector("ai-window");
+    return aiWindowCE?.shadowRoot.getElementById("ai-window-smartbar");
   },
 };
 

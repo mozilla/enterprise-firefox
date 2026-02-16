@@ -533,7 +533,7 @@ export class LoginDataSource extends DataSourceBase {
     }
 
     if (confirmed) {
-      Services.logins.removeAllLogins();
+      await Services.logins.removeAllLoginsAsync();
       this.setNotification({
         id: "delete-login-success",
         l10nArgs: { total },

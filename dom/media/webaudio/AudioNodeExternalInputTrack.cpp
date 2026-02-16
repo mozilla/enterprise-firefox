@@ -234,7 +234,6 @@ bool AudioNodeExternalInputTrack::IsEnabled() {
 void AudioNodeExternalInputTrack::SetVolume(float aVolume) {
   MOZ_ASSERT(NS_IsMainThread());
   LOG("Set volume %f", aVolume);
-  mVolume = aVolume;
   QueueControlMessageWithNoShutdown([self = RefPtr{this}, this, aVolume] {
     LOG("Apply volume %f", aVolume);
     mVolume = aVolume;

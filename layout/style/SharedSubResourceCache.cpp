@@ -7,6 +7,7 @@
 #include "SharedSubResourceCache.h"
 
 #include "mozilla/RefPtr.h"
+#include "mozilla/Services.h"
 #include "mozilla/UniquePtr.h"
 #include "mozilla/dom/CacheablePerformanceTimingData.h"
 #include "mozilla/dom/Document.h"
@@ -19,6 +20,8 @@
 #include "nsDOMNavigationTiming.h"
 #include "nsHttpResponseHead.h"
 #include "nsIHttpChannel.h"
+#include "nsIObserver.h"
+#include "nsIObserverService.h"
 #include "nsIRequest.h"
 #include "nsITimedChannel.h"
 #include "nsPIDOMWindow.h"
@@ -27,6 +30,24 @@
 namespace mozilla {
 
 namespace SharedSubResourceCacheUtils {
+
+void AddMemoryPressureObserver(nsIObserver* aObserver) {
+  nsCOMPtr<nsIObserverService> obsService = services::GetObserverService();
+  if (!obsService) {
+    return;
+  }
+  obsService->AddObserver(aObserver, "memory-pressure", false);
+  obsService->AddObserver(aObserver, "memory-pressure-stop", false);
+}
+
+void RemoveMemoryPressureObserver(nsIObserver* aObserver) {
+  nsCOMPtr<nsIObserverService> obsService = services::GetObserverService();
+  if (!obsService) {
+    return;
+  }
+  obsService->RemoveObserver(aObserver, "memory-pressure");
+  obsService->RemoveObserver(aObserver, "memory-pressure-stop");
+}
 
 void AddPerformanceEntryForCache(
     const nsString& aEntryName, const nsString& aInitiatorType,

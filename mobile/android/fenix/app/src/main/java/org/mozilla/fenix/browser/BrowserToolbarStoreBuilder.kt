@@ -19,7 +19,6 @@ import mozilla.components.compose.browser.toolbar.store.BrowserToolbarStore
 import mozilla.components.compose.browser.toolbar.store.DisplayState
 import mozilla.components.lib.state.helpers.StoreProvider.Companion.fragmentStore
 import org.mozilla.fenix.R
-import org.mozilla.fenix.browser.browsingmode.BrowsingModeManager
 import org.mozilla.fenix.browser.readermode.ReaderModeController
 import org.mozilla.fenix.browser.store.BrowserScreenStore
 import org.mozilla.fenix.components.AppStore
@@ -49,7 +48,6 @@ object BrowserToolbarStoreBuilder {
      * @param browserScreenStore [BrowserScreenStore] used for integration with other browser screen functionalities.
      * @param browserStore [BrowserStore] used for observing the browsing details.
      * @param components [Components] allowing interactions with other application features.
-     * @param browsingModeManager [BrowsingModeManager] for querying the current browsing mode.
      * @param browserAnimator Helper for animating the browser content when navigating to other screens.
      * @param thumbnailsFeature [BrowserThumbnails] for requesting screenshots of the current tab.
      * @param readerModeController [ReaderModeController] for managing the reader mode.
@@ -65,7 +63,6 @@ object BrowserToolbarStoreBuilder {
         browserScreenStore: BrowserScreenStore,
         browserStore: BrowserStore,
         components: Components,
-        browsingModeManager: BrowsingModeManager,
         browserAnimator: BrowserAnimator,
         thumbnailsFeature: () -> BrowserThumbnails?,
         readerModeController: ReaderModeController,
@@ -104,7 +101,6 @@ object BrowserToolbarStoreBuilder {
                         publicSuffixList = components.publicSuffixList,
                         settings = settings,
                         navController = navController,
-                        browsingModeManager = browsingModeManager,
                         readerModeController = readerModeController,
                         browserAnimator = browserAnimator,
                         thumbnailsFeature = thumbnailsFeature,
@@ -114,7 +110,6 @@ object BrowserToolbarStoreBuilder {
                     ),
                     BrowserToolbarSearchStatusSyncMiddleware(
                         appStore = appStore,
-                        browsingModeManager = browsingModeManager,
                         scope = lifecycleScope,
                     ),
                     BrowserToolbarSearchMiddleware(
@@ -123,7 +118,6 @@ object BrowserToolbarStoreBuilder {
                         browserStore = browserStore,
                         components = components,
                         navController = navController,
-                        browsingModeManager = browsingModeManager,
                         settings = settings,
                         scope = lifecycleScope,
                     ),

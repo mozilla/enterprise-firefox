@@ -518,6 +518,8 @@ skip-if = [
   "http3",
 ]
 
+["test_ext_tabs_splitViewId.html"]
+
 ["test_ext_test.html"]
 skip-if = [
   "http2",

@@ -20,7 +20,6 @@ l10n:
     # and also not relevant to this linter
     exclude:
         - browser/locales/en-US/firefox-l10n.js
-        - mobile/android/locales/en-US/mobile-l10n.js
         - toolkit/locales/en-US/chrome/global/intl.css
     l10n_configs:
         - browser/locales/l10n.toml

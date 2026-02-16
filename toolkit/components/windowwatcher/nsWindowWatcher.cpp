@@ -608,6 +608,16 @@ nsWindowWatcher::OpenWindowWithRemoteTab(
     return NS_ERROR_UNEXPECTED;
   }
 
+  if (chromeFlags & nsIWebBrowserChrome::CHROME_DOCUMENT_PIP) {
+    RefPtr<BrowserHost> newBrowserHost = BrowserHost::GetFrom(newBrowserParent);
+    RefPtr<Element> rootElement =
+        newBrowserHost->GetOwnerElement()->OwnerDoc()->GetRootElement();
+    if (aFeatures.Exists("disallow_return_to_opener")) {
+      rootElement->SetAttribute(u"disallowReturnToOpener"_ns, u""_ns,
+                                IgnoreErrors());
+    }
+  }
+
   newBrowserParent.forget(aResult);
   return NS_OK;
 #endif

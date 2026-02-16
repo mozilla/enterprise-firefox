@@ -178,10 +178,14 @@ already_AddRefed<EncodedAudioChunk> EncodedAudioChunk::Constructor(
         return buf;
       });
 
+  if (aRv.Failed()) {
+    return nullptr;
+  }
+
   RefPtr<EncodedAudioChunk> chunk(new EncodedAudioChunk(
       global, buffer.forget(), aInit.mType, aInit.mTimestamp,
       OptionalToMaybe(aInit.mDuration)));
-  return aRv.Failed() ? nullptr : chunk.forget();
+  return chunk.forget();
 }
 
 EncodedAudioChunkType EncodedAudioChunk::Type() const {

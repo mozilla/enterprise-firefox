@@ -61,6 +61,14 @@ add_task(function test_consumeStreamChunk_multiple_tokens_one_chunk() {
   ]);
 });
 
+add_task(function test_consumeStreamChunk_followup_token() {
+  const state = createParserState();
+
+  const r = consumeStreamChunk("Reply §followup: Summarize this§ done.", state);
+  Assert.equal(r.plainText, "Reply  done.");
+  Assert.deepEqual(r.tokens, [{ key: "followup", value: "Summarize this" }]);
+});
+
 add_task(function test_consumeStreamChunk_unknown_key_is_literal_text() {
   const state = createParserState();
 

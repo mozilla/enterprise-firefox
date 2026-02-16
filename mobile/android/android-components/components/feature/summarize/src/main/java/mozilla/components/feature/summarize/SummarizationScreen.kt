@@ -38,9 +38,12 @@ private const val DRAG_HANDLE_CORNER_RATIO = 50
  * Composable function that renders the summarized text of a webpage.
  **/
 @Composable
-fun SummarizationUi() {
+fun SummarizationUi(
+    productName: String,
+) {
     SummarizationScreen(
         modifier = Modifier.fillMaxWidth(),
+        productName = productName,
         store = SummarizationStore(
             initialState = SummarizationState(
                 pageSummarizationState = PageSummarizationState.Inert,
@@ -53,6 +56,7 @@ fun SummarizationUi() {
 
 @Composable
 private fun SummarizationScreen(
+    productName: String,
     modifier: Modifier = Modifier,
     store: SummarizationStore,
 ) {
@@ -64,6 +68,7 @@ private fun SummarizationScreen(
             is PageSummarizationState.WaitingForConsent,
                 -> {
                 SummarizationConsent(
+                    productName = productName,
                     dispatchAction = {
                         store.dispatch(it)
                     },
@@ -140,6 +145,7 @@ private fun SummarizationScreenPreview(
     @PreviewParameter(SummarizationStatePreviewProvider::class) state: SummarizationState,
 ) {
     SummarizationScreen(
+        productName = "FenixPreview",
         store = SummarizationStore(
             initialState = state,
             reducer = ::summarizationReducer,

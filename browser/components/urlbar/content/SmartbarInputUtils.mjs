@@ -81,6 +81,27 @@ const getAnchorPos = (range, view) => {
 };
 
 /**
+ * Setup context button to show mentions panel.
+ *
+ * @param {HTMLElement} container - The urlbar input container
+ * @param {SuggestionsPanelList} panelList - The panel list component
+ */
+function setupContextMentionsButton(container, panelList) {
+  const smartbarRoot = container.parentElement;
+  const contextButton = smartbarRoot.querySelector("context-icon-button");
+
+  contextButton.addEventListener("aiwindow-context-button:on-click", () => {
+    const contextMentionSearch = new lazy.SmartbarMentionsPanelSearch(
+      // @ts-ignore topChromeWindow global
+      window.browsingContext.topChromeWindow
+    );
+    panelList.anchor = contextButton;
+    panelList.groups = getMentionSuggestions(contextMentionSearch, "");
+    panelList.toggle();
+  });
+}
+
+/**
  * Mentions plugin setup for the editor.
  *
  * @param {MultilineEditor} editorElement - The editor element
@@ -161,14 +182,18 @@ function setupMentionsPlugin(editorElement, panelList) {
 
   const handleItemSelected = e => {
     const { id, label } = e.detail;
+
     plugin.mentions.insert(
       {
         type: "tab",
         id,
         label,
       },
-      latestMentionData.range.from,
-      latestMentionData.range.to
+      // TODO (Bug 2011266): Falls back to inserting at the start of the editor.
+      // If the mention has been triggered inline by typing “@” we are going to
+      // add the mention to the context header instead.
+      latestMentionData?.range.from ?? 0,
+      latestMentionData?.range.to ?? 1
     );
   };
 
@@ -251,6 +276,8 @@ export function createEditor(inputElement) {
 
   const mentionsPlugin = setupMentionsPlugin(editorElement, panelList);
   editorElement.plugins = [mentionsPlugin];
+
+  setupContextMentionsButton(/** @type {HTMLElement} */ (container), panelList);
 
   return {
     input: editorElement,

@@ -172,6 +172,14 @@ testRule({
       code: ".a { inset-inline-start: 0.5em; }",
       description: "Using em unit in inset-inline-start property is valid.",
     },
+    {
+      code: `
+        :root { --custom-size: var(--dimension-16); }
+        .a { inset-inline-start: var(--custom-size); }
+      `,
+      description:
+        "Using a local variable that resolves to a dimension token is valid.",
+    },
   ],
   reject: [
     {
@@ -223,6 +231,12 @@ testRule({
       ),
       description:
         "Consider using a size design token instead of using a pixel value. This may be fixable by running the same command again with --fix.",
+    },
+    {
+      code: ".a { width: var(--dimension-16); }",
+      unfixable: true,
+      message: messages.rejected("var(--dimension-16)", ["size", "icon-size"]),
+      description: "Dimension tokens should not be used directly.",
     },
     {
       code: ".a { inset: 1rem; }",

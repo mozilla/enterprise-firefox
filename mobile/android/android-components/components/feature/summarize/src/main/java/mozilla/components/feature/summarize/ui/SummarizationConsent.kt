@@ -34,6 +34,7 @@ import mozilla.components.feature.summarize.SummarizationAction.ConsentAction
  */
 @Composable
 internal fun SummarizationConsent(
+    productName: String,
     modifier: Modifier = Modifier,
     dispatchAction: (SummarizationAction) -> Unit = {},
 ) {
@@ -41,6 +42,7 @@ internal fun SummarizationConsent(
     //  an on-device permission or remote permission.
     OnDeviceSummarizerConsent(
         modifier = modifier,
+        productName = productName,
         onClickAllow = {
             dispatchAction(ConsentAction.AllowClicked)
         },
@@ -52,12 +54,13 @@ internal fun SummarizationConsent(
 
 @Composable
 private fun OnDeviceSummarizerConsent(
+    productName: String,
     modifier: Modifier,
     onClickAllow: () -> Unit,
     onClickCancel: () -> Unit,
 ) {
     Column(modifier) {
-        OnDeviceSummarizerContent()
+        OnDeviceSummarizerContent(productName)
         Spacer(modifier = Modifier.height(AcornTheme.layout.space.static300))
         OnDeviceSummarizerButtons(
             onClickAllow = onClickAllow,
@@ -67,7 +70,10 @@ private fun OnDeviceSummarizerConsent(
 }
 
 @Composable
-private fun OnDeviceSummarizerContent(modifier: Modifier = Modifier) {
+private fun OnDeviceSummarizerContent(
+    productName: String,
+    modifier: Modifier = Modifier,
+) {
     Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
             text = stringResource(R.string.mozac_summarize_consent_title),
@@ -77,7 +83,7 @@ private fun OnDeviceSummarizerContent(modifier: Modifier = Modifier) {
         )
         Spacer(modifier = Modifier.height(AcornTheme.layout.space.static100))
         Text(
-            text = stringResource(R.string.mozac_summarize_consent_message_on_device),
+            text = stringResource(R.string.mozac_summarize_consent_message_on_device, productName),
             style = AcornTheme.typography.body2,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
@@ -121,7 +127,7 @@ private fun PreviewSummarizationConsent() = AcornTheme {
                 .fillMaxSize(),
             contentAlignment = Alignment.Center,
         ) {
-            SummarizationConsent()
+            SummarizationConsent(productName = "FenixPreview")
         }
     }
 }

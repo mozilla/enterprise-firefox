@@ -100,29 +100,33 @@ Maybe<UrlPatternComponentResult> ComponentMatches(
     UrlPatternComponentPtr* aComponentPtr, nsACString& aInput,
     bool aMatchOnly) {
   UrlPatternComponentResult res;
-  nsAutoCString regexpString;
-  urlpattern_component_get_regexp_string(aComponentPtr, &regexpString);
-  if (regexpString == "^$") {  // empty string
+  // if a component's regexp is empty then we can skip prefix/suffix parsing,
+  // any capture or regexp logic and group list building
+  // and simply match on the empty string
+  if (urlpattern_component_is_regexp_string_empty(aComponentPtr)) {
     if (aInput != "") {
       return Nothing();
     }
-  } else {  // check deeper match
+  } else {  // non-empty regexp requires deeper matching and group population
     nsTArray<MaybeString> matches;
-
     if (!urlpattern_component_matches(aComponentPtr, &aInput, aMatchOnly,
                                       &matches)) {
       return Nothing();
     }
 
+    // if we are only doing a pattern.test(), then we don't need the
+    // ComponentResults (groups and input) to be fully populated,
+    // we just need to know they exist. so we can cut out early
+    if (aMatchOnly) {
+      return Some(res);
+    }
+
     nsTArray<nsCString> groupNames;
     urlpattern_component_get_group_name_list(aComponentPtr, &groupNames);
-
     for (size_t i = 0; i < matches.Length(); i++) {
       // Insert all capture groups, both matched and unmatched
       // The valid flag will be used later to set undefined vs string value
-      nsAutoCString key;
-      key.Assign(groupNames[i]);
-      res.mGroups.InsertOrUpdate(key, matches[i]);
+      res.mGroups.InsertOrUpdate(groupNames[i], std::move(matches[i]));
     }
   }
   res.mInput = aInput;

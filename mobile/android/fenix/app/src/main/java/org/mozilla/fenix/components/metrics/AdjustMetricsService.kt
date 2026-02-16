@@ -50,11 +50,6 @@ class AdjustMetricsService(
                 return@launch
             }
 
-            if (alreadyKnown(settings)) {
-                logger.info("Attribution already retrieved")
-                return@launch
-            }
-
             System.setProperty(ADJUST_PREINSTALL_SYSTEM_PROPERTY_PATH, "/preload/etc/adjust.preinstall")
 
             val config = AdjustConfig(
@@ -73,29 +68,32 @@ class AdjustMetricsService(
                 config.enableCoppaCompliance()
             }
 
-            val timerId = AdjustAttribution.adjustAttributionTime.start()
-            config.setOnAttributionChangedListener {
-                AdjustAttribution.adjustAttributionTime.stopAndAccumulate(timerId)
+            if (!alreadyKnown(settings)) {
+                val timerId = AdjustAttribution.adjustAttributionTime.start()
 
-                if (!it.network.isNullOrEmpty()) {
-                    settings.adjustNetwork = it.network
-                    AdjustAttribution.network.set(it.network)
-                }
-                if (!it.adgroup.isNullOrEmpty()) {
-                    settings.adjustAdGroup = it.adgroup
-                    AdjustAttribution.adgroup.set(it.adgroup)
-                }
-                if (!it.creative.isNullOrEmpty()) {
-                    settings.adjustCreative = it.creative
-                    AdjustAttribution.creative.set(it.creative)
-                }
-                if (!it.campaign.isNullOrEmpty()) {
-                    settings.adjustCampaignId = it.campaign
-                    AdjustAttribution.campaign.set(it.campaign)
-                }
+                config.setOnAttributionChangedListener {
+                    AdjustAttribution.adjustAttributionTime.stopAndAccumulate(timerId)
 
-                triggerPing()
-                logger.info("Trigger ping")
+                    if (!it.network.isNullOrEmpty()) {
+                        settings.adjustNetwork = it.network
+                        AdjustAttribution.network.set(it.network)
+                    }
+                    if (!it.adgroup.isNullOrEmpty()) {
+                        settings.adjustAdGroup = it.adgroup
+                        AdjustAttribution.adgroup.set(it.adgroup)
+                    }
+                    if (!it.creative.isNullOrEmpty()) {
+                        settings.adjustCreative = it.creative
+                        AdjustAttribution.creative.set(it.creative)
+                    }
+                    if (!it.campaign.isNullOrEmpty()) {
+                        settings.adjustCampaignId = it.campaign
+                        AdjustAttribution.campaign.set(it.campaign)
+                    }
+
+                    triggerPing()
+                    logger.info("Trigger ping")
+                }
             }
 
             config.setLogLevel(LogLevel.SUPPRESS)

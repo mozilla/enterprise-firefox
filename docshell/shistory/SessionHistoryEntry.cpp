@@ -601,7 +601,15 @@ SessionHistoryEntry::GetTitle(nsAString& aTitle) {
 
 NS_IMETHODIMP
 SessionHistoryEntry::SetTitle(const nsAString& aTitle) {
+  if (aTitle.Equals(mInfo->GetTitle())) {
+    return NS_OK;
+  }
+
   mInfo->SetTitle(aTitle);
+  if (nsCOMPtr<nsISHistory> sHistory =
+          do_QueryReferent(SharedInfo()->mSHistory)) {
+    sHistory->NotifyOnEntryTitleUpdated(this);
+  }
   return NS_OK;
 }
 

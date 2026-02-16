@@ -262,7 +262,6 @@ class nsWindow final : public nsIWidget {
   bool IsTopLevel();
 
   void ConfigureAPZControllerThread() override;
-  void DispatchHitTest(const mozilla::WidgetTouchEvent& aEvent);
 
   already_AddRefed<GeckoContentController> CreateRootContentController()
       override;

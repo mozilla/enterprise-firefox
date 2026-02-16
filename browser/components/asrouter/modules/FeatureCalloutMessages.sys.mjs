@@ -277,6 +277,88 @@ const MESSAGES = () => {
       skip_in_tests: "it's not tested in automation",
     },
     {
+      id: "IP_PROTECTION_BANDWIDTH_RESET_CALLOUT",
+      template: "feature_callout",
+      groups: [],
+      content: {
+        id: "IP_PROTECTION_BANDWIDTH_RESET_CALLOUT",
+        template: "multistage",
+        backdrop: "transparent",
+        transitions: false,
+        disableHistoryUpdates: true,
+        screens: [
+          {
+            id: "IP_PROTECTION_BANDWIDTH_RESET_CALLOUT",
+            anchors: [
+              {
+                selector: "#ipprotection-button",
+                panel_position: {
+                  anchor_attachment: "bottomcenter",
+                  callout_attachment: "topright",
+                },
+                no_open_on_anchor: true,
+              },
+            ],
+            content: {
+              position: "callout",
+              autohide: true,
+              width: "352px",
+              padding: 16,
+              logo: {
+                imageURL:
+                  "chrome://browser/content/ipprotection/assets/cfr-vpn-bandwith-reset-light.svg",
+                darkModeImageURL:
+                  "chrome://browser/content/ipprotection/assets/cfr-vpn-bandwith-reset-dark.svg",
+                height: "175px",
+                width: "320px",
+              },
+              title: {
+                string_id: "ipprotection-bandwidth-reset-title",
+                args: {
+                  maxUsage: "50",
+                },
+                fontSize: "0.8125em",
+                marginInline: "0 25px",
+              },
+              above_button_content: [
+                {
+                  type: "text",
+                  text: {
+                    string_id: "ipprotection-bandwidth-reset-text",
+                    textAlign: "start",
+                    fontSize: "0.8125em",
+                    marginBlock: "-4px 0",
+                  },
+                },
+              ],
+              primary_button: {
+                label: {
+                  string_id: "ipprotection-bandwidth-reset-button",
+                  fontSize: "0.8125em",
+                  paddingBlock: "3px",
+                  paddingInline: "14px",
+                  lineHeight: "24px",
+                },
+                action: {
+                  dismiss: true,
+                },
+              },
+            },
+          },
+        ],
+      },
+      targeting:
+        "'browser.ipProtection.bandwidthThreshold' | preferenceValue == 0 && 'browser.ipProtection.userEnableCount' | preferenceValue > 0 && !hasActiveEnterprisePolicies && !activeNotifications && previousSessionEnd",
+      trigger: {
+        id: "preferenceObserver",
+        params: ["browser.ipProtection.bandwidthThreshold"],
+      },
+      frequency: {
+        lifetime: 2,
+      },
+      skip_in_tests: "it's not tested in automation",
+    },
+    {
       id: "TAB_GROUP_ONBOARDING_CALLOUT",
       template: "feature_callout",
       groups: ["cfr"],

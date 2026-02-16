@@ -1815,7 +1815,7 @@
     "interventions": [
       {
         "platforms": ["desktop"],
-        "only_channels": ["nightly"],
+        "only_channels": ["nightly", "beta"],
         "ua_string": ["Chrome"]
       }
     ]
@@ -5570,6 +5570,21 @@
       }
     ]
   },
+  "1988133": {
+    "label": "labs-aws.popcap.com/facebook/bj2",
+    "bugs": {
+      "1988133": {
+        "issue": "page-fails-to-load",
+        "matches": ["*://labs-aws.popcap.com/facebook/bj2/*"]
+      }
+    },
+    "interventions": [
+      {
+        "platforms": ["desktop"],
+        "ua_string": ["add_Chrome"]
+      }
+    ]
+  },
   "1989241": {
     "label": "useinsider.com",
     "bugs": {
@@ -6101,6 +6116,22 @@
         "content_scripts": {
           "css": ["bug2005520-portal.adtpulse.com-hide-unsupported.css"]
         }
+      }
+    ]
+  },
+  "2010794": {
+    "label": "ipn2.paymentus.com",
+    "bugs": {
+      "2005520": {
+        "issue": "page-fails-to-load",
+        "blocks": [
+          { "url": "*://ipn2.paymentus.com/rotp/vatx", "types": ["image"] }
+        ]
+      }
+    },
+    "interventions": [
+      {
+        "platforms": ["all"]
       }
     ]
   }

@@ -24,6 +24,7 @@ support-files = [
   "resources/service-workers/simple-unicode.html",
   "resources/session-history/index.html",
   "resources/session-history/iframe.html",
+  "resources/session-history/index_with_title.html",
   "!/devtools/client/debugger/test/mochitest/shared-head.js",
   "!/devtools/client/shared/test/shared-head.js",
   "!/devtools/client/shared/test/telemetry-test-helpers.js",

@@ -695,7 +695,7 @@ void TISInputSourceWrapper::InitByInputSourceID(const CFStringRef aID) {
 
 void TISInputSourceWrapper::InitByLayoutID(SInt32 aLayoutID,
                                            bool aOverrideKeyboard) {
-  // NOTE: Doument new layout IDs in TextInputHandler.h when you add ones.
+  // NOTE: Document new layout IDs in TextInputHandler.h when you add ones.
   switch (aLayoutID) {
     case 0:
       InitByInputSourceID("com.apple.keylayout.US");
@@ -927,7 +927,7 @@ void TISInputSourceWrapper::Select() {
 }
 
 void TISInputSourceWrapper::Clear() {
-  // Clear() is always called when TISInputSourceWrappper is created.
+  // Clear() is always called when TISInputSourceWrapper is created.
   EnsureToLogAllKeyboardLayoutsAndIMEs();
 
   if (mInputSourceList) {
@@ -1064,7 +1064,7 @@ void TISInputSourceWrapper::InitKeyEvent(NSEvent* aNativeKeyEvent,
   NS_OBJC_BEGIN_TRY_IGNORE_BLOCK;
 
   MOZ_ASSERT(!aIsProcessedByIME || aKeyEvent.mMessage != eKeyPress,
-             "eKeyPress event should not be marked as proccessed by IME");
+             "eKeyPress event should not be marked as processed by IME");
 
   MOZ_LOG(gKeyLog, LogLevel::Info,
           ("%p TISInputSourceWrapper::InitKeyEvent, aNativeKeyEvent=%p, "
@@ -1292,7 +1292,7 @@ void TISInputSourceWrapper::WillDispatchKeyboardEvent(
            this, aKeyEvent.mKeyCode, aKeyEvent.mCharCode));
 
   // If aInsertString is not nullptr (it means InsertText() is called)
-  // and it acutally inputs a character, we don't need to append alternative
+  // and it actually inputs a character, we don't need to append alternative
   // charCode values since such keyboard event shouldn't be handled as
   // a shortcut key.
   if (aInsertString && charCode) {
@@ -2773,7 +2773,7 @@ bool TextInputHandler::HandleCommand(Command aCommand) {
   WidgetKeyboardEvent keydownEvent(true, eKeyDown, widget);
   WidgetKeyboardEvent keypressEvent(true, eKeyPress, widget);
   if (!dispatchFakeKeyPress) {
-    // If we're acutally handling a key press, we should dispatch
+    // If we're actually handling a key press, we should dispatch
     // the keypress event as-is.
     currentKeyEvent->InitKeyEvent(this, keydownEvent, false);
     currentKeyEvent->InitKeyEvent(this, keypressEvent, false);
@@ -4683,6 +4683,10 @@ IMEInputHandler::~IMEInputHandler() {
   if (sFocusedIMEHandler == this) {
     sFocusedIMEHandler = nullptr;
   }
+  if (mCandidatedTextSubstitutionResult) {
+    [mCandidatedTextSubstitutionResult release];
+    mCandidatedTextSubstitutionResult = nullptr;
+  }
   if (mIMECompositionString) {
     [mIMECompositionString release];
     mIMECompositionString = nullptr;
@@ -5194,6 +5198,7 @@ void IMEInputHandler::OnTextSubstitution(uint32_t aStartOffset) {
   // NSTextCheckingResult.range is read only, so re-create this result object.
   NSRange candidatedRange = NSMakeRange(candidate.range.location + startFetch,
                                         candidate.range.length);
+  [mCandidatedTextSubstitutionResult release];
   mCandidatedTextSubstitutionResult = [[NSTextCheckingResult
       correctionCheckingResultWithRange:candidatedRange
                       replacementString:candidate.replacementString
@@ -5529,7 +5534,7 @@ TextInputHandlerBase::AttachNativeKeyEvent(WidgetKeyboardEvent& aKeyEvent) {
 
   NSInteger windowNumber = [[mView window] windowNumber];
   NSGraphicsContext* context = [NSGraphicsContext currentContext];
-  aKeyEvent.mNativeKeyEvent = nsCocoaUtils::MakeNewCococaEventFromWidgetEvent(
+  aKeyEvent.mNativeKeyEvent = nsCocoaUtils::MakeNewCocoaEventFromWidgetEvent(
       aKeyEvent, windowNumber, context);
 
   return NS_OK;

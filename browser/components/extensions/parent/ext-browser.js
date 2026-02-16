@@ -933,6 +933,11 @@ class Tab extends TabBase {
     return group ? getExtTabGroupIdForInternalTabGroupId(group.id) : -1;
   }
 
+  get splitViewId() {
+    const { splitview } = this.nativeTab;
+    return splitview ? splitview.splitViewId : -1;
+  }
+
   /**
    * Converts session store data to an object compatible with the return value
    * of the convert() method, representing that data.

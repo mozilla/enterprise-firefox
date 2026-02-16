@@ -170,8 +170,41 @@ class SecretSettingsFragment : PreferenceFragmentCompat() {
             }
         }
 
+        requirePreference<SwitchPreference>(R.string.pref_key_search_optimization_feature).apply {
+            isVisible = Config.channel.isDebug
+            isChecked = context.settings().isSearchOptimizationEnabled
+            onPreferenceChangeListener = Preference.OnPreferenceChangeListener { _, newValue ->
+                (newValue as? Boolean)?.let { newOption ->
+                    context.settings().isSearchOptimizationEnabled = newOption
+                    requirePreference<SwitchPreference>(R.string.pref_key_search_optimization_stocks).apply {
+                        isEnabled = newOption
+                        summary = when (newOption) {
+                            true -> null
+                            false -> getString(R.string.preferences_debug_settings_search_optimization_stock_summary)
+                        }
+                        if (!newOption && isChecked) {
+                            isChecked = false
+                            context.settings().shouldShowSearchOptimizationStockCard = false
+                        }
+                    }
+                }
+                true
+            }
+        }
+
+        requirePreference<SwitchPreference>(R.string.pref_key_search_optimization_stocks).apply {
+            isVisible = Config.channel.isDebug
+            isEnabled = context.settings().isSearchOptimizationEnabled
+            isChecked = context.settings().shouldShowSearchOptimizationStockCard
+            summary = when (context.settings().isSearchOptimizationEnabled) {
+                true -> null
+                false -> getString(R.string.preferences_debug_settings_search_optimization_stock_summary)
+            }
+            onPreferenceChangeListener = SharedPreferenceUpdater()
+        }
+
         requirePreference<SwitchPreference>(R.string.pref_key_use_minimal_bottom_toolbar_while_entering_text).apply {
-            isVisible = Config.channel.isNightlyOrDebug
+            isVisible = false // disabled temporarily based on https://bugzilla.mozilla.org/show_bug.cgi?id=1943053#c31
             isEnabled = context.settings().shouldUseComposableToolbar
             isChecked = context.settings().shouldUseMinimalBottomToolbarWhenEnteringText
             summary = when (context.settings().shouldUseComposableToolbar) {

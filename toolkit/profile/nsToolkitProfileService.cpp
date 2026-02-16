@@ -346,7 +346,7 @@ nsToolkitProfile::SetRootDir(nsIFile* aRootDir) {
 
   // Finally, set the new paths on the local object.
   mRootDir = aRootDir;
-  mLocalDir = localDir;
+  mLocalDir = std::move(localDir);
 
   return NS_OK;
 }

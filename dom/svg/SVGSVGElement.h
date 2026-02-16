@@ -204,8 +204,12 @@ class SVGSVGElement final : public SVGSVGElementBase {
   // for all outermost <svg> elements (not nested <svg> elements).
   std::unique_ptr<SMILTimeContainer> mTimedDocumentRoot;
 
+  // mCurrentViewID and mSVGView are mutually exclusive.
+  nsString mCurrentViewID = VoidString();
+  std::unique_ptr<SVGView> mSVGView;
+
   SVGPoint mCurrentTranslate;
-  float mCurrentScale;
+  float mCurrentScale = 1.0f;
 
   enum { ZOOMANDPAN };
   SVGAnimatedEnumeration mEnumAttributes[1];
@@ -216,13 +220,9 @@ class SVGSVGElement final : public SVGSVGElementBase {
   // the onload event in accordance with the SVG spec, but for <svg> elements
   // created by script or promoted from inner <svg> to outermost <svg> we need
   // to manually kick off animation when they are bound to the tree.
-  bool mStartAnimationOnBindToTree;
+  bool mStartAnimationOnBindToTree : 1;
 
-  bool mImageNeedsTransformInvalidation;
-
-  // mCurrentViewID and mSVGView are mutually exclusive.
-  nsString mCurrentViewID = VoidString();
-  std::unique_ptr<SVGView> mSVGView;
+  bool mImageNeedsTransformInvalidation : 1 = false;
 };
 
 }  // namespace dom

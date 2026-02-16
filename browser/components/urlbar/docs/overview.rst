@@ -1,5 +1,7 @@
-Architecture Overview
-=====================
+.. _urlbar-architecture-overview:
+
+Address Bar Architecture
+========================
 
 The address bar is implemented as a *model-view-controller* (MVC) system. One of
 the scopes of this architecture is to allow easy replacement of its components,

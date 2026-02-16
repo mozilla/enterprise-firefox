@@ -944,31 +944,6 @@ int nr_ice_media_stream_get_active(nr_ice_peer_ctx *pctx, nr_ice_media_stream *s
     return(_status);
   }
 
-int nr_ice_media_stream_finalize(nr_ice_media_stream *lstr,nr_ice_media_stream *rstr)
-  {
-    nr_ice_component *lcomp,*rcomp;
-
-    r_log(LOG_ICE,LOG_DEBUG,"Finalizing media stream %s, peer=%s",lstr->label,
-      rstr?rstr->label:"NONE");
-
-    lcomp=STAILQ_FIRST(&lstr->components);
-    if(rstr)
-      rcomp=STAILQ_FIRST(&rstr->components);
-    else
-      rcomp=0;
-
-    while(lcomp){
-      nr_ice_component_finalize(lcomp,rcomp);
-
-      lcomp=STAILQ_NEXT(lcomp,entry);
-      if(rcomp){
-        rcomp=STAILQ_NEXT(rcomp,entry);
-      }
-    }
-
-    return(0);
-  }
-
 int nr_ice_media_stream_pair_new_trickle_candidate(nr_ice_peer_ctx *pctx, nr_ice_media_stream *pstream, nr_ice_candidate *cand)
   {
     int r,_status;

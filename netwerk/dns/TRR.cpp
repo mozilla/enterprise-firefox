@@ -393,7 +393,7 @@ nsresult TRR::SendHTTPRequest() {
       mTimeoutMs ? mTimeoutMs : TRRService::Get()->GetRequestTimeout(),
       nsITimer::TYPE_ONE_SHOT);
 
-  mChannel = channel;
+  mChannel = std::move(channel);
   return NS_OK;
 }
 

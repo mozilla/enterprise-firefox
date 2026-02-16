@@ -15,6 +15,9 @@ const { Chat } = ChromeUtils.importESModule(
 const { MemoryStore } = ChromeUtils.importESModule(
   "moz-src:///browser/components/aiwindow/services/MemoryStore.sys.mjs"
 );
+const { openAIEngine, MODEL_FEATURES } = ChromeUtils.importESModule(
+  "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs"
+);
 
 const { PlacesTestUtils } = ChromeUtils.importESModule(
   "resource://testing-common/PlacesTestUtils.sys.mjs"
@@ -44,8 +47,14 @@ add_task(async function test_chat_streams_end_to_end() {
       });
       conversation.addUserMessage("Please say hello", "https://example.com", 0);
 
+      // withServer sets up the mock HTTP server, so use the real engine
+      const engineInstance = await openAIEngine.build(MODEL_FEATURES.CHAT);
+
       let responseText = "";
-      for await (const chunk of Chat.fetchWithHistory(conversation)) {
+      for await (const chunk of Chat.fetchWithHistory(
+        conversation,
+        engineInstance
+      )) {
         if (typeof chunk === "string") {
           responseText += chunk;
         }
@@ -106,8 +115,13 @@ add_task(async function test_chat_tool_call_get_open_tabs() {
         });
         conversation.addUserMessage("List tabs", "https://example.com", 0);
 
+        const engineInstance = await openAIEngine.build(MODEL_FEATURES.CHAT);
+
         let responseText = "";
-        for await (const chunk of Chat.fetchWithHistory(conversation)) {
+        for await (const chunk of Chat.fetchWithHistory(
+          conversation,
+          engineInstance
+        )) {
           if (typeof chunk === "string") {
             responseText += chunk;
           }
@@ -166,8 +180,13 @@ add_task(async function test_chat_tool_call_search_browsing_history() {
         });
         conversation.addUserMessage("Search history", "https://example.com", 0);
 
+        const engineInstance = await openAIEngine.build(MODEL_FEATURES.CHAT);
+
         let responseText = "";
-        for await (const chunk of Chat.fetchWithHistory(conversation)) {
+        for await (const chunk of Chat.fetchWithHistory(
+          conversation,
+          engineInstance
+        )) {
           if (typeof chunk === "string") {
             responseText += chunk;
           }
@@ -220,8 +239,13 @@ add_task(async function test_chat_tool_call_get_page_content() {
         });
         conversation.addUserMessage("Read page", "https://example.com", 0);
 
+        const engineInstance = await openAIEngine.build(MODEL_FEATURES.CHAT);
+
         let responseText = "";
-        for await (const chunk of Chat.fetchWithHistory(conversation)) {
+        for await (const chunk of Chat.fetchWithHistory(
+          conversation,
+          engineInstance
+        )) {
           if (typeof chunk === "string") {
             responseText += chunk;
           }
@@ -303,8 +327,13 @@ add_task(async function test_chat_tool_call_get_user_memories() {
           0
         );
 
+        const engineInstance = await openAIEngine.build(MODEL_FEATURES.CHAT);
+
         let responseText = "";
-        for await (const chunk of Chat.fetchWithHistory(conversation)) {
+        for await (const chunk of Chat.fetchWithHistory(
+          conversation,
+          engineInstance
+        )) {
           if (typeof chunk === "string") {
             responseText += chunk;
           }

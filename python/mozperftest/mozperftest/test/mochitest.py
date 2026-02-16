@@ -3,6 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import json
 import os
+import sys
 from contextlib import redirect_stdout
 from pathlib import Path
 
@@ -295,6 +296,10 @@ class _Mochitest(Layer):
         log_processor = self._get_log_processor()
 
         with redirect_stdout(log_processor):
+            # Perftest calls mochitest in-process, so there's no mozharness
+            # layer to convert structured logs to TBPL. Request TBPL format
+            # explicitly so the log processor sees human-readable lines.
+            args.log_tbpl = [sys.stdout]
             if self.get_arg("android"):
                 result = runtestsremote.run_test_harness(parser, args)
             else:

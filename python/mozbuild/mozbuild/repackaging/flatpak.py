@@ -140,7 +140,7 @@ def repackage_flatpak(
 
         if product == "firefox":
             distribution_ini = lib_dir / "firefox" / "distribution" / "distribution.ini"
-            distribution_ini.parent.mkdir(parents=True)
+            distribution_ini.parent.mkdir(parents=True, exist_ok=True)
             _inject_flatpak_distribution_ini(log, distribution_ini)
 
         application_ini_data = application_ini_data_from_directory(str(lib_dir))

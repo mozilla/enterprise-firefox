@@ -35,6 +35,31 @@ export const CATEGORIES_LIST = [
   "Sports",
   "Travel & Transportation",
 ];
+export const CATEGORY_TO_ID_PREFIX = {
+  "Arts & Entertainment": "arts_entertainment",
+  "Autos & Vehicles": "vehicles",
+  "Beauty & Fitness": "beauty_fitness",
+  "Books & Literature": "books_literature",
+  "Business & Industrial": "business_industrial",
+  "Computers & Electronics": "computers_electronics",
+  "Food & Drink": "food_drink",
+  Games: "games",
+  "Hobbies & Leisure": "hobbies_leisure",
+  "Home & Garden": "home_garden",
+  "Internet & Telecom": "internet_telecom",
+  "Jobs & Education": "jobs_education",
+  "Law & Government": "law_government",
+  News: "news",
+  "Online Communities": "online_communities",
+  "People & Society": "people_society",
+  "Pets & Animals": "pets_animals",
+  "Real Estate": "real_estate",
+  Reference: "reference",
+  Science: "science",
+  Shopping: "shopping",
+  Sports: "sports",
+  "Travel & Transportation": "travel_transportation",
+};
 
 /**
  * Memory intents

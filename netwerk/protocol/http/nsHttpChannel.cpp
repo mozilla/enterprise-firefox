@@ -4740,7 +4740,7 @@ void nsHttpChannel::MaybeGenerateNELReport() {
   data.mFailures = 0;
   data.mCreationTime = TimeStamp::Now();
 
-  data.mPrincipal = channelPrincipal;
+  data.mPrincipal = std::move(channelPrincipal);
   data.mEndpointURL = endpointURL;
   data.mReportBodyJSON = body;
   nsAutoCString userAgent;

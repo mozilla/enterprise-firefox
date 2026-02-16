@@ -20,7 +20,6 @@ const RegisteredPropertyEditor = require("resource://devtools/client/inspector/r
 const TooltipsOverlay = require("resource://devtools/client/inspector/shared/tooltips-overlay.js");
 const {
   createChild,
-  promiseWarn,
 } = require("resource://devtools/client/inspector/shared/utils.js");
 const { debounce } = require("resource://devtools/shared/debounce.js");
 const EventEmitter = require("resource://devtools/shared/event-emitter.js");
@@ -721,11 +720,10 @@ class CssRuleView extends EventEmitter {
    * Context menu handler.
    */
   #onContextMenu = event => {
-    if (
-      event.originalTarget.closest("input[type=text]") ||
-      event.originalTarget.closest("input:not([type])") ||
-      event.originalTarget.closest("textarea")
-    ) {
+    const inInput = event.composedTarget.matches(
+      "input:is([type=text], [type=search], :not([type])), textarea"
+    );
+    if (inInput) {
       return;
     }
 
@@ -999,17 +997,6 @@ class CssRuleView extends EventEmitter {
     this.#clear();
 
     this.#dummyElement = null;
-    // off handlers must have the same reference as their on handlers
-    this.#prefObserver.off(PREF_UA_STYLES, this.#handleUAStylePrefChange);
-    this.#prefObserver.off(
-      PREF_DEFAULT_COLOR_UNIT,
-      this.#handleDefaultColorUnitPrefChange
-    );
-    this.#prefObserver.off(PREF_DRAGGABLE, this.#handleDraggablePrefChange);
-    this.#prefObserver.off(
-      PREF_INPLACE_EDITOR_FOCUS_NEXT_ON_ENTER,
-      this.#handleInplaceEditorFocusNextOnEnterPrefChange
-    );
     this.#prefObserver.destroy();
 
     this.outputParser = null;
@@ -1099,10 +1086,10 @@ class CssRuleView extends EventEmitter {
    * @param {boolean} allowRefresh
    *        Update the view even if the element is the same as last time.
    */
-  selectElement(element, allowRefresh = false) {
+  async selectElement(element, allowRefresh = false) {
     const refresh = this.viewedElement === element;
     if (refresh && !allowRefresh) {
-      return Promise.resolve(undefined);
+      return;
     }
 
     if (this.#popup && this.#popup.isOpen) {
@@ -1124,7 +1111,7 @@ class CssRuleView extends EventEmitter {
         this.pageStyle.off("stylesheet-updated", this.refreshPanel);
         this.pageStyle = null;
       }
-      return Promise.resolve(undefined);
+      return;
     }
 
     const isProfilerActive = Services.profiler?.IsActive();
@@ -1136,17 +1123,18 @@ class CssRuleView extends EventEmitter {
     // To figure out how shorthand properties are interpreted by the
     // engine, we will set properties on a dummy element and observe
     // how their .style attribute reflects them as computed values.
-    const dummyElementPromise = Promise.resolve(this.styleDocument)
-      .then(document => {
-        // ::before and ::after do not have a namespaceURI
-        const namespaceURI =
-          this.element.namespaceURI || document.documentElement.namespaceURI;
-        this.#dummyElement = document.createElementNS(
-          namespaceURI,
-          this.element.tagName
-        );
-      })
-      .catch(promiseWarn);
+    try {
+      // ::before and ::after do not have a namespaceURI
+      const namespaceURI =
+        this.element.namespaceURI ||
+        this.styleDocument.documentElement.namespaceURI;
+      this.#dummyElement = this.styleDocument.createElementNS(
+        namespaceURI,
+        this.element.tagName
+      );
+    } catch (e) {
+      console.error("Error while creating dummy element", e);
+    }
 
     const elementStyle = new ElementStyle(
       element,
@@ -1159,64 +1147,60 @@ class CssRuleView extends EventEmitter {
 
     this.#startSelectingElement();
 
-    return dummyElementPromise
-      .then(() => {
-        if (this.elementStyle === elementStyle) {
-          return this.#populate();
+    try {
+      // Bug 2016127: This is historical, but unfortunately breaks some tests if removed
+      await Promise.resolve(null);
+
+      await this.#populate();
+      if (this.elementStyle !== elementStyle) {
+        return;
+      }
+      if (!refresh) {
+        this.element.scrollTop = 0;
+      }
+      this.#stopSelectingElement();
+      this.elementStyle.onChanged = () => {
+        this.#onElementStyleChanged();
+      };
+      if (isProfilerActive && this.elementStyle.rules) {
+        let declarations = 0;
+        for (const rule of this.elementStyle.rules) {
+          declarations += rule.textProps.length;
         }
-        return undefined;
-      })
-      .then(() => {
-        if (this.elementStyle === elementStyle) {
-          if (!refresh) {
-            this.element.scrollTop = 0;
-          }
-          this.#stopSelectingElement();
-          this.elementStyle.onChanged = () => {
-            this.#onElementStyleChanged();
-          };
-        }
-        if (isProfilerActive && this.elementStyle.rules) {
-          let declarations = 0;
-          for (const rule of this.elementStyle.rules) {
-            declarations += rule.textProps.length;
-          }
-          ChromeUtils.addProfilerMarker(
-            "DevTools:CssRuleView.selectElement",
-            startTime,
-            `${declarations} CSS declarations in ${this.elementStyle.rules.length} rules`
-          );
-        }
-      })
-      .catch(e => {
-        if (this.elementStyle === elementStyle) {
-          this.#stopSelectingElement();
-          this.#clearRules();
-        }
-        console.error(e);
-      });
+        ChromeUtils.addProfilerMarker(
+          "DevTools:CssRuleView.selectElement",
+          startTime,
+          `${declarations} CSS declarations in ${this.elementStyle.rules.length} rules`
+        );
+      }
+    } catch (e) {
+      if (this.elementStyle === elementStyle) {
+        this.#stopSelectingElement();
+        this.#clearRules();
+      }
+      console.error("Error while updating the rule view", e);
+    }
   }
 
   /**
    * Update the rules for the currently highlighted element.
    */
-  refreshPanel() {
+  async refreshPanel() {
     // Ignore refreshes when the panel is hidden, or during editing or when no element is selected.
     if (!this.isPanelVisible() || this.isEditing || !this.elementStyle) {
-      return Promise.resolve(undefined);
+      return;
     }
 
     // Repopulate the element style once the current modifications are done.
     const promises = [];
     for (const rule of this.elementStyle.rules) {
-      if (rule._applyingModifications) {
-        promises.push(rule._applyingModifications);
+      if (rule.applyingModifications) {
+        promises.push(rule.applyingModifications);
       }
     }
 
-    return Promise.all(promises).then(() => {
-      return this.#populate();
-    });
+    await Promise.all(promises);
+    await this.#populate();
   }
 
   /**
@@ -1280,25 +1264,28 @@ class CssRuleView extends EventEmitter {
     });
   }
 
-  #populate() {
-    const elementStyle = this.elementStyle;
-    return this.elementStyle
-      .populate()
-      .then(() => {
-        if (this.elementStyle !== elementStyle || this.isDestroyed) {
-          return null;
-        }
+  async #populate() {
+    try {
+      const elementStyle = this.elementStyle;
 
-        this.#clearRules();
-        const onEditorsReady = this.#createEditors();
-        this.refreshPseudoClassPanel();
+      await this.elementStyle.populate();
 
-        // Notify anyone that cares that we refreshed.
-        return onEditorsReady.then(() => {
-          this.emit("ruleview-refreshed");
-        }, console.error);
-      })
-      .catch(promiseWarn);
+      if (this.elementStyle !== elementStyle || this.isDestroyed) {
+        return;
+      }
+
+      this.#clearRules();
+      const onEditorsReady = this.#createEditors();
+      this.refreshPseudoClassPanel();
+
+      await onEditorsReady;
+
+      // Notify anyone that cares that we refreshed.
+      this.inspector.emit("rule-view-refreshed");
+    } catch (e) {
+      console.error("Exception while populating the rule view", e);
+      throw e;
+    }
   }
 
   /**
@@ -2383,7 +2370,7 @@ class CssRuleView extends EventEmitter {
    * @param {string} scrollBehavior
    * @param {Element} elementToFocus
    */
-  #highlightElementInRule(rule, element, scrollBehavior, elementToFocus) {
+  async #highlightElementInRule(rule, element, scrollBehavior, elementToFocus) {
     if (rule) {
       this.#scrollToElement(rule.editor.selectorText, element, scrollBehavior);
     } else {
@@ -2397,9 +2384,8 @@ class CssRuleView extends EventEmitter {
       return;
     }
 
-    this.#flashElement(element).then(() =>
-      this.emitForTests("element-highlighted", element)
-    );
+    await this.#flashElement(element);
+    this.emitForTests("element-highlighted", element);
   }
 
   /**
@@ -2427,13 +2413,11 @@ class RuleViewTool {
     this.onPanelSelected = this.onPanelSelected.bind(this);
     this.onDetachedFront = this.onDetachedFront.bind(this);
     this.onSelected = this.onSelected.bind(this);
-    this.onViewRefreshed = this.onViewRefreshed.bind(this);
 
     this.#abortController = new window.AbortController();
     const { signal } = this.#abortController;
     const baseEventConfig = { signal };
 
-    this.view.on("ruleview-refreshed", this.onViewRefreshed, baseEventConfig);
     this.inspector.selection.on(
       "detached-front",
       this.onDetachedFront,
@@ -2520,36 +2504,39 @@ class RuleViewTool {
     this.onSelected(false);
   }
 
-  onSelected(selectElement = true) {
+  async onSelected(selectElement = true) {
     // Ignore the event if the view has been destroyed, or if it's inactive.
     // But only if the current selection isn't null. If it's been set to null,
     // let the update go through as this is needed to empty the view on
     // navigation.
     if (!this.view) {
-      return null;
+      return;
     }
 
     const isInactive =
       !this.isPanelVisible() && this.inspector.selection.nodeFront;
     if (isInactive) {
-      return null;
+      return;
     }
 
     if (
       !this.inspector.selection.isConnected() ||
       !this.inspector.selection.isElementNode()
     ) {
-      return this.view.selectElement(null);
+      this.view.selectElement(null);
+      return;
     }
 
     if (!selectElement) {
-      return null;
+      return;
     }
 
     const done = this.inspector.updating("rule-view");
-    return this.view
-      .selectElement(this.inspector.selection.nodeFront)
-      .then(done, done);
+    try {
+      await this.view.selectElement(this.inspector.selection.nodeFront);
+    } finally {
+      done();
+    }
   }
 
   refresh() {
@@ -2779,10 +2766,6 @@ class RuleViewTool {
     } else {
       this.onSelected();
     }
-  }
-
-  onViewRefreshed() {
-    this.inspector.emit("rule-view-refreshed");
   }
 
   destroy() {

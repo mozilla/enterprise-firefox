@@ -370,6 +370,8 @@ class KeyframeEffect : public AnimationEffect {
 
   bool HasOpacityChange() const { return mCumulativeChanges.mOpacity; }
 
+  double AnimationsPlayBackRateMultiplier() const;
+
  protected:
   ~KeyframeEffect() override = default;
 

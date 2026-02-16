@@ -10,6 +10,7 @@ ChromeUtils.defineESModuleGetters(this, {
   TaskbarTabsWindowManager:
     "resource:///modules/taskbartabs/TaskbarTabsWindowManager.sys.mjs",
   TaskbarTabsPin: "resource:///modules/taskbartabs/TaskbarTabsPin.sys.mjs",
+  TaskbarTabsUtils: "resource:///modules/taskbartabs/TaskbarTabsUtils.sys.mjs",
   ShellService: "moz-src:///browser/components/shell/ShellService.sys.mjs",
   sinon: "resource://testing-common/Sinon.sys.mjs",
   MockRegistrar: "resource://testing-common/MockRegistrar.sys.mjs",
@@ -81,7 +82,12 @@ async function testPinMetricCustom(aPinResult, aPinMessage = null) {
 
   gShortcutPinResult = aPinResult;
 
-  await TaskbarTabsPin.pinTaskbarTab(taskbarTab, gRegistry);
+  await TaskbarTabsPin.pinTaskbarTab(
+    taskbarTab,
+    gRegistry,
+    await TaskbarTabsUtils.getDefaultIcon()
+  );
+
   snapshot = Glean.webApp.pin.testGetValue();
   is(snapshot.length, 1, "A single pin event was recorded");
   Assert.strictEqual(

@@ -87,12 +87,9 @@ SVGSVGElement::SVGSVGElement(
     already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo,
     FromParser aFromParser)
     : SVGSVGElementBase(std::move(aNodeInfo)),
-      mCurrentTranslate(0.0f, 0.0f),
-      mCurrentScale(1.0f),
       mStartAnimationOnBindToTree(aFromParser == NOT_FROM_PARSER ||
                                   aFromParser == FROM_PARSER_FRAGMENT ||
-                                  aFromParser == FROM_PARSER_XSLT),
-      mImageNeedsTransformInvalidation(false) {}
+                                  aFromParser == FROM_PARSER_XSLT) {}
 
 //----------------------------------------------------------------------
 // nsINode methods

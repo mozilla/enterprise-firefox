@@ -80,20 +80,22 @@ class GfxInfo : public GfxInfoBase {
   virtual const nsTArray<RefPtr<GfxDriverInfo>>& GetGfxDriverInfo() override;
 
  private:
+  static constexpr uint32_t kMaxGPUs = 2;
+
   void GetDeviceInfo();
   void GetSelectedCityInfo();
   void AddCrashReportAnnotations();
 
   uint32_t mNumGPUsDetected;
 
-  uint32_t mAdapterRAM[2];
-  nsString mDeviceID[2];
-  nsString mDriverVersion[2];
-  nsString mDriverDate[2];
-  nsString mDeviceKey[2];
+  uint32_t mAdapterRAM[kMaxGPUs];
+  nsString mDeviceID[kMaxGPUs];
+  nsString mDriverVersion[kMaxGPUs];
+  nsString mDriverDate[kMaxGPUs];
+  nsString mDeviceKey[kMaxGPUs];
 
-  nsString mAdapterVendorID[2];
-  nsString mAdapterDeviceID[2];
+  nsString mAdapterVendorID[kMaxGPUs];
+  nsString mAdapterDeviceID[kMaxGPUs];
 
   GfxVersionEx mOSXVersionEx;
   uint32_t mOSXVersion;

@@ -108,12 +108,10 @@ fn set_mock_cfg() {
 fn generate_buildid_section() {
     use mozbuild::config::BINDGEN_SYSTEM_FLAGS as CFLAGS;
 
-    let defines = if cfg!(target_os = "macos") {
-        "#define XP_DARWIN"
-    } else if cfg!(target_os = "windows") {
-        "#define XP_WIN"
-    } else {
-        ""
+    let defines = match std::env::var("CARGO_CFG_TARGET_OS").unwrap().as_str() {
+        "macos" => "#define XP_DARWIN",
+        "windows" => "#define XP_WIN",
+        _ => "",
     };
 
     let bindings = bindgen::Builder::default()

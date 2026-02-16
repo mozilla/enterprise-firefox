@@ -35,11 +35,23 @@
       "chrome://browser/content/aiwindow/components/assistant-message-footer.mjs": [
         "browser/components/aiwindow/ui/components/ai-chat-content/chat-assistant-footer/assistant-message-footer.mjs"
       ],
+      "chrome://browser/content/aiwindow/components/chat-assistant-error.mjs": [
+        "browser/components/aiwindow/ui/components/ai-chat-content/chat-assistant-error/chat-assistant-error.mjs"
+      ],
+      "chrome://browser/content/aiwindow/components/chat-assistant-loader.mjs": [
+        "browser/components/aiwindow/ui/components/ai-chat-content/chat-assistant-loader/chat-assistant-loader.mjs"
+      ],
+      "chrome://browser/content/aiwindow/components/context-icon-button.mjs": [
+        "browser/components/aiwindow/ui/components/context-icon-button/context-icon-button.mjs"
+      ],
       "chrome://browser/content/aiwindow/components/input-cta.mjs": [
         "browser/components/aiwindow/ui/components/input-cta/input-cta.mjs"
       ],
       "chrome://browser/content/aiwindow/components/memories-icon-button.mjs": [
         "browser/components/aiwindow/ui/components/memories-icon-button/memories-icon-button.mjs"
+      ],
+      "chrome://browser/content/aiwindow/components/smartwindow-prompts.mjs": [
+        "browser/components/aiwindow/ui/components/smartwindow-prompts/smartwindow-prompts.mjs"
       ],
       "chrome://browser/content/aiwindow/components/suggestions-panel-list.mjs": [
         "browser/components/aiwindow/ui/components/suggestions-panel-list/suggestions-panel-list.mjs"
@@ -761,6 +773,9 @@
       "chrome://remote/content/shared/js-process-actors/WebDriverDocumentInsertedActor.sys.mjs": [
         "remote/shared/js-process-actors/WebDriverDocumentInsertedActor.sys.mjs"
       ],
+      "chrome://remote/content/shared/js-process-actors/WebDriverWorkerListenerActor.sys.mjs": [
+        "remote/shared/js-process-actors/WebDriverWorkerListenerActor.sys.mjs"
+      ],
       "chrome://remote/content/shared/listeners/BeforeStopRequestListener.sys.mjs": [
         "remote/shared/listeners/BeforeStopRequestListener.sys.mjs"
       ],
@@ -1237,15 +1252,6 @@
       ],
       "resource:///modules/URILoadingHelper.sys.mjs": [
         "browser/modules/URILoadingHelper.sys.mjs"
-      ],
-      "resource:///modules/UnitConverterSimple.sys.mjs": [
-        "browser/components/urlbar/unitconverters/UnitConverterSimple.sys.mjs"
-      ],
-      "resource:///modules/UnitConverterTemperature.sys.mjs": [
-        "browser/components/urlbar/unitconverters/UnitConverterTemperature.sys.mjs"
-      ],
-      "resource:///modules/UnitConverterTimezone.sys.mjs": [
-        "browser/components/urlbar/unitconverters/UnitConverterTimezone.sys.mjs"
       ],
       "resource:///modules/WebProtocolHandlerRegistrar.sys.mjs": [
         "browser/components/protocolhandler/WebProtocolHandlerRegistrar.sys.mjs"
@@ -1949,6 +1955,9 @@
       "resource://devtools/client/application/src/actions/page.js": [
         "devtools/client/application/src/actions/page.js"
       ],
+      "resource://devtools/client/application/src/actions/session-history.js": [
+        "devtools/client/application/src/actions/session-history.js"
+      ],
       "resource://devtools/client/application/src/actions/ui.js": [
         "devtools/client/application/src/actions/ui.js"
       ],
@@ -2018,6 +2027,12 @@
       "resource://devtools/client/application/src/components/service-workers/WorkersPage.js": [
         "devtools/client/application/src/components/service-workers/WorkersPage.js"
       ],
+      "resource://devtools/client/application/src/components/session-history/SessionHistory.js": [
+        "devtools/client/application/src/components/session-history/SessionHistory.js"
+      ],
+      "resource://devtools/client/application/src/components/session-history/SessionHistoryPage.js": [
+        "devtools/client/application/src/components/session-history/SessionHistoryPage.js"
+      ],
       "resource://devtools/client/application/src/components/ui/UIButton.js": [
         "devtools/client/application/src/components/ui/UIButton.js"
       ],
@@ -2044,6 +2059,9 @@
       ],
       "resource://devtools/client/application/src/reducers/page-state.js": [
         "devtools/client/application/src/reducers/page-state.js"
+      ],
+      "resource://devtools/client/application/src/reducers/session-history-state.js": [
+        "devtools/client/application/src/reducers/session-history-state.js"
       ],
       "resource://devtools/client/application/src/reducers/ui-state.js": [
         "devtools/client/application/src/reducers/ui-state.js"
@@ -5402,6 +5420,9 @@
       "resource://gre/modules/CanonicalJSON.sys.mjs": [
         "toolkit/modules/CanonicalJSON.sys.mjs"
       ],
+      "resource://gre/modules/CanvasHashData.sys.mjs": [
+        "toolkit/components/resistfingerprinting/CanvasHashData.sys.mjs"
+      ],
       "resource://gre/modules/CaptchaDetectionPingUtils.sys.mjs": [
         "toolkit/components/captchadetection/CaptchaDetectionPingUtils.sys.mjs"
       ],
@@ -6238,6 +6259,9 @@
       ],
       "resource://gre/modules/UsageReporting.sys.mjs": [
         "toolkit/components/telemetry/app/UsageReporting.sys.mjs"
+      ],
+      "resource://gre/modules/UserCharacteristicsPageService.sys.mjs": [
+        "toolkit/components/resistfingerprinting/UserCharacteristicsPageService.sys.mjs"
       ],
       "resource://gre/modules/ValueExtractor.sys.mjs": [
         "dom/manifest/ValueExtractor.sys.mjs"

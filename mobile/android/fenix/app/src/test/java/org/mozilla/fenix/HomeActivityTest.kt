@@ -25,7 +25,6 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.mozilla.fenix.GleanMetrics.Metrics
 import org.mozilla.fenix.browser.browsingmode.BrowsingMode
-import org.mozilla.fenix.browser.browsingmode.BrowsingModeManager
 import org.mozilla.fenix.components.AppStore
 import org.mozilla.fenix.components.appstate.AppAction
 import org.mozilla.fenix.ext.components
@@ -96,14 +95,14 @@ class HomeActivityTest {
 
     @Test
     fun `navigateToBrowserOnColdStart in normal mode navigates to browser`() {
-        val browsingModeManager: BrowsingModeManager = mockk()
-        every { browsingModeManager.mode } returns BrowsingMode.Normal
-
         every { settings.shouldReturnToBrowser } returns true
-        every { activity.components.settings.shouldReturnToBrowser } returns true
+        every { activity.components.settings } returns settings
+        every { activity.components.appStore } returns appStore
+        every { appStore.state } returns mockk {
+            every { mode } returns BrowsingMode.Normal
+        }
         every { activity.openToBrowser(any(), any()) } returns Unit
 
-        activity.browsingModeManager = browsingModeManager
         activity.navigateToBrowserOnColdStart()
 
         verify(exactly = 1) { activity.openToBrowser(BrowserDirection.FromGlobal, null) }
@@ -111,14 +110,14 @@ class HomeActivityTest {
 
     @Test
     fun `navigateToBrowserOnColdStart in private mode does not navigate to browser`() {
-        val browsingModeManager: BrowsingModeManager = mockk()
-        every { browsingModeManager.mode } returns BrowsingMode.Private
-
         every { settings.shouldReturnToBrowser } returns true
-        every { activity.components.settings.shouldReturnToBrowser } returns true
+        every { activity.components.settings } returns settings
+        every { activity.components.appStore } returns appStore
+        every { appStore.state } returns mockk {
+            every { mode } returns BrowsingMode.Private
+        }
         every { activity.openToBrowser(any(), any()) } returns Unit
 
-        activity.browsingModeManager = browsingModeManager
         activity.navigateToBrowserOnColdStart()
 
         verify(exactly = 0) { activity.openToBrowser(BrowserDirection.FromGlobal, null) }

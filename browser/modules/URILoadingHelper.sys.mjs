@@ -1022,14 +1022,12 @@ export const URILoadingHelper = {
           if (!doAdopt) {
             if (aSplitView) {
               let tabToReplace = aSplitView.tabs.find(tab => tab.selected);
-              aSplitView.replaceTab(
-                tabToReplace,
-                aWindow.gBrowser.visibleTabs[i]
-              );
+              aSplitView.replaceTab(tabToReplace, aWindow.gBrowser.tabs[i]);
               aSplitView.ownerGlobal.gBrowser.setIsSplitViewActive(
                 true,
                 aSplitView.tabs
               );
+              aSplitView.ownerGlobal.focus();
             } else {
               aWindow.gBrowser.tabContainer.selectedIndex = i;
             }

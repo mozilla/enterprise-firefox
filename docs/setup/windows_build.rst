@@ -83,7 +83,7 @@ the interactive setup process.
     selecting the destination directory for the source code clone. This is
     necessary to add the Microsoft Defender Antivirus exclusions automatically. You
     should select ``Yes`` on the UAC prompt, otherwise you will need
-    to :ref:`follow some manual steps below <Ensure antivirus exclusions>`.
+    to :ref:`follow some manual steps below <ensure-antivirus-exclusions>`.
 
 Choosing a build type
 ~~~~~~~~~~~~~~~~~~~~~

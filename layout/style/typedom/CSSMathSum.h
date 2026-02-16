@@ -59,6 +59,8 @@ class CSSMathSum final : public CSSMathValue {
   void ToCssTextWithProperty(const CSSPropertyId& aPropertyId,
                              nsACString& aDest) const;
 
+  StyleMathSum ToStyleMathSum() const;
+
  private:
   virtual ~CSSMathSum() = default;
 

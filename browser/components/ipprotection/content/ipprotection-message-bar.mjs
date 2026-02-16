@@ -34,6 +34,7 @@ export default class IPProtectionMessageBarElement extends MozLitElement {
     messageLink: { type: String },
     messageLinkl10nId: { type: String },
     messageLinkL10nArgs: { type: String },
+    bandwidthUsage: { type: Object },
   };
 
   constructor() {

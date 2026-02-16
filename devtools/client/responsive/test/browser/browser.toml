@@ -8,6 +8,9 @@ prefs = [
   "devtools.responsive.reloadNotification.enabled=false",
   # Don't show the setting onboarding tooltip in the test suites.
   "devtools.responsive.show-setting-tooltip=false",
+  # Bug 2013722: Investigate regular intermittents which seem to involve the
+  # browser screenshot UI
+  "screenshots.browser.component.enabled=false",
 ]
 support-files = [
   "contextual_identity.html",

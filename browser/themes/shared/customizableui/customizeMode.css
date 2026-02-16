@@ -15,7 +15,7 @@
 }
 
 :root[customizing] .customization-target:not(#widget-overflow-fixed-list) {
-  min-width: 100px;
+  min-width: var(--size-layout-xsmall);
 }
 
 /* When customizing, overflowable toolbars move automatically moved items back

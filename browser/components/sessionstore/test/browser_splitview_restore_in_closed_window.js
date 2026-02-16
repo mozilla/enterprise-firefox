@@ -14,7 +14,7 @@ add_task(async function test_restoreSplitViewInClosedWindow() {
   let win = await promiseNewWindowLoaded();
   let tab1 = win.gBrowser.tabs[0];
   let tab2 = BrowserTestUtils.addTab(win.gBrowser, "about:robots");
-  const splitview = win.gBrowser.addTabSplitView([tab1, tab2], { id: "1" });
+  const splitview = win.gBrowser.addTabSplitView([tab1, tab2]);
   const splitViewId = splitview.splitViewId;
   await BrowserTestUtils.browserLoaded(
     tab2.linkedBrowser,
@@ -66,10 +66,10 @@ add_task(
     );
     let aboutRobotsTab = BrowserTestUtils.addTab(win.gBrowser, "about:robots");
     let aboutAboutTab = BrowserTestUtils.addTab(win.gBrowser, "about:about");
-    const splitview = win.gBrowser.addTabSplitView(
-      [aboutRobotsTab, aboutAboutTab],
-      { id: "1" }
-    );
+    const splitview = win.gBrowser.addTabSplitView([
+      aboutRobotsTab,
+      aboutAboutTab,
+    ]);
     const splitViewId = splitview.splitViewId;
     const tabGroupToClose = win.gBrowser.addTabGroup([splitview], {
       color: "blue",

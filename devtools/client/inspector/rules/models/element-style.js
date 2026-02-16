@@ -12,12 +12,6 @@ const {
 
 loader.lazyRequireGetter(
   this,
-  "promiseWarn",
-  "resource://devtools/client/inspector/shared/utils.js",
-  true
-);
-loader.lazyRequireGetter(
-  this,
   "isCssVariable",
   "resource://devtools/shared/inspector/css-logic.js",
   true
@@ -108,16 +102,16 @@ class ElementStyle {
    * Returns a promise that will be resolved when the elementStyle is
    * ready.
    */
-  populate() {
-    const populated = this.pageStyle
-      .getApplied(this.element, {
-        inherited: true,
-        matchedSelectors: true,
-        filter: this.showUserAgentStyles ? "ua" : undefined,
-      })
-      .then(entries => {
-        if (this.#destroyed || this.#populated !== populated) {
-          return Promise.resolve(undefined);
+  async populate() {
+    const resultPromise = (async () => {
+      try {
+        const entries = await this.pageStyle.getApplied(this.element, {
+          inherited: true,
+          matchedSelectors: true,
+          filter: this.showUserAgentStyles ? "ua" : undefined,
+        });
+        if (this.#destroyed || this.#populated !== resultPromise) {
+          return;
         }
 
         // Store the current list of rules (if any) during the population
@@ -151,18 +145,17 @@ class ElementStyle {
 
           r.destroy();
         }
-
-        return undefined;
-      })
-      .catch(e => {
+      } catch (e) {
         // populate is often called after a setTimeout,
         // the connection may already be closed.
-        if (this.#destroyed) {
-          return Promise.resolve(undefined);
+        if (!this.#destroyed) {
+          console.error("Error while updating element rules", e);
+          throw e;
         }
-        return promiseWarn(e);
-      });
-    this.#populated = populated;
+      }
+    })();
+
+    this.#populated = resultPromise;
     return this.#populated;
   }
 

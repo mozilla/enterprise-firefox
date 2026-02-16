@@ -60,8 +60,6 @@ ScrollAnchorContainer::ScrollAnchorContainer(ScrollContainerFrame* aScrollFrame)
   MOZ_ASSERT(aScrollFrame == Frame());
 }
 
-ScrollAnchorContainer::~ScrollAnchorContainer() = default;
-
 ScrollAnchorContainer* ScrollAnchorContainer::FindFor(nsIFrame* aFrame) {
   aFrame = aFrame->GetParent();
   if (!aFrame) {

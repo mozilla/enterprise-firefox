@@ -153,6 +153,7 @@ async function setPanelState(state = defaultState, win = window) {
 async function closePanel(win = window) {
   // Reset the state
   let panel = IPProtection.getPanel(win);
+
   panel.setState(defaultState);
   // Close the panel
   let panelHiddenPromise = waitForPanelEvent(win.document, "popuphidden");
@@ -160,21 +161,6 @@ async function closePanel(win = window) {
   await panelHiddenPromise;
 }
 /* exported closePanel */
-
-function waitForTabReloaded(tab) {
-  return new Promise(resolve => {
-    gBrowser.addTabsProgressListener({
-      async onLocationChange(aBrowser) {
-        if (tab.linkedBrowser == aBrowser) {
-          gBrowser.removeTabsProgressListener(this);
-          await Promise.resolve();
-          resolve();
-        }
-      },
-    });
-  });
-}
-/* exported waitForTabReloaded */
 
 /**
  * Creates a fake proxy server for testing.
@@ -311,6 +297,8 @@ add_setup(async function setupVPN() {
     Services.prefs.clearUserPref("browser.ipProtection.usageCache");
     Services.prefs.clearUserPref("browser.ipProtection.onboardingMessageMask");
     Services.prefs.clearUserPref("browser.ipProtection.egressLocationEnabled");
+    Services.prefs.clearUserPref("browser.ipProtection.bandwidthThreshold");
+    Services.prefs.clearUserPref("browser.ipProtection.userEnabled");
   });
 });
 
