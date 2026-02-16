@@ -244,7 +244,6 @@ EnterprisePoliciesManager.prototype = {
       );
 
       if (!isValid) {
-        console.warn(`Parameters for policy ${policyName} are invalid`);
         continue;
       }
 
