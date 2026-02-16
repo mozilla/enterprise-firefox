@@ -22,6 +22,9 @@ category browser-before-ui-startup resource:///modules/AboutHomeStartupCache.sys
 category browser-before-ui-startup resource:///modules/AccountsGlue.sys.mjs AccountsGlue.init
 category browser-before-ui-startup moz-src:///browser/modules/ObserverForwarder.sys.mjs ObserverForwarder.init
 category browser-before-ui-startup moz-src:///browser/components/ipprotection/IPProtectionService.sys.mjs IPProtectionService.maybeEarlyInit
+#ifdef MOZ_ENTERPRISE
+category browser-before-ui-startup resource:///modules/enterprise/EnterpriseEndpoints.sys.mjs EnterpriseEndpoints.init
+#endif
 
 # Browser window lifecycle consumers
 category browser-window-domcontentloaded-before-tabbrowser resource:///modules/BrowserDOMWindow.sys.mjs BrowserDOMWindow.setupInWindow

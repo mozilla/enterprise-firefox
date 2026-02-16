@@ -9,9 +9,12 @@ with Files("**"):
 
 EXTRA_JS_MODULES.enterprise += [
     "EnterpriseCommon.sys.mjs",
+    "EnterpriseEndpoints.sys.mjs",
     "EnterpriseHandler.sys.mjs",
     "modules/ConsoleClient.sys.mjs",
     "modules/EnterpriseAccountsStorage.sys.mjs",
 ]
 
 JAR_MANIFESTS += ["jar.mn"]
+
+XPCSHELL_TESTS_MANIFESTS += ["tests/xpcshell/xpcshell.toml"]

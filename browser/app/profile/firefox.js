@@ -1584,6 +1584,9 @@ pref("app.feedback.baseURL", "https://ideas.mozilla.org/");
 pref("security.certerrors.permanentOverride", true);
 pref("security.certerrors.mitm.priming.enabled", true);
 pref("security.certerrors.mitm.priming.endpoint", "https://mitmdetection.services.mozilla.com/");
+#ifdef MOZ_ENTERPRISE
+pref("security.certerrors.mitm.priming.endpoint", "");
+#endif
 pref("security.certerrors.mitm.auto_enable_enterprise_roots", true);
 
 // Whether the bookmark panel should be shown when bookmarking a page.
