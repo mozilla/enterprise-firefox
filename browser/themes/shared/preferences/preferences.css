@@ -1607,7 +1607,6 @@ setting-group[groupid="aiStatesDescription"] {
 #fxaUnlinkButton[restricted-enterprise-view],
 #verifiedManage[restricted-enterprise-view],
 #connect-another-device[restricted-enterprise-view],
-#syncChangeOptions[restricted-enterprise-view],
 #syncNotConfigured[restricted-enterprise-view] {
   display: none;
 }

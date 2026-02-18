@@ -2,20 +2,27 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-const lazy = {};
+import {
+  PREF_LOGLEVEL,
+  setAndLockPref,
+  unsetAndUnlockPref,
+  PoliciesUtils,
+} from "resource:///modules/policies/Policies.sys.mjs";
 
+const SYNC_STATUS_OK = ChromeUtils.importESModule(
+  "resource://services-sync/constants.sys.mjs"
+).STATUS_OK
+
+
+const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
-  PREF_LOGLEVEL: "resource:///modules/policies/Policies.sys.mjs",
-  setAndLockPref: "resource:///modules/policies/Policies.sys.mjs",
-  STATUS_OK: "resource://services-sync/constants.sys.mjs",
-  unsetAndUnlockPref: "resource:///modules/policies/Policies.sys.mjs",
   Weave: "resource://services-sync/main.sys.mjs",
 });
 
 ChromeUtils.defineLazyGetter(lazy, "log", () => {
   return console.createInstance({
-    prefix: "SyncSettingsPolicy",
-    maxLogLevelPref: lazy.PREF_LOGLEVEL,
+    prefix: "SyncPolicy",
+    maxLogLevelPref: PREF_LOGLEVEL,
   });
 });
 
@@ -30,145 +37,130 @@ const ENGINE_PREFS = {
   settings: "services.sync.engine.prefs",
 };
 
-const STATE = {
-  DEFAULT: "default",
-  SYNC_ENABLED: "enabled",
-  SYNC_DISABLED: "disabled",
-  POLICY_NOT_APPLIED: "policy-not-applied",
-};
+const SYNC_FEATURE = "change-sync-state";
 
 /**
- * Policy to control the Sync state (force-enable or force-disable Sync)
- * and to control which data types are synced. The user is not able to
- * customize Sync settings when this policy is active.
+ * Customizes Sync settings (all settings are optional):
+ *    - Whether sync is enabled/disabled
+ *    - Which types of data to sync
+ *    - Whether to lock the sync customization
+ * See SyncPolicyParams for details.
  */
-export const SyncSettingsPolicy = {
-  _isSyncEnabledDefaultValue: null,
-  _currentPolicyState: null,
-
+export const SyncPolicy = {
   /**
    * Get current sync state.
    *
    * @returns {boolean} Whether sync is currently enabled.
    */
   isSyncEnabled() {
-    return lazy.Weave.Status.checkSetup() == lazy.STATUS_OK;
+    return lazy.Weave.Status.checkSetup() == SYNC_STATUS_OK;
   },
 
   /**
-   * @typedef {object} SyncSettings
-   * @property {boolean} SyncEnabled Whether Sync should be force-enabled or force-disabled.
-   * @property {Array<"addresses"|"bookmarks"|"history"|"openTabs"|"passwords"|"paymentMethods"|"addons"|"settings">} TypesEnabled
-   *   Which data types should be synced when Sync is force-enabled.
+   * @typedef {object} SyncPolicyParams
+   * @property {boolean} [Enabled] Whether Sync should be enabled
+   * @property {boolean} [addresses] Whether syncing addresses should be enabled
+   * @property {boolean} [bookmarks] Whether syncing bookmarks should be enabled
+   * @property {boolean} [history] Whether syncing history should be enabled
+   * @property {boolean} [openTabs] Whether syncing openTabs should be enabled
+   * @property {boolean} [passwords] Whether syncing passwords should be enabled
+   * @property {boolean} [paymentMethods] Whether syncing paymentMethods should be enabled
+   * @property {boolean} [addons] Whether syncing addons should be enabled
+   * @property {boolean} [settings] Whether syncing settings should be enabled
+   * @property {boolean} [Locked] Whether to lock the customized sync settings
    */
 
   /**
-   * Apply policy Sync settings to the current profile and prevent changes to
-   * the Sync state while the policy is active.
+   * Apply Sync settings
    *
    * @param {EnterprisePoliciesManager} manager
-   * @param {SyncSettings} param
+   * @param {SyncPolicyParams} params
    *
    * @returns {Promise<void>} Resolves once all Sync settings have been applied.
    */
-  async applySettings(manager, param) {
+  async applySettings(manager, params) {
     lazy.log.debug("Apply Sync Settings");
 
-    const isSyncEnabled = this.isSyncEnabled();
-    if (this._isSyncEnabledDefaultValue === null) {
-      // Cache initial sync state
-      this._isSyncEnabledDefaultValue = isSyncEnabled;
-    }
+    // This might be an update to the Sync policy
+    // so restore previous sync settings
+    this.restoreSettings(manager);
 
-    if (!param.SyncEnabled) {
-      lazy.log.debug("Force-disable Sync");
+    const {
+      Enabled: shouldEnableSync,
+      Locked: shouldLock,
+      ...typeSettings
+    } = params;
+
+    const isSyncEnabled = this.isSyncEnabled();
+
+    if (shouldEnableSync === true) {
+      lazy.log.debug("Enable Sync");
+      if (!isSyncEnabled) {
+        await this.connectSync(manager);
+      }
+    } else if (shouldEnableSync === false) {
+      lazy.log.debug("Disable Sync");
       if (isSyncEnabled) {
         await this.disconnectSync(manager);
       }
-      return;
     }
 
-    lazy.log.debug("Force-enable Sync");
-
-    for (const [type, pref] of Object.entries(ENGINE_PREFS)) {
-      if (param.TypesEnabled.includes(type)) {
-        lazy.log.debug(`Enabling type: ${type}`);
-        lazy.setAndLockPref(pref, true);
-      } else {
-        lazy.log.debug(`Disabling type: ${type}`);
-        lazy.setAndLockPref(pref, false);
+    for (const [type, value] of Object.entries(typeSettings)) {
+      const pref = ENGINE_PREFS[type];
+      if (shouldLock) {
+        lazy.log.debug(`Setting and locking ${type}: ${pref} : ${value}`);
+        setAndLockPref(pref, value);
+        continue;
       }
+      lazy.log.debug(`Setting ${type}: ${pref} : ${value}`);
+      PoliciesUtils.setDefaultPref(pref, value, false);
     }
 
-    await this.connectSync(manager);
-
-    this._currentPolicyState = STATE.SYNC_ENABLED;
+    // Only lock the Sync feature if 'Enabled' is configured
+    if (shouldLock && shouldEnableSync !== undefined) {
+      manager.disallowFeature(SYNC_FEATURE);
+    }
   },
 
   /**
-   * Restore Sync preferences and state to what they were before policy enforcement,
-   * and re-allow changes to the Sync state.
+   * Restore initial sync state.
    *
    * @param {EnterprisePoliciesManager} manager
    */
   async restoreSettings(manager) {
-    lazy.log.debug("Restore Sync Settings");
-
-    if (this._currentPolicyState !== STATE.DEFAULT) {
-      // Only restore the default state if the current state
-      // isn't already the default state.
-      this.restoreDefault(manager);
+    if (!Services.policies.isAllowed(SYNC_FEATURE)) {
+      manager.allowFeature(SYNC_FEATURE);
     }
-
-    this._currentPolicyState = STATE.POLICY_NOT_APPLIED;
-  },
-
-  /**
-   * Restore default state
-   *
-   * @param {EnterprisePoliciesManager} manager
-   */
-  async restoreDefault(manager) {
     for (const pref of Object.values(ENGINE_PREFS)) {
-      lazy.unsetAndUnlockPref(pref);
+      lazy.log.debug(`Unsetting ${pref}`);
+      unsetAndUnlockPref(pref);
     }
 
-    const isSyncEnabled = this.isSyncEnabled();
-
-    if (this._isSyncEnabledDefaultValue) {
-      // Re-connecting to re-trigger a Sync action with the
-      // restored default enabled types.
-      lazy.log.debug("Restoring Sync state by enabling it.");
-      await this.connectSync(manager);
-    } else if (!this._isSyncEnabledDefaultValue && isSyncEnabled) {
-      lazy.log.debug("Restoring Sync state by disabling it.");
-      await this.disconnectSync(manager);
-    }
-
-    this._isSyncEnabledDefaultValue = null;
-    manager.allowFeature("change-sync-state");
+    // We don't have a way yet to restore the pre-policy sync 
+    // state (Bug 2017719). So for now we fallback to sync enabled.
+    this.connectSync()
   },
 
   /**
-   * Disconnect Sync and disallow any changes to the sync state.
-   *
-   * @param {EnterprisePoliciesManager} manager
+   * Disconnect sync
    */
-  async disconnectSync(manager) {
-    manager.allowFeature("change-sync-state");
-    await lazy.Weave.Service.promiseInitialized;
-    await lazy.Weave.Service.startOver();
-    manager.disallowFeature("change-sync-state");
+  async disconnectSync() {
+    try {
+      await lazy.Weave.Service.promiseInitialized;
+      await lazy.Weave.Service.startOver();
+    } catch (e) {
+      lazy.log.error(`Failed to disconnect sync: ${e}`)
+    }
   },
 
   /**
-   * Connect Sync and disallow any changes to the sync state.
-   *
-   * @param {EnterprisePoliciesManager} manager
+   * Connect sync
    */
-  async connectSync(manager) {
-    manager.allowFeature("change-sync-state");
-    await lazy.Weave.Service.configure();
-    manager.disallowFeature("change-sync-state");
+  async connectSync() {
+    try {
+      await lazy.Weave.Service.configure();
+    } catch (e) {
+      lazy.log.error(`Failed to connect sync: ${e}`)
+    }
   },
 };

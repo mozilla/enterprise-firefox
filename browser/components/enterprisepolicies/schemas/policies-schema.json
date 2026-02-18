@@ -1700,27 +1700,36 @@
     "Sync": {
       "type": "object",
       "properties": {
-        "State": {
-          "type": "string",
-          "enum": ["enabled", "disabled", "default"]
+        "Enabled": {
+          "type": "boolean"
         },
-        "TypesEnabled": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "enum": [
-              "addresses",
-              "bookmarks",
-              "history",
-              "openTabs",
-              "passwords",
-              "paymentMethods",
-              "addons",
-              "settings"
-            ]
-          }
+        "addresses": {
+          "type": "boolean"
         },
-        "required": ["State"]
+        "bookmarks": {
+          "type": "boolean"
+        },
+        "history": {
+          "type": "boolean"
+        },
+        "openTabs": {
+          "type": "boolean"
+        },
+        "passwords": {
+          "type": "boolean"
+        },
+        "paymentMethods": {
+          "type": "boolean"
+        },
+        "addons": {
+          "type": "boolean"
+        },
+        "settings": {
+          "type": "boolean"
+        },
+        "Locked": {
+          "type": "boolean"
+        }
       }
     },
 

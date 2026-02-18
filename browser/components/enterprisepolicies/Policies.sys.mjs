@@ -33,7 +33,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WebsiteFilter: "resource:///modules/policies/WebsiteFilter.sys.mjs",
 });
 
-const PREF_LOGLEVEL = "browser.policies.loglevel";
+export const PREF_LOGLEVEL = "browser.policies.loglevel";
 const BROWSER_DOCUMENT_URL = AppConstants.BROWSER_CHROME_URL;
 const ABOUT_CONTRACT = "@mozilla.org/network/protocol/about;1?what=";
 

@@ -28,7 +28,10 @@ let gSyncChooseWhatToSync = {
     this._setupEventListeners();
     this._adjustForPrefs();
     let options = window.arguments[0];
-    if (options.disconnectFun) {
+    if (
+      options.disconnectFun &&
+      Services.policies.isAllowed("change-sync-state")
+    ) {
       // Offer 'Disconnect' functionality if it was provided
       document.addEventListener("dialogextra2", function () {
         options.disconnectFun().then(disconnected => {
