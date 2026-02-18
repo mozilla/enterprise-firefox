@@ -107,16 +107,21 @@ document.addEventListener(
     widgetOverflow.addEventListener("command", onCommand);
 
     function onMouseDown(event) {
-      let element = event.target.closest(`
-        #firefox-view-button,
-        #alltabs-button,
-        #pageActionButton,
-        #downloads-button,
-        #fxa-toolbar-menu-button,
-        #unified-extensions-button,
-        #library-button,
-        #enterprise-badge-toolbar-button
-        `);
+      const selectors = [
+        "#firefox-view-button",
+        "#alltabs-button",
+        "#pageActionButton",
+        "#downloads-button",
+        "#fxa-toolbar-menu-button",
+        "#unified-extensions-button",
+        "#library-button",
+      ];
+
+      if (AppConstants.MOZ_ENTERPRISE) {
+        selectors.push("#enterprise-badge-toolbar-button");
+      }
+
+      let element = event.target.closest(selectors.join(","));
       if (!element) {
         return;
       }
@@ -151,7 +156,9 @@ document.addEventListener(
           break;
 
         case "enterprise-badge-toolbar-button":
-          EnterpriseHandler.openPanel(element, event);
+          if (AppConstants.MOZ_ENTERPRISE) {
+            EnterpriseHandler.openPanel(element, event);
+          }
           break;
 
         default:
@@ -319,26 +326,32 @@ document.addEventListener(
     function onKeyPress(event) {
       const isLikeLeftClick = event.key === "Enter" || event.key === " ";
 
-      let element = event.target.closest(`
-        #reader-mode-button,
-        #picture-in-picture-button,
-        #urlbar-zoom-button,
-        #star-button-box,
-        #personal-toolbar-empty-description,
-        #home-button,
-        #tracking-protection-icon-container,
-        #identity-icon-box,
-        #identity-permission-box,
-        #translations-button,
-        #alltabs-button,
-        #pageActionButton,
-        #downloads-button,
-        #fxa-toolbar-menu-button,
-        #unified-extensions-button,
-        #library-button,
-        #split-view-button,
-        #smartwindow-ask-button
-      `);
+      let selectors = [
+        "#reader-mode-button",
+        "#picture-in-picture-button",
+        "#urlbar-zoom-button",
+        "#star-button-box",
+        "#personal-toolbar-empty-description",
+        "#home-button",
+        "#tracking-protection-icon-container",
+        "#identity-icon-box",
+        "#identity-permission-box",
+        "#translations-button",
+        "#alltabs-button",
+        "#pageActionButton",
+        "#downloads-button",
+        "#fxa-toolbar-menu-button",
+        "#unified-extensions-button",
+        "#library-button",
+        "#split-view-button",
+        "#smartwindow-ask-button",
+      ];
+
+      if (AppConstants.MOZ_ENTERPRISE) {
+        selectors.push("#enterprise-badge-toolbar-button");
+      }
+
+      let element = event.target.closest(selectors.join(","));
       if (!element) {
         return;
       }
@@ -432,6 +445,11 @@ document.addEventListener(
         case "smartwindow-ask-button":
           if (isLikeLeftClick) {
             AIWindowUI.toggleSidebar(window);
+          }
+          break;
+        case "enterprise-badge-toolbar-button":
+          if (AppConstants.MOZ_ENTERPRISE) {
+            EnterpriseHandler.openPanel(element, event);
           }
           break;
 
