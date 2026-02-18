@@ -14,7 +14,7 @@ EXTRA_JS_MODULES.policies += [
 
 if CONFIG["MOZ_ENTERPRISE"]:
     EXTRA_JS_MODULES.policies += [
-        "SyncSettingsPolicy.sys.mjs",
+        "SyncPolicy.sys.mjs",
     ]
 
 EXTRA_PP_JS_MODULES.policies += [

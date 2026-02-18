@@ -1697,7 +1697,7 @@
       "required": ["Title", "URL"]
     },
 
-    "SyncSettings": {
+    "Sync": {
       "type": "object",
       "properties": {
         "State": {

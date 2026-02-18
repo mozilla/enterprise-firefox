@@ -3929,14 +3929,14 @@ function processMIMEInfo(mimeInfo, realMIMEInfo) {
 
 if (AppConstants.MOZ_ENTERPRISE) {
   ChromeUtils.defineESModuleGetters(lazy, {
-    SyncSettingsPolicy: "resource:///modules/policies/SyncSettingsPolicy.sys.mjs",
+    SyncPolicy: "resource:///modules/policies/SyncPolicy.sys.mjs",
   });
-  Policies.SyncSettings = {
+  Policies.Sync = {
     async onBeforeAddons(manager, param) {
-      await lazy.SyncSettingsPolicy.applySettings(manager, param);
+      await lazy.SyncPolicy.applySettings(manager, param);
     },
     async onRemove(manager, _) {
-      await lazy.SyncSettingsPolicy.restoreSettings(manager);
+      await lazy.SyncPolicy.restoreSettings(manager);
     }
   }
 }
