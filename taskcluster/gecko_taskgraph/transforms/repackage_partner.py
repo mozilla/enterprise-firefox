@@ -11,6 +11,7 @@ from taskgraph.transforms.base import TransformSequence
 from taskgraph.util.dependencies import get_primary_dependency
 from taskgraph.util.schema import LegacySchema, optionally_keyed_by, resolve_keyed_by
 from taskgraph.util.taskcluster import get_artifact_prefix
+from taskgraph.util.treeherder import inherit_treeherder_from_dep
 from voluptuous import Optional, Required
 
 from gecko_taskgraph.transforms.repackage import MOZHARNESS_EXPANSIONS
@@ -63,6 +64,7 @@ packaging_description_schema = LegacySchema({
     Optional("attributes"): task_description_schema["attributes"],
     Optional("dependencies"): task_description_schema["dependencies"],
     Optional("run-on-repo-type"): task_description_schema["run-on-repo-type"],
+    Optional("treeherder-group"): str,
 })
 
 transforms = TransformSequence()
@@ -250,31 +252,10 @@ def make_job_description(config, jobs):
             ),
         }
 
-        if "enterprise-repack-repackage" in job["label"]:
-            # TODO:
-            # Exception: repackage-enterprise-repack-msi-win64-enterprise-shippable/opt (tier 1) cannot depend on enterprise-repack-repackage-win64-enterprise-shippable/opt (tier unknown)
-            platform = (
-                attributes.get("build_platform")
-                .replace("enterprise-", "")
-                .replace("shippable", "")
-            )
-            if "linux64" in platform and "aarch64" in platform:
-                th_platform = "linux64-aarch64-enterprise/opt"
-            elif "linux64" in platform:
-                th_platform = "linux64-enterprise/opt"
-            elif "macosx64" in platform:
-                th_platform = "osx-cross-enterprise/opt"
-            elif "win64" in platform:
-                th_platform = "windows2012-64-enterprise/opt"
-            else:
-                raise ValueError(f"Unsupported {platform}")
-
-            task["treeherder"] = {
-                "platform": th_platform,
-                "tier": 1,
-                "kind": "other",
-                "symbol": f"Rpk-Ent-Rpk({repack_id})",
-            }
+        group = job.get("treeherder-group")
+        if group is not None:
+            task["treeherder"] = inherit_treeherder_from_dep(job, dep_job)
+            task["treeherder"]["symbol"] = f"{group}({repack_id})"
 
         # we may have reduced the priority for partner jobs, otherwise task.py will set it
         if job.get("priority"):

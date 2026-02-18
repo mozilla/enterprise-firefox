@@ -62,3 +62,4 @@ tasks:
                 linux.*: [mar]
                 macosx64\b.*: [dmg, mar, pkg]
                 win64\b.*: [installer, mar]
+        treeherder-group: Rpk-Ent-Rpk
