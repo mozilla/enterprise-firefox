@@ -184,7 +184,7 @@ export class FeltProcessParent extends JSProcessActorParent {
             Services.felt.setTokens(
               data.access_token,
               data.refresh_token,
-              data.expires_in
+              data.expires_at
             );
             break;
           }
@@ -643,7 +643,8 @@ export class FeltProcessParent extends JSProcessActorParent {
             refresh_token = "",
             expires_in = 0,
           } = message.data;
-          Services.felt.setTokens(access_token, refresh_token, expires_in);
+          const expires_at = Math.floor(Date.now() / 1000) + Number(expires_in);
+          Services.felt.setTokens(access_token, refresh_token, expires_at);
 
           // TODO: Bug 2003001 - Pass user info from Felt to Firefox to avoid network request on startup
           this.loggedInUserInfo =

@@ -56,8 +56,9 @@ interface nsIFelt : nsISupports {
   [must_use]
   ACString getAccessTokenIfValid();
 
+  // expires_at is a Unix timestamp in seconds (UTC).
   [must_use]
-  void setTokens(in ACString access_token, in ACString refresh_token, in long long expires_in);
+  void setTokens(in ACString access_token, in ACString refresh_token, in long long expires_at);
 
   [must_use]
   void sendExtensionReady();

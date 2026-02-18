@@ -5,6 +5,7 @@
 
 import os
 import sys
+import time
 
 sys.path.append(os.path.dirname(__file__))
 
@@ -58,7 +59,7 @@ class BrowserExitTokens(FeltTests):
 
         self.access_token = "1bf8d2cb-9f72-4788-a770-3cf9cc60f30c"
         self.refresh_token = "82b2d9eb-f0e3-44af-8106-790e7a744d1f"
-        self.expires_in = 3600
+        self.expires_at = int(time.time()) + 3600
 
         assert browser_tokens[0] != self.access_token, (
             f"Access token differs: {browser_tokens[0]} vs {self.access_token}"
@@ -72,7 +73,7 @@ class BrowserExitTokens(FeltTests):
             """
             Services.felt.setTokens(arguments[0], arguments[1], arguments[2]);
             """,
-            [self.access_token, self.refresh_token, self.expires_in],
+            [self.access_token, self.refresh_token, self.expires_at],
         )
         self._child_driver.set_context("content")
 

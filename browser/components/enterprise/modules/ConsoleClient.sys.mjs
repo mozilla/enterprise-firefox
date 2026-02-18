@@ -543,7 +543,8 @@ export const ConsoleClient = {
       }
 
       const { access_token, refresh_token, expires_in } = await res.json();
-      Services.felt.setTokens(access_token, refresh_token, expires_in);
+      const expires_at = Math.floor(Date.now() / 1000) + Number(expires_in);
+      Services.felt.setTokens(access_token, refresh_token, expires_at);
     })().finally(() => {
       this._refreshPromise = null;
     });
