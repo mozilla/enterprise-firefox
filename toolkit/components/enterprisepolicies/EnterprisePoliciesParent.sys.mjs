@@ -102,7 +102,7 @@ EnterprisePoliciesManager.prototype = {
     }
   },
 
-  _initialize() {
+  async _initialize() {
     this._cleanupPolicies();
 
     const changesHandler = provider => {
@@ -137,7 +137,7 @@ EnterprisePoliciesManager.prototype = {
     this._status = Ci.nsIEnterprisePolicies.INACTIVE;
     Services.prefs.setBoolPref(PREF_POLICIES_APPLIED, false);
 
-    let provider = this._chooseProvider(changesHandler);
+    let provider = await this._chooseProvider(changesHandler);
     if (provider.failed) {
       this._status = Ci.nsIEnterprisePolicies.FAILED;
     }
@@ -148,7 +148,7 @@ EnterprisePoliciesManager.prototype = {
     Glean.policies.isEnterprise.set(this.isEnterprise);
   },
 
-  _chooseProvider(handler) {
+  async _chooseProvider(handler) {
     let platformProvider = null;
     if (AppConstants.platform == "win" && AppConstants.MOZ_SYSTEM_POLICIES) {
       platformProvider = new WindowsGPOPoliciesProvider();
@@ -165,6 +165,11 @@ EnterprisePoliciesManager.prototype = {
     jsonProvider.onPoliciesChanges(handler);
     let remoteProvider = RemotePoliciesProvider.createInstance();
     remoteProvider.onPoliciesChanges(handler);
+
+    // Fetch first set of remote policies during the
+    // initialization of the policy engine
+    await remoteProvider.fetchPoliciesOnStartup();
+
     if (platformProvider && platformProvider.hasPolicies) {
       if (jsonProvider.hasPolicies) {
         return new CombinedProvider(
@@ -415,14 +420,12 @@ EnterprisePoliciesManager.prototype = {
     this.observersReceived.push(topic);
 
     switch (topic) {
-      case "policies-startup":
-        // Before the first set of policy callbacks runs, we must
-        // initialize the service.
-        this._initialize();
-
+      case "policies-startup": {
+        const initializedPromise = this._initialize();
+        this.spinResolve(initializedPromise);
         this._runPoliciesCallbacks("onBeforeAddons");
         break;
-
+      }
       case "profile-after-change":
         this._runPoliciesCallbacks("onProfileAfterChange");
         break;
@@ -469,6 +472,44 @@ EnterprisePoliciesManager.prototype = {
         );
 
         break;
+    }
+  },
+
+  /**
+   * Spin the event loop until the passed promise resolves.
+   *
+   * This is used to await the response when fetching remote
+   * policies during the initialization of the policy engine.
+   *
+   * @param {Promise} promise
+   * @returns {any} Result of the resolved promise
+   */
+  spinResolve(promise) {
+    if (!(promise instanceof Promise)) {
+      return promise;
+    }
+    let done = false;
+    let result = null;
+    let error = null;
+    promise
+      .catch(e => {
+        error = e;
+      })
+      .then(r => {
+        result = r;
+        done = true;
+      });
+
+    Services.tm.spinEventLoopUntil(
+      "EnterprisePoliciesManager.sys.mjs:_initialize",
+      () => done
+    );
+    if (!done) {
+      throw new Error("Forcefully exited event loop.");
+    } else if (error) {
+      throw error;
+    } else {
+      return result;
     }
   },
 
@@ -952,6 +993,22 @@ class RemotePoliciesProvider {
       // Make sure that handler is triggered even when payload is empty as
       // in "_cleanup"
       this.triggerOnPoliciesChanges();
+    }
+  }
+
+  async fetchPoliciesOnStartup() {
+    if (!this._isPollingEnabled) {
+      return;
+    }
+
+    const res = await lazy.ConsoleClient.getRemotePolicies();
+    if (!res.policies) {
+      console.error(
+        `No policies were found in the response: ${JSON.stringify(res)}.`
+      );
+      this._failed = true;
+    } else {
+      this._policies = res.policies;
     }
   }
 }
