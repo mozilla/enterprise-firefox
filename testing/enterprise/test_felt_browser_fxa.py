@@ -14,7 +14,6 @@ from felt_tests import FeltTests
 class BrowserFxAccount(FeltTests):
     EXTRA_PREFS = {
         "enterprise.loglevel": "Debug",
-        "enterprise.sync.enabledByDefault": False,
     }
 
     def test_browser_fxa(self):
