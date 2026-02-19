@@ -9,10 +9,7 @@ import {
   PoliciesUtils,
 } from "resource:///modules/policies/Policies.sys.mjs";
 
-const SYNC_STATUS_OK = ChromeUtils.importESModule(
-  "resource://services-sync/constants.sys.mjs"
-).STATUS_OK
-
+import { STATUS_OK as SYNC_STATUS_OK } from "resource://services-sync/constants.sys.mjs"
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
