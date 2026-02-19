@@ -3937,6 +3937,6 @@ if (AppConstants.MOZ_ENTERPRISE) {
     },
     async onRemove(manager, _) {
       await lazy.SyncPolicy.restoreSettings(manager);
-    }
-  }
+    },
+  };
 }

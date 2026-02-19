@@ -9,7 +9,7 @@ import {
   PoliciesUtils,
 } from "resource:///modules/policies/Policies.sys.mjs";
 
-import { STATUS_OK as SYNC_STATUS_OK } from "resource://services-sync/constants.sys.mjs"
+import { STATUS_OK as SYNC_STATUS_OK } from "resource://services-sync/constants.sys.mjs";
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -133,9 +133,9 @@ export const SyncPolicy = {
       unsetAndUnlockPref(pref);
     }
 
-    // We don't have a way yet to restore the pre-policy sync 
+    // We don't have a way yet to restore the pre-policy sync
     // state (Bug 2017719). So for now we fallback to sync enabled.
-    this.connectSync()
+    this.connectSync();
   },
 
   /**
@@ -146,7 +146,7 @@ export const SyncPolicy = {
       await lazy.Weave.Service.promiseInitialized;
       await lazy.Weave.Service.startOver();
     } catch (e) {
-      lazy.log.error(`Failed to disconnect sync: ${e}`)
+      lazy.log.error(`Failed to disconnect sync: ${e}`);
     }
   },
 
@@ -157,7 +157,7 @@ export const SyncPolicy = {
     try {
       await lazy.Weave.Service.configure();
     } catch (e) {
-      lazy.log.error(`Failed to connect sync: ${e}`)
+      lazy.log.error(`Failed to connect sync: ${e}`);
     }
   },
 };
