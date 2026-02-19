@@ -1703,28 +1703,28 @@
         "Enabled": {
           "type": "boolean"
         },
-        "addresses": {
+        "Addons": {
           "type": "boolean"
         },
-        "bookmarks": {
+        "Addresses": {
           "type": "boolean"
         },
-        "history": {
+        "Bookmarks": {
           "type": "boolean"
         },
-        "openTabs": {
+        "History": {
           "type": "boolean"
         },
-        "passwords": {
+        "OpenTabs": {
           "type": "boolean"
         },
-        "paymentMethods": {
+        "Passwords": {
           "type": "boolean"
         },
-        "addons": {
+        "PaymentMethods": {
           "type": "boolean"
         },
-        "settings": {
+        "Settings": {
           "type": "boolean"
         },
         "Locked": {

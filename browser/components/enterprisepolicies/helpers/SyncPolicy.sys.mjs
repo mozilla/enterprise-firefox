@@ -24,14 +24,14 @@ ChromeUtils.defineLazyGetter(lazy, "log", () => {
 });
 
 const ENGINE_PREFS = {
-  addresses: "services.sync.engine.addresses",
-  addons: "services.sync.engine.addons",
-  bookmarks: "services.sync.engine.bookmarks",
-  history: "services.sync.engine.history",
-  openTabs: "services.sync.engine.tabs",
-  passwords: "services.sync.engine.passwords",
-  paymentMethods: "services.sync.engine.creditcards",
-  settings: "services.sync.engine.prefs",
+  Addresses: "services.sync.engine.addresses",
+  Addons: "services.sync.engine.addons",
+  Bookmarks: "services.sync.engine.bookmarks",
+  History: "services.sync.engine.history",
+  OpenTabs: "services.sync.engine.tabs",
+  Passwords: "services.sync.engine.passwords",
+  PaymentMethods: "services.sync.engine.creditcards",
+  Settings: "services.sync.engine.prefs",
 };
 
 const SYNC_FEATURE = "change-sync-state";
