@@ -1001,7 +1001,14 @@ class RemotePoliciesProvider {
       return;
     }
 
-    const res = await lazy.ConsoleClient.getRemotePolicies();
+    let res;
+    try {
+      res = await lazy.ConsoleClient.getRemotePolicies();
+    } catch (e) {
+      console.error(`Failed to fetch remote policies on startup: ${e}`);
+      this._failed = true;
+      return;
+    }
     if (!res.policies) {
       console.error(
         `No policies were found in the response: ${JSON.stringify(res)}.`
