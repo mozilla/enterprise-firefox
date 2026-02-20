@@ -51,6 +51,11 @@ ChromeUtils.defineLazyGetter(lazy, "isRunningTests", () => {
 // Overriding the server URL is normally disabled on Beta and Release channels,
 // except under some conditions.
 ChromeUtils.defineLazyGetter(lazy, "allowServerURL", () => {
+  if (AppConstants.MOZ_ENTERPRISE) {
+    // Enterprise URL is set by the console.
+    return true;
+  }
+
   if (!AppConstants.RELEASE_OR_BETA) {
     // Always allow to override the server URL on Nightly/DevEdition.
     return true;
@@ -123,6 +128,9 @@ export var Utils = {
     if (Services.env.exists("XPCSHELL_TEST_PROFILE_DIR")) {
       return Ci.nsIX509CertDB.AppXPCShellRoot;
     }
+    if (AppConstants.MOZ_ENTERPRISE) {
+      return Ci.nsIContentSignatureVerifier.ContentSignatureProdRoot;
+    }
     if (
       this.SERVER_URL.match(
         /^https?:\/\/(remote-settings\.localhost|127\.0\.0\.1|localhost)(:\d+)?\/v1/
@@ -140,6 +148,9 @@ export var Utils = {
   },
 
   get LOAD_DUMPS() {
+    if (AppConstants.MOZ_ENTERPRISE) {
+      return true;
+    }
     // Load dumps only if pulling data from the production server, or in tests.
     return (
       AppConstants.REMOTE_SETTINGS_SERVER_URLS.includes(this.SERVER_URL) ||

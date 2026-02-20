@@ -1768,6 +1768,9 @@ pref("security.notification_enable_delay", 500);
 pref("security.insecure_field_warning.ignore_local_ip_address", true);
 
 // Remote settings preferences
+#ifdef MOZ_ENTERPRISE
+pref("services.settings.server", "");
+#endif
 pref("services.settings.poll_interval", 86400); // 24H
 
 // The percentage of clients who will report uptake telemetry as

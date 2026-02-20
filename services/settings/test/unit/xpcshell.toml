@@ -12,6 +12,8 @@ support-files = ["test_attachments_downloader/**"]
 
 ["test_remote_settings.js"]
 
+["test_remote_settings_enterprise.js"]
+
 ["test_remote_settings_dump_lastmodified.js"]
 
 ["test_remote_settings_jexl_filters.js"]

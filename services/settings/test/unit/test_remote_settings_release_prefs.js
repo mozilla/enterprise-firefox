@@ -160,7 +160,7 @@ add_task(
 
 add_task(
   {
-    skip_if: () => AppConstants.RELEASE_OR_BETA,
+    skip_if: () => AppConstants.RELEASE_OR_BETA || AppConstants.MOZ_ENTERPRISE,
   },
   async function test_load_dumps_can_be_disabled_in_dev_nightly() {
     Services.prefs.setStringPref(
@@ -212,6 +212,9 @@ add_task(
 add_task(clear_state);
 
 add_task(
+  {
+    skip_if: () => AppConstants.MOZ_ENTERPRISE,
+  },
   async function test_dumps_are_not_loaded_if_server_is_not_prod_if_running_for_devtools() {
     Services.env.set("MOZ_REMOTE_SETTINGS_DEVTOOLS", "1");
     Services.prefs.setStringPref(
