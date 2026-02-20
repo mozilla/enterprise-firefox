@@ -163,12 +163,12 @@ EnterprisePoliciesManager.prototype = {
 
     let jsonProvider = new JSONPoliciesProvider();
     jsonProvider.onPoliciesChanges(handler);
-    let remoteProvider = RemotePoliciesProvider.createInstance();
-    remoteProvider.onPoliciesChanges(handler);
 
+    let remoteProvider = RemotePoliciesProvider.createInstance();
     // Fetch first set of remote policies during the
     // initialization of the policy engine
     await remoteProvider.fetchPoliciesOnStartup();
+    remoteProvider.onPoliciesChanges(handler);
 
     if (platformProvider && platformProvider.hasPolicies) {
       if (jsonProvider.hasPolicies) {
