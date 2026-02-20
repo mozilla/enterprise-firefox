@@ -422,6 +422,10 @@ EnterprisePoliciesManager.prototype = {
     switch (topic) {
       case "policies-startup": {
         const initializedPromise = this._initialize();
+        // _initialize() does async work (fetching remote policies).
+        // We spin a nested event loop until the promise resolves so
+        // this observer doesn't return before initialization completes.
+        // This keeps startup behavior effectively synchronous.
         this.spinResolve(initializedPromise);
         this._runPoliciesCallbacks("onBeforeAddons");
         break;
