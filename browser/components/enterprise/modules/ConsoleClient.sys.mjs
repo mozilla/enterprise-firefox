@@ -82,12 +82,14 @@ export const ConsoleClient = {
    * @returns {URL}
    */
   get consoleBaseURI() {
-    return new URL(
-      Services.prefs.getStringPref(
-        PREFS.CONSOLE_ADDRESS,
-        "https://console.enterfox.eu"
-      )
-    );
+    let consoleURI;
+    try {
+      consoleURI = Services.prefs.getStringPref(PREFS.CONSOLE_ADDRESS);
+    } catch (e) {
+      console.error("Critial misconfiguration: Missing console URI.");
+      throw e;
+    }
+    return new URL(consoleURI);
   },
 
   /**
