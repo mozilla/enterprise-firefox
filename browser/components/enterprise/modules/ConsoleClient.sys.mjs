@@ -8,6 +8,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   TelemetryEnvironment: "resource://gre/modules/TelemetryEnvironment.sys.mjs",
   EnterpriseCommon: "resource:///modules/enterprise/EnterpriseCommon.sys.mjs",
   AsyncShutdown: "resource://gre/modules/AsyncShutdown.sys.mjs",
+  FeltStorage: "resource:///modules/FeltStorage.sys.mjs",
 });
 
 /**
@@ -133,11 +134,13 @@ export const ConsoleClient = {
    * @returns {nsIURI}
    */
   constructSsoLoginURI(email, devicePostureToken) {
+    const deviceId = lazy.FeltStorage.getDeviceId();
     const url = this.consoleBaseURI;
     url.pathname = this._paths.SSO;
     url.searchParams.set("target", "browser");
     url.searchParams.set("email", email);
     url.searchParams.set("devicePostureToken", devicePostureToken);
+    url.searchParams.set("deviceId", deviceId);
     // Consumer expects uri as nsIURI
     const uri = Services.io.newURI(url.href);
     return uri;

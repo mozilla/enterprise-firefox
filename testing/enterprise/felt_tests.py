@@ -131,7 +131,10 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
 
         if path == "/sso/login":
             query = urllib.parse.parse_qs(parsed.query)
-            if not "devicePostureToken" in query.keys():
+            if (
+                not "devicePostureToken" in query.keys()
+                or not "deviceId" in query.keys()
+            ):
                 self.forbidden()
                 return
 
