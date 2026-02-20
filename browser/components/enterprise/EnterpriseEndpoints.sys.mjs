@@ -7,19 +7,19 @@ const CONSOLE_ADDRESS_PREF = "enterprise.console.address";
 const ENDPOINT_PREFS = [
   {
     pref: "security.certerrors.mitm.priming.endpoint",
-    path: "/api/misc/mitm/",
+    path: "api/misc/mitm/",
   },
   {
     pref: "captivedetect.canonicalURL",
-    path: "/api/misc/portal/canonical.html",
+    path: "api/misc/portal/canonical.html",
   },
   {
     pref: "network.connectivity-service.IPv4.url",
-    path: "/api/misc/connectivity?ipv4",
+    path: "api/misc/connectivity?ipv4",
   },
   {
     pref: "network.connectivity-service.IPv6.url",
-    path: "/api/misc/connectivity?ipv6",
+    path: "api/misc/connectivity?ipv6",
   },
 ];
 
