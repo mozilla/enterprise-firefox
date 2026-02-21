@@ -3096,7 +3096,11 @@ pref("network.tcp.keepalive.idle_time", 600); // seconds; 10 mins
 // All the Geolocation preferences are here.
 //
 #ifndef ANDROID
+#ifdef MOZ_ENTERPRISE
+  pref("geo.provider.network.url", "");
+#else
   pref("geo.provider.network.url", "https://www.googleapis.com/geolocation/v1/geolocate?key=%GOOGLE_LOCATION_SERVICE_API_KEY%&solution_channel=%OS%");
+#endif
 
   // Timeout to wait before sending the location request.
   pref("geo.provider.network.timeToWaitBeforeSending", 5000);
@@ -3217,7 +3221,11 @@ pref("pointer-lock-api.warning.timeout", 3000);
 
 pref("dom.push.loglevel", "Error");
 
+#ifdef MOZ_ENTERPRISE
+pref("dom.push.serverURL", "");
+#else
 pref("dom.push.serverURL", "wss://push.services.mozilla.com/");
+#endif
 pref("dom.push.userAgentID", "");
 
 // The maximum number of push messages that a service worker can receive

@@ -13,3 +13,5 @@ pref("browser.profiles.enabled", false);
 pref("extensions.activeThemeID", "firefox-enterprise-light@mozilla.org");
 
 pref("enterprise.loglevel", "Error");
+
+pref("browser.newtabpage.activity-stream.feeds.section.topstories", false);
