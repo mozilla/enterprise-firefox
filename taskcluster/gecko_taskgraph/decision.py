@@ -138,7 +138,7 @@ PER_PROJECT_PARAMETERS = {
                             "linux64-aarch64-enterprise-shippable",
                         ],
                     },
-                    "stageMozGCP": {
+                    "mozcloudStage": {
                         "locales": ["en-US"],
                         "platforms": [
                             "linux64-enterprise-shippable",
@@ -161,7 +161,7 @@ PER_PROJECT_PARAMETERS = {
                             "win64-enterprise-shippable",
                         ],
                     },
-                    "stageMozGCP": {
+                    "mozcloudStage": {
                         "locales": ["en-US"],
                         "platforms": [
                             "win64-enterprise-shippable",
@@ -189,7 +189,7 @@ PER_PROJECT_PARAMETERS = {
                             "win64-enterprise-shippable",
                         ],
                     },
-                    "stageMozGCP": {
+                    "mozcloudStage": {
                         "locales": ["en-US"],
                         "platforms": [
                             "linux64-enterprise-shippable",
@@ -218,7 +218,7 @@ PER_PROJECT_PARAMETERS = {
                             "win64-enterprise-shippable",
                         ],
                     },
-                    "stageMozGCP": {
+                    "mozcloudStage": {
                         "locales": ["en-US"],
                         "platforms": [
                             "linux64-enterprise-shippable",
@@ -246,7 +246,7 @@ PER_PROJECT_PARAMETERS = {
                             "win64-enterprise-shippable",
                         ],
                     },
-                    "stageMozGCP": {
+                    "mozcloudStage": {
                         "locales": ["en-US"],
                         "platforms": [
                             "linux64-enterprise-shippable",
