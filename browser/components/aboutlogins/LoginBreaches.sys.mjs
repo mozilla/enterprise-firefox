@@ -69,7 +69,9 @@ export const LoginBreaches = {
     const BREACH_ALERT_URL = Services.prefs.getStringPref(
       "signon.management.page.breachAlertUrl"
     );
-    const baseBreachAlertURL = new URL(BREACH_ALERT_URL);
+    const baseBreachAlertURL = BREACH_ALERT_URL
+      ? new URL(BREACH_ALERT_URL)
+      : null;
 
     await Services.logins.initializationPromise;
     const storageJSON = Services.logins.wrappedJSObject._storage;
@@ -111,12 +113,14 @@ export const LoginBreaches = {
           continue;
         }
 
-        let breachAlertURL = new URL(breach.Name, baseBreachAlertURL);
-        breachAlertURL.searchParams.set("utm_source", "firefox-desktop");
-        breachAlertURL.searchParams.set("utm_medium", "referral");
-        breachAlertURL.searchParams.set("utm_campaign", "about-logins");
-        breachAlertURL.searchParams.set("utm_content", "about-logins");
-        breach.breachAlertURL = breachAlertURL.href;
+        if (baseBreachAlertURL) {
+          let breachAlertURL = new URL(breach.Name, baseBreachAlertURL);
+          breachAlertURL.searchParams.set("utm_source", "firefox-desktop");
+          breachAlertURL.searchParams.set("utm_medium", "referral");
+          breachAlertURL.searchParams.set("utm_campaign", "about-logins");
+          breachAlertURL.searchParams.set("utm_content", "about-logins");
+          breach.breachAlertURL = breachAlertURL.href;
+        }
         breachesByLoginGUID.set(login.guid, breach);
       }
     }

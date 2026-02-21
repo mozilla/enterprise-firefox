@@ -16,6 +16,7 @@ const gBrowserGlue = Cc["@mozilla.org/browser/browserglue;1"].getService(
 );
 
 ChromeUtils.defineESModuleGetters(this, {
+  AppConstants: "resource://gre/modules/AppConstants.sys.mjs",
   LoginBreaches: "resource:///modules/LoginBreaches.sys.mjs",
 });
 
@@ -134,11 +135,13 @@ add_task(async function test_breachedLogin() {
     1,
     "Should be 1 breached login: " + BREACHED_LOGIN.origin
   );
-  Assert.strictEqual(
-    breachesByLoginGUID.get(BREACHED_LOGIN.guid).breachAlertURL,
-    "https://monitor.firefox.com/breach-details/Breached?utm_source=firefox-desktop&utm_medium=referral&utm_campaign=about-logins&utm_content=about-logins",
-    "Breach alert link should be equal to the breachAlertURL"
-  );
+  if (!AppConstants.MOZ_ENTERPRISE) {
+    Assert.strictEqual(
+      breachesByLoginGUID.get(BREACHED_LOGIN.guid).breachAlertURL,
+      "https://monitor.firefox.com/breach-details/Breached?utm_source=firefox-desktop&utm_medium=referral&utm_campaign=about-logins&utm_content=about-logins",
+      "Breach alert link should be equal to the breachAlertURL"
+    );
+  }
 });
 
 add_task(async function test_breachedLoginAfterCrashingUriLogin() {
@@ -154,11 +157,13 @@ add_task(async function test_breachedLoginAfterCrashingUriLogin() {
     1,
     "Should be 1 breached login: " + BREACHED_LOGIN.origin
   );
-  Assert.strictEqual(
-    breachesByLoginGUID.get(BREACHED_LOGIN.guid).breachAlertURL,
-    "https://monitor.firefox.com/breach-details/Breached?utm_source=firefox-desktop&utm_medium=referral&utm_campaign=about-logins&utm_content=about-logins",
-    "Breach alert link should be equal to the breachAlertURL"
-  );
+  if (!AppConstants.MOZ_ENTERPRISE) {
+    Assert.strictEqual(
+      breachesByLoginGUID.get(BREACHED_LOGIN.guid).breachAlertURL,
+      "https://monitor.firefox.com/breach-details/Breached?utm_source=firefox-desktop&utm_medium=referral&utm_campaign=about-logins&utm_content=about-logins",
+      "Breach alert link should be equal to the breachAlertURL"
+    );
+  }
 });
 
 add_task(async function test_notBreachedSubdomain() {
