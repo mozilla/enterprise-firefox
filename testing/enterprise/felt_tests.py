@@ -640,3 +640,14 @@ class FeltTests(FeltTestsBase):
 
     def await_felt_auth_window(self):
         self._wait.until(lambda mn: len(self._driver.chrome_window_handles) == 1)
+
+    def get_whoami(self):
+        self._child_driver.set_context("chrome")
+        rv = self._child_driver.execute_script(
+            """
+            const { ConsoleClient } = ChromeUtils.importESModule("resource:///modules/enterprise/ConsoleClient.sys.mjs");
+            return ConsoleClient._get(ConsoleClient._paths.WHOAMI);
+            """,
+        )
+        self._child_driver.set_context("content")
+        return rv

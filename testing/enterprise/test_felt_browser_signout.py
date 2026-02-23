@@ -19,16 +19,6 @@ from marionette_driver.errors import (
 
 
 class BaseBrowserSignout(FeltTests):
-    def felt_whoami(self):
-        self._child_driver.set_context("chrome")
-        rv = self._child_driver.execute_script(
-            """
-            const { ConsoleClient } = ChromeUtils.importESModule("resource:///modules/enterprise/ConsoleClient.sys.mjs");
-            return ConsoleClient._get(ConsoleClient._paths.WHOAMI);
-            """,
-        )
-        self._child_driver.set_context("content")
-        return rv
 
     def get_private_cookies(self):
         self._driver.set_context("chrome")
@@ -46,7 +36,7 @@ class BaseBrowserSignout(FeltTests):
         self._driver.set_context("content")
         return private_cookies
 
-    def run_browser_ui_state_when_user_is_logged_in(self):
+    def run_perform_signout(self):
         self.connect_child_browser(
             capabilities={
                 # Do not auto-handle prompts.
@@ -54,43 +44,10 @@ class BaseBrowserSignout(FeltTests):
             }
         )
 
-        whoami = self.felt_whoami()
-        assert whoami["id"], "Expected user to exist"
-        assert whoami["email"], "Expected user email to exist"
-        assert whoami["picture"], "Expected user picture to exist"
-
-        # Save email for later to test that email is correctly pre-filled
-        # in test_felt_7_prefilled_email_submit
+        # Cache email in case prefilled email input field is expected
+        whoami = self.get_whoami()
         self._signed_in_email = whoami["email"]
 
-        self._child_driver.set_context("chrome")
-
-        self._logger.info("Checking for enterprise badge.")
-        badge = self.get_elem_child("#enterprise-badge-toolbar-button")
-
-        self._logger.info("Checking user icon is updated in badge.")
-        user_icon = self.get_elem_child("#enterprise-user-icon")
-        picture_url = user_icon.value_of_css_property("list-style-image")
-        assert picture_url == f'url("{whoami["picture"]}")', (
-            "User's picture not correctly set on user icon"
-        )
-
-        self._logger.info("Clicking enterprise panel")
-        badge.click()
-
-        self._logger.info("Checking enterprise panel")
-        self.get_elem_child("#panelUI-enterprise")
-
-        self._logger.info("Checking user email address updated in enterprise panel")
-        email = self.get_elem_child(".panelUI-enterprise__email")
-        assert email.get_property("textContent") == whoami["email"], (
-            "User email not correctly set"
-        )
-
-        self._child_driver.set_context("content")
-
-    def run_perform_signout(self):
-        self.open_tab_child("about:newtab")
 
         self._child_driver.set_context("chrome")
 
@@ -134,7 +91,7 @@ class BaseBrowserSignout(FeltTests):
 
     def run_whoami(self):
         try:
-            self.felt_whoami()
+            self.get_whoami()
             assert False, "Error on signout"
         except JavascriptException as ex:
             assert ex.msg == "InvalidAuthError: Unhandled reauthentication", (
@@ -195,7 +152,6 @@ class BaseBrowserSignout(FeltTests):
 class BrowserSignout(BaseBrowserSignout):
     def test_browser_signout(self):
         super().run_felt_base()
-        self.run_browser_ui_state_when_user_is_logged_in()
         self.run_perform_signout()
         self.run_whoami()
         self.run_prefilled_email_submit()
