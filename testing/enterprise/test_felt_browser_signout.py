@@ -19,7 +19,6 @@ from marionette_driver.errors import (
 
 
 class BaseBrowserSignout(FeltTests):
-
     def get_private_cookies(self):
         self._driver.set_context("chrome")
         private_cookies = self._driver.execute_script(
@@ -47,7 +46,6 @@ class BaseBrowserSignout(FeltTests):
         # Cache email in case prefilled email input field is expected
         whoami = self.get_whoami()
         self._signed_in_email = whoami["email"]
-
 
         self._child_driver.set_context("chrome")
 

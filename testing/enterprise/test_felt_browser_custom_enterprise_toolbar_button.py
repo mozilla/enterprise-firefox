@@ -12,7 +12,6 @@ from felt_tests import FeltTests
 
 
 class CustomEnterpriseUITests(FeltTests):
-
     def test_enterprise_browser_ui(self):
         super().run_felt_base()
         self.connect_child_browser()
@@ -36,7 +35,7 @@ class CustomEnterpriseUITests(FeltTests):
         assert picture_url == f'url("{whoami["picture"]}")', (
             "User's picture not correctly set on user icon"
         )
-        
+
         self._logger.info("Clicking enterprise panel")
         badge.click()
 
