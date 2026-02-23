@@ -29,6 +29,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   FileUtils: "resource://gre/modules/FileUtils.sys.mjs",
   ProxyPolicies: "resource:///modules/policies/ProxyPolicies.sys.mjs",
   SearchService: "moz-src:///toolkit/components/search/SearchService.sys.mjs",
+  SidebarChatPolicies:
+    "resource:///modules/policies/SidebarChatPolicies.sys.mjs",
   QuickSuggest: "moz-src:///browser/components/urlbar/QuickSuggest.sys.mjs",
   WebsiteFilter: "resource:///modules/policies/WebsiteFilter.sys.mjs",
 });
@@ -3428,6 +3430,12 @@ export var Policies = {
       }
 
       manager.updateSitePolicies(sitePolicies);
+    },
+  },
+
+  SidebarChat: {
+    onBeforeAddons(manager, param) {
+      lazy.SidebarChatPolicies.applySidebarChatPolicy(param);
     },
   },
 

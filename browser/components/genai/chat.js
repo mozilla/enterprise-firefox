@@ -403,6 +403,9 @@ function showOnboarding(length) {
         action: { picker: "<event>" },
         data: [...providerConfigs.values()].map(config => ({
           action: { type: ACTIONS.CHATBOT_SELECT, config },
+          icon: config.iconUrl
+            ? { backgroundImage: `url(${config.iconUrl})` }
+            : undefined,
           id: config.id,
           label: config.name,
           tooltip: { string_id: config.tooltipId },

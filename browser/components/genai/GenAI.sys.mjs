@@ -931,6 +931,11 @@ export const GenAI = {
           targeting: "true",
           value: "",
         };
+        if (promptObj.label.length == 0) {
+          // Because these are default preferences, the only way to chnage
+          // them is to set them to an empty string.
+          return;
+        }
         try {
           // Prompts can be JSON with label, value, targeting and other keys
           Object.assign(promptObj, JSON.parse(promptObj.label));

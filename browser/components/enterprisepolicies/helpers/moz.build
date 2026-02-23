@@ -10,6 +10,7 @@ with Files("**"):
 EXTRA_JS_MODULES.policies += [
     "BookmarksPolicies.sys.mjs",
     "ProxyPolicies.sys.mjs",
+    "SidebarChatPolicies.sys.mjs",
 ]
 
 if CONFIG["MOZ_ENTERPRISE"]:

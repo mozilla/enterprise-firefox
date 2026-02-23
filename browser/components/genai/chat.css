@@ -189,27 +189,6 @@ browser {
     max-width: var(--icon-size);
     min-width: var(--icon-size);
     outline: none;
-
-    &.claude {
-      background-image: url(assets/brands/claude.svg);
-    }
-    &.chatgpt {
-      background-image: url(assets/brands/chatgpt.svg);
-      -moz-context-properties: fill;
-      fill: var(--text-color);
-    }
-    &.copilot {
-      background-image: url(assets/brands/copilot.svg);
-    }
-    &.gemini {
-      background-image: url(assets/brands/gemini.svg);
-    }
-    &.huggingchat {
-      background-image: url(assets/brands/huggingchat.svg);
-    }
-    &.lechat {
-      background-image: url(assets/brands/lechat.svg);
-    }
   }
 
   .text {

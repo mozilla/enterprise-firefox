@@ -74,6 +74,7 @@ export const SingleSelect = ({
 
   const CONFIGURABLE_STYLES = [
     "background",
+    "backgroundImage",
     "borderRadius",
     "height",
     "marginBlock",

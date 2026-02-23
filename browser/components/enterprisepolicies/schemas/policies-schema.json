@@ -1798,6 +1798,7 @@
       "type": "boolean"
     },
 
+<<<<<<< HEAD
     "SitePolicies": {
       "type": "array",
       "items": {
@@ -1827,6 +1828,68 @@
           }
         },
         "required": ["Policies"]
+=======
+    "SidebarChat": {
+      "type": "object",
+      "properties": {
+        "Providers": {
+          "type": "object",
+          "properties": {
+            "Add": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "url": {
+                    "type": "URL"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "type": "string"
+                  },
+                  "iconUrl": {
+                    "type": "string"
+                  },
+                  "queryParam": {
+                    "type": "string"
+                  }
+                },
+                "required": ["url", "name", "id"]
+              }
+            },
+            "RemoveAll": {
+              "type": "boolean"
+            },
+            "Remove": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": ["claude", "chatgpt", "copilot", "gemini", "lechat"]
+              }
+            },
+            "Default": {
+              "type": "string"
+            }
+          }
+        },
+        "Prompts": {
+          "type": "object",
+          "properties": {
+            "RemoveAll": {
+              "type": "boolean"
+            },
+            "Remove": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": ["summarize", "explain", "quiz", "proofread"]
+              }
+            }
+          }
+        }
+>>>>>>> 635da80d775c (Bug 2012458 - Add policy for configuring sidebar AI providers.)
       }
     },
 
