@@ -89,7 +89,7 @@ class BaseBrowserSignout(FeltTests):
         self.cookie_name.value = str(uuid.uuid1()).split("-")[0]
         self.cookie_value.value = str(uuid.uuid4()).split("-")[4]
 
-    def run_whoami(self):
+    def assert_user_signed_out(self):
         try:
             self.get_whoami()
             assert False, "Error on signout"
@@ -153,7 +153,7 @@ class BrowserSignout(BaseBrowserSignout):
     def test_browser_signout(self):
         super().run_felt_base()
         self.run_perform_signout()
-        self.run_whoami()
+        self.assert_user_signed_out()
         self.run_prefilled_email_submit()
         self.run_load_sso()
         self.run_perform_sso_auth()
