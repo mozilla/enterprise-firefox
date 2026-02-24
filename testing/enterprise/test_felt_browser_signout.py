@@ -42,7 +42,7 @@ class BaseBrowserSignout(FeltTests):
         )
 
         self.assert_user_signed_in(env=Environment.FIREFOX)
-        # Cache email in case prefilled email input field is expected
+        # Cache email for later use in prefilled email input field assertion
         user = self.get_logged_in_user_info(env=Environment.FIREFOX)
         self._signed_in_email = user["email"]
 
