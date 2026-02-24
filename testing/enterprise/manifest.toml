@@ -12,7 +12,7 @@ subsuite = "enterprise"
 
 ["test_felt_browser_crash_restart.py"]
 
-["test_felt_browser_custom_enterprise_toolbar_button.py"]
+["test_felt_browser_enterprise_toolbar_button.py"]
 
 ["test_felt_browser_exit_tokens.py"]
 
