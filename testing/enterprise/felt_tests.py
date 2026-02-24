@@ -643,10 +643,10 @@ class FeltTests(FeltTestsBase):
 
     def get_whoami(self):
         self._child_driver.set_context("chrome")
-        rv = self._child_driver.execute_script(
+        rv = self._child_driver.execute_async_script(
             """
             const { ConsoleClient } = ChromeUtils.importESModule("resource:///modules/enterprise/ConsoleClient.sys.mjs");
-            return ConsoleClient._get(ConsoleClient._paths.WHOAMI);
+            return ConsoleClient.getLoggedInUserInfo();
             """,
         )
         self._child_driver.set_context("content")
