@@ -114,9 +114,12 @@ class BaseBrowserSignout(FeltTests):
         assert email == self._signed_in_email, (
             "Expected email to be pre-filled after signout"
         )
-        self._driver.set_context("content")
 
-        self.run_felt_chrome_on_email_submit()
+        self._logger.info("Submitting prefilled email by clicking")
+        btn = self.get_elem("#felt-form__sign-in-btn")
+        btn.click()
+
+        self._driver.set_context("content")
 
     def run_load_sso(self):
         self.force_window()
