@@ -8,10 +8,16 @@ import os
 import tempfile
 import time
 from copy import deepcopy
+from enum import Enum
 
 from marionette_driver.marionette import Marionette
 from marionette_driver.wait import Wait
 from marionette_harness import MarionetteTestCase
+
+
+class Environment(Enum):
+    FELT = "felt"
+    FIREFOX = "Firefox"
 
 
 class EnterpriseTestsBase(MarionetteTestCase):
@@ -132,3 +138,39 @@ class EnterpriseTestsBase(MarionetteTestCase):
 
         self._child_driver = Marionette(host="127.0.0.1", port=new_marionette_port)
         self._child_driver.start_session(capabilities)
+
+    def get_logged_in_user_info(self, env):
+        self._logger.info(f"Getting logged in user info in {env.name}.")
+
+        driver = self._driver if env == Environment.FELT else self._child_driver
+
+        driver.set_context("chrome")
+        try:
+            user = driver.execute_async_script(
+                """
+                const callback = arguments[arguments.length - 1];
+                const { ConsoleClient } = ChromeUtils.importESModule("resource:///modules/enterprise/ConsoleClient.sys.mjs");
+                ConsoleClient.getLoggedInUserInfo()
+                    .then(callback)
+                    .catch(err => callback({_error: String(err)}))
+                """,
+            )
+            return user
+        finally:
+            driver.set_context("content")
+
+    def assert_user_signed_in(self, env):
+        self._logger.info(f"Verifying user is signed in in {env.name}.")
+
+        user = self.get_logged_in_user_info(env)
+
+        assert user["id"], "Expected user to exist"
+        assert user["email"], "Expected user email to exist"
+
+    def assert_user_signed_out(self, env):
+        self._logger.info(f"Verifying user is signed out in {env.name}.")
+
+        result = self.get_logged_in_user_info(env)
+        assert result["_error"] == "InvalidAuthError: Unhandled reauthentication", (
+            "Unexpected state after signout"
+        )

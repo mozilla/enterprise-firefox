@@ -9,12 +9,10 @@ import uuid
 
 sys.path.append(os.path.dirname(__file__))
 
+from base_test import Environment
 from felt_tests import FeltTests
 from marionette_driver.errors import (
-    JavascriptException,
-    NoSuchWindowException,
     UnexpectedAlertOpen,
-    UnknownException,
 )
 
 
@@ -43,9 +41,10 @@ class BaseBrowserSignout(FeltTests):
             }
         )
 
+        self.assert_user_signed_in(env=Environment.FIREFOX)
         # Cache email in case prefilled email input field is expected
-        whoami = self.get_whoami()
-        self._signed_in_email = whoami["email"]
+        user = self.get_logged_in_user_info(env=Environment.FIREFOX)
+        self._signed_in_email = user["email"]
 
         self._child_driver.set_context("chrome")
 
@@ -87,28 +86,18 @@ class BaseBrowserSignout(FeltTests):
         self.cookie_name.value = str(uuid.uuid1()).split("-")[0]
         self.cookie_value.value = str(uuid.uuid4()).split("-")[4]
 
-    def assert_user_signed_out(self):
-        try:
-            self.get_whoami()
-            assert False, "Error on signout"
-        except JavascriptException as ex:
-            assert ex.msg == "InvalidAuthError: Unhandled reauthentication", (
-                "Deauth done"
-            )
-        except NoSuchWindowException:
-            pass
-        except UnknownException as ex:
-            assert ex.msg == "Failed to decode response from marionette", "Deauth done"
-        except OSError:
-            pass
-
-    def run_prefilled_email_submit(self):
+        # Verify felt authentication window reloaded
         self.await_felt_auth_window()
         self.force_window()
 
+        # Verify no user signed in in Felt
+        self.assert_user_signed_out(env=Environment.FELT)
+
+        # Verify no cookies from the previous sign in session
         cookies = self.get_private_cookies()
         assert len(cookies) == 0, f"No private cookies, found {len(cookies)}"
 
+    def run_prefilled_email_submit(self):
         self._driver.set_context("chrome")
         email = self.get_elem("#felt-form__email").get_property("value")
         assert email == self._signed_in_email, (
@@ -154,7 +143,6 @@ class BrowserSignout(BaseBrowserSignout):
     def test_browser_signout(self):
         super().run_felt_base()
         self.run_perform_signout()
-        self.assert_user_signed_out()
         self.run_prefilled_email_submit()
         self.run_load_sso()
         self.run_perform_sso_auth()
