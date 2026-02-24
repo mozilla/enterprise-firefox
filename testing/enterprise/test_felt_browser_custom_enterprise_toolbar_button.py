@@ -11,7 +11,7 @@ sys.path.append(os.path.dirname(__file__))
 from felt_tests import FeltTests
 
 
-class CustomEnterpriseUITests(FeltTests):
+class EnterpriseBadgeTests(FeltTests):
     def test_enterprise_browser_ui(self):
         super().run_felt_base()
         self.connect_child_browser()
