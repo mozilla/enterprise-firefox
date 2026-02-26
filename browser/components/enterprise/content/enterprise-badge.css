@@ -27,6 +27,12 @@
       outline-offset: var(--focus-outline-inset);
     }
   }
+
+  &[open="true"] {
+    & .enterprise-badge {
+      background-color: var(--button-background-color-active);
+    }
+  }
 }
 
 .enterprise-badge {
