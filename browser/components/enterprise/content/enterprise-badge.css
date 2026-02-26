@@ -59,6 +59,9 @@
   flex-shrink: 0;
 
   > image {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
     border-radius: var(--border-radius-small);
     list-style-image: url(chrome://browser/content/enterprise/badge-logo.svg);
   }
