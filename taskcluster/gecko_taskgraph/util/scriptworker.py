@@ -59,6 +59,7 @@ SIGNING_SCOPE_ALIAS_TO_PROJECT = [
             "maple",
             # bug 1988213: cypress project branch
             "cypress",
+            ("enterprise-firefox", "refs/heads/enterprise-main"),
         },
     ],
     [
@@ -74,6 +75,7 @@ SIGNING_SCOPE_ALIAS_TO_PROJECT = [
             "comm-esr115",
             "comm-esr128",
             "comm-esr140",
+            ("enterprise-firefox", "refs/heads/enterprise-release"),
         },
     ],
 ]
@@ -97,24 +99,6 @@ DEVEDITION_SIGNING_SCOPE_ALIAS_TO_PROJECT = [
 
 DEVEDITION_SIGNING_TYPES = {
     "beta": "nightly-signing",
-    "default": "dep-signing",
-}
-
-ENTERPRISE_SIGNING_SCOPE_ALIAS_TO_PROJECT = [
-    [
-        "enterprise-nightly",
-        {
-            "enterprise-firefox",
-        },
-    ]
-]
-
-ENTERPRISE_MAIN_OR_RELEASE_SIGNING_TYPES = {
-    "enterprise-nightly": "nightly-signing",
-    "default": "dep-signing",
-}
-
-ENTERPRISE_TRY_SIGNING_TYPES = {
     "default": "dep-signing",
 }
 
@@ -332,14 +316,17 @@ def get_signing_type_from_project(
     Args:
         config (TransformConfig): The configuration for the kind being transformed.
         alias_to_project_map (list of lists): each list pair contains the
-            alias and the set of projects that match.  This is ordered.
+            alias and the set of projects or project+branch combinations that match.  This is ordered.
         alias_to_signing_type_map (dict): the alias to signing type
 
     Returns:
         string: the scope to use.
     """
     for alias, projects in alias_to_project_map:
-        if config.params["project"] in projects and alias in alias_to_signing_type_map:
+        if (
+            config.params["project"] in projects
+            or (config.params["project"], config.params["head_ref"]) in projects
+        ) and alias in alias_to_signing_type_map:
             return alias_to_signing_type_map[alias]
     return alias_to_signing_type_map["default"]
 
@@ -411,18 +398,6 @@ get_devedition_signing_type = functools.partial(
     get_signing_type_from_project,
     alias_to_project_map=DEVEDITION_SIGNING_SCOPE_ALIAS_TO_PROJECT,
     alias_to_signing_type_map=DEVEDITION_SIGNING_TYPES,
-)
-
-get_enterprise_main_or_release_signing_type = functools.partial(
-    get_signing_type_from_project,
-    alias_to_project_map=ENTERPRISE_SIGNING_SCOPE_ALIAS_TO_PROJECT,
-    alias_to_signing_type_map=ENTERPRISE_MAIN_OR_RELEASE_SIGNING_TYPES,
-)
-
-get_enterprise_try_signing_type = functools.partial(
-    get_signing_type_from_project,
-    alias_to_project_map=ENTERPRISE_SIGNING_SCOPE_ALIAS_TO_PROJECT,
-    alias_to_signing_type_map=ENTERPRISE_TRY_SIGNING_TYPES,
 )
 
 get_beetmover_bucket_scope = functools.partial(
@@ -501,20 +476,13 @@ def get_release_config(config):
 
 
 def get_signing_type_per_platform(build_platform, is_shippable, config):
+    # PRs only get to use dep-signing
+    if int(config.params["level"]) != 3:
+        return "dep-signing"
+
     if "devedition" in build_platform:
         return get_devedition_signing_type(config)
-    if "enterprise" in build_platform:
-        if (
-            is_shippable
-            and any(
-                name in config.params["head_ref"]
-                for name in ["enterprise-main", "enterprise-release"]
-            )
-            and int(config.params["level"]) == 3
-        ):
-            return get_enterprise_main_or_release_signing_type(config)
-        else:
-            return get_enterprise_try_signing_type(config)
+
     if is_shippable:
         return get_signing_type(config)
     return "dep-signing"
