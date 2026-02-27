@@ -37,7 +37,7 @@ tasks:
         from-deps:
             group-by: single-with-filters
         run-on-projects: [enterprise-firefox]
-        run-on-git-branches: [enterprise-main]
+        run-on-git-branches: [enterprise-main, enterprise-release]
         treeherder-group: ms
         description-suffix: 'mar signing'
         required_signoffs:
