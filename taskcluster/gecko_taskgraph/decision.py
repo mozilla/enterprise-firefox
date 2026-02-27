@@ -145,6 +145,13 @@ PER_PROJECT_PARAMETERS = {
                             "linux64-aarch64-enterprise-shippable",
                         ],
                     },
+                    "prodMozGCP": {
+                        "locales": ["en-US", "fr"],
+                        "platforms": [
+                            "linux64-enterprise-shippable",
+                            "linux64-aarch64-enterprise-shippable",
+                        ],
+                    },
                 },
             },
             "repackage-msi": {
@@ -162,6 +169,12 @@ PER_PROJECT_PARAMETERS = {
                         ],
                     },
                     "stageMozGCP": {
+                        "locales": ["en-US", "fr"],
+                        "platforms": [
+                            "win64-enterprise-shippable",
+                        ],
+                    },
+                    "prodMozGCP": {
                         "locales": ["en-US", "fr"],
                         "platforms": [
                             "win64-enterprise-shippable",
@@ -198,6 +211,15 @@ PER_PROJECT_PARAMETERS = {
                             "win64-enterprise-shippable",
                         ],
                     },
+                    "prodMozGCP": {
+                        "locales": ["en-US", "fr"],
+                        "platforms": [
+                            "linux64-enterprise-shippable",
+                            "linux64-aarch64-enterprise-shippable",
+                            "macosx64-enterprise-shippable",
+                            "win64-enterprise-shippable",
+                        ],
+                    },
                 },
             },
             "enterprise-repack-mac-signing": {
@@ -226,6 +248,14 @@ PER_PROJECT_PARAMETERS = {
                             "win64-enterprise-shippable",
                         ],
                     },
+                    "prodMozGCP": {
+                        "locales": ["en-US", "fr"],
+                        "platforms": [
+                            "linux64-enterprise-shippable",
+                            "macosx64-enterprise-shippable",
+                            "win64-enterprise-shippable",
+                        ],
+                    },
                 },
             },
             "enterprise-repack-mac-notarization": {
@@ -247,6 +277,14 @@ PER_PROJECT_PARAMETERS = {
                         ],
                     },
                     "stageMozGCP": {
+                        "locales": ["en-US", "fr"],
+                        "platforms": [
+                            "linux64-enterprise-shippable",
+                            "macosx64-enterprise-shippable",
+                            "win64-enterprise-shippable",
+                        ],
+                    },
+                    "prodMozGCP": {
                         "locales": ["en-US", "fr"],
                         "platforms": [
                             "linux64-enterprise-shippable",
