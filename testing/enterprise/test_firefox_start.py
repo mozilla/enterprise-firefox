@@ -25,7 +25,12 @@ class EnterpriseTests(EnterpriseTestsBase):
         self._wait.until(expected.element_displayed(version_box))
         self._wait.until(lambda d: len(version_box.text) > 0)
         self._logger.info(f"about:support version: {version_box.text}")
-        expected_version = self.marionette.session_capabilities.get("browserVersion")
+        # We expect the full Firefox version including a/beta/rc suffixes,
+        # so we need to use the full MOZ_APP_VERSION_DISPLAY.
+        expected_version = self.marionette.execute_script(
+            "const { AppConstants } = ChromeUtils.importESModule('resource://gre/modules/AppConstants.sys.mjs');"
+            " return AppConstants.MOZ_APP_VERSION_DISPLAY;"
+        )
         self._logger.info(f"expected version: {expected_version}")
         assert version_box.text == expected_version, "version text should match"
 
