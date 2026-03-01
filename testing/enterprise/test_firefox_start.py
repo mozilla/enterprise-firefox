@@ -25,7 +25,9 @@ class EnterpriseTests(EnterpriseTestsBase):
         self._wait.until(expected.element_displayed(version_box))
         self._wait.until(lambda d: len(version_box.text) > 0)
         self._logger.info(f"about:support version: {version_box.text}")
-        expected_version = self.marionette.session_capabilities.get("browserVersion")
+        expected_version = self.marionette.execute_script(
+            "return Services.appinfo.version;"
+        )
         self._logger.info(f"expected version: {expected_version}")
         assert version_box.text == expected_version, "version text should match"
 
