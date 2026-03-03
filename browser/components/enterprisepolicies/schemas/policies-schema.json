@@ -1859,14 +1859,16 @@
                 "required": ["url", "name", "id"]
               }
             },
-            "RemoveAll": {
-              "type": "boolean"
-            },
-            "Remove": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "enum": ["claude", "chatgpt", "copilot", "gemini", "lechat"]
+            "BuiltIn": {
+              "type": "object",
+              "properties": {
+                "Anthropic Claude": { "type": "boolean" },
+                "ChatGPT":          { "type": "boolean" },
+                "Copilot":          { "type": "boolean" },
+                "Google Gemini":    { "type": "boolean" },
+                "HuggingChat":      { "type": "boolean" },
+                "Le Chat Mistral":  { "type": "boolean" },
+                "localhost":        { "type": "boolean" }
               }
             },
             "Default": {
@@ -1877,14 +1879,16 @@
         "Prompts": {
           "type": "object",
           "properties": {
-            "RemoveAll": {
+            "Enabled": {
               "type": "boolean"
             },
-            "Remove": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "enum": ["summarize", "explain", "quiz", "proofread"]
+            "BuiltIn": {
+              "type": "object",
+              "properties": {
+                "Summarize":  { "type": "boolean" },
+                "Explain":    { "type": "boolean" },
+                "Quiz":       { "type": "boolean" },
+                "Proofread":  { "type": "boolean" }
               }
             }
           }

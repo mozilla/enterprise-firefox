@@ -76,11 +76,13 @@ XPCOMUtils.defineLazyPreferenceGetter(
   null,
   (_pref, _old, val) => onChatProviderChange(val)
 );
+export const CHAT_PROVIDERS_DEFAULT = "claude,chatgpt,copilot,gemini,lechat";
+
 XPCOMUtils.defineLazyPreferenceGetter(
   lazy,
   "chatProviders",
   "browser.ml.chat.providers",
-  "claude,chatgpt,copilot,gemini,lechat",
+  CHAT_PROVIDERS_DEFAULT,
   reorderChatProviders
 );
 XPCOMUtils.defineLazyPreferenceGetter(
@@ -854,6 +856,10 @@ export const GenAI = {
 
     // Add remove provider option
     const popup = source === "tool" ? menu : menu.menupopup;
+    if (!popup) {
+      showItem(menu, false);
+      return;
+    }
     popup.appendChild(doc.createXULElement("menuseparator"));
     const removeItem = addItem();
     doc.l10n.setAttributes(
@@ -931,7 +937,7 @@ export const GenAI = {
           targeting: "true",
           value: "",
         };
-        if (promptObj.label.length == 0) {
+        if (!promptObj.label.length) {
           // Because these are default preferences, the only way to chnage
           // them is to set them to an empty string.
           return;
@@ -945,6 +951,9 @@ export const GenAI = {
             promptObj.id = null;
           }
         } catch (ex) {}
+        if (!promptObj.label && !promptObj.l10nId) {
+          return;
+        }
         messages.push(promptObj);
         if (promptObj.l10nId) {
           toFormat.push(promptObj);

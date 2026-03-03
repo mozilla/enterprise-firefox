@@ -2,110 +2,101 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-const lazy = {};
-
-ChromeUtils.defineESModuleGetters(lazy, {
-  GenAI: "resource:///modules/GenAI.sys.mjs",
-});
-
 import { setAndLockPref } from "resource:///modules/policies/Policies.sys.mjs";
+import {
+  CHAT_PROVIDERS_DEFAULT,
+  GenAI,
+} from "resource:///modules/GenAI.sys.mjs";
 
-export let SidebarChatPolicies = {
-  /**
-   * Remove AI providers based on policy configuration
-   *
-   * @param {object} policy - The policy configuration
-   * @param {boolean} policy.RemoveAll - Whether to remove all built-in providers
-   * @param {Array<string>} policy.Remove - Array of provider IDs to remove
-   */
-  removeProviders(policy) {
-    if (policy.RemoveAll) {
-      lazy.GenAI.chatProviders.clear();
-    } else if (policy.Remove) {
-      policy.Remove.forEach(id => {
-        for (const [url, config] of lazy.GenAI.chatProviders) {
-          if (config.id === id) {
-            lazy.GenAI.chatProviders.delete(url);
-            break;
-          }
-        }
-      });
-    }
-  },
+export const SidebarChatPolicies = {
+  configureProviders(policy) {
+    const idToName = new Map(
+      [...GenAI.chatProviders.values()].map(c => [c.id, c.name])
+    );
 
-  /**
-   * Add custom AI providers based on policy configuration
-   *
-   * @param {object} policy - The policy configuration
-   * @param {Array<object>} policy.Add - Array of provider configurations to add
-   */
-  addProviders(policy) {
-    policy.Add.forEach(engine => {
-      // Policy system parses URLs and provides them as URL objects
+    let providerIds = CHAT_PROVIDERS_DEFAULT.split(",").filter(
+      id => !policy.BuiltIn || policy.BuiltIn[idToName.get(id)] !== false
+    );
+
+    policy.Add?.forEach(engine => {
       const url = engine.url.href || engine.url;
-
-      const engineConfig = {
-        id: engine.id,
-        name: engine.name,
-      };
-
-      // Copy optional properties
-      const optionalProps = ["iconUrl", "queryParam"];
-
-      optionalProps.forEach(prop => {
+      const engineConfig = { id: engine.id, name: engine.name };
+      ["iconUrl", "queryParam"].forEach(prop => {
         if (engine[prop] !== undefined) {
           engineConfig[prop] = engine[prop];
         }
       });
-
-      lazy.GenAI.chatProviders.set(url, engineConfig);
+      GenAI.chatProviders.set(url, engineConfig);
+      providerIds.push(engine.id);
     });
+
+    if (policy.BuiltIn || policy.Add?.length) {
+      Services.prefs.setStringPref(
+        "browser.ml.chat.providers",
+        providerIds.join(",")
+      );
+    }
+
+    // If there are no providers, disable the chat sidebar
+    if (!providerIds.length) {
+      setAndLockPref("browser.ml.chat.enabled", false);
+    }
   },
 
-  /**
-   * Remove prompts based on policy configuration
-   *
-   * @param {object} policy - The policy configuration
-   * @param {boolean} policy.RemoveAllPrompts - Whether to remove all prompts
-   * @param {Array<string>} policy.RemovePrompts - Array of prompt IDs to remove
-   */
-  removePrompts(policy) {
-    if (policy.RemoveAll) {
-      Services.prefs.getChildList("browser.ml.chat.prompts.").forEach(pref => {
-        setAndLockPref(pref, "");
-      });
-      if (!policy.Prompts) {
-        // If we are not adding prompts, turn it off completely
-        setAndLockPref("browser.ml.chat.page", false);
+  configurePrompts(policy) {
+    if (policy.Enabled === false) {
+      for (const pref of Services.prefs.getChildList(
+        "browser.ml.chat.prompts."
+      )) {
+        Services.prefs.setStringPref(pref, "");
       }
-    }
-
-    if (!policy.Remove?.length) {
+      setAndLockPref("browser.ml.chat.shortcuts", false);
       return;
     }
-    const promptPrefs = Services.prefs.getChildList("browser.ml.chat.prompts.");
 
-    for (const pref of promptPrefs) {
+    if (!policy.BuiltIn) {
+      return;
+    }
+
+    const PROMPT_NAME_TO_ID = {
+      Summarize: "summarize",
+      Explain: "explain",
+      Quiz: "quiz",
+      Proofread: "proofread",
+    };
+
+    const disabledIds = new Set(
+      Object.entries(policy.BuiltIn)
+        .filter(([, enabled]) => enabled === false)
+        .map(([name]) => PROMPT_NAME_TO_ID[name])
+        .filter(Boolean)
+    );
+
+    if (!disabledIds.size) {
+      return;
+    }
+
+    for (const pref of Services.prefs.getChildList(
+      "browser.ml.chat.prompts."
+    )) {
       const value = Services.prefs.getStringPref(pref, "");
       if (!value) {
-        continue; // already cleared or not set
+        continue;
       }
-
       let promptObj;
       try {
         promptObj = JSON.parse(value);
       } catch (e) {
-        continue; // skip invalid JSON
+        continue;
       }
-
-      if (policy.Remove.includes(promptObj.id)) {
-        setAndLockPref(pref, "");
+      if (disabledIds.has(promptObj.id)) {
+        Services.prefs.setStringPref(pref, "");
       }
     }
   },
 
   /**
-   * Set the default provider and optionally lock the configuration
+   * Set the default provider
    *
    * @param {object} policy - The policy configuration
    * @param {string} policy.Default - Provider ID to set as default
@@ -116,8 +107,8 @@ export let SidebarChatPolicies = {
     }
 
     // Find URL for this provider ID
-    for (const [url, config] of lazy.GenAI.chatProviders) {
-      if (config.id === policy.Default) {
+    for (const [url, config] of GenAI.chatProviders) {
+      if (config.name === policy.Default) {
         Services.prefs.setStringPref("browser.ml.chat.provider", url);
         break;
       }
@@ -130,23 +121,12 @@ export let SidebarChatPolicies = {
    * @param {object} param - The policy parameter
    */
   applySidebarChatPolicy(param) {
-    if (!param) {
-      return;
-    }
-
-    // Apply policy in order:
-    // 1. Remove providers
-    // 2. Add custom providers
-    // 3. Remove prompts
-    // 4. Set default and lock
-
     if (param.Providers) {
-      this.removeProviders(param.Providers);
-      this.addProviders(param.Providers);
+      this.configureProviders(param.Providers);
       this.setDefaultProvider(param.Providers);
     }
     if (param.Prompts) {
-      this.removePrompts(param.Prompts);
+      this.configurePrompts(param.Prompts);
     }
   },
 };
