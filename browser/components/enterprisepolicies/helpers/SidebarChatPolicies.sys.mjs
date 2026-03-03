@@ -129,4 +129,13 @@ export const SidebarChatPolicies = {
       this.configurePrompts(param.Prompts);
     }
   },
+
+  unapplySidebarChatPolicy() {
+    Services.prefs.clearUserPref("browser.ml.chat.providers");
+    Services.prefs.clearUserPref("browser.ml.chat.provider");
+    Services.prefs.clearUserPref("browser.ml.chat.prompts.0");
+    Services.prefs.clearUserPref("browser.ml.chat.prompts.1");
+    Services.prefs.clearUserPref("browser.ml.chat.prompts.2");
+    Services.prefs.clearUserPref("browser.ml.chat.prompts.3");
+  }
 };

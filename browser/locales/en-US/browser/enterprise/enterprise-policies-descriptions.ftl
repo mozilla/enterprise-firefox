@@ -6,4 +6,5 @@ policy-BlocklistDomainBrowsedTelemetry = Enable and configure security logging/t
 policy-DownloadTelemetry = Enable and configure security logging/telemetry when a download is triggered.
 policy-EnterpriseStorageEncryption = Enable enterprise-managed primary password for encrypted storage.
 policy-PrintPageTelemetry = Enable and configure security logging/telemetry when a page is printed.
+policy-SidebarChat = Configure providers and prompts in the chat sidebar.
 policy-Sync = Enable or disable sync and define which data to include.

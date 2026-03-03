@@ -3437,6 +3437,11 @@ export var Policies = {
     onBeforeAddons(manager, param) {
       lazy.SidebarChatPolicies.applySidebarChatPolicy(param);
     },
+    onRemove(manager, oldParams) {
+      if (!oldParams) {
+        lazy.SidebarChatPolicies.unapplySidebarChatPolicy();
+      }
+    },
   },
 
   SkipTermsOfUse: {
