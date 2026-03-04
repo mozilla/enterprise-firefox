@@ -198,6 +198,7 @@ export const ConsoleClient = {
     // The match pattern should then NOT use any port otherwise matching would
     // not happen.
     const url = this.consoleBaseURI;
+    console.debug(`FeltExtension: ssoCallbackUriMatchPattern: this.consoleBaseURI=${this.consoleBaseURI}`);
     url.pathname = this._paths.SSO_CALLBACK;
     url.port = "";
     return url.href + "?*";

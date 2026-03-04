@@ -8,11 +8,19 @@ console.debug(`FeltExtension: FeltWindowChild.sys.mjs`);
  *
  */
 export class FeltWindowChild extends JSWindowActorChild {
+  constructor() {
+    console.debug(`FeltExtension: FeltWindowChild: constructor()`);
+    super();
+  }
+
   actorCreated() {
+    console.debug(`FeltExtension: FeltWindowChild: actorCreated`);
     this.actor = ChromeUtils.domProcessChild.getActor("FeltProcess");
   }
 
   handleEvent(event) {
+    console.debug(`FeltExtension: FeltWindowChild: event.type=${event.type}`);
+
     if (event.type !== "DOMContentLoaded") {
       console.error(`Unexpected event.type=${event.type}`);
       return;
