@@ -1419,15 +1419,9 @@ pref("intl.regional_prefs.use_os_locales", false);
 
 pref("browser.send_pings", false);
 
-#ifdef MOZ_ENTERPRISE
-pref("browser.geolocation.warning.infoURL", "");
-pref("browser.xr.warning.infoURL", "");
-pref("browser.lna.warning.infoURL", "");
-#else
 pref("browser.geolocation.warning.infoURL", "https://www.mozilla.org/%LOCALE%/firefox/geolocation/");
 pref("browser.xr.warning.infoURL", "https://www.mozilla.org/%LOCALE%/firefox/xr/");
 pref("browser.lna.warning.infoURL", "https://support.mozilla.org/%LOCALE%/kb/control-personal-device-local-network-permissions-firefox");
-#endif
 
 pref("browser.sessionstore.resume_from_crash", true);
 pref("browser.sessionstore.resume_session_once", false);
@@ -1590,11 +1584,7 @@ pref("toolkit.datacollection.infoURL",
 #endif
 
 // base URL for web-based support pages
-#ifdef MOZ_ENTERPRISE
-pref("app.support.baseURL", "");
-#else
 pref("app.support.baseURL", "https://support.mozilla.org/1/firefox/%VERSION%/%OS%/%LOCALE%/");
-#endif
 
 // base url for web-based feedback pages
 #ifdef MOZ_ENTERPRISE
@@ -2400,11 +2390,7 @@ pref("identity.sync.tokenserver.uri", "https://token.services.mozilla.com/1.0/sy
 pref("identity.fxaccounts.autoconfig.uri", "");
 
 // URL for help link about Send Tab.
-#ifdef MOZ_ENTERPRISE
-pref("identity.sendtabpromo.url", "");
-#else
 pref("identity.sendtabpromo.url", "https://support.mozilla.org/1/firefox/%VERSION%/%OS%/%LOCALE%/send-tab");
-#endif
 
 // URLs for promo links to mobile browsers. Note that consumers are expected to
 // append a value for utm_campaign.
