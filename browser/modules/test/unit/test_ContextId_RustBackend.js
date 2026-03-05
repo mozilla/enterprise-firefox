@@ -59,33 +59,38 @@ function waitForPersist(instance) {
  */
 function waitForRotated(rotatedFromContextId, taskFn) {
   let sandbox = sinon.createSandbox();
-  sandbox.stub(ObliviousHTTP, "getOHTTPConfig").resolves({});
 
+  // On enterprise builds, the unified ads endpoint is empty so
+  // sendMARSDeletionRequest early-returns without making OHTTP requests.
   let { promise, resolve } = Promise.withResolvers();
+  if (UNIFIED_ADS_ENDPOINT) {
+    sandbox.stub(ObliviousHTTP, "getOHTTPConfig").resolves({});
+    sandbox
+      .stub(ObliviousHTTP, "ohttpRequest")
+      .callsFake((_url, _config, endpoint, options) => {
+        Assert.equal(
+          endpoint,
+          `${UNIFIED_ADS_ENDPOINT}v1/delete_user`,
+          "Sent to the MARS endpoint"
+        );
+        Assert.equal(options.method, "DELETE", "Sent using DELETE");
+        Assert.deepEqual(
+          JSON.parse(options.body),
+          {
+            context_id: rotatedFromContextId,
+          },
+          "Sent the old context_id"
+        );
 
-  sandbox
-    .stub(ObliviousHTTP, "ohttpRequest")
-    .callsFake((_url, _config, endpoint, options) => {
-      Assert.equal(
-        endpoint,
-        `${UNIFIED_ADS_ENDPOINT}v1/delete_user`,
-        "Sent to the MARS endpoint"
-      );
-      Assert.equal(options.method, "DELETE", "Sent using DELETE");
-      Assert.deepEqual(
-        JSON.parse(options.body),
-        {
-          context_id: rotatedFromContextId,
-        },
-        "Sent the old context_id"
-      );
-
-      resolve();
-      return Promise.resolve({
-        status: 200,
-        json: async () => [],
+        resolve();
+        return Promise.resolve({
+          status: 200,
+          json: async () => [],
+        });
       });
-    });
+  } else {
+    resolve();
+  }
 
   return GleanPings.contextIdDeletionRequest.testSubmission(async () => {
     Assert.equal(
