@@ -3,6 +3,9 @@ https://creativecommons.org/publicdomain/zero/1.0/ */
 
 "use strict";
 
+const { AppConstants } = ChromeUtils.importESModule(
+  "resource://gre/modules/AppConstants.sys.mjs"
+);
 const { AddonTestUtils } = ChromeUtils.importESModule(
   "resource://testing-common/AddonTestUtils.sys.mjs"
 );
@@ -219,9 +222,12 @@ add_task(async function test_guardian_endpoint_updates_on_reinit() {
   await IPProtectionService.init();
 
   let guardian1 = IPProtectionService.guardian;
+  let expectedEndpoint = AppConstants.MOZ_ENTERPRISE
+    ? ""
+    : "https://vpn.mozilla.org/";
   Assert.equal(
     guardian1.guardianEndpoint,
-    "https://vpn.mozilla.org/",
+    expectedEndpoint,
     "Initial guardian should have default endpoint"
   );
 
