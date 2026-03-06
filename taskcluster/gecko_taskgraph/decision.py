@@ -28,7 +28,13 @@ from taskgraph.util.yaml import load_yaml
 from . import GECKO
 from .actions import render_actions_json
 from .files_changed import get_changed_files
-from .parameters import get_app_version, get_release_type, get_version
+from .parameters import (
+    get_app_version,
+    get_release_type,
+    get_version,
+    get_release_partners,
+    get_release_partner_config,
+)
 from .util.backstop import ANDROID_PERFTEST_BACKSTOP_INDEX, BACKSTOP_INDEX, is_backstop
 from .util.bugbug import push_schedules
 from .util.hg import get_hg_revision_branch, get_hg_revision_info

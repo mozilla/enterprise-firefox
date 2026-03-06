@@ -51,7 +51,7 @@ task-defaults:
     attributes:
         shippable: true
         build_type: opt
-        # artifact_prefix: project/enterprise/repacks/
+        artifact_prefix: project/enterprise/repacks
 
 only-for-build-platforms:
     - linux64-enterprise-shippable/opt
