@@ -138,6 +138,122 @@ def get_release_type(parameters):
     else:
         return "nightly-enterprise"
 
+def get_release_partners(parameters):
+    if parameters["project"] != "enterprise-firefox":
+        return []
+    return get_enterprise_partner_subset(parameters)
+
+
+def get_release_partner_config(parameters):
+    if parameters["project"] != "enterprise-firefox":
+        return {}
+    return get_enterprise_partner_configs(parameters)
+
+
+def get_enterprise_partner_subset(parameters):
+    return ["sample"]
+
+
+def get_enterprise_partner_configs(parameters):
+    return {
+            "repackage-deb": {
+                "sample": {
+                    "stageMozGCP": {
+                        "locales": ["en-US", "fr"],
+                        "platforms": [
+                            "linux64-enterprise-shippable",
+                            "linux64-aarch64-enterprise-shippable",
+                        ],
+                    },
+                    "prodMozGCP": {
+                        "locales": ["en-US", "fr"],
+                        "platforms": [
+                            "linux64-enterprise-shippable",
+                            "linux64-aarch64-enterprise-shippable",
+                        ],
+                    },
+                },
+            },
+            "repackage-msi": {
+                "sample": {
+                    "stageMozGCP": {
+                        "locales": ["en-US", "fr"],
+                        "platforms": [
+                            "win64-enterprise-shippable",
+                        ],
+                    },
+                    "prodMozGCP": {
+                        "locales": ["en-US", "fr"],
+                        "platforms": [
+                            "win64-enterprise-shippable",
+                        ],
+                    },
+                },
+            },
+            "enterprise-repack-repackage": {
+                "sample": {
+                    "stageMozGCP": {
+                        "locales": ["en-US", "fr"],
+                        "platforms": [
+                            "linux64-enterprise-shippable",
+                            "linux64-aarch64-enterprise-shippable",
+                            "macosx64-enterprise-shippable",
+                            "win64-enterprise-shippable",
+                        ],
+                    },
+                    "prodMozGCP": {
+                        "locales": ["en-US", "fr"],
+                        "platforms": [
+                            "linux64-enterprise-shippable",
+                            "linux64-aarch64-enterprise-shippable",
+                            "macosx64-enterprise-shippable",
+                            "win64-enterprise-shippable",
+                        ],
+                    },
+                },
+            },
+            "enterprise-repack-mac-signing": {
+                "sample": {
+                    "stageMozGCP": {
+                        "locales": ["en-US", "fr"],
+                        "platforms": [
+                            "linux64-enterprise-shippable",
+                            "macosx64-enterprise-shippable",
+                            "win64-enterprise-shippable",
+                        ],
+                    },
+                    "prodMozGCP": {
+                        "locales": ["en-US", "fr"],
+                        "platforms": [
+                            "linux64-enterprise-shippable",
+                            "macosx64-enterprise-shippable",
+                            "win64-enterprise-shippable",
+                        ],
+                    },
+                },
+            },
+            "enterprise-repack-mac-notarization": {
+                "sample": {
+                    "stageMozGCP": {
+                        "locales": ["en-US", "fr"],
+                        "platforms": [
+                            "linux64-enterprise-shippable",
+                            "macosx64-enterprise-shippable",
+                            "win64-enterprise-shippable",
+                        ],
+                    },
+                    "prodMozGCP": {
+                        "locales": ["en-US", "fr"],
+                        "platforms": [
+                            "linux64-enterprise-shippable",
+                            "macosx64-enterprise-shippable",
+                            "win64-enterprise-shippable",
+                        ],
+                    },
+                },
+            },
+        }
+
 
 def get_defaults(repo_root=None):
     return {

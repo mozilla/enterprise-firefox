@@ -121,105 +121,6 @@ PER_PROJECT_PARAMETERS = {
     "enterprise-firefox": {
         "target_tasks_method": "enterprise_firefox_with_tests_tasks",
         "release_product": "firefox-enterprise",
-        "release_partners": ["sample"],
-        "release_partner_config": {
-            "repackage-deb": {
-                "sample": {
-                    "stageMozGCP": {
-                        "locales": ["en-US", "fr"],
-                        "platforms": [
-                            "linux64-enterprise-shippable",
-                            "linux64-aarch64-enterprise-shippable",
-                        ],
-                    },
-                    "prodMozGCP": {
-                        "locales": ["en-US", "fr"],
-                        "platforms": [
-                            "linux64-enterprise-shippable",
-                            "linux64-aarch64-enterprise-shippable",
-                        ],
-                    },
-                },
-            },
-            "repackage-msi": {
-                "sample": {
-                    "stageMozGCP": {
-                        "locales": ["en-US", "fr"],
-                        "platforms": [
-                            "win64-enterprise-shippable",
-                        ],
-                    },
-                    "prodMozGCP": {
-                        "locales": ["en-US", "fr"],
-                        "platforms": [
-                            "win64-enterprise-shippable",
-                        ],
-                    },
-                },
-            },
-            "enterprise-repack-repackage": {
-                "sample": {
-                    "stageMozGCP": {
-                        "locales": ["en-US", "fr"],
-                        "platforms": [
-                            "linux64-enterprise-shippable",
-                            "linux64-aarch64-enterprise-shippable",
-                            "macosx64-enterprise-shippable",
-                            "win64-enterprise-shippable",
-                        ],
-                    },
-                    "prodMozGCP": {
-                        "locales": ["en-US", "fr"],
-                        "platforms": [
-                            "linux64-enterprise-shippable",
-                            "linux64-aarch64-enterprise-shippable",
-                            "macosx64-enterprise-shippable",
-                            "win64-enterprise-shippable",
-                        ],
-                    },
-                },
-            },
-            "enterprise-repack-mac-signing": {
-                "sample": {
-                    "stageMozGCP": {
-                        "locales": ["en-US", "fr"],
-                        "platforms": [
-                            "linux64-enterprise-shippable",
-                            "macosx64-enterprise-shippable",
-                            "win64-enterprise-shippable",
-                        ],
-                    },
-                    "prodMozGCP": {
-                        "locales": ["en-US", "fr"],
-                        "platforms": [
-                            "linux64-enterprise-shippable",
-                            "macosx64-enterprise-shippable",
-                            "win64-enterprise-shippable",
-                        ],
-                    },
-                },
-            },
-            "enterprise-repack-mac-notarization": {
-                "sample": {
-                    "stageMozGCP": {
-                        "locales": ["en-US", "fr"],
-                        "platforms": [
-                            "linux64-enterprise-shippable",
-                            "macosx64-enterprise-shippable",
-                            "win64-enterprise-shippable",
-                        ],
-                    },
-                    "prodMozGCP": {
-                        "locales": ["en-US", "fr"],
-                        "platforms": [
-                            "linux64-enterprise-shippable",
-                            "macosx64-enterprise-shippable",
-                            "win64-enterprise-shippable",
-                        ],
-                    },
-                },
-            },
-        },
     },
     # the default parameters are used for projects that do not match above.
     "default": {
@@ -452,8 +353,8 @@ def get_decision_parameters(graph_config, options):
     parameters["release_eta"] = ""
     parameters["release_enable_partner_repack"] = False
     parameters["release_enable_partner_attribution"] = False
-    parameters["release_partners"] = []
-    parameters["release_partner_config"] = {}
+    parameters["release_partners"] = get_release_partners(parameters)
+    parameters["release_partner_config"] = get_release_partner_config(parameters)
     parameters["release_partner_build_number"] = 1
     parameters["release_enable_emefree"] = False
     parameters["release_product"] = None

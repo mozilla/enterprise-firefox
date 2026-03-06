@@ -150,6 +150,7 @@ def make_job_description(config, jobs):
         repack_id = job["extra"]["repack_id"]
 
         partner_config = get_partner_config_by_kind(config, config.kind)
+        print(f"repackage_partner: partner_config: {partner_config}")
         partner, subpartner, _ = repack_id.split("/")
         repack_stub_installer = partner_config[partner][subpartner].get(
             "repack_stub_installer"
@@ -251,6 +252,8 @@ def make_job_description(config, jobs):
                 repack_stub_installer=repack_stub_installer,
             ),
         }
+
+        print(f"job: {task['label']} => fetches: {task['fetches']}")
 
         group = job.get("treeherder-group")
         if group is not None:

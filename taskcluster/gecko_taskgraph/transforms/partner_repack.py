@@ -106,6 +106,7 @@ def add_command_arguments(config, tasks):
     # staging releases - pass reduced set of locales to the repacking script
     all_locales = set()
     partner_config = get_partner_config_by_kind(config, config.kind)
+    print(f"partner_repack: partner_config: {partner_config}")
     for partner in partner_config.values():
         for sub_partner in partner.values():
             all_locales.update(sub_partner.get("locales", []))

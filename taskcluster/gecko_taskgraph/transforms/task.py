@@ -1979,6 +1979,38 @@ def add_github_checks(config, tasks):
         yield task
 
 
+@transforms.add
+def set_artifact_prefix_enterprise_repacks(config, tasks):
+    def set_prefix(repack_id, this_task):
+        artifact_prefix = "project/enterprise/repacks"
+        repack_repo = repack_id.split("/")[0]
+
+        # in default.xml of manifest, path=.../{moz,sample} considered as public-accepted repacks
+        # otherwise make private
+        if repack_repo not in ["moz"]:
+            this_task.get("attributes", {}).setdefault("artifact_prefix", artifact_prefix)
+
+        for artifact in this_task.get('worker', {}).get('artifacts', []):
+            if repack_id in artifact["name"] and artifact["name"].startswith("public/build"):
+                artifact["name"] = artifact["name"].replace("public/build", artifact_prefix)
+
+    for task in tasks:
+        deps = task.get('dependencies', {})
+        deps_keys = list(deps.keys())
+        if "enterprise-repack" in deps_keys:
+            repack_id = task.get("extra", {}).get("repack_id")
+            if repack_id:
+                set_prefix(repack_id, task)
+                print(f"[SINGLE AFTER] task: {task['label']} ({config.kind}) {task}")
+            else:
+                repack_ids = task.get("extra", {}).get("repack_ids")
+                if repack_ids:
+                    for repack_id in repack_ids:
+                        set_prefix(repack_id, task)
+                        print(f"[MULTI AFTER] task: {task['label']} ({config.kind}) {task}")
+        yield task
+
+
 @index_builder("generic")
 def add_generic_index_routes(config, task):
     index = task.get("index")

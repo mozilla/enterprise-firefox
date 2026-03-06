@@ -47,6 +47,11 @@ task-defaults:
     treeherder:
         kind: other
         tier: 1
+        symbol: Rpk-Ent
+    attributes:
+        shippable: true
+        build_type: opt
+        # artifact_prefix: project/enterprise/repacks/
 
 only-for-build-platforms:
     - linux64-enterprise-shippable/opt
@@ -58,36 +63,20 @@ tasks:
     linux64-enterprise-shippable:
         treeherder:
             platform: linux64-enterprise-shippable/opt
-            symbol: Rpk-Ent
         attributes:
-            shippable: true
             build_platform: linux64-enterprise-shippable
-            build_type: opt
-            artifact_prefix: public
     linux64-aarch64-enterprise-shippable:
         treeherder:
             platform: linux64-aarch64-enterprise-shippable/opt
-            symbol: Rpk-Ent
         attributes:
-            shippable: true
             build_platform: linux64-aarch64-enterprise-shippable
-            build_type: opt
-            artifact_prefix: public
     macosx64-enterprise-shippable:
         treeherder:
-            symbol: Rpk-Ent
             platform: osx-cross-enterprise-shippable/opt
         attributes:
-            shippable: true
             build_platform: macosx64-enterprise-shippable
-            build_type: opt
-            artifact_prefix: public
     win64-enterprise-shippable:
         treeherder:
-            symbol: Rpk-Ent
             platform: windows2012-64-enterprise-shippable/opt
         attributes:
-            shippable: true
             build_platform: win64-enterprise-shippable
-            build_type: opt
-            artifact_prefix: public
