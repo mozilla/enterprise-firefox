@@ -20,6 +20,8 @@ subsuite = "enterprise"
 
 ["test_felt_browser_fxa.py"]
 
+["test_felt_browser_insecure_cert.py"]
+
 ["test_felt_browser_new_window_from_cli.py"]
 
 ["test_felt_browser_restart_is_quit.py"]

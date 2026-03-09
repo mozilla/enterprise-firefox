@@ -146,6 +146,8 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
                 return
 
             location = f"http://localhost:{self.server.sso_port}/sso_url"
+            if hasattr(self.server, "login_location"):
+                location = self.server.login_location
             self.send_response(302, "Found")  # or 301/308 as needed
             self.send_header("Location", location)
             self.send_header("Content-Length", "0")
@@ -308,6 +310,22 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
 
         elif path == "/sso/logout":
             self.check_auth()
+            m = json.dumps(None)
+
+        elif path == "/sso/login_force_wrong_location":
+            """
+            This is a test only entry point, meant to change the URL of the
+            Location header when doing /sso/login.
+            """
+
+            payload = self.rfile.read(int(self.headers.get("Content-Length"))).decode(
+                "utf-8"
+            )
+            parsed_payload = urllib.parse.parse_qs(payload)
+
+            self.server.login_location = parsed_payload["location"][0]
+
+            # Return 200 to acknowledge
             m = json.dumps(None)
 
         if m is not None:
