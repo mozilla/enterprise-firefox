@@ -494,6 +494,9 @@ def target_tasks_enterprise_firefox_with_tests(
     )
 
     def filter(task):
+        if "shippable" in task.label:
+            return True
+
         # Enabling tests suites triggers many jobs not required, limit execution
         # to enterprise builds for now
         if task.kind in ["test", "mochitest"] and "enterprise" not in task.label:
