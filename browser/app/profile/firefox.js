@@ -1916,11 +1916,13 @@ pref("browser.newtabpage.activity-stream.mobileDownloadModal.variant-b", false);
 pref("browser.newtabpage.activity-stream.mobileDownloadModal.variant-c", false);
 
 // Mozilla Ad Routing Service (MARS) unified ads service
-pref("browser.newtabpage.activity-stream.unifiedAds.tiles.enabled", true);
-pref("browser.newtabpage.activity-stream.unifiedAds.spocs.enabled", true);
 #ifdef MOZ_ENTERPRISE
+pref("browser.newtabpage.activity-stream.unifiedAds.tiles.enabled", false);
+pref("browser.newtabpage.activity-stream.unifiedAds.spocs.enabled", false);
 pref("browser.newtabpage.activity-stream.unifiedAds.endpoint", "");
 #else
+pref("browser.newtabpage.activity-stream.unifiedAds.tiles.enabled", true);
+pref("browser.newtabpage.activity-stream.unifiedAds.spocs.enabled", true);
 pref("browser.newtabpage.activity-stream.unifiedAds.endpoint", "https://ads.mozilla.org/");
 #endif
 pref("browser.newtabpage.activity-stream.unifiedAds.adsFeed.enabled", false);
@@ -2367,7 +2369,11 @@ pref("identity.fxaccounts.remote.oauth.uri", "https://oauth.accounts.firefox.com
 #endif
 
 // Whether FxA pairing using QR codes is enabled.
+#ifdef MOZ_ENTERPRISE
+pref("identity.fxaccounts.pairing.enabled", false);
+#else
 pref("identity.fxaccounts.pairing.enabled", true);
+#endif
 
 // The remote URI of the FxA pairing server
 #ifdef MOZ_ENTERPRISE
@@ -2675,21 +2681,12 @@ pref("browser.contentblocking.report.vpn-ios.url", "https://apps.apple.com/us/ap
 #endif
 
 // Protection Report's SUMO urls
-#ifdef MOZ_ENTERPRISE
-pref("browser.contentblocking.report.lockwise.how_it_works.url", "");
-pref("browser.contentblocking.report.social.url", "");
-pref("browser.contentblocking.report.cookie.url", "");
-pref("browser.contentblocking.report.tracker.url", "");
-pref("browser.contentblocking.report.fingerprinter.url", "");
-pref("browser.contentblocking.report.cryptominer.url", "");
-#else
 pref("browser.contentblocking.report.lockwise.how_it_works.url", "https://support.mozilla.org/1/firefox/%VERSION%/%OS%/%LOCALE%/password-manager-report");
 pref("browser.contentblocking.report.social.url", "https://support.mozilla.org/1/firefox/%VERSION%/%OS%/%LOCALE%/social-media-tracking-report");
 pref("browser.contentblocking.report.cookie.url", "https://support.mozilla.org/1/firefox/%VERSION%/%OS%/%LOCALE%/cross-site-tracking-report");
 pref("browser.contentblocking.report.tracker.url", "https://support.mozilla.org/1/firefox/%VERSION%/%OS%/%LOCALE%/tracking-content-report");
 pref("browser.contentblocking.report.fingerprinter.url", "https://support.mozilla.org/1/firefox/%VERSION%/%OS%/%LOCALE%/fingerprinters-report");
 pref("browser.contentblocking.report.cryptominer.url", "https://support.mozilla.org/1/firefox/%VERSION%/%OS%/%LOCALE%/cryptominers-report");
-#endif
 
 pref("browser.contentblocking.cfr-milestone.enabled", true);
 pref("browser.contentblocking.cfr-milestone.milestone-achieved", 0);
