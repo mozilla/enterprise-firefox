@@ -19,6 +19,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 this.felt = class extends ExtensionAPI {
   FELT_PROCESS_ACTOR = "FeltProcess";
   FELT_WINDOW_ACTOR = "FeltWindow";
+  FELT_ERROR_WINDOW_ACTOR = "FeltErrorWindow";
 
   registerChrome() {
     let aomStartup = Cc[
@@ -50,6 +51,24 @@ this.felt = class extends ExtensionAPI {
       },
       allFrames: true,
       matches,
+    });
+
+    ChromeUtils.unregisterWindowActor("NetError");
+    // Register an error specific actor so there is no mismatch
+    ChromeUtils.registerWindowActor(this.FELT_ERROR_WINDOW_ACTOR, {
+      child: {
+        esModuleURI: "chrome://felt/content/FeltErrorWindowChild.sys.mjs",
+        events: {
+          DOMContentLoaded: {},
+          load: {},
+        },
+      },
+      parent: {
+        esModuleURI: "chrome://felt/content/FeltErrorWindowParent.sys.mjs",
+      },
+      includeChrome: true,
+      allFrames: true,
+      matches: ["about:certerror?*", "about:neterror?*"],
     });
 
     // We use a much simpler version of the context menu so replace the default actor with our own.
@@ -309,6 +328,7 @@ this.felt = class extends ExtensionAPI {
 
     if (Services.felt.isFeltUI()) {
       ChromeUtils.unregisterWindowActor(this.FELT_WINDOW_ACTOR);
+      ChromeUtils.unregisterWindowActor(this.FELT_ERROR_WINDOW_ACTOR);
       ChromeUtils.unregisterProcessActor(this.FELT_PROCESS_ACTOR);
       lazy.FeltStorage.uninit();
     }

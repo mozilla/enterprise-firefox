@@ -109,6 +109,21 @@ async function connectToConsole(email) {
   }
 
   let browser = document.getElementById("browser");
+  browser.addEventListener("FeltError", ev => {
+    console.debug(
+      `FeltExtension: FeltError event: ${ev.detail} :: ${ev.detail.errorPage}`
+    );
+    const parsedErrorPage = new URL(ev.detail.errorPage);
+    ErrorReport.update(
+      "felt-browser-error-connection",
+      parsedErrorPage.searchParams.get("e"),
+      { host: new URL(parsedErrorPage.searchParams.get("u")).host }
+    );
+    document
+      .querySelector(".felt-login__email-pane")
+      .classList.remove("is-hidden");
+    document.querySelector(".felt-login__sso").classList.add("is-hidden");
+  });
 
   let oa = E10SUtils.predictOriginAttributes({ browser });
   browser.setAttribute("maychangeremoteness", "true");
