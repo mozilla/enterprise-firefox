@@ -47,6 +47,10 @@ ChromeUtils.defineLazyGetter(lazy, "fxAccounts", () => {
   ).getFxAccountsSingleton();
 });
 
+ChromeUtils.defineESModuleGetters(lazy, {
+  MachineId: "resource://gre/modules/MachineId.sys.mjs",
+});
+
 import { PREF_ACCOUNT_ROOT } from "resource://gre/modules/FxAccountsCommon.sys.mjs";
 
 const CLIENTS_TTL = 15552000; // 180 days
@@ -100,6 +104,7 @@ Utils.deferGetSet(ClientsRec, "cleartext", [
   "application",
   "device",
   "fxaDeviceId",
+  "machineId",
 ]);
 
 export function ClientEngine(service) {
@@ -1004,6 +1009,12 @@ ClientStore.prototype = {
       record.os = Services.appinfo.OS; // "Darwin"
       record.appPackage = Services.appinfo.ID;
       record.application = this.engine.brandName; // "Nightly"
+
+      try {
+        record.machineId = await lazy.MachineId.getHashedId();
+      } catch (error) {
+        this._log.warn("failed to get machine id", error);
+      }
 
       // We can't compute these yet.
       // record.device = "";            // Bug 1100723

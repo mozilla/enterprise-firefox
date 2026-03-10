@@ -187,6 +187,7 @@ EXTRA_JS_MODULES += [
     "LayoutUtils.sys.mjs",
     "Log.sys.mjs",
     "LogManager.sys.mjs",
+    "MachineId.sys.mjs",
     "NewTabUtils.sys.mjs",
     "NLP.sys.mjs",
     "ObjectUtils.sys.mjs",
