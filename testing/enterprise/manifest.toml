@@ -113,6 +113,8 @@ run-if = [
 
 ["test_felt_device_posture.py"]
 
+["test_felt_device_posture_poll.py"]
+
 ["test_felt_email_input_focus.py"]
 
 ["test_felt_exit_tokens.py"]

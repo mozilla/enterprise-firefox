@@ -1363,7 +1363,16 @@ class RemotePoliciesProvider extends PoliciesProvider {
    *   changed, i.e. whether the engine should re-evaluate
    */
   async ingestPolicies() {
-    const res = await lazy.ConsoleClient.getRemotePolicies();
+    // Device posture is supplementary; if collecting it fails, fall back to
+    // a plain policy fetch rather than failing the policy update.
+    let posture = null;
+    try {
+      posture = await lazy.ConsoleClient.collectDevicePosture();
+    } catch (e) {
+      lazy.log.error(`Failed to collect device posture: ${e}`);
+    }
+
+    const res = await lazy.ConsoleClient.getRemotePolicies(posture);
     if (!res?.policies) {
       lazy.log.error(
         `No policies were found in the response: ${JSON.stringify(res)}.`
