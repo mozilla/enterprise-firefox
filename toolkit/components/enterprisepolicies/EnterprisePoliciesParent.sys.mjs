@@ -1325,7 +1325,7 @@ class RemotePoliciesProvider extends PoliciesProvider {
     this._updateInProgress = true;
     try {
       lazy.log.debug("Polling for remote policies.");
-      const changed = await this.ingestPolicies();
+      const changed = await this.ingestPolicies({ waitForAddons: true });
       if (!changed) {
         lazy.log.debug("Remote policies unchanged, not firing an update.");
         return;
@@ -1359,15 +1359,20 @@ class RemotePoliciesProvider extends PoliciesProvider {
   /**
    * Fetch the remote policies and store them.
    *
+   * @param {object} [options]
+   * @param {boolean} [options.waitForAddons] passed through to
+   *   ConsoleClient.collectDevicePosture(); see its documentation.
    * @returns {Promise<boolean>} whether the policies or the failure state
    *   changed, i.e. whether the engine should re-evaluate
    */
-  async ingestPolicies() {
+  async ingestPolicies({ waitForAddons = false } = {}) {
     // Device posture is supplementary; if collecting it fails, fall back to
     // a plain policy fetch rather than failing the policy update.
     let posture = null;
     try {
-      posture = await lazy.ConsoleClient.collectDevicePosture();
+      posture = await lazy.ConsoleClient.collectDevicePosture({
+        waitForAddons,
+      });
     } catch (e) {
       lazy.log.error(`Failed to collect device posture: ${e}`);
     }
