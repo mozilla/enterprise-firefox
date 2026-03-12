@@ -17,3 +17,4 @@ If you have a question about developing Firefox, and can't find the solution
 on [Firefox Source Docs](https://firefox-source-docs.mozilla.org/), you can try asking your question on Matrix at
 chat.mozilla.org in the [Introduction channel](https://chat.mozilla.org/#/room/#introduction:mozilla.org).
 line 1
+line 2
