@@ -19,3 +19,4 @@ chat.mozilla.org in the [Introduction channel](https://chat.mozilla.org/#/room/#
 line 1
 line 2
 line 3
+line 4
