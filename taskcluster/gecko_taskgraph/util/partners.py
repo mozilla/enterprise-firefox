@@ -619,3 +619,70 @@ def _pad_macos_attribution_code(attribution_string):
     while len(attribution_string) < 1010:
         attribution_string += "\t"
     return attribution_string
+
+
+ENTERPRISE_REPACKS = {
+    "sample": {
+        "stageMozGCP": {
+            "locales": ["en-US", "fr"],
+            "public": True,
+        },
+        "prodMozGCP": {
+            "locales": ["en-US", "fr"],
+        },
+    },
+}
+
+
+def make_enterprise_repack(platforms):
+    repacks = deepcopy(ENTERPRISE_REPACKS)
+    for repack_repo in repacks.keys():
+        for repack_name in repacks[repack_repo]:
+            repacks[repack_repo][repack_name].update({"platforms": deepcopy(platforms)})
+    return repacks
+
+
+def get_release_partners(parameters):
+    if parameters["project"] != "enterprise-firefox":
+        return []
+    return get_enterprise_partner_subset(parameters)
+
+
+def get_release_partner_config(parameters):
+    if parameters["project"] != "enterprise-firefox":
+        return {}
+    return get_enterprise_partner_configs(parameters)
+
+
+def get_enterprise_partner_subset(parameters):
+    return list(ENTERPRISE_REPACKS.keys())
+
+
+def get_enterprise_partner_configs(parameters):
+    return {
+        "repackage-deb": make_enterprise_repack([
+            "linux64-enterprise-shippable",
+            "linux64-aarch64-enterprise-shippable",
+        ]),
+        "repackage-msi": make_enterprise_repack([
+            "win64-enterprise-shippable",
+        ]),
+        "enterprise-repack": make_enterprise_repack([
+            "linux64-enterprise-shippable",
+            "linux64-aarch64-enterprise-shippable",
+            "macosx64-enterprise-shippable",
+            "win64-enterprise-shippable",
+        ]),
+        "enterprise-repack-repackage": make_enterprise_repack([
+            "linux64-enterprise-shippable",
+            "linux64-aarch64-enterprise-shippable",
+            "macosx64-enterprise-shippable",
+            "win64-enterprise-shippable",
+        ]),
+        "enterprise-repack-mac-signing": make_enterprise_repack([
+            "macosx64-enterprise-shippable",
+        ]),
+        "enterprise-repack-mac-notarization": make_enterprise_repack([
+            "macosx64-enterprise-shippable",
+        ]),
+    }
