@@ -224,11 +224,14 @@ def make_job_description(config, jobs):
         )
 
         if "enterprise-repack-repackage" in job["label"]:
+            print(f"enterprise-repack-repackage rename: {job['label']} {dep_job.label} {dep_job.kind}")
             repack_id = job.get("extra", {}).get("repack_id")
             repack_label = "enterprise-repack-repackage-" + repack_id.replace("/", "_")
+            platform = dep_job.label.replace(f"{dep_job.kind}-", "")
             job["label"] = job["label"].replace(
                 "enterprise-repack-repackage", repack_label
-            )
+            ).replace(attributes.get('build_platform'), platform)
+            print(f"enterprise-repack-repackage renamed: {job['label']} {dep_job.label} {dep_job.kind}")
 
         task = {
             "label": job["label"],
@@ -256,6 +259,7 @@ def make_job_description(config, jobs):
         if group is not None:
             task["treeherder"] = inherit_treeherder_from_dep(job, dep_job)
             task["treeherder"]["symbol"] = f"{group}({repack_id})"
+            print(f"task: {job['label']} => {group}({repack_id})")
 
         # we may have reduced the priority for partner jobs, otherwise task.py will set it
         if job.get("priority"):

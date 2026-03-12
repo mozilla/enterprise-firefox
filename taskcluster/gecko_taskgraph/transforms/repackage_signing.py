@@ -93,9 +93,13 @@ def make_repackage_signing_description(config, jobs):
                 .get("symbol")
                 .replace("/", "_")
             )
+            print(f"repackage-signing rename: {job['label']} {dep_job.label} {dep_job.kind}")
             job["label"] = job["label"].replace(
                 "repackage-signing", f"repackage-signing-enterprise-repack-{repack_id}"
             )
+            if "private" in dep_job.label:
+                job["label"] = job["label"].replace("-shippable", "-shippable-private")
+            print(f"repackage-signing rename: {job['label']} {dep_job.label} {dep_job.kind}")
 
         label = job["label"]
 

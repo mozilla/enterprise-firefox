@@ -953,6 +953,10 @@ enterprise-repack
 -----------------
 Generates customized versions of releases for enterprises.
 
+enterprise-repack-private
+-------------------------
+Generates customized versions of releases for enterprises.
+
 enterprise-repack-repackage
 ---------------------------
 Repackage customized versions of releases for enterprises.

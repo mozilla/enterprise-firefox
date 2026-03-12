@@ -6,6 +6,7 @@ loader: taskgraph.loader.transform:loader
 
 transforms:
     - gecko_taskgraph.transforms.release_deps:transforms
+    - gecko_taskgraph.transforms.enterprise
     - gecko_taskgraph.transforms.partner_repack:transforms
     - gecko_taskgraph.transforms.job:transforms
     - gecko_taskgraph.transforms.task:transforms
@@ -47,6 +48,10 @@ task-defaults:
     treeherder:
         kind: other
         tier: 1
+        symbol: Rpk-Ent
+    attributes:
+        shippable: true
+        build_type: opt
 
 only-for-build-platforms:
     - linux64-enterprise-shippable/opt
@@ -58,36 +63,44 @@ tasks:
     linux64-enterprise-shippable:
         treeherder:
             platform: linux64-enterprise-shippable/opt
-            symbol: Rpk-Ent
         attributes:
-            shippable: true
             build_platform: linux64-enterprise-shippable
-            build_type: opt
-            artifact_prefix: public
     linux64-aarch64-enterprise-shippable:
         treeherder:
             platform: linux64-aarch64-enterprise-shippable/opt
-            symbol: Rpk-Ent
         attributes:
-            shippable: true
             build_platform: linux64-aarch64-enterprise-shippable
-            build_type: opt
-            artifact_prefix: public
     macosx64-enterprise-shippable:
         treeherder:
-            symbol: Rpk-Ent
             platform: osx-cross-enterprise-shippable/opt
         attributes:
-            shippable: true
             build_platform: macosx64-enterprise-shippable
-            build_type: opt
-            artifact_prefix: public
     win64-enterprise-shippable:
         treeherder:
-            symbol: Rpk-Ent
             platform: windows2012-64-enterprise-shippable/opt
         attributes:
-            shippable: true
             build_platform: win64-enterprise-shippable
-            build_type: opt
-            artifact_prefix: public
+    linux64-enterprise-shippable-private:
+        treeherder:
+            platform: linux64-enterprise-shippable-private/opt
+        attributes:
+            build_platform: linux64-enterprise-shippable
+            artifact_prefix: project/enterprise/repacks
+    linux64-aarch64-enterprise-shippable-private:
+        treeherder:
+            platform: linux64-aarch64-enterprise-shippable-private/opt
+        attributes:
+            build_platform: linux64-aarch64-enterprise-shippable
+            artifact_prefix: project/enterprise/repacks
+    macosx64-enterprise-shippable-private:
+        treeherder:
+            platform: osx-cross-enterprise-shippable-private/opt
+        attributes:
+            build_platform: macosx64-enterprise-shippable
+            artifact_prefix: project/enterprise/repacks
+    win64-enterprise-shippable-private:
+        treeherder:
+            platform: windows2012-64-enterprise-shippable-private/opt
+        attributes:
+            build_platform: win64-enterprise-shippable
+            artifact_prefix: project/enterprise/repacks

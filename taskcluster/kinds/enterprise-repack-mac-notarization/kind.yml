@@ -22,8 +22,8 @@ only-for-build-platforms:
 tasks:
     enterprise-repack-mac-notarization:
         from-deps:
+            unique-kinds: false
             group-by: partner-repack-ids
-            copy-attributes: true
         shipping-product: firefox-enterprise
         # TODO: shipping-phase: promote
         copy-repack-ids: true

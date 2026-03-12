@@ -367,6 +367,9 @@ def use_fetches(config, jobs):
                         config.kind_dependencies_tasks[dep_label]
                     )
 
+                    #print(f"job: {job.get('label')} {dep_label} => {prefix} :: {config.kind_dependencies_tasks[dep_label]}")
+
+
                 for artifact in artifacts:
                     if isinstance(artifact, str):
                         path = artifact

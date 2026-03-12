@@ -43,6 +43,7 @@ def define_upstream_artifacts(config, jobs):
         )
 
         repack_ids = job["extra"]["repack_ids"]
+        print(f"define_upstream_artifacts: {config.kind} job:{job['label']} dep_job:{dep_job.label} => repack_ids:{repack_ids}")
         artifacts_specifications = generate_specifications_of_artifacts_to_sign(
             config,
             job,

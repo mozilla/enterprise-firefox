@@ -473,9 +473,12 @@ def make_job_description(config, jobs):
         treeherder.setdefault("symbol", "Rpk")
         if "enterprise" in attributes.get("build_platform", ""):
             if "enterprise-repack" in dep_job.kind:
+                platform = dep_job.label.replace(f"{dep_job.kind}-", "")
+                print(f"enterprise-repack rename: {job['label']} {dep_job.label} {dep_job.kind}")
                 job["label"] = job["label"].replace(
-                    "repackage", "repackage-enterprise-repack"
-                )
+                    "repackage", f"repackage-{dep_job.kind}"
+                ).replace(attributes.get('build_platform'), platform)
+                print(f"enterprise-repack renamed: {job['label']} {dep_job.label} {dep_job.kind}")
 
             variant = (
                 (

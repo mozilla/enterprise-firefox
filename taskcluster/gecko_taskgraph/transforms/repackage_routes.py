@@ -14,7 +14,7 @@ transforms = TransformSequence()
 def add_indexes(config, jobs):
     for job in jobs:
         repackage_type = job["attributes"].get("repackage_type")
-        if repackage_type and job["attributes"]["build_type"] != "debug":
+        if repackage_type and job["attributes"]["build_type"] != "debug" and not "-private" in job["label"]:
             build_platform = job["attributes"]["build_platform"]
             job_name = f"{build_platform}-{repackage_type}"
             if job.get("shipping-product", "").startswith("thunderbird"):

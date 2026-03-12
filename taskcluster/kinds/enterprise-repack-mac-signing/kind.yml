@@ -22,7 +22,9 @@ only-for-build-platforms:
 tasks:
     enterprise-repack-mac-signing:
         from-deps:
+            unique-kinds: false
             group-by: partner-repack-ids
         shipping-product: firefox-enterprise
         # TODO: shipping-phase: promote
-        repacks-per-chunk: 1
+        # repacks-per-chunk: 1
+        copy-repack-ids: true
