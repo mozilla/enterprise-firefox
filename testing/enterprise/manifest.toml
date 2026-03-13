@@ -22,6 +22,16 @@ subsuite = "enterprise"
 
 ["test_felt_browser_new_window_from_cli.py"]
 
+["test_felt_browser_rapid_new_tabs_from_cli.py"]
+run-if = [
+  "os == 'mac'",
+]
+
+["test_felt_browser_rapid_new_windows_from_cli.py"]
+run-if = [
+  "os == 'mac'",
+]
+
 ["test_felt_browser_restart_is_quit.py"]
 
 ["test_felt_browser_restart_works.py"]

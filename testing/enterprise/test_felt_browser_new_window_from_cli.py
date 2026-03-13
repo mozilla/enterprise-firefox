@@ -61,6 +61,51 @@ class FeltNewWindowFromCli(FeltTests):
             time.sleep(0.5)
         assert False, f"Expected window with url {url}"
 
+    def _get_child_tab_urls(self):
+        self._child_driver.set_context("chrome")
+        urls = self._child_driver.execute_script(
+            """
+            let urls = [];
+            let enumerator = Services.wm.getEnumerator("navigator:browser");
+            while (enumerator.hasMoreElements()) {
+              let win = enumerator.getNext();
+              for (let tab of win.gBrowser?.tabs ?? []) {
+                urls.push(tab.linkedBrowser?.currentURI?.spec ?? "");
+              }
+            }
+            return urls;
+            """
+        )
+        self._child_driver.set_context("content")
+        return urls
+
+    def _wait_for_tab_urls_containing(self, substring, expected_count):
+        loops = 0
+        while loops < 40:
+            urls = self._get_child_tab_urls()
+            matching = [u for u in urls if substring in u]
+            if len(matching) >= expected_count:
+                return matching
+            loops += 1
+            time.sleep(0.5)
+        assert False, (
+            f"Expected {expected_count} tabs matching '{substring}', "
+            f"found {len(matching)}: {matching}"
+        )
+
+    def _wait_for_exact_window_count(self, expected, settle_time=2.0):
+        """Wait for the expected window count, then verify no extra windows
+        appear during a settling period. This detects races where rapid
+        CLI invocations could create duplicate windows."""
+        self._wait_for_window_count(expected)
+        time.sleep(settle_time)
+        windows = self._get_child_windows()
+        assert len(windows) == expected, (
+            f"Expected exactly {expected} windows after settling, "
+            f"but saw {len(windows)}"
+        )
+        return windows
+
     def test_new_window_from_cli(self):
         super().run_felt_base()
         self.connect_child_browser()
