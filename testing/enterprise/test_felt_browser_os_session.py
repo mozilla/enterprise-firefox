@@ -61,6 +61,7 @@ class BrowserOsSession(FeltTests):
         self.fire_os_event_and_expect_quit("os-session-end")
 
         self.await_felt_auth_window()
+        self.force_window()
         self._driver.set_context("chrome")
         email = self.get_elem("#felt-form__email").get_property("value")
         assert email == signed_in_email, (
@@ -87,6 +88,7 @@ class BrowserOsSession(FeltTests):
         self.fire_os_event_and_expect_quit("os-user-switch")
 
         self.await_felt_auth_window()
+        self.force_window()
         self._driver.set_context("chrome")
         email = self.get_elem("#felt-form__email").get_property("value")
         assert email == signed_in_email, (
@@ -136,6 +138,7 @@ class BrowserOsSession(FeltTests):
         self.fire_os_event_and_expect_quit("screen-locked")
 
         self.await_felt_auth_window()
+        self.force_window()
         self._driver.set_context("chrome")
         email = self.get_elem("#felt-form__email").get_property("value")
         assert email == signed_in_email, (
