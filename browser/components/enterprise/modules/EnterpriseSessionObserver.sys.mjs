@@ -23,6 +23,7 @@ export const EnterpriseSessionObserver = {
   SIGNOUT_ON_SCREEN_LOCK_PREF: "enterprise.signoutOnScreenLock",
 
   _initialized: false,
+  _signingOut: false,
 
   init() {
     if (this._initialized) {
@@ -65,42 +66,45 @@ export const EnterpriseSessionObserver = {
   _SESSION_END_TIMEOUT_MS: 2000,
 
   _handleSessionEnd() {
-    // os-session-end fires during WM_ENDSESSION (Windows) or similar
-    // synchronous OS shutdown paths. The process will be killed shortly
-    // after this returns, so we spin the Gecko event loop briefly to
-    // give the server-side POST a chance to complete. The Windows
-    // message pump is blocked (we're inside a WndProc), but Gecko's
-    // event loop can still drain necko callbacks from background threads.
+    if (this._signingOut) {
+      return;
+    }
+    this._signingOut = true;
     lazy.log.debug("OS session end detected, signing out");
 
-    let finished = false;
-    const deadline = Date.now() + this._SESSION_END_TIMEOUT_MS;
+    // On Windows, WM_ENDSESSION is synchronous and the process will be killed
+    // shortly after returning. Spin the Gecko event loop briefly to give the
+    // server-side POST a chance to complete before the process is torn down.
+    // This is Windows-specific: on macOS and Linux the OS provides async
+    // shutdown hooks that don't require manual event loop pumping.
+    if (Services.appinfo.OS === "WINNT") {
+      let finished = false;
+      const deadline = Date.now() + this._SESSION_END_TIMEOUT_MS;
 
-    Promise.race([
-      lazy.ConsoleClient._post(lazy.ConsoleClient._paths.SIGNOUT),
-      new Promise((_resolve, reject) =>
-        lazy.setTimeout(
-          () => reject(new Error("Server signout timed out")),
-          this._SESSION_END_TIMEOUT_MS
-        )
-      ),
-    ])
-      .catch(e => {
-        lazy.log.warn("Server-side signout failed during session end", e);
-      })
-      .finally(() => {
-        finished = true;
-      });
+      Promise.race([
+        lazy.ConsoleClient._post(lazy.ConsoleClient._paths.SIGNOUT),
+        new Promise((_resolve, reject) =>
+          lazy.setTimeout(
+            () => reject(new Error("Server signout timed out")),
+            this._SESSION_END_TIMEOUT_MS
+          )
+        ),
+      ])
+        .catch(e => {
+          lazy.log.warn("Server-side signout failed during session end", e);
+        })
+        .finally(() => {
+          finished = true;
+        });
 
-    // Spin the Gecko event loop so necko can complete the POST.
-    // The Windows message pump is not involved here.
-    try {
-      Services.tm.spinEventLoopUntil(
-        "EnterpriseSessionObserver:os-session-end",
-        () => finished || Date.now() >= deadline
-      );
-    } catch (e) {
-      lazy.log.warn("Event loop spin failed during session end", e);
+      try {
+        Services.tm.spinEventLoopUntil(
+          "EnterpriseSessionObserver:os-session-end",
+          () => finished || Date.now() >= deadline
+        );
+      } catch (e) {
+        lazy.log.warn("Event loop spin failed during session end", e);
+      }
     }
 
     lazy.ConsoleClient.clearTokenData();
@@ -132,6 +136,10 @@ export const EnterpriseSessionObserver = {
   _SERVER_SIGNOUT_TIMEOUT_MS: 5000,
 
   async _performOsInitiatedSignout() {
+    if (this._signingOut) {
+      return;
+    }
+    this._signingOut = true;
     // Best-effort server-side revocation BEFORE clearing tokens.
     // ConsoleClient._post() calls getAccessToken() internally, which needs
     // the access token to still be present. Use a timeout to avoid stalling

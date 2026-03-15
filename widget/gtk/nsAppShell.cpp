@@ -263,20 +263,39 @@ void nsAppShell::DBusTimedatePropertiesChangedCallback(GDBusProxy* aProxy,
 void nsAppShell::DBusSessionPropertiesChangedCallback(
     GDBusProxy* aProxy, GVariant* aChangedProperties,
     GStrv aInvalidatedProperties, gpointer aUserData) {
-  RefPtr<GVariant> activeVariant = dont_AddRef(g_variant_lookup_value(
-      aChangedProperties, "Active", G_VARIANT_TYPE_BOOLEAN));
-  if (!activeVariant) {
+  nsCOMPtr<nsIObserverService> observerService =
+      mozilla::services::GetObserverService();
+  if (!observerService) {
     return;
   }
 
-  if (!g_variant_get_boolean(activeVariant)) {
-    nsCOMPtr<nsIObserverService> observerService =
-        mozilla::services::GetObserverService();
-    if (observerService) {
-      observerService->NotifyObservers(
-          nullptr, NS_WIDGET_OS_USER_SWITCH_OBSERVER_TOPIC, nullptr);
-    }
+  // LockedHint=true means the session was locked via logind (more reliable
+  // than the ScreenSaver signal for actual lock state).
+  RefPtr<GVariant> lockedVariant = dont_AddRef(g_variant_lookup_value(
+      aChangedProperties, "LockedHint", G_VARIANT_TYPE_BOOLEAN));
+  if (lockedVariant && g_variant_get_boolean(lockedVariant)) {
+    observerService->NotifyObservers(
+        nullptr, NS_WIDGET_SCREEN_LOCKED_OBSERVER_TOPIC, nullptr);
+    return;
   }
+
+  // Active=false means this session lost the foreground. Check LockedHint
+  // to avoid misclassifying a screen lock as a user switch on desktops that
+  // deactivate the session when locking.
+  RefPtr<GVariant> activeVariant = dont_AddRef(g_variant_lookup_value(
+      aChangedProperties, "Active", G_VARIANT_TYPE_BOOLEAN));
+  if (!activeVariant || g_variant_get_boolean(activeVariant)) {
+    return;
+  }
+
+  RefPtr<GVariant> lockedHint = dont_AddRef(
+      g_dbus_proxy_get_cached_property(aProxy, "LockedHint"));
+  if (lockedHint && g_variant_get_boolean(lockedHint)) {
+    return;
+  }
+
+  observerService->NotifyObservers(
+      nullptr, NS_WIDGET_OS_USER_SWITCH_OBSERVER_TOPIC, nullptr);
 }
 
 void nsAppShell::DBusScreenSaverSignalCallback(GDBusProxy* aProxy,
