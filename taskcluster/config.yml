@@ -7,8 +7,12 @@ project-repo-param-prefix: ''
 product-dir: 'browser'
 treeherder:
     branch-map:
-        enterprise-main: enterprise-main
-        enterprise-release: enterprise-release
+        by-project:
+            enterprise-firefox-try:
+                default: enterprise-firefox-try
+            default:
+                enterprise-main: enterprise-main
+                enterprise-release: enterprise-release
     group-names:
         'js-bench-sm': 'JavaScript shell benchmarks with Spidermonkey'
         'js-bench-v8': 'JavaScript shell benchmarks with Google V8'

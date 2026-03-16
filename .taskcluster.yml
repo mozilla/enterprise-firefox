@@ -476,7 +476,9 @@ tasks:
                                                 - "tc-treeherder.v2.${project}-pr.${headRev}"
                                                 - "index.${trustDomain}.v2.${project}-pr.revision.${headRev}.taskgraph.decision"
                                             'eventType == "push"':
-                                                - "tc-treeherder.v2.${shortRef}.${headRev}"
+                                                - $switch:
+                                                      'project == "enterprise-firefox"': "tc-treeherder.v2.${shortRef}.${headRev}"
+                                                      $default: "tc-treeherder.v2.${project}.${headRev}"
                                                 - "index.${trustDomain}.v2.${project}.latest.taskgraph.decision"
                                                 - "index.${trustDomain}.v2.${project}.revision.${headRev}.taskgraph.decision"
                                             'tasks_for == "action"':
