@@ -8,30 +8,51 @@ console.debug(`FeltExtension: FeltWindowChild.sys.mjs`);
  *
  */
 export class FeltWindowChild extends JSWindowActorChild {
+  #tokensSent = false;
+
   actorCreated() {
-    this.actor = ChromeUtils.domProcessChild.getActor("FeltProcess");
+    this.processActor = ChromeUtils.domProcessChild.getActor("FeltProcess");
   }
 
   handleEvent(event) {
     if (event.type !== "DOMContentLoaded") {
-      console.error(`Unexpected event.type=${event.type}`);
       return;
     }
+    this.#extractAndSendTokens(event.target);
+  }
 
-    const tokenData = event.target.querySelector("#token_data");
-    if (tokenData) {
-      console.debug("FeltWindowChild: Extracting token data");
-      const consoleTokenData = JSON.parse(tokenData.textContent);
-      if (
-        consoleTokenData &&
-        "access_token" in consoleTokenData &&
-        consoleTokenData.access_token !== ""
-      ) {
-        console.debug(
-          "FeltWindowChild: Sending token data to ConsoleClient and starting Firefox"
-        );
-        this.actor.sendAsyncMessage("FeltChild:StartFirefox", consoleTokenData);
-      }
+  receiveMessage(message) {
+    if (message.name === "ExtractTokens") {
+      return this.#extractAndSendTokens(this.document);
     }
+    return false;
+  }
+
+  #extractAndSendTokens(doc) {
+    if (this.#tokensSent) {
+      return true;
+    }
+
+    const tokenData = doc.querySelector("#token_data");
+    if (!tokenData) {
+      return false;
+    }
+
+    console.debug("FeltWindowChild: Extracting token data");
+    const consoleTokenData = JSON.parse(tokenData.textContent);
+    if (
+      consoleTokenData &&
+      "access_token" in consoleTokenData &&
+      consoleTokenData.access_token !== ""
+    ) {
+      console.debug("FeltWindowChild: Sending token data to start Firefox");
+      this.#tokensSent = true;
+      this.processActor.sendAsyncMessage(
+        "FeltChild:StartFirefox",
+        consoleTokenData
+      );
+      return true;
+    }
+    return false;
   }
 }

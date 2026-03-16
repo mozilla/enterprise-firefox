@@ -145,6 +145,76 @@ async function connectToConsole(email) {
     triggeringPrincipal: contentPrincipal,
   });
 
+  // Fallback for token extraction: a cross-process navigation during the SSO
+  // redirect chain can cause the FeltWindowChild JSWindowActor's
+  // DOMContentLoaded handler to never fire. Monitor the navigation from the
+  // parent process and explicitly trigger token extraction when the callback
+  // page finishes loading.
+  const callbackPath = lazy.ConsoleClient._paths.SSO_CALLBACK;
+  const callbackHost = lazy.ConsoleClient.consoleBaseURI.host;
+  const progressListener = {
+    QueryInterface: ChromeUtils.generateQI([
+      "nsIWebProgressListener",
+      "nsISupportsWeakReference",
+    ]),
+
+    onStateChange(webProgress, _request, stateFlags, _status) {
+      if (
+        !(stateFlags & Ci.nsIWebProgressListener.STATE_STOP) ||
+        !(stateFlags & Ci.nsIWebProgressListener.STATE_IS_NETWORK)
+      ) {
+        return;
+      }
+
+      const uri = webProgress.browsingContext?.currentWindowGlobal?.documentURI;
+      if (!uri || uri.host !== callbackHost || uri.filePath !== callbackPath) {
+        return;
+      }
+
+      browser.removeProgressListener(progressListener);
+
+      const windowGlobal = browser.browsingContext?.currentWindowGlobal;
+      if (!windowGlobal) {
+        return;
+      }
+
+      // getActor() forces actor instantiation, and sendQuery() delivers the
+      // message to the child process regardless of whether DOMContentLoaded
+      // triggered actor creation.
+      try {
+        windowGlobal
+          .getActor("FeltWindow")
+          .sendQuery("ExtractTokens")
+          .then(sent => {
+            if (!sent) {
+              console.error(
+                "FeltExtension: Fallback token extraction found no token data"
+              );
+            }
+          })
+          .catch(err => {
+            console.error(
+              `FeltExtension: Fallback token extraction failed: ${err}`
+            );
+          });
+      } catch (err) {
+        console.error(
+          `FeltExtension: Could not reach FeltWindow actor: ${err}`
+        );
+      }
+    },
+
+    onLocationChange() {},
+    onProgressChange() {},
+    onSecurityChange() {},
+    onStatusChange() {},
+    onContentBlockingEvent() {},
+  };
+  browser.addProgressListener(
+    progressListener,
+    Ci.nsIWebProgress.NOTIFY_STATE_NETWORK
+  );
+
   document.querySelector(".felt-login__email-pane").classList.add("is-hidden");
   document.querySelector(".felt-login__sso").classList.remove("is-hidden");
 

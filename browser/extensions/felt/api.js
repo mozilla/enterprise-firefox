@@ -44,6 +44,9 @@ this.felt = class extends ExtensionAPI {
     );
     const matches = [ConsoleClient.ssoCallbackUriMatchPattern];
     ChromeUtils.registerWindowActor(this.FELT_WINDOW_ACTOR, {
+      parent: {
+        esModuleURI: "chrome://felt/content/FeltWindowParent.sys.mjs",
+      },
       child: {
         esModuleURI: "chrome://felt/content/FeltWindowChild.sys.mjs",
         events: {
