@@ -1867,10 +1867,11 @@ pref("browser.topsites.component.enabled", false);
 
 pref("browser.topsites.useRemoteSetting", true);
 // Fetch sponsored Top Sites from Mozilla Tiles Service (Contile)
-pref("browser.topsites.contile.enabled", true);
 #ifdef MOZ_ENTERPRISE
+pref("browser.topsites.contile.enabled", false);
 pref("browser.topsites.contile.endpoint", "");
 #else
+pref("browser.topsites.contile.enabled", true);
 pref("browser.topsites.contile.endpoint", "https://contile.services.mozilla.com/v1/tiles");
 #endif
 
