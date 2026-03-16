@@ -53,7 +53,7 @@ MAX_HISTORY = 10
 MACH_TRY_PUSH_TO_VCS = os.getenv("MACH_TRY_PUSH_TO_VCS") == "1"
 
 HG_TRY_URL = "ssh://hg.mozilla.org/try"
-MACH_TRY_REMOTE = HG_TRY_URL
+MACH_TRY_REMOTE = "git@github.com:mozilla/enterprise-firefox-try.git"
 
 TREEHERDER_LANDO_TRY_RUN_URL = (
     "https://treeherder.mozilla.org/jobs?repo=try&landoCommitID={job_id}"
