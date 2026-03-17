@@ -150,8 +150,9 @@ async function connectToConsole(email) {
   // DOMContentLoaded handler to never fire. Monitor the navigation from the
   // parent process and explicitly trigger token extraction when the callback
   // page finishes loading.
-  const callbackPath = lazy.ConsoleClient._paths.SSO_CALLBACK;
-  const callbackHost = lazy.ConsoleClient.consoleBaseURI.host;
+  const callbackPattern = new MatchPattern(
+    lazy.ConsoleClient.ssoCallbackUriMatchPattern
+  );
   const progressListener = {
     QueryInterface: ChromeUtils.generateQI([
       "nsIWebProgressListener",
@@ -167,7 +168,7 @@ async function connectToConsole(email) {
       }
 
       const uri = webProgress.browsingContext?.currentWindowGlobal?.documentURI;
-      if (!uri || uri.host !== callbackHost || uri.filePath !== callbackPath) {
+      if (!uri || !callbackPattern.matches(uri.spec)) {
         return;
       }
 
