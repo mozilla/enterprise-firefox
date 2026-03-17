@@ -159,7 +159,7 @@ async function connectToConsole(email) {
       "nsISupportsWeakReference",
     ]),
 
-    onStateChange(webProgress, _request, stateFlags, _status) {
+    onStateChange(webProgress, _request, stateFlags, status) {
       if (
         !(stateFlags & Ci.nsIWebProgressListener.STATE_STOP) ||
         !(stateFlags & Ci.nsIWebProgressListener.STATE_IS_NETWORK)
@@ -174,8 +174,22 @@ async function connectToConsole(email) {
 
       browser.removeProgressListener(progressListener);
 
+      if (!Components.isSuccessCode(status)) {
+        console.error(
+          `FeltExtension: SSO callback page failed to load: 0x${status.toString(16)}`
+        );
+        ErrorReport.update(
+          "felt-browser-error-connection",
+          lazy.ConsoleClient._getErrorNameForStatus(status),
+          { host: uri.host }
+        );
+        return;
+      }
+
       const windowGlobal = browser.browsingContext?.currentWindowGlobal;
       if (!windowGlobal) {
+        console.error("FeltExtension: No WindowGlobal for SSO callback page");
+        ErrorReport.update("felt-browser-error-connection");
         return;
       }
 
@@ -191,21 +205,30 @@ async function connectToConsole(email) {
               console.error(
                 "FeltExtension: Fallback token extraction found no token data"
               );
+              ErrorReport.update("felt-browser-error-connection");
             }
           })
           .catch(err => {
             console.error(
               `FeltExtension: Fallback token extraction failed: ${err}`
             );
+            ErrorReport.update("felt-browser-error-connection");
           });
       } catch (err) {
         console.error(
           `FeltExtension: Could not reach FeltWindow actor: ${err}`
         );
+        ErrorReport.update("felt-browser-error-connection");
       }
     },
 
-    onLocationChange() {},
+    onLocationChange(_webProgress, _request, _location, flags) {
+      if (flags & Ci.nsIWebProgressListener.LOCATION_CHANGE_ERROR_PAGE) {
+        browser.removeProgressListener(progressListener);
+        ErrorReport.update("felt-browser-error-connection");
+      }
+    },
+
     onProgressChange() {},
     onSecurityChange() {},
     onStatusChange() {},
@@ -213,7 +236,7 @@ async function connectToConsole(email) {
   };
   browser.addProgressListener(
     progressListener,
-    Ci.nsIWebProgress.NOTIFY_STATE_NETWORK
+    Ci.nsIWebProgress.NOTIFY_STATE_NETWORK | Ci.nsIWebProgress.NOTIFY_LOCATION
   );
 
   document.querySelector(".felt-login__email-pane").classList.add("is-hidden");
