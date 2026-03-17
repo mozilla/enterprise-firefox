@@ -24,6 +24,7 @@ felt-version =
 
 felt-browser-error-multiple-crashes = { -brand-short-name } crashed multiple times.
 felt-browser-error-connection = Unable to connect to the console. Please contact your administrator.
+felt-browser-error-sso-timeout = Sign-in timed out. Please try again, or contact your administrator if the problem persists.
 
 ## Network error details.
 

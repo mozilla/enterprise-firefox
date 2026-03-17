@@ -150,9 +150,36 @@ async function connectToConsole(email) {
   // DOMContentLoaded handler to never fire. Monitor the navigation from the
   // parent process and explicitly trigger token extraction when the callback
   // page finishes loading.
+  const SSO_TIMEOUT_MS = Services.prefs.getIntPref(
+    "enterprise.sso.timeout_ms",
+    60000
+  );
   const callbackPattern = new MatchPattern(
     lazy.ConsoleClient.ssoCallbackUriMatchPattern
   );
+
+  let ssoCompleted = false;
+
+  function resetToLoginPage(errorType, details = null, cause = null) {
+    if (ssoCompleted) {
+      return;
+    }
+    ssoCompleted = true;
+    try {
+      browser.removeProgressListener(progressListener);
+    } catch (_) {}
+    document.querySelector(".felt-login__sso").classList.add("is-hidden");
+    document
+      .querySelector(".felt-login__email-pane")
+      .classList.remove("is-hidden");
+    ErrorReport.update(errorType, details, cause);
+  }
+
+  let ssoTimeout = setTimeout(() => {
+    console.error("FeltExtension: SSO login timed out");
+    resetToLoginPage("felt-browser-error-sso-timeout");
+  }, SSO_TIMEOUT_MS);
+
   const progressListener = {
     QueryInterface: ChromeUtils.generateQI([
       "nsIWebProgressListener",
@@ -172,13 +199,15 @@ async function connectToConsole(email) {
         return;
       }
 
+      clearTimeout(ssoTimeout);
       browser.removeProgressListener(progressListener);
+      ssoCompleted = true;
 
       if (!Components.isSuccessCode(status)) {
         console.error(
           `FeltExtension: SSO callback page failed to load: 0x${status.toString(16)}`
         );
-        ErrorReport.update(
+        resetToLoginPage(
           "felt-browser-error-connection",
           lazy.ConsoleClient._getErrorNameForStatus(status),
           { host: uri.host }
@@ -189,7 +218,7 @@ async function connectToConsole(email) {
       const windowGlobal = browser.browsingContext?.currentWindowGlobal;
       if (!windowGlobal) {
         console.error("FeltExtension: No WindowGlobal for SSO callback page");
-        ErrorReport.update("felt-browser-error-connection");
+        resetToLoginPage("felt-browser-error-connection");
         return;
       }
 
@@ -205,34 +234,38 @@ async function connectToConsole(email) {
               console.error(
                 "FeltExtension: Fallback token extraction found no token data"
               );
-              ErrorReport.update("felt-browser-error-connection");
+              resetToLoginPage("felt-browser-error-connection");
             }
           })
           .catch(err => {
             console.error(
               `FeltExtension: Fallback token extraction failed: ${err}`
             );
-            ErrorReport.update("felt-browser-error-connection");
+            resetToLoginPage("felt-browser-error-connection");
           });
       } catch (err) {
         console.error(
           `FeltExtension: Could not reach FeltWindow actor: ${err}`
         );
-        ErrorReport.update("felt-browser-error-connection");
+        resetToLoginPage("felt-browser-error-connection");
       }
     },
 
     onLocationChange(_webProgress, _request, _location, flags) {
       if (flags & Ci.nsIWebProgressListener.LOCATION_CHANGE_ERROR_PAGE) {
-        browser.removeProgressListener(progressListener);
-        ErrorReport.update("felt-browser-error-connection");
+        clearTimeout(ssoTimeout);
+        resetToLoginPage("felt-browser-error-connection");
+        return;
       }
+      // Reset the timeout on each navigation so the limit applies per-page
+      // rather than to the entire SSO flow (which may involve slow networks,
+      // MFA prompts, etc.).
+      clearTimeout(ssoTimeout);
+      ssoTimeout = setTimeout(() => {
+        console.error("FeltExtension: SSO login timed out");
+        resetToLoginPage("felt-browser-error-sso-timeout");
+      }, SSO_TIMEOUT_MS);
     },
-
-    onProgressChange() {},
-    onSecurityChange() {},
-    onStatusChange() {},
-    onContentBlockingEvent() {},
   };
   browser.addProgressListener(
     progressListener,
