@@ -19,6 +19,33 @@
 #include "mozilla/extensions/MatchPattern.h"
 #include "nsContentUtils.h"
 
+#ifdef XP_MACOSX
+#  include <pthread/qos.h>
+#  include <sys/resource.h>
+#  include <unistd.h>
+#endif
+
+#ifdef XP_MACOSX
+static const char* QoSClassName(qos_class_t qc) {
+  switch (qc) {
+    case QOS_CLASS_USER_INTERACTIVE:
+      return "USER_INTERACTIVE";
+    case QOS_CLASS_USER_INITIATED:
+      return "USER_INITIATED";
+    case QOS_CLASS_DEFAULT:
+      return "DEFAULT";
+    case QOS_CLASS_UTILITY:
+      return "UTILITY";
+    case QOS_CLASS_BACKGROUND:
+      return "BACKGROUND";
+    case QOS_CLASS_UNSPECIFIED:
+      return "UNSPECIFIED";
+    default:
+      return "UNKNOWN";
+  }
+}
+#endif
+
 namespace mozilla::dom {
 
 NS_IMPL_CYCLE_COLLECTING_ADDREF(JSWindowActorProtocol)
@@ -151,6 +178,8 @@ JSWindowActorProtocol::FromWebIDLOptions(const nsACString& aName,
 NS_IMETHODIMP JSWindowActorProtocol::HandleEvent(Event* aEvent) {
   MOZ_ASSERT(nsContentUtils::IsSafeToRunScript());
 
+  bool isFeltWindow = mName.EqualsLiteral("FeltWindow");
+
   // Determine which inner window we're associated with, and get its
   // WindowGlobalChild actor.
   EventTarget* target = aEvent->GetOriginalTarget();
@@ -166,11 +195,44 @@ NS_IMETHODIMP JSWindowActorProtocol::HandleEvent(Event* aEvent) {
 
   RefPtr<WindowGlobalChild> wgc = inner->GetWindowGlobalChild();
   if (NS_WARN_IF(!wgc)) {
+    if (isFeltWindow) {
+      nsAutoString eventType;
+      aEvent->GetType(eventType);
+      printf_stderr(
+          "[FeltWindow] HandleEvent(%s): no WindowGlobalChild, "
+          "innerWindowId=%" PRIu64 "\n",
+          NS_ConvertUTF16toUTF8(eventType).get(), inner->WindowID());
+    }
     return NS_ERROR_FAILURE;
   }
 
   if (aEvent->ShouldIgnoreChromeEventTargetListener()) {
     return NS_OK;
+  }
+
+  if (isFeltWindow) {
+    nsAutoString eventType;
+    aEvent->GetType(eventType);
+    nsCOMPtr<nsIURI> docURI = wgc->GetDocumentURI();
+    nsAutoCString docSpec;
+    if (docURI) {
+      docURI->GetSpec(docSpec);
+    }
+#ifdef XP_MACOSX
+    qos_class_t qc = QOS_CLASS_UNSPECIFIED;
+    int relPri = 0;
+    pthread_get_qos_class_np(pthread_self(), &qc, &relPri);
+    int niceness = getpriority(PRIO_PROCESS, 0);
+    printf_stderr("[FeltWindow] HandleEvent(%s): innerWindowId=%" PRIu64
+                  " pid=%d qos=%s nice=%d uri=%s\n",
+                  NS_ConvertUTF16toUTF8(eventType).get(), inner->WindowID(),
+                  getpid(), QoSClassName(qc), niceness, docSpec.get());
+#else
+    printf_stderr("[FeltWindow] HandleEvent(%s): innerWindowId=%" PRIu64
+                  " uri=%s\n",
+                  NS_ConvertUTF16toUTF8(eventType).get(), inner->WindowID(),
+                  docSpec.get());
+#endif
   }
 
   // Ensure our actor is present.
@@ -196,7 +258,17 @@ NS_IMETHODIMP JSWindowActorProtocol::HandleEvent(Event* aEvent) {
     }
   }
   if (!actor || NS_WARN_IF(!actor->GetWrapperPreserveColor())) {
+    if (isFeltWindow) {
+      nsAutoString eventType;
+      aEvent->GetType(eventType);
+      printf_stderr("[FeltWindow] HandleEvent(%s): GetActor FAILED\n",
+                    NS_ConvertUTF16toUTF8(eventType).get());
+    }
     return NS_OK;
+  }
+
+  if (isFeltWindow) {
+    printf_stderr("[FeltWindow] HandleEvent: dispatching to actor\n");
   }
 
   // Build our event listener & call it.
@@ -360,6 +432,11 @@ bool JSWindowActorProtocol::Matches(BrowsingContext* aBrowsingContext,
           "Window protocol '%s' doesn't match uri %s", mName.get(),
           nsContentUtils::TruncatedURLForDisplay(aURI).get()));
       return false;
+    }
+    if (mName.EqualsLiteral("FeltWindow")) {
+      nsAutoCString uriSpec;
+      aURI->GetSpec(uriSpec);
+      printf_stderr("[FeltWindow] Matches: URI matched: %s\n", uriSpec.get());
     }
   }
 

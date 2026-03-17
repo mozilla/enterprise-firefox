@@ -637,8 +637,9 @@ export class FeltProcessParent extends JSProcessActorParent {
   }
 
   async receiveMessage(message) {
-    console.debug(
-      `FeltExtension: ParentProcess: Received message ${message.name} => ${message.data}`
+    console.warn(
+      `[FeltProcessParent] receiveMessage: ${message.name}, ` +
+        `data keys=${Object.keys(message.data || {})}`
     );
     switch (message.name) {
       case "FeltChild:StartFirefox":
