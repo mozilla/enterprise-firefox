@@ -229,6 +229,9 @@ tasks:
                                 # This causes cached_task digest generation to be random for
                                 # some tasks. Disable bytecode generation to work around that.
                                 PYTHONDONTWRITEBYTECODE: '1'
+                              - $if: 'isPullRequest'
+                                then:
+                                    GECKO_PULL_REQUEST_NUMBER: '${event.pull_request.number}'
                               - $if: 'tasks_for == "action"'
                                 then:
                                     ACTION_TASK_GROUP_ID: '${action.taskGroupId}'  # taskGroupId of the target task
