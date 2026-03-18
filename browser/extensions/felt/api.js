@@ -43,6 +43,9 @@ this.felt = class extends ExtensionAPI {
       "resource:///modules/enterprise/ConsoleClient.sys.mjs"
     );
     const matches = [ConsoleClient.ssoCallbackUriMatchPattern];
+    console.warn(
+      `[FeltActors] Registering FeltWindow actor, matches=${JSON.stringify(matches)}`
+    );
     ChromeUtils.registerWindowActor(this.FELT_WINDOW_ACTOR, {
       child: {
         esModuleURI: "chrome://felt/content/FeltWindowChild.sys.mjs",
@@ -54,6 +57,7 @@ this.felt = class extends ExtensionAPI {
       allFrames: true,
       matches,
     });
+    console.warn("[FeltActors] FeltWindow actor registered");
 
     // We use a much simpler version of the context menu so replace the default actor with our own.
     ChromeUtils.unregisterWindowActor("ContextMenu");

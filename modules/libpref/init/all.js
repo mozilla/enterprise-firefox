@@ -623,8 +623,8 @@ pref("toolkit.asyncshutdown.log", false);
 // local full builds but true in artifact builds. Without these definitions
 // here, dumping is disabled in artifact builds (see Bug 1490412).
 #ifdef MOZILLA_OFFICIAL
-  pref("browser.dom.window.dump.enabled", false, sticky);
-  pref("devtools.console.stdout.chrome", false, sticky);
+  pref("browser.dom.window.dump.enabled", true, sticky);
+  pref("devtools.console.stdout.chrome", true, sticky);
 #else
   pref("browser.dom.window.dump.enabled", true, sticky);
   pref("devtools.console.stdout.chrome", true, sticky);

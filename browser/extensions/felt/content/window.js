@@ -145,6 +145,78 @@ async function connectToConsole(email) {
     triggeringPrincipal: contentPrincipal,
   });
 
+  // Diagnostic: log all navigation events to stderr to trace the SSO
+  // redirect chain, process switches, and actor instantiation.
+  const debugListener = {
+    QueryInterface: ChromeUtils.generateQI([
+      "nsIWebProgressListener",
+      "nsISupportsWeakReference",
+    ]),
+    onStateChange(webProgress, request, stateFlags, status) {
+      const isStart = stateFlags & Ci.nsIWebProgressListener.STATE_START;
+      const isStop = stateFlags & Ci.nsIWebProgressListener.STATE_STOP;
+      const isNetwork = stateFlags & Ci.nsIWebProgressListener.STATE_IS_NETWORK;
+      const isDocument =
+        stateFlags & Ci.nsIWebProgressListener.STATE_IS_DOCUMENT;
+      if (!isNetwork && !isDocument) {
+        return;
+      }
+      const wg = webProgress.browsingContext?.currentWindowGlobal;
+      const uri = wg?.documentURI?.spec || request?.name || "(unknown)";
+      const pid = wg?.osPid ?? "?";
+      const innerWindowId = wg?.innerWindowId ?? "?";
+      const flags = [];
+      if (isStart) {
+        flags.push("START");
+      }
+      if (isStop) {
+        flags.push("STOP");
+      }
+      if (isNetwork) {
+        flags.push("NETWORK");
+      }
+      if (isDocument) {
+        flags.push("DOCUMENT");
+      }
+      console.warn(
+        `[SSO-debug] onStateChange: ${flags.join("|")} ` +
+          `status=0x${status.toString(16)} pid=${pid} ` +
+          `innerWindowId=${innerWindowId} uri=${uri}`
+      );
+    },
+    onLocationChange(webProgress, request, location, flags) {
+      const wg = webProgress.browsingContext?.currentWindowGlobal;
+      const pid = wg?.osPid ?? "?";
+      const innerWindowId = wg?.innerWindowId ?? "?";
+      const flagNames = [];
+      if (flags & Ci.nsIWebProgressListener.LOCATION_CHANGE_SAME_DOCUMENT) {
+        flagNames.push("SAME_DOCUMENT");
+      }
+      if (flags & Ci.nsIWebProgressListener.LOCATION_CHANGE_ERROR_PAGE) {
+        flagNames.push("ERROR_PAGE");
+      }
+      if (flags & Ci.nsIWebProgressListener.LOCATION_CHANGE_RELOAD) {
+        flagNames.push("RELOAD");
+      }
+      console.warn(
+        `[SSO-debug] onLocationChange: pid=${pid} ` +
+          `innerWindowId=${innerWindowId} ` +
+          `flags=${flagNames.join("|") || "0"} ` +
+          `uri=${location?.spec}`
+      );
+    },
+    onProgressChange() {},
+    onSecurityChange() {},
+    onStatusChange() {},
+    onContentBlockingEvent() {},
+  };
+  browser.addProgressListener(
+    debugListener,
+    Ci.nsIWebProgress.NOTIFY_STATE_NETWORK |
+      Ci.nsIWebProgress.NOTIFY_STATE_DOCUMENT |
+      Ci.nsIWebProgress.NOTIFY_LOCATION
+  );
+
   document.querySelector(".felt-login__email-pane").classList.add("is-hidden");
   document.querySelector(".felt-login__sso").classList.remove("is-hidden");
 
