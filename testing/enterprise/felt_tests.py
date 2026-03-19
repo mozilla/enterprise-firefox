@@ -681,7 +681,7 @@ class FeltTestsBase(EnterpriseTestsBase):
 
     def run_felt_base(self):
         self.run_felt_chrome_on_email_submit()
-        self.run_felt_load_sso()
+        self.run_wait_until_sso_loaded()
         self.run_felt_perform_sso_auth()
 
     def submit_email(self, email_address="random@mozilla.com"):
@@ -726,7 +726,7 @@ class FeltTests(FeltTestsBase):
         )
         self._driver.set_context("content")
 
-    def run_felt_load_sso(self):
+    def run_wait_until_sso_loaded(self):
         self._logger.info("Checking SSO page")
         self._driver.set_context("content")
         self._wait.until(lambda mn: mn.get_url().endswith("/sso_url"))

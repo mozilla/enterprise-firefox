@@ -112,7 +112,7 @@ class BaseBrowserSignout(FeltTests):
 
     def run_load_sso(self):
         self.force_window()
-        self.run_felt_load_sso()
+        self.run_wait_until_sso_loaded()
 
     def run_perform_sso_auth(self):
         self.force_window()

@@ -16,7 +16,7 @@ class FeltUpdatesBasicChecks(FeltTests):
     def test_felt_updates_basic_checks(self):
         self.run_felt_chrome_on_email_submit()
         self.run_verify_felt_app_update_url()
-        self.run_felt_load_sso()
+        self.run_wait_until_sso_loaded()
         self.run_felt_perform_sso_auth()
         self.connect_child_browser()
         self.run_verify_browser_app_update_url()
