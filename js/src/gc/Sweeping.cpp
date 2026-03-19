@@ -1699,6 +1699,10 @@ IncrementalProgress GCRuntime::beginSweepingSweepGroup(JS::GCContext* gcx,
   AutoSCC scc(stats(), sweepGroupIndex);
   finishMarkingDuringSweeping = false;
 
+#ifdef JS_GC_CONCURRENT_MARKING
+  concurrentMarkingFinishedCount = 0;
+#endif
+
   bool sweepingAtoms = false;
   for (SweepGroupZonesIter zone(this); !zone.done(); zone.next()) {
     /* Set the GC state to sweeping. */
@@ -2012,6 +2016,9 @@ void js::gc::BackgroundMarkTask::initialize(bool isConcurrent,
                                             const SliceBudget& budget,
                                             AutoLockHelperThreadState& lock) {
   MOZ_ASSERT(isIdle(lock));
+  MOZ_ASSERT_IF(isConcurrent && !budget.isWorkBudget(),
+                budget.interruptRequestFlag() == &interruptRequest);
+
   this->isConcurrent = isConcurrent;
   this->budget = budget;
   this->interruptRequest = false;
@@ -2049,9 +2056,8 @@ void js::gc::BackgroundMarkTask::pause() {
 }
 
 void js::gc::BackgroundMarkTask::unpause() {
-  // This may still be true if we ran out of work before checking whether we
-  // were interrupted.
   interruptRequest = false;
+  budget.clearInterrupted();
 }
 
 IncrementalProgress GCRuntime::joinBackgroundMarkTask() {
@@ -2077,12 +2083,14 @@ bool GCRuntime::pauseBackgroundMarking() {
   if (markTask.isFinished(lock)) {
     MOZ_ASSERT(!markTask.interruptRequest);
     markTask.joinWithLockHeld(lock);
+    markTask.unpause();
     return false;
   }
 
   gcstats::AutoPhase ap(stats(), gcstats::PhaseKind::WAIT_BACKGROUND_THREAD);
 
   bool wasSliceRequested = requestSliceAfterBackgroundTask;
+  requestSliceAfterBackgroundTask = false;
 
   markTask.pause();
   markTask.joinWithLockHeld(lock);

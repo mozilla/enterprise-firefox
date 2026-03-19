@@ -126,12 +126,15 @@ class Registers {
     uintptr_t r;
   };
 
-  static uint32_t SetSize(SetType x) {
-    static_assert(sizeof(SetType) == 4, "SetType must be 32 bits");
-    return std::popcount(x);
+  static uint32_t SetSize(SetType x) { return std::popcount(x); }
+  static uint32_t FirstBit(SetType x) {
+    MOZ_ASSERT(x);
+    return std::countr_zero(x);
   }
-  static uint32_t FirstBit(SetType x) { return std::countr_zero(x); }
-  static uint32_t LastBit(SetType x) { return std::bit_width(x) - 1; }
+  static uint32_t LastBit(SetType x) {
+    MOZ_ASSERT(x);
+    return std::bit_width(x) - 1;
+  }
 
   static const char* GetName(uint32_t code) {
     static const char* const Names[] = {
@@ -349,18 +352,17 @@ struct FloatRegister {
   typedef Codes::SetType SetType;
 
   static uint32_t SetSize(SetType x) {
-    static_assert(sizeof(SetType) == 8, "SetType must be 64 bits");
     x |= x >> FloatRegisters::TotalPhys;
     x &= FloatRegisters::AllPhysMask;
     return std::popcount(x);
   }
 
   static uint32_t FirstBit(SetType x) {
-    static_assert(sizeof(SetType) == 8, "SetType");
+    MOZ_ASSERT(x);
     return std::countr_zero(x);
   }
   static uint32_t LastBit(SetType x) {
-    static_assert(sizeof(SetType) == 8, "SetType");
+    MOZ_ASSERT(x);
     return std::bit_width(x) - 1;
   }
 

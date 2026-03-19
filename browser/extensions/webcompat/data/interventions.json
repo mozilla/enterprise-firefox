@@ -38,10 +38,6 @@
         "issue": "broken-interactive-elements",
         "matches": ["*://teikiyoyaku.tokyu.co.jp/*"]
       },
-      "1906654": {
-        "issue": "broken-interactive-elements",
-        "matches": ["*://*.dublinexpress.ie/*"]
-      },
       "1913099": {
         "issue": "broken-interactive-elements",
         "matches": ["*://whooshmotorsports.com/*"]
@@ -53,10 +49,6 @@
       "1944008": {
         "issue": "broken-interactive-elements",
         "matches": ["*://*.franmar.com/*"]
-      },
-      "1944010": {
-        "issue": "broken-interactive-elements",
-        "matches": ["*://*.lafoodbank.org/*"]
       },
       "1944015": {
         "issue": "broken-interactive-elements",
@@ -487,33 +479,6 @@
         "platforms": ["desktop"],
         "content_scripts": {
           "css": ["1729435_milkbarstore.com-fix-cart-quantity-counts.css"]
-        }
-      }
-    ]
-  },
-  "1739489": {
-    "label": "Sites using draft.js",
-    "bugs": {
-      "1739489": {
-        "issue": "broken-editor",
-        "matches": ["*://draftjs.org/*", "*://www.facebook.com/*"]
-      },
-      "1776229": {
-        "issue": "broken-editor",
-        "matches": [
-          "*://mobile.twitter.com/*",
-          "*://mobile.x.com/*",
-          "*://twitter.com/*",
-          "*://x.com/*"
-        ]
-      }
-    },
-    "interventions": [
-      {
-        "platforms": ["desktop"],
-        "skip_if": ["text_event_supported"],
-        "content_scripts": {
-          "js": ["bug1739489-draftjs-beforeinput.js"]
         }
       }
     ]
@@ -1014,21 +979,6 @@
       }
     ]
   },
-  "1827678_83269": {
-    "label": "jelly.jd.com",
-    "bugs": {
-      "1899051": {
-        "issue": "firefox-blocked-completely",
-        "matches": ["*://jelly.jd.com/*"]
-      }
-    },
-    "interventions": [
-      {
-        "platforms": ["all"],
-        "ua_string": ["add_Chrome"]
-      }
-    ]
-  },
   "1827678_119402": {
     "label": "oirsa.org",
     "bugs": {
@@ -1131,6 +1081,10 @@
       "1964350": {
         "issue": "firefox-blocked-completely",
         "matches": ["*://*.bonusblitz.com/*"]
+      },
+      "2016407": {
+        "issue": "firefox-blocked-completely",
+        "matches": ["*://*.123whitesector.com/*"]
       },
       "2017590": {
         "issue": "firefox-blocked-completely",
@@ -1938,21 +1892,6 @@
       }
     ]
   },
-  "1897941": {
-    "label": "biodiscover.com",
-    "bugs": {
-      "1897941": {
-        "issue": "desktop-layout-not-mobile",
-        "matches": ["*://biodiscover.com/*"]
-      }
-    },
-    "interventions": [
-      {
-        "platforms": ["android"],
-        "ua_string": ["Chrome_with_FxQuantum"]
-      }
-    ]
-  },
   "1898895": {
     "label": "eslatam.trygalaxy.com",
     "bugs": {
@@ -2539,7 +2478,7 @@
     "bugs": {
       "1899829": {
         "issue": "broken-images",
-        "matches": ["*://www3.animeflv.net/*"]
+        "matches": ["*://*.animeflv.net/*"]
       }
     },
     "interventions": [
@@ -3754,25 +3693,6 @@
       }
     ]
   },
-  "1927121": {
-    "label": "southerndevilhd.com",
-    "bugs": {
-      "1927121": {
-        "issue": "broken-images",
-        "matches": ["*://www.southerndevilhd.com/*"]
-      }
-    },
-    "interventions": [
-      {
-        "platforms": ["all"],
-        "content_scripts": {
-          "js": [
-            "bug1927121-southerndevilhd.com-shim-WebkitMutationObserver.js"
-          ]
-        }
-      }
-    ]
-  },
   "1927984": {
     "label": "modules.sms-timing.com",
     "bugs": {
@@ -3877,21 +3797,6 @@
       {
         "platforms": ["desktop"],
         "ua_string": ["Chrome", "add_Firefox_as_Gecko"]
-      }
-    ]
-  },
-  "1933811": {
-    "label": "indices.circana.com",
-    "bugs": {
-      "1898959": {
-        "issue": "firefox-blocked-completely",
-        "matches": ["*://indices.circana.com/*"]
-      }
-    },
-    "interventions": [
-      {
-        "platforms": ["all"],
-        "ua_string": ["add_Chrome"]
       }
     ]
   },
@@ -4835,25 +4740,6 @@
       }
     ]
   },
-  "1966389": {
-    "label": "boots.com",
-    "bugs": {
-      "1966389": {
-        "issue": "broken-layout",
-        "matches": ["*://appointments.boots.com/*"]
-      }
-    },
-    "interventions": [
-      {
-        "platforms": ["all"],
-        "pref_check": { "layout.css.webkit-fill-available.enabled": false },
-        "content_scripts": {
-          "all_frames": true,
-          "css": ["bug1966389-boots.com-align-element-widths.css"]
-        }
-      }
-    ]
-  },
   "1966585": {
     "label": "hiskin.care",
     "bugs": {
@@ -4871,6 +4757,21 @@
       }
     ]
   },
+  "1967694": {
+    "label": "onlyfaucet.com",
+    "bugs": {
+      "1967694": {
+        "issue": "firefox-blocked-completely",
+        "matches": ["*://*.onlyfaucet.com/*"]
+      }
+    },
+    "interventions": [
+      {
+        "platforms": ["all"],
+        "ua_string": ["Chrome_with_FxQuantum"]
+      }
+    ]
+  },
   "1968187": {
     "label": "authface.liquid-auth.com",
     "bugs": {
@@ -4883,23 +4784,6 @@
       {
         "platforms": ["android"],
         "ua_string": ["add_Chrome"]
-      }
-    ]
-  },
-  "1968198": {
-    "label": "www.metacritic.com",
-    "bugs": {
-      "1968198": {
-        "issue": "broken-interactive-elements",
-        "matches": ["*://www.metacritic.com/browse/*"]
-      }
-    },
-    "interventions": [
-      {
-        "platforms": ["all"],
-        "content_scripts": {
-          "css": ["bug1968198-metacritic.com-fix-release-year-filter.css"]
-        }
       }
     ]
   },
@@ -4984,36 +4868,17 @@
       }
     ]
   },
-  "1975953": {
-    "label": "envios.mercadolibre.com.ar",
+  "1975927": {
+    "label": "trafficnews.jp",
     "bugs": {
-      "1975953": {
-        "issue": "broken-layout",
-        "matches": [
-          "*://envios.mercadolibre.com.ar/shipping/agencies-map/pick-up*"
-        ]
+      "1975927": {
+        "issue": "desktop-layout-not-mobile",
+        "matches": ["*://trafficnews.jp/*"]
       }
     },
     "interventions": [
       {
         "platforms": ["android"],
-        "content_scripts": {
-          "css": ["bug1975953-envios.mercadolibre.com.ar-reveal-content.css"]
-        }
-      }
-    ]
-  },
-  "1976200": {
-    "label": "unak.medlemssidor.org",
-    "bugs": {
-      "1976200": {
-        "issue": "firefox-blocked-completely",
-        "matches": ["*://unak.medlemssidor.org/*"]
-      }
-    },
-    "interventions": [
-      {
-        "platforms": ["all"],
         "ua_string": ["Chrome_with_FxQuantum"]
       }
     ]
@@ -5626,21 +5491,6 @@
       }
     ]
   },
-  "1990193": {
-    "label": "zeit.werkheim.de",
-    "bugs": {
-      "1990193": {
-        "issue": "page-fails-to-load",
-        "matches": ["*://zeit.werkheim.de/*"]
-      }
-    },
-    "interventions": [
-      {
-        "platforms": ["all"],
-        "ua_string": ["add_Chrome"]
-      }
-    ]
-  },
   "1992402": {
     "label": "ehssrisk.sai360.net",
     "bugs": {
@@ -6231,21 +6081,6 @@
       }
     ]
   },
-  "2009947": {
-    "label": "app.indiapost.gov.in",
-    "bugs": {
-      "2009947": {
-        "issue": "firefox-blocked-completely",
-        "matches": ["*://app.indiapost.gov.in/*"]
-      }
-    },
-    "interventions": [
-      {
-        "platforms": ["all"],
-        "ua_string": ["add_Chrome"]
-      }
-    ]
-  },
   "2010102": {
     "label": "osmosis.org",
     "bugs": {
@@ -6442,6 +6277,40 @@
       }
     ]
   },
+  "2016030": {
+    "label": "prodamus.ru",
+    "bugs": {
+      "2016030": {
+        "issue": "broken-layout",
+        "matches": ["*://prodamus.ru/*"]
+      }
+    },
+    "interventions": [
+      {
+        "platforms": ["all"],
+        "content_scripts": {
+          "css": ["bug2016030-prodamus.ru-fix-hidden-content.css"]
+        }
+      }
+    ]
+  },
+  "2018543": {
+    "label": "lacunacoil.com",
+    "bugs": {
+      "2018543": {
+        "issue": "broken-interactive-elements",
+        "matches": ["*://lacunacoil.com/*"]
+      }
+    },
+    "interventions": [
+      {
+        "platforms": ["all"],
+        "content_scripts": {
+          "js": ["bug2018543-lacunacoil.com-ua-change.js"]
+        }
+      }
+    ]
+  },
   "2018641": {
     "label": "cloudplay.jiogames.com",
     "bugs": {
@@ -6492,6 +6361,21 @@
       }
     ]
   },
+  "2019543": {
+    "label": "showroom-live.com",
+    "bugs": {
+      "2019231": {
+        "issue": "page-fails-to-load",
+        "matches": ["*://www.showroom-live.com/*"]
+      }
+    },
+    "interventions": [
+      {
+        "platforms": ["desktop"],
+        "ua_string": ["Chrome_with_FxQuantum"]
+      }
+    ]
+  },
   "2020285": {
     "label": "Eurocontrol Network Operations Portal",
     "bugs": {
@@ -6510,6 +6394,24 @@
           "all_frames": true,
           "match_origin_as_fallback": true,
           "run_at": "document_start"
+        }
+      }
+    ]
+  },
+  "2021019": {
+    "label": "rudder.taleez.com",
+    "bugs": {
+      "2021019": {
+        "issue": "broken-layout",
+        "matches": ["*://rudder.taleez.com/*"]
+      }
+    },
+    "interventions": [
+      {
+        "platforms": ["all"],
+        "pref_check": { "layout.css.webkit-fill-available.enabled": true },
+        "content_scripts": {
+          "css": ["bug2021019-rudder.taleez.com-fix-overlapping-content.css"]
         }
       }
     ]

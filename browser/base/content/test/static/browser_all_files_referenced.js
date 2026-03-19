@@ -191,6 +191,11 @@ var allowlist = [
   // extensions/pref/autoconfig/src/nsReadConfig.cpp
   { file: "resource://gre/defaults/autoconfig/prefcalls.js" },
 
+  // browser/extensions/newtab/actors/AboutNewTabChild.sys.mjs constructs the
+  // URL dynamically: `chrome://global/content/vendor/react${debugString}.js`
+  { file: "chrome://global/content/vendor/react-dev.js" },
+  { file: "chrome://global/content/vendor/react-dom-dev.js" },
+
   // browser/components/preferences/moreFromMozilla.js
   // These files URLs are constructed programatically at run time.
   {
@@ -329,6 +334,12 @@ var allowlist = [
   // and this file will be needed for that.
   {
     file: "resource://app/modules/backup/CookiesBackupResource.sys.mjs",
+  },
+
+  // Bug 2023223: Replace loginOrigin, addresses, payments, and form history
+  // richlist items with autocomplete-row-item
+  {
+    file: "chrome://global/content/autocomplete-row-item/autocomplete-row-item.mjs",
   },
 ];
 

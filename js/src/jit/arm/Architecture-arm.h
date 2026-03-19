@@ -125,12 +125,15 @@ class Registers {
 
   static const SetType AllocatableMask = AllMask & ~NonAllocatableMask;
 
-  static uint32_t SetSize(SetType x) {
-    static_assert(sizeof(SetType) == 4, "SetType must be 32 bits");
-    return std::popcount(x);
+  static uint32_t SetSize(SetType x) { return std::popcount(x); }
+  static uint32_t FirstBit(SetType x) {
+    MOZ_ASSERT(x);
+    return std::countr_zero(x);
   }
-  static uint32_t FirstBit(SetType x) { return std::countr_zero(x); }
-  static uint32_t LastBit(SetType x) { return std::bit_width(x) - 1; }
+  static uint32_t LastBit(SetType x) {
+    MOZ_ASSERT(x);
+    return std::bit_width(x) - 1;
+  }
 };
 
 // Smallest integer type that can hold a register bitmask.
@@ -276,6 +279,10 @@ class FloatRegisters {
     //
   /* clang-format on */
   using SetType = uint64_t;
+
+  static_assert(sizeof(SetType) * 8 >= Total,
+                "SetType should be large enough to enumerate all registers.");
+
   static const SetType AllSingleMask = (1ull << TotalSingle) - 1;
   static const SetType AllDoubleMask = ((1ull << TotalDouble) - 1)
                                        << TotalSingle;
@@ -525,10 +532,7 @@ class VFPRegister {
     return SetType(0);
   }
 
-  static uint32_t SetSize(SetType x) {
-    static_assert(sizeof(SetType) == 8, "SetType must be 64 bits");
-    return std::popcount(x);
-  }
+  static uint32_t SetSize(SetType x) { return std::popcount(x); }
   static Code FromName(const char* name) {
     return FloatRegisters::FromName(name);
   }
@@ -536,8 +540,14 @@ class VFPRegister {
       const TypedRegisterSet<VFPRegister>& s);
   static uint32_t GetPushSizeInBytes(const TypedRegisterSet<VFPRegister>& s);
   uint32_t getRegisterDumpOffsetInBytes();
-  static uint32_t FirstBit(SetType x) { return std::countr_zero(x); }
-  static uint32_t LastBit(SetType x) { return std::bit_width(x) - 1; }
+  static uint32_t FirstBit(SetType x) {
+    MOZ_ASSERT(x);
+    return std::countr_zero(x);
+  }
+  static uint32_t LastBit(SetType x) {
+    MOZ_ASSERT(x);
+    return std::bit_width(x) - 1;
+  }
 };
 
 template <>

@@ -498,7 +498,7 @@ class GCMarker {
            grayMainThreadBuffer_.ref().empty();
   }
 
-  bool addToMainThreadBuffer(JS::GCCellPtr cell);
+  bool addToMainThreadBuffer(JS::GCCellPtr cell, JS::SliceBudget& budget);
 
 #endif  // JS_GC_CONCURRENT_MARKING
 
@@ -530,7 +530,8 @@ class GCMarker {
   friend class gc::GCRuntime;
 
   template <uint32_t markingOptions>
-  bool callOrDelayTraceHook(JSObject* obj, const JSClass* clasp);
+  bool callOrDelayTraceHook(JSObject* obj, const JSClass* clasp,
+                            JS::SliceBudget& budget);
 
   // Helper methods that coerce their second argument to the base pointer
   // type.
@@ -592,6 +593,8 @@ class GCMarker {
   void eagerlyMarkChildren(JSRope* rope);
   template <uint32_t markingOptions>
   void eagerlyMarkChildren(Shape* shape);
+  template <uint32_t markingOptions>
+  void eagerlyMarkChildren(BaseShape* shape);
   template <uint32_t markingOptions>
   void eagerlyMarkChildren(PropMap* map);
   template <uint32_t markingOptions>

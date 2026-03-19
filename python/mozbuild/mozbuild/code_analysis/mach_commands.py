@@ -11,6 +11,7 @@ import posixpath
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 from types import SimpleNamespace
 
@@ -22,6 +23,12 @@ from mozversioncontrol import get_repository_object
 from mozbuild import build_commands
 from mozbuild.controller.clobber import Clobberer
 from mozbuild.util import cpu_count
+
+
+# FIXME: use itertools.batched when moving to python 3.12
+def batched(iterable, n):
+    for ndx in range(0, len(iterable), n):
+        yield iterable[ndx : ndx + n]
 
 
 def build_repo_relative_path(abs_path, repo_path):
@@ -341,16 +348,6 @@ def check(
     # Filter source to remove excluded files
     source = _generate_path_list(command_context, sources, verbose=verbose)
 
-    if not sources or not source:
-        command_context.log(
-            logging.WARNING,
-            "static-analysis",
-            {},
-            "There are no files eligible for analysis. Please note that 'header' files "
-            "cannot be used for analysis since they do not consist compilation units.",
-        )
-        return 0
-
     cwd = command_context.topobjdir
 
     monitor = StaticAnalysisMonitor(
@@ -365,22 +362,21 @@ def check(
     with StaticAnalysisOutputManager(
         command_context.log_manager, monitor, footer
     ) as output_manager:
-        import math
-
-        batch_size = int(math.ceil(float(len(source)) / cpu_count()))
-        for i in range(0, len(source), batch_size):
+        rc = 0
+        arg_max = 512  # The actual shell limit is way above
+        for batch in batched(source, arg_max):
             args = _get_clang_tidy_command(
                 command_context,
                 clang_paths,
                 compilation_commands_path,
                 checks=checks,
                 header_filter=header_filter,
-                sources=source[i : (i + batch_size)],
+                sources=batch,
                 jobs=jobs,
                 fix=fix,
                 verbose=verbose,
             )
-            rc = command_context.run_process(
+            rc |= command_context.run_process(
                 args=args,
                 ensure_exit_code=False,
                 line_handler=output_manager.on_line,
@@ -397,6 +393,16 @@ def check(
         # Write output file
         if output is not None:
             output_manager.write(output, format)
+
+    if not sources or not source:
+        command_context.log(
+            logging.WARNING,
+            "static-analysis",
+            {},
+            "There are no files eligible for analysis. Please note that 'header' files "
+            "cannot be used for analysis since they do not consist compilation units.",
+        )
+        return 0
 
     return rc
 
@@ -528,6 +534,7 @@ def _get_clang_tidy_command(
         "-clang-apply-replacements-binary",
         clang_paths._clang_apply_replacements,
         "-checks=%s" % checks,
+        "-warnings-as-errors=*",
         "-extra-arg=-DMOZ_CLANG_PLUGIN",
     ]
 
@@ -1468,3 +1475,66 @@ def _generate_path_list(command_context, paths, verbose=True):
             path_list.append(f)
 
     return path_list
+
+
+@StaticAnalysisSubCommand("static-analysis", "unittest", "Run unittest")
+def unittest(command_context, verbose=True):
+    moz_objdir = tempfile.mkdtemp(prefix="obj-code_analysis-unittest")
+    env = os.environ.copy()
+    env["MOZ_OBJDIR"] = moz_objdir
+
+    try:
+        # Check when everything is fine
+        result = subprocess.run(
+            [
+                sys.executable,
+                "mach",
+                "static-analysis",
+                "check",
+                "js/src/builtin/RegExp.cpp",
+            ],
+            check=False,
+            env=env,
+            cwd=command_context.topsrcdir,
+        )
+        assert result.returncode == 0, "in-tree files should pass the linter"
+
+        # And when errors are emitted
+        with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as fd:
+            try:
+                fd.close()
+
+                # modernize-use-auto is an unsupported check, and it generates
+                # plenty of warnings on js/src/builtin/TestingFunctions.cpp
+                failing_flag = "modernize-use-auto"
+                result = subprocess.run(
+                    [
+                        sys.executable,
+                        "mach",
+                        "static-analysis",
+                        "check",
+                        f"--checks=-*,{failing_flag}",
+                        f"--output={fd.name}",
+                        "--format=json",
+                        "js/src/builtin/TestingFunctions.cpp",
+                    ],
+                    check=False,
+                    env=env,
+                    cwd=command_context.topsrcdir,
+                )
+                with open(fd.name) as fd:
+                    errors = json.load(fd)
+            finally:
+                # FIXME: use delete_on_close=False once we move to 3.12
+                os.remove(fd.name)
+
+        assert result.returncode != 0, f"{failing_flag} check should find warnings"
+        assert len(errors["files"]) > 0, "warnings should be present in the log file"
+
+        file_with_warning = next(iter(errors["files"].values()))
+        assert (
+            file_with_warning["warnings"][0]["flag"]
+            == f"{failing_flag},-warnings-as-errors"
+        ), f"warnings should mention {failing_flag}"
+    finally:
+        shutil.rmtree(moz_objdir)

@@ -738,7 +738,7 @@ nsresult nsFrameLoader::ReallyStartLoadingInternal() {
   if (mPendingSwitchID) {
     bool tmpState = mNeedsAsyncDestroy;
     mNeedsAsyncDestroy = true;
-    rv = GetDocShell()->ResumeRedirectedLoad(mPendingSwitchID, -1);
+    rv = GetDocShell()->ResumeRedirectedLoad(mPendingSwitchID);
     mNeedsAsyncDestroy = tmpState;
     mPendingSwitchID = 0;
     return rv;
@@ -1761,14 +1761,6 @@ nsresult nsFrameLoader::SwapWithOtherLoader(nsFrameLoader* aOther,
   aThisOwner->SetFrameLoader(aOther);
   aOtherOwner->SetFrameLoader(kungFuDeathGrip);
 
-  // Drop any cached content viewers in the two session histories.
-  if (ourHistory) {
-    ourHistory->EvictLocalDocumentViewers();
-  }
-  if (otherHistory) {
-    otherHistory->EvictLocalDocumentViewers();
-  }
-
   NS_ASSERTION(ourFrame == ourContent->GetPrimaryFrame() &&
                    otherFrame == otherContent->GetPrimaryFrame(),
                "changed primary frame");
@@ -1879,30 +1871,24 @@ void nsFrameLoader::StartDestroy(bool aForProcessSwitch) {
       RefPtr<ChildSHistory> childSHistory =
           browsingContext->Top()->GetChildSessionHistory();
       if (childSHistory) {
-        if (mozilla::SessionHistoryInParent()) {
-          uint32_t addedEntries = 0;
-          browsingContext->PreOrderWalk([&addedEntries](BrowsingContext* aBC) {
-            const uint32_t len = aBC->GetHistoryEntryCount();
-            // There might not be a SH entry yet, which is fine.
-            // The first entry doesn't increase history length, as it's added to
-            // it's parent entry
-            addedEntries += len > 0 ? len - 1 : 0;
-          });
+        uint32_t addedEntries = 0;
+        browsingContext->PreOrderWalk([&addedEntries](BrowsingContext* aBC) {
+          const uint32_t len = aBC->GetHistoryEntryCount();
+          // There might not be a SH entry yet, which is fine.
+          // The first entry doesn't increase history length, as it's added to
+          // it's parent entry
+          addedEntries += len > 0 ? len - 1 : 0;
+        });
 
-          nsID changeID = {};
-          if (addedEntries > 0) {
-            ChildSHistory* shistory =
-                browsingContext->Top()->GetChildSessionHistory();
-            if (shistory) {
-              changeID = shistory->AddPendingHistoryChange(0, -addedEntries);
-            }
+        nsID changeID = {};
+        if (addedEntries > 0) {
+          ChildSHistory* shistory =
+              browsingContext->Top()->GetChildSessionHistory();
+          if (shistory) {
+            changeID = shistory->AddPendingHistoryChange(0, -addedEntries);
           }
-          browsingContext->RemoveFromSessionHistory(changeID);
-        } else {
-          AutoTArray<nsID, 16> ids({browsingContext->GetHistoryID()});
-          childSHistory->LegacySHistory()->RemoveEntries(
-              ids, childSHistory->Index());
         }
+        browsingContext->RemoveFromSessionHistory(changeID);
       }
     }
   }
@@ -2077,8 +2063,8 @@ void nsFrameLoader::SetOwnerContent(Element* aContent) {
           for (uint32_t i = 0; i < count; ++i) {
             nsCOMPtr<nsISHEntry> entry;
             shistory->GetEntryAtIndex(i, getter_AddRefs(entry));
-            nsCOMPtr<SessionHistoryEntry> she = do_QueryInterface(entry);
-            MOZ_RELEASE_ASSERT(!she || !she->GetFrameLoader());
+            RefPtr she = entry->GetAsSessionHistoryEntry();
+            MOZ_RELEASE_ASSERT(!she->GetFrameLoader());
           }
         }
       }

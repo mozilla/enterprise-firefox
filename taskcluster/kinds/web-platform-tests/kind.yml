@@ -132,18 +132,12 @@ tasks:
                 default: 7200
         variants:
             - no-fission
-            - geckoview-no-fission-no-ship
             - async-event-dispatching
             - privatebrowsing
             - inc-origin-init
             - privatebrowsing-inc-origin-init
         run-on-projects:
             by-variant:
-                geckoview-no-fission-no-ship:
-                    by-test-platform:
-                        android-em.*/debug-isolated-process: []
-                        android-em.*: built-projects
-                        default: []
                 no-fission:
                     by-test-platform:
                         android-em.*/debug-isolated-process: []
@@ -398,7 +392,7 @@ tasks:
                 - --timeout-multiplier=5.0
         worker-type:
             by-test-platform:
-                .*windows.*: win11-64-24h2-webgpu
+                .*windows.*: win11-64-25h2-webgpu
                 default: default
 
     web-platform-tests-webgpu-long:
@@ -423,6 +417,10 @@ tasks:
                 - --skip-implementation-status=backlog
                 - --skip-implementation-status=not-implementing
                 - --timeout-multiplier=5.0
+        worker-type:
+            by-test-platform:
+                .*windows.*: win11-64-25h2-webgpu
+                default: default
 
     web-platform-tests-webgpu-backlog:
         description: "Web platform WebGPU test run (backlog)"
@@ -463,7 +461,7 @@ tasks:
                 - --timeout-multiplier=5.0
         worker-type:
             by-test-platform:
-                .*windows.*: win11-64-24h2-webgpu
+                .*windows.*: win11-64-25h2-webgpu
                 default: default
 
     web-platform-tests-webgpu-backlog-long:
@@ -490,6 +488,10 @@ tasks:
                 - --skip-implementation-status=not-implementing
                 - --backlog
                 - --timeout-multiplier=5.0
+        worker-type:
+            by-test-platform:
+                .*windows.*: win11-64-25h2-webgpu
+                default: default
 
     web-platform-tests-canvas:
         description: "Web platform Canvas test run"
@@ -606,7 +608,6 @@ tasks:
                         - --test-type=wdspec
         variants:
             - no-fission
-            - geckoview-no-fission-no-ship
             - headless
             - async-event-dispatching
         run-on-projects:
@@ -621,11 +622,6 @@ tasks:
                         linux2404-64-shippable/opt: ['mozilla-central']
                         linux2404-64-asan/opt: ['mozilla-central']
                         android.*: built-projects
-                        default: []
-                geckoview-no-fission-no-ship:
-                    by-test-platform:
-                        android-em.*/debug-isolated-process: []
-                        android-em.*: built-projects
                         default: []
                 async-event-dispatching:
                     by-test-platform:

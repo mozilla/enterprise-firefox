@@ -1,5 +1,4 @@
 /* clang-format off */
-/* -*- Mode: Objective-C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* clang-format on */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -570,11 +569,7 @@ static bool ProvidesTitle(const Accessible* aAccessible, nsString& aName) {
   EDescriptionValueFlag descFlag = mGeckoAccessible->Description(desc);
 
   if (@available(macOS 11.0, *)) {
-    // Provide AXHelp only on non-aria descriptions (eg. title attribute),
-    // or if the accessible is a fieldset or radio group.
-    if (descFlag == eDescriptionFromARIA &&
-        mGeckoAccessible->Role() != roles::GROUPING &&
-        mGeckoAccessible->Role() != roles::RADIO_GROUP) {
+    if (descFlag == eDescriptionFromARIA) {
       return nil;
     }
   }

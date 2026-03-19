@@ -73,7 +73,7 @@ ByteReader::ByteReader(enum Endianness endian)
       have_data_base_(),
       have_function_base_() {}
 
-ByteReader::~ByteReader() {}
+ByteReader::~ByteReader() = default;
 
 void ByteReader::SetOffsetSize(uint8 size) {
   offset_size_ = size;
@@ -596,7 +596,7 @@ class CallFrameInfo::Rule final {
   // For debugging only
   string show() const {
     char buf[100];
-    string s = "";
+    string s;
     switch (tag_) {
       case Tag::INVALID:
         s = "INVALID";

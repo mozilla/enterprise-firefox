@@ -862,6 +862,11 @@ main section {
 }
 @media (min-width: 1122px) {
   .top-sites-list {
+    grid-template-columns: repeat(8, auto);
+  }
+}
+@media (min-width: 1390px) {
+  .top-sites-list {
     grid-template-columns: repeat(var(--top-sites-max-per-row, 8), auto);
   }
 }
@@ -4933,7 +4938,7 @@ dialog:dir(rtl)::after {
 .weather-forecast-widget:hover .sponsored-text {
   visibility: visible;
 }
-.weather-forecast-widget:hover .full-forecast {
+.weather-forecast-widget:hover .full-forecast, .weather-forecast-widget:focus-within .full-forecast {
   text-decoration: underline;
   color: var(--newtab-primary-action-background);
 }
@@ -5127,7 +5132,7 @@ hr {
 .forecast-row .forecast-row-items {
   list-style: none;
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   padding: 0;
   margin-block: var(--space-xxsmall);
 }
@@ -5160,6 +5165,13 @@ hr {
 }
 .forecast-footer .sponsored-text {
   visibility: hidden;
+}
+.forecast-footer .full-forecast {
+  position: relative;
+  z-index: 1;
+  font-size: var(--font-size-xsmall);
+  text-decoration: none;
+  color: inherit;
 }
 
 .small-widget {
@@ -9514,9 +9526,6 @@ hr {
   --arrow-size: 24px;
   width: auto;
   padding: var(--space-large);
-}
-.wallpaper-feature-highlight .feature-highlight .feature-highlight-modal .content-wrapper {
-  margin-block: 0;
 }
 .wallpaper-feature-highlight .feature-highlight .feature-highlight-modal .message-icon {
   display: none;

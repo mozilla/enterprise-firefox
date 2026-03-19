@@ -19,6 +19,7 @@ var gBrowserInit = {
   _tabToAdopt: undefined,
   _firstContentWindowPaintDeferred: Promise.withResolvers(),
   idleTasksFinished: Promise.withResolvers(),
+  _reducedProtectionPrefObserver: null,
 
   /**
    * Handles considerations when the enabled state of the Translations feature
@@ -266,12 +267,7 @@ var gBrowserInit = {
       FullPageTranslationsPanel
     );
     gBrowser.tabContainer.addEventListener("TabSelect", () => {
-      // This ensures that the Translations URL-bar button becomes hidden when
-      // the feature becomes disabled, even when switching from tabs such as
-      // about:newtab that do not have an actor instance available to them.
-      if (!TranslationsParent.AIFeature.isEnabled) {
-        FullPageTranslationsPanel.buttonElements.button.hidden = true;
-      }
+      FullPageTranslationsPanel.onLocationChange(gBrowser.selectedBrowser);
     });
     gBrowser.addTabsProgressListener(FullPageTranslationsPanel);
 
@@ -565,6 +561,8 @@ var gBrowserInit = {
 
     ctrlTab.readPref();
     Services.prefs.addObserver(ctrlTab.prefName, ctrlTab);
+
+    ReducedProtectionNotification.observePref();
 
     // The object handling the downloads indicator is initialized here in the
     // delayed startup function, but the actual indicator element is not loaded
