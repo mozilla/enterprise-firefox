@@ -18,6 +18,8 @@ use xpcom::RefPtr;
 use log::{error, trace};
 
 use crate::message::{FeltMessage, FELT_IPC_VERSION};
+#[cfg(target_os = "linux")]
+use crate::utils;
 use crate::utils::{Tokens, CONSOLE_URL, TOKENS, TOKEN_EXPIRY_SKEW};
 
 #[xpcom(implement(nsIFelt), atomic)]
@@ -266,8 +268,12 @@ impl FeltXPCOM {
 
     fn OpenURL(&self, url: *const nsACString, disposition: i32) -> nserror::nsresult {
         let url_s = unsafe { (*url).to_string() };
-        trace!("FeltXPCOM::OpenURL: {} {}", url_s, disposition);
-        self.send(FeltMessage::OpenURL((url_s, disposition)))
+        #[cfg(target_os = "linux")]
+        let focus_hint = utils::get_focus_hint();
+        #[cfg(not(target_os = "linux"))]
+        let focus_hint = None;
+        trace!("FeltXPCOM::OpenURL: {} {} {:?}", url_s, disposition, focus_hint);
+        self.send(FeltMessage::OpenURL((url_s, disposition, focus_hint)))
     }
 
     fn GetConsoleUrl(&self, console_url: *mut nsACString) -> nserror::nsresult {

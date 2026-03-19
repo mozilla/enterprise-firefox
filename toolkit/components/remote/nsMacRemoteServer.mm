@@ -22,6 +22,10 @@
 #include "nsXPCOM.h"
 #include "RemoteUtils.h"
 
+#if defined(MOZ_ENTERPRISE)
+#  include "mozilla/browser/extensions/felt/felt.h"
+#endif
+
 CFDataRef messageServerCallback(CFMessagePortRef aLocal, int32_t aMsgid,
                                 CFDataRef aData, void* aInfo) {
   // One of the clients submitted a structure.
@@ -73,11 +77,16 @@ void nsMacRemoteServer::HandleCommandLine(CFDataRef aData) {
 
       NSNumber* raise = dict[@"raise"];
       if (!raise || [raise boolValue]) {
-        // Activating the application brings the most recent window to the
-        // foreground.
-        ProcessSerialNumber psn;
-        if (::GetCurrentProcess(&psn) == noErr) {
-          ::SetFrontProcess(&psn);
+#if defined(MOZ_ENTERPRISE)
+        if (!is_felt_ui())
+#endif
+        {
+          // Activating the application brings the most recent window to the
+          // foreground.
+          ProcessSerialNumber psn;
+          if (::GetCurrentProcess(&psn) == noErr) {
+            ::SetFrontProcess(&psn);
+          }
         }
       }
     }

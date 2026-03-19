@@ -8,6 +8,21 @@ EXPORTS.mozilla.browser.extensions.felt += [
     "felt.h",
 ]
 
+if CONFIG["MOZ_WIDGET_TOOLKIT"] == "cocoa":
+    SOURCES += [
+        "FeltWidgetUtils.mm",
+    ]
+elif CONFIG["MOZ_WIDGET_TOOLKIT"] == "gtk":
+    SOURCES += [
+        "FeltWidgetUtilsGtk.cpp",
+    ]
+    CXXFLAGS += CONFIG["MOZ_GTK3_CFLAGS"]
+    LOCAL_INCLUDES += [
+        "/widget/gtk",
+    ]
+
+FINAL_LIBRARY = "xul"
+
 XPIDL_SOURCES += [
     "nsIFelt.idl",
     "nsIFeltRestartForced.idl",

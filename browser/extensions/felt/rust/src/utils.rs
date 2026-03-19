@@ -11,8 +11,45 @@ use xpcom::interfaces::{nsICookie, nsICookieManager, nsIObserverService, nsIPref
 use xpcom::RefPtr;
 
 use log::trace;
+#[cfg(target_os = "linux")]
+use std::os::raw::c_char;
 
-use crate::message::nsICookieWrapper;
+use crate::message::{nsICookieWrapper, FocusHint};
+
+#[cfg(target_os = "linux")]
+extern "C" {
+    fn felt_set_startup_token_or_timestamp(token: *const c_char, timestamp: u32);
+    fn felt_get_startup_token_or_timestamp(
+        out_token: *mut *const c_char,
+        out_token_len: *mut u32,
+        out_timestamp: *mut u32,
+    );
+}
+
+#[cfg(target_os = "macos")]
+extern "C" {
+    fn felt_activate_app();
+}
+
+#[cfg(target_os = "linux")]
+pub fn get_focus_hint() -> Option<FocusHint> {
+    let mut token_ptr: *const c_char = std::ptr::null();
+    let mut token_len: u32 = 0;
+    let mut timestamp: u32 = 0;
+    unsafe {
+        felt_get_startup_token_or_timestamp(&mut token_ptr, &mut token_len, &mut timestamp);
+    }
+    if !token_ptr.is_null() && token_len > 0 {
+        let slice = unsafe { std::slice::from_raw_parts(token_ptr as *const u8, token_len as usize) };
+        return Some(FocusHint::StartupToken(
+            String::from_utf8_lossy(slice).into_owned(),
+        ));
+    }
+    if timestamp != 0 {
+        return Some(FocusHint::Timestamp(timestamp));
+    }
+    None
+}
 
 #[derive(Default, Debug, Serialize, Deserialize)]
 pub struct Tokens {
@@ -172,12 +209,35 @@ pub fn notify_observers(name: String) {
     notify_observers_with_payload(name, None)
 }
 
-pub fn open_url_in_firefox(url: String, disposition: i32) {
+pub fn open_url_in_firefox(url: String, disposition: i32, focus_hint: Option<FocusHint>) {
     trace!(
-        "open_url_in_firefox() url: {} disposition: {}",
+        "open_url_in_firefox() url: {} disposition: {} focus_hint: {:?}",
         url,
-        disposition
+        disposition,
+        focus_hint
     );
+    do_main_thread("felt_activate_for_url", async move {
+        #[cfg(target_os = "linux")]
+        if let Some(ref hint) = focus_hint {
+            match hint {
+                FocusHint::StartupToken(token) => {
+                    if let Ok(c_token) = CString::new(token.as_str()) {
+                        unsafe {
+                            felt_set_startup_token_or_timestamp(c_token.as_ptr(), 0);
+                        }
+                    }
+                }
+                FocusHint::Timestamp(ts) => unsafe {
+                    felt_set_startup_token_or_timestamp(std::ptr::null(), *ts);
+                },
+            }
+        }
+        // Widget interaction needs to be on the main thread.
+        #[cfg(target_os = "macos")]
+        unsafe {
+            felt_activate_app();
+        }
+    });
     let payload = serde_json::json!({
         "url": url,
         "disposition": disposition,

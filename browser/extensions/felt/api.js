@@ -136,6 +136,7 @@ this.felt = class extends ExtensionAPI {
 
       try {
         win.openTrustedLinkIn(url, "tab");
+        win.focus();
       } catch (err) {
         console.error("FeltExtension: Failed to open forwarded URL", url, err);
       }
