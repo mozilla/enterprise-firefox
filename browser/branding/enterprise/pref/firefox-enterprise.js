@@ -4,10 +4,8 @@
 
 /* global pref */
 
-pref(
-  "enterprise.console.address",
-  "https://stage.fx-enterprise.nonprod.webservices.mozgcp.net"
-);
+pref("enterprise.console.address", "https://fx-ent-console.zomilla.org");
+pref("enterprise.locking.enabled", true);
 
 pref("browser.profiles.enabled", false);
 pref("extensions.activeThemeID", "firefox-enterprise-light@mozilla.org");

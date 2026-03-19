@@ -13,6 +13,7 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   ConsoleClient: "resource:///modules/enterprise/ConsoleClient.sys.mjs",
   FeltCommon: "chrome://felt/content/FeltCommon.sys.mjs",
+  FeltLocking: "chrome://felt/content/FeltLocking.sys.mjs",
   FeltStorage: "resource:///modules/FeltStorage.sys.mjs",
   PopupNotifications: "resource://gre/modules/PopupNotifications.sys.mjs",
   Updates: "resource:///modules/enterprise/Updates.sys.mjs",
@@ -95,6 +96,11 @@ const ErrorReport = {
 async function connectToConsole(email) {
   ErrorReport.reset();
 
+  const browser = document.getElementById("browser");
+  if (await lazy.FeltLocking.tryUnlock(email, browser)) {
+    return;
+  }
+
   let posture;
   try {
     posture = await lazy.ConsoleClient.sendDevicePosture();
@@ -108,8 +114,6 @@ async function connectToConsole(email) {
     // TODO: Currently we don't check the posture yet. In the future we need to handle rejected device posture
     return;
   }
-
-  let browser = document.getElementById("browser");
 
   let oa = E10SUtils.predictOriginAttributes({ browser });
   browser.setAttribute("maychangeremoteness", "true");
