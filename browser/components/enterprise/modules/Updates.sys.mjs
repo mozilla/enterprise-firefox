@@ -294,10 +294,20 @@ export const Updates = {
         // states from toolkit/mozapps/update/nsIUpdateService.idl#189-191
         switch (state) {
           case "pending-elevate":
-            Cc["@mozilla.org/updates/update-manager;1"]
+            void Cc["@mozilla.org/updates/update-manager;1"]
               .getService(Ci.nsIUpdateManager)
-              .elevationOptedIn();
-            Services.felt?.sendUpdateReady();
+              .elevationOptedIn()
+              .then(
+                () => {
+                  Services.felt?.sendUpdateReady();
+                },
+                err => {
+                  console.error(
+                    `FeltUpdates: elevationOptedIn failed for pending-elevate`,
+                    err
+                  );
+                }
+              );
             break;
           case "applied":
           case "applied-service":
