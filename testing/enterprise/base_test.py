@@ -37,7 +37,7 @@ class EnterpriseTestsBase(MarionetteTestCase):
             self.marionette.instance.app_args += self._extra_cli_args
 
         self.marionette.quit(in_app=False, clean=True)
-        self.marionette.start_session()
+        self.marionette.start_session(timeout=60)
 
         if hasattr(self, "_extra_prefs"):
             self.marionette.enforce_gecko_prefs(self._extra_prefs)
@@ -137,7 +137,7 @@ class EnterpriseTestsBase(MarionetteTestCase):
         assert marionette_port != 2828, "Marionette port should not be default value"
 
         self._child_driver = Marionette(host="127.0.0.1", port=new_marionette_port)
-        self._child_driver.start_session(capabilities)
+        self._child_driver.start_session(capabilities, timeout=60)
 
     def get_driver(self, env):
         return self._driver if env == Environment.FELT else self._child_driver

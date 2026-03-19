@@ -23,6 +23,8 @@ export const Updates = {
     this._errorReporter = errorReporter;
 
     this.maybeShowUpdateSuccess();
+    // Check this early to avoid re-downloading updates when it would fail
+    await this.updateCheckingAllowed();
 
     if (this._initialized) {
       this.displayLoginState();
@@ -38,7 +40,9 @@ export const Updates = {
 
     this._checkingTimeout = null;
     this._receivedStaging = false;
-    this.displayUpdateState();
+    if (this._canDoUpdateChecking) {
+      this.displayUpdateState();
+    }
 
     if (lazy.isUpdatesTesting()) {
       // on Windows at least, during testing, make sure we let time for the UI to show up
@@ -52,6 +56,14 @@ export const Updates = {
     this.forceUpdateCheck();
 
     this._initialized = true;
+  },
+
+  uninit() {
+    this.unobserve();
+    this.cancelDelayedUpdateCheckUI();
+    this._document = undefined;
+    this._errorReporter = undefined;
+    this._initialized = false;
   },
 
   maybeShowUpdateSuccess() {
@@ -73,6 +85,44 @@ export const Updates = {
     );
   },
 
+  async updateCheckingAllowed() {
+    const UM = Cc["@mozilla.org/updates/update-manager;1"].getService(
+      Ci.nsIUpdateManager
+    );
+    // History is limited to 10 items, each install attempt should report a failure
+    const history = await UM.getHistory().catch(ex => {
+      console.error(`FeltUpdates: updateCheckingAllowed failed`, ex);
+      return null;
+    });
+    if (history) {
+      // The UpdaterManager history's capped at 10 max.
+      const maxConsecutiveUpdateFailures = Math.min(
+        Services.prefs.getIntPref(
+          "enterprise.felt.max_consecutive_update_failure",
+          3
+        ),
+        10
+      );
+      const firstNonFailed = history.findIndex(
+        update => update.state !== "failed"
+      );
+      const consecutiveUpdateFailures =
+        firstNonFailed === -1 ? history.length : firstNonFailed;
+      console.warn(
+        `FeltUpdates: updateCheckingAllowed: ${consecutiveUpdateFailures}, max ${maxConsecutiveUpdateFailures}`
+      );
+      if (consecutiveUpdateFailures > maxConsecutiveUpdateFailures) {
+        console.warn(
+          `FeltUpdates: updateCheckingAllowed: skip startup update check because consecutive update failures: ${consecutiveUpdateFailures}, max ${maxConsecutiveUpdateFailures}`
+        );
+        this._canDoUpdateChecking = false;
+        return;
+      }
+    }
+
+    this._canDoUpdateChecking = true;
+  },
+
   prepareUpdateCheck() {
     this._appUpdater = new lazy.AppUpdater();
     this._updaterCallback = this.appUpdaterCallback.bind(this);
@@ -83,10 +133,21 @@ export const Updates = {
   },
 
   forceUpdateCheck() {
+    if (this._canDoUpdateChecking !== true) {
+      console.warn(
+        `FeltUpdates: forceUpdateCheck(): skip because previous updates failures`
+      );
+      this.displayLoginStateWithUpdateError("contact-admin");
+      return;
+    }
+
     this._appUpdater
       .check()
       .catch(err => {
-        console.error(`AppUpdater failure: ${err}`, err);
+        console.error(
+          `Felt: forceUpdateCheck(): AppUpdater failure: ${err}`,
+          err
+        );
         this.displayLoginStateWithUpdateError("contact-admin");
       })
       .finally(() => {
@@ -276,6 +337,13 @@ export const Updates = {
       });
   },
 
+  unobserve() {
+    Services.obs.removeObserver(this, "update-staged");
+    Services.obs.removeObserver(this, "update-downloaded");
+    Services.obs.removeObserver(this, "update-error");
+    Services.obs.removeObserver(this, "xpcom-shutdown");
+  },
+
   observe(subject, topic, state) {
     // We would coerce subject
     //   update = subject && subject.QueryInterface(Ci.nsIUpdate);
@@ -284,10 +352,7 @@ export const Updates = {
     console.warn(`FeltUpdates: observer: topic:${topic} state:${state}`);
     switch (topic) {
       case "xpcom-shutdown":
-        Services.obs.removeObserver(this, "update-staged");
-        Services.obs.removeObserver(this, "update-downloaded");
-        Services.obs.removeObserver(this, "update-error");
-        Services.obs.removeObserver(this, "xpcom-shutdown");
+        this.unobserve();
         break;
       case "update-staged":
       case "update-downloaded":

@@ -46,6 +46,8 @@ run-if = [
 
 ["test_felt_browser_starts.py"]
 
+["test_felt_browser_updater_errors.py"]
+
 ["test_felt_browser_updates_apply.py"]
 
 ["test_felt_browser_updates_basic.py"]
