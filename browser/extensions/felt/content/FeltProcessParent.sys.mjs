@@ -134,7 +134,7 @@ export class FeltProcessParent extends JSProcessActorParent {
     this.abnormalExitFirstTime = 0;
 
     this.browserObserver = {
-      observe(aSubject, aTopic, aData) {
+      async observe(aSubject, aTopic, aData) {
         console.debug(`FeltExtension: ParentProcess: Received ${aTopic}`);
         switch (aTopic) {
           case "felt-firefox-exiting": {
@@ -147,6 +147,24 @@ export class FeltProcessParent extends JSProcessActorParent {
               "enterprise.disable_restart",
               false
             );
+
+            const UM = Cc["@mozilla.org/updates/update-manager;1"].getService(
+              Ci.nsIUpdateManager
+            );
+            const readyUpdate = await UM.getReadyUpdate();
+            let pendingUpdate = false;
+            if (readyUpdate) {
+              // Updates states when restarting will finish the update
+              const readyStates = [
+                "pending",
+                "pending-service",
+                "pending-elevate",
+                "applied",
+                "applied-service",
+              ];
+              pendingUpdate = readyStates.includes(readyUpdate.state);
+            }
+
             console.debug(
               `FeltExtension: ParentProcess: restart notification, restartDisabled=${restartDisabled}`
             );
@@ -164,12 +182,21 @@ export class FeltProcessParent extends JSProcessActorParent {
                   console.debug(
                     `FeltExtension: ParentProcess: Killed Firefox, restartDisabled=${restartDisabled}`
                   );
-                  if (!restartDisabled) {
+
+                  if (!restartDisabled && !pendingUpdate) {
                     console.debug(
                       `FeltExtension: ParentProcess: Starting new Firefox`
                     );
                     gFeltProcessParentInstance.startFirefox(
                       PROCESS_START_REASON.RESTART
+                    );
+                  } else if (pendingUpdate) {
+                    console.debug(
+                      `FeltExtension: ParentProcess: Restart requested and pending update, restarting FELT UI`
+                    );
+                    Services.cpmm.sendAsyncMessage(
+                      "FeltParent:FirefoxRestartUpdateExit",
+                      {}
                     );
                   } else {
                     console.debug(

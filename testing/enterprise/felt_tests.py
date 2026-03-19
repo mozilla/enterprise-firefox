@@ -238,7 +238,7 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
             )
             if self.server.serve_updates and os.path.isfile(complete_mar):
                 # Versions are important, they need to be equal or higher than the
-                # curernt binary otherwise no update will be downloaded
+                # current binary otherwise no update will be downloaded
                 display_version = self.server.serve_updates_version[
                     "application_version"
                 ][0]
@@ -679,31 +679,61 @@ class FeltTestsBase(EnterpriseTestsBase):
     def find_elem_child(self, e):
         return self._child_driver.find_element(By.CSS_SELECTOR, e)
 
-    def wait_process_exit(self):
-        self._logger.info("Waiting a few seconds ...")
-        if sys.platform == "win32":
-            time.sleep(8)
-        else:
-            time.sleep(3)
-        self._logger.info(f"Checking PID {self._browser_pid}")
-
+    def wait_process_exit(self, pid_to_check):
+        self._logger.info(f"Checking PID {pid_to_check}")
         import psutil
 
-        if not psutil.pid_exists(self._browser_pid):
-            self._logger.info(f"No more PID {self._browser_pid}")
-        else:
+        # Wait for a process termination
+        continue_checking = True
+        iterations = 0
+        while continue_checking and psutil.pid_exists(pid_to_check) and iterations < 30:
+            iterations += 1
+            self._logger.info(f"PID {pid_to_check} still exists")
+
             try:
-                process = psutil.Process(pid=self._browser_pid)
+                process = psutil.Process(pid=pid_to_check)
+                process_status = process.status()
+                self._logger.info(f"Found PID {pid_to_check}: STATUS:{process_status}")
+                continue_checking = process_status not in [
+                    psutil.STATUS_STOPPED,
+                    psutil.STATUS_ZOMBIE,
+                    psutil.STATUS_DEAD,
+                ]
+            except psutil.NoSuchProcess:
+                continue_checking = False
+            except psutil.ZombieProcess:
+                continue_checking = False
+
+            time.sleep(1)
+
+        self._logger.info(
+            f"Active waiting for PID {pid_to_check} DONE => continue_checking:{continue_checking} iterations:{iterations} psutil.pid_exists(pid_to_check):{psutil.pid_exists(pid_to_check)}"
+        )
+
+        if psutil.pid_exists(pid_to_check):
+            # Process is still not terminated, try to verify if it is still the same
+            # or if the PID was re-used.
+            try:
+                process = psutil.Process(pid=pid_to_check)
+                process_status = process.status()
                 process_name = process.name()
                 process_exe = process.exe()
                 process_basename = os.path.basename(process_name)
                 process_cmdline = process.cmdline()
                 self._logger.info(
-                    f"Found PID {self._browser_pid}: EXE:{process_exe} :: NAME:{process_name} :: CMDLINE:{process_cmdline} :: BASENAME:'{process_basename}'"
+                    f"Found PID {pid_to_check}: STATUS:{process_status} :: EXE:{process_exe} :: NAME:{process_name} :: CMDLINE:{process_cmdline} :: BASENAME:'{process_basename}'"
                 )
-                assert process_basename != "firefox", "Process is not Firefox"
+                # If process basename is not Firefox, then it is just PID re-use
+                assert not process_basename.startswith("firefox"), (
+                    f"Process PID {pid_to_check} should not be Firefox"
+                )
+            except psutil.NoSuchProcess:
+                self._logger.info(f"PID disappeared {pid_to_check}")
             except psutil.ZombieProcess:
-                self._logger.info(f"Zombie found as {self._browser_pid}")
+                # If it is a zombie, it is fine as well
+                self._logger.info(f"Zombie found as {pid_to_check}")
+
+        self._logger.info(f"All done for PID {pid_to_check}")
 
     def run_felt_base(self):
         self.run_felt_chrome_on_email_submit()

@@ -135,9 +135,24 @@ class EnterpriseTestsBase(MarionetteTestCase):
         self._logger.info(f"Marionette PORT NEW: {new_marionette_port}")
         assert marionette_port == new_marionette_port, "STILL Valid marionette port"
         assert marionette_port != 2828, "Marionette port should not be default value"
+        self._logger.info(f"Marionette PORT NEW: {new_marionette_port} OK")
 
+        self._logger.info(f"New Marionette port={new_marionette_port}")
         self._child_driver = Marionette(host="127.0.0.1", port=new_marionette_port)
+        self._logger.info(f"New Marionette port={new_marionette_port} OK")
         self._child_driver.start_session(capabilities, timeout=60)
+        self._logger.info(f"New Marionette port={new_marionette_port} OK SESSION")
+
+        port_file_copy = f"{marionette_port_file}.bak"
+        self._logger.info(
+            f"New Marionette port={new_marionette_port} MOVE OUT {marionette_port_file}"
+        )
+        if os.path.isfile(port_file_copy):
+            os.unlink(port_file_copy)
+        os.rename(marionette_port_file, port_file_copy)
+        self._logger.info(
+            f"New Marionette MOVED OUT {marionette_port_file} TO {port_file_copy}"
+        )
 
     def get_driver(self, env):
         return self._driver if env == Environment.FELT else self._child_driver

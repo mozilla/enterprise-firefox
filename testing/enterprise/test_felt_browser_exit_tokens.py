@@ -26,14 +26,13 @@ class BrowserExitTokens(FeltTests):
         self.assert_felt_refresh_blocked(False)
         self.run_felt_base()
         self.connect_child_browser()
-        # Record process PID we will have to wait for in self.wait_process_exit()
-        self._browser_pid = self._child_driver.session_capabilities["moz:processID"]
+        browser_pid = self._child_driver.session_capabilities["moz:processID"]
         self.assert_felt_refresh_blocked(True)
         self.check_felt_and_firefox_tokens_in_sync()
         self.force_and_refresh_tokens()
         self.check_firefox_tokens_updated_after_session_refresh()
         self.perform_quit()
-        self.wait_process_exit()
+        self.wait_process_exit(browser_pid)
         self.await_felt_auth_window()
         self.assert_felt_refresh_blocked(False)
         self.force_window()

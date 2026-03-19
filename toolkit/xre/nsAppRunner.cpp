@@ -2590,7 +2590,6 @@ void UnlockProfile() {
 nsresult LaunchChild(bool aBlankCommandLine, bool aTryExec) {
   // Restart this process by exec'ing it into the current process
   // if supported by the platform.  Otherwise, use NSPR.
-
   if (aBlankCommandLine) {
     gRestartArgc = 1;
     gRestartArgv[gRestartArgc] = nullptr;
@@ -3109,7 +3108,21 @@ static nsresult SelectProfile(nsToolkitProfileService* aProfileSvc,
 #if defined(MOZ_ENTERPRISE)
   {
     auto forcedProfile = geckoargs::sProfile.IsPresent(gArgc, gArgv);
-    if (is_felt_ui() && !forcedProfile) {
+    // Those env var are set by LaunchChild() when performing a restart. Make
+    // sure the values are there and non empty to consider them as forced.
+    //
+    // AppShutdown::OnShutdownConfirmed() save them both so it is fine assuming
+    // they should be present both.
+    const char* xreProfilePath = PR_GetEnv("XRE_PROFILE_PATH");
+    auto savedProfile = xreProfilePath && *xreProfilePath;
+    const char* xreProfileLocalPath = PR_GetEnv("XRE_PROFILE_LOCAL_PATH");
+    auto savedLocalProfile = xreProfileLocalPath && *xreProfileLocalPath;
+
+    // Check if we are FELT UI, and nothing has given us a profile path, either
+    //  - -profile path/to/profile
+    //  - XRE_PROFILE_PATH=path/to/profile /
+    //  XRE_PROFILE_LOCAL_PATH=path/to/local
+    if (is_felt_ui() && !forcedProfile && !savedProfile && !savedLocalProfile) {
       nsCOMPtr<nsIFile> file;
       MOZ_TRY(GetSpecialSystemDirectory(OS_TemporaryDirectory,
                                         getter_AddRefs(file)));

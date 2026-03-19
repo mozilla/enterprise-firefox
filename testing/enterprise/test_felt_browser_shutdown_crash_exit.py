@@ -44,7 +44,7 @@ class BrowserShutdownCrash(FeltStartsBrowser):
         self._child_driver.set_context("chrome")
 
         self._logger.info("Trigger quit, expected to crash")
-        self._browser_pid = self._child_driver.session_capabilities["moz:processID"]
+        browser_pid = self._child_driver.session_capabilities["moz:processID"]
         try:
             self._child_driver.execute_script(
                 "Services.startup.quit(Ci.nsIAppStartup.eForceQuit);"
@@ -52,13 +52,13 @@ class BrowserShutdownCrash(FeltStartsBrowser):
         except Exception:
             pass
 
-        self.wait_process_exit()
+        self.wait_process_exit(browser_pid)
         try:
             self._logger.info("Trying to connect to new browser")
             self.connect_child_browser()
             new_browser_pid = self._child_driver.session_capabilities["moz:processID"]
-            assert self._browser_pid != new_browser_pid, (
-                f"PID should not be the same: {self._browser_pid} != {new_browser_pid}"
+            assert browser_pid != new_browser_pid, (
+                f"PID should not be the same: {browser_pid} != {new_browser_pid}"
             )
             assert new_browser_pid is None, (
                 f"Should not have started a new browser: {new_browser_pid}"
