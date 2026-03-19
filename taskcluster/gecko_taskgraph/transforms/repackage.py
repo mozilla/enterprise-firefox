@@ -837,8 +837,10 @@ def make_job_description(config, jobs):
             if previous_repack and previous_repack not in repacks:
                 repacks += [previous_repack]
             else:
-                this_repack = config.params["release_partner_config"].get(config.kind)
-                if this_repack:
+                release_partner_config = (
+                    config.params.get("release_partner_config") or {}
+                )
+                if this_repack := release_partner_config.get(config.kind):
                     for enterprise_name, entries in this_repack.items():
                         for repack_name, entry in entries.items():
                             for platform_name in entry["platforms"]:
