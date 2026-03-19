@@ -51,7 +51,8 @@ class BrowserContextMenu(FeltTests):
         self.run_email_context_menu_select_all()
         self.run_email_context_menu_delete()
         self.run_email_context_menu_undo_redo()
-        self.run_email_z_submit()
+        self.run_felt_chrome_on_email_submit()
+        self.run_wait_until_sso_loaded()
         self.run_login_context_menu_cut()
         self.run_login_context_menu_copy()
         self.run_login_context_menu_paste()
@@ -352,20 +353,8 @@ class BrowserContextMenu(FeltTests):
         )
         assert email_value == test_text, "Text was redone"
 
-    def run_email_z_submit(self):
-        self.submit_email("random@mozilla.com")
-
-        self._driver.set_context("chrome")
-        self._logger.info("Email submitted and SSO browser displayed")
-        sso_content_ready = self.get_elem(".felt-login__sso")
-        assert sso_content_ready, "The SSO content is displayed"
-
-        self._driver.set_context("content")
-
     @close_context_menu
     def run_login_context_menu_cut(self):
-        self._driver.set_context("chrome")
-
         self._driver.set_context("content")
         self._logger.info("Testing cut operation on login input in SSO form")
 
