@@ -8,9 +8,9 @@ with Files("**"):
     BUG_COMPONENT = ("Firefox", "Enterprise Policies")
 
 EXTRA_JS_MODULES.policies += [
+    "AIChatbotPolicies.sys.mjs",
     "BookmarksPolicies.sys.mjs",
     "ProxyPolicies.sys.mjs",
-    "SidebarChatPolicies.sys.mjs",
 ]
 
 if CONFIG["MOZ_ENTERPRISE"]:

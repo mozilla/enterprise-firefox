@@ -236,8 +236,6 @@ policy-SecurityDevices2 = Add or delete PKCS #11 modules.
 
 policy-ShowHomeButton = Show the home button on the toolbar.
 
-policy-SidebarChat = Configure providers and prompts in the chat sidebar.
-
 policy-SitePolicies = Site specific policies.
 
 # ”You represent that...” means ”You confirm/declare that...”

@@ -2,13 +2,17 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { setAndLockPref, unsetAndUnlockPref, PoliciesUtils } from "resource:///modules/policies/Policies.sys.mjs";
+import {
+  setAndLockPref,
+  unsetAndUnlockPref,
+  PoliciesUtils,
+} from "resource:///modules/policies/Policies.sys.mjs";
 import {
   CHAT_PROVIDERS_DEFAULT,
   GenAI,
 } from "resource:///modules/GenAI.sys.mjs";
 
-export const SidebarChatPolicies = {
+export const AIChatbotPolicies = {
   /**
    * Configure available chat providers based on policy.
    *
@@ -136,8 +140,6 @@ export const SidebarChatPolicies = {
   setDefaultProvider(defaultProvider) {
     // Find URL for this provider ID
     for (const [url, config] of GenAI.chatProviders) {
-      Components.utils.reportError(config.name);
-      Components.utils.reportError(defaultProvider);
       if (config.name === defaultProvider) {
         PoliciesUtils.setDefaultPref("browser.ml.chat.provider", url);
         break;
@@ -176,7 +178,11 @@ export const SidebarChatPolicies = {
    * unenrolled state.
    */
   unapplySidebarChatPolicy() {
-    PoliciesUtils.unsetDefaultPref("browser.ml.chat.providers");
+    // Can't use unsetDefaultPref for this one because it's empty by default.
+    PoliciesUtils.setDefaultPref(
+      "browser.ml.chat.providers",
+      CHAT_PROVIDERS_DEFAULT
+    );
     PoliciesUtils.unsetDefaultPref("browser.ml.chat.provider");
     PoliciesUtils.unsetDefaultPref("browser.ml.chat.prompts.0");
     PoliciesUtils.unsetDefaultPref("browser.ml.chat.prompts.1");
@@ -184,5 +190,5 @@ export const SidebarChatPolicies = {
     PoliciesUtils.unsetDefaultPref("browser.ml.chat.prompts.3");
     PoliciesUtils.unsetDefaultPref("browser.ml.chat.shortcuts");
     unsetAndUnlockPref("browser.ml.chat.enabled");
-  }
+  },
 };
