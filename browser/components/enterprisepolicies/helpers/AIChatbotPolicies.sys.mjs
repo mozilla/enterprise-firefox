@@ -148,18 +148,18 @@ export const AIChatbotPolicies = {
   },
 
   /**
-   * Entry point for applying the SidebarChat enterprise policy.
+   * Entry point for applying the AIChatbot enterprise policy.
    *
    * Delegates to `configureProviders`/`setDefaultProvider` when
    * `param.Providers` is present, and to `configurePrompts` when
    * `param.Prompts` is present.
    *
-   * @param {object} param - The top-level SidebarChat policy object.
+   * @param {object} param - The top-level AIChatbot policy object.
    * @param {object} [param.Providers] - Passed to `configureProviders`.
    *   `param.Providers.Default` is passed to `setDefaultProvider` if present.
    * @param {object} [param.Prompts] - Passed to `configurePrompts`.
    */
-  applySidebarChatPolicy(param) {
+  applyAIChatbotPolicy(param) {
     if (param.Providers) {
       this.configureProviders(param.Providers);
       if (param.Providers.Default) {
@@ -172,12 +172,12 @@ export const AIChatbotPolicies = {
   },
 
   /**
-   * Revert all prefs set by the SidebarChat policy back to their defaults.
+   * Revert all prefs set by the AIChatbot policy back to their defaults.
    *
    * Called when the policy is removed or the browser is reset to an
    * unenrolled state.
    */
-  unapplySidebarChatPolicy() {
+  unapplyAIChatbotPolicy() {
     // Can't use unsetDefaultPref for this one because it's empty by default.
     PoliciesUtils.setDefaultPref(
       "browser.ml.chat.providers",

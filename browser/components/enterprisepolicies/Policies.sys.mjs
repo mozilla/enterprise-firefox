@@ -195,11 +195,11 @@ export var Policies = {
 
   AIChatbot: {
     onBeforeAddons(manager, param) {
-      lazy.AIChatbotPolicies.applySidebarChatPolicy(param);
+      lazy.AIChatbotPolicies.applyAIChatbotPolicy(param);
     },
     onRemove(_manager, oldParams) {
       if (oldParams) {
-        lazy.AIChatbotPolicies.unapplySidebarChatPolicy();
+        lazy.AIChatbotPolicies.unapplyAIChatbotPolicy();
       }
     },
   },
