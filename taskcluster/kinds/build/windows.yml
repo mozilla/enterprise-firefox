@@ -474,7 +474,7 @@ win64/opt:
             - winappsdk-x86_64-pc-windows-msvc
 
 win64-enterprise-shippable/opt:
-    description: "Win64 Enterprise Shinpable Opt"
+    description: "Win64 Enterprise Shippable Opt"
     use-pgo: win64-shippable/opt
     index:
         product: firefox
