@@ -1798,7 +1798,6 @@
       "type": "boolean"
     },
 
-<<<<<<< HEAD
     "SitePolicies": {
       "type": "array",
       "items": {
@@ -1828,7 +1827,9 @@
           }
         },
         "required": ["Policies"]
-=======
+      }
+    },
+
     "SidebarChat": {
       "type": "object",
       "properties": {
@@ -1893,7 +1894,6 @@
             }
           }
         }
->>>>>>> 635da80d775c (Bug 2012458 - Add policy for configuring sidebar AI providers.)
       }
     },
 
