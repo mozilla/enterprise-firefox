@@ -178,13 +178,13 @@ async function connectToConsole(email) {
   let ssoCompleted = false;
 
   function resetToLoginPage(errorType, details = null, cause = null) {
-    if (ssoCompleted) {
-      return;
+    if (!ssoCompleted) {
+      ssoCompleted = true;
+      clearTimeout(ssoTimeout);
+      try {
+        browser.removeProgressListener(progressListener);
+      } catch (_) {}
     }
-    ssoCompleted = true;
-    try {
-      browser.removeProgressListener(progressListener);
-    } catch (_) {}
     document.querySelector(".felt-login__sso").classList.add("is-hidden");
     document
       .querySelector(".felt-login__email-pane")
