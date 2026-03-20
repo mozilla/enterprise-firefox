@@ -252,6 +252,7 @@ win64-enterprise/debug:
     use-python: "3.11"
     fetches:
         toolchain:
+            - linux64-7zz
             - linux64-clang
             - linux64-rust-cross
             - linux64-rust-size
@@ -513,6 +514,7 @@ win64-enterprise-shippable/opt:
     use-sccache: false
     fetches:
         toolchain:
+            - linux64-7zz
             - linux64-clang
             - linux64-rust-cross
             - linux64-rust-size
@@ -567,6 +569,7 @@ win64-enterprise/opt:
     use-sccache: true
     fetches:
         toolchain:
+            - linux64-7zz
             - linux64-clang
             - linux64-rust-cross
             - linux64-rust-size
