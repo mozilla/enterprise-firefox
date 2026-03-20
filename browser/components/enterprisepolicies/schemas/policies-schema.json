@@ -38,6 +38,73 @@
       "required": ["Host", "Port"]
     },
 
+      "AIChatbot": {
+      "type": "object",
+      "properties": {
+        "Providers": {
+          "type": "object",
+          "properties": {
+            "Add": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "url": {
+                    "type": "URL"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "type": "string"
+                  },
+                  "iconUrl": {
+                    "type": "string"
+                  },
+                  "queryParam": {
+                    "type": "string"
+                  }
+                },
+                "required": ["url", "name", "id"]
+              }
+            },
+            "BuiltIn": {
+              "type": "object",
+              "properties": {
+                "Anthropic Claude": { "type": "boolean" },
+                "ChatGPT":          { "type": "boolean" },
+                "Copilot":          { "type": "boolean" },
+                "Google Gemini":    { "type": "boolean" },
+                "HuggingChat":      { "type": "boolean" },
+                "Le Chat Mistral":  { "type": "boolean" },
+                "localhost":        { "type": "boolean" }
+              }
+            },
+            "Default": {
+              "type": "string"
+            }
+          }
+        },
+        "Prompts": {
+          "type": "object",
+          "properties": {
+            "Enabled": {
+              "type": "boolean"
+            },
+            "BuiltIn": {
+              "type": "object",
+              "properties": {
+                "Summarize":  { "type": "boolean" },
+                "Explain":    { "type": "boolean" },
+                "Quiz":       { "type": "boolean" },
+                "Proofread":  { "type": "boolean" }
+              }
+            }
+          }
+        }
+      }
+    },
+
     "AIControls": {
       "type": "object",
       "properties": {

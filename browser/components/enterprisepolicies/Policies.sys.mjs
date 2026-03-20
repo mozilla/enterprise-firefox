@@ -194,6 +194,16 @@ export var Policies = {
     },
   },
 
+  AIChatbot: {
+    onBeforeAddons(manager, param) {
+      lazy.SidebarChatPolicies.applySidebarChatPolicy(param);
+    },
+    onRemove(manager, oldParams) {
+      Components.utils.reportError("HERE");
+      lazy.SidebarChatPolicies.unapplySidebarChatPolicy();
+    },
+  },
+
   AIControls: {
     onBeforeAddons(manager, param) {
       const features = [
@@ -3430,17 +3440,6 @@ export var Policies = {
       }
 
       manager.updateSitePolicies(sitePolicies);
-    },
-  },
-
-  SidebarChat: {
-    onBeforeAddons(manager, param) {
-      lazy.SidebarChatPolicies.applySidebarChatPolicy(param);
-    },
-    onRemove(manager, oldParams) {
-      if (!oldParams) {
-        lazy.SidebarChatPolicies.unapplySidebarChatPolicy();
-      }
     },
   },
 

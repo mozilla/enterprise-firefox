@@ -856,6 +856,7 @@ export const GenAI = {
 
     // Add remove provider option
     const popup = source === "tool" ? menu : menu.menupopup;
+    // Hide the menu item entirely if there is no popup to attach items to.
     if (!popup) {
       showItem(menu, false);
       return;
