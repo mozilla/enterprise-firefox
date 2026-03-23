@@ -630,6 +630,14 @@ ENTERPRISE_REPACKS = {
             "locales": ["en-US", "fr"],
         },
     },
+    "hosted": {
+        "pilotStage": {
+            "locales": ["en-US", "fr"],
+        },
+        "pilotProd": {
+            "locales": ["en-US", "fr"],
+        },
+    },
 }
 
 
