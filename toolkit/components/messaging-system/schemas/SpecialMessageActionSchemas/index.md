@@ -493,3 +493,9 @@ Open a panel associated with a given widget.
 Creates a taskbar tab from the current URL and asks to pin it to the taskbar. Windows only.
 
 - args: (none)
+
+### `RESTART_APP`
+
+Restart the application.
+
+- args: (none)

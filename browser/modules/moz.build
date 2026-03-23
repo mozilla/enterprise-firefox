@@ -141,6 +141,7 @@ EXTRA_JS_MODULES += [
     "SiteDataManager.sys.mjs",
     "SitePermissions.sys.mjs",
     "TransientPrefs.sys.mjs",
+    "UpdatePolicyEnforcer.sys.mjs",
     "URILoadingHelper.sys.mjs",
     "webrtcUI.sys.mjs",
     "ZoomUI.sys.mjs",

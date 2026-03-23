@@ -2838,6 +2838,39 @@ export var Policies = {
     },
   },
 
+  RelaunchRequired: {
+    onBeforeUIStartup(_manager, param) {
+      let notificationPeriodHours = 24;
+      let restartTimeOfDay = { Hour: 12, Minute: 0 };
+      if (
+        typeof param.NotificationPeriodHours === "number" &&
+        param.NotificationPeriodHours >= 0
+      ) {
+        notificationPeriodHours = param.NotificationPeriodHours;
+      }
+      if (typeof param.RestartTimeOfDay === "object") {
+        try {
+          const timeOfDay = Temporal.PlainTime.from({
+            hour: param.RestartTimeOfDay.Hour,
+            minute: param.RestartTimeOfDay.Minute,
+          });
+          // Looks like it's a valid time.
+          restartTimeOfDay.Hour = timeOfDay.hour;
+          restartTimeOfDay.Minute = timeOfDay.minute;
+        } catch (ex) {
+          lazy.log.error("Incorrect format for RestartTimeOfDay");
+        }
+      }
+      setAndLockPref(
+        "app.update.compulsory_restart",
+        JSON.stringify({
+          NotificationPeriodHours: notificationPeriodHours,
+          RestartTimeOfDay: restartTimeOfDay,
+        })
+      );
+    },
+  },
+
   RequestedLocales: {
     onBeforeAddons(manager, param) {
       let requestedLocales;

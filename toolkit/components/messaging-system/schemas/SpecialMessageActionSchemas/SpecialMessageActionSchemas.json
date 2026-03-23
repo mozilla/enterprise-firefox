@@ -342,6 +342,18 @@
           "properties": {
             "type": {
               "type": "string",
+              "enum": ["RESTART_APP"]
+            }
+          },
+          "required": ["type"],
+          "additionalProperties": false,
+          "description": "Restart the application"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
               "enum": ["ACCEPT_DOH"]
             }
           },

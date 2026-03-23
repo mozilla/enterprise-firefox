@@ -217,6 +217,8 @@ policy-PromptForDownloadLocation = Ask where to save files when downloading.
 
 policy-Proxy = Configure proxy settings.
 
+policy-RelaunchRequired = Require { -brand-short-name } to be relaunched within a given period and notify the user of the upcoming relaunch.
+
 policy-RequestedLocales = Set the list of requested locales for the application in order of preference.
 
 policy-SanitizeOnShutdown2 = Clear navigation data on shutdown.
