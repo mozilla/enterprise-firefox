@@ -386,6 +386,28 @@ def glean_source(command_context, cargo_toml, content, patch=None):
     )
 
 
+@SubCommand(
+    "glean",
+    "semconv",
+    description="Convert parsed Glean metrics into a resolved OTel semconv registry schema.",
+)
+@CommandArgument(
+    "--output-dir",
+    type=str,
+    default=None,
+    help="Directory to write resolved.yaml and manifest.yaml into.",
+)
+def glean_semconv(command_context, output_dir=None):
+    import sys
+
+    COMPONENT_DIR = Path(__file__).parent.resolve()
+    sys.path.insert(0, str(COMPONENT_DIR))
+
+    from semconv import run
+
+    run(output_dir=Path(output_dir) if output_dir else None)
+
+
 def run_mach(command_context, cmd, **kwargs):
     return command_context._mach_context.commands.dispatch(
         cmd, command_context._mach_context, **kwargs
