@@ -5,7 +5,7 @@
 config = {
     "appName": "Firefox Enterprise",
     "log_name": "partner_repack",
-    "repack_manifests_url": "git@github.com:mozilla/enterprise-manifests.git",
+    "repack_manifests_url": "git@github.com:lissyx/enterprise-manifests.git",
     "repo_file": "https://raw.githubusercontent.com/mozilla-releng/git-repo/main/repo",
     "secret_files": [
         {
