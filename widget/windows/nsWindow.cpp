@@ -4826,6 +4826,17 @@ bool nsWindow::ProcessMessageInternal(UINT msg, WPARAM& wParam, LPARAM& lParam,
         shutdownReason = AppShutdownReason::OSForceClose;
       }
 
+      // Notify enterprise observers before the shutdown sequence begins.
+      // This is synchronous, so JS observers complete before the process exits.
+      if (lParam == 0 || (lParam & ENDSESSION_LOGOFF)) {
+        nsCOMPtr<nsIObserverService> sessionObsServ =
+            mozilla::services::GetObserverService();
+        if (sessionObsServ) {
+          sessionObsServ->NotifyObservers(
+              nullptr, NS_WIDGET_OS_SESSION_END_OBSERVER_TOPIC, nullptr);
+        }
+      }
+
       // Let's fake a shutdown sequence without actually closing windows etc.
       // to avoid Windows killing us in the middle. A proper shutdown would
       // require having a chance to pump some messages. Unfortunately

@@ -13,6 +13,7 @@ EXTRA_JS_MODULES.enterprise += [
     "EnterpriseHandler.sys.mjs",
     "modules/ConsoleClient.sys.mjs",
     "modules/EnterpriseAccountsStorage.sys.mjs",
+    "modules/EnterpriseSessionObserver.sys.mjs",
     "modules/Updates.sys.mjs",
 ]
 

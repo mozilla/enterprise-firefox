@@ -31,6 +31,7 @@ category browser-window-domcontentloaded resource:///modules/BrowserWindowTracke
 category browser-window-domcontentloaded moz-src:///browser/components/customizableui/CustomizableUI.sys.mjs CustomizableUI.handleNewBrowserWindow
 #ifdef MOZ_ENTERPRISE
 category browser-window-domcontentloaded resource:///modules/enterprise/EnterpriseHandler.sys.mjs EnterpriseHandler.init
+category browser-window-domcontentloaded resource:///modules/enterprise/EnterpriseSessionObserver.sys.mjs EnterpriseSessionObserver.init
 #endif
 
 category browser-window-delayed-startup moz-src:///browser/components/contentanalysis/content/ContentAnalysis.sys.mjs ContentAnalysis.initialize
@@ -115,6 +116,7 @@ category browser-quit-application-granted moz-src:///browser/components/aiwindow
 
 #ifdef MOZ_ENTERPRISE
 category browser-quit-application-granted resource:///modules/enterprise/EnterpriseHandler.sys.mjs EnterpriseHandler.uninit
+category browser-quit-application-granted resource:///modules/enterprise/EnterpriseSessionObserver.sys.mjs EnterpriseSessionObserver.uninit
 #endif
 
 category search-service-notification moz-src:///browser/components/search/SearchUIUtils.sys.mjs SearchUIUtils.showSearchServiceNotification
