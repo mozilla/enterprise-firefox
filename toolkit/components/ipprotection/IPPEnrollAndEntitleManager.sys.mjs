@@ -232,6 +232,9 @@ class IPPEnrollAndEntitleManagerSingleton extends EventTarget {
    * @returns {string} [status.error] - Error message if enrollment failed.
    */
   static async #enroll(abortSignal = null) {
+    if (Services.felt.isFeltBrowser()) {
+      return { enrollment: true };
+    }
     try {
       const enrollment = await lazy.IPProtectionService.guardian.enroll(
         "alpha",

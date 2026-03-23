@@ -36,3 +36,11 @@ extension-firefox-enterprise-dark-description = A deep midnight theme with dark 
 blocked-by-policy-title-enterprise = Access to this site is restricted
 neterror-blocked-by-policy-page-title-enterprise = Access to this site is restricted
 neterror-blocked-by-policy-contact-admin = If you believe this is an error or need access for work purposes, please contact your IT administrator.
+
+enterprise-access-connector-heading = Access Connector
+enterprise-access-connector-info-active = This site is being accessed through a secure company connection.
+enterprise-access-connector-button =
+  .label = ""
+  .tooltiptext = Access Connector
+enterprise-access-connector-status-label-active = active
+enterprise-access-connector-status-label-inactive = inactive

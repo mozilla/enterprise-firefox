@@ -116,6 +116,79 @@ export var Policies = {
     },
   },
 
+  AccessConnector: {
+    onBeforeAddons(manager, param) {
+      const locked = param.Locked ?? true;
+      PoliciesUtils.setDefaultPref(
+        "browser.ipProtection.enabled",
+        true,
+        locked
+      );
+      PoliciesUtils.setDefaultPref(
+        "browser.ipProtection.features.autoStart",
+        true,
+        locked
+      );
+      PoliciesUtils.setDefaultPref(
+        "browser.ipProtection.autoStartEnabled",
+        true,
+        locked
+      );
+      PoliciesUtils.setDefaultPref(
+        "browser.ipProtection.mode",
+        3 /* MODE_INCLUSION */,
+        locked
+      );
+
+      const serverList = [
+        {
+          code: "US",
+          cities: [
+            {
+              servers: [
+                {
+                  host: param.Host,
+                  port: String(param.Port),
+                  protocols: [
+                    {
+                      name: "connect",
+                      port: String(param.Port),
+                      host: param.Host,
+                      scheme: "https",
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ];
+      PoliciesUtils.setDefaultPref(
+        "browser.ipProtection.override.serverlist",
+        JSON.stringify(serverList),
+        locked
+      );
+
+      if ("MatchPatterns" in param) {
+        PoliciesUtils.setDefaultPref(
+          "browser.ipProtection.inclusion.match_patterns",
+          JSON.stringify(param.MatchPatterns),
+          locked
+        );
+      }
+    },
+    onRemove(manager, oldParams) {
+      unsetAndUnlockPref("browser.ipProtection.enabled");
+      unsetAndUnlockPref("browser.ipProtection.features.autoStart");
+      unsetAndUnlockPref("browser.ipProtection.autoStartEnabled");
+      unsetAndUnlockPref("browser.ipProtection.mode");
+      unsetAndUnlockPref("browser.ipProtection.override.serverlist");
+      if ("MatchPatterns" in oldParams) {
+        unsetAndUnlockPref("browser.ipProtection.inclusion.match_patterns");
+      }
+    },
+  },
+
   AllowedDomainsForApps: {
     onBeforeAddons(manager, param) {
       Services.obs.addObserver(function (subject) {

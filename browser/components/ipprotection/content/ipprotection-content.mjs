@@ -454,19 +454,34 @@ export default class IPProtectionContentElement extends MozLitElement {
   }
 
   render() {
-    if (
-      (this.state.onboardingMessage || this.state.bandwidthWarning) &&
-      !this._messageDismissed
-    ) {
-      this._showMessageBar = true;
-    } else if (!this.state.onboardingMessage && !this.state.bandwidthWarning) {
-      // Remove the message bar if we can no longer render messages before they were dismissed
-      this._showMessageBar = false;
+    let content;
+    if (Services.felt.isFeltBrowser()) {
+      content =
+        (this.state?.siteData?.isInclusion ?? false)
+          ? html`<div
+              data-l10n-id="enterprise-access-connector-info-active"
+            ></div>`
+          : null;
+    } else {
+      if (
+        (this.state.onboardingMessage || this.state.bandwidthWarning) &&
+        !this._messageDismissed
+      ) {
+        this._showMessageBar = true;
+      } else if (
+        !this.state.onboardingMessage &&
+        !this.state.bandwidthWarning
+      ) {
+        // Remove the message bar if we can no longer render messages before they were dismissed
+        this._showMessageBar = false;
+      }
+
+      const messageBar = this._showMessageBar
+        ? this.messageBarTemplate()
+        : null;
+
+      content = html`${messageBar}${this.mainContentTemplate()}`;
     }
-
-    const messageBar = this._showMessageBar ? this.messageBarTemplate() : null;
-
-    let content = html`${messageBar}${this.mainContentTemplate()}`;
 
     // TODO: Conditionally render post-upgrade subview within #ipprotection-content-wrapper - Bug 1973813
     return html`
@@ -474,7 +489,9 @@ export default class IPProtectionContentElement extends MozLitElement {
         rel="stylesheet"
         href="chrome://browser/content/ipprotection/ipprotection-content.css"
       />
-      <div id="ipprotection-content-wrapper">${content}</div>
+      ${content
+        ? html`<div id="ipprotection-content-wrapper">${content}</div>`
+        : null}
     `;
   }
 }

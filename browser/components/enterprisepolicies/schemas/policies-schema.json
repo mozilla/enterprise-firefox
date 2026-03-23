@@ -16,6 +16,28 @@
       }
     },
 
+    "AccessConnector": {
+      "type": "object",
+      "properties": {
+        "Host": {
+          "type": "string"
+        },
+        "Port": {
+          "type": "number"
+        },
+        "MatchPatterns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "Locked": {
+          "type": "boolean"
+        }
+      },
+      "required": ["Host", "Port"]
+    },
+
     "AllowedDomainsForApps": {
       "type": "string"
     },

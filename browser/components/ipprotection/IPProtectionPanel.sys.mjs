@@ -407,7 +407,18 @@ export class IPProtectionPanel {
     let headerButton = headerArea.querySelector(
       `#${IPProtectionPanel.HEADER_BUTTON_ID}`
     );
-    if (!headerButton) {
+
+    if (Services.felt.isFeltBrowser()) {
+      const newHeaderButton =
+        this.#createAccessConnectorStatusLabel(ownerDocument);
+      if (headerButton) {
+        headerArea.replaceChild(newHeaderButton, headerButton);
+      } else {
+        headerArea.appendChild(newHeaderButton);
+      }
+      headerButton = newHeaderButton;
+      headerButton = this.#createAccessConnectorStatusLabel(ownerDocument);
+    } else if (!headerButton) {
       headerButton = this.#createHeaderButton(ownerDocument);
       headerArea.appendChild(headerButton);
     }
@@ -427,6 +438,21 @@ export class IPProtectionPanel {
       `#${IPProtectionPanel.CONTENT_AREA_ID}`
     );
     contentArea.appendChild(contentEl);
+  }
+
+  #createAccessConnectorStatusLabel(ownerDocument) {
+    const statusLabel = ownerDocument.createXULElement("label");
+
+    statusLabel.id = IPProtectionPanel.HEADER_BUTTON_ID;
+    statusLabel.className = "panel-info-button";
+
+    ownerDocument.l10n.setAttributes(
+      statusLabel,
+      (this.state?.siteData?.isInclusion ?? false)
+        ? "enterprise-access-connector-status-label-active"
+        : "enterprise-access-connector-status-label-inactive"
+    );
+    return statusLabel;
   }
 
   #createHeaderButton(ownerDocument) {
@@ -709,9 +735,12 @@ export class IPProtectionPanel {
     }
 
     const isExclusion = lazy.IPPExceptionsManager.hasExclusion(principal);
+    const isInclusion = lazy.IPPProxyManager.channelFilter().shouldInclude({
+      URI: principal.URI,
+    });
     const isPrivileged = this._isPrivilegedPage(principal);
 
-    let siteData = !isPrivileged ? { isExclusion } : null;
+    let siteData = !isPrivileged ? { isExclusion, isInclusion } : null;
     return siteData;
   }
 

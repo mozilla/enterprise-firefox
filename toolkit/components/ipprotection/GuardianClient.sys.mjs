@@ -65,6 +65,9 @@ export class GuardianClient {
    *  - False: The user is not linked to the Guardian service, they cannot be a proxy user.
    */
   async isLinkedToGuardian(onlyCached = false) {
+    if (Services.felt.isFeltBrowser()) {
+      return true;
+    }
     const guardian_clientId = CLIENT_ID_MAP[this.#successURL.origin];
     if (!guardian_clientId) {
       // If we end up using an unknown successURL, we are definitely not linked to Guardian.
@@ -251,6 +254,14 @@ export class GuardianClient {
    * - 401: The FxA token was rejected, probably guardian and fxa mismatch. (i.e guardian-stage and fxa-prod)
    */
   async fetchUserInfo(abortSignal = null) {
+    if (Services.felt.isFeltBrowser()) {
+      const entitlement = new Entitlement({
+        subscribed: true,
+        uid: 1,
+        maxBytes: "1000000",
+      });
+      return { status: 200, entitlement };
+    }
     using tokenHandle = await this.getToken(abortSignal);
     const response = await fetch(this.#statusURL, {
       method: "GET",
@@ -286,6 +297,15 @@ export class GuardianClient {
    * @returns {ProxyUsage | null}
    */
   async fetchProxyUsage(abortSignal) {
+    if (Services.felt.isFeltBrowser()) {
+      return new ProxyUsage(
+        "1000000",
+        "1000000",
+        Temporal.Now.plainDateTimeISO()
+          .add(Temporal.Duration.from({ days: 30 }))
+          .toString()
+      );
+    }
     using tokenHandle = await this.getToken(abortSignal);
     const response = await fetch(this.#tokenURL, {
       method: "HEAD",
@@ -717,6 +737,12 @@ let gConfig = {
    * @returns {Promise<{token:string} & Disposable>} - A disposable, that will auto revoke the token after use.
    */
   getToken: async (abortSignal = null) => {
+    if (Services.felt.isFeltBrowser()) {
+      return {
+        token: Services.felt.getAccessTokenIfValid(),
+        [Symbol.dispose]: () => {},
+      };
+    }
     let tasks = [
       lazy.fxAccounts.getOAuthToken({
         scope: ["profile", "https://identity.mozilla.com/apps/vpn"],

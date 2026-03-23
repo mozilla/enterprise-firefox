@@ -97,7 +97,7 @@ class IPProtectionWidget {
     const onDestroyed = this.#onDestroyed.bind(this);
     const item = {
       id: IPProtectionWidget.WIDGET_ID,
-      l10nId: "ipprotection-button",
+      l10nId: "enterprise-access-connector-button",
       type: "view",
       viewId: IPProtectionWidget.PANEL_ID,
       onViewShowing,

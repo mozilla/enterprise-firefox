@@ -231,6 +231,7 @@ export class IPProtectionToolbarButton {
     // Check the ipp-vpn permission using IPPExceptionsManager.
     let principal = this.gBrowser?.contentPrincipal;
     let isExcluded = this.#isExcludedSite(principal);
+    let isIncluded = this.#isIncludedSite(principal);
 
     let isActive = lazy.IPPProxyManager.state === lazy.IPPProxyStates.ACTIVE;
 
@@ -260,6 +261,7 @@ export class IPProtectionToolbarButton {
       isActive,
       isError,
       isExcluded,
+      isIncluded,
     });
   }
 
@@ -317,7 +319,12 @@ export class IPProtectionToolbarButton {
    */
   updateIconStatus(
     toolbaritem,
-    status = { isActive: false, isError: false, isExcluded: false }
+    status = {
+      isActive: false,
+      isError: false,
+      isExcluded: false,
+      isIncluded: false,
+    }
   ) {
     if (!toolbaritem) {
       return;
@@ -326,7 +333,8 @@ export class IPProtectionToolbarButton {
     let isActive = status.isActive;
     let isError = status.isError;
     let isExcluded = status.isExcluded && this.isExceptionsFeatureEnabled;
-    let l10nId = isError ? "ipprotection-button-error" : "ipprotection-button";
+    let isIncluded = status.isIncluded;
+    let l10nId = "enterprise-access-connector-button";
 
     toolbaritem.classList.remove(
       "ipprotection-on",
@@ -336,9 +344,9 @@ export class IPProtectionToolbarButton {
 
     if (isError) {
       toolbaritem.classList.add("ipprotection-error");
-    } else if (isExcluded && isActive) {
+    } else if ((isExcluded || !isIncluded) && isActive) {
       toolbaritem.classList.add("ipprotection-excluded");
-    } else if (isActive) {
+    } else if (isActive && isIncluded) {
       toolbaritem.classList.add("ipprotection-on");
     }
 
@@ -359,6 +367,23 @@ export class IPProtectionToolbarButton {
     }
 
     return lazy.IPPExceptionsManager.hasExclusion(principal);
+  }
+
+  /**
+   * Checks if the given principal is included in IP Protection.
+   *
+   * @param {nsIPrincipal} principal
+   *  The principal to check.
+   * @returns {boolean}
+   *  True if the site is included, false otherwise.
+   */
+  #isIncludedSite(principal) {
+    if (!principal || principal.isNullPrincipal) {
+      return false;
+    }
+    return lazy.IPPProxyManager.channelFilter().shouldInclude({
+      URI: principal.URI,
+    });
   }
 
   /**
