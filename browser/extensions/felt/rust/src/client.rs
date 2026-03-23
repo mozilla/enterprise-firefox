@@ -101,7 +101,7 @@ impl FeltIpcClient {
                         Ok(()) => {
                             trace!("FeltIpcClient::send_back_tokens() SENT");
                             NS_OK
-                        },
+                        }
                         Err(err) => {
                             trace!("FeltIpcClient::send_back_tokens() TX ERROR: {}", err);
                             NS_ERROR_FAILURE
@@ -255,7 +255,7 @@ impl FeltClientThread {
                                     if let Err(err) = tx.send(FeltMessage::Restarting) {
                                         trace!("FeltClientThread::start_thread::observe() failed to send restart: {:?}", err);
                                     }
-                                },
+                                }
                                 "shutdown" => {
                                     trace!("FeltClientThread::start_thread::observe() quit-application: shutdown");
                                     if let Err(err) = tx.send(FeltMessage::Exiting) {

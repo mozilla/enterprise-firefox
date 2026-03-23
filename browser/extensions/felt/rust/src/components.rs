@@ -272,7 +272,12 @@ impl FeltXPCOM {
         let focus_hint = utils::get_focus_hint();
         #[cfg(not(target_os = "linux"))]
         let focus_hint = None;
-        trace!("FeltXPCOM::OpenURL: {} {} {:?}", url_s, disposition, focus_hint);
+        trace!(
+            "FeltXPCOM::OpenURL: {} {} {:?}",
+            url_s,
+            disposition,
+            focus_hint
+        );
         self.send(FeltMessage::OpenURL((url_s, disposition, focus_hint)))
     }
 
@@ -286,6 +291,41 @@ impl FeltXPCOM {
             trace!("FeltXPCOM::GetConsoleUrl called before initialized");
             NS_ERROR_FAILURE
         }
+    }
+
+    // Active the application on macOS (bring it to the foreground)
+    #[allow(unused_variables)]
+    pub fn ActivateApplication(&self) -> nserror::nsresult {
+        trace!("FeltXPCOM: ActivateApplication");
+        #[cfg(target_os = "macos")]
+        {
+            type Id = *mut std::ffi::c_void;
+            type Sel = *const std::ffi::c_void;
+
+            unsafe extern "C" {
+                fn objc_getClass(name: *const std::ffi::c_char) -> Id;
+                fn sel_registerName(name: *const std::ffi::c_char) -> Sel;
+                fn objc_msgSend();
+            }
+
+            unsafe {
+                let cls = objc_getClass(c"NSApplication".as_ptr());
+                let shared_app_sel = sel_registerName(c"sharedApplication".as_ptr());
+                let activate_sel = sel_registerName(c"activateIgnoringOtherApps:".as_ptr());
+                type MsgSendIdSel = unsafe extern "C" fn(Id, Sel) -> Id;
+                type MsgSendVoidBool = unsafe extern "C" fn(Id, Sel, bool);
+                let app = std::mem::transmute::<unsafe extern "C" fn(), MsgSendIdSel>(objc_msgSend)(
+                    cls,
+                    shared_app_sel,
+                );
+                std::mem::transmute::<unsafe extern "C" fn(), MsgSendVoidBool>(objc_msgSend)(
+                    app,
+                    activate_sel,
+                    true,
+                );
+            }
+        }
+        NS_OK
     }
 
     // Firefox to FELT to notify of logout

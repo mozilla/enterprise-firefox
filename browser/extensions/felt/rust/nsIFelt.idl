@@ -77,4 +77,7 @@ interface nsIFelt : nsISupports {
 
   [must_use]
   void performSignout();
+
+  [must_use]
+  void activateApplication();
 };
