@@ -149,6 +149,8 @@ def make_task_description(config, jobs):
 
                 repack_label = "enterprise-repack-" + repack_ids[0].replace("/", "_")
                 job["label"] = job["label"].replace("enterprise-repack", repack_label)
+
+                job.setdefault("attributes", {})["repackage_type"] = f"{repack_label}"
             else:
                 th_symbol = _generate_treeherder_symbol(
                     dep_job.task.get("extra", {}).get("treeherder", {}).get("symbol")
