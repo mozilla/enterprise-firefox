@@ -2,8 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
 import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
-
 const lazy = {};
 
 ChromeUtils.defineLazyGetter(lazy, "fxAccounts", () =>
@@ -65,7 +65,7 @@ export class GuardianClient {
    *  - False: The user is not linked to the Guardian service, they cannot be a proxy user.
    */
   async isLinkedToGuardian(onlyCached = false) {
-    if (Services.felt.isFeltBrowser()) {
+    if (AppConstants.I) {
       return true;
     }
     const guardian_clientId = CLIENT_ID_MAP[this.#successURL.origin];
@@ -254,7 +254,7 @@ export class GuardianClient {
    * - 401: The FxA token was rejected, probably guardian and fxa mismatch. (i.e guardian-stage and fxa-prod)
    */
   async fetchUserInfo(abortSignal = null) {
-    if (Services.felt.isFeltBrowser()) {
+    if (AppConstants.MOZ_ENTERPRISE) {
       const entitlement = new Entitlement({
         subscribed: true,
         uid: 1,
@@ -297,7 +297,7 @@ export class GuardianClient {
    * @returns {ProxyUsage | null}
    */
   async fetchProxyUsage(abortSignal) {
-    if (Services.felt.isFeltBrowser()) {
+    if (AppConstants.MOZ_ENTERPRISE) {
       return new ProxyUsage(
         "1000000",
         "1000000",
@@ -737,7 +737,7 @@ let gConfig = {
    * @returns {Promise<{token:string} & Disposable>} - A disposable, that will auto revoke the token after use.
    */
   getToken: async (abortSignal = null) => {
-    if (Services.felt.isFeltBrowser()) {
+    if (AppConstants.MOZ_ENTERPRISE) {
       return {
         token: Services.felt.getAccessTokenIfValid(),
         [Symbol.dispose]: () => {},

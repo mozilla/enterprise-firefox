@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
+
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -232,7 +234,7 @@ class IPPEnrollAndEntitleManagerSingleton extends EventTarget {
    * @returns {string} [status.error] - Error message if enrollment failed.
    */
   static async #enroll(abortSignal = null) {
-    if (Services.felt.isFeltBrowser()) {
+    if (AppConstants.MOZ_ENTERPRISE) {
       return { enrollment: true };
     }
     try {
