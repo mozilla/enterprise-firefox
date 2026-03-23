@@ -622,11 +622,11 @@ def _pad_macos_attribution_code(attribution_string):
 
 
 ENTERPRISE_REPACKS = {
-    "sample": {
-        "stageMozGCP": {
+    "moz": {
+        "stageGCP": {
             "locales": ["en-US", "fr"],
         },
-        "prodMozGCP": {
+        "prodGCP": {
             "locales": ["en-US", "fr"],
         },
     },
