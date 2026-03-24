@@ -66,7 +66,7 @@ export class GuardianClient {
    *  - False: The user is not linked to the Guardian service, they cannot be a proxy user.
    */
   async isLinkedToGuardian(onlyCached = false) {
-    if (AppConstants.I) {
+    if (AppConstants.MOZ_ENTERPRISE) {
       return true;
     }
     const guardian_clientId = CLIENT_ID_MAP[this.#successURL.origin];

@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
+
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -408,7 +410,7 @@ export class IPProtectionPanel {
       `#${IPProtectionPanel.HEADER_BUTTON_ID}`
     );
 
-    if (Services.felt.isFeltBrowser()) {
+    if (AppConstants.MOZ_ENTERPRISE) {
       const newHeaderButton =
         this.#createAccessConnectorStatusLabel(ownerDocument);
       if (headerButton) {
@@ -417,7 +419,6 @@ export class IPProtectionPanel {
         headerArea.appendChild(newHeaderButton);
       }
       headerButton = newHeaderButton;
-      headerButton = this.#createAccessConnectorStatusLabel(ownerDocument);
     } else if (!headerButton) {
       headerButton = this.#createHeaderButton(ownerDocument);
       headerArea.appendChild(headerButton);
@@ -735,9 +736,10 @@ export class IPProtectionPanel {
     }
 
     const isExclusion = lazy.IPPExceptionsManager.hasExclusion(principal);
-    const isInclusion = lazy.IPPProxyManager.channelFilter().shouldInclude({
-      URI: principal.URI,
-    });
+    const isInclusion =
+      lazy.IPPProxyManager.channelFilter()?.shouldInclude({
+        URI: principal.URI,
+      }) ?? false;
     const isPrivileged = this._isPrivilegedPage(principal);
 
     let siteData = !isPrivileged ? { isExclusion, isInclusion } : null;

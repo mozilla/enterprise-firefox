@@ -381,9 +381,11 @@ export class IPProtectionToolbarButton {
     if (!principal || principal.isNullPrincipal) {
       return false;
     }
-    return lazy.IPPProxyManager.channelFilter().shouldInclude({
-      URI: principal.URI,
-    });
+    return (
+      lazy.IPPProxyManager.channelFilter()?.shouldInclude({
+        URI: principal.URI,
+      }) ?? false
+    );
   }
 
   /**
