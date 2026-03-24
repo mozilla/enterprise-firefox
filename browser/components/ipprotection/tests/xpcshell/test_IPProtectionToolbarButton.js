@@ -50,6 +50,7 @@ add_task(function test_update_icon_status() {
     isActive: true,
     isError: false,
     isExcluded: false,
+    isIncluded: true,
   });
 
   Assert.ok(
