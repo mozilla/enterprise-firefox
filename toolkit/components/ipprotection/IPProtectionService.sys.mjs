@@ -238,6 +238,8 @@ Services.obs.addObserver(
     observe() {
       if (Services.prefs.getBoolPref(ENABLED_PREF, false)) {
         IPProtectionService.init();
+      } else {
+        IPProtectionService.uninit();
       }
     },
   },
