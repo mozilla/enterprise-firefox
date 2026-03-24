@@ -238,26 +238,6 @@ Services.obs.addObserver(
     observe() {
       if (Services.prefs.getBoolPref(ENABLED_PREF, false)) {
         IPProtectionService.init();
-        // The channel filter may not have been created if autoStart was
-        // evaluated before the policy prefs were set. Create it now
-        // and initialize it with the server from the override list.
-        let { IPPProxyManager } = ChromeUtils.importESModule(
-          "moz-src:///toolkit/components/ipprotection/IPPProxyManager.sys.mjs"
-        );
-        IPPProxyManager.createChannelFilter();
-        let { IPProtectionServerlist } = ChromeUtils.importESModule(
-          "moz-src:///toolkit/components/ipprotection/IPProtectionServerlist.sys.mjs"
-        );
-        let location = IPProtectionServerlist.getDefaultLocation();
-        let server = IPProtectionServerlist.selectServer(location?.city);
-        let filter = IPPProxyManager.channelFilter();
-        if (server && filter && !filter.proxyInfo) {
-          let token = "";
-          try {
-            token = Services.felt.getAccessTokenIfValid();
-          } catch (_) {}
-          filter.initialize(token, server);
-        }
       }
     },
   },

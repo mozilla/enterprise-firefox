@@ -120,11 +120,6 @@ export var Policies = {
     onBeforeAddons(manager, param) {
       const locked = param.Locked ?? true;
       PoliciesUtils.setDefaultPref(
-        "browser.ipProtection.enabled",
-        true,
-        locked
-      );
-      PoliciesUtils.setDefaultPref(
         "browser.ipProtection.features.autoStart",
         true,
         locked
@@ -176,6 +171,14 @@ export var Policies = {
           locked
         );
       }
+
+      // Set enabled last so that all other prefs are in place when
+      // the pref observer triggers IPProtectionService.init().
+      PoliciesUtils.setDefaultPref(
+        "browser.ipProtection.enabled",
+        true,
+        locked
+      );
     },
     onRemove(manager, oldParams) {
       unsetAndUnlockPref("browser.ipProtection.enabled");
