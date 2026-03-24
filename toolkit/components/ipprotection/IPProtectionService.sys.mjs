@@ -248,7 +248,8 @@ Services.obs.addObserver(
         let { IPProtectionServerlist } = ChromeUtils.importESModule(
           "moz-src:///toolkit/components/ipprotection/IPProtectionServerlist.sys.mjs"
         );
-        let server = IPProtectionServerlist.selectServer();
+        let location = IPProtectionServerlist.getDefaultLocation();
+        let server = IPProtectionServerlist.selectServer(location?.city);
         let filter = IPPProxyManager.channelFilter();
         if (server && filter && !filter.proxyInfo) {
           let token = "";
