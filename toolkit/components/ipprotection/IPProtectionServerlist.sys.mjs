@@ -412,7 +412,19 @@ export function IPProtectionServerlistFactory() {
     : new RemoteSettingsServerlist();
 }
 
-// Only check once which implementation to use.
-const IPProtectionServerlist = IPProtectionServerlistFactory();
+// Lazily choose the implementation. The override pref may be set after module
+// load by enterprise policies arriving from a remote console.
+let _serverlist = null;
+const IPProtectionServerlist = new Proxy(
+  {},
+  {
+    get(_target, prop) {
+      if (!_serverlist) {
+        _serverlist = IPProtectionServerlistFactory();
+      }
+      return _serverlist[prop];
+    },
+  }
+);
 
 export { IPProtectionServerlist };

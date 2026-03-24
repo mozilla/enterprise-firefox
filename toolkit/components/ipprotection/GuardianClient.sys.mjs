@@ -197,6 +197,16 @@ export class GuardianClient {
    * - 5xx: Internal guardian error.
    */
   async fetchProxyPass(abortSignal = null) {
+    if (AppConstants.MOZ_ENTERPRISE) {
+      const now = Math.floor(Date.now() / 1000);
+      const body = btoa(JSON.stringify({ nbf: now, exp: now + 86400 }));
+      const token = `eyJ0eXAiOiJKV1QifQ.${body}.enterprise`;
+      return {
+        pass: new ProxyPass(token),
+        status: 200,
+        usage: await this.fetchProxyUsage(abortSignal),
+      };
+    }
     using tokenHandle = await this.getToken(abortSignal);
     const response = await fetch(this.#tokenURL, {
       method: "GET",
@@ -302,7 +312,7 @@ export class GuardianClient {
       return new ProxyUsage(
         "1000000",
         "1000000",
-        Temporal.Now.plainDateTimeISO()
+        Temporal.Now.zonedDateTimeISO()
           .add(Temporal.Duration.from({ days: 30 }))
           .toString()
       );
