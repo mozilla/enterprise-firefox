@@ -38,7 +38,7 @@
       "required": ["Host", "Port"]
     },
 
-      "AIChatbot": {
+    "AIChatbot": {
       "type": "object",
       "properties": {
         "Providers": {
@@ -72,12 +72,12 @@
               "type": "object",
               "properties": {
                 "Anthropic Claude": { "type": "boolean" },
-                "ChatGPT":          { "type": "boolean" },
-                "Copilot":          { "type": "boolean" },
-                "Google Gemini":    { "type": "boolean" },
-                "HuggingChat":      { "type": "boolean" },
-                "Le Chat Mistral":  { "type": "boolean" },
-                "localhost":        { "type": "boolean" }
+                "ChatGPT": { "type": "boolean" },
+                "Copilot": { "type": "boolean" },
+                "Google Gemini": { "type": "boolean" },
+                "HuggingChat": { "type": "boolean" },
+                "Le Chat Mistral": { "type": "boolean" },
+                "localhost": { "type": "boolean" }
               }
             },
             "Default": {
@@ -94,10 +94,10 @@
             "BuiltIn": {
               "type": "object",
               "properties": {
-                "Summarize":  { "type": "boolean" },
-                "Explain":    { "type": "boolean" },
-                "Quiz":       { "type": "boolean" },
-                "Proofread":  { "type": "boolean" }
+                "Summarize": { "type": "boolean" },
+                "Explain": { "type": "boolean" },
+                "Quiz": { "type": "boolean" },
+                "Proofread": { "type": "boolean" }
               }
             }
           }

@@ -100,12 +100,15 @@ export const AIChatbotPolicies = {
       Proofread: "proofread",
     };
 
-    const disabledIds = new Set(
-      Object.entries(prompts.BuiltIn)
-        .filter(([, enabled]) => enabled === false)
-        .map(([name]) => PROMPT_NAME_TO_ID[name])
-        .filter(Boolean)
-    );
+    const disabledIds = new Set();
+    for (const [name, enabled] of Object.entries(prompts.BuiltIn)) {
+      if (enabled === false) {
+        const id = PROMPT_NAME_TO_ID[name];
+        if (id) {
+          disabledIds.add(id);
+        }
+      }
+    }
 
     if (!disabledIds.size) {
       return;
