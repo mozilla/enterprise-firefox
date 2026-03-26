@@ -5,6 +5,7 @@
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
+  AddonManager: "resource://gre/modules/AddonManager.sys.mjs",
   TelemetryEnvironment: "resource://gre/modules/TelemetryEnvironment.sys.mjs",
   EnterpriseCommon: "resource:///modules/enterprise/EnterpriseCommon.sys.mjs",
   AsyncShutdown: "resource://gre/modules/AsyncShutdown.sys.mjs",
@@ -208,13 +209,16 @@ export const ConsoleClient = {
   },
 
   /**
-   * Fetches remote enterprise policies.
+   * Fetches remote enterprise policies, optionally including device posture.
    *
+   * @param {object} [devicePosture] - Device posture to include in request.
    * @returns {Promise<{policies: Record<string, any>}>}
    */
-  async getRemotePolicies() {
-    const payload = await this._get(this._paths.REMOTE_POLICIES);
-    return payload;
+  async getRemotePolicies(devicePosture = null) {
+    if (devicePosture) {
+      return this._post(this._paths.REMOTE_POLICIES, devicePosture);
+    }
+    return this._get(this._paths.REMOTE_POLICIES);
   },
 
   /**
@@ -334,10 +338,12 @@ export const ConsoleClient = {
   /**
    * Collect the device posture data and send them to the console.
    *
+   * @param {object} root0
+   * @param {boolean} root0.waitForAddons
    * @returns {Promise<{posture: string}>} Token reported by console.
    */
-  async sendDevicePosture() {
-    const devicePosture = await this._collectDevicePosture();
+  async sendDevicePosture({ waitForAddons = false } = {}) {
+    const devicePosture = await this.collectDevicePosture({ waitForAddons });
     const url = this.constructURI(this._paths.DEVICE_POSTURE);
 
     const res = await this._xhrFetch(url, {
@@ -587,20 +593,32 @@ export const ConsoleClient = {
    */
 
   /**
+   * @typedef {object} DeviceAddon
+   * @property {string} id Addon identifier.
+   * @property {string} name Human-readable display name.
+   * @property {string} type Addon type (extension, plugin, sitepermission, etc).
+   * @property {string} version Addon version string.
+   * @property {boolean} enabled Whether the addon is currently active.
+   */
+
+  /**
    * @typedef {object} DevicePosture
    * @property {object} os Telemetry-reported os information.
    * @property {object|undefined} security Telemetry-reported security software info (windows only)
    * @property {object} build Telemetry-reported build info info
    * @property {DeviceNetwork} network Network posture (placeholders for now).
+   * @property {DeviceAddon[]|null} extensions Installed browser addons, or null if not yet available.
    */
 
   /**
    * Collects the device posture from TelemetryEnvironment.currentEnvironment
    * and others data sources.
    *
+   * @param {object} root0
+   * @param {boolean} root0.waitForAddons
    * @returns {Promise<DevicePosture>} devicePosture
    */
-  async _collectDevicePosture() {
+  async collectDevicePosture({ waitForAddons = false } = {}) {
     const getImeiValue = async () => {
       try {
         return await Cc["@mozilla.org/imei/provider;1"]
@@ -608,6 +626,42 @@ export const ConsoleClient = {
           .QueryInterface(Ci.nsIImeiProvider).imei;
       } catch {
         return "";
+      }
+    };
+
+    // AddonManager is only available in the full browser process, not in
+    // the FELT login window. Returns null in the FELT UI. When
+    // waitForAddons is true (periodic poll), blocks until AddonManager is
+    // ready so extensions are always reported. When false (startup),
+    // returns null if AddonManager isn't ready yet to avoid blocking.
+    const getExtensions = async () => {
+      try {
+        if (Services.felt.isFeltUI()) {
+          return null;
+        }
+        if (!lazy.AddonManager.isReady) {
+          if (waitForAddons) {
+            await lazy.AddonManager.readyPromise;
+          } else {
+            return null;
+          }
+        }
+        const addons = await lazy.AddonManager.getAddonsByTypes([
+          "extension",
+          "sitepermission",
+          "siteperm_deprecated",
+          "plugin",
+          "mlmodel",
+        ]);
+        return addons.map(addon => ({
+          id: addon.id,
+          name: addon.name,
+          type: addon.type,
+          version: addon.version,
+          enabled: addon.isActive,
+        }));
+      } catch {
+        return null;
       }
     };
 
@@ -632,6 +686,7 @@ export const ConsoleClient = {
         mobileEquipmentId: await getImeiValue(),
         interfaces: networkInterfaces,
       },
+      extensions: await getExtensions(),
       secureBootEnabled:
         Services.sysinfo.getPropertyAsBool("secureBootEnabled"),
     };

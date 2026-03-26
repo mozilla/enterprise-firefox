@@ -105,6 +105,32 @@ class SsoHttpHandler(LocalHttpRequestHandler):
 
 
 class ConsoleHttpHandler(LocalHttpRequestHandler):
+    def build_policies_response(self):
+        policy_content = {}
+        policy_value = (
+            False if self.server.policy_block_about_config.value == 0 else True
+        )
+        policy_content.update(
+            {"BlockAboutConfig": policy_value} if policy_value else {}
+        )
+
+        policy_value = self.server.policy_extensions.value == 1
+        policy_content.update(
+            {
+                "ExtensionSettings": {
+                    "treestyletab@piro.sakura.ne.jp": {
+                        "installation_mode": "force_installed",
+                        "install_url": f"http://localhost:{self.server.console_port}/downloads/tree_style_tab-4.2.7.xpi",
+                        "updates_disabled": True,
+                    }
+                }
+            }
+            if policy_value
+            else {}
+        )
+
+        return json.dumps({"policies": policy_content})
+
     def check_auth(self):
         auth = self.headers.get("Authorization")
         if not auth:
@@ -173,30 +199,7 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
 
         elif path == "/api/browser/policies":
             self.check_auth()
-            policy_content = {}
-            policy_value = (
-                False if self.server.policy_block_about_config.value == 0 else True
-            )
-            policy_content.update(
-                {"BlockAboutConfig": policy_value} if policy_value else {}
-            )
-
-            policy_value = self.server.policy_extensions.value == 1
-            policy_content.update(
-                {
-                    "ExtensionSettings": {
-                        "treestyletab@piro.sakura.ne.jp": {
-                            "installation_mode": "force_installed",
-                            "install_url": f"http://localhost:{self.server.console_port}/downloads/tree_style_tab-4.2.7.xpi",
-                            "updates_disabled": True,
-                        }
-                    }
-                }
-                if policy_value
-                else {}
-            )
-
-            m = json.dumps({"policies": policy_content})
+            m = self.build_policies_response()
             contentType = "application/json"
 
         elif path == "/api/browser/whoami":
@@ -300,6 +303,11 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
             m = json.dumps(self.server.device_posture_payload)
             contentType = "application/json"
 
+        elif path == "/sso/get_device_posture_history":
+            history = getattr(self.server, "device_posture_history", [])
+            m = json.dumps(history)
+            contentType = "application/json"
+
         elif path.startswith("/downloads/"):
             filename = os.path.join(os.path.dirname(__file__), os.path.basename(path))
             if os.path.isfile(filename):
@@ -372,11 +380,26 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
             })
 
         elif path == "/sso/device_posture":
-            self.server.device_posture_payload = json.loads(
+            payload = json.loads(
                 self.rfile.read(int(self.headers.get("Content-Length")))
             )
+            self.server.device_posture_payload = payload
+            if not hasattr(self.server, "device_posture_history"):
+                self.server.device_posture_history = []
+            self.server.device_posture_history.append(payload)
             self.server.device_posture_token = str(uuid.uuid4())
             m = json.dumps({"posture": self.server.device_posture_token})
+
+        elif path == "/api/browser/policies":
+            self.check_auth()
+            payload = json.loads(
+                self.rfile.read(int(self.headers.get("Content-Length")))
+            )
+            self.server.device_posture_payload = payload
+            if not hasattr(self.server, "device_posture_history"):
+                self.server.device_posture_history = []
+            self.server.device_posture_history.append(payload)
+            m = self.build_policies_response()
 
         elif path == "/sso/logout":
             self.check_auth()

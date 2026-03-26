@@ -992,7 +992,8 @@ class RemotePoliciesProvider {
   }
 
   _performPolling() {
-    lazy.ConsoleClient.getRemotePolicies()
+    lazy.ConsoleClient.collectDevicePosture({ waitForAddons: true })
+      .then(posture => lazy.ConsoleClient.getRemotePolicies(posture))
       .then(jsonResponse => {
         this._hasRemoteConnection = true;
         this._ingestPolicies(jsonResponse);
@@ -1040,9 +1041,11 @@ class RemotePoliciesProvider {
       return;
     }
 
+    const posture = await lazy.ConsoleClient.collectDevicePosture();
+
     let res;
     try {
-      res = await lazy.ConsoleClient.getRemotePolicies();
+      res = await lazy.ConsoleClient.getRemotePolicies(posture);
     } catch (e) {
       console.error(`Failed to fetch remote policies on startup: ${e}`);
       this._failed = true;
