@@ -198,9 +198,7 @@ export var Policies = {
       lazy.AIChatbotPolicies.applyAIChatbotPolicy(param);
     },
     onRemove(_manager, oldParams) {
-      if (oldParams) {
-        lazy.AIChatbotPolicies.unapplyAIChatbotPolicy();
-      }
+      lazy.AIChatbotPolicies.unapplyAIChatbotPolicy();
     },
   },
 

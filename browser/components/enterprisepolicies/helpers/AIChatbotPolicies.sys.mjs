@@ -11,6 +11,7 @@ import {
   CHAT_PROVIDERS_DEFAULT,
   GenAI,
 } from "resource:///modules/GenAI.sys.mjs";
+import { getMozRemoteImageURL } from "moz-src:///toolkit/modules/FaviconUtils.sys.mjs";
 
 export const AIChatbotPolicies = {
   /**
@@ -37,16 +38,31 @@ export const AIChatbotPolicies = {
       providerIds = providerIds.filter(
         id => providers.BuiltIn[idToName.get(id)] !== false
       );
+      // Unset current chat provider if it was removed.
+      const currentProviderURL = Services.prefs.getStringPref(
+        "browser.ml.chat.provider"
+      );
+      const currentConfig = GenAI.chatProviders.get(currentProviderURL);
+      if (currentConfig && providers.BuiltIn[currentConfig.name] === false) {
+        Services.prefs.clearUserPref("browser.ml.chat.provider");
+      }
     }
 
     providers.Add?.forEach(engine => {
       const url = engine.url.href || engine.url;
       const engineConfig = { id: engine.id, name: engine.name };
-      ["iconUrl", "queryParam"].forEach(prop => {
-        if (engine[prop] !== undefined) {
-          engineConfig[prop] = engine[prop];
-        }
-      });
+      if (engine.iconUrl !== undefined) {
+        const iconURL = URL.parse(engine.iconUrl);
+        engineConfig.iconUrl =
+          iconURL &&
+          iconURL.protocol !== "chrome:" &&
+          iconURL.protocol !== "data:"
+            ? getMozRemoteImageURL(engine.iconUrl)
+            : engine.iconUrl;
+      }
+      if (engine.queryParam !== undefined) {
+        engineConfig.queryParam = engine.queryParam;
+      }
       GenAI.chatProviders.set(url, engineConfig);
       providerIds.push(engine.id);
     });
