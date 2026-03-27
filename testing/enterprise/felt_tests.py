@@ -173,6 +173,9 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
 
         elif path == "/api/browser/policies":
             self.check_auth()
+            if self.server.policies_fail_request.value:
+                self.reply("", 500, "Internal Server Error", "application/json")
+                return
             policy_content = {}
             policy_value = (
                 False if self.server.policy_block_about_config.value == 0 else True
@@ -430,6 +433,7 @@ def serve(
     policy_extensions=None,
     policy_access_token=None,
     policy_refresh_token=None,
+    policies_fail_request=None,
     # TODO: Behavior is not yet clearly defined
     # device_posture_reply_forbidden=None,
 ):
@@ -448,6 +452,9 @@ def serve(
         httpd.policy_access_token = policy_access_token
     if policy_refresh_token:
         httpd.policy_refresh_token = policy_refresh_token
+    httpd.policies_fail_request = (
+        policies_fail_request if policies_fail_request is not None else Value("B", 0)
+    )
     httpd.serve_updates = False
     httpd.serve_updates_version = ""
     """
@@ -475,6 +482,7 @@ class FeltTestsBase(EnterpriseTestsBase):
         self.sso_port = random.randrange(15000, 20000)
         self.policy_block_about_config = Value("B", 1)
         self.policy_extensions = Value("B", 0)
+        self.policies_fail_request = Value("B", 0)
         """
         TODO: Behavior is not yet clearly defined
         self.device_posture_reply_forbidden = Value("B", 0)
@@ -502,6 +510,7 @@ class FeltTestsBase(EnterpriseTestsBase):
                 policy_extensions=self.policy_extensions,
                 policy_access_token=self.policy_access_token,
                 policy_refresh_token=self.policy_refresh_token,
+                policies_fail_request=self.policies_fail_request,
                 # TODO: Behavior is not yet clearly defined
                 # device_posture_reply_forbidden=self.device_posture_reply_forbidden,
             ),
