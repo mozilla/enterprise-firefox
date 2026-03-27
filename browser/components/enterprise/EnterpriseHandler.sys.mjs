@@ -48,6 +48,10 @@ export const EnterpriseHandler = {
    * @param {Window} window chrome window
    */
   async init(window) {
+    if (Services.felt.isFeltUI) {
+      // Nothing to setup for the felt window
+      return;
+    }
     if (!this._isInitialized) {
       lazy.log.debug("Initializing...");
       await this.initUser();
