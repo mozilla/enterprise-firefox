@@ -43,7 +43,9 @@ export class EnterpriseStorageManager {
     // unhandled exception when it is GCd - so add an empty .catch handler here
     // to prevent this.
     this.#getAccountDataPromise.catch(() => {});
-    this.#getAccountDataPromise = lazy.ConsoleClient.getFxAccountData();
+    this.#getAccountDataPromise = Services.felt.isFeltUI()
+      ? Promise.resolve(null) // Felt has no signed-in user on startup; avoid guaranteed 401 from FxA
+      : lazy.ConsoleClient.getFxAccountData();
   }
 
   /**
@@ -56,7 +58,7 @@ export class EnterpriseStorageManager {
    *
    * @param {Array<string>|string} [fieldNames=null]
    *
-   * @returns {Promise<object>} Promise which resolves to the cached account data.
+   * @returns {Promise<object|null>} Promise which resolves to the cached account data.
    */
   async getAccountData(fieldNames = null) {
     const data = await this.#getAccountDataPromise;
