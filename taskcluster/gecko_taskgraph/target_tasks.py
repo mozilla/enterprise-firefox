@@ -1830,6 +1830,9 @@ def target_firefox_pull_requests(full_task_graph, parameters, graph_config):
 
     labels = []
     for label, task in full_task_graph.tasks.items():
+        if not standard_filter(task, parameters):
+            continue
+
         if task.attributes.get("code-review") or task.kind == "code-review":
             labels.append(label)
 

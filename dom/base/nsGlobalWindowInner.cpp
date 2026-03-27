@@ -1224,6 +1224,14 @@ void nsGlobalWindowInner::FreeInnerObjects() {
   // Remove our reference to the document and the document principal.
   mFocusedElement = nullptr;
 
+  // Unregister any remaining media source blob: URLs created by this window.
+  if (RefPtr<DocGroup> docGroup = GetDocGroup()) {
+    nsTArray<nsCString> mediaSourceURLs = std::move(mMediaSourceURLs);
+    for (auto& url : mediaSourceURLs) {
+      docGroup->UnregisterMediaSourceURL(url, /* aNotifyWindow */ false);
+    }
+  }
+
   nsIGlobalObject::UnlinkObjectsInGlobal();
 
   NotifyWindowIDDestroyed("inner-window-destroyed");
@@ -6940,6 +6948,8 @@ void nsGlobalWindowInner::AddSizeOfIncludingThis(
     aWindowSizes.mDOMSizes.mDOMPerformanceEventEntries =
         mPerformance->SizeOfEventEntries(aWindowSizes.mState.mMallocSizeOf);
   }
+
+  aWindowSizes.mMediaSourceURLsCount = mMediaSourceURLs.Length();
 }
 
 void nsGlobalWindowInner::RegisterDataDocumentForMemoryReporting(
@@ -7886,6 +7896,16 @@ TrustedTypePolicyFactory* nsGlobalWindowInner::TrustedTypes() {
   }
 
   return mTrustedTypePolicyFactory;
+}
+
+void nsGlobalWindowInner::NoteMediaSourceURL(const nsACString& aURL) {
+  MOZ_ASSERT(!IsDying(), "MediaSourceURL will never be cleaned up");
+  mMediaSourceURLs.InsertElementSorted(aURL);
+}
+
+void nsGlobalWindowInner::UnnoteMediaSourceURL(const nsACString& aURL) {
+  DebugOnly<bool> found = mMediaSourceURLs.RemoveElementSorted(aURL);
+  MOZ_ASSERT(found, "MediaSourceURL should have been noted");
 }
 
 void nsPIDOMWindowInner::MaybeSetHasPointerRawUpdateEventListeners() {

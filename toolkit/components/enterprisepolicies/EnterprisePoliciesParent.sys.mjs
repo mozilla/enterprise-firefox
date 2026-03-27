@@ -10,6 +10,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   JsonSchemaValidator:
     "resource://gre/modules/components-utils/JsonSchemaValidator.sys.mjs",
   // eslint-disable-next-line mozilla/no-browser-refs-in-toolkit
+  EnterpriseHandler: "resource:///modules/enterprise/EnterpriseHandler.sys.mjs",
+  // eslint-disable-next-line mozilla/no-browser-refs-in-toolkit
   Policies: "resource:///modules/policies/Policies.sys.mjs",
   WindowsGPOParser: "resource://gre/modules/policies/WindowsGPOParser.sys.mjs",
   macOSPoliciesParser:
@@ -169,6 +171,11 @@ EnterprisePoliciesManager.prototype = {
     // Fetch first set of remote policies during the
     // initialization of the policy engine
     await remoteProvider.fetchPoliciesOnStartup();
+    if (Services.felt?.isFeltBrowser() && remoteProvider.failed) {
+      // bug 2027006 will move the fetching of policies to felt
+      // and not shutdown will be needed then
+      await lazy.EnterpriseHandler.initiateShutdown();
+    }
     remoteProvider.onPoliciesChanges(handler);
 
     if (platformProvider && platformProvider.hasPolicies) {

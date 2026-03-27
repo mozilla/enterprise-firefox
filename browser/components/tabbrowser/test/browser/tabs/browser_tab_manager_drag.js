@@ -683,7 +683,7 @@ add_task(async function test_drag_and_drop_split_view() {
       ["unknown", 1, 3, 4, 2, 5],
       "after dragging split view, both tabs should appear together in the new position"
     );
-    newWindow.gBrowser.unsplitTabs(splitview);
+    splitview.unsplitTabs();
   });
 });
 
@@ -759,6 +759,6 @@ add_task(async function test_drag_cannot_drop_between_splitview_tabs() {
       ["unknown", 1, 5, 3, 4, 2],
       "dragging onto the top half of the second splitview tab should place the drop after both splitview tabs"
     );
-    newWindow.gBrowser.unsplitTabs(splitview);
+    splitview.unsplitTabs();
   });
 });

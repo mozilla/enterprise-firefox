@@ -201,6 +201,10 @@ this.felt = class extends ExtensionAPI {
       await lazy.FeltStorage.init();
       this.showWindow();
       Services.ppmm.addMessageListener("FeltParent:FirefoxNormalExit", this);
+      Services.ppmm.addMessageListener(
+        "FeltParent:FirefoxRestartUpdateExit",
+        this
+      );
       Services.ppmm.addMessageListener("FeltParent:FirefoxLogoutExit", this);
       Services.ppmm.addMessageListener("FeltParent:FirefoxAbnormalExit", this);
       Services.ppmm.addMessageListener(
@@ -239,6 +243,17 @@ this.felt = class extends ExtensionAPI {
           Services.felt.makeBackgroundProcess(false);
           this.showWindow();
         }
+        break;
+      }
+
+      case "FeltParent:FirefoxRestartUpdateExit": {
+        Services.ppmm.removeMessageListener(
+          "FeltParent:FirefoxRestartUpdateExit",
+          this
+        );
+        Services.startup.quit(
+          Ci.nsIAppStartup.eAttemptQuit | Ci.nsIAppStartup.eRestart
+        );
         break;
       }
 

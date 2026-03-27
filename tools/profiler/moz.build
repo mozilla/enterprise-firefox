@@ -165,13 +165,10 @@ elif CONFIG["OS_TARGET"] == "WINNT" and CONFIG["TARGET_CPU"] in (
     "x86_64",
 ):
     UNIFIED_SOURCES += [
+        "core/PowerCounters-win.cpp",
         "gecko/nsProfiler.cpp",
     ]
-    # Keep in sync with PowerCounters.h, BaseProfilerState.h and ProfilerState.h (see __MINGW32__)
     if CONFIG["CC_TYPE"] == "clang-cl":
-        UNIFIED_SOURCES += [
-            "core/PowerCounters-win.cpp",
-        ]
         SOURCES += {
             "core/ETWTools.cpp",
         }

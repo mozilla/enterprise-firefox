@@ -1893,6 +1893,11 @@ bool BaselineInterpreterCodeGen::emitWarmUpCounterIncrement() {
     // a prebarrier here because we will always be overwriting a nullptr,
     // and we don't need a postbarrier because the script is always tenured.
 #ifdef DEBUG
+    Label queueIsNotFull;
+    masm.branch32(Assembler::Below, countReg,
+                  Imm32(JitOptions.baselineQueueCapacity), &queueIsNotFull);
+    masm.assumeUnreachable("Compile queue should be drained when full");
+    masm.bind(&queueIsNotFull);
     Label queueSlotIsEmpty;
     masm.branchPtr(Assembler::Equal, queueSlot, ImmWord(0), &queueSlotIsEmpty);
     masm.assumeUnreachable(

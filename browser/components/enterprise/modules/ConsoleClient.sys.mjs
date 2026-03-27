@@ -118,7 +118,6 @@ export const ConsoleClient = {
       SSO: "/sso/login",
       SIGNOUT: "/sso/logout",
       SSO_CALLBACK: "/sso/callback",
-      STARTUP_PREFS: "/api/browser/hacks/startup",
       DEFAULT_PREFS: "/api/browser/hacks/default",
       REMOTE_POLICIES: "/api/browser/policies",
       KEY: "/api/browser/key",
@@ -191,13 +190,6 @@ export const ConsoleClient = {
     url.pathname = this._paths.SSO_CALLBACK;
     url.port = "";
     return url.href + "?*";
-  },
-
-  // prefs that needs to be read at startup, i.e., written to profile's prefs.js
-  // tbd: remove
-  async getStartupPrefs() {
-    const payload = await this._get(this._paths.STARTUP_PREFS);
-    return payload;
   },
 
   // prefs that do not need to be written and can be sent during runtime

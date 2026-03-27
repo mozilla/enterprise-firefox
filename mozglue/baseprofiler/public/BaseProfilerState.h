@@ -136,7 +136,7 @@ class MOZ_RAII AutoProfilerStats {
     "Record the power used by the entire system with each sample. " \
     "Only available with Intel CPUs and requires setting "          \
     "the sysctl kernel.perf_event_paranoid to 0."
-#elif defined(GP_OS_windows) && defined(_MSC_VER)
+#elif defined(GP_OS_windows)
 #  define POWER_HELP                                                       \
     "Record the value of every energy meter available on the system with " \
     "each sample. Only available on Windows 11 with Intel CPUs."

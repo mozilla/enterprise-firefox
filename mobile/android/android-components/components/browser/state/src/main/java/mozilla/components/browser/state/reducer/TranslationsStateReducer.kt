@@ -467,6 +467,14 @@ internal object TranslationsStateReducer {
             )
         }
 
+        is TranslationsAction.SetTranslationsEnabledAction -> {
+            state.copy(
+                translationEngine = state.translationEngine.copy(
+                    isTranslationsEnabled = action.isTranslationsEnabled,
+                ),
+            )
+        }
+
         is TranslationsAction.SetEngineSupportedAction -> {
             state.copy(
                 translationEngine = state.translationEngine.copy(

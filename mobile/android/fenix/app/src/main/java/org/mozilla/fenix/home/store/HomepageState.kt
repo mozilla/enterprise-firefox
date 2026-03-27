@@ -78,6 +78,7 @@ internal sealed class HomepageState {
      * @property collectionsState State of the collections section to display.
      * @property pocketState State of the pocket section to display.
      * @property showTopSites Whether to show top sites or not.
+     * @property showTopSitesHeader Whether to show the shortcuts section header and "show all" button.
      * @property showRecentTabs Whether to show recent tabs or not.
      * @property showRecentSyncedTab Whether to show recent synced tab or not.
      * @property showBookmarks Whether to show bookmarks.
@@ -109,6 +110,7 @@ internal sealed class HomepageState {
         val collectionsState: CollectionsState,
         val pocketState: PocketState,
         val showTopSites: Boolean,
+        val showTopSitesHeader: Boolean,
         val showRecentTabs: Boolean,
         val showRecentSyncedTab: Boolean,
         val showBookmarks: Boolean,
@@ -234,6 +236,7 @@ internal sealed class HomepageState {
                 ),
                 pocketState = PocketState.build(appState = appState, settings = settings),
                 showTopSites = settings.showTopSitesFeature && topSites.isNotEmpty(),
+                showTopSitesHeader = !(settings.privateModeAndStoriesEntryPointEnabled && topSites.size <= 8),
                 showRecentTabs = shouldShowRecentTabs(settings),
                 showBookmarks = settings.showBookmarksHomeFeature && bookmarks.isNotEmpty(),
                 showRecentSyncedTab = shouldShowRecentSyncedTabs() && settings.showSyncedTabs,

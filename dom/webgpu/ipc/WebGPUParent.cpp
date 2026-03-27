@@ -1423,6 +1423,11 @@ void WebGPUParent::SwapChainPresent(
     std::shared_ptr<SharedTexture> sharedTexture = it->second;
     mSharedTextures.erase(it);
 
+    if (!sharedTexture->IsSubmitted()) {
+      gfxCriticalNoteOnce << "Texture is not submitted";
+      return;
+    }
+
     MOZ_ASSERT(sharedTexture->GetOwnerId() == aOwnerId);
 
     PostSharedTexture(std::move(sharedTexture), aRemoteTextureId, aOwnerId);

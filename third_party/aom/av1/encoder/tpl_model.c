@@ -1411,18 +1411,13 @@ static inline void init_mc_flow_dispenser(AV1_COMP *cpi, int frame_idx,
 
   const int base_qindex =
       cpi->use_ducky_encode ? gf_group->q_val[frame_idx] : pframe_qindex;
-  // The TPL model is only meant to be run in inter mode, so ensure that we are
-  // not running in all intra mode, which implies we are not tuning for image
-  // quality (IQ) or SSIMULACRA2.
-  assert(cpi->oxcf.tune_cfg.tuning != AOM_TUNE_IQ &&
-         cpi->oxcf.tune_cfg.tuning != AOM_TUNE_SSIMULACRA2 &&
-         cpi->oxcf.mode != ALLINTRA);
   // Get rd multiplier set up.
   rdmult = av1_compute_rd_mult(
       base_qindex, cm->seq_params->bit_depth,
       cpi->ppi->gf_group.update_type[cpi->gf_frame_index], layer_depth,
       boost_index, frame_type, cpi->oxcf.q_cfg.use_fixed_qp_offsets,
-      is_stat_consumption_stage(cpi), cpi->oxcf.tune_cfg.tuning);
+      is_stat_consumption_stage(cpi), cpi->oxcf.tune_cfg.tuning,
+      cpi->oxcf.mode);
 
   if (rdmult < 1) rdmult = 1;
   av1_set_error_per_bit(&x->errorperbit, rdmult);
@@ -1438,7 +1433,7 @@ static inline void init_mc_flow_dispenser(AV1_COMP *cpi, int frame_idx,
       gf_group->update_type[cpi->gf_frame_index];
   tpl_frame->base_rdmult = av1_compute_rd_mult_based_on_qindex(
                                bd_info.bit_depth, update_type, base_qindex,
-                               cpi->oxcf.tune_cfg.tuning) /
+                               cpi->oxcf.tune_cfg.tuning, cpi->oxcf.mode) /
                            6;
 
   if (cpi->use_ducky_encode)
@@ -1463,9 +1458,13 @@ static inline void init_mc_flow_dispenser(AV1_COMP *cpi, int frame_idx,
       gf_group->layer_depth[frame_idx] >= layer_depth_th;
 }
 
-static void tpl_store_before_propagation(AomTplBlockStats *tpl_block_stats,
+static void tpl_store_before_propagation(AV1_COMP *cpi,
+                                         AomTplBlockStats *tpl_block_stats,
                                          TplDepStats *src_stats, int mi_row,
                                          int mi_col) {
+  TplParams *const tpl_data = &cpi->ppi->tpl_data;
+  GF_GROUP *gf_group = &cpi->ppi->gf_group;
+
   tpl_block_stats->row = mi_row * MI_SIZE;
   tpl_block_stats->col = mi_col * MI_SIZE;
   tpl_block_stats->srcrf_sse = src_stats->srcrf_sse;
@@ -1490,8 +1489,12 @@ static void tpl_store_before_propagation(AomTplBlockStats *tpl_block_stats,
   tpl_block_stats->intra_rate = src_stats->intra_rate;
   tpl_block_stats->cmp_recrf_rate[0] = src_stats->cmp_recrf_rate[0];
   tpl_block_stats->cmp_recrf_rate[1] = src_stats->cmp_recrf_rate[1];
-  tpl_block_stats->ref_frame_index[0] = src_stats->ref_frame_index[0];
-  tpl_block_stats->ref_frame_index[1] = src_stats->ref_frame_index[1];
+  tpl_block_stats->ref_frame_index[0] =
+      gf_group->ref_frame_list[tpl_data->frame_idx]
+                              [LAST_FRAME + src_stats->ref_frame_index[0]];
+  tpl_block_stats->ref_frame_index[1] =
+      gf_group->ref_frame_list[tpl_data->frame_idx]
+                              [LAST_FRAME + src_stats->ref_frame_index[1]];
   for (int ref = 0; ref < AOM_RC_INTER_REFS_PER_FRAME; ++ref) {
     tpl_block_stats->mv[ref].as_mv.col = src_stats->mv[ref].as_mv.col;
     tpl_block_stats->mv[ref].as_mv.row = src_stats->mv[ref].as_mv.row;
@@ -1557,7 +1560,8 @@ void av1_mc_flow_dispenser_row(AV1_COMP *cpi, TplTxfmStats *tpl_txfm_stats,
       AomTplBlockStats *block_stats =
           &tpl_frame_stats_before_propagation
                ->block_stats_list[mi_row * tpl_frame->mi_cols + mi_col];
-      tpl_store_before_propagation(block_stats, &tpl_stats, mi_row, mi_col);
+      tpl_store_before_propagation(cpi, block_stats, &tpl_stats, mi_row,
+                                   mi_col);
     }
 
     (*tpl_row_mt->sync_write_ptr)(&tpl_data->tpl_mt_sync, tplb_row,
@@ -2294,7 +2298,8 @@ void av1_tpl_rdmult_setup_sb(AV1_COMP *cpi, MACROBLOCK *const x,
       orig_qindex_rdmult, cm->seq_params->bit_depth,
       cpi->ppi->gf_group.update_type[cpi->gf_frame_index], layer_depth,
       boost_index, frame_type, cpi->oxcf.q_cfg.use_fixed_qp_offsets,
-      is_stat_consumption_stage(cpi), cpi->oxcf.tune_cfg.tuning);
+      is_stat_consumption_stage(cpi), cpi->oxcf.tune_cfg.tuning,
+      cpi->oxcf.mode);
 
   const int new_qindex_rdmult = quant_params->base_qindex +
                                 x->rdmult_delta_qindex +
@@ -2303,7 +2308,8 @@ void av1_tpl_rdmult_setup_sb(AV1_COMP *cpi, MACROBLOCK *const x,
       new_qindex_rdmult, cm->seq_params->bit_depth,
       cpi->ppi->gf_group.update_type[cpi->gf_frame_index], layer_depth,
       boost_index, frame_type, cpi->oxcf.q_cfg.use_fixed_qp_offsets,
-      is_stat_consumption_stage(cpi), cpi->oxcf.tune_cfg.tuning);
+      is_stat_consumption_stage(cpi), cpi->oxcf.tune_cfg.tuning,
+      cpi->oxcf.mode);
 
   const double scaling_factor = (double)new_rdmult / (double)orig_rdmult;
 

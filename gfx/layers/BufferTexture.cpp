@@ -177,8 +177,8 @@ BufferTextureData* BufferTextureData::CreateForYCbCr(
                       aYUVColorSpace, aColorRange, aSubsampling);
 
   return CreateInternal(
-      aAllocator ? aAllocator->GetTextureForwarder() : nullptr, descriptor,
-      gfx::BackendType::NONE, bufSize.value(), aTextureFlags);
+      aAllocator ? aAllocator->GetTextureForwarder().get() : nullptr,
+      descriptor, gfx::BackendType::NONE, bufSize.value(), aTextureFlags);
 }
 
 void BufferTextureData::FillInfo(TextureData::Info& aInfo) const {

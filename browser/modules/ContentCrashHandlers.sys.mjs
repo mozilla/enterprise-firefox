@@ -531,6 +531,18 @@ export var TabCrashHandler = {
    *        The browser that has recently crashed.
    */
   sendToTabCrashedPage(browser) {
+    if (
+      AppConstants.MOZ_CRASHREPORTER &&
+      Services.policies.getActivePolicies()?.CrashReportsSubmit?.ForceAutoSubmit
+    ) {
+      let dumpID = this.getDumpID(browser);
+      if (dumpID) {
+        lazy.CrashSubmit.submit(dumpID, lazy.CrashSubmit.SUBMITTED_FROM_AUTO);
+        let childID = this.browserMap.get(browser);
+        this.childMap.set(childID, null); // Avoid resubmission from about:tabcrashed.
+      }
+    }
+
     let title = browser.contentTitle;
     let uri = browser.currentURI;
     let gBrowser = browser.getTabBrowser();
@@ -678,7 +690,12 @@ export var TabCrashHandler = {
     }
 
     let dumpID = this.getDumpID(browser);
-    if (!dumpID) {
+    let policyAutoSubmit =
+      !!Services.policies.getActivePolicies()?.CrashReportsSubmit
+        ?.ForceAutoSubmit;
+    // When ForceAutoSubmit is active, the crash report is submitted automatically
+    // at crash time, so no dumpID is available. Allow the flow to continue.
+    if (!dumpID && !policyAutoSubmit) {
       return {
         hasReport: false,
       };
@@ -688,14 +705,23 @@ export var TabCrashHandler = {
     let sendReport = this.prefs.getBoolPref("sendReport");
     let includeURL = this.prefs.getBoolPref("includeURL");
 
-    let data = {
+    // With ForceAutoSubmit, the report was already submitted so we skip the
+    // normal report UI, but still signal the policy state to the crash page.
+    if (policyAutoSubmit) {
+      return {
+        hasReport: false,
+        policyAutoSubmit,
+        sendReport,
+        includeURL,
+      };
+    }
+
+    return {
       hasReport: true,
       sendReport,
       includeURL,
       requestAutoSubmit,
     };
-
-    return data;
   },
 
   onAboutTabCrashedUnload(browser) {

@@ -2632,7 +2632,6 @@ STATIC_ATOMS = [
     Atom("PseudoStyle_MozSvgOuterSvgAnonChild", ":-moz-svg-outer-svg-anon-child"),
     Atom("PseudoStyle_MozSvgForeignContent", ":-moz-svg-foreign-content"),
     Atom("PseudoStyle_MozSvgText", ":-moz-svg-text"),
-    Atom("PseudoStyle_WebkitScrollbar", ":-webkit-scrollbar"),
     # END ATOMS
 ] + HTML_PARSER_ATOMS
 # fmt: on

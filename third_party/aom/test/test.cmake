@@ -426,6 +426,8 @@ if(ENABLE_TESTS)
     aom_gtest STATIC
     "${AOM_ROOT}/third_party/googletest/src/googletest/src/gtest-all.cc")
   set_property(TARGET aom_gtest PROPERTY FOLDER ${AOM_IDE_TEST_FOLDER})
+  # Starting from the 1.17.0 release, GoogleTest requires at least C++17.
+  target_compile_features(aom_gtest PUBLIC cxx_std_17)
   # There are -Wundef warnings in the gtest headers. Tell the compiler to treat
   # the gtest include directories as system include directories and suppress
   # compiler warnings in the gtest headers.

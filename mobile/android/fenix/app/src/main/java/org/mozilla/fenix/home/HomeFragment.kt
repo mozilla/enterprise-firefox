@@ -358,7 +358,11 @@ class HomeFragment : Fragment(), SystemInsetsPaddedFragment {
 
         lifecycleScope.launch(IO) {
             val settings = requireContext().settings()
-            val showStories = settings.showPocketRecommendationsFeature
+
+            val showStories =
+                settings.showPocketRecommendationsFeature ||
+                    settings.privateModeAndStoriesEntryPointEnabled
+
             val showSponsoredStories = showStories && settings.showPocketSponsoredStories
 
             if (showStories) {

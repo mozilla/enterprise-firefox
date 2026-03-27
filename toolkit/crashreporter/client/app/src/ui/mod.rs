@@ -236,7 +236,7 @@ impl ReportCrashUI {
             data::Synchronized::join(send_report, &input_enabled, |s, e| *s && *e);
         #[cfg(feature = "enterprise")]
         let close_enabled = if policy_auto_submit {
-            data::Synchronized::new(true)
+            submit_state.mapped(|s| s == &SubmitState::Failure || s == &SubmitState::Success)
         } else {
             submit_state.mapped(|s| s == &SubmitState::Initial)
         };

@@ -2308,7 +2308,7 @@ class Settings(
         default = false,
     )
 
-    var usageTimeGrowthData by longPreference(
+    var firstDayUsageTimeGrowthData by longPreference(
         key = appContext.getPreferenceKey(R.string.pref_key_growth_usage_time),
         default = -1,
     )
@@ -2406,19 +2406,6 @@ class Settings(
     var numFontListSent by intPreference(
         key = appContext.getPreferenceKey(R.string.pref_key_num_font_list_sent),
         default = 0,
-    )
-
-    /**
-     * Indicates how many days in the first week user opened the app.
-     */
-    val growthEarlyUseCount = counterPreference(
-        appContext.getPreferenceKey(R.string.pref_key_growth_early_browse_count),
-        maxCount = 3,
-    )
-
-    var growthEarlyUseCountLastIncrement by longPreference(
-        key = appContext.getPreferenceKey(R.string.pref_key_growth_early_browse_count_last_increment),
-        default = 0L,
     )
 
     /**

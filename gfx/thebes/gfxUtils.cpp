@@ -228,8 +228,7 @@ already_AddRefed<DataSourceSurface> gfxUtils::CreatePremultipliedDataSurface(
   DataSourceSurface::MappedSurface destMap;
   if (!MapSrcAndCreateMappedDest(srcSurf, &destSurf, &srcMap, &destMap)) {
     MOZ_ASSERT(false, "MapSrcAndCreateMappedDest failed.");
-    RefPtr<DataSourceSurface> surface(srcSurf);
-    return surface.forget();
+    return nullptr;
   }
 
   PremultiplyData(srcMap.mData, srcMap.mStride, srcSurf->GetFormat(),
@@ -247,8 +246,7 @@ already_AddRefed<DataSourceSurface> gfxUtils::CreateUnpremultipliedDataSurface(
   DataSourceSurface::MappedSurface destMap;
   if (!MapSrcAndCreateMappedDest(srcSurf, &destSurf, &srcMap, &destMap)) {
     MOZ_ASSERT(false, "MapSrcAndCreateMappedDest failed.");
-    RefPtr<DataSourceSurface> surface(srcSurf);
-    return surface.forget();
+    return nullptr;
   }
 
   UnpremultiplyData(srcMap.mData, srcMap.mStride, srcSurf->GetFormat(),

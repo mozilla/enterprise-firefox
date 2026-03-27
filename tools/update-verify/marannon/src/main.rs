@@ -12,6 +12,9 @@ use std::path::Path;
 use std::process::exit;
 use tempfile::TempDir;
 
+use env_logger::{Builder, Env};
+use log::info;
+
 use crate::cli::Args;
 use crate::downloader::{FileDownloader, UreqDownloader};
 use crate::runner::RealRunner;
@@ -27,6 +30,7 @@ fn get_extension(filename: &str) -> Option<&str> {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    Builder::from_env(Env::default().default_filter_or("info")).init();
     let args = Args::parse_and_validate();
     // Using `keep()` prevents the temporary directory from being cleaned up.
     // This is on purpose. When running in CI any necessary cleanup is handled
@@ -35,7 +39,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // around for debugging.
     let tmpdir = TempDir::with_prefix("update-verify")?.keep();
     let tmppath = tmpdir.to_str().ok_or("Couldn't parse tmpdir")?;
-    println!("Using tmpdir: {tmppath}");
+    info!("Using tmpdir: {tmppath}");
 
     let downloader = UreqDownloader;
     let runner = RealRunner;
@@ -53,19 +57,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // All `from` builds given will be tested against the complete MAR. Entries that also
     // contained a partial MAR will be additionally tested against that.
     for (i, entry) in args.from.iter().enumerate() {
-        let mut dest_path = download_dir.clone();
+        let mut installer_dest_path = download_dir.clone();
         let ext =
             get_extension(&entry.installer).ok_or("Couldn't find from installer extension!")?;
-        dest_path.push(format!("{i}.{ext}"));
-        let from_installer = dest_path
-            .to_str()
-            .ok_or("Couldn't convert dest_path to str!")?;
-        downloader.fetch(&entry.installer, from_installer)?;
+        installer_dest_path.push(format!("{i}.{ext}"));
+        downloader.fetch(&entry.installer, &installer_dest_path)?;
+        let mut updater_dest_path = download_dir.clone();
+        updater_dest_path.push("updater.tar.xz");
+        downloader.fetch(&entry.updater_package, &updater_dest_path)?;
         tests.push(Test {
             id: entry.id.clone(),
             mar: args.complete_mar.to_path_buf(),
-            from_installer: from_installer.to_string(),
+            from_installer: installer_dest_path.clone(),
             locale: args.locale.clone(),
+            updater_package: updater_dest_path.clone(),
         });
         if let Some(partial_mar) = &entry.partial_mar {
             let mut partial_path = args.partial_mar_dir.to_path_buf();
@@ -73,8 +78,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             tests.push(Test {
                 id: entry.id.clone(),
                 mar: partial_path,
-                from_installer: from_installer.to_string(),
+                from_installer: installer_dest_path.clone(),
                 locale: args.locale.clone(),
+                updater_package: updater_dest_path.clone(),
             });
         }
     }
@@ -94,7 +100,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     )?;
     let passes = results.iter().filter(|r| **r == TestResult::Pass).count();
     let fails = results.len() - passes;
-    println!("Summary of results: {} PASS, {} FAIL", passes, fails);
+    info!("Summary of results: {} PASS, {} FAIL", passes, fails);
     if fails > 0 {
         exit(1);
     }

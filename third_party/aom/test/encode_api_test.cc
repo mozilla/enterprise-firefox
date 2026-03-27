@@ -9,12 +9,14 @@
  * PATENTS file, you can obtain it at www.aomedia.org/license/patent.
  */
 
+#include <array>
 #include <cassert>
 #include <climits>
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <memory>
 #include <tuple>
 
 #include "gtest/gtest.h"
@@ -190,19 +192,98 @@ TEST(EncodeAPI, InvalidControlId) {
   EXPECT_EQ(AOM_CODEC_OK, aom_codec_destroy(&enc));
 }
 
-TEST(EncodeAPI, TuneIqNotAllIntra) {
-  aom_codec_iface_t *iface = aom_codec_av1_cx();
+TEST(EncodeAPI, InvalidUVStrides) {
+  static constexpr std::array<aom_img_fmt_t, 9> kAv1ImageFormats = {
+    AOM_IMG_FMT_YV12,   AOM_IMG_FMT_I420,   AOM_IMG_FMT_I422,
+    AOM_IMG_FMT_I444,   AOM_IMG_FMT_NV12,   AOM_IMG_FMT_I42016,
+    AOM_IMG_FMT_YV1216, AOM_IMG_FMT_I42216, AOM_IMG_FMT_I44416
+  };
+  struct UVStride {
+    int u_stride;
+    int v_stride;
+  };
+  constexpr int kWidth = 64;
+  constexpr int kHeight = 64;
+  static constexpr std::array<UVStride, 4> kUVStrides = {
+    UVStride{ kWidth, kWidth - 1 }, UVStride{ kWidth, kWidth + 1 },
+    UVStride{ kWidth - 1, kWidth }, UVStride{ kWidth + 1, kWidth }
+  };
+  aom_image_t img;
+  aom_codec_ctx_t enc;
   aom_codec_enc_cfg_t cfg;
-  ASSERT_EQ(aom_codec_enc_config_default(iface, &cfg, AOM_USAGE_REALTIME),
+  // Allocate a buffer large enough for a non-subsampled, high bitdepth image.
+  auto buf = std::make_unique<uint8_t[]>(kWidth * kHeight * 3 * 2);
+
+  ASSERT_EQ(aom_codec_enc_config_default(aom_codec_av1_cx(), &cfg,
+                                         /*usage=*/AOM_USAGE_REALTIME),
             AOM_CODEC_OK);
 
-  aom_codec_ctx_t enc;
-  ASSERT_EQ(aom_codec_enc_init(&enc, iface, &cfg, 0), AOM_CODEC_OK);
+  for (const auto img_fmt : kAv1ImageFormats) {
+    const bool high_bit_depth =
+        (img_fmt & AOM_IMG_FMT_HIGHBITDEPTH) == AOM_IMG_FMT_HIGHBITDEPTH;
+    if (high_bit_depth && !(aom_codec_get_caps(aom_codec_av1_cx()) &
+                            AOM_CODEC_CAP_HIGHBITDEPTH)) {
+      break;
+    }
+    ASSERT_EQ(aom_img_wrap(&img, img_fmt, kWidth, kHeight, /*stride_align=*/1,
+                           buf.get()),
+              &img)
+        << "Unable to wrap aom_image for format: " << img_fmt;
+    const bool is_444 = (img.x_chroma_shift == 0 && img.y_chroma_shift == 0);
+    const bool is_422 = (img.x_chroma_shift == 1 && img.y_chroma_shift == 0);
+    // 4:4:4 is allowed in profile 1, 4:2:2 in profile 2.
+    cfg.g_profile = is_444 + 2 * is_422;
+    cfg.g_w = kWidth;
+    cfg.g_h = kHeight;
+    cfg.g_bit_depth = high_bit_depth ? AOM_BITS_10 : AOM_BITS_8;
+    // Monochrome is not allowed in profile 1.
+    for (cfg.monochrome = 0; cfg.monochrome <= (cfg.g_profile != 1);
+         ++cfg.monochrome) {
+      ASSERT_EQ(
+          aom_codec_enc_init(&enc, aom_codec_av1_cx(), &cfg,
+                             high_bit_depth ? AOM_CODEC_USE_HIGHBITDEPTH : 0),
+          AOM_CODEC_OK)
+          << " high_bit_depth: " << high_bit_depth;
 
-  ASSERT_EQ(aom_codec_control(&enc, AOME_SET_TUNING, AOM_TUNE_SSIMULACRA2),
-            AOM_CODEC_INCAPABLE);
+      for (const auto uv_stride : kUVStrides) {
+        const UVStride orig = { img.stride[AOM_PLANE_U],
+                                img.stride[AOM_PLANE_V] };
+        img.stride[AOM_PLANE_U] = uv_stride.u_stride;
+        img.stride[AOM_PLANE_V] =
+            (img_fmt == AOM_IMG_FMT_NV12) ? 0 : uv_stride.v_stride;
+        img.monochrome = cfg.monochrome;
+        // Monochrome should ignore the U and V planes and NV12 only sets one
+        // stride value, they should always succeed. The AOM* aom_img_fmt_t
+        // variants are unsupported by the encoder.
+        const aom_codec_err_t expected_err =
+            (cfg.monochrome || img_fmt == AOM_IMG_FMT_NV12)
+                ? AOM_CODEC_OK
+                : AOM_CODEC_INVALID_PARAM;
+        EXPECT_EQ(aom_codec_encode(&enc, &img, /*pts=*/0, /*duration=*/1,
+                                   /*flags=*/0),
+                  expected_err)
+            << "Error: " << aom_codec_error_detail(&enc)
+            << ", format: " << img_fmt << ", U stride: " << uv_stride.u_stride
+            << ", V stride: " << uv_stride.v_stride;
 
-  ASSERT_EQ(aom_codec_destroy(&enc), AOM_CODEC_OK);
+        // Ensure the encoder can recover when given valid strides.
+        img.stride[AOM_PLANE_U] = orig.u_stride;
+        img.stride[AOM_PLANE_V] = orig.v_stride;
+        EXPECT_EQ(aom_codec_encode(&enc, &img, /*pts=*/0, /*duration=*/1,
+                                   /*flags=*/0),
+                  AOM_CODEC_OK)
+            << "Error: " << aom_codec_error_detail(&enc)
+            << ", format: " << img_fmt << ", U stride: " << orig.u_stride
+            << ", V stride: " << orig.v_stride;
+      }
+
+      EXPECT_EQ(
+          aom_codec_encode(&enc, /*img=*/nullptr, /*pts=*/0, /*duration=*/0,
+                           /*flags=*/0),
+          AOM_CODEC_OK);
+      EXPECT_EQ(aom_codec_destroy(&enc), AOM_CODEC_OK);
+    }
+  }
 }
 
 void EncodeSetSFrameOnFirstFrame(aom_img_fmt fmt, aom_codec_flags_t flag) {

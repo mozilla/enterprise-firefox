@@ -43,8 +43,17 @@ typedef enum aom_img_fmt {
   AOM_IMG_FMT_YV12 =
       AOM_IMG_FMT_PLANAR | AOM_IMG_FMT_UV_FLIP | 1, /**< planar YVU */
   AOM_IMG_FMT_I420 = AOM_IMG_FMT_PLANAR | 2,
-  AOM_IMG_FMT_AOMYV12 = AOM_IMG_FMT_PLANAR | AOM_IMG_FMT_UV_FLIP |
-                        3, /** < planar 4:2:0 format with aom color space */
+  /** Planar 4:2:0 format with aom color space
+   *
+   * \deprecated This value is unsupported and will be removed in a future
+   * release.
+   */
+  AOM_IMG_FMT_AOMYV12 = AOM_IMG_FMT_PLANAR | AOM_IMG_FMT_UV_FLIP | 3,
+  /** Planar 4:2:0 format with aom color space
+   *
+   * \deprecated This value is unsupported and will be removed in a future
+   * release.
+   */
   AOM_IMG_FMT_AOMI420 = AOM_IMG_FMT_PLANAR | 4,
   AOM_IMG_FMT_I422 = AOM_IMG_FMT_PLANAR | 5,
   AOM_IMG_FMT_I444 = AOM_IMG_FMT_PLANAR | 6,
@@ -229,8 +238,13 @@ typedef struct aom_image {
   /* planes[AOM_PLANE_V] = NULL and stride[AOM_PLANE_V] = 0 when fmt ==
    * AOM_IMG_FMT_NV12 */
   unsigned char *planes[3]; /**< pointer to the top left pixel for each plane */
-  int stride[3];            /**< stride between rows for each plane */
-  size_t sz;                /**< data size */
+  /*!Stride between rows for each plane
+   *
+   * \note With planar formats, \c stride[AOM_PLANE_U] must be the same as \c
+   * stride[AOM_PLANE_V].
+   */
+  int stride[3];
+  size_t sz; /**< data size */
 
   int bps; /**< bits per sample (for packed formats) */
 

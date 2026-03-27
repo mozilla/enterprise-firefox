@@ -26,6 +26,7 @@ async function addTabAndLoadBrowser() {
 
 async function checkSplitViewPanelVisible(tab, isVisible) {
   const panel = document.getElementById(tab.linkedPanel);
+  info("wait for split-view-panel-active to change visibility");
   await BrowserTestUtils.waitForMutationCondition(
     panel,
     { attributes: true },
@@ -121,16 +122,10 @@ add_task(async function test_splitViewCreateAndAddTabs() {
     "The split view wrapper has the expected attribute when it contains the selected tab"
   );
 
-  // TODO Bug 2022919- fix discrepancy between splitview.unsplitTabs and gBrowser.unsplitTabs()
-  gBrowser.unsplitTabs(splitview);
-  await BrowserTestUtils.waitForMutationCondition(
-    tabbrowserTabs,
-    { childList: true },
-    () => tabbrowserTabs.querySelectorAll("tab-split-view-wrapper").length === 1
-  );
+  splitview.unsplitTabs();
   Assert.strictEqual(
     document.querySelectorAll("tab-split-view-wrapper").length,
-    1,
+    2,
     "Tabs have been unsplit from split view"
   );
   Assert.ok(
@@ -161,12 +156,38 @@ add_task(async function test_splitViewCreateAndAddTabs() {
     "Tab panel does not have blue outline"
   );
 
+  let splitViewCreated = BrowserTestUtils.waitForEvent(
+    tabbrowserTabs,
+    "SplitViewCreated"
+  );
   // Add tabs back to split view
   splitview = gBrowser.addTabSplitView([tab1, tab2]);
+  await splitViewCreated;
+  await BrowserTestUtils.waitForMutationCondition(
+    tabbrowserTabs,
+    { childList: true },
+    () => tabbrowserTabs.querySelectorAll("tab-split-view-wrapper").length === 2
+  );
+  is(
+    tabbrowserTabs.querySelectorAll("tab-split-view-wrapper").length,
+    2,
+    "Two splitviews have been created"
+  );
 
-  // Remove split view and close tabs
-  splitview.close();
+  gBrowser.removeTab(tab1);
+  await BrowserTestUtils.waitForMutationCondition(
+    splitview,
+    { childList: true },
+    () => !splitview.children.length
+  );
+  ok(!tab2.splitview, "Tab2 is no longer in a splitview");
+  is(
+    tabbrowserTabs.querySelectorAll("tab-split-view-wrapper").length,
+    1,
+    "Only one splitview remains after closing tab in first splitview"
+  );
   splitview2.close();
+  BrowserTestUtils.removeTab(tab2);
 });
 
 add_task(async function test_split_view_panels() {
@@ -232,8 +253,8 @@ add_task(async function test_split_view_panels() {
 
   info("Remove the split view, keeping tabs intact.");
   splitView.unsplitTabs();
-  await checkSplitViewPanelVisible(tab1, false);
-  await checkSplitViewPanelVisible(tab2, false);
+  await checkSplitViewPanelVisible(tab1, false, true);
+  await checkSplitViewPanelVisible(tab2, false, true);
   await BrowserTestUtils.waitForMutationCondition(
     urlbarButton,
     { attributes: true },

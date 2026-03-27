@@ -512,6 +512,16 @@ static inline void inter_modes_info_sort(const InterModesInfo *inter_modes_info,
         compare_rd_idx_pair);
 }
 
+// Initialize estimated RD Cost records of compound average.
+static inline void init_comp_avg_est_rd(
+    struct macroblock *x, bool skip_comp_eval_using_top_comp_avg_est_rd) {
+  if (!skip_comp_eval_using_top_comp_avg_est_rd) return;
+
+  for (int j = 0; j < TOP_COMP_AVG_EST_RD_COUNT; j++) {
+    x->top_comp_avg_est_rd[j] = INT64_MAX;
+  }
+}
+
 // Similar to get_horver_correlation, but also takes into account first
 // row/column, when computing horizontal/vertical correlation.
 void av1_get_horver_correlation_full_c(const int16_t *diff, int stride,
@@ -784,7 +794,25 @@ static void get_variance_stats(const MACROBLOCK *x, int64_t *src_var,
 }
 
 static void adjust_rdcost(const AV1_COMP *cpi, const MACROBLOCK *x,
-                          RD_STATS *rd_cost) {
+                          RD_STATS *rd_cost, bool is_inter_pred) {
+  if ((cpi->oxcf.tune_cfg.tuning == AOM_TUNE_IQ ||
+       cpi->oxcf.tune_cfg.tuning == AOM_TUNE_SSIMULACRA2) &&
+      is_inter_pred) {
+    // Tune IQ and SSIMULACRA2 are often used to encode layered AVIFs, where
+    // keyframes can be encoded at a lower quality (i.e. higher QP) than
+    // inter-coded frames.
+    // In this case, libaom tends to underestimate the true RD cost of inter
+    // prediction candidates, causing encoded file size to increase without a
+    // corresponding increase in quality.
+    // To compensate for this effect, make inter block candidates appear more
+    // expensive to the encoder to slightly bias toward intra prediction.
+    // Doing this increases overall compression efficiency, while still allowing
+    // the encoder to pick inter prediction when it's beneficial.
+    rd_cost->dist += rd_cost->dist >> 3;
+    rd_cost->rdcost += rd_cost->rdcost >> 3;
+    return;
+  }
+
   if (cpi->oxcf.algo_cfg.sharpness != 3) return;
 
   if (frame_is_kf_gf_arf(cpi)) return;
@@ -807,7 +835,14 @@ static void adjust_rdcost(const AV1_COMP *cpi, const MACROBLOCK *x,
 }
 
 static void adjust_cost(const AV1_COMP *cpi, const MACROBLOCK *x,
-                        int64_t *rd_cost) {
+                        int64_t *rd_cost, bool is_inter_pred) {
+  if ((cpi->oxcf.tune_cfg.tuning == AOM_TUNE_IQ ||
+       cpi->oxcf.tune_cfg.tuning == AOM_TUNE_SSIMULACRA2) &&
+      is_inter_pred) {
+    *rd_cost += *rd_cost >> 3;
+    return;
+  }
+
   if (cpi->oxcf.algo_cfg.sharpness != 3) return;
 
   if (frame_is_kf_gf_arf(cpi)) return;
@@ -1851,9 +1886,15 @@ static int64_t motion_mode_rd(
       }
     }
 
-    adjust_cost(cpi, x, &this_yrd);
-    adjust_rdcost(cpi, x, rd_stats);
-    adjust_rdcost(cpi, x, rd_stats_y);
+    if (this_yrd < INT64_MAX) {
+      adjust_cost(cpi, x, &this_yrd, /*is_inter_pred=*/true);
+    }
+    adjust_rdcost(cpi, x, rd_stats, /*is_inter_pred=*/true);
+    // Bug 494653438: If do_tx_search is 0, rd_stats_y is uninitialized, so
+    // valgrind will warn if we use rd_stats_y->rdcost in a conditional.
+    if (!do_tx_search || rd_stats_y->rdcost < INT64_MAX) {
+      adjust_rdcost(cpi, x, rd_stats_y, /*is_inter_pred=*/true);
+    }
 
     const int64_t tmp_rd = RDCOST(x->rdmult, rd_stats->rate, rd_stats->dist);
     if (mode_index == 0) {
@@ -2225,7 +2266,6 @@ static bool ref_mv_idx_early_breakout(
 
 // Compute the estimated RD cost for the motion vector with simple translation.
 static int64_t simple_translation_pred_rd(AV1_COMP *const cpi, MACROBLOCK *x,
-                                          RD_STATS *rd_stats,
                                           HandleInterModeArgs *args,
                                           int ref_mv_idx, int64_t ref_best_rd,
                                           BLOCK_SIZE bsize) {
@@ -2242,7 +2282,8 @@ static int64_t simple_translation_pred_rd(AV1_COMP *const cpi, MACROBLOCK *x,
     { p[0].dst.buf, p[1].dst.buf, p[2].dst.buf },
     { p[0].dst.stride, p[1].dst.stride, p[2].dst.stride },
   };
-  av1_init_rd_stats(rd_stats);
+  RD_STATS rd_stats;
+  av1_init_rd_stats(&rd_stats);
 
   mbmi->interinter_comp.type = COMPOUND_AVERAGE;
   mbmi->comp_group_idx = 0;
@@ -2257,10 +2298,10 @@ static int64_t simple_translation_pred_rd(AV1_COMP *const cpi, MACROBLOCK *x,
   mbmi->motion_mode = SIMPLE_TRANSLATION;
   mbmi->ref_mv_idx = ref_mv_idx;
 
-  rd_stats->rate += args->ref_frame_cost + args->single_comp_cost;
+  rd_stats.rate += args->ref_frame_cost + args->single_comp_cost;
   const int drl_cost =
       get_drl_cost(mbmi, mbmi_ext, mode_costs->drl_mode_cost0, ref_frame_type);
-  rd_stats->rate += drl_cost;
+  rd_stats.rate += drl_cost;
 
   int_mv cur_mv[2];
   if (!build_cur_mv(cur_mv, mbmi->mode, cm, x, 0)) {
@@ -2271,9 +2312,9 @@ static int64_t simple_translation_pred_rd(AV1_COMP *const cpi, MACROBLOCK *x,
     mbmi->mv[i].as_int = cur_mv[i].as_int;
   }
   const int ref_mv_cost = cost_mv_ref(mode_costs, mbmi->mode, mode_ctx);
-  rd_stats->rate += ref_mv_cost;
+  rd_stats.rate += ref_mv_cost;
 
-  if (RDCOST(x->rdmult, rd_stats->rate, 0) > ref_best_rd) {
+  if (RDCOST(x->rdmult, rd_stats.rate, 0) > ref_best_rd) {
     return INT64_MAX;
   }
 
@@ -2295,7 +2336,7 @@ static int64_t simple_translation_pred_rd(AV1_COMP *const cpi, MACROBLOCK *x,
   int64_t est_dist;
   model_rd_sb_fn[MODELRD_CURVFIT](cpi, bsize, x, xd, 0, 0, &est_rate, &est_dist,
                                   NULL, NULL, NULL, NULL, NULL);
-  return RDCOST(x->rdmult, rd_stats->rate + est_rate, est_dist);
+  return RDCOST(x->rdmult, rd_stats.rate + est_rate, est_dist);
 }
 
 // Represents a set of integers, from 0 to sizeof(int) * 8, as bits in
@@ -2312,7 +2353,6 @@ static inline bool mask_check_bit(int mask, int index) {
 // Returns an integer where, if the i-th bit is set, it means that the i-th
 // motion vector should be searched. This is only set for NEAR_MV.
 static int ref_mv_idx_to_search(AV1_COMP *const cpi, MACROBLOCK *x,
-                                RD_STATS *rd_stats,
                                 HandleInterModeArgs *const args,
                                 int64_t ref_best_rd, BLOCK_SIZE bsize,
                                 const int ref_set) {
@@ -2357,7 +2397,7 @@ static int ref_mv_idx_to_search(AV1_COMP *const cpi, MACROBLOCK *x,
       continue;
     }
     idx_rdcost[ref_mv_idx] = simple_translation_pred_rd(
-        cpi, x, rd_stats, args, ref_mv_idx, ref_best_rd, bsize);
+        cpi, x, args, ref_mv_idx, ref_best_rd, bsize);
   }
   // Find the index with the best RD cost.
   int best_idx = 0;
@@ -2970,9 +3010,9 @@ static inline bool fast_interp_search(const AV1_COMP *cpi, MACROBLOCK *x,
  * \param[in]     bsize             Current block size.
  * \param[in,out] rd_stats          Struct to keep track of the overall RD
  *                                  information.
- * \param[in,out] rd_stats_y        Struct to keep track of the RD information
+ * \param[out]    rd_stats_y        Struct to keep track of the RD information
  *                                  for only the Y plane.
- * \param[in,out] rd_stats_uv       Struct to keep track of the RD information
+ * \param[out]    rd_stats_uv       Struct to keep track of the RD information
  *                                  for only the UV planes.
  * \param[in]     args              HandleInterModeArgs struct holding
  *                                  miscellaneous arguments for inter mode
@@ -3016,7 +3056,8 @@ static inline bool fast_interp_search(const AV1_COMP *cpi, MACROBLOCK *x,
  * \param[out]    yrd               Stores the rdcost corresponding to encoding
  *                                  the luma plane.
  *
- * \return The RD cost for the mode being searched.
+ * \return The RD cost for the mode being searched. If the return value is
+ *         INT64_MAX, the output parameters are not set; do not use them.
  */
 static int64_t handle_inter_mode(
     AV1_COMP *const cpi, TileDataEnc *tile_data, MACROBLOCK *x,
@@ -3094,7 +3135,7 @@ static int64_t handle_inter_mode(
   int_mv save_mv[MAX_REF_MV_SEARCH - 1][2];
   int best_ref_mv_idx = -1;
   const int idx_mask =
-      ref_mv_idx_to_search(cpi, x, rd_stats, args, ref_best_rd, bsize, ref_set);
+      ref_mv_idx_to_search(cpi, x, args, ref_best_rd, bsize, ref_set);
   const int16_t mode_ctx =
       av1_mode_context_analyzer(mbmi_ext->mode_context, mbmi->ref_frame);
   const ModeCosts *mode_costs = &x->mode_costs;
@@ -4180,8 +4221,8 @@ static inline void init_mode_skip_mask(mode_skip_mask_t *mask,
   // Prune reference frames which are not the closest to the current
   // frame and with large pred_mv_sad.
   if (inter_sf->prune_single_ref) {
-    assert(inter_sf->prune_single_ref > 0 && inter_sf->prune_single_ref < 3);
-    const double prune_threshes[2] = { 1.20, 1.05 };
+    assert(inter_sf->prune_single_ref > 0 && inter_sf->prune_single_ref < 4);
+    const double prune_threshes[3] = { 1.20, 1.20, 1.05 };
 
     for (ref_frame = LAST_FRAME; ref_frame <= ALTREF_FRAME; ++ref_frame) {
       const RefFrameDistanceInfo *const ref_frame_dist_info =
@@ -4189,8 +4230,10 @@ static inline void init_mode_skip_mask(mode_skip_mask_t *mask,
       const int is_closest_ref =
           (ref_frame == ref_frame_dist_info->nearest_past_ref) ||
           (ref_frame == ref_frame_dist_info->nearest_future_ref);
+      const int ref_idx = ref_frame - LAST_FRAME;
 
-      if (!is_closest_ref) {
+      if (!(cpi->keep_single_ref_frame_mask & (1 << ref_idx) ||
+            is_closest_ref)) {
         const int dir =
             (ref_frame_dist_info->ref_relative_dist[ref_frame - LAST_FRAME] < 0)
                 ? 0
@@ -5785,7 +5828,7 @@ static inline void search_intra_modes_in_interframe(
         &best_model_rd, top_intra_model_rd);
 
     if (intra_rd_y < INT64_MAX) {
-      adjust_cost(cpi, x, &intra_rd_y);
+      adjust_cost(cpi, x, &intra_rd_y, /*is_inter_pred=*/false);
     }
 
     if (is_luma_result_valid && intra_rd_y < yrd_threshold) {
@@ -5869,7 +5912,7 @@ static inline void search_intra_modes_in_interframe(
 
   intra_rd_stats.rdcost = this_rd;
 
-  adjust_rdcost(cpi, x, &intra_rd_stats);
+  adjust_rdcost(cpi, x, &intra_rd_stats, /*is_inter_pred=*/false);
 
   // Collect mode stats for multiwinner mode processing
   const int txfm_search_done = 1;
@@ -6241,7 +6284,8 @@ void av1_rd_pick_inter_mode(struct AV1_COMP *cpi, struct TileDataEnc *tile_data,
     mode_start = SINGLE_REF_MODE_START;
     mode_end = SINGLE_REF_MODE_END;
   }
-
+  init_comp_avg_est_rd(x,
+                       sf->inter_sf.skip_comp_eval_using_top_comp_avg_est_rd);
   for (THR_MODES midx = mode_start; midx < mode_end; ++midx) {
     // Get the actual prediction mode we are trying in this iteration
     const THR_MODES mode_enum = av1_default_mode_order[midx];
@@ -6341,8 +6385,8 @@ void av1_rd_pick_inter_mode(struct AV1_COMP *cpi, struct TileDataEnc *tile_data,
       ref_frame_rd[ref_frame] = this_rd;
     }
 
-    adjust_cost(cpi, x, &this_rd);
-    adjust_rdcost(cpi, x, &rd_stats);
+    adjust_cost(cpi, x, &this_rd, /*is_inter_pred=*/true);
+    adjust_rdcost(cpi, x, &rd_stats, /*is_inter_pred=*/true);
 
     // Did this mode help, i.e., is it the new best mode
     if (this_rd < search_state.best_rd) {

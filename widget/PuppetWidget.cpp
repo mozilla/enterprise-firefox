@@ -81,7 +81,6 @@ void PuppetWidget::InfallibleCreate(nsIWidget* aParent,
                                     const LayoutDeviceIntRect& aRect,
                                     const widget::InitData& aInitData) {
   BaseCreate(aParent, aInitData);
-  MOZ_ASSERT(GetDesktopToDeviceScale().scale == 1.0);
 
   mBounds = aRect;
   mEnabled = true;
@@ -151,7 +150,6 @@ void PuppetWidget::Show(bool aState) {
 }
 
 void PuppetWidget::Resize(const DesktopSize& aSize, bool aRepaint) {
-  MOZ_ASSERT(GetDesktopToDeviceScale().scale == 1.0);
   LayoutDeviceIntRect oldBounds = mBounds;
   mBounds.SizeTo(LayoutDeviceIntSize::Round(aSize * GetDesktopToDeviceScale()));
 

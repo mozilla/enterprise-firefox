@@ -290,6 +290,7 @@ async function connectToConsole(email) {
   );
 
   ErrorReport.reset();
+  document.querySelector(".felt-updates-message").classList.add("is-hidden");
   document.querySelector(".felt-login__email-pane").classList.add("is-hidden");
   document.querySelector(".felt-login__sso").classList.remove("is-hidden");
 
@@ -310,8 +311,6 @@ async function listenFormEmailSubmission() {
   emailInput.addEventListener("input", () => {
     signInBtn.disabled = emailInput.value.trim() === "";
   });
-
-  emailInput.focus();
 
   // <moz-button> does not trigger the native "submit" event on <form>
   // so we manually handle submission on button click and when Enter is pressed
@@ -472,6 +471,25 @@ function setupPopupNotifications() {
   });
 }
 
+// Focus the email input whenever the login pane becomes visible. A
+// MutationObserver is used because Updates.init() may hide the login pane
+// during its update check and only show it again once the check completes,
+// so a direct focus() call at startup would fire while the pane is hidden.
+function focusEmailOnLoginVisible() {
+  const loginPane = document.querySelector(".felt-login");
+  const emailInput = document.getElementById("felt-form__email");
+
+  new MutationObserver(() => {
+    if (!loginPane.classList.contains("is-hidden")) {
+      emailInput?.focus();
+    }
+  }).observe(loginPane, { attributeFilter: ["class"] });
+
+  if (!loginPane.classList.contains("is-hidden")) {
+    emailInput?.focus();
+  }
+}
+
 window.addEventListener(
   "load",
   () => {
@@ -481,6 +499,7 @@ window.addEventListener(
     setupPopupNotifications();
     setupContextMenu();
     listenFormEmailSubmission();
+    focusEmailOnLoginVisible();
     informAboutPotentialStartupFailure();
   },
   true

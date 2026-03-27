@@ -35,7 +35,7 @@ class BrowserCrashes(FeltTests):
 
     def run_felt_proper_restart(self):
         self._manually_closed_child = False
-        self.wait_process_exit()
+        self.wait_process_exit(self._browser_pid)
         self._logger.info("Connecting to new browser")
         self.connect_child_browser()
         self._browser_pid = self._child_driver.session_capabilities["moz:processID"]

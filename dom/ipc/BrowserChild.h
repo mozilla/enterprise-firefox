@@ -518,9 +518,9 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
     return GetFrom(docShell);
   }
 
-  mozilla::ipc::IPCResult RecvUIResolutionChanged(const float& aDpi,
-                                                  const int32_t& aRounding,
-                                                  const double& aScale);
+  mozilla::ipc::IPCResult RecvUIResolutionChanged(
+      const float& aDpi, const int32_t& aRounding, const double& aScale,
+      const double& aDesktopToDeviceScale);
 
   mozilla::ipc::IPCResult RecvTransparencyChanged(const bool& aIsTransparent);
 

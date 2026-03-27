@@ -6,16 +6,26 @@
 //!
 //! Each thread has thread-bound data which can be accessed in queued task functions.
 
+use std::sync::Arc;
+
 pub type TaskFn<T> = Box<dyn FnOnce(&T) + Send + 'static>;
 
 pub struct AsyncTask<T> {
-    send: Box<dyn Fn(TaskFn<T>) + Send + Sync>,
+    send: Arc<dyn Fn(TaskFn<T>) + Send + Sync>,
+}
+
+impl<T> Clone for AsyncTask<T> {
+    fn clone(&self) -> Self {
+        AsyncTask {
+            send: Arc::clone(&self.send),
+        }
+    }
 }
 
 impl<T> AsyncTask<T> {
     pub fn new<F: Fn(TaskFn<T>) + Send + Sync + 'static>(send: F) -> Self {
         AsyncTask {
-            send: Box::new(send),
+            send: Arc::new(send),
         }
     }
 

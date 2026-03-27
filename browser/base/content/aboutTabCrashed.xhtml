@@ -33,6 +33,7 @@
     />
     <link rel="localization" href="branding/brand.ftl" />
     <link rel="localization" href="browser/aboutTabCrashed.ftl" />
+    <link rel="localization" href="browser/enterprise/enterprise.ftl" />
 
     <title data-l10n-id="crashed-title"></title>
   </head>
@@ -56,10 +57,20 @@
       </div>
 
       <div id="reportBox">
-        <h2 data-l10n-id="crashed-request-help"></h2>
+        <h2 id="crashedRequestHelp" data-l10n-id="crashed-request-help"></h2>
+        <h2
+          id="policyAutoSubmitTitle"
+          data-l10n-id="crashed-policy-auto-submit-title"
+          hidden="true"
+        ></h2>
         <p data-l10n-id="crashed-request-help-message"></p>
 
         <h2 data-l10n-id="crashed-request-report-title"></h2>
+        <p
+          id="policyAutoSubmitMessage"
+          data-l10n-id="crashed-policy-auto-submit-message"
+          hidden="true"
+        ></p>
 
         <label class="toggle-container-with-text">
           <input type="checkbox" id="sendReport" role="checkbox" />

@@ -186,7 +186,7 @@ class KnowsCompositor {
   /**
    * Helpers for finding other related interface. These are infallible.
    */
-  virtual TextureForwarder* GetTextureForwarder() = 0;
+  virtual RefPtr<TextureForwarder> GetTextureForwarder() = 0;
   virtual LayersIPCActor* GetLayersIPCActor() = 0;
 
  protected:
@@ -218,7 +218,7 @@ class KnowsCompositorMediaProxy : public KnowsCompositor {
   explicit KnowsCompositorMediaProxy(
       const TextureFactoryIdentifier& aIdentifier);
 
-  TextureForwarder* GetTextureForwarder() override;
+  RefPtr<TextureForwarder> GetTextureForwarder() override;
 
   LayersIPCActor* GetLayersIPCActor() override;
 

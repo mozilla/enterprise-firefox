@@ -80,7 +80,9 @@ from gecko_taskgraph.util.taskgraph import (
         },
     },
 )
-def run_nightly_builds_action(parameters, graph_config, input, task_group_id, task_id):
+def run_nightly_builds_action(
+    push_parameters, graph_config, input, task_group_id, task_id
+):
     rebuild_kinds = input.get("rebuild_kinds", [])
     do_not_optimize = input.get("do_not_optimize", [])
 
@@ -100,10 +102,18 @@ def run_nightly_builds_action(parameters, graph_config, input, task_group_id, ta
 
     previous_graph_ids = input.get("previous_graph_ids")
     if not previous_graph_ids:
-        previous_graph_ids = [find_decision_task(parameters, graph_config)]
+        previous_graph_ids = [find_decision_task(push_parameters, graph_config)]
 
     # Download parameters from the first decision task
     parameters = get_artifact(previous_graph_ids[0], "public/parameters.yml")
+    # Override `head_rev` - this should always be the revision that this action
+    # task was fired from. If the first `previous_graph_id` given was from an
+    # earlier revision, it will end up being wrong. This will cause any created
+    # tasks to have the wrong revision set, which causes problems such as showing
+    # up in the wrong place on Treeherder, and associated cached task digests
+    # with unmatched sources.
+    parameters["head_rev"] = push_parameters["head_rev"]
+
     # Download and combine full task graphs from each of the previous_graph_ids.
     # Sometimes previous relpro action tasks will add tasks, like partials,
     # that didn't exist in the first full_task_graph, so combining them is

@@ -557,8 +557,9 @@ add_task(async function open_engine_page_in_tab() {
     }
 
     await UrlbarTestUtils.assertSearchMode(newWin, null);
-    await newTabOpened;
-    Assert.ok(true, "Expected page was loaded");
+    let tab = await newTabOpened;
+    Assert.ok(true, "Expected page was loaded in a new tab");
+    Assert.ok(!tab.selected, "New tab opened in the background");
 
     await BrowserTestUtils.closeWindow(newWin);
   }

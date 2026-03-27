@@ -46,7 +46,7 @@ nsScrollbarFrame* ScrollbarDrawing::GetParentScrollbarFrame(nsIFrame* aFrame) {
 /*static*/
 bool ScrollbarDrawing::IsParentScrollbarRolledOver(nsIFrame* aFrame) {
   if (nsScrollbarFrame* f = GetParentScrollbarFrame(aFrame)) {
-    if (nsLayoutUtils::UseOverlayScrollbars(f)) {
+    if (f->PresContext()->UseOverlayScrollbars()) {
       return f->HasBeenHovered();
     }
     return f->GetContent()->AsElement()->State().HasState(ElementState::HOVER);
@@ -65,8 +65,8 @@ bool ScrollbarDrawing::IsParentScrollbarHoveredOrActive(nsIFrame* aFrame) {
 }
 
 /*static*/
-bool ScrollbarDrawing::IsScrollbarWidthThin(const nsIFrame* aFrame) {
-  auto scrollbarWidth = nsLayoutUtils::ScrollbarWidthFor(aFrame);
+bool ScrollbarDrawing::IsScrollbarWidthThin(const ComputedStyle& aStyle) {
+  auto scrollbarWidth = aStyle.StyleUIReset()->ScrollbarWidth();
   return scrollbarWidth == StyleScrollbarWidth::Thin;
 }
 
@@ -100,9 +100,10 @@ LayoutDeviceIntCoord ScrollbarDrawing::GetScrollbarSize(
 
 LayoutDeviceIntCoord ScrollbarDrawing::GetScrollbarSize(
     const nsPresContext* aPresContext, nsIFrame* aFrame) {
-  auto width = nsLayoutUtils::ScrollbarWidthFor(aFrame);
+  auto* style = nsLayoutUtils::StyleForScrollbar(aFrame);
+  auto width = style->StyleUIReset()->ScrollbarWidth();
   auto overlay =
-      nsLayoutUtils::UseOverlayScrollbars(aFrame) ? Overlay::Yes : Overlay::No;
+      aPresContext->UseOverlayScrollbars() ? Overlay::Yes : Overlay::No;
   return GetScrollbarSize(aPresContext, width, overlay);
 }
 
@@ -180,7 +181,7 @@ bool ScrollbarDrawing::DoPaintDefaultScrollbar(
     ScrollbarKind aScrollbarKind, nsIFrame* aFrame, const ComputedStyle& aStyle,
     const ElementState& aElementState, const Colors& aColors,
     const DPIRatio& aDpiRatio) {
-  const bool overlay = nsLayoutUtils::UseOverlayScrollbars(aFrame);
+  const bool overlay = aFrame->PresContext()->UseOverlayScrollbars();
   if (overlay && !aElementState.HasAtLeastOneOfStates(ElementState::HOVER |
                                                       ElementState::ACTIVE)) {
     return true;

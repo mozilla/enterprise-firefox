@@ -203,6 +203,7 @@ private fun MiddleSearchHomepagePreview() {
                 buttonBackgroundColor = WallpaperState.default.buttonBackgroundColor,
                 isSearchInProgress = false,
                 bottomPadding = 68,
+                showTopSitesHeader = true,
             ),
             interactor = FakeHomepagePreview.homepageInteractor,
             onTopSitesItemBound = {},

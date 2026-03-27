@@ -95,6 +95,10 @@ hr {
   border: 0;
   background-color: var(--page-nav-hr-color);
   flex-shrink: 0;
+
+  @media (max-width: 52rem) {
+    width: var(--button-size-icon);
+  }
 }
 
 :host([type="mobile"]) {

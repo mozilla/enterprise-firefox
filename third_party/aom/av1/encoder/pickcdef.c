@@ -824,7 +824,7 @@ void av1_cdef_search(AV1_COMP *cpi) {
   AV1_COMMON *cm = &cpi->common;
   CDEF_CONTROL cdef_control = cpi->oxcf.tool_cfg.cdef_control;
   const bool apply_adaptive_cdef =
-      cdef_control == CDEF_ADAPTIVE && cpi->oxcf.mode == ALLINTRA &&
+      cdef_control == CDEF_ADAPTIVE &&
       (cpi->oxcf.rc_cfg.mode == AOM_Q || cpi->oxcf.rc_cfg.mode == AOM_CQ);
 
   assert(cdef_control != CDEF_NONE);

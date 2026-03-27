@@ -13,8 +13,9 @@ include("../shared/build/node-templates.mozbuild")
 XPCSHELL_TESTS_MANIFESTS += ["test/xpcshell/xpcshell.toml"]
 
 BROWSER_CHROME_MANIFESTS += [
-    "test/mochitest/browser_aj.toml",
-    "test/mochitest/browser_kz.toml",
+    "test/mochitest/browser_af.toml",
+    "test/mochitest/browser_gp.toml",
+    "test/mochitest/browser_qz.toml",
     "test/mochitest/integration/browser.toml",
     "test/mochitest/sourcemaps/browser.toml",
     "test/mochitest/tracer/browser.toml",

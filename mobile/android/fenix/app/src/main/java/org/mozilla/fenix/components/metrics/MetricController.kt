@@ -477,14 +477,14 @@ internal class ReleaseMetricController(
 
         Component.FEATURE_SEARCH to AdsTelemetry.SERP_ADD_CLICKED -> {
             BrowserSearch.adClicks[value!!].add()
-            track(Event.GrowthData.SerpAdClicked)
+            track(Event.GrowthData.ConversionEvent5)
         }
         Component.FEATURE_SEARCH to AdsTelemetry.SERP_SHOWN_WITH_ADDS -> {
             BrowserSearch.withAds[value!!].add()
         }
         Component.FEATURE_SEARCH to InContentTelemetry.IN_CONTENT_SEARCH -> {
             BrowserSearch.inContent[value!!].add()
-            track(Event.GrowthData.UserActivated(fromSearch = true))
+            track(Event.GrowthData.ConversionEvent7(fromSearch = true))
         }
         Component.SUPPORT_WEBEXTENSIONS to WebExtensionFacts.Items.WEB_EXTENSIONS_INITIALIZED -> {
             metadata?.get("installed")?.let { installedAddons ->

@@ -1224,6 +1224,8 @@ skip-if = [
 
 ["test_focus_scroll_padding_tab.html"]
 
+["test_focus_hidden_overflow.html"]
+
 ["test_focus_scrollable_fieldset.html"]
 
 ["test_focus_scrollable_input.html"]

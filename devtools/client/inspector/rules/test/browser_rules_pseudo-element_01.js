@@ -586,6 +586,5 @@ function assertHeaders(view) {
  * @param {RuleView} view
  */
 function getPseudoElementContainer(view) {
-  // The very first element is the pseudo element headers and the second the container.
-  return view.element.children[1];
+  return view.element.querySelector("#pseudo-elements-container");
 }

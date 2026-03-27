@@ -1179,15 +1179,28 @@ HttpChannelParent::OnStartRequest(nsIRequest* aRequest) {
 
   HttpChannelOnStartRequestArgs args;
 
-  // Send down any permissions/cookies which are relevant to this URL if we are
-  // performing a document load. We can't do that if mIPCClosed is set.
+  // Send down any cookies which are relevant to this URL if we are performing a
+  // cookie-requesting document load. We can't do that if mIPCClosed is set.
+  //
+  // NOTE: Transferring cookies in this way happens here, rather than in
+  // `AboutToLoadDocumentForChild`, as we need the PCookieService actor to be
+  // initialized before we can transmit cookies.
   if (!mIPCClosed) {
-    PContentParent* pcp = Manager()->Manager();
-    MOZ_ASSERT(pcp, "We should have a manager if our IPC isn't closed");
-    DebugOnly<nsresult> rv =
-        static_cast<ContentParent*>(pcp)->AboutToLoadHttpDocumentForChild(
-            chan, &args.shouldWaitForOnStartRequestSent());
-    MOZ_ASSERT(NS_SUCCEEDED(rv));
+    // FIXME: We should consider skipping sending cookies if the response isn't
+    // going to result in the document being rendered (e.g. if we're going to
+    // display a load error)
+    nsLoadFlags loadFlags;
+    MOZ_ALWAYS_SUCCEEDS(chan->GetLoadFlags(&loadFlags));
+    if (loadFlags & nsIRequest::LOAD_DOCUMENT_NEEDS_COOKIE) {
+      PNeckoParent* neckoParent = Manager();
+      MOZ_ASSERT(neckoParent,
+                 "We should have a manager if our IPC isn't closed");
+      if (PCookieServiceParent* csParent = LoneManagedOrNullAsserts(
+              neckoParent->ManagedPCookieServiceParent())) {
+        static_cast<CookieServiceParent*>(csParent)->TrackCookieLoad(chan);
+        args.shouldWaitForOnStartRequestSent() = true;
+      }
+    }
   }
 
   args.multiPartID() = multiPartID;
@@ -1351,9 +1364,9 @@ HttpChannelParent::OnStartRequest(nsIRequest* aRequest) {
 
   requestHead->Exit();
 
-  // Need to wait for the cookies/permissions to content process, which is sent
-  // via PContent in AboutToLoadHttpFtpDocumentForChild. For multipart channel,
-  // send only one time since the cookies/permissions are the same.
+  // Need to wait for the cookies to be sent to the content process, which is
+  // sent via PContent in ContentParent::UpdateCookieStatus. For multipart
+  // channel, send only one time since the cookies/permissions are the same.
   if (NS_SUCCEEDED(rv) && args.shouldWaitForOnStartRequestSent() &&
       multiPartID.valueOr(0) == 0) {
     LOG(("HttpChannelParent::SendOnStartRequestSent\n"));

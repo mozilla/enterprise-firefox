@@ -55,7 +55,6 @@ registerCleanupFunction(() => {
 
 add_task(async function test_loadConfig_basic_with_real_snapshot() {
   Services.prefs.setStringPref(PREF_API_KEY, API_KEY);
-  Services.prefs.setStringPref(PREF_ENDPOINT, ENDPOINT);
 
   const sb = sinon.createSandbox();
   try {
@@ -142,7 +141,7 @@ add_task(async function test_prompt_override_via_pref() {
 
 add_task(async function test_loadConfig_with_user_pref_model() {
   Services.prefs.setStringPref(PREF_API_KEY, API_KEY);
-  Services.prefs.setStringPref(PREF_ENDPOINT, ENDPOINT);
+  Services.prefs.clearUserPref(PREF_ENDPOINT);
   Services.prefs.setStringPref(PREF_MODEL, "gpt-oss-120b");
 
   const sb = sinon.createSandbox();
@@ -172,6 +171,46 @@ add_task(async function test_loadConfig_with_user_pref_model() {
       config.model,
       "gpt-oss-120b",
       "Selected config should be for user's preferred model"
+    );
+  } finally {
+    sb.restore();
+    Services.prefs.clearUserPref(PREF_MODEL);
+  }
+});
+
+add_task(async function test_loadConfig_with_custom_endpoint_and_model() {
+  Services.prefs.setStringPref(PREF_API_KEY, API_KEY);
+  Services.prefs.setStringPref(PREF_ENDPOINT, ENDPOINT);
+  Services.prefs.setStringPref(PREF_MODEL, "custom_model");
+
+  const sb = sinon.createSandbox();
+  try {
+    const fakeEngine = {
+      runWithGenerator() {
+        throw new Error("not used");
+      },
+    };
+    sb.stub(openAIEngine, "_createEngine").resolves(fakeEngine);
+
+    sb.stub(openAIEngine, "getRemoteClient").returns({
+      get: sb.stub().resolves(REAL_REMOTE_SETTINGS_SNAPSHOT),
+    });
+
+    const engine = new openAIEngine();
+
+    await engine.loadConfig(MODEL_FEATURES.CHAT, MAJOR_VERSION_2);
+
+    Assert.equal(
+      engine.model,
+      "custom_model",
+      "Selected model should be for user's preferred model"
+    );
+
+    const prompt = await engine.loadPrompt(MODEL_FEATURES.CHAT);
+    Assert.equal(
+      prompt,
+      "Generic model prompt loaded!",
+      "Should load generic prompt with custom endpoint"
     );
   } finally {
     sb.restore();

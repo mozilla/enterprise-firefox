@@ -922,6 +922,7 @@ class BrowserParent final : public PBrowserParent,
   float mDPI;
   int32_t mRounding;
   CSSToLayoutDeviceScale mDefaultScale;
+  DesktopToLayoutDeviceScale mDesktopToDeviceScale;
   bool mUpdatedDimensions;
   nsSizeMode mSizeMode;
   LayoutDeviceIntPoint mClientOffset;

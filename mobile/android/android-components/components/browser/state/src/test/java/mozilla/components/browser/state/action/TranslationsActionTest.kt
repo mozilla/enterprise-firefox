@@ -1060,6 +1060,23 @@ class TranslationsActionTest {
     }
 
     @Test
+    fun `WHEN a SetTranslationsEnabledAction is dispatched THEN the browser store is updated to match`() {
+        // Initial state
+        assertTrue(state.translationEngine.isTranslationsEnabled)
+
+        // Dispatch
+        state = BrowserStateReducer.reduce(
+            state,
+            TranslationsAction.SetTranslationsEnabledAction(
+                isTranslationsEnabled = false,
+            ),
+        )
+
+        // Final state
+        assertFalse(state.translationEngine.isTranslationsEnabled)
+    }
+
+    @Test
     fun `WHEN a SetEngineSupportAction is dispatched THEN the browser store is updated to match`() {
         // Initial state
         assertNull(state.translationEngine.isEngineSupported)

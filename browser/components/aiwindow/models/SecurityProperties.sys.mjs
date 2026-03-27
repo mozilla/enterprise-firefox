@@ -83,4 +83,13 @@ export class SecurityProperties {
     }
     return props;
   }
+
+  /**
+   * Get text that can be used in logging.
+   *
+   * @returns {string}
+   */
+  getLogText() {
+    return `private=${this.privateData} untrusted=${this.untrustedInput}`;
+  }
 }

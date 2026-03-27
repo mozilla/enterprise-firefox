@@ -9,6 +9,10 @@ run-if = ["os == 'mac'"]
 
 ["test_async_flush.js"]
 
+["test_async_flush_cp_path.js"]
+
+["test_async_flush_cp_storeID.js"]
+
 ["test_async_flush_current_profile.js"]
 
 ["test_check_backup.js"]

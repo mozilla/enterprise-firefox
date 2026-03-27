@@ -28,4 +28,3 @@ please consult the documentation for the
    collection/index
    data/index
    internals/index
-   obsolete/index

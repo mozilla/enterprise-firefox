@@ -3676,17 +3676,6 @@ toolbar#nav-bar {
                     f"The following extra environment variables will be set:\n  {env_list}"
                 )
 
-            self.parseAndCreateTestsDirs(m)
-
-            profilePath = list(self.profile_path_by_manifest[m])[0]
-            if profilePath:
-                options.profilePath = os.path.expanduser(profilePath.strip())
-                self.log.info(
-                    f"The following profile path will be set:\n  {options.profilePath}"
-                )
-            else:
-                options.profilePath = None
-
             # If we are using --run-by-manifest, we should not use the profile path (if) provided
             # by the user, since we need to create a new directory for each run. We would face
             # problems if we use the directory provided by the user.
@@ -3790,6 +3779,20 @@ toolbar#nav-bar {
             or options.restartBetweenTests
         ):
             self.initializeLooping(options)
+
+        # Set up manifest-level test-directories and profile-path.
+        # In restart modes this runs on each iteration, ensuring a clean
+        # slate after cleanup() removed the previous directories.
+        if manifestToFilter:
+            self.parseAndCreateTestsDirs(manifestToFilter)
+            profilePath = list(self.profile_path_by_manifest[manifestToFilter])[0]
+            if profilePath:
+                options.profilePath = os.path.expanduser(profilePath.strip())
+                self.log.info(
+                    f"The following profile path will be set:\n  {options.profilePath}"
+                )
+            else:
+                options.profilePath = None
 
         # get debugger info, a dict of:
         # {'path': path to the debugger (string),

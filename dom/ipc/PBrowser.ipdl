@@ -936,7 +936,8 @@ child:
      * value (-1) but in the majority of the cases this saves us from two
      * sync requests from the child to the parent.
      */
-    async UIResolutionChanged(float dpi, int32_t rounding, double scale);
+    async UIResolutionChanged(float dpi, int32_t rounding, double scale,
+                              double desktopToDeviceScale);
 
     /**
      * Tell the child that whether it's allowed to render transparent has

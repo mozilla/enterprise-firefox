@@ -29,8 +29,8 @@ enum class Style {
   ThickThumb,
 };
 
-static Style ScrollbarStyle(nsIFrame* aFrame) {
-  if (nsLayoutUtils::UseOverlayScrollbars(aFrame)) {
+static Style ScrollbarStyle(nsPresContext* aPresContext) {
+  if (aPresContext->UseOverlayScrollbars()) {
     return Style::Overlay;
   }
   if (StaticPrefs::
@@ -48,7 +48,7 @@ LayoutDeviceIntSize ScrollbarDrawingWin11::GetMinimumWidgetSize(
     nsPresContext* aPresContext, StyleAppearance aAppearance,
     nsIFrame* aFrame) {
   MOZ_ASSERT(nsNativeTheme::IsWidgetScrollbarPart(aAppearance));
-  if (ScrollbarStyle(aFrame) != Style::ThinThumb) {
+  if (ScrollbarStyle(aPresContext) != Style::ThinThumb) {
     return ScrollbarDrawingWin::GetMinimumWidgetSize(aPresContext, aAppearance,
                                                      aFrame);
   }
@@ -100,7 +100,7 @@ sRGBColor ScrollbarDrawingWin11::ComputeScrollbarThumbColor(
                             : NS_RGBA(133, 133, 133, 255);
   }();
   ElementState state = aElementState;
-  if (!IsScrollbarWidthThin(aFrame)) {
+  if (!IsScrollbarWidthThin(aStyle)) {
     // non-thin scrollbars get hover feedback by changing thumb shape, so we
     // only provide active feedback (and we use the hover state for that as it's
     // more subtle).
@@ -139,7 +139,7 @@ bool ScrollbarDrawingWin11::PaintScrollbarButton(
     return true;
   }
 
-  const auto style = ScrollbarStyle(aFrame);
+  const auto style = ScrollbarStyle(aFrame->PresContext());
   auto [buttonColor, arrowColor] = ComputeScrollbarButtonColors(
       aFrame, aAppearance, aStyle, aElementState, aColors);
   if (style != Style::Overlay) {
@@ -241,10 +241,10 @@ bool ScrollbarDrawingWin11::DoPaintScrollbarThumb(
 
   LayoutDeviceRect thumbRect(aRect);
 
-  const auto style = ScrollbarStyle(aFrame);
+  const auto style = ScrollbarStyle(aFrame->PresContext());
   const bool hovered =
       ScrollbarDrawing::IsParentScrollbarHoveredOrActive(aFrame) ||
-      (style != Style::Overlay && IsScrollbarWidthThin(aFrame));
+      (style != Style::Overlay && IsScrollbarWidthThin(aStyle));
   const bool horizontal = aScrollbarKind == ScrollbarKind::Horizontal;
   if (style == Style::ThickThumb) {
     constexpr float kHoveredThumbRatio =

@@ -280,9 +280,26 @@ static bool DispatchOffThreadBaselineBatchImpl(JSContext* cx, bool isEager) {
   BaselineCompileQueue& queue = cx->realm()->baselineCompileQueue();
   MOZ_ASSERT(queue.numQueued() > 0);
 
+  // We maintain the invariant that there's always room to push an entry into
+  // the queue. This requires code that inserts entries into the queue to call
+  // this function when it fills up, and it requires this function to always
+  // remove at least one entry when the queue is full.
+#ifdef DEBUG
+  auto queueIsNotFullOnExit = mozilla::MakeScopeExit([&]() {
+    MOZ_ASSERT(queue.numQueued() < JitOptions.baselineQueueCapacity);
+  });
+#endif
+
   auto alloc = cx->make_unique<LifoAlloc>(TempAllocator::PreferredLifoChunkSize,
                                           js::BackgroundMallocArena);
   if (!alloc) {
+    // Maintain our invariant; the queue must not be full.
+    if (queue.numQueued() == JitOptions.baselineQueueCapacity) {
+      JSScript* script = queue.pop();
+      if (script->hasJitScript()) {
+        script->jitScript()->clearIsBaselineQueued(script);
+      }
+    }
     ReportOutOfMemory(cx);
     return false;
   }

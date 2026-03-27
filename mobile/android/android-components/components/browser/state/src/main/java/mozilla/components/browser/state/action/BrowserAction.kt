@@ -1043,6 +1043,15 @@ sealed class TranslationsAction : BrowserAction() {
     ) : TranslationsAction()
 
     /**
+     * Sets whether the translations feature is enabled and should be shown to the user.
+     *
+     * @property isTranslationsEnabled Whether the translations feature is enabled.
+     */
+    data class SetTranslationsEnabledAction(
+        val isTranslationsEnabled: Boolean,
+    ) : TranslationsAction()
+
+    /**
      * Sets whether the device architecture supports translations or not on
      * [BrowserState.translationEngine].
      *

@@ -423,8 +423,6 @@ class ContentParent final : public PContentParent,
 
   bool RequestRunToCompletion();
 
-  void UpdateCookieStatus(nsIChannel* aChannel);
-
   bool IsLaunching() const {
     return mLifecycleState == LifecycleState::LAUNCHING;
   }
@@ -639,15 +637,15 @@ class ContentParent final : public PContentParent,
 
   void SetMainThreadQoSPriority(nsIThread::QoSPriority aQoSPriority);
 
-  // This function is called when we are about to load a document from an
-  // HTTP(S) channel for a content process.  It is a useful place
-  // to start to kick off work as early as possible in response to such
-  // document loads.
-  // aShouldWaitForPermissionCookieUpdate is set to true if main thread IPCs for
-  // updating permissions/cookies are sent.
-  nsresult AboutToLoadHttpDocumentForChild(
-      nsIChannel* aChannel,
-      bool* aShouldWaitForPermissionCookieUpdate = nullptr);
+  // This is called when we are about to load a document for a content process.
+  //
+  // This method is used to eagerly send information to the content process
+  // which must be available before the document loads, such as permissions.
+  //
+  // NOTE: This will _not_ be called for document loads which bypass
+  // DocumentLoadListener, including initial about:blank documents, srcdoc
+  // documents, and javascript: URI response documents.
+  nsresult AboutToLoadDocumentForChild(nsIChannel* aChannel);
 
   // Send Blob URLs for this aPrincipal if they are not already known to this
   // content process and mark the process to receive any new/revoked Blob URLs

@@ -175,6 +175,7 @@ internal fun Homepage(
                                 TopSitesSection(
                                     topSites = topSites,
                                     topSiteColors = topSiteColors,
+                                    showHeader = showTopSitesHeader,
                                     interactor = interactor,
                                     onTopSitesItemBound = onTopSitesItemBound,
                                 )
@@ -314,17 +315,20 @@ private fun BannerCardSection(
 internal fun TopSitesSection(
     topSites: List<TopSite>,
     topSiteColors: TopSiteColors = TopSiteColors.colors(),
+    showHeader: Boolean = true,
     interactor: TopSiteInteractor,
     onTopSitesItemBound: () -> Unit,
 ) {
-    HomeSectionHeader(
-        headerText = stringResource(R.string.homepage_shortcuts_title),
-        modifier = Modifier.padding(horizontal = horizontalMargin),
-        description = stringResource(R.string.homepage_shortcuts_show_all_content_description),
-        onButtonClick = interactor::onShowAllTopSitesClicked,
-    )
+    if (showHeader) {
+        HomeSectionHeader(
+            headerText = stringResource(R.string.homepage_shortcuts_title),
+            modifier = Modifier.padding(horizontal = horizontalMargin),
+            description = stringResource(R.string.homepage_shortcuts_show_all_content_description),
+            onButtonClick = interactor::onShowAllTopSitesClicked,
+        )
 
-    Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(16.dp))
+    }
 
     TopSites(
         topSites = topSites,
@@ -543,6 +547,7 @@ private fun HomepagePreview() {
                     buttonBackgroundColor = WallpaperState.default.buttonBackgroundColor,
                     isSearchInProgress = false,
                     bottomPadding = 68,
+                    showTopSitesHeader = true,
                 ),
                 interactor = FakeHomepagePreview.homepageInteractor,
                 onTopSitesItemBound = {},
@@ -595,6 +600,7 @@ private fun HomepageBannerPreview() {
                     buttonBackgroundColor = WallpaperState.default.buttonBackgroundColor,
                     isSearchInProgress = false,
                     bottomPadding = 68,
+                    showTopSitesHeader = true,
                 ),
                 interactor = FakeHomepagePreview.homepageInteractor,
                 onTopSitesItemBound = {},
@@ -647,6 +653,7 @@ private fun HomepagePreviewCollections() {
                     buttonBackgroundColor = WallpaperState.default.buttonBackgroundColor,
                     isSearchInProgress = false,
                     bottomPadding = 68,
+                    showTopSitesHeader = true,
                 ),
                 interactor = FakeHomepagePreview.homepageInteractor,
                 onTopSitesItemBound = {},
@@ -699,6 +706,7 @@ private fun MinimalHomepagePreview() {
                     buttonBackgroundColor = WallpaperState.default.buttonBackgroundColor,
                     isSearchInProgress = false,
                     bottomPadding = 68,
+                    showTopSitesHeader = true,
                 ),
                 interactor = FakeHomepagePreview.homepageInteractor,
                 onTopSitesItemBound = {},

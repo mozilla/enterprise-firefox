@@ -3554,63 +3554,10 @@
     }
 
     /**
-     * Removes all tabs from a split view wrapper. This also removes the split view wrapper component
-     *
-     * @param {MozTabSplitViewWrapper} [splitView]
-     *   The split view to remove.
-     * @param {string} [trigger]
-     *   The trigger method for ending the split view. Used for telemetry.
-     *   Valid values: "menu_separate", "icon_separate", "icon_close", "tab_close", "footer_separate".
-     */
-    unsplitTabs(splitview, trigger = null) {
-      if (!splitview) {
-        return;
-      }
-
-      // Record telemetry for split view end
-      if (trigger) {
-        const tab_layout = this.tabContainer.verticalMode
-          ? "vertical"
-          : "horizontal";
-
-        Glean.splitview.end.record({
-          tab_layout,
-          trigger,
-        });
-      }
-
-      // If the split view has about:opentabs open, remove that tab
-      // otherwise unsplit the tabs
-      let aboutOpenTabs = splitview.tabs.filter(
-        tab => tab?.linkedBrowser?.currentURI?.spec === "about:opentabs"
-      );
-
-      if (!aboutOpenTabs.length) {
-        gBrowser.setIsSplitViewActive(false, splitview.tabs);
-
-        for (let i = splitview.tabs.length - 1; i >= 0; i--) {
-          this.#handleTabMove(splitview.tabs[i], () =>
-            gBrowser.tabContainer.insertBefore(
-              splitview.tabs[i],
-              splitview.nextElementSibling
-            )
-          );
-        }
-
-        splitview.remove();
-      } else {
-        aboutOpenTabs.forEach(aboutOpenTab => {
-          // Note: removeTab triggers #observeTabChanges in tabsplitview.js,
-          // which will call unsplitTabs() again.
-          gBrowser.removeTab(aboutOpenTab);
-        });
-      }
-    }
-
-    /**
      * Show the list of tabs <browsers> that are part of a split view.
      *
      * @param {MozTabbrowserTab[]} tabs
+     * @param {boolean} isActive
      */
     showSplitViewPanels(tabs) {
       const panels = [];
@@ -3621,22 +3568,10 @@
           tab.linkedBrowser.docShellIsActive = true;
           panels.push(tab.linkedPanel);
         }
+        const panelEl = document.getElementById(tab.linkedPanel);
+        panelEl?.classList.toggle("split-view-panel-active", true);
       }
-      this.setIsSplitViewActive(true, tabs);
       this.tabpanels.splitViewPanels = panels;
-    }
-
-    /**
-     * Toggle split view active attribute
-     *
-     * @param {boolean} isActive
-     * @param {MozTabbrowserTab[]} tabs
-     */
-    setIsSplitViewActive(isActive, tabs) {
-      for (const tab of tabs) {
-        this.tabpanels.setSplitViewPanelActive(isActive, tab.linkedPanel);
-      }
-      this.tabpanels.setSplitViewActive(!!gBrowser.selectedTab.splitview);
     }
 
     /**
@@ -7329,6 +7264,11 @@
       }
     }
 
+    /** public API to the below private method */
+    handleTabMove(element, moveActionCallback, metricsContext) {
+      this.#handleTabMove(element, moveActionCallback, metricsContext);
+    }
+
     /**
      * @param {MozTabbrowserTab|MozTabbrowserTabGroup|MozTabSplitViewWrapper} element
      * @param {function():void} moveActionCallback
@@ -10939,9 +10879,7 @@ var TabContextMenu = {
     const splitviews = new Set(
       this.contextTabs.map(tab => tab.splitview).filter(Boolean)
     );
-    splitviews.forEach(splitview =>
-      gBrowser.unsplitTabs(splitview, "menu_separate")
-    );
+    splitviews.forEach(splitview => splitview.unsplitTabs("menu_separate"));
   },
 
   reverseSplitView() {

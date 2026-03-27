@@ -117,5 +117,14 @@
   "icon/size/xlarge": "{Primitives$dimension/32}",
   "input/text/min/height": "{Primitives$button/min/height}",
   "link/focus/outline/offset": 1,
-  "page/main/content/width": 664
+  "page/main/content/width": 664,
+  "toggle/border/radius": "{Primitives$border/radius/circle}",
+  "toggle/border/width": "{Primitives$border/width}",
+  "toggle/height": "{Primitives$size/item/small}",
+  "toggle/width": "{Primitives$size/item/large}",
+  "toggle/dot/margin": 1,
+  "toggle/dot/height": 12,
+  "toggle/dot/width": "{Primitives$toggle/dot/height}",
+  "toggle/dot/transform-x": 16,
+  "toggle/inset": -2
 }

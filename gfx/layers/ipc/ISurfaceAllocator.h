@@ -79,7 +79,7 @@ class ISurfaceAllocator {
 
   virtual CompositableForwarder* AsCompositableForwarder() { return nullptr; }
 
-  virtual TextureForwarder* GetTextureForwarder() { return nullptr; }
+  virtual RefPtr<TextureForwarder> GetTextureForwarder();
 
   virtual ClientIPCAllocator* AsClientAllocator() { return nullptr; }
 

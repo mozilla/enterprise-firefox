@@ -1073,7 +1073,8 @@ void BrowserChild::ApplyParentShowInfo(const ParentShowInfo& aInfo) {
   // 0). So better to always set up-to-date values here.
   if (aInfo.dpi() > 0) {
     mPuppetWidget->UpdateBackingScaleCache(aInfo.dpi(), aInfo.widgetRounding(),
-                                           aInfo.defaultScale());
+                                           aInfo.defaultScale(),
+                                           aInfo.desktopToDeviceScale());
   }
 
   if (mDidSetRealShowInfo) {
@@ -3681,10 +3682,12 @@ void BrowserChild::NotifyJankedAnimations(
 }
 
 mozilla::ipc::IPCResult BrowserChild::RecvUIResolutionChanged(
-    const float& aDpi, const int32_t& aRounding, const double& aScale) {
+    const float& aDpi, const int32_t& aRounding, const double& aScale,
+    const double& aDesktopToDeviceScale) {
   const LayoutDeviceIntSize oldInnerSize = GetInnerSize();
   if (aDpi > 0) {
-    mPuppetWidget->UpdateBackingScaleCache(aDpi, aRounding, aScale);
+    mPuppetWidget->UpdateBackingScaleCache(aDpi, aRounding, aScale,
+                                           aDesktopToDeviceScale);
   }
 
   const LayoutDeviceIntSize innerSize = GetInnerSize();

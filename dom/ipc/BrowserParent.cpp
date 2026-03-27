@@ -581,7 +581,7 @@ ParentShowInfo BrowserParent::GetShowInfo() {
     mFrameElement->GetAttr(nsGkAtoms::name, name);
   }
   return ParentShowInfo(name, false, IsTransparent(), mDPI, mRounding,
-                        mDefaultScale.scale);
+                        mDefaultScale.scale, mDesktopToDeviceScale.scale);
 }
 
 already_AddRefed<nsIPrincipal> BrowserParent::GetContentPrincipal() const {
@@ -3561,6 +3561,8 @@ void BrowserParent::TryCacheDPIAndScale() {
   mRounding = widget ? widget->RoundsWidgetCoordinatesTo() : 1;
   mDefaultScale =
       widget ? widget->GetDefaultScale() : nsIWidget::GetFallbackDefaultScale();
+  mDesktopToDeviceScale = widget ? widget->GetDesktopToDeviceScale()
+                                 : DesktopToLayoutDeviceScale(1.0);
 
   if (mDefaultScale != oldDefaultScale) {
     // The change of the default scale factor will affect the child dimensions
@@ -3706,7 +3708,8 @@ void BrowserParent::NotifyResolutionChanged() {
   // We don't want to send that value to content. Just send -1 for it too in
   // that case.
   (void)SendUIResolutionChanged(mDPI, mRounding,
-                                mDPI < 0 ? -1.0 : mDefaultScale.scale);
+                                mDPI < 0 ? -1.0 : mDefaultScale.scale,
+                                mDesktopToDeviceScale.scale);
 }
 
 void BrowserParent::NotifyTransparencyChanged() {

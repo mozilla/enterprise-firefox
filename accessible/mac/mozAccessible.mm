@@ -179,6 +179,12 @@ using namespace mozilla::a11y;
     return [brailleRoleDescription length] == 0;
   }
 
+  if (selector == @selector(moxARIABrailleLabel)) {
+    NSString* brailleLabel =
+        utils::GetAccAttr(self, nsGkAtoms::aria_braillelabel);
+    return [brailleLabel length] == 0;
+  }
+
   if (selector == @selector(moxExpanded)) {
     return [self stateWithMask:states::EXPANDABLE] == 0;
   }
@@ -762,6 +768,10 @@ static bool ProvidesTitle(const Accessible* aAccessible, nsString& aName) {
 
 - (NSString*)moxARIABrailleRoleDescription {
   return utils::GetAccAttr(self, nsGkAtoms::aria_brailleroledescription);
+}
+
+- (NSString*)moxARIABrailleLabel {
+  return utils::GetAccAttr(self, nsGkAtoms::aria_braillelabel);
 }
 
 - (NSString*)moxARIARelevant {

@@ -39,6 +39,13 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///browser/components/aiwindow/ui/modules/AIWindow.sys.mjs",
 });
 
+ChromeUtils.defineLazyGetter(lazy, "console", () =>
+  console.createInstance({
+    prefix: "Conversation",
+    maxLogLevelPref: "browser.smartwindow.conversation.logLevel",
+  })
+);
+
 /**
  * @import { ChatConversation } from "moz-src:///browser/components/aiwindow/ui/modules/ChatConversation.sys.mjs"
  */
@@ -111,6 +118,10 @@ Object.assign(Chat, {
 
     const streamModelResponse = () => {
       const rawMessages = conversation.getMessagesInOpenAiFormat();
+      lazy.console.log(
+        `Request (${conversation.securityProperties.getLogText()})`,
+        rawMessages.at(-1)
+      );
       const compactedMessages = compactMessages(rawMessages);
 
       return engineInstance.runWithGenerator({
@@ -133,6 +144,7 @@ Object.assign(Chat, {
         );
         fullResponseText = response.fullResponseText;
         pendingToolCalls = response.pendingToolCalls;
+        lazy.console.log("Response", { fullResponseText, pendingToolCalls });
 
         if (response.usage) {
           this.lastUsage = response.usage;
@@ -303,6 +315,9 @@ Object.assign(Chat, {
           // Commit here because we return early below and never reach the
           // post-loop commit.
           conversation.securityProperties.commit();
+          lazy.console.log(
+            `Security commit ${conversation.securityProperties.getLogText()}`
+          );
 
           const win = searchHandoffBrowser?.ownerGlobal;
           if (!win || win.closed) {
@@ -335,6 +350,9 @@ Object.assign(Chat, {
       // Commit flags once all tool calls in this batch have finished so that
       // no tool call can observe flags staged by a sibling call.
       conversation.securityProperties.commit();
+      lazy.console.log(
+        `Security commit ${conversation.securityProperties.getLogText()}`
+      );
     }
   },
 

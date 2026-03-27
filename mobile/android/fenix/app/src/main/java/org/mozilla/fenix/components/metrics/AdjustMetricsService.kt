@@ -129,15 +129,13 @@ class AdjustMetricsService(
                     is Event.FirstWeekPostInstall -> event.tokenName
                 }
 
-                if (event is Event.GrowthData || event is Event.FirstWeekPostInstall) {
-                    if (storage.shouldTrack(event)) {
-                        Adjust.trackEvent(AdjustEvent(tokenName))
-                        storage.updateSentState(event)
-                        logger.info("Update sent state $event")
-                    } else {
-                        storage.updatePersistentState(event)
-                        logger.info("Update persistent state $event")
-                    }
+                if (
+                    (event is Event.GrowthData || event is Event.FirstWeekPostInstall) &&
+                    storage.shouldTrack(event)
+                ) {
+                    Adjust.trackEvent(AdjustEvent(tokenName))
+                    storage.updateSentState(event)
+                    logger.info("Update sent state $event")
                 }
             } catch (e: Exception) {
                 crashReporter.submitCaughtException(e)

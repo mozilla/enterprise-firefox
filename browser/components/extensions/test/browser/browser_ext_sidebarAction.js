@@ -125,16 +125,27 @@ add_task(async function sidebar__install_closed() {
   let extension = ExtensionTestUtils.loadExtension(tempExtData);
   await extension.startup();
 
-  // Test sidebar is closed on install
+  if (Services.prefs.getBoolPref("sidebar.revamp", false)) {
+    // The launcher toolbar will show automatically when an extension with sidebar
+    // action is installed. Wait for that to avoid racing the `.show()` below.
+    await BrowserTestUtils.waitForMutationCondition(
+      SidebarController.sidebarMain,
+      { attributes: true, attributeFilter: ["hidden"] },
+      () => !SidebarController.sidebarMain.hidden,
+      `Sidebar launcher element should be un-hidden`
+    );
+  }
+
+  // Test sidebar panel is closed on install
   ok(sidebarBox.hidden, "sidebar box is hidden");
 
-  SidebarController.show(`${makeWidgetId(extension.id)}-sidebar-action`);
+  await SidebarController.show(`${makeWidgetId(extension.id)}-sidebar-action`);
   ok(!sidebarBox.hidden, "Opened by the user.");
 
-  SidebarController.hide();
+  SidebarController.hide({ dismissPanel: true });
   ok(sidebarBox.hidden, "Hidden by the user.");
 
-  info("Reloading to verify the sidebar stays closed.");
+  info("Reloading to verify the sidebar panel stays closed.");
   let addon = await AddonManager.getAddonByID(extension.id);
   await addon.reload();
 
@@ -202,7 +213,7 @@ add_task(async function sidebar_isOpen() {
   await sendMessage(extension2, "isOpen", { result: true });
 
   info("Switch back to extension1's sidebar");
-  SidebarController.show(sidebar1ID);
+  await SidebarController.show(sidebar1ID);
   await extension1.awaitMessage("sidebar");
   await sendMessage(extension1, "isOpen", { result: true });
   await sendMessage(extension2, "isOpen", { result: false });
@@ -237,7 +248,7 @@ add_task(async function sidebar_isOpen() {
   newWin.close();
 
   info("Close the sidebar in the original window");
-  SidebarController.hide();
+  SidebarController.hide({ dismissPanel: true });
   await sendMessage(extension1, "isOpen", { result: false });
   await sendMessage(extension2, "isOpen", { result: false });
 
@@ -385,7 +396,7 @@ add_task(async function sidebar_action_icon_update() {
       "Extension has the correct icon."
     );
   }
-  SidebarController.hide();
+  SidebarController.hide({ dismissPanel: true });
   await sendMessage(extension, "isOpen", { result: false });
 
   await sendMessage(extension, "set-icon", "1.png");
@@ -523,6 +534,6 @@ add_task(async function sidebar_switcher_label_bug1905771_regression_test() {
   // NOTE: explicitly close the sidebar to prevent perma-failure when running in
   // test-verify mode (due to the sidebar not being inizially closed as the first
   // test ask in this file expects).
-  await window.SidebarController.hide();
+  await window.SidebarController.hide({ dismissPanel: true });
   await extension.unload();
 });

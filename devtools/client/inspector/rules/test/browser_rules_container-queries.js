@@ -270,7 +270,7 @@ async function assertJumpToContainerButton(
   // Move mouse so it does stay in a position where it could hover something impacting
   // the test.
   EventUtils.synthesizeMouse(
-    selectContainerButton.closest("body"),
+    view.styleDocument.body,
     0,
     0,
     { type: "mouseover" },

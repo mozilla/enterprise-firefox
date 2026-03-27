@@ -2590,7 +2590,6 @@ void UnlockProfile() {
 nsresult LaunchChild(bool aBlankCommandLine, bool aTryExec) {
   // Restart this process by exec'ing it into the current process
   // if supported by the platform.  Otherwise, use NSPR.
-
   if (aBlankCommandLine) {
     gRestartArgc = 1;
     gRestartArgv[gRestartArgc] = nullptr;
@@ -3109,7 +3108,27 @@ static nsresult SelectProfile(nsToolkitProfileService* aProfileSvc,
 #if defined(MOZ_ENTERPRISE)
   {
     auto forcedProfile = geckoargs::sProfile.IsPresent(gArgc, gArgv);
-    if (is_felt_ui() && !forcedProfile) {
+    // Those env var are set by LaunchChild() when performing a restart. Make
+    // sure the values are there and non empty to consider them as forced.
+    //
+    // AppShutdown::OnShutdownConfirmed() save them both so it is fine assuming
+    // they should be present both.
+    const char* xreProfilePath = PR_GetEnv("XRE_PROFILE_PATH");
+    auto savedProfile = xreProfilePath && *xreProfilePath;
+    const char* xreProfileLocalPath = PR_GetEnv("XRE_PROFILE_LOCAL_PATH");
+    auto savedLocalProfile = xreProfileLocalPath && *xreProfileLocalPath;
+
+    // When running as FELT UI use a hardcoded profile named "felt" and living
+    // in the OS' temporary directory. There are a few special cases where it is
+    // required to use a profile that is being given from different means:
+    //  - CLI argument "-profile ..."
+    //  - environment variables "XRE_PROFILE_PATH" / "XRE_PROFILE_LOCAL_PATH"
+    //
+    // If either of those are present, the following code is skipped and profile
+    // selection continues. This accounts for manually setting the profile,
+    // which is required including when using "mach run" as well as when FELT
+    // restarts for updates.
+    if (is_felt_ui() && !forcedProfile && !savedProfile && !savedLocalProfile) {
       nsCOMPtr<nsIFile> file;
       MOZ_TRY(GetSpecialSystemDirectory(OS_TemporaryDirectory,
                                         getter_AddRefs(file)));

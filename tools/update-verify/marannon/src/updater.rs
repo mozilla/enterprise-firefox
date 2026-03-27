@@ -4,7 +4,7 @@
 
 use std::fs::File;
 use std::io::{Error, ErrorKind};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use tar::Archive;
 use xz::read::XzDecoder;
@@ -36,14 +36,14 @@ impl std::str::FromStr for CertOverride {
 /// Prepare an updater `pkg` for usage by unpacking it and replacing any requested certs in the
 /// updater binary inside.
 pub(crate) fn prepare_updater(
-    pkg: &str,
+    pkg: &Path,
     appname: &str,
     cert_replace_script: Option<&Path>,
     cert_dir: Option<&Path>,
     cert_overrides: &[CertOverride],
     output_dir: &Path,
     runner: &dyn CommandRunner,
-) -> Result<String, Box<dyn std::error::Error>> {
+) -> Result<PathBuf, Box<dyn std::error::Error>> {
     let updater = unpack_updater(pkg, appname, output_dir)?;
     if !cert_overrides.is_empty() {
         replace_certs(
@@ -58,10 +58,10 @@ pub(crate) fn prepare_updater(
 }
 
 fn unpack_updater(
-    pkg: &str,
+    pkg: &Path,
     appname: &str,
     output_dir: &Path,
-) -> Result<String, Box<dyn std::error::Error>> {
+) -> Result<PathBuf, Box<dyn std::error::Error>> {
     let compressed = File::open(pkg)?;
     let tar = XzDecoder::new(compressed);
     let mut archive = Archive::new(tar);
@@ -78,13 +78,13 @@ fn unpack_updater(
             format!("updater binary doesn't exist at {updater_path}"),
         )));
     }
-    return Ok(updater_path.to_string());
+    return Ok(updater_binary);
 }
 
 fn replace_certs(
     cert_replace_script: &Path,
     cert_dir: &Path,
-    updater: &str,
+    updater: &Path,
     overrides: &[CertOverride],
     runner: &dyn CommandRunner,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -168,7 +168,7 @@ mod tests {
 
         make_tar_xz("firefox", &archive);
 
-        let result = unpack_updater(archive.to_str().unwrap(), "firefox", &output_dir);
+        let result = unpack_updater(&archive, "firefox", &output_dir);
         assert!(result.is_ok());
         assert!(std::path::Path::new(&result.unwrap()).exists());
     }
@@ -188,16 +188,16 @@ mod tests {
         let enc = builder.into_inner().unwrap();
         enc.finish().unwrap();
 
-        let result = unpack_updater(archive.to_str().unwrap(), "firefox", &output_dir);
+        let result = unpack_updater(&archive, "firefox", &output_dir);
         assert!(result.is_err());
     }
 
     #[test]
     fn replace_certs_success() {
         let result = replace_certs(
-            &Path::new("/fake/cert_replace.py"),
-            &Path::new("/fake/cert_dir"),
-            "/fake/updater",
+            &PathBuf::from("/fake/cert_replace.py"),
+            &PathBuf::from("/fake/cert_dir"),
+            &PathBuf::from("/fake/updater"),
             &vec![],
             &FakeRunner(0),
         );
@@ -207,9 +207,9 @@ mod tests {
     #[test]
     fn replace_certs_failure() {
         let result = replace_certs(
-            &Path::new("/fake/cert_replace.py"),
-            &Path::new("/fake/cert_dir"),
-            "/fake/updater",
+            &PathBuf::from("/fake/cert_replace.py"),
+            &PathBuf::from("/fake/cert_dir"),
+            &PathBuf::from("/fake/updater"),
             &vec![],
             &FakeRunner(1),
         );

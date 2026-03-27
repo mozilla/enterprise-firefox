@@ -57,7 +57,7 @@ VideoBridgeChild::VideoBridgeChild()
 
 VideoBridgeChild::~VideoBridgeChild() = default;
 
-VideoBridgeChild* VideoBridgeChild::GetSingleton() {
+RefPtr<VideoBridgeChild> VideoBridgeChild::GetSingleton() {
   StaticMutexAutoLock lock(sVideoBridgeLock);
   return sVideoBridge;
 }

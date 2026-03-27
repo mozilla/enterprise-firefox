@@ -210,6 +210,21 @@ crash:
     send_in_pings:
     - crash
     type: string
+  id:
+    bugs:
+    - https://bugzilla.mozilla.org/1993525
+    data_reviews:
+    - https://bugzilla.mozilla.org/1993525
+    data_sensitivity:
+    - technical
+    description: A UUID for the crash event.
+    expires: never
+    notification_emails:
+    - crash-reporting-wg@mozilla.org
+    - stability@mozilla.org
+    send_in_pings:
+    - crash
+    type: string
   ipc_channel_error:
     bugs:
     - https://bugzilla.mozilla.org/1950749

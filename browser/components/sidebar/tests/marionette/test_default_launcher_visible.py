@@ -5,7 +5,6 @@
 from pathlib import Path
 
 from marionette_driver import Wait
-from marionette_driver.by import By
 from marionette_harness import MarionetteTestCase
 from mozfile import json
 
@@ -175,7 +174,12 @@ class TestDefaultLauncherVisible(MarionetteTestCase):
         self.marionette.set_context("content")
         self.marionette.navigate("about:preferences")
 
-        self.marionette.find_element(By.ID, "browserLayoutShowSidebar").click()
+        self.marionette.execute_script(
+            """
+            let el = document.getElementById("browserLayoutShowSidebar");
+            el.click();
+            """
+        )
 
         self.marionette.set_context("chrome")
         self.assertTrue(

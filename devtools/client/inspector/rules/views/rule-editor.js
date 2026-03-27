@@ -131,6 +131,10 @@ class RuleEditor extends EventEmitter {
     if (this.#unsubscribeSourceMap) {
       this.#unsubscribeSourceMap();
     }
+
+    // Remove from the DOM so that CssRuleView can clear empty rule containers
+    this.element.remove();
+    this.element = null;
   }
 
   #sourceMapURLService;
@@ -167,6 +171,7 @@ class RuleEditor extends EventEmitter {
     this.element.dataset.ruleId = this.rule.domRule.actorID;
     this.element.setAttribute("uneditable", !this.isEditable);
     this.element.setAttribute("unmatched", this.rule.isUnmatched);
+    this.element.setAttribute("role", "article");
 
     // This is used by tests
     this.element._ruleEditor = this;
@@ -1278,7 +1283,10 @@ class RuleEditor extends EventEmitter {
 
       ruleProps.isUnmatched = !isMatching;
       const newRule = new Rule(elementStyle, ruleProps);
-      const editor = new RuleEditor(ruleView, newRule);
+      const editor = new RuleEditor(ruleView, newRule, {
+        elementsWithPendingClicks: new Set(),
+      });
+      newRule.editor = editor;
       const rules = elementStyle.rules;
 
       let newRuleIndex = applied.findIndex(r => r.rule == ruleProps.rule);
@@ -1308,6 +1316,9 @@ class RuleEditor extends EventEmitter {
       // element might be replaced).
       // Because of this, we need to handle setting the focus ourselves from here.
       editor.#moveSelectorFocus(direction);
+
+      // Destroy the current editor as it got replaced by the fresh instance
+      this.destroy();
     } catch (err) {
       this.isEditing = false;
       promiseWarn(err);

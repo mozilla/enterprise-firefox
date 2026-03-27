@@ -1748,10 +1748,9 @@ void GPUProcessManager::RemoveListener(GPUProcessListener* aListener) {
   mListeners.RemoveElement(aListener);
 }
 
-bool GPUProcessManager::NotifyGpuObservers(const char* aTopic) {
+bool GPUProcessManager::FlushActiveCheckerboardReports() {
   if (mGPUChild) {
-    nsCString topic(aTopic);
-    mGPUChild->SendNotifyGpuObservers(topic);
+    mGPUChild->SendFlushActiveCheckerboardReports();
     return true;
   }
 
@@ -1760,7 +1759,7 @@ bool GPUProcessManager::NotifyGpuObservers(const char* aTopic) {
         mozilla::services::GetObserverService();
     MOZ_ASSERT(obsSvc);
     if (obsSvc) {
-      obsSvc->NotifyObservers(nullptr, aTopic, nullptr);
+      obsSvc->NotifyObservers(nullptr, "APZ:FlushActiveCheckerboard", nullptr);
     }
     return true;
   }

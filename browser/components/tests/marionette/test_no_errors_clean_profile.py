@@ -83,6 +83,7 @@ known_errors = [
     },
     {"message": "FeltExtension: _refreshSession()"},
     {"message": "Unable to update user icon in badge without user information"},
+    {"message": "enterprise.logo_url pref is not set, skipping logo update"},
 ]
 
 # Same rules apply here - please don't add anything! - but headless runs

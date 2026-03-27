@@ -4,14 +4,7 @@
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 
-live_prefs = [
-    ["browser.sessionstore.restore_on_demand", False],
-    ["browser.sessionstore.resume_from_crash", False],
+config_prefs = [
     ["browser.policies.live_polling.frequency", 500],
-]
-
-userjs_prefs = [
-    ["devtools.browsertoolbox.scope", "everything"],
-    ["enterprise.console.test_float", 1.5],
-    ["enterprise.console.test_bool", True],
+    ["identity.sync.tokenserver.uri", ""],
 ]

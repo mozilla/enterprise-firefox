@@ -11580,7 +11580,8 @@ bool nsIFrame::IsFocusableDueToScrollFrame() {
   if (scrollContainer->GetScrollStyles().IsHiddenInBothDirections()) {
     return false;
   }
-  if (scrollContainer->GetScrollRange().IsEqualEdges(nsRect())) {
+  if (scrollContainer->GetScrollRangeForUserInputEvents().IsEqualEdges(
+          nsRect())) {
     return false;
   }
   return true;

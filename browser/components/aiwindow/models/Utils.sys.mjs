@@ -27,6 +27,7 @@ const APIKEY_PREF = "browser.smartwindow.apiKey";
 const MODEL_PREF = "browser.smartwindow.model";
 const ENDPOINT_PREF = "browser.smartwindow.endpoint";
 const MODEL_CHOICE_PREF = "browser.smartwindow.firstrun.modelChoice";
+const GENERIC_MODEL_NAME = "generic";
 
 /**
  * Default engine ID used for all AI Window features
@@ -368,6 +369,24 @@ export class openAIEngine {
   }
 
   /**
+   * Overrides the model config with generic config
+   *
+   * @param {Array} featureConfigs - All configs for the feature from Remote Settings
+   * @param {number} majorVersion - Required major version for the feature
+   *
+   * @private
+   */
+  _loadGenericChatPrompt(featureConfigs, majorVersion) {
+    console.warn(`Custom endpoint detected. Using generic chat prompt`);
+    this.#configs[MODEL_FEATURES.CHAT] = selectMainConfig(featureConfigs, {
+      majorVersion,
+      userModel: GENERIC_MODEL_NAME,
+      modelChoiceId: "",
+      feature: MODEL_FEATURES.CHAT,
+    });
+  }
+
+  /**
    * Applies configuration from Remote Settings with version-aware selection.
    *
    * @param {string} feature - The feature identifier
@@ -503,6 +522,9 @@ export class openAIEngine {
 
     const hasCustomEndpoint = Services.prefs.prefHasUserValue(ENDPOINT_PREF);
     if (hasCustomEndpoint) {
+      if (feature === MODEL_FEATURES.CHAT) {
+        this._loadGenericChatPrompt(featureConfigs, majorVersion);
+      }
       this._applyCustomEndpointModel();
     }
   }

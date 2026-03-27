@@ -134,6 +134,7 @@ void TemporalFilterTest::RunTest(int isRandom, int run_times,
   static_assert(block_size == BLOCK_64X64, "");
   const int width = 64;
   const int height = 64;
+  const int pels = width * height;
   int num_planes = MAX_MB_PLANE;
   int subsampling_x = 0;
   int subsampling_y = 0;
@@ -165,18 +166,23 @@ void TemporalFilterTest::RunTest(int isRandom, int run_times,
     }
     double sigma[MAX_MB_PLANE] = { 2.1002103677063437, 2.1002103677063437,
                                    2.1002103677063437 };
-    DECLARE_ALIGNED(16, unsigned int, accumulator_ref[1024 * 3]);
-    DECLARE_ALIGNED(16, uint16_t, count_ref[1024 * 3]);
-    memset(accumulator_ref, 0, 1024 * 3 * sizeof(accumulator_ref[0]));
-    memset(count_ref, 0, 1024 * 3 * sizeof(count_ref[0]));
-    DECLARE_ALIGNED(16, unsigned int, accumulator_mod[1024 * 3]);
-    DECLARE_ALIGNED(16, uint16_t, count_mod[1024 * 3]);
-    memset(accumulator_mod, 0, 1024 * 3 * sizeof(accumulator_mod[0]));
-    memset(count_mod, 0, 1024 * 3 * sizeof(count_mod[0]));
+    DECLARE_ALIGNED(16, unsigned int, accumulator_ref[pels * 3]);
+    DECLARE_ALIGNED(16, uint16_t, count_ref[pels * 3]);
+    memset(accumulator_ref, 0, pels * 3 * sizeof(accumulator_ref[0]));
+    memset(count_ref, 0, pels * 3 * sizeof(count_ref[0]));
+    DECLARE_ALIGNED(16, unsigned int, accumulator_mod[pels * 3]);
+    DECLARE_ALIGNED(16, uint16_t, count_mod[pels * 3]);
+    memset(accumulator_mod, 0, pels * 3 * sizeof(accumulator_mod[0]));
+    memset(count_mod, 0, pels * 3 * sizeof(count_mod[0]));
 
     static_assert(width == 64 && height == 64, "");
-    const MV subblock_mvs[4] = { { 0, 0 }, { 5, 5 }, { 7, 8 }, { 2, 10 } };
-    const int subblock_mses[4] = { 15, 16, 17, 18 };
+    const MV subblock_mvs[NUM_16X16] = {
+      { 0, 0 }, { 5, 5 },  { 7, 8 }, { 2, 10 }, { 0, 0 }, { 5, 5 },
+      { 7, 8 }, { 2, 10 }, { 0, 0 }, { 5, 5 },  { 7, 8 }, { 2, 10 },
+      { 0, 0 }, { 5, 5 },  { 7, 8 }, { 2, 10 }
+    };
+    const int subblock_mses[NUM_16X16] = { 15, 16, 17, 18, 15, 16, 17, 18,
+                                           15, 16, 17, 18, 15, 16, 17, 18 };
     const int q_factor = 12;
     const int filter_strength = 5;
     const int mb_row = 0;
@@ -190,10 +196,10 @@ void TemporalFilterTest::RunTest(int isRandom, int run_times,
     frame_to_filter->heights[PLANE_TYPE_UV] = height >> subsampling_y;
     frame_to_filter->strides[PLANE_TYPE_Y] = stride;
     frame_to_filter->strides[PLANE_TYPE_UV] = stride >> subsampling_x;
-    DECLARE_ALIGNED(16, uint8_t, src[1024 * 3]);
+    DECLARE_ALIGNED(16, uint8_t, src[pels * 3]);
     frame_to_filter->buffer_alloc = src;
     frame_to_filter->flags = 0;  // Only support low bit-depth test.
-    memcpy(src, src1_, 1024 * 3 * sizeof(uint8_t));
+    memcpy(src, src1_, pels * 3 * sizeof(uint8_t));
 
     std::unique_ptr<MACROBLOCKD> mbd(new (std::nothrow) MACROBLOCKD);
     ASSERT_NE(mbd, nullptr);
@@ -284,25 +290,21 @@ TEST_P(TemporalFilterTest, DISABLED_Speed) {
   RunTest(1, 100000, I444);
 }
 
-// av1_apply_temporal_filter_c works on 64x64 TF block now, the SIMD function
-// needs to be updated.
-// #if HAVE_AVX2
-// TemporalFilterFuncParam temporal_filter_test_avx2[] = {
-// TemporalFilterFuncParam(
-//    &av1_apply_temporal_filter_c, &av1_apply_temporal_filter_avx2) };
-// INSTANTIATE_TEST_SUITE_P(AVX2, TemporalFilterTest,
-//                         Combine(ValuesIn(temporal_filter_test_avx2),
-//                                 Values(0, 1)));
-// #endif  // HAVE_AVX2
-//
-// #if HAVE_SSE2
-// TemporalFilterFuncParam temporal_filter_test_sse2[] = {
-// TemporalFilterFuncParam(
-//    &av1_apply_temporal_filter_c, &av1_apply_temporal_filter_sse2) };
-// INSTANTIATE_TEST_SUITE_P(SSE2, TemporalFilterTest,
-//                         Combine(ValuesIn(temporal_filter_test_sse2),
-//                                 Values(0, 1)));
-// #endif  // HAVE_SSE2
+#if HAVE_AVX2
+TemporalFilterFuncParam temporal_filter_test_avx2[] = { TemporalFilterFuncParam(
+    &av1_apply_temporal_filter_c, &av1_apply_temporal_filter_avx2) };
+INSTANTIATE_TEST_SUITE_P(AVX2, TemporalFilterTest,
+                         Combine(ValuesIn(temporal_filter_test_avx2),
+                                 Values(0, 1)));
+#endif  // HAVE_AVX2
+
+#if HAVE_SSE2
+TemporalFilterFuncParam temporal_filter_test_sse2[] = { TemporalFilterFuncParam(
+    &av1_apply_temporal_filter_c, &av1_apply_temporal_filter_sse2) };
+INSTANTIATE_TEST_SUITE_P(SSE2, TemporalFilterTest,
+                         Combine(ValuesIn(temporal_filter_test_sse2),
+                                 Values(0, 1)));
+#endif  // HAVE_SSE2
 
 // av1_apply_temporal_filter_c works on 64x64 TF block now, the SIMD function
 // needs to be updated.

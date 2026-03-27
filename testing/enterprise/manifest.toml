@@ -20,6 +20,10 @@ subsuite = "enterprise"
 
 ["test_felt_browser_fxa.py"]
 
+["test_felt_browser_init_failures.py"]
+
+["test_felt_email_input_focus.py"]
+
 ["test_felt_browser_new_window_from_cli.py"]
 
 ["test_felt_browser_rapid_new_tabs_from_cli.py"]
@@ -45,6 +49,8 @@ run-if = [
 ["test_felt_browser_signout_verify.py"]
 
 ["test_felt_browser_starts.py"]
+
+["test_felt_browser_updater_errors.py"]
 
 ["test_felt_browser_updates_apply.py"]
 

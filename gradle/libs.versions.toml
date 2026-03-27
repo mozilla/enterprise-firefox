@@ -72,7 +72,7 @@ kaml = "0.104.0"
 kotlin-dsl = "6.5.2"
 protobuf-plugin = "0.9.6"
 python-envs-plugin = "0.0.31"
-semanticdb-javac = "0.11.1"
+semanticdb-javac = "0.12.0"
 semanticdb-kotlinc = "0.9.0"
 tomlj = "1.1.1"
 

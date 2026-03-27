@@ -47,7 +47,7 @@ add_task(async function () {
   await selectNode("span", inspector);
 
   info("Check new rule and property exist in the modified element");
-  await checkModifiedElement(view, "span", 1);
+  checkModifiedElement(view, "span", 1);
 });
 
 async function testEditSelector(view, newSelector) {

@@ -75,6 +75,17 @@
     "additional_components": []
   },
   {
+    "model": "generic",
+    "feature": "chat",
+    "prompts": "Generic model prompt loaded!",
+    "version": "2.0",
+    "is_default": false,
+    "parameters": {
+      "temperature": 1.0
+    },
+    "additional_components": []
+  },
+  {
     "model": "gpt-oss-120b",
     "feature": "chat",
     "prompts": "You are a helpful browser assistant - updated!",

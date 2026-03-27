@@ -89,6 +89,7 @@ async function test_addCrashBase(crashId, allThreads) {
     "c8ad56a2096310f40c8a4b46c890625a740fdd72e409f412933011ff947c5a40"
   );
   Assert.ok(crash.metadata.StackTraces, "The StackTraces field is present.\n");
+  Assert.ok(crash.metadata.CrashID, "The CrashID field is present.");
 
   try {
     let stackTraces = crash.metadata.StackTraces;

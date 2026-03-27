@@ -366,6 +366,15 @@ BuildID:
   glean:
     metric: crash.app_build
 
+CrashID:
+  description: A UUID for the crash event.
+  type: string
+  scope: ping
+  bugs:
+    - 1993525
+  glean:
+    metric: crash.id
+
 CrashType:
   description: The type of crash that occurred (Android-only).
   type: string

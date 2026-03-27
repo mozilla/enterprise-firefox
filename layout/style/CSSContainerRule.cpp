@@ -64,6 +64,13 @@ void CSSContainerRule::GetContainerQuery(nsACString& aQuery) const {
   Servo_ContainerRule_GetContainerQuery(mRawRule, &aQuery);
 }
 
+void CSSContainerRule::GetConditions(
+    nsTArray<CSSContainerCondition>& aConditions) const {
+  auto& condition = *aConditions.AppendElement();
+  GetContainerName(condition.mName);
+  GetContainerQuery(condition.mQuery);
+}
+
 Element* CSSContainerRule::QueryContainerFor(const Element& aElement) const {
   return const_cast<Element*>(
       Servo_ContainerRule_QueryContainerFor(mRawRule, &aElement));

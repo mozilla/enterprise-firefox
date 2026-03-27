@@ -959,8 +959,6 @@ class PageStyleActor extends Actor {
         // FIXME: Bug 1909173. Need to handle view transitions peudo-elements
         // for DevTools. For now we skip them.
         return false;
-      case "::-webkit-scrollbar":
-        return false;
       default:
         console.error("Unhandled pseudo-element " + pseudo);
         return false;

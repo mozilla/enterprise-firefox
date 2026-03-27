@@ -147,12 +147,6 @@ As of Firefox 150 this section is no longer present.
 
 Only available in the extended set of measures, it contains a set of counters related to Addons. See `here <https://searchfox.org/mozilla-central/search?q=AddonManagerPrivate.recordSimpleMeasure&redirect=false&case=true>`__ for a list of recorded measures.
 
-UITelemetry
-~~~~~~~~~~~
-As of Firefox 61 this section is no longer present.
-
-Only available in the extended set of measures. For more see :ref:`uitelemetry`.
-
 js
 ~~
 This section contains a series of counters from the JavaScript engine.

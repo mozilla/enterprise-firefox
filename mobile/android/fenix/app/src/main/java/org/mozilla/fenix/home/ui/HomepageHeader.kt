@@ -92,7 +92,7 @@ private fun PrivateBrowsingButton(
     ) {
         Icon(
             tint = color,
-            painter = painterResource(iconsR.drawable.mozac_ic_private_mode_24),
+            painter = painterResource(iconsR.drawable.mozac_ic_private_mode_fill_24),
             contentDescription = stringResource(R.string.content_description_private_browsing),
         )
     }

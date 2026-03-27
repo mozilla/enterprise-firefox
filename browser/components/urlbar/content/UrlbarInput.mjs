@@ -2338,7 +2338,7 @@ export class UrlbarInput extends HTMLElement {
     }
     this.selectionStart = -1;
 
-    this.window.openTrustedLinkIn(url, where);
+    this.window.openTrustedLinkIn(url, where, { inBackground: true });
   }
 
   /**

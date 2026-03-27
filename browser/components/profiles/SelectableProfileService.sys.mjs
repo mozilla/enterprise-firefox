@@ -1271,7 +1271,19 @@ class SelectableProfileServiceClass extends EventEmitter {
     if (!aProfile) {
       return;
     }
-    this.groupToolkitProfile.rootDir = await aProfile.rootDir;
+
+    let newRootDir = await aProfile.rootDir;
+
+    // If the profile directory for the group is not changing and no other
+    // instance has updated profiles.ini then we don't need to do anything.
+    if (
+      newRootDir.equals(this.groupToolkitProfile.rootDir) &&
+      !this.#profileService.isListOutdated
+    ) {
+      return;
+    }
+
+    this.groupToolkitProfile.rootDir = newRootDir;
     Glean.profilesDefault.updated.record();
     await this.#attemptFlushProfileService();
   }

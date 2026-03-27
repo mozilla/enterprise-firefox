@@ -7,6 +7,7 @@
 
 #include "mozilla/ServoBindingTypes.h"
 #include "mozilla/css/GroupRule.h"
+#include "mozilla/dom/CSSContainerRuleBindingFwd.h"
 
 namespace mozilla::dom {
 
@@ -34,6 +35,7 @@ class CSSContainerRule final : public css::ConditionRule {
 
   void GetContainerName(nsACString&) const;
   void GetContainerQuery(nsACString&) const;
+  void GetConditions(nsTArray<CSSContainerCondition>&) const;
 
   size_t SizeOfIncludingThis(MallocSizeOf) const override;
 

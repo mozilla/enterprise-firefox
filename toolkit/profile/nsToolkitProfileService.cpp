@@ -2366,6 +2366,67 @@ nsToolkitProfileService::GetProfileCount(uint32_t* aResult) {
   return NS_OK;
 }
 
+static nsCString FindSectionByStoreID(nsINIParser& aParser,
+                                      const nsCString& aStoreID) {
+  nsCString iniSection;
+
+  if (aStoreID.IsEmpty()) {
+    return iniSection;
+  }
+
+  bool sawStoreID = false;
+
+  aParser.GetSections([&](const char* section) {
+    nsCString value;
+    nsresult rv = aParser.GetString(section, "StoreID", value);
+
+    if (NS_SUCCEEDED(rv) && aStoreID.Equals(value)) {
+      // If we found a second profile with the same store ID then we can't be
+      // sure which one is correct so return an empty section to indicate
+      // failure.
+      if (sawStoreID) {
+        iniSection = "";
+        return false;
+      }
+
+      iniSection = section;
+      sawStoreID = true;
+    }
+
+    return true;
+  });
+
+  return iniSection;
+}
+
+static nsCString FindSectionByPath(nsINIParser& aParser,
+                                   const nsCString& aPath) {
+  nsCString iniSection;
+  bool sawPath = false;
+
+  aParser.GetSections([&](const char* section) {
+    nsCString value;
+    nsresult rv = aParser.GetString(section, "Path", value);
+
+    if (NS_SUCCEEDED(rv) && aPath.Equals(value)) {
+      // If we found a second profile with the same path then we can't be
+      // sure which one is correct so return an empty section to indicate
+      // failure.
+      if (sawPath) {
+        iniSection = "";
+        return false;
+      }
+
+      iniSection = section;
+      sawPath = true;
+    }
+
+    return true;
+  });
+
+  return iniSection;
+}
+
 // Attempts to merge the given profile data into the on-disk versions which may
 // have changed since they were loaded.
 nsresult WriteProfileInfo(nsIFile* profilesDBFile, nsIFile* installDBFile,
@@ -2378,30 +2439,12 @@ nsresult WriteProfileInfo(nsIFile* profilesDBFile, nsIFile* installDBFile,
   // The INI data may have changed on disk so we cannot guarantee the section
   // mapping remains the same. So we attempt to find the current profile's info
   // by path or store ID.
-  nsCString iniSection;
-  profilesIni.GetSections(
-      [&profileInfo, &profilesIni, &iniSection](const char* section) {
-        nsCString value;
-        nsresult rv = profilesIni.GetString(section, "StoreID", value);
+  nsCString iniSection =
+      FindSectionByStoreID(profilesIni, profileInfo->mStoreID);
 
-        if (NS_SUCCEEDED(rv)) {
-          if (profileInfo->mStoreID.Equals(value)) {
-            iniSection = section;
-            // This is definitely the right one so no need to continue.
-            return false;
-          }
-        }
-
-        if (iniSection.IsEmpty()) {
-          rv = profilesIni.GetString(section, "Path", value);
-          if (NS_SUCCEEDED(rv) && profileInfo->mPath.Equals(value)) {
-            // This might be right but we would prefer to find by store ID.
-            iniSection = section;
-          }
-        }
-
-        return true;
-      });
+  if (iniSection.IsEmpty()) {
+    iniSection = FindSectionByPath(profilesIni, profileInfo->mPath);
+  }
 
   if (iniSection.IsEmpty()) {
     // No section found. Should we write a new one?

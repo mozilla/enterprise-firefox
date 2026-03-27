@@ -773,12 +773,17 @@ const TargetingGetters = {
       lazy.SearchService.getAppProvidedEngines()
         .then(engines => {
           let { defaultEngine } = lazy.SearchService;
+          let hasEnteredSearchMode = Object.fromEntries(
+            engines.map(e => [e.id, e.hasBeenUsed])
+          );
+
           resolve({
             // Skip reporting the id for third party engines.
             current: defaultEngine.isAppProvided ? defaultEngine.id : null,
             // We don't need to filter the id here, as getAppProvidedEngines has
             // already done that for us.
             installed: engines.map(engine => engine.id),
+            hasEnteredSearchMode,
           });
         })
         .catch(() => resolve(NONE));

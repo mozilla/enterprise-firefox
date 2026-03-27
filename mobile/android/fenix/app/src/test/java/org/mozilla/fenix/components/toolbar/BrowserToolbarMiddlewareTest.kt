@@ -13,7 +13,6 @@ import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
-import io.mockk.slot
 import io.mockk.spyk
 import io.mockk.verify
 import kotlinx.coroutines.CoroutineScope
@@ -3132,7 +3131,7 @@ class BrowserToolbarMiddlewareTest {
                     onClick = AddNewTab(source),
                 ),
                 BrowserToolbarMenuButton(
-                    icon = DrawableResIcon(iconsR.drawable.mozac_ic_private_mode_24),
+                    icon = DrawableResIcon(iconsR.drawable.mozac_ic_private_mode_fill_24),
                     text = StringResText(tabcounterR.string.mozac_browser_menu_new_private_tab),
                     contentDescription = StringResContentDescription(tabcounterR.string.mozac_browser_menu_new_private_tab),
                     onClick = AddNewPrivateTab(source),

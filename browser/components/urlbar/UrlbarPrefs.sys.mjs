@@ -262,11 +262,6 @@ const PREF_URLBAR_DEFAULTS = /** @type {PreferenceDefinition[]} */ ([
   // should be opened in new tabs by default.
   ["openintab", false],
 
-  // Once Perplexity has entered search mode at least once,
-  // we no longer show the Perplexity onboarding callout.
-  // This pref will be set to true when perplexity search mode is detected.
-  ["perplexity.hasBeenInSearchMode", false],
-
   // If disabled, QuickActions will not be included in either the default search
   // mode or the QuickActions search mode.
   ["quickactions.enabled", true],

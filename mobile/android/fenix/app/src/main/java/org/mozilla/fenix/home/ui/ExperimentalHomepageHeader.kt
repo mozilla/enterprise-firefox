@@ -110,7 +110,7 @@ private fun PrivateModeButton(onClick: () -> Unit) {
         },
     ) {
         Icon(
-            painter = painterResource(R.drawable.private_mode_icon),
+            painter = painterResource(iconsR.drawable.mozac_ic_private_mode_24),
             contentDescription = stringResource(R.string.content_description_private_browsing),
         )
     }

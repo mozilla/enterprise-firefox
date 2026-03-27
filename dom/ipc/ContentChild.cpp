@@ -1208,11 +1208,12 @@ nsresult ContentChild::ProvideWindowCommon(
       return;
     }
 
-    ParentShowInfo showInfo(u""_ns, /* fakeShowInfo = */ true,
-                            /* isTransparent = */ false,
-                            newChild->WebWidget()->GetDPI(),
-                            newChild->WebWidget()->RoundsWidgetCoordinatesTo(),
-                            newChild->WebWidget()->GetDefaultScale().scale);
+    ParentShowInfo showInfo(
+        u""_ns, /* fakeShowInfo = */ true,
+        /* isTransparent = */ false, newChild->WebWidget()->GetDPI(),
+        newChild->WebWidget()->RoundsWidgetCoordinatesTo(),
+        newChild->WebWidget()->GetDefaultScale().scale,
+        newChild->WebWidget()->GetDesktopToDeviceScale().scale);
 
     newChild->SetMaxTouchPoints(maxTouchPoints);
 

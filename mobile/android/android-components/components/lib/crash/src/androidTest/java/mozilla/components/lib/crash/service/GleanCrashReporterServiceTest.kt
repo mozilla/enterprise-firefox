@@ -269,6 +269,7 @@ class GleanCrashReporterServiceTest {
                 "StartupCrash": "1",
                 "TotalPhysicalMemory": "100",
                 "AsyncShutdownTimeout": "{\"phase\":\"abcd\",\"conditions\":[{\"foo\":\"bar\"}],\"brokenAddBlockers\":[\"foo\"]}",
+                "CrashID": "d462c4b4-a9f8-4244-b526-7435fcdc4403",
                 "QuotaManagerShutdownTimeout": "line1\nline2\nline3",
                 "StackTraces": $stackTracesAnnotation,
                 "JSLargeAllocationFailure": "reporting",
@@ -294,6 +295,7 @@ class GleanCrashReporterServiceTest {
                 get("crash.time")?.jsonPrimitive?.content,
             )
             assertEquals("main", get("crash.process_type")?.jsonPrimitive?.content)
+            assertEquals("d462c4b4-a9f8-4244-b526-7435fcdc4403", get("crash.id")?.jsonPrimitive?.content)
             assertEquals(
                 "fatal native crash",
                 get("crash.crash_type")?.jsonPrimitive?.content,
@@ -346,6 +348,7 @@ class GleanCrashReporterServiceTest {
                 RuntimeTag.VERSION_NAME to "142.0.0",
                 RuntimeTag.BUILD_ID to "1337",
             ),
+            uuid = "2b341259-e273-47a8-8a31-86c7ebe2e6f8",
         )
 
         var pingSent = false
@@ -355,6 +358,7 @@ class GleanCrashReporterServiceTest {
                 get("crash.time")?.jsonPrimitive?.content,
             )
             assertEquals("main", get("crash.process_type")?.jsonPrimitive?.content)
+            assertEquals("2b341259-e273-47a8-8a31-86c7ebe2e6f8", get("crash.id")?.jsonPrimitive?.content)
             assertEquals(
                 "uncaught exception",
                 get("crash.crash_type")?.jsonPrimitive?.content,

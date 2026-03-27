@@ -162,28 +162,41 @@ async function toggleSidebarPanel(win, commandID) {
   await promiseFocused;
 }
 
-async function ensureSidebarLauncherIsVisible(win = window) {
+async function _ensureSidebarLauncherShowing(win = window, visible = true) {
   const {
     promiseInitialized,
-    toolbarButton,
     sidebarMain: sidebarLauncher,
     sidebarContainer,
   } = win.SidebarController;
   await promiseInitialized;
+  const hidden = !visible;
   // Show the sidebar launcher if the container is hidden
-  if (sidebarContainer.hidden) {
-    toolbarButton.doCommand();
+  if (sidebarContainer.hidden !== hidden) {
+    // The command handler for the sidebar-button sets up the sidebar and button
+    // state we want. But we can't always guarantee the sidebar-button is present,
+    // so we call the handler directly.
+    win.SidebarController.handleToolbarButtonClick();
     await sidebarLauncher.updateComplete;
-    await BrowserTestUtils.waitForMutationCondition(
-      sidebarContainer,
-      { attributes: true, attributeFilter: ["hidden"] },
-      () => !sidebarContainer.hidden
+    await waitForElementHidden(sidebarContainer, hidden);
+    await win.SidebarController.waitUntilStable();
+  }
+  if (visible) {
+    Assert.ok(
+      BrowserTestUtils.isVisible(sidebarLauncher),
+      "Sidebar launcher is visible"
+    );
+  } else {
+    Assert.ok(
+      BrowserTestUtils.isHidden(sidebarLauncher),
+      "Sidebar launcher is hidden"
     );
   }
-  Assert.ok(
-    BrowserTestUtils.isVisible(sidebarLauncher),
-    "Sidebar launcher is visible"
-  );
+}
+function ensureSidebarLauncherIsHidden(win = window) {
+  return _ensureSidebarLauncherShowing(win, false);
+}
+function ensureSidebarLauncherIsVisible(win = window) {
+  return _ensureSidebarLauncherShowing(win, true);
 }
 
 async function waitForTabstripOrientation(
@@ -294,6 +307,16 @@ async function focusWithKeyboard(element, keyCode, contentWindow) {
   );
   EventUtils.synthesizeKey(keyCode, {}, contentWindow);
   await focused;
+}
+
+async function waitForElementHidden(elem, hidden = true) {
+  info(`waitForElementHidden, expected: ${hidden}, current: ${elem.hidden}`);
+  await BrowserTestUtils.waitForMutationCondition(
+    elem,
+    { attributes: true, attributeFilter: ["hidden"] },
+    () => elem.hidden === hidden,
+    `Element hidden should be ${hidden}`
+  );
 }
 
 /**

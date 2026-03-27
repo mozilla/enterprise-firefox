@@ -518,6 +518,7 @@
         let panel = tab.linkedPanel;
         const panelEl = document.getElementById(panel);
         panelEl?.classList.remove("split-view-panel");
+        panelEl?.classList.remove("split-view-panel-active");
         panelEl?.removeAttribute("column");
         const browser = panelEl?.querySelector("browser");
         const browserContainer = panelEl?.querySelector(".browserContainer");
@@ -599,11 +600,6 @@
       this.selectedPanel = selectedPanel;
       // Update aria attributes
       this.#splitterAriaUpdateTask.arm();
-    }
-
-    setSplitViewPanelActive(isActive, panel) {
-      const panelEl = document.getElementById(panel);
-      panelEl?.classList.toggle("split-view-panel-active", isActive);
     }
   }
 

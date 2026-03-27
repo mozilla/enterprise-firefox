@@ -8261,12 +8261,12 @@ nsMargin nsLayoutUtils::ScrollbarAreaToExcludeFromCompositionBoundsFor(
   if (!isRootContentDocRootScrollFrame) {
     return nsMargin();
   }
+  if (presContext->UseOverlayScrollbars()) {
+    return nsMargin();
+  }
   ScrollContainerFrame* scrollContainerFrame =
       aScrollFrame->GetScrollTargetFrame();
   if (!scrollContainerFrame) {
-    return nsMargin();
-  }
-  if (scrollContainerFrame->UseOverlayScrollbars()) {
     return nsMargin();
   }
   return scrollContainerFrame->GetActualScrollbarSizes(
@@ -9794,7 +9794,8 @@ bool nsLayoutUtils::ShouldHandleMetaViewport(const Document* aDocument) {
   return StaticPrefs::dom_meta_viewport_enabled() || (bc && bc->InRDMPane());
 }
 
-static nsIContent* GetOriginatingElementForScrollbarPart(
+/* static */
+ComputedStyle* nsLayoutUtils::StyleForScrollbar(
     const nsIFrame* aScrollbarPart) {
   // Get the closest content node which is not an anonymous scrollbar
   // part. It should be the originating element of the scrollbar part.
@@ -9812,14 +9813,6 @@ static nsIContent* GetOriginatingElementForScrollbarPart(
     content = content->GetParent();
   }
   MOZ_ASSERT(content, "Native anonymous element with no originating node?");
-  return content;
-}
-
-/* static */
-ComputedStyle* nsLayoutUtils::StyleForScrollbar(
-    const nsIFrame* aScrollbarPart) {
-  nsIContent* content = GetOriginatingElementForScrollbarPart(aScrollbarPart);
-
   // Use the style from the primary frame of the content.
   // Note: it is important to use the primary frame rather than an
   // ancestor frame of the scrollbar part for the correct handling of
@@ -9843,40 +9836,6 @@ ComputedStyle* nsLayoutUtils::StyleForScrollbar(
   // Dropping the strong reference is fine because the style should be
   // held strongly by the element.
   return style.get();
-}
-
-/* static */
-bool nsLayoutUtils::UseOverlayScrollbars(const nsIFrame* aScrollbarPart) {
-  nsIContent* content = GetOriginatingElementForScrollbarPart(aScrollbarPart);
-  if (nsIFrame* primaryFrame = content->GetPrimaryFrame()) {
-    ScrollContainerFrame* scrollContainerFrame = do_QueryFrame(primaryFrame);
-    if (!scrollContainerFrame) {
-      scrollContainerFrame =
-          primaryFrame->PresShell()->GetRootScrollContainerFrame();
-    }
-    if (scrollContainerFrame) {
-      return scrollContainerFrame->UseOverlayScrollbars();
-    }
-  }
-  return aScrollbarPart->PresContext()->UseOverlayScrollbars();
-}
-
-/* static */
-StyleScrollbarWidth nsLayoutUtils::ScrollbarWidthFor(
-    const nsIFrame* aScrollbarPart) {
-  const auto* style = StyleForScrollbar(aScrollbarPart);
-  nsIContent* content = GetOriginatingElementForScrollbarPart(aScrollbarPart);
-  if (nsIFrame* primaryFrame = content->GetPrimaryFrame()) {
-    ScrollContainerFrame* scrollContainerFrame = do_QueryFrame(primaryFrame);
-    if (!scrollContainerFrame) {
-      scrollContainerFrame =
-          primaryFrame->PresShell()->GetRootScrollContainerFrame();
-    }
-    if (scrollContainerFrame) {
-      return scrollContainerFrame->ScrollbarWidth(style);
-    }
-  }
-  return style->StyleUIReset()->ComputedScrollbarWidth();
 }
 
 enum class FramePosition : uint8_t {

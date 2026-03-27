@@ -417,8 +417,8 @@ class HttpChannelChild final : public PHttpChannelChild,
   uint8_t mRecvOnStartRequestSentCalled : 1;
 
   // True if this channel is for a document and suspended by waiting for
-  // permission or cookie. That is, RecvOnStartRequestSent is received.
-  uint8_t mSuspendedByWaitingForPermissionCookie : 1;
+  // cookies. That is, RecvOnStartRequestSent is received.
+  uint8_t mSuspendedByWaitingForCookies : 1;
 
   // HttpChannelChild::Release has some special logic that makes sure
   // OnStart/OnStop are always called when releasing the channel.

@@ -4,19 +4,25 @@
 
 use std::fs::File;
 use std::io::copy;
+use std::path::Path;
 
+use log::info;
 use ureq;
 
 /// A simple trait to facilitate unit testing of functions that download files.
 pub(crate) trait FileDownloader {
-    fn fetch(&self, url: &str, dest: &str) -> Result<(), Box<dyn std::error::Error>>;
+    fn fetch(&self, url: &str, dest: &Path) -> Result<(), Box<dyn std::error::Error>>;
 }
 
 pub(crate) struct UreqDownloader;
 
 impl FileDownloader for UreqDownloader {
-    fn fetch(&self, url: &str, dest: &str) -> Result<(), Box<dyn std::error::Error>> {
-        println!("Downloading {} to {}", url, dest);
+    fn fetch(&self, url: &str, dest: &Path) -> Result<(), Box<dyn std::error::Error>> {
+        info!(
+            "Downloading {} to {}",
+            url,
+            dest.to_str().unwrap_or("on disk location")
+        );
         let mut response = ureq::get(url).call()?.into_body().into_reader();
         let mut dest_file = File::create(dest)?;
         copy(&mut response, &mut dest_file)?;

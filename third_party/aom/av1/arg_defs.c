@@ -326,7 +326,7 @@ const av1_codec_arg_definitions_t g_av1_codec_arg_defs = {
   .enable_tpl_model = ARG_DEF(NULL, "enable-tpl-model", 1,
                               "RDO based on frame temporal dependency "
                               "(0: off, 1: backward source based); "
-                              "required for deltaq mode"),
+                              "required for --deltaq-mode=1"),
   .enable_keyframe_filtering = ARG_DEF(
       NULL, "enable-keyframe-filtering", 1,
       "Apply temporal filtering on key frame "
@@ -557,7 +557,7 @@ const av1_codec_arg_definitions_t g_av1_codec_arg_defs = {
               "Delta qindex mode (0: off, 1: deltaq objective (default), "
               "2: deltaq placeholder, 3: key frame visual quality, 4: user "
               "rating based visual quality optimization, 5: HDR video, 6: "
-              "Variance Boost all intra); requires --enable-tpl-model=1"),
+              "Variance Boost); --deltaq-mode=1 requires --enable-tpl-model=1"),
   .deltaq_strength = ARG_DEF(NULL, "deltaq-strength", 1,
                              "Deltaq strength for"
                              " --deltaq-mode=4 and --deltaq-mode=6 (%)"),

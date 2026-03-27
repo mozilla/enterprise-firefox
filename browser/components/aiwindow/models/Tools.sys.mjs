@@ -35,6 +35,13 @@ ChromeUtils.defineESModuleGetters(lazy, {
   //   "moz-src:///browser/components/pagedata/PageDataService.sys.mjs",
 });
 
+ChromeUtils.defineLazyGetter(lazy, "console", () =>
+  console.createInstance({
+    prefix: "Conversation",
+    maxLogLevelPref: "browser.smartwindow.conversation.logLevel",
+  })
+);
+
 // Important! Changing or removing this value requires a security review.
 //
 // Hard code a reasonable working limit for how many tabs that a language model can retrieve.
@@ -285,6 +292,7 @@ export async function getOpenTabs(_params, securityProperties) {
   // Tab titles are truncated to 100 characters and therefore not expected to
   // contain enough untrusted data for a prompt injection attack.
   securityProperties.setPrivateData();
+  lazy.console.log("[Tool] getOpenTabs", result);
   return result;
 }
 
@@ -327,6 +335,7 @@ export async function searchBrowsingHistory(toolParams, securityProperties) {
     historyLimit: MAX_HISTORY_RESULTS,
   });
   securityProperties.setPrivateData();
+  lazy.console.log("[Tool] searchBrowsingHistory", result);
   return result;
 }
 
@@ -493,6 +502,8 @@ export class RunSearch {
 
     securityProperties.setPrivateData();
     securityProperties.setUntrustedInput();
+
+    lazy.console.log("[Tool] runSearch", result);
     return result;
   }
 
@@ -657,7 +668,7 @@ export class GetPageContent {
       throw new Error("The url list must be an array of stirngs");
     }
 
-    return Promise.all(
+    const results = await Promise.all(
       url_list.map(async (url, index) => {
         if (!isAllowedURL(url)) {
           return "This URL is not allowed: " + url;
@@ -675,6 +686,8 @@ export class GetPageContent {
         }
       })
     );
+    lazy.console.log("[Tool] getPageContent", results);
+    return results;
   }
 
   /**
@@ -802,5 +815,6 @@ export async function getUserMemories(_toolParams, securityProperties) {
   // Memory summaries are private user data. They are truncated to 100
   // characters, so they are not considered untrusted input.
   securityProperties.setPrivateData();
+  lazy.console.log("[Tool] getUserMemories", result);
   return result;
 }

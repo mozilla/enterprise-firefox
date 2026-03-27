@@ -111,6 +111,37 @@ add_task(async function test_button_toggles_with_navigation() {
   });
 });
 
+add_task(async function test_button_hidden_when_switching_to_non_locked_tab() {
+  await setupWithSitePolicies();
+
+  let lockedTab = await BrowserTestUtils.openNewForegroundTab(
+    gBrowser,
+    LOCKED_URL
+  );
+  Assert.ok(
+    !getLockdownUrlbarButton().hidden,
+    "Urlbar button should be visible on a locked-down page"
+  );
+
+  let unlockedTab = await BrowserTestUtils.openNewForegroundTab(
+    gBrowser,
+    UNLOCKED_URL
+  );
+  Assert.ok(
+    getLockdownUrlbarButton().hidden,
+    "Urlbar button should be hidden after switching to a non-locked-down tab"
+  );
+
+  await BrowserTestUtils.switchTab(gBrowser, lockedTab);
+  Assert.ok(
+    !getLockdownUrlbarButton().hidden,
+    "Urlbar button should be visible after switching back to locked-down tab"
+  );
+
+  BrowserTestUtils.removeTab(lockedTab);
+  BrowserTestUtils.removeTab(unlockedTab);
+});
+
 add_task(async function test_button_position() {
   await setupWithSitePolicies();
 

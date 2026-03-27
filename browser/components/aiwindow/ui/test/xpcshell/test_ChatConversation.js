@@ -840,7 +840,8 @@ add_task(
     const memoriesContext = await conversation.getMemoriesContext(
       "hello",
       mockEngineInstance,
-      constructMemories
+      constructMemories,
+      new SecurityProperties()
     );
 
     Assert.withSoftAssertions(function (soft) {
@@ -1112,6 +1113,181 @@ add_task(
         "memoriesContext should be set on userContext before generatePrompt resolves"
       );
     });
+  }
+);
+
+add_task(async function test_getRealTimeInfo_setsPrivateData_when_hasTabInfo() {
+  const securityProperties = new SecurityProperties();
+  const mockGetRealTimeMapping = lazy.sinon.stub().resolves({
+    todayDate: "2024-01-15",
+    url: "https://example.com",
+    title: "Example Page",
+    hasTabInfo: true,
+    locale: "en-US",
+    timezone: "America/Los_Angeles",
+    isoTimestamp: "2024-01-15T10:30:00",
+  });
+  const mockEngineInstance = {
+    loadPrompt: lazy.sinon.stub().resolves("{todayDate}"),
+  };
+
+  const conversation = new ChatConversation({});
+  await conversation.getRealTimeInfo(mockEngineInstance, {
+    getRealTimeMapping: mockGetRealTimeMapping,
+    securityProperties,
+  });
+
+  securityProperties.commit();
+  Assert.ok(
+    securityProperties.privateData,
+    "privateData should be true after commit when hasTabInfo is true"
+  );
+});
+
+add_task(
+  async function test_getRealTimeInfo_doesNotSetPrivateData_when_noTabInfo() {
+    const securityProperties = new SecurityProperties();
+    const mockGetRealTimeMapping = lazy.sinon.stub().resolves({
+      todayDate: "2024-01-15",
+      hasTabInfo: false,
+      locale: "en-US",
+      timezone: "America/Los_Angeles",
+      isoTimestamp: "2024-01-15T10:30:00",
+    });
+    const mockEngineInstance = {
+      loadPrompt: lazy.sinon.stub().resolves("{todayDate}"),
+    };
+
+    const conversation = new ChatConversation({});
+    await conversation.getRealTimeInfo(mockEngineInstance, {
+      getRealTimeMapping: mockGetRealTimeMapping,
+      securityProperties,
+    });
+
+    securityProperties.commit();
+    Assert.ok(
+      !securityProperties.privateData,
+      "privateData should remain false when hasTabInfo is false"
+    );
+  }
+);
+
+add_task(
+  async function test_getMemoriesContext_setsPrivateData_when_memoriesFound() {
+    const securityProperties = new SecurityProperties();
+    const constructMemories = lazy.sinon
+      .stub()
+      .resolves({ content: "some memory" });
+    const mockEngineInstance = {};
+
+    const conversation = new ChatConversation({});
+    await conversation.getMemoriesContext(
+      "hello",
+      mockEngineInstance,
+      constructMemories,
+      securityProperties
+    );
+
+    securityProperties.commit();
+    Assert.ok(
+      securityProperties.privateData,
+      "privateData should be true after commit when memories were found"
+    );
+  }
+);
+
+add_task(
+  async function test_getMemoriesContext_doesNotSetPrivateData_when_noMemories() {
+    const securityProperties = new SecurityProperties();
+    const constructMemories = lazy.sinon.stub().resolves(null);
+    const mockEngineInstance = {};
+
+    const conversation = new ChatConversation({});
+    await conversation.getMemoriesContext(
+      "hello",
+      mockEngineInstance,
+      constructMemories,
+      securityProperties
+    );
+
+    securityProperties.commit();
+    Assert.ok(
+      !securityProperties.privateData,
+      "privateData should remain false when no memories were found"
+    );
+  }
+);
+
+add_task(
+  async function test_generatePrompt_commitsPrivateData_when_hasTabInfo() {
+    const mockEngineInstance = {
+      loadPrompt: lazy.sinon.stub().resolves("system prompt"),
+    };
+    const conversation = new ChatConversation({});
+    const sandbox = lazy.sinon.createSandbox();
+
+    sandbox.stub(conversation, "getRealTimeInfo").callsFake(async (_, opts) => {
+      opts.securityProperties?.setPrivateData();
+      return "real time info";
+    });
+    sandbox.stub(conversation, "getMemoriesContext").resolves(null);
+
+    await conversation.generatePrompt("hello", null, mockEngineInstance);
+
+    Assert.ok(
+      conversation.securityProperties.privateData,
+      "privateData should be committed true when getRealTimeInfo stages it"
+    );
+    sandbox.restore();
+  }
+);
+
+add_task(
+  async function test_generatePrompt_commitsPrivateData_when_memoriesEnabled() {
+    const mockEngineInstance = {
+      loadPrompt: lazy.sinon.stub().resolves("system prompt"),
+    };
+    const conversation = new ChatConversation({});
+    const sandbox = lazy.sinon.createSandbox();
+
+    sandbox.stub(conversation, "getRealTimeInfo").resolves(null);
+    sandbox
+      .stub(conversation, "getMemoriesContext")
+      .callsFake(async (_, _engine, _construct, sp) => {
+        sp?.setPrivateData();
+        return "some memories";
+      });
+
+    await conversation.generatePrompt("hello", null, mockEngineInstance, {
+      memoriesEnabled: true,
+    });
+
+    Assert.ok(
+      conversation.securityProperties.privateData,
+      "privateData should be committed true when getMemoriesContext stages it"
+    );
+    sandbox.restore();
+  }
+);
+
+add_task(
+  async function test_generatePrompt_doesNotSetPrivateData_when_noTabOrMemories() {
+    const mockEngineInstance = {
+      loadPrompt: lazy.sinon.stub().resolves("system prompt"),
+    };
+    const conversation = new ChatConversation({});
+    const sandbox = lazy.sinon.createSandbox();
+
+    sandbox.stub(conversation, "getRealTimeInfo").resolves(null);
+    sandbox.stub(conversation, "getMemoriesContext").resolves(null);
+
+    await conversation.generatePrompt("hello", null, mockEngineInstance);
+
+    Assert.ok(
+      !conversation.securityProperties.privateData,
+      "privateData should remain false when no private data was staged"
+    );
+    sandbox.restore();
   }
 );
 

@@ -459,6 +459,10 @@ class nsGlobalWindowInner final : public mozilla::dom::EventTarget,
                                   const char16_t* aStorageType,
                                   bool aPrivateBrowsing);
 
+  // Called by DocGroup when managing MediaSource URLs.
+  void NoteMediaSourceURL(const nsACString& aURL);
+  void UnnoteMediaSourceURL(const nsACString& aURL);
+
   static void Init();
   static void ShutDown();
   static bool IsCallerChrome();
@@ -1521,6 +1525,8 @@ class nsGlobalWindowInner final : public mozilla::dom::EventTarget,
   // Cache the DataTransfer created for a paste event, this will be reset after
   // the event is dispatched.
   RefPtr<mozilla::dom::DataTransfer> mCurrentPasteDataTransfer;
+
+  nsTArray<nsCString> mMediaSourceURLs;
 
   // These fields are used by the inner and outer windows to prevent
   // programatically moving the window while the mouse is down.

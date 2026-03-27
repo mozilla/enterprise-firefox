@@ -11251,14 +11251,6 @@
   value: false
   mirror: always
 
-# Whether we refer ::-webkit-scrollbar's width/height properties to disable
-# overlay scrollbars.
-- name: layout.css.fake-webkit-scrollbar.enabled
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-  rust: true
-
 # Is support for the ::details-content pseudo-element enabled?
 - name: layout.css.details-content.enabled
   type: RelaxedAtomicBool

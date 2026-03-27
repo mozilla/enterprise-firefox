@@ -211,6 +211,7 @@
 
 .ruleview-computedlist,
 [hidden]:is(
+  .ruleview-header,
   .ruleview-expandable-container,
   .ruleview-overridden-items,
   .ruleview-overridden-rule-filter,

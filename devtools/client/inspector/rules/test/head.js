@@ -1594,15 +1594,21 @@ function checkRuleViewContent(view, expectedElements) {
 function _getRuleViewElements(view) {
   const elementsInView = [];
   for (const el of view.element.children) {
-    if (el.classList.contains("registered-properties")) {
+    if (el.id == "registered-properties-container") {
       // We don't check @property content for now
       continue;
     }
-    // Gather all the children of expandable containers (e.g. Pseudo-element, @keyframe, …)
-    if (el.classList.contains("ruleview-expandable-container")) {
-      elementsInView.push(...el.children);
-    } else {
+
+    // We should either have headers or containers as children
+    if (el.classList.contains("ruleview-header")) {
+      // Only ignore "This element" hidden header (and not collapsed containers)
+      if (el.hidden) {
+        continue;
+      }
       elementsInView.push(el);
+    } else {
+      // Gather all the children of containers (e.g. Pseudo-element, @keyframe, …)
+      elementsInView.push(...el.children);
     }
   }
   return elementsInView;

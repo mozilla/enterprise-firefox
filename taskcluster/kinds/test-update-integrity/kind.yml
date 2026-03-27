@@ -6,8 +6,8 @@ loader: taskgraph.loader.transform:loader
 
 transforms:
     - taskgraph.transforms.from_deps
-    - gecko_taskgraph.transforms.update_integrity
     - gecko_taskgraph.transforms.release:run_on_releases
+    - gecko_taskgraph.transforms.update_integrity
     - gecko_taskgraph.transforms.job
     - gecko_taskgraph.transforms.task
 
@@ -20,6 +20,7 @@ kind-dependencies:
 
 only-for-build-platforms:
     - linux64-shippable/opt
+    - linux64-aarch64-shippable/opt
 
 tasks:
     test-update-integrity:

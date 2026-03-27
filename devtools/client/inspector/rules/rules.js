@@ -92,7 +92,10 @@ const FILTER_PROP_RE = /\s*([^:\s]*)\s*:\s*(.*?)\s*;?$/;
 const FILTER_STRICT_RE = /\s*`(.*?)`\s*$/;
 
 const RULE_VIEW_HEADER_CLASSNAME = "ruleview-header";
+
+// List of all container IDs, order by typical order of display
 const PSEUDO_ELEMENTS_CONTAINER_ID = "pseudo-elements-container";
+const ELEMENT_CONTAINER_ID = "element-container";
 const REGISTERED_PROPERTIES_CONTAINER_ID = "registered-properties-container";
 const POSITION_TRY_CONTAINER_ID = "position-try-container";
 
@@ -323,13 +326,19 @@ class CssRuleView extends EventEmitter {
   #showUserAgentStyles;
   #focusNextUserAddedRule;
 
+  // References to all active rule containers DOM Elements.
+  // Containers can be: "pseudo element", "inherited by", "keyframes",...
+  // Map(String => Object { header: DOM Element, container: DOM Element} )
+  // Map(Container ID => Header and container DOM Elements)
+  #containers = new Map();
+
   // Variable used to stop the propagation of mouse events to children
   // when we are updating a value by dragging the mouse and we then release it
   #childHasDragged = false;
 
   // The element that we're inspecting.
   // (Used from RuleViewTool class)
-  viewedElement = null;
+  selectedNodeFront = null;
 
   // Used for cancelling timeouts in the style filter.
   #filterChangedTimeout = null;
@@ -380,8 +389,8 @@ class CssRuleView extends EventEmitter {
   #refreshDummyElement() {
     // Only update the dummy element if the selected element's tag is different.
     if (
-      !this.viewedElement ||
-      this.#dummyElement?.tagName === this.viewedElement.tagName
+      !this.selectedNodeFront ||
+      this.#dummyElement?.tagName === this.selectedNodeFront.tagName
     ) {
       return;
     }
@@ -392,11 +401,11 @@ class CssRuleView extends EventEmitter {
     try {
       // ::before and ::after do not have a namespaceURI
       const namespaceURI =
-        this.viewedElement.namespaceURI ||
+        this.selectedNodeFront.namespaceURI ||
         this.styleDocument.documentElement.namespaceURI;
       this.#dummyElement = this.styleDocument.createElementNS(
         namespaceURI,
-        this.viewedElement.tagName
+        this.selectedNodeFront.tagName
       );
     } catch (e) {
       console.error("Error while creating dummy element", e);
@@ -830,15 +839,14 @@ class CssRuleView extends EventEmitter {
    * Add a new rule to the current element.
    */
   addNewRule() {
-    const elementStyle = this.elementStyle;
-    const element = elementStyle.element;
-    const pseudoClasses = element.pseudoClassLocks;
-
     // Clear the search input so the new rule is visible
     this.#onClearSearch({ focusSearchField: false });
 
     this.#focusNextUserAddedRule = true;
-    this.pageStyle.addNewRule(element, pseudoClasses);
+    this.pageStyle.addNewRule(
+      this.selectedNodeFront,
+      this.selectedNodeFront.pseudoClassLocks
+    );
   }
 
   /**
@@ -848,14 +856,7 @@ class CssRuleView extends EventEmitter {
    * @returns {boolean}
    */
   canAddNewRuleForSelectedNode() {
-    return this.viewedElement && this.inspector.selection.isElementNode();
-  }
-
-  /**
-   * Disables add rule button when needed
-   */
-  #refreshAddRuleButtonState() {
-    this.addRuleButton.disabled = !this.canAddNewRuleForSelectedNode();
+    return this.selectedNodeFront && this.inspector.selection.isElementNode();
   }
 
   /**
@@ -904,8 +905,8 @@ class CssRuleView extends EventEmitter {
       PREF_DEFAULT_COLOR_UNIT,
       PREF_INPLACE_EDITOR_FOCUS_NEXT_ON_ENTER,
     ];
-    if (this.viewedElement && refreshOnPrefs.includes(pref)) {
-      this.selectElement(this.viewedElement, true);
+    if (this.selectedNodeFront && refreshOnPrefs.includes(pref)) {
+      this.selectElement(this.selectedNodeFront, true);
     }
   }
 
@@ -1037,7 +1038,18 @@ class CssRuleView extends EventEmitter {
 
   destroy() {
     this.isDestroyed = true;
-    this.#clear();
+
+    this.selectedNodeFront = null;
+
+    if (this.elementStyle) {
+      this.elementStyle.destroy();
+      this.elementStyle = null;
+    }
+
+    if (this.pageStyle) {
+      this.pageStyle.off("stylesheet-updated", this.refreshPanel);
+      this.pageStyle = null;
+    }
 
     this.#dummyElement = null;
     this.#prefObserver.destroy();
@@ -1099,10 +1111,6 @@ class CssRuleView extends EventEmitter {
       this.element.remove();
     }
 
-    if (this.elementStyle) {
-      this.elementStyle.destroy();
-    }
-
     if (this.#popup) {
       this.#popup.destroy();
       this.#popup = null;
@@ -1126,47 +1134,86 @@ class CssRuleView extends EventEmitter {
   }
 
   /**
+   * Disables add rule button when needed
+   */
+  #refreshAddRuleButtonState() {
+    this.addRuleButton.disabled = !this.canAddNewRuleForSelectedNode();
+  }
+
+  /**
+   * Update pageStyle reference and listen for stylesheet updates.
+   */
+  #refreshPageStyle() {
+    const newPageStyle = this.selectedNodeFront?.inspectorFront.pageStyle;
+    if (this.pageStyle == newPageStyle) {
+      return;
+    }
+    // If we were already selecting an element from a different process,
+    // we should unregister the PageStyle Actor event listener
+    if (this.pageStyle) {
+      this.pageStyle.off("stylesheet-updated", this.refreshPanel);
+      this.pageStyle = null;
+    }
+    // If we are selecting a new element, we should also start listening
+    // for event from its process and its related Page Style Actor.
+    if (newPageStyle) {
+      this.pageStyle = newPageStyle;
+      this.pageStyle.on("stylesheet-updated", this.refreshPanel);
+    }
+  }
+
+  /**
    * Update the view with a new selected element.
    *
    * @param {NodeActor} element
    *        The node whose style rules we'll inspect.
-   * @param {boolean} allowRefresh
+   * @param {boolean} forceRefresh
    *        Update the view even if the element is the same as last time.
    */
-  async selectElement(element, allowRefresh = false) {
-    const refresh = this.viewedElement === element;
-    if (refresh && !allowRefresh) {
+  async selectElement(element, forceRefresh = false) {
+    const sameElementSelected = this.selectedNodeFront === element;
+    if (sameElementSelected && !forceRefresh) {
       return;
     }
 
+    // 1/3 All cleanups that do not depend on former/new selected element
     if (this.#popup && this.#popup.isOpen) {
       this.#popup.hidePopup();
     }
 
-    this.#clear(false);
-    this.viewedElement = element;
+    // 2/3 Important step: actually switch to a new or empty element
+    this.selectedNodeFront = element;
 
-    this.#clearPseudoClassPanel();
+    // 3/3 Now update based on the newly selected element
+
+    // Wipe the whole rule view content when deselecting or selecting another element
+    // as there is little chance we would display the same rules. It is faster
+    // to render everything from scratch than trying to do incremental updates.
+    if (!sameElementSelected) {
+      this.#clearRules();
+    }
+
+    this.#refreshEmptyNotice();
     this.#refreshAddRuleButtonState();
     this.#refreshDummyElement();
+    this.#refreshPageStyle();
+    this.#refreshPseudoClassPanel();
 
-    if (!this.viewedElement) {
+    if (!element) {
       this.#stopSelectingElement();
-      this.#clearRules();
-      this.#showEmpty();
-      this.refreshPseudoClassPanel();
-      if (this.pageStyle) {
-        this.pageStyle.off("stylesheet-updated", this.refreshPanel);
-        this.pageStyle = null;
+
+      // Destroy the ElementStyle *after* having cleared the rule view
+      // (earlier call to `#clearRules`), as it may destroy each DOM element
+      // for each rule individually and cause unecessary reflows
+      if (this.elementStyle) {
+        this.elementStyle.destroy();
+        this.elementStyle = null;
       }
       return;
     }
 
     const isProfilerActive = Services.profiler.IsActive();
     const startTime = isProfilerActive ? ChromeUtils.now() : null;
-
-    this.pageStyle = element.inspectorFront.pageStyle;
-    this.pageStyle.on("stylesheet-updated", this.refreshPanel);
 
     const elementStyle = new ElementStyle(
       element,
@@ -1175,6 +1222,7 @@ class CssRuleView extends EventEmitter {
       this.pageStyle,
       this.#showUserAgentStyles
     );
+    let previousElementStyle = this.elementStyle;
     this.elementStyle = elementStyle;
 
     this.#startSelectingElement();
@@ -1187,13 +1235,20 @@ class CssRuleView extends EventEmitter {
       if (this.elementStyle !== elementStyle) {
         return;
       }
-      if (!refresh) {
-        this.element.scrollTop = 0;
-      }
-      this.#stopSelectingElement();
       this.elementStyle.onChanged = () => {
         this.#onElementStyleChanged();
       };
+      // Cleanup the previous ElementStyle model only after the refresh
+      // as it will destroy each rule individually and may cause uncessary reflows
+      // if entire containers are removed.
+      if (previousElementStyle) {
+        previousElementStyle.destroy();
+        previousElementStyle = null;
+
+        // We need to update containers as some may now be empty
+        this.#updateContainers();
+      }
+      this.#stopSelectingElement();
       if (isProfilerActive && this.elementStyle.rules) {
         let declarations = 0;
         for (const rule of this.elementStyle.rules) {
@@ -1236,21 +1291,6 @@ class CssRuleView extends EventEmitter {
   }
 
   /**
-   * Clear the pseudo class options panel by removing the checked and disabled
-   * attributes for each checkbox.
-   */
-  #clearPseudoClassPanel() {
-    for (const checkbox of this.pseudoClassCheckboxes) {
-      checkbox.checked = false;
-      checkbox.disabled = false;
-    }
-    for (const checkbox of this.elementSpecificPseudoClassCheckboxes) {
-      checkbox.checked = false;
-      checkbox.disabled = true;
-    }
-  }
-
-  /**
    * For each pseudo-class item, create a checkbox input element for toggling a
    * pseudo-class on the selected element and append it to passed container.
    *
@@ -1286,12 +1326,11 @@ class CssRuleView extends EventEmitter {
    * @returns {Array} Array of pseudo-classes that apply to the current element
    */
   #getApplicableElementSpecificPseudoClasses() {
-    if (!this.elementStyle?.element) {
+    if (!this.selectedNodeFront) {
       return [];
     }
 
-    const element = this.elementStyle.element;
-    const tagName = element.tagName?.toLowerCase();
+    const tagName = this.selectedNodeFront.tagName?.toLowerCase();
     const applicablePseudoClasses = [];
 
     for (const [pseudo, elementTypes] of Object.entries(
@@ -1308,9 +1347,9 @@ class CssRuleView extends EventEmitter {
   /**
    * Update the pseudo class options for the currently highlighted element.
    */
-  refreshPseudoClassPanel() {
+  #refreshPseudoClassPanel() {
     if (
-      !this.elementStyle ||
+      !this.selectedNodeFront ||
       !this.inspector.canTogglePseudoClassForSelectedNode()
     ) {
       for (const checkbox of [
@@ -1323,7 +1362,7 @@ class CssRuleView extends EventEmitter {
       return;
     }
 
-    const pseudoClassLocks = this.elementStyle.element.pseudoClassLocks;
+    const pseudoClassLocks = this.selectedNodeFront.pseudoClassLocks;
     for (const checkbox of this.pseudoClassCheckboxes) {
       checkbox.disabled = false;
       checkbox.checked = pseudoClassLocks.includes(checkbox.value);
@@ -1365,11 +1404,7 @@ class CssRuleView extends EventEmitter {
         return;
       }
 
-      this.#clearRules();
-      const onEditorsReady = this.#createEditors();
-      this.refreshPseudoClassPanel();
-
-      await onEditorsReady;
+      await this.#createEditors();
 
       // Notify anyone that cares that we refreshed.
       this.inspector.emit("rule-view-refreshed");
@@ -1380,45 +1415,29 @@ class CssRuleView extends EventEmitter {
   }
 
   /**
-   * Show the user that the rule view has no node selected.
+   * Show or hide the empty notice depending on selected node.
    */
-  #showEmpty() {
-    if (this.styleDocument.getElementById("ruleview-no-results")) {
-      return;
+  #refreshEmptyNotice() {
+    const emptyNotice = this.styleDocument.getElementById(
+      "ruleview-no-results"
+    );
+    if (this.selectedNodeFront && emptyNotice) {
+      emptyNotice.remove();
+    } else if (!this.selectedNodeFront && !emptyNotice) {
+      createChild(this.element, "div", {
+        id: "ruleview-no-results",
+        class: "devtools-sidepanel-no-result",
+        textContent: l10n("rule.empty"),
+      });
     }
-
-    createChild(this.element, "div", {
-      id: "ruleview-no-results",
-      class: "devtools-sidepanel-no-result",
-      textContent: l10n("rule.empty"),
-    });
   }
 
   /**
    * Clear the rules.
    */
   #clearRules() {
+    this.#containers.clear();
     this.element.innerHTML = "";
-  }
-
-  /**
-   * Clear the rule view.
-   */
-  #clear(clearDom = true) {
-    if (clearDom) {
-      this.#clearRules();
-    }
-    this.viewedElement = null;
-
-    if (this.elementStyle) {
-      this.elementStyle.destroy();
-      this.elementStyle = null;
-    }
-
-    if (this.pageStyle) {
-      this.pageStyle.off("stylesheet-updated", this.refreshPanel);
-      this.pageStyle = null;
-    }
   }
 
   /**
@@ -1464,23 +1483,52 @@ class CssRuleView extends EventEmitter {
   }
 
   /**
+   * Creates a simple, non-expandable container in the rule view
+   *
+   * @param  {string} label
+   *         The label for the container header
+   * @param  {string} containerId
+   *         The id that will be set on the container
+   * @return {Object{ header:DOMElement, container: DOMElement }}
+   *         Object containing both the container element and its related header.
+   */
+  createSimpleContainer(label, containerId) {
+    const header = this.styleDocument.createElementNS(HTML_NS, "div");
+    header.className = RULE_VIEW_HEADER_CLASSNAME;
+    header.setAttribute("role", "heading");
+    // Element container is only shown when pseudo element container exists
+    // which can only be computed later after having processed all rules.
+    if (containerId == ELEMENT_CONTAINER_ID) {
+      header.hidden = true;
+    }
+    header.append(label);
+
+    const container = this.styleDocument.createElementNS(HTML_NS, "div");
+    container.classList.add("ruleview-container");
+    container.id = containerId;
+
+    return { header, container };
+  }
+
+  /**
    * Creates an expandable container in the rule view
    *
    * @param  {string} label
    *         The label for the container header
    * @param  {string} containerId
    *         The id that will be set on the container
-   * @param  {boolean} isPseudo
-   *         Whether or not the container will hold pseudo element rules
-   * @return {DOMNode} The container element
+   * @return {Object{ header:DOMElement, container: DOMElement }}
+   *         Object containing both the container element and its related header.
    */
-  createExpandableContainer(label, containerId, isPseudo = false) {
+  createExpandableContainer(label, containerId) {
     const header = this.styleDocument.createElementNS(HTML_NS, "div");
     header.classList.add(
       RULE_VIEW_HEADER_CLASSNAME,
       "ruleview-expandable-header"
     );
     header.setAttribute("role", "heading");
+    header.setAttribute("aria-level", "3");
+    header.hidden = false;
 
     const toggleButton = this.styleDocument.createElementNS(HTML_NS, "button");
     toggleButton.setAttribute(
@@ -1493,16 +1541,18 @@ class CssRuleView extends EventEmitter {
     const twisty = this.styleDocument.createElementNS(HTML_NS, "span");
     twisty.className = "ruleview-expander theme-twisty";
 
-    toggleButton.append(twisty, this.styleDocument.createTextNode(label));
+    toggleButton.append(twisty, label);
     header.append(toggleButton);
 
     const container = this.styleDocument.createElementNS(HTML_NS, "div");
     container.id = containerId;
-    container.classList.add("ruleview-expandable-container");
+    container.classList.add(
+      "ruleview-container",
+      "ruleview-expandable-container"
+    );
     container.hidden = false;
 
-    this.element.append(header, container);
-
+    const isPseudo = containerId == PSEUDO_ELEMENTS_CONTAINER_ID;
     const { signal } = this.#abortController;
     toggleButton.addEventListener(
       "click",
@@ -1526,7 +1576,7 @@ class CssRuleView extends EventEmitter {
       );
     }
 
-    return container;
+    return { header, container };
   }
 
   /**
@@ -1534,13 +1584,23 @@ class CssRuleView extends EventEmitter {
    *
    * @returns {Element}
    */
-  createRegisteredPropertiesExpandableContainer() {
-    const el = this.createExpandableContainer(
+  getOrCreateRegisteredPropertiesExpandableContainer() {
+    const existingEntry = this.#containers.get(
+      REGISTERED_PROPERTIES_CONTAINER_ID
+    );
+    if (existingEntry) {
+      return existingEntry.container;
+    }
+    const { header, container } = this.createExpandableContainer(
       "@property",
       REGISTERED_PROPERTIES_CONTAINER_ID
     );
-    el.classList.add("registered-properties");
-    return el;
+    this.#containers.set(REGISTERED_PROPERTIES_CONTAINER_ID, {
+      header,
+      container,
+    });
+    this.element.append(header, container);
+    return container;
   }
 
   /**
@@ -1590,38 +1650,25 @@ class CssRuleView extends EventEmitter {
   /**
    * Creates editor UI for each of the rules in elementStyle.
    */
-  // eslint-disable-next-line complexity
   #createEditors() {
     // Run through the current list of rules, attaching
     // their editors in order.  Create editors if needed.
-    let lastInherited = null;
-    let lastinheritedSectionLabel = "";
-    let seenNormalElement = false;
     let seenSearchTerm = false;
-    const containers = new Map();
 
     if (!this.elementStyle.rules) {
       return Promise.resolve();
     }
 
+    // Transient list of containers added to the DOM
+    // while processing this method.
+    const currentContainers = [];
+
     const editorReadyPromises = [];
+    const lastElementPerContainer = new Map();
     for (const rule of this.elementStyle.rules) {
-      // Initialize rule editor
+      // Initialize rule editor if this is a new rule
       if (!rule.editor) {
-        const ruleActorID = rule.domRule.actorID;
-        rule.editor = new RuleEditor(this, rule, {
-          elementsWithPendingClicks: this.#elementsWithPendingClicks,
-          onShowUnusedCustomCssProperties: () => {
-            this.store.expandedUnusedCustomCssPropertiesRuleActorIds.add(
-              ruleActorID
-            );
-          },
-          shouldHideUnusedCustomCssProperties:
-            !this.store.expandedUnusedCustomCssPropertiesRuleActorIds.has(
-              ruleActorID
-            ),
-        });
-        editorReadyPromises.push(rule.editor.once("source-link-updated"));
+        editorReadyPromises.push(this.#createEditorForRule(rule));
       }
 
       // Filter the rules and highlight any matches if there is a search input
@@ -1633,124 +1680,32 @@ class CssRuleView extends EventEmitter {
         }
       }
 
-      const isNonInheritedPseudo = !!rule.pseudoElement && !rule.inherited;
+      const container = this.#getContainerForRule(rule, currentContainers);
 
-      // Only print header for this element if there are pseudo elements
-      if (
-        containers.has(PSEUDO_ELEMENTS_CONTAINER_ID) &&
-        !seenNormalElement &&
-        !rule.pseudoElement
-      ) {
-        seenNormalElement = true;
-        const div = this.styleDocument.createElementNS(HTML_NS, "div");
-        div.className = RULE_VIEW_HEADER_CLASSNAME;
-        div.setAttribute("role", "heading");
-        div.textContent = this.selectedElementLabel;
-        this.element.appendChild(div);
-      }
-
-      const { inherited, inheritedSectionLabel } = rule;
-      // We need to check both `inherited` (a NodeFront) and `inheritedSectionLabel` (string),
-      // as element-backed pseudo element rules (e.g. `::details-content`) can have the same
-      // `inherited` property as a regular rule (e.g. on `<details>`), but the element is
-      // to be considered as a child of the binding element.
-      // e.g. we want to have
-      // This element
-      // Inherited by details::details-content
-      // Inherited by details
-      if (
-        inherited &&
-        (inherited !== lastInherited ||
-          inheritedSectionLabel !== lastinheritedSectionLabel)
-      ) {
-        const div = this.styleDocument.createElementNS(HTML_NS, "div");
-        div.classList.add(RULE_VIEW_HEADER_CLASSNAME);
-        div.setAttribute("role", "heading");
-        div.setAttribute("aria-level", "3");
-        div.textContent = rule.inheritedSectionLabel;
-        lastInherited = inherited;
-        lastinheritedSectionLabel = inheritedSectionLabel;
-        this.element.appendChild(div);
-      }
-
-      const keyframes = rule.keyframes;
-
-      let containerKey = null;
-
-      // Don't display inherited pseudo element rules (e.g. ::details-content) inside
-      // the pseudo element container
-      if (isNonInheritedPseudo) {
-        containerKey = PSEUDO_ELEMENTS_CONTAINER_ID;
-        if (!containers.has(containerKey)) {
-          containers.set(
-            containerKey,
-            this.createExpandableContainer(
-              this.pseudoElementLabel,
-              containerKey,
-              true
-            )
-          );
-        }
-      } else if (keyframes) {
-        containerKey = keyframes;
-        if (!containers.has(containerKey)) {
-          containers.set(
-            containerKey,
-            this.createExpandableContainer(
-              rule.keyframesName,
-              `keyframes-container-${keyframes.name}`
-            )
-          );
-        }
-      } else if (rule.domRule.className === "CSSPositionTryRule") {
-        containerKey = POSITION_TRY_CONTAINER_ID;
-        if (!containers.has(containerKey)) {
-          containers.set(
-            containerKey,
-            this.createExpandableContainer(
-              `@position-try`,
-              `position-try-container`
-            )
-          );
-        }
-      }
-
-      rule.editor.element.setAttribute("role", "article");
-      const container = containers.get(containerKey);
-      if (container) {
-        container.appendChild(rule.editor.element);
+      // Ensure adding the rule editor at the right location
+      const lastElement = lastElementPerContainer.get(container);
+      if (lastElement) {
+        lastElement.insertAdjacentElement("afterend", rule.editor.element);
       } else {
-        this.element.appendChild(rule.editor.element);
+        container.appendChild(rule.editor.element);
       }
+      lastElementPerContainer.set(container, rule.editor.element);
+    }
 
-      // Automatically select the selector input when we are adding a user-added rule
-      if (this.#focusNextUserAddedRule && rule.domRule.userAdded) {
-        this.#focusNextUserAddedRule = null;
+    this.#createRegisteredPropertyEditors();
+
+    this.#updateContainers();
+
+    // Automatically select the selector input when we are adding a user-added rule.
+    // (Focus after having updated all the rules to prevent the focus from being
+    // lost because of possible following DOM updates)
+    if (this.#focusNextUserAddedRule) {
+      const rule = this.elementStyle.rules.find(r => r.domRule.userAdded);
+      if (rule) {
         rule.editor.selectorText.click();
         this.emitForTests("new-rule-added", rule);
       }
-    }
-
-    const targetRegisteredProperties =
-      this.getRegisteredPropertiesForSelectedNodeTarget();
-    if (targetRegisteredProperties?.size) {
-      const registeredPropertiesContainer =
-        this.createRegisteredPropertiesExpandableContainer();
-
-      // Sort properties by their name, as we want to display them in alphabetical order
-      const propertyDefinitions = Array.from(
-        targetRegisteredProperties.values()
-      ).sort((a, b) => (a.name < b.name ? -1 : 1));
-      for (const propertyDefinition of propertyDefinitions) {
-        const registeredPropertyEditor = new RegisteredPropertyEditor(
-          this,
-          propertyDefinition
-        );
-
-        registeredPropertiesContainer.appendChild(
-          registeredPropertyEditor.element
-        );
-      }
+      this.#focusNextUserAddedRule = null;
     }
 
     const searchBox = this.searchField.parentNode;
@@ -1760,6 +1715,167 @@ class CssRuleView extends EventEmitter {
     );
 
     return Promise.all(editorReadyPromises);
+  }
+
+  /**
+   * Instantiate a new RuleEditor for a given rule
+   * currently applying to the selected element.
+   *
+   * @param  {Rule} rule
+   */
+  #createEditorForRule(rule) {
+    const ruleActorID = rule.domRule.actorID;
+    rule.editor = new RuleEditor(this, rule, {
+      elementsWithPendingClicks: this.#elementsWithPendingClicks,
+      onShowUnusedCustomCssProperties: () => {
+        this.store.expandedUnusedCustomCssPropertiesRuleActorIds.add(
+          ruleActorID
+        );
+      },
+      shouldHideUnusedCustomCssProperties:
+        !this.store.expandedUnusedCustomCssPropertiesRuleActorIds.has(
+          ruleActorID
+        ),
+    });
+
+    return rule.editor.once("source-link-updated");
+  }
+
+  /**
+   * Create or get existing container for a given rule.
+   *
+   * @param {Rule} rule
+   * @param {Array<DOMElement>} currentContainers
+   */
+  #getContainerForRule(rule, currentContainers) {
+    let id,
+      label,
+      expandable = false;
+
+    // Don't display inherited pseudo element rules (e.g. ::details-content) inside
+    // the pseudo element container
+    const isNonInheritedPseudo = !!rule.pseudoElement && !rule.inherited;
+    const keyframes = rule.keyframes;
+
+    if (isNonInheritedPseudo) {
+      id = PSEUDO_ELEMENTS_CONTAINER_ID;
+      label = this.pseudoElementLabel;
+      expandable = true;
+    } else if (keyframes) {
+      // See bug 1042036 and Bug 1894873 we are showing all keyframes with the same name.
+      // We may use ${keyframes.name}, but all rule's content would be merged
+      // into a unique rule/container.
+      // (only use part of the actorID to have a valid DOM id)
+      id = `keyframes-container-${rule.keyframes.actorID.match(/\w+$/)[0]}`;
+      label = rule.keyframesName;
+      expandable = true;
+    } else if (rule.domRule.className === "CSSPositionTryRule") {
+      id = POSITION_TRY_CONTAINER_ID;
+      label = "@position-try";
+      expandable = true;
+    } else if (rule.inherited) {
+      // We need to check both `inherited` (a NodeFront) and `pseudoElement` (string),
+      // as element-backed pseudo element rules (e.g. `::details-content`) can have the same
+      // `inherited` property as a regular rule (e.g. on `<details>`), but the element is
+      // to be considered as a child of the binding element.
+      //
+      // e.g. we want to have:
+      //   This element
+      //   Inherited by details::details-content
+      //   Inherited by details
+      id = `inherited-${rule.inherited.actorID}-${rule.pseudoElement}`;
+      label = rule.inheritedSectionLabel;
+    } else {
+      id = ELEMENT_CONTAINER_ID;
+      label = this.selectedElementLabel;
+    }
+
+    let entry = this.#containers.get(id);
+    // Create the DOM for the container if it doesn't exist yet
+    if (!entry) {
+      if (expandable) {
+        entry = this.createExpandableContainer(label, id);
+      } else {
+        entry = this.createSimpleContainer(label, id);
+      }
+      this.#containers.set(id, entry);
+    }
+
+    const { header, container } = entry;
+
+    // Ensure displaying the containers in the new order processed in #createEditors.
+    if (!currentContainers.includes(container)) {
+      const lastContainer = currentContainers.at(-1);
+      // Pseudo element rules are sorted **after** element matching rules and inherited rules
+      // in ElementStyle.rules, but we want the container to always be shown at the top.
+      if (id == PSEUDO_ELEMENTS_CONTAINER_ID || !lastContainer) {
+        this.element.insertAdjacentElement("afterbegin", header);
+        header.insertAdjacentElement("afterend", container);
+      } else {
+        lastContainer.insertAdjacentElement("afterend", header);
+        header.insertAdjacentElement("afterend", container);
+      }
+      currentContainers.push(container);
+    }
+
+    return container;
+  }
+
+  /**
+   * Whenever we may add or remove rules in the list,
+   * we have to eventually update containers by removing the empty ones
+   * and update the visibility of "Element" header.
+   */
+  #updateContainers() {
+    // Clear containers which no longer contain any rule
+    for (const [
+      containerId,
+      { header, container },
+    ] of this.#containers.entries()) {
+      if (!container.children.length) {
+        header.remove();
+        container.remove();
+        this.#containers.delete(containerId);
+      }
+    }
+
+    // Only print header for "This element" if there are pseudo elements displayed before
+    const elementEntry = this.#containers.get(ELEMENT_CONTAINER_ID);
+    if (elementEntry) {
+      const hasPseudoElementRules = this.#containers.has(
+        PSEUDO_ELEMENTS_CONTAINER_ID
+      );
+      // Show the header element, which is before the container element
+      elementEntry.header.hidden = !hasPseudoElementRules;
+    }
+  }
+
+  #createRegisteredPropertyEditors() {
+    const registeredPropertiesContainer =
+      this.getOrCreateRegisteredPropertiesExpandableContainer();
+    // Always swipe and rebuild the list of properties from scratch
+    registeredPropertiesContainer.replaceChildren();
+
+    const targetRegisteredProperties =
+      this.getRegisteredPropertiesForSelectedNodeTarget();
+    if (!targetRegisteredProperties?.size) {
+      return;
+    }
+
+    // Sort properties by their name, as we want to display them in alphabetical order
+    const propertyDefinitions = Array.from(
+      targetRegisteredProperties.values()
+    ).sort((a, b) => (a.name < b.name ? -1 : 1));
+    for (const propertyDefinition of propertyDefinitions) {
+      const registeredPropertyEditor = new RegisteredPropertyEditor(
+        this,
+        propertyDefinition
+      );
+
+      registeredPropertiesContainer.appendChild(
+        registeredPropertyEditor.element
+      );
+    }
   }
 
   /**
@@ -2810,15 +2926,8 @@ class RuleViewTool {
 
     if (addedRegisteredProperties.length) {
       // Retrieve @property container
-      let registeredPropertiesContainer =
-        this.view.styleDocument.getElementById(
-          REGISTERED_PROPERTIES_CONTAINER_ID
-        );
-      // create it if it didn't exist before
-      if (!registeredPropertiesContainer) {
-        registeredPropertiesContainer =
-          this.view.createRegisteredPropertiesExpandableContainer();
-      }
+      const registeredPropertiesContainer =
+        this.view.getOrCreateRegisteredPropertiesExpandableContainer();
 
       // Then add all new registered properties
       const names = new Set();
@@ -2968,7 +3077,7 @@ class RuleViewTool {
   }
 
   onPanelSelected() {
-    if (this.inspector.selection.nodeFront === this.view.viewedElement) {
+    if (this.inspector.selection.nodeFront === this.view.selectedNodeFront) {
       this.refresh();
     } else {
       this.onSelected();

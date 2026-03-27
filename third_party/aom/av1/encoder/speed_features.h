@@ -1023,7 +1023,7 @@ typedef struct INTER_MODE_SPEED_FEATURES {
   int alt_ref_search_fp;
 
   // Prune reference frames for single prediction modes based on temporal
-  // distance and pred MV SAD. Feasible values are 0, 1, 2. The feature is
+  // distance and pred MV SAD. Feasible values are 0, 1, 2, 3. The feature is
   // disabled for 0. An increasing value indicates more aggressive pruning
   // threshold.
   int prune_single_ref;
@@ -1239,6 +1239,10 @@ typedef struct INTER_MODE_SPEED_FEATURES {
   // that encoder decisions are biased against local obmc, favoring low
   // complexity modes.
   float bias_obmc_mode_rd_scale_pct;
+
+  // Avoid further evaluation of compound modes using top estimate RD Costs of
+  // compound average.
+  bool skip_comp_eval_using_top_comp_avg_est_rd;
 } INTER_MODE_SPEED_FEATURES;
 
 typedef struct INTERP_FILTER_SPEED_FEATURES {

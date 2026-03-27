@@ -53,16 +53,12 @@ uint32_t RsdparsaSdp::GetBandwidth(const std::string& type) const {
 }
 
 const SdpMediaSection& RsdparsaSdp::GetMediaSection(size_t level) const {
-  if (level > mMediaSections.size()) {
-    MOZ_CRASH();
-  }
+  MOZ_RELEASE_ASSERT(mMediaSections.size() > level);
   return *mMediaSections[level];
 }
 
 SdpMediaSection& RsdparsaSdp::GetMediaSection(size_t level) {
-  if (level > mMediaSections.size()) {
-    MOZ_CRASH();
-  }
+  MOZ_RELEASE_ASSERT(mMediaSections.size() > level);
   return *mMediaSections[level];
 }
 

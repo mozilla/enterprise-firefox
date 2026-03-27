@@ -2312,6 +2312,8 @@ ICAttachResult js::jit::AttachBaselineCacheIRStubLocked(
       break;
     case TrialInliningState::Inlined:
       stub->setTrialInliningState(TrialInliningState::Failure);
+      // Ensure we stop using the callee's trial inlining ICScript.
+      stub->discardStubs(cx->zone(), icEntry);
       icScript->removeInlinedChild(stub->pcOffset());
       break;
     case TrialInliningState::Failure:

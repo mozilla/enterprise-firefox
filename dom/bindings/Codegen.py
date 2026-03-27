@@ -2133,8 +2133,8 @@ def finalizeHook(descriptor, gcx, obj):
                 {
                   JS::Value val = JS::GetReservedSlot(obj, ${slot});
                   if (!val.isUndefined()) {
-                    JSObject* obj = &val.toObject();
-                    js::SetProxyReservedSlot(obj, OBSERVABLE_ARRAY_DOM_INTERFACE_SLOT, JS::UndefinedValue());
+                    JSObject* proxyObj = &val.toObject();
+                    js::SetProxyReservedSlot(proxyObj, OBSERVABLE_ARRAY_DOM_INTERFACE_SLOT, JS::UndefinedValue());
                   }
                 }
                 """,

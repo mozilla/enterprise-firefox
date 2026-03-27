@@ -2783,10 +2783,9 @@ static bool MaybeDoEagerBaselineCompilations(JSContext* cx,
       TRACE_FOR_TEST_DOM(cx, "omt_eager_baseline_dispatch");
     }
 
-    // Add script to queue
-    if (!queue.enqueue(script)) {
-      return false;
-    }
+    // Add script to queue. DispatchOffThreadBaselineBatch guarantees
+    // that there will be room.
+    MOZ_ALWAYS_TRUE(queue.enqueue(script));
     TRACE_FOR_TEST_DOM(cx, "omt_eager_baseline_function", script);
   }
 

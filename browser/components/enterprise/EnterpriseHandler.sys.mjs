@@ -25,6 +25,7 @@ ChromeUtils.defineLazyGetter(lazy, "log", () => {
 });
 
 const PROMPT_ON_SIGNOUT_PREF = "enterprise.promptOnSignout";
+const LOGO_URL = "enterprise.logo_url";
 
 export const EnterpriseHandler = {
   /**
@@ -83,9 +84,9 @@ export const EnterpriseHandler = {
       window.PanelUI.showSubView("panelUI-lockdown-mode", button, event);
     });
 
-    window.gBrowser.addTabsProgressListener({
-      onLocationChange(browser, _webProgress, _request, location) {
-        if (browser !== window.gBrowser.selectedBrowser) {
+    window.gBrowser.addProgressListener({
+      onLocationChange(webProgress, _request, location) {
+        if (!webProgress.isTopLevel) {
           return;
         }
         let isLockedDown = false;
@@ -100,11 +101,13 @@ export const EnterpriseHandler = {
   },
 
   /**
-   * Updates the user icon
+   * Updates the user icon and badge logo
    *
    * @param {Window} window chrome window
    */
   updateBadge(window) {
+    this._updateLogo(window);
+
     const userIcon = window.document.querySelector("#enterprise-user-icon");
 
     if (!this._signedInUser) {
@@ -240,5 +243,39 @@ export const EnterpriseHandler = {
   uninit() {
     this._signedInUser = {};
     this._isInitialized = false;
+  },
+
+  _updateLogo(window) {
+    const logoUrl = Services.prefs.getStringPref(LOGO_URL, "");
+
+    if (!logoUrl) {
+      console.warn(`${LOGO_URL} pref is not set, skipping logo update`);
+      return;
+    }
+
+    let validLogoUrl;
+    try {
+      validLogoUrl = new URL(logoUrl);
+    } catch {
+      throw new Error(`Invalid logo URL in pref: ${logoUrl}`);
+    }
+
+    if (validLogoUrl.protocol === "https:") {
+      if (validLogoUrl.origin !== lazy.ConsoleClient.consoleBaseURI.origin) {
+        throw new Error(`Logo URL must be hosted from the console: ${logoUrl}`);
+      }
+    } else if (
+      !/^data:image\/(?:png|jpeg|gif|webp|svg\+xml);base64,/.test(logoUrl)
+    ) {
+      throw new Error(`Invalid logo URL in pref: ${logoUrl}`);
+    }
+
+    const toolbarLogo = window.document.querySelector(
+      "#enterprise-company-logo__wrapper > image"
+    );
+    toolbarLogo.style.setProperty(
+      "list-style-image",
+      `url("${validLogoUrl.href}")`
+    );
   },
 };

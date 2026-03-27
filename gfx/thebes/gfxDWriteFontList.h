@@ -218,6 +218,8 @@ class gfxDWriteFontEntry final : public gfxFontEntry {
 
   static bool InitLogFont(IDWriteFont* aFont, LOGFONTW* aLogFont);
 
+  FontTableCache* GetFontTableCache(bool aCreate) override;
+
   /**
    * A fontentry only needs to have either of these. If it has both only
    * the IDWriteFont will be used.
@@ -236,6 +238,8 @@ class gfxDWriteFontEntry final : public gfxFontEntry {
   RefPtr<IDWriteFontFace5> mFontFace5;
 
   DWRITE_FONT_FACE_TYPE mFaceType;
+
+  mozilla::Atomic<FontTableCache*> mFontTableCache;
 
   int8_t mIsCJK;
   bool mIsSystemFont;

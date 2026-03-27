@@ -32,7 +32,7 @@ class GrowthDataWorker(
             return Result.success()
         }
 
-        applicationContext.metrics.track(Event.GrowthData.UserActivated(fromSearch = false))
+        applicationContext.metrics.track(Event.GrowthData.ConversionEvent7(fromSearch = false))
 
         return Result.success()
     }

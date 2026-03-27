@@ -1066,6 +1066,26 @@ export var Policies = {
     },
   },
 
+  CrashReportsSubmit: {
+    onBeforeAddons(_manager, param) {
+      if (param.ForceAutoSubmit) {
+        setAndLockPref("browser.crashReports.unsubmittedCheck.enabled", true);
+        setAndLockPref(
+          "browser.crashReports.unsubmittedCheck.autoSubmit2",
+          true
+        );
+        setAndLockPref("browser.tabs.crashReporting.sendReport", true);
+        setAndLockPref("browser.tabs.crashReporting.includeURL", true);
+      }
+    },
+    onRemove(_manager, _oldParam) {
+      unsetAndUnlockPref("browser.crashReports.unsubmittedCheck.enabled");
+      unsetAndUnlockPref("browser.crashReports.unsubmittedCheck.autoSubmit2");
+      unsetAndUnlockPref("browser.tabs.crashReporting.sendReport");
+      unsetAndUnlockPref("browser.tabs.crashReporting.includeURL");
+    },
+  },
+
   DefaultDownloadDirectory: {
     onBeforeAddons(manager, param) {
       PoliciesUtils.setDefaultPref(
