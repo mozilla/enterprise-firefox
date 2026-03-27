@@ -192,7 +192,6 @@ this.felt = class extends ExtensionAPI {
 
   async onStartup() {
     if (Services.felt.isFeltUI()) {
-      Services.prefs.setBoolPref("identity.fxaccounts.enabled", false);
       // Disable QoS thread priority demotion: background content processes get
       // their main thread demoted to low-priority QoS, which can starve the
       // SSO callback's DOMContentLoaded event and prevent token extraction.
