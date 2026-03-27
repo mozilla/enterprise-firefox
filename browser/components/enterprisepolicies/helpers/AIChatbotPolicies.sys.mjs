@@ -197,6 +197,18 @@ export const AIChatbotPolicies = {
    * unenrolled state.
    */
   unapplyAIChatbotPolicy() {
+    const currentProvider = Services.prefs.getStringPref(
+      "browser.ml.chat.provider",
+      ""
+    );
+    if (currentProvider) {
+      const builtInIds = new Set(CHAT_PROVIDERS_DEFAULT.split(","));
+      const currentConfig = GenAI.chatProviders.get(currentProvider);
+      if (!builtInIds.has(currentConfig?.id)) {
+        Services.prefs.clearUserPref("browser.ml.chat.provider");
+      }
+    }
+
     // Can't use unsetDefaultPref for this one because it's empty by default.
     PoliciesUtils.setDefaultPref(
       "browser.ml.chat.providers",
