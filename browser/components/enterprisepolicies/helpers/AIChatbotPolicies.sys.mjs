@@ -57,7 +57,7 @@ export const AIChatbotPolicies = {
           iconURL &&
           iconURL.protocol !== "chrome:" &&
           iconURL.protocol !== "data:"
-            ? getMozRemoteImageURL(engine.iconUrl)
+            ? getMozRemoteImageURL(engine.iconUrl, { size: 32 })
             : engine.iconUrl;
       }
       if (engine.queryParam !== undefined) {

@@ -939,7 +939,7 @@ export const GenAI = {
           value: "",
         };
         if (!promptObj.label.length) {
-          // Because these are default preferences, the only way to chnage
+          // Because these are default preferences, the only way to change
           // them is to set them to an empty string.
           return;
         }

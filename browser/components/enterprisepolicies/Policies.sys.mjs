@@ -197,7 +197,7 @@ export var Policies = {
     onBeforeAddons(manager, param) {
       lazy.AIChatbotPolicies.applyAIChatbotPolicy(param);
     },
-    onRemove(_manager, oldParams) {
+    onRemove(_manager, _oldParams) {
       lazy.AIChatbotPolicies.unapplyAIChatbotPolicy();
     },
   },
