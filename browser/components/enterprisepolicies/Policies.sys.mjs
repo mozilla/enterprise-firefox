@@ -540,13 +540,19 @@ export var Policies = {
       if (param) {
         blockAboutPage(manager, "about:config");
         setAndLockPref("devtools.chrome.enabled", false);
+      } else {
+        unblockAboutPage(manager, "about:config");
+        setAndLockPref("devtools.chrome.enabled", true);
       }
     },
     onRemove(manager, oldParams) {
       if (oldParams) {
-        // if it was block, just unblock
+        // if it was blocked, just unblock
         unblockAboutPage(manager, "about:config");
         unsetAndUnlockPref("devtools.chrome.enabled");
+      } else {
+        blockAboutPage(manager, "about:config");
+        setAndLockPref("devtools.chrome.enabled", true);
       }
     },
   },
@@ -1224,6 +1230,14 @@ export var Policies = {
         blockAboutPage(manager, "about:debugging");
         blockAboutPage(manager, "about:devtools-toolbox");
         blockAboutPage(manager, "about:profiling");
+      } else {
+        setAndLockPref("devtools.policy.disabled", false);
+        setAndLockPref("devtools.chrome.enabled", true);
+
+        manager.allowFeature("devtools");
+        unblockAboutPage(manager, "about:debugging");
+        unblockAboutPage(manager, "about:devtools-toolbox");
+        unblockAboutPage(manager, "about:profiling");
       }
     },
     onRemove(manager, oldParams) {
@@ -1235,6 +1249,14 @@ export var Policies = {
         unblockAboutPage(manager, "about:debugging");
         unblockAboutPage(manager, "about:devtools-toolbox");
         unblockAboutPage(manager, "about:profiling");
+      } else {
+        setAndLockPref("devtools.policy.disabled", true);
+        setAndLockPref("devtools.chrome.enabled", false);
+
+        manager.disallowFeature("devtools");
+        blockAboutPage(manager, "about:debugging");
+        blockAboutPage(manager, "about:devtools-toolbox");
+        blockAboutPage(manager, "about:profiling");
       }
     },
   },
