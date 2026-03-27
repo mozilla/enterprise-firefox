@@ -537,22 +537,20 @@ export var Policies = {
 
   BlockAboutConfig: {
     onBeforeUIStartup(manager, param) {
+      console.debug(`Policies: onBeforeUIStartup: param=${JSON.stringify(param)}`);
       if (param) {
+      console.debug(`Policies: onBeforeUIStartup: param=${JSON.stringify(param)} SET`);
         blockAboutPage(manager, "about:config");
         setAndLockPref("devtools.chrome.enabled", false);
-      } else {
-        unblockAboutPage(manager, "about:config");
-        setAndLockPref("devtools.chrome.enabled", true);
       }
     },
     onRemove(manager, oldParams) {
+      console.debug(`Policies: onRemove: oldParams=${JSON.stringify(oldParams)}`);
       if (oldParams) {
-        // if it was blocked, just unblock
+      console.debug(`Policies: onRemove: oldParams=${JSON.stringify(oldParams)} REMOVE`);
+        // if it was block, just unblock
         unblockAboutPage(manager, "about:config");
         unsetAndUnlockPref("devtools.chrome.enabled");
-      } else {
-        blockAboutPage(manager, "about:config");
-        setAndLockPref("devtools.chrome.enabled", true);
       }
     },
   },

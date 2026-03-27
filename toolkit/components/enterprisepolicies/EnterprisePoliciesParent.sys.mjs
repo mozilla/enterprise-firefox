@@ -265,9 +265,10 @@ EnterprisePoliciesManager.prototype = {
       // verify the previous values
       if (policyName in previousPolicies) {
         const previousParameters = JSON.stringify(previousPolicies[policyName]);
+        console.debug(`EnterprisePoliciesParent: ${policyName} previousParameters=${previousParameters} parsedParameters=${JSON.stringify(parsedParameters)}`);
         if (previousParameters == JSON.stringify(parsedParameters)) {
-          continue;
-        }
+          // continue;
+	}
       }
 
       this._maybeCallbackPolicy(policyImpl, parsedParameters);
@@ -277,7 +278,7 @@ EnterprisePoliciesManager.prototype = {
     // policies that were just received
     this._previousPolicies = Object.fromEntries(
       Object.keys(previousPolicies)
-        .filter(previousPolicyName => !policyNames.includes(previousPolicyName))
+        // .filter(previousPolicyName => !policyNames.includes(previousPolicyName))
         .map(name => [name, previousPolicies[name]])
     );
 
@@ -294,14 +295,21 @@ EnterprisePoliciesManager.prototype = {
       }
     );
 
-    for (let policyName of previousNames) {
-      let policyImpl = lazy.Policies[policyName];
+    for (let policyName of Object.keys(lazy.Policies)) {
+      const inPayload = Object.keys(this._parsedPolicies).includes(policyName);
+      const inPrevious = Object.keys(this._previousPolicies).includes(policyName);
+      console.debug(`EnterprisePoliciesParent: policyName=${policyName} => here?? inPayload:${inPayload} inPrevious:${inPrevious}`);
+      if (!inPayload && !inPrevious) {
+        continue;
+      }
 
+      let policyImpl = lazy.Policies[policyName];
       const onRemove = "onRemove" in policyImpl && policyImpl.onRemove;
       if (!onRemove) {
         continue;
       }
 
+      console.debug(`EnterprisePoliciesParent: policyName=${policyName} schedule ${this._previousPolicies[policyName]}`);
       this._schedulePolicyCallback("onRemove", [
         policyImpl.onRemove,
         policyImpl,
@@ -470,6 +478,8 @@ EnterprisePoliciesManager.prototype = {
         const parsed = JSON.parse(data);
         this._activatePolicies(parsed.policies);
 
+        this._runPoliciesCallbacks("onRemove");
+
         // Only run callbacks that are ready right now. The rest is handled by
         // this._activatePolicies()
         Object.keys(this._callbacks)
@@ -479,8 +489,6 @@ EnterprisePoliciesManager.prototype = {
               this.observersReceived.includes(policiesCallbackMapping[cbName])
           )
           .map(cb => this._runPoliciesCallbacks(cb));
-
-        this._runPoliciesCallbacks("onRemove");
 
         break;
       }
