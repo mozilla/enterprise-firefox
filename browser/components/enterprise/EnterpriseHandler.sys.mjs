@@ -48,7 +48,7 @@ export const EnterpriseHandler = {
    * @param {Window} window chrome window
    */
   async init(window) {
-    if (Services.felt.isFeltUI) {
+    if (Services.felt.isFeltUI()) {
       // Nothing to setup for the felt window
       return;
     }
