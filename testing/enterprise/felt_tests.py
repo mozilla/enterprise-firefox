@@ -199,8 +199,15 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
             policy_value = (
                 False if self.server.policy_block_about_config.value == 0 else True
             )
+
+            # Reflect the states:
+            #  - "Unset" is -1, no value is pushed
+            #  - "False" is 0
+            #  - "True" is 1
             policy_content.update(
-                {"BlockAboutConfig": policy_value} if policy_value else {}
+                {}
+                if self.server.policy_block_about_config.value == -1
+                else {"BlockAboutConfig": policy_value}
             )
 
             policy_value = self.server.policy_extensions.value == 1
@@ -525,7 +532,7 @@ class FeltTestsBase(EnterpriseTestsBase):
         self._manually_closed_child = False
         self.console_port = random.randrange(10000, 14999)
         self.sso_port = random.randrange(15000, 20000)
-        self.policy_block_about_config = Value("B", 1)
+        self.policy_block_about_config = Value("b", 1)
         self.policy_extensions = Value("B", 0)
         self.policies_fail_request = Value("B", 0)
         """
