@@ -148,7 +148,8 @@ export const EnterpriseHandler = {
     const email = document.querySelector(".panelUI-enterprise__email");
     if (!this._signedInUser) {
       email.hidden = true;
-      document.querySelector("#PanelUI-enterprise-separator").hidden = true;
+      document.querySelector("#PanelUI-enterprise-email-separator").hidden =
+        true;
       console.warn(
         "Unable to update email in enterprise panel without user information"
       );
