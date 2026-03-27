@@ -16,16 +16,60 @@ from marionette_driver.errors import UnknownException
 
 class BrowserAboutConfigBlocked(FeltTests):
     def test_browser_about_config_blocked(self):
-        super().run_felt_base()
+        self.run_felt_base()
+        self.connect_child_browser()
+
+        self._logger.info("Default blocked, should block")
         self.run_about_config_blocked_in_browser()
-        self.run_change_about_config_policy()
+
+        self._logger.info("Unblocking, should allow")
+        self.run_change_about_config_policy(0)
         self.run_about_config_allowed_in_browser()
 
-    def run_about_config_blocked_in_browser(self):
-        self.connect_child_browser()
-        self._logger.info(
-            f"Value of BlockAboutConfig policy: {self.policy_block_about_config.value}"
+        self._logger.info("Blocking explicitely, should block")
+        self.run_change_about_config_policy(1)
+        self.run_about_config_blocked_in_browser()
+
+        self._logger.info("Removing policy, should allow")
+        self.run_change_about_config_policy(-1)
+        self.run_about_config_allowed_in_browser()
+
+    def get_server_value(self):
+        r = requests.get(
+            f"http://localhost:{self.console_port}/api/browser/policies",
+            headers={"Authorization": f"Bearer {self.policy_access_token.value}"},
         )
+        j = r.json()
+
+        if not ("BlockAboutConfig" in j["policies"]):
+            return None
+
+        return int(j["policies"]["BlockAboutConfig"])
+
+    def run_change_about_config_policy(self, new_value):
+        self._logger.info("Changing BlockAboutConfig policy")
+        self.policy_block_about_config.value = new_value
+
+        max_try = 0
+        while max_try < 20:
+            max_try += 1
+            try:
+                policy_value = self.get_server_value()
+                if policy_value is None or policy_value == new_value:
+                    break
+                self._logger.info(
+                    f"Policy update not yet propagated: received {policy_value}, but expecting {new_value}"
+                )
+                time.sleep(1)
+            except Exception as ex:
+                self._logger.info(f"Policy update issue: {ex}")
+
+        # Give time to make sure Policy got applied
+        time.sleep(2)
+        self._logger.info("Policy update propagated, continue tests")
+
+    def run_about_config_blocked_in_browser(self):
+        self._logger.info("Checking about:config is blocked in browser")
 
         try:
             self.open_tab_child("about:config")
@@ -35,41 +79,8 @@ class BrowserAboutConfigBlocked(FeltTests):
                 "Reached error page: about:neterror?e=blockedByPolicyEnterprise&u=about%3Aconfig"
             ), "about:config is blocked in Firefox"
 
-    def run_change_about_config_policy(self):
-        self._logger.info("Changing BlockAboutConfig policy")
-        self.policy_block_about_config.value = 0
-        self._logger.info("Changed BlockAboutConfig policy")
-
-        url = f"http://localhost:{self.console_port}/api/browser/policies"
-        max_try = 0
-        while max_try < 20:
-            max_try += 1
-            try:
-                r = requests.get(
-                    f"{url}",
-                    headers={
-                        "Authorization": f"Bearer {self.policy_access_token.value}"
-                    },
-                )
-                j = r.json()
-                if not ("BlockAboutConfig" in j["policies"]):
-                    self._logger.info(f"Policy update propagated at {url}!")
-                    break
-                self._logger.info(f"Policy update not yet propagated at {url}")
-                time.sleep(0.5)
-            except Exception as ex:
-                self._logger.info(f"Policy update issue {url}: {ex}")
-                time.sleep(2)
-
-        # Give time to make sure Policy got applied
-        time.sleep(2)
-
-        self._logger.info("Policy update propagated, continue tests")
-
     def run_about_config_allowed_in_browser(self):
-        self._logger.info(
-            f"Value of BlockAboutConfig policy: {self.policy_block_about_config.value}"
-        )
+        self._logger.info("Checking about:config is allowed in browser")
 
         self.open_tab_child("about:config")
 
