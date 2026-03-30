@@ -239,7 +239,7 @@ export class FeltProcessParent extends JSProcessActorParent {
           }
 
           case "felt-firefox-logout":
-            gFeltProcessParentInstance.logoutFirefox();
+            gFeltProcessParentInstance.logoutFirefox(aData);
             break;
 
           case "felt-firefox-tokens": {
@@ -592,15 +592,17 @@ export class FeltProcessParent extends JSProcessActorParent {
   }
 
   /**
-   * Perform all the logout operations on FELT side
+   * Perform all the logout operations on FELT side.
+   *
+   * @param {string} logoutType - One of the logout type payload strings from the IPC message.
    */
-  logoutFirefox() {
+  logoutFirefox(logoutType) {
     if (!Services.felt.isFeltUI()) {
       throw new Error("Logout handling should only happen on FELT side.");
     }
 
     console.debug(
-      `FeltExtension: Logout, waiting on ${gFeltProcessParentInstance.proc.pid}`
+      `FeltExtension: Logout (${logoutType}), waiting on ${gFeltProcessParentInstance.proc.pid}`
     );
     gFeltProcessParentInstance.logoutReported = true;
     lazy.ConsoleClient.clearTokenData();
@@ -612,7 +614,9 @@ export class FeltProcessParent extends JSProcessActorParent {
     }
 
     gFeltProcessParentInstance.proc.exitPromise.then(_ => {
-      Services.cpmm.sendAsyncMessage("FeltParent:FirefoxLogoutExit", {});
+      Services.cpmm.sendAsyncMessage("FeltParent:FirefoxLogoutExit", {
+        logoutType,
+      });
     });
   }
 

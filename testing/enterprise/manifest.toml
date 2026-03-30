@@ -46,6 +46,8 @@ run-if = [
 
 ["test_felt_browser_signout.py"]
 
+["test_felt_browser_token_refresh.py"]
+
 ["test_felt_browser_signout_verify.py"]
 
 ["test_felt_browser_starts.py"]

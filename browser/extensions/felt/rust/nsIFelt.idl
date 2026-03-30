@@ -76,5 +76,12 @@ interface nsIFelt : nsISupports {
   ACString getConsoleUrl();
 
   [must_use]
-  void performSignout();
+  void performNormalLogout();
+
+  [must_use]
+  void performConsoleForcedLogout();
+
+  readonly attribute ACString logoutTypeNormal;
+  readonly attribute ACString logoutTypeConsoleForcedLogout;
+  readonly attribute ACString logoutTypeUnknown;
 };

@@ -515,6 +515,76 @@ def serve(
     )
 
 
+class FeltLogoutChecker:
+    """Context manager that asserts a FELT-managed Firefox browser logout of a specific type occurred.
+
+    Must be instantiated while the FELT window is open (i.e. in setup()), since it
+    registers a "felt-firefox-logout" observer in the FELT window via execute_script at
+    construction time. Use assert_browser_logouts_with() to set the expected logout type,
+    then wrap the action that triggers the logout in a with block.
+    """
+
+    def __init__(self, test):
+        self._test = test
+        self._expected_type = None
+        self._saved_window_handle = None
+
+        with test._driver.using_context("chrome"):
+            test._driver.execute_script(
+                """
+                Services.prefs.clearUserPref("enterprise._test.logout_type");
+                Services.obs.addObserver({
+                    observe(subject, topic, data) {
+                        Services.prefs.setStringPref("enterprise._test.logout_type", data);
+                    }
+                }, "felt-firefox-logout", false);
+                """
+            )
+
+    def assert_browser_logouts_with(self, expected_type):
+        self._expected_type = expected_type
+        return self
+
+    def __enter__(self):
+        try:
+            self._saved_window_handle = self._test._driver.current_chrome_window_handle
+        except Exception:
+            # If the parent browser window was closed, there is nothing to restore.
+            self._saved_window_handle = None
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if exc_type is not None:
+            return False
+
+        handles = self._test._wait.until(
+            lambda mn: self._test._driver.chrome_window_handles
+        )
+        # switch_to_window resets Marionette's internal curBrowser pointer to the new
+        # window; without it, execute_script would throw "browsing context has been
+        # discarded" because it still references the old closed window.
+        self._test._driver.switch_to_window(handles[0])
+        with self._test._driver.using_context("chrome"):
+            logout_type = self._test._wait.until(
+                lambda mn: mn.execute_script(
+                    'return Services.prefs.getStringPref("enterprise._test.logout_type", "") || null;'
+                )
+            )
+        assert logout_type == self._expected_type, (
+            f"Unexpected logout type: {logout_type}"
+        )
+
+        try:
+            parent_handles = self._test._driver.chrome_window_handles
+            if self._saved_window_handle in parent_handles:
+                self._test._driver.switch_to_window(self._saved_window_handle)
+        except Exception:
+            # If the parent browser window was closed, there is nothing to restore.
+            pass
+
+        return False
+
+
 class FeltTestsBase(EnterpriseTestsBase):
     EXTRA_ENV = {}
 

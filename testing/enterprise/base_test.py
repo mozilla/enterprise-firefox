@@ -10,6 +10,7 @@ import time
 from copy import deepcopy
 from enum import Enum
 
+from marionette_driver import errors
 from marionette_driver.marionette import Marionette
 from marionette_driver.wait import Wait
 from marionette_harness import MarionetteTestCase
@@ -189,6 +190,21 @@ class EnterpriseTestsBase(MarionetteTestCase):
         self._logger.info(f"Verifying user is signed out in {env.name}.")
 
         result = self.get_logged_in_user_info(env)
-        assert result["_error"] == "InvalidAuthError: Unhandled reauthentication", (
-            "Unexpected state after signout"
-        )
+        assert result["_error"] in (
+            "ReauthRequiredError: No refresh token available",
+            "ReauthRequiredError: Invalid refresh token",
+            "InvalidAuthError: Token refresh request blocked in Felt.",
+        ), "Unexpected state after signout"
+
+    def assert_child_browser_closed(self):
+        self._logger.info("Verifying child browser is closed.")
+        try:
+            self._child_driver.get_url()
+            assert False, "Expected child browser to be closed"
+        except (
+            errors.InvalidSessionIdException,
+            errors.NoSuchWindowException,
+            errors.TimeoutException,
+            OSError,
+        ):
+            pass

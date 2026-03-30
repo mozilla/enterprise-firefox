@@ -12,7 +12,7 @@ use xpcom::RefPtr;
 
 use log::trace;
 
-use crate::message::{nsICookieWrapper, FeltMessage, FELT_IPC_VERSION};
+use crate::message::{nsICookieWrapper, FeltMessage, LogoutType, FELT_IPC_VERSION};
 use crate::utils::{self, Tokens, TOKENS};
 
 #[derive(Default)]
@@ -76,9 +76,9 @@ impl FeltIpcClient {
         }
     }
 
-    pub fn notify_signout(&self) {
+    pub fn notify_signout(&self, logout_type: LogoutType) {
         trace!("FeltIpcClient::notify_signout()");
-        let msg = FeltMessage::LogoutShutdown;
+        let msg = FeltMessage::Logout(logout_type);
         if let Some(tx) = &self.tx {
             match tx.send(msg) {
                 Ok(()) => trace!("FeltIpcClient::notify_signout() SENT"),
@@ -486,10 +486,10 @@ impl FeltClientThread {
         client.send_extension_ready();
     }
 
-    pub fn notify_signout(&self) {
+    pub fn notify_signout(&self, logout_type: LogoutType) {
         trace!("FeltClientThread::notify_signout()");
         let client = self.ipc_client.borrow();
-        client.notify_signout();
+        client.notify_signout(logout_type);
     }
 
     pub fn send_back_tokens(&self) -> nserror::nsresult {
