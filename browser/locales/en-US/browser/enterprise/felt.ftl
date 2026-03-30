@@ -28,6 +28,12 @@ felt-browser-error-sso-timeout2 =
 felt-browser-error-multiple-crashes2 =
     .heading = { -brand-short-name } crashed multiple times
 
+## Logout messages
+
+felt-browser-info-console-forced-logout =
+    .heading = You've been signed out
+    .message = An administrator signed you out as part of routine account management. If you have any questions, please contact your administrator directly.
+
 ## Network error headings
 
 felt-browser-error-connection2 =
