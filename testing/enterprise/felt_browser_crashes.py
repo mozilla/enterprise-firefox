@@ -13,17 +13,22 @@ from felt_tests import FeltTests
 
 class BrowserCrashes(FeltTests):
     EXTRA_ENV = {"MOZ_GDB_SLEEP": "1"}
+    # Reduce the timeout for faster processing of the tests
+    socket_timeout = 10
 
     def crash_parent(self):
         self._browser_pid = self._child_driver.session_capabilities["moz:processID"]
         self._logger.info(f"Crashing browser at {self._browser_pid}")
+        saved_timeout = self._child_driver.client.socket_timeout
+        self._child_driver.client.socket_timeout = self.socket_timeout
         try:
             # This is going to trigger exception for sure
             self._logger.info("Crashing main process")
             self.open_tab_child("about:crashparent")
         except Exception as ex:
             self._logger.info(f"Caught exception {ex}")
-            pass
+        finally:
+            self._child_driver.client.socket_timeout = saved_timeout
 
     def connect_and_crash(self):
         self.connect_child_browser()
