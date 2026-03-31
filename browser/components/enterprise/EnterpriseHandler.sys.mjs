@@ -50,7 +50,7 @@ function parseUrl(url) {
  * @param {string} url - The URL string to validate.
  * @returns {URL|null} A parsed `URL` object if validation succeeds, otherwise `null`.
  */
-function validateHttpsUrl(url) {
+function validateHttpsConsoleUrl(url) {
   const parsedUrl = parseUrl(url);
 
   if (!parsedUrl) {
@@ -221,7 +221,7 @@ export const EnterpriseHandler = {
       return;
     }
 
-    const validLearnMoreUrl = validateHttpsUrl(learnMoreUrl);
+    const validLearnMoreUrl = validateHttpsConsoleUrl(learnMoreUrl);
 
     if (validLearnMoreUrl !== null) {
       lazy.log.debug(`Setting learn more uri to ${validLearnMoreUrl.href}`);
