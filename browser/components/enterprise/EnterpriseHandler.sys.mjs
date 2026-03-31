@@ -15,6 +15,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   BrowserUtils: "resource://gre/modules/BrowserUtils.sys.mjs",
   ConsoleClient: "resource:///modules/enterprise/ConsoleClient.sys.mjs",
   EnterpriseCommon: "resource:///modules/enterprise/EnterpriseCommon.sys.mjs",
+  isTesting: "resource:///modules/enterprise/EnterpriseCommon.sys.mjs",
 });
 
 ChromeUtils.defineLazyGetter(lazy, "log", () => {
@@ -26,6 +27,81 @@ ChromeUtils.defineLazyGetter(lazy, "log", () => {
 
 const PROMPT_ON_SIGNOUT_PREF = "enterprise.promptOnSignout";
 const LOGO_URL = "enterprise.logo_url";
+const LEARN_MORE_URL_PREF = "enterprise.configs.learn_more_url";
+
+/**
+ * Parses a given url string
+ *
+ * @param {string} url url string from preference
+ * @returns {URL|null} A parsed `URL` object if it's valid, otherwise `null`.
+ */
+function parseUrl(url) {
+  try {
+    return new URL(url);
+  } catch {
+    lazy.log.error(`Invalid URL: ${url}`);
+    return null;
+  }
+}
+
+/**
+ * Validate that the URL is HTTPS and hosted on the console host.
+ *
+ * @param {string} url - The URL string to validate.
+ * @returns {URL|null} A parsed `URL` object if validation succeeds, otherwise `null`.
+ */
+function validateHttpsUrl(url) {
+  const parsedUrl = parseUrl(url);
+
+  if (!parsedUrl) {
+    return null;
+  }
+
+  const isLocalTest =
+    lazy.isTesting() &&
+    (parsedUrl.hostname === "localhost" || parsedUrl.hostname === "127.0.0.1");
+
+  if (parsedUrl.protocol !== "https:" && !isLocalTest) {
+    lazy.log.warn(`Expected HTTPS URL: ${url}`);
+    return null;
+  }
+  if (parsedUrl.hostname !== lazy.ConsoleClient.consoleBaseURI.hostname) {
+    lazy.log.warn(`Expected URL hosted by the console origin: ${url}`);
+    return null;
+  }
+
+  return parsedUrl;
+}
+
+/**
+ * Validates that a URL string is a base64-encoded data URL for a supported image type.
+ *
+ * Supported MIME types are PNG, JPEG, GIF, WebP, and SVG.
+ *
+ * If validation fails, an error is logged and `null` is returned.
+ *
+ * @param {string} url - The URL string to validate.
+ * @returns {URL|null} A parsed `URL` object if validation succeeds, otherwise `null`.
+ */
+function validateDataUrl(url) {
+  const parsedUrl = parseUrl(url);
+
+  if (!parsedUrl) {
+    return null;
+  }
+
+  const isSupportedImageDataUrl =
+    parsedUrl.protocol === "data:" &&
+    /^image\/(?:png|jpeg|gif|webp|svg\+xml);base64,/.test(parsedUrl.pathname);
+
+  if (!isSupportedImageDataUrl) {
+    lazy.log.error(
+      `Expected a base64-encoded supported image data URL: ${url}`
+    );
+    return null;
+  }
+  return parsedUrl;
+}
 
 export const EnterpriseHandler = {
   /**
@@ -38,6 +114,12 @@ export const EnterpriseHandler = {
    * from the signed in user has been received from the console.
    */
   _isInitialized: false,
+
+  /**
+   * Whether the panel has been opened once,
+   * which populates the learn more link
+   */
+  _isLearnMoreLinkConfigured: false,
 
   /**
    * Handles the enterprise state for each new browser window.
@@ -128,25 +210,39 @@ export const EnterpriseHandler = {
     const win = element.ownerGlobal;
     win.PanelUI.showSubView("panelUI-enterprise", element, event);
     const document = element.ownerDocument;
-    const learnMoreLink = document.getElementById("enterprise-learn-more-link");
 
-    if (!learnMoreLink.href) {
-      const uri = lazy.ConsoleClient.learnMoreURI;
-      learnMoreLink.setAttribute("href", uri);
+    if (!this._isLearnMoreLinkConfigured) {
+      const learnMoreUrl = Services.prefs.getStringPref(LEARN_MORE_URL_PREF);
 
-      learnMoreLink.addEventListener("click", e => {
-        let where = lazy.BrowserUtils.whereToOpenLink(e, false, false);
-        if (where == "current") {
-          where = "tab";
-        }
-        win.openTrustedLinkIn(uri, where);
-        e.preventDefault();
+      if (!learnMoreUrl) {
+        lazy.log.warn("No learn more url available.");
+        return;
+      }
 
-        const panel = document
-          .getElementById("panelUI-enterprise")
-          .closest("panel");
-        win.PanelMultiView.hidePopup(panel);
-      });
+      const validLearnMoreUrl = validateHttpsUrl(learnMoreUrl);
+
+      if (validLearnMoreUrl !== null) {
+        lazy.log.debug(`Setting learn more uri to ${validLearnMoreUrl.href}`);
+        const learnMoreLink = document.getElementById(
+          "enterprise-learn-more-link"
+        );
+        learnMoreLink.setAttribute("href", validLearnMoreUrl.href);
+        this._isLearnMoreLinkConfigured = true;
+
+        learnMoreLink.addEventListener("click", e => {
+          let where = lazy.BrowserUtils.whereToOpenLink(e, false, false);
+          if (where == "current") {
+            where = "tab";
+          }
+          win.openTrustedLinkIn(validLearnMoreUrl.href, where);
+          e.preventDefault();
+
+          const panel = document
+            .getElementById("panelUI-enterprise")
+            .closest("panel");
+          win.PanelMultiView.hidePopup(panel);
+        });
+      }
     }
 
     const email = document.querySelector(".panelUI-enterprise__email");
@@ -244,39 +340,27 @@ export const EnterpriseHandler = {
   uninit() {
     this._signedInUser = {};
     this._isInitialized = false;
+    this._isLearnMoreLinkConfigured = false;
   },
 
   _updateLogo(window) {
     const logoUrl = Services.prefs.getStringPref(LOGO_URL, "");
 
     if (!logoUrl) {
-      console.warn(`${LOGO_URL} pref is not set, skipping logo update`);
+      lazy.log.warn("No company logo url available");
       return;
     }
 
-    let validLogoUrl;
-    try {
-      validLogoUrl = new URL(logoUrl);
-    } catch {
-      throw new Error(`Invalid logo URL in pref: ${logoUrl}`);
-    }
+    const validLogoUrl = validateDataUrl(logoUrl);
 
-    if (validLogoUrl.protocol === "https:") {
-      if (validLogoUrl.origin !== lazy.ConsoleClient.consoleBaseURI.origin) {
-        throw new Error(`Logo URL must be hosted from the console: ${logoUrl}`);
-      }
-    } else if (
-      !/^data:image\/(?:png|jpeg|gif|webp|svg\+xml);base64,/.test(logoUrl)
-    ) {
-      throw new Error(`Invalid logo URL in pref: ${logoUrl}`);
+    if (validLogoUrl !== null) {
+      const toolbarLogo = window.document.querySelector(
+        "#enterprise-company-logo__wrapper > image"
+      );
+      toolbarLogo.style.setProperty(
+        "list-style-image",
+        `url("${validLogoUrl.href}")`
+      );
     }
-
-    const toolbarLogo = window.document.querySelector(
-      "#enterprise-company-logo__wrapper > image"
-    );
-    toolbarLogo.style.setProperty(
-      "list-style-image",
-      `url("${validLogoUrl.href}")`
-    );
   },
 };

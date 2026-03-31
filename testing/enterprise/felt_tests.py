@@ -19,6 +19,7 @@ from multiprocessing import Array, Process, Value
 
 import requests
 from base_test import EnterpriseTestsBase
+from felt_consts import firefox_config
 from marionette_driver import expected
 from marionette_driver.by import By
 
@@ -184,7 +185,7 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
 
         elif path == "/api/browser/config":
             m = json.dumps({
-                "learn_more_url": "",
+                "learn_more_url": firefox_config["learn_more_url"]["pref_value"],
                 "company_logo_url": "",
                 "policies": {"polling_frequency": 500},
                 "services": {

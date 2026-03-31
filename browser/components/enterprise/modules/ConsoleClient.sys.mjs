@@ -122,7 +122,6 @@ export const ConsoleClient = {
       TOKEN: "/sso/token",
       DEVICE_POSTURE: "/sso/device_posture",
       WHOAMI: "/api/browser/whoami",
-      LEARN_MORE: "/downloads/firefox.html",
       FXACCOUNT: "/api/browser/account",
       FXACCOUNTS_OAUTH: "/api/fxa/oauth/v1",
       FXACCOUNTS_PROFILE: "/api/fxa/profile/v1",
@@ -160,17 +159,6 @@ export const ConsoleClient = {
     // Consumer expects uri as nsIURI
     const uri = Services.io.newURI(url.href);
     return uri;
-  },
-
-  /**
-   * Learn more uri linked in the enterprise panel
-   *
-   * @returns {string} learn more uri
-   */
-  get learnMoreURI() {
-    const url = this.consoleBaseURI;
-    url.pathname = this._paths.LEARN_MORE;
-    return url.href;
   },
 
   /**

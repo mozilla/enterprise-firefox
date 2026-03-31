@@ -6,7 +6,7 @@
 firefox_config = {
     "learn_more_url": {
         "pref_id": "enterprise.configs.learn_more_url",
-        "pref_value": "",
+        "pref_value": "http://localhost:0/learnmore",
     },
     "company_logo_url": {
         "pref_id": "enterprise.configs.company_logo_url",
