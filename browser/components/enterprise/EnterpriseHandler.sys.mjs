@@ -206,43 +206,55 @@ export const EnterpriseHandler = {
     );
   },
 
+  /**
+   * Retrieves, validates, and applies the learn more URL to the link element.
+   * Leaves the link unconfigured if missing or invalid.
+   *
+   * @param {Window} win - chrome window
+   * @returns {void}
+   */
+  _setupLearnMoreLink(win) {
+    const learnMoreUrl = Services.prefs.getStringPref(LEARN_MORE_URL_PREF);
+
+    if (!learnMoreUrl) {
+      lazy.log.warn("No learn more url available.");
+      return;
+    }
+
+    const validLearnMoreUrl = validateHttpsUrl(learnMoreUrl);
+
+    if (validLearnMoreUrl !== null) {
+      lazy.log.debug(`Setting learn more uri to ${validLearnMoreUrl.href}`);
+      const document = win.document;
+      const learnMoreLink = document.getElementById(
+        "enterprise-learn-more-link"
+      );
+      learnMoreLink.setAttribute("href", validLearnMoreUrl.href);
+      this._isLearnMoreLinkConfigured = true;
+
+      learnMoreLink.addEventListener("click", e => {
+        let where = lazy.BrowserUtils.whereToOpenLink(e, false, false);
+        if (where == "current") {
+          where = "tab";
+        }
+        win.openTrustedLinkIn(validLearnMoreUrl.href, where);
+        e.preventDefault();
+
+        const panel = document
+          .getElementById("panelUI-enterprise")
+          .closest("panel");
+        win.PanelMultiView.hidePopup(panel);
+      });
+    }
+  },
+
   openPanel(element, event) {
     const win = element.ownerGlobal;
     win.PanelUI.showSubView("panelUI-enterprise", element, event);
     const document = element.ownerDocument;
 
     if (!this._isLearnMoreLinkConfigured) {
-      const learnMoreUrl = Services.prefs.getStringPref(LEARN_MORE_URL_PREF);
-
-      if (!learnMoreUrl) {
-        lazy.log.warn("No learn more url available.");
-        return;
-      }
-
-      const validLearnMoreUrl = validateHttpsUrl(learnMoreUrl);
-
-      if (validLearnMoreUrl !== null) {
-        lazy.log.debug(`Setting learn more uri to ${validLearnMoreUrl.href}`);
-        const learnMoreLink = document.getElementById(
-          "enterprise-learn-more-link"
-        );
-        learnMoreLink.setAttribute("href", validLearnMoreUrl.href);
-        this._isLearnMoreLinkConfigured = true;
-
-        learnMoreLink.addEventListener("click", e => {
-          let where = lazy.BrowserUtils.whereToOpenLink(e, false, false);
-          if (where == "current") {
-            where = "tab";
-          }
-          win.openTrustedLinkIn(validLearnMoreUrl.href, where);
-          e.preventDefault();
-
-          const panel = document
-            .getElementById("panelUI-enterprise")
-            .closest("panel");
-          win.PanelMultiView.hidePopup(panel);
-        });
-      }
+      this._setupLearnMoreLink(win);
     }
 
     const email = document.querySelector(".panelUI-enterprise__email");
