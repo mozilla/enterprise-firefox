@@ -50,7 +50,7 @@ class BrowserAboutConfigBlocked(FeltTests):
         self._logger.info("Changing BlockAboutConfig policy")
         self.policy_block_about_config.value = new_value
 
-        # Polling frequency + 1s, defaulting to 2s in total if missing pref
+        # Polling frequency + 1s
         waiting_time = (firefox_config["polling_frequency"]["pref_value"] / 1000) + 1
         # Give time to make sure Policy got applied
         time.sleep(waiting_time)
