@@ -209,6 +209,7 @@ const observer = {
     switch (topic) {
       case "update-downloaded":
       case "update-staged":
+      case "felt-update-ready":
         handleCompulsoryUpdatePolicy();
     }
   },
@@ -218,5 +219,6 @@ export const UpdatePolicyEnforcer = {
   registerObservers() {
     Services.obs.addObserver(observer, "update-downloaded");
     Services.obs.addObserver(observer, "update-staged");
+    Services.obs.addObserver(observer, "felt-update-ready");
   },
 };

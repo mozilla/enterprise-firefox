@@ -9,6 +9,7 @@ const { InfoBar } = ChromeUtils.importESModule(
 );
 const {
   testingOnly_getTaskStatus,
+  testingOnly_resetTasks,
   getCompulsoryRestartPolicy,
   UpdatePolicyEnforcer,
 } = ChromeUtils.importESModule(
@@ -55,6 +56,37 @@ add_task(async function test_compulsoryRestartNotification() {
       win.gNotificationBox.allNotifications[0].getAttribute("value")
     );
   } finally {
+    await popPrefs();
+  }
+});
+
+/**
+ * Tests that the felt-update-ready observer topic also triggers
+ * the compulsory restart notification, for use when Felt handles updates.
+ */
+add_task(async function test_compulsoryRestartNotificationFromFelt() {
+  await pushPrefs([prefName, JSON.stringify(prefValue)]);
+  try {
+    testingOnly_resetTasks();
+
+    let win = Services.wm.getMostRecentBrowserWindow();
+    for (let n of [...win.gNotificationBox.allNotifications]) {
+      n.dismiss();
+    }
+    Assert.equal(0, win.gNotificationBox.allNotifications.length);
+    const notificationPromise = BrowserTestUtils.waitForGlobalNotificationBar(
+      win,
+      "COMPULSORY_RESTART_SCHEDULED"
+    );
+    Services.obs.notifyObservers(null, "felt-update-ready");
+    await notificationPromise;
+    Assert.equal(1, win.gNotificationBox.allNotifications.length);
+    Assert.equal(
+      "COMPULSORY_RESTART_SCHEDULED",
+      win.gNotificationBox.allNotifications[0].getAttribute("value")
+    );
+  } finally {
+    testingOnly_resetTasks();
     await popPrefs();
   }
 });

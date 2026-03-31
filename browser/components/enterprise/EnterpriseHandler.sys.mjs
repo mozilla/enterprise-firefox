@@ -26,7 +26,7 @@ ChromeUtils.defineLazyGetter(lazy, "log", () => {
 });
 
 const PROMPT_ON_SIGNOUT_PREF = "enterprise.promptOnSignout";
-const LOGO_URL = "enterprise.logo_url";
+const COMPANY_LOGO_URL_PREF = "enterprise.configs.company_logo_url";
 const LEARN_MORE_URL_PREF = "enterprise.configs.learn_more_url";
 
 /**
@@ -356,23 +356,27 @@ export const EnterpriseHandler = {
   },
 
   _updateLogo(window) {
-    const logoUrl = Services.prefs.getStringPref(LOGO_URL, "");
+    const logoUrl = Services.prefs.getStringPref(COMPANY_LOGO_URL_PREF, "");
 
     if (!logoUrl) {
-      lazy.log.warn("No company logo url available");
+      lazy.log.warn(
+        `Unable to retrieve company logo url from: ${COMPANY_LOGO_URL_PREF}`
+      );
       return;
     }
 
     const validLogoUrl = validateDataUrl(logoUrl);
 
     if (validLogoUrl !== null) {
-      const toolbarLogo = window.document.querySelector(
-        "#enterprise-company-logo__wrapper > image"
+      const toolbarLogoWrapper = window.document.querySelector(
+        "#enterprise-company-logo__wrapper"
       );
+      const toolbarLogo = toolbarLogoWrapper.querySelector("image");
       toolbarLogo.style.setProperty(
         "list-style-image",
         `url("${validLogoUrl.href}")`
       );
+      toolbarLogoWrapper.classList.remove("is-hidden");
     }
   },
 };

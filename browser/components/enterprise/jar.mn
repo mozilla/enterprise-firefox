@@ -5,7 +5,6 @@
 browser.jar:
   content/browser/enterprise/enterprise-badge.css           (content/enterprise-badge.css)
   content/browser/enterprise/enterprise-badge.inc.xhtml     (content/enterprise-badge.inc.xhtml)
-  content/browser/enterprise/badge-logo.svg                 (content/icons/badge-logo.svg)
   content/browser/enterprise/alert.svg                      (content/icons/alert.svg)
   content/browser/enterprise/enterprise-panel.inc.xhtml     (content/enterprise-panel.inc.xhtml)
   content/browser/enterprise/enterprise-urlbar-actions.inc.xhtml (content/enterprise-urlbar-actions.inc.xhtml)
