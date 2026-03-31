@@ -289,28 +289,56 @@ export class FeltProcessParent extends JSProcessActorParent {
       extra_prefs,
     } = await lazy.ConsoleClient.getFirefoxConfigs();
 
-    Services.felt.sendStringPreference(
-      "enterprise.configs.learn_more_url",
-      learn_more_url
-    );
-    Services.felt.sendStringPreference(
-      "enterprise.configs.company_logo_url",
-      company_logo_url
-    );
-    Services.felt.sendIntPreference(
-      "browser.policies.live_polling.frequency",
-      polling_frequency
-    );
+    if (learn_more_url === null) {
+      console.error("No learn_more_url in Firefox configuration");
+    } else {
+      Services.felt.sendStringPreference(
+        "enterprise.configs.learn_more_url",
+        learn_more_url
+      );
+    }
 
-    Services.felt.sendStringPreference(
-      "identity.sync.tokenserver.uri",
-      tokenserver_url
-    );
-    Services.felt.sendStringPreference(
-      "services.settings.server",
-      remote_settings_url
-    );
-    Services.felt.sendStringPreference("dom.push.serverURL", push_url);
+    if (company_logo_url === null) {
+      console.error("No company_logo_url in Firefox configuration");
+    } else {
+      Services.felt.sendStringPreference(
+        "enterprise.configs.company_logo_url",
+        company_logo_url
+      );
+    }
+
+    if (polling_frequency === null) {
+      console.error("No polling_frequency in Firefox configuration");
+    } else {
+      Services.felt.sendIntPreference(
+        "browser.policies.live_polling.frequency",
+        polling_frequency
+      );
+    }
+
+    if (tokenserver_url === null) {
+      console.error("No tokenserver_url in Firefox configuration");
+    } else {
+      Services.felt.sendStringPreference(
+        "identity.sync.tokenserver.uri",
+        tokenserver_url
+      );
+    }
+
+    if (remote_settings_url === null) {
+      console.error("No remote_settings_url in Firefox configuration");
+    } else {
+      Services.felt.sendStringPreference(
+        "services.settings.server",
+        remote_settings_url
+      );
+    }
+
+    if (push_url === null) {
+      console.error("No push_url in Firefox configuration");
+    } else {
+      Services.felt.sendStringPreference("dom.push.serverURL", push_url);
+    }
 
     extra_prefs.forEach(pref => {
       this._setPrefInFirefox(pref);
