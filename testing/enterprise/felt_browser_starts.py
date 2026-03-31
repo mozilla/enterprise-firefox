@@ -37,9 +37,13 @@ class FeltStartsBrowser(FeltTests):
             f"Cookie {self.cookie_name} was properly set on Firefox started by FELT"
         )
 
-    def run_ensure_config_prefs_set_in_browser(self):
-        for pref in felt_consts.config_prefs:
-            value = self.get_pref_child(pref[0], self.python_type_to_js(pref[1]))
-            assert value == pref[1], (
-                f"Mismatching pref {pref[0]} value {value} instead of {pref[1]}"
+    def run_ensure_firefox_config_set_in_browser(self):
+        for key, entry in felt_consts.firefox_config.items():
+            pref_id = entry["pref_id"]
+            expected_value = entry["pref_value"]
+
+            value = self.get_pref_child(pref_id, self.python_type_to_js(expected_value))
+
+            assert value == expected_value, (
+                f"[{key}] Mismatching pref {pref_id} value {value} instead of {expected_value}"
             )

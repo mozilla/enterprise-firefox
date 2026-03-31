@@ -116,7 +116,7 @@ export const ConsoleClient = {
       SSO: "/sso/login",
       SIGNOUT: "/sso/logout",
       SSO_CALLBACK: "/sso/callback",
-      DEFAULT_PREFS: "/api/browser/hacks/default",
+      CONFIG: "/api/browser/config",
       REMOTE_POLICIES: "/api/browser/policies",
       KEY: "/api/browser/key",
       TOKEN: "/sso/token",
@@ -190,11 +190,13 @@ export const ConsoleClient = {
     return url.href + "?*";
   },
 
-  // prefs that do not need to be written and can be sent during runtime
-  // tbd: remove
-  async getDefaultPrefs() {
-    const payload = await this._get(this._paths.DEFAULT_PREFS);
-    return payload;
+  /**
+   * Fetches configurations for Firefox
+   *
+   * @returns {Promise<object>}
+   */
+  async getFirefoxConfigs() {
+    return this._get(this._paths.CONFIG);
   },
 
   /**

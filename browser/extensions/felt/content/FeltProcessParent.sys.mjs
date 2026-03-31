@@ -276,6 +276,75 @@ export class FeltProcessParent extends JSProcessActorParent {
     );
   }
 
+  /**
+   * Fetches the configurations for Firefox and sends
+   * each configuration point over to Firefox as preferences
+   */
+  async _applyFirefoxConfigs() {
+    const {
+      learn_more_url,
+      company_logo_url,
+      policies: { polling_frequency },
+      services: { push_url, remote_settings_url, tokenserver_url },
+      extra_prefs,
+    } = await lazy.ConsoleClient.getFirefoxConfigs();
+
+    Services.felt.sendStringPreference(
+      "enterprise.configs.learn_more_url",
+      learn_more_url
+    );
+    Services.felt.sendStringPreference(
+      "enterprise.configs.company_logo_url",
+      company_logo_url
+    );
+    Services.felt.sendIntPreference(
+      "browser.policies.live_polling.frequency",
+      polling_frequency
+    );
+
+    Services.felt.sendStringPreference(
+      "identity.sync.tokenserver.uri",
+      tokenserver_url
+    );
+    Services.felt.sendStringPreference(
+      "services.settings.server",
+      remote_settings_url
+    );
+    Services.felt.sendStringPreference("dom.push.serverURL", push_url);
+
+    extra_prefs.forEach(pref => {
+      this._setPrefInFirefox(pref);
+    });
+  }
+
+  /**
+   * Sends preference to Firefox through felt
+   *
+   * @param {[key: string, value: boolean|string|number]} pref
+   */
+  _setPrefInFirefox(pref) {
+    const name = pref[0];
+    const value = pref[1];
+    console.debug(`Felt: Services.felt(${name}, ${value})`);
+
+    switch (typeof value) {
+      case "boolean":
+        Services.felt.sendBoolPreference(name, value);
+        break;
+
+      case "string":
+        Services.felt.sendStringPreference(name, value);
+        break;
+
+      case "number":
+        Services.felt.sendIntPreference(name, value);
+        break;
+
+      default:
+        console.warn(`Unsupported pref type for ${name}:`, value);
+    }
+  }
+
   async startFirefox(startReason, ssoCollectedCookies = []) {
     this.restartReported = false;
     this.logoutReported = false;
@@ -311,27 +380,7 @@ export class FeltProcessParent extends JSProcessActorParent {
         Services.felt.sendTokens();
         lazy.ConsoleClient.isSessionRefreshBlocked = true;
 
-        const { prefs } = await lazy.ConsoleClient.getDefaultPrefs();
-        prefs.forEach(pref => {
-          const name = pref[0];
-          const value = pref[1];
-
-          console.debug(`Felt: Services.felt(${name}, ${value})`);
-
-          switch (typeof value) {
-            case "boolean":
-              Services.felt.sendBoolPreference(name, value);
-              break;
-
-            case "string":
-              Services.felt.sendStringPreference(name, value);
-              break;
-
-            case "number":
-              Services.felt.sendIntPreference(name, value);
-              break;
-          }
-        });
+        await this._applyFirefoxConfigs();
 
         Services.felt.sendCookies(ssoCollectedCookies);
         Services.felt.sendReady();

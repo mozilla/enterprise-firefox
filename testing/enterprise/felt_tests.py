@@ -17,7 +17,6 @@ import uuid
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from multiprocessing import Array, Process, Value
 
-import felt_consts
 import requests
 from base_test import EnterpriseTestsBase
 from marionette_driver import expected
@@ -183,12 +182,18 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
             self.end_headers()
             return
 
-        elif path == "/api/browser/hacks/default":
-            # Browser prefs that can be applied live
+        elif path == "/api/browser/config":
             m = json.dumps({
-                "prefs": felt_consts.config_prefs + [["marionette.port", 0]]
+                "learn_more_url": "",
+                "company_logo_url": "",
+                "policies": {"polling_frequency": 500},
+                "services": {
+                    "push_url": "",
+                    "remote_settings_url": "",
+                    "tokenserver_url": "",
+                },
+                "extra_prefs": [["marionette.port", 0]],
             })
-            contentType = "application/json"
 
         elif path == "/api/browser/policies":
             self.check_auth()
