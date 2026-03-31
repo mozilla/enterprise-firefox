@@ -8,6 +8,8 @@
 
 const lazy = {};
 
+// Maps logout types (from nsIFelt) to the CSS class applied to the FELT window
+// to display the appropriate message to the user after logout.
 ChromeUtils.defineLazyGetter(
   lazy,
   "logoutTypeMessageClass",

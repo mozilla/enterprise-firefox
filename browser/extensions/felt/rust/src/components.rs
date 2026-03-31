@@ -303,34 +303,30 @@ impl FeltXPCOM {
         NS_OK
     }
 
-    fn PerformNormalLogout(&self) -> nserror::nsresult {
-        trace!("FeltXPCOM::PerformNormalLogout");
+    fn perform_logout(&self, logout_type: LogoutType) -> nserror::nsresult {
+        trace!("FeltXPCOM::perform_logout");
         let guard = crate::FELT_CLIENT.lock().expect("Could not get lock");
         match &*guard {
             Some(client) => {
-                trace!("firefox_felt_send_extension_ready(): sending message");
-                client.notify_signout(LogoutType::Normal);
+                trace!("FeltXPCOM::perform_logout(): sending message");
+                client.notify_signout(logout_type);
+                NS_OK
             }
             None => {
-                trace!("firefox_felt_send_extension_ready(): missing client");
+                trace!("FeltXPCOM::perform_logout(): missing client");
+                NS_ERROR_FAILURE
             }
         }
-        NS_OK
+    }
+
+    fn PerformNormalLogout(&self) -> nserror::nsresult {
+        trace!("FeltXPCOM::PerformNormalLogout");
+        self.perform_logout(LogoutType::Normal)
     }
 
     fn PerformConsoleForcedLogout(&self) -> nserror::nsresult {
         trace!("FeltXPCOM::PerformConsoleForcedLogout");
-        let guard = crate::FELT_CLIENT.lock().expect("Could not get lock");
-        match &*guard {
-            Some(client) => {
-                trace!("firefox_felt_send_extension_ready(): sending message");
-                client.notify_signout(LogoutType::ConsoleForcedLogout);
-            }
-            None => {
-                trace!("firefox_felt_send_extension_ready(): missing client");
-            }
-        }
-        NS_OK
+        self.perform_logout(LogoutType::ConsoleForcedLogout)
     }
 
     fn IpcChannel(&self) -> nserror::nsresult {

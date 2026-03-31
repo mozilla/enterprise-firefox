@@ -88,7 +88,7 @@ class BrowserTokenRefresh(FeltTests):
         self._driver.set_context("chrome")
         info_bar = self.get_elem(".felt-browser-info-console-forced-logout")
         heading = info_bar.get_attribute("heading").strip()
-        assert "You've been signed out" in heading, (
+        assert "You’ve been signed out" in heading, (
             f"Unexpected info bar heading: {heading}"
         )
         self._driver.set_context("content")
