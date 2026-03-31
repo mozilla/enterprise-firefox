@@ -325,7 +325,9 @@ export class FeltProcessParent extends JSProcessActorParent {
   _setPrefInFirefox(pref) {
     const name = pref[0];
     const value = pref[1];
-    console.debug(`Felt: Services.felt(${name}, ${value})`);
+    console.debug(
+      `Sending preference ${name} with value ${value} from Felt to Firefox`
+    );
 
     switch (typeof value) {
       case "boolean":
