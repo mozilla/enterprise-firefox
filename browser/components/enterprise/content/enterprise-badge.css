@@ -39,7 +39,7 @@
 
 .enterprise-badge {
   height: var(--size-item-large);
-  padding: var(--space-xxsmall) var(--space-xsmall);
+  padding: var(--space-xsmall) var(--space-small);
   align-items: center;
   gap: var(--space-small);
 
