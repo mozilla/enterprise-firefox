@@ -5,7 +5,7 @@
     "3rdparty": {
       "type": "object",
       "x-category": "Security",
-      "description": "Allow WebExtensions to configure policies.\nFor more information, see [Adding policy support to your extension](https://extensionworkshop.com/documentation/enterprise/enterprise-development/#how-to-add-policy).\nFor GPO and Intune, the extension developer should provide an ADMX file.",
+      "description": "Allow WebExtensions to configure policy.",
       "examples": [
         {
           "Extensions": {
@@ -294,8 +294,8 @@
     "AllowedDomainsForApps": {
       "type": "string",
       "x-category": "Network security",
-      "description": "Define domains allowed to access Google Workspace.\nThis policy is based on the [Chrome policy](https://chromeenterprise.google/policies/#AllowedDomainsForApps) of the same name.\nIf this policy is enabled, users can only access Google Workspace using accounts from the specified domains. If you want to allow Gmail, you can add `consumer_accounts` to the list.",
-      "examples": ["example.com,example.org"]
+      "description": "Define domains allowed to access Google Workspace.",
+      "examples": ["managedfirefox.com,example.com"]
     },
     "AllowFileSelectionDialogs": {
       "type": "boolean",
@@ -308,14 +308,14 @@
       "type": "boolean",
       "x-category": "Device update settings",
       "x-preferences-affected": ["app.update.auto"],
-      "description": "Enable or disable **automatic** application update.\n\nIf set to `true`, application updates are installed without user approval within Firefox. The operating system might still require approval.\n\nIf set to `false`, application updates are downloaded but the user can choose when to install the update.\n\nIf you have disabled updates via [`DisableAppUpdate`](/reference/policies/disableappupdate/), this policy has no effect.",
+      "description": "Enable or disable **automatic** application update.",
       "examples": [true, false]
     },
     "AppUpdatePin": {
       "type": "string",
       "x-category": "Device update settings",
-      "description": "Prevent Firefox from being updated beyond the specified pinned version.\n\nThe format for versioning is [semver](https://semver.org/), which uses `MAJOR.MINOR.PATCH` format.\n\nYou can specify the major version as `xx.` (e.g, `140.`) and Firefox will be updated with all minor versions, but will not be updated beyond the major version.\n\nYou can specify a major and minor version as `xx.xx.` (e.g, `140.0.`) and Firefox will be updated with all patch versions (`140.0.1`, `140.0.2`), but will not be updated beyond the minor version.\n\nNote\n\nThe value MUST end in a dot (`.`).\n\nYou should specify a version that exists or is guaranteed to exist.\nIf you specify a version that doesn't exist, Firefox will update beyond that version.",
-      "examples": ["150.0.0", "150.0.", "150."]
+      "description": "Prevent Firefox from being updated beyond the specified version.",
+      "examples": ["106."]
     },
     "AppUpdateURL": {
       "type": "URL",
@@ -337,7 +337,7 @@
         "network.negotiate-auth.allow-proxies",
         "network.auth.private-browsing-sso"
       ],
-      "description": "Configure sites that support integrated authentication.\nSee [Integrated authentication](https://htmlpreview.github.io/?https://github.com/mdn/archived-content/blob/main/files/en-us/mozilla/integrated_authentication/raw.html) for more information.\n\nThe `PrivateBrowsing` member enables integrated authentication in private browsing.",
+      "description": "Configure sites that support integrated authentication.",
       "examples": [
         {
           "SPNEGO": ["mydomain.com", "https://myotherdomain.com"],
@@ -345,14 +345,14 @@
           "NTLM": ["mydomain.com", "https://myotherdomain.com"],
           "AllowNonFQDN": {
             "SPNEGO": true,
-            "NTLM": false
+            "NTLM": true
           },
           "AllowProxies": {
             "SPNEGO": true,
-            "NTLM": false
+            "NTLM": true
           },
           "Locked": true,
-          "PrivateBrowsing": false
+          "PrivateBrowsing": true
         }
       ],
       "properties": {
@@ -408,25 +408,27 @@
       "type": "boolean",
       "x-category": "Password manager",
       "x-preferences-affected": ["extensions.formautofill.addresses.enabled"],
-      "description": "Enables or disables autofill for addresses.\n\nThis only applies when address autofill is enabled for a particular Firefox version or region.\nSee [Automatically fill in your address on web forms](https://support.mozilla.org/kb/automatically-fill-your-address-web-forms) for more information.",
+      "description": "Enables or disables autofill for addresses.",
       "examples": [true, false]
     },
     "AutofillCreditCardEnabled": {
       "type": "boolean",
       "x-category": "Password manager",
       "x-preferences-affected": ["extensions.formautofill.creditCards.enabled"],
-      "description": "Enables or disables autofill for payment methods.\n\nThis only applies when payment method autofill is enabled for a particular Firefox version or region. See [Automatically fill in credit card data](https://support.mozilla.org/kb/credit-card-autofill) for more information.",
+      "description": "Enables or disables autofill for payment methods.",
       "examples": [true, false]
     },
     "AutoLaunchProtocolsFromOrigins": {
       "type": ["array", "JSON"],
       "x-category": "Network security",
-      "description": "Define a list of external protocols that can be used from listed origins without prompting the user. The origin is the scheme plus the hostname.\n\nThe syntax of this policy is exactly the same as the [Chrome AutoLaunchProtocolsFromOrigins policy](https://chromeenterprise.google/policies/#AutoLaunchProtocolsFromOrigins) except that you can only use valid origins (not just hostnames).\nThis also means that you cannot specify a wildcard (`*`) for all origins.",
+      "description": "Define a list of external protocols that can be used from listed origins without prompting the user.",
       "examples": [
-        {
-          "protocol": "zoommtg",
-          "allowed_origins": ["https://somesite.zoom.us"]
-        }
+        [
+          {
+            "protocol": "zoommtg",
+            "allowed_origins": ["https://somesite.zoom.us"]
+          }
+        ]
       ],
       "items": {
         "type": "object",
@@ -448,31 +450,31 @@
       "type": "boolean",
       "x-category": "Device update settings",
       "x-preferences-affected": ["app.update.background.enabled"],
-      "description": "Enable or disable automatic application update **in the background**, when the application is not running.\n\nIf set to `true`, application updates may be installed (without explicit user approval) in the background, even when the application is not running.\nThe operating system may still require approval.\n\nIf set to `false`, the application will not try to install updates when the application is not running.\n\nIf you are having trouble getting the background task to run, verify your configuration with the [\"Requirements to run\" section in this support document](https://support.mozilla.org/en-US/kb/enable-background-updates-firefox-windows).\n\nNote\n\nThe `BackgroundAppUpdate` policy has no effect if you have disabled updates via the [`DisableAppUpdate`](/reference/policies/disableappupdate/) policy or disabled automatic updates via the [`AppAutoUpdate`](/reference/policies/appautoupdate/) policy.",
+      "description": "Enable or disable automatic application update in the background, when the application is not running.",
       "examples": [true, false]
     },
     "BlockAboutAddons": {
       "type": "boolean",
       "x-category": "Extensions",
-      "description": "Block access to the Add-ons Manager (`about:addons`).",
+      "description": "Block access to the Add-ons Manager ('about:addons').",
       "examples": [true, false]
     },
     "BlockAboutConfig": {
       "type": "boolean",
       "x-category": "Security",
-      "description": "Block access to `about:config`.",
+      "description": "Block access to 'about:config'.",
       "examples": [true, false]
     },
     "BlockAboutProfiles": {
       "type": "boolean",
       "x-category": "Security",
-      "description": "Block access to About Profiles (`about:profiles`).",
+      "description": "Block access to About Profiles ('about:profiles').",
       "examples": [true, false]
     },
     "BlockAboutSupport": {
       "type": "boolean",
       "x-category": "Security",
-      "description": "Block access to Troubleshooting Information (`about:support`).",
+      "description": "Block access to Troubleshooting Information ('about:support').",
       "examples": [true, false]
     },
     "BlocklistDomainBrowsedTelemetry": {
@@ -505,7 +507,7 @@
     "Bookmarks": {
       "type": "array",
       "x-category": "Bookmarks",
-      "description": "Caution\n\nThe [`ManagedBookmarks`](/reference/policies/managedbookmarks/) policy is the recommended way to add bookmarks.\nThe `Bookmarks` policy will continue to be supported for backwards-compatibility purposes.\n\nAdd bookmarks in either the bookmarks toolbar or menu. Only `Title` and `URL` are required. If `Placement` is not specified, the bookmark will be placed on the toolbar. If `Folder` is specified, it is automatically created and bookmarks with the same folder name are grouped together.\n\nIf you want to clear all bookmarks set with this policy, you can set the value to an empty array (`[]`).",
+      "description": "Add bookmarks in either the bookmarks toolbar or menu. Use 'ManagedBookmarks' instead.",
       "examples": [
         [
           {
@@ -514,10 +516,6 @@
             "Favicon": "https://example.com/favicon.ico",
             "Placement": "toolbar",
             "Folder": "FolderName"
-          },
-          {
-            "Title": "Another Example",
-            "URL": "https://another.example.com/another-example/"
           }
         ]
       ],
@@ -547,11 +545,11 @@
     "BrowserDataBackup": {
       "type": ["boolean", "object"],
       "x-category": "Security",
-      "description": "Disable backup or restore of profile data.\nBackup and restore can be disabled individually.\n\nNote\n\nThe policy can be used to disable backup and restore if it would otherwise be enabled, but cannot be used to force backup or restore to be enabled under conditions where it would not otherwise be (such as a platform on which backup or restore are not yet supported).",
+      "description": "Disable backup or restore of profile data.",
       "examples": [
         {
           "AllowBackup": true,
-          "AllowRestore": false
+          "AllowRestore": true
         }
       ],
       "properties": {
@@ -573,7 +571,7 @@
     "Certificates": {
       "type": "object",
       "x-category": "Certificate management",
-      "description": "Configure certificates in Firefox: `ImportEnterpriseRoots` controls whether enterprise roots that have been added to the operating system's certificate store are trusted, and `Install` specifies certificates to install into the Firefox certificate store.",
+      "description": "Install and manage certificates",
       "examples": [
         {
           "ImportEnterpriseRoots": true,
@@ -595,29 +593,16 @@
     "Containers": {
       "type": "object",
       "x-category": "Extensions",
-      "description": "Set policies related to [Multi-Account Containers](https://addons.mozilla.org/firefox/addon/multi-account-containers/).",
+      "description": "Set policies related to Multi-Account Containers.",
       "examples": [
-        [
-          {
-            "name": "My container",
-            "icon": "pet",
-            "color": "turquoise"
-          },
-          {
-            "name": "My other container",
-            "icon": "circle",
-            "color": "yellow"
-          }
-        ],
         {
-          "Primary": {
-            "icon": "pet",
-            "color": "turquoise"
-          },
-          "Secondary": {
-            "icon": "circle",
-            "color": "yellow"
-          }
+          "Default": [
+            {
+              "name": "My container",
+              "icon": "pet",
+              "color": "turquoise"
+            }
+          ]
         }
       ],
       "properties": {
@@ -691,16 +676,16 @@
         "browser.contentanalysis.show_blocked_result",
         "browser.contentanalysis.timeout_result"
       ],
-      "description": "Configure Firefox to use an agent for Data Loss Prevention (DLP) that is compatible with the [Google Chrome Content Analysis Connector Agent SDK](https://github.com/chromium/content_analysis_sdk).",
+      "description": "Configure Firefox to use an agent for Data Loss Prevention (DLP) that is compatible with the Google Chrome Content Analysis Connector Agent SDK.",
       "examples": [
         {
           "AgentName": "My DLP Product",
           "AgentTimeout": 60,
           "AllowUrlRegexList": "https://example.com/.* https://subdomain.example.com/.*",
-          "BypassForSameTabOperations": false,
+          "BypassForSameTabOperations": true,
           "ClientSignature": "My DLP Company",
           "DefaultResult": 0,
-          "DenyUrlRegexList": "https://otherexample.com/.* https://subdomain.otherexample.com/.*",
+          "DenyUrlRegexList": "https://example.com/.* https://subdomain.example.com/.*",
           "Enabled": true,
           "InterceptionPoints": {
             "Clipboard": {
@@ -708,11 +693,11 @@
               "PlainTextOnly": true
             },
             "Download": {
-              "Enabled": true
+              "Enabled": false
             },
             "DragAndDrop": {
               "Enabled": true,
-              "PlainTextOnly": false
+              "PlainTextOnly": true
             },
             "FileUpload": {
               "Enabled": true
@@ -724,7 +709,7 @@
           "IsPerUser": true,
           "MaxConnectionsCount": 32,
           "PipePathName": "pipe_custom_name",
-          "ShowBlockedResult": false,
+          "ShowBlockedResult": true,
           "TimeoutResult": 0
         }
       ],
@@ -834,10 +819,10 @@
         {
           "Allow": ["http://example.org/"],
           "AllowSession": ["http://example.edu/"],
-          "Block": ["http://example.edu/"],
+          "Block": ["http://example.com/"],
           "Locked": true,
           "Behavior": "accept",
-          "BehaviorPrivateBrowsing": "reject"
+          "BehaviorPrivateBrowsing": "accept"
         }
       ],
       "properties": {
@@ -903,7 +888,7 @@
       }
     },
     "CrashReportsSubmit": {
-      "description": "",
+      "description": "Configure crash report submission settings.",
       "examples": [
         {
           "ForceAutoSubmit": true
@@ -930,7 +915,7 @@
         "browser.download.dir",
         "browser.download.folderList"
       ],
-      "description": "Set the default download directory.\n\nUse `${home}` for the native home directory.",
+      "description": "Set the default download directory.",
       "examples": ["${home}/Downloads"]
     },
     "DisableAccounts": {
@@ -948,7 +933,7 @@
     "DisableBuiltinPDFViewer": {
       "type": "boolean",
       "x-category": "Printing",
-      "description": "Disable the built in PDF viewer. PDF files are downloaded and sent externally.\n\nNote\n\nAs of Firefox 140, this policy no longer completely disables PDF.js; it changes the handler to send PDF files to the operating system.\nEmbedded PDF files are shown in the browser.\nIf you need to completely disable PDF.js, you can use the [`PDFjs`](/reference/policies/pdfjs/) policy.",
+      "description": "Disable the built in PDF viewer.",
       "examples": [true, false]
     },
     "DisabledCiphers": {
@@ -976,8 +961,15 @@
         "security.tls13.aes_128_gcm_sha256",
         "security.tls13.aes_256_gcm_sha384"
       ],
-      "description": "Disable specific cryptographic ciphers.\n\nNote\n\nThis policy was updated in Firefox 78 to allow *enabling* ciphers as well.\nSetting a value to `true` disables the cipher, setting a value to `false` enables the cipher.\nPreviously, setting any value (`true` or `false`) disabled the cipher.",
-      "examples": [],
+      "description": "Disable specific cryptographic ciphers, listed below.",
+      "examples": [
+        {
+          "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256": true,
+          "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA": true,
+          "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256": true,
+          "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256": true
+        }
+      ],
       "properties": {
         "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256": {
           "type": "boolean"
@@ -1044,15 +1036,15 @@
     "DisableDefaultBrowserAgent": {
       "type": "boolean",
       "x-category": "Miscellaneous",
-      "description": "Prevent the default browser agent from taking any actions.\nOnly applicable to Windows; other platforms don't have the agent.\n\nThe browser agent is a Windows-only scheduled task which runs in the background to collect and submit data about the browser that the user has set as their OS default.\nMore information is available in the [Default Browser Agent](https://firefox-source-docs.mozilla.org/toolkit/mozapps/defaultagent/default-browser-agent/index.html) article.",
-      "examples": []
+      "description": "Prevent the default browser agent from taking any actions.",
+      "examples": [true, false]
     },
     "DisableDeveloperTools": {
       "type": "boolean",
       "x-category": "Security",
       "x-preferences-affected": ["devtools.policy.disabled"],
       "description": "Remove access to all developer tools.",
-      "examples": []
+      "examples": [true, false]
     },
     "DisableEncryptedClientHello": {
       "type": "boolean",
@@ -1061,28 +1053,28 @@
         "network.dns.echconfig.enabled",
         "network.dns.http3_echconfig.enabled"
       ],
-      "description": "Disable the TLS Feature for Encrypted Client Hello.\nNote that TLS Client Hellos will still contain an ECH extension, but this extension will not be used by Firefox during the TLS handshake.",
-      "examples": []
+      "description": "Disable the TLS Feature for Encrypted Client Hello.",
+      "examples": [true, false]
     },
     "DisableFeedbackCommands": {
       "type": "boolean",
       "x-category": "Browser UI",
       "description": "Disable the menus for reporting sites (Submit Feedback, Report Deceptive Site).",
-      "examples": []
+      "examples": [true, false]
     },
     "DisableFirefoxAccounts": {
       "type": "boolean",
       "x-category": "Miscellaneous",
       "x-preferences-affected": ["identity.fxaccounts.enabled"],
       "description": "Disable Firefox Accounts integration (Sync).",
-      "examples": []
+      "examples": [true, false]
     },
     "DisableFirefoxScreenshots": {
       "type": "boolean",
       "x-category": "Miscellaneous",
       "x-preferences-affected": ["extensions.screenshots.disabled"],
       "description": "Remove access to Firefox Screenshots.",
-      "examples": []
+      "examples": [true, false]
     },
     "DisableFirefoxStudies": {
       "type": "boolean",
@@ -1092,69 +1084,70 @@
         "browser.newtabpage.activity-stream.asrouter.userprefs.cfr.features"
       ],
       "description": "Disable Firefox studies (Shield).",
-      "examples": []
+      "examples": [true, false]
     },
     "DisableForgetButton": {
       "type": "boolean",
       "x-category": "Miscellaneous",
-      "description": "Disable the \"Forget\" button.",
-      "examples": []
+      "description": "'Disable the \"Forget\" button.'",
+      "examples": [true, false]
     },
     "DisableFormHistory": {
       "type": "boolean",
       "x-category": "Local data storage",
       "x-preferences-affected": ["browser.formfill.enable"],
       "description": "Turn off saving information on web forms and the search bar.",
-      "examples": []
+      "examples": [true, false]
     },
     "DisableMasterPasswordCreation": {
       "type": "boolean",
       "x-category": "Password manager",
-      "description": "Remove the master password functionality.\n\nIf this value is `true`, it works the same as setting [`PrimaryPassword`](/reference/policies/primarypassword/) to `false` and removes the primary password functionality.\n\nIf both `DisableMasterPasswordCreation` and [`PrimaryPassword`](/reference/policies/primarypassword/) are used, `DisableMasterPasswordCreation` takes precedence.",
-      "examples": []
+      "description": "Remove the master password functionality.",
+      "examples": [true, false]
     },
     "DisablePasswordReveal": {
       "type": "boolean",
       "x-category": "Password manager",
-      "description": "Do not allow passwords to be shown in saved logins.",
-      "examples": []
+      "description": "Do not allow passwords to be shown in saved logins",
+      "examples": [true, false]
     },
     "DisablePocket": {
       "type": "boolean",
-      "x-category": "Uncategorized",
-      "description": "DisablePocket",
-      "examples": []
+      "x-category": "Miscellaneous",
+      "description": "Remove Pocket in the Firefox UI.",
+      "examples": [true, false],
+      "x-preferences-affected": ["extensions.pocket.enabled"]
     },
     "DisablePrivateBrowsing": {
       "type": "boolean",
       "x-category": "Browsing restrictions",
-      "description": "Remove access to private browsing.\n\nThis policy is superseded by the [`PrivateBrowsingModeAvailability`](/reference/policies/privatebrowsingmodeavailability/) policy.",
-      "examples": []
+      "description": "Remove access to private browsing.",
+      "examples": [true, false]
     },
     "DisableProfileImport": {
       "type": "boolean",
       "x-category": "Bookmarks",
       "description": "Remove the ability to import data from other browsers.",
-      "examples": []
+      "examples": [true, false]
     },
     "DisableProfileRefresh": {
       "type": "boolean",
       "x-category": "Miscellaneous",
       "x-preferences-affected": ["browser.disableResetPrompt"],
-      "description": "Disable the Refresh Firefox button on `about:support` and `support.mozilla.org`, as well as the prompt that displays offering to refresh Firefox when you haven't used it in a while.",
-      "examples": []
+      "description": "Disable the Refresh Firefox button on 'about:support' and 'support.mozilla.org', as well as the prompt that displays offering to refresh Firefox when you haven't used it in a while.",
+      "examples": [true, false]
     },
     "DisableRemoteImprovements": {
       "type": "boolean",
-      "x-category": "Uncategorized",
+      "x-category": "Miscellaneous",
       "description": "Prevent Firefox from applying performance, stability, and feature changes between updates.",
-      "examples": []
+      "examples": [true, false]
     },
     "DisableSafeMode": {
       "type": "boolean",
       "x-category": "Security",
-      "description": "Disable safe mode ([Troubleshoot Mode](https://support.mozilla.org/en-US/kb/diagnose-firefox-issues-using-troubleshoot-mode)) within the browser.\n\nOn Windows, this disables safe mode via the command line as well.",
-      "examples": []
+      "description": "Disable safe mode (Troubleshoot Mode) within the browser.",
+      "examples": [true, false]
     },
     "DisableSecurityBypass": {
       "type": "object",
@@ -1163,8 +1156,13 @@
         "security.certerror.hideAddException",
         "browser.safebrowsing.allowOverride"
       ],
-      "description": "Prevent the user from bypassing security in certain cases.\n\nThese policies only affect what happens when an error is shown, they do not affect any settings in preferences.",
-      "examples": [],
+      "description": "Prevent the user from bypassing security in certain cases.",
+      "examples": [
+        {
+          "InvalidCertificate": true,
+          "SafeBrowsing": true
+        }
+      ],
       "properties": {
         "InvalidCertificate": {
           "type": "boolean"
@@ -1177,14 +1175,14 @@
     "DisableSetDesktopBackground": {
       "type": "boolean",
       "x-category": "Browser UI",
-      "description": "Remove the \"Set As Desktop Background...\" menuitem when right clicking on an image.",
-      "examples": []
+      "description": "'Remove the \"Set As Desktop Background...\" menuitem when right clicking on an image.'",
+      "examples": [true, false]
     },
     "DisableSystemAddonUpdate": {
       "type": "boolean",
       "x-category": "Device update settings",
       "description": "Prevent system add-ons from being installed or updated.",
-      "examples": []
+      "examples": [true, false]
     },
     "DisableTelemetry": {
       "type": "boolean",
@@ -1195,35 +1193,43 @@
         "toolkit.telemetry.archive.enabled",
         "datareporting.usage.uploadEnabled"
       ],
-      "description": "Prevent the upload of telemetry data.\n\nAs of Firefox 83 and Firefox ESR 78.5, local storage of telemetry data is disabled as well.\n\nMozilla recommends that you do not disable telemetry.\nInformation collected through telemetry helps us build a better product for businesses like yours.",
-      "examples": []
+      "description": "Prevent the upload of telemetry data.",
+      "examples": [true, false]
     },
     "DisableThirdPartyModuleBlocking": {
       "type": "boolean",
       "x-category": "Security",
-      "description": "Do not allow blocking third-party modules (DLLs) from the `about:third-party` page.\n\nThis policy only works on Windows through GPO, not via `policies.json`.",
+      "description": "Do not allow blocking third-party modules from the 'about:third-party' page.",
       "examples": []
     },
     "DisplayBookmarksToolbar": {
       "type": ["boolean", "string"],
       "x-category": "Bookmarks",
-      "description": "Set the initial state of the bookmarks toolbar. A user can still change how it is displayed.",
-      "examples": [],
+      "description": "Set the initial state of the bookmarks toolbar.",
+      "examples": ["always"],
       "enum": ["always", "never", "newtab"]
     },
     "DisplayMenuBar": {
       "type": ["boolean", "string"],
       "x-category": "Browser UI",
       "description": "Set the state of the menubar.",
-      "examples": [],
+      "examples": ["always"],
       "enum": ["always", "never", "default-on", "default-off"]
     },
     "DNSOverHTTPS": {
       "type": "object",
       "x-category": "Network security",
       "x-preferences-affected": ["network.trr.mode", "network.trr.uri"],
-      "description": "Configure DNS over HTTPS.",
-      "examples": [],
+      "description": "Configure DNS over HTTPS (DoH).",
+      "examples": [
+        {
+          "Enabled": true,
+          "ProviderURL": "URL_TO_ALTERNATE_PROVIDER",
+          "Locked": true,
+          "ExcludedDomains": ["example.com"],
+          "Fallback": true
+        }
+      ],
       "properties": {
         "Enabled": {
           "type": "boolean"
@@ -1250,7 +1256,7 @@
       "x-category": "Startup",
       "x-preferences-affected": ["browser.shell.checkDefaultBrowser"],
       "description": "Don't check if Firefox is the default browser at startup.",
-      "examples": []
+      "examples": [true, false]
     },
     "DownloadDirectory": {
       "type": "string",
@@ -1260,7 +1266,7 @@
         "browser.download.folderList",
         "browser.download.useDownloadDir"
       ],
-      "description": "Set and lock the download directory.\n\nYou can use `${home}` for the native home directory.",
+      "description": "Set and lock the download directory.",
       "examples": []
     },
     "DownloadTelemetry": {
@@ -1296,8 +1302,21 @@
         "privacy.trackingprotection.allow_list.baseline.enabled",
         "privacy.trackingprotection.allow_list.convenience.enabled"
       ],
-      "description": "Configure tracking protection.\n\nIf this policy is not configured, tracking protection is not enabled by default in the browser, but it is enabled by default in private browsing and the user can change it.",
-      "examples": [],
+      "description": "Configure tracking protection.",
+      "examples": [
+        {
+          "Value": true,
+          "Locked": true,
+          "Cryptomining": true,
+          "Fingerprinting": true,
+          "EmailTracking": true,
+          "SuspectedFingerprinting": true,
+          "Category": "strict",
+          "Exceptions": ["https://example.com"],
+          "BaselineExceptions": true,
+          "ConvenienceExceptions": true
+        }
+      ],
       "properties": {
         "Value": {
           "type": "boolean"
@@ -1341,7 +1360,12 @@
       "x-category": "Content settings",
       "x-preferences-affected": ["media.eme.enabled"],
       "description": "Enable or disable Encrypted Media Extensions and optionally lock it.",
-      "examples": [],
+      "examples": [
+        {
+          "Enabled": true,
+          "Locked": true
+        }
+      ],
       "properties": {
         "Enabled": {
           "type": "boolean"
@@ -1360,8 +1384,15 @@
     "ExemptDomainFileTypePairsFromFileTypeDownloadWarnings": {
       "type": "array",
       "x-category": "Network security",
-      "description": "Disable warnings based on file extension for specific file types on domains.\nThis policy is based on the [Chrome policy](https://chromeenterprise.google/policies/#ExemptDomainFileTypePairsFromFileTypeDownloadWarnings) of the same name.\n\nCaution\n\nThe documentation for the policy for both Edge and Chrome may be inconsistent.\nThe `domains` value must be a domain, not a URL pattern.\nAdditionally, Firefox does not support using a wildcard (`*`) to mean all domains.",
-      "examples": [],
+      "description": "Disable warnings based on file extension for specific file types on domains.",
+      "examples": [
+        [
+          {
+            "file_extension": "jnlp",
+            "domains": ["example.com"]
+          }
+        ]
+      ],
       "items": {
         "type": "object",
         "properties": {
@@ -1380,8 +1411,17 @@
     "Extensions": {
       "type": "object",
       "x-category": "Extensions",
-      "description": "Control the installation, uninstallation and locking of extensions.\n\nCaution\n\nThe **[`ExtensionSettings`](/reference/policies/extensionsettings/)** policy was added in Firefox 69.\nIt provides additional functionality to `Extensions` and is closer in compatibility to Chrome and Edge.\nIt does not support native paths, so you'll have to use `file://` URLs.\nBefore using `Extensions`, it's recommended to use `ExtensionSettings` as all future improvements will be applied to that policy instead.",
-      "examples": [],
+      "description": "Control the installation, uninstallation and locking of extensions.",
+      "examples": [
+        {
+          "Install": [
+            "https://addons.mozilla.org/firefox/downloads/somefile.xpi",
+            "//path/to/xpi"
+          ],
+          "Uninstall": ["bad_addon_id@mozilla.org"],
+          "Locked": ["addon_id@mozilla.org"]
+        }
+      ],
       "properties": {
         "Install": {
           "type": "array",
@@ -1406,8 +1446,28 @@
     "ExtensionSettings": {
       "type": ["object", "JSON"],
       "x-category": "Extensions",
-      "description": "Manage all aspects of extensions.\nThis policy is based heavily on the [Chrome policy](https://dev.chromium.org/administrators/policy-list-3/extension-settings-full) of the same name.\n\nThis policy maps an extension ID to its configuration.\nWith an extension ID, the configuration will be applied to the specified extension only.\nA default configuration can be set for the special ID `*`, which will apply to all extensions that don't have a custom configuration set in this policy.\n\nTo obtain an extension ID, install the extension and go to `about:support`. You will see the ID in the Extensions section.\nYou can [download am extension on AMO](https://github.com/mkaply/queryamoid/releases/tag/v0.1) that makes it easy to find the ID of extensions.\n\nNote\n\nIf the extension ID is a UUID (e.g., `{12345678-1234-1234-1234-1234567890ab}`), you must include curly braces around the ID.",
-      "examples": [],
+      "description": "Manage all aspects of extensions.",
+      "examples": [
+        {
+          "*": {
+            "blocked_install_message": "Custom error message.",
+            "install_sources": ["https://yourwebsite.com/*"],
+            "installation_mode": "blocked"
+          },
+          "uBlock0@raymondhill.net": {
+            "installation_mode": "force_installed",
+            "install_url": "https://addons.mozilla.org/firefox/downloads/latest/ublock-origin/latest.xpi"
+          },
+          "adguardadblocker@adguard.com": {
+            "installation_mode": "force_installed",
+            "install_url": "https://addons.mozilla.org/firefox/downloads/latest/adguardadblocker@adguard.com/latest.xpi"
+          },
+          "https-everywhere@eff.org": {
+            "installation_mode": "allowed",
+            "updates_disabled": false
+          }
+        }
+      ],
       "properties": {
         "*": {
           "type": "object",
@@ -1491,7 +1551,7 @@
       "x-category": "Extensions",
       "x-preferences-affected": ["extensions.update.enabled"],
       "description": "Control extension updates.",
-      "examples": []
+      "examples": [true, false]
     },
     "FirefoxHome": {
       "type": "object",
@@ -1506,7 +1566,20 @@
         "browser.newtabpage.activity-stream.showSponsored"
       ],
       "description": "Customize the Firefox Home page.",
-      "examples": [],
+      "examples": [
+        {
+          "Search": true,
+          "TopSites": true,
+          "SponsoredTopSites": true,
+          "Highlights": true,
+          "Pocket": true,
+          "Stories": true,
+          "SponsoredPocket": true,
+          "SponsoredStories": true,
+          "Snippets": true,
+          "Locked": true
+        }
+      ],
       "properties": {
         "Search": {
           "type": "boolean"
@@ -1548,8 +1621,15 @@
         "browser.urlbar.suggest.quicksuggest.sponsored",
         "browser.urlbar.quicksuggest.dataCollection.enabled"
       ],
-      "description": "Customize Firefox Suggest (US only).\nAs of Firefox 146, `WebSuggestions` turns off Suggest completely.",
-      "examples": [],
+      "description": "Customize Firefox Suggest (US only).",
+      "examples": [
+        {
+          "WebSuggestions": true,
+          "SponsoredSuggestions": true,
+          "ImproveSuggest": true,
+          "Locked": true
+        }
+      ],
       "properties": {
         "WebSuggestions": {
           "type": "boolean"
@@ -1578,7 +1658,15 @@
         "browser.tabs.groups.smart.userEnabled"
       ],
       "description": "Configure generative AI features.",
-      "examples": [],
+      "examples": [
+        {
+          "Enabled": true,
+          "Chatbot": true,
+          "LinkPreviews": true,
+          "TabGroups": true,
+          "Locked": true
+        }
+      ],
       "properties": {
         "Chatbot": {
           "type": "boolean"
@@ -1605,13 +1693,46 @@
       "x-category": "Network security",
       "x-preferences-affected": ["browser.fixup.dns_first_for_single_words"],
       "description": "Whether to always go through the DNS server before sending a single word search string to a search engine.",
-      "examples": []
+      "examples": [true, false]
     },
     "Handlers": {
       "type": ["object", "JSON"],
       "x-category": "Security",
-      "description": "Configure default application handlers.\nThis policy is based on the internal format of `handlers.json`.\n\nYou can configure handlers based on a [mime type](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/MIME_types) (`mimeTypes`), a file's extension (`extensions`), or a [protocol](https://developer.mozilla.org/en-US/docs/Web/URI/Reference/Schemes) (`schemes`).",
-      "examples": [],
+      "description": "Configure default application handlers.",
+      "examples": [
+        {
+          "mimeTypes": {
+            "application/msword": {
+              "action": "useSystemDefault",
+              "ask": false
+            }
+          },
+          "schemes": {
+            "mailto": {
+              "action": "useHelperApp",
+              "ask": true,
+              "handlers": [
+                {
+                  "name": "Gmail",
+                  "uriTemplate": "https://mail.google.com/mail/?extsrc=mailto&url=%s"
+                }
+              ]
+            }
+          },
+          "extensions": {
+            "pdf": {
+              "action": "useHelperApp",
+              "ask": true,
+              "handlers": [
+                {
+                  "name": "Adobe Acrobat",
+                  "path": "/usr/bin/acroread"
+                }
+              ]
+            }
+          }
+        }
+      ],
       "patternProperties": {
         "^(mimeTypes|extensions|schemes)$": {
           "type": "object",
@@ -1654,7 +1775,7 @@
       "x-category": "Miscellaneous",
       "x-preferences-affected": ["layers.acceleration.disabled"],
       "description": "Control hardware acceleration.",
-      "examples": []
+      "examples": [true, false]
     },
     "Homepage": {
       "type": "object",
@@ -1664,7 +1785,14 @@
         "browser.startup.page"
       ],
       "description": "Configure the default homepage and how Firefox starts.",
-      "examples": [],
+      "examples": [
+        {
+          "URL": "http://example.com/",
+          "Locked": true,
+          "Additional": ["http://example.org/", "http://example.edu/"],
+          "StartPage": "none"
+        }
+      ],
       "properties": {
         "URL": {
           "type": "URL"
@@ -1688,8 +1816,8 @@
     "HttpAllowlist": {
       "type": "array",
       "x-category": "Network security",
-      "description": "Configure sites that will not be upgraded to HTTPS.\nThe sites are specified as a list of origins.",
-      "examples": [],
+      "description": "Configure sites that will not be upgraded to HTTPS.",
+      "examples": [["http://example.org", "http://example.edu"]],
       "strict": false,
       "items": {
         "type": "origin"
@@ -1700,7 +1828,7 @@
       "x-category": "Network security",
       "x-preferences-affected": ["dom.security.https_only_mode"],
       "description": "Configure HTTPS-Only Mode.",
-      "examples": [],
+      "examples": ["allowed"],
       "enum": ["allowed", "disallowed", "enabled", "force_enabled"]
     },
     "InstallAddonsPermission": {
@@ -1711,8 +1839,13 @@
         "browser.newtabpage.activity-stream.asrouter.userprefs.cfr.addons",
         "browser.newtabpage.activity-stream.asrouter.userprefs.cfr.features"
       ],
-      "description": "Configure the default extension install policy as well as origins for extension installs are allowed. This policy does not override turning off all extension installs.",
-      "examples": [],
+      "description": "Configure the default extension install policy as well as origins for extension installs are allowed.",
+      "examples": [
+        {
+          "Allow": ["http://example.org/", "http://example.edu/"],
+          "Default": true
+        }
+      ],
       "properties": {
         "Allow": {
           "type": "array",
@@ -1729,15 +1862,15 @@
     "LegacyProfiles": {
       "type": "boolean",
       "x-category": "Miscellaneous",
-      "description": "Disable the feature enforcing a separate profile for each installation.\n\nIf this policy set to `true`, Firefox will not try to create different profiles for installations of Firefox in different directories.\nThis is the equivalent of the `MOZ_LEGACY_PROFILES` environment variable.\n\nIf this policy set to `false`, Firefox will create a new profile for each unique installation of Firefox.\n\nThis policy only work on Windows via GPO (not via `policies.json`).",
+      "description": "Disable the feature enforcing a separate profile for each installation.",
       "examples": []
     },
     "LegacySameSiteCookieBehaviorEnabled": {
       "type": "boolean",
       "x-category": "Network security",
       "x-preferences-affected": ["network.cookie.sameSite.laxByDefault"],
-      "description": "Enable default legacy SameSite cookie behavior setting.\n\nIf this policy is set to true, it reverts all cookies to legacy SameSite behavior which means that cookies that don't explicitly specify a [`SameSite` attribute](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Set-Cookie#samesitesamesite-value) are treated as if they were `SameSite=None`.",
-      "examples": []
+      "description": "Enable default legacy SameSite cookie behavior setting.",
+      "examples": [true, false]
     },
     "LegacySameSiteCookieBehaviorEnabledForDomainList": {
       "type": "array",
@@ -1745,8 +1878,8 @@
       "x-preferences-affected": [
         "network.cookie.sameSite.laxByDefault.disabledHosts"
       ],
-      "description": "Revert to legacy SameSite behavior for cookies on specified sites.\n\nIf this policy is set to true, cookies set for domains in this list will revert to legacy SameSite behavior which means that cookies that don't explicitly specify a [`SameSite` attribute](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Set-Cookie#samesitesamesite-value) are treated as if they were `SameSite=None`.",
-      "examples": [],
+      "description": "Revert to legacy SameSite behavior for cookies on specified sites.",
+      "examples": [["example.org", "example.edu"]],
       "items": {
         "type": "string"
       }
@@ -1756,22 +1889,30 @@
       "x-category": "Network security",
       "x-preferences-affected": ["capability.policy.localfilelinks.*"],
       "description": "Enable linking to local files by origin.",
-      "examples": [],
+      "examples": [["http://example.org/", "http://example.edu/"]],
       "items": {
         "type": "string"
       }
     },
     "LocalNetworkAccess": {
       "type": "object",
-      "x-category": "Network",
+      "x-category": "Network security",
       "x-preferences-affected": [
         "network.lna.enabled",
         "network.lna.block_trackers",
         "network.lna.blocking",
         "network.lna.skip-domains"
       ],
-      "description": "Configure local network access security features.\nThe `LocalNetworkAccess` policy controls Firefox's behavior when websites attempt to access local network resources (localhost and local network addresses).",
-      "examples": [],
+      "description": "Configure local network access security features.",
+      "examples": [
+        {
+          "Enabled": true,
+          "BlockTrackers": true,
+          "EnablePrompting": true,
+          "SkipDomains": ["https://example.org/"],
+          "Locked": true
+        }
+      ],
       "properties": {
         "Enabled": {
           "type": "boolean"
@@ -1833,21 +1974,44 @@
       },
       "type": ["array", "JSON"],
       "x-category": "Bookmarks",
-      "description": "Configures a list of bookmarks managed by an administrator that cannot be changed by the user.\n\nThe bookmarks are only added as a button on the personal toolbar. They are not in the bookmarks folder.\n\nThe syntax of this policy is exactly the same as the [Chrome ManagedBookmarks policy](https://cloud.google.com/docs/chrome-enterprise/policies/?policy=ManagedBookmarks).\nThe schema is:",
-      "examples": []
+      "description": "Configures a list of bookmarks managed by an administrator that cannot be changed by the user.",
+      "examples": [
+        [
+          {
+            "toplevel_name": "My managed bookmarks folder"
+          },
+          {
+            "url": "example.com",
+            "name": "Example"
+          },
+          {
+            "name": "Mozilla links",
+            "children": [
+              {
+                "url": "https://mozilla.org",
+                "name": "Mozilla.org"
+              },
+              {
+                "url": "https://support.mozilla.org/",
+                "name": "SUMO"
+              }
+            ]
+          }
+        ]
+      ]
     },
     "ManualAppUpdateOnly": {
       "type": "boolean",
       "x-category": "Device update settings",
-      "description": "Switch to manual updates only.\n\nIf this policy is enabled:\n\nThis policy is primarily intended for advanced end users, not for enterprises, but it is available via GPO.",
-      "examples": []
+      "description": "Switch to manual updates only.",
+      "examples": [true, false]
     },
     "MicrosoftEntraSSO": {
       "type": "boolean",
       "x-category": "Authentication",
       "x-preferences-affected": ["network.http.microsoft-entra-sso.enabled"],
-      "description": "Allow single sign-on for Microsoft Entra accounts on macOS.\n\nIf this policy is set to `true`, Firefox will use credentials stored in the Company Portal to sign in to Microsoft Entra accounts.",
-      "examples": []
+      "description": "Allow single sign-on for Microsoft Entra accounts on macOS.",
+      "examples": [true, false]
     },
     "NetworkPrediction": {
       "type": "boolean",
@@ -1856,49 +2020,49 @@
         "network.dns.disablePrefetch",
         "network.dns.disablePrefetchFromHTTPS"
       ],
-      "description": "Enable or disable network prediction ([DNS prefetching](https://developer.mozilla.org/en-US/docs/Glossary/Prefetch#dns_prefetching)).",
-      "examples": []
+      "description": "Enable or disable network prediction (DNS prefetching).",
+      "examples": [true, false]
     },
     "NewTabPage": {
       "type": "boolean",
       "x-category": "Startup",
       "x-preferences-affected": ["browser.newtabpage.enabled"],
       "description": "Enable or disable the New Tab page.",
-      "examples": []
+      "examples": [true, false]
     },
     "NoDefaultBookmarks": {
       "type": "boolean",
       "x-category": "Bookmarks",
-      "description": "Disable the creation of default bookmarks.\n\nThis policy is only effective if the user profile has not been created yet.",
-      "examples": []
+      "description": "Disable the creation of default bookmarks.",
+      "examples": [true, false]
     },
     "OfferToSaveLogins": {
       "type": "boolean",
       "x-category": "Password manager",
       "x-preferences-affected": ["signon.rememberSignons"],
       "description": "Control whether or not Firefox offers to save passwords.",
-      "examples": []
+      "examples": [true, false]
     },
     "OfferToSaveLoginsDefault": {
       "type": "boolean",
       "x-category": "Password manager",
       "x-preferences-affected": ["signon.rememberSignons"],
-      "description": "Sets the default value of `signon.rememberSignons` without locking it.",
-      "examples": []
+      "description": "Sets the default value of 'signon.rememberSignons' without locking it.",
+      "examples": [true, false]
     },
     "OverrideFirstRunPage": {
       "type": "string",
       "x-category": "Startup",
       "x-preferences-affected": ["startup.homepage_welcome_url"],
-      "description": "Override the first run page. If the value is an empty string (`\"\"`), the first run page is not displayed.\n\nStarting with Firefox 83, Firefox ESR 78.5, you can also specify multiple URLs separated by a vertical bar (`|`).",
-      "examples": []
+      "description": "Override the first run page.",
+      "examples": ["https://example.org"]
     },
     "OverridePostUpdatePage": {
       "type": "URLorEmpty",
       "x-category": "Startup",
       "x-preferences-affected": ["startup.homepage_override_url"],
-      "description": "Override the upgrade page. If the value is an empty string (`\"\"`), no extra pages are displayed when Firefox is upgraded.",
-      "examples": []
+      "description": "Override the upgrade page.",
+      "examples": ["http://example.org"]
     },
     "PasswordManagerEnabled": {
       "type": "boolean",
@@ -1908,13 +2072,13 @@
         "signon.rememberSignons"
       ],
       "description": "Remove access to the password manager via preferences and blocks about:logins on Firefox 70.",
-      "examples": []
+      "examples": [true, false]
     },
     "PasswordManagerExceptions": {
       "type": "array",
       "x-category": "Password manager",
-      "description": "Prevent Firefox from saving passwords for specific sites.\n\nThe sites are specified as a list of origins.",
-      "examples": [],
+      "description": "Prevent Firefox from saving passwords for specific sites.",
+      "examples": [["https://example.org", "https://example.edu"]],
       "strict": false,
       "items": {
         "type": "origin"
@@ -1924,8 +2088,13 @@
       "type": "object",
       "x-category": "Printing",
       "x-preferences-affected": ["pdfjs.disabled", "pdfjs.enablePermissions"],
-      "description": "Disable or configure PDF.js, the built-in PDF viewer.\n\nNote\n\nDisableBuiltinPDFViewer has not been deprecated. You can either continue to use it, or switch to using `PDFjs->Enabled` to disable the built-in PDF viewer.\nThis new permission was added because we needed a place for `PDFjs->EnabledPermissions`.",
-      "examples": [],
+      "description": "Disable or configure PDF.js, the built-in PDF viewer.",
+      "examples": [
+        {
+          "Enabled": true,
+          "EnablePermissions": true
+        }
+      ],
       "properties": {
         "Enabled": {
           "type": "boolean"
@@ -1947,8 +2116,53 @@
         "permissions.default.xr",
         "permissions.default.screen"
       ],
-      "description": "Set permissions associated with camera, microphone, location, notifications, autoplay, and virtual reality.\nBecause these are origins, not domains, entries with unique ports must be specified separately.\nThis explicitly means that it is not possible to add wildcards. See examples below.",
-      "examples": [],
+      "description": "Set permissions associated with camera, microphone, location, notifications, autoplay, and virtual reality.",
+      "examples": [
+        {
+          "Camera": {
+            "Allow": ["https://example.org", "https://example.org:1234"],
+            "Block": ["https://example.edu"],
+            "BlockNewRequests": true,
+            "Locked": true
+          },
+          "Microphone": {
+            "Allow": ["https://example.org"],
+            "Block": ["https://example.edu"],
+            "BlockNewRequests": true,
+            "Locked": true
+          },
+          "Location": {
+            "Allow": ["https://example.org"],
+            "Block": ["https://example.edu"],
+            "BlockNewRequests": true,
+            "Locked": true
+          },
+          "Notifications": {
+            "Allow": ["https://example.org"],
+            "Block": ["https://example.edu"],
+            "BlockNewRequests": true,
+            "Locked": true
+          },
+          "Autoplay": {
+            "Allow": ["https://example.org"],
+            "Block": ["https://example.edu"],
+            "Default": "allow-audio-video",
+            "Locked": true
+          },
+          "VirtualReality": {
+            "Allow": ["https://example.org"],
+            "Block": ["https://example.edu"],
+            "BlockNewRequests": true,
+            "Locked": true
+          },
+          "ScreenShare": {
+            "Allow": ["https://example.org"],
+            "Block": ["https://example.edu"],
+            "BlockNewRequests": true,
+            "Locked": true
+          }
+        }
+      ],
       "properties": {
         "Camera": {
           "type": "object",
@@ -2135,7 +2349,12 @@
         "media.videocontrols.picture-in-picture.video-toggle.enabled"
       ],
       "description": "Enable or disable Picture-in-Picture as well as prevent the user from enabling or disabling it (Locked).",
-      "examples": [],
+      "examples": [
+        {
+          "Enabled": true,
+          "Locked": true
+        }
+      ],
       "properties": {
         "Enabled": {
           "type": "boolean"
@@ -2150,7 +2369,13 @@
       "x-category": "Content settings",
       "x-preferences-affected": ["dom.disable_open_during_load"],
       "description": "Allow certain websites to display popups and be redirected by third-party frames.",
-      "examples": [],
+      "examples": [
+        {
+          "Allow": ["https://example.org/", "https://example.edu/"],
+          "Default": true,
+          "Locked": true
+        }
+      ],
       "properties": {
         "Allow": {
           "type": "array",
@@ -2175,13 +2400,29 @@
         "network.http.http3.enable_kyber"
       ],
       "description": "Enable post-quantum key agreement for TLS.",
-      "examples": []
+      "examples": [true, false]
     },
     "Preferences": {
       "type": ["object", "JSON"],
       "x-category": "Security",
-      "description": "Set and lock preferences.\n\nPreviously you could only set and lock a subset of preferences.\nStarting with Firefox 81 and Firefox ESR 78.3 you can set many more preferences.\nYou can also set default preferences, user preferences and you can clear preferences.\n\nNote\n\nOn Windows, in order to use this policy, you must clear all settings in the old **Preferences (deprecated)** section in group policy.\n\nNote\n\nThere are too many preferences to provide comprehensive documentation here.\nThe source file [StaticPrefList.yaml](https://searchfox.org/mozilla-central/source/modules/libpref/init/StaticPrefList.yaml) contains information about most of them.",
-      "examples": [],
+      "description": "Set and lock preferences.",
+      "examples": [
+        {
+          "accessibility.force_disabled": {
+            "Value": 1,
+            "Status": "default",
+            "Type": "number"
+          },
+          "browser.cache.disk.parent_directory": {
+            "Value": "SOME_NATIVE_PATH",
+            "Status": "user"
+          },
+          "browser.tabs.warnOnClose": {
+            "Value": false,
+            "Status": "locked"
+          }
+        }
+      ],
       "patternProperties": {
         "^.*$": {
           "type": ["number", "boolean", "string", "object"],
@@ -2204,15 +2445,15 @@
     "PrimaryPassword": {
       "type": "boolean",
       "x-category": "Password manager",
-      "description": "Require or prevent using a primary (formerly master) password.\n\nIf this value is true, a primary password is required.\nIf this value is false, it works the same as if [`DisableMasterPasswordCreation`](/reference/policies/disablemasterpasswordcreation/) was true and removes the primary password functionality.\n\nIf both `DisableMasterPasswordCreation` and `PrimaryPassword` are used, `DisableMasterPasswordCreation` takes precedence.",
-      "examples": []
+      "description": "Require or prevent using a primary (formerly master) password.",
+      "examples": [true, false]
     },
     "PrintingEnabled": {
       "type": "boolean",
       "x-category": "Printing",
       "x-preferences-affected": ["print.enabled"],
       "description": "Enable or disable printing.",
-      "examples": []
+      "examples": [true, false]
     },
     "PrintPageTelemetry": {
       "type": "object",
@@ -2232,8 +2473,8 @@
     "PrivateBrowsingModeAvailability": {
       "type": "number",
       "x-category": "Browsing restrictions",
-      "description": "Set availability of private browsing mode.\n\nThis policy supersedes [`DisablePrivateBrowsing`](/reference/policies/disableprivatebrowsing/)\n\nNote\n\nThis policy missed Firefox ESR 128.2, but it will be in Firefox ESR 128.3.",
-      "examples": [],
+      "description": "Set availability of private browsing mode.",
+      "examples": [0],
       "enum": [0, 1, 2]
     },
     "PromptForDownloadLocation": {
@@ -2241,7 +2482,7 @@
       "x-category": "Downloads",
       "x-preferences-affected": ["browser.download.useDownloadDir"],
       "description": "Ask where to save each file before downloading.",
-      "examples": []
+      "examples": [true, false]
     },
     "Proxy": {
       "type": "object",
@@ -2263,8 +2504,23 @@
         "network.proxy.socks",
         "network.proxy.socks_port"
       ],
-      "description": "Configure proxy settings. These settings correspond to the connection settings in Firefox preferences.\nTo specify ports, append them to the hostnames with a colon (:).\n\nUnless you lock this policy, changes the user already has in place will take effect.",
-      "examples": [],
+      "description": "Configure proxy settings.",
+      "examples": [
+        {
+          "Mode": "autoConfig",
+          "Locked": true,
+          "HTTPProxy": "example.com",
+          "UseHTTPProxyForAllProtocols": true,
+          "SSLProxy": "example.com",
+          "FTPProxy": "example.com",
+          "SOCKSProxy": "example.com",
+          "SOCKSVersion": 5,
+          "Passthrough": "<local>",
+          "AutoConfigURL": "https://example.com/proxy",
+          "AutoLogin": true,
+          "UseProxyForDNS": true
+        }
+      ],
       "properties": {
         "Mode": {
           "type": "string",
@@ -2310,7 +2566,15 @@
       "type": "object",
       "x-category": "Uncategorized",
       "description": "Control relaunch behavior.",
-      "examples": [],
+      "examples": [
+        {
+          "NotificationPeriodHours": 24,
+          "RestartTimeOfDay": {
+            "Hour": 2,
+            "Minute": 42
+          }
+        }
+      ],
       "properties": {
         "NotificationPeriodHours": {
           "type": "number"
@@ -2331,8 +2595,8 @@
     "RequestedLocales": {
       "type": ["string", "array"],
       "x-category": "Miscellaneous",
-      "description": "Set the the list of requested locales for the application in order of preference.\nIt will cause the corresponding language pack to become active.\n\nNote\n\nFor Firefox 68, this can now be a string so that you can specify an empty value.",
-      "examples": [],
+      "description": "Set the the list of requested locales for the application in order of preference.",
+      "examples": [["de", "en-US"]],
       "items": {
         "type": "string"
       }
@@ -2340,8 +2604,19 @@
     "SanitizeOnShutdown": {
       "type": ["boolean", "object"],
       "x-category": "Local data storage",
-      "description": "There are two policies that allow for sanitizing (clearing) local data on shutdown in Firefox.\nYou may clear all data, or choose from one or more of Browsing &#x26; Download History, Cookies, Active Logins, Cache, Form History, Site Preferences, and Offline Website Data:\n\nLast updated: Mar 30, 2026",
-      "examples": [],
+      "description": "Clear specified data on shutdown, such as History, Cookies, Logins, Cache, Form History, Site Preferences and Offline Website Data.",
+      "examples": [
+        true,
+        {
+          "Cache": true,
+          "Cookies": true,
+          "FormData": true,
+          "History": false,
+          "Sessions": true,
+          "SiteSettings": true,
+          "Locked": true
+        }
+      ],
       "properties": {
         "Cache": {
           "type": "boolean"
@@ -2370,20 +2645,56 @@
         "Locked": {
           "type": "boolean"
         }
-      }
+      },
+      "x-preferences-affected": [
+        "privacy.sanitize.sanitizeOnShutdown",
+        "privacy.clearOnShutdown.cache",
+        "privacy.clearOnShutdown.cookies",
+        "privacy.clearOnShutdown.downloads",
+        "privacy.clearOnShutdown.formdata",
+        "privacy.clearOnShutdown.history",
+        "privacy.clearOnShutdown.sessions",
+        "privacy.clearOnShutdown.siteSettings",
+        "privacy.clearOnShutdown.offlineApps",
+        "privacy.clearOnShutdown_v2.historyFormDataAndDownloads",
+        "privacy.clearOnShutdown_v2.cookiesAndStorage",
+        "privacy.clearOnShutdown_v2.cache",
+        "privacy.clearOnShutdown_v2.siteSettings",
+        "privacy.clearOnShutdown_v2.formdata"
+      ]
     },
     "SearchBar": {
       "type": "string",
       "x-category": "Search",
       "description": "Set whether or not search bar is displayed.",
-      "examples": [],
+      "examples": ["unified"],
       "enum": ["unified", "separate"]
     },
     "SearchEngines": {
       "type": "object",
       "x-category": "Search",
-      "description": "The following policies allow for configuring search engines in Firefox.\nAs of Firefox 139, these policies are available in all Firefox release channels:\n\nLast updated: Mar 30, 2026",
-      "examples": [],
+      "description": "The following policies allow for configuring search engines in Firefox.",
+      "examples": [
+        {
+          "Default": "Example1",
+          "Add": [
+            {
+              "Name": "Example1",
+              "URLTemplate": "https://www.example.org/q={searchTerms}",
+              "Method": "GET",
+              "IconURL": "https://www.example.org/favicon.ico",
+              "Alias": "example",
+              "Description": "Description",
+              "SuggestURLTemplate": "https://www.example.org/suggestions/q={searchTerms}"
+            }
+          ],
+          "PreventInstalls": true
+        },
+        {
+          "Remove": ["Example1"],
+          "PreventInstalls": false
+        }
+      ],
       "properties": {
         "Add": {
           "type": "array",
@@ -2420,22 +2731,61 @@
                 "type": "string"
               }
             }
-          }
+          },
+          "x-category": "Search",
+          "description": "Add new search engines.",
+          "examples": [
+            {
+              "Add": [
+                {
+                  "Name": "Example1",
+                  "URLTemplate": "https://www.example.org/q={searchTerms}",
+                  "Method": "GET",
+                  "IconURL": "https://www.example.org/favicon.ico",
+                  "Alias": "example",
+                  "Description": "Description",
+                  "PostData": "name=value&q={searchTerms}",
+                  "SuggestURLTemplate": "https://www.example.org/suggestions/q={searchTerms}"
+                }
+              ]
+            }
+          ]
         },
         "Default": {
-          "type": "string"
+          "type": "string",
+          "x-category": "Search",
+          "description": "Set the default search engine.",
+          "examples": [
+            {
+              "Default": "NAME_OF_SEARCH_ENGINE"
+            }
+          ]
         },
         "DefaultPrivate": {
           "type": "string"
         },
         "PreventInstalls": {
-          "type": "boolean"
+          "type": "boolean",
+          "x-category": "Search",
+          "description": "Prevent installing search engines from webpages.",
+          "examples": [
+            {
+              "PreventInstalls": true
+            }
+          ]
         },
         "Remove": {
           "type": "array",
           "items": {
             "type": "string"
-          }
+          },
+          "x-category": "Search",
+          "description": "Hide built-in search engines.",
+          "examples": [
+            {
+              "Remove": ["NAME_OF_SEARCH_ENGINE"]
+            }
+          ]
         }
       }
     },
@@ -2447,13 +2797,22 @@
         "browser.search.suggest.enabled"
       ],
       "description": "Enable search suggestions.",
-      "examples": []
+      "examples": [true, false]
     },
     "SecurityDevices": {
       "type": "object",
       "x-category": "Certificate management",
-      "description": "Add or delete PKCS #11 modules.",
-      "examples": [],
+      "description": "Install PKCS #11 modules.",
+      "examples": [
+        {
+          "Add": {
+            "A Device": "/path/to/library/for/device"
+          }
+        },
+        {
+          "Remove": ["A Device"]
+        }
+      ],
       "patternProperties": {
         "^.*$": {
           "type": "string"
@@ -2479,14 +2838,29 @@
     "ShowHomeButton": {
       "type": "boolean",
       "x-category": "Startup",
-      "description": "Show the home button on the toolbar.\n\nFuture versions of Firefox will not show the home button by default.",
-      "examples": []
+      "description": "Show the home button on the toolbar.",
+      "examples": [true, false]
     },
     "SitePolicies": {
       "type": "array",
-      "x-category": "Uncategorized",
-      "description": "Defines policies scoped to specific sites.",
-      "examples": [],
+      "x-category": "Browsing restrictions",
+      "description": "Fine grained control over policies for specific sites.",
+      "examples": [
+        [
+          {
+            "Match": ["*.example.com"],
+            "Policies": {
+              "DisableJit": true
+            }
+          },
+          {
+            "Exceptions": ["*.example.org"],
+            "Policies": {
+              "DisableJit": true
+            }
+          }
+        ]
+      ],
       "items": {
         "type": "object",
         "properties": {
@@ -2517,23 +2891,23 @@
     "SkipTermsOfUse": {
       "type": "boolean",
       "x-category": "Startup",
-      "description": "Configure display settings for the Firefox Terms of Use and Privacy Notice on startup.\n\nIf `true`, don't display the Firefox [Terms of Use](https://www.mozilla.org/about/legal/terms/firefox/) and [Privacy Notice](https://www.mozilla.org/privacy/firefox/) upon startup.\nYou represent that you accept and have the authority to accept the Terms of Use on behalf of all individuals to whom you provide access to this browser.",
-      "examples": []
+      "description": "Configure display settings for the Firefox Terms of Use and Privacy Notice on startup.",
+      "examples": [true, false]
     },
     "SSLVersionMax": {
       "type": "string",
       "x-category": "Network security",
       "x-preferences-affected": ["security.tls.version.max"],
-      "description": "Set and lock the maximum version of TLS (Firefox defaults to a maximum of TLS 1.3).",
-      "examples": [],
+      "description": "Set and lock the maximum version of TLS.",
+      "examples": ["tls1.3"],
       "enum": ["tls1", "tls1.1", "tls1.2", "tls1.3"]
     },
     "SSLVersionMin": {
       "type": "string",
       "x-category": "Network security",
       "x-preferences-affected": ["security.tls.version.min"],
-      "description": "Set and lock the minimum version of TLS (Firefox defaults to a minimum of TLS 1.2).",
-      "examples": [],
+      "description": "Set and lock the minimum version of TLS.",
+      "examples": ["tls1.2"],
       "enum": ["tls1", "tls1.1", "tls1.2", "tls1.3"]
     },
     "StartDownloadsInTempDirectory": {
@@ -2541,13 +2915,18 @@
       "x-category": "Downloads",
       "x-preferences-affected": ["browser.download.start_downloads_in_tmp_dir"],
       "description": "Force downloads to start off in a local, temporary location rather than the default download directory.",
-      "examples": []
+      "examples": [true, false]
     },
     "SupportMenu": {
       "type": "object",
       "x-category": "Browser UI",
       "description": "Add a menuitem to the help menu for specifying support information.",
-      "examples": [],
+      "examples": [
+        {
+          "Title": "Support Menu",
+          "URL": "http://example.com/support"
+        }
+      ],
       "properties": {
         "Title": {
           "type": "string"
@@ -2564,8 +2943,24 @@
     "Sync": {
       "type": "object",
       "x-category": "Local data storage",
-      "description": "Controls whether [sync](https://www.firefox.com/en-US/features/sync/) should be enabled and which features should be enabled for syncing.\n\nNote\n\nCurrently, this is only implemented in Firefox Enterprise.",
-      "examples": [],
+      "description": "Enable or disable sync and define which data to include.",
+      "examples": [
+        {
+          "Addons": false,
+          "Addresses": true,
+          "Bookmarks": true,
+          "Enabled": true,
+          "History": true,
+          "Locked": true,
+          "OpenTabs": false,
+          "Passwords": false,
+          "PaymentMethods": false,
+          "Settings": true
+        },
+        {
+          "Enabled": false
+        }
+      ],
       "properties": {
         "Enabled": {
           "type": "boolean"
@@ -2603,8 +2998,8 @@
       "type": "boolean",
       "x-category": "Content settings",
       "x-preferences-affected": ["browser.translations.enable"],
-      "description": "Enable or disable webpage translation.\n\nNote\n\nWeb page translation is performed entirely client-side, so there is no data or privacy risk transmitting content to a translation service over the network.\n\nIf you only want to disable the popup, you can set the `browser.translations.automaticallyPopup` preference to `false` using the [Preferences](/reference/policies/preferences/) policy.",
-      "examples": []
+      "description": "Enable or disable webpage translation.",
+      "examples": [true, false]
     },
     "UserMessaging": {
       "type": "object",
@@ -2617,7 +3012,17 @@
         "browser.preferences.experimental"
       ],
       "description": "Prevent Firefox from messaging the user in certain situations.",
-      "examples": [],
+      "examples": [
+        {
+          "ExtensionRecommendations": false,
+          "FeatureRecommendations": false,
+          "UrlbarInterventions": false,
+          "SkipOnboarding": true,
+          "MoreFromMozilla": true,
+          "FirefoxLabs": false,
+          "Locked": true
+        }
+      ],
       "properties": {
         "WhatsNew": {
           "type": "boolean"
@@ -2650,20 +3055,25 @@
       "x-category": "Printing",
       "x-preferences-affected": ["print.prefer_system_dialog"],
       "description": "Use the system print dialog instead of the print preview window.",
-      "examples": []
+      "examples": [true, false]
     },
     "VisualSearchEnabled": {
       "type": "boolean",
       "x-category": "Search",
       "x-preferences-affected": ["browser.search.visualSearch.featureGate"],
       "description": "Enable or disable visual search.",
-      "examples": []
+      "examples": [true, false]
     },
     "WebsiteFilter": {
       "type": ["object", "JSON"],
       "x-category": "Browsing restrictions",
-      "description": "Block websites from being visited.\nAs of Firefox 83 and Firefox ESR 78.5, `file:` URLs are supported.",
-      "examples": [],
+      "description": "Block websites from being visited.",
+      "examples": [
+        {
+          "Block": ["<all_urls>"],
+          "Exceptions": ["http://example.org/*"]
+        }
+      ],
       "properties": {
         "Block": {
           "type": "array",
@@ -2683,8 +3093,8 @@
       "type": "boolean",
       "x-category": "Authentication",
       "x-preferences-affected": ["network.http.windows-sso.enabled"],
-      "description": "Allow Windows single sign-on for Microsoft, work, and school accounts.\n\nIf this policy is set to `true`, Firefox will use credentials stored in Windows to sign in to Microsoft, work, and school accounts.",
-      "examples": []
+      "description": "Allow Windows single sign-on for Microsoft, work, and school accounts.",
+      "examples": [true, false]
     }
   }
 }
