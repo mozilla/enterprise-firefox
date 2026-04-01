@@ -582,8 +582,11 @@ export class UrlbarInput extends HTMLElement {
   #onContextMenuRebuilt() {
     this._initStripOnShare();
     this._initPasteAndGo();
-    if (AppConstants.platform == "macosx") {
+    if (this.#isAddressbar && AppConstants.platform == "macosx") {
       this.#initShareURL();
+    }
+    if (this.sapName == "searchbar") {
+      this.#initClearSearchHistory();
     }
   }
 
@@ -4392,6 +4395,10 @@ export class UrlbarInput extends HTMLElement {
     insertLocation.insertAdjacentElement("afterend", pasteAndGo);
   }
 
+  /**
+   * Initializes the share URL context menu item.
+   * This is only shown on the addressbar and only on macOS.
+   */
   #initShareURL() {
     let contextMenu = this.querySelector("moz-input-box").menupopup;
     let insertLocation = this.#findMenuItemLocation("cmd_selectAll");
@@ -4404,6 +4411,27 @@ export class UrlbarInput extends HTMLElement {
       if (browser) {
         lazy.SharingUtils.updateShareURLMenuItem(browser, null, separator);
       }
+    });
+  }
+
+  /**
+   * Initializes the clear search history context menu item.
+   * This is only shown on the searchbar.
+   */
+  #initClearSearchHistory() {
+    let insertLocation = this.#findMenuItemLocation("cmd_selectAll");
+
+    let separator = this.document.createXULElement("menuseparator");
+    insertLocation.after(separator);
+
+    let clearHistory = this.document.createXULElement("menuitem");
+    separator.after(clearHistory);
+
+    clearHistory.setAttribute("anonid", "clear-search-history");
+    this.document.l10n.setAttributes(clearHistory, "clear-search-history");
+    clearHistory.addEventListener("command", () => {
+      lazy.UrlbarUtils.clearFormHistory();
+      this.handleRevert();
     });
   }
 

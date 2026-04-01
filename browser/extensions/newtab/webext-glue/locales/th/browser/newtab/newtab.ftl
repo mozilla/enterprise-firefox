@@ -23,6 +23,9 @@ newtab-personalize-dialog-label =
     .aria-label = ปรับให้เป็นแบบส่วนตัว
 newtab-logo-and-wordmark =
     .aria-label = { -brand-full-name }
+newtab-card-dismiss-button =
+    .title = ปิด
+    .aria-label = ปิด
 
 ## Search box component.
 
@@ -69,6 +72,11 @@ newtab-topsites-url-validation = ต้องการ URL ที่ถูกต
 newtab-topsites-image-url-label = URL ภาพกำหนดเอง
 newtab-topsites-use-image-link = ใช้ภาพกำหนดเอง…
 newtab-topsites-image-validation = ไม่สามารถโหลดภาพ ลอง URL อื่น
+
+## Clear text button for the URL and image URL input fields in the Top Sites form.
+
+newtab-topsites-clear-input =
+    .aria-label = ล้างข้อความ
 
 ## Top Sites - General form dialog buttons. These are verbs/actions.
 
@@ -628,6 +636,8 @@ newtab-report-cancel = ยกเลิก
 newtab-report-submit = ส่ง
 newtab-toast-thanks-for-reporting =
     .message = ขอบคุณที่รายงานสิ่งนี้
+newtab-toast-widgets-hidden =
+    .message = เลือกไอคอนรูปดินสอเพื่อเพิ่มวิดเจ็ตกลับเข้าไปได้ตลอดเวลา
 
 ## Strings for task / to-do list productivity widget
 
@@ -668,6 +678,7 @@ newtab-widget-lists-name-placeholder-default =
 newtab-widget-lists-name-placeholder-new =
     .placeholder = รายการใหม่
 newtab-widget-section-title = วิดเจ็ต
+newtab-widget-menu-hide = ซ่อนวิดเจ็ต
 # Tooltip for hide all widgets button
 newtab-widget-section-hide-all-button =
     .title = ซ่อนวิดเจ็ต
@@ -678,6 +689,7 @@ newtab-widget-section-maximize =
 newtab-widget-section-minimize =
     .title = ย่อขนาดวิดเจ็ด
     .aria-label = ยุบวิดเจ็ตทั้งหมดให้เป็นขนาดกะทัดรัด
+newtab-widget-section-feedback = บอกเราว่าคุณคิดอย่างไร
 
 ## Strings for timer productivity widget
 ## When the timer ends, a system notification may be shown. Depending on which mode the timer is in, that message would be shown

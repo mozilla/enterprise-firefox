@@ -114,7 +114,7 @@ async function resetSidebarToInitialState() {
   info(
     `Restoring sidebar state from: ${JSON.stringify(SidebarController.getUIState())}, back to: ${JSON.stringify(initialSidebarState)}`
   );
-  await SidebarController.initializeUIState(initialSidebarState);
+  await SidebarController.updateUIState(initialSidebarState);
 }
 registerCleanupFunction(async () => {
   await resetSidebarToInitialState();

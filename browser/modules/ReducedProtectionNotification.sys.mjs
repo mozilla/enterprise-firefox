@@ -6,6 +6,7 @@ const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
   EveryWindow: "resource:///modules/EveryWindow.sys.mjs",
+  PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
 });
 
 const NOTIFICATION_VALUE = "reduced-protection-reload";
@@ -49,10 +50,14 @@ export const ReducedProtectionNotification = {
     lazy.EveryWindow.registerCallback(
       "reduced-protection-notification",
       win => {
-        win.gBrowser?.addTabsProgressListener(this);
+        if (lazy.PrivateBrowsingUtils.isWindowPrivate(win)) {
+          win.gBrowser?.addTabsProgressListener(this);
+        }
       },
       win => {
-        win.gBrowser?.removeTabsProgressListener(this);
+        if (lazy.PrivateBrowsingUtils.isWindowPrivate(win)) {
+          win.gBrowser?.removeTabsProgressListener(this);
+        }
       }
     );
     this._initialized = true;

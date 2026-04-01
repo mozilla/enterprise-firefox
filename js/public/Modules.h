@@ -44,6 +44,7 @@ enum class ModuleType : uint32_t {
   JSON,
   CSS,
   Bytes,
+  Text,
 
   // The specification has renamed the "javascript" module type to
   // "javascript-or-wasm". For now, we'll add JavaScriptOrWasm as
@@ -53,7 +54,7 @@ enum class ModuleType : uint32_t {
   // JavaScriptOrWasm, we'll can just rename JavaScript to JavaScriptOrWasm.
   JavaScriptOrWasm = JavaScript,
 
-  Limit = Bytes,
+  Limit = Text,
 };
 
 /**

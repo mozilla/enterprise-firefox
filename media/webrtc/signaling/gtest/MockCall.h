@@ -73,6 +73,10 @@ class MockAudioReceiveStream : public webrtc::AudioReceiveStreamInterface {
 
   void SetGain(float gain) override {}
 
+  void SetJitterBufferMaxPackets(size_t max_packets) override {}
+
+  void SetJitterBufferFastAccelerate(bool fast_accelerate) override {}
+
   std::vector<webrtc::RtpSource> GetSources() const override {
     return mRtpSources;
   }

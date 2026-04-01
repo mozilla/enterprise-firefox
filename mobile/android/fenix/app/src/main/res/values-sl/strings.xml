@@ -678,6 +678,8 @@
   <string name="nova_onboarding_add_search_widget_subtitle" tools:ignore="BrandUsage">Začnite vsako iskanje z domače strani svojega telefona in vedite, da vam Firefox s svojimi zaščitami krije hrbet.</string>
   <!-- "Add search widget" onboarding button. 'Firefox' is intentionally hardcoded. -->
   <string name="nova_onboarding_add_search_widget_button" tools:ignore="BrandUsage">Dodaj pripomoček Firefox</string>
+  <!-- Customize prompt onboarding positive button. -->
+  <string name="nova_onboarding_customize_prompt_positive_button" tools:ignore="UnusedResources">Začni s prilagajanjem</string>
   <!-- App icon onboarding title. -->
   <string name="nova_onboarding_app_icon_prompt_title" tools:ignore="UnusedResources">Izberite si ikono aplikacije</string>
   <!-- App icon onboarding body. -->
@@ -3440,7 +3442,7 @@
   <!-- The title of the warning card informs the user that the list of languages cannot be loaded. -->
   <string name="translation_error_could_not_load_languages_warning_text">Jezikov ni bilo mogoče naložiti. Preverite internetno povezavo in poskusite znova.</string>
   <!-- The title of the warning card informs the user that a language is not supported. %1$s is the name of the language that is not supported. -->
-  <string name="translation_error_language_not_supported_warning_text">%1$s žal še ni podprt jezik.</string>
+  <string name="translation_error_language_not_supported_warning_text" tools:ignore="UnusedResources" moz:removedIn="150">%1$s žal še ni podprt jezik.</string>
   <!-- Snackbar title shown if the user closes the Translation Request dialogue and a translation is in progress. -->
   <string name="translation_in_progress_snackbar">Prevajanje …</string>
   <!--

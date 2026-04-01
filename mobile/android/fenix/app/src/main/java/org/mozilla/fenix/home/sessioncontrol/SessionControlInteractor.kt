@@ -15,6 +15,7 @@ import org.mozilla.fenix.components.appstate.setup.checklist.ChecklistItem
 import org.mozilla.fenix.home.bookmarks.Bookmark
 import org.mozilla.fenix.home.bookmarks.controller.BookmarksController
 import org.mozilla.fenix.home.interactor.HomepageInteractor
+import org.mozilla.fenix.home.logo.LogoController
 import org.mozilla.fenix.home.pocket.PocketRecommendedStoriesCategory
 import org.mozilla.fenix.home.pocket.controller.PocketStoriesController
 import org.mozilla.fenix.home.privatebrowsing.controller.PrivateBrowsingController
@@ -187,7 +188,12 @@ class SessionControlInteractor(
     private val homeSearchController: HomeSearchController,
     private val topSiteController: TopSiteController,
     private val privacyNoticeBannerController: PrivacyNoticeBannerController,
+    private val logoController: LogoController,
 ) : HomepageInteractor {
+
+    override fun onLogoClicked() {
+        logoController.handleLogoClicked()
+    }
 
     override fun onCollectionAddTabTapped(collection: TabCollection) {
         controller.handleCollectionAddTabTapped(collection)

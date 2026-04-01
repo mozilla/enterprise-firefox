@@ -288,13 +288,14 @@ ScrollContainerFrame::ScrollContainerFrame(ComputedStyle* aStyle,
       mApzAnimationTriggeredByScriptRequested(false),
       mReclampVVOffsetInReflowFinished(false),
       mMayScheduleScrollAnimations(false),
+      mForceDisableOverlayScrollbars(false),
 #ifdef MOZ_WIDGET_ANDROID
       mHasVerticalOverflowForDynamicToolbar(false),
 #endif
       mVelocityQueue(PresContext()) {
   AppendScrollUpdate(ScrollPositionUpdate::NewScrollframe(nsPoint()));
 
-  if (UseOverlayScrollbars()) {
+  if (PresContext()->UseOverlayScrollbars()) {
     mScrollbarActivity = new ScrollbarActivity(this);
   }
 
@@ -577,7 +578,9 @@ ScrollReflowInput::ScrollReflowInput(ScrollContainerFrame* aFrame,
   // makes us suppress scrollbars in CreateAnonymousContent. But if this frame
   // initially had a non-'none' scrollbar-width and dynamically changed to
   // 'none', then we'll need to handle it here.
-  const auto scrollbarWidth = scrollbarStyle->StyleUIReset()->ScrollbarWidth();
+  const auto scrollbarWidth =
+      nsLayoutUtils::ScrollbarWidthFor(mReflowInput.mFrame);
+
   if (scrollbarWidth == StyleScrollbarWidth::None) {
     mHScrollbar = ShowScrollbar::Never;
     mHScrollbarAllowedForScrollingVVInsideLV = false;
@@ -1167,8 +1170,7 @@ nsMargin ScrollContainerFrame::IntrinsicScrollbarGutterSize() const {
   }
 
   const auto* styleForScrollbar = nsLayoutUtils::StyleForScrollbar(this);
-  const auto& styleScrollbarWidth =
-      styleForScrollbar->StyleUIReset()->ScrollbarWidth();
+  const auto& styleScrollbarWidth = ScrollbarWidth(styleForScrollbar);
   if (styleScrollbarWidth == StyleScrollbarWidth::None) {
     // Scrollbar shouldn't appear at all with "scrollbar-width: none".
     return {};
@@ -1654,8 +1656,7 @@ nsMargin ScrollContainerFrame::GetDesiredScrollbarSizes() const {
     return {};
   }
 
-  const auto& style = *nsLayoutUtils::StyleForScrollbar(this);
-  const auto scrollbarWidth = style.StyleUIReset()->ScrollbarWidth();
+  const auto scrollbarWidth = ScrollbarWidth();
   if (scrollbarWidth == StyleScrollbarWidth::None) {
     return {};
   }
@@ -1690,10 +1691,14 @@ nscoord ScrollContainerFrame::GetNonOverlayScrollbarSize(
 
 void ScrollContainerFrame::HandleScrollbarStyleSwitching() {
   // Check if we switched between scrollbar styles.
-  if (mScrollbarActivity && !UseOverlayScrollbars()) {
+  // We need to check the global UseOverlayScrollbars() because whether to
+  // disable overlay scrollbars for each scroll container depends on
+  // ::-webkit-scrollbar styles on the container and disabling overlay for
+  // individual container uses this mScrollbarActivity.
+  if (mScrollbarActivity && !PresContext()->UseOverlayScrollbars()) {
     mScrollbarActivity->Destroy();
     mScrollbarActivity = nullptr;
-  } else if (!mScrollbarActivity && UseOverlayScrollbars()) {
+  } else if (!mScrollbarActivity && PresContext()->UseOverlayScrollbars()) {
     mScrollbarActivity = new ScrollbarActivity(this);
   }
 }
@@ -5580,7 +5585,9 @@ auto ScrollContainerFrame::GetNeededAnonymousContent() const
     result += AnonymousContentType::HorizontalScrollbar;
     result += AnonymousContentType::VerticalScrollbar;
     // If scrollbar-width is none, don't generate scrollbars.
-  } else if (StyleUIReset()->ScrollbarWidth() != StyleScrollbarWidth::None) {
+    // NOTE: This is a non-root case so that we can use this container's
+    // mComputedStyle here.
+  } else if (ScrollbarWidth(mComputedStyle) != StyleScrollbarWidth::None) {
     ScrollStyles styles = GetScrollStyles();
     if (styles.mHorizontal != StyleOverflow::Hidden) {
       result += AnonymousContentType::HorizontalScrollbar;
@@ -5722,6 +5729,53 @@ void ScrollContainerFrame::AppendAnonymousContentTo(
 void ScrollContainerFrame::DidSetComputedStyle(
     ComputedStyle* aOldComputedStyle) {
   nsContainerFrame::DidSetComputedStyle(aOldComputedStyle);
+
+  // Resolve styles for ::-webkit-scrollbar pseudo element
+  if (StaticPrefs::layout_css_fake_webkit_scrollbar_enabled()) {
+    mWebKitScrollbarStyle = PresContext()->StyleSet()->ProbePseudoElementStyle(
+        *GetContent()->AsElement(), PseudoStyleType::WebkitScrollbar, nullptr,
+        mComputedStyle);
+  }
+
+  const bool disableOverlayScrollbars =
+      [&](const RefPtr<ComputedStyle>& style) {
+        // If there's any ::webkit-scrollbar for this container, then check
+        // whether there exits non-zero width or height value.
+        if (!style) {
+          return false;
+        }
+        if (style->StyleDisplay()->mDisplay == StyleDisplay::None) {
+          return false;
+        }
+        const auto webkitScrollbarWidth = style->StylePosition()->GetWidth(
+            // scrollbar elements are not affected anchor positioning.
+            AnchorPosResolutionParams{nullptr, StylePositionProperty::Static});
+        const auto webkitScrollbarHeight = style->StylePosition()->GetHeight(
+            // scrollbar elements are not affected anchor positioning.
+            AnchorPosResolutionParams{nullptr, StylePositionProperty::Static});
+
+        auto isNonZeroLength = [](const AnchorResolvedSize& size) {
+          // On Blink/WebKit %-unit size is treated as 0.
+          return size->IsLengthPercentage() &&
+                 size->AsLengthPercentage().IsLength() &&
+                 !size->AsLengthPercentage().AsLength().IsZero();
+        };
+
+        return isNonZeroLength(webkitScrollbarWidth) ||
+               isNonZeroLength(webkitScrollbarHeight);
+      }(mWebKitScrollbarStyle);
+
+  if (mForceDisableOverlayScrollbars != disableOverlayScrollbars) {
+    mForceDisableOverlayScrollbars = disableOverlayScrollbars;
+    MarkScrollbarsDirtyForReflow();
+
+    if (mForceDisableOverlayScrollbars) {
+      DisableOverlayScrollbars();
+    } else {
+      EnableOverlayScrollbars();
+    }
+  }
+
   if (aOldComputedStyle && !mIsRoot &&
       StyleDisplay()->mScrollSnapType !=
           aOldComputedStyle->StyleDisplay()->mScrollSnapType) {
@@ -5838,6 +5892,34 @@ void ScrollContainerFrame::ScrollbarCurPosChanged(bool aDoScroll) {
         ScrollOperationParams{ScrollMode::Instant, ScrollOrigin::Scrollbars});
   }
   // 'this' might be destroyed here
+}
+
+void ScrollContainerFrame::DisableOverlayScrollbars() {
+  nsContentUtils::AddScriptRunner(NS_NewRunnableFunction(
+      "ScrollContainerFrame::DisableOverlayScrollbars",
+      [weakFrame = std::make_unique<WeakFrame>(this)] {
+        if (!weakFrame->IsAlive()) {
+          return;
+        }
+        auto* self = static_cast<ScrollContainerFrame*>(weakFrame->GetFrame());
+        if (self->mScrollbarActivity) {
+          self->mScrollbarActivity->ActivityStarted();
+        }
+      }));
+}
+
+void ScrollContainerFrame::EnableOverlayScrollbars() {
+  nsContentUtils::AddScriptRunner(NS_NewRunnableFunction(
+      "ScrollContainerFrame::EnableOverlayScrollbars",
+      [weakFrame = std::make_unique<WeakFrame>(this)] {
+        if (!weakFrame->IsAlive()) {
+          return;
+        }
+        auto* self = static_cast<ScrollContainerFrame*>(weakFrame->GetFrame());
+        if (self->mScrollbarActivity) {
+          self->mScrollbarActivity->ActivityStopped();
+        }
+      }));
 }
 
 /* ============= Scroll events ========== */
@@ -6606,9 +6688,7 @@ void ScrollContainerFrame::LayoutScrollbars(ScrollReflowInput& aState,
     // If a resizer is present, get its size.
     //
     // TODO(emilio): Should this really account for scrollbar-width?
-    auto scrollbarWidth = nsLayoutUtils::StyleForScrollbar(this)
-                              ->StyleUIReset()
-                              ->ScrollbarWidth();
+    auto scrollbarWidth = ScrollbarWidth();
     const nscoord scrollbarSize =
         GetNonOverlayScrollbarSize(pc, scrollbarWidth);
     ReflowInput resizerRI(pc, aState.mReflowInput, mResizerBox,
@@ -7707,7 +7787,38 @@ ScrollContainerFrame::GetScrollSnapAlignFor(const nsIFrame* aFrame) const {
 }
 
 bool ScrollContainerFrame::UseOverlayScrollbars() const {
-  return PresContext()->UseOverlayScrollbars();
+  if (!PresContext()->UseOverlayScrollbars()) {
+    return false;
+  }
+  return !mForceDisableOverlayScrollbars;
+}
+
+StyleScrollbarWidth ScrollContainerFrame::ScrollbarWidth(
+    const ComputedStyle* aStyle) const {
+  auto PrefGatedScrollbarWidth =
+      [](StyleScrollbarWidth aComputedScrollbarWidth) {
+        if (MOZ_UNLIKELY(
+                StaticPrefs::layout_css_scrollbar_width_thin_disabled()) &&
+            aComputedScrollbarWidth == StyleScrollbarWidth::Thin) {
+          return StyleScrollbarWidth::Auto;
+        }
+        return aComputedScrollbarWidth;
+      };
+
+  const ComputedStyle* style =
+      aStyle ? aStyle : nsLayoutUtils::StyleForScrollbar(this);
+  auto scrollbarWidth = style->StyleUIReset()->ComputedScrollbarWidth();
+  if (!mWebKitScrollbarStyle ||
+      mWebKitScrollbarStyle->StyleDisplay()->mDisplay != StyleDisplay::None ||
+      // On Chrome even if `display: none` is specified on
+      // `::-webkit-scrollbar`, non auto `scrollbar-color` or non auto
+      // `scrollbar-width` clobbers it.
+      scrollbarWidth != StyleScrollbarWidth::Auto ||
+      style->StyleUI()->HasCustomScrollbars()) {
+    return PrefGatedScrollbarWidth(scrollbarWidth);
+  }
+
+  return StyleScrollbarWidth::None;
 }
 
 bool ScrollContainerFrame::DragScroll(WidgetEvent* aEvent) {

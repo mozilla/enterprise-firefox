@@ -243,6 +243,8 @@ pub fn get_shader_features(flags: ShaderFeatureFlags) -> ShaderFeatures {
 
     shaders.insert("ps_quad_repeat", vec![base_prim_features.finish()]);
 
+    shaders.insert("ps_quad_box_shadow", vec![base_prim_features.finish()]);
+
     let mut maybe_dithering = FeatureList::new();
     if flags.contains(ShaderFeatureFlags::DITHERING) {
         maybe_dithering.add("DITHERING");

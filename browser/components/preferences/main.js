@@ -9143,7 +9143,7 @@ const AppFileHandler = (function () {
       ) {
         // As the favicon originates from web content and is displayed in the parent process,
         // use the moz-remote-image: protocol to safely re-encode it.
-        return getMozRemoteImageURL(uri.prePath + "/favicon.ico", 16);
+        return getMozRemoteImageURL(uri.prePath + "/favicon.ico", { size: 16 });
       }
 
       return "";

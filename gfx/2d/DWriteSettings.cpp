@@ -19,9 +19,9 @@ static Atomic<DWRITE_PIXEL_GEOMETRY> sPixelGeometry;
 static Atomic<DWRITE_RENDERING_MODE> sRenderingMode;
 static Atomic<DWRITE_MEASURING_MODE> sMeasuringMode;
 static std::atomic<Float> sGDIGamma{1.4f};
-MOZ_RELEASE_CONSTINIT StaticDataMutex<StaticRefPtr<IDWriteRenderingParams>>
+constinit StaticDataMutex<StaticRefPtr<IDWriteRenderingParams>>
     sStandardRenderingParams("StandardRenderingParams");
-MOZ_RELEASE_CONSTINIT StaticDataMutex<StaticRefPtr<IDWriteRenderingParams>>
+constinit StaticDataMutex<StaticRefPtr<IDWriteRenderingParams>>
     sGDIRenderingParams("GDIRenderingParams");
 
 static void ClearStandardRenderingParams() {

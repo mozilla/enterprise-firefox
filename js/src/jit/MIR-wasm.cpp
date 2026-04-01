@@ -526,11 +526,11 @@ MDefinition* MWasmBinarySimd128::foldsTo(TempAllocator& alloc) {
     // will be overwritten by the subsequent shuffle analysis.
     int8_t shuffleMask[16];
     memcpy(shuffleMask, rhs()->toWasmFloatConstant()->toSimd128().bytes(), 16);
-    for (int i = 0; i < 16; i++) {
+    for (signed char& i : shuffleMask) {
       // Out-of-bounds lanes reference the zero vector; in many cases, the zero
       // vector is removed by subsequent optimizations.
-      if (shuffleMask[i] < 0 || shuffleMask[i] > 15) {
-        shuffleMask[i] = 16;
+      if (i < 0 || i > 15) {
+        i = 16;
       }
     }
     MWasmFloatConstant* zero =

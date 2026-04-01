@@ -21,8 +21,8 @@
  */
 
 /**
- * pdfjsVersion = 5.6.98
- * pdfjsBuild = 977e4f2c4
+ * pdfjsVersion = 5.6.205
+ * pdfjsBuild = ada343803
  */
 /******/ // The require scope
 /******/ var __webpack_require__ = {};
@@ -6176,10 +6176,7 @@ class SimpleSegmentVisitor {
       huffmanTables = getSymbolDictionaryHuffmanTables(dictionary, referredSegments, this.customTables);
       huffmanInput = new Reader(data, start, end);
     }
-    let symbols = this.symbols;
-    if (!symbols) {
-      this.symbols = symbols = {};
-    }
+    const symbols = this.symbols ||= {};
     const inputSymbols = [];
     for (const referredSegment of referredSegments) {
       const referredSymbols = symbols[referredSegment];
@@ -6214,10 +6211,7 @@ class SimpleSegmentVisitor {
     this.onImmediateTextRegion(...arguments);
   }
   onPatternDictionary(dictionary, currentSegment, data, start, end) {
-    let patterns = this.patterns;
-    if (!patterns) {
-      this.patterns = patterns = {};
-    }
+    const patterns = this.patterns ||= {};
     const decodingContext = new DecodingContext(data, start, end);
     patterns[currentSegment] = decodePatternDictionary(dictionary.mmr, dictionary.patternWidth, dictionary.patternHeight, dictionary.maxPatternIndex, dictionary.template, decodingContext);
   }
@@ -6232,10 +6226,7 @@ class SimpleSegmentVisitor {
     this.onImmediateHalftoneRegion(...arguments);
   }
   onTables(currentSegment, data, start, end) {
-    let customTables = this.customTables;
-    if (!customTables) {
-      this.customTables = customTables = {};
-    }
+    const customTables = this.customTables ||= {};
     customTables[currentSegment] = decodeTablesSegment(data, start, end);
   }
 }
@@ -6276,10 +6267,7 @@ class HuffmanTreeNode {
     if (shift <= 0) {
       this.children[bit] = new HuffmanTreeNode(line);
     } else {
-      let node = this.children[bit];
-      if (!node) {
-        this.children[bit] = node = new HuffmanTreeNode(null);
-      }
+      const node = this.children[bit] ||= new HuffmanTreeNode(null);
       node.buildTree(line, shift - 1);
     }
   }
@@ -29846,7 +29834,7 @@ class Font {
     if (typeof width !== "number") {
       width = this.defaultWidth;
     }
-    const vmetric = this.vmetrics?.[widthCode];
+    const vmetric = this.vmetrics?.[widthCode] || this.defaultVMetrics;
     let unicode = this.toUnicode.get(charcode) || charcode;
     if (typeof unicode === "number") {
       unicode = String.fromCharCode(unicode);
@@ -30017,7 +30005,7 @@ class Pattern {
   constructor() {
     unreachable("Cannot initialize Pattern.");
   }
-  static parseShading(shading, xref, res, pdfFunctionFactory, globalColorSpaceCache, localColorSpaceCache) {
+  static parseShading(shading, xref, res, pdfFunctionFactory, globalColorSpaceCache, localColorSpaceCache, prepareWebGPU = null) {
     const dict = shading instanceof BaseStream ? shading.dict : shading;
     const type = dict.get("ShadingType");
     try {
@@ -30029,6 +30017,7 @@ class Pattern {
         case ShadingType.LATTICE_FORM_MESH:
         case ShadingType.COONS_PATCH_MESH:
         case ShadingType.TENSOR_PATCH_MESH:
+          prepareWebGPU?.();
           return new MeshShading(shading, xref, res, pdfFunctionFactory, globalColorSpaceCache, localColorSpaceCache);
         default:
           throw new FormatError("Unsupported ShadingType: " + type);
@@ -30751,7 +30740,7 @@ class MeshShading extends BaseShading {
     this.bounds = [minX, minY, maxX, maxY];
   }
   _packData() {
-    let i, ii, j, jj;
+    let i, ii, j;
     const coords = this.coords;
     const coordsPacked = new Float32Array(coords.length * 2);
     for (i = 0, j = 0, ii = coords.length; i < ii; i++) {
@@ -30761,23 +30750,20 @@ class MeshShading extends BaseShading {
     }
     this.coords = coordsPacked;
     const colors = this.colors;
-    const colorsPacked = new Uint8Array(colors.length * 3);
+    const colorsPacked = new Uint8Array(colors.length * 4);
     for (i = 0, j = 0, ii = colors.length; i < ii; i++) {
       const c = colors[i];
       colorsPacked[j++] = c[0];
       colorsPacked[j++] = c[1];
       colorsPacked[j++] = c[2];
+      j++;
     }
     this.colors = colorsPacked;
     const figures = this.figures;
     for (i = 0, ii = figures.length; i < ii; i++) {
-      const figure = figures[i],
-        ps = figure.coords,
-        cs = figure.colors;
-      for (j = 0, jj = ps.length; j < jj; j++) {
-        ps[j] *= 2;
-        cs[j] *= 3;
-      }
+      const figure = figures[i];
+      figure.coords = new Uint32Array(figure.coords);
+      figure.colors = new Uint32Array(figure.colors);
     }
   }
   getIR() {
@@ -32621,18 +32607,28 @@ function bidi(str, startLevel = -1, vertical = false) {
     if (types[i] === "ON") {
       const end = findUnequal(types, i + 1, "ON");
       let before = sor;
-      if (i > 0) {
-        before = types[i - 1];
+      for (let j = i - 1; j >= 0; j--) {
+        const tt = types[j];
+        if (tt === "L") {
+          before = "L";
+          break;
+        }
+        if (tt === "R" || tt === "EN" || tt === "AN") {
+          before = "R";
+          break;
+        }
       }
       let after = eor;
-      if (end + 1 < strLength) {
-        after = types[end + 1];
-      }
-      if (before !== "L") {
-        before = "R";
-      }
-      if (after !== "L") {
-        after = "R";
+      for (let j = end; j < strLength; j++) {
+        const tt = types[j];
+        if (tt === "L") {
+          after = "L";
+          break;
+        }
+        if (tt === "R" || tt === "EN" || tt === "AN") {
+          after = "R";
+          break;
+        }
       }
       if (before === after) {
         types.fill(before, i, end);
@@ -33089,37 +33085,6 @@ class MurmurHash3_64 {
 
 
 
-function resizeImageMask(src, bpc, w1, h1, w2, h2) {
-  const length = w2 * h2;
-  let dest;
-  if (bpc <= 8) {
-    dest = new Uint8Array(length);
-  } else if (bpc <= 16) {
-    dest = new Uint16Array(length);
-  } else {
-    dest = new Uint32Array(length);
-  }
-  const xRatio = w1 / w2;
-  const yRatio = h1 / h2;
-  let i,
-    j,
-    py,
-    newIndex = 0,
-    oldIndex;
-  const xScaled = new Uint16Array(w2);
-  const w1Scanline = w1;
-  for (i = 0; i < w2; i++) {
-    xScaled[i] = Math.floor(i * xRatio);
-  }
-  for (i = 0; i < h2; i++) {
-    py = Math.floor(i * yRatio) * w1Scanline;
-    for (j = 0; j < w2; j++) {
-      oldIndex = py + xScaled[j];
-      dest[newIndex++] = src[oldIndex];
-    }
-  }
-  return dest;
-}
 class PDFImage {
   constructor({
     xref,
@@ -33248,6 +33213,8 @@ class PDFImage {
         this.jpxDecoderOptions.numComponents = hasColorSpace ? this.numComps : 0;
         this.jpxDecoderOptions.isIndexedColormap = this.colorSpace.name === "Indexed";
       }
+    } else {
+      this.numComps = 1;
     }
     this.decode = dict.getArray("D", "Decode");
     this.needsDecode = false;
@@ -33531,59 +33498,60 @@ class PDFImage {
     return output;
   }
   async fillOpacity(rgbaBuf, width, height, actualHeight, image) {
-    const smask = this.smask;
-    const mask = this.mask;
-    let alphaBuf, sw, sh, i, ii, j;
-    if (smask) {
-      sw = smask.width;
-      sh = smask.height;
-      alphaBuf = new Uint8ClampedArray(sw * sh);
-      await smask.fillGrayBuffer(alphaBuf);
-      if (sw !== width || sh !== height) {
-        alphaBuf = resizeImageMask(alphaBuf, smask.bpc, sw, sh, width, height);
-      }
-    } else if (mask) {
-      if (mask instanceof PDFImage) {
-        sw = mask.width;
-        sh = mask.height;
-        alphaBuf = new Uint8ClampedArray(sw * sh);
-        mask.numComps = 1;
-        await mask.fillGrayBuffer(alphaBuf);
-        for (i = 0, ii = sw * sh; i < ii; ++i) {
-          alphaBuf[i] = 255 - alphaBuf[i];
-        }
-        if (sw !== width || sh !== height) {
-          alphaBuf = resizeImageMask(alphaBuf, mask.bpc, sw, sh, width, height);
-        }
-      } else if (Array.isArray(mask)) {
-        alphaBuf = new Uint8ClampedArray(width * height);
-        const numComps = this.numComps;
-        for (i = 0, ii = width * height; i < ii; ++i) {
-          let opacity = 0;
-          const imageOffset = i * numComps;
-          for (j = 0; j < numComps; ++j) {
-            const color = image[imageOffset + j];
-            const maskOffset = j * 2;
-            if (color < mask[maskOffset] || color > mask[maskOffset + 1]) {
-              opacity = 255;
-              break;
+    let apply;
+    if (this.smask) {
+      apply = (buffer, options) => this.smask.fillGrayBuffer(buffer, {
+        ...options,
+        destWidth: width,
+        destHeight: height
+      });
+    } else if (this.mask) {
+      if (this.mask instanceof PDFImage) {
+        apply = (buffer, options) => this.mask.fillGrayBuffer(buffer, {
+          ...options,
+          invertOutput: true,
+          destWidth: width,
+          destHeight: height
+        });
+      } else if (Array.isArray(this.mask)) {
+        apply = (buffer, {
+          maxRows,
+          offset,
+          stride
+        }) => {
+          for (let i = 0, ii = width * maxRows; i < ii; ++i) {
+            let opacity = 0;
+            const imageOffset = i * this.numComps;
+            for (let j = 0; j < this.numComps; ++j) {
+              const color = image[imageOffset + j];
+              const maskOffset = j * 2;
+              if (color < this.mask[maskOffset] || color > this.mask[maskOffset + 1]) {
+                opacity = 255;
+                break;
+              }
             }
+            buffer[i * stride + offset] = opacity;
           }
-          alphaBuf[i] = opacity;
-        }
+        };
       } else {
         throw new FormatError("Unknown mask format.");
       }
-    }
-    if (alphaBuf) {
-      for (i = 0, j = 3, ii = width * actualHeight; i < ii; ++i, j += 4) {
-        rgbaBuf[j] = alphaBuf[i];
-      }
     } else {
-      for (i = 0, j = 3, ii = width * actualHeight; i < ii; ++i, j += 4) {
-        rgbaBuf[j] = 255;
-      }
+      apply = (buffer, {
+        maxRows,
+        offset,
+        stride
+      }) => {
+        for (let i = 0, ii = width * maxRows; i < ii; ++i) {
+          buffer[i * stride + offset] = 255;
+        }
+      };
     }
+    await apply(rgbaBuf, {
+      maxRows: actualHeight,
+      offset: 3,
+      stride: 4
+    });
   }
   undoPreblend(buffer, width, height) {
     const matte = this.smask?.matte;
@@ -33627,7 +33595,9 @@ class PDFImage {
     const mustBeResized = isOffscreenCanvasSupported && ImageResizer.needsToBeResized(drawWidth, drawHeight);
     if (!this.smask && !this.mask && this.colorSpace.name === "DeviceRGBA") {
       imgData.kind = ImageKind.RGBA_32BPP;
-      const imgArray = imgData.data = await this.getImageBytes(originalHeight * originalWidth * 4, {});
+      const imgArray = imgData.data = await this.getImageBytes(originalHeight * originalWidth * 4, {
+        internal: isOffscreenCanvasSupported && mustBeResized
+      });
       if (isOffscreenCanvasSupported) {
         if (!mustBeResized) {
           return this.createBitmap(ImageKind.RGBA_32BPP, drawWidth, drawHeight, imgArray);
@@ -33648,7 +33618,9 @@ class PDFImage {
         if (image) {
           return image;
         }
-        const data = await this.getImageBytes(originalHeight * rowBytes, {});
+        const data = await this.getImageBytes(originalHeight * rowBytes, {
+          internal: isOffscreenCanvasSupported && mustBeResized
+        });
         if (isOffscreenCanvasSupported) {
           if (mustBeResized) {
             return ImageResizer.createImage({
@@ -33697,7 +33669,8 @@ class PDFImage {
             const rgba = await this.getImageBytes(imageLength, {
               drawWidth,
               drawHeight,
-              forceRGBA: true
+              forceRGBA: true,
+              internal: true
             });
             return this.createBitmap(ImageKind.RGBA_32BPP, drawWidth, drawHeight, rgba);
           }
@@ -33711,7 +33684,8 @@ class PDFImage {
               imgData.data = await this.getImageBytes(imageLength, {
                 drawWidth,
                 drawHeight,
-                forceRGB: true
+                forceRGB: true,
+                internal: mustBeResized
               });
               if (mustBeResized) {
                 return ImageResizer.createImage(imgData);
@@ -33778,29 +33752,74 @@ class PDFImage {
     }
     return imgData;
   }
-  async fillGrayBuffer(buffer) {
+  async fillGrayBuffer(buffer, {
+    destWidth,
+    destHeight,
+    invertOutput,
+    maxRows,
+    offset = 0,
+    stride = 1
+  } = {}) {
     const numComps = this.numComps;
     if (numComps !== 1) {
       throw new FormatError(`Reading gray scale from a color image: ${numComps}`);
     }
-    const width = this.width;
-    const height = this.height;
+    const srcWidth = this.width;
+    const srcHeight = this.height;
     const bpc = this.bpc;
-    const rowBytes = width * numComps * bpc + 7 >> 3;
-    const imgArray = await this.getImageBytes(height * rowBytes, {
+    const rowBytes = srcWidth * numComps * bpc + 7 >> 3;
+    const imgArray = await this.getImageBytes(srcHeight * rowBytes, {
       internal: true
     });
     const comps = this.getComponents(imgArray);
-    let i, length;
+    const resolvedDestWidth = destWidth ?? srcWidth;
+    const resolvedDestHeight = destHeight ?? srcHeight;
+    const needsResampling = resolvedDestWidth !== srcWidth || resolvedDestHeight !== srcHeight;
+    const rows = maxRows === undefined ? resolvedDestHeight : Math.min(resolvedDestHeight, maxRows);
+    let outputWidth = srcWidth;
+    let yRatio = 0;
+    let xScaled = null;
+    if (needsResampling) {
+      outputWidth = resolvedDestWidth;
+      yRatio = srcHeight / resolvedDestHeight;
+      const xRatio = srcWidth / resolvedDestWidth;
+      xScaled = new Uint32Array(resolvedDestWidth);
+      for (let i = 0; i < resolvedDestWidth; i++) {
+        xScaled[i] = Math.floor(i * xRatio);
+      }
+    }
+    const mask = invertOutput ? 0xff : 0;
     if (bpc === 1) {
-      length = width * height;
-      if (this.needsDecode) {
-        for (i = 0; i < length; ++i) {
-          buffer[i] = comps[i] - 1 & 255;
+      if (xScaled) {
+        const xMap = xScaled;
+        let destIndex = offset;
+        if (this.needsDecode) {
+          for (let row = 0; row < rows; row++) {
+            const py = Math.floor(row * yRatio) * srcWidth;
+            for (let col = 0; col < outputWidth; col++) {
+              buffer[destIndex] = comps[py + xMap[col]] - 1 & 255 ^ mask;
+              destIndex += stride;
+            }
+          }
+        } else {
+          for (let row = 0; row < rows; row++) {
+            const py = Math.floor(row * yRatio) * srcWidth;
+            for (let col = 0; col < outputWidth; col++) {
+              buffer[destIndex] = -comps[py + xMap[col]] & 255 ^ mask;
+              destIndex += stride;
+            }
+          }
         }
       } else {
-        for (i = 0; i < length; ++i) {
-          buffer[i] = -comps[i] & 255;
+        const length = outputWidth * rows;
+        if (this.needsDecode) {
+          for (let i = 0; i < length; ++i) {
+            buffer[i * stride + offset] = comps[i] - 1 & 255 ^ mask;
+          }
+        } else {
+          for (let i = 0; i < length; ++i) {
+            buffer[i * stride + offset] = -comps[i] & 255 ^ mask;
+          }
         }
       }
       return;
@@ -33808,10 +33827,22 @@ class PDFImage {
     if (this.needsDecode) {
       this.decodeBuffer(comps);
     }
-    length = width * height;
     const scale = 255 / ((1 << bpc) - 1);
-    for (i = 0; i < length; ++i) {
-      buffer[i] = scale * comps[i];
+    if (xScaled) {
+      const xMap = xScaled;
+      let destIndex = offset;
+      for (let row = 0; row < rows; row++) {
+        const py = Math.floor(row * yRatio) * srcWidth;
+        for (let col = 0; col < outputWidth; col++) {
+          buffer[destIndex] = scale * comps[py + xMap[col]] ^ mask;
+          destIndex += stride;
+        }
+      }
+    } else {
+      const length = outputWidth * rows;
+      for (let i = 0; i < length; ++i) {
+        buffer[i * stride + offset] = scale * comps[i] ^ mask;
+      }
     }
   }
   createBitmap(kind, width, height, src) {
@@ -33916,9 +33947,11 @@ const DefaultPartialEvaluatorOptions = Object.freeze({
   useWasm: true,
   useWorkerFetch: true,
   cMapUrl: null,
+  cMapPacked: true,
   iccUrl: null,
   standardFontDataUrl: null,
-  wasmUrl: null
+  wasmUrl: null,
+  prepareWebGPU: null
 });
 const PatternType = {
   TILING: 1,
@@ -34201,6 +34234,10 @@ class PartialEvaluator {
     } = xobj;
     const matrix = lookupMatrix(dict.getArray("Matrix"), null);
     const bbox = lookupNormalRect(dict.getArray("BBox"), null);
+    let f32bbox = bbox && new Float32Array(bbox);
+    if (f32bbox?.some(x => !isFinite(x))) {
+      f32bbox = null;
+    }
     let optionalContent, groupOptions;
     if (dict.has("OC")) {
       optionalContent = await this.parseMarkedContentProps(dict.get("OC"), resources);
@@ -34212,7 +34249,7 @@ class PartialEvaluator {
     if (group) {
       groupOptions = {
         matrix,
-        bbox,
+        bbox: f32bbox,
         smask,
         isolated: false,
         knockout: false
@@ -34234,8 +34271,7 @@ class PartialEvaluator {
       operatorList.addOp(OPS.beginGroup, [groupOptions]);
     }
     const f32matrix = matrix && new Float32Array(matrix);
-    const f32bbox = !group && bbox && new Float32Array(bbox) || null;
-    const args = [f32matrix, f32bbox];
+    const args = [f32matrix, !group && f32bbox || null];
     operatorList.addOp(OPS.paintFormXObjectBegin, args);
     const localResources = dict.get("Resources");
     await this.getOperatorList({
@@ -34909,7 +34945,7 @@ class PartialEvaluator {
     }
     let patternIR;
     try {
-      const shadingFill = Pattern.parseShading(shading, this.xref, resources, this._pdfFunctionFactory, this.globalColorSpaceCache, localColorSpaceCache);
+      const shadingFill = Pattern.parseShading(shading, this.xref, resources, this._pdfFunctionFactory, this.globalColorSpaceCache, localColorSpaceCache, this.options.prepareWebGPU);
       patternIR = shadingFill.getIR();
     } catch (reason) {
       if (reason instanceof AbortException) {
@@ -35632,6 +35668,7 @@ class PartialEvaluator {
       height: 0,
       vertical: false,
       prevTransform: null,
+      prevTextRise: 0,
       textAdvanceScale: 0,
       spaceInFlowMin: 0,
       spaceInFlowMax: 0,
@@ -35893,7 +35930,9 @@ class PartialEvaluator {
         flushTextContentItem();
         return true;
       }
-      if (Math.abs(advanceY) > textContentItem.height) {
+      const textRiseDelta = textState.textRise - textContentItem.prevTextRise;
+      const advanceYCorrected = textRiseDelta === 0 ? advanceY : advanceY - currentTransform[3] / textState.fontSize * textRiseDelta;
+      if (Math.abs(advanceYCorrected) > textContentItem.height) {
         appendEOL();
         return true;
       }
@@ -35929,13 +35968,14 @@ class PartialEvaluator {
       chars,
       extraSpacing
     }) {
-      if (currentTextState !== textState && (currentTextState.fontName !== textState.fontName || currentTextState.fontSize !== textState.fontSize)) {
+      if (currentTextState !== textState && (currentTextState.fontSize !== textState.fontSize || currentTextState.fontName !== textState.fontName && (currentTextState.font.name !== textState.font.name || currentTextState.font.vertical !== textState.font.vertical))) {
         flushTextContentItem();
         currentTextState = textState.clone();
       }
       const font = textState.font;
+      const baseCharSpacing = font.vertical ? -textState.charSpacing : textState.charSpacing;
       if (!chars) {
-        const charSpacing = textState.charSpacing + extraSpacing;
+        const charSpacing = baseCharSpacing + extraSpacing;
         if (charSpacing) {
           if (!font.vertical) {
             textState.translateTextMatrix(charSpacing * textState.textHScale, 0);
@@ -35959,7 +35999,7 @@ class PartialEvaluator {
         if (category.isInvisibleFormatMark) {
           continue;
         }
-        let charSpacing = textState.charSpacing + (i + 1 === ii ? extraSpacing : 0);
+        let charSpacing = baseCharSpacing + (i + 1 === ii ? extraSpacing : 0);
         let glyphWidth = glyph.width;
         if (font.vertical) {
           glyphWidth = glyph.vmetric ? glyph.vmetric[0] : -glyphWidth;
@@ -36004,6 +36044,7 @@ class PartialEvaluator {
         }
         if (scaledDim) {
           textChunk.prevTransform = getCurrentTextTransform();
+          textChunk.prevTextRise = textState.textRise;
         }
         const glyphUnicode = glyph.unicode;
         if (saveLastChar(glyphUnicode)) {
@@ -38227,6 +38268,7 @@ function createDefaultAppearance({
   return `/${escapePDFName(fontName)} ${fontSize} Tf ${getPdfColor(fontColor, true)}`;
 }
 class FakeUnicodeFont {
+  static #fontNameId = 1;
   constructor(xref, fontFamily) {
     this.xref = xref;
     this.widths = null;
@@ -38237,10 +38279,7 @@ class FakeUnicodeFont {
     this.ctxMeasure = canvas.getContext("2d", {
       willReadFrequently: true
     });
-    if (!FakeUnicodeFont._fontNameId) {
-      FakeUnicodeFont._fontNameId = 1;
-    }
-    this.fontName = Name.get(`InvalidPDFjsFont_${fontFamily}_${FakeUnicodeFont._fontNameId++}`);
+    this.fontName = Name.get(`InvalidPDFjsFont_${fontFamily}_${FakeUnicodeFont.#fontNameId++}`);
   }
   get fontDescriptorRef() {
     if (!FakeUnicodeFont._fontDescriptorRef) {
@@ -41316,7 +41355,7 @@ class Catalog {
         } else if (kids) {
           kidsArr = [kids];
         } else {
-          kidsArr = [];
+          continue;
         }
         for (const kid of kidsArr) {
           const kidObj = xref.fetchIfRef(kid);
@@ -41340,7 +41379,7 @@ class Catalog {
         if (!(parentRaw instanceof Ref)) {
           break;
         }
-        const parentDict = xref.fetchIfRef(parentRaw);
+        const parentDict = xref.fetch(parentRaw);
         if (!(parentDict instanceof Dict)) {
           break;
         }
@@ -41362,10 +41401,10 @@ class Catalog {
       y = null;
     const attrs = seDict.get("A");
     if (attrs instanceof Dict) {
-      const bboxArr = attrs.getArray("BBox");
-      if (isNumberArray(bboxArr, 4)) {
-        x = bboxArr[0];
-        y = bboxArr[3];
+      const bbox = lookupRect(attrs.getArray("BBox"), null);
+      if (bbox) {
+        x = bbox[0];
+        y = bbox[3];
       }
     }
     return [pageRef, {
@@ -42226,9 +42265,7 @@ class FontSelector {
   pushData(xfaFont, margin, lineHeight) {
     const lastFont = this.stack.at(-1);
     for (const name of ["typeface", "posture", "weight", "size", "letterSpacing"]) {
-      if (!xfaFont[name]) {
-        xfaFont[name] = lastFont.xfaFont[name];
-      }
+      xfaFont[name] ||= lastFont.xfaFont[name];
     }
     for (const name of ["top", "bottom", "left", "right"]) {
       if (isNaN(margin[name])) {
@@ -42236,9 +42273,7 @@ class FontSelector {
       }
     }
     const fontInfo = new FontInfo(xfaFont, margin, lineHeight || lastFont.lineHeight, this.fontFinder);
-    if (!fontInfo.pdfFont) {
-      fontInfo.pdfFont = lastFont.pdfFont;
-    }
+    fontInfo.pdfFont ||= lastFont.pdfFont;
     this.stack.push(fontInfo);
   }
   popFont() {
@@ -52929,12 +52964,16 @@ class Annotation {
       }
     } else if (borderStyle.has("Border")) {
       const array = borderStyle.getArray("Border");
-      if (Array.isArray(array) && array.length >= 3) {
-        this.borderStyle.setHorizontalCornerRadius(array[0]);
-        this.borderStyle.setVerticalCornerRadius(array[1]);
-        this.borderStyle.setWidth(array[2], this.rectangle);
-        if (array.length === 4) {
-          this.borderStyle.setDashArray(array[3], true);
+      if (Array.isArray(array)) {
+        if (array.length >= 3) {
+          this.borderStyle.setHorizontalCornerRadius(array[0]);
+          this.borderStyle.setVerticalCornerRadius(array[1]);
+          this.borderStyle.setWidth(array[2], this.rectangle);
+          if (array.length === 4) {
+            this.borderStyle.setDashArray(array[3], true);
+          }
+        } else if (array.length === 0) {
+          this.borderStyle.setWidth(0);
         }
       }
     } else {
@@ -59574,6 +59613,16 @@ class BasePdfManager {
     this.enableXfa = enableXfa;
     evaluatorOptions.isOffscreenCanvasSupported &&= FeatureTest.isOffscreenCanvasSupported;
     evaluatorOptions.isImageDecoderSupported &&= FeatureTest.isImageDecoderSupported;
+    if (evaluatorOptions.enableWebGPU) {
+      let prepareWebGPUSent = false;
+      evaluatorOptions.prepareWebGPU = () => {
+        if (!prepareWebGPUSent) {
+          prepareWebGPUSent = true;
+          handler.send("PrepareWebGPU", null);
+        }
+      };
+    }
+    delete evaluatorOptions.enableWebGPU;
     this.evaluatorOptions = Object.freeze(evaluatorOptions);
     ImageResizer.setOptions(evaluatorOptions);
     JpegStream.setOptions(evaluatorOptions);
@@ -62028,7 +62077,7 @@ class PDFEditor {
         newAnnots = newAnnotations;
       }
     }
-    const newAnnotations = this.#newAnnotationsParams?.newAnnotationsByPage.get(pageIndex);
+    const newAnnotations = this.#newAnnotationsParams?.newAnnotationsByPage?.get(pageIndex);
     if (newAnnotations) {
       const {
         handler,
@@ -62641,7 +62690,7 @@ class WorkerMessageHandler {
       docId,
       apiVersion
     } = docParams;
-    const workerVersion = "5.6.98";
+    const workerVersion = "5.6.205";
     if (apiVersion !== workerVersion) {
       throw new Error(`The API version "${apiVersion}" does not match ` + `the Worker version "${workerVersion}".`);
     }

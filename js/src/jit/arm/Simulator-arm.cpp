@@ -3200,7 +3200,7 @@ void Simulator::decodeType3(SimInstruction* instr) {
                 // Rev
                 uint32_t rm_val = get_register(instr->rmValue());
 
-                static_assert(MOZ_LITTLE_ENDIAN());
+                static_assert(std::endian::native == std::endian::little);
                 set_register(rd,
                              mozilla::NativeEndian::swapToBigEndian(rm_val));
               } else if (instr->bits(20, 16) == 0b1'1111 &&
@@ -3208,7 +3208,7 @@ void Simulator::decodeType3(SimInstruction* instr) {
                 // Rev16
                 uint32_t rm_val = get_register(instr->rmValue());
 
-                static_assert(MOZ_LITTLE_ENDIAN());
+                static_assert(std::endian::native == std::endian::little);
                 uint32_t hi = mozilla::NativeEndian::swapToBigEndian(
                     uint16_t(rm_val >> 16));
                 uint32_t lo =
@@ -3264,7 +3264,7 @@ void Simulator::decodeType3(SimInstruction* instr) {
                 // Revsh
                 uint32_t rm_val = get_register(instr->rmValue());
 
-                static_assert(MOZ_LITTLE_ENDIAN());
+                static_assert(std::endian::native == std::endian::little);
                 set_register(
                     rd, int32_t(int16_t(mozilla::NativeEndian::swapToBigEndian(
                             uint16_t(rm_val)))));

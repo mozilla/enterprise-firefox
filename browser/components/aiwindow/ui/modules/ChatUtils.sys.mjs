@@ -14,6 +14,19 @@ import { ChatConversation } from "./ChatConversation.sys.mjs";
 import { ChatMessage, ChatHistoryResult } from "./ChatMessage.sys.mjs";
 
 /**
+ *  Gets the URL of the currently selected tab of a window.
+ *  Primarily used to retrieve the current tab's url for use in
+ *  ChatMessage.pageUrl and message context chips.
+ *
+ *  @param {Window} window
+ *
+ *  @returns {?URL}
+ */
+export function getCurrentTabUrl(window) {
+  return window?.gBrowser?.selectedTab?.linkedBrowser?.currentURI;
+}
+
+/**
  * Creates a 12 characters GUID with 72 bits of entropy.
  *
  * @returns {string} A base64url encoded GUID.

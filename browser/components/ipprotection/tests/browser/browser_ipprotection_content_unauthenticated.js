@@ -10,6 +10,10 @@ const { sinon } = ChromeUtils.importESModule(
   "resource://testing-common/Sinon.sys.mjs"
 );
 
+const { LINKS } = ChromeUtils.importESModule(
+  "chrome://browser/content/ipprotection/ipprotection-constants.mjs"
+);
+
 ChromeUtils.defineESModuleGetters(lazy, {
   IPProtectionWidget:
     "moz-src:///browser/components/ipprotection/IPProtection.sys.mjs",
@@ -180,6 +184,58 @@ add_task(async function test_panel_get_started_entrypoint() {
   );
 
   await closePanel();
+  cleanupService();
+});
+
+/**
+ * Tests that clicking the "learn-more-vpn" link opens the support URL in a new tab
+ * and closes the panel.
+ */
+add_task(async function test_learn_more_vpn_link() {
+  setupService({
+    isSignedIn: false,
+    isEnrolledAndEntitled: false,
+  });
+
+  let content = await openPanel({ unauthenticated: true });
+  let unauthenticatedContent = content.unauthenticatedEl;
+
+  Assert.ok(
+    unauthenticatedContent,
+    "Unauthenticated content should be visible"
+  );
+
+  let learnMoreLink =
+    unauthenticatedContent.shadowRoot.querySelector(".learn-more-vpn");
+
+  Assert.ok(learnMoreLink, "Learn more VPN link should be present");
+
+  let openWebLinkInStub = sinon.stub(window, "openWebLinkIn");
+
+  let panelHiddenPromise = waitForPanelEvent(document, "popuphidden");
+  learnMoreLink.click();
+  await panelHiddenPromise;
+
+  Assert.ok(
+    openWebLinkInStub.calledOnce,
+    "openWebLinkIn should be called once"
+  );
+
+  const expectedUrl =
+    Services.urlFormatter.formatURLPref("app.support.baseURL") +
+    LINKS.SUPPORT_SLUG;
+  Assert.equal(
+    openWebLinkInStub.firstCall.args[0],
+    expectedUrl,
+    "openWebLinkIn should be called with the support URL"
+  );
+  Assert.equal(
+    openWebLinkInStub.firstCall.args[1],
+    "tab",
+    "openWebLinkIn should open in a tab"
+  );
+
+  openWebLinkInStub.restore();
   cleanupService();
 });
 

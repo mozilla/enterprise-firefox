@@ -426,6 +426,49 @@
               id="sidebar-synced-tabs-context-copy-link"/>
   </menupopup>
 
+  <menupopup id="sidebar-bookmarks-context-menu">
+    <menuitem data-l10n-id="places-open-all-bookmarks"
+              id="sidebar-bookmarks-context-open-all-bookmarks"/>
+    <menuseparator id="sidebar-bookmarks-context-sep-open-all"/>
+    <menuitem data-l10n-id="sidebar-context-menu-open-in-tab"
+              id="sidebar-bookmarks-context-open-in-tab"/>
+    <menu id="sidebar-bookmarks-context-open-in-container-tab"
+            data-l10n-id="sidebar-context-menu-open-in-container-tab"
+            hide-if-private-browsing="true"
+            hide-if-usercontext-disabled="true">
+      <menupopup id="sidebar-bookmarks-context-container-tab-popup"/>
+    </menu>
+    <menuitem data-l10n-id="sidebar-context-menu-open-in-window"
+              id="sidebar-bookmarks-context-open-in-window"/>
+    <menuitem data-l10n-id="sidebar-context-menu-open-in-private-window"
+              id="sidebar-bookmarks-context-open-in-private-window"/>
+    <menuseparator id="sidebar-bookmarks-context-sep-open-options"/>
+    <menuitem data-l10n-id="sidebar-bookmarks-context-menu-edit-bookmark"
+              id="sidebar-bookmarks-context-edit-bookmark"/>
+    <menuitem data-l10n-id="sidebar-bookmarks-context-menu-delete-bookmark"
+              id="sidebar-bookmarks-context-delete-bookmark"/>
+    <menuseparator id="sidebar-bookmarks-context-sep-sort"/>
+    <menuitem data-l10n-id="places-sortby-name"
+              id="sidebar-bookmarks-context-sort-by-name"/>
+    <menuseparator id="sidebar-bookmarks-context-sep-cut-copy"/>
+    <menuitem data-l10n-id="text-action-cut"
+              id="sidebar-bookmarks-context-cut"/>
+    <menuitem data-l10n-id="text-action-copy"
+              id="sidebar-bookmarks-context-copy"/>
+    <menuitem data-l10n-id="text-action-paste"
+              id="sidebar-bookmarks-context-paste"/>
+    <menuseparator id="sidebar-bookmarks-context-sep-edit-copy"/>
+    <menuitem data-l10n-id="sidebar-context-menu-copy-link"
+              id="sidebar-bookmarks-context-copy-link"/>
+    <menuseparator/>
+    <menuitem data-l10n-id="places-add-bookmark"
+              id="sidebar-bookmarks-context-add-bookmark"/>
+    <menuitem data-l10n-id="places-add-folder-contextmenu"
+              id="sidebar-bookmarks-context-add-folder"/>
+    <menuitem data-l10n-id="places-add-separator"
+              id="sidebar-bookmarks-context-add-separator"/>
+  </menupopup>
+
   <menupopup id="split-view-menu">
     <menuitem command="splitViewCmd_separateTabs"
               data-l10n-id="split-view-menuitem-separate-tabs"/>

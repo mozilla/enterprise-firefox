@@ -64,19 +64,8 @@ nsMathMLFrame::InheritAutomaticData(nsIFrame* aParent) {
 NS_IMETHODIMP
 nsMathMLFrame::UpdatePresentationData(MathMLPresentationFlags aFlagsValues,
                                       MathMLPresentationFlags aWhichFlags) {
-  NS_ASSERTION(aWhichFlags.contains(MathMLPresentationFlag::Compressed) ||
-                   aWhichFlags.contains(MathMLPresentationFlag::Dtls),
-               "aWhichFlags should only be compression or dtls flag");
-
-  if (!StaticPrefs::mathml_math_shift_enabled() &&
-      aWhichFlags.contains(MathMLPresentationFlag::Compressed)) {
-    // updating the compression flag is allowed
-    if (aFlagsValues.contains(MathMLPresentationFlag::Compressed)) {
-      // 'compressed' means 'prime' style in App. G, TeXbook
-      mPresentationData.flags += MathMLPresentationFlag::Compressed;
-    }
-    // no else. the flag is sticky. it retains its value once it is set
-  }
+  NS_ASSERTION(aWhichFlags.contains(MathMLPresentationFlag::Dtls),
+               "aWhichFlags should only dtls flag");
   // These flags determine whether the dtls font feature settings should
   // be applied.
   if (aWhichFlags.contains(MathMLPresentationFlag::Dtls)) {

@@ -211,7 +211,7 @@ static inline bool FinalizeTypedArenas(JS::GCContext* gcx, ArenaList& src,
   size_t markCount = 0;
   size_t emptyCount = 0;
 
-  GCRuntime* gc = &gcx->runtimeFromAnyThread()->gc;
+  GCRuntime* gc = gcx->gcRuntimeFromAnyThread();
   auto updateMarkCount = mozilla::MakeScopeExit(
       [&] { gc->stats().addCount(gcstats::COUNT_CELLS_MARKED, markCount); });
 
@@ -325,7 +325,7 @@ void ArenaLists::backgroundFinalize(JS::GCContext* gcx, AllocKind kind,
   // that sweeping has finished.
   ArenaList sweptArenas = finalizedSorted.convertToArenaList();
 
-  AutoLockGC lock(gcx->runtimeFromAnyThread());
+  AutoLockGC lock(gcx->gcRuntimeFromAnyThread());
   collectingArenaList(kind) = std::move(sweptArenas);
   concurrentUse(kind) = ConcurrentUse::BackgroundFinalizeFinished;
 }
@@ -1605,8 +1605,8 @@ using WeakCacheTaskVector =
 // Call a functor for all weak caches that need to be swept in the current
 // sweep group.
 template <typename Functor>
-static inline bool IterateWeakCaches(JSRuntime* rt, Functor f) {
-  for (SweepGroupZonesIter zone(rt); !zone.done(); zone.next()) {
+static inline bool IterateWeakCaches(GCRuntime* gc, Functor f) {
+  for (SweepGroupZonesIter zone(gc); !zone.done(); zone.next()) {
     for (JS::detail::WeakCacheBase* cache : zone->weakCaches()) {
       if (!f(cache, zone.get())) {
         return false;
@@ -1614,7 +1614,7 @@ static inline bool IterateWeakCaches(JSRuntime* rt, Functor f) {
     }
   }
 
-  for (JS::detail::WeakCacheBase* cache : rt->weakCaches()) {
+  for (JS::detail::WeakCacheBase* cache : gc->weakCaches()) {
     if (!f(cache, nullptr)) {
       return false;
     }
@@ -1623,16 +1623,15 @@ static inline bool IterateWeakCaches(JSRuntime* rt, Functor f) {
   return true;
 }
 
-static bool PrepareWeakCacheTasks(JSRuntime* rt,
+static bool PrepareWeakCacheTasks(GCRuntime* gc,
                                   WeakCacheTaskVector* immediateTasks) {
   // Start incremental sweeping for caches that support it or add to a vector
   // of sweep tasks to run on a helper thread.
 
   MOZ_ASSERT(immediateTasks->empty());
 
-  GCRuntime* gc = &rt->gc;
   bool ok =
-      IterateWeakCaches(rt, [&](JS::detail::WeakCacheBase* cache, Zone* zone) {
+      IterateWeakCaches(gc, [&](JS::detail::WeakCacheBase* cache, Zone* zone) {
         if (cache->empty()) {
           return true;
         }
@@ -1652,11 +1651,11 @@ static bool PrepareWeakCacheTasks(JSRuntime* rt,
   return ok;
 }
 
-static void SweepAllWeakCachesOnMainThread(JSRuntime* rt) {
+static void SweepAllWeakCachesOnMainThread(GCRuntime* gc) {
   // If we ran out of memory, do all the work on the main thread.
-  gcstats::AutoPhase ap(rt->gc.stats(), gcstats::PhaseKind::SWEEP_WEAK_CACHES);
-  SweepingTracer trc(rt);
-  IterateWeakCaches(rt, [&](JS::detail::WeakCacheBase* cache, Zone* zone) {
+  gcstats::AutoPhase ap(gc->stats(), gcstats::PhaseKind::SWEEP_WEAK_CACHES);
+  SweepingTracer trc(gc->rt);
+  IterateWeakCaches(gc, [&](JS::detail::WeakCacheBase* cache, Zone* zone) {
     if (cache->needsMarkingBarrier()) {
       cache->setIncrementalBarrierTracer(nullptr);
     }
@@ -1791,7 +1790,7 @@ IncrementalProgress GCRuntime::beginSweepingSweepGroup(JS::GCContext* gcx,
 
     WeakCacheTaskVector sweepCacheTasks;
     bool canSweepWeakCachesOffThread =
-        PrepareWeakCacheTasks(rt, &sweepCacheTasks);
+        PrepareWeakCacheTasks(this, &sweepCacheTasks);
     if (canSweepWeakCachesOffThread) {
       weakCachesToSweep.ref().emplace(currentSweepGroup);
       for (auto& task : sweepCacheTasks) {
@@ -1805,7 +1804,7 @@ IncrementalProgress GCRuntime::beginSweepingSweepGroup(JS::GCContext* gcx,
 
       if (!canSweepWeakCachesOffThread) {
         MOZ_ASSERT(sweepCacheTasks.empty());
-        SweepAllWeakCachesOnMainThread(rt);
+        SweepAllWeakCachesOnMainThread(this);
       }
     }
 

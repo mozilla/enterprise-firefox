@@ -137,23 +137,6 @@ dictionary ConnStatusDict {
   DOMString status = "";
 };
 
-dictionary RcwnPerfStats {
-  unsigned long avgShort = 0;
-  unsigned long avgLong = 0;
-  unsigned long stddevLong = 0;
-};
-
-[GenerateConversionToJS]
-dictionary RcwnStatus {
-  unsigned long totalNetworkRequests = 0;
-  unsigned long rcwnCacheWonCount = 0;
-  unsigned long rcwnNetWonCount = 0;
-  unsigned long cacheSlowCount = 0;
-  unsigned long cacheNotSlowCount = 0;
-  // Sequence is indexed by CachePerfStats::EDataType
-  sequence<RcwnPerfStats> perfStats;
-};
-
 dictionary Http3ConnStats {
   unsigned long long packetsRx = 0;
   unsigned long long dupsRx = 0;

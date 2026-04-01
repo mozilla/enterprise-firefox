@@ -15,4 +15,4 @@ class FeltStartsBrowserCli(FeltStartsBrowser):
     def test_felt_browser_start_from_cli(self):
         super().run_felt_base()
         self.run_felt_browser_started()
-        self.run_ensure_config_prefs_set_in_browser()
+        self.run_ensure_firefox_config_set_in_browser()

@@ -16,10 +16,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "chrome://remote/content/shared/webdriver/UserPromptHandler.sys.mjs",
 });
 
-ChromeUtils.defineLazyGetter(lazy, "isHeadless", () => {
-  return Cc["@mozilla.org/gfx/info;1"].getService(Ci.nsIGfxInfo).isHeadless;
-});
-
 ChromeUtils.defineLazyGetter(lazy, "userAgent", () => {
   return Cc["@mozilla.org/network/protocol;1?name=http"].getService(
     Ci.nsIHttpProtocolHandler
@@ -490,7 +486,7 @@ export class Capabilities extends Map {
 
       // Gecko specific capabilities
       ["moz:buildID", lazy.AppInfo.appBuildID],
-      ["moz:headless", lazy.isHeadless],
+      ["moz:headless", lazy.AppInfo.isHeadless],
       ["moz:platformVersion", Services.sysinfo.getProperty("version")],
       ["moz:processID", lazy.AppInfo.processID],
       ["moz:profile", maybeProfile()],

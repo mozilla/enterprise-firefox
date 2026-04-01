@@ -609,6 +609,7 @@ void CookieStorage::RemoveOlderCookiesByBytes(CookieEntry* aEntry,
                                               uint32_t removeBytes,
                                               nsCOMPtr<nsIArray>& aPurgedList) {
   MOZ_ASSERT(aEntry);
+  CookieKey key(aEntry->mBaseDomain, aEntry->mOriginAttributes);
 
   // remove insecure older cookies until we are within the byte limit
   // (CHIPS cookies will not be detected here since they must be secure)
@@ -617,11 +618,16 @@ void CookieStorage::RemoveOlderCookiesByBytes(CookieEntry* aEntry,
 
   // remove secure cookies if we still have cookies to remove
   if (bytesRemoved <= removeBytes) {
+    // Re-lookup: aEntry may have been freed if pass 1 emptied it.
+    CookieEntry* entry = mHostTable.GetEntry(key);
+    if (!entry) {
+      return;
+    }
     // remove secure older cookies until we are within the byte limit
     MOZ_LOG(gCookieLog, LogLevel::Debug,
             ("Still too many cookies for partition, purging secure\n"));
     uint32_t bytesStillToRemove = removeBytes - bytesRemoved;
-    RemoveOldestCookies(aEntry, true, bytesStillToRemove, aPurgedList);
+    RemoveOldestCookies(entry, true, bytesStillToRemove, aPurgedList);
   }
 }
 

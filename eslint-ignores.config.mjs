@@ -74,9 +74,6 @@ export default [
   // Generated data files
   "browser/extensions/formautofill/phonenumberutils/PhoneNumberMetaData.sys.mjs",
 
-  // JS file using the #include pre-processor macro, leading to syntax errors.
-  "browser/extensions/webcompat/run.js",
-
   // Ignore newtab files
   "browser/extensions/newtab/logs/",
 

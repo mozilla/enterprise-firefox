@@ -129,22 +129,22 @@ class AwesomeBarFactsTest {
                 assertEquals("4", value)
             }
 
-            emitOptimizedSuggestionCardDisplayedFact("test")
+            emitOptimizedSuggestionCardDisplayedFact(SuggestionCardType.STOCKS)
             assertEquals(14, facts.size)
             facts[13].apply {
                 assertEquals(Component.FEATURE_AWESOMEBAR, component)
                 assertEquals(Action.DISPLAY, action)
                 assertEquals(AwesomeBarFacts.Items.OPTIMIZED_SUGGESTION_CARD_DISPLAYED, item)
-                assertEquals("test", value)
+                assertEquals("stocks", value)
             }
 
-            emitOptimizedSuggestionCardClickedFact("test")
+            emitOptimizedSuggestionCardClickedFact(SuggestionCardType.SPORTS)
             assertEquals(15, facts.size)
             facts[14].apply {
                 assertEquals(Component.FEATURE_AWESOMEBAR, component)
                 assertEquals(Action.INTERACTION, action)
                 assertEquals(AwesomeBarFacts.Items.OPTIMIZED_SUGGESTION_CARD_CLICKED, item)
-                assertEquals("test", value)
+                assertEquals("sports", value)
             }
         }
     }

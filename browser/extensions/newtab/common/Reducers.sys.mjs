@@ -137,6 +137,7 @@ export const INITIAL_STATE = {
     coarseInferredInterests: {},
     coarsePrivateInferredInterests: {},
     debugFeatures: null,
+    inferredTelemetrySettingsOverrides: {},
   },
   Search: {
     // When search hand-off is enabled, we render a big button that is styled to
@@ -639,6 +640,8 @@ function InferredPersonalization(
         coarseInferredInterests: action.data.coarseInferredInterests,
         coarsePrivateInferredInterests:
           action.data.coarsePrivateInferredInterests,
+        inferredTelemetrySettingsOverrides:
+          action.data.inferredTelemetrySettingsOverrides,
         lastUpdated: action.data.lastUpdated,
       };
     case at.INFERRED_PERSONALIZATION_DEBUG_FEATURES_UPDATE:

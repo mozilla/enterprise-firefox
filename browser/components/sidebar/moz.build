@@ -8,7 +8,11 @@ MARIONETTE_MANIFESTS += ["tests/marionette/manifest.toml"]
 
 JAR_MANIFESTS += ["jar.mn"]
 
-BROWSER_CHROME_MANIFESTS += ["tests/browser/browser.toml"]
+BROWSER_CHROME_MANIFESTS += [
+    "tests/browser/browser.toml",
+    "tests/browser/legacy/browser.toml",
+    "tests/browser/legacy/browserSidebarRevamp.toml",
+]
 
 MOZ_SRC_FILES += [
     "SidebarManager.sys.mjs",

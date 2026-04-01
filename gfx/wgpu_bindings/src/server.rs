@@ -161,7 +161,7 @@ pub extern "C" fn wgpu_server_new(owner: WebGPUParentPtr) -> *mut Global {
                     shader_compiler: dx12_shader_compiler,
                     ..Default::default()
                 },
-                noop: wgt::NoopBackendOptions { enable: false },
+                noop: wgt::NoopBackendOptions::default(),
             },
             memory_budget_thresholds: wgt::MemoryBudgetThresholds {
                 for_resource_creation: Some(95),
@@ -2693,6 +2693,7 @@ unsafe fn process_message(
                 power_preference,
                 force_fallback_adapter,
                 compatible_surface: None,
+                apply_limit_buckets: false,
             };
             if result.is_none() {
                 let created =
@@ -2719,6 +2720,7 @@ unsafe fn process_message(
                     device_pci_bus_id: _,
                     subgroup_min_size,
                     subgroup_max_size,
+                    limit_bucket: _,
                 } = global.adapter_get_info(adapter_id);
 
                 let is_hardware = match device_type {

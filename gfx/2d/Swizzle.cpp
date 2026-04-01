@@ -19,6 +19,7 @@
 #  include "mozilla/arm.h"
 #endif
 
+#include <bit>
 #include <new>
 
 namespace mozilla {
@@ -55,9 +56,8 @@ namespace gfx {
 // Whether B comes before R in pixel memory layout.
 static constexpr bool IsBGRFormat(SurfaceFormat aFormat) {
   return aFormat == SurfaceFormat::B8G8R8A8 ||
-#if MOZ_LITTLE_ENDIAN()
-         aFormat == SurfaceFormat::R5G6B5_UINT16 ||
-#endif
+         (std::endian::native == std::endian::little &&
+          aFormat == SurfaceFormat::R5G6B5_UINT16) ||
          aFormat == SurfaceFormat::B8G8R8X8 || aFormat == SurfaceFormat::B8G8R8;
 }
 
@@ -82,11 +82,11 @@ static constexpr uint32_t AlphaByteIndex(SurfaceFormat aFormat) {
 
 // The endian-dependent bit shift to access RGB of a UINT32 pixel.
 static constexpr uint32_t RGBBitShift(SurfaceFormat aFormat) {
-#if MOZ_LITTLE_ENDIAN()
-  return 8 * RGBByteIndex(aFormat);
-#else
-  return 8 - 8 * RGBByteIndex(aFormat);
-#endif
+  if constexpr (std::endian::native == std::endian::little) {
+    return 8 * RGBByteIndex(aFormat);
+  } else {
+    return 8 - 8 * RGBByteIndex(aFormat);
+  }
 }
 
 // The endian-dependent bit shift to access alpha of a UINT32 pixel.
@@ -775,11 +775,11 @@ static void SwizzleChunkSwap(const uint8_t*& aSrc, uint8_t*& aDst,
   do {
     // Use an endian swap to move the bytes, i.e. BGRA -> ARGB.
     uint32_t rgba = *reinterpret_cast<const uint32_t*>(aSrc);
-#if MOZ_LITTLE_ENDIAN()
-    rgba = NativeEndian::swapToBigEndian(rgba);
-#else
-    rgba = NativeEndian::swapToLittleEndian(rgba);
-#endif
+    if constexpr (std::endian::native == std::endian::little) {
+      rgba = NativeEndian::swapToBigEndian(rgba);
+    } else {
+      rgba = NativeEndian::swapToLittleEndian(rgba);
+    }
     if (aOpaqueAlpha) {
       rgba |= 0xFF << aDstAShift;
     }
@@ -1044,11 +1044,11 @@ void UnpackRowRGB24(const uint8_t* aSrc, uint8_t* aDst, int32_t aLength) {
     uint8_t r = src[aSwapRB ? 2 : 0];
     uint8_t g = src[1];
     uint8_t b = src[aSwapRB ? 0 : 2];
-#if MOZ_LITTLE_ENDIAN()
-    *--dst = 0xFF000000 | (b << 16) | (g << 8) | r;
-#else
-    *--dst = 0x000000FF | (b << 8) | (g << 16) | (r << 24);
-#endif
+    if constexpr (std::endian::native == std::endian::little) {
+      *--dst = 0xFF000000 | (b << 16) | (g << 8) | r;
+    } else {
+      *--dst = 0x000000FF | (b << 8) | (g << 16) | (r << 24);
+    }
     src -= 3;
   }
 }
@@ -1072,11 +1072,11 @@ static void UnpackRowRGB24_To_ARGB(const uint8_t* aSrc, uint8_t* aDst,
     uint8_t r = src[0];
     uint8_t g = src[1];
     uint8_t b = src[2];
-#if MOZ_LITTLE_ENDIAN()
-    *--dst = 0x000000FF | (r << 8) | (g << 16) | (b << 24);
-#else
-    *--dst = 0xFF000000 | (r << 24) | (g << 16) | b;
-#endif
+    if constexpr (std::endian::native == std::endian::little) {
+      *--dst = 0x000000FF | (r << 8) | (g << 16) | (b << 24);
+    } else {
+      *--dst = 0xFF000000 | (r << 24) | (g << 16) | b;
+    }
     src -= 3;
   }
 }

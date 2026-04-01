@@ -20,9 +20,16 @@ FINAL_TARGET_FILES += [
     "../manifest.json",
 ]
 
-FINAL_TARGET_PP_FILES += [
-    "../run.js",
-]
+GeneratedFile(
+    "run.js",
+    script="../codegen.py",
+    entry_point="generate_run_js",
+    flags=[
+        TOPSRCDIR + "/browser/extensions/webcompat/run.js",
+        TOPSRCDIR + "/browser/extensions/webcompat/data/interventions",
+    ],
+)
+FINAL_TARGET_FILES += ["!run.js"]
 
 FINAL_TARGET_FILES["about-compat"] += [
     "../about-compat/**",

@@ -228,19 +228,24 @@ export class InferredPersonalizationFeed {
     return features;
   }
 
-  async generateInterestVector() {
-    const inferredModel = await this.getInferredModelData();
-    if (!inferredModel || !inferredModel.model_data) {
-      return {};
-    }
-    const model = FeatureModel.fromJSON(inferredModel.model_data);
-
+  /**
+   * The model computes interest vectors based on aggregated click and impression data over specific time intervals. The feed queries the database for this aggregated data, which is grouped by feature and card format, for each time interval defined by the model. The schema object defines how to interpret the columns of the aggregated data results when computing the interest vectors.
+   *
+   * Parameters:
+   *
+   * @param {FeatureModel} model - The inferred model used to compute interest vectors.
+   * @param {string} modelId - The ID of the inferred model.
+   * @returns {Promise<any>}
+   */
+  async generateInterestVector(model, modelId) {
     const intervals = model.getDateIntervals(this.Date().now());
     const schema = {
       [AggregateResultKeys.FEATURE]: 0,
       [AggregateResultKeys.FORMAT_ENUM]: 1,
       [AggregateResultKeys.VALUE]: 2,
     };
+
+    const model_id = modelId; // Convert to snake case
 
     const aggClickPerInterval = await this.queryDatabaseForTimeIntervals(
       intervals,
@@ -250,7 +255,7 @@ export class InferredPersonalizationFeed {
     const interests = model.computeInterestVectors({
       dataForIntervals: aggClickPerInterval,
       indexSchema: schema,
-      model_id: inferredModel.model_id,
+      model_id,
       applyPostProcessing: isClickModel,
     });
 
@@ -272,13 +277,14 @@ export class InferredPersonalizationFeed {
 
       if (model.modelType === MODEL_TYPE.CTR) {
         // eslint-disable-next-line no-unused-vars
-        const { model_id, ...clickTotals } = interests.inferredInterests;
+        const { model_id: extractModelId, ...clickTotals } =
+          interests.inferredInterests;
         const debugOverrideCoarseValueDictionary =
           await this._getDebugOverrides();
         const inferredInterests = model.computeCTRInterestVectors({
           clicks: clickTotals,
           impressions: ivImpressions,
-          model_id: inferredModel.model_id,
+          model_id,
           timeZoneOffset: lazy.NewTabUtils.getUtcOffset(),
           debugOverrideCoarseValueDictionary,
         });
@@ -287,7 +293,7 @@ export class InferredPersonalizationFeed {
       const res = {
         c: interests.inferredInterests,
         i: ivImpressions,
-        model_id: inferredModel.model_id,
+        model_id,
       };
       return { inferredInterests: res };
     }
@@ -304,6 +310,7 @@ export class InferredPersonalizationFeed {
     const interestVectorRefreshHours =
       values?.inferredPersonalizationConfig?.iv_refresh_frequency_hours ||
       INTEREST_VECTOR_UPDATE_HOURS;
+    let inferredTelemetrySettingsOverrides = {};
 
     // If we have nothing in cache, or cache has expired, we can make a fresh fetch.
     if (
@@ -323,8 +330,21 @@ export class InferredPersonalizationFeed {
         );
         lastClearedDB = this.Date().now();
       }
+
+      let interestVectorData = {};
+      const inferredModel = await this.getInferredModelData();
+      if (inferredModel && inferredModel.model_data) {
+        const model = FeatureModel.fromJSON(inferredModel.model_data);
+        interestVectorData = await this.generateInterestVector(
+          model,
+          inferredModel.model_id
+        );
+        inferredTelemetrySettingsOverrides =
+          inferredModel.privacy_overrides ?? {};
+      }
+
       interest_vector = {
-        data: await this.generateInterestVector(),
+        data: interestVectorData,
         lastUpdated: this.Date().now(),
         lastClearedDB,
       };
@@ -340,6 +360,7 @@ export class InferredPersonalizationFeed {
         coarseInferredInterests: interest_vector.data.coarseInferredInterests,
         coarsePrivateInferredInterests:
           interest_vector.data.coarsePrivateInferredInterests,
+        inferredTelemetrySettingsOverrides,
       },
       meta: {
         isStartup,

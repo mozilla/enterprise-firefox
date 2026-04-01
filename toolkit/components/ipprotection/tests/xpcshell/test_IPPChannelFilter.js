@@ -555,40 +555,46 @@ add_task(
 );
 
 add_task(async function test_local_connections() {
+  const makePrincipal = url =>
+    Services.scriptSecurityManager.createContentPrincipal(
+      Services.io.newURI(url),
+      {}
+    );
+
   const tests = [
-    ["http://localhost", true],
-    ["http://looocalhost", false],
-    ["http://something.localhost", true],
-    ["http://localhost.something", false],
-    ["http://localhost6", true],
-    ["http://looocalhost6", false],
-    ["http://something.localhost6", true],
-    ["http://localhost6.something", false],
-    ["http://something.example", true],
-    ["http://example.com", false],
-    ["http://something.invalid", true],
-    ["http://invalid.com", false],
-    ["http://something.test", true],
-    ["http://test.com", false],
+    // True either LAN or Loopback
+    ["http://[::]", true],
+    ["http://[::1]", true],
+    ["http://[::1]:1234", true],
+    ["http://[::ffff:0:0]", true],
     ["http://127.0.0.1", true],
     ["http://127.1.2.3", true],
-    ["http://128.1.2.3", false],
-    ["http://169.254.0.1", true],
-    ["http://169.253.0.1", false],
-    ["http://192.168.0.1", true],
-    ["http://193.168.0.1", false],
     ["http://10.1.2.3", true],
+    ["http://192.168.0.1", true],
+    ["http://169.254.0.1", true],
+    ["http://localhost", true],
+    ["http://something.localhost", true],
+    // False, anything else
+    ["http://something.test", false],
+    ["http://looocalhost", false],
+    ["http://localhost.something", false],
+    ["http://localhost6", false],
+    ["http://looocalhost6", false],
+    ["http://something.localhost6", false],
+    ["http://localhost6.something", false],
+    ["http://something.example", false],
+    ["http://example.com", false],
+    ["http://something.invalid", false],
+    ["http://invalid.com", false],
+    ["http://test.com", false],
+    ["http://128.1.2.3", false],
+    ["http://169.253.0.1", false],
+    ["http://193.168.0.1", false],
     ["http://11.1.2.3", false],
-    ["http://[::]", true],
-    ["http://[::ffff:0:0]", true],
   ];
 
-  for (const [uri, isLocal] of tests) {
-    Assert.equal(
-      IPPChannelFilter.isLocal(Services.io.newURI(uri)),
-      isLocal,
-      uri
-    );
+  for (const [url, isLocal] of tests) {
+    Assert.equal(IPPChannelFilter.isLocal(makePrincipal(url)), isLocal, url);
   }
 });
 

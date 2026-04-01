@@ -554,6 +554,20 @@ JSObject* ModuleLoader::loadAndParse(JSContext* cx, HandleString pathArg,
     return nullptr;
   }
 
+  if (moduleType == JS::ModuleType::Text) {
+    JS::RootedValue defaultExport(cx, JS::StringValue(source));
+    module = JS::CreateDefaultExportSyntheticModule(cx, defaultExport);
+    if (!module) {
+      return nullptr;
+    }
+
+    if (!addModuleToRegistry(cx, moduleType, path, module)) {
+      return nullptr;
+    }
+
+    return module;
+  }
+
   JS::AutoStableStringChars linearChars(cx);
   if (!linearChars.initTwoByte(cx, source)) {
     return nullptr;

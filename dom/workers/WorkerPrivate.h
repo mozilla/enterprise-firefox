@@ -733,6 +733,7 @@ class WorkerPrivate final
   void CopyJSSettings(workerinternals::JSSettings& aSettings) {
     mozilla::MutexAutoLock lock(mMutex);
     aSettings = mJSSettings;
+    aSettings.CopyOverrideStrings();
   }
 
   void CopyJSRealmOptions(JS::RealmOptions& aOptions) {

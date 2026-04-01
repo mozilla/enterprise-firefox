@@ -892,8 +892,7 @@ void SessionStoreUtils::CollectFromTextAreaElement(Document& aDocument,
                               eCaseMatters)) {
       continue;
     }
-    AppendValueToCollectedData(textArea, id, value, aGeneratedCount,
-                               std::forward<ArgsT>(args)...);
+    AppendValueToCollectedData(textArea, id, value, aGeneratedCount, args...);
   }
 }
 
@@ -941,8 +940,7 @@ void SessionStoreUtils::CollectFromInputElement(Document& aDocument,
       if (checked == input->DefaultChecked()) {
         continue;
       }
-      AppendValueToCollectedData(input, id, checked, aGeneratedCount,
-                                 std::forward<ArgsT>(args)...);
+      AppendValueToCollectedData(input, id, checked, aGeneratedCount, args...);
     } else if (input->ControlType() == FormControlType::InputFile) {
       IgnoredErrorResult rv;
       nsTArray<nsString> result;
@@ -951,7 +949,7 @@ void SessionStoreUtils::CollectFromInputElement(Document& aDocument,
         continue;
       }
       AppendValueToCollectedData(input, id, u"file"_ns, result, aGeneratedCount,
-                                 std::forward<ArgsT>(args)...);
+                                 args...);
     } else {
       nsString value;
       input->GetValue(value, CallerType::System);
@@ -965,7 +963,7 @@ void SessionStoreUtils::CollectFromInputElement(Document& aDocument,
         continue;
       }
       AppendValueToCollectedData(aDocument, input, id, value, aGeneratedCount,
-                                 std::forward<ArgsT>(args)...);
+                                 args...);
     }
   }
 }
@@ -1004,8 +1002,7 @@ void SessionStoreUtils::CollectFromSelectElement(Document& aDocument,
       CollectedNonMultipleSelectValue val;
       val.mSelectedIndex = select->SelectedIndex();
       val.mValue = selectVal.AsAString();
-      AppendValueToCollectedData(select, id, val, aGeneratedCount,
-                                 std::forward<ArgsT>(args)...);
+      AppendValueToCollectedData(select, id, val, aGeneratedCount, args...);
     } else {
       // <select>s with the multiple attribute are easier to determine the
       // default value since each <option> has a defaultSelected property
@@ -1062,7 +1059,7 @@ void SessionStoreUtils::CollectFromFormAssociatedCustomElement(
     }
 
     AppendValueToCollectedData(element, id, value, state, aGeneratedCount,
-                               std::forward<ArgsT>(args)...);
+                               args...);
   }
 }
 

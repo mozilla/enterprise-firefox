@@ -214,6 +214,7 @@ size_t ObjectFuse::sizeOfIncludingThis(
 
 ObjectFuse* ObjectFuseMap::getOrCreate(JSContext* cx, NativeObject* obj) {
   MOZ_ASSERT(obj->hasObjectFuse());
+  MOZ_ASSERT(obj->zone() == zone_);
   auto p = objectFuses_.lookupForAdd(obj);
   if (!p) {
     auto fuse = MakeUnique<ObjectFuse>();

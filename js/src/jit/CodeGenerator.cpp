@@ -9,7 +9,6 @@
 #include "mozilla/Assertions.h"
 #include "mozilla/CheckedArithmetic.h"
 #include "mozilla/DebugOnly.h"
-#include "mozilla/EndianUtils.h"
 #include "mozilla/EnumeratedArray.h"
 #include "mozilla/EnumeratedRange.h"
 #include "mozilla/EnumSet.h"
@@ -19436,6 +19435,26 @@ void CodeGenerator::visitLoadUnboxedInt64(LLoadUnboxedInt64* lir) {
   source.match([&](const auto& source) { masm.load64(source, out); });
 }
 
+static bool IsNativeEndian(const LAllocation* littleEndian) {
+  constexpr bool isLittleEndian = std::endian::native == std::endian::little;
+  return littleEndian->isConstant() &&
+         ToBoolean(littleEndian) == isLittleEndian;
+}
+
+static void BranchIfNativeEndian(MacroAssembler& masm,
+                                 const LAllocation* littleEndian,
+                                 Label* label) {
+  if (!littleEndian->isConstant()) {
+    if constexpr (std::endian::native == std::endian::little) {
+      masm.branch32(Assembler::NotEqual, ToRegister(littleEndian), Imm32(0),
+                    label);
+    } else {
+      masm.branch32(Assembler::Equal, ToRegister(littleEndian), Imm32(0),
+                    label);
+    }
+  }
+}
+
 void CodeGenerator::visitLoadDataViewElement(LLoadDataViewElement* lir) {
   Register elements = ToRegister(lir->elements());
   const LAllocation* littleEndian = lir->littleEndian();
@@ -19453,8 +19472,7 @@ void CodeGenerator::visitLoadDataViewElement(LLoadDataViewElement* lir) {
 
   auto source = ToAddressOrBaseIndex(elements, lir->index(), Scalar::Uint8);
 
-  bool noSwap = littleEndian->isConstant() &&
-                ToBoolean(littleEndian) == MOZ_LITTLE_ENDIAN();
+  bool noSwap = IsNativeEndian(littleEndian);
 
   // Directly load if no byte swap is needed and the platform supports unaligned
   // accesses for the access.  (Such support is assumed for integer types.)
@@ -19509,11 +19527,7 @@ void CodeGenerator::visitLoadDataViewElement(LLoadDataViewElement* lir) {
   if (!noSwap) {
     // Swap the bytes in the loaded value.
     Label skip;
-    if (!littleEndian->isConstant()) {
-      masm.branch32(
-          MOZ_LITTLE_ENDIAN() ? Assembler::NotEqual : Assembler::Equal,
-          ToRegister(littleEndian), Imm32(0), &skip);
-    }
+    BranchIfNativeEndian(masm, littleEndian, &skip);
 
     switch (storageType) {
       case Scalar::Int16:
@@ -19598,8 +19612,7 @@ void CodeGenerator::visitLoadDataViewElement64(LLoadDataViewElement64* lir) {
 
   auto source = ToAddressOrBaseIndex(elements, lir->index(), Scalar::Uint8);
 
-  bool noSwap = littleEndian->isConstant() &&
-                ToBoolean(littleEndian) == MOZ_LITTLE_ENDIAN();
+  bool noSwap = IsNativeEndian(littleEndian);
 
   // Load the value into a register.
   source.match([&](const auto& source) { masm.load64Unaligned(source, out); });
@@ -19607,11 +19620,7 @@ void CodeGenerator::visitLoadDataViewElement64(LLoadDataViewElement64* lir) {
   if (!noSwap) {
     // Swap the bytes in the loaded value.
     Label skip;
-    if (!littleEndian->isConstant()) {
-      masm.branch32(
-          MOZ_LITTLE_ENDIAN() ? Assembler::NotEqual : Assembler::Equal,
-          ToRegister(littleEndian), Imm32(0), &skip);
-    }
+    BranchIfNativeEndian(masm, littleEndian, &skip);
 
     masm.byteSwap64(out);
 
@@ -19782,8 +19791,7 @@ void CodeGenerator::visitStoreDataViewElement(LStoreDataViewElement* lir) {
 
   auto dest = ToAddressOrBaseIndex(elements, lir->index(), Scalar::Uint8);
 
-  bool noSwap = littleEndian->isConstant() &&
-                ToBoolean(littleEndian) == MOZ_LITTLE_ENDIAN();
+  bool noSwap = IsNativeEndian(littleEndian);
 
   // Directly store if no byte swap is needed and the platform supports
   // unaligned accesses for the access.  (Such support is assumed for integer
@@ -19835,11 +19843,7 @@ void CodeGenerator::visitStoreDataViewElement(LStoreDataViewElement* lir) {
   if (!noSwap) {
     // Swap the bytes in the loaded value.
     Label skip;
-    if (!littleEndian->isConstant()) {
-      masm.branch32(
-          MOZ_LITTLE_ENDIAN() ? Assembler::NotEqual : Assembler::Equal,
-          ToRegister(littleEndian), Imm32(0), &skip);
-    }
+    BranchIfNativeEndian(masm, littleEndian, &skip);
 
     switch (writeType) {
       case Scalar::Int16:
@@ -19908,8 +19912,7 @@ void CodeGenerator::visitStoreDataViewElement64(LStoreDataViewElement64* lir) {
 
   auto dest = ToAddressOrBaseIndex(elements, lir->index(), Scalar::Uint8);
 
-  bool noSwap = littleEndian->isConstant() &&
-                ToBoolean(littleEndian) == MOZ_LITTLE_ENDIAN();
+  bool noSwap = IsNativeEndian(littleEndian);
 
   // Directly store if no byte swap is needed and the platform supports
   // unaligned accesses for the access.  (Such support is assumed for integer
@@ -19938,10 +19941,7 @@ void CodeGenerator::visitStoreDataViewElement64(LStoreDataViewElement64* lir) {
 
   // Swap the bytes in the loaded value.
   Label skip;
-  if (!littleEndian->isConstant()) {
-    masm.branch32(MOZ_LITTLE_ENDIAN() ? Assembler::NotEqual : Assembler::Equal,
-                  ToRegister(littleEndian), Imm32(0), &skip);
-  }
+  BranchIfNativeEndian(masm, littleEndian, &skip);
 
   masm.byteSwap64(temp);
 

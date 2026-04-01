@@ -395,6 +395,7 @@ bool wasm::ImportMatchesBuiltinModuleFunc(mozilla::Span<const char> importName,
         return true;
       }
     }
+    return false;
   }
 #endif
 

@@ -100,8 +100,7 @@ DEFINE_PROPERTYKEY(EME_CONTENTDECRYPTIONMODULE_ORIGIN_ID, 0x1218a3e2, 0xcfb0,
 MOZ_RUNINIT static StaticDataMutex<
     nsTHashMap<nsStringHashKey, ComPtr<IMFContentDecryptionModuleFactory>>>
     sFactoryMap("sFactoryMap");
-MOZ_RELEASE_CONSTINIT static StaticDataMutex<
-    CopyableTArray<MFCDMCapabilitiesIPDL>>
+constinit static StaticDataMutex<CopyableTArray<MFCDMCapabilitiesIPDL>>
     sCapabilities("sCapabilities");
 MOZ_RUNINIT static StaticDataMutex<ComPtr<IUnknown>> sMediaEngineClassFactory(
     "sMediaEngineClassFactory");

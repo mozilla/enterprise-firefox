@@ -26,9 +26,16 @@
     <!-- Label for the secret settings preference -->
     <string name="preferences_debug_settings">Secret Settings</string>
 
-    <!-- Label for the secret settings homepage preference category -->
-    <string name="homepage_debug_settings_homepage_category_title">Homepage</string>
-    <string name="homepage_debug_settings_homepage_category_key">homepage</string>
+    <!-- Labels for secret settings preference categories -->
+    <string name="secret_settings_category_homepage_title" translatable="false">Homepage</string>
+    <string name="secret_settings_category_toolbar_title" translatable="false">Toolbar</string>
+    <string name="secret_settings_category_search_title" translatable="false">Search</string>
+    <string name="secret_settings_category_tabs_title" translatable="false">Tabs</string>
+    <string name="secret_settings_category_network_title" translatable="false">Network</string>
+    <string name="secret_settings_category_performance_title" translatable="false">Performance</string>
+    <string name="secret_settings_category_terms_of_service_title" translatable="false">Terms of Service</string>
+    <string name="secret_settings_category_features_title" translatable="false">Features</string>
+    <string name="secret_settings_category_debug_title" translatable="false">Debug</string>
 
     <!-- Label for the secret settings preference -->
     <string name="preferences_debug_info" translatable="false">Secret Debug Info</string>

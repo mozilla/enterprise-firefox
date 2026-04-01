@@ -607,9 +607,10 @@ class WebGLVertexArrayJS final : public nsWrapperCache, public webgl::ObjectJS {
 
 ////////////////////////////////////
 
-using Float32ListU = dom::MaybeSharedFloat32ArrayOrUnrestrictedFloatSequence;
-using Int32ListU = dom::MaybeSharedInt32ArrayOrLongSequence;
-using Uint32ListU = dom::MaybeSharedUint32ArrayOrUnsignedLongSequence;
+using Float32ListU =
+    dom::AllowLargeMaybeSharedFloat32ArrayOrUnrestrictedFloatSequence;
+using Int32ListU = dom::AllowLargeMaybeSharedInt32ArrayOrLongSequence;
+using Uint32ListU = dom::AllowLargeMaybeSharedUint32ArrayOrUnsignedLongSequence;
 
 template <typename Converter, typename T>
 inline bool ConvertSequence(const dom::Sequence<T>& sequence,
@@ -624,7 +625,7 @@ inline bool ConvertSequence(const dom::Sequence<T>& sequence,
 template <typename Converter>
 inline bool Convert(const Float32ListU& list, Converter&& converter) {
   if (list.IsFloat32Array()) {
-    return list.GetAsFloat32Array().ProcessData(
+    return list.GetAsFloat32Array().ProcessData<true>(
         std::forward<Converter>(converter));
   }
 
@@ -635,7 +636,7 @@ inline bool Convert(const Float32ListU& list, Converter&& converter) {
 template <typename Converter>
 inline bool Convert(const Int32ListU& list, Converter&& converter) {
   if (list.IsInt32Array()) {
-    return list.GetAsInt32Array().ProcessData(
+    return list.GetAsInt32Array().ProcessData<true>(
         std::forward<Converter>(converter));
   }
 
@@ -646,7 +647,7 @@ inline bool Convert(const Int32ListU& list, Converter&& converter) {
 template <typename Converter>
 inline bool Convert(const Uint32ListU& list, Converter&& converter) {
   if (list.IsUint32Array()) {
-    return list.GetAsUint32Array().ProcessData(
+    return list.GetAsUint32Array().ProcessData<true>(
         std::forward<Converter>(converter));
   }
 

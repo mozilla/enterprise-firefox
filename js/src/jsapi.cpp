@@ -441,12 +441,12 @@ JS_PUBLIC_API const char* JS_GetImplementationVersion(void) {
 
 JS_PUBLIC_API void JS_SetDestroyZoneCallback(JSContext* cx,
                                              JSDestroyZoneCallback callback) {
-  cx->runtime()->destroyZoneCallback = callback;
+  cx->runtime()->gc.setDestroyZoneCallback(callback);
 }
 
 JS_PUBLIC_API void JS_SetDestroyCompartmentCallback(
     JSContext* cx, JSDestroyCompartmentCallback callback) {
-  cx->runtime()->destroyCompartmentCallback = callback;
+  cx->runtime()->gc.setDestroyCompartmentCallback(callback);
 }
 
 JS_PUBLIC_API void JS_SetSizeOfIncludingThisCompartmentCallback(
@@ -1812,6 +1812,15 @@ JS::RealmBehaviors& JS::RealmBehaviors::setTimeZoneOverride(
     timeZoneOverride_ = nullptr;
   }
   return *this;
+}
+
+void JS::RealmBehaviors::copyOverrideStrings() {
+  if (localeOverride_) {
+    setLocaleOverride(localeOverride_->chars());
+  }
+  if (timeZoneOverride_) {
+    setTimeZoneOverride(timeZoneOverride_->chars());
+  }
 }
 
 const JS::RealmBehaviors& JS::RealmBehaviorsRef(JS::Realm* realm) {

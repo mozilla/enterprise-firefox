@@ -1,0 +1,17 @@
+{
+  "label": "play.google.com",
+  "bugs": {
+    "1779908": {
+      "issue": "extra-scrollbars",
+      "matches": ["*://play.google.com/store/*"]
+    }
+  },
+  "interventions": [
+    {
+      "platforms": ["desktop"],
+      "content_scripts": {
+        "css": ["bug1779908-play.google.com-scrollbar-fix.css"]
+      }
+    }
+  ]
+}

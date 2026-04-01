@@ -149,6 +149,7 @@ nsresult WorkerModuleLoader::CompileFetchedModule(
   switch (aRequest->mModuleType) {
     case JS::ModuleType::Unknown:
     case JS::ModuleType::Bytes:
+    case JS::ModuleType::Text:
       MOZ_CRASH("Unexpected module type");
     case JS::ModuleType::JavaScriptOrWasm:
       return CompileJavaScriptOrWasmModule(aCx, aOptions, aRequest,

@@ -246,6 +246,11 @@ export class TelemetryFeed {
       ?.coarsePrivateInferredInterests;
   }
 
+  get inferredTelemetrySettingsOverrides() {
+    return this.store?.getState()?.InferredPersonalization
+      ?.inferredTelemetrySettingsOverrides;
+  }
+
   /**
    * Checks if the Coarse Interest Vector (CIV) has recorded any clicks.
    * Used for the optimizeInferred feature to determine if private ping
@@ -1023,6 +1028,7 @@ export class TelemetryFeed {
     if (item.is_sponsored) {
       return item; // Don't alter spocs
     }
+
     const epsilon =
       this._privateRandomContentTelemetryProbablityValues?.epsilon ?? 0;
     if (!epsilon) {
@@ -1417,23 +1423,45 @@ export class TelemetryFeed {
   async configureContentPing() {
     let privateMetrics = {};
     const prefs = this.store?.getState()?.Prefs.values; // Needed for experimenter configs
+    // An override from model response may turn the inclusion of inferred interests
+    // in telemetry off but not on.
+    const includeInferredInterestsInTelemetry =
+      this.privatePingInferredInterestsEnabled &&
+      (this.inferredTelemetrySettingsOverrides?.iv_in_telemetry ?? true);
     const inferredInterests =
-      this.privatePingInferredInterestsEnabled && this.inferredInterests;
+      includeInferredInterestsInTelemetry && this.inferredInterests;
     if (inferredInterests) {
       privateMetrics.inferredInterests = inferredInterests;
     }
+    let epsilonMicroRaw =
+      prefs?.trainhopConfig?.newtabPrivatePing?.[
+        TRAINHOP_PREF_RANDOM_CLICK_PROBABILITY_MICRO
+      ] || 0;
+    if (
+      this.inferredTelemetrySettingsOverrides
+        ?.random_content_click_probability_epsilon_micro !== undefined
+    ) {
+      epsilonMicroRaw =
+        this.inferredTelemetrySettingsOverrides
+          .random_content_click_probability_epsilon_micro;
+    }
+
     this._privateRandomContentTelemetryProbablityValues = {
-      epsilon:
-        (prefs?.trainhopConfig?.newtabPrivatePing?.[
-          TRAINHOP_PREF_RANDOM_CLICK_PROBABILITY_MICRO
-        ] || 0) / 1e6,
+      epsilon: epsilonMicroRaw / 1e6,
     };
     const privatePingConfig = prefs?.trainhopConfig?.newtabPrivatePing || {};
     // Set the daily cap for content pings
     const impressionCap = privatePingConfig[TRAINHOP_PREF_DAILY_EVENT_CAP] || 0;
     this.newtabContentPing.setMaxEventsPerDay(impressionCap);
-    const clickDailyCap =
+    let clickDailyCap =
       privatePingConfig[TRAINHOP_PREF_DAILY_CLICK_EVENT_CAP] || 0;
+    if (
+      this.inferredTelemetrySettingsOverrides?.daily_click_event_cap !==
+      undefined
+    ) {
+      clickDailyCap =
+        this.inferredTelemetrySettingsOverrides.daily_click_event_cap;
+    }
     this.newtabContentPing.setMaxClickEventsPerDay(clickDailyCap);
     const weeklyClickCap =
       privatePingConfig[TRAINHOP_PREF_WEEKLY_CLICK_EVENT_CAP] || 0;

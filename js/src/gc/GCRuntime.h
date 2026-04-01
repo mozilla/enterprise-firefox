@@ -26,7 +26,10 @@
 #include "gc/StoreBuffer.h"
 #include "js/friend/PerformanceHint.h"
 #include "js/GCAnnotations.h"
+#include "js/Realm.h"
+#include "js/RootingAPI.h"
 #include "js/UniquePtr.h"
+#include "js/Zone.h"
 #include "vm/AtomsTable.h"
 
 namespace js {
@@ -303,6 +306,14 @@ class GCRuntime {
   bool needZealousGC();
   bool zealModeControlsYieldPoint() const;
 
+  using PersistentRoots =
+      mozilla::EnumeratedArray<JS::RootKind,
+                               mozilla::LinkedList<js::PersistentRootedBase>,
+                               size_t(JS::RootKind::Limit)>;
+  PersistentRoots& persistentRoots() { return persistentRoots_.ref(); }
+  void tracePersistentRoots(JSTracer* trc);
+  void finishPersistentRoots();
+
   [[nodiscard]] bool addRoot(Value* vp, const char* name);
   void removeRoot(Value* vp);
 
@@ -310,6 +321,13 @@ class GCRuntime {
                                   uint32_t value);
   void resetParameter(JSContext* cx, JSGCParamKey key);
   uint32_t getParameter(JSGCParamKey key);
+
+  const mozilla::TimeStamp& lastAnimationTime() const {
+    return lastAnimationTime_.ref();
+  }
+  void setLastAnimationTime(const mozilla::TimeStamp& time) {
+    lastAnimationTime_ = time;
+  }
 
   void setPerformanceHint(PerformanceHint hint);
   bool isInPageLoad() const { return inPageLoadCount != 0; }
@@ -525,12 +543,27 @@ class GCRuntime {
   void callNurseryCollectionCallbacks(JS::GCNurseryProgress progress,
                                       JS::GCReason reason);
 
+  void setDestroyZoneCallback(JSDestroyZoneCallback callback);
+  void callDestroyZoneCallback(JS::GCContext* gcx, JS::Zone* zone) const;
+  void setDestroyCompartmentCallback(JSDestroyCompartmentCallback callback);
+  void callDestroyCompartmentCallback(JS::GCContext* gcx,
+                                      JS::Compartment* compartment) const;
+  void setDestroyRealmCallback(JS::DestroyRealmCallback callback);
+  void callDestroyRealmCallback(JS::GCContext* gcx, JS::Realm* realm) const;
+
   bool addFinalizationRegistry(JSContext* cx,
                                Handle<FinalizationRegistryObject*> registry);
   bool registerWithFinalizationRegistry(
       JSContext* cx, HandleValue target,
       Handle<FinalizationRecordObject*> record);
   void queueFinalizationRegistryForCleanup(FinalizationQueueObject* queue);
+
+  mozilla::LinkedList<JS::detail::WeakCacheBase>& weakCaches() {
+    return weakCaches_.ref();
+  }
+  void registerWeakCache(JS::detail::WeakCacheBase* cache) {
+    weakCaches().insertBack(cache);
+  }
 
   void setFullCompartmentChecks(bool enable);
 
@@ -1173,6 +1206,7 @@ class GCRuntime {
    */
   GCLockData<uint32_t> minEmptyChunkCount_;
 
+  MainThreadData<PersistentRoots> persistentRoots_;
   MainThreadData<RootedValueMap> rootsHash;
 
   // An incrementing id used to assign unique ids to cells that require one.
@@ -1341,28 +1375,6 @@ class GCRuntime {
   MainThreadOrGCTaskData<AllocKind> foregroundFinalizedAllocKind;
   MainThreadData<mozilla::Maybe<SortedArenaList>> foregroundFinalizedArenas;
 
-#ifdef DEBUG
-  /*
-   * List of objects to mark at the beginning of a GC for testing purposes. May
-   * also contain string directives to change mark color or wait until different
-   * phases of the GC.
-   *
-   * This is a WeakCache because not everything in this list is guaranteed to
-   * end up marked (eg if you insert an object from an already-processed sweep
-   * group in the middle of an incremental GC). Also, the mark queue is not
-   * used during shutdown GCs. In either case, unmarked objects may need to be
-   * discarded.
-   */
-  JS::WeakCache<GCVector<HeapPtr<JS::Value>, 0, SystemAllocPolicy>>
-      testMarkQueue;
-
-  /* Position within the test mark queue. */
-  size_t queuePos = 0;
-
-  /* The test marking queue might want to be marking a particular color. */
-  mozilla::Maybe<js::gc::MarkColor> queueMarkColor;
-#endif
-
   friend class SweepGroupsIter;
 
   /*
@@ -1422,45 +1434,6 @@ class GCRuntime {
 
   MainThreadData<bool> rootsRemoved;
 
-  /*
-   * These options control the zealousness of the GC. At every allocation,
-   * nextScheduled is decremented. When it reaches zero we do a full GC.
-   *
-   * At this point, if zeal_ is one of the types that trigger periodic
-   * collection, then nextScheduled is reset to the value of zealFrequency.
-   * Otherwise, no additional GCs take place.
-   *
-   * You can control these values in several ways:
-   *   - Set the JS_GC_ZEAL environment variable
-   *   - Call gczeal() or schedulegc() from inside shell-executed JS code
-   *     (see the help for details)
-   *
-   * If gcZeal_ == 1 then we perform GCs in select places (during MaybeGC and
-   * whenever we are notified that GC roots have been removed). This option is
-   * mainly useful to embedders.
-   *
-   * We use zeal_ == 4 to enable write barrier verification. See the comment
-   * in gc/Verifier.cpp for more information about this.
-   *
-   * zeal_ values from 8 to 10 periodically run different types of
-   * incremental GC.
-   *
-   * zeal_ value 14 performs periodic shrinking collections.
-   */
-#ifdef JS_GC_ZEAL
-  static_assert(size_t(ZealMode::Count) <= 32,
-                "Too many zeal modes to store in a uint32_t");
-  MainThreadData<uint32_t> zealModeBits;
-  MainThreadData<int> zealFrequency;
-  MainThreadData<int> nextScheduled;
-  MainThreadData<bool> deterministicOnly;
-  MainThreadData<int> zealSliceBudget;
-  MainThreadData<size_t> maybeMarkStackLimit;
-
-  MainThreadData<PersistentRooted<GCVector<JSObject*, 0, SystemAllocPolicy>>>
-      selectedForMarking;
-#endif
-
   MainThreadData<bool> fullCompartmentChecks;
 
   MainThreadData<uint32_t> gcCallbackDepth;
@@ -1478,6 +1451,11 @@ class GCRuntime {
       updateWeakPointerCompartmentCallbacks;
   MainThreadData<CallbackVector<JS::GCNurseryCollectionCallback>>
       nurseryCollectionCallbacks;
+
+  /* Zone compartment and realm destroy callbacks. */
+  MainThreadData<JSDestroyZoneCallback> destroyZoneCallback;
+  MainThreadData<JSDestroyCompartmentCallback> destroyCompartmentCallback;
+  MainThreadData<JS::DestroyRealmCallback> destroyRealmCallback;
 
   /*
    * The trace operations to trace embedding-specific GC roots. One is for
@@ -1537,6 +1515,11 @@ class GCRuntime {
   // GC. This is accessed off main thread when sweeping WeakCaches.
   MainThreadOrGCTaskData<gc::StoreBuffer> storeBuffer_;
 
+  // List of non-ephemeron weak containers to sweep during
+  // beginSweepingSweepGroup. Must come before testMarkQueue.
+  MainThreadOrGCTaskData<mozilla::LinkedList<JS::detail::WeakCacheBase>>
+      weakCaches_;
+
   mozilla::TimeStamp lastLastDitchTime;
 
   // The last time per-zone allocation rates were updated.
@@ -1544,6 +1527,59 @@ class GCRuntime {
 
   // Total collector time since per-zone allocation rates were last updated.
   MainThreadData<mozilla::TimeDuration> collectorTimeSinceAllocRateUpdate;
+
+  // Last time at which an animation was played for this runtime.
+  MainThreadData<mozilla::TimeStamp> lastAnimationTime_;
+
+#ifdef JS_GC_ZEAL
+  /*
+   * These options control the zealousness of the GC. At every allocation,
+   * nextScheduled is decremented. When it reaches zero we do a full GC.
+   *
+   * At this point, if zeal_ is one of the types that trigger periodic
+   * collection, then nextScheduled is reset to the value of zealFrequency.
+   * Otherwise, no additional GCs take place.
+   *
+   * You can control these values in several ways:
+   *   - Set the JS_GC_ZEAL environment variable
+   *   - Call gczeal() or schedulegc() from inside shell-executed JS code
+   *     (see the help for details)
+   *
+   * See gc::ZealModeHelpText in GC.cpp for details of what the modes do.
+   */
+  static_assert(size_t(ZealMode::Count) <= 32,
+                "Too many zeal modes to store in a uint32_t");
+  MainThreadData<uint32_t> zealModeBits;
+  MainThreadData<int> zealFrequency;
+  MainThreadData<int> nextScheduled;
+  MainThreadData<bool> deterministicOnly;
+  MainThreadData<int> zealSliceBudget;
+  MainThreadData<size_t> maybeMarkStackLimit;
+  MainThreadData<PersistentRooted<GCVector<JSObject*, 0, SystemAllocPolicy>>>
+      selectedForMarking;
+#endif
+
+#ifdef DEBUG
+  /*
+   * List of objects to mark at the beginning of a GC for testing purposes. May
+   * also contain string directives to change mark color or wait until different
+   * phases of the GC.
+   *
+   * This is a WeakCache because not everything in this list is guaranteed to
+   * end up marked (eg if you insert an object from an already-processed sweep
+   * group in the middle of an incremental GC). Also, the mark queue is not
+   * used during shutdown GCs. In either case, unmarked objects may need to be
+   * discarded.
+   */
+  JS::WeakCache<GCVector<HeapPtr<JS::Value>, 0, SystemAllocPolicy>>
+      testMarkQueue;
+
+  /* Position within the test mark queue. */
+  size_t queuePos = 0;
+
+  /* The test marking queue might want to be marking a particular color. */
+  mozilla::Maybe<js::gc::MarkColor> queueMarkColor;
+#endif
 
   friend class MarkingValidator;
   friend class AutoEnterIteration;

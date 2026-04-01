@@ -505,6 +505,7 @@ win64-enterprise-shippable/opt:
         config:
             - builds/releng_base_firefox.py
             - builds/releng_base_linux_64_builds.py
+            - taskcluster_nightly.py
         extra-config:
             stage_platform: win64
             mozconfig_platform: win64

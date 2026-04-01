@@ -32,6 +32,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   AIChatbotPolicies: "resource:///modules/policies/AIChatbotPolicies.sys.mjs",
   QuickSuggest: "moz-src:///browser/components/urlbar/QuickSuggest.sys.mjs",
   WebsiteFilter: "resource:///modules/policies/WebsiteFilter.sys.mjs",
+  SyncPolicy: "resource:///modules/policies/SyncPolicy.sys.mjs",
 });
 
 export const PREF_LOGLEVEL = "browser.policies.loglevel";
@@ -540,14 +541,14 @@ export var Policies = {
       if (param) {
         blockAboutPage(manager, "about:config");
         setAndLockPref("devtools.chrome.enabled", false);
+      } else {
+        unblockAboutPage(manager, "about:config");
+        setAndLockPref("devtools.chrome.enabled", true);
       }
     },
-    onRemove(manager, oldParams) {
-      if (oldParams) {
-        // if it was block, just unblock
-        unblockAboutPage(manager, "about:config");
-        unsetAndUnlockPref("devtools.chrome.enabled");
-      }
+    onRemove(manager, _) {
+      unblockAboutPage(manager, "about:config");
+      unsetAndUnlockPref("devtools.chrome.enabled");
     },
   },
 
@@ -1224,18 +1225,24 @@ export var Policies = {
         blockAboutPage(manager, "about:debugging");
         blockAboutPage(manager, "about:devtools-toolbox");
         blockAboutPage(manager, "about:profiling");
-      }
-    },
-    onRemove(manager, oldParams) {
-      if (oldParams) {
-        unsetAndUnlockPref("devtools.policy.disabled");
-        unsetAndUnlockPref("devtools.chrome.enabled");
+      } else {
+        setAndLockPref("devtools.policy.disabled", false);
+        setAndLockPref("devtools.chrome.enabled", true);
 
         manager.allowFeature("devtools");
         unblockAboutPage(manager, "about:debugging");
         unblockAboutPage(manager, "about:devtools-toolbox");
         unblockAboutPage(manager, "about:profiling");
       }
+    },
+    onRemove(manager, _) {
+      unsetAndUnlockPref("devtools.policy.disabled");
+      unsetAndUnlockPref("devtools.chrome.enabled");
+
+      manager.allowFeature("devtools");
+      unblockAboutPage(manager, "about:debugging");
+      unblockAboutPage(manager, "about:devtools-toolbox");
+      unblockAboutPage(manager, "about:profiling");
     },
   },
 
@@ -2280,6 +2287,14 @@ export var Policies = {
           );
           manager.disallowFeature("xpinstall");
         }
+      }
+    },
+  },
+
+  IPProtectionAvailable: {
+    onBeforeAddons(manager, param) {
+      if (!param) {
+        setAndLockPref("browser.ipProtection.enabled", false);
       }
     },
   },
@@ -3535,6 +3550,15 @@ export var Policies = {
     },
   },
 
+  Sync: {
+    async onBeforeAddons(manager, param) {
+      await lazy.SyncPolicy.applySettings(manager, param);
+    },
+    async onRemove(manager, _) {
+      await lazy.SyncPolicy.restoreSettings(manager);
+    },
+  },
+
   TranslateEnabled: {
     onBeforeAddons(manager, param) {
       let policies = Services.policies.getActivePolicies();
@@ -4262,16 +4286,6 @@ function processMIMEInfo(mimeInfo, realMIMEInfo) {
   lazy.gHandlerService.store(realMIMEInfo);
 }
 
-if (AppConstants.MOZ_ENTERPRISE) {
-  ChromeUtils.defineESModuleGetters(lazy, {
-    SyncPolicy: "resource:///modules/policies/SyncPolicy.sys.mjs",
-  });
-  Policies.Sync = {
-    async onBeforeAddons(manager, param) {
-      await lazy.SyncPolicy.applySettings(manager, param);
-    },
-    async onRemove(manager, _) {
-      await lazy.SyncPolicy.restoreSettings(manager);
-    },
-  };
+if (!AppConstants.MOZ_ENTERPRISE) {
+  delete Policies.Sync;
 }

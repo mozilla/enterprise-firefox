@@ -25,6 +25,13 @@ object SettingsSelectors {
         groups = listOf("generalSettingsSection"),
     )
 
+    val SETTINGS_TITLE = Selector(
+        strategy = SelectorStrategy.ESPRESSO_BY_TEXT,
+        value = getStringResource(R.string.settings),
+        description = "Settings screen title",
+        groups = listOf("requiredForPage"),
+    )
+
     val SEARCH_BUTTON = Selector(
         strategy = SelectorStrategy.UIAUTOMATOR_WITH_TEXT,
         value = "Search",
@@ -196,6 +203,7 @@ object SettingsSelectors {
     val all = listOf(
         GO_BACK_BUTTON,
         GENERAL_HEADING,
+        SETTINGS_TITLE,
         SEARCH_BUTTON,
         TABS_BUTTON,
         ACCESSIBILITY_BUTTON,

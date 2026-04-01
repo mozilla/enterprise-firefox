@@ -53,11 +53,13 @@ MAX_HISTORY = 10
 MACH_TRY_PUSH_TO_VCS = os.getenv("MACH_TRY_PUSH_TO_VCS") == "1"
 
 HG_TRY_URL = "ssh://hg.mozilla.org/try"
-MACH_TRY_REMOTE = HG_TRY_URL
 
-TREEHERDER_LANDO_TRY_RUN_URL = (
-    "https://treeherder.mozilla.org/jobs?repo=try&landoCommitID={job_id}"
-)
+# If f-string expansion is done now, it will miss the value being read from
+# mach settings
+MACH_TRY_REMOTE_HOST = "git@github.com"
+MACH_TRY_REMOTE_PROJ = "mozilla/enterprise-firefox-try.git"
+
+TREEHERDER_LANDO_TRY_RUN_URL = "https://treeherder.mozilla.org/jobs?repo=try&landoInstance={lando_instance}&landoCommitID={job_id}"
 
 here = os.path.abspath(os.path.dirname(__file__))
 build = MozbuildObject.from_environment(cwd=here)
@@ -171,7 +173,7 @@ def get_sys_argv(injected_argv=None):
 
 @cache
 def _is_hg_try():
-    remote = MACH_TRY_REMOTE
+    remote = f"{MACH_TRY_REMOTE_HOST}:{MACH_TRY_REMOTE_PROJ}"
     if remote_url := vcs.get_remote_url(remote, push=True):
         remote = remote_url
     return HG_TRY_URL in remote
@@ -241,17 +243,22 @@ def push_to_try(
             else:
                 with vcs.try_commit(commit_message, changed_files) as head:
                     vcs.push(
-                        MACH_TRY_REMOTE, ref=head, dest_branch=vcs.branch, force=True
+                        f"{MACH_TRY_REMOTE_HOST}:{MACH_TRY_REMOTE_PROJ}",
+                        ref=head,
+                        dest_branch=vcs.branch,
+                        force=True,
                     )
         else:
-            job_id = push_to_lando_try(vcs, commit_message, changed_files, metrics)
-            if job_id:
+            push_data = push_to_lando_try(vcs, commit_message, changed_files, metrics)
+            lando_instance = push_data["lando_instance"]
+            job_id = push_data["lando_job_id"]
+            if lando_instance and job_id:
                 print(
                     f"Follow the progress of your build on Treeherder: "
-                    f"{TREEHERDER_LANDO_TRY_RUN_URL.format(job_id=job_id)}"
+                    f"{TREEHERDER_LANDO_TRY_RUN_URL.format(lando_instance=lando_instance, job_id=job_id)}"
                 )
 
-            return job_id
+            return push_data
     except MissingVCSExtension as e:
         if e.ext == "push-to-try":
             print(HG_PUSH_TO_TRY_NOT_FOUND)

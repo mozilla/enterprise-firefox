@@ -4,7 +4,10 @@
 
 import { MozLitElement } from "chrome://global/content/lit-utils.mjs";
 import { html } from "chrome://global/content/vendor/lit.all.mjs";
-import { BANDWIDTH } from "chrome://browser/content/ipprotection/ipprotection-constants.mjs";
+import {
+  BANDWIDTH,
+  LINKS,
+} from "chrome://browser/content/ipprotection/ipprotection-constants.mjs";
 
 /**
  * A custom element that handles the signed out status of IP Protection.
@@ -25,6 +28,17 @@ export default class IPProtectionUnauthenticatedContentElement extends MozLitEle
     );
   }
 
+  handleLearnMoreClick(event) {
+    event.preventDefault();
+    if (event.target.classList.contains("learn-more-vpn")) {
+      const win = event.target.ownerGlobal;
+      win.openWebLinkIn(event.target.href, "tab");
+      this.dispatchEvent(
+        new CustomEvent("IPProtection:Close", { bubbles: true, composed: true })
+      );
+    }
+  }
+
   render() {
     return html`
       <link
@@ -43,7 +57,18 @@ export default class IPProtectionUnauthenticatedContentElement extends MozLitEle
           data-l10n-id="unauthenticated-vpn-title"
         ></h2>
         <ul id="unauthenticated-vpn-message" class="vpn-description">
-          <li data-l10n-id="unauthenticated-hide-location-message-2"></li>
+          <li
+            data-l10n-id="unauthenticated-hide-location-message-3"
+            @click=${this.handleLearnMoreClick}
+          >
+            <a
+              class="learn-more-vpn"
+              data-l10n-name="learn-more-vpn"
+              href=${Services.urlFormatter.formatURLPref(
+                "app.support.baseURL"
+              ) + LINKS.SUPPORT_SLUG}
+            ></a>
+          </li>
           <li
             data-l10n-id="unauthenticated-bandwidth-limit-message"
             data-l10n-args=${JSON.stringify({ maxUsage: BANDWIDTH.MAX_IN_GB })}

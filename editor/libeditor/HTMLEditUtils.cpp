@@ -632,11 +632,6 @@ bool HTMLEditUtils::IsVisibleElementEvenIfLeafNode(const nsIContent& aContent) {
   if (!aContent.IsHTMLElement()) {
     return true;
   }
-  nsIFrame* const primaryFrame = aContent.GetPrimaryFrame();
-  if (primaryFrame && aContent.IsInComposedDoc() &&
-      HTMLEditUtils::IsInclusiveAncestorCSSDisplayNone(aContent)) {
-    return false;
-  }
   if (HTMLEditUtils::IsBlockElement(
           aContent, BlockInlineCheck::UseComputedDisplayStyle)) {
     return true;
@@ -650,11 +645,10 @@ bool HTMLEditUtils::IsVisibleElementEvenIfLeafNode(const nsIContent& aContent) {
                                    nsGkAtoms::select, nsGkAtoms::textarea)) {
     return true;
   }
-  if (const HTMLInputElement* inputElement =
-          HTMLInputElement::FromNode(&aContent)) {
+  if (const auto* inputElement = HTMLInputElement::FromNode(aContent)) {
     return inputElement->ControlType() != FormControlType::InputHidden;
   }
-  if (primaryFrame) {
+  if (nsIFrame* const primaryFrame = aContent.GetPrimaryFrame()) {
     // If the frame is not dirty or non-inline container frame, we can trust
     // whether the frame is empty or not.
     if (!primaryFrame->IsSubtreeDirty() || !primaryFrame->IsInlineFrame()) {

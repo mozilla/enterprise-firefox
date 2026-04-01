@@ -579,9 +579,11 @@ void InferenceSession::Destroy() {
   LOGD("{} {}", __PRETTY_FUNCTION__, fmt::ptr(this));
   if (mSession) {
     sAPI->ReleaseSession(mSession);
+    mSession = nullptr;
   }
   if (mOptions) {
     sAPI->ReleaseSessionOptions(mOptions);
+    mOptions = nullptr;
   }
 }
 

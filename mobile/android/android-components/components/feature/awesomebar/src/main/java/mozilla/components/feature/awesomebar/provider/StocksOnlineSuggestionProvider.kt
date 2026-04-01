@@ -7,6 +7,7 @@ package mozilla.components.feature.awesomebar.provider
 import androidx.annotation.VisibleForTesting
 import kotlinx.coroutines.delay
 import mozilla.components.concept.awesomebar.AwesomeBar
+import mozilla.components.feature.awesomebar.facts.SuggestionCardType
 import mozilla.components.feature.awesomebar.facts.emitOptimizedSuggestionCardClickedFact
 import mozilla.components.feature.awesomebar.facts.emitOptimizedSuggestionCardDisplayedFact
 import mozilla.components.feature.search.SearchUseCases
@@ -15,9 +16,8 @@ import java.util.Locale
 import java.util.UUID
 import kotlin.math.abs
 
-const val DEFAULT_STOCK_SUGGESTION_LIMIT = 1
-const val ARTIFICIAL_DELAY = 350L
-const val SUGGESTION_CARD_TYPE = "stocks"
+internal const val DEFAULT_STOCK_SUGGESTION_LIMIT = 1
+internal const val ARTIFICIAL_DELAY = 350L
 
 /**
  * [AwesomeBar.SuggestionProvider] implementation that provides suggestions based on online stocks.
@@ -31,7 +31,7 @@ class StocksOnlineSuggestionProvider(
     private val suggestionsHeader: String? = null,
     @get:VisibleForTesting internal val maxNumberOfSuggestions: Int = DEFAULT_STOCK_SUGGESTION_LIMIT,
     private val locale: Locale = Locale.getDefault(),
-    ) : AwesomeBar.SuggestionProvider {
+) : AwesomeBar.SuggestionProvider {
     override val id: String = UUID.randomUUID().toString()
 
     override fun groupTitle(): String? {
@@ -59,7 +59,7 @@ class StocksOnlineSuggestionProvider(
             .toList()
             .also {
                 if (it.isNotEmpty()) {
-                    emitOptimizedSuggestionCardDisplayedFact(SUGGESTION_CARD_TYPE)
+                    emitOptimizedSuggestionCardDisplayedFact(SuggestionCardType.STOCKS)
                 }
             }
     }
@@ -74,7 +74,7 @@ class StocksOnlineSuggestionProvider(
         return if (hasRequiredFields && formattedLastPrice != null && parsedChange != null) {
             AwesomeBar.StockSuggestion(
                 onSuggestionClicked = {
-                    emitOptimizedSuggestionCardClickedFact(SUGGESTION_CARD_TYPE)
+                    emitOptimizedSuggestionCardClickedFact(SuggestionCardType.STOCKS)
                     searchUseCase.invoke(query)
                 },
                 provider = this@StocksOnlineSuggestionProvider,

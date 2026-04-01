@@ -57,14 +57,14 @@ def populate_repack_manifests_url(config, tasks):
     for task in tasks:
         partner_url_config = get_partner_url_config(config.params, config.graph_config)
 
+        repack_manifests_url = None
         for k in partner_url_config:
             if config.kind.startswith(k):
-                task["worker"].setdefault("env", {})["REPACK_MANIFESTS_URL"] = (
-                    partner_url_config[k]
-                )
+                repack_manifests_url = partner_url_config[k]
                 break
         else:
-            raise Exception("Can't find partner REPACK_MANIFESTS_URL")
+            if config.params["level"] == 3:
+                raise Exception("Can't find partner REPACK_MANIFESTS_URL")
 
         for property in ("limit-locales",):
             property = f"extra.{property}"
@@ -75,19 +75,24 @@ def populate_repack_manifests_url(config, tasks):
                 **{"release-level": release_level(config.params)},
             )
 
-        if task["worker"]["env"]["REPACK_MANIFESTS_URL"].startswith("git@"):
-            if "enterprise" in task["name"]:
-                task.setdefault("scopes", []).append(
-                    "secrets:get:project/enterprise/level-{level}/partner-github-ssh".format(
-                        **config.params
+        if repack_manifests_url:
+            task["worker"].setdefault("env", {})["REPACK_MANIFESTS_URL"] = (
+                repack_manifests_url
+            )
+
+            if repack_manifests_url.startswith("git@"):
+                if "enterprise" in task["name"]:
+                    task.setdefault("scopes", []).append(
+                        "secrets:get:project/enterprise/level-{level}/partner-github-ssh".format(
+                            **config.params
+                        )
                     )
-                )
-            else:
-                task.setdefault("scopes", []).append(
-                    "secrets:get:project/releng/gecko/build/level-{level}/partner-github-ssh".format(
-                        **config.params
+                else:
+                    task.setdefault("scopes", []).append(
+                        "secrets:get:project/releng/gecko/build/level-{level}/partner-github-ssh".format(
+                            **config.params
+                        )
                     )
-                )
 
         yield task
 
@@ -146,7 +151,7 @@ def add_command_arguments(config, tasks):
         # The upstream taskIds are stored a special environment variable, because we want to use
         # task-reference's to resolve dependencies, but the string handling of MOZHARNESS_OPTIONS
         # blocks that. It's space-separated string of ids in the end.
-        task["worker"]["env"]["UPSTREAM_TASKIDS"] = {
+        task["worker"].setdefault("env", {})["UPSTREAM_TASKIDS"] = {
             # We only want signing related tasks here, not build (used by mac builds for signing artifact resolution)
             "task-reference": " ".join([
                 f"<{dep}>"

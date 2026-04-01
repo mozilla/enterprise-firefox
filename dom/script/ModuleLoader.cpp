@@ -227,6 +227,7 @@ nsresult ModuleLoader::CompileFetchedModule(
     case JS::ModuleType::CSS:
       return CompileCssModule(aCx, aOptions, aRequest, aModuleOut);
     case JS::ModuleType::Bytes:
+    case JS::ModuleType::Text:
       MOZ_CRASH("Unexpected module type");
   }
 

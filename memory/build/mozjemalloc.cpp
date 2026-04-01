@@ -832,8 +832,8 @@ void arena_t::TouchMadvisedPage(arena_chunk_t* aChunk, size_t page) {
 }
 #endif
 
-bool arena_t::SplitRun(arena_run_t* aRun, size_t aSize, bool aLarge,
-                       bool aZero) {
+bool arena_t::SplitAndAllocRun(arena_run_t* aRun, size_t aSize, bool aLarge,
+                               bool aZero) {
   arena_chunk_t* chunk = GetChunkForPtr(aRun);
   size_t old_ndirty = chunk->mNumDirty;
   size_t run_ind =
@@ -911,8 +911,6 @@ bool arena_t::SplitRun(arena_run_t* aRun, size_t aSize, bool aLarge,
     }
   }
 #endif
-
-  mRunsAvail.Remove(&chunk->mPageMap[run_ind]);
 
   // Keep track of trailing unused pages for later use.
   if (rem_pages > 0) {
@@ -1055,8 +1053,8 @@ void arena_t::InitChunk(arena_chunk_t* aChunk, size_t aMinCommittedPages) {
       gChunkNumPages - gPagesPerRealPage - gChunkHeaderNumPages;
 #endif
 
-  // The committed pages are marked as Fresh.  Our caller, SplitRun will update
-  // this when it uses them.
+  // The committed pages are marked as Fresh.  Our caller, SplitAndAllocRun will
+  // update this when it uses them.
   for (size_t j = 0; j < n_fresh_pages; j++) {
     aChunk->mPageMap[i + j].bits = CHUNK_MAP_ZEROED | CHUNK_MAP_FRESH;
   }
@@ -1088,7 +1086,6 @@ void arena_t::InitChunk(arena_chunk_t* aChunk, size_t aMinCommittedPages) {
   aChunk->mPageMap[gChunkHeaderNumPages].bits |= gMaxLargeClass;
   aChunk->mPageMap[gChunkNumPages - gPagesPerRealPage - 1].bits |=
       gMaxLargeClass;
-  mRunsAvail.Insert(&aChunk->mPageMap[gChunkHeaderNumPages]);
 }
 
 bool arena_t::RemoveChunk(arena_chunk_t* aChunk) {
@@ -1175,16 +1172,16 @@ arena_run_t* arena_t::AllocRun(size_t aSize, bool aLarge, bool aZero) {
 
     MOZ_ASSERT((chunk->mPageMap[pageind].bits & CHUNK_MAP_BUSY) == 0);
     run = (arena_run_t*)(uintptr_t(chunk) + (pageind << gPageSize2Pow));
+    mRunsAvail.Remove(mapelm);
   } else if (mSpare && !mSpare->mIsPurging) {
     // Use the spare.
     arena_chunk_t* chunk = mSpare;
     mSpare = nullptr;
     run = (arena_run_t*)(uintptr_t(chunk) +
                          (gChunkHeaderNumPages << gPageSize2Pow));
-    // Insert the run into the tree of available runs.
     MOZ_ASSERT((chunk->mPageMap[gChunkHeaderNumPages].bits & CHUNK_MAP_BUSY) ==
                0);
-    mRunsAvail.Insert(&chunk->mPageMap[gChunkHeaderNumPages]);
+    mapelm = &chunk->mPageMap[gChunkHeaderNumPages];
   } else {
     // No usable runs.  Create a new chunk from which to allocate
     // the run.
@@ -1197,9 +1194,14 @@ arena_run_t* arena_t::AllocRun(size_t aSize, bool aLarge, bool aZero) {
     InitChunk(chunk, aSize >> gPageSize2Pow);
     run = (arena_run_t*)(uintptr_t(chunk) +
                          (gChunkHeaderNumPages << gPageSize2Pow));
+    mapelm = &chunk->mPageMap[gChunkHeaderNumPages];
   }
   // Update page map.
-  return SplitRun(run, aSize, aLarge, aZero) ? run : nullptr;
+  if (!SplitAndAllocRun(run, aSize, aLarge, aZero)) {
+    mRunsAvail.Insert(mapelm);
+    return nullptr;
+  }
+  return run;
 }
 
 void arena_t::UpdateMaxDirty() {
@@ -2854,9 +2856,12 @@ bool arena_t::RallocGrowLarge(arena_chunk_t* aChunk, void* aPtr, size_t aSize,
       // The next run is available and sufficiently large.  Split the
       // following run, then merge the first part with the existing
       // allocation.
-      if (!SplitRun((arena_run_t*)(uintptr_t(aChunk) +
-                                   ((pageind + npages) << gPageSize2Pow)),
-                    aSize - aOldSize, true, false)) {
+      mRunsAvail.Remove(&aChunk->mPageMap[pageind + npages]);
+      if (!SplitAndAllocRun(
+              (arena_run_t*)(uintptr_t(aChunk) +
+                             ((pageind + npages) << gPageSize2Pow)),
+              aSize - aOldSize, true, false)) {
+        mRunsAvail.Insert(&aChunk->mPageMap[pageind + npages]);
         return false;
       }
 

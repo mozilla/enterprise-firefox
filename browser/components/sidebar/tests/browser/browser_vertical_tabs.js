@@ -558,7 +558,7 @@ add_task(async function test_vertical_tabs_min_width() {
   );
 
   info("Collapse sidebar and tabs");
-  await SidebarController.initializeUIState({ launcherExpanded: false });
+  await SidebarController.updateUIState({ launcherExpanded: false });
 
   const collapsedStateValues = [
     SidebarController.getUIState().launcherExpanded,

@@ -8,7 +8,6 @@
 
 #include "nsStringFwd.h"
 #include "nsArray.h"
-#include <functional>
 
 namespace mozilla::default_agent {
 

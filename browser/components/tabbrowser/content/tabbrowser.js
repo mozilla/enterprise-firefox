@@ -6351,7 +6351,7 @@
         ourBrowser.isDistinctProductPageVisit = true;
       }
 
-      SitePermissions.copyTemporaryPermissions(otherBrowser, ourBrowser);
+      let srcBrowserId = otherBrowser.browserId;
 
       // Add a reference to the original registeredOpenURI to the closing
       // tab so that events operating on the tab before close can reference it.
@@ -6388,6 +6388,12 @@
 
         this._swapBrowserDocShells(aOurTab, otherBrowser, stateFlags);
       }
+
+      SitePermissions.copyTemporaryPermissions(
+        srcBrowserId,
+        otherBrowser,
+        ourBrowser
+      );
 
       // Unregister the previously opened URI
       if (otherBrowser.registeredOpenURI) {
@@ -10429,16 +10435,28 @@ var TabContextMenu = {
       let sibling = gBrowser.tabContainer.findNextTab(lastTabToMove);
       isLastPinnedTab = !sibling || !sibling.pinned;
     }
+
+    let isSplit = !!this.contextTab.splitview;
+    let firstInSplit = isSplit ? this.contextTab.splitview.tabs[0] : null;
+    let lastInSplit = isSplit ? this.contextTab.splitview.tabs.at(-1) : null;
+    let splitAtEnd = isSplit && lastInSplit === lastVisibleTab;
     contextMoveTabToEnd.disabled =
-      (lastTabToMove == lastVisibleTab || isLastPinnedTab) &&
+      (lastTabToMove === lastVisibleTab || isLastPinnedTab || splitAtEnd) &&
       !lastTabToMove.group &&
       allSelectedTabsAdjacent;
+
     let contextMoveTabToStart = document.getElementById("context_moveToStart");
     let isFirstTab =
       !this.contextTabs[0].group &&
-      (this.contextTabs[0] == visibleOrCollapsedTabs[0] ||
-        this.contextTabs[0] == visibleOrCollapsedTabs[gBrowser.pinnedTabCount]);
-    contextMoveTabToStart.disabled = isFirstTab && allSelectedTabsAdjacent;
+      (this.contextTabs[0] === visibleOrCollapsedTabs[0] ||
+        this.contextTabs[0] ===
+          visibleOrCollapsedTabs[gBrowser.pinnedTabCount]);
+    let splitAtStart =
+      isSplit &&
+      (firstInSplit === visibleOrCollapsedTabs[0] ||
+        firstInSplit === visibleOrCollapsedTabs[gBrowser.pinnedTabCount]);
+    contextMoveTabToStart.disabled =
+      (isFirstTab || splitAtStart) && allSelectedTabsAdjacent;
 
     document.getElementById("context_openTabInWindow").disabled =
       this.contextTab.hasAttribute("customizemode");

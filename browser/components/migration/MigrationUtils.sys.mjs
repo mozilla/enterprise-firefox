@@ -61,10 +61,6 @@ const MIGRATOR_MODULES = Object.freeze({
     moduleURI: "resource:///modules/FirefoxSelectableProfileMigrator.sys.mjs",
     platforms: ["linux", "macosx", "win"],
   },
-  IEProfileMigrator: {
-    moduleURI: "resource:///modules/IEProfileMigrator.sys.mjs",
-    platforms: ["win"],
-  },
   SafariProfileMigrator: {
     moduleURI: "resource:///modules/SafariProfileMigrator.sys.mjs",
     platforms: ["macosx"],

@@ -95,7 +95,7 @@ trainhop-release:
     component: "Firefox::New Tab Page"
     suffix: "trainhop-rel"
     mozinfo: "trainhop"
-    expiration: None
+    expiration: "never"
     merge:
         worker:
             env:
@@ -139,7 +139,7 @@ trainhop-beta:
     component: "Firefox::New Tab Page"
     suffix: "trainhop-beta"
     mozinfo: "trainhop"
-    expiration: None
+    expiration: "never"
     merge:
         worker:
             env:

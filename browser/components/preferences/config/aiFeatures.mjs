@@ -598,66 +598,68 @@ Preferences.addSetting({
   pref: "browser.smartwindow.firstrun.modelChoice",
 });
 
-Preferences.addSetting({
-  id: "modelSelection",
-  deps: [
-    "smartWindowModel",
-    "smartWindowFirstRunModelChoice",
-    "smartWindowEndpoint",
-    "smartWindowPreferencesEndpoint",
-  ],
-  get(_, deps) {
-    const modelChoice = deps.smartWindowFirstRunModelChoice.value;
-    if (modelChoice) {
-      return modelChoice;
-    }
+{
+  // Track when the custom radio is selected but not yet saved
+  // Defer writing modelChoice = "0" until Save button is clicked
+  let customRadioSelected = false;
+  Preferences.addSetting({
+    id: "modelSelection",
+    deps: [
+      "smartWindowModel",
+      "smartWindowFirstRunModelChoice",
+      "smartWindowEndpoint",
+      "smartWindowPreferencesEndpoint",
+    ],
+    get(_, deps) {
+      if (customRadioSelected) {
+        return "0";
+      }
 
-    // Fall back to no selection
-    return null;
-  },
-  set(value, deps) {
-    const prev = deps.smartWindowFirstRunModelChoice.value;
-    previousAssistantModel = prev ? lazy.MODELS[prev].modelName : "No model";
+      const modelChoice = deps.smartWindowFirstRunModelChoice.value;
+      if (modelChoice) {
+        return modelChoice;
+      }
 
-    // Save model selection
-    // Preset models save pref immediately, "Custom" waits for clicking the Save button
-    if (value !== "0") {
+      // Fall back to no selection
+      return null;
+    },
+    set(value, deps, setting) {
+      const prev = deps.smartWindowFirstRunModelChoice.value;
+      previousAssistantModel = prev ? lazy.MODELS[prev].modelName : "No model";
+
+      customRadioSelected = value === "0";
+      if (customRadioSelected) {
+        setting.onChange();
+        return;
+      }
       // Switching to preset
       const endpointEl = document.getElementById("customModelEndpoint");
       const currentEndpoint = endpointEl?.value?.trim();
       if (currentEndpoint) {
         deps.smartWindowPreferencesEndpoint.value = currentEndpoint;
       }
-
       Services.prefs.clearUserPref("browser.smartwindow.endpoint");
-    }
-
-    // Write index to firstrun.modelChoice
-    deps.smartWindowFirstRunModelChoice.value = value;
-  },
-  onUserChange(value, _) {
-    // sending telemetry only for the preset models
-    // custom model telemetry is sent after user hits the save button
-    if (value !== "0") {
-      const new_model = lazy.MODELS[value].modelName;
-      Glean.smartWindow.settingsModel.record({
-        previous_model: previousAssistantModel,
-        new_model,
-      });
-      previousAssistantModel = value;
-    }
-  },
-});
+      deps.smartWindowFirstRunModelChoice.value = value;
+    },
+    onUserChange(value, _) {
+      // sending telemetry only for the preset models
+      // custom model telemetry is sent after user hits the save button
+      if (value !== "0") {
+        const new_model = lazy.MODELS[value].modelName;
+        Glean.smartWindow.settingsModel.record({
+          previous_model: previousAssistantModel,
+          new_model,
+        });
+        previousAssistantModel = value;
+      }
+    },
+  });
+}
 
 Preferences.addSetting({
   id: "customModelName",
-  deps: [
-    "smartWindowFirstRunModelChoice",
-    "smartWindowModel",
-    "smartWindowEndpoint",
-    "smartWindowPreferencesEndpoint",
-  ],
-  visible: deps => deps.smartWindowFirstRunModelChoice.value === "0",
+  deps: ["smartWindowModel", "modelSelection"],
+  visible: deps => deps.modelSelection.value === "0",
   get(_, deps) {
     return deps.smartWindowModel.value || "";
   },
@@ -666,11 +668,11 @@ Preferences.addSetting({
 Preferences.addSetting({
   id: "customModelEndpoint",
   deps: [
-    "smartWindowFirstRunModelChoice",
     "smartWindowEndpoint",
     "smartWindowPreferencesEndpoint",
+    "modelSelection",
   ],
-  visible: deps => deps.smartWindowFirstRunModelChoice.value === "0",
+  visible: deps => deps.modelSelection.value === "0",
   get(_, deps) {
     const defaultEndpoint = Services.prefs
       .getDefaultBranch("")
@@ -700,8 +702,8 @@ Preferences.addSetting({
 
 Preferences.addSetting({
   id: "customModelAuthToken",
-  deps: ["smartWindowFirstRunModelChoice", "smartWindowApiKey"],
-  visible: deps => deps.smartWindowFirstRunModelChoice.value === "0",
+  deps: ["smartWindowApiKey", "modelSelection"],
+  visible: deps => deps.modelSelection.value === "0",
   get(_, deps) {
     if (deps.smartWindowApiKey.value) {
       return deps.smartWindowApiKey.value;
@@ -712,8 +714,8 @@ Preferences.addSetting({
 
 Preferences.addSetting({
   id: "customModelHelpLink",
-  deps: ["smartWindowFirstRunModelChoice"],
-  visible: deps => deps.smartWindowFirstRunModelChoice.value === "0",
+  deps: ["modelSelection"],
+  visible: deps => deps.modelSelection.value === "0",
 });
 
 Preferences.addSetting({
@@ -724,8 +726,9 @@ Preferences.addSetting({
     "smartWindowEndpoint",
     "smartWindowApiKey",
     "smartWindowPreferencesEndpoint",
+    "modelSelection",
   ],
-  visible: deps => deps.smartWindowFirstRunModelChoice.value === "0",
+  visible: deps => deps.modelSelection.value === "0",
   disabled() {
     // Read from input element since setting only updates on Save button
     const endpoint = document
@@ -756,11 +759,11 @@ Preferences.addSetting({
     });
     previousAssistantModel = new_model;
 
-    // custom uses .model pref
+    // Save custom selection pref
+    deps.smartWindowFirstRunModelChoice.value = "0";
     deps.smartWindowModel.value = modelName;
     deps.smartWindowEndpoint.value = modelEndpoint;
     deps.smartWindowApiKey.value = modelAuthToken;
-    // Update backup custom endpoint when saving
     deps.smartWindowPreferencesEndpoint.value = modelEndpoint;
   },
 });
@@ -1227,7 +1230,7 @@ SettingGroupManager.registerGroups({
         supportPage: "ai-chatbot",
         controlAttrs: {
           headinglevel: 2,
-          iconsrc: "chrome://browser/skin/sidebars.svg",
+          iconsrc: "chrome://browser/skin/sidebar-collapsed.svg",
         },
         items: [
           {

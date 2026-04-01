@@ -135,6 +135,11 @@ PER_PROJECT_PARAMETERS = {
         "target_tasks_method": "enterprise_firefox_with_tests_tasks",
         "release_product": "firefox-enterprise",
     },
+    "enterprise-firefox-try": {
+        "enable_always_target": True,
+        "release_product": "firefox-enterprise",
+        "target_tasks_method": "try_tasks",
+    },
     # the default parameters are used for projects that do not match above.
     "default": {
         "target_tasks_method": "default",

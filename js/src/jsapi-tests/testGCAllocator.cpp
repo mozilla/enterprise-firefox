@@ -588,6 +588,23 @@ BEGIN_TEST(testBufferAllocator_API) {
 }
 END_TEST(testBufferAllocator_API)
 
+BEGIN_TEST(testBufferAllocator_largeAllocOverflow) {
+  AutoLeaveZeal leaveZeal(cx);
+
+  JS::NonIncrementalGC(cx, JS::GCOptions::Shrink, JS::GCReason::API);
+
+  Zone* zone = cx->zone();
+  size_t initialGCHeapSize = zone->gcHeapSize.bytes();
+  size_t initialMallocHeapSize = zone->mallocHeapSize.bytes();
+
+  CHECK(AllocBuffer(zone, size_t(-1), false) == nullptr);
+  CHECK(zone->gcHeapSize.bytes() == initialGCHeapSize);
+  CHECK(zone->mallocHeapSize.bytes() == initialMallocHeapSize);
+
+  return true;
+}
+END_TEST(testBufferAllocator_largeAllocOverflow)
+
 BEGIN_TEST(testBufferAllocator_realloc) {
   AutoLeaveZeal leaveZeal(cx);
 

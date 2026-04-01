@@ -140,7 +140,10 @@ export class ContentSection extends React.PureComponent {
         parseFloat(window.getComputedStyle(drawerRef)?.height) || 100;
 
       if (isOpen) {
-        drawerRef.style.marginTop = "var(--space-small)";
+        // @nova-cleanup(remove-conditional): Remove novaEnabled check, keep the marginTop assignment
+        drawerRef.style.marginTop = this.props.novaEnabled
+          ? ""
+          : "var(--space-small)";
       } else {
         drawerRef.style.marginTop = `-${drawerHeight + 3}px`;
       }
@@ -193,6 +196,7 @@ export class ContentSection extends React.PureComponent {
                   id="wallpapers-toggle"
                   pressed={wallpapersEnabled || null}
                   ontoggle={this.onPreferenceSelect}
+                  onToggle={this.onPreferenceSelect}
                   data-preference="newtabWallpapers.enabled"
                   data-event-source="WALLPAPERS"
                   data-l10n-id="newtab-wallpaper-toggle-title"
@@ -218,10 +222,12 @@ export class ContentSection extends React.PureComponent {
               {/* Weather */}
               {mayHaveWeather && (
                 <div id="weather-section" className="section">
+                  {/** @backward-compat { version 150 } React 16 (cached page) uses ontoggle;React 19 uses onToggle. Remove onToggle once Firefox 150 reaches Release. */}
                   <moz-toggle
                     id="weather-toggle"
                     pressed={weatherEnabled || null}
                     ontoggle={this.onPreferenceSelect}
+                    onToggle={this.onPreferenceSelect}
                     data-preference="showWeather"
                     data-event-source="WEATHER"
                     data-l10n-id="newtab-custom-widget-weather-toggle"
@@ -232,10 +238,12 @@ export class ContentSection extends React.PureComponent {
               {/* Lists */}
               {mayHaveListsWidget && (
                 <div id="lists-widget-section" className="section">
+                  {/** @backward-compat { version 150 } React 16 (cached page) uses ontoggle; React 19 uses onToggle. Remove onToggle once Firefox 150 reaches Release. */}
                   <moz-toggle
                     id="lists-toggle"
                     pressed={listsEnabled || null}
                     ontoggle={this.onPreferenceSelect}
+                    onToggle={this.onPreferenceSelect}
                     data-preference="widgets.lists.enabled"
                     data-event-source="WIDGET_LISTS"
                     data-l10n-id="newtab-custom-widget-lists-toggle"
@@ -246,10 +254,12 @@ export class ContentSection extends React.PureComponent {
               {/* Timer */}
               {mayHaveTimerWidget && (
                 <div id="timer-widget-section" className="section">
+                  {/** @backward-compat { version 150 } React 16 (cached page) uses ontoggle; React 19 uses onToggle. Remove onToggle once Firefox 150 reaches Release. */}
                   <moz-toggle
                     id="timer-toggle"
                     pressed={timerEnabled || null}
                     ontoggle={this.onPreferenceSelect}
+                    onToggle={this.onPreferenceSelect}
                     data-preference="widgets.focusTimer.enabled"
                     data-event-source="WIDGET_TIMER"
                     data-l10n-id="newtab-custom-widget-timer-toggle"
@@ -263,10 +273,12 @@ export class ContentSection extends React.PureComponent {
           {/* Note: If widgets are enabled, the weather toggle will be moved under Widgets subsection */}
           {!mayHaveWidgets && mayHaveWeather && (
             <div id="weather-section" className="section">
+              {/** @backward-compat { version 150 } React 16 (cached page) uses ontoggle; React 19 uses onToggle. Remove onToggle once Firefox 150 reaches Release. */}
               <moz-toggle
                 id="weather-toggle"
                 pressed={weatherEnabled || null}
                 ontoggle={this.onPreferenceSelect}
+                onToggle={this.onPreferenceSelect}
                 data-preference="showWeather"
                 data-event-source="WEATHER"
                 data-l10n-id="newtab-custom-weather-toggle"
@@ -277,15 +289,17 @@ export class ContentSection extends React.PureComponent {
           <span className="divider" role="separator"></span>
 
           <div id="shortcuts-section" className="section">
+            {/** @backward-compat { version 150 } React 16 (cached page) uses ontoggle; React 19 uses onToggle. Remove onToggle once Firefox 150 reaches Release. */}
             <moz-toggle
               id="shortcuts-toggle"
               pressed={topSitesEnabled || null}
               ontoggle={this.onPreferenceSelect}
+              onToggle={this.onPreferenceSelect}
               data-preference="feeds.topsites"
               data-event-source="TOP_SITES"
               data-l10n-id={
                 novaEnabled
-                  ? "newtab-custom-shortcuts-toggle-rows"
+                  ? "newtab-custom-shortcuts-nova"
                   : "newtab-custom-shortcuts-toggle"
               }
             >
@@ -303,6 +317,11 @@ export class ContentSection extends React.PureComponent {
                       value={topSitesRowsCount}
                       aria-labelledby="custom-shortcuts-title"
                       onChange={this.onPreferenceSelect}
+                      // @nova-cleanup(remove-conditional): Remove novaEnabled conditional and spread operator, keep the attributes
+                      {...(novaEnabled && {
+                        "data-l10n-id": "newtab-custom-row-description",
+                        inputLayout: "inline-end",
+                      })}
                     >
                       {[1, 2, 3, 4].map(num =>
                         // @nova-cleanup(remove-conditional): Remove the conditional and "else" block after Nova lands
@@ -364,10 +383,12 @@ export class ContentSection extends React.PureComponent {
 
           {pocketRegion && (
             <div id="pocket-section" className="section">
+              {/** @backward-compat { version 150 } React 16 (cached page) uses ontoggle; React 19 uses onToggle. Remove onToggle once Firefox 150 reaches Release. */}
               <moz-toggle
                 id="pocket-toggle"
                 pressed={pocketEnabled || null}
                 ontoggle={this.onPreferenceSelect}
+                onToggle={this.onPreferenceSelect}
                 aria-describedby="custom-pocket-subtitle"
                 data-preference="feeds.section.topstories"
                 data-event-source="TOP_STORIES"

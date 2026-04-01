@@ -159,6 +159,32 @@ if (DEBUG_TRACE_LINE) {
   });
 }
 
+/**
+ * Test helper to start a JavaScript tracer which would trace DevTools modules.
+ *
+ * @param {object} options
+ *        See https://firefox-source-docs.mozilla.org/devtools/tests/mochitest-devtools.html#tracing-javascript
+ *        for a list of handy additional options.
+ * @return {function}
+ *         Callback to stop the tracing.
+ */
+function startTracing(options = {}) {
+  const { JSTracer } = ChromeUtils.importESModule(
+    "resource://devtools/server/tracer/tracer.sys.mjs",
+    { global: "devtools" }
+  );
+  // You have to at least pass an empty object to startTracing,
+  // otherwise, all the attributes at optional.
+  JSTracer.startTracing({
+    traceAllGlobals: true,
+    ...options,
+  });
+
+  return function () {
+    JSTracer.stopTracing();
+  };
+}
+
 const { loader, require } = ChromeUtils.importESModule(
   "resource://devtools/shared/loader/Loader.sys.mjs"
 );

@@ -408,7 +408,7 @@ export class ChatConversation extends EventEmitter {
    * adding new user prompt to messages.
    *
    * @param {string} prompt - new user prompt
-   * @param {URL} pageUrl - The URL of the page when prompt was submitted
+   * @param {?URL} pageUrl - The URL of the page when prompt was submitted
    * @param {openAIEngine} engineInstance
    * @param {UserRoleOpts} [userOpts]
    * @param {boolean} [skipUserDispatch=false] - If true, do not emit the
@@ -441,10 +441,13 @@ export class ChatConversation extends EventEmitter {
       this.emit("chat-conversation:message-update", this.messages.at(-1));
     }
 
-    const realTimeContext = await this.getRealTimeInfo(engineInstance, {
-      contextMentions: userOpts?.contextMentions,
-      securityProperties: this.securityProperties,
-    });
+    const realTimeContext = await ChatConversation.getRealTimeInfo(
+      engineInstance,
+      {
+        contextMentions: userOpts?.contextMentions,
+        securityProperties: this.securityProperties,
+      }
+    );
     if (realTimeContext) {
       userContext.realTimeContext = realTimeContext;
     }
@@ -544,7 +547,7 @@ export class ChatConversation extends EventEmitter {
    * returns content.
    *
    * @typedef {
-   *   (depsOverride?: object) => Promise<{url, title, description, locale, timezone, isoTimestamp, todayDate, hasTabInfo}>
+   *   (contextMentions: Array<ContextWebsite>) => Promise<{url, title, description, locale, timezone, isoTimestamp, todayDate, hasTabInfo}>
    * } RealTimeApiFunction
    *
    * @param {openAIEngine} engineInstance - The initialized engine instance
@@ -556,7 +559,7 @@ export class ChatConversation extends EventEmitter {
    *
    * @returns {Promise<string|null>} - Promise that resolves with real time info or null
    */
-  async getRealTimeInfo(
+  static async getRealTimeInfo(
     engineInstance,
     {
       getRealTimeMapping = constructRealTimeInfoInjectionMessage,
@@ -564,7 +567,7 @@ export class ChatConversation extends EventEmitter {
       securityProperties,
     } = {}
   ) {
-    const realTimeInfoMapping = await getRealTimeMapping();
+    const realTimeInfoMapping = await getRealTimeMapping(contextMentions);
     if (realTimeInfoMapping) {
       let realTimePromptRaw = await engineInstance.loadPrompt(
         MODEL_FEATURES.REAL_TIME_CONTEXT_DATE

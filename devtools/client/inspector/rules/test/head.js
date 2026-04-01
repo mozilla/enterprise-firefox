@@ -292,7 +292,7 @@ var addProperty = async function (
     );
   });
 
-  info("Adding name " + name);
+  info(`Adding name "${name}"`);
   editor.input.value = name;
   is(
     editor.input.getAttribute("aria-label"),
@@ -307,7 +307,7 @@ var addProperty = async function (
   // Focus has moved to the value inplace-editor automatically.
   editor = inplaceEditor(view.styleDocument.activeElement);
   const textProps = ruleEditor.rule.textProps;
-  const textProp = textProps[textProps.length - 1];
+  const textProp = textProps.at(-1);
 
   is(
     ruleEditor.rule.textProps.length,
@@ -320,12 +320,6 @@ var addProperty = async function (
     "The inplace editor appeared for the value"
   );
 
-  info("Adding value " + value);
-  // Setting the input value schedules a preview to be shown in 10ms which
-  // triggers a ruleview-changed event (see bug 1209295).
-  const onPreview = view.once("ruleview-changed");
-  editor.input.value = value;
-
   ok(
     !!editor.input.getAttribute("aria-labelledby"),
     "The value input has an aria-labelledby attribute…"
@@ -336,8 +330,35 @@ var addProperty = async function (
     "…which references the property name input"
   );
 
-  view.debounce.flush();
-  await onPreview;
+  // At first, we have an empty input and in most of the case, that might show the
+  // autocomplete popup
+  if (editor.cssProperties.getValues(name).length) {
+    info("Wait for the popup to open");
+    await waitFor(() => editor.popup.isOpen);
+    const onPreview = view.once("ruleview-changed");
+    // Flush debounce so it does trigger the preview code
+    view.debounce.flush();
+    await onPreview;
+  }
+
+  info(`Setting the value for "${name}": "${value}"`);
+  // Setting the input value schedules a preview to be shown in 10ms which
+  // triggers a ruleview-changed event (see bug 1209295).
+  if (value) {
+    const onAfterSuggest = editor.once("after-suggest");
+
+    // Setting the input value to the wanted value minus the last char…
+    editor.input.value = value.substring(0, value.length - 1);
+    // …so we can actually simulate typing the last char, which will trigger autocomplete
+    // code in the InplaceEditor. Attempts to simulate typing the whole string was triggering
+    // too many events that wouldn't be ideal to track here.
+    EventUtils.sendString(value.at(-1), view.styleWindow);
+    await onAfterSuggest;
+    const onPreview = view.once("ruleview-changed");
+    // Flush debounce so it does trigger the preview code
+    view.debounce.flush();
+    await onPreview;
+  }
 
   if (commitValueWith === null) {
     return textProp;

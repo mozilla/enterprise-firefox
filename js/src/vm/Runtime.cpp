@@ -93,9 +93,7 @@ JSRuntime::JSRuntime(JSRuntime* parentRuntime)
       reportStreamErrorCallback(nullptr),
       hadOutOfMemory(false),
       allowRelazificationForTesting(false),
-      destroyCompartmentCallback(nullptr),
       sizeOfIncludingThisCompartmentCallback(nullptr),
-      destroyRealmCallback(nullptr),
       realmNameCallback(nullptr),
       securityCallbacks(&NullSecurityCallbacks),
       DOMcallbacks(nullptr),
@@ -814,7 +812,7 @@ JS_PUBLIC_API void JS::DisableRecordingAllocations(JSContext* cx) {
 
 JS_PUBLIC_API void JS::shadow::RegisterWeakCache(
     JSRuntime* rt, detail::WeakCacheBase* cachep) {
-  rt->registerWeakCache(cachep);
+  rt->gc.registerWeakCache(cachep);
 }
 
 void JSRuntime::startRecordingAllocations(

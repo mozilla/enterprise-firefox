@@ -177,6 +177,8 @@
 
     #updatePanel() {
       const inputLength = this.#noteField.value.length;
+      const trimmedLength = this.#noteField.value.trim().length;
+
       let overflow;
       if (inputLength > OVERFLOW_MAX_THRESHOLD) {
         overflow = OverflowState.OVERFLOW;
@@ -187,7 +189,7 @@
       }
 
       this.#saveButton.disabled =
-        overflow == OverflowState.OVERFLOW || !inputLength;
+        overflow == OverflowState.OVERFLOW || trimmedLength === 0;
 
       if (overflow != OverflowState.NONE) {
         this.#panel.setAttribute("overflow", overflow);
@@ -258,7 +260,7 @@
     saveNote() {
       let note = this.#noteField.value;
 
-      if (TabNotes.isEligible(this.#currentTab) && note.length) {
+      if (TabNotes.isEligible(this.#currentTab) && note.trim().length) {
         TabNotes.set(this.#currentTab, note, {
           telemetrySource: this.#telemetrySource,
         });

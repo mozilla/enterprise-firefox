@@ -215,3 +215,4 @@ pref(media.decoder-doctor.testing,true) load 2024424.html
 skip-if(!winWidget) pref(media.hevc.enabled,true) load 1859400.html
 load 1603271.html
 load 1536243.html
+load 2027160.html

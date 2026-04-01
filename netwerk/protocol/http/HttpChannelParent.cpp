@@ -1214,20 +1214,12 @@ HttpChannelParent::OnStartRequest(nsIRequest* aRequest) {
   if (httpChannelImpl) {
     httpChannelImpl->IsFromCache(&args.isFromCache());
     httpChannelImpl->GetCacheDisposition(&args.cacheDisposition());
-    httpChannelImpl->IsRacing(&args.isRacing());
     httpChannelImpl->GetCacheEntryId(&args.cacheEntryId());
     httpChannelImpl->GetCacheTokenFetchCount(&args.cacheFetchCount());
     httpChannelImpl->GetCacheTokenExpirationTime(&args.cacheExpirationTime());
     httpChannelImpl->GetProtocolVersion(args.protocolVersion());
 
     mDataSentToChildProcess = httpChannelImpl->DataSentToChildProcess();
-
-    // If RCWN is enabled and cache wins, we can't use the ODA from socket
-    // process.
-    if (args.isRacing()) {
-      mDataSentToChildProcess =
-          httpChannelImpl->DataSentToChildProcess() && !args.isFromCache();
-    }
     args.dataFromSocketProcess() = mDataSentToChildProcess;
   }
 

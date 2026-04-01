@@ -62,6 +62,97 @@ const isMSIX =
 
 const BASE_MESSAGES = () => [
   {
+    id: "MENU_MESSAGE_DEFAULT_CTA_ILLUSTRATION_LAYOUT",
+    template: "menu_message",
+    layout: "column",
+    content: {
+      messageType: "default_cta",
+      imageURL:
+        "chrome://browser/content/asrouter/assets/fox-with-checkmark.svg",
+      imageWidth: 68,
+      primaryText: {
+        string_id: "set-default-menu-message-row-layout-title",
+      },
+      secondaryText: {
+        string_id: "set-default-menu-message-row-layout-subtitle",
+      },
+      primaryActionText: {
+        string_id: "set-default-menu-message-primary-button-variant",
+      },
+      primaryButtonSize: "small",
+      primaryAction: {
+        type: "MULTI_ACTION",
+        data: {
+          actions: [
+            {
+              type: "SET_DEFAULT_BROWSER",
+            },
+          ],
+        },
+      },
+      closeAction: {
+        type: "BLOCK_MESSAGE",
+        data: {
+          id: "MENU_MESSAGE_DEFAULT_CTA_ILLUSTRATION_LAYOUT",
+        },
+      },
+    },
+    targeting:
+      "source == 'app_menu' && os.isWindows && os.windowsVersion >= 10 && !isDefaultBrowserUncached && !hasActiveEnterprisePolicies && 'browser.newtabpage.activity-stream.asrouter.userprefs.cfr.features' | preferenceValue != false",
+    trigger: {
+      id: "menuOpened",
+    },
+    groups: [],
+    skip_in_tests: "it's covered by browser_asrouter_menu_messages.js",
+  },
+  {
+    id: "MENU_MESSAGE_DEFAULT_CTA_ILLUSTRATION_LAYOUT",
+    template: "menu_message",
+    layout: "column",
+    content: {
+      imageURL:
+        "chrome://browser/content/asrouter/assets/fox-with-checkmark.svg",
+      imageWidth: 68,
+      messageType: "default_cta",
+      primaryText: {
+        string_id: "set-default-menu-message-row-layout-title",
+      },
+      secondaryText: {
+        string_id: "set-default-menu-message-row-layout-subtitle-variant",
+      },
+      primaryActionText: {
+        string_id: "set-default-menu-message-primary-button-variant",
+      },
+      primaryButtonSize: "small",
+      primaryAction: {
+        type: "MULTI_ACTION",
+        data: {
+          actions: [
+            {
+              type: "SET_DEFAULT_BROWSER",
+            },
+            {
+              type: "PIN_FIREFOX_TO_TASKBAR",
+            },
+          ],
+        },
+      },
+      closeAction: {
+        type: "BLOCK_MESSAGE",
+        data: {
+          id: "MENU_MESSAGE_DEFAULT_CTA_ILLUSTRATION_LAYOUT",
+        },
+      },
+    },
+    targeting:
+      "source == 'app_menu' && os.isMac && !isDefaultBrowserUncached && !hasActiveEnterprisePolicies && 'browser.newtabpage.activity-stream.asrouter.userprefs.cfr.features' | preferenceValue != false",
+    trigger: {
+      id: "menuOpened",
+    },
+    groups: [],
+    skip_in_tests: "it's covered by browser_asrouter_menu_messages.js",
+  },
+  {
     id: "AI_WINDOW_TOU_EXISTING_USERS_MODAL",
     template: "spotlight",
     frequency: {

@@ -348,7 +348,7 @@ JS_PUBLIC_API void js::NotifyAnimationActivity(JSObject* obj) {
 
   auto timeNow = mozilla::TimeStamp::Now();
   obj->as<GlobalObject>().realm()->lastAnimationTime = timeNow;
-  obj->runtimeFromMainThread()->lastAnimationTime = timeNow;
+  obj->runtimeFromMainThread()->gc.setLastAnimationTime(timeNow);
 }
 
 JS_PUBLIC_API bool js::IsObjectInContextCompartment(JSObject* obj,

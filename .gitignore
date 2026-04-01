@@ -406,6 +406,9 @@ toolkit/crashreporter/minidump-analyzer/target/
 CLAUDE.local.md
 .claude/settings.local.json
 
+# Ignore Claude Code worktrees
+.claude/worktrees/
+
 # Ignore .json.gz (typically profiles) in the root directory
 # lint-ignore-next-line: git-only
 /*.json.gz

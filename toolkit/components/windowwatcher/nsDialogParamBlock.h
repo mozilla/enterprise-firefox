@@ -18,7 +18,7 @@
 
 class nsDialogParamBlock : public nsIDialogParamBlock {
  public:
-  nsDialogParamBlock();
+  nsDialogParamBlock() = default;
 
   NS_DECL_NSIDIALOGPARAMBLOCK
   NS_DECL_ISUPPORTS
@@ -33,9 +33,9 @@ class nsDialogParamBlock : public nsIDialogParamBlock {
     return aIndex >= 0 && aIndex < aMax ? NS_OK : NS_ERROR_ILLEGAL_VALUE;
   }
 
-  int32_t mInt[kNumInts];
-  int32_t mNumStrings;
-  nsString* mString;
+  int32_t mInt[kNumInts] = {0};
+  int32_t mNumStrings = 0;
+  nsString* mString = nullptr;
   nsCOMPtr<nsIMutableArray> mObjects;
 };
 

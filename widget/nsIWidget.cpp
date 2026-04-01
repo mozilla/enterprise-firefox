@@ -2291,6 +2291,7 @@ void nsIWidget::TrackScrollEventAsSwipe(
 
   mSwipeTracker =
       new SwipeTracker(*this, aSwipeStartEvent, aAllowedDirections, direction);
+  mSwipeTracker->StartTracking(aSwipeStartEvent);
 
   if (!mAPZC) {
     mCurrentPanGestureBelongsToSwipe = true;
@@ -3337,9 +3338,9 @@ static PrefPair debug_PrefValues[] = {
 bool nsIWidget::debug_GetCachedBoolPref(const char* aPrefName) {
   NS_ASSERTION(nullptr != aPrefName, "cmon, pref name is null.");
 
-  for (uint32_t i = 0; i < std::size(debug_PrefValues); i++) {
-    if (strcmp(debug_PrefValues[i].name, aPrefName) == 0) {
-      return debug_PrefValues[i].value;
+  for (const auto& debug_PrefValue : debug_PrefValues) {
+    if (strcmp(debug_PrefValue.name, aPrefName) == 0) {
+      return debug_PrefValue.value;
     }
   }
 
@@ -3349,10 +3350,9 @@ bool nsIWidget::debug_GetCachedBoolPref(const char* aPrefName) {
 static void debug_SetCachedBoolPref(const char* aPrefName, bool aValue) {
   NS_ASSERTION(nullptr != aPrefName, "cmon, pref name is null.");
 
-  for (uint32_t i = 0; i < std::size(debug_PrefValues); i++) {
-    if (strcmp(debug_PrefValues[i].name, aPrefName) == 0) {
-      debug_PrefValues[i].value = aValue;
-
+  for (auto& debug_PrefValue : debug_PrefValues) {
+    if (strcmp(debug_PrefValue.name, aPrefName) == 0) {
+      debug_PrefValue.value = aValue;
       return;
     }
   }
@@ -3392,16 +3392,14 @@ Debug_PrefObserver::Observe(nsISupports* subject, const char* topic,
   once = false;
 
   nsCOMPtr<nsIObserver> obs(new Debug_PrefObserver());
-  for (uint32_t i = 0; i < std::size(debug_PrefValues); i++) {
+  for (auto& debug_PrefValue : debug_PrefValues) {
     // Initialize the pref values
-    debug_PrefValues[i].value =
-        Preferences::GetBool(debug_PrefValues[i].name, false);
+    debug_PrefValue.value = Preferences::GetBool(debug_PrefValue.name, false);
 
     if (obs) {
       // Register callbacks for when these change
       nsCString name;
-      name.AssignLiteral(debug_PrefValues[i].name,
-                         strlen(debug_PrefValues[i].name));
+      name.AssignLiteral(debug_PrefValue.name, strlen(debug_PrefValue.name));
       Preferences::AddStrongObserver(obs, name);
     }
   }

@@ -1143,7 +1143,7 @@ bool nsTreeSanitizer::SanitizeInlineStyle(
 
   nsAutoString sanitizedStyle;
   SanitizeStyleSheet(styleText, sanitizedStyle, aElement->OwnerDoc(),
-                     aElement->GetBaseURI(), StyleSanitizationKind::Standard);
+                     aElement->GetBaseURI(), aSanitizationKind);
   RemoveAllAttributesFromDescendants(aElement);
   nsContentUtils::SetNodeTextContent(aElement, sanitizedStyle, true);
 

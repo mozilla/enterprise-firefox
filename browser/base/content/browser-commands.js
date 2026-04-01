@@ -208,7 +208,9 @@ var BrowserCommands = {
     let werePassedURL = !!url;
     url ??= BROWSER_NEW_TAB_URL;
     let searchClipboard =
-      gMiddleClickNewTabUsesPasteboard && event?.button == 1;
+      event?.button == 1 &&
+      Services.prefs.getBoolPref("middlemouse.paste") &&
+      gMiddleClickNewTabUsesPasteboard;
 
     let relatedToCurrent = false;
     let where = "tab";

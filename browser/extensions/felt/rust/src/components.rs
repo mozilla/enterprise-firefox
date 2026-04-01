@@ -17,7 +17,7 @@ use xpcom::RefPtr;
 
 use log::{error, trace};
 
-use crate::message::{FeltMessage, FELT_IPC_VERSION};
+use crate::message::{FeltMessage, LogoutType, FELT_IPC_VERSION};
 #[cfg(target_os = "linux")]
 use crate::utils;
 use crate::utils::{Tokens, CONSOLE_URL, TOKENS, TOKEN_EXPIRY_SKEW};
@@ -288,20 +288,45 @@ impl FeltXPCOM {
         }
     }
 
-    // Firefox to FELT to notify of logout
-    fn PerformSignout(&self) -> nserror::nsresult {
-        trace!("FeltXPCOM::PerformSignout");
+    fn GetLogoutTypeNormal(&self, value: *mut nsACString) -> nserror::nsresult {
+        unsafe { (*value).assign(LogoutType::Normal.as_str()) };
+        NS_OK
+    }
+
+    fn GetLogoutTypeConsoleForcedLogout(&self, value: *mut nsACString) -> nserror::nsresult {
+        unsafe { (*value).assign(LogoutType::ConsoleForcedLogout.as_str()) };
+        NS_OK
+    }
+
+    fn GetLogoutTypeUnknown(&self, value: *mut nsACString) -> nserror::nsresult {
+        unsafe { (*value).assign(LogoutType::Unknown.as_str()) };
+        NS_OK
+    }
+
+    fn perform_logout(&self, logout_type: LogoutType) -> nserror::nsresult {
+        trace!("FeltXPCOM::perform_logout");
         let guard = crate::FELT_CLIENT.lock().expect("Could not get lock");
         match &*guard {
             Some(client) => {
-                trace!("firefox_felt_send_extension_ready(): sending message");
-                client.notify_signout();
+                trace!("FeltXPCOM::perform_logout(): sending message");
+                client.notify_signout(logout_type);
+                NS_OK
             }
             None => {
-                trace!("firefox_felt_send_extension_ready(): missing client");
+                trace!("FeltXPCOM::perform_logout(): missing client");
+                NS_ERROR_FAILURE
             }
         }
-        NS_OK
+    }
+
+    fn PerformNormalLogout(&self) -> nserror::nsresult {
+        trace!("FeltXPCOM::PerformNormalLogout");
+        self.perform_logout(LogoutType::Normal)
+    }
+
+    fn PerformConsoleForcedLogout(&self) -> nserror::nsresult {
+        trace!("FeltXPCOM::PerformConsoleForcedLogout");
+        self.perform_logout(LogoutType::ConsoleForcedLogout)
     }
 
     fn IpcChannel(&self) -> nserror::nsresult {
@@ -387,9 +412,9 @@ impl FeltXPCOM {
                                 trace!("FeltServerThread::felt_server::ipc_loop(): ExtensionReady");
                                 crate::utils::notify_observers("felt-extension-ready".to_string());
                             },
-                            Ok(FeltMessage::LogoutShutdown) => {
-                                trace!("FeltServerThread::felt_server::ipc_loop(): Shutdown for logout");
-                                crate::utils::notify_observers("felt-firefox-logout".to_string());
+                            Ok(FeltMessage::Logout(logout_type)) => {
+                                trace!("FeltServerThread::felt_server::ipc_loop(): Logout {:?}", logout_type);
+                                crate::utils::notify_observers_with_payload("felt-firefox-logout".to_string(), Some(logout_type.as_str().to_string()));
                             },
                             Ok(FeltMessage::Tokens((access_token, refresh_token, expires_at))) => {
                                 trace!("FeltServerThread::felt_server::ipc_loop(): Update tokens from browser");

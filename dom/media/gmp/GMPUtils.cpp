@@ -4,6 +4,8 @@
 
 #include "GMPUtils.h"
 
+#include <bit>
+
 #include "GMPLog.h"
 #include "GMPService.h"
 #include "VideoLimits.h"
@@ -279,15 +281,15 @@ bool AdjustOpenH264NALUSequence(GMPVideoEncodedFrame* aEncodedFrame) {
     uint8_t* unitBuffer = encodedBuffer + unitOffset;
     switch (encodedType) {
       case GMP_BufferLength24: {
-#if MOZ_LITTLE_ENDIAN()
-        unitSize = (static_cast<uint32_t>(*unitBuffer)) |
-                   (static_cast<uint32_t>(*(unitBuffer + 1)) << 8) |
-                   (static_cast<uint32_t>(*(unitBuffer + 2)) << 16);
-#else
-        unitSize = (static_cast<uint32_t>(*unitBuffer) << 16) |
-                   (static_cast<uint32_t>(*(unitBuffer + 1)) << 8) |
-                   (static_cast<uint32_t>(*(unitBuffer + 2)));
-#endif
+        if constexpr (std::endian::native == std::endian::little) {
+          unitSize = (static_cast<uint32_t>(*unitBuffer)) |
+                     (static_cast<uint32_t>(*(unitBuffer + 1)) << 8) |
+                     (static_cast<uint32_t>(*(unitBuffer + 2)) << 16);
+        } else {
+          unitSize = (static_cast<uint32_t>(*unitBuffer) << 16) |
+                     (static_cast<uint32_t>(*(unitBuffer + 1)) << 8) |
+                     (static_cast<uint32_t>(*(unitBuffer + 2)));
+        }
         const uint8_t startSequence[] = {0, 0, 1};
         if (memcmp(unitBuffer, startSequence, 3) == 0) {
           // This is a bug in OpenH264 where it misses to convert the NALU start
@@ -301,11 +303,11 @@ bool AdjustOpenH264NALUSequence(GMPVideoEncodedFrame* aEncodedFrame) {
         break;
       }
       case GMP_BufferLength32: {
-#if MOZ_LITTLE_ENDIAN()
-        unitSize = LittleEndian::readUint32(unitBuffer);
-#else
-        unitSize = BigEndian::readUint32(unitBuffer);
-#endif
+        if constexpr (std::endian::native == std::endian::little) {
+          unitSize = LittleEndian::readUint32(unitBuffer);
+        } else {
+          unitSize = BigEndian::readUint32(unitBuffer);
+        }
         const uint8_t startSequence[] = {0, 0, 0, 1};
         if (memcmp(unitBuffer, startSequence, 4) == 0) {
           // This is a bug in OpenH264 where it misses to convert the NALU start

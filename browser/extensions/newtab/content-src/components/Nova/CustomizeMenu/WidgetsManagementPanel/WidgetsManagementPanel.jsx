@@ -133,10 +133,12 @@ function WidgetsManagementPanel({
           <div className="settings-widgets">
             {mayHaveWeather && (
               <div id="weather-section" className="section">
+                {/** @backward-compat { version 150 } React 16 (cached page) uses ontoggle; React 19 uses onToggle. Remove onToggle once Firefox 150 reaches Release. */}
                 <moz-toggle
                   id="weather-toggle"
                   pressed={weatherEnabled || null}
                   ontoggle={onToggleWidget}
+                  onToggle={onToggleWidget}
                   data-preference="showWeather"
                   data-event-source="WEATHER"
                   data-l10n-id="newtab-custom-widget-weather-toggle"
@@ -145,10 +147,12 @@ function WidgetsManagementPanel({
             )}
             {mayHaveTimerWidget && (
               <div id="timer-widget-section" className="section">
+                {/** @backward-compat { version 150 } React 16 (cached page) uses ontoggle; React 19 uses onToggle. Remove onToggle once Firefox 150 reaches Release. */}
                 <moz-toggle
                   id="timer-toggle"
                   pressed={timerEnabled || null}
                   ontoggle={onToggleWidget}
+                  onToggle={onToggleWidget}
                   data-preference="widgets.focusTimer.enabled"
                   data-event-source="WIDGET_TIMER"
                   data-l10n-id="newtab-custom-widget-timer-toggle"
@@ -157,10 +161,12 @@ function WidgetsManagementPanel({
             )}
             {mayHaveListsWidget && (
               <div id="lists-widget-section" className="section">
+                {/** @backward-compat { version 150 } React 16 (cached page) uses ontoggle; React 19 uses onToggle. Remove onToggle once Firefox 150 reaches Release. */}
                 <moz-toggle
                   id="lists-toggle"
                   pressed={listsEnabled || null}
                   ontoggle={onToggleWidget}
+                  onToggle={onToggleWidget}
                   data-preference="widgets.lists.enabled"
                   data-event-source="WIDGET_LISTS"
                   data-l10n-id="newtab-custom-widget-lists-toggle"

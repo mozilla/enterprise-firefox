@@ -6,7 +6,26 @@
 
 DIRS += ["dialogs"]
 
-BROWSER_CHROME_MANIFESTS += ["tests/browser.toml", "tests/siteData/browser.toml"]
+BROWSER_CHROME_MANIFESTS += [
+    "tests/aiFeatures/browser.toml",
+    "tests/applications/browser.toml",
+    "tests/browser.toml",
+    "tests/credentials/browser.toml",
+    "tests/downloads/browser.toml",
+    "tests/etp/browser.toml",
+    "tests/experimental_features/browser.toml",
+    "tests/home/browser.toml",
+    "tests/moreFromMozilla/browser.toml",
+    "tests/networking/browser.toml",
+    "tests/performance/browser.toml",
+    "tests/permissions/browser.toml",
+    "tests/privacy/browser.toml",
+    "tests/search/browser.toml",
+    "tests/security/browser.toml",
+    "tests/siteData/browser.toml",
+    "tests/sync/browser.toml",
+    "tests/telemetry/browser.toml",
+]
 MOCHITEST_CHROME_MANIFESTS += ["tests/chrome/chrome.toml"]
 
 for var in ("MOZ_APP_NAME", "MOZ_MACBUNDLE_NAME"):

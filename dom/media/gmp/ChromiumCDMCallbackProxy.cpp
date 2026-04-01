@@ -54,8 +54,9 @@ void ChromiumCDMCallbackProxy::RejectPromise(uint32_t aPromiseId,
       std::move(aException), aErrorMessage);
 }
 
-static dom::MediaKeyMessageType ToDOMMessageType(uint32_t aMessageType) {
-  switch (static_cast<cdm::MessageType>(aMessageType)) {
+static dom::MediaKeyMessageType ToDOMMessageType(
+    cdm::MessageType aMessageType) {
+  switch (aMessageType) {
     case cdm::kLicenseRequest:
       return dom::MediaKeyMessageType::License_request;
     case cdm::kLicenseRenewal:
@@ -70,7 +71,7 @@ static dom::MediaKeyMessageType ToDOMMessageType(uint32_t aMessageType) {
 }
 
 void ChromiumCDMCallbackProxy::SessionMessage(const nsACString& aSessionId,
-                                              uint32_t aMessageType,
+                                              cdm::MessageType aMessageType,
                                               nsTArray<uint8_t>&& aMessage) {
   DispatchToMainThread("ChromiumCDMProxy::OnSessionMessage",
                        &ChromiumCDMProxy::OnSessionMessage,
@@ -78,8 +79,8 @@ void ChromiumCDMCallbackProxy::SessionMessage(const nsACString& aSessionId,
                        ToDOMMessageType(aMessageType), std::move(aMessage));
 }
 
-static dom::MediaKeyStatus ToDOMMediaKeyStatus(uint32_t aStatus) {
-  switch (static_cast<cdm::KeyStatus>(aStatus)) {
+static dom::MediaKeyStatus ToDOMMediaKeyStatus(cdm::KeyStatus aStatus) {
+  switch (aStatus) {
     case cdm::kUsable:
       return dom::MediaKeyStatus::Usable;
     case cdm::kInternalError:
@@ -100,7 +101,7 @@ static dom::MediaKeyStatus ToDOMMediaKeyStatus(uint32_t aStatus) {
 }
 
 void ChromiumCDMCallbackProxy::ResolvePromiseWithKeyStatus(
-    uint32_t aPromiseId, uint32_t aKeyStatus) {
+    uint32_t aPromiseId, cdm::KeyStatus aKeyStatus) {
   DispatchToMainThread("ChromiumCDMProxy::OnResolvePromiseWithKeyStatus",
                        &ChromiumCDMProxy::OnResolvePromiseWithKeyStatus,
                        aPromiseId, ToDOMMediaKeyStatus(aKeyStatus));

@@ -315,11 +315,10 @@ void LifoAlloc::release(Mark mark) {
       released = std::move(list);
     } else {
       released = list.splitAfter(m.markedChunk());
-    }
-
-    // Release everything which follows the mark in the last chunk.
-    if (!list.empty()) {
-      list.last()->release(m);
+      // Release everything which follows the mark in the last chunk.
+      if (!list.empty()) {
+        list.last()->release(m);
+      }
     }
   };
 

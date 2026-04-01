@@ -69,14 +69,9 @@ add_task(async function test_toolbar_button_icon_on_activation_failure() {
   setupService({
     isSignedIn: true,
     isEnrolledAndEntitled: true,
-    canEnroll: true,
-    proxyPass: {
-      status: 200,
-      error: undefined,
-      pass: makePass(),
-    },
   });
-  await IPPEnrollAndEntitleManager.refetchEntitlement();
+  IPProtectionService.updateState();
+  await waitForProxyState(IPPProxyStates.READY);
 
   let button = document.getElementById(IPProtectionWidget.WIDGET_ID);
   Assert.ok(button, "Toolbar button should exist");
@@ -96,7 +91,10 @@ add_task(async function test_toolbar_button_icon_on_activation_failure() {
   );
 
   // Open panel and try to activate while offline
-  let content = await openPanel();
+  let content = await openPanel({
+    isSignedIn: true,
+    isEnrolledAndEntitled: true,
+  });
   let turnOnButton = content.statusCardEl?.actionButtonEl;
   Assert.ok(turnOnButton, "Turn on button should be present");
 
@@ -135,19 +133,17 @@ add_task(async function test_network_error_when_activating_offline() {
   setupService({
     isSignedIn: true,
     isEnrolledAndEntitled: true,
-    canEnroll: true,
-    proxyPass: {
-      status: 200,
-      error: undefined,
-      pass: makePass(),
-    },
   });
-  await IPPEnrollAndEntitleManager.refetchEntitlement();
+  IPProtectionService.updateState();
+  await waitForProxyState(IPPProxyStates.READY);
 
   // Go offline before opening panel
   Services.io.offline = true;
 
-  let content = await openPanel();
+  let content = await openPanel({
+    isSignedIn: true,
+    isEnrolledAndEntitled: true,
+  });
 
   await content.updateComplete;
 

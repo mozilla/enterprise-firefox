@@ -40,22 +40,17 @@ FINAL_TARGET_FILES.actors = [
 ]
 
 if CONFIG["OS_ARCH"] == "WINNT":
-    TEST_DIRS += [
-        "tests/unit/insertIEHistory",
-    ]
     EXPORTS += [
         "nsEdgeMigrationUtils.h",
     ]
     UNIFIED_SOURCES += [
         "nsEdgeMigrationUtils.cpp",
-        "nsIEHistoryEnumerator.cpp",
     ]
     EXTRA_JS_MODULES += [
         "360seMigrationUtils.sys.mjs",
         "ChromeWindowsLoginCrypto.sys.mjs",
         "EdgeProfileMigrator.sys.mjs",
         "ESEDBReader.sys.mjs",
-        "IEProfileMigrator.sys.mjs",
         "MSMigrationUtils.sys.mjs",
     ]
 

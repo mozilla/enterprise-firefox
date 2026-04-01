@@ -7,9 +7,11 @@
 #include "PermissionStatusSink.h"
 #include "PermissionUtils.h"
 #include "mozilla/Services.h"
+#include "mozilla/dom/BrowsingContext.h"
 #include "mozilla/dom/WindowGlobalChild.h"
 #include "nsIObserverService.h"
 #include "nsIPermission.h"
+#include "nsISupportsPrimitives.h"
 
 namespace mozilla::dom {
 
@@ -55,6 +57,11 @@ already_AddRefed<PermissionObserver> PermissionObserver::GetInstance() {
       return nullptr;
     }
 
+    rv = obs->AddObserver(instance, "browser-perm-changed", true);
+    if (NS_WARN_IF(NS_FAILED(rv))) {
+      return nullptr;
+    }
+
     gInstance = instance;
   }
 
@@ -82,7 +89,8 @@ PermissionObserver::Observe(nsISupports* aSubject, const char* aTopic,
                             const char16_t* aData) {
   MOZ_ASSERT_DEBUG_OR_FUZZING(NS_IsMainThread());
   MOZ_ASSERT(!strcmp(aTopic, "perm-changed") ||
-             !strcmp(aTopic, "perm-changed-notify-only"));
+             !strcmp(aTopic, "perm-changed-notify-only") ||
+             !strcmp(aTopic, "browser-perm-changed"));
 
   if (mSinks.IsEmpty()) {
     return NS_OK;
@@ -91,8 +99,27 @@ PermissionObserver::Observe(nsISupports* aSubject, const char* aTopic,
   nsCOMPtr<nsIPermission> perm = nullptr;
   nsCOMPtr<nsPIDOMWindowInner> innerWindow = nullptr;
   nsAutoCString type;
+  bool isBrowserPerm = !strcmp(aTopic, "browser-perm-changed");
 
-  if (!strcmp(aTopic, "perm-changed")) {
+  if (isBrowserPerm && aData && !NS_strcmp(aData, u"cleared")) {
+    // Bulk browser permission clear — subject is an nsISupportsPRUint64
+    // carrying the browserId. Only recompute sinks for that tab.
+    uint64_t clearedBrowserId = 0;
+    nsCOMPtr<nsISupportsPRUint64> wrapper = do_QueryInterface(aSubject);
+    if (wrapper) {
+      wrapper->GetData(&clearedBrowserId);
+    }
+
+    for (PermissionStatusSink* sink : mSinks) {
+      if (!clearedBrowserId ||
+          sink->MaybeAffectedByBrowserIdOnMainThread(clearedBrowserId)) {
+        sink->PermissionChangedOnMainThread();
+      }
+    }
+    return NS_OK;
+  }
+
+  if (!strcmp(aTopic, "perm-changed") || isBrowserPerm) {
     perm = do_QueryInterface(aSubject);
     if (!perm) {
       return NS_OK;
@@ -113,18 +140,25 @@ PermissionObserver::Observe(nsISupports* aSubject, const char* aTopic,
         continue;
       }
       // Check for permissions that are changed for this sink's principal
-      // via the "perm-changed" notification. These permissions affect
-      // the window the sink (PermissionStatus) is held in directly.
-      if (perm && sink->MaybeUpdatedByOnMainThread(perm)) {
-        sink->PermissionChangedOnMainThread();
+      // via the "perm-changed" or "browser-perm-changed" notification.
+      // These permissions affect the window the sink (PermissionStatus)
+      // is held in directly.
+      if (perm) {
+        if (isBrowserPerm) {
+          if (sink->MaybeUpdatedByBrowserPermOnMainThread(perm)) {
+            sink->PermissionChangedOnMainThread();
+          }
+        } else if (sink->MaybeUpdatedByOnMainThread(perm)) {
+          sink->PermissionChangedOnMainThread();
+        }
       }
       // Check for permissions that are changed for this sink's principal
       // via the "perm-changed-notify-only" notification. These permissions
-      // affect the window the sink (PermissionStatus) is held in indirectly- if
-      // the window is same-party with the secondary key of a permission. For
-      // example, a "3rdPartyFrameStorage^https://example.com" permission would
-      // return true on these checks where sink is in a window that is same-site
-      // with https://example.com.
+      // affect the window the sink (PermissionStatus) is held in indirectly-
+      // if the window is same-party with the secondary key of a permission.
+      // For example, a "3rdPartyFrameStorage^https://example.com" permission
+      // would return true on these checks where sink is in a window that is
+      // same-site with https://example.com.
       if (innerWindow &&
           sink->MaybeUpdatedByNotifyOnlyOnMainThread(innerWindow)) {
         sink->PermissionChangedOnMainThread();

@@ -1305,8 +1305,7 @@ template <typename Callback>
 static bool ForEachDescendantWithViewTransitionNameInPaintOrder(
     nsIFrame* aFrame, const Callback& aCb) {
   // Call the callback if it specifies view-transition-name.
-  if (!aFrame->StyleUIReset()->mViewTransitionName.value.IsNone() &&
-      !aCb(aFrame)) {
+  if (aFrame->StyleUIReset()->HasViewTransitionName() && !aCb(aFrame)) {
     return false;
   }
 
@@ -1372,8 +1371,8 @@ Maybe<SkipTransitionReason> ViewTransition::CaptureOldState() {
     if (!usedTransitionNames.EnsureInserted(name)) {
       // We don't expect to see a duplicate transition name when using
       // match-element.
-      MOZ_ASSERT(
-          !aFrame->StyleUIReset()->mViewTransitionName.value.IsMatchElement());
+      MOZ_ASSERT(aFrame->StyleUIReset()->mViewTransitionName.value.AsAtom() !=
+                 nsGkAtoms::match_element);
 
       // If usedTransitionNames contains transitionName, then return failure.
       result.emplace(
@@ -1448,8 +1447,8 @@ Maybe<SkipTransitionReason> ViewTransition::CaptureNewState() {
     if (!usedTransitionNames.EnsureInserted(name)) {
       // We don't expect to see a duplicate transition name when using
       // match-element.
-      MOZ_ASSERT(
-          !aFrame->StyleUIReset()->mViewTransitionName.value.IsMatchElement());
+      MOZ_ASSERT(aFrame->StyleUIReset()->mViewTransitionName.value.AsAtom() !=
+                 nsGkAtoms::match_element);
       result.emplace(
           SkipTransitionReason::DuplicateTransitionNameCapturingNewState);
       return false;
@@ -1883,9 +1882,10 @@ already_AddRefed<nsAtom> ViewTransition::DocumentScopedTransitionNameFor(
   // https://drafts.csswg.org/css-view-transitions-2/#additions-to-vt-name
   // 1. Let computed be the computed value of view-transition-name.
   const auto& computed = aFrame->StyleUIReset()->mViewTransitionName;
+  nsAtom* ident = computed.value.AsAtom();
 
   // 2. If computed is none, return null.
-  if (computed.value.IsNone()) {
+  if (ident == nsGkAtoms::none) {
     return nullptr;
   }
 
@@ -1905,15 +1905,13 @@ already_AddRefed<nsAtom> ViewTransition::DocumentScopedTransitionNameFor(
   }
 
   // 3. If computed is a <custom-ident>, return computed.
-  if (computed.value.IsIdent()) {
-    return RefPtr<nsAtom>{computed.value.AsIdent().AsAtom()}.forget();
+  if (ident != nsGkAtoms::match_element) {
+    return do_AddRef(ident);
   }
 
   // 4. Assert: computed is auto or match-element.
   // TODO: Bug 1918218. Implement auto or others, depending on the spec issue.
   // https://github.com/w3c/csswg-drafts/issues/12091
-  MOZ_ASSERT(computed.value.IsMatchElement());
-
   // 5. If computed is auto, element has an associated id, and computed is
   // associated with the same root as element’s root, then return a unique
   // string starting with "-ua-". Two elements with the same id must return the

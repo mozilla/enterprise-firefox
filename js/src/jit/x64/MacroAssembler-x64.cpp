@@ -996,8 +996,8 @@ void MacroAssembler::callWithABIPost(uint32_t stackAdjust, ABIType result) {
 }
 
 static bool IsIntArgReg(Register reg) {
-  for (uint32_t i = 0; i < NumIntArgRegs; i++) {
-    if (IntArgRegs[i] == reg) {
+  for (auto IntArgReg : IntArgRegs) {
+    if (IntArgReg == reg) {
       return true;
     }
   }

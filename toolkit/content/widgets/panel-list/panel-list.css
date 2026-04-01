@@ -8,6 +8,9 @@
  */
 :host([popover]) {
   margin: 0;
+  inset: auto;
+  /* Reset inline padding added by the UA [popover] rule so the panel aligns precisely. */
+  padding-inline: 0;
 }
 
 :host([showing]) {

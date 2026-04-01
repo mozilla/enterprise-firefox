@@ -109,8 +109,12 @@ class LogModule extends WindowGlobalBiDiModule {
     const {
       // `arguments` cannot be used as variable name in functions
       arguments: messageArguments,
+      columnNumber,
+      filename,
+      functionName,
       // `level` corresponds to the console method used
       level: method,
+      lineNumber,
       stacktrace,
       timeStamp,
     } = data;
@@ -166,10 +170,15 @@ class LogModule extends WindowGlobalBiDiModule {
     // TODO: Bug 1742589. Use an actual realm from which the event came from.
     const source = this.#buildSource(defaultRealm);
 
-    // Set stack trace only for certain methods.
     let stackTrace;
-    if (["assert", "error", "trace", "warn"].includes(method)) {
+    if (stacktrace) {
       stackTrace = this.#buildStackTrace(stacktrace);
+    } else if (filename) {
+      // Bug 1944136: Build a top-most frame until we have
+      // full stacktrace support for all console API types.
+      stackTrace = this.#buildStackTrace([
+        { columnNumber, filename, functionName, lineNumber },
+      ]);
     }
 
     // Build the ConsoleLogEntry

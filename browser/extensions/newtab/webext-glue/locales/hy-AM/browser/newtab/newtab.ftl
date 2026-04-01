@@ -151,7 +151,7 @@ newtab-menu-report-this-ad = Հաղորդել այս գովազդի մասին
 
 ## Message displayed in a modal window to explain privacy and provide context for sponsored content.
 
-newtab-privacy-modal-button-done = Ավարտ
+newtab-privacy-modal-button-done = Պատրաստ է։
 newtab-privacy-modal-button-manage = Կառավարել հովանավորված բովանդակության կարգավորումները
 newtab-privacy-modal-header = Ձեր գաղտնիությունը կարևոր է։
 newtab-privacy-modal-paragraph-2 =

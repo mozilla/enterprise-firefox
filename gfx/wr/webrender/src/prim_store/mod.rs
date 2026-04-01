@@ -840,6 +840,7 @@ pub enum PrimitiveInstanceKind {
     },
     BoxShadow {
         data_handle: BoxShadowDataHandle,
+        render_task: Option<RenderTaskId>,
     },
 }
 
@@ -948,6 +949,7 @@ impl PrimitiveInstance {
             PrimitiveInstanceKind::BoxShadow { data_handle, .. } => {
                 data_handle.uid()
             }
+
         }
     }
 }

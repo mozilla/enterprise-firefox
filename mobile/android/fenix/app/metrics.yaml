@@ -15066,3 +15066,18 @@ toolbar:
     notification_emails:
       - android-probes@mozilla.com
     expires: never
+
+integrity:
+  warmed_up:
+    type: event
+    description: |
+      Records when the Play Integrity client has completed its warm-up.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2026727
+    data_reviews:
+      - https://phabricator.services.mozilla.com/D290217
+    data_sensitivity:
+      - technical
+    notification_emails:
+      - android-probes@mozilla.com
+    expires: never

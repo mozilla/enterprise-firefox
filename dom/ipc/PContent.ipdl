@@ -772,6 +772,15 @@ child:
     async AddPermission(Permission permission);
     async RemoveAllPermissions();
 
+    // Browser-scoped (per-tab) permission forwarded from the parent process.
+    async SetBrowserPermission(nsCString origin, nsCString type,
+                               uint32_t action, uint64_t browserId,
+                               bool isRemoval);
+
+    // Clear all browser-scoped permissions for a given browserId, optionally
+    // filtered by action (0 = clear all regardless of action).
+    async ClearBrowserPermissions(uint64_t browserId, uint32_t actionFilter);
+
     // memory-pressure and memory-pressure-stop notifications.
     async MemoryPressure(nsString reason);
     async MemoryPressureStop();
@@ -1587,7 +1596,7 @@ parent:
     /**
      * Messages for communicating child Glean data to the parent process
      */
-    async RecordPageLoadEvent(PageloadEventData event, TimeStamp navigationStartTime, uint64_t aAndroidAppLinkLoadIdentifier);
+    async RecordPageLoadEvent(PageloadEventData event, TimeStamp navigationStartTime, MaybeDiscardedBrowsingContext aBrowsingContext);
 
     /**
      * Messages for communicating child Telemetry to the parent process

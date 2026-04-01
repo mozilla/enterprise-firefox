@@ -14,6 +14,7 @@ typedef struct _GdkDisplay GdkDisplay;
 typedef struct _GdkDevice GdkDevice;
 typedef struct _GError GError;
 typedef union _GdkEvent GdkEvent;
+typedef struct _GdkSeat GdkSeat;
 class nsWindow;
 
 namespace mozilla::widget {
@@ -35,6 +36,9 @@ bool GdkIsX11Display();
 bool IsXWaylandProtocol();
 
 GdkDevice* GdkGetPointer();
+
+GdkSeat* GdkDeviceGetSeat(GdkDevice* device);
+void GdkSeatUngrab(GdkSeat* seat);
 
 // Sets / returns the last mouse button press/touch begin event we processed.
 void SetLastPointerDownEvent(GdkEvent*);

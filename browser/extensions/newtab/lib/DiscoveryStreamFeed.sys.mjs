@@ -141,6 +141,25 @@ export class DiscoveryStreamFeed {
     this._impressionId = this.getOrCreateImpressionId();
     // Internal in-memory cache for parsing json prefs.
     this._prefCache = {};
+
+    this.onPocketExperimentUpdated = this.onPocketExperimentUpdated.bind(this);
+  }
+
+  onPocketExperimentUpdated(event, reason) {
+    if (
+      reason !== "feature-experiment-loaded" &&
+      reason !== "feature-rollout-loaded"
+    ) {
+      this.pocketNewTabExperimentChanged();
+    }
+  }
+
+  pocketNewTabExperimentChanged() {
+    this.store.dispatch(
+      ac.OnlyToMain({
+        type: at.INFERRED_PERSONALIZATION_REFRESH,
+      })
+    );
   }
 
   getOrCreateImpressionId() {
@@ -225,8 +244,13 @@ export class DiscoveryStreamFeed {
         state.Prefs.values.inferredPersonalizationConfig
           ?.local_popular_today_rerank ?? LOCAL_POPULAR_RERANK;
 
+      const overridePref =
+        this.store.getState().InferredPersonalization
+          ?.inferredTelemetrySettingsOverrides?.local_popular_today_rerank ??
+        true; // This can be used to turn off local inferred reranking
+
       // we do it if inferred is on and the experiment is on
-      this._doLocalInferredRerank = systemPref && expPref;
+      this._doLocalInferredRerank = systemPref && expPref && overridePref;
     }
     return this._doLocalInferredRerank;
   }
@@ -1909,7 +1933,7 @@ export class DiscoveryStreamFeed {
     }
 
     // if surfaceID is availible either through the cache or the response set value in Glean
-    if (prefs[PREF_PRIVATE_PING_ENABLED] && feed.data.surfaceId) {
+    if (prefs[PREF_PRIVATE_PING_ENABLED] && feed?.data?.surfaceId) {
       Glean.newtabContent.surfaceId.set(feed.data.surfaceId);
       this.store.dispatch(ac.SetPref(PREF_SURFACE_ID, feed.data.surfaceId));
     }
@@ -2557,6 +2581,9 @@ export class DiscoveryStreamFeed {
         // 1. Set-up listeners and initialize the redux state for config;
         this.setupConfig(true /* isStartup */);
         this.setupPrefs(true /* isStartup */);
+        lazy.NimbusFeatures.pocketNewtab.onUpdate(
+          this.onPocketExperimentUpdated
+        );
         // 2. If config.enabled is true, start loading data.
         if (this.config.enabled) {
           await this.enable({ updateOpenTabs: true, isStartup: true });
@@ -2782,6 +2809,9 @@ export class DiscoveryStreamFeed {
       case at.UNINIT:
         // When this feed is shutting down:
         this.uninitPrefs();
+        lazy.NimbusFeatures.pocketNewtab.offUpdate(
+          this.onPocketExperimentUpdated
+        );
         break;
       case at.BLOCK_URL: {
         // If we block a story that also has a flight_id

@@ -1,0 +1,17 @@
+{
+  "label": "docs.google.com",
+  "bugs": {
+    "1836872": {
+      "issue": "broken-layout",
+      "matches": ["*://docs.google.com/document/*"]
+    }
+  },
+  "interventions": [
+    {
+      "platforms": ["desktop"],
+      "content_scripts": {
+        "css": ["bug1836872-docs.google.com-font-submenus-inaccessible.css"]
+      }
+    }
+  ]
+}

@@ -227,6 +227,10 @@ export class SidebarTabRow extends FxviewTabRowBase {
     indicators: { type: Array },
   };
 
+  get tooltipText() {
+    return !this.primaryL10nId ? this.url : null;
+  }
+
   /**
    * Fallback to the native implementation in sidebar. We want to focus the
    * entire row instead of delegating it to link or hover buttons.
@@ -307,7 +311,7 @@ export class SidebarTabRow extends FxviewTabRowBase {
         href=${ifDefined(this.url)}
         id="fxview-tab-row-main"
         tabindex="-1"
-        title=${!this.primaryL10nId ? this.url : null}
+        title=${this.tooltipText}
         @click=${this.primaryActionHandler}
         @auxclick=${this.auxActionHandler}
         @keydown=${this.primaryActionHandler}

@@ -9,10 +9,10 @@ Mercurial Revision: https://hg.mozilla.org/mozilla-central/rev/f3ed04250e9ec1b22
  1 file changed, 4 insertions(+)
 
 diff --git a/call/payload_type.h b/call/payload_type.h
-index 2545382efb..09f6e9745b 100644
+index f67bb6b004..00746a85dd 100644
 --- a/call/payload_type.h
 +++ b/call/payload_type.h
-@@ -34,7 +34,11 @@ class PayloadType : public StrongAlias<class PayloadTypeTag, uint8_t> {
+@@ -35,7 +35,11 @@ class PayloadType : public StrongAlias<class PayloadTypeTag, uint8_t> {
      if (rtcp_mux && (id > 63 && id < 96)) {
        return false;
      }

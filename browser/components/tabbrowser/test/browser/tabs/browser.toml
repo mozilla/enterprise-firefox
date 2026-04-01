@@ -267,6 +267,7 @@ tags = "vertical-tabs"
 ["browser_multiselect_tabs_move_to_another_window_drag.js"]
 tags = "vertical-tabs"
 skip-if = [
+  "os == 'win' && os_version == '11.26200' && asan", # Bug 2019745
   "os == 'mac' && os_version == '15.30' && arch == 'aarch64'", # Bug 1940606
 ]
 

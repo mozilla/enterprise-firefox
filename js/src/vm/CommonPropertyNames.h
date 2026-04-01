@@ -471,6 +471,7 @@
   MACRO_(switch_, "switch")                                                    \
   MACRO_(target, "target")                                                     \
   MACRO_(test, "test")                                                         \
+  MACRO_(text, "text")                                                         \
   MACRO_(then, "then")                                                         \
   MACRO_(this_, "this")                                                        \
   MACRO_(throw_, "throw")                                                      \

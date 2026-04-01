@@ -19,7 +19,7 @@ Bug 1654112 - Replace custom upstream code for remote received audio stats with 
  6 files changed, 15 insertions(+), 7 deletions(-)
 
 diff --git a/call/video_receive_stream.h b/call/video_receive_stream.h
-index c2f27ec5f3..ae9951e6f9 100644
+index 9e32cc25df..2f895ec2d8 100644
 --- a/call/video_receive_stream.h
 +++ b/call/video_receive_stream.h
 @@ -172,6 +172,7 @@ class VideoReceiveStreamInterface : public MediaReceiveStreamInterface {

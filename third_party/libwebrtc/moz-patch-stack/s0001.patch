@@ -413,7 +413,7 @@ index 7ca5481bca..a386e9ba81 100644
  
  bool RtpExtension::IsSupportedForVideo(absl::string_view uri) {
 diff --git a/call/BUILD.gn b/call/BUILD.gn
-index 9146441348..aa25942030 100644
+index 0c9481a459..ecda5a73aa 100644
 --- a/call/BUILD.gn
 +++ b/call/BUILD.gn
 @@ -20,6 +20,7 @@ rtc_library("call_interfaces") {
@@ -435,7 +435,7 @@ index 9146441348..aa25942030 100644
    deps = [
      ":audio_sender_interface",
 diff --git a/call/video_receive_stream.h b/call/video_receive_stream.h
-index e7c6c85db7..b1a99c5519 100644
+index ce19d8525e..322f167934 100644
 --- a/call/video_receive_stream.h
 +++ b/call/video_receive_stream.h
 @@ -236,6 +236,8 @@ class VideoReceiveStreamInterface : public MediaReceiveStreamInterface {
@@ -477,17 +477,17 @@ index 50d3e9206e..0e32474543 100644
      // Title of the window or screen in UTF-8 encoding, maybe empty. This field
      // should not be used to identify a source.
 diff --git a/modules/desktop_capture/fake_desktop_capturer.cc b/modules/desktop_capture/fake_desktop_capturer.cc
-index a80d9aa1ff..0e77405fa4 100644
+index ec118ea77e..4c00265d03 100644
 --- a/modules/desktop_capture/fake_desktop_capturer.cc
 +++ b/modules/desktop_capture/fake_desktop_capturer.cc
-@@ -76,8 +76,8 @@ void FakeDesktopCapturer::SetSharedMemoryFactory(
- }
+@@ -77,8 +77,8 @@ void FakeDesktopCapturer::SetSharedMemoryFactory(
  
  bool FakeDesktopCapturer::GetSourceList(DesktopCapturer::SourceList* sources) {
--  sources->push_back({kWindowId, "A-Fake-DesktopCapturer-Window"});
--  sources->push_back({kScreenId});
-+  sources->push_back({kWindowId, 1, "A-Fake-DesktopCapturer-Window"});
-+  sources->push_back({kScreenId, 1});
+   sources->push_back(
+-      {.id = kWindowId, .title = "A-Fake-DesktopCapturer-Window"});
+-  sources->push_back({.id = kScreenId});
++      {.id = kWindowId, .pid = 1, .title = "A-Fake-DesktopCapturer-Window"});
++  sources->push_back({.id = kScreenId, .pid = 1});
    return true;
  }
  
@@ -521,15 +521,15 @@ index 732aa4d29d..50a3147b31 100644
      x_display_->AddEventHandler(xfixes_event_base_ + XFixesCursorNotify, this);
  
 diff --git a/modules/desktop_capture/linux/x11/screen_capturer_x11.cc b/modules/desktop_capture/linux/x11/screen_capturer_x11.cc
-index fc66a8e8b6..77529fbc1a 100644
+index 9affb03a55..a507e18726 100644
 --- a/modules/desktop_capture/linux/x11/screen_capturer_x11.cc
 +++ b/modules/desktop_capture/linux/x11/screen_capturer_x11.cc
-@@ -307,7 +307,7 @@ bool ScreenCapturerX11::GetSourceList(SourceList* sources) {
-     char* monitor_title = XGetAtomName(display(), m.name);
+@@ -309,7 +309,7 @@ bool ScreenCapturerX11::GetSourceList(SourceList* sources) {
  
      // Note name is an X11 Atom used to id the monitor.
--    sources->push_back({static_cast<SourceId>(m.name), monitor_title});
-+    sources->push_back({static_cast<SourceId>(m.name), 0, monitor_title});
+     sources->push_back(
+-        {.id = static_cast<SourceId>(m.name), .title = monitor_title});
++        {.id = static_cast<SourceId>(m.name), .pid = 0, .title = monitor_title});
      XFree(monitor_title);
    }
  
@@ -686,7 +686,7 @@ index 8fb26e5522..3416ce8cf3 100644
  // Subclasses must defined kId and kUri static constexpr members.
  class BaseRtpStringExtension {
 diff --git a/modules/rtp_rtcp/source/rtp_packet.cc b/modules/rtp_rtcp/source/rtp_packet.cc
-index 66147a2ef0..60e582bf29 100644
+index 3515521fcd..a869de1489 100644
 --- a/modules/rtp_rtcp/source/rtp_packet.cc
 +++ b/modules/rtp_rtcp/source/rtp_packet.cc
 @@ -212,6 +212,10 @@ void RtpPacket::ZeroMutableExtensions() {
@@ -701,10 +701,10 @@ index 66147a2ef0..60e582bf29 100644
    }
  }
 diff --git a/modules/rtp_rtcp/source/rtp_packet_unittest.cc b/modules/rtp_rtcp/source/rtp_packet_unittest.cc
-index 06804b6a11..7f58ad6376 100644
+index 4f696985a6..fc93d43511 100644
 --- a/modules/rtp_rtcp/source/rtp_packet_unittest.cc
 +++ b/modules/rtp_rtcp/source/rtp_packet_unittest.cc
-@@ -140,6 +140,18 @@ constexpr uint8_t kPacketWithMid[] = {
+@@ -141,6 +141,18 @@ constexpr uint8_t kPacketWithMid[] = {
      0xbe, 0xde, 0x00, 0x01,
      0xb2, 'm', 'i', 'd'};
  
@@ -723,7 +723,7 @@ index 06804b6a11..7f58ad6376 100644
  constexpr uint32_t kCsrcs[] = {0x34567890, 0x32435465};
  constexpr uint8_t kPayload[] = {'p', 'a', 'y', 'l', 'o', 'a', 'd'};
  constexpr uint8_t kPacketPaddingSize = 8;
-@@ -419,6 +431,24 @@ TEST(RtpPacketTest, FailsToSetUnregisteredExtension) {
+@@ -420,6 +432,24 @@ TEST(RtpPacketTest, FailsToSetUnregisteredExtension) {
    EXPECT_EQ(packet.GetExtension<TransportSequenceNumber>(), std::nullopt);
  }
  
@@ -1261,12 +1261,12 @@ index e76af2e0ad..088747c1c8 100644
  
    return 0;
 diff --git a/modules/video_capture/video_capture_impl.h b/modules/video_capture/video_capture_impl.h
-index 96a3243973..573532bdad 100644
+index 3b0a981d98..80d961c84c 100644
 --- a/modules/video_capture/video_capture_impl.h
 +++ b/modules/video_capture/video_capture_impl.h
 @@ -65,8 +65,10 @@ class RTC_EXPORT VideoCaptureImpl : public VideoCaptureModule {
        VideoSinkInterface<VideoFrame>* dataCallback) override;
-   virtual void RegisterCaptureDataCallback(
+   void RegisterCaptureDataCallback(
        RawVideoSinkInterface* dataCallback) override;
 -  void DeRegisterCaptureDataCallback() override;
 +  void DeRegisterCaptureDataCallback(
@@ -1286,7 +1286,7 @@ index 96a3243973..573532bdad 100644
  
    int64_t _lastProcessFrameTimeNanos RTC_GUARDED_BY(capture_checker_);
 diff --git a/modules/video_coding/codecs/vp9/libvpx_vp9_encoder.cc b/modules/video_coding/codecs/vp9/libvpx_vp9_encoder.cc
-index 54681fdf80..d0c7f1fc9f 100644
+index 7c7ca9fd1e..9659e10364 100644
 --- a/modules/video_coding/codecs/vp9/libvpx_vp9_encoder.cc
 +++ b/modules/video_coding/codecs/vp9/libvpx_vp9_encoder.cc
 @@ -285,6 +285,7 @@ LibvpxVp9Encoder::LibvpxVp9Encoder(const Environment& env,
@@ -1392,10 +1392,10 @@ index 133c229ba3..5017d67c1a 100644
    const bool enable_svc_for_simulcast_;
    std::optional<SimulcastToSvcConverter> simulcast_to_svc_converter_;
 diff --git a/rtc_base/BUILD.gn b/rtc_base/BUILD.gn
-index 341fdb21ca..7ae9389189 100644
+index 9b871393a6..06fb2911ba 100644
 --- a/rtc_base/BUILD.gn
 +++ b/rtc_base/BUILD.gn
-@@ -460,6 +460,12 @@ rtc_library("logging") {
+@@ -462,6 +462,12 @@ rtc_library("logging") {
      "//third_party/abseil-cpp/absl/strings:string_view",
    ]
  
@@ -1510,7 +1510,7 @@ index b7933130bd..428fc9615d 100644
    vcm_ = nullptr;
  }
 diff --git a/webrtc.gni b/webrtc.gni
-index 5c69818f10..fd7e9775b1 100644
+index 9a33dcaba6..add471c6ca 100644
 --- a/webrtc.gni
 +++ b/webrtc.gni
 @@ -110,7 +110,7 @@ declare_args() {

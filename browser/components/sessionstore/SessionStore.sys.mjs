@@ -6835,7 +6835,7 @@ var SessionStoreInternal = {
     if (!aSidebar || isPopup) {
       return;
     }
-    aWindow.SidebarController.initializeUIState(aSidebar);
+    aWindow.SidebarController.updateUIState(aSidebar);
   },
 
   /**

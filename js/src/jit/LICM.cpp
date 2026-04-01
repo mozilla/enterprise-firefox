@@ -44,9 +44,7 @@ static bool LoopContainsPossibleCall(MIRGraph& graph, MBasicBlock* header,
       continue;
     }
 
-    for (auto insIter(block->begin()), insEnd(block->end()); insIter != insEnd;
-         ++insIter) {
-      MInstruction* ins = *insIter;
+    for (auto ins : *block) {
       if (ins->possiblyCalls()) {
 #ifdef JS_JITSPEW
         JitSpew(JitSpew_LICM, "    Possible call found at %s%u", ins->opName(),
@@ -79,9 +77,7 @@ static bool LoopContainsBigTableSwitch(MIRGraph& graph, MBasicBlock* header,
       continue;
     }
 
-    for (auto insIter(block->begin()), insEnd(block->end()); insIter != insEnd;
-         ++insIter) {
-      MInstruction* ins = *insIter;
+    for (auto ins : *block) {
       if (ins->isTableSwitch() &&
           ins->toTableSwitch()->numSuccessors() > LargestAllowedTableSwitch) {
         *numSuccessors = ins->toTableSwitch()->numSuccessors();

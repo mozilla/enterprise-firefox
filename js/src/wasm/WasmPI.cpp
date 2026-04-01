@@ -1504,21 +1504,21 @@ int32_t SetPromisingPromiseResults(Instance* instance,
       break;
     case 1: {
       if (!res->getField(cx, /*index=*/0, &val)) {
-        return false;
+        return -1;
       }
     } break;
     default: {
       Rooted<ArrayObject*> array(cx, NewDenseEmptyArray(cx));
       if (!array) {
-        return false;
+        return -1;
       }
       for (size_t i = 0; i < resultType.fields_.length(); i++) {
         RootedValue item(cx);
         if (!res->getField(cx, i, &item)) {
-          return false;
+          return -1;
         }
         if (!NewbornArrayPush(cx, array, item)) {
-          return false;
+          return -1;
         }
       }
       val.setObject(*array);

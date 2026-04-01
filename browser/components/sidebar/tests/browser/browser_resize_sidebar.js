@@ -11,7 +11,7 @@ add_setup(async () => {
       [VERTICAL_TABS_PREF, true],
     ],
   });
-  await SidebarController.initializeUIState({
+  await SidebarController.updateUIState({
     launcherExpanded: false,
     launcherVisible: true,
   });
@@ -122,7 +122,7 @@ add_task(async function test_drag_show_and_hide() {
   await SpecialPowers.pushPrefEnv({
     set: [[SIDEBAR_VISIBILITY_PREF, "hide-sidebar"]],
   });
-  await SidebarController.initializeUIState({
+  await SidebarController.updateUIState({
     launcherExpanded: true,
     launcherVisible: true,
   });
@@ -134,7 +134,7 @@ add_task(async function test_drag_show_and_hide() {
 });
 
 add_task(async function test_custom_width_persists() {
-  await SidebarController.initializeUIState({
+  await SidebarController.updateUIState({
     launcherExpanded: false,
     launcherVisible: true,
   });
@@ -166,7 +166,7 @@ add_task(async function test_custom_width_persists() {
 });
 
 add_task(async function test_drag_show_and_hide_for_horizontal_tabs() {
-  await SidebarController.initializeUIState({
+  await SidebarController.updateUIState({
     launcherExpanded: false,
     launcherVisible: true,
   });
@@ -177,7 +177,7 @@ add_task(async function test_drag_show_and_hide_for_horizontal_tabs() {
 });
 
 add_task(async function test_resize_after_toggling_revamp() {
-  await SidebarController.initializeUIState({
+  await SidebarController.updateUIState({
     launcherExpanded: true,
   });
 
@@ -206,7 +206,7 @@ add_task(async function test_resize_after_toggling_revamp() {
 });
 
 add_task(async function test_resize_of_pinned_tabs() {
-  await SidebarController.initializeUIState({
+  await SidebarController.updateUIState({
     launcherExpanded: true,
   });
 

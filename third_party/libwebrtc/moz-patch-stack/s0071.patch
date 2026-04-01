@@ -41,7 +41,7 @@ index fa6ccf8773..7cd379eff3 100644
  
    void Init();
 diff --git a/video/rtp_video_stream_receiver2.cc b/video/rtp_video_stream_receiver2.cc
-index cb7070ecda..5249f6aed3 100644
+index 3530b0dfab..311db8ebd2 100644
 --- a/video/rtp_video_stream_receiver2.cc
 +++ b/video/rtp_video_stream_receiver2.cc
 @@ -381,7 +381,7 @@ RtpVideoStreamReceiver2::RtpVideoStreamReceiver2(

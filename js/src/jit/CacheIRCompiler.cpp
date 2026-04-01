@@ -11,6 +11,7 @@
 #include "mozilla/MaybeOneOf.h"
 #include "mozilla/ScopeExit.h"
 
+#include <bit>
 #include <type_traits>
 #include <utility>
 
@@ -7872,6 +7873,15 @@ void CacheIRCompiler::emitDataViewBoundsCheck(ArrayBufferViewKind viewKind,
   }
 }
 
+template <typename T>
+static void BranchIfNativeEndian(MacroAssembler& masm, T value, Label* label) {
+  if constexpr (std::endian::native == std::endian::little) {
+    masm.branch32(Assembler::NotEqual, value, Imm32(0), label);
+  } else {
+    masm.branch32(Assembler::Equal, value, Imm32(0), label);
+  }
+}
+
 bool CacheIRCompiler::emitLoadDataViewValueResult(
     ObjOperandId objId, IntPtrOperandId offsetId,
     BooleanOperandId littleEndianId, Scalar::Type elementType,
@@ -7948,8 +7958,7 @@ bool CacheIRCompiler::emitLoadDataViewValueResult(
   // Swap the bytes in the loaded value.
   if (byteSize > 1) {
     Label skip;
-    masm.branch32(MOZ_LITTLE_ENDIAN() ? Assembler::NotEqual : Assembler::Equal,
-                  littleEndian, Imm32(0), &skip);
+    BranchIfNativeEndian(masm, littleEndian, &skip);
 
     switch (elementType) {
       case Scalar::Int16:
@@ -8236,11 +8245,9 @@ bool CacheIRCompiler::emitStoreDataViewValueResult(
   // Swap the bytes in the loaded value.
   Label skip;
   if (pushedLittleEndian) {
-    masm.branch32(MOZ_LITTLE_ENDIAN() ? Assembler::NotEqual : Assembler::Equal,
-                  Address(masm.getStackPointer(), 0), Imm32(0), &skip);
+    BranchIfNativeEndian(masm, Address(masm.getStackPointer(), 0), &skip);
   } else {
-    masm.branch32(MOZ_LITTLE_ENDIAN() ? Assembler::NotEqual : Assembler::Equal,
-                  littleEndian, Imm32(0), &skip);
+    BranchIfNativeEndian(masm, littleEndian, &skip);
   }
   switch (elementType) {
     case Scalar::Int16:

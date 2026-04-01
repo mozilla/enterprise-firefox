@@ -20,11 +20,9 @@ ChromeUtils.defineLazyGetter(lazy, "log", () => {
 });
 
 /**
- * Preferences used to integrate the a remote enterprise console
+ * Remote enterprise console preference
  */
-export const PREFS = {
-  CONSOLE_ADDRESS: "enterprise.console.address",
-};
+export const CONSOLE_ADDRESS_PREF = "enterprise.console.address";
 
 /**
  * Error logged when user needs to reauthenticate to obtain new token data
@@ -102,7 +100,7 @@ export const ConsoleClient = {
   get consoleBaseURI() {
     let consoleURI;
     try {
-      consoleURI = Services.prefs.getStringPref(PREFS.CONSOLE_ADDRESS);
+      consoleURI = Services.prefs.getStringPref(CONSOLE_ADDRESS_PREF);
     } catch (e) {
       console.error("Critial misconfiguration: Missing console URI.");
       throw e;
@@ -118,13 +116,12 @@ export const ConsoleClient = {
       SSO: "/sso/login",
       SIGNOUT: "/sso/logout",
       SSO_CALLBACK: "/sso/callback",
-      DEFAULT_PREFS: "/api/browser/hacks/default",
+      CONFIG: "/api/browser/config",
       REMOTE_POLICIES: "/api/browser/policies",
       KEY: "/api/browser/key",
       TOKEN: "/sso/token",
       DEVICE_POSTURE: "/sso/device_posture",
       WHOAMI: "/api/browser/whoami",
-      LEARN_MORE: "/downloads/firefox.html",
       FXACCOUNT: "/api/browser/account",
       FXACCOUNTS_OAUTH: "/api/fxa/oauth/v1",
       FXACCOUNTS_PROFILE: "/api/fxa/profile/v1",
@@ -165,17 +162,6 @@ export const ConsoleClient = {
   },
 
   /**
-   * Learn more uri linked in the enterprise panel
-   *
-   * @returns {string} learn more uri
-   */
-  get learnMoreURI() {
-    const url = this.consoleBaseURI;
-    url.pathname = this._paths.LEARN_MORE;
-    return url.href;
-  },
-
-  /**
    * SSO callback uri that we match to create Felt actors on
    *
    * @returns {string}
@@ -192,11 +178,13 @@ export const ConsoleClient = {
     return url.href + "?*";
   },
 
-  // prefs that do not need to be written and can be sent during runtime
-  // tbd: remove
-  async getDefaultPrefs() {
-    const payload = await this._get(this._paths.DEFAULT_PREFS);
-    return payload;
+  /**
+   * Fetches configurations for Firefox
+   *
+   * @returns {Promise<object>}
+   */
+  async getFirefoxConfigs() {
+    return this._get(this._paths.CONFIG);
   },
 
   /**
@@ -406,7 +394,7 @@ export const ConsoleClient = {
     }
 
     if ((res.status === 403 || res.status === 401) && !_didRefresh) {
-      await this._refreshSession();
+      await this.handleSessionRefresh();
       return this._fetch(path, method, { _didRefresh: true, jsonBody });
     }
 
@@ -449,15 +437,8 @@ export const ConsoleClient = {
   async getAccessToken() {
     let accessToken = Services.felt.getAccessTokenIfValid();
     if (!accessToken) {
-      await this._refreshSession();
+      await this.handleSessionRefresh();
       accessToken = Services.felt.getAccessTokenIfValid();
-    }
-    if (!accessToken) {
-      // We're not handling reauthentication just yet.
-      throw new InvalidAuthError(
-        "Unhandled reauthentication",
-        "UNHANDLED_REAUTHENTICATION"
-      );
     }
     return accessToken;
   },
@@ -488,10 +469,28 @@ export const ConsoleClient = {
   },
 
   /**
+   * Wraps _refreshSession(), handling ReauthRequiredError by notifying Felt and re-throwing.
+   *
+   * @throws {ReauthRequiredError|InvalidAuthError}
+   * @returns {Promise<void>}
+   */
+  async handleSessionRefresh() {
+    try {
+      await this._refreshSession();
+    } catch (e) {
+      lazy.log.error("handleSessionRefresh: session refresh failed", e);
+      if (e instanceof ReauthRequiredError) {
+        this.consoleForcedLogout();
+      }
+      throw e;
+    }
+  },
+
+  /**
    * Refreshes the session using a refresh token.
    * Serializes concurrent refreshes via an internal promise.
    *
-   * @throws {InvalidAuthError} If unable to refresh session
+   * @throws {ReauthRequiredError|InvalidAuthError} If unable to refresh session
    * @returns {Promise<void>}
    */
   async _refreshSession() {
@@ -512,13 +511,10 @@ export const ConsoleClient = {
     this._refreshPromise = (async () => {
       let refreshToken = Services.felt.getRefreshToken();
       if (!refreshToken) {
-        const e = new ReauthRequiredError(
+        throw new ReauthRequiredError(
           "No refresh token available",
           "MISSING_REFRESH_TOKEN"
         );
-        console.error(e);
-        this.promptForReauthentication();
-        return;
       }
       let res;
       try {
@@ -543,14 +539,11 @@ export const ConsoleClient = {
       }
 
       if (res.status === 401 || res.status === 403) {
-        const e = new ReauthRequiredError(
+        throw new ReauthRequiredError(
           "Invalid refresh token",
           "INVALID_REFRESH_TOKEN",
           { status: res.status }
         );
-        console.error(e);
-        this.promptForReauthentication();
-        return;
       }
 
       // TODO: Handle network issues, offline support, etc.
@@ -631,12 +624,46 @@ export const ConsoleClient = {
   },
 
   /**
-   * If unable to refresh the session, prompt for user reauthentication
-   * to obtain a valid set of access and refresh token.
+   * Shared logout implementation. Guards against double calls, signals FELT to
+   * take over as a background process, then invokes the provided logout
+   * function to notify FELT of the logout type. Does not quit the browser;
+   * callers are responsible for that via quit().
+   *
+   * @param {Function} performXPCOMLogout - Invokes the appropriate XPCOM logout call.
    */
-  promptForReauthentication() {
-    this.clearTokenData();
-    // TODO: Handle Re-authentication
+  _logout(performXPCOMLogout) {
+    // Only the FELT-managed browser should trigger a quit and logout.
+    // _isLogoutInProgress guards against double calls from concurrent requests.
+    if (!Services.felt.isFeltBrowser() || this._isLogoutInProgress) {
+      return;
+    }
+    this._isLogoutInProgress = true;
+    // Make sure we signal early enough to the system that FELT should take
+    // over. Relevant at least for macOS dock icon. Not having this would
+    // at least intermittently result in missing dock icon for FELT after
+    // signout.
+    Services.felt.makeBackgroundProcess(true);
+    // Notify FELT of the logout type so it can handle shutdown appropriately.
+    performXPCOMLogout();
+  },
+
+  quit() {
+    if (!this._isLogoutInProgress) {
+      return;
+    }
+    Services.startup.quit(Ci.nsIAppStartup.eForceQuit);
+  },
+
+  normalLogout({ withQuit = true } = {}) {
+    this._logout(() => Services.felt.performNormalLogout());
+    if (withQuit) {
+      this.quit();
+    }
+  },
+
+  consoleForcedLogout() {
+    this._logout(() => Services.felt.performConsoleForcedLogout());
+    this.quit();
   },
 
   /**
@@ -666,18 +693,8 @@ export const ConsoleClient = {
     const res = await this._post(this._paths.SIGNOUT);
     // Server should maybe return better JSON?
     if (res == null) {
-      // After successful server-side logout clear local state and notify FELT.
-      this.clearTokenData();
-
-      // Make sure we signal early enough to the system that FELT should take
-      // over. Relevant at least for macOS dock icon. Not having this would
-      // at least intermittently result in missing dock icon for FELT after
-      // signout.
-      Services.felt.makeBackgroundProcess(true);
-
-      // Notify FELT that we are logging out so the shutdown is a normal one
-      // that should not be followed by restarting the process.
-      Services.felt.performSignout();
+      // Quit is called from outside (e.g. by the caller after signout).
+      this.normalLogout({ withQuit: false });
       return;
     }
 
@@ -694,6 +711,11 @@ export const ConsoleClient = {
       lazy.AsyncShutdown.appShutdownConfirmed.addBlocker(
         `ConsoleClient: Sending back tokens to felt on shutdown`,
         () => {
+          // Do not send tokens back to Felt on logout — the session is
+          // being intentionally terminated and should not be restored.
+          if (this._isLogoutInProgress) {
+            return;
+          }
           try {
             Services.felt.sendTokens();
           } catch (ex) {

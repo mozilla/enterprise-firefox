@@ -349,7 +349,6 @@ class HttpChannelChild final : public PHttpChannelChild,
   Atomic<bool> mDeletingChannelSent{false};
 
   Atomic<bool, SequentiallyConsistent> mIsFromCache{false};
-  Atomic<bool, SequentiallyConsistent> mIsRacing{false};
   // Set if we get the result and cache |mNeedToReportBytesRead|
   Atomic<bool, SequentiallyConsistent> mCacheNeedToReportBytesReadInitialized{
       false};

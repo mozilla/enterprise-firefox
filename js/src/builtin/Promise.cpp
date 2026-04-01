@@ -5548,7 +5548,7 @@ static bool PromiseAllSettledKeyedResolveElementFunction(JSContext* cx,
         // Step 6.b.vi.4. Else,
         // Step 6.b.vi.4.a. Assert: variant is all-settled.
         // Step 6.b.vi.4.b. Let obj be OrdinaryObjectCreate(%Object.prototype%).
-        JS::Rooted<JSObject*> obj(cx, NewPlainObjectWithProto(cx, nullptr));
+        JS::Rooted<JSObject*> obj(cx, NewPlainObject(cx));
         if (!obj) {
           return false;
         }
@@ -5595,7 +5595,7 @@ static bool PromiseAllSettledKeyedRejectElementFunction(JSContext* cx,
       [](JSContext* cx, JS::Handle<JS::Value> xVal, uint32_t index,
          JS::MutableHandle<JS::Value> outVal) {
         // Step 6.b.ix.2.c. Let obj be OrdinaryObjectCreate(%Object.prototype%).
-        JS::Rooted<JSObject*> obj(cx, NewPlainObjectWithProto(cx, nullptr));
+        JS::Rooted<JSObject*> obj(cx, NewPlainObject(cx));
         if (!obj) {
           return false;
         }

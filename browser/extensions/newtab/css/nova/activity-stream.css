@@ -2258,9 +2258,6 @@ main section {
   width: 138px;
 }
 .nova-enabled .home-section .section #shortcuts-toggle {
-  display: flex;
-  flex-direction: row;
-  justify-content: space-between;
   height: var(--toggle-row-height);
 }
 .home-section .section .more-info-top-wrapper,
@@ -2511,7 +2508,7 @@ main section {
   margin-block: var(--space-medium);
 }
 .nova-enabled .section #shortcuts-toggle #row-selector {
-  width: unset;
+  width: 100%;
 }
 
 .category-list {

@@ -139,6 +139,10 @@ firefoxview-search-text-box-recentbrowsing =
 firefoxview-search-text-box-history =
   .placeholder = Search history
 
+# Placeholder for the input field to search in bookmarks ("search" is a verb).
+firefoxview-search-text-box-bookmarks =
+  .placeholder = Search bookmarks
+
 # Placeholder for the input field to search in recently closed tabs ("search" is a verb).
 firefoxview-search-text-box-recentlyclosed =
   .placeholder = Search recently closed tabs

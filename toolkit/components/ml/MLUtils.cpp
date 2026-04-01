@@ -6,7 +6,6 @@
 
 #include "MLUtils.h"
 
-#include <cmath>
 #include "prsystem.h"
 #include <sys/types.h>
 #include "nsSystemInfo.h"

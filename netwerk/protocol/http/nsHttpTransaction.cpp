@@ -239,8 +239,8 @@ nsresult nsHttpTransaction::Init(
 
   if (NS_FAILED(rv)) return rv;
 
-  mConnInfo = cinfo;
-  mFinalizedConnInfo = cinfo;
+  mConnInfo = cinfo->Clone();
+  mFinalizedConnInfo = mConnInfo;
   mCallbacks = callbacks;
   mConsumerTarget = target;
   mCaps = caps;

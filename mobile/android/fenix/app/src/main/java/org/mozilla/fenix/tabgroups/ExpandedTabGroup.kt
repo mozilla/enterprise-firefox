@@ -4,8 +4,6 @@
 
 package org.mozilla.fenix.tabgroups
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -13,10 +11,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -29,8 +25,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -39,6 +33,7 @@ import androidx.compose.ui.tooling.preview.PreviewParameterProvider
 import androidx.compose.ui.unit.dp
 import mozilla.components.compose.base.annotation.FlexibleWindowLightDarkPreview
 import org.mozilla.fenix.tabstray.TabsTrayTestTag
+import org.mozilla.fenix.tabstray.data.TabGroupTheme
 import org.mozilla.fenix.tabstray.data.TabsTrayItem
 import org.mozilla.fenix.tabstray.data.createTab
 import org.mozilla.fenix.tabstray.data.createTabGroup
@@ -77,9 +72,7 @@ fun ExpandedTabGroup(
             ),
     ) {
         Spacer(modifier = Modifier.height(FirefoxTheme.layout.space.static150))
-
-        ViewTabGroupHeader(group.title, group.theme.primary)
-
+        ViewTabGroupHeader(group.title, group.theme)
         TabLayout(
             tabs = group.tabs.toList(),
             displayTabsInGrid = true,
@@ -97,7 +90,7 @@ fun ExpandedTabGroup(
 }
 
 @Composable
-private fun ViewTabGroupHeader(title: String, groupColor: Color) {
+private fun ViewTabGroupHeader(title: String, groupTheme: TabGroupTheme) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -108,14 +101,7 @@ private fun ViewTabGroupHeader(title: String, groupColor: Color) {
             .wrapContentHeight(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(
-            modifier =
-                Modifier
-                    .size(18.dp)
-                    .clip(CircleShape)
-                    .background(color = groupColor)
-                    .testTag(TabsTrayTestTag.BOTTOM_SHEET_CIRCLE),
-        )
+        TabGroupThemeDot(groupTheme)
 
         Spacer(modifier = Modifier.width(FirefoxTheme.layout.space.static100))
 

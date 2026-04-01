@@ -141,6 +141,23 @@ GdkDevice* GdkGetPointer() {
   return gdk_device_manager_get_client_pointer(deviceManager);
 }
 
+GdkSeat* GdkDeviceGetSeat(GdkDevice* device) {
+  static auto sGdkDeviceGetSeat =
+      (GdkSeat * (*)(GdkDevice*)) dlsym(RTLD_DEFAULT, "gdk_device_get_seat");
+  if (!sGdkDeviceGetSeat) {
+    return nullptr;
+  }
+  return sGdkDeviceGetSeat(device);
+}
+
+void GdkSeatUngrab(GdkSeat* seat) {
+  static auto sGdkSeatUngrab =
+      (void (*)(GdkSeat*))dlsym(RTLD_DEFAULT, "gdk_seat_ungrab");
+  if (sGdkSeatUngrab) {
+    sGdkSeatUngrab(seat);
+  }
+}
+
 static GdkEvent* sLastPointerDownEvent = nullptr;
 GdkEvent* GetLastPointerDownEvent() { return sLastPointerDownEvent; }
 

@@ -60,6 +60,7 @@ namespace gfx {
   _(GL_NORM16_TEXTURES, Feature, "OpenGL normalized 16-bit texture formats") \
   _(WEBGPU_EXTERNAL_TEXTURE, Feature, "WebGPU external textures")            \
   _(MESA_THREADING, Feature, "Mesa glthread enabled")                        \
+  _(WEBGL, Feature, "WebGL")                                                 \
   /* Add new entries above this comment */
 
 enum class Feature : uint32_t {

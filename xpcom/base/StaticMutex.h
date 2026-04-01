@@ -27,13 +27,6 @@ namespace mozilla {
 class MOZ_ONLY_USED_TO_AVOID_STATIC_CONSTRUCTORS MOZ_CAPABILITY("mutex")
     StaticMutex {
  public:
-  // In debug builds, check that mMutex is initialized for us as we expect by
-  // the compiler.  In non-debug builds, don't declare a constructor so that
-  // the compiler can see that the constructor is trivial.
-#ifdef DEBUG
-  constexpr StaticMutex() { MOZ_ASSERT(!mMutex); }
-#endif
-
   void Lock() MOZ_CAPABILITY_ACQUIRE() { Mutex()->Lock(); }
 
   [[nodiscard]] bool TryLock() MOZ_TRY_ACQUIRE(true) {
@@ -47,6 +40,16 @@ class MOZ_ONLY_USED_TO_AVOID_STATIC_CONSTRUCTORS MOZ_CAPABILITY("mutex")
     Mutex()->AssertCurrentThreadOwns();
 #endif
   }
+
+  StaticMutex() = default;
+
+  // Disallow copy constructor, but only in debug mode.  We only define
+  // a default constructor in debug mode (see above); if we declared
+  // this constructor always, the compiler wouldn't generate a trivial
+  // default constructor for us in non-debug mode.
+#ifdef DEBUG
+  StaticMutex(StaticMutex& aOther) = delete;
+#endif
 
  private:
   OffTheBooksMutex* Mutex() {
@@ -62,15 +65,7 @@ class MOZ_ONLY_USED_TO_AVOID_STATIC_CONSTRUCTORS MOZ_CAPABILITY("mutex")
     return mMutex;
   }
 
-  Atomic<OffTheBooksMutex*, SequentiallyConsistent> mMutex;
-
-  // Disallow copy constructor, but only in debug mode.  We only define
-  // a default constructor in debug mode (see above); if we declared
-  // this constructor always, the compiler wouldn't generate a trivial
-  // default constructor for us in non-debug mode.
-#ifdef DEBUG
-  StaticMutex(StaticMutex& aOther);
-#endif
+  Atomic<OffTheBooksMutex*, SequentiallyConsistent> mMutex{nullptr};
 
   // Disallow these operators.
   StaticMutex& operator=(StaticMutex* aRhs);

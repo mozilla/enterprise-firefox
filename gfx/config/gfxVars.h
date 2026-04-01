@@ -22,6 +22,7 @@ class MOZ_STACK_CLASS gfxVarsCollectUpdates;
 #define GFX_VARS_LIST(_)                                           \
   /* C++ Name,                  Data Type,        Default Value */ \
   _(AllowEglRbab, bool, true)                                      \
+  _(AllowWebGL, bool, true)                                        \
   _(AllowWebgl2, bool, true)                                       \
   _(AllowWebglAccelAngle, bool, true)                              \
   _(AllowWebglOop, bool, true)                                     \

@@ -122,8 +122,9 @@ use std::{iter, ops, u32, mem};
 #[derive(MallocSizeOf)]
 pub struct ClipTreeNode {
     pub handle: ClipDataHandle,
-    pub parent: ClipNodeId,
     pub spatial_node_index: SpatialNodeIndex,
+    pub clip_rect_origin: LayoutPoint,
+    pub parent: ClipNodeId,
 
     children: Vec<ClipNodeId>,
 
@@ -193,9 +194,10 @@ impl ClipTree {
             nodes: vec![
                 ClipTreeNode {
                     handle: ClipDataHandle::INVALID,
+                    spatial_node_index: SpatialNodeIndex::INVALID,
+                    clip_rect_origin: LayoutPoint::zero(),
                     children: Vec::new(),
                     parent: ClipNodeId::NONE,
-                    spatial_node_index: SpatialNodeIndex::INVALID,
                 }
             ],
             leaves: Vec::new(),
@@ -209,9 +211,10 @@ impl ClipTree {
         self.nodes.clear();
         self.nodes.push(ClipTreeNode {
             handle: ClipDataHandle::INVALID,
+            spatial_node_index: SpatialNodeIndex::INVALID,
+            clip_rect_origin: LayoutPoint::zero(),
             children: Vec::new(),
             parent: ClipNodeId::NONE,
-            spatial_node_index: SpatialNodeIndex::INVALID,
         });
 
         self.leaves.clear();
@@ -231,7 +234,8 @@ impl ClipTree {
             return id;
         }
 
-        let ClipEntry { handle, spatial_node_index } = clips[0];
+        let ClipEntry { handle, spatial_node_index, clip_rect_origin } = clips[0];
+        let clip_rect_origin_pt: LayoutPoint = clip_rect_origin.into();
         let next_clips = &clips[1..];
 
         let node_index = nodes[id.0 as usize]
@@ -239,7 +243,8 @@ impl ClipTree {
             .iter()
             .find(|n| {
                 let node = &nodes[n.0 as usize];
-                node.handle == handle && node.spatial_node_index == spatial_node_index
+                node.handle == handle && node.spatial_node_index == spatial_node_index &&
+                node.clip_rect_origin == clip_rect_origin_pt
             })
             .cloned();
 
@@ -250,9 +255,10 @@ impl ClipTree {
                 nodes[id.0 as usize].children.push(node_index);
                 let node = ClipTreeNode {
                     handle,
+                    spatial_node_index,
+                    clip_rect_origin: clip_rect_origin_pt,
                     children: Vec::new(),
                     parent: id,
-                    spatial_node_index,
                 };
                 nodes.push(node);
                 node_index
@@ -424,6 +430,7 @@ impl ClipTree {
 pub struct ClipEntry {
     pub handle: ClipDataHandle,
     pub spatial_node_index: SpatialNodeIndex,
+    pub clip_rect_origin: PointKey,
 }
 
 /// Represents a clip-chain as defined by the public API that we decompose in to
@@ -512,8 +519,9 @@ impl ClipTreeBuilder {
         id: ClipId,
         handle: ClipDataHandle,
         spatial_node_index: SpatialNodeIndex,
+        clip_rect_origin: LayoutPoint,
     ) {
-        self.clip_map.insert(id, ClipEntry { handle, spatial_node_index });
+        self.clip_map.insert(id, ClipEntry { handle, spatial_node_index, clip_rect_origin: clip_rect_origin.into() });
     }
 
     /// Define a new rounded rect clip
@@ -522,8 +530,9 @@ impl ClipTreeBuilder {
         id: ClipId,
         handle: ClipDataHandle,
         spatial_node_index: SpatialNodeIndex,
+        clip_rect_origin: LayoutPoint,
     ) {
-        self.clip_map.insert(id, ClipEntry { handle, spatial_node_index });
+        self.clip_map.insert(id, ClipEntry { handle, spatial_node_index, clip_rect_origin: clip_rect_origin.into() });
     }
 
     /// Define a image mask clip
@@ -532,8 +541,9 @@ impl ClipTreeBuilder {
         id: ClipId,
         handle: ClipDataHandle,
         spatial_node_index: SpatialNodeIndex,
+        clip_rect_origin: LayoutPoint,
     ) {
-        self.clip_map.insert(id, ClipEntry { handle, spatial_node_index });
+        self.clip_map.insert(id, ClipEntry { handle, spatial_node_index, clip_rect_origin: clip_rect_origin.into() });
     }
 
     /// Define a clip-chain
@@ -919,6 +929,7 @@ impl ClipTreeBuilder {
                 self.clip_handles_buffer.push(ClipEntry {
                     handle,
                     spatial_node_index: clip_item_entry.spatial_node_index,
+                    clip_rect_origin: clip_item_entry.clip_rect_origin.into(),
                 });
             }
 
@@ -998,20 +1009,20 @@ pub struct ClipNode {
 impl From<ClipItemKey> for ClipNode {
     fn from(item: ClipItemKey) -> Self {
         let kind = match item.kind {
-            ClipItemKeyKind::Rectangle(rect, mode) => {
-                ClipItemKind::Rectangle { rect: rect.into(), mode }
+            ClipItemKeyKind::Rectangle(size, mode) => {
+                ClipItemKind::Rectangle { size: size.into(), mode }
             }
-            ClipItemKeyKind::RoundedRectangle(rect, radius, mode) => {
+            ClipItemKeyKind::RoundedRectangle(size, radius, mode) => {
                 ClipItemKind::RoundedRectangle {
-                    rect: rect.into(),
+                    size: size.into(),
                     radius: radius.into(),
                     mode,
                 }
             }
-            ClipItemKeyKind::ImageMask(rect, image, polygon_handle) => {
+            ClipItemKeyKind::ImageMask(size, image, polygon_handle) => {
                 ClipItemKind::Image {
                     image,
-                    rect: rect.into(),
+                    size: size.into(),
                     polygon_handle,
                 }
             }
@@ -1070,9 +1081,10 @@ impl core::fmt::Debug for ClipNodeFlags {
 #[cfg_attr(feature = "replay", derive(Deserialize))]
 pub struct ClipNodeInstance {
     pub handle: ClipDataHandle,
+    pub spatial_node_index: SpatialNodeIndex,
+    pub clip_rect_origin: LayoutPoint,
     pub flags: ClipNodeFlags,
     pub visible_tiles: Option<ops::Range<usize>>,
-    pub spatial_node_index: SpatialNodeIndex,
 }
 
 impl ClipNodeInstance {
@@ -1184,6 +1196,7 @@ struct ClipNodeInfo {
     conversion: ClipSpaceConversion,
     handle: ClipDataHandle,
     spatial_node_index: SpatialNodeIndex,
+    clip_rect_origin: LayoutPoint,
 }
 
 impl ClipNodeInfo {
@@ -1216,7 +1229,8 @@ impl ClipNodeInfo {
 
         let mut visible_tiles = None;
 
-        if let ClipItemKind::Image { rect, image, .. } = node.item.kind {
+        if let ClipItemKind::Image { size, image, .. } = node.item.kind {
+            let rect = LayoutRect::from_origin_and_size(self.clip_rect_origin, size);
             let request = ImageRequest {
                 key: image,
                 rendering: ImageRendering::Auto,
@@ -1302,9 +1316,10 @@ impl ClipNodeInfo {
 
         Some(ClipNodeInstance {
             handle: self.handle,
+            spatial_node_index: self.spatial_node_index,
+            clip_rect_origin: self.clip_rect_origin,
             flags,
             visible_tiles,
-            spatial_node_index: self.spatial_node_index,
         })
     }
 }
@@ -1320,9 +1335,7 @@ impl ClipNode {
             ClipItemKind::RoundedRectangle { .. } => {}
 
             ClipItemKind::BoxShadow { ref mut source } => {
-                // Quote from https://drafts.csswg.org/css-backgrounds-3/#shadow-blur
-                // "the image that would be generated by applying to the shadow a
-                // Gaussian blur with a standard deviation equal to half the blur radius."
+                // Only reachable when use_quad_box_shadow is not set.
                 let blur_radius_dp = source.blur_radius * 0.5;
 
                 // Create scaling from requested size to cache size.
@@ -1333,7 +1346,7 @@ impl ClipNode {
                 let cache_size = to_cache_size(source.shadow_rect_alloc_size, &mut content_scale);
 
                 let bs_cache_key = BoxShadowCacheKey {
-                    blur_radius_dp: (blur_radius_dp * content_scale.0).round() as i32,
+                    blur_radius_dp: Au::from_f32_px((blur_radius_dp * content_scale.0).round()),
                     clip_mode: source.clip_mode,
                     original_alloc_size: (source.original_alloc_size * content_scale).round().to_i32(),
                     br_top_left: (source.shadow_radius.top_left * content_scale).round().to_i32(),
@@ -1457,6 +1470,7 @@ impl ClipStore {
             if !add_clip_node_to_current_chain(
                 node.handle,
                 node.spatial_node_index,
+                node.clip_rect_origin,
                 prim_spatial_node_index,
                 pic_spatial_node_index,
                 visibility_spatial_node_index,
@@ -1504,6 +1518,7 @@ impl ClipStore {
                 handle: clip_instance.handle,
                 conversion,
                 spatial_node_index: clip_instance.spatial_node_index,
+                clip_rect_origin: clip_instance.clip_rect_origin,
             });
         }
     }
@@ -1542,8 +1557,9 @@ impl ClipStore {
                 // Normal Clip rects are already handled by the clip-chain pic_coverage_rect,
                 // no need to do anything here
                 ClipItemKind::Rectangle { mode: ClipMode::Clip, .. } => {}
-                ClipItemKind::RoundedRectangle { mode: ClipMode::Clip, rect, radius } => {
+                ClipItemKind::RoundedRectangle { mode: ClipMode::Clip, size, radius } => {
                     // Get an inner rect for the rounded-rect clip
+                    let rect = LayoutRect::from_origin_and_size(clip_instance.clip_rect_origin, size);
                     let local_inner_rect = match extract_inner_rect_safe(&rect, &radius) {
                         Some(rect) => rect,
                         None => return None,
@@ -1577,14 +1593,16 @@ impl ClipStore {
         &mut self,
         handle: ClipDataHandle,
         spatial_node_index: SpatialNodeIndex,
+        clip_rect_origin: LayoutPoint,
     ) -> ClipNodeRange {
         let first = self.clip_node_instances.len() as u32;
 
         self.clip_node_instances.push(ClipNodeInstance {
             handle,
+            spatial_node_index,
+            clip_rect_origin,
             flags: ClipNodeFlags::SAME_COORD_SYSTEM | ClipNodeFlags::SAME_SPATIAL_NODE,
             visible_tiles: None,
-            spatial_node_index,
         });
 
         ClipNodeRange {
@@ -1615,6 +1633,7 @@ impl ClipStore {
         };
         profile_scope!("build_clip_chain_instance");
 
+
         let local_bounding_rect = local_prim_rect.intersection(&local_clip_rect)?;
         let mut pic_coverage_rect = prim_to_pic_mapper.map(&local_bounding_rect)?;
         let vis_clip_rect = pic_to_vis_mapper.map(&pic_coverage_rect)?;
@@ -1635,11 +1654,11 @@ impl ClipStore {
             // See how this clip affects the prim region.
             let clip_result = match node_info.conversion {
                 ClipSpaceConversion::Local => {
-                    node.item.kind.get_clip_result(&local_bounding_rect)
+                    node.item.kind.get_clip_result(&local_bounding_rect, node_info.clip_rect_origin)
                 }
                 ClipSpaceConversion::ScaleOffset(ref scale_offset) => {
                     has_non_local_clips = true;
-                    node.item.kind.get_clip_result(&scale_offset.unmap_rect(&local_bounding_rect))
+                    node.item.kind.get_clip_result(&scale_offset.unmap_rect(&local_bounding_rect), node_info.clip_rect_origin)
                 }
                 ClipSpaceConversion::Transform(ref transform) => {
                     has_non_local_clips = true;
@@ -1647,6 +1666,7 @@ impl ClipStore {
                         transform,
                         &vis_clip_rect,
                         culling_rect,
+                        node_info.clip_rect_origin,
                     )
                 }
             };
@@ -1769,34 +1789,34 @@ impl Default for ClipStore {
 #[cfg_attr(feature = "capture", derive(Serialize))]
 #[cfg_attr(feature = "replay", derive(Deserialize))]
 pub enum ClipItemKeyKind {
-    Rectangle(RectKey, ClipMode),
-    RoundedRectangle(RectKey, BorderRadiusAu, ClipMode),
-    ImageMask(RectKey, ImageKey, Option<PolygonDataHandle>),
+    Rectangle(SizeKey, ClipMode),
+    RoundedRectangle(SizeKey, BorderRadiusAu, ClipMode),
+    ImageMask(SizeKey, ImageKey, Option<PolygonDataHandle>),
     BoxShadow(PointKey, SizeKey, BorderRadiusAu, RectKey, Au, BoxShadowClipMode),
 }
 
 impl ClipItemKeyKind {
-    pub fn rectangle(rect: LayoutRect, mode: ClipMode) -> Self {
-        ClipItemKeyKind::Rectangle(rect.into(), mode)
+    pub fn rectangle(size: LayoutSize, mode: ClipMode) -> Self {
+        ClipItemKeyKind::Rectangle(size.into(), mode)
     }
 
-    pub fn rounded_rect(rect: LayoutRect, mut radii: BorderRadius, mode: ClipMode) -> Self {
+    pub fn rounded_rect(size: LayoutSize, mut radii: BorderRadius, mode: ClipMode) -> Self {
         if radii.is_zero() {
-            ClipItemKeyKind::rectangle(rect, mode)
+            ClipItemKeyKind::rectangle(size, mode)
         } else {
-            ensure_no_corner_overlap(&mut radii, rect.size());
+            ensure_no_corner_overlap(&mut radii, size);
             ClipItemKeyKind::RoundedRectangle(
-                rect.into(),
+                size.into(),
                 radii.into(),
                 mode,
             )
         }
     }
 
-    pub fn image_mask(image_mask: &ImageMask, mask_rect: LayoutRect,
+    pub fn image_mask(image_mask: &ImageMask, size: LayoutSize,
                       polygon_handle: Option<PolygonDataHandle>) -> Self {
         ClipItemKeyKind::ImageMask(
-            mask_rect.into(),
+            size.into(),
             image_mask.image,
             polygon_handle,
         )
@@ -1809,8 +1829,6 @@ impl ClipItemKeyKind {
         blur_radius: f32,
         clip_mode: BoxShadowClipMode,
     ) -> Self {
-        // Get the fractional offsets required to match the
-        // source rect with a minimal rect.
         let fract_offset = LayoutPoint::new(
             shadow_rect.min.x.fract().abs(),
             shadow_rect.min.y.fract().abs(),
@@ -1850,6 +1868,7 @@ pub struct ClipItemKey {
 pub struct ClipItemEntry {
     pub key: ClipItemKey,
     pub spatial_node_index: SpatialNodeIndex,
+    pub clip_rect_origin: LayoutPoint,
 }
 
 /// The data available about an interned clip node during scene building
@@ -1874,17 +1893,17 @@ impl intern::Internable for ClipIntern {
 #[cfg_attr(feature = "replay", derive(Deserialize))]
 pub enum ClipItemKind {
     Rectangle {
-        rect: LayoutRect,
+        size: LayoutSize,
         mode: ClipMode,
     },
     RoundedRectangle {
-        rect: LayoutRect,
+        size: LayoutSize,
         radius: BorderRadius,
         mode: ClipMode,
     },
     Image {
         image: ImageKey,
-        rect: LayoutRect,
+        size: LayoutSize,
         polygon_handle: Option<PolygonDataHandle>,
     },
     BoxShadow {
@@ -2065,8 +2084,9 @@ impl ClipItemKind {
             ClipItemKind::BoxShadow { .. } => {
                 false
             }
-            ClipItemKind::RoundedRectangle { ref rect, ref radius, .. } => {
-                radius.can_use_fast_path_in(rect)
+            ClipItemKind::RoundedRectangle { size, ref radius, .. } => {
+                let rect = LayoutRect::from_origin_and_size(LayoutPoint::zero(), size);
+                radius.can_use_fast_path_in(&rect)
             }
         }
     }
@@ -2075,14 +2095,18 @@ impl ClipItemKind {
     // reduce the size of a primitive region. This is typically
     // used to eliminate redundant clips, and reduce the size of
     // any clip mask that eventually gets drawn.
-    pub fn get_local_clip_rect(&self) -> Option<LayoutRect> {
+    pub fn get_local_clip_rect(&self, origin: LayoutPoint) -> Option<LayoutRect> {
         match *self {
-            ClipItemKind::Rectangle { rect, mode: ClipMode::Clip } => Some(rect),
+            ClipItemKind::Rectangle { size, mode: ClipMode::Clip } => {
+                Some(LayoutRect::from_origin_and_size(origin, size))
+            }
             ClipItemKind::Rectangle { mode: ClipMode::ClipOut, .. } => None,
-            ClipItemKind::RoundedRectangle { rect, mode: ClipMode::Clip, .. } => Some(rect),
+            ClipItemKind::RoundedRectangle { size, mode: ClipMode::Clip, .. } => {
+                Some(LayoutRect::from_origin_and_size(origin, size))
+            }
             ClipItemKind::RoundedRectangle { mode: ClipMode::ClipOut, .. } => None,
-            ClipItemKind::Image { rect, .. } => {
-                Some(rect)
+            ClipItemKind::Image { size, .. } => {
+                Some(LayoutRect::from_origin_and_size(origin, size))
             }
             ClipItemKind::BoxShadow { .. } => None,
         }
@@ -2093,6 +2117,7 @@ impl ClipItemKind {
         transform: &LayoutToVisTransform,
         prim_rect: &VisRect,
         culling_rect: &VisRect,
+        origin: LayoutPoint,
     ) -> ClipResult {
         let visible_rect = match prim_rect.intersection(culling_rect) {
             Some(rect) => rect,
@@ -2100,14 +2125,17 @@ impl ClipItemKind {
         };
 
         let (clip_rect, inner_rect, mode) = match *self {
-            ClipItemKind::Rectangle { rect, mode } => {
+            ClipItemKind::Rectangle { size, mode } => {
+                let rect = LayoutRect::from_origin_and_size(origin, size);
                 (rect, Some(rect), mode)
             }
-            ClipItemKind::RoundedRectangle { rect, ref radius, mode } => {
+            ClipItemKind::RoundedRectangle { size, ref radius, mode } => {
+                let rect = LayoutRect::from_origin_and_size(origin, size);
                 let inner_clip_rect = extract_inner_rect_safe(&rect, radius);
                 (rect, inner_clip_rect, mode)
             }
-            ClipItemKind::Image { rect, .. } => {
+            ClipItemKind::Image { size, .. } => {
+                let rect = LayoutRect::from_origin_and_size(origin, size);
                 (rect, None, ClipMode::Clip)
             }
             ClipItemKind::BoxShadow { .. } => {
@@ -2152,9 +2180,11 @@ impl ClipItemKind {
     fn get_clip_result(
         &self,
         prim_rect: &LayoutRect,
+        origin: LayoutPoint,
     ) -> ClipResult {
         match *self {
-            ClipItemKind::Rectangle { rect, mode: ClipMode::Clip } => {
+            ClipItemKind::Rectangle { size, mode: ClipMode::Clip } => {
+                let rect = LayoutRect::from_origin_and_size(origin, size);
                 if rect.contains_box(prim_rect) {
                     return ClipResult::Accept;
                 }
@@ -2168,7 +2198,8 @@ impl ClipItemKind {
                     }
                 }
             }
-            ClipItemKind::Rectangle { rect, mode: ClipMode::ClipOut } => {
+            ClipItemKind::Rectangle { size, mode: ClipMode::ClipOut } => {
+                let rect = LayoutRect::from_origin_and_size(origin, size);
                 if rect.contains_box(prim_rect) {
                     return ClipResult::Reject;
                 }
@@ -2182,7 +2213,8 @@ impl ClipItemKind {
                     }
                 }
             }
-            ClipItemKind::RoundedRectangle { rect, ref radius, mode: ClipMode::Clip } => {
+            ClipItemKind::RoundedRectangle { size, ref radius, mode: ClipMode::Clip } => {
+                let rect = LayoutRect::from_origin_and_size(origin, size);
                 // TODO(gw): Consider caching this in the ClipNode
                 //           if it ever shows in profiles.
                 if rounded_rectangle_contains_box_quick(&rect, radius, &prim_rect) {
@@ -2198,7 +2230,8 @@ impl ClipItemKind {
                     }
                 }
             }
-            ClipItemKind::RoundedRectangle { rect, ref radius, mode: ClipMode::ClipOut } => {
+            ClipItemKind::RoundedRectangle { size, ref radius, mode: ClipMode::ClipOut } => {
+                let rect = LayoutRect::from_origin_and_size(origin, size);
                 // TODO(gw): Consider caching this in the ClipNode
                 //           if it ever shows in profiles.
                 if rounded_rectangle_contains_box_quick(&rect, radius, &prim_rect) {
@@ -2214,7 +2247,8 @@ impl ClipItemKind {
                     }
                 }
             }
-            ClipItemKind::Image { rect, .. } => {
+            ClipItemKind::Image { size, .. } => {
+                let rect = LayoutRect::from_origin_and_size(origin, size);
                 match rect.intersection(prim_rect) {
                     Some(..) => {
                         ClipResult::Partial
@@ -2408,6 +2442,7 @@ pub fn projected_rect_contains(
 fn add_clip_node_to_current_chain(
     handle: ClipDataHandle,
     clip_spatial_node_index: SpatialNodeIndex,
+    clip_rect_origin: LayoutPoint,
     prim_spatial_node_index: SpatialNodeIndex,
     pic_spatial_node_index: SpatialNodeIndex,
     visibility_spatial_node_index: SpatialNodeIndex,
@@ -2430,7 +2465,7 @@ fn add_clip_node_to_current_chain(
 
     // If we can convert spaces, try to reduce the size of the region
     // requested, and cache the conversion information for the next step.
-    if let Some(clip_rect) = clip_node.item.kind.get_local_clip_rect() {
+    if let Some(clip_rect) = clip_node.item.kind.get_local_clip_rect(clip_rect_origin) {
         match conversion {
             ClipSpaceConversion::Local => {
                 *local_clip_rect = match local_clip_rect.intersection(&clip_rect) {
@@ -2485,6 +2520,7 @@ fn add_clip_node_to_current_chain(
         conversion,
         handle,
         spatial_node_index: clip_spatial_node_index,
+        clip_rect_origin,
     });
 
     true

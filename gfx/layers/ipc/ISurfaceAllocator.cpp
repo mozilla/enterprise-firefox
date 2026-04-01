@@ -161,10 +161,13 @@ void FixedSizeSmallShmemSectionAllocator::FreeShmemSection(
     return;
   }
 
+  size_t headerSize = sizeof(ShmemSectionHeapAllocation);
+  MOZ_RELEASE_ASSERT(aShmemSection.offset() >= headerSize);
+
   ShmemSectionHeapAllocation* allocHeader =
       reinterpret_cast<ShmemSectionHeapAllocation*>(
           aShmemSection.shmem().get<char>() + aShmemSection.offset() -
-          sizeof(ShmemSectionHeapAllocation));
+          headerSize);
 
   MOZ_ASSERT(allocHeader->mSize == aShmemSection.size());
 
@@ -220,7 +223,11 @@ void FixedSizeSmallShmemSectionAllocator::ShrinkShmemSectionHeap() {
 }
 
 Maybe<ShmemSection> ShmemSection::FromUntrusted(
-    const UntrustedShmemSection& aUntrusted) {
+    const UntrustedShmemSection& aUntrusted, size_t aMinimumSize) {
+  if (aUntrusted.size() < aMinimumSize) {
+    return Nothing();
+  }
+
   ShmemSection section;
   if (!section.Init(aUntrusted.shmem(), aUntrusted.offset(),
                     aUntrusted.size())) {

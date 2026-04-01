@@ -7,6 +7,7 @@ package org.mozilla.fenix.tabstray.redux.reducer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
+import org.mozilla.fenix.tabstray.data.TabGroupTheme
 import org.mozilla.fenix.tabstray.data.createTabGroup
 import org.mozilla.fenix.tabstray.navigation.TabManagerNavDestination.AddToTabGroup
 import org.mozilla.fenix.tabstray.navigation.TabManagerNavDestination.CreateTabGroup
@@ -133,5 +134,27 @@ class TabGroupReducerTest {
 
         assertEquals(expectedFormState, resultState.tabGroupFormState)
         assertEquals(expectedBackStack, resultState.backStack)
+    }
+
+    @Test
+    fun `WHEN ThemeChanged is called THEN theme is updated`() {
+        val initialFormState = TabGroupFormState(tabGroupId = "123", name = "123", theme = TabGroupTheme.Blue)
+
+        val resultState = TabGroupActionReducer.reduce(
+            TabsTrayState(tabGroupFormState = initialFormState),
+            TabGroupAction.ThemeChanged(theme = TabGroupTheme.Pink),
+        )
+
+        assertEquals(resultState.tabGroupFormState!!.theme, TabGroupTheme.Pink)
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun `WHEN ThemeChanged is called with null form THEN exception is thrown`() {
+        val resultState = TabGroupActionReducer.reduce(
+            TabsTrayState(tabGroupFormState = null),
+            TabGroupAction.ThemeChanged(theme = TabGroupTheme.Pink),
+        )
+
+        assertEquals(resultState.tabGroupFormState!!.theme, TabGroupTheme.Pink)
     }
 }

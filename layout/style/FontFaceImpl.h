@@ -188,7 +188,7 @@ class FontFaceImpl final {
   void SetSizeAdjust(const nsACString& aValue, ErrorResult& aRv);
 
   FontFaceLoadStatus Status();
-  void Load(ErrorResult& aRv);
+  void Load();
 
   void Destroy();
 
@@ -196,6 +196,8 @@ class FontFaceImpl final {
 
   void InitializeSourceURL(const nsACString& aURL);
   void InitializeSourceBuffer(uint8_t* aBuffer, uint32_t aLength);
+
+  void UpdateOwnerKeepAlive();
 
   /**
    * Sets all of the descriptor values in mDescriptors using values passed
@@ -216,6 +218,7 @@ class FontFaceImpl final {
   // Helper function for Load.
   void DoLoad();
   void UpdateOwnerPromise();
+  void UpdateOwnerPromiseSync();
 
   // Helper function for the descriptor setter methods.
   // Returns true if the descriptor was modified, false if descriptor is

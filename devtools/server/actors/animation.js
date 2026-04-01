@@ -69,6 +69,17 @@ function getAnimationTypeForLonghand(property) {
 exports.getAnimationTypeForLonghand = getAnimationTypeForLonghand;
 
 /**
+ * Return the value of the animationsPlayBackRateMultiplier browsing context flag into
+ * which the passed animation lives.
+ *
+ * @param {Animation} animation
+ */
+function getAnimationBrowsingContextPlayBackRateMultiplier(animation) {
+  return animation.effect.target.ownerGlobal.browsingContext
+    .animationsPlayBackRateMultiplier;
+}
+
+/**
  * The AnimationPlayerActor provides information about a given animation: its
  * startTime, currentTime, current state, etc.
  *
@@ -348,6 +359,7 @@ class AnimationPlayerActor extends Actor {
    */
   getState() {
     const compositorStatus = this.getPropertiesCompositorStatus();
+
     // Note that if you add a new property to the state object, make sure you
     // add the corresponding property in the AnimationPlayerFront' initialState
     // getter.
@@ -361,6 +373,9 @@ class AnimationPlayerActor extends Actor {
       currentTime: this.player.currentTime,
       playState: this.player.playState,
       playbackRate: this.player.playbackRate,
+      playBackRateMultiplier: getAnimationBrowsingContextPlayBackRateMultiplier(
+        this.player
+      ),
       name: this.getName(),
       duration: this.getDuration(),
       delay: this.getDelay(),
@@ -458,7 +473,8 @@ class AnimationPlayerActor extends Actor {
           newState.fill !== oldState.fill ||
           newState.animationTimingFunction !==
             oldState.animationTimingFunction ||
-          newState.playbackRate !== oldState.playbackRate;
+          newState.playbackRate !== oldState.playbackRate ||
+          newState.playBackRateMultiplier !== oldState.playBackRateMultiplier;
         break;
       }
     }
@@ -911,33 +927,14 @@ exports.AnimationsActor = class AnimationsActor extends Actor {
         player.playbackRate > 0
           ? time - actor.createdTime
           : actor.createdTime - time;
-      player.currentTime = currentTime * Math.abs(player.playbackRate);
+      const multiplier =
+        player.playbackRate *
+        getAnimationBrowsingContextPlayBackRateMultiplier(player);
+      player.currentTime = currentTime * Math.abs(multiplier);
       handledActors.push(actor);
     }
 
     return this.waitForNextFrame(handledActors);
-  }
-
-  /**
-   * Set the playback rate of several animations at the same time.
-   *
-   * @param {Array} actors A list of AnimationPlayerActor.
-   * @param {number} rate The new rate.
-   */
-  setPlaybackRates(actors, rate) {
-    const readyPromises = [];
-    for (const actor of actors) {
-      // The client could call this with actors that we no longer handle, as it might
-      // not have received the mutations event yet for removed animations.
-      // In such case, ignore the actor, as setting the playback rate might trigger a
-      // new mutation, which would cause problems here and on the client.
-      if (!this.actors.includes(actor)) {
-        continue;
-      }
-      actor.player.updatePlaybackRate(rate);
-      readyPromises.push(actor.player.ready);
-    }
-    return Promise.all(readyPromises);
   }
 
   /**
@@ -962,8 +959,10 @@ exports.AnimationsActor = class AnimationsActor extends Actor {
 
     // Play animation in a synchronous fashion by setting the start time directly.
     const currentTime = player.currentTime || 0;
-    player.startTime =
-      player.timeline.currentTime - currentTime / player.playbackRate;
+    const multiplier =
+      player.playbackRate *
+      getAnimationBrowsingContextPlayBackRateMultiplier(player);
+    player.startTime = player.timeline.currentTime - currentTime / multiplier;
   }
 
   /**
@@ -972,10 +971,13 @@ exports.AnimationsActor = class AnimationsActor extends Actor {
    * @param {object} animation
    */
   getCreatedTime(animation) {
+    const multiplier =
+      animation.playbackRate *
+      getAnimationBrowsingContextPlayBackRateMultiplier(animation);
+
     return (
       animation.startTime ||
-      animation.timeline.currentTime -
-        animation.currentTime / animation.playbackRate
+      animation.timeline.currentTime - animation.currentTime / multiplier
     );
   }
 

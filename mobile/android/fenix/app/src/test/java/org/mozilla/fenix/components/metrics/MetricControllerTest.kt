@@ -12,6 +12,7 @@ import io.mockk.verify
 import io.mockk.verifyAll
 import mozilla.components.feature.autofill.facts.AutofillFacts
 import mozilla.components.feature.awesomebar.facts.AwesomeBarFacts
+import mozilla.components.feature.awesomebar.facts.SuggestionCardType
 import mozilla.components.feature.awesomebar.provider.BookmarksStorageSuggestionProvider
 import mozilla.components.feature.awesomebar.provider.ClipboardSuggestionProvider
 import mozilla.components.feature.awesomebar.provider.HistoryStorageSuggestionProvider
@@ -879,7 +880,12 @@ class MetricControllerTest {
 
         // Verify optimized suggestion cards displayed
         assertNull(Awesomebar.optimizedSuggestionCardDisplayed.testGetValue())
-        fact = Fact(Component.FEATURE_AWESOMEBAR, Action.DISPLAY, AwesomeBarFacts.Items.OPTIMIZED_SUGGESTION_CARD_DISPLAYED, "test")
+        fact = Fact(
+            Component.FEATURE_AWESOMEBAR,
+            Action.DISPLAY,
+            AwesomeBarFacts.Items.OPTIMIZED_SUGGESTION_CARD_DISPLAYED,
+            SuggestionCardType.SPORTS.value,
+        )
 
         with(controller) {
             fact.process()
@@ -887,11 +893,16 @@ class MetricControllerTest {
 
         assertNotNull(Awesomebar.optimizedSuggestionCardDisplayed.testGetValue())
         assertNotNull(Awesomebar.optimizedSuggestionCardDisplayed.testGetValue()!![0].extra)
-        assertEquals("test", Awesomebar.optimizedSuggestionCardDisplayed.testGetValue()!![0].extra!!["card_type"])
+        assertEquals("sports", Awesomebar.optimizedSuggestionCardDisplayed.testGetValue()!![0].extra!!["card_type"])
 
         // Verify optimized suggestion cards clicked
         assertNull(Awesomebar.optimizedSuggestionCardClicked.testGetValue())
-        fact = Fact(Component.FEATURE_AWESOMEBAR, Action.CLICK, AwesomeBarFacts.Items.OPTIMIZED_SUGGESTION_CARD_CLICKED, "test")
+        fact = Fact(
+            Component.FEATURE_AWESOMEBAR,
+            Action.CLICK,
+            AwesomeBarFacts.Items.OPTIMIZED_SUGGESTION_CARD_CLICKED,
+            SuggestionCardType.STOCKS.value,
+        )
 
         with(controller) {
             fact.process()
@@ -899,7 +910,7 @@ class MetricControllerTest {
 
         assertNotNull(Awesomebar.optimizedSuggestionCardClicked.testGetValue())
         assertNotNull(Awesomebar.optimizedSuggestionCardClicked.testGetValue()!![0].extra)
-        assertEquals("test", Awesomebar.optimizedSuggestionCardClicked.testGetValue()!![0].extra!!["card_type"])
+        assertEquals("stocks", Awesomebar.optimizedSuggestionCardClicked.testGetValue()!![0].extra!!["card_type"])
     }
 
     @Test

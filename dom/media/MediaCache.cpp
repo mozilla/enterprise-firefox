@@ -1076,9 +1076,9 @@ void MediaCache::SwapBlocks(AutoLock& aLock, int32_t aBlockIndex1,
 
   nsTHashSet<MediaCacheStream*> visitedStreams;
 
-  for (int32_t i = 0; i < 2; ++i) {
-    for (uint32_t j = 0; j < blocks[i]->mOwners.Length(); ++j) {
-      MediaCacheStream* stream = blocks[i]->mOwners[j].mStream;
+  for (auto& block : blocks) {
+    for (uint32_t j = 0; j < block->mOwners.Length(); ++j) {
+      MediaCacheStream* stream = block->mOwners[j].mStream;
       // Make sure that we don't update the same stream twice --- that
       // would result in swapping the block references back again!
       if (!visitedStreams.EnsureInserted(stream)) continue;

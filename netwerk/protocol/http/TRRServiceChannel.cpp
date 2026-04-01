@@ -137,7 +137,15 @@ TRRServiceChannel::Cancel(nsresult status) {
         NS_DISPATCH_NORMAL);
   }
 
-  CancelNetworkRequest(status);
+  if (mCurrentEventTarget->IsOnCurrentThread()) {
+    CancelNetworkRequest(status);
+  } else {
+    mCurrentEventTarget->Dispatch(
+        NS_NewRunnableFunction("TRRServiceChannel::CancelNetworkRequest",
+                               [self = RefPtr(this), status]() {
+                                 self->CancelNetworkRequest(status);
+                               }));
+  }
   return NS_OK;
 }
 

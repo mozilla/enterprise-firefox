@@ -4613,6 +4613,11 @@ nsresult Element::CopyInnerTo(Element* aDst, ReparseAttributes aReparse) {
     if (State().HasState(ElementState::DEFINED)) {
       aDst->SetDefined(true);
     }
+    // Propagate pseudo-element if needed.
+    auto pseudo = GetPseudoElementType();
+    if (pseudo != PseudoStyleType::NotPseudo) {
+      aDst->SetPseudoElementType(pseudo);
+    }
   }
 
   return NS_OK;

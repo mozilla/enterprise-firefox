@@ -11,6 +11,8 @@ tags = "os_integration"
 
 ["browser_file_menu_import_wizard.js"]
 
+["browser_file_offline.js"]
+
 ["browser_file_share.js"]
 https_first_disabled = true
 run-if = [

@@ -70,6 +70,7 @@ use crate::values::specified::position::PositionTryFallbacksTryTactic;
 use crate::values::{computed, AtomIdent, Parser, SourceLocation};
 use crate::AllocErr;
 use crate::{Atom, LocalName, Namespace, ShrinkIfNeeded, WeakAtom};
+use crate::ArcSlice;
 use cssparser::ParserInput;
 use dom::{DocumentState, ElementState};
 #[cfg(feature = "gecko")]
@@ -2858,15 +2859,20 @@ impl ContainerConditionId {
 #[derive(Clone, Debug, MallocSizeOf)]
 struct ContainerConditionReference {
     parent: ContainerConditionId,
+    /// Contains the container conditions of a particular rule.
+    ///
+    /// This should only ever be empty for the root rule, which acts as a
+    /// sentinel value.
     #[ignore_malloc_size_of = "Arc"]
-    condition: Option<Arc<ContainerCondition>>,
+    conditions: ArcSlice<ContainerCondition>,
 }
 
 impl ContainerConditionReference {
-    const fn none() -> Self {
+    /// Creates an empty, root container condition reference.
+    fn none() -> Self {
         Self {
             parent: ContainerConditionId::none(),
-            condition: None,
+            conditions: ArcSlice::default(),
         }
     }
 }
@@ -3611,18 +3617,19 @@ impl CascadeData {
     {
         loop {
             let condition_ref = &self.container_conditions[id.0 as usize];
-            let condition = match condition_ref.condition {
-                None => return true,
-                Some(ref c) => c,
-            };
-            let matches = condition
-                .matches(
-                    stylist,
-                    element,
-                    context.extra_data.originating_element_style,
-                    &mut context.extra_data.cascade_input_flags,
-                )
-                .to_bool(/* unknown = */ false);
+            if condition_ref.conditions.is_empty() {
+                return true;
+            }
+            let matches = condition_ref.conditions.iter().any(|condition| {
+                condition
+                    .matches(
+                        stylist,
+                        element,
+                        context.extra_data.originating_element_style,
+                        &mut context.extra_data.cascade_input_flags,
+                    )
+                    .to_bool(/* unknown = */ false)
+            });
             if !matches {
                 return false;
             }
@@ -4164,7 +4171,7 @@ impl CascadeData {
                         guard,
                         &mut effective,
                     );
-                    debug_assert!(children.is_none());
+                    debug_assert!(children.is_empty());
                     debug_assert!(effective);
                 }
                 continue;
@@ -4286,14 +4293,11 @@ impl CascadeData {
                 },
                 CssRule::Container(ref rule) => {
                     let id = ContainerConditionId(self.container_conditions.len() as u16);
-                    let iter = rule.conditions.0.iter();
-                    let iter = iter.cloned().map(|condition| {
-                        ContainerConditionReference {
-                            parent: containing_rule_state.container_condition_id,
-                            condition: Some(condition),
-                        }
-                    });
-                    self.container_conditions.extend(iter);
+                    let condition = ContainerConditionReference {
+                        parent: containing_rule_state.container_condition_id,
+                        conditions: rule.conditions.0.clone(),
+                    };
+                    self.container_conditions.push(condition);
                     containing_rule_state.container_condition_id = id;
                 },
                 CssRule::StartingStyle(..) => {
@@ -4388,9 +4392,9 @@ impl CascadeData {
                 _ => {},
             }
 
-            if let Some(children) = children {
+            if !children.is_empty() {
                 self.add_rule_list(
-                    children,
+                    children.iter(),
                     device,
                     quirks_mode,
                     stylesheet,

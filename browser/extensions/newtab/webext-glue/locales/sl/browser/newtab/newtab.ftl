@@ -73,6 +73,11 @@ newtab-topsites-image-url-label = Spletni naslov slike po meri
 newtab-topsites-use-image-link = Uporabi sliko po meri …
 newtab-topsites-image-validation = Slike ni bilo mogoče naložiti. Poskusite drug spletni naslov.
 
+## Clear text button for the URL and image URL input fields in the Top Sites form.
+
+newtab-topsites-clear-input =
+    .aria-label = Počisti besedilo
+
 ## Top Sites - General form dialog buttons. These are verbs/actions.
 
 newtab-topsites-cancel-button = Prekliči
@@ -672,6 +677,7 @@ newtab-widget-lists-name-placeholder-default =
 newtab-widget-lists-name-placeholder-new =
     .placeholder = Nov seznam
 newtab-widget-section-title = Pripomočki
+newtab-widget-menu-hide = Skrij pripomoček
 # Tooltip for hide all widgets button
 newtab-widget-section-hide-all-button =
     .title = Skrij pripomočke
@@ -682,6 +688,7 @@ newtab-widget-section-maximize =
 newtab-widget-section-minimize =
     .title = Pomanjšaj pripomočke
     .aria-label = Skrči vse pripomočke
+newtab-widget-section-feedback = Povejte nam svoje mnenje
 
 ## Strings for timer productivity widget
 ## When the timer ends, a system notification may be shown. Depending on which mode the timer is in, that message would be shown

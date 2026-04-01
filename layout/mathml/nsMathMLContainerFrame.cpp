@@ -166,7 +166,7 @@ nscoord nsMathMLContainerFrame::ApplyAdjustmentForWidthAndHeight(
     auto oldWidth = aReflowOutput.Width();
     if (IsMathContentBoxHorizontallyCentered()) {
       shiftX = (width - oldWidth) / 2;
-    } else if (StyleVisibility()->mDirection == StyleDirection::Rtl) {
+    } else if (GetWritingMode().IsBidiRTL()) {
       shiftX = width - oldWidth;
     }
     aBoundingMetrics.leftBearing = 0;
@@ -423,9 +423,8 @@ nsMathMLContainerFrame::Stretch(DrawTarget* aDrawTarget,
           aDesiredStretchSize.Width() = mBoundingMetrics.width;
           aDesiredStretchSize.mBoundingMetrics.width = mBoundingMetrics.width;
 
-          nscoord dx = StyleVisibility()->mDirection == StyleDirection::Rtl
-                           ? trailingSpace
-                           : leadingSpace;
+          nscoord dx =
+              GetWritingMode().IsBidiRTL() ? trailingSpace : leadingSpace;
           if (dx != 0) {
             mBoundingMetrics.leftBearing += dx;
             mBoundingMetrics.rightBearing += dx;
@@ -1131,8 +1130,7 @@ class nsMathMLContainerFrame::RowChildFrameIterator {
         mChildFrameType(MathMLFrameType::Unknown),
         mCarrySpace(0),
         mFromFrameType(MathMLFrameType::Unknown),
-        mRTL(aParentFrame->StyleVisibility()->mDirection ==
-             StyleDirection::Rtl) {
+        mRTL(aParentFrame->GetWritingMode().IsBidiRTL()) {
     if (!mRTL) {
       mChildFrame = aParentFrame->mFrames.FirstChild();
     } else {
@@ -1375,7 +1373,7 @@ static nscoord AddInterFrameSpacingToSize(ReflowOutput& aDesiredSize,
 
     // Take into account lspace/rspace around (embellished) operators.
     nscoord leftSpace, rightSpace;
-    bool isRTL = parent->StyleVisibility()->mDirection == StyleDirection::Rtl;
+    bool isRTL = parent->GetWritingMode().IsBidiRTL();
     GetCoreOperatorLeftAndRightSpace(aFrame, isRTL, leftSpace, rightSpace);
     gap += leftSpace;
 

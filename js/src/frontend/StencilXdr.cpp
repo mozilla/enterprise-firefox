@@ -12,6 +12,7 @@
 #include "mozilla/ScopeExit.h"              // mozilla::MakeScopeExit
 #include "mozilla/Try.h"                    // MOZ_TRY
 
+#include <bit>          // std::endian
 #include <stddef.h>     // size_t
 #include <stdint.h>     // uint8_t, uint16_t, uint32_t
 #include <type_traits>  // std::has_unique_object_representations
@@ -1378,7 +1379,11 @@ JS_PUBLIC_API bool JS::GetScriptTranscodingBuildId(
   // XDR depends on pointer size and endianness.
   static_assert(sizeof(uintptr_t) == 4 || sizeof(uintptr_t) == 8);
   buildId->infallibleAppend(sizeof(uintptr_t) == 4 ? '4' : '8');
-  buildId->infallibleAppend(MOZ_LITTLE_ENDIAN() ? 'l' : 'b');
+  if constexpr (std::endian::native == std::endian::little) {
+    buildId->infallibleAppend('l');
+  } else {
+    buildId->infallibleAppend('b');
+  }
 
   return true;
 }

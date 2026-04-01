@@ -178,7 +178,7 @@ JS::Zone::Zone(JSRuntime* rt, Kind kind)
       wasCollected_(false),
       listNext_(NotOnList),
       keptAliveSet(this),
-      objectFuses(rt) {
+      objectFuses(this) {
   /* Ensure that there are no vtables to mess us up here. */
   MOZ_ASSERT(reinterpret_cast<JS::shadow::Zone*>(this) ==
              static_cast<JS::shadow::Zone*>(this));

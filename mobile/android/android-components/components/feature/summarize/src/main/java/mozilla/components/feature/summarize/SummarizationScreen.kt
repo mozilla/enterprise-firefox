@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.only
@@ -49,11 +48,13 @@ import mozilla.components.compose.base.annotation.FlexibleWindowLightDarkPreview
 import mozilla.components.compose.base.modifier.thenConditional
 import mozilla.components.compose.base.theme.AcornTheme
 import mozilla.components.concept.llm.LlmProvider
+import mozilla.components.feature.summarize.content.PageMetadataExtractor
 import mozilla.components.feature.summarize.settings.SettingsAppBar
 import mozilla.components.feature.summarize.settings.SummarizeSettingsContent
 import mozilla.components.feature.summarize.settings.SummarizeSettingsState
 import mozilla.components.feature.summarize.settings.SummarizeSettingsStore
 import mozilla.components.feature.summarize.settings.summarizeSettingsReducer
+import mozilla.components.feature.summarize.ui.ContentTooLongError
 import mozilla.components.feature.summarize.ui.DownloadError
 import mozilla.components.feature.summarize.ui.InfoError
 import mozilla.components.feature.summarize.ui.OffDeviceSummarizationConsent
@@ -111,26 +112,21 @@ private fun SummarizationScreen(
         label = "gradientAlpha",
     )
 
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.BottomCenter,
+    SummarizationScreenScaffold(
+        modifier = modifier
+            .thenConditional(Modifier.summaryLoadingGradient(loadingAlpha)) {
+                loadingAlpha > 0
+            }
+            .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Bottom))
+            .nestedScroll(rememberNestedScrollInteropConnection()),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 1f - loadingAlpha),
     ) {
-        SummarizationScreenScaffold(
-            modifier = modifier
-                .thenConditional(Modifier.summaryLoadingGradient(loadingAlpha)) {
-                    loadingAlpha > 0
-                }
-                .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Bottom))
-                .nestedScroll(rememberNestedScrollInteropConnection()),
-            color = MaterialTheme.colorScheme.surface.copy(alpha = 1f - loadingAlpha),
-        ) {
-            handleSummarizationState(store, settingsStore)
-        }
+        SummarizationScreenContent(store, settingsStore)
     }
 }
 
 @Composable
-private fun handleSummarizationState(
+private fun SummarizationScreenContent(
     store: SummarizationStore,
     settingsStore: SummarizeSettingsStore? = null,
 ) {
@@ -182,10 +178,11 @@ private fun handleSummarizationState(
         }
 
         is SummarizationState.Error -> {
-            if (state.error is SummarizationError.DownloadFailed) {
-                DownloadError()
-            } else {
-                InfoError()
+            when (state.error) {
+                is SummarizationError.DownloadFailed -> DownloadError()
+                is SummarizationError.ContentTooLong -> ContentTooLongError()
+                is SummarizationError.SummarizationFailed ->
+                    InfoError(errorCode = state.error.exception.errorCode)
             }
         }
 
@@ -272,10 +269,10 @@ private class SummarizationStatePreviewProvider : PreviewParameterProvider<Summa
         SummarizationState.Summarizing(info = info),
         SummarizationState.Summarized(info = info, document = parser.parse(previewSummarizedText)),
         SummarizationState.Settings(info = info, document = RichDocument(listOf())),
-        SummarizationState.Error(SummarizationError.ContentTooLong),
         SummarizationState.ShakeConsentRequired,
         SummarizationState.ShakeConsentWithDownloadRequired,
-        SummarizationState.Error(SummarizationError.NetworkError),
+        SummarizationState.Error(SummarizationError.ContentTooLong),
+        SummarizationState.Error(SummarizationError.SummarizationFailed(PageMetadataExtractor.Exception())),
     )
 }
 

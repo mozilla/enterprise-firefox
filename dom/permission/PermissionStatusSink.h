@@ -40,8 +40,12 @@ class PermissionStatusSink {
   // window/worker as an argument. MaybeUpdatedByNotifyOnly must be defined by
   // PermissionStatus inheritors that are double-keyed.
   virtual bool MaybeUpdatedByOnMainThread(nsIPermission* aPermission);
+  virtual bool MaybeUpdatedByBrowserPermOnMainThread(
+      nsIPermission* aPermission);
   virtual bool MaybeUpdatedByNotifyOnlyOnMainThread(
       nsPIDOMWindowInner* aInnerWindow);
+
+  bool MaybeAffectedByBrowserIdOnMainThread(uint64_t aBrowserId);
 
   void PermissionChangedOnMainThread();
 

@@ -191,8 +191,8 @@ static void PropagateBlackBitsToGrayOrBlackBits(DenseBitmap& bitmap,
 
 static void PropagateBlackBitsToGrayOrBlackBits(
     uintptr_t (&words)[ArenaBitmapWords]) {
-  for (size_t i = 0; i < ArenaBitmapWords; i++) {
-    words[i] |= (words[i] & BlackBitMask) << 1;
+  for (uintptr_t& word : words) {
+    word |= (word & BlackBitMask) << 1;
   }
 }
 

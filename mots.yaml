@@ -8,7 +8,7 @@
 # documentation and how to modify this file.
 repo: mozilla-central
 created_at: '2021-10-14T12:50:40.073465'
-updated_at: '2026-03-20T09:34:11.282579+00:00'
+updated_at: '2026-03-27T21:05:05.333005+00:00'
 export:
   path: ./docs/mots/index.rst
   format: rst
@@ -393,7 +393,7 @@ people:
     nick: florian
   - &fredwang
     bmo_id: 739410
-    name: Frédéric Wang
+    name: Frédéric Wang Nélar
     nick: fred.wang
   - &freddy
     bmo_id: 428608
@@ -4756,5 +4756,5 @@ modules:
         - Ryan Tilder
       group: dev-platform
 hashes:
-  config: 8a84000338470da76a72781426a74b0e160c8a2e
-  export: d1955b830228b17ffcf1ed35b2798978aeb77381
+  config: 009cb9105c17d815a03c96da105dba952c335ea6
+  export: 95ffb8ae9a26590ff47948a56318a331abca9d56

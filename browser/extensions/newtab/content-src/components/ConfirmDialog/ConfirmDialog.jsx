@@ -72,8 +72,12 @@ export class _ConfirmDialog extends React.PureComponent {
 
     return (
       <span>
-        {message_body.map(msg => (
-          <p key={msg} data-l10n-id={msg} />
+        {message_body.map((msg, index) => (
+          <p
+            key={msg}
+            data-l10n-id={msg}
+            id={index === 0 ? "confirmation-dialog-title" : undefined}
+          />
         ))}
       </span>
     );
@@ -84,6 +88,7 @@ export class _ConfirmDialog extends React.PureComponent {
       <dialog
         ref={this.dialogRef}
         className="confirmation-dialog"
+        aria-labelledby="confirmation-dialog-title"
         onClick={e => {
           // Close modal when clicking on the backdrop pseudo element (the background of the modal)
           if (e.target === this.dialogRef.current) {

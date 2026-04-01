@@ -3,7 +3,7 @@ Limit the amount of comments you put in the code to a strict minimum. You should
 
 Do not remove existing comments unless they are directly related to what you are changing.
 
-The Firefox repository is very big and so it isn't advised to blindly run grep or rg commands without specifying a narrow set of directories to search. There are tools available to help, see next section.
+The Firefox repository is very big and so it isn't advised to blindly run rg or grep commands without specifying a narrow set of directories to search. When local text search via shell is necessary, prefer `rg` over `grep` as it is faster. There are tools available to help, see next section.
 
 ## Tooling for Firefox work
 - Some tools useful for Firefox work are available in the `moz` MCP server
@@ -48,6 +48,6 @@ You can find the review identifier by inspecting the commit log with:
 - When running slow commands like `./mach test`, `./mach mochitest`, etc., NEVER pipe their output through `tail`, `grep`, `head`, or other filters. `./mach` automatically saves its output and you can get it with `./mach show-log` and then read/search it separately. For other commands redirect output to a temporary file. This avoids having to re-run slow commands multiple times to extract different pieces of information.
 - Do not run `./mach build faster` when only front-end test files (JS, HTML, etc.) were modified — they don't need compilation.
 - Ask if you should run a test. If you do, you probably want to run the test with `--headless`
-- Do not perform commits yourself, ever
+- Never submit patches to Phabricator without explicit user approval.
 - When doing Android and Desktop front-end-only changes, use the special `./mach build faster` to skip all C++/Rust compilation.
 - Conversely, for C++/Rust only changes you can use the special `./mach build binaries` to skip all front-end-related tasks.

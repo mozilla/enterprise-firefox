@@ -6,7 +6,7 @@
 
 #include "jit/mips-shared/MacroAssembler-mips-shared.h"
 
-#include "mozilla/EndianUtils.h"
+#include <bit>
 
 #include "jit/MacroAssembler.h"
 #include "util/PortableMath.h"
@@ -632,7 +632,8 @@ void MacroAssemblerMIPSShared::ma_load_unaligned(Register dest,
 void MacroAssemblerMIPSShared::ma_load_unaligned(
     const wasm::MemoryAccessDesc& access, Register dest, const BaseIndex& src,
     Register temp, LoadStoreSize size, LoadStoreExtension extension) {
-  MOZ_ASSERT(MOZ_LITTLE_ENDIAN(), "Wasm-only; wasm is disabled on big-endian.");
+  MOZ_ASSERT(std::endian::native == std::endian::little,
+             "Wasm-only; wasm is disabled on big-endian.");
   int16_t lowOffset, hiOffset;
   Register base;
 
@@ -878,7 +879,8 @@ void MacroAssemblerMIPSShared::ma_store_unaligned(Register data,
 void MacroAssemblerMIPSShared::ma_store_unaligned(
     const wasm::MemoryAccessDesc& access, Register data, const BaseIndex& dest,
     Register temp, LoadStoreSize size, LoadStoreExtension extension) {
-  MOZ_ASSERT(MOZ_LITTLE_ENDIAN(), "Wasm-only; wasm is disabled on big-endian.");
+  MOZ_ASSERT(std::endian::native == std::endian::little,
+             "Wasm-only; wasm is disabled on big-endian.");
   int16_t lowOffset, hiOffset;
   Register base;
 
@@ -2387,9 +2389,9 @@ static void CompareExchange(MacroAssembler& masm,
 
   masm.as_andi(offsetTemp, scratch2, 3);
   masm.subPtr(offsetTemp, scratch2);
-#if !MOZ_LITTLE_ENDIAN()
-  masm.as_xori(offsetTemp, offsetTemp, 3);
-#endif
+  if constexpr (std::endian::native != std::endian::little) {
+    masm.as_xori(offsetTemp, offsetTemp, 3);
+  }
   masm.as_sll(offsetTemp, offsetTemp, 3);
   masm.ma_li(maskTemp, Imm32(UINT32_MAX >> ((4 - nbytes) * 8)));
   masm.as_sllv(maskTemp, maskTemp, offsetTemp);
@@ -2543,9 +2545,9 @@ static void AtomicExchange(MacroAssembler& masm,
 
   masm.as_andi(offsetTemp, scratch2, 3);
   masm.subPtr(offsetTemp, scratch2);
-#if !MOZ_LITTLE_ENDIAN()
-  masm.as_xori(offsetTemp, offsetTemp, 3);
-#endif
+  if constexpr (std::endian::native != std::endian::little) {
+    masm.as_xori(offsetTemp, offsetTemp, 3);
+  }
   masm.as_sll(offsetTemp, offsetTemp, 3);
   masm.ma_li(maskTemp, Imm32(UINT32_MAX >> ((4 - nbytes) * 8)));
   masm.as_sllv(maskTemp, maskTemp, offsetTemp);
@@ -2704,9 +2706,9 @@ static void AtomicFetchOp(MacroAssembler& masm,
 
   masm.as_andi(offsetTemp, scratch2, 3);
   masm.subPtr(offsetTemp, scratch2);
-#if !MOZ_LITTLE_ENDIAN()
-  masm.as_xori(offsetTemp, offsetTemp, 3);
-#endif
+  if constexpr (std::endian::native != std::endian::little) {
+    masm.as_xori(offsetTemp, offsetTemp, 3);
+  }
   masm.as_sll(offsetTemp, offsetTemp, 3);
   masm.ma_li(maskTemp, Imm32(UINT32_MAX >> ((4 - nbytes) * 8)));
   masm.as_sllv(maskTemp, maskTemp, offsetTemp);
@@ -2889,9 +2891,9 @@ static void AtomicEffectOp(MacroAssembler& masm,
 
   masm.as_andi(offsetTemp, scratch2, 3);
   masm.subPtr(offsetTemp, scratch2);
-#if !MOZ_LITTLE_ENDIAN()
-  masm.as_xori(offsetTemp, offsetTemp, 3);
-#endif
+  if constexpr (std::endian::native != std::endian::little) {
+    masm.as_xori(offsetTemp, offsetTemp, 3);
+  }
   masm.as_sll(offsetTemp, offsetTemp, 3);
   masm.ma_li(maskTemp, Imm32(UINT32_MAX >> ((4 - nbytes) * 8)));
   masm.as_sllv(maskTemp, maskTemp, offsetTemp);

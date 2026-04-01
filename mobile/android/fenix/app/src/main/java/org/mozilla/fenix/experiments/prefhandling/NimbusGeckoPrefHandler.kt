@@ -4,6 +4,7 @@
 
 package org.mozilla.fenix.experiments.prefhandling
 
+import androidx.annotation.VisibleForTesting
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.Deferred
@@ -47,6 +48,7 @@ class NimbusGeckoPrefHandler(
     // Used for ensuring we have the correct validated preference type
     val preferenceTypes = mutableMapOf<String, BrowserPrefType>()
 
+    // A map of experiment feature ids that maps to a map of variable ids and their respective GeckoPrefStates.
     val nimbusGeckoPreferences: Map<String, Map<String, GeckoPrefState>> =
         FxNimbus.geckoPrefsMap().mapValues { featureEntry ->
             featureEntry.value.mapValues { variableEntry ->
@@ -156,8 +158,17 @@ class NimbusGeckoPrefHandler(
      * This is part of the Nimbus Gecko pref enrollment flow.
      */
     fun handleErrors() {
+        val processedExperiments = mutableSetOf<Set<String>>()
+
         for ((prefState, _) in enrollmentErrors) {
-            nimbusApi.value.unenrollForGeckoPref(prefState, PrefUnenrollReason.FAILED_TO_SET)
+            val experimentPrefs = allExperimentPrefs(prefState).toSet()
+
+            // We only need to unenroll a given experiment once, it doesn't matter which one is the triggering event.
+            // For example, in a multi-pref experiment, if both failed to set, we only need to report one of them.
+            if (!processedExperiments.contains(experimentPrefs)) {
+                processedExperiments.add(experimentPrefs)
+                unenrollFromPrefExperiment(prefState, PrefUnenrollReason.FAILED_TO_SET)
+            }
         }
         enrollmentErrors.clear()
     }
@@ -239,9 +250,13 @@ class NimbusGeckoPrefHandler(
 
         geckoScope.launch {
             // All preference values from Nimbus arrive as strings.
-            // Type information from gecko is needed to know how to parse.
-            if (preferenceTypes.isEmpty() || newPrefsState.any { it.prefString() !in preferenceTypes }) {
-                fetchPrefTypeInfo(newPrefsState.map { it.prefString() }).await()
+            // Type information from Gecko is needed to know how to
+            // parse and value information for storing the original preference value.
+            if (preferenceTypes.isEmpty() ||
+            newPrefsState.any { it.prefString() !in preferenceTypes } ||
+            newPrefsState.any { getPreferenceState(it.prefString())?.geckoValue == null }
+            ) {
+                getPreferenceStateFromGecko().await()
             }
 
             val setters: List<SetBrowserPreference<*>> =
@@ -354,12 +369,56 @@ class NimbusGeckoPrefHandler(
                 )
                 return
             }
-            nimbusApi.value.unenrollForGeckoPref(geckoPrefState, PrefUnenrollReason.CHANGED)
+            unenrollFromPrefExperiment(geckoPrefState, PrefUnenrollReason.CHANGED)
         } else {
             logger.info(
                 "Preference ${observedPreference.pref} was changed, but is not " +
                         "in Nimbus' preference list",
             )
         }
+    }
+
+    /**
+     * Unenrolls the Gecko pref experiment from Nimbus and cleans up state.
+     *
+     * State that needs to be cleaned up includes removing the preference from observation.
+     *
+     * @param geckoPrefState The Gecko pref to unenroll.
+     * @param reason The reason unenrollment was triggered.
+     */
+    @VisibleForTesting
+    internal fun unenrollFromPrefExperiment(geckoPrefState: GeckoPrefState, reason: PrefUnenrollReason) {
+        logger.info(
+            "Unenrollment was set for ${geckoPrefState.prefString()} due to $reason",
+        )
+
+        // For multi-pref experiments, unregister all prefs in the same feature to prevent
+        // double observation triggers when Nimbus restores the other pref to its original value.
+        // If an item has already been unregistered, then it'll be a no-op.
+        val associatedPrefs = allExperimentPrefs(geckoPrefState)
+
+        browserPrefObserverIntegration.unregisterPrefsForObservation(
+            prefs = associatedPrefs,
+            onSuccess = { logger.info("Unregistered $associatedPrefs from observation.") },
+            onError = { logger.warn("Could not unregister $associatedPrefs from observation.") },
+        )
+
+        // Nimbus will handle the case of unregistering the full feature experiment.
+        nimbusApi.value.unenrollForGeckoPref(geckoPrefState, reason)
+    }
+
+    /**
+     * Convenience method for getting associated experiment prefs a given [GeckoPrefState] is associated with.
+     *
+     * @param geckoPrefState The pref to use to identify other associated prefs with.
+     * @return A list of Gecko prefs that are associated to the same experiment.
+     */
+    @VisibleForTesting
+    internal fun allExperimentPrefs(geckoPrefState: GeckoPrefState): List<String> {
+        val targetPref = geckoPrefState.prefString()
+        val matchingFeature = nimbusGeckoPreferences.values
+            .find { feature -> feature.values.any { state -> state.prefString() == targetPref } }
+        val experimentPrefs = matchingFeature?.values?.map { state -> state.prefString() }
+        return experimentPrefs ?: listOf(targetPref)
     }
 }

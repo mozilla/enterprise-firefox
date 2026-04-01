@@ -454,6 +454,27 @@ def setup_lull_schedule(config, tasks):
 
 
 @task_transforms.add
+def setup_autoland_retriggers(config, tasks):
+
+    def _allow_task_duplicates(label):
+        if (
+            "perftest-android-hw-a55-aarch64-shippable-startup-fenix" in label
+            or "test-windows11-64-24h2-shippable/opt-browsertime-benchmark-firefox-speedometer3"
+            in label
+        ):
+            return True
+        return False
+
+    for task in tasks:
+        attrs = task.setdefault("attributes", {})
+        if config.params["project"] == "autoland" and _allow_task_duplicates(
+            task["label"]
+        ):
+            attrs["task_duplicates"] = 4
+        yield task
+
+
+@task_transforms.add
 def setup_internal_artifacts(config, tasks):
     for task in tasks:
         if (

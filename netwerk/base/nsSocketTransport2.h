@@ -330,11 +330,17 @@ class nsSocketTransport final : public nsASocketHandler,
   nsCOMPtr<nsITransportEventSink> mEventSink MOZ_GUARDED_BY(mLock);
   nsCOMPtr<nsITLSSocketControl> mTLSSocketControl;
 
+  // Called just before the fd is closed in OnSocketDetached. Used by
+  // TLSServerSocket to clear NSS handshake callbacks and release refs
+  // that would otherwise leak if the handshake never completed.
+  std::function<void(PRFileDesc*)> mFDDetachCallback;
+
   UniquePtr<nsSocketInputStream> mInput;
   UniquePtr<nsSocketOutputStream> mOutput;
 
   friend class nsSocketInputStream;
   friend class nsSocketOutputStream;
+  friend class TLSServerSocket;
 
   uint16_t mTimeouts[2] MOZ_GUARDED_BY(mLock){0};
 

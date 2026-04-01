@@ -6,113 +6,96 @@
 
 package org.mozilla.fenix.longfox
 
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.geometry.RoundRect
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 
 /**
- * Draw the body of the fox at the position given by the current game state.
- * We pass in some path objects because they're a bit expensive and we want this code to be fast.
- * The shoulders and the... square before the tail are special because they have rounded corners
- * to make the fox cuter
+ * Draw the body of the fox as a single filled path with rounded outer corners.
+ * Each outer corner (where both orthogonal neighbours are absent from the body) is rounded;
+ * inner corners and shared edges remain sharp so adjacent cells merge seamlessly.
+ *
+ * The first and last body cells are rounded at their free ends, connecting smoothly to
+ * the head and tail images.
  *
  * @receiver the draw scope for the game canvas
  * @param state the current game state
- * @param shouldersPath the fox's shoulders
- * @param bottomPath the fox's bottom
+ * @param brush the brush to fill the body with
  */
-fun DrawScope.drawBody(state: GameState, shouldersPath: Path, bottomPath: Path) {
-    val brush = Brush.linearGradient(listOf(Color.Red, Color.Yellow))
+fun DrawScope.drawBody(state: GameState, brush: Brush) {
     val foxBody = state.fox.drop(1).dropLast(1)
-    val cornerRadiusPx = state.cellSize / 2
-    val cornerRadius = CornerRadius(cornerRadiusPx, cornerRadiusPx)
+    if (foxBody.isEmpty()) return
+    val bodySet = foxBody.toHashSet()
+    val cornerRadius = state.cellSize / 2
+    val path = Path()
+    foxBody.forEach { cell ->
+        val hasLeft = GridPoint(cell.x - 1, cell.y) in bodySet
+        val hasRight = GridPoint(cell.x + 1, cell.y) in bodySet
+        val hasUp = GridPoint(cell.x, cell.y - 1) in bodySet
+        val hasDown = GridPoint(cell.x, cell.y + 1) in bodySet
+        addRoundedCell(
+            path = path,
+            left = cell.x * state.cellSize,
+            top = cell.y * state.cellSize,
+            cellSize = state.cellSize,
+            cornerRadius = cornerRadius,
+            roundTopLeft = !hasLeft && !hasUp,
+            roundTopRight = !hasRight && !hasUp,
+            roundBottomRight = !hasRight && !hasDown,
+            roundBottomLeft = !hasLeft && !hasDown,
+        )
+    }
+    drawPath(path, brush)
+}
 
-    fun roundTopLeft(direction: Direction): CornerRadius = when (direction) {
-        Direction.UP, Direction.LEFT -> cornerRadius
-        Direction.DOWN, Direction.RIGHT -> CornerRadius.Zero
+/**
+ * Adds a rectangle to [path] with optional rounded corners.
+ * Pass `true` for any corner to replace the sharp 90° angle with a quarter-circle arc of radius [cornerRadius].
+ */
+private fun addRoundedCell(
+    path: Path,
+    left: Float,
+    top: Float,
+    cellSize: Float,
+    cornerRadius: Float,
+    roundTopLeft: Boolean,
+    roundTopRight: Boolean,
+    roundBottomRight: Boolean,
+    roundBottomLeft: Boolean,
+) {
+    val right = left + cellSize
+    val bottom = top + cellSize
+
+    path.moveTo(left + if (roundTopLeft) cornerRadius else 0f, top)
+
+    if (roundTopRight) {
+        path.lineTo(right - cornerRadius, top)
+        path.arcTo(Rect(right - 2 * cornerRadius, top, right, top + (2 * cornerRadius)), -90f, 90f, false)
+    } else {
+        path.lineTo(right, top)
     }
 
-    fun roundTopRight(direction: Direction): CornerRadius = when (direction) {
-        Direction.UP, Direction.RIGHT -> cornerRadius
-        Direction.DOWN, Direction.LEFT -> CornerRadius.Zero
+    if (roundBottomRight) {
+        path.lineTo(right, bottom - cornerRadius)
+        path.arcTo(Rect(right - 2 * cornerRadius, bottom - (2 * cornerRadius), right, bottom), 0f, 90f, false)
+    } else {
+        path.lineTo(right, bottom)
     }
 
-    fun roundBottomLeft(direction: Direction): CornerRadius = when (direction) {
-        Direction.DOWN, Direction.LEFT -> cornerRadius
-        Direction.UP, Direction.RIGHT -> CornerRadius.Zero
+    if (roundBottomLeft) {
+        path.lineTo(left + cornerRadius, bottom)
+        path.arcTo(Rect(left, bottom - 2 * cornerRadius, left + (2 * cornerRadius), bottom), 90f, 90f, false)
+    } else {
+        path.lineTo(left, bottom)
     }
 
-    fun roundBottomRight(direction: Direction): CornerRadius = when (direction) {
-        Direction.DOWN, Direction.RIGHT -> cornerRadius
-        Direction.UP, Direction.LEFT -> CornerRadius.Zero
+    if (roundTopLeft) {
+        path.lineTo(left, top + cornerRadius)
+        path.arcTo(Rect(left, top, left + 2 * cornerRadius, top + (2 * cornerRadius)), 180f, 90f, false)
+    } else {
+        path.lineTo(left, top)
     }
 
-    when (foxBody.size) {
-        1 -> {
-            drawRoundRect(
-                brush = brush,
-                cornerRadius = cornerRadius,
-                topLeft = Offset(
-                    foxBody.first().x * state.cellSize,
-                    foxBody.first().y * state.cellSize,
-                ),
-                size = Size(state.cellSize, state.cellSize),
-            )
-        }
-
-        else -> {
-            val shoulders = foxBody.first()
-            shouldersPath.apply {
-                reset()
-                addRoundRect(
-                    RoundRect(
-                        rect = Rect(
-                            offset = Offset(
-                                shoulders.x * state.cellSize,
-                                shoulders.y * state.cellSize,
-                            ),
-                            size = Size(state.cellSize, state.cellSize),
-                        ),
-                        topLeft = roundTopLeft(state.shouldersDirection),
-                        topRight = roundTopRight(state.shouldersDirection),
-                        bottomLeft = roundBottomLeft(state.shouldersDirection),
-                        bottomRight = roundBottomRight(state.shouldersDirection),
-                    ),
-                )
-            }
-            drawPath(shouldersPath, brush)
-
-            foxBody.drop(1).dropLast(1).forEach { (x, y) ->
-                drawRect(
-                    brush = brush,
-                    topLeft = Offset(x * state.cellSize, y * state.cellSize),
-                    size = Size(state.cellSize, state.cellSize),
-                )
-            }
-
-            val bottom = foxBody.last()
-            bottomPath.apply {
-                reset()
-                addRoundRect(
-                    RoundRect(
-                        rect = Rect(
-                            offset = Offset(bottom.x * state.cellSize, bottom.y * state.cellSize),
-                            size = Size(state.cellSize, state.cellSize),
-                        ),
-                        topLeft = roundTopLeft(state.tailDirection),
-                        topRight = roundTopRight(state.tailDirection),
-                        bottomLeft = roundBottomLeft(state.tailDirection),
-                        bottomRight = roundBottomRight(state.tailDirection),
-                    ),
-                )
-            }
-            drawPath(bottomPath, brush)
-        }
-    }
+    path.close()
 }

@@ -4375,11 +4375,11 @@ RunningTimes GetRunningTimesWithTightTimestamp(
     TimeDuration durations[loops];
     RunningTimes runningTimes;
     TimeStamp before = TimeStamp::Now();
-    for (int i = 0; i < loops; ++i) {
+    for (auto& duration : durations) {
       AUTO_PROFILER_STATS(GetRunningTimes_MaxRunningTimesReadDuration);
       aGetCPURunningTimesFunction(runningTimes);
       const TimeStamp after = TimeStamp::Now();
-      durations[i] = after - before;
+      duration = after - before;
       before = after;
     }
     // Move median duration to the middle.

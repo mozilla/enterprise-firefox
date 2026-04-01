@@ -555,10 +555,11 @@ static ModifiedContainingBlock ComputeContainingBlock(
   if (aIsGrid) {
     const auto border = aDelegatingFrame->GetUsedBorder();
     const nsPoint borderShift{border.left, border.top};
+    const nsRect preGridCB = containingBlock;
     // Shift in by border of the overall grid container.
     containingBlock = nsGridContainerFrame::GridItemCB(aKidFrame) + borderShift;
     if (!defaultAnchorInfo) {
-      return ModifiedContainingBlock{containingBlock};
+      return ModifiedContainingBlock{preGridCB, containingBlock};
     }
   }
   // ... Then the position-area based adjustment.

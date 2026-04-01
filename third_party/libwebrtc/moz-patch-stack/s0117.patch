@@ -55,11 +55,11 @@ index 9663c818e7..6fd29f36db 100644
    auto it = _dataCallBacks.find(dataCallBack);
    if (it != _dataCallBacks.end()) {
 diff --git a/modules/video_capture/video_capture_impl.h b/modules/video_capture/video_capture_impl.h
-index da85692fc4..afcca41386 100644
+index 3e77b262c7..f42fc4296a 100644
 --- a/modules/video_capture/video_capture_impl.h
 +++ b/modules/video_capture/video_capture_impl.h
 @@ -66,7 +66,7 @@ class RTC_EXPORT VideoCaptureImpl : public VideoCaptureModule {
-   virtual void RegisterCaptureDataCallback(
+   void RegisterCaptureDataCallback(
        RawVideoSinkInterface* dataCallback) override;
    void DeRegisterCaptureDataCallback(
 -      rtc::VideoSinkInterface<VideoFrame>* dataCallback) override;

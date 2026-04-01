@@ -381,6 +381,9 @@ bool ModuleTypeToString(JSContext* cx, JS::Handle<JSObject*> owner,
     case JS::ModuleType::Bytes:
       to.setString(cx->names().bytes);
       break;
+    case JS::ModuleType::Text:
+      to.setString(cx->names().text);
+      break;
   }
 
   MOZ_ASSERT(!to.isUndefined());

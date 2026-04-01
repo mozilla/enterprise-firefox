@@ -286,9 +286,6 @@
 
       // @nova-cleanup(remove-conditional): Remove .nova-enabled selector, make default behavior for #shortcuts-toggle
       .nova-enabled & {
-        display: flex;
-        flex-direction: row;
-        justify-content: space-between;
         height: var(--toggle-row-height); // setting fixed height so section doesn't resize and move pixels when it's toggled on/off
       }
     }
@@ -613,6 +610,6 @@
   }
 
   .section #shortcuts-toggle #row-selector {
-    width: unset;
+    width: 100%;
   }
 }

@@ -3,7 +3,7 @@
 
 "use strict";
 
-const { ConsoleClient, PREFS } = ChromeUtils.importESModule(
+const { ConsoleClient, CONSOLE_ADDRESS_PREF } = ChromeUtils.importESModule(
   "resource:///modules/enterprise/ConsoleClient.sys.mjs"
 );
 const {
@@ -14,7 +14,6 @@ const {
   "resource:///modules/enterprise/EnterpriseEndpoints.sys.mjs"
 );
 
-const CONSOLE_ADDRESS_PREF = "enterprise.console.address";
 const CONSOLE_ADDRESS_PREF_VALUE =
   Services.prefs.getStringPref(CONSOLE_ADDRESS_PREF);
 

@@ -199,7 +199,7 @@ add_task(async function test_menu_items_labeled() {
   const allButtons = sidebar.allButtons;
   const dynamicTooltips = Object.keys(SidebarController.sidebarMain.tooltips);
 
-  await SidebarController.initializeUIState({ launcherExpanded: false });
+  await SidebarController.updateUIState({ launcherExpanded: false });
   await sidebar.updateComplete;
   for (const button of allButtons) {
     const view = button.getAttribute("view");
@@ -223,7 +223,7 @@ add_task(async function test_genai_chat_sidebar_tooltip() {
     .querySelector("sidebar-main")
     .shadowRoot.querySelector("[view=viewGenaiChatSidebar]");
 
-  await SidebarController.initializeUIState({ launcherExpanded: false });
+  await SidebarController.updateUIState({ launcherExpanded: false });
 
   const view = chatbotButton.getAttribute("view");
   ok(

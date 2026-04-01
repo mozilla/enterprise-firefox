@@ -274,10 +274,15 @@ void SharedScriptCache::Init() {
 SharedScriptCache::~SharedScriptCache() { UnregisterWeakMemoryReporter(this); }
 
 bool SharedScriptCache::ShouldIgnoreMemoryPressure() {
+#ifdef NIGHTLY_BUILD
   // During the automated testing, we need to ignore the memory pressure,
   // in order to get the deterministic result.
   return !StaticPrefs::
       dom_script_loader_experimental_navigation_cache_check_memory_pressure();
+#else
+  // On non-nightly, this code path is unused.
+  return false;
+#endif
 }
 
 void SharedScriptCache::LoadCompleted(SharedScriptCache* aCache,

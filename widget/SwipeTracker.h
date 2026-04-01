@@ -52,6 +52,8 @@ class SwipeTracker final : public nsARefreshObserver {
 
   void Destroy();
 
+  void StartTracking(const PanGestureInput& aSwipeStartEvent);
+
   nsEventStatus ProcessEvent(const PanGestureInput& aEvent,
                              bool aProcessingFirstEvent = false);
   void CancelSwipe(const TimeStamp& aTimeStamp);

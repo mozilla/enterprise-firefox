@@ -17,15 +17,16 @@ add_task(async () => {
       Services.prefs.getBoolPref("widget.macos.native-anchored-menus", false)
     ) {
       // Native menus do not support synthesizing key events
-      popup.activateItem(popup.querySelector("menuitem[label=engine1]"));
+      popup.activateItem(popup.querySelector("menuitem[label*=engine1]"));
     } else {
-      EventUtils.synthesizeKey("KEY_ArrowDown");
+      EventUtils.synthesizeKey("KEY_ArrowUp");
+      EventUtils.synthesizeKey("KEY_ArrowUp");
       EventUtils.synthesizeKey("KEY_Enter");
     }
   });
 
   await testInstallEngine(popup => {
-    popup.querySelector("menuitem[label=engine1]").click();
+    popup.querySelector("menuitem[label*=engine1]").click();
   });
 });
 

@@ -1868,14 +1868,14 @@ static inline bool IsVoidTag(const nsAtom* aTag) {
   static bool sInitialized = false;
   if (!sInitialized) {
     sInitialized = true;
-    for (uint32_t i = 0; i < std::size(voidElements); ++i) {
-      sFilter.add(voidElements[i]);
+    for (auto& voidElement : voidElements) {
+      sFilter.add(voidElement);
     }
   }
 
   if (sFilter.mightContain(aTag)) {
-    for (uint32_t i = 0; i < std::size(voidElements); ++i) {
-      if (aTag == voidElements[i]) {
+    for (auto& voidElement : voidElements) {
+      if (aTag == voidElement) {
         return true;
       }
     }

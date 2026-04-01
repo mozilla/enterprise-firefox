@@ -662,9 +662,10 @@ export const AIWindow = {
 
         this.recordOpenWindowTelemetry(trigger);
       } else {
-        // Close sidebar when switching back to classic window if it is open
-        lazy.AIWindowUI.closeSidebar(win);
+        // Uninit the manager first so #onSidebarToggle doesn't clear the
+        // SessionStore entry before closeSidebar fires.
         this._uninitTabStateManager(win);
+        lazy.AIWindowUI.closeSidebar(win);
       }
     }
   },

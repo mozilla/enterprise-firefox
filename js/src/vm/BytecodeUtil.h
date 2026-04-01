@@ -16,6 +16,7 @@
 #include "mozilla/EndianUtils.h"
 
 #include <algorithm>
+#include <bit>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -75,27 +76,27 @@ static const int32_t JUMP_OFFSET_MIN = INT32_MIN;
 static const int32_t JUMP_OFFSET_MAX = INT32_MAX;
 
 static MOZ_ALWAYS_INLINE uint32_t GET_UINT24(const jsbytecode* pc) {
-#if MOZ_LITTLE_ENDIAN()
-  // Do a single 32-bit load (for opcode and operand), then shift off the
-  // opcode.
-  uint32_t result;
-  memcpy(&result, pc, 4);
-  return result >> 8;
-#else
-  return uint32_t((pc[3] << 16) | (pc[2] << 8) | pc[1]);
-#endif
+  if constexpr (std::endian::native == std::endian::little) {
+    // Do a single 32-bit load (for opcode and operand), then shift off the
+    // opcode.
+    uint32_t result;
+    memcpy(&result, pc, 4);
+    return result >> 8;
+  } else {
+    return uint32_t((pc[3] << 16) | (pc[2] << 8) | pc[1]);
+  }
 }
 
 static MOZ_ALWAYS_INLINE void SET_UINT24(jsbytecode* pc, uint32_t i) {
   MOZ_ASSERT(i < (1 << 24));
 
-#if MOZ_LITTLE_ENDIAN()
-  memcpy(pc + 1, &i, 3);
-#else
-  pc[1] = jsbytecode(i);
-  pc[2] = jsbytecode(i >> 8);
-  pc[3] = jsbytecode(i >> 16);
-#endif
+  if constexpr (std::endian::native == std::endian::little) {
+    memcpy(pc + 1, &i, 3);
+  } else {
+    pc[1] = jsbytecode(i);
+    pc[2] = jsbytecode(i >> 8);
+    pc[3] = jsbytecode(i >> 16);
+  }
 }
 
 static MOZ_ALWAYS_INLINE int8_t GET_INT8(const jsbytecode* pc) {

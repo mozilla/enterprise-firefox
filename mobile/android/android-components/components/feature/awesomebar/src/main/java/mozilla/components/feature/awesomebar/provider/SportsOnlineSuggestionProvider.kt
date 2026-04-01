@@ -11,6 +11,9 @@ import mozilla.components.concept.awesomebar.optimizedsuggestions.SportSuggestio
 import mozilla.components.concept.awesomebar.optimizedsuggestions.SportSuggestionStatus
 import mozilla.components.concept.awesomebar.optimizedsuggestions.SportSuggestionStatusType
 import mozilla.components.concept.awesomebar.optimizedsuggestions.SportSuggestionTeam
+import mozilla.components.feature.awesomebar.facts.SuggestionCardType
+import mozilla.components.feature.awesomebar.facts.emitOptimizedSuggestionCardClickedFact
+import mozilla.components.feature.awesomebar.facts.emitOptimizedSuggestionCardDisplayedFact
 import mozilla.components.feature.search.SearchUseCases
 import java.time.DateTimeException
 import java.time.LocalDateTime
@@ -22,7 +25,7 @@ import java.time.format.FormatStyle
 import java.util.Locale
 import java.util.UUID
 
-const val DEFAULT_SPORT_SUGGESTION_LIMIT = 1
+internal const val DEFAULT_SPORT_SUGGESTION_LIMIT = 1
 
 /**
  * [AwesomeBar.SuggestionProvider] implementation that provides suggestions based on online sports.
@@ -59,6 +62,11 @@ class SportsOnlineSuggestionProvider(
             .mapNotNull { it.toSuggestionOrNull() }
             .take(maxNumberOfSuggestions)
             .toList()
+            .also {
+                if (it.isNotEmpty()) {
+                    emitOptimizedSuggestionCardDisplayedFact(SuggestionCardType.SPORTS)
+                }
+            }
     }
 
     private fun AwesomeBar.SportItem.toSuggestionOrNull(): AwesomeBar.SportSuggestion? {
@@ -73,7 +81,10 @@ class SportsOnlineSuggestionProvider(
 
         return if (hasRequiredFields && hasAllFields) {
             AwesomeBar.SportSuggestion(
-                onSuggestionClicked = { searchUseCase.invoke(query) },
+                onSuggestionClicked = {
+                    emitOptimizedSuggestionCardClickedFact(SuggestionCardType.SPORTS)
+                    searchUseCase.invoke(query)
+                },
                 provider = this@SportsOnlineSuggestionProvider,
                 score = Int.MAX_VALUE,
                 query = query,

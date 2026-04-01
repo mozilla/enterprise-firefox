@@ -641,11 +641,12 @@ impl RenderTaskKind {
             let clip_node = &mut clip_data_store[clip_instance.handle];
             match clip_node.item.kind {
                 ClipItemKind::BoxShadow { ref mut source } => {
+                    // Only reachable when use_quad_box_shadow is not set.
                     let (cache_size, cache_key) = source.cache_key
                         .as_ref()
                         .expect("bug: no cache key set")
                         .clone();
-                    let blur_radius_dp = cache_key.blur_radius_dp as f32;
+                    let blur_radius_dp = cache_key.blur_radius_dp.to_f32_px();
                     let device_pixel_scale = DevicePixelScale::new(cache_key.device_pixel_scale.to_f32_px());
 
                     // Request a cacheable render task with a blurred, minimal

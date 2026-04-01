@@ -218,6 +218,7 @@ def test_get_sys_argv_2():
     ],
 )
 def test_push_to_try_routing(
+    mock_push_to_lando_try,
     url,
     push_to_vcs,
     expect_direct_push,
@@ -233,9 +234,7 @@ def test_push_to_try_routing(
     with ExitStack() as stack:
         stack.enter_context(patch("tryselect.push.vcs", mock_vcs))
         stack.enter_context(patch("tryselect.push.MACH_TRY_REMOTE", url))
-        mock_lando = stack.enter_context(
-            patch("tryselect.push.push_to_lando_try", return_value="job123")
-        )
+        mock_lando = stack.enter_context(mock_push_to_lando_try)
         stack.enter_context(patch("tryselect.push.check_working_directory"))
         stack.enter_context(
             patch(

@@ -5,12 +5,6 @@
 /* This file is intended to be used specifically by aiWindow.html */
 @import url("chrome://browser/skin/urlbar-variables.css");
 
-:root {
-  --box-shadow-color-lighter-layer-1: color-mix(in srgb, var(--color-violet-50) 15%, transparent);
-  --box-shadow-color-lighter-layer-2: color-mix(in srgb, var(--color-violet-50) 25%, transparent);
-  --smartwindow-shadow: var(--box-shadow-level-2);
-}
-
 .ai-window {
   background: transparent;
 }

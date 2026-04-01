@@ -23,6 +23,9 @@ newtab-personalize-dialog-label =
     .aria-label = Tilpas
 newtab-logo-and-wordmark =
     .aria-label = { -brand-full-name }
+newtab-card-dismiss-button =
+    .title = Afvis
+    .aria-label = Afvis
 
 ## Search box component.
 
@@ -69,6 +72,11 @@ newtab-topsites-url-validation = Gyldig URL påkrævet
 newtab-topsites-image-url-label = URL til selvvalgt billede
 newtab-topsites-use-image-link = Brug selvvalgt billede…
 newtab-topsites-image-validation = Kunne ikke indlæse billede. Prøv en anden URL.
+
+## Clear text button for the URL and image URL input fields in the Top Sites form.
+
+newtab-topsites-clear-input =
+    .aria-label = Ryd tekst
 
 ## Top Sites - General form dialog buttons. These are verbs/actions.
 
@@ -630,6 +638,8 @@ newtab-report-cancel = Annuller
 newtab-report-submit = Indsend
 newtab-toast-thanks-for-reporting =
     .message = Tak for at du rapporterer dette.
+newtab-toast-widgets-hidden =
+    .message = Vælg blyant-ikonet for at tilføje widgets igen.
 
 ## Strings for task / to-do list productivity widget
 
@@ -670,6 +680,7 @@ newtab-widget-lists-name-placeholder-default =
 newtab-widget-lists-name-placeholder-new =
     .placeholder = Ny liste
 newtab-widget-section-title = Widgets
+newtab-widget-menu-hide = Skjul widgets
 # Tooltip for hide all widgets button
 newtab-widget-section-hide-all-button =
     .title = Skjul widgets
@@ -680,6 +691,7 @@ newtab-widget-section-maximize =
 newtab-widget-section-minimize =
     .title = Minimer widgets
     .aria-label = Sammenfold alle widgets til kompakt størrelse
+newtab-widget-section-feedback = Fortæl os, hvad du synes
 
 ## Strings for timer productivity widget
 ## When the timer ends, a system notification may be shown. Depending on which mode the timer is in, that message would be shown
@@ -705,6 +717,9 @@ newtab-widget-timer-menu-learn-more = Læs mere
 # The title displays above a set of top news headlines.
 newtab-daily-briefing-card-title = Topoverskrifter
 newtab-daily-briefing-card-menu-dismiss = Afvis
+# Variables:
+#   $minutes (number) - Time since the feed has been refreshed
+newtab-daily-briefing-card-timestamp = Opdateret for { $minutes } m. siden
 newtab-widget-message-title = Hold fokus med lister og den indbyggede timer
 # to-dos stands for "things to do".
 newtab-widget-message-copy = Fra hurtige påmindelser til daglige opgaver — funktionen Fokus hjælper dig med at have styr på tingene og din tid.
@@ -728,3 +743,10 @@ newtab-activation-window-message-dismiss-button =
 # existing widgetry that appears on it.
 newtab-activation-window-message-customization-focus-header = Gør denne plads til din egen
 newtab-activation-window-message-customization-focus-message = Vælg en ny baggrund, tilføj genveje til dine foretrukne websteder, og hold dig opdateret med artikler, som interesserer dig.
+newtab-activation-window-message-customization-focus-primary-button =
+    .label = Gå i gang med at tilpasse
+# "This space" refers to about:newtab. The sentiment of "plays by your rules" is
+# meant to evoke the idea that newtab is malleable and customizable. The call to
+# action is to customize newtab with a background image or colour, or by tweaking
+# the existing widgetry that appears on it.
+newtab-activation-window-message-values-focus-header = Denne plads følger dine regler

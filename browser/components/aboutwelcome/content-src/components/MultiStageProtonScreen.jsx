@@ -707,7 +707,7 @@ export class ProtonScreen extends React.PureComponent {
         layout={content.layout}
         pos={content.position || "center"}
         tabIndex="-1"
-        aria-labelledby="mainContentHeader"
+        aria-labelledby={`mainContentHeader${content.subtitle ? " mainContentSubheader" : ""}`}
         aria-describedby="mainContentInner"
         ref={input => {
           this.mainContentHeader = input;

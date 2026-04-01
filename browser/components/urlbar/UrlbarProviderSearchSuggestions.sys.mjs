@@ -635,7 +635,6 @@ export class UrlbarProviderSearchSuggestions extends UrlbarProvider {
   #shouldFetchTrending(queryContext) {
     return !!(
       queryContext.searchString == "" &&
-      queryContext.sapName != "searchbar" &&
       lazy.UrlbarPrefs.get("trending.featureGate") &&
       lazy.UrlbarPrefs.get("suggest.trending") &&
       (queryContext.searchMode ||

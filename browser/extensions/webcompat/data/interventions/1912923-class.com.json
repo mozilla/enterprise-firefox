@@ -1,0 +1,15 @@
+{
+  "label": "class.com",
+  "bugs": {
+    "1951358": {
+      "issue": "firefox-blocked-completely",
+      "matches": ["*://*.class.com/*"]
+    }
+  },
+  "interventions": [
+    {
+      "platforms": ["all"],
+      "ua_string": ["add_Chrome"]
+    }
+  ]
+}

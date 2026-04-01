@@ -5,7 +5,6 @@
 package org.mozilla.fenix.tabgroups
 
 import androidx.compose.animation.rememberSplineBasedDecay
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -41,7 +40,6 @@ import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.tooling.preview.PreviewParameterProvider
 import androidx.compose.ui.unit.dp
 import mozilla.components.browser.state.state.createTab
-import mozilla.components.compose.base.RadioCheckmarkColors
 import mozilla.components.compose.base.theme.surfaceDimVariant
 import mozilla.components.support.base.utils.MAX_URI_LENGTH
 import mozilla.components.support.utils.ext.isLandscape
@@ -64,6 +62,7 @@ import org.mozilla.fenix.tabstray.ui.tabitems.TabsTrayItemSelectionState
 import org.mozilla.fenix.tabstray.ui.tabitems.ThumbnailShape
 import org.mozilla.fenix.tabstray.ui.tabitems.gridItemAspectRatio
 import org.mozilla.fenix.tabstray.ui.tabitems.tabItemClickable
+import org.mozilla.fenix.tabstray.ui.tabitems.tabItemConditionalBorder
 import org.mozilla.fenix.theme.FirefoxTheme
 
 const val TOP_START_THUMBNAIL_INDEX = 0
@@ -101,11 +100,7 @@ fun TabGroupCard(
                     clickedItem = group,
                 ),
             shape = TabContentCardShape,
-            border = if (selectionState.isFocused) {
-                BorderStroke(width = 4.dp, color = MaterialTheme.colorScheme.tertiary)
-            } else {
-                null
-            },
+            border = tabItemConditionalBorder(selectionState),
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
             ),
@@ -172,8 +167,6 @@ private fun TabGroupOptionButton(groupTheme: TabGroupTheme, selectionState: Tabs
     if (selectionState.multiSelectEnabled) {
         MultiSelectTabButton(
             isSelected = selectionState.isSelected,
-            isActive = selectionState.isFocused,
-            activeColors = RadioCheckmarkColors.default(),
             uncheckedBorderColor = groupTheme.onPrimary,
         )
     } else {

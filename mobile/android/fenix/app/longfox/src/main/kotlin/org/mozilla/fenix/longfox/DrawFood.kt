@@ -18,7 +18,7 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
  * @param food the food bitmap
  */
 fun DrawScope.drawFood(state: GameState, food: ImageBitmap?) {
-    if (food == null) return
+    if (food == null || state.food == null) return
     drawImage(
         image = food,
         topLeft = Offset(state.food.x * state.cellSize, state.food.y * state.cellSize),

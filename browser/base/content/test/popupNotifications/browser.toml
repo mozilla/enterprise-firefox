@@ -121,6 +121,9 @@ skip-if = [
 ]
 
 ["browser_popupNotification_swapBrowser.js"]
+skip-if = [
+  "os == 'win' && os_version == '11.26200' && asan", # Bug 2019745
+]
 
 ["browser_reshow_in_background.js"]
 skip-if = [

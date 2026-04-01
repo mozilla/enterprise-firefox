@@ -672,6 +672,7 @@ STATIC_ATOMS = [
     Atom("mark", "mark"),
     Atom("marquee", "marquee"),
     Atom("match", "match"),
+    Atom("match_element", "match-element"),
     Atom("max", "max"),
     Atom("maxheight", "maxheight"),
     Atom("maximum_scale", "maximum-scale"),
@@ -2547,6 +2548,7 @@ STATIC_ATOMS = [
     Atom("PseudoStyle_FirstLetter", ":first-letter"),
     Atom("PseudoStyle_FirstLine", ":first-line"),
     Atom("PseudoStyle_Highlight", ":highlight"),
+    Atom("PseudoStyle_Picker", ":picker"),
     Atom("PseudoStyle_Selection", ":selection"),
     Atom("PseudoStyle_TargetText", ":target-text"),
     Atom("PseudoStyle_ViewTransition", ":view-transition"),
@@ -2632,6 +2634,7 @@ STATIC_ATOMS = [
     Atom("PseudoStyle_MozSvgOuterSvgAnonChild", ":-moz-svg-outer-svg-anon-child"),
     Atom("PseudoStyle_MozSvgForeignContent", ":-moz-svg-foreign-content"),
     Atom("PseudoStyle_MozSvgText", ":-moz-svg-text"),
+    Atom("PseudoStyle_WebkitScrollbar", ":-webkit-scrollbar"),
     # END ATOMS
 ] + HTML_PARSER_ATOMS
 # fmt: on

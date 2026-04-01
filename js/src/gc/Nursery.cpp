@@ -1663,7 +1663,7 @@ void js::Nursery::traceRoots(AutoGCSession& session, TenuringTracer& mover) {
 
     // Create an empty store buffer on the stack and swap it with the main store
     // buffer, clearing it.
-    StoreBuffer sb(runtime());
+    StoreBuffer sb(gc);
     {
       AutoEnterOOMUnsafeRegion oomUnsafe;
       if (!sb.enable()) {

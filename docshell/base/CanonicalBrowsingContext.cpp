@@ -356,6 +356,12 @@ void CanonicalBrowsingContext::ReplacedBy(
 
   BackgroundSessionStorageManager::PropagateManager(Id(), aNewContext->Id());
 
+#ifdef ANDROID
+  // Transfer the app link launch type to the replacement BC (e.g., COOP swap).
+  aNewContext->mAndroidAppLinkLaunchType =
+      std::exchange(mAndroidAppLinkLaunchType, 0);
+#endif
+
   // Transfer the ownership of the priority active status from the old context
   // to the new context.
   aNewContext->mPriorityActive = mPriorityActive;

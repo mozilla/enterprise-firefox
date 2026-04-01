@@ -12,6 +12,7 @@ import mozilla.components.concept.storage.HistoryMetadataKey
 import org.junit.Before
 import org.junit.Test
 import org.mozilla.fenix.home.bookmarks.controller.BookmarksController
+import org.mozilla.fenix.home.logo.LogoController
 import org.mozilla.fenix.home.pocket.controller.PocketStoriesController
 import org.mozilla.fenix.home.privatebrowsing.controller.PrivateBrowsingController
 import org.mozilla.fenix.home.recentsyncedtabs.controller.RecentSyncedTabController
@@ -41,6 +42,7 @@ class RecentVisitsInteractorTest {
     private val homeSearchController: HomeSearchController = mockk(relaxed = true)
     private val topSiteController: TopSiteController = mockk(relaxed = true)
     private val privacyNoticeBannerController: PrivacyNoticeBannerController = mockk(relaxed = true)
+    private val logoController: LogoController = mockk(relaxed = true)
 
     private lateinit var interactor: SessionControlInteractor
 
@@ -59,6 +61,7 @@ class RecentVisitsInteractorTest {
             homeSearchController,
             topSiteController,
             privacyNoticeBannerController,
+            logoController,
         )
     }
 

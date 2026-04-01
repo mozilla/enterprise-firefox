@@ -229,3 +229,7 @@ newtab-error-fallback-refresh-link = Yana urinib ko‘rish uchun sahifani yangil
 ## Customization Menu
 
 newtab-custom-settings = Boshqa sozlamalarni boshqarish
+
+## New Tab Wallpapers
+
+newtab-wallpaper-title = Fon rasmlari

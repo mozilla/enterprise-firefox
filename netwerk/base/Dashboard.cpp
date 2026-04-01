@@ -156,20 +156,6 @@ class ConnectionData : public nsITransportEventSink,
 NS_IMPL_ISUPPORTS(ConnectionData, nsITransportEventSink, nsITimerCallback,
                   nsINamed)
 
-class RcwnData : public nsISupports {
-  virtual ~RcwnData() = default;
-
- public:
-  NS_DECL_THREADSAFE_ISUPPORTS
-
-  RcwnData() = default;
-
-  nsMainThreadPtrHandle<nsINetDashboardCallback> mCallback;
-  nsIEventTarget* mEventTarget{nullptr};
-};
-
-NS_IMPL_ISUPPORTS0(RcwnData)
-
 NS_IMETHODIMP
 ConnectionData::OnTransportStatus(nsITransport* aTransport, nsresult aStatus,
                                   int64_t aProgress, int64_t aProgressMax) {
@@ -1117,61 +1103,6 @@ Dashboard::RequestDNSHTTPSRRLookup(const nsACString& aHost,
       nsIDNSService::RESOLVE_DEFAULT_FLAGS, nullptr, helper.get(),
       NS_GetCurrentThread(), attrs, getter_AddRefs(helper->mCancel));
   return rv;
-}
-
-NS_IMETHODIMP
-Dashboard::RequestRcwnStats(nsINetDashboardCallback* aCallback) {
-  RefPtr<RcwnData> rcwnData = new RcwnData();
-  rcwnData->mEventTarget = GetCurrentSerialEventTarget();
-  rcwnData->mCallback = new nsMainThreadPtrHolder<nsINetDashboardCallback>(
-      "nsINetDashboardCallback", aCallback, true);
-
-  return rcwnData->mEventTarget->Dispatch(
-      NewRunnableMethod<RefPtr<RcwnData>>("net::Dashboard::GetRcwnData", this,
-                                          &Dashboard::GetRcwnData, rcwnData),
-      NS_DISPATCH_NORMAL);
-}
-
-nsresult Dashboard::GetRcwnData(RcwnData* aData) {
-  AutoSafeJSContext cx;
-  mozilla::dom::RcwnStatus dict;
-
-  dict.mTotalNetworkRequests = gIOService->GetTotalRequestNumber();
-  dict.mRcwnCacheWonCount = gIOService->GetCacheWonRequestNumber();
-  dict.mRcwnNetWonCount = gIOService->GetNetWonRequestNumber();
-
-  uint32_t cacheSlow, cacheNotSlow;
-  CacheFileUtils::CachePerfStats::GetSlowStats(&cacheSlow, &cacheNotSlow);
-  dict.mCacheSlowCount = cacheSlow;
-  dict.mCacheNotSlowCount = cacheNotSlow;
-
-  dict.mPerfStats.Construct();
-  Sequence<mozilla::dom::RcwnPerfStats>& perfStats = dict.mPerfStats.Value();
-  uint32_t length = CacheFileUtils::CachePerfStats::LAST;
-  if (!perfStats.SetCapacity(length, fallible)) {
-    JS_ReportOutOfMemory(cx);
-    return NS_ERROR_OUT_OF_MEMORY;
-  }
-
-  for (uint32_t i = 0; i < length; i++) {
-    CacheFileUtils::CachePerfStats::EDataType perfType =
-        static_cast<CacheFileUtils::CachePerfStats::EDataType>(i);
-    dom::RcwnPerfStats& elem = *perfStats.AppendElement(fallible);
-    elem.mAvgShort =
-        CacheFileUtils::CachePerfStats::GetAverage(perfType, false);
-    elem.mAvgLong = CacheFileUtils::CachePerfStats::GetAverage(perfType, true);
-    elem.mStddevLong =
-        CacheFileUtils::CachePerfStats::GetStdDev(perfType, true);
-  }
-
-  JS::Rooted<JS::Value> val(cx);
-  if (!ToJSValue(cx, dict, &val)) {
-    return NS_ERROR_FAILURE;
-  }
-
-  aData->mCallback->OnDashboardDataAvailable(val);
-
-  return NS_OK;
 }
 
 void HttpConnInfo::SetHTTPProtocolVersion(HttpVersion pv) {

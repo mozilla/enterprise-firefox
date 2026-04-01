@@ -2479,8 +2479,10 @@ mozilla::ipc::IPCResult BrowserChild::RecvRealKeyEvent(
     // likely being spun. If the following key event is not suppressed or
     // delayed, it could cause mPreviousConsumedKeyDownCode is not updated
     // correctly.
-    MOZ_DIAGNOSTIC_ASSERT_IF(isOtherKeyDownBeingDispatched,
-                             localEvent.mFlags.mIsSuppressedOrDelayed);
+    NS_WARNING_ASSERTION(!isOtherKeyDownBeingDispatched ||
+                             localEvent.mFlags.mIsSuppressedOrDelayed,
+                         "keypress event isn't suppressed or delayed while "
+                         "event loop is being spun");
 
     // Update the end time of the possible repeated event so that we can skip
     // some incoming events in case event handling took long time.
@@ -2558,7 +2560,9 @@ mozilla::ipc::IPCResult BrowserChild::RecvRealKeyEvent(
              mCurrentBeingDispatchedKeyDownCode.value() ==
                  aEvent.mCodeNameIndex) {
       MOZ_DIAGNOSTIC_ASSERT(isOtherKeyDownBeingDispatched);
-      MOZ_DIAGNOSTIC_ASSERT(localEvent.mFlags.mIsSuppressedOrDelayed);
+      NS_WARNING_ASSERTION(localEvent.mFlags.mIsSuppressedOrDelayed,
+                           "keypress event isn't suppressed or delayed while "
+                           "event loop is being spun");
       mCurrentBeingDispatchedKeyDownCode.reset();
     }
 

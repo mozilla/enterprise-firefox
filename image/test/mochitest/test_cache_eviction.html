@@ -62,22 +62,42 @@
         // Load one more image to ensure all pending cache tasks have been flushed.
         await loadImage(BASE_URL + COUNT);
 
-        // If big.png?0 or big.png?1 are still in cache, setting src synchronously
-        // makes img.complete true. If they were evicted, the load is async and
-        // complete is false.
-        const img0 = document.createElement("img");
-        img0.width = 10;
-        img0.height = 10;
-        document.body.appendChild(img0);
-        img0.src = BASE_URL + "0";
-        ok(!img0.complete, "big.png?0 was evicted from the cache");
+        const maxCached = Math.ceil(cacheSize / fileSize);
 
-        const img1 = document.createElement("img");
-        img1.width = 10;
-        img1.height = 10;
-        document.body.appendChild(img1);
-        img1.src = BASE_URL + "1";
-        ok(!img1.complete, "big.png?1 was evicted from the cache");
+        // Check directly via the image cache API (does not modify cache state).
+        // Check in reverse load order since recently loaded images are most
+        // likely to still be cached.
+        const imgCache = tools.getImgCacheForDocument(document);
+        let directHitCount = 0;
+        for (let i = COUNT - 1; i >= 0; i--) {
+          const uri = SpecialPowers.Services.io.newURI(
+            new URL(BASE_URL + i, location.href).href
+          );
+          if (imgCache.findEntryProperties(uri, document)) {
+            directHitCount++;
+          }
+        }
+        ok(directHitCount <= maxCached,
+           `${directHitCount} images in cache (direct check), limit is ${maxCached}`);
+
+        // Count how many of the loaded images are still in the cache. Setting
+        // src on an element makes img.complete true synchronously only for
+        // cache hits. Check in reverse load order since recently loaded images
+        // are most likely to still be cached.
+        let cacheHitCount = 0;
+        for (let i = COUNT - 1; i >= 0; i--) {
+          const checkImg = document.createElement("img");
+          checkImg.width = 10;
+          checkImg.height = 10;
+          document.body.appendChild(checkImg);
+          checkImg.src = BASE_URL + i;
+          if (checkImg.complete) {
+            cacheHitCount++;
+          }
+          checkImg.src = "";
+        }
+        ok(cacheHitCount <= maxCached,
+           `${cacheHitCount} images remain in cache after eviction, limit is ${maxCached}`);
 
         SimpleTest.finish();
       }

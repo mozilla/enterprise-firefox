@@ -26,7 +26,6 @@ XPIDL_SOURCES += [
     "nsINetworkErrorLogging.idl",
     "nsIObliviousHttp.idl",
     "nsIObliviousHttpChannel.idl",
-    "nsIRaceCacheWithNetwork.idl",
     "nsIReplacedHttpResponse.idl",
     "nsITlsHandshakeListener.idl",
     "nsIWellKnownOpportunisticUtils.idl",

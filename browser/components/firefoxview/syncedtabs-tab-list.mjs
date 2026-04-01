@@ -60,7 +60,7 @@ export class SyncedTabsTabList extends FxviewTabListBase {
         .time=${ifDefined(tabItem.time)}
         .timeMsPref=${ifDefined(this.timeMsPref)}
         .dateTimeFormat=${ifDefined(this.dateTimeFormat)}
-      ></fxview-tab-row>
+      ></syncedtabs-tab-row>
     `;
   };
 

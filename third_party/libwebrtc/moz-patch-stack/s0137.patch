@@ -9,7 +9,7 @@ Mercurial Revision: https://hg.mozilla.org/mozilla-central/rev/ece87d91b514ab155
  1 file changed, 12 insertions(+)
 
 diff --git a/modules/desktop_capture/linux/wayland/shared_screencast_stream.cc b/modules/desktop_capture/linux/wayland/shared_screencast_stream.cc
-index 72f85e0432..0b4939b8d6 100644
+index bf7da572bc..3cc8bfc63a 100644
 --- a/modules/desktop_capture/linux/wayland/shared_screencast_stream.cc
 +++ b/modules/desktop_capture/linux/wayland/shared_screencast_stream.cc
 @@ -78,12 +78,24 @@ constexpr int CursorMetaSize(int w, int h) {

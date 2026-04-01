@@ -76,6 +76,7 @@ export class FxviewTabListBase extends MozLitElement {
     searchQuery: { type: String },
     secondaryActionClass: { type: String },
     tertiaryActionClass: { type: String },
+    getItemHeight: { type: Function },
   };
 
   static queries = {
@@ -311,7 +312,6 @@ export class FxviewTabListBase extends MozLitElement {
       <div
         id="fxview-tab-list"
         class="fxview-tab-list"
-        data-l10n-id="firefoxview-tabs"
         role="list"
         @keydown=${this.handleFocusElementInRow}
       >
@@ -319,6 +319,7 @@ export class FxviewTabListBase extends MozLitElement {
           .activeIndex=${this.activeIndex}
           .items=${this.tabItems}
           .template=${this.itemTemplate}
+          .getItemHeight=${this.getItemHeight}
         ></virtual-list>
       </div>
       <slot name="menu"></slot>
@@ -818,6 +819,7 @@ export class VirtualList extends MozLitElement {
     isVisible: { type: Boolean, state: true },
     isSubList: { type: Boolean },
     pinnedTabsIndexOffset: { type: Number },
+    getItemHeight: { type: Function },
   };
 
   createRenderRoot() {
@@ -838,26 +840,59 @@ export class VirtualList extends MozLitElement {
     );
     this.isSubList = false;
     this.isVisible = false;
+    this.getItemHeight = null;
     this.intersectionObserver = new IntersectionObserver(
       ([entry]) => {
-        this.isVisible = entry.isIntersecting;
+        // Only set visible here; the scroll listener is responsible for setting
+        // invisible. IntersectionObserver callbacks can fire with batched,
+        // now-stale entries that would incorrectly blank a sublist the scroll
+        // listener just made visible.
+        if (entry.isIntersecting) {
+          this.isVisible = true;
+        }
       },
       { root: this.ownerDocument }
     );
     this.selfResizeObserver = new ResizeObserver(() => {
       // Trigger the intersection observer once the tab rows have rendered
       this.triggerIntersectionObserver();
-    });
-    this.childResizeObserver = new ResizeObserver(([entry]) => {
-      if (entry.contentRect?.height > 0) {
-        // Update properties on top-level virtual-list
-        this.parentElement.itemHeightEstimate = entry.contentRect.height;
-        this.parentElement.maxRenderCountEstimate = Math.max(
-          40,
-          2 * Math.ceil(window.innerHeight / this.itemHeightEstimate)
-        );
+      if (!this.isSubList) {
+        // A sublist changing height (placeholder ↔ rendered) shifts the layout
+        // without firing a scroll event. Re-sync after the browser has
+        // recalculated layout so the correct sublists become visible.
+        requestAnimationFrame(() => this.#syncSublistVisibility());
       }
     });
+    this.childResizeObserver = new ResizeObserver(([entry]) => {
+      const itemCount = this.children.length;
+      if (
+        entry.contentRect?.height > 0 &&
+        itemCount > 0 &&
+        !this.getItemHeight
+      ) {
+        // Divide total sub-list height by item count so the estimate includes
+        // the grid gap between items, not just the element height.
+        // Skip this when getItemHeight is set: variable-height items (e.g.
+        // expanded bookmark folders) would skew the average and inflate
+        // placeholder heights for off-screen sublists.
+        this.parentElement.itemHeightEstimate =
+          entry.contentRect.height / itemCount;
+      }
+    });
+  }
+
+  connectedCallback() {
+    super.connectedCallback();
+    if (!this.isSubList) {
+      this._scrollHandler = () => this.#syncSublistVisibility();
+      // capture:true catches scroll events from any scrollable descendant or
+      // ancestor in the document — scroll events don't bubble, but they do
+      // propagate through the capture phase.
+      document.addEventListener("scroll", this._scrollHandler, {
+        capture: true,
+        passive: true,
+      });
+    }
   }
 
   disconnectedCallback() {
@@ -865,6 +900,28 @@ export class VirtualList extends MozLitElement {
     this.intersectionObserver.disconnect();
     this.childResizeObserver.disconnect();
     this.selfResizeObserver.disconnect();
+    if (this._scrollHandler) {
+      document.removeEventListener("scroll", this._scrollHandler, {
+        capture: true,
+      });
+      this._scrollHandler = null;
+    }
+  }
+
+  #syncSublistVisibility() {
+    const buffer = window.innerHeight;
+    for (const child of this.children) {
+      if (!child.isSubList || child.isAlwaysVisible) {
+        continue;
+      }
+      const { top: childTop, bottom: childBottom } =
+        child.getBoundingClientRect();
+      const inView =
+        childBottom > -buffer && childTop < window.innerHeight + buffer;
+      if (inView !== child.isVisible) {
+        child.isVisible = inView;
+      }
+    }
   }
 
   triggerIntersectionObserver() {
@@ -889,6 +946,25 @@ export class VirtualList extends MozLitElement {
   }
 
   willUpdate(changedProperties) {
+    if (
+      this.isSubList &&
+      changedProperties.has("isVisible") &&
+      changedProperties.get("isVisible") === true &&
+      !this.isVisible
+    ) {
+      // Capture actual rendered height before items are removed from the DOM
+      // so subsequent hide/show cycles can use it as an exact placeholder.
+      const h = this.scrollHeight;
+      if (h > 0) {
+        this._knownHeight = h;
+      }
+    }
+    if (
+      this.isSubList &&
+      (changedProperties.has("items") || changedProperties.has("getItemHeight"))
+    ) {
+      this._knownHeight = null;
+    }
     if (changedProperties.has("items") && !this.isSubList) {
       this.subListItems = [];
       for (let i = 0; i < this.items.length; i += this.maxRenderCountEstimate) {
@@ -909,8 +985,11 @@ export class VirtualList extends MozLitElement {
   firstUpdated() {
     this.intersectionObserver.observe(this);
     this.selfResizeObserver.observe(this);
-    if (this.isSubList && this.children[0]) {
-      this.childResizeObserver.observe(this.children[0]);
+    if (this.isSubList) {
+      this.childResizeObserver.observe(this);
+    } else {
+      // Initial sync after first render, once layout is committed.
+      requestAnimationFrame(() => this.#syncSublistVisibility());
     }
   }
 
@@ -918,19 +997,35 @@ export class VirtualList extends MozLitElement {
     this.updateListHeight(changedProperties);
     if (changedProperties.has("items") && !this.isSubList) {
       this.triggerIntersectionObserver();
+      // Re-sync after items change: placeholder heights may have shifted,
+      // putting new sublists into or out of view without a scroll event.
+      requestAnimationFrame(() => this.#syncSublistVisibility());
     }
   }
 
   updateListHeight(changedProperties) {
     if (
       changedProperties.has("isAlwaysVisible") ||
-      changedProperties.has("isVisible")
+      changedProperties.has("isVisible") ||
+      changedProperties.has("itemHeightEstimate") ||
+      changedProperties.has("getItemHeight") ||
+      changedProperties.has("items")
     ) {
       this.style.height =
         this.isAlwaysVisible || this.isVisible
           ? "auto"
-          : `${this.items.length * this.itemHeightEstimate}px`;
+          : `${this._knownHeight ?? this.#getPlaceholderHeight()}px`;
     }
+  }
+
+  #getPlaceholderHeight() {
+    if (this.getItemHeight) {
+      return this.items.reduce(
+        (sum, item) => sum + this.getItemHeight(item, this.itemHeightEstimate),
+        0
+      );
+    }
+    return this.items.length * this.itemHeightEstimate;
   }
 
   get renderItems() {
@@ -942,6 +1037,7 @@ export class VirtualList extends MozLitElement {
       .template=${this.template}
       .items=${data}
       .itemHeightEstimate=${this.itemHeightEstimate}
+      .getItemHeight=${this.getItemHeight}
       .itemOffset=${i * this.maxRenderCountEstimate +
       this.pinnedTabsIndexOffset}
       .isAlwaysVisible=${i ==

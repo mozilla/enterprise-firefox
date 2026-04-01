@@ -107,11 +107,11 @@ async function testSearchEngine(label, telemetry, expected) {
   );
   let popup = await UrlbarTestUtils.openSearchModeSwitcher(window);
   await BrowserTestUtils.waitForCondition(() =>
-    popup.querySelector(`menuitem[label=${label}]`)
+    popup.querySelector(`menuitem[label*=${label}]`)
   );
 
   let popupHidden = UrlbarTestUtils.searchModeSwitcherPopupClosed(window);
-  popup.querySelector(`menuitem[label=${label}]`).click();
+  popup.querySelector(`menuitem[label*=${label}]`).click();
   await popupHidden;
 
   Assert.equal(

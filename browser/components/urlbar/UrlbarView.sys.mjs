@@ -112,6 +112,18 @@ export class UrlbarView {
     }
   }
 
+  /**
+   * Wrapper around A11yUtils.announce . Mostly used to simplify access for
+   * smart window code where this.window may not be the browser window.
+   *
+   * @param  {object} announceObject to be forwarded to A11yUtils.announce
+   */
+  announce(announceObject) {
+    // @ts-ignore
+    let browserWindow = this.window.browsingContext.topChromeWindow;
+    browserWindow.A11yUtils.announce(announceObject);
+  }
+
   get oneOffSearchButtons() {
     if (this.input.sapName != "urlbar") {
       return null;
@@ -456,7 +468,7 @@ export class UrlbarView {
 
     let { value } = this.#l10nCache.get(l10n);
     row.setAttribute("feedback-acknowledgment", value);
-    this.window.A11yUtils.announce({
+    this.announce({
       raw: value,
       source: row._content.closest("[role=option]"),
     });
@@ -860,7 +872,7 @@ export class UrlbarView {
       this.#previousTabToSearchEngine != secondResult.payload.engine
     ) {
       let engine = secondResult.payload.engine;
-      this.window.A11yUtils.announce({
+      this.announce({
         id: secondResult.payload.isGeneralPurposeEngine
           ? "urlbar-result-action-before-tabtosearch-web"
           : "urlbar-result-action-before-tabtosearch-other",
@@ -2151,7 +2163,7 @@ export class UrlbarView {
         // event when the alert (or something inside it) is the root of an
         // insertion. In this case, the entire tip result gets inserted into the
         // a11y tree as a single insertion, so no alert event would be fired.
-        this.window.A11yUtils.announce(result.payload.titleL10n);
+        this.announce(result.payload.titleL10n);
       }
     } else if (result.source == lazy.UrlbarUtils.RESULT_SOURCE.BOOKMARKS) {
       item.setAttribute("type", "bookmark");

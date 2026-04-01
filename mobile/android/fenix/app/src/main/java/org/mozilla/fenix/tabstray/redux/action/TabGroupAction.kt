@@ -4,6 +4,7 @@
 
 package org.mozilla.fenix.tabstray.redux.action
 
+import org.mozilla.fenix.tabstray.data.TabGroupTheme
 import org.mozilla.fenix.tabstray.data.TabsTrayItem
 
 /**
@@ -49,4 +50,11 @@ sealed interface TabGroupAction : TabsTrayAction {
      * @property group The clicked [TabsTrayItem.TabGroup].
      */
     data class TabGroupClicked(val group: TabsTrayItem.TabGroup) : TabGroupAction
+
+    /**
+     * Invoked when the user changes the tab group theme.
+     *
+     * @property theme The theme of the tab group the user has selected.
+     */
+    data class ThemeChanged(val theme: TabGroupTheme) : TabGroupAction
 }

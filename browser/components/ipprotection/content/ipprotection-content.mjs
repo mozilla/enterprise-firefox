@@ -406,7 +406,29 @@ export default class IPProtectionContentElement extends MozLitElement {
     `;
   }
 
+  enrollingTemplate() {
+    return html`
+      <div id="enrolling-container" aria-busy="true">
+        <span id="enrolling-header">
+          <span>
+            <div class="skeleton skeleton-title"></div>
+            <div class="skeleton skeleton-line"></div>
+          </span>
+          <img
+            role="presentation"
+            src="chrome://global/skin/icons/loading.svg"
+          />
+        </span>
+        <div class="skeleton skeleton-line-thick"></div>
+      </div>
+    `;
+  }
+
   mainContentTemplate() {
+    if (this.state.isCheckingEntitlement) {
+      return html`${this.enrollingTemplate()} ${this.footerTemplate()}`;
+    }
+
     if (this.state.unauthenticated) {
       return html`
         <ipprotection-unauthenticated></ipprotection-unauthenticated>

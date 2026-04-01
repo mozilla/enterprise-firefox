@@ -18,6 +18,8 @@
 
 #include "wasm/WasmFeatures.h"
 
+#include <bit>
+
 #include "jit/AtomicOperations.h"
 #include "jit/JitContext.h"
 #include "jit/JitOptions.h"
@@ -244,9 +246,9 @@ bool wasm::ThreadsAvailable(JSContext* cx) {
 }
 
 bool wasm::HasPlatformSupport() {
-#if !MOZ_LITTLE_ENDIAN()
-  return false;
-#else
+  if constexpr (std::endian::native != std::endian::little) {
+    return false;
+  }
 
   if (!HasJitBackend()) {
     return false;
@@ -272,7 +274,6 @@ bool wasm::HasPlatformSupport() {
   // Test only whether the compilers are supported on the hardware, not whether
   // they are enabled.
   return BaselinePlatformSupport() || IonPlatformSupport();
-#endif
 }
 
 bool wasm::HasSupport(JSContext* cx) {

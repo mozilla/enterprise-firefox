@@ -5,6 +5,10 @@
     <title>MozBoxGroup Tests</title>
     <script src="chrome://mochikit/content/tests/SimpleTest/SimpleTest.js"></script>
     <script src="chrome://mochikit/content/tests/SimpleTest/EventUtils.js"></script>
+    <script
+      type="module"
+      src="chrome://browser/content/preferences/widgets/setting-control.mjs"
+    ></script>
     <link
       rel="stylesheet"
       href="chrome://mochikit/content/tests/SimpleTest/test.css"
@@ -1019,6 +1023,104 @@
         ok(
           staticItem.classList.contains("last"),
           "Static item has 'last' class."
+        );
+      });
+
+      add_task(async function testMozBoxItemSettingControlKeyboardNavigation() {
+        const mockSetting = {
+          value: true,
+          on() {},
+          off() {},
+          userChange() {},
+          getControlConfig: c => c,
+          controllingExtensionInfo: {},
+          visible: true,
+        };
+
+        const settingConfig = {
+          id: "test-toggle-setting",
+          control: "moz-toggle",
+          label: "Test Toggle",
+        };
+
+        let settingControlTemplate = html`<moz-box-group>
+          <moz-box-item label="item with setting control">
+            <moz-button
+              class="first-button"
+              slot="actions-start"
+              iconsrc="chrome://global/skin/icons/more.svg"
+            ></moz-button>
+            <setting-control
+              slot="actions"
+              class="test-setting-control"
+              .config=${settingConfig}
+              .setting=${mockSetting}
+            ></setting-control>
+            <moz-button
+              class="second-button"
+              slot="actions"
+              iconsrc="chrome://global/skin/icons/more.svg"
+            ></moz-button>
+          </moz-box-item>
+        </moz-box-group>`;
+        let {
+          children: [boxGroup],
+        } = await testHelpers.renderTemplate(settingControlTemplate);
+        let boxItem = boxGroup.querySelector("moz-box-item");
+        await boxItem.updateComplete;
+
+        let firstButton = boxItem.querySelector(".first-button");
+        let settingControl = boxItem.querySelector(".test-setting-control");
+        let secondButton = boxItem.querySelector(".second-button");
+
+        await settingControl.updateComplete;
+
+        // Get the actual toggle element inside the setting-control
+        // Note: setting-control delegates focus to its inner toggle element
+        let toggle = settingControl.querySelector("moz-toggle");
+        ok(toggle, "Toggle element exists inside setting-control.");
+
+        firstButton.focus();
+        is(
+          document.activeElement,
+          firstButton,
+          "First button is focused initially."
+        );
+
+        await keyboardNavigate("right", boxGroup);
+        ok(
+          settingControl.contains(document.activeElement),
+          "Focus moves into setting-control after right arrow."
+        );
+        is(
+          document.activeElement,
+          toggle,
+          "The toggle inside setting-control is the activeElement."
+        );
+
+        await keyboardNavigate("right", boxGroup);
+        is(
+          document.activeElement,
+          secondButton,
+          "Focus moves to second button after right arrow."
+        );
+
+        await keyboardNavigate("left", boxGroup);
+        ok(
+          settingControl.contains(document.activeElement),
+          "Focus moves back into setting-control after left arrow."
+        );
+        is(
+          document.activeElement,
+          toggle,
+          "The toggle inside setting-control is the activeElement."
+        );
+
+        await keyboardNavigate("left", boxGroup);
+        is(
+          document.activeElement,
+          firstButton,
+          "Focus moves back to first button after left arrow."
         );
       });
     </script>

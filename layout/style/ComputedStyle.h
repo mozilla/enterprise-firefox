@@ -29,6 +29,7 @@ void Gecko_ComputedStyle_Destroy(mozilla::ComputedStyle*);
 
 namespace mozilla {
 
+struct CSSPropertyId;
 enum class StylePointerEvents : uint8_t;
 enum class StyleUserSelect : uint8_t;
 
@@ -69,9 +70,9 @@ class ComputedStyle {
   }
 
   // Returns the computed typed value of the given property.
-  bool GetPropertyTypedValue(const nsACString& aProperty,
+  bool GetPropertyTypedValue(const CSSPropertyId& aId,
                              StylePropertyTypedValue& aOut) const {
-    return Servo_GetComputedTypedValue(this, &aProperty, &aOut);
+    return Servo_ComputedValues_GetPropertyTypedValue(this, &aId, &aOut);
   }
 
   // Return the ComputedStyle whose style data should be used for the R,

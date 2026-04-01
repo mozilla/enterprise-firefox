@@ -6,11 +6,11 @@
 #define MOZILLA_GFX_TYPES_H_
 
 #include "mozilla/DefineEnum.h"  // for MOZ_DEFINE_ENUM_CLASS_WITH_BASE
-#include "mozilla/EndianUtils.h"
 #include "mozilla/EnumeratedRange.h"
 #include "mozilla/MacroArgs.h"  // for MOZ_CONCAT
 #include "mozilla/TypedEnumBits.h"
 
+#include <bit>
 #include <iosfwd>  // for ostream
 #include <stddef.h>
 #include <stdint.h>
@@ -105,18 +105,15 @@ enum class SurfaceFormat : int8_t {
   // This represents the unknown format.
   UNKNOWN,  // TODO: Replace uses with Maybe<SurfaceFormat>.
 
-// The following values are endian-independent synonyms. The _UINT32 suffix
-// indicates that the name reflects the layout when viewed as a uint32_t
-// value.
-#if MOZ_LITTLE_ENDIAN()
-  A8R8G8B8_UINT32 = B8G8R8A8,  // 0xAARRGGBB
-  X8R8G8B8_UINT32 = B8G8R8X8,  // 0x00RRGGBB
-#elif MOZ_BIG_ENDIAN()
-  A8R8G8B8_UINT32 = A8R8G8B8,  // 0xAARRGGBB
-  X8R8G8B8_UINT32 = X8R8G8B8,  // 0x00RRGGBB
-#else
-#  error "bad endianness"
-#endif
+  // The following values are endian-independent synonyms. The _UINT32 suffix
+  // indicates that the name reflects the layout when viewed as a uint32_t
+  // value.
+  A8R8G8B8_UINT32 = std::endian::native == std::endian::little
+                        ? B8G8R8A8
+                        : A8R8G8B8,  // 0xAARRGGBB
+  X8R8G8B8_UINT32 = std::endian::native == std::endian::little
+                        ? B8G8R8X8
+                        : X8R8G8B8,  // 0x00RRGGBB
 
   // The following values are OS and endian-independent synonyms.
   //
@@ -266,19 +263,10 @@ std::ostream& operator<<(std::ostream& aOut, const SurfaceFormat& aFormat);
 // Represents the bit-shifts required to access color channels when the layout
 // is viewed as a uint32_t value.
 enum class SurfaceFormatBit : uint32_t {
-#if MOZ_LITTLE_ENDIAN()
-  R8G8B8A8_R = 0,
-  R8G8B8A8_G = 8,
-  R8G8B8A8_B = 16,
-  R8G8B8A8_A = 24,
-#elif MOZ_BIG_ENDIAN()
-  R8G8B8A8_A = 0,
-  R8G8B8A8_B = 8,
-  R8G8B8A8_G = 16,
-  R8G8B8A8_R = 24,
-#else
-#  error "bad endianness"
-#endif
+  R8G8B8A8_R = std::endian::native == std::endian::little ? 0 : 24,
+  R8G8B8A8_G = std::endian::native == std::endian::little ? 8 : 16,
+  R8G8B8A8_B = std::endian::native == std::endian::little ? 16 : 8,
+  R8G8B8A8_A = std::endian::native == std::endian::little ? 24 : 0,
 
   // The following values are endian-independent for A8R8G8B8_UINT32.
   A8R8G8B8_UINT32_B = 0,

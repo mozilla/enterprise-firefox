@@ -1477,19 +1477,19 @@ void WidgetKeyboardEvent::GetAccessKeyCandidates(
     }
     aCandidates.AppendElement(ch);
   }
-  for (uint32_t i = 0; i < mAlternativeCharCodes.Length(); ++i) {
-    uint32_t ch[2] = {mAlternativeCharCodes[i].mUnshiftedCharCode,
-                      mAlternativeCharCodes[i].mShiftedCharCode};
-    for (uint32_t j = 0; j < 2; ++j) {
-      if (!ch[j]) {
+  for (const auto& alternativeCharCode : mAlternativeCharCodes) {
+    uint32_t ch[2] = {alternativeCharCode.mUnshiftedCharCode,
+                      alternativeCharCode.mShiftedCharCode};
+    for (unsigned int& c : ch) {
+      if (!c) {
         continue;
       }
-      if (IS_IN_BMP(ch[j])) {
-        ch[j] = ToLowerCase(static_cast<char16_t>(ch[j]));
+      if (IS_IN_BMP(c)) {
+        c = ToLowerCase(static_cast<char16_t>(c));
       }
       // Don't append the charcode that was already appended.
-      if (aCandidates.IndexOf(ch[j]) == aCandidates.NoIndex) {
-        aCandidates.AppendElement(ch[j]);
+      if (aCandidates.IndexOf(c) == aCandidates.NoIndex) {
+        aCandidates.AppendElement(c);
       }
     }
   }

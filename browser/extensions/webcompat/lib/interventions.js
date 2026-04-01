@@ -176,9 +176,9 @@ class Interventions {
 
   constructor(availableInterventions, customFunctions) {
     this.#customFunctions = customFunctions;
-    this.#originalInterventions = availableInterventions;
     let interventions = availableInterventions;
     if (browser.appConstants.isInAutomation()) {
+      this.#originalInterventions = structuredClone(availableInterventions);
       const override = browser.aboutConfigPrefs.getPref("test_interventions");
       if (override) {
         interventions = JSON.parse(override);
@@ -230,7 +230,9 @@ class Interventions {
   }
 
   async resetToDefaultInterventions() {
-    await this.replaceAllInterventions(this.#originalInterventions);
+    await this.replaceAllInterventions(
+      structuredClone(this.#originalInterventions)
+    );
   }
 
   bindAboutCompatBroker(broker) {
@@ -297,6 +299,10 @@ class Interventions {
 
   getAvailableInterventions() {
     return this.#availableInterventions;
+  }
+
+  getAllOriginalInterventions() {
+    return this.#originalInterventions;
   }
 
   getInterventionsByIds(ids) {

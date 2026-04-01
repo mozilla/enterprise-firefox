@@ -234,6 +234,7 @@ macosx64-enterprise-shippable/opt:
         config:
             - builds/releng_base_firefox.py
             - builds/releng_base_mac_64_cross_builds.py
+            - taskcluster_nightly.py
         extra-config:
             mozconfig_platform: macosx64-aarch64
     run-on-projects: ["enterprise-firefox"]

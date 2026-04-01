@@ -403,7 +403,10 @@ function WeatherForecast({ dispatch, isMaximized, widgetsMayBeMaximized }) {
             </div>
             <div className="high-low-column">
               <span className="high-temperature">
-                <span className="arrow-icon arrow-up" />
+                <span
+                  className="arrow-icon arrow-up"
+                  data-l10n-id="newtab-weather-high"
+                />
                 {
                   WEATHER_SUGGESTION.forecast.high[
                     prefs["weather.temperatureUnits"]
@@ -413,7 +416,10 @@ function WeatherForecast({ dispatch, isMaximized, widgetsMayBeMaximized }) {
               </span>
 
               <span className="low-temperature">
-                <span className="arrow-icon arrow-down" />
+                <span
+                  className="arrow-icon arrow-down"
+                  data-l10n-id="newtab-weather-low"
+                />
                 {
                   WEATHER_SUGGESTION.forecast.low[
                     prefs["weather.temperatureUnits"]

@@ -23,6 +23,9 @@ newtab-personalize-dialog-label =
     .aria-label = Personaliza
 newtab-logo-and-wordmark =
     .aria-label = { -brand-full-name }
+newtab-card-dismiss-button =
+    .title = Iscarta
+    .aria-label = Iscarta
 
 ## Search box component.
 
@@ -69,6 +72,11 @@ newtab-topsites-url-validation = Ddoe est bisòngiu de un'URL vàlidu
 newtab-topsites-image-url-label = URL de s'immàgine personalizada
 newtab-topsites-use-image-link = Imprea un'immàgine personalizada…
 newtab-topsites-image-validation = Carrigamentu de s'immàgine fallidu. Proa un'URL diferente.
+
+## Clear text button for the URL and image URL input fields in the Top Sites form.
+
+newtab-topsites-clear-input =
+    .aria-label = Cantzella su testu
 
 ## Top Sites - General form dialog buttons. These are verbs/actions.
 
@@ -338,6 +346,8 @@ newtab-custom-widget-section-title = Widgets
 newtab-custom-widget-section-toggle =
     .label = Widgets
 newtab-widget-manage-title = Widgets
+newtab-widget-manage-widget-button =
+    .label = Gesti is widgets
 # Tooltip for close button
 newtab-custom-close-menu-button =
     .title = Serra
@@ -465,6 +475,8 @@ newtab-weather-change-location-search-input-placeholder =
     .placeholder = Chirca positzione
     .aria-label = Chirca positzione
 newtab-weather-menu-weather-display = Vista de su tempus
+newtab-weather-todays-forecast = Previsione de oe
+newtab-weather-see-full-forecast = Ammustra sa previsione cumpleta
 # Display options are:
 # - Simple: Displays a current weather condition icon and the current temperature
 # - Detailed: Include simple information plus a short text summary: e.g. "Mostly cloudy"
@@ -477,6 +489,7 @@ newtab-weather-menu-temperature-option-fahrenheit = Fahrenheit
 newtab-weather-menu-temperature-option-celsius = Celsius
 newtab-weather-menu-change-temperature-units-fahrenheit = Passa a Fahrenheit
 newtab-weather-menu-change-temperature-units-celsius = Passa a Celsius
+newtab-weather-menu-hide-weather-v2 = Cua sa previsione
 newtab-weather-menu-hide-weather = Cua su tempus in s’ischeda noa
 newtab-weather-menu-learn-more = Àteras informatziones
 newtab-weather-menu-detect-my-location = Rileva sa positzione mia
@@ -616,10 +629,15 @@ newtab-report-content-inappropriate-offensive =
     .label = No est apropriada o est ofensiva
 newtab-report-content-spam-misleading =
     .label = Àliga o ingannosa
+newtab-report-content-requires-payment-subscription =
+    .label = Rechedet unu pagamentu o una sutiscritzione
+newtab-report-content-requires-payment-subscription-learn-more = Àteras informatziones
 newtab-report-cancel = Annulla
 newtab-report-submit = Imbia
 newtab-toast-thanks-for-reporting =
     .message = Gràtzias de sa sinnalatzione.
+newtab-toast-widgets-hidden =
+    .message = Seletziona s’icona de su lapis pro torrare a agiùnghere widgets in cale si siat momentu.
 
 ## Strings for task / to-do list productivity widget
 
@@ -659,6 +677,13 @@ newtab-widget-lists-name-placeholder-default =
 # The placeholder value of the name field for a newly created list
 newtab-widget-lists-name-placeholder-new =
     .placeholder = Lista noa
+newtab-widget-section-title = Widgets
+newtab-widget-menu-hide = Cua su widget
+# Tooltip for hide all widgets button
+newtab-widget-section-hide-all-button =
+    .title = Cua is widgets
+    .aria-label = Cua totu is widgets
+newtab-widget-section-feedback = Nara·nos ite nde pensas
 
 ## Strings for timer productivity widget
 ## When the timer ends, a system notification may be shown. Depending on which mode the timer is in, that message would be shown
@@ -681,6 +706,10 @@ newtab-widget-timer-menu-notifications = Disativa is notìficas
 newtab-widget-timer-menu-notifications-on = Ativa is notìficas
 newtab-widget-timer-menu-hide = Cua su temporizadore
 newtab-widget-timer-menu-learn-more = Àteras informatziones
+newtab-daily-briefing-card-menu-dismiss = Iscarta
+# Variables:
+#   $minutes (number) - Time since the feed has been refreshed
+newtab-daily-briefing-card-timestamp = Atualizadu { $minutes } min a immoe
 newtab-widget-message-title = Mantene sa cuntzentratzione cun listas e cun unu temporizadore integradu
 # to-dos stands for "things to do".
 newtab-widget-message-copy = Dae is promemòrias lestros a is fainas de ònnia die, dae is sessiones de cuntzentratzione a cussas de pasada: mantene s’atentzione e rispeta is oràrios.
@@ -690,3 +719,18 @@ newtab-promo-card-cta = Àteras informatziones
 newtab-promo-card-dismiss-button =
     .title = Iscarta
     .aria-label = Iscarta
+
+## Strings for activation window message variants. In certain experiment configurations,
+## the strings from these variants may be displayed in a message below the search input
+## for the first 48 hours of a new profile's lifetime. Some messages include buttons with
+## labels, but not all.
+
+newtab-activation-window-message-dismiss-button =
+    .title = Iscarta
+    .aria-label = Iscarta
+# "This space" refers to about:newtab. The call to action here ("make it your own")
+# is to customize newtab with a background image or colour, or by tweaking the
+# existing widgetry that appears on it.
+newtab-activation-window-message-customization-focus-header = Personaliza custu ispàtziu
+newtab-activation-window-message-customization-focus-primary-button =
+    .label = Cumintza a personalizare

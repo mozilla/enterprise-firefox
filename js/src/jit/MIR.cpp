@@ -6,7 +6,6 @@
 
 #include "jit/MIR.h"
 
-#include "mozilla/EndianUtils.h"
 #include "mozilla/FloatingPoint.h"
 #include "mozilla/MathAlgorithms.h"
 #include "mozilla/Maybe.h"
@@ -1309,18 +1308,18 @@ void MConstant::assertInitializedPayload() const {
   switch (type()) {
     case MIRType::Int32:
     case MIRType::Float32:
-#  if MOZ_LITTLE_ENDIAN()
-      MOZ_ASSERT((payload_.asBits >> 32) == 0);
-#  else
-      MOZ_ASSERT((payload_.asBits << 32) == 0);
-#  endif
+      if constexpr (std::endian::native == std::endian::little) {
+        MOZ_ASSERT((payload_.asBits >> 32) == 0);
+      } else {
+        MOZ_ASSERT((payload_.asBits << 32) == 0);
+      }
       break;
     case MIRType::Boolean:
-#  if MOZ_LITTLE_ENDIAN()
-      MOZ_ASSERT((payload_.asBits >> 1) == 0);
-#  else
-      MOZ_ASSERT((payload_.asBits & ~(1ULL << 56)) == 0);
-#  endif
+      if constexpr (std::endian::native == std::endian::little) {
+        MOZ_ASSERT((payload_.asBits >> 1) == 0);
+      } else {
+        MOZ_ASSERT((payload_.asBits & ~(1ULL << 56)) == 0);
+      }
       break;
     case MIRType::Double:
     case MIRType::Int64:
@@ -1331,11 +1330,11 @@ void MConstant::assertInitializedPayload() const {
     case MIRType::BigInt:
     case MIRType::IntPtr:
     case MIRType::Shape:
-#  if MOZ_LITTLE_ENDIAN()
-      MOZ_ASSERT_IF(JS_BITS_PER_WORD == 32, (payload_.asBits >> 32) == 0);
-#  else
-      MOZ_ASSERT_IF(JS_BITS_PER_WORD == 32, (payload_.asBits << 32) == 0);
-#  endif
+      if constexpr (std::endian::native == std::endian::little) {
+        MOZ_ASSERT_IF(JS_BITS_PER_WORD == 32, (payload_.asBits >> 32) == 0);
+      } else {
+        MOZ_ASSERT_IF(JS_BITS_PER_WORD == 32, (payload_.asBits << 32) == 0);
+      }
       break;
     default:
       MOZ_ASSERT(IsNullOrUndefined(type()) || IsMagicType(type()));

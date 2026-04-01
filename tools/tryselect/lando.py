@@ -321,6 +321,7 @@ class LandoAPI:
 
     access_token: str
     api_url: str
+    instance_id: str
     verify_tls: bool = True
 
     @property
@@ -366,6 +367,7 @@ class LandoAPI:
         return LandoAPI(
             api_url=parser.get(section, "api_domain"),
             access_token=token["access_token"],
+            instance_id=parser.get(section, "instance_id", fallback=section),
             verify_tls=parser.getboolean(section, "verify_tls", fallback=True),
         )
 
@@ -494,4 +496,7 @@ def push_to_lando_try(
     if duration > 30:
         build.notify(success_msg)
 
-    return job_id
+    return {
+        "lando_instance": lando_api.instance_id,
+        "lando_job_id": job_id,
+    }

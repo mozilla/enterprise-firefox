@@ -59,7 +59,7 @@ index 897af0c2c3..53e882cb8b 100644
  }  // namespace webrtc
  
 diff --git a/api/data_channel_interface.h b/api/data_channel_interface.h
-index 1dc737f80b..544d8edaf9 100644
+index 05331365af..0950ad8cf5 100644
 --- a/api/data_channel_interface.h
 +++ b/api/data_channel_interface.h
 @@ -32,8 +32,10 @@ namespace webrtc {
@@ -143,7 +143,7 @@ index 7890e58841..4d8a540a17 100644
  
    // Erase the unrecognized characters plus the tone that's just processed.
 diff --git a/pc/sctp_data_channel.cc b/pc/sctp_data_channel.cc
-index 18a8e8ab6b..9f32b7b5f8 100644
+index 13d01f2746..d8e26d52cf 100644
 --- a/pc/sctp_data_channel.cc
 +++ b/pc/sctp_data_channel.cc
 @@ -84,11 +84,15 @@ BYPASS_PROXY_METHOD2(void,

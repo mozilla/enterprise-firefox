@@ -64,7 +64,9 @@
                 <menuseparator/>
                 <menuitem id="goOfflineMenuitem"
                           type="checkbox"
-                          command="cmd_toggleOfflineStatus" data-l10n-id="menu-file-go-offline"/>
+                          command="cmd_toggleOfflineStatus"
+                          observes="cmd_toggleOfflineStatus"
+                          data-l10n-id="menu-file-go-offline"/>
                 <menuitem id="menu_FileQuitItem"
 #ifdef XP_MACOSX
                           data-l10n-id="menu-quit-mac"

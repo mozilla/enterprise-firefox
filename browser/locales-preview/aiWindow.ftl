@@ -5,11 +5,11 @@
 ## Chrome
 
 appmenuitem-new-ai-window =
-    .label = New smart window
-    .value = New smart window
+    .label = New Smart Window
+    .value = New Smart Window
 
 appmenuitem-new-classic-window =
-    .label = New classic window
+    .label = New Classic Window
 
 menu-file-new-ai-window =
     .label = New Smart Window
@@ -31,7 +31,7 @@ smartwindow-document-title = New Tab
 
 toolbar-button-ai-window-toggle =
     .label = Smart window
-    .tooltiptext = Switch between Smart and Classic windows.
+    .tooltiptext = Switch between Smart and Classic Windows.
 
 ai-window-toggleview-switch-classic =
     .label = Classic Window

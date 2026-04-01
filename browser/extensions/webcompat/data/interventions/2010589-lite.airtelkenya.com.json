@@ -1,0 +1,15 @@
+{
+  "label": "lite.airtelkenya.com",
+  "bugs": {
+    "2010589": {
+      "issue": "firefox-blocked-completely",
+      "matches": ["*://lite.airtelkenya.com/*"]
+    }
+  },
+  "interventions": [
+    {
+      "platforms": ["android"],
+      "ua_string": ["Chrome_with_FxQuantum"]
+    }
+  ]
+}

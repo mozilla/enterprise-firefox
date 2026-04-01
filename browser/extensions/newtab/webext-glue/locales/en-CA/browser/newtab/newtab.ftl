@@ -23,6 +23,9 @@ newtab-personalize-dialog-label =
     .aria-label = Personalize
 newtab-logo-and-wordmark =
     .aria-label = { -brand-full-name }
+newtab-card-dismiss-button =
+    .title = Dismiss
+    .aria-label = Dismiss
 
 ## Search box component.
 
@@ -69,6 +72,11 @@ newtab-topsites-url-validation = Valid URL required
 newtab-topsites-image-url-label = Custom Image URL
 newtab-topsites-use-image-link = Use a custom image…
 newtab-topsites-image-validation = Image failed to load. Try a different URL.
+
+## Clear text button for the URL and image URL input fields in the Top Sites form.
+
+newtab-topsites-clear-input =
+    .aria-label = Clear text
 
 ## Top Sites - General form dialog buttons. These are verbs/actions.
 
@@ -629,6 +637,8 @@ newtab-report-cancel = Cancel
 newtab-report-submit = Submit
 newtab-toast-thanks-for-reporting =
     .message = Thank you for reporting this.
+newtab-toast-widgets-hidden =
+    .message = Select the pencil icon to add widgets back anytime.
 
 ## Strings for task / to-do list productivity widget
 
@@ -669,6 +679,7 @@ newtab-widget-lists-name-placeholder-default =
 newtab-widget-lists-name-placeholder-new =
     .placeholder = New list
 newtab-widget-section-title = Widgets
+newtab-widget-menu-hide = Hide widget
 # Tooltip for hide all widgets button
 newtab-widget-section-hide-all-button =
     .title = Hide widgets
@@ -679,6 +690,7 @@ newtab-widget-section-maximize =
 newtab-widget-section-minimize =
     .title = Minimize widgets
     .aria-label = Collapse all widgets to compact size
+newtab-widget-section-feedback = Tell us what you think
 
 ## Strings for timer productivity widget
 ## When the timer ends, a system notification may be shown. Depending on which mode the timer is in, that message would be shown

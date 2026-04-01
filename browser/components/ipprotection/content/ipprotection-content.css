@@ -101,6 +101,62 @@ ipprotection-message-bar.vpn-top-content {
   }
 }
 
+#enrolling-container {
+  background-color: var(--background-color-box-info);
+  border-radius: var(--border-radius-medium);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-large);
+  padding: var(--space-medium);
+}
+
+#enrolling-header {
+  display: flex;
+  justify-content: space-between;
+
+  > span {
+    gap: var(--space-medium);
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+  }
+
+  img {
+    height: var(--icon-size-large);
+    width: var(--icon-size-large);
+    -moz-context-properties: fill;
+    fill: var(--icon-color);
+  }
+}
+
+.skeleton {
+  background-color: var(--card-border-color);
+}
+
+.skeleton-title {
+  /* Intentionally use a larger font size to match font size of actual status box title */
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  font-size: 1.4lh;
+  height: 1lh;
+  width: 102px;
+  border-radius: var(--space-xxsmall);
+}
+
+.skeleton-line {
+  /* Intentionally use a larger font size to match font size of actual status box description */
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  font-size: 1.23em;
+  height: 1lh;
+  width: 239px;
+  border-radius: var(--space-xxsmall);
+}
+
+.skeleton-line-thick {
+  height: var(--button-min-height, 32px);
+  width: 126px;
+  border-radius: var(--border-radius-small);
+}
+
 #site-exclusion-control {
   display: flex;
 

@@ -16,10 +16,10 @@ Mercurial Revision: https://hg.mozilla.org/mozilla-central/rev/4527c41ef71d7683c
  4 files changed, 24 insertions(+), 12 deletions(-)
 
 diff --git a/BUILD.gn b/BUILD.gn
-index ebe0f46d9d..9869b771b3 100644
+index d3d7826c0f..199b92397c 100644
 --- a/BUILD.gn
 +++ b/BUILD.gn
-@@ -526,6 +526,9 @@ if (!rtc_build_ssl) {
+@@ -527,6 +527,9 @@ if (!rtc_build_ssl) {
        "crypto",
        "ssl",
      ]
@@ -38,7 +38,7 @@ index ebe0f46d9d..9869b771b3 100644
        ]
        # Added when we removed deps in other places to avoid building
 diff --git a/media/BUILD.gn b/media/BUILD.gn
-index 3c48d416c7..7dda1f8f36 100644
+index 8a8706f0d5..be93cf67a6 100644
 --- a/media/BUILD.gn
 +++ b/media/BUILD.gn
 @@ -12,12 +12,10 @@ import("../webrtc.gni")
@@ -58,7 +58,7 @@ index 3c48d416c7..7dda1f8f36 100644
  }
  
  config("rtc_media_defines_config") {
-@@ -282,6 +280,9 @@ rtc_library("media_engine") {
+@@ -280,6 +278,9 @@ rtc_library("media_engine") {
        "base/media_engine.cc",
        "base/media_engine.h",
      ]
@@ -68,7 +68,7 @@ index 3c48d416c7..7dda1f8f36 100644
    }
  }
  
-@@ -433,6 +434,7 @@ rtc_library("codec_list") {
+@@ -431,6 +432,7 @@ rtc_library("codec_list") {
    ]
  }
  
@@ -76,7 +76,7 @@ index 3c48d416c7..7dda1f8f36 100644
  rtc_library("rtp_utils") {
  if (!build_with_mozilla) {
    sources = [
-@@ -479,7 +481,6 @@ rtc_library("media_constants") {
+@@ -478,7 +480,6 @@ rtc_library("media_constants") {
  }
  
  rtc_library("turn_utils") {
@@ -84,7 +84,7 @@ index 3c48d416c7..7dda1f8f36 100644
    sources = [
      "base/turn_utils.cc",
      "base/turn_utils.h",
-@@ -490,17 +491,14 @@ if (!build_with_mozilla) {
+@@ -489,10 +490,8 @@ if (!build_with_mozilla) {
      "../rtc_base/system:rtc_export",
    ]
  }
@@ -95,14 +95,15 @@ index 3c48d416c7..7dda1f8f36 100644
    sources = [
      "base/rid_description.cc",
      "base/rid_description.h",
+@@ -502,7 +501,6 @@ if (!build_with_mozilla) {
+     "//third_party/abseil-cpp/absl/strings:string_view",
    ]
-   deps = [ ":codec" ]
  }
 -}
  
  rtc_library("rtc_simulcast_encoder_adapter") {
    visibility = [ "*" ]
-@@ -719,6 +717,12 @@ rtc_library("rtc_audio_video") {
+@@ -721,6 +719,12 @@ rtc_library("rtc_audio_video") {
      "engine/webrtc_voice_engine.cc",
      "engine/webrtc_voice_engine.h",
    ]
@@ -116,10 +117,10 @@ index 3c48d416c7..7dda1f8f36 100644
    public_configs = []
    if (!build_with_chromium) {
 diff --git a/rtc_base/BUILD.gn b/rtc_base/BUILD.gn
-index b6ae38db72..c228973641 100644
+index 3d3238882b..1a46feb6ad 100644
 --- a/rtc_base/BUILD.gn
 +++ b/rtc_base/BUILD.gn
-@@ -1576,6 +1576,7 @@ rtc_source_set("ssl_header") {
+@@ -1578,6 +1578,7 @@ rtc_source_set("ssl_header") {
  }
  
  rtc_library("digest") {
@@ -127,7 +128,7 @@ index b6ae38db72..c228973641 100644
    visibility = [ "*" ]
    sources = [
      "message_digest.cc",
-@@ -1597,8 +1598,10 @@ rtc_library("digest") {
+@@ -1599,8 +1600,10 @@ rtc_library("digest") {
      configs += [ "..:external_ssl_library" ]
    }
  }
@@ -138,7 +139,7 @@ index b6ae38db72..c228973641 100644
    visibility = [ "*" ]
    sources = [
      "crypto_random.cc",
-@@ -1619,6 +1622,7 @@ rtc_library("crypto_random") {
+@@ -1621,6 +1624,7 @@ rtc_library("crypto_random") {
      configs += [ "..:external_ssl_library" ]
    }
  }
@@ -147,7 +148,7 @@ index b6ae38db72..c228973641 100644
  rtc_library("ssl") {
  if (!build_with_mozilla) {
 diff --git a/webrtc.gni b/webrtc.gni
-index b8e0f0dc1b..19ce798c96 100644
+index f0eda1a3d8..25c9ac3fff 100644
 --- a/webrtc.gni
 +++ b/webrtc.gni
 @@ -112,7 +112,7 @@ declare_args() {

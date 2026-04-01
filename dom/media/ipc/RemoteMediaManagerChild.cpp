@@ -66,7 +66,7 @@ static EnumeratedArray<RemoteMediaIn, StaticRefPtr<GenericNonExclusivePromise>,
 // Only modified on the main-thread, read on any thread. While it could be read
 // on the main thread directly, for clarity we force access via the DataMutex
 // wrapper.
-MOZ_RELEASE_CONSTINIT static StaticDataMutex<StaticRefPtr<nsIThread>>
+constinit static StaticDataMutex<StaticRefPtr<nsIThread>>
     sRemoteMediaManagerChildThread("sRemoteMediaManagerChildThread");
 
 // Only accessed from sRemoteMediaManagerChildThread

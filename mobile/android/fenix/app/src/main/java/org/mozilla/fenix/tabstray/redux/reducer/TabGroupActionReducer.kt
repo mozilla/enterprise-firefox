@@ -67,6 +67,18 @@ object TabGroupActionReducer {
                 )
             }
 
+            is TabGroupAction.ThemeChanged -> {
+                val form = requireNotNull(state.tabGroupFormState) {
+                    "ThemeChanged dispatched with no TabGroupFormState"
+                }
+                state.copy(
+                    tabGroupFormState = form.copy(
+                        theme = action.theme,
+                        edited = true,
+                    ),
+                )
+            }
+
             TabGroupAction.FormDismissed -> state.copy(
                 tabGroupFormState = null,
             )

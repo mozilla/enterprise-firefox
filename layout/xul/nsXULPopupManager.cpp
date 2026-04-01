@@ -890,7 +890,7 @@ bool nsXULPopupManager::ShowMenuAsNativeMenu(nsIContent* aMenu,
             aMenu, triggerContent, aPosition, rect, parentIsContextMenu);
       },
       [&](NativeMenu* menu, nsMenuPopupFrame* frame) {
-        menu->ShowMenuAnchored(frame, rect, aPosition);
+        menu->ShowMenuAnchored(frame, rect, frame->GetAlignmentPosition());
       });
 }
 
@@ -1239,7 +1239,8 @@ bool nsXULPopupManager::ShowPopupAsNativeAnchoredMenu(
         if (!frame) {
           frame = popupFrame->PresContext()->PresShell()->GetRootFrame();
         }
-        menu->ShowMenuAnchored(frame, aRect, aPosition);
+        menu->ShowMenuAnchored(frame, aRect,
+                               popupFrame->GetAlignmentPosition());
       });
 }
 

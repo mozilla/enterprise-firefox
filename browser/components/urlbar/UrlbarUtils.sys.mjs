@@ -1283,6 +1283,18 @@ export var UrlbarUtils = {
   },
 
   /**
+   * Clears the form history for all search engines.
+   *
+   * @returns {Promise<void>}
+   */
+  clearFormHistory() {
+    return lazy.FormHistory.update({
+      op: "remove",
+      fieldname: lazy.DEFAULT_FORM_HISTORY_PARAM,
+    });
+  },
+
+  /**
    * Returns whether a URL can be autofilled from a candidate string. This
    * function is specifically designed for origin and up-to-the-next-slash URL
    * autofill. It should not be used for other types of autofill.

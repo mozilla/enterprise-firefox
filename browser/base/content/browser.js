@@ -1394,7 +1394,7 @@ var gLastOpenDirectory = {
 };
 
 function readFromClipboard() {
-  var url;
+  var url = "";
 
   try {
     // Create transferable that will transfer the text.

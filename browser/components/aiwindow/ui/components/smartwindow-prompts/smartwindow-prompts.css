@@ -50,7 +50,7 @@ moz-button.sw-prompt-button {
 moz-button.sw-prompt-button::part(button) {
   position: relative;
   /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
-  box-shadow: var(--smartwindow-shadow);
+  box-shadow: var(--smartwindow-shadow, var(--box-shadow-level-2));
 }
 
 /* stylelint-disable stylelint-plugin-mozilla/use-design-tokens, stylelint-plugin-mozilla/no-base-design-tokens */

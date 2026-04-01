@@ -182,6 +182,12 @@ urlbar-split-view-button =
     .tooltiptext = Split view
     .aria-label = Split view
 
+## Searchbar context menu
+
+clear-search-history =
+    .label = Clear Search History
+    .accesskey = H
+
 ## Page Action Context Menu
 
 page-action-manage-extension2 =

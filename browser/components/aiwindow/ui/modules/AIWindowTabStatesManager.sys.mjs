@@ -681,7 +681,6 @@ export class AIWindowTabStatesManager {
     }
 
     this.#getTabState(tab, { input: "" });
-    lazy.AIWindowUI.updateSidebarInput(this.#window, "");
   };
 
   /**

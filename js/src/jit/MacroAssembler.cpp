@@ -4784,7 +4784,8 @@ void MacroAssembler::Push(const Register64 reg) {
 #if JS_BITS_PER_WORD == 64
   Push(reg.reg);
 #else
-  MOZ_ASSERT(MOZ_LITTLE_ENDIAN(), "Big-endian not supported.");
+  MOZ_ASSERT(std::endian::native == std::endian::little,
+             "Big-endian not supported.");
   Push(reg.high);
   Push(reg.low);
 #endif
@@ -4794,7 +4795,8 @@ void MacroAssembler::Pop(const Register64 reg) {
 #if JS_BITS_PER_WORD == 64
   Pop(reg.reg);
 #else
-  MOZ_ASSERT(MOZ_LITTLE_ENDIAN(), "Big-endian not supported.");
+  MOZ_ASSERT(std::endian::native == std::endian::little,
+             "Big-endian not supported.");
   Pop(reg.low);
   Pop(reg.high);
 #endif

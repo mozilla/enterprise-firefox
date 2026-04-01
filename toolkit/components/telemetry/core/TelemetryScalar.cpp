@@ -2421,7 +2421,7 @@ nsresult TelemetryScalar::RegisterScalars(const nsACString& aCategoryName,
       }
       // In the event of the usual case (just "main"), save the storage.
       if (stores.Length() == 1 && stores[0].EqualsLiteral("main")) {
-        stores.TruncateLength(0);
+        stores.ClearAndRetainStorage();
       }
     }
 

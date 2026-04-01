@@ -74,6 +74,9 @@ run-if = [
 ]
 
 ["browser_privatebrowsing_context_and_chromeFlags.js"]
+skip-if = [
+  "os == 'win' && os_version == '11.26200' && asan", # Bug 2019745
+]
 
 ["browser_privatebrowsing_crh.js"]
 

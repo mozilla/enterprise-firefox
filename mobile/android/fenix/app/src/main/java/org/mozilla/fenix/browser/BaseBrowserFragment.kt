@@ -1181,7 +1181,8 @@ abstract class BaseBrowserFragment :
                         get() = emailMaskBar
 
                     override fun shouldShowEmailMaskCfr() =
-                        context.settings().shouldShowEmailMaskCfr
+                        context.settings().shouldShowEmailMaskCfr &&
+                            context.settings().cfrPopupsEnabled
 
                     override fun onEmailMaskCfrDismissed() {
                         context.settings().shouldShowEmailMaskCfr = false

@@ -8,19 +8,24 @@
 
 use api::{ColorF, DebugFlags};
 use api::{BoxShadowClipMode, ClipMode};
+use crate::util::clamp_to_scale_factor;
+use crate::box_shadow::{BoxShadowCacheKey, BLUR_SAMPLE_SCALE};
+use crate::pattern::box_shadow::BoxShadowPatternData;
 use api::units::*;
 use euclid::Scale;
 use smallvec::SmallVec;
 use crate::composite::CompositorSurfaceKind;
 use crate::command_buffer::{CommandBufferIndex, PrimitiveCommand};
 use crate::image_tiling::{self, Repetition};
+use crate::border;
 use crate::clip::{ClipStore, ClipNodeRange};
 use crate::render_task_graph::RenderTaskId;
 use crate::renderer::{GpuBufferAddress, GpuBufferBuilderF, GpuBufferWriterF, GpuBufferDataF};
 use crate::spatial_tree::{SpatialNodeIndex, SpatialTree};
 use crate::clip::{ClipDataStore, ClipNodeFlags, ClipChainInstance, ClipItemKind};
 use crate::frame_builder::{FrameBuildingContext, FrameBuildingState, PictureContext, PictureState};
-use crate::gpu_types::{BrushFlags, LinearGradientBrushData};
+use crate::gpu_types::{BrushFlags, LinearGradientBrushData, BlurEdgeMode};
+use crate::render_target::RenderTargetKind;
 use crate::internal_types::{FastHashMap, PlaneSplitAnchor, Filter};
 use crate::picture::{ClusterFlags, PictureCompositeMode, PicturePrimitive};
 use crate::picture::{PrimitiveList, PrimitiveCluster, SurfaceIndex, SubpixelMode, Picture3DContext};
@@ -29,7 +34,9 @@ use crate::prim_store::*;
 use crate::quad::{self, QuadTransformState};
 use crate::prim_store::gradient::GradientGpuBlockBuilder;
 use crate::render_backend::DataStores;
-use crate::render_task::{EmptyTask, RenderTask, RenderTaskKind};
+use crate::render_task_cache::RenderTaskCacheKeyKind;
+use crate::render_task_cache::{RenderTaskCacheKey, to_cache_size, RenderTaskParent};
+use crate::render_task::{EmptyTask, RenderTask, RenderTaskKind, MAX_BLUR_STD_DEVIATION};
 use crate::segment::SegmentBuilder;
 use crate::visibility::{compute_conservative_visible_rect, PrimitiveVisibility, VisibilityState};
 
@@ -187,7 +194,7 @@ fn can_use_clip_chain_for_quad_path(
         match clip_node.item.kind {
             ClipItemKind::RoundedRectangle { .. } | ClipItemKind::Rectangle { .. } => {}
             ClipItemKind::BoxShadow { .. } => {
-                // legacy path for box-shadows for now (move them to a separate primitive next)
+                // Only reachable when use_quad_box_shadow is not set.
                 return false;
             }
             ClipItemKind::Image { .. } => {
@@ -359,8 +366,210 @@ fn prepare_interned_prim_for_render(
     let device_pixel_scale = frame_state.surfaces[pic_context.surface_index.0].device_pixel_scale;
 
     match &mut prim_instance.kind {
-        PrimitiveInstanceKind::BoxShadow { .. } => {
-            unimplemented!();
+        PrimitiveInstanceKind::BoxShadow { data_handle, ref mut render_task } => {
+            profile_scope!("BoxShadow");
+
+            let prim_data = &data_stores.box_shadow[*data_handle];
+            let shadow_data = &prim_data.kind;
+            let blur_radius = shadow_data.blur_radius;
+
+            let shadow_rect_size = shadow_data.inner_shadow_rect.size();
+            let mut shadow_radius = shadow_data.shadow_radius;
+            border::ensure_no_corner_overlap(&mut shadow_radius, shadow_rect_size);
+
+            let blur_region = (BLUR_SAMPLE_SCALE * blur_radius).ceil();
+
+            let max_corner_width = shadow_radius.top_left.width
+                .max(shadow_radius.bottom_left.width)
+                .max(shadow_radius.top_right.width)
+                .max(shadow_radius.bottom_right.width);
+            let max_corner_height = shadow_radius.top_left.height
+                .max(shadow_radius.bottom_left.height)
+                .max(shadow_radius.top_right.height)
+                .max(shadow_radius.bottom_right.height);
+
+            let used_corner_width = max_corner_width.max(blur_region);
+            let used_corner_height = max_corner_height.max(blur_region);
+
+            let min_shadow_rect_size = LayoutSize::new(
+                2.0 * used_corner_width + blur_region,
+                2.0 * used_corner_height + blur_region,
+            );
+
+            // Compute the nine-patch source rect size per axis (= min_shadow_rect_size when
+            // the shadow is large enough to stretch, = shadow_rect_size when corners overlap).
+            let src_rect_size = LayoutSize::new(
+                if shadow_rect_size.width >= min_shadow_rect_size.width {
+                    min_shadow_rect_size.width
+                } else {
+                    shadow_rect_size.width
+                },
+                if shadow_rect_size.height >= min_shadow_rect_size.height {
+                    min_shadow_rect_size.height
+                } else {
+                    shadow_rect_size.height
+                },
+            );
+
+            // The full blur alloc size in local pixels. This is the UV denominator passed to
+            // the shader: the nine-patch maps shadow_pos/alloc_size so that shadow_pos=blur_region
+            // maps exactly to the shadow edge in the texture (preserving the blur falloff).
+            let shadow_rect_alloc_size = LayoutSize::new(
+                2.0 * blur_region + src_rect_size.width,
+                2.0 * blur_region + src_rect_size.height,
+            );
+
+            // Scale to device pixels for the render task.
+            let blur_radius_dp = blur_radius * 0.5;
+            let mut content_scale = LayoutToWorldScale::new(1.0) * device_pixel_scale;
+            content_scale.0 = clamp_to_scale_factor(content_scale.0, false);
+
+            // Opt B: pre-reduce content_scale so the blur sigma is already within
+            // MAX_BLUR_STD_DEVIATION, eliminating downscale passes inside new_blur.
+            //
+            // Use the same rounding as the old code (round to nearest integer) to determine
+            // n_downscales, so mask scale exactly matches what old new_blur downscaling would
+            // have produced. Exception: if rounded sigma is 0 (tiny sigma from to_cache_size
+            // downscaling), use the float sigma to avoid a zero-blur regression.
+            let sigma_rounded = (blur_radius_dp * content_scale.0).round();
+            let sigma_for_n = if sigma_rounded == 0.0 { blur_radius_dp * content_scale.0 } else { sigma_rounded };
+            let n_downscales = if sigma_for_n > MAX_BLUR_STD_DEVIATION {
+                (sigma_for_n / MAX_BLUR_STD_DEVIATION).log2().ceil() as u32
+            } else {
+                0
+            };
+            content_scale.0 /= (1u32 << n_downscales) as f32;
+
+            // Safety cap: reduces content_scale further only for pathological
+            // small-blur-huge-element cases where the alloc would exceed the max task size.
+            let cache_size = to_cache_size(shadow_rect_alloc_size, &mut content_scale);
+
+            // Blur sigma to pass to new_blur. Use the same rounded value as the old code
+            // (now divided by 2^n instead of being halved inside new_blur), so the blur
+            // intensity is byte-for-byte identical to the old pipeline.
+            let blur_std_dev = if sigma_rounded == 0.0 {
+                blur_radius_dp * content_scale.0
+            } else {
+                sigma_rounded / (1u32 << n_downscales) as f32
+            };
+            debug_assert!(
+                blur_std_dev <= MAX_BLUR_STD_DEVIATION + 1e-3,
+                "BoxShadow sigma {blur_std_dev} exceeds MAX_BLUR_STD_DEVIATION after Opt B \
+                 (n_downscales={n_downscales}, content_scale={})",
+                content_scale.0,
+            );
+
+            let bs_cache_key = BoxShadowCacheKey {
+                blur_radius_dp: Au::from_f32_px(blur_std_dev),
+                clip_mode: shadow_data.clip_mode,
+                original_alloc_size: (shadow_rect_alloc_size * content_scale).round().to_i32(),
+                br_top_left: (shadow_radius.top_left * content_scale).round().to_i32(),
+                br_top_right: (shadow_radius.top_right * content_scale).round().to_i32(),
+                br_bottom_right: (shadow_radius.bottom_right * content_scale).round().to_i32(),
+                br_bottom_left: (shadow_radius.bottom_left * content_scale).round().to_i32(),
+                device_pixel_scale: Au::from_f32_px(content_scale.0),
+            };
+
+            let clip_data = ClipData::rounded_rect(
+                src_rect_size,
+                &shadow_radius,
+                ClipMode::Clip,
+            );
+
+            // The shadow shape is offset by blur_region within the alloc task (local pixels).
+            // device_pixel_scale_for_task scales it to the mask resolution.
+            let minimal_shadow_rect_origin = LayoutPoint::new(blur_region, blur_region);
+            let device_pixel_scale_for_task = DevicePixelScale::new(content_scale.0);
+
+            let task_id = frame_state.resource_cache.request_render_task(
+                Some(RenderTaskCacheKey {
+                    origin: DeviceIntPoint::zero(),
+                    size: cache_size,
+                    kind: RenderTaskCacheKeyKind::BoxShadow(bs_cache_key),
+                }),
+                false,
+                RenderTaskParent::Surface,
+                &mut frame_state.frame_gpu_data.f32,
+                frame_state.rg_builder,
+                &mut frame_state.surface_builder,
+                &mut |rg_builder, _| {
+                    let mask_task_id = rg_builder.add().init(RenderTask::new_dynamic(
+                        cache_size,
+                        RenderTaskKind::new_rounded_rect_mask(
+                            minimal_shadow_rect_origin,
+                            clip_data.clone(),
+                            device_pixel_scale_for_task,
+                            frame_context.fb_config,
+                        ),
+                    ));
+
+                    RenderTask::new_blur(
+                        DeviceSize::new(blur_std_dev, blur_std_dev),
+                        mask_task_id,
+                        rg_builder,
+                        RenderTargetKind::Alpha,
+                        None,
+                        cache_size,
+                        BlurEdgeMode::Duplicate,
+                    )
+                }
+            );
+
+            *render_task = Some(task_id);
+
+            let prim_rect = LayoutRect::from_origin_and_size(
+                prim_instance.prim_origin,
+                prim_data.common.prim_size,
+            );
+
+            // For outset, prim_rect == dest_rect so offset is zero.
+            // For inset, prim_rect is the element rect; dest_rect (outer_shadow_rect)
+            // may be offset and smaller, so we pass its size and offset separately.
+            let dest_rect: LayoutRect = shadow_data.outer_shadow_rect.into();
+            let dest_rect_offset = LayoutVector2D::new(
+                dest_rect.min.x - prim_rect.min.x,
+                dest_rect.min.y - prim_rect.min.y,
+            );
+            let dest_rect_size = dest_rect.size();
+
+            let element_rect: LayoutRect = shadow_data.element_rect.into();
+            let mut element_radius = shadow_data.element_radius;
+            border::ensure_no_corner_overlap(&mut element_radius, element_rect.size());
+            let element_offset_rel_prim = LayoutVector2D::new(
+                element_rect.min.x - prim_rect.min.x,
+                element_rect.min.y - prim_rect.min.y,
+            );
+
+            let pattern = BoxShadowPatternData {
+                color: shadow_data.color,
+                render_task: task_id,
+                shadow_rect_alloc_size,
+                dest_rect_size,
+                dest_rect_offset,
+                clip_mode: shadow_data.clip_mode,
+                element_offset_rel_prim,
+                element_size: element_rect.size(),
+                element_radius,
+            };
+
+            quad::prepare_quad(
+                &pattern,
+                &prim_rect,
+                prim_data.common.aligned_aa_edges,
+                prim_data.common.transformed_aa_edges,
+                prim_instance_index,
+                &None,
+                &prim_instance.vis.clip_chain,
+                quad_transform,
+                frame_context,
+                pic_context,
+                targets,
+                &data_stores.clip,
+                frame_state,
+                scratch,
+            );
+
+            return;
         }
         PrimitiveInstanceKind::LineDecoration { data_handle, ref mut render_task, .. } => {
             profile_scope!("LineDecoration");
@@ -1684,13 +1893,16 @@ fn write_brush_segment_description(
         }
 
         let (local_clip_rect, radius, mode) = match clip_node.item.kind {
-            ClipItemKind::RoundedRectangle { rect, radius, mode } => {
+            ClipItemKind::RoundedRectangle { size, radius, mode } => {
+                let rect = LayoutRect::from_origin_and_size(clip_instance.clip_rect_origin, size);
                 (rect, Some(radius), mode)
             }
-            ClipItemKind::Rectangle { rect, mode } => {
+            ClipItemKind::Rectangle { size, mode } => {
+                let rect = LayoutRect::from_origin_and_size(clip_instance.clip_rect_origin, size);
                 (rect, None, mode)
             }
             ClipItemKind::BoxShadow { ref source } => {
+                // Only reachable when use_quad_box_shadow is not set.
                 // For inset box shadows, we can clip out any
                 // pixels that are inside the shadow region
                 // and are beyond the inner rect, as they can't

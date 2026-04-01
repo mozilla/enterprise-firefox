@@ -27,10 +27,18 @@ add_task(async function () {
   );
 
   info("Creating a new property but don't commit…");
-  const textProp = await addProperty(view, 1, "color", "red", {
-    commitValueWith: null,
-    blurNewProperty: false,
-  });
+  const textProp = await addProperty(
+    view,
+    1,
+    "color",
+    // using `lavender` so the autocomplete popup is visible after the call to addProperty,
+    // as there's another color starting with `lavender` (`lavenderblush`).
+    "lavender",
+    {
+      commitValueWith: null,
+      blurNewProperty: false,
+    }
+  );
 
   info("The autocomplete popup should be displayed, hit Escape to hide it");
   await waitFor(() => view.popup && view.popup.isOpen);

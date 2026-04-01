@@ -3127,6 +3127,7 @@ impl ClipBatcher {
                     unreachable!();
                 }
                 ClipItemKind::BoxShadow { ref source }  => {
+                    // Only reachable when use_quad_box_shadow is not set.
                     let task_id = source
                         .render_task
                         .expect("bug: render task handle not allocated");
@@ -3150,7 +3151,8 @@ impl ClipBatcher {
 
                     true
                 }
-                ClipItemKind::Rectangle { rect, mode: ClipMode::ClipOut } => {
+                ClipItemKind::Rectangle { size, mode: ClipMode::ClipOut } => {
+                    let rect = LayoutRect::from_origin_and_size(clip_instance.clip_rect_origin, size);
                     self.get_batch_list(is_first_clip)
                         .slow_rectangles
                         .push(ClipMaskInstanceRect {
@@ -3161,7 +3163,8 @@ impl ClipBatcher {
 
                     true
                 }
-                ClipItemKind::Rectangle { rect, mode: ClipMode::Clip } => {
+                ClipItemKind::Rectangle { size, mode: ClipMode::Clip } => {
+                    let rect = LayoutRect::from_origin_and_size(clip_instance.clip_rect_origin, size);
                     if clip_instance.flags.contains(ClipNodeFlags::SAME_COORD_SYSTEM) {
                         false
                     } else {
@@ -3189,7 +3192,8 @@ impl ClipBatcher {
                         true
                     }
                 }
-                ClipItemKind::RoundedRectangle { rect, ref radius, mode, .. } => {
+                ClipItemKind::RoundedRectangle { size, ref radius, mode, .. } => {
+                    let rect = LayoutRect::from_origin_and_size(clip_instance.clip_rect_origin, size);
                     let batch_list = self.get_batch_list(is_first_clip);
                     let instance = ClipMaskInstanceRect {
                         common,

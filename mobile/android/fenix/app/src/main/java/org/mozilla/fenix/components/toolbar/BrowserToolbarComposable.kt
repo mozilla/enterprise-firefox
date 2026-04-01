@@ -224,7 +224,11 @@ private fun toolbarCFRData(
     // Note: when this CFR is eventually removed, please remove the following:
     // 1. BrowserToolbarCFR.onShown
     // 2. BrowserToolbarCFR.onDismiss
-    if (settings.hasSeenBrowserToolbarCFR || !settings.toolbarRedesignEnabled || customTabSession != null) {
+    val canShow = settings.cfrPopupsEnabled &&
+        !settings.hasSeenBrowserToolbarCFR &&
+        settings.toolbarRedesignEnabled &&
+        customTabSession == null
+    if (!canShow) {
         return null
     }
 

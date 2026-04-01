@@ -166,8 +166,7 @@ export const Updates = {
       // downloadedBytes / totalBytes being "undefined" will move from 0 to 10%
       case lazy.AppUpdater.STATUS.DOWNLOADING: {
         this.cancelDelayedUpdateCheckUI();
-        this.hide(".felt-updates-checking");
-        this.show(".felt-updates-application");
+        this.displayUpdateDownloadingPanel();
 
         let percent = FELT_UPDATE_APPLY_PERCENT_INIT;
         if (downloadedBytes && totalBytes) {
@@ -284,9 +283,7 @@ export const Updates = {
     }
 
     this._checkingTimeout = lazy.setTimeout(() => {
-      this.hide(".felt-updates-application");
-      this.show(".felt-updates-checking");
-      this.show(".felt-updates");
+      this.displayUpdateCheckingPanel();
     }, 500);
   },
 
@@ -295,6 +292,18 @@ export const Updates = {
       lazy.clearTimeout(this._checkingTimeout);
     }
     this._checkingTimeout = null;
+  },
+
+  displayUpdateCheckingPanel() {
+    this.hide(".felt-updates-application");
+    this.show(".felt-updates-checking");
+    this.show(".felt-updates");
+  },
+
+  displayUpdateDownloadingPanel() {
+    this.hide(".felt-updates-checking");
+    this.show(".felt-updates-application");
+    this.show(".felt-updates");
   },
 
   displayUpdateState() {

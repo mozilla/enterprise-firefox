@@ -227,6 +227,27 @@ describe("Smartbar tab state input tracking", () => {
       );
     });
 
+    it("should submit when re-selecting the current action from the dropdown", async () => {
+      await typeInSmartbar(sidebarBrowser, "hello");
+      await SpecialPowers.spawn(sidebarBrowser, [], async () => {
+        const aiWindowElement = content.document.querySelector("ai-window");
+        const smartbar = await ContentTaskUtils.waitForCondition(
+          () =>
+            aiWindowElement.shadowRoot?.querySelector("#ai-window-smartbar"),
+          "Wait for Smartbar to be rendered"
+        );
+        const inputCta = smartbar.querySelector("input-cta");
+        inputCta.shadowRoot
+          .querySelector("panel-list")
+          .querySelector(`panel-item[icon="chat"]`)
+          .click();
+        await ContentTaskUtils.waitForCondition(
+          () => smartbar.value === "",
+          "Smartbar should be cleared after re-selecting the same action"
+        );
+      });
+    });
+
     it("should preserve input from URL bar navigation", async () => {
       await typeInSmartbar(sidebarBrowser, "hello");
 

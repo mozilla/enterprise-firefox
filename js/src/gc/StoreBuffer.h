@@ -34,6 +34,7 @@ namespace gc {
 
 class Arena;
 class ArenaCellSet;
+class GCRuntime;
 
 /*
  * BufferableRef represents an abstract reference for use in the generational
@@ -464,7 +465,7 @@ class StoreBuffer {
   WholeCellBuffer bufferWholeCell;
   GenericBuffer bufferGeneric;
 
-  JSRuntime* runtime_;
+  GCRuntime* gc_;
   Nursery& nursery_;
   size_t entryCount_;
   double entryScaling_;
@@ -477,7 +478,7 @@ class StoreBuffer {
 #endif
 
  public:
-  explicit StoreBuffer(JSRuntime* rt);
+  explicit StoreBuffer(GCRuntime* gc);
 
   StoreBuffer(const StoreBuffer& other) = delete;
   StoreBuffer& operator=(const StoreBuffer& other) = delete;

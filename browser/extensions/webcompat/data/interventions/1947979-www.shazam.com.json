@@ -1,0 +1,17 @@
+{
+  "label": "www.shazam.com",
+  "bugs": {
+    "1947979": {
+      "issue": "extra-scrollbars",
+      "matches": ["*://www.shazam.com/song/*"]
+    }
+  },
+  "interventions": [
+    {
+      "platforms": ["desktop"],
+      "content_scripts": {
+        "css": ["bug1947979-shazam.com-hide-extra-scrollbars.css"]
+      }
+    }
+  ]
+}

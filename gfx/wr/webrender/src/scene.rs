@@ -334,6 +334,7 @@ impl BuiltScene {
                 max_shared_surface_size: 2048,
                 enable_dithering: false,
                 precise_linear_gradients: false,
+                use_quad_box_shadow: false,
             },
         }
     }

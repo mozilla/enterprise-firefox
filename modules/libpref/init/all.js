@@ -179,9 +179,6 @@ pref("browser.triple_click_selects_paragraph", true);
 // Disable support for MathML
 pref("mathml.disabled",    false);
 
-// Enable scale transform for stretchy MathML operators. See bug 414277.
-pref("mathml.scale_stretchy_operators.enabled", true);
-
 // We'll throttle the download if the download rate is throttle-factor times
 // the estimated playback rate, AND we satisfy the cache readahead_limit
 // above. The estimated playback rate is time_duration/length_in_bytes.

@@ -140,6 +140,83 @@ describe("AI Window session restore", () => {
     });
   });
 
+  describe("mode switching", () => {
+    let sidebarBrowser;
+
+    beforeEach(async () => {
+      sb.stub(Chat, "fetchWithHistory").callsFake(async conversation => {
+        await ChatStore.updateConversation(conversation);
+      });
+      sb.stub(openAIEngine, "build").resolves({
+        loadPrompt: () => Promise.resolve("Mock system prompt"),
+      });
+
+      // Replace the outer stub with a spy so findConversationById still calls
+      // through to the real implementation, which lets us assert on the actual
+      // restored conversation.
+      findStub.restore();
+      findStub = sb.spy(ChatStore, "findConversationById");
+
+      BrowserTestUtils.startLoadingURIString(browser, "https://example.com/");
+      await BrowserTestUtils.browserLoaded(browser);
+
+      sidebarBrowser = await TestUtils.waitForCondition(
+        () => win.document.getElementById("ai-window-browser"),
+        "Sidebar browser should be in the DOM"
+      );
+      await TestUtils.waitForCondition(
+        () =>
+          sidebarBrowser.contentDocument?.querySelector("ai-window:defined"),
+        "Sidebar ai-window should be loaded"
+      );
+    });
+
+    afterEach(() => {
+      sb.restore();
+      sidebarBrowser = null;
+    });
+
+    it("should restore conversation when toggling from Smart to Classic and back to Smart", async () => {
+      await typeInSmartbar(sidebarBrowser, "hello");
+      await submitSmartbar(sidebarBrowser);
+
+      // Wait for fetchWithHistory to be called and for the conversation to be
+      // persisted before toggling, so findConversationById can find it.
+      await TestUtils.waitForCondition(
+        () => Chat.fetchWithHistory.called,
+        "fetchWithHistory should be called after submit"
+      );
+      await Chat.fetchWithHistory.returnValues[0];
+
+      AIWindow.toggleAIWindow(win, false);
+
+      Assert.ok(
+        !AIWindowUI.isSidebarOpen(win),
+        "Sidebar should be closed after toggling to Classic"
+      );
+
+      findStub.resetHistory();
+
+      AIWindow.toggleAIWindow(win, true);
+
+      await TestUtils.waitForCondition(
+        () => findStub.called,
+        "findConversationById should be called to restore the conversation"
+      );
+
+      await TestUtils.waitForCondition(
+        () => AIWindowUI.isSidebarOpen(win),
+        "Sidebar should reopen with the restored conversation after toggling back to Smart"
+      );
+
+      const restoredConversation = await findStub.returnValues.at(-1);
+      Assert.ok(
+        restoredConversation?.messages?.some(m => m.content?.body === "hello"),
+        "Restored conversation should contain the submitted 'hello' message"
+      );
+    });
+  });
+
   describe("tab switching", () => {
     let newTab;
 

@@ -9,6 +9,8 @@
 // found in the LICENSE file.
 #include "jit/riscv64/MacroAssembler-riscv64.h"
 
+#include <bit>
+
 #include "jit/Bailouts.h"
 #include "jit/BaselineFrame.h"
 #include "jit/JitFrames.h"
@@ -4529,9 +4531,9 @@ static void CompareExchange(MacroAssembler& masm,
 
   masm.andi(offsetTemp, scratch2, 3);
   masm.subPtr(offsetTemp, scratch2);
-#if !MOZ_LITTLE_ENDIAN()
-  masm.as_xori(offsetTemp, offsetTemp, 3);
-#endif
+  if constexpr (std::endian::native != std::endian::little) {
+    masm.xori(offsetTemp, offsetTemp, 3);
+  }
   masm.slli(offsetTemp, offsetTemp, 3);
   masm.ma_li(maskTemp, Imm32(UINT32_MAX >> ((4 - nbytes) * 8)));
   masm.sll(maskTemp, maskTemp, offsetTemp);

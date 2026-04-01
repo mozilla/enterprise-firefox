@@ -169,21 +169,21 @@ internal fun emitRecentSearchSuggestionsDisplayedFact(
 }
 
 internal fun emitOptimizedSuggestionCardDisplayedFact(
-    cardType: String,
+    cardType: SuggestionCardType,
 ) {
     emitAwesomebarFact(
         Action.DISPLAY,
         AwesomeBarFacts.Items.OPTIMIZED_SUGGESTION_CARD_DISPLAYED,
-        cardType,
+        cardType.value,
     )
 }
 
 internal fun emitOptimizedSuggestionCardClickedFact(
-    cardType: String,
+    cardType: SuggestionCardType,
 ) {
     emitAwesomebarFact(
         Action.INTERACTION,
         AwesomeBarFacts.Items.OPTIMIZED_SUGGESTION_CARD_CLICKED,
-        cardType,
+        cardType.value,
     )
 }

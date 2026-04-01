@@ -28,7 +28,7 @@ async function test_opensearch(shouldWork) {
   );
 
   let popup = await SearchbarTestUtils.openSearchModeSwitcher(window);
-  let engineElement = popup.querySelector("menuitem[label=newEngine]");
+  let engineElement = popup.querySelector("menuitem[label*=newEngine]");
 
   if (shouldWork) {
     ok(engineElement, "There should be search engines available to add");

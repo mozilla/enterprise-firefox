@@ -209,6 +209,8 @@ pub struct WebRenderOptions {
 
     /// Use a more precise method for sampling gradients.
     pub precise_linear_gradients: bool,
+    /// Use the new quad primitive path for box-shadow blur rendering.
+    pub use_quad_box_shadow: bool,
 }
 
 impl WebRenderOptions {
@@ -283,6 +285,7 @@ impl Default for WebRenderOptions {
             max_shared_surface_size: 2048,
             enable_debugger: true,
             precise_linear_gradients: false,
+            use_quad_box_shadow: false,
         }
     }
 }
@@ -563,6 +566,7 @@ pub fn create_webrender_instance(
         max_shared_surface_size: options.max_shared_surface_size,
         enable_dithering: options.enable_dithering,
         precise_linear_gradients: options.precise_linear_gradients,
+        use_quad_box_shadow: options.use_quad_box_shadow,
     };
     info!("WR {:?}", config);
 

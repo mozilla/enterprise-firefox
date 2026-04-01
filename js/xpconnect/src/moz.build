@@ -77,4 +77,4 @@ LOCAL_INCLUDES += [
 ]
 
 if CONFIG["CC_TYPE"] in ("clang", "gcc"):
-    CXXFLAGS += ["-Werror=format"]
+    COMPILE_FLAGS["WARNINGS_CXXFLAGS"] += ["-Werror=format"]

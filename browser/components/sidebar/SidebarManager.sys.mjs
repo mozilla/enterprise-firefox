@@ -212,7 +212,7 @@ class SidebarManager extends EventTarget {
       if (w.SidebarController.isOpen) {
         w.SidebarController.hide();
       }
-      w.SidebarController._state.loadInitialState({
+      w.SidebarController._state.loadCurrentState({
         ...lazy.SidebarState.defaultProperties,
       });
     }

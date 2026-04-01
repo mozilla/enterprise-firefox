@@ -523,6 +523,9 @@ function internalPersist(persistArgs) {
       encodingFlags |= nsIWBP.ENCODE_FLAGS_NOFRAMES_CONTENT;
     } else {
       encodingFlags |= nsIWBP.ENCODE_FLAGS_ENCODE_BASIC_ENTITIES;
+      // Don't wrap markup when saving document:
+      // https://bugzilla.mozilla.org/show_bug.cgi?id=2025300
+      encodingFlags |= nsIWBP.ENCODE_FLAGS_DISALLOW_LINE_BREAKING;
     }
 
     const kWrapColumn = 80;

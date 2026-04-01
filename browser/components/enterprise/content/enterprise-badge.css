@@ -70,7 +70,6 @@
     height: 100%;
     object-fit: contain;
     border-radius: var(--border-radius-small);
-    list-style-image: url(chrome://browser/content/enterprise/badge-logo.svg);
   }
 }
 
@@ -78,4 +77,8 @@
   width: var(--icon-size-medium);
   height: var(--icon-size-medium);
   border-radius: var(--border-radius-circle);
+}
+
+.is-hidden {
+  display: none !important;
 }

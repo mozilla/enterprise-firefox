@@ -182,8 +182,8 @@ class TelemetryImpl final : public nsITelemetry,
   friend class nsFetchTelemetryData;
 };
 
-MOZ_RELEASE_CONSTINIT StaticDataMutex<TelemetryImpl*> TelemetryImpl::sTelemetry(
-    nullptr, nullptr);
+constinit StaticDataMutex<TelemetryImpl*> TelemetryImpl::sTelemetry(nullptr,
+                                                                    nullptr);
 
 MOZ_DEFINE_MALLOC_SIZE_OF(TelemetryMallocSizeOf)
 

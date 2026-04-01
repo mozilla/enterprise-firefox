@@ -428,9 +428,9 @@ class CacheEntry final : public nsIRunnable,
       return flags;
     }
     bool Set(uint32_t aFlags) {
-      if (mFlags & aFlags) return false;
+      bool needsDispatch = !mFlags;
       mFlags |= aFlags;
-      return true;
+      return needsDispatch;
     }
 
    private:

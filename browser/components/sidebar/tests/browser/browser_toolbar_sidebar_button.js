@@ -141,7 +141,7 @@ add_task(async function test_expanded_state_for_always_show() {
   await checkExpandedState(false);
 
   info("Don't collapse the sidebar by loading a tool.");
-  await SidebarController.initializeUIState({
+  await SidebarController.updateUIState({
     launcherExpanded: true,
     command: "",
   });
@@ -158,7 +158,7 @@ add_task(async function test_expanded_state_for_always_show() {
   SidebarController.hide();
 
   info("Load and unload a tool with the sidebar collapsed to begin with.");
-  await SidebarController.initializeUIState({
+  await SidebarController.updateUIState({
     launcherExpanded: false,
     command: "",
   });
@@ -173,7 +173,7 @@ add_task(async function test_expanded_state_for_always_show() {
   await checkExpandedState(false);
   SidebarController.hide();
 
-  await SidebarController.initializeUIState({
+  await SidebarController.updateUIState({
     launcherExpanded: true,
     command: "",
   });
@@ -316,7 +316,7 @@ add_task(async function test_toolbar_sidebar_badges() {
   let badgeEl = toolbarButton?.querySelector(".toolbarbutton-badge");
   let toolEntry = SidebarController.toolsAndExtensions.get(SIDEBAR_COMMAND_ID);
 
-  await SidebarController.initializeUIState({ launcherExpanded: true });
+  await SidebarController.updateUIState({ launcherExpanded: true });
   Assert.ok(
     !badgeEl.classList.contains("feature-callout"),
     "Toolbar badge should not be visible when sidebar is open"
@@ -561,7 +561,7 @@ add_task(async function test_keyboard_shortcut() {
   await SpecialPowers.pushPrefEnv({
     set: [[SIDEBAR_VISIBILITY_PREF, "always-show"]],
   });
-  await SidebarController.initializeUIState({ launcherExpanded: false });
+  await SidebarController.updateUIState({ launcherExpanded: false });
 
   const sidebar = document.querySelector("sidebar-main");
   const key = document.getElementById("toggleSidebarKb");

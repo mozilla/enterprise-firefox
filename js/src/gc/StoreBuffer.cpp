@@ -8,6 +8,7 @@
 
 #include "mozilla/Assertions.h"
 
+#include "gc/GCRuntime.h"
 #include "gc/Statistics.h"
 #include "vm/MutexIDs.h"
 #include "vm/Runtime.h"
@@ -215,11 +216,11 @@ void StoreBuffer::GenericBuffer::trace(JSTracer* trc, StoreBuffer* owner) {
   }
 }
 
-StoreBuffer::StoreBuffer(JSRuntime* rt)
-    : runtime_(rt),
-      nursery_(rt->gc.nursery()),
-      entryCount_(rt->gc.tunables.storeBufferEntries()),
-      entryScaling_(rt->gc.tunables.storeBufferScaling()),
+StoreBuffer::StoreBuffer(GCRuntime* gc)
+    : gc_(gc),
+      nursery_(gc->nursery()),
+      entryCount_(gc->tunables.storeBufferEntries()),
+      entryScaling_(gc->tunables.storeBufferScaling()),
       aboutToOverflow_(false),
       enabled_(false),
       mayHavePointersToDeadCells_(false)
@@ -241,7 +242,7 @@ StoreBuffer::StoreBuffer(StoreBuffer&& other)
       bufferWasmAnyRef(std::move(other.bufferWasmAnyRef)),
       bufferWholeCell(std::move(other.bufferWholeCell)),
       bufferGeneric(std::move(other.bufferGeneric)),
-      runtime_(other.runtime_),
+      gc_(other.gc_),
       nursery_(other.nursery_),
       entryCount_(other.entryCount_),
       entryScaling_(other.entryScaling_),
@@ -272,12 +273,12 @@ void StoreBuffer::checkAccess() const {
   // The GC runs tasks that may access the storebuffer in parallel and so must
   // take a lock. The mutator may only access the storebuffer from the main
   // thread.
-  if (runtime_->heapState() != JS::HeapState::Idle &&
-      runtime_->heapState() != JS::HeapState::MinorCollecting) {
+  if (gc_->heapState() != JS::HeapState::Idle &&
+      gc_->heapState() != JS::HeapState::MinorCollecting) {
     MOZ_ASSERT(!CurrentThreadIsGCMarking());
-    runtime_->gc.assertCurrentThreadHasLockedSweepingLock();
+    gc_->assertCurrentThreadHasLockedSweepingLock();
   } else {
-    MOZ_ASSERT(CurrentThreadCanAccessRuntime(runtime_));
+    MOZ_ASSERT(CurrentThreadCanAccessRuntime(gc_->rt));
   }
 }
 #endif
@@ -372,7 +373,7 @@ void StoreBuffer::clear() {
 void StoreBuffer::setAboutToOverflow(JS::GCReason reason) {
   if (!aboutToOverflow_) {
     aboutToOverflow_ = true;
-    runtime_->gc.stats().count(gcstats::COUNT_STOREBUFFER_OVERFLOW);
+    gc_->stats().count(gcstats::COUNT_STOREBUFFER_OVERFLOW);
   }
   nursery_.requestMinorGC(reason);
 }

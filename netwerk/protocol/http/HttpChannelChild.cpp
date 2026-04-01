@@ -404,7 +404,6 @@ void HttpChannelChild::OnStartRequest(
   ipc::MergeParentLoadInfoForwarder(aArgs.loadInfoForwarder(), mLoadInfo);
 
   mIsFromCache = aArgs.isFromCache();
-  mIsRacing = aArgs.isRacing();
   mCacheEntryAvailable = aArgs.cacheEntryAvailable();
   mCacheEntryId = aArgs.cacheEntryId();
   mCacheDisposition = aArgs.cacheDisposition();
@@ -2768,15 +2767,6 @@ HttpChannelChild::GetCacheEntryId(uint64_t* aCacheEntryId) {
   }
 
   *aCacheEntryId = mCacheEntryId;
-  return NS_OK;
-}
-
-NS_IMETHODIMP
-HttpChannelChild::IsRacing(bool* aIsRacing) {
-  if (!LoadAfterOnStartRequestBegun()) {
-    return NS_ERROR_NOT_AVAILABLE;
-  }
-  *aIsRacing = mIsRacing;
   return NS_OK;
 }
 

@@ -1119,6 +1119,7 @@ class ProxyNativeCall {
       const typename Owner::LocalRef& inst,
       std::index_sequence<Indices...>) const {
     auto impl = NativePtrTraits<Impl>::Access(NativePtrTraits<Impl>::Get(inst));
+    MOZ_ASSERT(impl);
     MOZ_CATCH_JNI_EXCEPTION(inst.Env());
     (impl->*mNativeCall)(inst, std::get<Indices>(mArgs)...);
   }
@@ -1128,6 +1129,7 @@ class ProxyNativeCall {
       const typename Owner::LocalRef& inst,
       std::index_sequence<Indices...>) const {
     auto impl = NativePtrTraits<Impl>::Access(NativePtrTraits<Impl>::Get(inst));
+    MOZ_ASSERT(impl);
     MOZ_CATCH_JNI_EXCEPTION(inst.Env());
     (impl->*mNativeCall)(std::get<Indices>(mArgs)...);
   }

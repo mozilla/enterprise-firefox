@@ -1,0 +1,99 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+.fxview-tab-list {
+  grid-template-columns: unset;
+}
+
+virtual-list {
+  grid-column: unset;
+  grid-template-columns: unset;
+
+  .top-padding,
+  .bottom-padding {
+    grid-column: unset;
+  }
+}
+
+.bookmark-separator {
+  display: grid;
+  grid-column: span 9;
+  margin-block: 0;
+  padding-block: var(--space-medium);
+  cursor: default;
+  position: relative;
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    inset-block-start: 50%;
+    border-top: 1px solid var(--border-color);
+  }
+
+  &:focus-visible {
+    outline: var(--focus-outline);
+    outline-offset: var(--focus-outline-inset);
+  }
+}
+
+details summary,
+.bookmark-folder-label {
+  line-height: var(--size-item-medium);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding-inline: var(--space-small);
+  border-radius: var(--border-radius-small);
+  grid-column: span 9;
+
+  &:hover {
+    background-color: var(--button-background-color-ghost-hover);
+    color: var(--button-text-color-ghost-hover);
+
+    &:active {
+      background-color: var(--button-background-color-ghost-active);
+      color: var(--button-text-color-ghost-active);
+    }
+  }
+
+  &::before {
+    content: "";
+    display: inline-block;
+    width: var(--size-item-small);
+    height: var(--size-item-small);
+    vertical-align: middle;
+    margin-inline-end: var(--space-small);
+    -moz-context-properties: fill;
+    fill: currentColor;
+    background-image: url("chrome://global/skin/icons/folder.svg");
+    background-size: contain;
+    background-repeat: no-repeat;
+  }
+}
+
+details {
+  min-width: 0;
+  grid-column: span 9;
+
+  div#content {
+    margin-inline-start: var(--space-xlarge);
+  }
+}
+
+sidebar-bookmark-row {
+  border-radius: var(--border-radius-medium);
+  height: var(--size-item-large);
+  align-items: center;
+
+  &:hover {
+    background-color: var(--button-background-color-ghost-hover);
+    color: var(--button-text-color-ghost-hover);
+
+    &:active {
+      background-color: var(--button-background-color-ghost-active);
+      color: var(--button-text-color-ghost-active);
+    }
+  }
+}

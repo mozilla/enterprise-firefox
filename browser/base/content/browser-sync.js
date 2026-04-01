@@ -31,6 +31,10 @@ ChromeUtils.defineESModuleGetters(this, {
   Weave: "resource://services-sync/main.sys.mjs",
 });
 
+var { DEVICE_TYPE_MOBILE, DEVICE_TYPE_TABLET } = ChromeUtils.importESModule(
+  "resource://services-sync/constants.sys.mjs"
+);
+
 const MIN_STATUS_ANIMATION_DURATION = 1600;
 
 this.SyncedTabsPanelList = class SyncedTabsPanelList {
@@ -555,6 +559,16 @@ var gSync = {
       }
     }
     return targets.sort((a, b) => b.lastAccessTime - a.lastAccessTime);
+  },
+
+  _hasOnlyMobileSendTabTargets(targets = this.getSendTabTargets()) {
+    return (
+      targets.length &&
+      targets.every(
+        target =>
+          target.type == DEVICE_TYPE_MOBILE || target.type == DEVICE_TYPE_TABLET
+      )
+    );
   },
 
   _definePrefGetters() {
@@ -1141,14 +1155,25 @@ var gSync = {
     }
 
     this.enableSendTabIfValidTab();
+    let sendTabTargets = this.getSendTabTargets();
 
-    if (!this.getSendTabTargets().length) {
+    if (!sendTabTargets.length) {
       for (const id of [
         "PanelUI-fxa-menu-sendtab-button",
         "PanelUI-fxa-menu-sendtab-separator",
       ]) {
         PanelMultiView.getViewNode(document, id).hidden = true;
       }
+    } else if (this._hasOnlyMobileSendTabTargets(sendTabTargets)) {
+      PanelMultiView.getViewNode(
+        document,
+        "PanelUI-fxa-menu-sendtab-button"
+      ).setAttribute("data-l10n-id", "fxa-menu-send-to-mobile");
+    } else {
+      PanelMultiView.getViewNode(
+        document,
+        "PanelUI-fxa-menu-sendtab-button"
+      ).setAttribute("data-l10n-id", "fxa-menu-send-to-device");
     }
 
     if (anchor.getAttribute("open") == "true") {
@@ -2177,6 +2202,17 @@ var gSync = {
       sendTabsToDevice.hidden = true;
       sendTabToDeviceSeparator.hidden = true;
     } else {
+      if (this._hasOnlyMobileSendTabTargets()) {
+        sendTabsToDevice.setAttribute(
+          "data-l10n-id",
+          "tab-context-send-to-mobile"
+        );
+      } else {
+        sendTabsToDevice.setAttribute(
+          "data-l10n-id",
+          "tab-context-send-to-device"
+        );
+      }
       let tabCount = aTargetTab.multiselected
         ? gBrowser.multiSelectedTabsCount
         : 1;
@@ -2235,6 +2271,24 @@ var gSync = {
       "context-sendpagetodevice",
       !hideItems && showSendPage
     );
+
+    let hasOnlyMobileTargets = this._hasOnlyMobileSendTabTargets();
+    let sendLinkToDevice = document.getElementById("context-sendlinktodevice");
+    let sendPageToDevice = document.getElementById("context-sendpagetodevice");
+
+    sendLinkToDevice.setAttribute(
+      "data-l10n-id",
+      hasOnlyMobileTargets
+        ? "main-context-menu-link-send-to-mobile"
+        : "main-context-menu-link-send-to-device"
+    );
+    sendPageToDevice.setAttribute(
+      "data-l10n-id",
+      hasOnlyMobileTargets
+        ? "main-context-menu-send-to-mobile-2"
+        : "main-context-menu-send-to-device-2"
+    );
+
     for (const id of [
       "context-sendlinktodevice",
       "context-sep-sendlinktodevice",

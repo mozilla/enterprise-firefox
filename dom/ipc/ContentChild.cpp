@@ -2565,6 +2565,40 @@ mozilla::ipc::IPCResult ContentChild::RecvAddPermission(
   return IPC_OK();
 }
 
+mozilla::ipc::IPCResult ContentChild::RecvSetBrowserPermission(
+    const nsCString& aOrigin, const nsCString& aType, const uint32_t& aAction,
+    const uint64_t& aBrowserId, const bool& aIsRemoval) {
+  RefPtr<PermissionManager> permissionManager =
+      PermissionManager::GetInstance();
+  MOZ_ASSERT(permissionManager);
+
+  nsAutoCString originNoSuffix;
+  OriginAttributes attrs;
+  bool success = attrs.PopulateFromOrigin(aOrigin, originNoSuffix);
+  NS_ENSURE_TRUE(success, IPC_FAIL_NO_REASON(this));
+
+  nsCOMPtr<nsIURI> uri;
+  nsresult rv = NS_NewURI(getter_AddRefs(uri), originNoSuffix);
+  NS_ENSURE_SUCCESS(rv, IPC_OK());
+
+  nsCOMPtr<nsIPrincipal> principal =
+      mozilla::BasePrincipal::CreateContentPrincipal(uri, attrs);
+
+  permissionManager->SetBrowserPermissionFromIPC(principal, aType, aAction,
+                                                 aBrowserId, aIsRemoval);
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult ContentChild::RecvClearBrowserPermissions(
+    const uint64_t& aBrowserId, const uint32_t& aActionFilter) {
+  RefPtr<PermissionManager> permissionManager =
+      PermissionManager::GetInstance();
+  MOZ_ASSERT(permissionManager);
+
+  permissionManager->ClearBrowserPermissionsFromIPC(aBrowserId, aActionFilter);
+  return IPC_OK();
+}
+
 mozilla::ipc::IPCResult ContentChild::RecvRemoveAllPermissions() {
   RefPtr<PermissionManager> permissionManager =
       PermissionManager::GetInstance();

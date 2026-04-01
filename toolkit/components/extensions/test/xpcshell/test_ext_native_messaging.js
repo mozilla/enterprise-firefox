@@ -1015,9 +1015,14 @@ async function expectTerminateBackgroundToResetIdle({ extension, contextId }) {
     "Parent proxy context should have active native app ports tracked"
   );
 
-  clearHistograms();
-  assertHistogramEmpty(WEBEXT_EVENTPAGE_IDLE_RESULT_COUNT);
-  assertKeyedHistogramEmpty(WEBEXT_EVENTPAGE_IDLE_RESULT_COUNT_BY_ADDONID);
+  Services.fog.testResetFOG();
+  assertGleanLabeledMetricEmpty({
+    metricId: "eventPageIdleResult",
+    gleanMetric: Glean.extensionsCounters.eventPageIdleResult,
+    gleanMetricLabels: GLEAN_EVENTPAGE_IDLE_RESULT_CATEGORIES,
+  });
+  // TODO: asserting eventPageIdleResultByAddonid GleanDualLabeledCounter
+  // is empty (currently blocked on Bug 2026013).
 
   info("Trigger background script idle timeout and expect to be reset");
   const promiseResetIdle = promiseExtensionEvent(
@@ -1033,19 +1038,21 @@ async function expectTerminateBackgroundToResetIdle({ extension, contextId }) {
     "Initial background context is still available as expected"
   );
 
-  assertHistogramCategoryNotEmpty(WEBEXT_EVENTPAGE_IDLE_RESULT_COUNT, {
-    category: "reset_nativeapp",
-    categories: HISTOGRAM_EVENTPAGE_IDLE_RESULT_CATEGORIES,
+  assertGleanLabeledMetric({
+    metricId: "eventPageIdleResult",
+    gleanMetric: Glean.extensionsCounters.eventPageIdleResult,
+    gleanMetricLabels: GLEAN_EVENTPAGE_IDLE_RESULT_CATEGORIES,
+    ignoreNonExpectedLabels: true, // Only check values on the labels listed below.
+    expectedLabelsValue: {
+      reset_nativeapp: 1,
+    },
   });
-
-  assertHistogramCategoryNotEmpty(
-    WEBEXT_EVENTPAGE_IDLE_RESULT_COUNT_BY_ADDONID,
-    {
-      keyed: true,
-      key: extension.id,
-      category: "reset_nativeapp",
-      categories: HISTOGRAM_EVENTPAGE_IDLE_RESULT_CATEGORIES,
-    }
+  Assert.equal(
+    Glean.extensionsCounters.eventPageIdleResultByAddonid
+      .get(extension.id, "reset_nativeapp")
+      ?.testGetValue(),
+    1,
+    `Got the expected value for extension ${extension.id} reset_nativeapp counter`
   );
 }
 

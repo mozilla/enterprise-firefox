@@ -172,22 +172,12 @@ bool IsAnchorInScopeForPositionedElement(const ScopedNameRef& aName,
         return nullptr;
       }();
 
-      if (!anchorScope || anchorScope->value.IsNone()) {
+      if (!anchorScope || anchorScope->value.IsEmpty()) {
         continue;
       }
 
-      if (anchorScope->value.IsAll()) {
-        const dom::ShadowRoot* shadowRoot = GetTreeForCascadeLevel(
-            *cp, anchorScope->scope.ShadowCascadeOrder());
-        if (shadowRoot == aShadowRoot) {
-          return cp;
-        }
-        continue;
-      }
-
-      MOZ_ASSERT(anchorScope->value.IsIdents());
-      for (const StyleAtom& ident : anchorScope->value.AsIdents().AsSpan()) {
-        if (aName == ident.AsAtom()) {
+      for (const StyleAtom& ident : anchorScope->value.AsSpan()) {
+        if (aName == ident.AsAtom() || ident.AsAtom() == nsGkAtoms::all) {
           const dom::ShadowRoot* shadowRoot = GetTreeForCascadeLevel(
               *cp, anchorScope->scope.ShadowCascadeOrder());
           if (shadowRoot == aShadowRoot) {

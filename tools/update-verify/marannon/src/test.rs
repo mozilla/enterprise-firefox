@@ -167,13 +167,21 @@ fn run_test(
         .arg(&test.from_installer)
         .arg(to_installer)
         .arg(&test.locale)
-        .arg(updater)
+        .arg(updater.clone())
         .arg(diff_file.to_str().unwrap())
         .arg(channel)
         // check_updates.sh requires positional args that we don't use
         .arg("")
         .arg("")
-        .arg("")
+        // mac-only option that tells `check_updates.sh` where to find
+        // a usable `update-settings.ini` file that the updater requires
+        // this file is always located in the same dir as the `updater`
+        // binary. `check_updates.sh` ignores this option on other platforms.
+        .arg(
+            updater
+                .parent()
+                .ok_or("Couldn't determine update-settings.ini dir!")?,
+        )
         .arg(appname)
         .current_dir(test_dir);
     return match runner.run(&mut cmd)? {

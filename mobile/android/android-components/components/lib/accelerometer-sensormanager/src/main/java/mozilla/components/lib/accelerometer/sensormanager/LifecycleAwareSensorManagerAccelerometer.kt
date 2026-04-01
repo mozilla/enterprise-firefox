@@ -13,7 +13,6 @@ import androidx.lifecycle.LifecycleOwner
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.map
 import mozilla.components.concept.accelerometer.Accelerometer
 import mozilla.components.support.base.log.logger.Logger
 
@@ -34,7 +33,8 @@ class LifecycleAwareSensorManagerAccelerometer(
 ) : Accelerometer, SensorEventListener, DefaultLifecycleObserver {
 
     private val sensor: Sensor? by lazy {
-        sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+        sensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION)
+            ?: sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
     }
 
     private val _samples = MutableSharedFlow<Accelerometer.Sample>(
@@ -42,18 +42,25 @@ class LifecycleAwareSensorManagerAccelerometer(
         onBufferOverflow = BufferOverflow.DROP_OLDEST,
     )
 
-    override fun samples(): Flow<Accelerometer.Sample> = _samples.map(::normalizeForGravity)
+    override fun samples(): Flow<Accelerometer.Sample> = _samples
 
     override fun onAccuracyChanged(sensor: Sensor, accuracy: Int) = Unit
 
     override fun onSensorChanged(event: SensorEvent) {
-        val sample = Accelerometer.Sample(
-            xAccel = event.values[0],
-            yAccel = event.values[1],
-            zAccel = event.values[2],
-            timestampNs = event.timestamp,
-        )
-        _samples.tryEmit(sample)
+        val sample = when (event.sensor.type) {
+            Sensor.TYPE_LINEAR_ACCELERATION ->
+                Accelerometer.Sample(
+                    xAccel = event.values[0],
+                    yAccel = event.values[1],
+                    zAccel = event.values[2],
+                    timestampNs = event.timestamp,
+                )
+
+            Sensor.TYPE_ACCELEROMETER -> event.toLinearAccelerationSample()
+            else -> null
+        }
+
+        sample?.let { _samples.tryEmit(it) }
     }
 
     override fun onResume(owner: LifecycleOwner) {
@@ -68,9 +75,62 @@ class LifecycleAwareSensorManagerAccelerometer(
         sensorManager.unregisterListener(this)
     }
 
-    private fun normalizeForGravity(sample: Accelerometer.Sample) = sample.copy(
-        xAccel = sample.xAccel / SensorManager.GRAVITY_EARTH,
-        yAccel = sample.yAccel / SensorManager.GRAVITY_EARTH,
-        zAccel = sample.zAccel / SensorManager.GRAVITY_EARTH,
-    )
+    /**
+     * This function converts raw [Sensor.TYPE_ACCELEROMETER] values to a linear acceleration. i.e
+     * actual linear movements of the device across the x,y,z axes.
+     *
+     * The raw events here include the impact of gravity, so we need to isolate the impact of gravity,
+     * and then subtract it from the reading.
+     *
+     * This is done in 2 steps:
+     * ## Step 1: Isolate the effect of gravity in the accelerometer reading.
+     *
+     * Since the gravity does not change frequently, it is a low-frequency data, and since movements
+     * of the phone are somewhat sudden and involve quick changes, that is considered high-frequency
+     * data.
+     *
+     *  To properly isolate gravity then, we are using a low-pass filter with the following formula:
+     *
+     *          g = a*g + (1-a) * acceleration
+     *
+     * The idea behind the choice is that we are trying to isolate the acceleration due to gravity,
+     * and since we consider that a fairly low frequency data (does not change frequently),
+     * a low-pass is appropriate for the task.
+     *
+     * Important points:
+     * * This operation is applied continuously, based on the previously calculated value, and
+     * that's why we are writing to the same [GRAVITY_VALUES] float array.
+     * * The alpha/a value ([ACCELEROMETER_FILTER_ALPHA]) is a smoothing factor, and this is based
+     * off calculations related to the rate at which the sensor emits the data.
+     *
+     * ## Step 2: Remove acceleration due to gravity
+     * Since we have now been able to isolate or estimate how much of this acceleration was caused
+     * by the acceleration due to gravity, we can go ahead and subtract it from the raw value.
+     */
+    private fun SensorEvent.toLinearAccelerationSample(): Accelerometer.Sample {
+        // Step 1: Isolate the effect of acceleration due to gravity from the raw event
+        GRAVITY_VALUES[0] =
+            ACCELEROMETER_FILTER_ALPHA * GRAVITY_VALUES[0] + (1 - ACCELEROMETER_FILTER_ALPHA) * values[0]
+        GRAVITY_VALUES[1] =
+            ACCELEROMETER_FILTER_ALPHA * GRAVITY_VALUES[1] + (1 - ACCELEROMETER_FILTER_ALPHA) * values[1]
+        GRAVITY_VALUES[2] =
+            ACCELEROMETER_FILTER_ALPHA * GRAVITY_VALUES[2] + (1 - ACCELEROMETER_FILTER_ALPHA) * values[2]
+
+        // Step 2: Subtract it from the raw value to get the actual linear acceleration
+        val linearX = values[0] - GRAVITY_VALUES[0]
+        val linearY = values[1] - GRAVITY_VALUES[1]
+        val linearZ = values[2] - GRAVITY_VALUES[2]
+
+        return Accelerometer.Sample(
+            xAccel = linearX,
+            yAccel = linearY,
+            zAccel = linearZ,
+            timestampNs = timestamp,
+        )
+    }
+
+    private companion object {
+        private val GRAVITY_VALUES = FloatArray(3)
+        private const val ACCELEROMETER_FILTER_ALPHA = 0.8f
+    }
 }

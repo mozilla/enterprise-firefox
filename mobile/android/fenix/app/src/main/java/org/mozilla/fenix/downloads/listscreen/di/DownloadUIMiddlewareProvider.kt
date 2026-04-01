@@ -58,6 +58,7 @@ internal object DownloadUIMiddlewareProvider {
         coroutineScope: CoroutineScope,
     ) = DownloadUIMapperMiddleware(
         browserStore = applicationContext.components.core.store,
+        publicSuffixList = applicationContext.components.publicSuffixList,
         scope = coroutineScope,
         fileItemDescriptionProvider = DefaultFileItemDescriptionProvider(
             context = applicationContext,

@@ -128,7 +128,8 @@ class TabManagementFragment : DialogFragment() {
     internal var verificationResultLauncher: ActivityResultLauncher<Intent> =
         registerForVerification(onVerified = ::openPrivateTabsPage)
 
-    @VisibleForTesting internal lateinit var tabsTrayStore: TabsTrayStore
+    @VisibleForTesting
+    internal lateinit var tabsTrayStore: TabsTrayStore
 
     private val inactiveTabsBinding = ViewBoundFeatureWrapper<InactiveTabsBinding>()
     private val pbmLockStatusBinding = ViewBoundFeatureWrapper<PbmLockStatusBinding>()
@@ -203,6 +204,7 @@ class TabManagementFragment : DialogFragment() {
                     tabsTrayStore.state.mode is TabsTrayState.Mode.Select -> {
                         tabsTrayStore.dispatch(TabsTrayAction.ExitSelectMode)
                     }
+
                     else -> {
                         onTabsTrayDismissed()
                     }
@@ -465,7 +467,8 @@ class TabManagementFragment : DialogFragment() {
                     inactiveTabs = TabsTrayState.InactiveTabsState(
                         isExpanded = initialInactiveExpanded,
                         showCFR = requireContext().settings().shouldShowInactiveTabsOnboardingPopup &&
-                            requireContext().settings().canShowCfr,
+                            requireContext().settings().canShowCfr &&
+                            requireContext().settings().cfrPopupsEnabled,
                         showAutoCloseDialog = requireContext().settings()
                             .shouldShowInactiveTabsAutoCloseDialog(
                                 requireComponents.core.store.state.actualInactiveTabs(
@@ -493,7 +496,8 @@ class TabManagementFragment : DialogFragment() {
                         isInDebugMode = Config.channel.isDebug ||
                             requireComponents.settings.showSecretDebugMenuThisSession,
                         showTabAutoCloseBanner = requireContext().settings().shouldShowAutoCloseTabsBanner &&
-                            requireContext().settings().canShowCfr,
+                            requireContext().settings().canShowCfr &&
+                            requireContext().settings().cfrPopupsEnabled,
                         tabSearchEnabled = requireComponents.settings.tabSearchEnabled,
                     ),
                 ),
@@ -785,6 +789,7 @@ class TabManagementFragment : DialogFragment() {
             tabSize > 1 -> {
                 R.string.snackbar_message_bookmarks_saved_in_2
             }
+
             else -> {
                 R.string.bookmark_saved_in_folder_snackbar
             }
@@ -879,8 +884,8 @@ class TabManagementFragment : DialogFragment() {
         tabState: TabsTrayItem.Tab?,
     ): Boolean {
         return requireContext().settings().tabManagerOpeningAnimationEnabled &&
-                tabMatchesPage(selectedPage, tabState) &&
-                mode is TabsTrayState.Mode.Normal
+            tabMatchesPage(selectedPage, tabState) &&
+            mode is TabsTrayState.Mode.Normal
     }
 
     /**
@@ -892,7 +897,7 @@ class TabManagementFragment : DialogFragment() {
      */
     private fun tabMatchesPage(selectedPage: Page, tabState: TabsTrayItem.Tab?): Boolean {
         return (selectedPage == Page.NormalTabs && tabState?.private == false) ||
-                (selectedPage == Page.PrivateTabs && tabState?.private == true)
+            (selectedPage == Page.PrivateTabs && tabState?.private == true)
     }
 
     /**

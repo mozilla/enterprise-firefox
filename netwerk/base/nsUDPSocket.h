@@ -73,6 +73,15 @@ class nsUDPSocket final : public nsASocketHandler, public nsIUDPSocket {
   bool mIsTRRServiceChannel{false};
 };
 
+inline bool nsUDPSocket::IsSocketClosed() {
+#ifdef DEBUG
+  bool onSTSThread = false;
+  mSts->IsOnCurrentThread(&onSTSThread);
+  MOZ_ASSERT(onSTSThread);
+#endif
+  return !mFD;
+}
+
 //-----------------------------------------------------------------------------
 
 class nsUDPMessage : public nsIUDPMessage {

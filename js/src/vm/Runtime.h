@@ -444,12 +444,6 @@ struct JSRuntime {
    */
   js::MainThreadData<bool> allowRelazificationForTesting;
 
-  /* Zone destroy callback. */
-  js::MainThreadData<JSDestroyZoneCallback> destroyZoneCallback;
-
-  /* Compartment destroy callback. */
-  js::MainThreadData<JSDestroyCompartmentCallback> destroyCompartmentCallback;
-
   /* Compartment memory reporting callback. */
   js::MainThreadData<JSSizeOfIncludingThisCompartmentCallback>
       sizeOfIncludingThisCompartmentCallback;
@@ -462,9 +456,6 @@ struct JSRuntime {
    * js/public/UbiNode.h.
    */
   void (*constructUbiNodeForDOMObjectCallback)(void*, JSObject*) = nullptr;
-
-  /* Realm destroy callback. */
-  js::MainThreadData<JS::DestroyRealmCallback> destroyRealmCallback;
 
   /* Call this to get the name of a realm. */
   js::MainThreadData<JS::RealmNameCallback> realmNameCallback;
@@ -552,17 +543,6 @@ struct JSRuntime {
  public:
   js::GeckoProfilerRuntime& geckoProfiler() { return geckoProfiler_.ref(); }
 
-  // Heap GC roots for PersistentRooted pointers.
-  js::MainThreadData<mozilla::EnumeratedArray<
-      JS::RootKind, mozilla::LinkedList<js::PersistentRootedBase>,
-      size_t(JS::RootKind::Limit)>>
-      heapRoots;
-
-  void tracePersistentRoots(JSTracer* trc);
-  void finishPersistentRoots();
-
-  void finishRoots();
-
  private:
   js::UnprotectedData<const JSPrincipals*> trustedPrincipals_;
 
@@ -602,20 +582,6 @@ struct JSRuntime {
  public:
   const JSClass* maybeWindowProxyClass() const { return windowProxyClass_; }
   void setWindowProxyClass(const JSClass* clasp) { windowProxyClass_ = clasp; }
-
- private:
-  // List of non-ephemeron weak containers to sweep during
-  // beginSweepingSweepGroup.
-  js::MainThreadData<mozilla::LinkedList<JS::detail::WeakCacheBase>>
-      weakCaches_;
-
- public:
-  mozilla::LinkedList<JS::detail::WeakCacheBase>& weakCaches() {
-    return weakCaches_.ref();
-  }
-  void registerWeakCache(JS::detail::WeakCacheBase* cachep) {
-    weakCaches().insertBack(cachep);
-  }
 
   template <typename T>
   struct GlobalObjectWatchersLinkAccess {
@@ -1069,9 +1035,6 @@ struct JSRuntime {
    * function to assess the size of malloc'd blocks of memory.
    */
   js::MainThreadData<mozilla::MallocSizeOf> debuggerMallocSizeOf;
-
-  /* Last time at which an animation was played for this runtime. */
-  js::MainThreadData<mozilla::TimeStamp> lastAnimationTime;
 
  private:
   /* The stack format for the current runtime.  Only valid on non-child

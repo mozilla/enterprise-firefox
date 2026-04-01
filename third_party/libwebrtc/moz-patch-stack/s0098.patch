@@ -16,7 +16,7 @@ Mercurial Revision: https://hg.mozilla.org/mozilla-central/rev/bbec1b95ddb5e0096
  5 files changed, 26 insertions(+), 6 deletions(-)
 
 diff --git a/modules/audio_coding/BUILD.gn b/modules/audio_coding/BUILD.gn
-index 4a24d6a75a..f8c21070e7 100644
+index b38ddde1f4..620dafbab4 100644
 --- a/modules/audio_coding/BUILD.gn
 +++ b/modules/audio_coding/BUILD.gn
 @@ -362,7 +362,7 @@ rtc_library("webrtc_opus_wrapper") {
@@ -48,7 +48,7 @@ index e8367393a3..a693604389 100644
      }
    }
 diff --git a/modules/video_capture/BUILD.gn b/modules/video_capture/BUILD.gn
-index 0aec2d94c7..83c1b21260 100644
+index 71fdc4b371..8f0255626a 100644
 --- a/modules/video_capture/BUILD.gn
 +++ b/modules/video_capture/BUILD.gn
 @@ -118,7 +118,7 @@ if (!build_with_chromium || is_linux || is_chromeos) {
@@ -61,10 +61,10 @@ index 0aec2d94c7..83c1b21260 100644
        }
      }
 diff --git a/sdk/BUILD.gn b/sdk/BUILD.gn
-index 6ec8bb951e..d8ee0dfc14 100644
+index 9048e28e46..4a214867fc 100644
 --- a/sdk/BUILD.gn
 +++ b/sdk/BUILD.gn
-@@ -634,6 +634,20 @@ if (is_ios || is_mac) {
+@@ -630,6 +630,20 @@ if (is_ios || is_mac) {
          "CoreGraphics.framework",
          "CoreVideo.framework",
        ]
@@ -86,7 +86,7 @@ index 6ec8bb951e..d8ee0dfc14 100644
  
      if (!build_with_mozilla) {
 diff --git a/test/BUILD.gn b/test/BUILD.gn
-index 7047b53377..0826c52791 100644
+index 23f0ac8292..6ca857995b 100644
 --- a/test/BUILD.gn
 +++ b/test/BUILD.gn
 @@ -490,6 +490,12 @@ rtc_source_set("test_support") {

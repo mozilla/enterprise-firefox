@@ -28,7 +28,6 @@
 #include <cmath>
 #include <cstdlib>
 #include <ctime>
-#include <functional>
 #include <utility>
 
 #if defined(XP_UNIX) && !defined(XP_DARWIN)

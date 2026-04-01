@@ -9,6 +9,7 @@
 #include "mozilla/Permission.h"
 #include "mozilla/PermissionDelegateHandler.h"
 #include "mozilla/PermissionManager.h"
+#include "mozilla/dom/BrowsingContext.h"
 #include "mozilla/dom/WorkerPrivate.h"
 #include "mozilla/dom/WorkerRef.h"
 #include "nsGlobalWindowInner.h"
@@ -107,10 +108,62 @@ bool PermissionStatusSink::MaybeUpdatedByOnMainThread(
   return mPrincipalForPermission->Equals(permissionPrincipal);
 }
 
+bool PermissionStatusSink::MaybeUpdatedByBrowserPermOnMainThread(
+    nsIPermission* aPermission) {
+  MOZ_ASSERT(NS_IsMainThread());
+
+  if (!MaybeUpdatedByOnMainThread(aPermission)) {
+    return false;
+  }
+
+  if (!mPermissionStatus) {
+    return false;
+  }
+
+  uint64_t permBrowserId = 0;
+  aPermission->GetBrowserId(&permBrowserId);
+  if (!permBrowserId) {
+    return false;
+  }
+
+  RefPtr<nsGlobalWindowInner> window = mPermissionStatus->GetOwnerWindow();
+  if (!window) {
+    return false;
+  }
+
+  RefPtr<BrowsingContext> bc = window->GetBrowsingContext();
+  if (!bc) {
+    return false;
+  }
+
+  return bc->Top()->BrowserId() == permBrowserId;
+}
+
 bool PermissionStatusSink::MaybeUpdatedByNotifyOnlyOnMainThread(
     nsPIDOMWindowInner* aInnerWindow) {
   MOZ_ASSERT(NS_IsMainThread());
   return false;
+}
+
+bool PermissionStatusSink::MaybeAffectedByBrowserIdOnMainThread(
+    uint64_t aBrowserId) {
+  MOZ_ASSERT(NS_IsMainThread());
+
+  if (!mPermissionStatus) {
+    return false;
+  }
+
+  RefPtr<nsGlobalWindowInner> window = mPermissionStatus->GetOwnerWindow();
+  if (!window) {
+    return false;
+  }
+
+  RefPtr<BrowsingContext> bc = window->GetBrowsingContext();
+  if (!bc) {
+    return false;
+  }
+
+  return bc->Top()->BrowserId() == aBrowserId;
 }
 
 void PermissionStatusSink::PermissionChangedOnMainThread() {

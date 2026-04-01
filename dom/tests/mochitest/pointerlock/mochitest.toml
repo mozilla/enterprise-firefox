@@ -32,6 +32,7 @@ support-files = [
   "file_changeLockElement.html",
 ]
 skip-if = [
+  "os == 'win' && os_version == '11.26200'", # Bug 2019745
   "opt", # Bug 1833142
   "os == 'android'", # Bug 1612553
   "os == 'linux' && os_version == '22.04' && arch == 'x86_64' && display == 'wayland'", # Bug 1857057
@@ -49,6 +50,7 @@ support-files = [
   "file_pointerlock_xorigin_iframe_not_focused.html",
 ]
 skip-if = [
+  "os == 'win' && os_version == '11.26200'", # Bug 2019745
   "os == 'linux' && os_version == '22.04' && arch == 'x86_64' && display == 'wayland'", # Bug 1857057
 ]
 

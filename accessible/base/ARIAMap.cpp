@@ -1598,9 +1598,9 @@ uint64_t aria::UniversalStatesFor(mozilla::dom::Element* aElement) {
 }
 
 uint8_t aria::AttrCharacteristicsFor(nsAtom* aAtom) {
-  for (uint32_t i = 0; i < std::size(gWAIUnivAttrMap); i++) {
-    if (gWAIUnivAttrMap[i].attributeName == aAtom) {
-      return gWAIUnivAttrMap[i].characteristics;
+  for (auto entry : gWAIUnivAttrMap) {
+    if (entry.attributeName == aAtom) {
+      return entry.characteristics;
     }
   }
 

@@ -74,11 +74,9 @@
         // Recalculate the <panel-list> rect top value relative to the top-left
         // of the anchorRect. We expect the <panel-list> to be tightly anchored
         // to the bottom of the <button>, so we expect this new value to be 0.
-        let panelTopLeftRelativeToAnchorTopLeft =
-          panelRect.top - anchorRect.top - anchorRect.height;
         is(
-          panelTopLeftRelativeToAnchorTopLeft,
-          0,
+          Math.round(panelRect.top),
+          Math.round(anchorRect.top + anchorRect.height),
           "Panel should be tightly anchored to the bottom of the button shadow node."
         );
       });

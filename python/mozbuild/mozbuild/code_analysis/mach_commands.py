@@ -144,7 +144,9 @@ class StaticAnalysisMonitor:
                     if matcher is not None and matcher.group(0) == checker_name:
                         return item
 
-            check_config = get_check_config(warning["flag"])
+            check_config = get_check_config(
+                warning["flag"].removesuffix(",-warnings-as-errors")
+            )
             if check_config is not None:
                 warning["reliability"] = check_config.get("reliability", "low")
                 warning["reason"] = check_config.get("reason")
@@ -153,7 +155,6 @@ class StaticAnalysisMonitor:
                 # For a "warning" that is flagged as "clang-diagnostic-error"
                 # set it as "publish"
                 warning["publish"] = True
-
         return (warning, True)
 
 

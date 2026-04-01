@@ -1314,7 +1314,7 @@ void Statistics::sendSliceTelemetry(const SliceData& slice) {
     TimeDuration budgetDuration = slice.budget.timeBudgetDuration();
     runtime->metrics().GC_BUDGET_MS_2(budgetDuration);
 
-    if (IsCurrentlyAnimating(runtime->lastAnimationTime, slice.end)) {
+    if (IsCurrentlyAnimating(runtime->gc.lastAnimationTime(), slice.end)) {
       runtime->metrics().GC_ANIMATION_MS(sliceTime);
     }
 

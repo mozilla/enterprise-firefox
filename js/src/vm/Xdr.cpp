@@ -7,7 +7,7 @@
 #include "vm/Xdr.h"
 
 #include "mozilla/Assertions.h"   // MOZ_ASSERT, MOZ_ASSERT_IF
-#include "mozilla/EndianUtils.h"  // mozilla::NativeEndian, MOZ_LITTLE_ENDIAN
+#include "mozilla/EndianUtils.h"  // mozilla::NativeEndian
 #include "mozilla/Result.h"       // mozilla::{Result, Ok, Err}, MOZ_TRY
 #include "mozilla/Utf8.h"         // mozilla::Utf8Unit
 

@@ -4,18 +4,15 @@
 
 package org.mozilla.fenix.tabgroups
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -75,14 +72,7 @@ fun TabGroupRow(
 
         Column(modifier = Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(18.dp)
-                        .background(
-                            color = tabGroup.theme.primary,
-                            shape = CircleShape,
-                        ),
-                )
+                TabGroupThemeDot(tabGroup.theme)
 
                 Spacer(modifier = Modifier.width(4.dp))
 

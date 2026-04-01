@@ -782,11 +782,13 @@ class DrawTargetWebgl : public DrawTarget, public SupportsWeakPtr {
   bool SupportsDrawOptions(const DrawOptions& aOptions,
                            const Rect& aRect = Rect());
 
+  Maybe<Rect> ComputeSimpleClipRect() const;
   bool SetSimpleClipRect();
   bool GenerateComplexClipMask();
   bool PrepareContext(bool aClipped = true,
                       const RefPtr<TextureHandle>& aHandle = nullptr,
                       const IntSize& aViewportSize = IntSize());
+  bool ShouldClip();
 
   void DrawRectFallback(const Rect& aRect, const Pattern& aPattern,
                         const DrawOptions& aOptions,

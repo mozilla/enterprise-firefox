@@ -17,6 +17,7 @@ import org.mozilla.fenix.browser.browsingmode.BrowsingMode
 import org.mozilla.fenix.components.appstate.AppState
 import org.mozilla.fenix.home.bookmarks.Bookmark
 import org.mozilla.fenix.home.bookmarks.controller.BookmarksController
+import org.mozilla.fenix.home.logo.LogoController
 import org.mozilla.fenix.home.pocket.PocketRecommendedStoriesCategory
 import org.mozilla.fenix.home.pocket.controller.PocketStoriesController
 import org.mozilla.fenix.home.privatebrowsing.controller.PrivateBrowsingController
@@ -45,6 +46,7 @@ class SessionControlInteractorTest {
     private val homeSearchController: HomeSearchController = mockk(relaxed = true)
     private val topSiteController: TopSiteController = mockk(relaxed = true)
     private val privacyNoticeBannerController: PrivacyNoticeBannerController = mockk(relaxed = true)
+    private val logoController: LogoController = mockk(relaxed = true)
 
     // Note: the recent visits tests are handled in [RecentVisitsInteractorTest] and [RecentVisitsControllerTest]
     private val recentVisitsController: RecentVisitsController = mockk(relaxed = true)
@@ -66,6 +68,7 @@ class SessionControlInteractorTest {
             homeSearchController,
             topSiteController,
             privacyNoticeBannerController,
+            logoController,
         )
     }
 
@@ -281,5 +284,11 @@ class SessionControlInteractorTest {
         every { appState.bookmarks } returns emptyList()
         interactor.reportSessionMetrics(appState)
         verify { controller.handleReportSessionMetrics(appState) }
+    }
+
+    @Test
+    fun `when logo is clicked, logo controller click handler is called`() {
+        interactor.onLogoClicked()
+        verify { logoController.handleLogoClicked() }
     }
 }

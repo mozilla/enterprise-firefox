@@ -87,7 +87,7 @@ class PipeWireNode {
 class CameraPortalNotifier : public CameraPortal::PortalNotifier {
  public:
   CameraPortalNotifier(PipeWireSession* session);
-  ~CameraPortalNotifier() = default;
+  ~CameraPortalNotifier() override = default;
 
   void OnCameraRequestResult(xdg_portal::RequestResponse result,
                              int fd) override;

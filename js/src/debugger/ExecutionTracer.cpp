@@ -6,6 +6,7 @@
 
 #include "debugger/ExecutionTracer.h"
 
+#include "mozilla/EndianUtils.h"    // NativeEndian
 #include "mozilla/FloatingPoint.h"  // IsPositiveZero
 #include "mozilla/Printf.h"         // SprintfBuf
 

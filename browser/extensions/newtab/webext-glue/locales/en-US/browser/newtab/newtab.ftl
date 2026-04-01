@@ -224,14 +224,20 @@ newtab-error-fallback-refresh-link = Refresh page to try again.
 
 ## Customization Menu
 
+#  (developer note): @nova-cleanup(remove-string): Remove old string once Nova lands. The newtab-custom-shortcuts-nova string will take over
 newtab-custom-shortcuts-toggle =
   .label = Shortcuts
   .description = Sites you save or visit
 
+newtab-custom-shortcuts-toggle-rows =
+    .label = Shortcuts
+    .description = Number of rows
+
 # Variables
 #   $num (number) - Number of rows to display
-newtab-custom-row-selector =
-        { $num ->
+#  (developer note): @nova-cleanup(remove-string): Remove string once Nova lands. We won't be using "row"/"rows" anymore for the dropdown
+newtab-custom-row-selector2 =
+        .label = { $num ->
             [one] { $num } row
            *[other] { $num } rows
         }
@@ -269,6 +275,8 @@ newtab-wallpaper-title = Wallpapers
 newtab-wallpaper-reset = Reset to default
 newtab-wallpaper-upload-image = Upload an image
 newtab-wallpaper-custom-color = Choose a color
+newtab-wallpaper-toggle-title =
+    .label = Wallpapers
 # Variables
 #   $file_size (number) - The number of the maximum image file size (in MB) that may be uploaded
 newtab-wallpaper-error-max-file-size = The image exceeded the file size limit of { $file_size }MB. Please try uploading a smaller file.
@@ -639,6 +647,13 @@ newtab-widget-message-copy = From quick reminders to daily to-dos, focus session
 newtab-promo-card-title = Support { -brand-product-name }
 newtab-promo-card-body = Our sponsors support our mission to build a better web
 newtab-promo-card-cta = Learn more
+
+# "Make Firefox yours" refers to about:newtab. The call to action here ("Try it now")
+# is to customize the new tab page with a background image or color from
+# the built-in wallpaper collection or uploading your own image.
+newtab-promo-card-title-addons = Make { -brand-product-name } yours
+newtab-promo-card-body-addons = Pick a wallpaper from our collection, or create your own.
+newtab-promo-card-cta-addons = Try it now
 newtab-promo-card-dismiss-button =
     .title = Dismiss
     .aria-label = Dismiss

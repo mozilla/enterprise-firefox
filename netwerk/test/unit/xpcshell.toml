@@ -605,6 +605,9 @@ prefs = ["content.cors.use_triggering_principal=true"] # See bug 1982916.
 
 ["test_defaultURI.js"]
 
+["test_content_decoding_error_telemetry.js"]
+run-sequentially = ["true"]
+
 ["test_dictionary_compression_dcb.js"]
 run-sequentially = ["true"]
 
@@ -1377,20 +1380,7 @@ skip-if = [
 
 ["test_psl.js"]
 
-["test_race_cache_with_network.js"]
-skip-if = [
-  "os == 'android' && os_version == '14' && arch == 'x86_64'", # Bug 1866777
-  "os == 'win' && os_version == '11.26100' && arch == 'x86' && opt", # Bug 1866777
-  "os == 'win' && os_version == '11.26200' && arch == 'x86' && opt", # Bug 1866777
-  "os == 'win' && os_version == '11.26100' && arch == 'x86_64' && opt",
-  "os == 'win' && os_version == '11.26200' && arch == 'x86_64' && opt",
-]
-
 ["test_range_requests.js"]
-
-["test_rcwn_always_cache_new_content.js"]
-
-["test_rcwn_interrupted.js"]
 
 ["test_readline.js"]
 

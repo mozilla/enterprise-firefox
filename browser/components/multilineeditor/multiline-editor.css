@@ -8,6 +8,7 @@
   --multiline-editor-border: var(--border-width) solid var(--multiline-editor-border-color);
   --multiline-editor-color: var(--text-color);
   --multiline-editor-focus-outline: var(--focus-outline);
+  --multiline-editor-selection-color: var(--color-accent-primary);
 
   display: inline-flex;
   width: 100%;
@@ -40,6 +41,10 @@
 .multiline-editor .ProseMirror p {
   margin: 0;
   padding: 0;
+}
+
+.multiline-editor .ProseMirror ::selection {
+  background-color: var(--multiline-editor-selection-color);
 }
 
 /* Force empty paragraphs to not collapse */

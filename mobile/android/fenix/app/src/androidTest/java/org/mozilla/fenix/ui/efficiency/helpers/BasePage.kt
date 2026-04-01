@@ -15,6 +15,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performImeAction
+import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.test.espresso.Espresso.onView
 import androidx.test.espresso.ViewInteraction
@@ -549,6 +550,43 @@ abstract class BasePage(
             groups.any { it.equals("swipeRight", true) } -> SwipeDirection.RIGHT
             else -> SwipeDirection.UP
         }
+    }
+
+    fun mozClear(selector: Selector): BasePage {
+        // TODO (I. RIOS 3/20/2026): pull out boiler plate setup in separate method
+        val rep = rep()
+        rep?.startCmd(safeId("clear_text", selector.description), "Attempting to clear text from '${selector.description}'...", 1)
+        rep?.startLoc(safeId("loc", selector.description), "Attempting to locate '${selector.description}'...", 2)
+
+        val element = mozGetElement(selector)
+        if (element == null) {
+            rep?.endLoc(success = false, message = notFound(selector.description))
+            rep?.endCmd(success = false, message = "Clear text failed: element not found ('${selector.description}')")
+            throw AssertionError("Element not found for selector: ${selector.description} (${selector.strategy} -> ${selector.value})")
+        } else {
+            rep?.endLoc(success = true, message = found(selector.description))
+        }
+
+        // handle element type mapping here for different locator libraries
+        // TODO (I. RIOS 3/20/2026): add Espresso and UIAutomator support
+        try {
+            when (element) {
+                // add Espresso and UIAutomator apis later
+                is SemanticsNodeInteraction -> element.performTextClearance()
+                else -> throw AssertionError("Unsupported element type (${element::class.simpleName}) for selector: ${selector.description}")
+            }
+
+            rep?.endCmd(success = true, message = "Cleared text from '${selector.description}'")
+            return this
+        } catch (e: Throwable) {
+            rep?.endCmd(success = false, message = "Clear text failed for '${selector.description}': ${e.message ?: "exception"}")
+            throw AssertionError("Failed to clear text for selector: ${selector.description}", e)
+        }
+    }
+
+    fun mozClearAndEnterText(text: String, selector: Selector): BasePage {
+        mozClear(selector)
+        return mozEnterText(text, selector)
     }
 
     private fun ensureReachable(selector: Selector) {

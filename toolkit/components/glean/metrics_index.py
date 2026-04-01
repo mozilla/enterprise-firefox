@@ -157,7 +157,6 @@ firefox_desktop_metrics = [
     "toolkit/components/contentrelevancy/metrics.yaml",
     "toolkit/components/crashes/metrics.yaml",
     "toolkit/components/nimbus/metrics.yaml",
-    "toolkit/components/passwordmgr/metrics.yaml",
     "toolkit/components/pictureinpicture/metrics.yaml",
     "toolkit/components/places/metrics.yaml",
     "toolkit/components/reportbrokensite/metrics.yaml",

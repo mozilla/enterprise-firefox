@@ -239,8 +239,8 @@ class MOZ_STATIC_CLASS OpToFallbackKindTable {
   uint8_t lookup(JSOp op) const { return table_[size_t(op)]; }
 
   constexpr OpToFallbackKindTable() {
-    for (size_t i = 0; i < JSOP_LIMIT; i++) {
-      table_[i] = NoICValue;
+    for (unsigned char& i : table_) {
+      i = NoICValue;
     }
 
     setKind(JSOp::Not, BaselineICFallbackKind::ToBool);

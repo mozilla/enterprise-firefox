@@ -8,25 +8,32 @@ import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
 const lazy = {};
 
+let prefsChanged = false;
+
+const onPrefsChanged = () => (prefsChanged = true);
+
 XPCOMUtils.defineLazyPreferenceGetter(
   lazy,
   "DOM_FORMS_SELECTSEARCH",
   "dom.forms.selectSearch",
-  false
+  false,
+  onPrefsChanged
 );
 
 XPCOMUtils.defineLazyPreferenceGetter(
   lazy,
   "CUSTOM_STYLING_ENABLED",
   "dom.forms.select.customstyling",
-  false
+  false,
+  onPrefsChanged
 );
 
 XPCOMUtils.defineLazyPreferenceGetter(
   lazy,
   "MAC_NATIVE_SELECT_ENABLED",
-  "widget.macos.native-anchored-select",
-  false
+  "widget.macos.allow-native-select",
+  false,
+  onPrefsChanged
 );
 
 // Minimum elements required to show select search
@@ -774,6 +781,15 @@ export class SelectParent extends JSWindowActorParent {
     return this._document.getElementById("ContentSelectDropdown");
   }
 
+  get _disableMacNativeMenu() {
+    return (
+      AppConstants.platform == "macosx" &&
+      (lazy.CUSTOM_STYLING_ENABLED ||
+        lazy.DOM_FORMS_SELECTSEARCH ||
+        !lazy.MAC_NATIVE_SELECT_ENABLED)
+    );
+  }
+
   _createMenulist() {
     let document = this._document;
     let menulist = document.createXULElement("menulist");
@@ -790,12 +806,7 @@ export class SelectParent extends JSWindowActorParent {
     if (AppConstants.platform == "win") {
       popup.setAttribute("consumeoutsideclicks", "false");
       popup.setAttribute("ignorekeys", "shortcuts");
-    } else if (
-      AppConstants.platform == "macosx" &&
-      (lazy.CUSTOM_STYLING_ENABLED ||
-        lazy.DOM_FORMS_SELECTSEARCH ||
-        !lazy.MAC_NATIVE_SELECT_ENABLED)
-    ) {
+    } else if (this._disableMacNativeMenu) {
       popup.setAttribute("native", "false");
     }
 
@@ -814,6 +825,17 @@ export class SelectParent extends JSWindowActorParent {
     switch (message.name) {
       case "Forms:ShowDropDown": {
         let menulist = this._menulist || this._createMenulist();
+
+        if (prefsChanged) {
+          if (AppConstants.platform == "macosx") {
+            if (this._disableMacNativeMenu) {
+              menulist.menupopup.setAttribute("native", "false");
+            } else {
+              menulist.menupopup.removeAttribute("native");
+            }
+          }
+          prefsChanged = false;
+        }
 
         let data = message.data;
 

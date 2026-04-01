@@ -46,6 +46,7 @@ fun HomepageHeader(
     privateBrowsingButtonColor: Color,
     browsingMode: BrowsingMode,
     browsingModeChanged: (BrowsingMode) -> Unit,
+    onLogoClicked: () -> Unit,
 ) {
     Row(
         modifier = Modifier
@@ -54,7 +55,7 @@ fun HomepageHeader(
             .padding(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 32.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        WordmarkLogo()
+        WordmarkLogo(onLogoClicked)
 
         WordmarkText(wordmarkTextColor)
 
@@ -123,6 +124,7 @@ private fun HomepageHeaderPreview(
                 ),
                 browsingMode = BrowsingMode.Normal,
                 browsingModeChanged = {},
+                onLogoClicked = {},
             )
         }
     }

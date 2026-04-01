@@ -134,6 +134,7 @@ interface nsIAlertNotification : nsISupports
   /**
    * An opaque cookie that will be passed to the alert listener for each
    * callback.
+   * TODO bug 1932368: Remove cookie field from alerts
    */
   readonly attribute AString cookie;
 
@@ -260,7 +261,9 @@ interface nsIAlertsService : nsISupports
    *             "alertsettingscallback" when alert settings should be opened
    *             "alertclickcallback" when the text is clicked
    *             "alertshow" when the alert is shown
-   *   data    - the value of the cookie attribute of the alert parameter.
+   *   data    - On desktop: the value of the cookie attribute of aAlert.
+   *             On Android: the action associated with the notification.
+   *             See: https://bugzilla.mozilla.org/show_bug.cgi?id=2022705#c1
    *
    * @note Depending on current circumstances (if the user's in a fullscreen
    *       application, for instance), the alert might not be displayed at all.

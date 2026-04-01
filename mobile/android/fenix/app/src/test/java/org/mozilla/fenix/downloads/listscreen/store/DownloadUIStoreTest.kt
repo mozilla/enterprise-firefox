@@ -4,6 +4,9 @@
 
 package org.mozilla.fenix.downloads.listscreen.store
 
+import io.mockk.every
+import io.mockk.mockk
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
@@ -11,6 +14,7 @@ import mozilla.components.browser.state.state.BrowserState
 import mozilla.components.browser.state.state.content.DownloadState
 import mozilla.components.browser.state.store.BrowserStore
 import mozilla.components.feature.downloads.DownloadsUseCases
+import mozilla.components.lib.publicsuffixlist.PublicSuffixList
 import mozilla.components.support.utils.FakeDateTimeProvider
 import mozilla.components.support.utils.FakeDownloadFileUtils
 import org.junit.Assert.assertEquals
@@ -44,6 +48,7 @@ class DownloadUIStoreTest {
     private val older = LocalDate.of(2025, 4, 20)
     private val fakeDateTimeProvider = FakeDateTimeProvider(today)
     private val zoneId = fakeDateTimeProvider.currentZoneId()
+    private var publicSuffixList: PublicSuffixList = mockk()
 
     private val testDelay = 100L
 
@@ -320,6 +325,8 @@ class DownloadUIStoreTest {
 
     @Test
     fun deleteOneElement() = runTest(testDispatcher) {
+        every { publicSuffixList.getPublicSuffixPlusOne(any()) } returns CompletableDeferred("mozilla.com")
+
         val store = provideDownloadUIStore(BrowserState(downloads = mapOf("1" to downloadState1)))
 
         val deleteItemSet = setOf(fileItem1.id)
@@ -350,6 +357,8 @@ class DownloadUIStoreTest {
 
     @Test
     fun deleteOneElementAndCancelBeforeDelayExpires() = runTest(testDispatcher) {
+        every { publicSuffixList.getPublicSuffixPlusOne(any()) } returns CompletableDeferred("mozilla.com")
+
         val store = provideDownloadUIStore(
             BrowserState(downloads = mapOf("1" to downloadState1)),
         )
@@ -387,6 +396,8 @@ class DownloadUIStoreTest {
 
     @Test
     fun deleteOneElementAndCancelAfterDelayExpired() = runTest(testDispatcher) {
+        every { publicSuffixList.getPublicSuffixPlusOne(any()) } returns CompletableDeferred("mozilla.com")
+
         val store = provideDownloadUIStore(
             BrowserState(downloads = mapOf("1" to downloadState1)),
         )
@@ -424,6 +435,8 @@ class DownloadUIStoreTest {
 
     @Test
     fun deleteTwoElementsAndCancelTwice() = runTest(testDispatcher) {
+        every { publicSuffixList.getPublicSuffixPlusOne(any()) } returns CompletableDeferred("mozilla.com")
+
         val store = provideDownloadUIStore(
             BrowserState(downloads = mapOf("1" to downloadState1, "2" to downloadState2)),
         )
@@ -471,6 +484,8 @@ class DownloadUIStoreTest {
 
     @Test
     fun `WHEN downloads store is initialised THEN downloads state is updated to be sorted by created time`() = runTest(testDispatcher) {
+        every { publicSuffixList.getPublicSuffixPlusOne(any()) } returns CompletableDeferred("google.com")
+
         val fakeDateTimeProvider = FakeDateTimeProvider(LocalDate.of(2025, 5, 31))
         val zoneId = fakeDateTimeProvider.currentZoneId()
 
@@ -546,6 +561,7 @@ class DownloadUIStoreTest {
             middleware = listOf(
                 DownloadUIMapperMiddleware(
                     browserStore = browserStore,
+                    publicSuffixList = publicSuffixList,
                     fileItemDescriptionProvider = fakeFileItemDescriptionProvider,
                     scope = testScope,
                     dateTimeProvider = fakeDateTimeProvider,
@@ -640,6 +656,8 @@ class DownloadUIStoreTest {
 
     @Test
     fun `GIVEN a download was cancelled WHEN downloading the same file THEN only the downloading download item is displayed`() = runTest(testDispatcher) {
+        every { publicSuffixList.getPublicSuffixPlusOne(any()) } returns CompletableDeferred("google.com")
+
         val downloads = mapOf(
             "1" to DownloadState(
                 id = "1",
@@ -669,6 +687,7 @@ class DownloadUIStoreTest {
             middleware = listOf(
                 DownloadUIMapperMiddleware(
                     browserStore = browserStore,
+                    publicSuffixList = publicSuffixList,
                     fileItemDescriptionProvider = fakeFileItemDescriptionProvider,
                     scope = testScope,
                 ),
@@ -699,6 +718,8 @@ class DownloadUIStoreTest {
 
     @Test
     fun `GIVEN two downloads with identical file name and identical download status WHEN getting itemsState THEN only one download item is displayed`() = runTest(testDispatcher) {
+        every { publicSuffixList.getPublicSuffixPlusOne(any()) } returns CompletableDeferred("google.com")
+
         val downloads = mapOf(
             "1" to DownloadState(
                 id = "1",
@@ -728,6 +749,7 @@ class DownloadUIStoreTest {
             middleware = listOf(
                 DownloadUIMapperMiddleware(
                     browserStore = browserStore,
+                    publicSuffixList = publicSuffixList,
                     fileItemDescriptionProvider = fakeFileItemDescriptionProvider,
                     scope = testScope,
                 ),
@@ -758,6 +780,8 @@ class DownloadUIStoreTest {
 
     @Test
     fun `GIVEN two downloads with identical file name and different directory path WHEN getting itemsState THEN both download items should be displayed`() {
+        every { publicSuffixList.getPublicSuffixPlusOne(any()) } returns CompletableDeferred("google.com")
+
         val downloads = mapOf(
             "1" to DownloadState(
                 id = "1",
@@ -787,6 +811,7 @@ class DownloadUIStoreTest {
             middleware = listOf(
                 DownloadUIMapperMiddleware(
                     browserStore = browserStore,
+                    publicSuffixList = publicSuffixList,
                     fileItemDescriptionProvider = fakeFileItemDescriptionProvider,
                     scope = testScope,
                 ),
@@ -829,6 +854,8 @@ class DownloadUIStoreTest {
 
     @Test
     fun `GIVEN two downloads with the same file name ,directory path and status WHEN getting itemsState THEN the newest download item is displayed`() {
+        every { publicSuffixList.getPublicSuffixPlusOne(any()) } returns CompletableDeferred("google.com")
+
         val downloads = mapOf(
             "1" to DownloadState(
                 id = "1",
@@ -858,6 +885,7 @@ class DownloadUIStoreTest {
             middleware = listOf(
                 DownloadUIMapperMiddleware(
                     browserStore = browserStore,
+                    publicSuffixList = publicSuffixList,
                     fileItemDescriptionProvider = fakeFileItemDescriptionProvider,
                     scope = testScope,
                 ),
@@ -888,6 +916,8 @@ class DownloadUIStoreTest {
 
     @Test
     fun `GIVEN two downloads with identical file name and different download status WHEN getting itemsState THEN both download items are displayed`() = runTest(testDispatcher) {
+        every { publicSuffixList.getPublicSuffixPlusOne(any()) } returns CompletableDeferred("google.com")
+
         val downloads = mapOf(
             "1" to DownloadState(
                 id = "1",
@@ -917,6 +947,7 @@ class DownloadUIStoreTest {
             middleware = listOf(
                 DownloadUIMapperMiddleware(
                     browserStore = browserStore,
+                    publicSuffixList = publicSuffixList,
                     fileItemDescriptionProvider = fakeFileItemDescriptionProvider,
                     scope = testScope,
                 ),
@@ -1240,6 +1271,8 @@ class DownloadUIStoreTest {
 
     @Test
     fun `GIVEN any state WHEN RenameFileConfirmed THEN DownloadUIState is updated with the new file state`() = runTest(testDispatcher) {
+        every { publicSuffixList.getPublicSuffixPlusOne(any()) } returns CompletableDeferred("mozilla.com")
+
         val fileName = "1.pdf"
         val filePath = folder.newFile(fileName).path
 
@@ -1281,6 +1314,7 @@ class DownloadUIStoreTest {
                     ),
                 DownloadUIMapperMiddleware(
                     browserStore = browserStore,
+                    publicSuffixList = publicSuffixList,
                     scope = testScope,
                     fileItemDescriptionProvider = FakeFileItemDescriptionProvider(),
                     dateTimeProvider = fakeDateTimeProvider,
@@ -1635,6 +1669,7 @@ class DownloadUIStoreTest {
 
         val downloadUIMapperMiddleware = DownloadUIMapperMiddleware(
             browserStore = browserStore,
+            publicSuffixList = publicSuffixList,
             fileItemDescriptionProvider = fakeFileItemDescriptionProvider,
             scope = testScope,
             dateTimeProvider = fakeDateTimeProvider,

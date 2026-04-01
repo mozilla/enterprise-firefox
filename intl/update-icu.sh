@@ -70,6 +70,7 @@ for patch in \
  bug-1989738-remove-historical-eras.diff \
  bug-1989738-use-gregorian-era.diff \
  bug-1989738-gregorian-era-gannen.diff \
+ bug-2018880-CLDR-19362-british-gmt.diff \
 ; do
   echo "Applying local patch $patch"
   patch -d ${icu_dir}/../../ -p1 --no-backup-if-mismatch < ${icu_dir}/../icu-patches/$patch

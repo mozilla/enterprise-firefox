@@ -487,6 +487,20 @@
 #endif
 
 /**
+ * MOZ_REINITIALIZES tells static analyser that a call to the associated
+ * method leave it in an initialized state, typically after a std::move.
+ */
+#if defined(__clang__) && defined(__has_cpp_attribute)
+#  if __has_cpp_attribute(clang::reinitializes)
+#    define MOZ_REINITIALIZES [[clang::reinitializes]]
+#  else
+#    define MOZ_REINITIALIZES /* nothing */
+#  endif
+#else
+#  define MOZ_REINITIALIZES /* nothing */
+#endif
+
+/**
  * MOZ_STANDALONE_DEBUG causes complete debug information to be emitted
  * for a record type when clang would otherwise try to elide some of it.
  * This helps certain third party debugging tools introspect types.
@@ -924,15 +938,6 @@
 #      define MOZ_GLIBCXX_CONSTINIT MOZ_RUNINIT
 #    else
 #      define MOZ_GLIBCXX_CONSTINIT constinit
-#    endif
-
-/*
- * Release-only constinit, runtime initializer in Debug.
- */
-#    if defined(DEBUG)
-#      define MOZ_RELEASE_CONSTINIT MOZ_RUNINIT
-#    else
-#      define MOZ_RELEASE_CONSTINIT constinit
 #    endif
 
 /*

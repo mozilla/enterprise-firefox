@@ -333,7 +333,7 @@ class FFmpegDecoderModule : public PlatformDecoderModule {
 
  private:
   const FFmpegLibWrapper* mLib;
-  MOZ_RELEASE_CONSTINIT static inline StaticDataMutex<nsTArray<AVCodecID>>
+  constinit static inline StaticDataMutex<nsTArray<AVCodecID>>
       sSupportedHWCodecs{"sSupportedHWCodecs"};
 };
 

@@ -9,6 +9,7 @@
 #  include "nsICompressConvStats.h"
 #  include "nsIThreadRetargetableStreamListener.h"
 #  include "nsCOMPtr.h"
+#  include "nsString.h"
 #  include "mozilla/Atomics.h"
 #  include "mozilla/Mutex.h"
 
@@ -109,7 +110,12 @@ class nsHTTPCompressConv : public nsIStreamConverter,
 
   uint32_t check_header(nsIInputStream* iStr, uint32_t streamLen, nsresult* rs);
 
+  void ReportDecodingErrorWithSite(const nsACString& aLabel);
   Atomic<uint32_t, Relaxed> mDecodedDataLength{0};
+
+  // Cached on main thread in OnStartRequest; read from any thread thereafter.
+  Atomic<bool, Relaxed> mIsPrivateBrowsing{false};
+  nsCString mSite;
 
   mutable mozilla::Mutex mMutex MOZ_UNANNOTATED{"nsHTTPCompressConv"};
 };

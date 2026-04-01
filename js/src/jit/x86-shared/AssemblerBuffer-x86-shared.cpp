@@ -42,17 +42,18 @@ bool x86_shared::AssemblerBuffer::swap(
 }
 
 #ifdef JS_JITSPEW
-void js::jit::GenericAssembler::spewVA(const char* fmt, va_list va) {
+void js::jit::GenericAssembler::spewVA(unsigned long currentOffset,
+                                       const char* fmt, va_list va) {
   // Buffer to hold the formatted string. Note that this may contain
   // '%' characters, so do not pass it directly to printf functions.
-  char buf[200];
+  char buf[256];
 
   int i = VsprintfLiteral(buf, fmt, va);
   if (i > -1) {
     if (printer) {
-      printer->printf("%s\n", buf);
+      printer->printf("%06lx  %s\n", currentOffset, buf);
     }
-    js::jit::JitSpew(js::jit::JitSpew_Codegen, "%s", buf);
+    js::jit::JitSpew(js::jit::JitSpew_Codegen, "%06lx  %s", currentOffset, buf);
   }
 }
 #endif

@@ -121,12 +121,6 @@ import org.mozilla.fenix.webcompat.middleware.DefaultWebCompatReporterRetrievalS
 import org.mozilla.fenix.webcompat.middleware.WebCompatInfoDeserializer
 import com.google.android.material.R as materialR
 
-// EXPANDED_MIN_RATIO is used for BottomSheetBehavior.halfExpandedRatio().
-// That value needs to be less than the PEEK_HEIGHT.
-// If EXPANDED_MIN_RATIO is greater than the PEEK_HEIGHT, then there will be
-// three states instead of the expected two states required by design.
-private const val PEEK_HEIGHT = 460
-private const val EXPANDED_MIN_RATIO = 0.0001f
 private const val EXPANDED_OFFSET = 56
 private const val HIDING_FRICTION = 0.9f
 private const val PRIVATE_HOME_MENU_BACKGROUND_ALPHA = 100
@@ -227,9 +221,7 @@ class MenuDialogFragment : BottomSheetDialogFragment() {
                 bottomSheetBehavior = bottomSheet?.let {
                     BottomSheetBehavior.from(it).apply {
                         maxWidth = calculateMenuSheetWidth()
-                        isFitToContents = true
-                        peekHeight = PEEK_HEIGHT.dpToPx(resources.displayMetrics)
-                        halfExpandedRatio = EXPANDED_MIN_RATIO
+                        peekHeight = resources.displayMetrics.heightPixels
                         maxHeight = calculateMenuSheetHeight()
                         skipCollapsed = true
                         state = BottomSheetBehavior.STATE_EXPANDED
@@ -407,9 +399,9 @@ class MenuDialogFragment : BottomSheetDialogFragment() {
                             (isExtensionsExpanded || isMoreMenuExpanded) &&
                             args.accesspoint == MenuAccessPoint.Browser,
                     cornerShape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-                    menuCfrState = if (settings.shouldShowMenuCFR) {
+                    menuCfrState = if (settings.shouldShowMenuCFR && settings.cfrPopupsEnabled) {
                         MenuCFRState(
-                            showCFR = settings.shouldShowMenuCFR,
+                            showCFR = settings.shouldShowMenuCFR && settings.cfrPopupsEnabled,
                             titleRes = R.string.menu_cfr_title,
                             messageRes = R.string.menu_cfr_body,
                             orientation = appStore.state.orientation,

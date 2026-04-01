@@ -72,6 +72,8 @@ pub struct FrameBuilderConfig {
     pub max_shared_surface_size: i32,
     pub enable_dithering: bool,
     pub precise_linear_gradients: bool,
+    /// Use the new quad primitive path for box-shadow blur rendering.
+    pub use_quad_box_shadow: bool,
 }
 
 /// A set of default / global resources that are re-built each frame.

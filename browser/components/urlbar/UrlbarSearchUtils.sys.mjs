@@ -306,6 +306,16 @@ class SearchUtils {
     }
   }
 
+  /**
+   * Test-only function to reset the init promise, allowing init() to re-run
+   * _initInternal() on the next call. Use this after manipulating SearchService
+   * initialization state in tests to ensure UrlbarSearchUtils re-initializes
+   * against the restored service.
+   */
+  resetInitPromiseForTests() {
+    this._initPromise = null;
+  }
+
   async _initInternal() {
     await lazy.SearchService.init();
     await this._refreshEnginesByAlias();

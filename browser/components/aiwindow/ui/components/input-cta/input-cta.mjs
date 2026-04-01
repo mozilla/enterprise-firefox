@@ -59,11 +59,13 @@ export class InputCta extends MozLitElement {
   }
 
   #setAction(key) {
-    if (key === this.action || !InputCta.ACTIONS.includes(key)) {
+    if (!InputCta.ACTIONS.includes(key)) {
       return;
     }
 
-    this.action = key;
+    if (key !== this.action) {
+      this.action = key;
+    }
     this.dispatchEvent(
       new CustomEvent("aiwindow-input-cta:on-action-change", {
         detail: { action: key },

@@ -75,10 +75,8 @@ BackgroundHangAnnotations BackgroundHangAnnotators::GatherAnnotations() {
   BackgroundHangAnnotations annotations;
   {  // Scope for lock
     MutexAutoLock lock(mMutex);
-    for (std::set<BackgroundHangAnnotator*>::iterator i = mAnnotators.begin(),
-                                                      e = mAnnotators.end();
-         i != e; ++i) {
-      (*i)->AnnotateHang(annotations);
+    for (auto mAnnotator : mAnnotators) {
+      mAnnotator->AnnotateHang(annotations);
     }
   }
   return annotations;

@@ -102,7 +102,11 @@ const defaultState = new IPProtectionPanel().state;
 async function openPanel(state, win = window) {
   let panel = IPProtection.getPanel(win);
   if (state) {
-    panel.setState(state);
+    panel.setState({
+      isCheckingEntitlement: false,
+      unauthenticated: false,
+      ...state,
+    });
   }
 
   let panelShownPromise = waitForPanelEvent(win.document, "popupshown");
@@ -280,6 +284,10 @@ let DEFAULT_SERVICE_STATUS = {
 let STUBS = {
   isEnrolledAndEntitled: undefined,
   hasUpgraded: undefined,
+  isEnrolling: undefined,
+  isCheckingEntitlement: undefined,
+  updateEntitlement: undefined,
+  refetchEntitlement: undefined,
   enroll: undefined,
   fetchUserInfo: undefined,
   fetchProxyPass: undefined,
@@ -377,6 +385,20 @@ function setupStubs(stubs = STUBS) {
     IPPEnrollAndEntitleManager,
     "hasUpgraded"
   );
+  // Stub isEnrolling, isCheckingEntitlement, updateEntitlement, and refetchEntitlement
+  // to prevent loading skeleton from rendering unexpectedly during tests.
+  stubs.isEnrolling = setupSandbox
+    .stub(IPPEnrollAndEntitleManager, "isEnrolling")
+    .get(() => false);
+  stubs.isCheckingEntitlement = setupSandbox
+    .stub(IPPEnrollAndEntitleManager, "isCheckingEntitlement")
+    .get(() => false);
+  stubs.updateEntitlement = setupSandbox
+    .stub(IPPEnrollAndEntitleManager, "updateEntitlement")
+    .resolves();
+  stubs.refetchEntitlement = setupSandbox
+    .stub(IPPEnrollAndEntitleManager, "refetchEntitlement")
+    .resolves();
 
   const guardianStub = {
     enroll: setupSandbox.stub(),

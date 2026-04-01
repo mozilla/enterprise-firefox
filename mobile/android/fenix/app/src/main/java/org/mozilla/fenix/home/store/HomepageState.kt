@@ -282,6 +282,7 @@ private fun buildHeaderState(
     return if (settings.privateModeAndStoriesEntryPointEnabled) {
         HeaderState.Experimental.Normal(
             wordmarkTextColor = textColor,
+            showNewsAnimation = settings.shouldShowNewsButtonAnimation(),
         )
     } else {
         HeaderState.Normal(
@@ -330,9 +331,13 @@ internal sealed class HeaderState {
 
         /**
          * Represents the header in normal mode for the entry points experiment.
+         *
+         * @property wordmarkTextColor Color for the wordmark.
+         * @property showNewsAnimation Whether to animate the news button label.
          */
         data class Normal(
             val wordmarkTextColor: Color?,
+            val showNewsAnimation: Boolean,
         ) : Experimental()
 
         /**

@@ -2,6 +2,8 @@
 
 subsuite = "enterprise"
 
+["test_felt_browser_compulsory_restart.py"]
+
 ["test_felt_browser_about_config_blocked.py"]
 
 ["test_felt_browser_console_error.py"]
@@ -45,6 +47,8 @@ run-if = [
 ["test_felt_browser_shutdown_crash_exit.py"]
 
 ["test_felt_browser_signout.py"]
+
+["test_felt_browser_token_refresh.py"]
 
 ["test_felt_browser_signout_verify.py"]
 

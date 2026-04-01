@@ -229,10 +229,11 @@ newtab-custom-shortcuts-toggle =
   .label = Shortcuts
   .description = Sites you save or visit
 
-newtab-custom-shortcuts-toggle-rows =
-    .label = Shortcuts
-    .description = Number of rows
+newtab-custom-shortcuts-nova =
+  .label = Shortcuts
 
+newtab-custom-row-description =
+  .description = Number of rows
 # Variables
 #   $num (number) - Number of rows to display
 #  (developer note): @nova-cleanup(remove-string): Remove string once Nova lands. We won't be using "row"/"rows" anymore for the dropdown
@@ -418,6 +419,12 @@ newtab-weather-opt-in-yes =
     .label = Yes
 # We'll be showing static (fake) weather data if the user has not opted in to using their location
 newtab-weather-static-city = New York City
+# "Highest" here refers to the highest temperature of the day
+newtab-weather-high =
+    .aria-label = High
+# "Lowest" here refers to the lowest temperature of the day
+newtab-weather-low =
+    .aria-label = Low
 
 ## Topic Labels
 
@@ -647,6 +654,13 @@ newtab-widget-message-copy = From quick reminders to daily to-dos, focus session
 newtab-promo-card-title = Support { -brand-product-name }
 newtab-promo-card-body = Our sponsors support our mission to build a better web
 newtab-promo-card-cta = Learn more
+
+# "Make Firefox yours" refers to about:newtab. The call to action here ("Try it now")
+# is to customize the new tab page with a background image or color from
+# the built-in wallpaper collection or uploading your own image.
+newtab-promo-card-title-addons = Make { -brand-product-name } yours
+newtab-promo-card-body-addons = Pick a wallpaper from our collection, or create your own.
+newtab-promo-card-cta-addons = Try it now
 newtab-promo-card-dismiss-button =
     .title = Dismiss
     .aria-label = Dismiss

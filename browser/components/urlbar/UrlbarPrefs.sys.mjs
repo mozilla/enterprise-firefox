@@ -901,10 +901,86 @@ function makeDefaultResultGroups({ showSearchSuggestionsFirst }) {
   return rootGroup;
 }
 
-function makeSmartBarGroups() {
-  /**
-   * @type {ResultGroup}
-   */
+/**
+ * @param {object} options
+ * @param {boolean} options.showSearchSuggestionsFirst
+ *   If true, the suggestions group will come before the general group.
+ */
+function makeSmartBarGroups({ showSearchSuggestionsFirst }) {
+  let mainGroup = {
+    flexChildren: true,
+    children: [
+      // search suggestions
+      {
+        children: [
+          {
+            availableSpan: 2,
+            group: lazy.UrlbarUtils.RESULT_GROUP.AI,
+          },
+          {
+            flexChildren: true,
+            children: [
+              {
+                // If `maxHistoricalSearchSuggestions` == 0, the muxer forces
+                // `maxResultCount` to be zero and flex is ignored, per query.
+                flex: 2,
+                group: lazy.UrlbarUtils.RESULT_GROUP.FORM_HISTORY,
+              },
+              {
+                flex: 99,
+                group: lazy.UrlbarUtils.RESULT_GROUP.RECENT_SEARCH,
+              },
+              {
+                flex: 4,
+                group: lazy.UrlbarUtils.RESULT_GROUP.REMOTE_SUGGESTION,
+              },
+            ],
+          },
+          {
+            group: lazy.UrlbarUtils.RESULT_GROUP.TAIL_SUGGESTION,
+          },
+        ],
+      },
+      // general
+      {
+        group: lazy.UrlbarUtils.RESULT_GROUP.GENERAL_PARENT,
+        children: [
+          {
+            availableSpan: 3,
+            group: lazy.UrlbarUtils.RESULT_GROUP.INPUT_HISTORY,
+          },
+          {
+            flexChildren: true,
+            children: [
+              {
+                flex: 2,
+                group: lazy.UrlbarUtils.RESULT_GROUP.GENERAL,
+                orderBy: "frecency",
+              },
+              {
+                flex: 1,
+                group: lazy.UrlbarUtils.RESULT_GROUP.REMOTE_TAB,
+              },
+              {
+                // We show relatively many about-page results because they're
+                // only added for queries starting with "about:".
+                flex: 2,
+                group: lazy.UrlbarUtils.RESULT_GROUP.ABOUT_PAGES,
+              },
+            ],
+          },
+          {
+            group: lazy.UrlbarUtils.RESULT_GROUP.INPUT_HISTORY,
+          },
+        ],
+      },
+    ],
+  };
+  if (!showSearchSuggestionsFirst) {
+    mainGroup.children.reverse();
+  }
+  mainGroup.children[0].flex = 2;
+  mainGroup.children[1].flex = 1;
   return {
     children: [
       // heuristic
@@ -918,78 +994,7 @@ function makeSmartBarGroups() {
           { group: lazy.UrlbarUtils.RESULT_GROUP.HEURISTIC_FALLBACK },
         ],
       },
-      // main
-      {
-        flexChildren: true,
-        children: [
-          // search suggestions
-          {
-            flex: 2,
-            children: [
-              {
-                availableSpan: 2,
-                group: lazy.UrlbarUtils.RESULT_GROUP.AI,
-              },
-              {
-                flexChildren: true,
-                children: [
-                  {
-                    // If `maxHistoricalSearchSuggestions` == 0, the muxer forces
-                    // `maxResultCount` to be zero and flex is ignored, per query.
-                    flex: 2,
-                    group: lazy.UrlbarUtils.RESULT_GROUP.FORM_HISTORY,
-                  },
-                  {
-                    flex: 99,
-                    group: lazy.UrlbarUtils.RESULT_GROUP.RECENT_SEARCH,
-                  },
-                  {
-                    flex: 4,
-                    group: lazy.UrlbarUtils.RESULT_GROUP.REMOTE_SUGGESTION,
-                  },
-                ],
-              },
-              {
-                group: lazy.UrlbarUtils.RESULT_GROUP.TAIL_SUGGESTION,
-              },
-            ],
-          },
-          // general
-          {
-            flex: 1,
-            group: lazy.UrlbarUtils.RESULT_GROUP.GENERAL_PARENT,
-            children: [
-              {
-                availableSpan: 3,
-                group: lazy.UrlbarUtils.RESULT_GROUP.INPUT_HISTORY,
-              },
-              {
-                flexChildren: true,
-                children: [
-                  {
-                    flex: 2,
-                    group: lazy.UrlbarUtils.RESULT_GROUP.GENERAL,
-                    orderBy: "frecency",
-                  },
-                  {
-                    flex: 1,
-                    group: lazy.UrlbarUtils.RESULT_GROUP.REMOTE_TAB,
-                  },
-                  {
-                    // We show relatively many about-page results because they're
-                    // only added for queries starting with "about:".
-                    flex: 2,
-                    group: lazy.UrlbarUtils.RESULT_GROUP.ABOUT_PAGES,
-                  },
-                ],
-              },
-              {
-                group: lazy.UrlbarUtils.RESULT_GROUP.INPUT_HISTORY,
-              },
-            ],
-          },
-        ],
-      },
+      mainGroup,
     ],
   };
 }
@@ -1122,6 +1127,21 @@ class Preferences {
     return this.get("scotchBonnet.enableOverride") || this.get(pref);
   }
 
+  #getShowSearchSuggestionsFirst(context) {
+    let showSearchSuggestionsFirst =
+      context.searchString ||
+      (!this.get("suggest.trending") && !this.get("suggest.recentsearches"));
+
+    let inSearchEngineMode = !!context.searchMode?.engineName;
+
+    // If we're in a case were search suggestions would be shown first, but not
+    // in search engine mode, then just use the user preference.
+    if (!inSearchEngineMode && showSearchSuggestionsFirst) {
+      showSearchSuggestionsFirst = this.get("showSearchSuggestionsFirst");
+    }
+    return showSearchSuggestionsFirst;
+  }
+
   getResultGroups({ context }) {
     // We try to cache result groups so we don't have to rebuild them each time.
     // This key may be modified per each SAP, and will track the cached groups,
@@ -1130,18 +1150,7 @@ class Preferences {
     switch (context.sapName) {
       case "urlbar": {
         let showSearchSuggestionsFirst =
-          context.searchString ||
-          (!this.get("suggest.trending") &&
-            !this.get("suggest.recentsearches"));
-
-        let inSearchEngineMode = !!context.searchMode?.engineName;
-
-        // If we're in a case were search suggestions would be shown first, but not
-        // in search engine mode, then just use the user preference.
-        if (!inSearchEngineMode && showSearchSuggestionsFirst) {
-          showSearchSuggestionsFirst = this.get("showSearchSuggestionsFirst");
-        }
-
+          this.#getShowSearchSuggestionsFirst(context);
         key += showSearchSuggestionsFirst;
         return this.#getOrCacheResultGroups(key, () =>
           makeDefaultResultGroups({ showSearchSuggestionsFirst })
@@ -1155,7 +1164,12 @@ class Preferences {
       }
       case "smartbar": {
         // This is a temporary placeholder until smartbar gets its own config.
-        return this.#getOrCacheResultGroups(key, makeSmartBarGroups);
+        let showSearchSuggestionsFirst =
+          this.#getShowSearchSuggestionsFirst(context);
+        key += showSearchSuggestionsFirst;
+        return this.#getOrCacheResultGroups(key, () =>
+          makeSmartBarGroups({ showSearchSuggestionsFirst })
+        );
       }
       default: {
         throw new Error(`Unknown SAP name: ${context.sapName}`);

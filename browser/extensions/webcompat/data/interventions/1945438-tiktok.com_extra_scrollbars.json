@@ -1,0 +1,17 @@
+{
+  "label": "tiktok.com (extra scrollbars)",
+  "bugs": {
+    "1945438": {
+      "issue": "extra-scrollbars",
+      "matches": ["*://www.tiktok.com/*"]
+    }
+  },
+  "interventions": [
+    {
+      "platforms": ["desktop"],
+      "content_scripts": {
+        "css": ["bug1945438-www.tiktok.com-hide-extra-scrollbars.css"]
+      }
+    }
+  ]
+}

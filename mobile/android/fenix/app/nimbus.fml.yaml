@@ -803,6 +803,19 @@ features:
         description: The text to show in the CFR
         type: Text
         default: ""
+
+  enable-popups:
+    description: A feature that enables or disables in app popups
+    variables:
+      cfr-popups-enabled:
+        description: When true, CFR popups will show
+        type: Boolean
+        default: true
+      in-app-messages-enabled:
+        description: When true, non CFR popups will show
+        type: Boolean
+        default: true
+
   remote-search-configuration:
     description: Feature to use search configurations from remote servers.
     variables:
@@ -1039,6 +1052,9 @@ features:
         value:
           enabled: true
       - channel: nightly
+        value:
+          enabled: true
+      - channel: beta
         value:
           enabled: true
 

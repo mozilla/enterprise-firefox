@@ -342,7 +342,7 @@ public class GeckoSession {
     @WrapForJNI(calledFrom = "ui", dispatchTo = "gecko")
     public native void attachNPZC(PanZoomController.NativeProvider npzc);
 
-    @WrapForJNI(calledFrom = "ui", dispatchTo = "gecko")
+    @WrapForJNI(calledFrom = "ui", dispatchTo = "proxy")
     public native void onBoundsChanged(int left, int top, int width, int height);
 
     @WrapForJNI(calledFrom = "ui", dispatchTo = "gecko")
@@ -427,13 +427,13 @@ public class GeckoSession {
       GeckoSession.this.updateOverscrollOffset(x, y);
     }
 
-    @WrapForJNI(calledFrom = "ui", dispatchTo = "gecko")
+    @WrapForJNI(calledFrom = "ui", dispatchTo = "proxy")
     public native void onSafeAreaInsetsChanged(int top, int right, int bottom, int left);
 
     @WrapForJNI(calledFrom = "ui", dispatchTo = "gecko")
     public native void onPipModeChanged(boolean enabled);
 
-    @WrapForJNI(calledFrom = "ui", dispatchTo = "gecko")
+    @WrapForJNI(calledFrom = "ui", dispatchTo = "proxy")
     public native void onKeyboardHeightChanged(int height);
 
     @WrapForJNI(calledFrom = "ui")

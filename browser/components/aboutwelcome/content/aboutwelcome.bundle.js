@@ -1724,7 +1724,7 @@ class ProtonScreen extends (react__WEBPACK_IMPORTED_MODULE_0___default().PureCom
       layout: content.layout,
       pos: content.position || "center",
       tabIndex: "-1",
-      "aria-labelledby": "mainContentHeader",
+      "aria-labelledby": `mainContentHeader${content.subtitle ? " mainContentSubheader" : ""}`,
       "aria-describedby": "mainContentInner",
       ref: input => {
         this.mainContentHeader = input;

@@ -76,6 +76,7 @@ export class SidebarState {
     ...SidebarState.defaultProperties,
   };
   #launcherEverVisible = false;
+  bookmarksExpandedFolders = [];
 
   /** @type {SidebarStateProps} */
   static defaultProperties = Object.freeze({
@@ -215,7 +216,7 @@ export class SidebarState {
    * @param {SidebarStateProps} props
    *   New properties to overwrite the default state with.
    */
-  loadInitialState(props) {
+  loadCurrentState(props) {
     // Override any initial launcher visible state when the new sidebar has not been
     // made visible yet
     let hasPreviousVisibleState = false;
@@ -314,6 +315,7 @@ export class SidebarState {
       command: this.command,
       panelOpen: this.panelOpen,
       panelWidth: this.panelWidth,
+      bookmarksExpandedFolders: this.bookmarksExpandedFolders,
       launcherWidth: convertToInt(this.launcherWidth),
       expandedLauncherWidth: convertToInt(this.expandedLauncherWidth),
       launcherExpanded: this.launcherExpanded,

@@ -213,6 +213,8 @@
       );
     }
 
+    // FIXME: Bug 2022047 - Using anchor positioning would significantly
+    // reduce the complexity of this function.
     async setAlign() {
       const hostElement = this.parentElement || this.getRootNode().host;
 
@@ -243,6 +245,7 @@
       } = await new Promise(resolve => {
         this.style.left = 0;
         this.style.top = 0;
+        this.style.minWidth = "";
 
         requestAnimationFrame(() =>
           setTimeout(() => {
@@ -287,43 +290,60 @@
         // Calculate the left/right alignment.
         let align;
         let leftOffset;
+        let effectivePanelWidth = this.hasAttribute("min-width-from-anchor")
+          ? Math.max(panelWidth, anchorWidth)
+          : panelWidth;
         let leftAlignX = anchorLeft;
-        let rightAlignX = anchorLeft + anchorWidth - panelWidth;
+        let rightAlignX = anchorLeft + anchorWidth - effectivePanelWidth;
 
         if (this.isDocumentRTL()) {
-          // Prefer aligning on the right.
-          align = rightAlignX < 0 ? "left" : "right";
+          // Prefer aligning on the right. Fall back to left if the right-aligned
+          // panel would overflow the left viewport edge (rightAlignX < 0), or if
+          // the anchor's right edge exceeds the viewport width (which would place
+          // the right-aligned panel off-screen on the right).
+          align =
+            rightAlignX < 0 || anchorLeft + anchorWidth > clientWidth
+              ? "left"
+              : "right";
         } else {
           // Prefer aligning on the left.
-          align = leftAlignX + panelWidth > clientWidth ? "right" : "left";
+          align =
+            leftAlignX + effectivePanelWidth > clientWidth ? "right" : "left";
         }
-        leftOffset = align === "left" ? leftAlignX : rightAlignX;
+        const alignX = align === "left" ? leftAlignX : rightAlignX;
+        leftOffset = Math.max(
+          0,
+          Math.min(alignX, clientWidth - effectivePanelWidth)
+        );
 
         let bottomSpaceY = winHeight - anchorBottom;
 
         let valign;
         let topOffset;
         const VIEWPORT_PANEL_MIN_MARGIN = 10; // 10px ensures that the panel is not flush with the viewport.
+        const roundedAnchorBottom = Math.round(anchorBottom);
+        const roundedBottomSpaceY = Math.round(bottomSpaceY);
+        const roundedAnchorTop = Math.round(anchorTop);
+        const roundedPanelHeight = Math.round(panelHeight);
 
         // Only want to valign top when there's more space between the bottom of the anchor element and the top of the viewport.
         // If there's more space between the bottom of the anchor element and the bottom of the viewport, we valign bottom.
         if (
-          anchorBottom > bottomSpaceY &&
-          anchorBottom + panelHeight + VIEWPORT_PANEL_MIN_MARGIN > winHeight
+          roundedAnchorBottom > roundedBottomSpaceY &&
+          roundedAnchorBottom + roundedPanelHeight + VIEWPORT_PANEL_MIN_MARGIN >
+            winHeight
         ) {
           // Never want to have a negative value for topOffset, so ensure it's at least 10px.
           topOffset = Math.max(
-            anchorTop - panelHeight,
+            roundedAnchorTop - roundedPanelHeight,
             VIEWPORT_PANEL_MIN_MARGIN
           );
           // Provide a max-height for larger elements which will provide scrolling as needed.
-          this.style.maxHeight = `${anchorTop + VIEWPORT_PANEL_MIN_MARGIN}px`;
+          this.style.maxHeight = `${roundedAnchorTop + VIEWPORT_PANEL_MIN_MARGIN}px`;
           valign = "top";
         } else {
-          topOffset = anchorBottom;
-          this.style.maxHeight = `${
-            bottomSpaceY - VIEWPORT_PANEL_MIN_MARGIN
-          }px`;
+          topOffset = roundedAnchorBottom;
+          this.style.maxHeight = `${roundedBottomSpaceY - VIEWPORT_PANEL_MIN_MARGIN}px`;
           valign = "bottom";
         }
 
@@ -338,18 +358,18 @@
           !this.offsetParent;
         if (offsetParentIsBody) {
           // viewport-based
-          this.style.left = `${leftOffset + winScrollX}px`;
-          this.style.top = `${topOffset + winScrollY}px`;
+          this.style.left = `${Math.round(leftOffset + winScrollX)}px`;
+          this.style.top = `${Math.round(topOffset + winScrollY)}px`;
         } else {
           // container-relative
           const offsetParentRect = this.offsetParent.getBoundingClientRect();
-          this.style.left = `${leftOffset - offsetParentRect.left}px`;
-          this.style.top = `${topOffset - offsetParentRect.top}px`;
+          this.style.left = `${Math.round(leftOffset - offsetParentRect.left)}px`;
+          this.style.top = `${Math.round(topOffset - offsetParentRect.top)}px`;
         }
       }
 
       this.style.minWidth = this.hasAttribute("min-width-from-anchor")
-        ? `${anchorWidth}px`
+        ? `${Math.round(anchorWidth)}px`
         : "";
 
       this.removeAttribute("showing");

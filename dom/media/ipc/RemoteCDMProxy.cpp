@@ -424,6 +424,7 @@ void RemoteCDMProxy::NotifyOutputProtectionStatus(
 
 void RemoteCDMProxy::Shutdown() {
   LOGD("[{}] RemoteCDMProxy::Shutdown", fmt::ptr(this));
+  mKeys.Clear();
   Destroy();
 }
 

@@ -109,8 +109,6 @@ skip-if = [
 
 ["browser_animation_setCurrentTime.js"]
 
-["browser_animation_setPlaybackRate.js"]
-
 ["browser_animation_simple.js"]
 
 ["browser_animation_unhandledActorPlayers.js"]

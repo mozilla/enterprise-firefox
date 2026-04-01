@@ -53,6 +53,11 @@ struct JSSettings {
     }
     return false;
   }
+
+  void CopyOverrideStrings() {
+    chromeRealmOptions.behaviors().copyOverrideStrings();
+    contentRealmOptions.behaviors().copyOverrideStrings();
+  }
 };
 
 }  // namespace mozilla::dom::workerinternals

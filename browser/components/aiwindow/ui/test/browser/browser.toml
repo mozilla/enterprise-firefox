@@ -18,7 +18,9 @@ support-files = [
   "test_smartwindow_panel_list_page.html",
   "test_smartwindow_panel_list.mjs",
   "test_website_chip_page.html",
-  "test_website_chip.mjs"
+  "test_website_chip.mjs",
+  "test_context_url_page.html",
+  "test_context_url_page2.html"
 ]
 
 ["browser_actor_user_prompt.js"]
@@ -71,7 +73,9 @@ support-files = [
 
 ["browser_aiwindow_smartbar_keyboard_navigation.js"]
 
-["browser_aiwindow_smartbar_mentions.js"]
+["browser_aiwindow_smartbar_context_chips.js"]
+
+["browser_aiwindow_smartbar_inline_mentions.js"]
 
 ["browser_aiwindow_smartbar_telemetry.js"]
 
@@ -102,6 +106,8 @@ support-files = [
 ["browser_smartwindow_beta_badge.js"]
 
 ["browser_smartwindow_content.js"]
+
+["browser_smartwindow_context_url.js"]
 
 ["browser_smartwindow_conversation_state.js"]
 
@@ -136,5 +142,8 @@ support-files = [
 ["browser_smartwindow_tab_move.js"]
 
 ["browser_smartwindow_tab_switching.js"]
+skip-if = [
+  "os == 'win' && os_version == '11.26200'", # Bug 2019745
+]
 
 ["browser_smartwindow_telemetry.js"]

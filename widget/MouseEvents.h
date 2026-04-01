@@ -6,7 +6,6 @@
 #define mozilla_MouseEvents_h_
 
 #include <stdint.h>
-#include <math.h>
 
 #include "mozilla/BasicEvents.h"
 #include "mozilla/EventForwards.h"

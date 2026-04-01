@@ -1995,9 +1995,7 @@ inline bool OpIter<Policy>::readBinaryI128(Value* lhsLo, Value* lhsHi,
   }
 
   infalliblePush(ValType::I64);
-  infalliblePush(ValType::I64);
-
-  return true;
+  return push(ValType::I64);
 }
 
 template <typename Policy>
@@ -2013,9 +2011,7 @@ inline bool OpIter<Policy>::readBinaryI64Wide(Value* lhs, Value* rhs) {
   }
 
   infalliblePush(ValType::I64);
-  infalliblePush(ValType::I64);
-
-  return true;
+  return push(ValType::I64);
 }
 
 template <typename Policy>

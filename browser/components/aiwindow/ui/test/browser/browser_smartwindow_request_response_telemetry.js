@@ -219,8 +219,8 @@ describe("SmartWindowRequestResponseTelemetry", () => {
     );
     Assert.equal(
       responseEvents[0].extra.error,
-      "1",
-      "model_response: error code is captured"
+      "Budget exceeded",
+      "model_response: error code is 1 which is budget exceeded"
     );
   });
 });

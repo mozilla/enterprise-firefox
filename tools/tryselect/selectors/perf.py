@@ -1295,7 +1295,7 @@ class PerfParser(CompareParser):
                     # XXX Figure out if we can use the `again` selector in some way
                     # Right now we would need to modify it to be able to do this.
                     # XXX Fix up the again selector for the perf selector (if it makes sense to)
-                    lando_commit_id = push_to_try(
+                    push_data = push_to_try(
                         "perf-again",
                         f"{base_commit_message}",
                         metrics,
@@ -1309,9 +1309,12 @@ class PerfParser(CompareParser):
                         push_to_vcs=False,
                     )
 
-                    if not lando_commit_id:
+                    if not push_data or "lando_job_id" not in push_data:
                         return
-                    PerfParser.push_info.base_lando_commit_id = lando_commit_id
+
+                    PerfParser.push_info.base_lando_commit_id = push_data[
+                        "lando_job_id"
+                    ]
                 else:
                     with redirect_stdout(log_processor):
                         push_to_try(
@@ -1346,7 +1349,7 @@ class PerfParser(CompareParser):
             )
 
             if not push_to_vcs:
-                lando_commit_id = push_to_try(
+                push_data = push_to_try(
                     "perf",
                     f"{new_commit_message}",
                     metrics,
@@ -1360,9 +1363,10 @@ class PerfParser(CompareParser):
                     allow_log_capture=True,
                     push_to_vcs=False,
                 )
-                if not lando_commit_id:
+                if not push_data or "lando_job_id" not in push_data:
                     return
-                PerfParser.push_info.new_lando_commit_id = lando_commit_id
+
+                PerfParser.push_info.new_lando_commit_id = push_data["lando_job_id"]
             else:
                 with redirect_stdout(log_processor):
                     push_to_try(

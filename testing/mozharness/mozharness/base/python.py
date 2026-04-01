@@ -837,6 +837,7 @@ class ResourceMonitoringMixin(PerfherderResourceOptionsMixin):
             self._resource_monitor.start()
 
             upload_dir = self.query_abs_dirs()["abs_blob_upload_dir"]
+            os.makedirs(upload_dir, exist_ok=True)
             self._resource_profile_path = os.path.join(
                 upload_dir, "profile_resource-usage.json"
             )

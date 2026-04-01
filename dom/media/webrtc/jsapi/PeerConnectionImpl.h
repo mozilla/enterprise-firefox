@@ -5,7 +5,6 @@
 #ifndef PEER_CONNECTION_IMPL_H_
 #define PEER_CONNECTION_IMPL_H_
 
-#include <cmath>
 #include <map>
 #include <string>
 #include <vector>

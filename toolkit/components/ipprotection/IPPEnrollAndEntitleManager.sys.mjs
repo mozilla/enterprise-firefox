@@ -105,6 +105,15 @@ class IPPEnrollAndEntitleManagerSingleton extends EventTarget {
     let deferred = Promise.withResolvers();
     this.#entitlementPromise = deferred.promise;
 
+    // Notify listeners that an entitlement check has started so they can
+    // react to isCheckingEntitlement becoming true.
+    this.dispatchEvent(
+      new CustomEvent("IPPEnrollAndEntitleManager:StateChanged", {
+        bubbles: true,
+        composed: true,
+      })
+    );
+
     const entitled = await this.#entitle(forceRefetch);
     deferred.resolve(entitled);
 
@@ -113,6 +122,16 @@ class IPPEnrollAndEntitleManagerSingleton extends EventTarget {
     }
 
     this.#entitlementPromise = null;
+
+    // Notify listeners that the entitlement check has completed so they can
+    // react to isCheckingEntitlement becoming false.
+    this.dispatchEvent(
+      new CustomEvent("IPPEnrollAndEntitleManager:StateChanged", {
+        bubbles: true,
+        composed: true,
+      })
+    );
+
     return entitled;
   }
 
@@ -137,6 +156,15 @@ class IPPEnrollAndEntitleManagerSingleton extends EventTarget {
     const enrolledAndEntitled = await this.#enrollAndEntitle(abortSignal);
     deferred.resolve(enrolledAndEntitled);
     this.#enrollingPromise = null;
+
+    // By the time enrollingPromise is unset, notify listeners so that they
+    // can react to isEnrolling becoming false.
+    this.dispatchEvent(
+      new CustomEvent("IPPEnrollAndEntitleManager:StateChanged", {
+        bubbles: true,
+        composed: true,
+      })
+    );
 
     return enrolledAndEntitled;
   }
@@ -343,6 +371,13 @@ class IPPEnrollAndEntitleManagerSingleton extends EventTarget {
    */
   get isEnrolling() {
     return !!this.#enrollingPromise;
+  }
+
+  /**
+   * Checks if we are currently checking entitlement.
+   */
+  get isCheckingEntitlement() {
+    return !!this.#entitlementPromise;
   }
 
   /**

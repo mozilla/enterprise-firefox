@@ -12,7 +12,7 @@
 namespace mozilla {
 namespace widget {
 
-MOZ_RELEASE_CONSTINIT StaticDataMutex<ThreadSafeWeakPtr<AndroidVsync>>
+constinit StaticDataMutex<ThreadSafeWeakPtr<AndroidVsync>>
     AndroidVsync::sInstance("AndroidVsync::sInstance");
 
 /* static */ RefPtr<AndroidVsync> AndroidVsync::GetInstance() {

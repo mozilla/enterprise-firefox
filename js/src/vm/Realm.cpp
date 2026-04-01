@@ -742,7 +742,7 @@ JS_PUBLIC_API void JS::SetRealmPrivate(JS::Realm* realm, void* data) {
 
 JS_PUBLIC_API void JS::SetDestroyRealmCallback(
     JSContext* cx, JS::DestroyRealmCallback callback) {
-  cx->runtime()->destroyRealmCallback = callback;
+  cx->runtime()->gc.setDestroyRealmCallback(callback);
 }
 
 JS_PUBLIC_API void JS::SetRealmNameCallback(JSContext* cx,

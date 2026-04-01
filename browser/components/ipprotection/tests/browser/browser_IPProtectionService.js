@@ -218,6 +218,8 @@ add_task(async function test_IPProtectionService_updateEntitlement() {
 add_task(async function test_IPProtectionService_update_usage_on_sign_in() {
   Services.prefs.clearUserPref("browser.ipProtection.enabled");
   IPPEnrollAndEntitleManager.resetEntitlement();
+  // Remove the no-op stub so that we can call the real updateEntitlement
+  STUBS.updateEntitlement.restore();
 
   let usageChangedPromise = BrowserTestUtils.waitForEvent(
     IPPProxyManager,
@@ -274,6 +276,10 @@ add_task(async function test_IPProtectionService_update_usage_on_sign_in() {
   await closePanel();
   cleanupService();
   await SpecialPowers.popPrefEnv();
+  // Restore the stubbed updateEntitlement for other tests
+  STUBS.updateEntitlement = setupSandbox
+    .stub(IPPEnrollAndEntitleManager, "updateEntitlement")
+    .resolves();
 });
 
 add_task(async function test_ipprotection_ready() {
@@ -514,48 +520,4 @@ add_task(async function test_IPProtectionService_exposure() {
     ],
     { method: "expose" }
   );
-});
-
-/**
- * Tests no error is shown when activation is canceled.
- */
-add_task(async function test_IPProtectionService_activation_canceled() {
-  setupService({
-    isSignedIn: true,
-    isEnrolledAndEntitled: true,
-  });
-  IPProtectionService.updateState();
-
-  let content = await openPanel();
-
-  let statusCard = content.statusCardEl;
-  let actionButton = statusCard.actionButtonEl;
-  actionButton.click();
-
-  // Cancel the activation
-  await waitForProxyState(IPPProxyStates.ACTIVATING);
-  actionButton.click();
-
-  await waitForProxyState(IPPProxyStates.READY);
-  Assert.equal(
-    IPPProxyManager.state,
-    IPPProxyStates.READY,
-    "Proxy should be in READY state when activation is canceled"
-  );
-
-  Assert.equal(content.state.error, "", "Should have no error");
-
-  Assert.ok(
-    content.statusCardEl,
-    "Status card should still be visible and not hidden by an error status box"
-  );
-
-  let button = document.getElementById(IPProtectionWidget.WIDGET_ID);
-  Assert.ok(
-    !button.classList.contains("ipprotection-error"),
-    "Toolbar icon should not show the error status"
-  );
-
-  await closePanel();
-  cleanupService();
 });

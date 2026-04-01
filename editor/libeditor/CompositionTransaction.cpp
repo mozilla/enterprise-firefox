@@ -332,9 +332,9 @@ nsresult CompositionTransaction::SetIMESelection(
   }
 
   IgnoredErrorResult ignoredError;
-  for (uint32_t i = 0; i < std::size(kIMESelections); ++i) {
+  for (short IMESelection : kIMESelections) {
     RefPtr<Selection> selectionOfIME =
-        selectionController->GetSelection(kIMESelections[i]);
+        selectionController->GetSelection(IMESelection);
     if (!selectionOfIME) {
       NS_WARNING("nsISelectionController::GetSelection() failed");
       continue;

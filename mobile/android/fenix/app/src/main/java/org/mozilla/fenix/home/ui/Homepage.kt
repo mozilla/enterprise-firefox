@@ -44,6 +44,7 @@ import org.mozilla.fenix.GleanMetrics.RecentlyVisitedHomepage
 import org.mozilla.fenix.R
 import org.mozilla.fenix.browser.browsingmode.BrowsingMode
 import org.mozilla.fenix.components.appstate.setup.checklist.SetupChecklistState
+import org.mozilla.fenix.components.components
 import org.mozilla.fenix.compose.MessageCard
 import org.mozilla.fenix.compose.home.HomeSectionHeader
 import org.mozilla.fenix.home.bookmarks.Bookmark
@@ -135,13 +136,17 @@ internal fun Homepage(
                 )
             }
 
-            val headerState = state.headerState
-            when (headerState) {
+            when (val headerState = state.headerState) {
                 is HeaderState.Experimental.Normal -> {
+                    val components = components
+
                     ExperimentalHomepageHeader(
                         wordmarkTextColor = headerState.wordmarkTextColor,
+                        showNewsAnimation = headerState.showNewsAnimation,
                         onPrivateModeTapped = { browsingModeChanged(BrowsingMode.Private) },
                         onStoriesTapped = { interactor.onDiscoverMoreClicked() },
+                        onNewsAnimationShown = { components.settings.recordNewsButtonAnimationShown() },
+                        onLogoClicked = interactor::onLogoClicked,
                     )
                 }
 
@@ -157,6 +162,7 @@ internal fun Homepage(
                         privateBrowsingButtonColor = headerState.privateBrowsingButtonColor,
                         browsingMode = state.browsingMode,
                         browsingModeChanged = browsingModeChanged,
+                        onLogoClicked = interactor::onLogoClicked,
                     )
                 }
             }

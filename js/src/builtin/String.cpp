@@ -2028,9 +2028,7 @@ static int BoyerMooreHorspool(const TextChar* text, uint32_t textLen,
   MOZ_ASSERT(0 < patLen && patLen <= sBMHPatLenMax);
 
   uint8_t skip[sBMHCharSetSize];
-  for (uint32_t i = 0; i < sBMHCharSetSize; i++) {
-    skip[i] = uint8_t(patLen);
-  }
+  std::fill(std::begin(skip), std::end(skip), uint8_t(patLen));
 
   uint32_t patLast = patLen - 1;
   for (uint32_t i = 0; i < patLast; i++) {

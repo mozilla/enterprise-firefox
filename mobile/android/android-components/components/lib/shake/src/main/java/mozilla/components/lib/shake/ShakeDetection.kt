@@ -4,32 +4,51 @@
 
 package mozilla.components.lib.shake
 
+import android.hardware.SensorManager
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.scan
 import mozilla.components.concept.accelerometer.Accelerometer
+import mozilla.components.lib.shake.ShakeSensitivity.Companion.High
+import mozilla.components.lib.shake.ShakeSensitivity.Companion.Low
+import mozilla.components.lib.shake.ShakeSensitivity.Companion.Medium
+import kotlin.math.abs
 import kotlin.math.sqrt
 
 /**
- * Run accelerometer data through a shake detection function. Uses a rolling window to
+ * Run accelerometer data through a shake detection function.
+ *
+ * This uses a combination of a rolling window, cooldown period, sensitivity, and the number of hits
+ * or pulses to determine a shake.
+ *
+ * @param sensitivity The [ShakeSensitivity] of the detection. This determines how much effort is
+ * required to trigger a shake
+ * @param detectionWindowNs The time in nanoseconds during which the movements and hits are observed to
+ * determine a shake gesture
+ * @param cooldownPeriodNs The time in nanoseconds after a shake is detected. Any movement or shake that happens
+ * during this period is ignored
+ * @param minHits The minimum number of hits/pulses/rapid motion (above the threshold
+ * defined by [sensitivity]) that we need to see to determine that a shake has happened.
  */
-fun Accelerometer.detectShakes(sensitivity: ShakeSensitivity = ShakeSensitivity.Medium): Flow<Unit> =
+fun Accelerometer.detectShakes(
+    sensitivity: ShakeSensitivity = Medium,
+    detectionWindowNs: Long = 350_000_000L,
+    cooldownPeriodNs: Long = 800_000_000L,
+    minHits: Int = 2,
+): Flow<Unit> =
     samples()
-        .map { sample ->
-            // magnitude of acceleration vector
-            val magnitude = sqrt(
-                sample.xAccel * sample.xAccel +
-                    sample.yAccel * sample.yAccel +
-                    sample.zAccel * sample.zAccel,
+        .scan(ShakeState()) { state, sample ->
+            state.next(
+                sample = sample,
+                sensitivity = sensitivity,
+                detectionWindowNs = detectionWindowNs,
+                cooldownPeriodNs = cooldownPeriodNs,
+                minHits = minHits,
             )
-            magnitude to sample.timestampNs
-        }
-        .scan(ShakeState()) { state, (magnitude, timestampNs) ->
-            state.next(magnitude, timestampNs, sensitivity)
         }
         .filter { it.hasReachedMinHits }
-        .map { Unit }
+        .map { }
 
 /**
  * Configuration element for the sensitivity of shake detection.
@@ -39,10 +58,42 @@ fun Accelerometer.detectShakes(sensitivity: ShakeSensitivity = ShakeSensitivity.
 @JvmInline
 value class ShakeSensitivity(val threshold: Float) {
     companion object {
-        val Low = ShakeSensitivity(threshold = 3.2f)
-        val Medium = ShakeSensitivity(threshold = 2.7f)
-        val High = ShakeSensitivity(threshold = 2.3f)
+        /**
+         * [Low] sensitivity - a 2g threshold
+         */
+        val Low = ShakeSensitivity(threshold = 2.g)
+
+        /**
+         * [Medium] sensitivity - a 1.5g threshold
+         */
+        val Medium = ShakeSensitivity(threshold = 1.5.g)
+
+        /**
+         * [High] sensitivity - a 1g threshold
+         */
+        val High = ShakeSensitivity(threshold = 1.g)
     }
+}
+
+/**
+ * Direction marker for the shake direction.
+ */
+private enum class ShakeDirection {
+
+    /**
+     * Unknown is the default state
+     */
+    Unknown,
+
+    /**
+     * Forward implies a positive acceleration value
+     */
+    Forward,
+
+    /**
+     * Reverse implies a negative acceleration value
+     */
+    Reverse,
 }
 
 /**
@@ -55,40 +106,52 @@ private data class ShakeState(
     val hits: Int = 0,
     val detectionWindowStartNs: Long = 0L,
     val lastShakeNs: Long = 0L,
+    val lastShakeDirection: ShakeDirection = ShakeDirection.Unknown,
     val hasReachedMinHits: Boolean = false,
 ) {
     fun next(
-        magnitude: Float,
-        timestampNs: Long,
+        sample: Accelerometer.Sample,
         sensitivity: ShakeSensitivity,
-        detectionWindowNs: Long = 350_000_000L,
-        cooldownPeriodNs: Long = 800_000_000L,
-        minHits: Int = 2,
+        detectionWindowNs: Long,
+        cooldownPeriodNs: Long,
+        minHits: Int,
     ): ShakeState {
-        // Step 1: Check if acceleration magnitude exceeds the threshold.
-        // If not, reset detection state and wait for stronger acceleration.
-        val aboveThreshold = magnitude >= sensitivity.threshold
-        if (!aboveThreshold) return copy(hasReachedMinHits = false)
+        // Step 0: Unwrap the Sample object & calculate the magnitude of acceleration
+        val magnitude = sqrt(
+            sample.xAccel * sample.xAccel +
+                sample.yAccel * sample.yAccel +
+                sample.zAccel * sample.zAccel,
+        )
+        val timestampNs = sample.timestampNs
 
-        // Step 2: Manage the rolling time window for counting acceleration spikes.
-        // Either start a new window (if no window exists or previous window expired)
-        // or continue the current window and increment the hit counter.
-        val (newWindowStart, newHits) =
-            if (detectionWindowStartNs == 0L || timestampNs - detectionWindowStartNs > detectionWindowNs) {
-                // Window expired or uninitialized: start new window at current timestamp
-                timestampNs to 1
-            } else {
-                // Window still active: keep window start and increment hit count
-                detectionWindowStartNs to hits + 1
-            }
+        // Step 1: Check if acceleration magnitude is below the threshold.
+        // If it is below, return and wait for stronger hit.
+        if (magnitude < sensitivity.threshold) return copy(hasReachedMinHits = false)
 
-        // Step 3: Check if we're in the cooldown period after a previous shake detection.
+        // Step 2: Check the approximate shake direction based on the most dominant acceleration
+        val currentShakeDirection = sample.approximateShakeDirection()
+        val shakeDirectionChanged = currentShakeDirection != lastShakeDirection
+
+        // Step 3: Manage the rolling time window for counting acceleration spikes.
+        // Either:
+        // - start a new window (if no window exists or previous window expired)
+        // - continue the current window and increment the hit counter if the shake direction has changed
+        // - else continue the current window, but don't record this as a new hit
+        val isExpired =
+            detectionWindowStartNs == 0L || timestampNs - detectionWindowStartNs > detectionWindowNs
+        val newHits = when {
+            isExpired -> 1
+            shakeDirectionChanged -> hits + 1
+            else -> hits
+        }
+        val newWindowStart = if (isExpired) timestampNs else detectionWindowStartNs
+
+        // Step 4: Check if we're in the cooldown period after a previous shake detection.
         // This prevents rapid-fire shake events from a single physical shake gesture, since the
         // detection window is shorter than the cooldown period.
-        val inCooldown =
-            lastShakeNs != 0L && timestampNs - lastShakeNs < cooldownPeriodNs
+        val inCooldown = lastShakeNs != 0L && timestampNs - lastShakeNs < cooldownPeriodNs
 
-        // Step 4: Decide whether to emit a shake event
+        // Step 5: Decide whether to emit a shake event
         return if (!inCooldown && newHits >= minHits) {
             // Shake detected: we have enough hits within the window and previous cooldown has passed.
             // Reset state and record this shake's timestamp to start cooldown period.
@@ -96,6 +159,7 @@ private data class ShakeState(
                 hits = 0,
                 detectionWindowStartNs = 0L,
                 lastShakeNs = timestampNs,
+                lastShakeDirection = ShakeDirection.Unknown,
                 hasReachedMinHits = true,
             )
         } else {
@@ -104,8 +168,45 @@ private data class ShakeState(
                 hits = newHits,
                 detectionWindowStartNs = newWindowStart,
                 lastShakeNs = lastShakeNs,
+                lastShakeDirection = currentShakeDirection,
                 hasReachedMinHits = false,
             )
         }
     }
+
+    /**
+     * Approximates a shake direction from a [Accelerometer.Sample].
+     *
+     * It currently is a very simple approximation that infers the direction as [ShakeDirection.Forward]
+     * or [ShakeDirection.Reverse] based on the largest acceleration recorded.
+     *
+     * E.g.:
+     *   - if we record [x = -3, y = 0, z = 1], we determine the direction to be reverse because the
+     *   maximum recorded acceleration had a magnitude of 3, but in the negative direction.
+     *   - if we record [x = -1, y = 5, z = 3], we determine the direction to be forward because the
+     *   maximum recorded acceleration had a magnitude of 5, but in the positive direction.
+     *
+     * There are more complex algorithms, like doing a dot product of previously recorded samples
+     * and the new one, but this is sufficient for now.
+     *
+     */
+    private fun Accelerometer.Sample.approximateShakeDirection(): ShakeDirection {
+        val largestAcceleration = maxOf(abs(xAccel), abs(yAccel), abs(zAccel))
+        val dominantAxis = when (largestAcceleration) {
+            abs(xAccel) -> xAccel
+            abs(yAccel) -> yAccel
+            else -> zAccel
+        }
+        return if (dominantAxis > 0f) ShakeDirection.Forward else ShakeDirection.Reverse
+    }
 }
+
+/**
+ * Helper to convert [Double] to a value as a multiple acceleration due to gravity
+ */
+internal inline val Double.g: Float get() = this.toFloat() * SensorManager.GRAVITY_EARTH
+
+/**
+ * Helper to convert [Int] to a value as a multiple acceleration due to gravity
+ */
+internal inline val Int.g: Float get() = this * SensorManager.GRAVITY_EARTH

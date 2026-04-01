@@ -20,21 +20,20 @@ object NavigationRegistry {
     }
 
     fun findPath(from: String, to: String): List<NavigationStep>? {
-        val visited = mutableSetOf<String>()
-        val path = mutableListOf<NavigationStep>()
-        return dfs(from, to, visited, path)
-    }
+        if (from == to) return emptyList()
+        val visited = mutableSetOf(from)
+        val queue = ArrayDeque<Pair<String, List<NavigationStep>>>()
+        queue.add(from to emptyList())
 
-    private fun dfs(current: String, target: String, visited: MutableSet<String>, path: MutableList<NavigationStep>): List<NavigationStep>? {
-        if (current == target) return path.toList()
-        visited.add(current)
-
-        for (edge in graph[current].orEmpty()) {
-            if (edge.to !in visited) {
-                path.addAll(edge.steps)
-                val result = dfs(edge.to, target, visited, path)
-                if (result != null) return result
-                path.removeAll(edge.steps)
+        while (queue.isNotEmpty()) {
+            val (current, steps) = queue.removeFirst()
+            for (edge in graph[current].orEmpty()) {
+                if (edge.to !in visited) {
+                    val newSteps = steps + edge.steps
+                    if (edge.to == to) return newSteps
+                    visited.add(edge.to)
+                    queue.add(edge.to to newSteps)
+                }
             }
         }
         return null

@@ -77,6 +77,8 @@ add_task(async function test_extension_sidebar_actions() {
   );
   await promiseClosed;
 
+  await ensureSidebarLauncherIsVisible();
+
   await extension.unload();
   await sidebar.updateComplete;
   is(

@@ -1204,6 +1204,8 @@ static uint32_t ConvertEncoderFlags(uint32_t aEncoderFlags) {
     encoderFlags |= nsIDocumentEncoder::OutputNoScriptContent;
   if (aEncoderFlags & nsIWebBrowserPersist::ENCODE_FLAGS_NOFRAMES_CONTENT)
     encoderFlags |= nsIDocumentEncoder::OutputNoFramesContent;
+  if (aEncoderFlags & nsIWebBrowserPersist::ENCODE_FLAGS_DISALLOW_LINE_BREAKING)
+    encoderFlags |= nsIDocumentEncoder::OutputDisallowLineBreaking;
 
   return encoderFlags;
 }

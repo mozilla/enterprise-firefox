@@ -199,10 +199,10 @@ nsGNOMEShellService::IsDefaultBrowser(bool aForAllTypes,
   nsAutoCString handler;
   nsCOMPtr<nsIGIOMimeApp> gioApp;
 
-  for (unsigned int i = 0; i < std::size(appProtocols); ++i) {
-    if (!appProtocols[i].essential) continue;
+  for (auto appProtocol : appProtocols) {
+    if (!appProtocol.essential) continue;
 
-    if (!IsDefaultForSchemeHelper(nsDependentCString(appProtocols[i].name),
+    if (!IsDefaultForSchemeHelper(nsDependentCString(appProtocol.name),
                                   giovfs)) {
       return NS_OK;
     }
@@ -291,19 +291,17 @@ nsGNOMEShellService::SetDefaultBrowser(bool aForAllUsers) {
     }
 
     // set handler for the protocols
-    for (unsigned int i = 0; i < std::size(appProtocols); ++i) {
-      appInfo->SetAsDefaultForURIScheme(
-          nsDependentCString(appProtocols[i].name));
+    for (auto appProtocol : appProtocols) {
+      appInfo->SetAsDefaultForURIScheme(nsDependentCString(appProtocol.name));
     }
 
     // set handler for .html and xhtml files and MIME types:
     // Add mime types for html, xhtml extension and set app to just created
     // appinfo.
-    for (unsigned int i = 0; i < std::size(appTypes); ++i) {
-      appInfo->SetAsDefaultForMimeType(
-          nsDependentCString(appTypes[i].mimeType));
+    for (auto appType : appTypes) {
+      appInfo->SetAsDefaultForMimeType(nsDependentCString(appType.mimeType));
       appInfo->SetAsDefaultForFileExtensions(
-          nsDependentCString(appTypes[i].extensions));
+          nsDependentCString(appType.extensions));
     }
   }
 

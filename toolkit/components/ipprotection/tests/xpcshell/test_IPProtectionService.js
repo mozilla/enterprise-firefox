@@ -285,3 +285,139 @@ add_task(async function test_guardian_endpoint_updates_on_reinit() {
   IPProtectionService.uninit();
   Services.prefs.clearUserPref("browser.ipProtection.guardian.endpoint");
 });
+
+/**
+ * Tests that isCheckingEntitlement is true while updateEntitlement is in
+ * progress and false once it completes.
+ */
+add_task(async function test_isCheckingEntitlement_during_updateEntitlement() {
+  const sandbox = sinon.createSandbox();
+  setupStubs(sandbox);
+
+  await IPProtectionService.init();
+
+  let resolveEntitlement;
+  // Slow down fetching entitlement info so that we can properly test
+  // isCheckingEntitlement. The promise only resolves when we call resolveEntitlement().
+  IPProtectionService.guardian.fetchUserInfo.returns(
+    new Promise(resolve => {
+      resolveEntitlement = resolve;
+    })
+  );
+
+  Assert.ok(
+    !IPPEnrollAndEntitleManager.isCheckingEntitlement,
+    "isCheckingEntitlement should be false before updateEntitlement"
+  );
+
+  let updatePromise = IPPEnrollAndEntitleManager.updateEntitlement(true);
+
+  Assert.ok(
+    IPPEnrollAndEntitleManager.isCheckingEntitlement,
+    "isCheckingEntitlement should be true while updateEntitlement is in progress"
+  );
+
+  resolveEntitlement({
+    status: 200,
+    error: null,
+    entitlement: createTestEntitlement(),
+  });
+  await updatePromise;
+
+  Assert.ok(
+    !IPPEnrollAndEntitleManager.isCheckingEntitlement,
+    "isCheckingEntitlement should be false after updateEntitlement completes"
+  );
+
+  IPProtectionService.uninit();
+  sandbox.restore();
+});
+
+/**
+ * Tests that StateChanged fires after updateEntitlement even when entitlement
+ * is already cached.
+ */
+add_task(
+  async function test_updateEntitlement_fires_StateChanged_when_cached() {
+    const sandbox = sinon.createSandbox();
+    setupStubs(sandbox);
+
+    await IPProtectionService.init();
+    await IPPEnrollAndEntitleManager.updateEntitlement();
+
+    let stateChangedFired = false;
+    IPPEnrollAndEntitleManager.addEventListener(
+      "IPPEnrollAndEntitleManager:StateChanged",
+      () => {
+        stateChangedFired = true;
+      },
+      { once: true }
+    );
+
+    await IPPEnrollAndEntitleManager.updateEntitlement();
+
+    Assert.ok(
+      stateChangedFired,
+      "StateChanged should fire even when entitlement is already cached"
+    );
+
+    IPProtectionService.uninit();
+    sandbox.restore();
+  }
+);
+
+/**
+ * Tests that isEnrolling is true while maybeEnrollAndEntitle is in progress and
+ * false once it completes.
+ */
+add_task(async function test_isEnrolling_during_maybeEnrollAndEntitle() {
+  const sandbox = sinon.createSandbox();
+  setupStubs(sandbox);
+
+  await IPProtectionService.init();
+
+  let resolveEnroll;
+  // Slow down enrolling step info so that we can properly test
+  // isEnrolling. The promise only resolves when we call resolveEnroll().
+  IPProtectionService.guardian.enroll.returns(
+    new Promise(resolve => {
+      resolveEnroll = resolve;
+    })
+  );
+
+  Assert.ok(
+    !IPPEnrollAndEntitleManager.isEnrolling,
+    "isEnrolling should be false before maybeEnrollAndEntitle"
+  );
+
+  let enrollPromise = IPPEnrollAndEntitleManager.maybeEnrollAndEntitle();
+
+  Assert.ok(
+    IPPEnrollAndEntitleManager.isEnrolling,
+    "isEnrolling should be true while maybeEnrollAndEntitle is in progress"
+  );
+
+  let stateChangedFired = false;
+  IPPEnrollAndEntitleManager.addEventListener(
+    "IPPEnrollAndEntitleManager:StateChanged",
+    () => {
+      stateChangedFired = true;
+    },
+    { once: true }
+  );
+
+  resolveEnroll({ status: 200, error: null, ok: true });
+  await enrollPromise;
+
+  Assert.ok(
+    !IPPEnrollAndEntitleManager.isEnrolling,
+    "isEnrolling should be false after maybeEnrollAndEntitle completes"
+  );
+  Assert.ok(
+    stateChangedFired,
+    "StateChanged should fire after maybeEnrollAndEntitle completes"
+  );
+
+  IPProtectionService.uninit();
+  sandbox.restore();
+});

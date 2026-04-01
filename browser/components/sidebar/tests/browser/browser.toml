@@ -8,6 +8,8 @@ prefs = [
 
 ["browser_adopt_sidebar_from_opener.js"]
 
+["browser_bookmarks_sidebar.js"]
+
 ["browser_customize_sidebar.js"]
 skip-if = [
   "os == 'linux' && os_version == '24.04' && arch == 'x86_64' && display == 'x11'", # Bug 1968564
@@ -71,6 +73,8 @@ skip-if = [
 ["browser_sidebar_position.js"]
 
 ["browser_sidebar_prefs.js"]
+
+["browser_sidebar_splitter_keyboard.js"]
 
 ["browser_syncedtabs_sidebar.js"]
 

@@ -1707,6 +1707,14 @@
         }
       }
     },
+
+    "IPProtectionAvailable": {
+      "type": "boolean",
+      "description": "",
+      "x-category": "Network security",
+      "examples: [true, false]
+    },
+
     "LegacyProfiles": {
       "type": "boolean",
       "x-category": "Miscellaneous",

@@ -59,6 +59,7 @@ void ImageDecoderReadRequest::Destroy(bool aCancel) {
   MOZ_LOG(gWebCodecsLog, LogLevel::Debug,
           ("ImageDecoderReadRequest %p Destroy", this));
 
+  RefPtr<ImageDecoderReadRequest> self(this);
   if (aCancel) {
     // Ensure we stop reading from the ReadableStream.
     Cancel();
@@ -158,8 +159,6 @@ void ImageDecoderReadRequest::Cancel() {
   if (!reader || !mDecoder) {
     return;
   }
-
-  RefPtr<ImageDecoderReadRequest> self(this);
 
   AutoJSAPI jsapi;
   if (!jsapi.Init(mDecoder->GetParentObject())) {

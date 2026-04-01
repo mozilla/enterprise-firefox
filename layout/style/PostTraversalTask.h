@@ -13,8 +13,6 @@
 namespace mozilla {
 class ServoStyleSet;
 namespace dom {
-enum class FontFaceLoadedRejectReason : uint8_t;
-class FontFace;
 class FontFaceSet;
 class FontFaceSetImpl;
 }  // namespace dom
@@ -36,35 +34,10 @@ namespace mozilla {
  */
 class PostTraversalTask {
  public:
-  static PostTraversalTask ResolveFontFaceLoadedPromise(
-      dom::FontFace* aFontFace) {
-    auto task = PostTraversalTask(Type::ResolveFontFaceLoadedPromise);
-    task.mTarget = aFontFace;
-    return task;
-  }
-
-  static PostTraversalTask RejectFontFaceLoadedPromise(
-      dom::FontFace* aFontFace, dom::FontFaceLoadedRejectReason aReason,
-      nsCString&& aMessage) {
-    auto task = PostTraversalTask(Type::ResolveFontFaceLoadedPromise);
-    task.mTarget = aFontFace;
-    task.mResult.emplace(aReason);
-    task.mMessage = std::move(aMessage);
-    return task;
-  }
-
   static PostTraversalTask DispatchLoadingEventAndReplaceReadyPromise(
       dom::FontFaceSet* aFontFaceSet) {
     auto task =
         PostTraversalTask(Type::DispatchLoadingEventAndReplaceReadyPromise);
-    task.mTarget = aFontFaceSet;
-    return task;
-  }
-
-  static PostTraversalTask DispatchFontFaceSetCheckLoadingFinishedAfterDelay(
-      dom::FontFaceSetImpl* aFontFaceSet) {
-    auto task = PostTraversalTask(
-        Type::DispatchFontFaceSetCheckLoadingFinishedAfterDelay);
     task.mTarget = aFontFaceSet;
     return task;
   }
@@ -94,18 +67,8 @@ class PostTraversalTask {
   // please add an assertion that class' destructor that we are not in a Servo
   // traversal, to protect against the possibility of having dangling pointers.
   enum class Type {
-    // mTarget (FontFace*)
-    ResolveFontFaceLoadedPromise,
-
-    // mTarget (FontFace*)
-    // mResult / mMessage
-    RejectFontFaceLoadedPromise,
-
     // mTarget (FontFaceSet*)
     DispatchLoadingEventAndReplaceReadyPromise,
-
-    // mTarget (FontFaceSetImpl*)
-    DispatchFontFaceSetCheckLoadingFinishedAfterDelay,
 
     // mTarget (gfxUserFontEntry*)
     LoadFontEntry,
@@ -121,8 +84,6 @@ class PostTraversalTask {
 
   const Type mType;
   void* mTarget = nullptr;
-  nsCString mMessage;
-  Maybe<dom::FontFaceLoadedRejectReason> mResult;
 };
 
 }  // namespace mozilla

@@ -8,6 +8,21 @@ JAR_MANIFESTS += ["jar.mn"]
 
 DIRS += ["xpi-build"]
 
+GeneratedFile(
+    "run.js",
+    script="codegen.py",
+    entry_point="generate_run_js",
+    flags=[
+        TOPSRCDIR + "/browser/extensions/webcompat/run.js",
+        TOPSRCDIR + "/browser/extensions/webcompat/data/interventions",
+    ],
+)
+
+# We use FINAL_TARGET_FILES.chrome in this way so that Gradle has access
+# to the generated files and can copy them to where they belong in its build.
+# (See mobile/android/android-components/components/feature/webcompat/build.gradle)
+FINAL_TARGET_FILES.chrome.browser["builtin-addons"].webcompat += ["!run.js"]
+
 XPCOM_MANIFESTS += [
     "components.conf",
 ]

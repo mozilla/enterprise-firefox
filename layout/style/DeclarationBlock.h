@@ -194,9 +194,9 @@ class DeclarationBlock final {
     return Servo_DeclarationBlock_GetPropertyIsImportant(mRaw, &aProperty);
   }
 
-  bool GetPropertyTypedValue(const nsACString& aProperty,
+  bool GetPropertyTypedValue(const CSSPropertyId& aPropId,
                              StylePropertyTypedValue& aValue) const {
-    return Servo_DeclarationBlock_GetPropertyTypedValue(mRaw, &aProperty,
+    return Servo_DeclarationBlock_GetPropertyTypedValue(mRaw, &aPropId,
                                                         &aValue);
   }
 

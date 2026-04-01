@@ -3461,7 +3461,7 @@ pub extern "C" fn Servo_ContainerRule_GetContainerQuery(
     rule: &ContainerRule,
     result: &mut nsACString,
 ) {
-    if let Some(condition) = rule.query_condition() {
+    if let Some(condition) = rule.conditions.0.first().and_then(|c| c.query_condition()){
         condition.to_css(&mut CssWriter::new(result)).unwrap();
     }
 }
@@ -3472,7 +3472,8 @@ pub extern "C" fn Servo_ContainerRule_QueryContainerFor(
     element: &RawGeckoElement,
 ) -> *const RawGeckoElement {
     debug_assert_eq!(rule.conditions.0.len(), 1);
-    rule.conditions.0[0]
+    let condition = rule.conditions.0.first().unwrap();
+    condition
         .find_container(GeckoElement(element), None)
         .map_or(ptr::null(), |result| result.element.0)
 }
@@ -3482,9 +3483,11 @@ pub extern "C" fn Servo_ContainerRule_GetContainerName(
     rule: &ContainerRule,
     result: &mut nsACString,
 ) {
-    let name = rule.container_name();
-    if !name.is_none() {
-        name.to_css(&mut CssWriter::new(result)).unwrap();
+    if let Some(condition) = rule.conditions.0.first() {
+        let name = condition.name();
+        if !name.is_none() {
+            name.to_css(&mut CssWriter::new(result)).unwrap();
+        }
     }
 }
 
@@ -5297,10 +5300,10 @@ pub enum PropertyTypedValue {
 #[no_mangle]
 pub unsafe extern "C" fn Servo_DeclarationBlock_GetPropertyTypedValue(
     declarations: &LockedDeclarationBlock,
-    property: &nsACString,
+    property_id: &structs::CSSPropertyId,
     result: *mut PropertyTypedValue,
 ) -> bool {
-    let property_id = get_property_id_from_property!(property, false);
+    let property_id = get_property_id_from_csspropertyid!(property_id, false);
 
     *result = read_locked_arc(declarations, |decls: &PropertyDeclarationBlock| {
         let typed_value = decls.property_value_to_typed_value(&property_id);
@@ -8458,17 +8461,20 @@ pub unsafe extern "C" fn Servo_GetResolvedValue(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn Servo_GetComputedTypedValue(
+pub unsafe extern "C" fn Servo_ComputedValues_GetPropertyTypedValue(
     style: &ComputedValues,
-    property: &nsACString,
+    property_id: &structs::CSSPropertyId,
     result: *mut PropertyTypedValue,
 ) -> bool {
-    let property_id = get_property_id_from_property!(property, false);
+    let property_id = get_property_id_from_csspropertyid!(property_id, false);
 
     let non_custom_property_id = match property_id.non_custom_id() {
         Some(id) => id,
         // XXX Handle custom properties here. Tracked in bug 1990426.
-        None => return false,
+        None => {
+            *result = PropertyTypedValue::None;
+            return true;
+        },
     };
 
     let typed_value: Option<TypedValue> = match non_custom_property_id.longhand_or_shorthand() {

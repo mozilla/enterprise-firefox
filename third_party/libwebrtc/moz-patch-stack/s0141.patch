@@ -1,0 +1,22 @@
+From: Michael Froman <mfroman@mozilla.com>
+Date: Thu, 26 Mar 2026 10:16:00 -0500
+Subject: Bug 2025559 - (fix-72a64cb437) readd the api/audio:aec3_factory build
+ dep
+
+Mercurial Revision: https://hg.mozilla.org/mozilla-central/rev/17f6c61e65b9ac586e6022278094ea039eab8b46
+---
+ BUILD.gn | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/BUILD.gn b/BUILD.gn
+index bb666409e5..3cc57c1b05 100644
+--- a/BUILD.gn
++++ b/BUILD.gn
+@@ -631,6 +631,7 @@ if (!build_with_chromium) {
+       # Added when we removed deps in other places to avoid building
+       # unreachable sources.  See Bug 1820869.
+       deps += [
++        "api/audio:aec3_factory",
+         "api/video_codecs:video_codecs_api",
+         "api/video_codecs:rtc_software_fallback_wrappers",
+         "media:rtc_simulcast_encoder_adapter",

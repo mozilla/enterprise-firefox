@@ -10,8 +10,8 @@
 #include "prprf.h"
 #include "mozilla/CheckedInt.h"
 #include "mozilla/UniquePtrExtensions.h"
-#include "mozilla/EndianUtils.h"
 
+#include <bit>
 #include <cstring>
 
 using namespace mozilla;
@@ -289,7 +289,7 @@ nsPNGEncoder::StartImageEncode(uint32_t aWidth, uint32_t aHeight,
   // libpng to byte-swap from host endianness. This must be after
   // png_write_info because png_set_swap checks png_ptr->bit_depth, which
   // is set inside png_write_IHDR (called by png_write_info).
-  if (mBitDepth == 16 && MOZ_LITTLE_ENDIAN()) {
+  if (mBitDepth == 16 && std::endian::native == std::endian::little) {
     png_set_swap(mPNG);
   }
 
@@ -571,6 +571,11 @@ nsresult nsPNGEncoder::MaybeAddCustomMetadata(
   nsresult rv = nsRFPService::GenerateRandomizationKeyFromHash(
       aRandomizationKey, mImageBufferHash, hex);
   NS_ENSURE_SUCCESS(rv, rv);
+
+  if (setjmp(png_jmpbuf(mPNG))) {
+    png_destroy_write_struct(&mPNG, &mPNGinfo);
+    return NS_ERROR_FAILURE;
+  }
 
   png_size_t chunkLength = 16;
   png_unknown_chunk chunk;

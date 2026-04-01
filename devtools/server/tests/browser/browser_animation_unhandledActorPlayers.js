@@ -4,7 +4,7 @@
 "use strict";
 
 // Check that calling AnimationsActor method taking AnimationPlayerActor arrays (pauseSome,
-// playSome, setCurrentTimes, setPlaybackRates) with instances that are not handled by
+// playSome, setCurrentTimes) with instances that are not handled by
 // the AnimationsActor anymore doesn't throw nor trigger unexpected animations (see Bug 2001590).
 
 add_task(async function () {
@@ -59,7 +59,6 @@ add_task(async function () {
     1,
     true
   );
-  const onPlaybackRateSet = animations.setPlaybackRates([animationPlayer], 10);
 
   await onPause;
   ok(true, "pauseSome succeeded");
@@ -69,9 +68,6 @@ add_task(async function () {
 
   await onCurrentTimeSet;
   ok(true, "setCurrentTimes succedded");
-
-  await onPlaybackRateSet;
-  ok(true, "setPlaybackRates succedded");
 
   // wait for a bit so we would get notified about new animations
   await wait(500);

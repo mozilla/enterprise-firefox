@@ -158,6 +158,15 @@ void ShadowRoot::CloneInternalDataFrom(ShadowRoot* aOther) {
   }
 
   CloneAdoptedSheetsFrom(*aOther);
+
+  // Clone built-in stylesheets that aren't associated to any node.
+  // Node-associated stylesheets get inserted when the node is cloned.
+  for (const auto& sheet : aOther->mStyleSheets) {
+    if (!sheet->GetOwnerNode()) [[unlikely]] {
+      RefPtr clone = sheet->Clone(nullptr, nullptr);
+      AppendStyleSheet(*clone);
+    }
+  }
 }
 
 nsresult ShadowRoot::Bind() {
