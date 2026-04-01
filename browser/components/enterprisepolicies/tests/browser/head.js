@@ -37,12 +37,12 @@ async function setupPolicyEngineWithJson(json, customSchema, shutdown = false) {
   if (JSON.stringify(json) === "{}") {
     if (!shutdown) {
       return EnterprisePolicyTesting.servePolicyWithJson(
-        {},
+        { policies: {} },
         {},
         registerCleanupFunction
       );
     }
-    return EnterprisePolicyTesting.servePolicyWithJson({}, {});
+    return EnterprisePolicyTesting.servePolicyWithJson({ policies: {} }, {});
   }
   return EnterprisePolicyTesting.servePolicyWithJson(
     json,
