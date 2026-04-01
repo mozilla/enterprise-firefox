@@ -193,8 +193,7 @@ export const ConsoleClient = {
    * @returns {Promise<{policies: Record<string, any>}>}
    */
   async getRemotePolicies() {
-    const payload = await this._get(this._paths.REMOTE_POLICIES);
-    return payload;
+    return this._get(this._paths.REMOTE_POLICIES);
   },
 
   /**
@@ -211,8 +210,7 @@ export const ConsoleClient = {
     if (deviceId !== "") {
       body.device_id = deviceId;
     }
-    const payload = await this._post(this._paths.FXACCOUNT, body);
-    return payload;
+    return this._post(this._paths.FXACCOUNT, body);
   },
 
   /**
@@ -343,8 +341,7 @@ export const ConsoleClient = {
    * @returns {Promise<object>}
    */
   async getLoggedInUserInfo() {
-    const payload = await this._get(this._paths.WHOAMI);
-    return payload;
+    return this._get(this._paths.WHOAMI);
   },
 
   /**
@@ -353,8 +350,7 @@ export const ConsoleClient = {
    * @returns {Promise<Record<string, any>>}
    */
   async getPrimarySecret() {
-    const payload = await this._get(this._paths.KEY);
-    return payload;
+    return this._get(this._paths.KEY);
   },
 
   /**
