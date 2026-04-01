@@ -214,7 +214,7 @@ export const EnterpriseHandler = {
    * @returns {void}
    */
   _setupLearnMoreLink(win) {
-    const learnMoreUrl = Services.prefs.getStringPref(LEARN_MORE_URL_PREF);
+    const learnMoreUrl = Services.prefs.getStringPref(LEARN_MORE_URL_PREF, "");
 
     if (!learnMoreUrl) {
       lazy.log.warn("No learn more url available.");
