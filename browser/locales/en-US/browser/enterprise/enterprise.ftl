@@ -46,7 +46,6 @@ neterror-blocked-by-policy-contact-admin = If you believe this is an error or ne
 enterprise-access-connector-heading = Access Connector
 enterprise-access-connector-info-active = This site is being accessed through a secure company connection.
 enterprise-access-connector-button =
-  .label = ""
   .tooltiptext = Access Connector
 enterprise-access-connector-status-label-active = active
 enterprise-access-connector-status-label-inactive = inactive
