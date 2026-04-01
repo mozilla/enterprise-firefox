@@ -189,21 +189,55 @@ export const EnterpriseHandler = {
    */
   updateBadge(window) {
     this._updateLogo(window);
+    this._updateUserIcon(window);
+  },
 
-    const userIcon = window.document.querySelector("#enterprise-user-icon");
-
+  /**
+   * Updates the user icon in the enterprise badge
+   *
+   * If the signed-in user information is available:
+   * - Uses the user's picture url (provided by the IdP) when available.
+   * - Falls back to displaying user initials when no picture url is provided.
+   *
+   * Hides the user icon if no user information is currently available.
+   *
+   * @param {Window} window - The chrome window containing the enterprise UI elements.
+   * @returns {void}
+   */
+  _updateUserIcon(window) {
     if (!this._signedInUser) {
-      // Hide user icon from enterprise badge until we have user information
-      userIcon.hidden = true;
-      console.warn(
+      // No user information available so user icon remains hidden
+      lazy.log.warn(
         "Unable to update user icon in badge without user information"
       );
       return;
     }
-    userIcon.style.setProperty(
-      "list-style-image",
-      `url("${this._signedInUser.pictureUrl}")`
+
+    const wrapper = window.document.getElementById(
+      "enterprise-user-icon__wrapper"
     );
+    const { name, pictureUrl } = this._signedInUser;
+    if (pictureUrl) {
+      const userIcon = window.document.querySelector(
+        "#enterprise-user-icon__picture"
+      );
+      userIcon.style.setProperty(
+        "list-style-image",
+        `url("${this._signedInUser.pictureUrl}")`
+      );
+      wrapper.dataset.userIconType = "picture";
+    } else if (name) {
+      // Fallback to user initials
+      const initials = name.trim().charAt(0).toUpperCase();
+      const initialsDiv = window.document.getElementById(
+        "enterprise-user-icon__initials"
+      );
+      initialsDiv.textContent = initials;
+      wrapper.dataset.userIconType = "initials";
+    } else {
+      wrapper.dataset.userIconType = "avatar";
+    }
+    wrapper.classList.remove("is-hidden");
   },
 
   /**
