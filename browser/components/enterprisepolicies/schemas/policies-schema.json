@@ -1164,7 +1164,7 @@
     },
     "DownloadTelemetry": {
       "type": "object",
-      "x-category": "Uncategorized",
+      "x-category": "Cloud reporting",
       "description": "DownloadTelemetry",
       "examples": [],
       "properties": {
@@ -1258,7 +1258,7 @@
     },
     "EnterpriseStorageEncryption": {
       "type": "boolean",
-      "x-category": "Uncategorized",
+      "x-category": "Miscellaneous",
       "description": "EnterpriseStorageEncryption",
       "examples": []
     },
@@ -1712,7 +1712,7 @@
       "type": "boolean",
       "description": "",
       "x-category": "Network security",
-      "examples: [true, false]
+      "examples": [true, false]
     },
 
     "LegacyProfiles": {
@@ -2269,7 +2269,7 @@
     },
     "PrintPageTelemetry": {
       "type": "object",
-      "x-category": "Uncategorized",
+      "x-category": "Cloud reporting",
       "description": "PrintPageTelemetry",
       "examples": [],
       "properties": {
@@ -2358,7 +2358,7 @@
     },
     "RelaunchRequired": {
       "type": "object",
-      "x-category": "Uncategorized",
+      "x-category": "Miscellaneous",
       "description": "Control relaunch behavior.",
       "examples": [
         {
