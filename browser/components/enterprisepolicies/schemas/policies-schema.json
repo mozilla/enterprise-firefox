@@ -300,14 +300,12 @@
     "AllowFileSelectionDialogs": {
       "type": "boolean",
       "x-category": "Browser UI",
-      "x-preferences-affected": ["widget.disable_file_pickers"],
       "description": "Enable or disable file selection dialogs.",
       "examples": [true, false]
     },
     "AppAutoUpdate": {
       "type": "boolean",
       "x-category": "Device update settings",
-      "x-preferences-affected": ["app.update.auto"],
       "description": "Enable or disable **automatic** application update.",
       "examples": [true, false]
     },
@@ -320,23 +318,12 @@
     "AppUpdateURL": {
       "type": "URL",
       "x-category": "Device update settings",
-      "x-preferences-affected": ["app.update.url"],
       "description": "Change the URL for application update if you are providing Firefox updates from a custom update server.",
       "examples": ["https://yoursite.com"]
     },
     "Authentication": {
       "type": "object",
       "x-category": "Authentication",
-      "x-preferences-affected": [
-        "network.negotiate-auth.trusted-uris",
-        "network.negotiate-auth.delegation-uris",
-        "network.automatic-ntlm-auth.trusted-uris",
-        "network.automatic-ntlm-auth.allow-non-fqdn",
-        "network.negotiate-auth.allow-non-fqdn",
-        "network.automatic-ntlm-auth.allow-proxies",
-        "network.negotiate-auth.allow-proxies",
-        "network.auth.private-browsing-sso"
-      ],
       "description": "Configure sites that support integrated authentication.",
       "examples": [
         {
@@ -407,14 +394,12 @@
     "AutofillAddressEnabled": {
       "type": "boolean",
       "x-category": "Password manager",
-      "x-preferences-affected": ["extensions.formautofill.addresses.enabled"],
       "description": "Enables or disables autofill for addresses.",
       "examples": [true, false]
     },
     "AutofillCreditCardEnabled": {
       "type": "boolean",
       "x-category": "Password manager",
-      "x-preferences-affected": ["extensions.formautofill.creditCards.enabled"],
       "description": "Enables or disables autofill for payment methods.",
       "examples": [true, false]
     },
@@ -449,7 +434,6 @@
     "BackgroundAppUpdate": {
       "type": "boolean",
       "x-category": "Device update settings",
-      "x-preferences-affected": ["app.update.background.enabled"],
       "description": "Enable or disable automatic application update in the background, when the application is not running.",
       "examples": [true, false]
     },
@@ -564,7 +548,6 @@
     "CaptivePortal": {
       "type": "boolean",
       "x-category": "Network security",
-      "x-preferences-affected": ["network.captive-portal-service.enabled"],
       "description": "Enable or disable the detection of captive portals.",
       "examples": [true, false]
     },
@@ -654,28 +637,6 @@
     "ContentAnalysis": {
       "type": "object",
       "x-category": "Cloud reporting",
-      "x-preferences-affected": [
-        "browser.contentanalysis.agent_name",
-        "browser.contentanalysis.agent_timeout",
-        "browser.contentanalysis.allow_url_regex_list",
-        "browser.contentanalysis.bypass_for_same_tab_operations",
-        "browser.contentanalysis.client_signature",
-        "browser.contentanalysis.default_result",
-        "browser.contentanalysis.deny_url_regex_list",
-        "browser.contentanalysis.enabled",
-        "browser.contentanalysis.interception_point.clipboard.enabled",
-        "browser.contentanalysis.interception_point.clipboard.plain_text_only",
-        "browser.contentanalysis.interception_point.download.enabled",
-        "browser.contentanalysis.interception_point.drag_and_drop.enabled",
-        "browser.contentanalysis.interception_point.drag_and_drop.plain_text_only",
-        "browser.contentanalysis.interception_point.file_upload.enabled",
-        "browser.contentanalysis.interception_point.print.enabled",
-        "browser.contentanalysis.is_per_user",
-        "browser.contentanalysis.max_connections",
-        "browser.contentanalysis.pipe_path_name",
-        "browser.contentanalysis.show_blocked_result",
-        "browser.contentanalysis.timeout_result"
-      ],
       "description": "Configure Firefox to use an agent for Data Loss Prevention (DLP) that is compatible with the Google Chrome Content Analysis Connector Agent SDK.",
       "examples": [
         {
@@ -809,11 +770,6 @@
     "Cookies": {
       "type": "object",
       "x-category": "Network security",
-      "x-preferences-affected": [
-        "network.cookie.cookieBehavior",
-        "network.cookie.cookieBehavior.pbmode",
-        "network.cookie.lifetimePolicy"
-      ],
       "description": "Configure cookie preferences.",
       "examples": [
         {
@@ -900,21 +856,11 @@
         "ForceAutoSubmit": {
           "type": "boolean"
         }
-      },
-      "x-preferences-affected": [
-        "browser.crashReports.unsubmittedCheck.enabled",
-        "browser.crashReports.unsubmittedCheck.autoSubmit2",
-        "browser.tabs.crashReporting.includeURL",
-        "browser.tabs.crashReporting.sendReport"
-      ]
+      }
     },
     "DefaultDownloadDirectory": {
       "type": "string",
       "x-category": "Downloads",
-      "x-preferences-affected": [
-        "browser.download.dir",
-        "browser.download.folderList"
-      ],
       "description": "Set the default download directory.",
       "examples": ["${home}/Downloads"]
     },
@@ -939,28 +885,6 @@
     "DisabledCiphers": {
       "type": "object",
       "x-category": "Network security",
-      "x-preferences-affected": [
-        "security.ssl3.ecdhe_rsa_aes_128_gcm_sha256",
-        "security.ssl3.ecdhe_ecdsa_aes_128_gcm_sha256",
-        "security.ssl3.ecdhe_ecdsa_chacha20_poly1305_sha256",
-        "security.ssl3.ecdhe_rsa_chacha20_poly1305_sha256",
-        "security.ssl3.ecdhe_ecdsa_aes_256_gcm_sha384",
-        "security.ssl3.ecdhe_rsa_aes_256_gcm_sha384",
-        "security.ssl3.ecdhe_rsa_aes_128_sha",
-        "security.ssl3.ecdhe_ecdsa_aes_128_sha",
-        "security.ssl3.ecdhe_rsa_aes_256_sha",
-        "security.ssl3.ecdhe_ecdsa_aes_256_sha",
-        "security.ssl3.dhe_rsa_aes_128_sha",
-        "security.ssl3.dhe_rsa_aes_256_sha",
-        "security.ssl3.rsa_aes_128_gcm_sha256",
-        "security.ssl3.rsa_aes_256_gcm_sha384",
-        "security.ssl3.rsa_aes_128_sha",
-        "security.ssl3.rsa_aes_256_sha",
-        "security.ssl3.deprecated.rsa_des_ede3_sha",
-        "security.tls13.chacha20_poly1305_sha256",
-        "security.tls13.aes_128_gcm_sha256",
-        "security.tls13.aes_256_gcm_sha384"
-      ],
       "description": "Disable specific cryptographic ciphers, listed below.",
       "examples": [
         {
@@ -1042,17 +966,12 @@
     "DisableDeveloperTools": {
       "type": "boolean",
       "x-category": "Security",
-      "x-preferences-affected": ["devtools.policy.disabled"],
       "description": "Remove access to all developer tools.",
       "examples": [true, false]
     },
     "DisableEncryptedClientHello": {
       "type": "boolean",
       "x-category": "Network security",
-      "x-preferences-affected": [
-        "network.dns.echconfig.enabled",
-        "network.dns.http3_echconfig.enabled"
-      ],
       "description": "Disable the TLS Feature for Encrypted Client Hello.",
       "examples": [true, false]
     },
@@ -1065,24 +984,18 @@
     "DisableFirefoxAccounts": {
       "type": "boolean",
       "x-category": "Miscellaneous",
-      "x-preferences-affected": ["identity.fxaccounts.enabled"],
       "description": "Disable Firefox Accounts integration (Sync).",
       "examples": [true, false]
     },
     "DisableFirefoxScreenshots": {
       "type": "boolean",
       "x-category": "Miscellaneous",
-      "x-preferences-affected": ["extensions.screenshots.disabled"],
       "description": "Remove access to Firefox Screenshots.",
       "examples": [true, false]
     },
     "DisableFirefoxStudies": {
       "type": "boolean",
       "x-category": "Miscellaneous",
-      "x-preferences-affected": [
-        "browser.newtabpage.activity-stream.asrouter.userprefs.cfr.addons",
-        "browser.newtabpage.activity-stream.asrouter.userprefs.cfr.features"
-      ],
       "description": "Disable Firefox studies (Shield).",
       "examples": [true, false]
     },
@@ -1095,7 +1008,6 @@
     "DisableFormHistory": {
       "type": "boolean",
       "x-category": "Local data storage",
-      "x-preferences-affected": ["browser.formfill.enable"],
       "description": "Turn off saving information on web forms and the search bar.",
       "examples": [true, false]
     },
@@ -1115,8 +1027,7 @@
       "type": "boolean",
       "x-category": "Miscellaneous",
       "description": "Remove Pocket in the Firefox UI.",
-      "examples": [true, false],
-      "x-preferences-affected": ["extensions.pocket.enabled"]
+      "examples": [true, false]
     },
     "DisablePrivateBrowsing": {
       "type": "boolean",
@@ -1133,7 +1044,6 @@
     "DisableProfileRefresh": {
       "type": "boolean",
       "x-category": "Miscellaneous",
-      "x-preferences-affected": ["browser.disableResetPrompt"],
       "description": "Disable the Refresh Firefox button on 'about:support' and 'support.mozilla.org', as well as the prompt that displays offering to refresh Firefox when you haven't used it in a while.",
       "examples": [true, false]
     },
@@ -1152,10 +1062,6 @@
     "DisableSecurityBypass": {
       "type": "object",
       "x-category": "Certificate management",
-      "x-preferences-affected": [
-        "security.certerror.hideAddException",
-        "browser.safebrowsing.allowOverride"
-      ],
       "description": "Prevent the user from bypassing security in certain cases.",
       "examples": [
         {
@@ -1187,12 +1093,6 @@
     "DisableTelemetry": {
       "type": "boolean",
       "x-category": "Miscellaneous",
-      "x-preferences-affected": [
-        "datareporting.healthreport.uploadEnabled",
-        "datareporting.policy.dataSubmissionEnabled",
-        "toolkit.telemetry.archive.enabled",
-        "datareporting.usage.uploadEnabled"
-      ],
       "description": "Prevent the upload of telemetry data.",
       "examples": [true, false]
     },
@@ -1219,7 +1119,6 @@
     "DNSOverHTTPS": {
       "type": "object",
       "x-category": "Network security",
-      "x-preferences-affected": ["network.trr.mode", "network.trr.uri"],
       "description": "Configure DNS over HTTPS (DoH).",
       "examples": [
         {
@@ -1254,18 +1153,12 @@
     "DontCheckDefaultBrowser": {
       "type": "boolean",
       "x-category": "Startup",
-      "x-preferences-affected": ["browser.shell.checkDefaultBrowser"],
       "description": "Don't check if Firefox is the default browser at startup.",
       "examples": [true, false]
     },
     "DownloadDirectory": {
       "type": "string",
       "x-category": "Downloads",
-      "x-preferences-affected": [
-        "browser.download.dir",
-        "browser.download.folderList",
-        "browser.download.useDownloadDir"
-      ],
       "description": "Set and lock the download directory.",
       "examples": []
     },
@@ -1291,17 +1184,6 @@
     "EnableTrackingProtection": {
       "type": "object",
       "x-category": "Network security",
-      "x-preferences-affected": [
-        "privacy.trackingprotection.enabled",
-        "privacy.trackingprotection.pbmode.enabled",
-        "privacy.trackingprotection.cryptomining.enabled",
-        "privacy.trackingprotection.fingerprinting.enabled",
-        "privacy.fingerprintingProtection",
-        "privacy.trackingprotection.emailtracking.enabled",
-        "privacy.trackingprotection.emailtracking.pbmode.enabled",
-        "privacy.trackingprotection.allow_list.baseline.enabled",
-        "privacy.trackingprotection.allow_list.convenience.enabled"
-      ],
       "description": "Configure tracking protection.",
       "examples": [
         {
@@ -1358,7 +1240,6 @@
     "EncryptedMediaExtensions": {
       "type": "object",
       "x-category": "Content settings",
-      "x-preferences-affected": ["media.eme.enabled"],
       "description": "Enable or disable Encrypted Media Extensions and optionally lock it.",
       "examples": [
         {
@@ -1549,22 +1430,12 @@
     "ExtensionUpdate": {
       "type": "boolean",
       "x-category": "Extensions",
-      "x-preferences-affected": ["extensions.update.enabled"],
       "description": "Control extension updates.",
       "examples": [true, false]
     },
     "FirefoxHome": {
       "type": "object",
       "x-category": "Startup",
-      "x-preferences-affected": [
-        "browser.newtabpage.activity-stream.showSearch",
-        "browser.newtabpage.activity-stream.feeds.topsites",
-        "browser.newtabpage.activity-stream.feeds.section.highlights",
-        "browser.newtabpage.activity-stream.feeds.section.topstories",
-        "browser.newtabpage.activity-stream.feeds.snippets",
-        "browser.newtabpage.activity-stream.showSponsoredTopSites",
-        "browser.newtabpage.activity-stream.showSponsored"
-      ],
       "description": "Customize the Firefox Home page.",
       "examples": [
         {
@@ -1616,11 +1487,6 @@
     "FirefoxSuggest": {
       "type": "object",
       "x-category": "Search",
-      "x-preferences-affected": [
-        "browser.urlbar.suggest.quicksuggest.all",
-        "browser.urlbar.suggest.quicksuggest.sponsored",
-        "browser.urlbar.quicksuggest.dataCollection.enabled"
-      ],
       "description": "Customize Firefox Suggest (US only).",
       "examples": [
         {
@@ -1651,12 +1517,6 @@
     "GenerativeAI": {
       "type": "object",
       "x-category": "Miscellaneous",
-      "x-preferences-affected": [
-        "browser.ml.chat.enabled",
-        "browser.ml.chat.page",
-        "browser.ml.linkPreview.optin",
-        "browser.tabs.groups.smart.userEnabled"
-      ],
       "description": "Configure generative AI features.",
       "examples": [
         {
@@ -1691,7 +1551,6 @@
     "GoToIntranetSiteForSingleWordEntryInAddressBar": {
       "type": "boolean",
       "x-category": "Network security",
-      "x-preferences-affected": ["browser.fixup.dns_first_for_single_words"],
       "description": "Whether to always go through the DNS server before sending a single word search string to a search engine.",
       "examples": [true, false]
     },
@@ -1773,17 +1632,12 @@
     "HardwareAcceleration": {
       "type": "boolean",
       "x-category": "Miscellaneous",
-      "x-preferences-affected": ["layers.acceleration.disabled"],
       "description": "Control hardware acceleration.",
       "examples": [true, false]
     },
     "Homepage": {
       "type": "object",
       "x-category": "Startup",
-      "x-preferences-affected": [
-        "browser.startup.homepage",
-        "browser.startup.page"
-      ],
       "description": "Configure the default homepage and how Firefox starts.",
       "examples": [
         {
@@ -1826,7 +1680,6 @@
     "HttpsOnlyMode": {
       "type": "string",
       "x-category": "Network security",
-      "x-preferences-affected": ["dom.security.https_only_mode"],
       "description": "Configure HTTPS-Only Mode.",
       "examples": ["allowed"],
       "enum": ["allowed", "disallowed", "enabled", "force_enabled"]
@@ -1834,11 +1687,6 @@
     "InstallAddonsPermission": {
       "type": "object",
       "x-category": "Extensions",
-      "x-preferences-affected": [
-        "xpinstall.enabled",
-        "browser.newtabpage.activity-stream.asrouter.userprefs.cfr.addons",
-        "browser.newtabpage.activity-stream.asrouter.userprefs.cfr.features"
-      ],
       "description": "Configure the default extension install policy as well as origins for extension installs are allowed.",
       "examples": [
         {
@@ -1868,16 +1716,12 @@
     "LegacySameSiteCookieBehaviorEnabled": {
       "type": "boolean",
       "x-category": "Network security",
-      "x-preferences-affected": ["network.cookie.sameSite.laxByDefault"],
       "description": "Enable default legacy SameSite cookie behavior setting.",
       "examples": [true, false]
     },
     "LegacySameSiteCookieBehaviorEnabledForDomainList": {
       "type": "array",
       "x-category": "Network security",
-      "x-preferences-affected": [
-        "network.cookie.sameSite.laxByDefault.disabledHosts"
-      ],
       "description": "Revert to legacy SameSite behavior for cookies on specified sites.",
       "examples": [["example.org", "example.edu"]],
       "items": {
@@ -1887,7 +1731,6 @@
     "LocalFileLinks": {
       "type": "array",
       "x-category": "Network security",
-      "x-preferences-affected": ["capability.policy.localfilelinks.*"],
       "description": "Enable linking to local files by origin.",
       "examples": [["http://example.org/", "http://example.edu/"]],
       "items": {
@@ -1897,12 +1740,6 @@
     "LocalNetworkAccess": {
       "type": "object",
       "x-category": "Network security",
-      "x-preferences-affected": [
-        "network.lna.enabled",
-        "network.lna.block_trackers",
-        "network.lna.blocking",
-        "network.lna.skip-domains"
-      ],
       "description": "Configure local network access security features.",
       "examples": [
         {
@@ -2009,24 +1846,18 @@
     "MicrosoftEntraSSO": {
       "type": "boolean",
       "x-category": "Authentication",
-      "x-preferences-affected": ["network.http.microsoft-entra-sso.enabled"],
       "description": "Allow single sign-on for Microsoft Entra accounts on macOS.",
       "examples": [true, false]
     },
     "NetworkPrediction": {
       "type": "boolean",
       "x-category": "Network security",
-      "x-preferences-affected": [
-        "network.dns.disablePrefetch",
-        "network.dns.disablePrefetchFromHTTPS"
-      ],
       "description": "Enable or disable network prediction (DNS prefetching).",
       "examples": [true, false]
     },
     "NewTabPage": {
       "type": "boolean",
       "x-category": "Startup",
-      "x-preferences-affected": ["browser.newtabpage.enabled"],
       "description": "Enable or disable the New Tab page.",
       "examples": [true, false]
     },
@@ -2039,38 +1870,30 @@
     "OfferToSaveLogins": {
       "type": "boolean",
       "x-category": "Password manager",
-      "x-preferences-affected": ["signon.rememberSignons"],
       "description": "Control whether or not Firefox offers to save passwords.",
       "examples": [true, false]
     },
     "OfferToSaveLoginsDefault": {
       "type": "boolean",
       "x-category": "Password manager",
-      "x-preferences-affected": ["signon.rememberSignons"],
       "description": "Sets the default value of 'signon.rememberSignons' without locking it.",
       "examples": [true, false]
     },
     "OverrideFirstRunPage": {
       "type": "string",
       "x-category": "Startup",
-      "x-preferences-affected": ["startup.homepage_welcome_url"],
       "description": "Override the first run page.",
       "examples": ["https://example.org"]
     },
     "OverridePostUpdatePage": {
       "type": "URLorEmpty",
       "x-category": "Startup",
-      "x-preferences-affected": ["startup.homepage_override_url"],
       "description": "Override the upgrade page.",
       "examples": ["http://example.org"]
     },
     "PasswordManagerEnabled": {
       "type": "boolean",
       "x-category": "Password manager",
-      "x-preferences-affected": [
-        "pref.privacy.disable_button.view_passwords",
-        "signon.rememberSignons"
-      ],
       "description": "Remove access to the password manager via preferences and blocks about:logins on Firefox 70.",
       "examples": [true, false]
     },
@@ -2087,7 +1910,6 @@
     "PDFjs": {
       "type": "object",
       "x-category": "Printing",
-      "x-preferences-affected": ["pdfjs.disabled", "pdfjs.enablePermissions"],
       "description": "Disable or configure PDF.js, the built-in PDF viewer.",
       "examples": [
         {
@@ -2107,15 +1929,6 @@
     "Permissions": {
       "type": "object",
       "x-category": "Content settings",
-      "x-preferences-affected": [
-        "permissions.default.camera",
-        "permissions.default.microphone",
-        "permissions.default.geo",
-        "permissions.default.desktop-notification",
-        "media.autoplay.default",
-        "permissions.default.xr",
-        "permissions.default.screen"
-      ],
       "description": "Set permissions associated with camera, microphone, location, notifications, autoplay, and virtual reality.",
       "examples": [
         {
@@ -2345,9 +2158,6 @@
     "PictureInPicture": {
       "type": "object",
       "x-category": "Content settings",
-      "x-preferences-affected": [
-        "media.videocontrols.picture-in-picture.video-toggle.enabled"
-      ],
       "description": "Enable or disable Picture-in-Picture as well as prevent the user from enabling or disabling it (Locked).",
       "examples": [
         {
@@ -2367,7 +2177,6 @@
     "PopupBlocking": {
       "type": "object",
       "x-category": "Content settings",
-      "x-preferences-affected": ["dom.disable_open_during_load"],
       "description": "Allow certain websites to display popups and be redirected by third-party frames.",
       "examples": [
         {
@@ -2395,10 +2204,6 @@
     "PostQuantumKeyAgreementEnabled": {
       "type": "boolean",
       "x-category": "Network security",
-      "x-preferences-affected": [
-        "security.tls.enable_kyber",
-        "network.http.http3.enable_kyber"
-      ],
       "description": "Enable post-quantum key agreement for TLS.",
       "examples": [true, false]
     },
@@ -2451,7 +2256,6 @@
     "PrintingEnabled": {
       "type": "boolean",
       "x-category": "Printing",
-      "x-preferences-affected": ["print.enabled"],
       "description": "Enable or disable printing.",
       "examples": [true, false]
     },
@@ -2480,30 +2284,12 @@
     "PromptForDownloadLocation": {
       "type": "boolean",
       "x-category": "Downloads",
-      "x-preferences-affected": ["browser.download.useDownloadDir"],
       "description": "Ask where to save each file before downloading.",
       "examples": [true, false]
     },
     "Proxy": {
       "type": "object",
       "x-category": "Network security",
-      "x-preferences-affected": [
-        "network.proxy.type",
-        "network.proxy.autoconfig_url",
-        "network.proxy.socks_remote_dns",
-        "signon.autologin.proxy",
-        "network.proxy.socks_version",
-        "network.proxy.no_proxies_on",
-        "network.proxy.share_proxy_settings",
-        "network.proxy.http",
-        "network.proxy.http_port",
-        "network.proxy.ftp",
-        "network.proxy.ftp_port",
-        "network.proxy.ssl",
-        "network.proxy.ssl_port",
-        "network.proxy.socks",
-        "network.proxy.socks_port"
-      ],
       "description": "Configure proxy settings.",
       "examples": [
         {
@@ -2645,23 +2431,7 @@
         "Locked": {
           "type": "boolean"
         }
-      },
-      "x-preferences-affected": [
-        "privacy.sanitize.sanitizeOnShutdown",
-        "privacy.clearOnShutdown.cache",
-        "privacy.clearOnShutdown.cookies",
-        "privacy.clearOnShutdown.downloads",
-        "privacy.clearOnShutdown.formdata",
-        "privacy.clearOnShutdown.history",
-        "privacy.clearOnShutdown.sessions",
-        "privacy.clearOnShutdown.siteSettings",
-        "privacy.clearOnShutdown.offlineApps",
-        "privacy.clearOnShutdown_v2.historyFormDataAndDownloads",
-        "privacy.clearOnShutdown_v2.cookiesAndStorage",
-        "privacy.clearOnShutdown_v2.cache",
-        "privacy.clearOnShutdown_v2.siteSettings",
-        "privacy.clearOnShutdown_v2.formdata"
-      ]
+      }
     },
     "SearchBar": {
       "type": "string",
@@ -2792,10 +2562,6 @@
     "SearchSuggestEnabled": {
       "type": "boolean",
       "x-category": "Search",
-      "x-preferences-affected": [
-        "browser.urlbar.suggest.searches",
-        "browser.search.suggest.enabled"
-      ],
       "description": "Enable search suggestions.",
       "examples": [true, false]
     },
@@ -2897,7 +2663,6 @@
     "SSLVersionMax": {
       "type": "string",
       "x-category": "Network security",
-      "x-preferences-affected": ["security.tls.version.max"],
       "description": "Set and lock the maximum version of TLS.",
       "examples": ["tls1.3"],
       "enum": ["tls1", "tls1.1", "tls1.2", "tls1.3"]
@@ -2905,7 +2670,6 @@
     "SSLVersionMin": {
       "type": "string",
       "x-category": "Network security",
-      "x-preferences-affected": ["security.tls.version.min"],
       "description": "Set and lock the minimum version of TLS.",
       "examples": ["tls1.2"],
       "enum": ["tls1", "tls1.1", "tls1.2", "tls1.3"]
@@ -2913,7 +2677,6 @@
     "StartDownloadsInTempDirectory": {
       "type": "boolean",
       "x-category": "Downloads",
-      "x-preferences-affected": ["browser.download.start_downloads_in_tmp_dir"],
       "description": "Force downloads to start off in a local, temporary location rather than the default download directory.",
       "examples": [true, false]
     },
@@ -2997,20 +2760,12 @@
     "TranslateEnabled": {
       "type": "boolean",
       "x-category": "Content settings",
-      "x-preferences-affected": ["browser.translations.enable"],
       "description": "Enable or disable webpage translation.",
       "examples": [true, false]
     },
     "UserMessaging": {
       "type": "object",
       "x-category": "Miscellaneous",
-      "x-preferences-affected": [
-        "browser.newtabpage.activity-stream.asrouter.userprefs.cfr.addons",
-        "browser.newtabpage.activity-stream.asrouter.userprefs.cfr.features",
-        "browser.aboutwelcome.enabled",
-        "browser.preferences.moreFromMozilla",
-        "browser.preferences.experimental"
-      ],
       "description": "Prevent Firefox from messaging the user in certain situations.",
       "examples": [
         {
@@ -3053,14 +2808,12 @@
     "UseSystemPrintDialog": {
       "type": "boolean",
       "x-category": "Printing",
-      "x-preferences-affected": ["print.prefer_system_dialog"],
       "description": "Use the system print dialog instead of the print preview window.",
       "examples": [true, false]
     },
     "VisualSearchEnabled": {
       "type": "boolean",
       "x-category": "Search",
-      "x-preferences-affected": ["browser.search.visualSearch.featureGate"],
       "description": "Enable or disable visual search.",
       "examples": [true, false]
     },
@@ -3092,7 +2845,6 @@
     "WindowsSSO": {
       "type": "boolean",
       "x-category": "Authentication",
-      "x-preferences-affected": ["network.http.windows-sso.enabled"],
       "description": "Allow Windows single sign-on for Microsoft, work, and school accounts.",
       "examples": [true, false]
     }
