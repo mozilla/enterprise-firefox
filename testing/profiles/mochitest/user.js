@@ -36,3 +36,7 @@ user_pref("places.history.floodingPrevention.enabled", false);
 // permission, and we can open it and wait for the user to give permission, then
 // don't do that.
 user_pref("geo.prompt.open_system_prefs", false);
+
+// Set a dummy push server URL for mochitest runs. In enterprise builds the
+// default is an empty string, but push tests need a non-empty value.
+user_pref("dom.push.serverURL", "wss://push.services.mozilla.com/");
