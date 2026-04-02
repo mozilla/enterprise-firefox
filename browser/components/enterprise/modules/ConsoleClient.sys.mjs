@@ -123,9 +123,6 @@ export const ConsoleClient = {
       DEVICE_POSTURE: "/sso/device_posture",
       WHOAMI: "/api/browser/whoami",
       FXACCOUNT: "/api/browser/account",
-      FXACCOUNTS_OAUTH: "/api/fxa/oauth/v1",
-      FXACCOUNTS_PROFILE: "/api/fxa/profile/v1",
-      FXACCOUNTS_AUTH: "/api/fxa/api/v1",
     };
   },
 
