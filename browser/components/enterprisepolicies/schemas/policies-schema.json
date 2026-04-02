@@ -426,9 +426,9 @@
           },
           "protocol": {
             "type": "string"
-          },
-          "required": ["allowed_origins", "protocol"]
-        }
+          }
+        },
+        "required": ["allowed_origins", "protocol"]
       }
     },
     "BackgroundAppUpdate": {
@@ -1123,7 +1123,7 @@
       "examples": [
         {
           "Enabled": true,
-          "ProviderURL": "URL_TO_ALTERNATE_PROVIDER",
+          "ProviderURL": "https://dns.example.com/dns-query",
           "Locked": true,
           "ExcludedDomains": ["example.com"],
           "Fallback": true
@@ -2584,11 +2584,12 @@
           }
         },
         {
-          "Remove": ["A Device"]
-        }
+          "Delete": ["A Device"]
+        },
+        { "A Device": "/path/to/lib", "Another Device": "/path/to/another/lib" }
       ],
       "patternProperties": {
-        "^.*$": {
+        "^(?!Add$|Delete$)": {
           "type": "string"
         }
       },
