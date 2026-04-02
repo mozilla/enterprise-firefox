@@ -198,6 +198,7 @@ export const EnterpriseHandler = {
    * If the signed-in user information is available:
    * - Uses the user's picture url (provided by the IdP) when available.
    * - Falls back to displaying user initials when no picture url is provided.
+   * - Finally falls back to generic avatar icon if neither picture nor name available.
    *
    * Hides the user icon if no user information is currently available.
    *
@@ -221,14 +222,11 @@ export const EnterpriseHandler = {
       const userIcon = window.document.querySelector(
         "#enterprise-user-icon__picture"
       );
-      userIcon.style.setProperty(
-        "list-style-image",
-        `url("${this._signedInUser.pictureUrl}")`
-      );
+      userIcon.style.setProperty("list-style-image", `url("${pictureUrl}")`);
       wrapper.dataset.userIconType = "picture";
     } else if (name) {
       // Fallback to user initials
-      const initials = name.trim().charAt(0).toUpperCase();
+      const initials = name.trim().charAt(0).toLocaleUpperCase();
       const initialsDiv = window.document.getElementById(
         "enterprise-user-icon__initials"
       );
