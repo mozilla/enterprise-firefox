@@ -217,7 +217,7 @@ moz-input-text::part(label) {
   font-size: small;
 }
 
-.felt-firefox-version {
+.felt-version {
   position: absolute;
   /* stylelint-disable-next-line */
   right: 8px;

@@ -495,7 +495,7 @@ function focusEmailOnLoginVisible() {
  * Sets the displayed Firefox build version and date
  */
 function setBuildVersion() {
-  const versionElement = document.querySelector(".felt-firefox-version");
+  const versionElement = document.querySelector(".felt-version");
   const version = lazy.AppConstants.MOZ_APP_VERSION_DISPLAY;
 
   if (lazy.AppConstants.NIGHTLY_BUILD) {
