@@ -19,9 +19,14 @@ felt-powered-by =
 
 # Example of resulting string: 151.0a1 (2026-04-01)
 # Variables:
-#   $version (String): version of Firefox for Nightly builds, e.g. 66.0a1
-#   $isodate (String): date in ISO format, e.g. 2019-01-16
-felt-firefox-version = { $version } ({ $isodate })
+#   $version (String): version of Firefox for Nightly builds, e.g. 151.0a1
+#   $isodate (String): date in ISO format, e.g. 2026-04-01
+felt-version-nightly = { $version } ({ $isodate })
+
+# Example of resulting string: 151.0b1 (e.g. for beta builds) or 151.0. (e.g. for release build)
+# Variables:
+#   $version (String): version of Firefox for beta and release builds
+felt-version = { $version }
 
 ## Error details when launching the browser crashes
 

@@ -495,17 +495,21 @@ function focusEmailOnLoginVisible() {
  * Sets the displayed Firefox build version and date
  */
 function setBuildVersion() {
+  const versionElement = document.querySelector(".felt-firefox-version");
   const version = lazy.AppConstants.MOZ_APP_VERSION_DISPLAY;
 
-  const buildID = Services.appinfo.appBuildID;
-  const year = buildID.slice(0, 4);
-  const month = buildID.slice(4, 6);
-  const day = buildID.slice(6, 8);
-  const isodate = `${year}-${month}-${day}`;
-
-  const versionElement = document.querySelector(".felt-firefox-version");
-
-  document.l10n.setArgs(versionElement, { version, isodate });
+  if (lazy.AppConstants.NIGHTLY_BUILD) {
+    const buildID = Services.appinfo.appBuildID;
+    const year = buildID.slice(0, 4);
+    const month = buildID.slice(4, 6);
+    const day = buildID.slice(6, 8);
+    const isodate = `${year}-${month}-${day}`;
+    versionElement.setAttribute("data-l10n-id", "felt-version-nightly");
+    document.l10n.setArgs(versionElement, { version, isodate });
+  } else {
+    versionElement.setAttribute("data-l10n-id", "felt-version");
+    document.l10n.setArgs(versionElement, { version });
+  }
 }
 
 window.addEventListener(
