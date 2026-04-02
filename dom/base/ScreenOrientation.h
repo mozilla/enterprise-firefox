@@ -40,7 +40,12 @@ class ScreenOrientation final : public DOMEventTargetHelper {
                                       bool aOldHasOrientationOverride,
                                       bool aOverrideIsDifferentThanDevice);
 
+ private:
   ScreenOrientation(nsPIDOMWindowInner* aWindow, nsScreen* aScreen);
+
+ public:
+  static already_AddRefed<ScreenOrientation> Create(nsPIDOMWindowInner* aWindow,
+                                                    nsScreen* aScreen);
 
   already_AddRefed<Promise> Lock(OrientationLockType aOrientation,
                                  ErrorResult& aRv);
@@ -114,8 +119,8 @@ class ScreenOrientation final : public DOMEventTargetHelper {
   RefPtr<nsScreen> mScreen;
   RefPtr<FullscreenEventListener> mFullscreenListener;
   RefPtr<VisibleEventListener> mVisibleListener;
-  OrientationType mType;
-  uint16_t mAngle;
+  OrientationType mType{};
+  uint16_t mAngle{};
   // Whether we've tried to call into hal to lock the device orientation. This
   // is needed because you don't want calling UnlockDeviceOrientation() during
   // shutdown to initialize PHal if it hasn't been initialized earlier. Also,

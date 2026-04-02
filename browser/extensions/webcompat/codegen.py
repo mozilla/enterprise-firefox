@@ -56,8 +56,10 @@ def generate_run_js(
                 interventions_json_path, interventions_dir
             )
 
+        input_files = list(FileFinder(interventions_dir).find("*.json"))
+
         interventions = {}
-        for name, json_fd in FileFinder(interventions_dir).find("*.json"):
+        for name, json_fd in input_files:
             bug_number = mozpath.splitext(mozpath.basename(name))[0].split("-")[0]
             interventions[bug_number] = json.load(json_fd)
 
@@ -73,6 +75,8 @@ def generate_run_js(
             f"AVAILABLE_INTERVENTIONS = {interventions_json}",
         )
         output_fd.write(subbed)
+
+        return set([mozpath.abspath(name) for name, _ in input_files])
 
 
 def main(*args):  # mach requires this

@@ -29,6 +29,17 @@ class VariantEntry(Schema, kw_only=True):
     replace: Optional[dict[str, object]] = None
     merge: Optional[dict[str, object]] = None
 
+    def __post_init__(self):
+        super().__post_init__()
+        if self.expiration != "never":
+            try:
+                datetime.datetime.strptime(self.expiration, "%Y-%m-%d")
+            except ValueError as e:
+                raise ValueError(
+                    f"Invalid expiration {self.expiration!r}, "
+                    "must be a date in YYYY-MM-DD format or 'never'"
+                ) from e
+
 
 @transforms.add
 def split_variants(config, tasks):

@@ -6,17 +6,13 @@ import { IPProtectionService } from "moz-src:///toolkit/components/ipprotection/
 import { IPPProxyManager } from "moz-src:///toolkit/components/ipprotection/IPPProxyManager.sys.mjs";
 import { IPPAutoRestoreHelper } from "moz-src:///toolkit/components/ipprotection/IPPAutoRestore.sys.mjs";
 import { IPPAutoStartHelpers } from "moz-src:///toolkit/components/ipprotection/IPPAutoStart.sys.mjs";
-import { IPPEnrollAndEntitleManager } from "moz-src:///toolkit/components/ipprotection/IPPEnrollAndEntitleManager.sys.mjs";
 import { IPPNimbusHelper } from "moz-src:///toolkit/components/ipprotection/IPPNimbusHelper.sys.mjs";
 import { IPProtectionServerlist } from "moz-src:///toolkit/components/ipprotection/IPProtectionServerlist.sys.mjs";
-import { IPPSignInWatcher } from "moz-src:///toolkit/components/ipprotection/IPPSignInWatcher.sys.mjs";
 import { IPPStartupCache } from "moz-src:///toolkit/components/ipprotection/IPPStartupCache.sys.mjs";
 
 const coreHelpers = [
   IPPStartupCache,
-  IPPSignInWatcher,
   IPProtectionServerlist,
-  IPPEnrollAndEntitleManager,
   IPPProxyManager,
   IPPAutoRestoreHelper,
   ...IPPAutoStartHelpers,
@@ -31,6 +27,9 @@ export const IPProtectionActivator = {
   },
   setupHelpers() {
     IPProtectionService.setHelpers([...coreHelpers, ...extraHelpers]);
+  },
+  setAuthProvider(authProvider) {
+    IPProtectionService.setAuthProvider(authProvider);
   },
   init() {
     this.setupHelpers();

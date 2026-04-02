@@ -121,6 +121,8 @@ namespace mozilla::dom {
  * Can return a geolocation info
  */
 class Geolocation final : public nsIGeolocationUpdate, public nsWrapperCache {
+  friend class ::nsGeolocationService;
+
  public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_WRAPPERCACHE_CLASS(Geolocation)
@@ -228,6 +230,9 @@ class Geolocation final : public nsIGeolocationUpdate, public nsWrapperCache {
 
   // Initates the asynchronous process of filling the request.
   static void RequestIfPermitted(nsGeolocationRequest* request);
+
+  // Allow updating service for shutdown deregistering
+  void SetService(nsGeolocationService* aService) { mService = aService; }
 
   // Two callback arrays.  The first |mPendingCallbacks| holds objects for only
   // one callback and then they are released/removed from the array.  The second

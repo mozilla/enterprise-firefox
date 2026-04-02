@@ -56,7 +56,10 @@ class ViewTimeline final : public ScrollTimeline {
   std::pair<double, double> IntervalForAttachmentRange(
       const AnimationRange& aStyleRange) const override;
 
-  const Element* TimelineTargetElement() const override { return mSubject; }
+  NonOwningAnimationTarget TimelineTarget() const override {
+    return NonOwningAnimationTarget{mSubject,
+                                    PseudoStyleRequest{mSubjectPseudoType}};
+  }
 
  private:
   ~ViewTimeline() = default;

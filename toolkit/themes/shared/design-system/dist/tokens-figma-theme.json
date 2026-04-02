@@ -620,8 +620,8 @@
     "forcedColors": "{Theme$background/color/canvas}"
   },
   "badge/text/color": {
-    "light": "{Theme$text/color}",
-    "dark": "{Theme$text/color}",
+    "light": "{Theme$text/color/deemphasized}",
+    "dark": "{Theme$text/color/deemphasized}",
     "forcedColors": "{HCM Theme$CanvasText}"
   },
   "badge/text/color/filled": {

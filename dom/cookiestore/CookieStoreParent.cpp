@@ -82,20 +82,24 @@ mozilla::ipc::IPCResult CookieStoreParent::RecvGetRequest(
     const bool& aOnlyFirstMatch, GetRequestResolver&& aResolver) {
   AssertIsOnBackgroundThread();
 
-  InvokeAsync(GetMainThreadSerialEventTarget(), __func__,
-              [self = RefPtr(this), uri = aCookieURI.get(), aOriginAttributes,
-               aPartitionedOriginAttributes, aThirdPartyContext,
-               aPartitionForeign, aUsingStorageAccess, aIsOn3PCBExceptionList,
-               aMatchName, aName, aPath, aOnlyFirstMatch]() {
-                CopyableTArray<CookieStruct> results;
-                self->GetRequestOnMainThread(
-                    uri, aOriginAttributes, aPartitionedOriginAttributes,
-                    aThirdPartyContext, aPartitionForeign, aUsingStorageAccess,
-                    aIsOn3PCBExceptionList, aMatchName, aName, aPath,
-                    aOnlyFirstMatch, results);
-                return GetRequestPromise::CreateAndResolve(std::move(results),
-                                                           __func__);
-              })
+  RefPtr<ThreadsafeContentParentHandle> parent =
+      BackgroundParent::GetContentParentHandle(Manager());
+
+  InvokeAsync(
+      GetMainThreadSerialEventTarget(), __func__,
+      [self = RefPtr(this), parent = RefPtr(parent), uri = aCookieURI.get(),
+       aOriginAttributes, aPartitionedOriginAttributes, aThirdPartyContext,
+       aPartitionForeign, aUsingStorageAccess, aIsOn3PCBExceptionList,
+       aMatchName, aName, aPath, aOnlyFirstMatch]() {
+        CopyableTArray<CookieStruct> results;
+        self->GetRequestOnMainThread(
+            parent, uri, aOriginAttributes, aPartitionedOriginAttributes,
+            aThirdPartyContext, aPartitionForeign, aUsingStorageAccess,
+            aIsOn3PCBExceptionList, aMatchName, aName, aPath, aOnlyFirstMatch,
+            results);
+        return GetRequestPromise::CreateAndResolve(std::move(results),
+                                                   __func__);
+      })
       ->Then(GetCurrentSerialEventTarget(), __func__,
              [aResolver = std::move(aResolver)](
                  const GetRequestPromise::ResolveOrRejectValue& aResult) {
@@ -273,7 +277,8 @@ mozilla::ipc::IPCResult CookieStoreParent::RecvClose() {
 }
 
 void CookieStoreParent::GetRequestOnMainThread(
-    const RefPtr<nsIURI> aCookieURI, const OriginAttributes& aOriginAttributes,
+    ThreadsafeContentParentHandle* aParent, const RefPtr<nsIURI> aCookieURI,
+    const OriginAttributes& aOriginAttributes,
     const Maybe<OriginAttributes>& aPartitionedOriginAttributes,
     bool aThirdPartyContext, bool aPartitionForeign, bool aUsingStorageAccess,
     bool aIsOn3PCBExceptionList, bool aMatchName, const nsAString& aName,
@@ -294,6 +299,10 @@ void CookieStoreParent::GetRequestOnMainThread(
   bool requireMatch = false;
   rv = CookieCommons::GetBaseDomain(etld, aCookieURI, baseDomain, requireMatch);
   if (NS_FAILED(rv)) {
+    return;
+  }
+
+  if (!CheckContentProcessSecurity(aParent, baseDomain, aOriginAttributes)) {
     return;
   }
 

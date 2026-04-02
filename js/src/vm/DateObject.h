@@ -64,13 +64,6 @@ class DateObject : public NativeObject {
 
   js::DateTimeInfo* dateTimeInfo() const;
 
-  JS::ClippedTime clippedTime() const {
-    double t = getFixedSlot(UTC_TIME_SLOT).toDouble();
-    JS::ClippedTime clipped = JS::TimeClip(t);
-    MOZ_ASSERT(mozilla::NumbersAreIdentical(clipped.toDouble(), t));
-    return clipped;
-  }
-
   /**
    * Return the time in milliseconds since the epoch. The value is guaranteed to
    * be a Double.

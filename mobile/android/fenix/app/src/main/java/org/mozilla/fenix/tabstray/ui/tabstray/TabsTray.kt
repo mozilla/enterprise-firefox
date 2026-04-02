@@ -179,7 +179,7 @@ fun TabsTray(
         systemBarsInsets.calculateTopPadding().takeIf { it > 0.dp } ?: DefaultStatusBarHeight
     }
 
-    val topAppBarScrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
+    val topAppBarScrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     val isScrolled by remember(topAppBarScrollBehavior.state) {
         derivedStateOf {
             topAppBarScrollBehavior.state.collapsedFraction == 1f

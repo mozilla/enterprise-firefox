@@ -11,11 +11,13 @@
   --chip-text-color: var(--color-gray-100);
   --chip-text-color-deemphasized: color-mix(in srgb, var(--color-gray-100) 69%, transparent);
   --chip-text-color-empty: color-mix(in srgb, var(--color-gray-100) 60%, transparent);
+  --chip-label-mask-size: 1em;
 
-  --context-chip-hover-background-color: light-dark(var(--color-violet-0), var(--color-violet-110));
+  --context-chip-hover-background-color: light-dark(color-mix(in srgb, var(--color-violet-50) 15%, transparent), var(--color-violet-110));
   --context-chip-background-color: light-dark(var(--color-violet-0), var(--color-violet-80));
-  --context-chip-border-color: light-dark(transparent, var(--color-violet-80));
   --context-chip-label-color: light-dark(var(--color-violet-90), var(--color-violet-10));
+  --context-chip-border-color: light-dark(transparent, var(--color-violet-80));
+  --context-chip-hover-border-color: light-dark(color-mix(in srgb, var(--color-violet-20) 50%, transparent), var(--color-violet-80));
   --context-chip-remove-hover-background-color: light-dark(transparent, var(--color-violet-80));
 }
 
@@ -96,6 +98,11 @@ button.chip {
   border-color: var(--border-color);
   gap: var(--space-xsmall);
   padding: var(--space-xxsmall) var(--space-xsmall);
+
+  &:hover {
+    background-color: var(--chip-hover-background-color);
+    border-color: var(--chip-hover-border-color);
+  }
 }
 
 :host([type="in-line"]) .chip-icon {
@@ -132,6 +139,7 @@ button.chip {
 
   &:hover {
     --background-color-box: var(--context-chip-hover-background-color);
+    border-color: var(--context-chip-hover-border-color);
 
     &[data-removable] .chip-icon {
       display: none;
@@ -170,14 +178,10 @@ button.chip {
   color: var(--text-color);
   white-space: nowrap;
   font-size: var(--font-size-small);
+  mask-image: linear-gradient(to left, transparent, var(--color-black) var(--chip-label-mask-size));
 }
 
-/* Global hover and selected - must come after type-specific rules to override borders */
-.chip:hover {
-  background-color: var(--chip-hover-background-color);
-  border-color: var(--chip-hover-border-color);
-}
-
+/* Hover state for selected - must come after type-specific rules to override borders */
 :host([selected]) .chip:not(:hover) {
   background-color: var(--chip-selected-background-color);
   border-color: var(--chip-selected-border-color);

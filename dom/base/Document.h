@@ -5916,7 +5916,7 @@ class MOZ_RAII IgnoreOpensDuringUnload final {
   }
 
  private:
-  Document* mDoc;
+  RefPtr<Document> mDoc;
 };
 
 /**

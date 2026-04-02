@@ -894,8 +894,9 @@ nsresult WakeLockTopic::InhibitScreensaver() {
 nsresult WakeLockTopic::UninhibitScreensaver() {
   WAKE_LOCK_LOG("WakeLockTopic::UnInhibitScreensaver() state %s",
                 GetInhibitStateName(mState));
-  MOZ_DIAGNOSTIC_ASSERT(mWakeLockType != Unsupported,
-                        "Uh oh, how did we get here?");
+  if (mWakeLockType == Unsupported) {
+    return NS_ERROR_FAILURE;
+  }
   mStateQueue.push(Uninhibited);
   if (mState == WaitingToInhibit || mState == WaitingToUninhibit) {
     return NS_OK;

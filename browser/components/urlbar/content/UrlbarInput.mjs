@@ -142,8 +142,7 @@ export class UrlbarInput extends HTMLElement {
                        flex="1">
           <html:input id="urlbar-scheme"
                       required="required"/>
-          <html:input id="urlbar-input"
-                      class="urlbar-input textbox-input"
+          <html:input class="urlbar-input textbox-input"
                       aria-controls="urlbar-results"
                       role="combobox"
                       aria-autocomplete="both"
@@ -153,6 +152,7 @@ export class UrlbarInput extends HTMLElement {
         <moz-urlbar-slot name="revert-button"> </moz-urlbar-slot>
         <image class="urlbar-icon urlbar-go-button"
                role="button"
+               keyNav="false"
                data-l10n-id="urlbar-go-button"/>
         <moz-urlbar-slot name="page-actions" hidden=""> </moz-urlbar-slot>
       </hbox>
@@ -332,6 +332,9 @@ export class UrlbarInput extends HTMLElement {
     this.inputField = /** @type {HTMLInputElement} */ (
       this.querySelector(".urlbar-input")
     );
+    if (this.#isAddressbar) {
+      this.inputField.id = "urlbar-input";
+    }
     if (this.#sapName == "searchbar") {
       // This adds a native clear button.
       this.inputField.setAttribute("type", "search");

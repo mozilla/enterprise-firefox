@@ -38,7 +38,7 @@ public class AIFeaturesController {
 
     private static final String LIST_FEATURES_EVENT = "GeckoView:AIFeature:ListFeatures";
     private static final String SET_FEATURE_ENABLED_EVENT = "GeckoView:AIFeature:SetEnabled";
-    private static final String RESET_FEATURE_EVENT = "GeckoView:AIFeature:Reset";
+    private static final String MAKE_FEATURE_AVAILABLE_EVENT = "GeckoView:AIFeature:MakeAvailable";
 
     /**
      * Returns a map of all known AI features and basic information keyed by feature ID.
@@ -76,10 +76,10 @@ public class AIFeaturesController {
     }
 
     /**
-     * Enables or disables the given AI feature.
+     * Enables or blocks the given AI feature.
      *
      * @param featureId The identifier of the AI feature to configure.
-     * @param enabled True to enable the feature, false to disable it.
+     * @param enabled True to enable the feature, false to block it.
      * @return A GeckoResult that resolves on success or rejects with an error.
      */
     @HandlerThread
@@ -108,31 +108,31 @@ public class AIFeaturesController {
     }
 
     /**
-     * Resets the given AI feature to its default state.
+     * Makes the given AI feature available (resets to default state).
      *
-     * @param featureId the identifier of the AI feature to reset
+     * @param featureId the identifier of the AI feature to make available
      * @return a GeckoResult that resolves on success or rejects with an error
      */
     @HandlerThread
-    public static @NonNull GeckoResult<Void> resetFeature(@NonNull final String featureId) {
+    public static @NonNull GeckoResult<Void> makeFeatureAvailable(@NonNull final String featureId) {
       ThreadUtils.warnOnHandlerThread();
       if (DEBUG) {
-        Log.d(LOGTAG, "Resetting AI feature: " + featureId);
+        Log.d(LOGTAG, "Making AI feature available: " + featureId);
       }
       final GeckoBundle bundle = new GeckoBundle(1);
       bundle.putString("featureId", featureId);
 
       return EventDispatcher.getInstance()
-          .queryVoid(RESET_FEATURE_EVENT, bundle)
+          .queryVoid(MAKE_FEATURE_AVAILABLE_EVENT, bundle)
           .map(
               result -> result,
               exception -> {
                 final String exceptionData =
                     ((EventDispatcher.QueryException) exception).data.toString();
                 if (exceptionData.contains("Unknown AI feature")) {
-                  return new AIFeaturesException(AIFeaturesException.ERROR_UNKNOWN_FEATURE);
+                  throw new AIFeaturesException(AIFeaturesException.ERROR_UNKNOWN_FEATURE);
                 }
-                return new AIFeaturesException(AIFeaturesException.ERROR_COULD_NOT_RESET);
+                throw new AIFeaturesException(AIFeaturesException.ERROR_COULD_NOT_MAKE_AVAILABLE);
               });
     }
   }
@@ -300,11 +300,11 @@ public class AIFeaturesController {
     /** The requested AI feature ID is not recognized. */
     public static final int ERROR_UNKNOWN_FEATURE = -3;
 
-    /** Could not enable or disable the AI feature. */
+    /** Could not enable or block the AI feature. */
     public static final int ERROR_COULD_NOT_SET = -4;
 
-    /** Could not reset the AI feature. */
-    public static final int ERROR_COULD_NOT_RESET = -5;
+    /** Could not make the AI feature available. */
+    public static final int ERROR_COULD_NOT_MAKE_AVAILABLE = -5;
 
     /** AI features exception error codes. */
     @Retention(RetentionPolicy.SOURCE)
@@ -314,7 +314,7 @@ public class AIFeaturesController {
           ERROR_COULD_NOT_PARSE,
           ERROR_UNKNOWN_FEATURE,
           ERROR_COULD_NOT_SET,
-          ERROR_COULD_NOT_RESET,
+          ERROR_COULD_NOT_MAKE_AVAILABLE,
         })
     public @interface Code {}
 

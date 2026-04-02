@@ -1536,26 +1536,6 @@ bool LinearSum::multiply(int32_t scale) {
   return mozilla::SafeMul(scale, constant_, &constant_);
 }
 
-bool LinearSum::divide(uint32_t scale) {
-  MOZ_ASSERT(scale > 0);
-
-  for (size_t i = 0; i < terms_.length(); i++) {
-    if (terms_[i].scale % scale != 0) {
-      return false;
-    }
-  }
-  if (constant_ % scale != 0) {
-    return false;
-  }
-
-  for (size_t i = 0; i < terms_.length(); i++) {
-    terms_[i].scale /= scale;
-  }
-  constant_ /= scale;
-
-  return true;
-}
-
 bool LinearSum::add(const LinearSum& other, int32_t scale /* = 1 */) {
   for (size_t i = 0; i < other.terms_.length(); i++) {
     int32_t newScale = scale;
@@ -1571,19 +1551,6 @@ bool LinearSum::add(const LinearSum& other, int32_t scale /* = 1 */) {
     return false;
   }
   return add(newConstant);
-}
-
-bool LinearSum::add(SimpleLinearSum other, int32_t scale) {
-  if (other.term && !add(other.term, scale)) {
-    return false;
-  }
-
-  int32_t constant;
-  if (!mozilla::SafeMul(other.constant, scale, &constant)) {
-    return false;
-  }
-
-  return add(constant);
 }
 
 bool LinearSum::add(MDefinition* term, int32_t scale) {

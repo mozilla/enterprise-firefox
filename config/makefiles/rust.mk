@@ -139,7 +139,7 @@ ifdef DEVELOPER_OPTIONS
 rustflags_override += -Clto=off
 endif
 
-ifdef MOZ_USING_SCCACHE
+ifneq (,$(or $(MOZ_USING_SCCACHE),$(MOZ_USING_BUILDCACHE)))
 export RUSTC_WRAPPER=$(CCACHE)
 endif
 

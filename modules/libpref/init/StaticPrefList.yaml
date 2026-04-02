@@ -1599,15 +1599,6 @@
     FontAwesome
   mirror: never
 
-- name: browser.display.use_system_colors
-  type: RelaxedAtomicBool
-#ifdef XP_WIN
-  value: true
-#else
-  value: false
-#endif
-  mirror: always
-
 - name: browser.dom.window.dump.enabled
   type: RelaxedAtomicBool
   value: @IS_NOT_MOZILLA_OFFICIAL@
@@ -1974,6 +1965,24 @@
 #endif
   mirror: once
   do_not_use_directly: true
+
+# Whether to show an about:blank window as early as possible for quick startup feedback.
+# Held to nightly on Linux due to bug 1450626.
+# Disabled on Mac because the bouncing dock icon already provides feedback.
+- name: browser.startup.blankWindow
+  type: bool
+#if defined(XP_WIN) || defined(MOZ_WIDGET_GTK) && defined(NIGHTLY_BUILD)
+  value: true
+#else
+  value: false
+#endif
+  mirror: always
+
+# Whether to attempt to use the skeleton UI when starting up.
+- name: browser.startup.preXulSkeletonUI
+  type: bool
+  value: false
+  mirror: always
 
 #if defined(NIGHTLY_BUILD) || defined(MOZ_DEV_EDITION) || defined(DEBUG)
 - name: browser.startup.record
@@ -4564,7 +4573,6 @@
   value: false
   mirror: always
 
-#if defined(NIGHTLY_BUILD)
 # For testing purposes only: Cache stencil across navigation
 - name: dom.script_loader.experimental.navigation_cache
   type: bool
@@ -4577,7 +4585,6 @@
   type: bool
   value: true
   mirror: always
-#endif
 
 - name: dom.securecontext.allowlist_onions
   type: bool
@@ -6118,6 +6125,12 @@
   value: false
   mirror: always
 
+# Whether to enable XSLT.
+- name: dom.xslt.enabled
+  type: bool
+  value: true
+  mirror: always
+
 #---------------------------------------------------------------------------
 # Prefs starting with "editor"
 #---------------------------------------------------------------------------
@@ -6169,8 +6182,7 @@
 
 # When this is set to `true`, "editor.background_color" must be set, then,
 # the value is treated as default background color of the HTML editor.
-# If `false` and "browser.display.use_system_colors" is set to `true`,
-# "browser.display.background_color" is used instead.
+# If `false`, "browser.display.background_color" is used instead.
 # Otherwise, no color is used as default background color.
 # This pref is for Thunderbird and SeaMonkey.
 - name: editor.use_custom_colors
@@ -7171,16 +7183,6 @@
 #else
   value: false
 #endif
-  mirror: always
-
-# Pending a better refactor we assume BT2020 colorspace is used with PQ transfer
-# function (HDR) rather than assuming it is BT709/BT1886 transfer function,
-# we've been making this assumption for a while on macOS HDR videos and it seems
-# to be the norm. We should refactor to get mTransferFunction to compositor code
-# instead...
-- name: gfx.color_management.hdr_video_assume_rec2020_uses_pq
-  type: RelaxedAtomicBool
-  value: true
   mirror: always
 
 #ifdef XP_MACOSX
@@ -9356,6 +9358,12 @@
 #ifdef ENABLE_SOURCE_PHASE_IMPORTS
   # Experimental support for source phase imports in JavaScript.
 - name: javascript.options.experimental.source_phase_imports
+  type: bool
+  value: false
+  mirror: always
+  set_spidermonkey_pref: startup
+  # Enable support for <module source> module used in test262
+- name: javascript.options.experimental.source_phase_imports.test262_module_source
   type: bool
   value: false
   mirror: always
@@ -11540,6 +11548,13 @@
   value: @IS_NIGHTLY_BUILD@
   mirror: always
   rust: true
+
+# Whether to disable legacy support for the href attribute on MathML elements
+# other than the <a> tag.
+- name: mathml.href_link_on_non_anchor_element.disabled
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
 
 #---------------------------------------------------------------------------
 # Prefs starting with "media."
@@ -16242,7 +16257,7 @@
 # Enable HTTP Compression Dictionary support
 - name: network.http.dictionaries.enable
   type: RelaxedAtomicBool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 #---------------------------------------------------------------------------

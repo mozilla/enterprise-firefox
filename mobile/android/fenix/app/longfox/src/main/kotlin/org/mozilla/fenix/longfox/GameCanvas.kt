@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
@@ -70,6 +71,25 @@ fun GameCanvas(state: GameState) {
     }
 
     val foxBrush = remember { Brush.linearGradient(listOf(Color.Red, Color.Yellow)) }
+    val bodyPath = remember { Path() }
+    val bodyCells = remember(state.fox) {
+        val foxBody = state.fox.drop(1).dropLast(1)
+        val bodySet = foxBody.toHashSet()
+        foxBody.map { cell ->
+            val hasLeft = GridPoint(cell.x - 1, cell.y) in bodySet
+            val hasRight = GridPoint(cell.x + 1, cell.y) in bodySet
+            val hasUp = GridPoint(cell.x, cell.y - 1) in bodySet
+            val hasDown = GridPoint(cell.x, cell.y + 1) in bodySet
+            BodyCellDrawData(
+                left = cell.x * state.cellSize,
+                top = cell.y * state.cellSize,
+                roundTopLeft = !hasLeft && !hasUp,
+                roundTopRight = !hasRight && !hasUp,
+                roundBottomRight = !hasRight && !hasDown,
+                roundBottomLeft = !hasLeft && !hasDown,
+            )
+        }
+    }
 
     Canvas(
         modifier = Modifier
@@ -78,7 +98,7 @@ fun GameCanvas(state: GameState) {
             .size((CELL_SIZE_DP * state.numCells).dp),
     ) {
         drawHead(state, kitHead)
-        drawBody(state, foxBrush)
+        drawBody(bodyCells, state.cellSize, foxBrush, bodyPath)
         drawTail(state, kitTail)
         drawFood(state, cookie)
     }

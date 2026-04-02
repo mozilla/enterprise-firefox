@@ -17325,6 +17325,23 @@ use.counter.deprecated_ops.page:
     send_in_pings:
       - use-counters
 
+  math_ml__deprecated_href_link_on_non_anchor_element:
+    type: counter
+    description: >
+      Whether a page used MathML_DeprecatedHrefLinkOnNonAnchorElement.
+      Compare against `use.counter.top_level_content_documents_destroyed`
+      to calculate the rate.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2026848
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2026848
+    notification_emails:
+      - dom-core@mozilla.com
+      - emilio@mozilla.com
+    expires: never
+    send_in_pings:
+      - use-counters
+
   form_submission_untrusted_event:
     type: counter
     description: >
@@ -18289,6 +18306,23 @@ use.counter.deprecated_ops.doc:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1852098
     data_reviews:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1852098
+    notification_emails:
+      - dom-core@mozilla.com
+      - emilio@mozilla.com
+    expires: never
+    send_in_pings:
+      - use-counters
+
+  math_ml__deprecated_href_link_on_non_anchor_element:
+    type: counter
+    description: >
+      Whether a document used MathML_DeprecatedHrefLinkOnNonAnchorElement.
+      Compare against `use.counter.top_level_content_documents_destroyed`
+      to calculate the rate.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2026848
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2026848
     notification_emails:
       - dom-core@mozilla.com
       - emilio@mozilla.com

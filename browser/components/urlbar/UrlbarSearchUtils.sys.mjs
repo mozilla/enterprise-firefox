@@ -17,6 +17,8 @@
 import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
 const lazy = XPCOMUtils.declareLazy({
+  AppProvidedConfigEngine:
+    "moz-src:///toolkit/components/search/ConfigSearchEngine.sys.mjs",
   SearchService: "moz-src:///toolkit/components/search/SearchService.sys.mjs",
   UrlUtils: "resource://gre/modules/UrlUtils.sys.mjs",
   UrlbarUtils: "moz-src:///browser/components/urlbar/UrlbarUtils.sys.mjs",
@@ -327,12 +329,53 @@ class SearchUtils {
     // class is for O(1) case-insensitive lookup for search aliases, which is
     // facilitated by _enginesByAlias.
     this._enginesByAlias = new Map();
-    for (let engine of await lazy.SearchService.getVisibleEngines()) {
-      if (!engine.hidden) {
-        for (let alias of this._aliasesForEngine(engine)) {
-          this._enginesByAlias.set(alias, engine);
-        }
+
+    // The alias map is built using a specific order, so that if there are
+    // duplicates, we try and reflect what the user would expect. In the sections
+    // below, if a duplicate is found later, then it is skipped.
+
+    // First add the default engines to the map.
+    let defaultEngine = lazy.SearchService.defaultEngine;
+    this.#addAliasesForEngine(defaultEngine);
+    let defaultPrivateEngine = lazy.SearchService.defaultPrivateEngine;
+    if (defaultPrivateEngine) {
+      this.#addAliasesForEngine(defaultPrivateEngine);
+    }
+
+    let engines = await lazy.SearchService.getVisibleEngines();
+
+    // Now add the application provided engines. Generally if there's a duplicate
+    // within these, it will be because the duplicate was added by an add-on or
+    // other search engine. Hence we prefer the application provided one, unless
+    // the other engine has been set as duplicate.
+    for (let engine of engines) {
+      if (engine instanceof lazy.AppProvidedConfigEngine) {
+        this.#addAliasesForEngine(engine);
       }
+    }
+
+    // For any other engines, we add them to the map if the alias doesn't exist
+    // yet.
+    for (let engine of engines) {
+      if (
+        !(engine instanceof lazy.AppProvidedConfigEngine) &&
+        engine != defaultEngine &&
+        engine != defaultPrivateEngine
+      ) {
+        this.#addAliasesForEngine(engine);
+      }
+    }
+  }
+
+  /**
+   * Adds the aliases for the engine to the engines by alias map, if the alias
+   * does not already exist within the map.
+   *
+   * @param {SearchEngine} engine
+   */
+  #addAliasesForEngine(engine) {
+    for (let alias of this._aliasesForEngine(engine)) {
+      this._enginesByAlias.getOrInsert(alias, engine);
     }
   }
 
@@ -419,6 +462,7 @@ class SearchUtils {
       case "engine-changed":
       case "engine-removed":
       case "engine-default":
+      case "engine-default-private":
         this._refreshEnginesByAliasPromise = this._refreshEnginesByAlias();
         break;
     }

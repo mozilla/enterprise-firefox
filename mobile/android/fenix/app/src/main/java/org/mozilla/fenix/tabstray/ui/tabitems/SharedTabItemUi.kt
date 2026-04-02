@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
@@ -157,11 +159,13 @@ fun TabGroupMenuButton(
         },
         modifier = modifier
             .testTag(TabsTrayTestTag.TAB_GROUP_THREE_DOT_BUTTON),
+        colors = IconButtonDefaults.iconButtonColors(
+            contentColor = LocalContentColor.current,
+        ),
     ) {
         Icon(
             painter = painterResource(id = iconsR.drawable.mozac_ic_ellipsis_vertical_24),
             contentDescription = PLACEHOLDER_THREE_DOT_MENU_CONTENT_DESCRIPTION,
-            tint = MaterialTheme.colorScheme.onSurface,
         )
 
         DropdownMenu(

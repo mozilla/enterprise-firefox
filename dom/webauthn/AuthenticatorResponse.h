@@ -18,7 +18,7 @@ namespace mozilla::dom {
 class AuthenticatorResponse : public nsISupports, public nsWrapperCache {
  public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
-  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(AuthenticatorResponse)
+  NS_DECL_CYCLE_COLLECTION_WRAPPERCACHE_CLASS(AuthenticatorResponse)
 
   explicit AuthenticatorResponse(nsPIDOMWindowInner* aParent);
 
@@ -40,7 +40,6 @@ class AuthenticatorResponse : public nsISupports, public nsWrapperCache {
 
  private:
   nsCOMPtr<nsPIDOMWindowInner> mParent;
-  JS::Heap<JSObject*> mClientDataJSONCachedObj;
 };
 
 }  // namespace mozilla::dom

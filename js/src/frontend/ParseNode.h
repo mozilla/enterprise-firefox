@@ -1338,6 +1338,7 @@ class ListNode : public ParseNode {
 
   void replaceLast(ParseNode* node) {
     MOZ_ASSERT(!empty());
+    MOZ_ASSERT(!node->pn_next);
     pn_pos.end = node->pn_pos.end;
 
     ParseNode* item = head();

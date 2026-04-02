@@ -303,6 +303,10 @@ quickactions-cmd-help = help, support
 quickactions-inspector2 = Open Developer Tools
 quickactions-cmd-inspector2 = inspector, devtools, dev tools
 
+# Opens Firefox Library
+quickactions-cmd-library = library
+quickactions-library = Open Library
+
 # Opens about:logins
 quickactions-logins2 = Manage passwords
 quickactions-cmd-logins = logins, passwords

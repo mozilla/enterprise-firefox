@@ -19,6 +19,8 @@
   <string name="content_description_menu">დამატებითი პარამეტრები</string>
   <!-- Content description (not visible, for screen readers etc.): "Private Browsing" menu button. -->
   <string name="content_description_private_browsing">პირადი თვალიერება</string>
+  <!-- Content description (not visible, for screen readers etc.): "Normal Browsing" menu button. -->
+  <string name="content_description_normal_browsing">ჩვეულებრივ თვალიერება</string>
   <!-- Placeholder text shown in the search bar before a user enters text for the default engine -->
   <string name="search_hint">მოძებნეთ ან შეიყვანეთ მისამართი</string>
   <!-- Placeholder text shown in the search bar before a user enters text for a general engine -->
@@ -616,8 +618,12 @@
 
   <!-- "Continue" onboarding button. -->
   <string name="nova_onboarding_continue_button">განაგრძეთ</string>
+  <!-- "Continue browsing" onboarding button. -->
+  <string name="nova_onboarding_continue_browsing_button" tools:ignore="UnusedResources">განაგრძეთ გვერდების მონახულება</string>
   <!-- "Not now" onboarding button. -->
   <string name="nova_onboarding_negative_button">ახლა არა</string>
+  <!-- "Skip" onboarding button. -->
+  <string name="nova_onboarding_skip_button" tools:ignore="UnusedResources">გამოტოვება</string>
   <!-- Terms of use (ToU) onboarding title. -->
   <string name="nova_onboarding_tou_title" tools:ignore="UnusedResources">მოემზადეთ თავისუფლად ნავარდისთვის</string>
   <!-- Terms of use (ToU) onboarding subtitle. -->
@@ -689,9 +695,28 @@
   <!-- "Add search widget" onboarding title. -->
   <string name="nova_onboarding_add_search_widget_title">გახადეთ თითოეული მოძიება მეტად პირადი</string>
   <!-- "Add search widget" onboarding subtitle. 'Firefox' is intentionally hardcoded. -->
-  <string name="nova_onboarding_add_search_widget_subtitle" tools:ignore="BrandUsage">დაიწყეთ ძიება ტელეფონის მთავარი ეკრანიდან და იცოდეთ, რომ Firefox თავისთავადი დაცვით გიმაგრებთ ზურგს.</string>
+  <string name="nova_onboarding_add_search_widget_subtitle" tools:ignore="BrandUsage">დაიწყეთ ძიება ტელეფონის მთავარი ეკრანიდანვე იმ განცდით, რომ Firefox თავისთავადი დაცვით მუდამ თქვენ გვერდითაა.</string>
   <!-- "Add search widget" onboarding button. 'Firefox' is intentionally hardcoded. -->
   <string name="nova_onboarding_add_search_widget_button" tools:ignore="BrandUsage">Firefox-ჩანამატი ეკრანზე</string>
+  <!-- Customize prompt onboarding title. -->
+  <string name="nova_onboarding_customize_prompt_title" tools:ignore="UnusedResources">იოლად მოსარგები და მეტად პირადი ყოველი შეხებისას</string>
+  <plurals name="nova_onboarding_customize_prompt_body" tools:ignore="UnusedResources">
+    <!--
+      Customize prompt onboarding body.
+      %1$s is replaced by the product name (for example "Firefox"),
+      %2$,d is replaced by the number of trackers blocked. The comma represents the thousand
+      separator (e.g. 1,000 in English), and it will automatically use the correct character
+      for your locale (don't change or remove it).
+    -->
+    <item quantity="one">%1$s ზღუდავს %2$,d მეთვალყურეს ვებსივრცით სარგებლობისას.</item>
+    <item quantity="other">%1$s ზღუდავს %2$,d მეთვალყურეს ვებსივრცით სარგებლობისას.</item>
+  </plurals>
+  <!-- Customize prompt onboarding positive button. -->
+  <string name="nova_onboarding_customize_prompt_positive_button" tools:ignore="UnusedResources">დაიწყეთ მორგება</string>
+  <!-- App icon onboarding title. -->
+  <string name="nova_onboarding_app_icon_prompt_title" tools:ignore="UnusedResources">აირჩიეთ სასურველი ხატულა</string>
+  <!-- App icon onboarding body. -->
+  <string name="nova_onboarding_app_icon_prompt_body" tools:ignore="UnusedResources">გადაახალისეთ მთავარ ეკრანზე შეხება თქვენებურად.</string>
   <!-- ==== End of Project "Nova" onboarding strings ==== -->
 
   <!-- Onboarding header for the toolbar selection card, used by Nimbus experiments. -->
@@ -1505,12 +1530,8 @@
   <string name="studies_remove">მოცილება</string>
   <!-- Title of the active section on the studies list -->
   <string name="studies_active">მოქმედი</string>
-  <!-- Description for studies -->
-  <string name="studies_description_3" moz:removedIn="148" tools:ignore="UnusedResources">გამოცადეთ შესაძლებლობები ჯერ კიდევ ჩანაფიქრის დონეზე, სანამ ყველასთვის ხილული გახდება.</string>
   <!-- Description for studies. Note: The word "Firefox" should NOT be translated -->
   <string name="studies_description_4" tools:ignore="BrandUsage">Firefox შემთხვევითობით ირჩევს მომხმარებლებს შესაძლებლობების შესამოწმებლად, რაც საყოველთაოდ აუმჯობესებს ხარისხს.</string>
-  <!-- Title of the Studies data preference -->
-  <string name="studies_title" moz:removedIn="148" tools:ignore="UnusedResources">კვლევების ჩადგმა და გაშვება</string>
   <!-- Title of the Studies data preference -->
   <string name="studies_title_2">შესაძლებლობათა კვლევის ნებართვა</string>
   <!-- Learn more link for studies, links to an article for more information about studies. -->
@@ -1661,6 +1682,20 @@
   <string name="create_tab_group_name_label">სახელი</string>
   <!-- Label for the tab group name field in the bottom sheet to create or edit a tab group. -->
   <string name="tab_group_name_label" tools:ignore="UnusedResources" moz:removedIn="150">სახელი</string>
+  <!-- Title for adding more tabs to a tab group. -->
+  <string name="add_to_tab_group_title">დამატება</string>
+  <!-- Content Description for closing the "Add to Tab Group" panel. -->
+  <string name="add_to_tab_group_bottom_sheet_close_content_description">ჩანართების ჯგუფში დამატების დახურვა</string>
+  <!-- Label for adding to a new tab group. -->
+  <string name="add_to_new_tab_group_title">ჩანართების ახალი ჯგუფი</string>
+  <plurals name="tab_group_tabs_count_subtitle">
+    <!--
+      Subtitle for the number of tabs in a tab group.
+      %1$d is the number of tabs in a tab group.
+    -->
+    <item quantity="one">%1$d ჩანართი</item>
+    <item quantity="other">%1$d ჩანართი</item>
+  </plurals>
   <!--
     History
 
@@ -2394,8 +2429,6 @@
   <string name="preference_accessibility_text_size_summary">გაზარდეთ ან შეამცირეთ ნაწერის ზომა საიტებზე</string>
   <!-- Title for Accessibility Text Size Scaling Preference -->
   <string name="preference_accessibility_font_size_title">შრიფტის ზომა</string>
-  <!-- %d is the percentage of the slide bar for setting the text font size and %% will be announced as "percent". -->
-  <string name="a11y_preference_accessibility_font_size_percentage" tools:ignore="UnusedResources" moz:removedIn="148">%d %%.</string>
   <!-- Title for Accessibility Text Automatic Size Scaling Preference -->
   <string name="preference_accessibility_auto_size_2">შრიფტის ავტომატური ზომა</string>
   <!-- Summary for Accessibility Text Automatic Size Scaling Preference -->
@@ -3338,6 +3371,8 @@
     Header text for a section on the home screen.
   -->
   <string name="pocket_stories_header_2">ამბები</string>
+  <!-- Header text for the Stories screen. -->
+  <string name="stories_screen_text_news">სიახლეები</string>
   <!--
     Context description text for the "Discover more" button in the stories home screen section
     which navigates the user to a screen displaying more stories.
@@ -3431,6 +3466,8 @@
   <string name="translation_error_could_not_load_languages_warning_text">ვერ ჩაიტვირთა ენები. შეამოწმეთ ქსელთან წვდომა და კვლავ სცადეთ.</string>
   <!-- The title of the warning card informs the user that a language is not supported. %1$s is the name of the language that is not supported. -->
   <string name="translation_error_language_not_supported_warning_text" tools:ignore="UnusedResources" moz:removedIn="150">სამწუხაროდ, ჯერ არაა მხარდაჭერილი %1$s.</string>
+  <!-- The title of the warning card informs the user that translations from a language are not supported yet. %1$s is the name of the source language. -->
+  <string name="translation_error_language_not_supported_warning_text_2">სამწუხაროდ, თარგმნისას ჯერჯერობით მხარდაუჭერელია %1$s.</string>
   <!-- Snackbar title shown if the user closes the Translation Request dialogue and a translation is in progress. -->
   <string name="translation_in_progress_snackbar">ითარგმნება…</string>
   <!--

@@ -1534,13 +1534,19 @@ impl<'data> CollatorBorrowed<'data> {
                             // We might be at at a good boundary unless either ce32 is a
                             // prefix ce32. Let's check for the happy path first, though.
 
-                            // Now check if we ce32s we have are simple enough to
+                            // Now check if the ce32s we have are simple enough to
                             // make a quick decision here.
-                            if let Some(mut left_primary) =
-                                left_ce32.to_primary_in_quick_check(left_data)
+                            if let Some(mut left_primary) = left_ce32
+                                .to_primary_in_quick_check_numeric(
+                                    left_data,
+                                    numeric_primary.is_some(),
+                                )
                             {
-                                if let Some(mut right_primary) =
-                                    right_ce32.to_primary_in_quick_check(right_data)
+                                if let Some(mut right_primary) = right_ce32
+                                    .to_primary_in_quick_check_numeric(
+                                        right_data,
+                                        numeric_primary.is_some(),
+                                    )
                                 {
                                     quick_primary_compare!(
                                         left_primary,

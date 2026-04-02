@@ -8,7 +8,6 @@ import { GROUP_TYPES } from "chrome://global/content/elements/moz-box-group.mjs"
 
 const DIRECTION_RIGHT = "Right";
 const DIRECTION_LEFT = "Left";
-
 const NAVIGATION_DIRECTIONS = {
   LTR: {
     FORWARD: DIRECTION_RIGHT,
@@ -18,6 +17,14 @@ const NAVIGATION_DIRECTIONS = {
     FORWARD: DIRECTION_LEFT,
     BACKWARD: DIRECTION_RIGHT,
   },
+};
+
+const NAVIGATION_FORWARD = "forward";
+const NAVIGATION_BACKWARD = "backward";
+
+const NAVIGATION_VALUE = {
+  [NAVIGATION_FORWARD]: 1,
+  [NAVIGATION_BACKWARD]: -1,
 };
 
 /**
@@ -97,17 +104,38 @@ export default class MozBoxItem extends MozBoxBase {
     switch (event.key) {
       case directions.FORWARD:
       case `Arrow${directions.FORWARD}`: {
-        let nextIndex = this.#actionEls.indexOf(target) + 1;
-        let nextEl = this.#actionEls[nextIndex];
-        nextEl?.focus();
+        this.navigate(target, NAVIGATION_FORWARD);
         break;
       }
       case directions.BACKWARD:
       case `Arrow${directions.BACKWARD}`: {
-        let prevIndex = this.#actionEls.indexOf(target) - 1;
-        let prevEl = this.#actionEls[prevIndex];
-        prevEl?.focus();
+        this.navigate(target, NAVIGATION_BACKWARD);
         break;
+      }
+    }
+  }
+
+  /**
+   * Navigate between action elements, skipping disabled elements.
+   *
+   * @param {HTMLElement} target - The currently focused action element
+   * @param {NAVIGATION_FORWARD | NAVIGATION_BACKWARD} direction - The navigation direction
+   */
+  navigate(target, direction) {
+    let actionEls = this.#actionEls;
+    let currentIndex = actionEls.indexOf(target);
+    let step = NAVIGATION_VALUE[direction];
+    for (
+      let nextIndex = currentIndex + step;
+      nextIndex >= 0 && nextIndex < actionEls.length;
+      nextIndex += step
+    ) {
+      let nextItem = actionEls[nextIndex];
+      nextItem.focus();
+      if (nextItem.contains(this.getRootNode().activeElement)) {
+        // If the next item became focused then we've navigated. This skips
+        // disabled elements or elements that can never receive focus.
+        return;
       }
     }
   }

@@ -16,6 +16,7 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentManager
 import androidx.fragment.app.FragmentManager.FragmentLifecycleCallbacks
 import androidx.navigation.fragment.NavHostFragment
+import mozilla.components.feature.qr.QrFragment
 import mozilla.components.support.ktx.android.view.clearPersistentInsets
 import mozilla.components.support.ktx.android.view.setupPersistentInsets
 
@@ -46,6 +47,9 @@ class EdgeToEdgeFragmentLifecycleCallbacks(
     ) {
         // Dialog fragments have their own edge-to-edge behavior, separate from Fenix's main activity.
         if (f is DialogFragment) return
+        // QRFragment is a generic Android Components fragment that is nested in Fenix.
+        // As such the edge-to-edge behavior is to be controlled only through its Fenix container.
+        if (f is QrFragment) return
 
         setEdgeToEdgeStrategy(f)
     }

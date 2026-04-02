@@ -20,7 +20,7 @@ class MOZ_STACK_CLASS txForwardContext : public txIEvalContext {
 
  private:
   txIMatchContext* mInner;
-  const txXPathNode& mContextNode;
+  txXPathNode mContextNode;
   RefPtr<txNodeSet> mContextSet;
 };
 

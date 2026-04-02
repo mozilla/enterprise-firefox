@@ -81,6 +81,7 @@ class ClippedTime {
 
   explicit ClippedTime(double time) : t(time) {}
   friend ClippedTime TimeClip(double time);
+  friend ClippedTime TimeClip(int64_t time);
 
  public:
   // Create an invalid date.
@@ -101,13 +102,31 @@ class ClippedTime {
 // ECMAScript TimeClip algorithm.
 inline ClippedTime TimeClip(double time) {
   // Steps 1-2.
-  const double MaxTimeMagnitude = 8.64e15;
-  if (!std::isfinite(time) || mozilla::Abs(time) > MaxTimeMagnitude) {
+  //
+  // NB: Not written as `Abs(time) > MaxTimeMagnitude` to handle NaN cheaply.
+  //     NaN compared to any other number always returns false.
+  constexpr double MaxTimeMagnitude = 8.64e15;
+  if (!(mozilla::Abs(time) <= MaxTimeMagnitude)) {
     return ClippedTime(mozilla::UnspecifiedNaN<double>());
   }
 
   // Step 3.
   return ClippedTime(ToInteger(time));
+}
+
+// ES6 20.3.1.15.
+//
+// Clip an int64_t to JavaScript's date range (or to an invalid date) using the
+// ECMAScript TimeClip algorithm.
+inline ClippedTime TimeClip(int64_t time) {
+  // Steps 1-2.
+  constexpr int64_t MaxTimeMagnitude = 8.64e15;
+  if (mozilla::Abs(time) > MaxTimeMagnitude) {
+    return ClippedTime(mozilla::UnspecifiedNaN<double>());
+  }
+
+  // Step 3.
+  return ClippedTime(static_cast<double>(time));
 }
 
 // Produce a double Value from the given time.  Because times may be NaN,
@@ -130,6 +149,10 @@ extern JS_PUBLIC_API JSObject* NewDateObject(JSContext* cx, ClippedTime time);
  *                MakeTime(hour, min, sec, 0.0))))
  *
  * where each function/operation is as specified in ECMAScript.
+ *
+ * Assert that mon < 12 to help catch off-by-one user errors, which are common
+ * due to the 0-based month numbering copied into JS from Java (java.util.Date
+ * in 1995).
  */
 extern JS_PUBLIC_API JSObject* NewDateObject(JSContext* cx, int year, int mon,
                                              int mday, int hour, int min,

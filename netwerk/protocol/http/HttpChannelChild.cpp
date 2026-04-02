@@ -918,13 +918,10 @@ void HttpChannelChild::DoOnConsoleReport(
   }
 
   for (ConsoleReportCollected& report : aConsoleReports) {
-    if (report.propertiesFile() < uint32_t(PropertiesFile::COUNT)) {
-      AddConsoleReport(report.errorFlags(), report.category(),
-                       PropertiesFile(report.propertiesFile()),
-                       report.sourceFileURI(), report.lineNumber(),
-                       report.columnNumber(), report.messageName(),
-                       report.stringParams());
-    }
+    AddConsoleReport(report.errorFlags(), report.category(),
+                     report.propertiesFile(), report.sourceFileURI(),
+                     report.lineNumber(), report.columnNumber(),
+                     report.messageName(), report.stringParams());
   }
   MaybeFlushConsoleReports();
 }

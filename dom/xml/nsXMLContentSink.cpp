@@ -730,10 +730,11 @@ nsresult nsXMLContentSink::MaybeProcessXSLTLink(
     ProcessingInstruction* aProcessingInstruction, const nsAString& aHref,
     bool aAlternate, const nsAString& aTitle, const nsAString& aType,
     const nsAString& aMedia, const nsAString& aReferrerPolicy, bool* aWasXSLT) {
-  bool wasXSLT = aType.LowerCaseEqualsLiteral(TEXT_XSL) ||
-                 aType.LowerCaseEqualsLiteral(APPLICATION_XSLT_XML) ||
-                 aType.LowerCaseEqualsLiteral(TEXT_XML) ||
-                 aType.LowerCaseEqualsLiteral(APPLICATION_XML);
+  bool wasXSLT = StaticPrefs::dom_xslt_enabled() &&
+                 (aType.LowerCaseEqualsLiteral(TEXT_XSL) ||
+                  aType.LowerCaseEqualsLiteral(APPLICATION_XSLT_XML) ||
+                  aType.LowerCaseEqualsLiteral(TEXT_XML) ||
+                  aType.LowerCaseEqualsLiteral(APPLICATION_XML));
 
   if (aWasXSLT) {
     *aWasXSLT = wasXSLT;

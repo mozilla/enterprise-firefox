@@ -129,11 +129,13 @@ class ChatStore {
   #asyncShutdownBlocker;
   #conn;
   #promiseConn;
+  #lastRecordedSize;
 
   constructor() {
     this.#asyncShutdownBlocker = async () => {
       await this.#closeConnection();
     };
+    this.#lastRecordedSize = null;
   }
 
   /**
@@ -194,6 +196,8 @@ class ChatStore {
         lazy.log.error("Transaction failed to execute", e.message, e.stack);
         throw e;
       });
+
+    this.#recordDatabaseSize();
   }
 
   /**
@@ -222,6 +226,8 @@ class ChatStore {
 
         throw e;
       });
+
+    this.#recordDatabaseSize();
   }
 
   /**
@@ -252,6 +258,8 @@ class ChatStore {
 
         throw e;
       });
+
+    this.#recordDatabaseSize();
   }
 
   /**
@@ -711,6 +719,8 @@ class ChatStore {
         await this.#conn.execute(deleteConvsSql, conversations);
       });
     }
+
+    this.#recordDatabaseSize();
   }
 
   /**
@@ -752,6 +762,8 @@ class ChatStore {
     await this.#conn.execute(DELETE_CONVERSATION_BY_ID, {
       conv_id: id,
     });
+
+    this.#recordDatabaseSize();
   }
 
   /**
@@ -799,6 +811,27 @@ class ChatStore {
   async destroyDatabase() {
     await this.#removeDatabaseFiles();
     this.#promiseConn = null;
+    this.#recordDatabaseSizeValue(0);
+  }
+
+  async #recordDatabaseSize() {
+    let size = null;
+    try {
+      size = await this.getDatabaseSize();
+    } catch (e) {
+      lazy.log.error("Could not record database size", e.message, e.stack);
+      return;
+    }
+
+    this.#recordDatabaseSizeValue(size);
+  }
+
+  #recordDatabaseSizeValue(size) {
+    if (size === this.#lastRecordedSize) {
+      return;
+    }
+    this.#lastRecordedSize = size;
+    Glean.smartWindow.chatStorage.set(size);
   }
 
   /**

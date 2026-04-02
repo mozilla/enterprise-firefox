@@ -12,6 +12,12 @@
 
 "use strict";
 
+const lazy = {};
+ChromeUtils.defineESModuleGetters(lazy, {
+  AIWindowUI:
+    "moz-src:///browser/components/aiwindow/ui/modules/AIWindowUI.sys.mjs",
+});
+
 function getSidebarPromptButtons(win) {
   const sidebarBrowser = win.document.getElementById("ai-window-browser");
   const aiWindowEl =
@@ -33,43 +39,82 @@ async function navigateTo(url, window) {
   await loaded;
 }
 
+async function openBackgroundTab(url, window) {
+  let tab = BrowserTestUtils.addTab(window.gBrowser, url);
+  await BrowserTestUtils.browserLoaded(tab.linkedBrowser);
+
+  return tab;
+}
+
 function startMockNonStreamingServer(responseContent) {
   const mockServer = new HttpServer();
+  mockServer.delay = 1;
   let reqCount = 0;
+  const pendingResponses = [];
 
   mockServer.registerPathHandler("/v1/chat/completions", (_req, res) => {
     reqCount++;
-    res.setStatusLine(_req.httpVersion, 200, "OK");
-    res.setHeader("Content-Type", "application/json", false);
-    res.write(
-      JSON.stringify({
-        id: "chatcmpl-mock",
-        object: "chat.completion",
-        created: Math.floor(Date.now() / 1000),
-        model: "mock",
-        choices: [
-          {
-            index: 0,
-            message: { role: "assistant", content: responseContent[0] },
-            finish_reason: "stop",
-          },
-        ],
-      })
-    );
+    res.processAsync();
+
+    const body = JSON.stringify({
+      id: "chatcmpl-mock",
+      object: "chat.completion",
+      created: Math.floor(Date.now() / 1000),
+      model: "mock",
+      choices: [
+        {
+          index: 0,
+          message: { role: "assistant", content: responseContent[0] },
+          finish_reason: "stop",
+        },
+      ],
+    });
+
+    const entry = { timerId: null, res };
+    pendingResponses.push(entry);
+
+    // eslint-disable-next-line mozilla/no-arbitrary-setTimeout
+    entry.timerId = setTimeout(() => {
+      const idx = pendingResponses.indexOf(entry);
+      if (idx !== -1) {
+        pendingResponses.splice(idx, 1);
+      }
+      try {
+        res.setStatusLine(_req.httpVersion, 200, "OK");
+        res.setHeader("Content-Type", "application/json", false);
+        res.write(body);
+        res.finish();
+      } catch (e) {
+        // Connection may have closed before the delayed response was sent
+        // or connection already torn down.
+      }
+    }, mockServer.delay);
   });
 
   mockServer.start(-1);
   return {
+    pendingResponses,
     server: mockServer,
     port: mockServer.identity.primaryPort,
     get requestCount() {
       return reqCount;
     },
+    cleanup() {
+      for (const { timerId, res } of pendingResponses) {
+        clearTimeout(timerId);
+        try {
+          res.finish();
+        } catch (e) {
+          // Already finished or connection gone.
+        }
+      }
+      pendingResponses.length = 0;
+    },
   };
 }
 
 describe("sidebar conversation starter prompts", () => {
-  let responseContent, mock, gAiWindow;
+  let responseContent, mock, gAiWindow, backgroundTab;
 
   beforeEach(async () => {
     responseContent = ["prompt 1\nprompt 2"];
@@ -85,6 +130,11 @@ describe("sidebar conversation starter prompts", () => {
   });
 
   afterEach(async () => {
+    mock.cleanup();
+    if (backgroundTab) {
+      BrowserTestUtils.removeTab(backgroundTab);
+    }
+
     await BrowserTestUtils.closeWindow(gAiWindow);
     await SpecialPowers.popPrefEnv();
     await stopMockOpenAI(mock.server);
@@ -92,7 +142,85 @@ describe("sidebar conversation starter prompts", () => {
     gAiWindow = null;
   });
 
+  describe("when switching tabs while starter prompts load", () => {
+    let firstTab, secondTab;
+    afterEach(async () => {
+      if (firstTab) {
+        await BrowserTestUtils.removeTab(firstTab);
+      }
+
+      if (secondTab) {
+        await BrowserTestUtils.removeTab(secondTab);
+      }
+    });
+
+    it("should not load prompts to the wrong tab", async () => {
+      // Trigger opening the sidebar so initial starter prompts display
+      await navigateTo("https://example.com", gAiWindow);
+      firstTab = gAiWindow.gBrowser.selectedTab;
+
+      await TestUtils.waitForCondition(
+        () => AIWindowUI.isSidebarOpen(gAiWindow),
+        "Sidebar should be open"
+      );
+      await TestUtils.waitForCondition(
+        () => getSidebarPromptButtons(gAiWindow).includes("prompt 1"),
+        "First set of prompts should be rendered"
+      );
+
+      Assert.deepEqual(
+        getSidebarPromptButtons(gAiWindow),
+        ["prompt 1", "prompt 2"],
+        "Should display first set of prompts"
+      );
+
+      // Open up second tab
+      secondTab = await BrowserTestUtils.openNewForegroundTab({
+        gBrowser: gAiWindow.gBrowser,
+        opening: "https://example.net",
+        waitForLoad: true,
+      });
+
+      // Start a conversation so that starter prompts should not be displayed
+      const sidebarBrowser =
+        gAiWindow.document.getElementById("ai-window-browser");
+      await typeInSmartbar(sidebarBrowser, "Hello world");
+      await submitSmartbar(sidebarBrowser);
+
+      // Add an artificial delay on the starter prompts mocked response
+      mock.server.delay = 200;
+
+      // Switch back to tab 1 to trigger loading starter prompts, and before
+      // the 200 ms delay switch back to tab 2 where starter prompts should
+      // not display
+      await BrowserTestUtils.switchTab(gAiWindow.gBrowser, firstTab);
+      // eslint-disable-next-line mozilla/no-arbitrary-setTimeout
+      await new Promise(resolve => gAiWindow.setTimeout(resolve, 10));
+      await BrowserTestUtils.switchTab(gAiWindow.gBrowser, secondTab);
+
+      await TestUtils.waitForCondition(
+        () => mock.pendingResponses.length === 0,
+        "Waiting for all starter prompt requests/etc to resolve"
+      );
+
+      // Verify that starter prompts aren't being displayed on tab 2
+      Assert.deepEqual(
+        getSidebarPromptButtons(gAiWindow),
+        [],
+        "Starter prompts from tab 1 should not appear on tab 2"
+      );
+    });
+  });
+
   describe("when the conversation is empty", () => {
+    beforeEach(async () => {
+      sinon.spy(lazy.AIWindowUI, "updateStarterPrompts");
+    });
+
+    afterEach(async () => {
+      lazy.AIWindowUI.updateStarterPrompts.restore();
+    });
+
     it("should load new prompts when the tab changes URL", async () => {
       await navigateTo("https://example.com", gAiWindow);
 
@@ -122,6 +250,41 @@ describe("sidebar conversation starter prompts", () => {
         getSidebarPromptButtons(gAiWindow),
         ["prompt 3", "prompt 4"],
         "Should display updated prompts after URL change"
+      );
+    });
+
+    it("should not reload prompts when background tabs change URL", async () => {
+      await navigateTo("https://example.com", gAiWindow);
+
+      await TestUtils.waitForCondition(
+        () => AIWindowUI.isSidebarOpen(gAiWindow),
+        "Sidebar should be open"
+      );
+      await TestUtils.waitForCondition(
+        () => getSidebarPromptButtons(gAiWindow).includes("prompt 1"),
+        "First set of prompts should be rendered"
+      );
+
+      Assert.deepEqual(
+        getSidebarPromptButtons(gAiWindow),
+        ["prompt 1", "prompt 2"],
+        "Should display first set of prompts"
+      );
+
+      responseContent[0] = "prompt 3\nprompt 4";
+      lazy.AIWindowUI.updateStarterPrompts.resetHistory();
+
+      backgroundTab = await openBackgroundTab("https://example.org", gAiWindow);
+
+      Assert.deepEqual(
+        getSidebarPromptButtons(gAiWindow),
+        ["prompt 1", "prompt 2"],
+        "Should continue to display initial starter prompts after background URL load"
+      );
+      Assert.equal(
+        0,
+        lazy.AIWindowUI.updateStarterPrompts.callCount,
+        "There should not be any more calls to update starter prompts"
       );
     });
   });

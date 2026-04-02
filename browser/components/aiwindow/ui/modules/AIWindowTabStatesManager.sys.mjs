@@ -113,9 +113,19 @@ export class AIWindowTabStatesManager {
    */
   async openSidebarForReturningUser() {
     await this.#restorePromise;
-    if (this.#window && !lazy.AIWindowUI.isSidebarOpen(this.#window)) {
-      lazy.AIWindowUI.openSidebar(this.#window);
+    // Guard against the window being closed (uninit called) while awaiting.
+    if (!this.#window) {
+      return;
     }
+    const tabUrl = this.#window.gBrowser.selectedBrowser.currentURI?.spec ?? "";
+    // AIWINDOW_URL tabs are fullpage and don't use the sidebar.
+    if (
+      tabUrl === lazy.AIWINDOW_URL ||
+      lazy.AIWindowUI.isSidebarOpen(this.#window)
+    ) {
+      return;
+    }
+    lazy.AIWindowUI.openSidebar(this.#window);
   }
 
   /**
@@ -127,6 +137,7 @@ export class AIWindowTabStatesManager {
    */
   #init(win) {
     this.#window = win;
+    this.#selectedTab = this.#window.gBrowser.selectedTab;
     this.#tabStates = new WeakMap();
 
     const tabContainer = this.#window.gBrowser.tabContainer;
@@ -135,7 +146,7 @@ export class AIWindowTabStatesManager {
     tabContainer.addEventListener("TabClose", this);
 
     this.#tabsListener = this.#getTabsListener();
-    this.#window.gBrowser.addTabsProgressListener(this.#tabsListener);
+    this.#window.gBrowser.addProgressListener(this.#tabsListener);
 
     this.#setUpInitialTabs();
     this.#addWindowEventListeners();
@@ -153,7 +164,7 @@ export class AIWindowTabStatesManager {
     tabContainer.removeEventListener("TabSelect", this);
     tabContainer.removeEventListener("TabClose", this);
 
-    this.#window.gBrowser.removeTabsProgressListener(this.#tabsListener);
+    this.#window.gBrowser.removeProgressListener(this.#tabsListener);
     this.#removeWindowEventListeners();
     this.#tabsListener = null;
     this.#tabStates = null;
@@ -684,8 +695,7 @@ export class AIWindowTabStatesManager {
   };
 
   /**
-   * Gets a global progress listener for all tabs. The callbacks from
-   * addTabsProgressListener prepend a browser argument.
+   * Gets a progress listener for the selected tab.
    */
   #getTabsListener() {
     return {
@@ -694,22 +704,16 @@ export class AIWindowTabStatesManager {
         "nsISupportsWeakReference",
       ]),
 
-      onLocationChange: async (
-        _browser,
-        webProgress,
-        _request,
-        locationURI,
-        _flags
-      ) => {
+      onLocationChange: async (webProgress, _request, locationURI, _flags) => {
+        const tab = this.#selectedTab;
+
         if (!webProgress.isTopLevel || !this.#tabStates) {
           return;
         }
 
-        const browser = webProgress.browsingContext?.embedderElement;
-        const tab = this.#window.gBrowser.getTabForBrowser(browser);
-        let tabState = this.#tabStates.get(tab);
-
         lazy.AIWindowUI.updateStarterPrompts(this.#window);
+
+        let tabState = this.#tabStates.get(tab);
 
         if (!tabState || !tabState?.state?.conversationId) {
           return;

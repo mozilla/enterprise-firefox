@@ -18,10 +18,8 @@ export default {
     status: "in-development",
     fluent: `
 moz-badge =
-    .label = Badge
+    .label = BADGE
     .title = Beta experiment
-moz-badge-beta = Beta
-moz-badge-new = New
 `,
   },
 };
@@ -38,13 +36,11 @@ const Template = ({ label, iconSrc, title, l10nId, type }) => html`
 
 export const Default = Template.bind({});
 Default.args = {
-  label: "Beta",
   l10nId: "moz-badge",
 };
 
 export const WithIcon = Template.bind({});
 WithIcon.args = {
-  label: "Beta",
   iconSrc: "chrome://global/skin/icons/info.svg",
   l10nId: "moz-badge",
 };

@@ -29,7 +29,7 @@ sealed interface TabManagerNavDestination {
     /**
      * [TabManagerNavDestination] representing the [EditTabGroup].
      */
-    data object CreateTabGroup : TabManagerNavDestination
+    data object EditTabGroup : TabManagerNavDestination
 
     /**
      * [TabManagerNavDestination] representing the [AddToTabGroup].

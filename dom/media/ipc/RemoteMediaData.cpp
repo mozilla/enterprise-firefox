@@ -253,6 +253,11 @@ already_AddRefed<MediaRawData> ArrayOfRemoteMediaRawData::ElementAt(
       !ReadParam(aReader, &array->mExtraDatas)) {
     return false;
   }
+  if (array->mSamples.Length() != array->mBuffers.Count() ||
+      array->mSamples.Length() != array->mAlphaBuffers.Count() ||
+      array->mSamples.Length() != array->mExtraDatas.Count()) {
+    return false;
+  }
   *aVar = std::move(array);
   return true;
 }
@@ -388,8 +393,8 @@ IPC::ParamTraits<mozilla::ArrayOfRemoteAudioData::RemoteAudioData>::Write(
 IPC::ParamTraits<mozilla::ArrayOfRemoteAudioData::RemoteAudioData>::Read(
     IPC::MessageReader* aReader, paramType* aVar) {
   return ReadParam(aReader, &aVar->mBase) &&
-         ReadParam(aReader, &aVar->mChannels) &&
-         ReadParam(aReader, &aVar->mRate) &&
+         ReadParam(aReader, &aVar->mChannels) && aVar->mChannels > 0 &&
+         ReadParam(aReader, &aVar->mRate) && aVar->mRate > 0 &&
          ReadParam(aReader, &aVar->mChannelMap) &&
          ReadParam(aReader, &aVar->mOriginalTime) &&
          ReadParam(aReader, &aVar->mTrimWindow) &&

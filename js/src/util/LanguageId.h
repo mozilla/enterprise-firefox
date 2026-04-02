@@ -55,6 +55,15 @@ class LanguageIdString;
  * https://unicode.org/reports/tr35/tr35.html#Unicode_Language_and_Locale_Identifiers
  */
 class LanguageId final {
+  static constexpr size_t LanguageLength = 3;
+  static constexpr size_t ScriptLength = 4;
+  static constexpr size_t RegionLength = 3;
+  static constexpr size_t Length = LanguageLength + ScriptLength + RegionLength;
+
+  static constexpr size_t LanguageIndex = 0;
+  static constexpr size_t ScriptIndex = LanguageIndex + LanguageLength;
+  static constexpr size_t RegionIndex = ScriptIndex + ScriptLength;
+
   // GCC 10 doesn't support defaulted equality operators for plain arrays
   // (<https://gcc.gnu.org/bugzilla/show_bug.cgi?id=93480>). So we can't write
   // this:
@@ -65,19 +74,31 @@ class LanguageId final {
   //
   // In addition to that GCC bug, Clang sometimes (!) generates worse code for
   // comparisons when separate arrays are used.
-  std::array<char, 10> chars_{};
+  std::array<char, Length> chars_{};
 
-  constexpr auto as_span() { return mozilla::Span<char, 10>{chars_}; }
-  constexpr auto language_span() { return as_span().Subspan<0, 3>(); }
-  constexpr auto script_span() { return as_span().Subspan<3, 4>(); }
-  constexpr auto region_span() { return as_span().Subspan<7, 3>(); }
+  constexpr auto as_span() { return mozilla::Span<char, Length>{chars_}; }
+  constexpr auto language_span() {
+    return as_span().Subspan<LanguageIndex, LanguageLength>();
+  }
+  constexpr auto script_span() {
+    return as_span().Subspan<ScriptIndex, ScriptLength>();
+  }
+  constexpr auto region_span() {
+    return as_span().Subspan<RegionIndex, RegionLength>();
+  }
 
   constexpr auto as_span() const {
-    return mozilla::Span<const char, 10>{chars_};
+    return mozilla::Span<const char, Length>{chars_};
   }
-  constexpr auto language_span() const { return as_span().Subspan<0, 3>(); }
-  constexpr auto script_span() const { return as_span().Subspan<3, 4>(); }
-  constexpr auto region_span() const { return as_span().Subspan<7, 3>(); }
+  constexpr auto language_span() const {
+    return as_span().Subspan<LanguageIndex, LanguageLength>();
+  }
+  constexpr auto script_span() const {
+    return as_span().Subspan<ScriptIndex, ScriptLength>();
+  }
+  constexpr auto region_span() const {
+    return as_span().Subspan<RegionIndex, RegionLength>();
+  }
 
   friend class LanguageIdString;
 
@@ -174,12 +195,23 @@ class LanguageId final {
   /**
    * Return true if this language identifier has a script subtag.
    */
-  constexpr bool hasScript() const { return script_span()[0] != '\0'; }
+  constexpr bool hasScript() const {
+    // CDT indexer doesn't like `script_span()[0]`, so for now directly access
+    // through `chars_`. "LanguageId.h" is indirectly included in almost all
+    // files, so breaking the indexer here leads to making everything
+    // non-indexable. :-/
+    // return script_span()[0] != '\0';
+    return chars_[ScriptIndex] != '\0';
+  }
 
   /**
    * Return true if this language identifier has a region subtag.
    */
-  constexpr bool hasRegion() const { return region_span()[0] != '\0'; }
+  constexpr bool hasRegion() const {
+    // CDT indexer doesn't like `region_span()[0]`, see `hasScript`.
+    // return region_span()[0] != '\0';
+    return chars_[RegionIndex] != '\0';
+  }
 
   /**
    * Hash number of this language identifier.

@@ -94,8 +94,7 @@ add_task(async () => {
   const IFRAME_JS_CONTENT = await (await fetch(IFRAME_JS_URI)).text();
 
   const isNavigationCacheEnabled = Services.prefs.getBoolPref(
-    "dom.script_loader.experimental.navigation_cache",
-    false
+    "dom.script_loader.experimental.navigation_cache"
   );
 
   const htmlContent = await getResponseContent(navigationRequest);

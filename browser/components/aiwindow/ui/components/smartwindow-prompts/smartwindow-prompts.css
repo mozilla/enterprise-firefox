@@ -57,7 +57,7 @@ moz-button.sw-prompt-button::part(button) {
 moz-button.sw-prompt-button::part(button)::before {
   content: "";
   position: absolute;
-  inset: -3px;
+  inset: -2px;
   border-radius: inherit;
   padding: 1px;
   background: light-dark(

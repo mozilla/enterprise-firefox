@@ -102,6 +102,7 @@ using mozilla::dom::NativeThreadId from "mozilla/dom/NativeThreadId.h";
 using mozilla::hal::ProcessPriority from "mozilla/HalTypes.h";
 using mozilla::gfx::IntSize from "mozilla/gfx/2D.h";
 using mozilla::gfx::SurfaceFormat from "mozilla/gfx/Types.h";
+using mozilla::gfx::CrashGuardType from "DriverCrashGuard.h";
 using gfxPlatform::GlobalReflowFlags from "gfxPlatform.h";
 using mozilla::dom::TabId from "mozilla/dom/ipc/IdType.h";
 using mozilla::dom::ContentParentId from "mozilla/dom/ipc/IdType.h";
@@ -1287,9 +1288,8 @@ parent:
     // Graphics errors
     async GraphicsError(nsCString aError);
 
-    // Driver crash guards. aGuardType must be a member of CrashGuardType.
-    sync BeginDriverCrashGuard(uint32_t aGuardType) returns (bool crashDetected);
-    sync EndDriverCrashGuard(uint32_t aGuardType);
+    sync BeginDriverCrashGuard(CrashGuardType aGuardType) returns (bool crashDetected);
+    sync EndDriverCrashGuard(CrashGuardType aGuardType);
 
     async AddIdleObserver(uint64_t observerId, uint32_t idleTimeInS);
     async RemoveIdleObserver(uint64_t observerId, uint32_t idleTimeInS);

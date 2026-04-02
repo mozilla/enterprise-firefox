@@ -283,5 +283,21 @@
             new RegExp(`Inferring the ${accent} property from the core operator is deprecated. Consider adding an explicit ${accent} attribute to “${name}”.`),
             MessageLevel.WARNING);
     });
+
+    // MathML_DeprecatedHrefLinkOnNonAnchorElement
+    testNoMessageForMarkup('<math><a href="#"></a></math>');
+    [
+        '<math href="#"></math>',
+        '<math><mstyle href="#"></mstyle></math>',
+        '<math><mrow href="#"></mstyle></math>',
+        '<math><mtext href="#"></mstyle></math>',
+        '<math><mspace href="#"></mspace></math>',
+    ].forEach(markup => {
+        const tagName = /<([a-z]+) href=/.exec(markup)[1];
+        testMessageForMarkup(
+            markup,
+            new RegExp(`The href attribute on the MathML <${tagName}> element is deprecated.`),
+            MessageLevel.WARNING);
+    });
   </script>
 </body>

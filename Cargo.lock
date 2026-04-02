@@ -325,7 +325,7 @@ dependencies = [
 [[package]]
 name = "audioipc2"
 version = "0.6.0"
-source = "git+https://github.com/mozilla/audioipc?rev=0339c4732ceadbc5f54898b77498c33fff0f3f90#0339c4732ceadbc5f54898b77498c33fff0f3f90"
+source = "git+https://github.com/mozilla/audioipc?rev=c484fc0404e5e010802da6554077c0ca063d2ccf#c484fc0404e5e010802da6554077c0ca063d2ccf"
 dependencies = [
  "arrayvec",
  "ashmem",
@@ -352,7 +352,7 @@ dependencies = [
 [[package]]
 name = "audioipc2-client"
 version = "0.6.0"
-source = "git+https://github.com/mozilla/audioipc?rev=0339c4732ceadbc5f54898b77498c33fff0f3f90#0339c4732ceadbc5f54898b77498c33fff0f3f90"
+source = "git+https://github.com/mozilla/audioipc?rev=c484fc0404e5e010802da6554077c0ca063d2ccf#c484fc0404e5e010802da6554077c0ca063d2ccf"
 dependencies = [
  "audio_thread_priority",
  "audioipc2",
@@ -363,7 +363,7 @@ dependencies = [
 [[package]]
 name = "audioipc2-server"
 version = "0.6.0"
-source = "git+https://github.com/mozilla/audioipc?rev=0339c4732ceadbc5f54898b77498c33fff0f3f90#0339c4732ceadbc5f54898b77498c33fff0f3f90"
+source = "git+https://github.com/mozilla/audioipc?rev=c484fc0404e5e010802da6554077c0ca063d2ccf#c484fc0404e5e010802da6554077c0ca063d2ccf"
 dependencies = [
  "audio_thread_priority",
  "audioipc2",
@@ -3829,9 +3829,9 @@ dependencies = [
 
 [[package]]
 name = "jxl"
-version = "0.4.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9da69787ad2f80727e4fc7b5ffbc5fb19edde0cc65969de38c223936ab5a81f0"
+checksum = "08f8ac8a690180b6918b8fe7b5979dfb35636201af6ad32dbbc1503dfa4ee462"
 dependencies = [
  "array-init",
  "byteorder",
@@ -3855,9 +3855,9 @@ dependencies = [
 
 [[package]]
 name = "jxl_macros"
-version = "0.4.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b02441195cd8c39f0a403994a171021c4fb20f362e715dc8c7c40102cf458fd2"
+checksum = "f12640ed661b8b54d6f590bdd8af34643f8b366858fa3493e596758a8610c4cc"
 dependencies = [
  "proc-macro-error2",
  "proc-macro2",
@@ -3867,15 +3867,15 @@ dependencies = [
 
 [[package]]
 name = "jxl_simd"
-version = "0.4.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9b6dc1f46a467bf4b5236be96e1c0b4d343989df9cb765d1fa8b35daaaaf7b8d"
+checksum = "6870bfa7b92ef2467615553d1a16674502b08fb02095580e381d84ad1746d883"
 
 [[package]]
 name = "jxl_transforms"
-version = "0.4.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ef86ca569f71cad09f84c61236655430851c5cd6404f718b8287be4c2c94d552"
+checksum = "ca82efbca83d250a2cd70845c9d39c2ba13f620beb0ef8683b573409d894bf0e"
 dependencies = [
  "jxl_simd",
 ]
@@ -4991,7 +4991,7 @@ dependencies = [
 [[package]]
 name = "mtu"
 version = "0.3.0"
-source = "git+https://github.com/mozilla/neqo?tag=v0.24.1#5b4e8507abb992c39e3e8787d9bf415a065b21dd"
+source = "git+https://github.com/mozilla/neqo?tag=v0.25.0#2fce249a5c03eef63a4a1a748c7a0c1dea497b9b"
 dependencies = [
  "bindgen 0.72.0",
  "cfg_aliases",
@@ -5034,9 +5034,10 @@ dependencies = [
 
 [[package]]
 name = "neqo-bin"
-version = "0.24.1"
-source = "git+https://github.com/mozilla/neqo?tag=v0.24.1#5b4e8507abb992c39e3e8787d9bf415a065b21dd"
+version = "0.25.0"
+source = "git+https://github.com/mozilla/neqo?tag=v0.25.0#2fce249a5c03eef63a4a1a748c7a0c1dea497b9b"
 dependencies = [
+ "cfg_aliases",
  "clap",
  "clap-verbosity-flag",
  "futures",
@@ -5059,8 +5060,8 @@ dependencies = [
 
 [[package]]
 name = "neqo-common"
-version = "0.24.1"
-source = "git+https://github.com/mozilla/neqo?tag=v0.24.1#5b4e8507abb992c39e3e8787d9bf415a065b21dd"
+version = "0.25.0"
+source = "git+https://github.com/mozilla/neqo?tag=v0.25.0#2fce249a5c03eef63a4a1a748c7a0c1dea497b9b"
 dependencies = [
  "enum-map",
  "env_logger",
@@ -5073,8 +5074,8 @@ dependencies = [
 
 [[package]]
 name = "neqo-crypto"
-version = "0.24.1"
-source = "git+https://github.com/mozilla/neqo?tag=v0.24.1#5b4e8507abb992c39e3e8787d9bf415a065b21dd"
+version = "0.25.0"
+source = "git+https://github.com/mozilla/neqo?tag=v0.25.0#2fce249a5c03eef63a4a1a748c7a0c1dea497b9b"
 dependencies = [
  "bindgen 0.72.0",
  "enum-map",
@@ -5092,8 +5093,8 @@ dependencies = [
 
 [[package]]
 name = "neqo-http3"
-version = "0.24.1"
-source = "git+https://github.com/mozilla/neqo?tag=v0.24.1#5b4e8507abb992c39e3e8787d9bf415a065b21dd"
+version = "0.25.0"
+source = "git+https://github.com/mozilla/neqo?tag=v0.25.0#2fce249a5c03eef63a4a1a748c7a0c1dea497b9b"
 dependencies = [
  "enumset",
  "http",
@@ -5111,8 +5112,8 @@ dependencies = [
 
 [[package]]
 name = "neqo-qpack"
-version = "0.24.1"
-source = "git+https://github.com/mozilla/neqo?tag=v0.24.1#5b4e8507abb992c39e3e8787d9bf415a065b21dd"
+version = "0.25.0"
+source = "git+https://github.com/mozilla/neqo?tag=v0.25.0#2fce249a5c03eef63a4a1a748c7a0c1dea497b9b"
 dependencies = [
  "log",
  "neqo-common",
@@ -5125,8 +5126,8 @@ dependencies = [
 
 [[package]]
 name = "neqo-transport"
-version = "0.24.1"
-source = "git+https://github.com/mozilla/neqo?tag=v0.24.1#5b4e8507abb992c39e3e8787d9bf415a065b21dd"
+version = "0.25.0"
+source = "git+https://github.com/mozilla/neqo?tag=v0.25.0#2fce249a5c03eef63a4a1a748c7a0c1dea497b9b"
 dependencies = [
  "enum-map",
  "enumset",
@@ -5145,8 +5146,8 @@ dependencies = [
 
 [[package]]
 name = "neqo-udp"
-version = "0.24.1"
-source = "git+https://github.com/mozilla/neqo?tag=v0.24.1#5b4e8507abb992c39e3e8787d9bf415a065b21dd"
+version = "0.25.0"
+source = "git+https://github.com/mozilla/neqo?tag=v0.25.0#2fce249a5c03eef63a4a1a748c7a0c1dea497b9b"
 dependencies = [
  "cfg_aliases",
  "libc",

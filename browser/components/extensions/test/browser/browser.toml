@@ -370,6 +370,8 @@ https_first_disabled = true
 
 ["browser_ext_persistent_storage_permission_indication.js"]
 
+["browser_ext_popup_after_close.js"]
+
 ["browser_ext_popup_api_injection.js"]
 
 ["browser_ext_popup_background.js"]

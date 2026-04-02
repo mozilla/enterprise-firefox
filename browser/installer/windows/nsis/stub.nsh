@@ -872,7 +872,7 @@ Function SendPing
     ${If} ${Errors}
       StrCpy $WindowsUBR "-1" ; Assign -1 if an error occured during registry read
     ${EndIf}
-    
+
     ; Capture the stub installer build ID
     StrCpy $StubBuildID ${MOZ_BUILDID}
 
@@ -1775,7 +1775,7 @@ Function CommonOnInit
   ${Else}
     StrCpy $INSTDIR "${DefaultInstDir32bit}"
   ${EndIf}
-  
+
   !insertmacro IsTestBreakpointSet ${TestBreakpointArchToInstall}
 
   ; Require elevation if the user can elevate
@@ -1857,7 +1857,7 @@ Function CommonOnInit
   ${If} $FontFamilyName == ""
     StrCpy $FontFamilyName "$(^Font)"
   ${EndIf}
-  
+
   InitPluginsDir
   File /oname=$PLUGINSDIR\bgstub.jpg "bgstub.jpg"
 

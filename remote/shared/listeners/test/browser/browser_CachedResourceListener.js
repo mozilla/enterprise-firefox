@@ -41,8 +41,7 @@ add_task(async function test_stylesheet() {
     await loadCachedResource(topContext, type);
 
     const isNavigationCacheEnabled = Services.prefs.getBoolPref(
-      "dom.script_loader.experimental.navigation_cache",
-      false
+      "dom.script_loader.experimental.navigation_cache"
     );
     const useTODO = type === "script" && !isNavigationCacheEnabled;
 

@@ -128,9 +128,18 @@ internal object TabsTrayReducer {
     }
 
     private fun handleNavigateBack(state: TabsTrayState): TabsTrayState {
+        val lastBackStackEntry = state.backStack.lastOrNull()
+
         return when {
+            // Navigate away from the below destinations to maintain selection mode
+            lastBackStackEntry in setOf(
+                TabManagerNavDestination.EditTabGroup,
+                TabManagerNavDestination.AddToTabGroup,
+            ) -> state.copy(backStack = state.popBackStack())
+
             state.mode is TabsTrayState.Mode.Select -> state.copy(mode = TabsTrayState.Mode.Normal)
-            state.backStack.lastOrNull() == TabManagerNavDestination.TabSearch -> state.copy(
+
+            lastBackStackEntry == TabManagerNavDestination.TabSearch -> state.copy(
                 tabSearchState = TabSearchState(query = "", searchResults = emptyList()),
                 backStack = state.popBackStack(),
             )

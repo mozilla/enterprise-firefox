@@ -71,7 +71,7 @@ void FileInfo<FileManager>::UpdateReferences(ThreadSafeAutoRefCnt& aRefCount,
 
     aRefCount = aRefCount + aDelta;
 
-    if (mRefCnt + mDBRefCnt > 0) {
+    if (mRefCnt > 0 || mDBRefCnt > 0) {
       return;
     }
 

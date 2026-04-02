@@ -263,12 +263,14 @@ RefPtr<TextureHost> TextureHostWrapperD3D11::CreateFromBufferTexture(
   auto id = GpuProcessD3D11TextureMap::GetNextTextureId();
   auto flags = aTextureHost->GetFlags() | TextureFlags::SOFTWARE_DECODED_VIDEO;
 
+  auto transferFunction = bufferTexture->GetTransferFunction();
   auto colorSpace = ToColorSpace2(bufferTexture->GetYUVColorSpace());
 
   auto descD3D10 = SurfaceDescriptorD3D10(
       nullptr, Some(id),
       /* arrayIndex */ 0, outputFormat, size, colorSpace, colorRange,
-      /* hasKeyedMutex */ false, /* fencesHolderId */ Nothing());
+      transferFunction, /* hasKeyedMutex */ false,
+      /* fencesHolderId */ Nothing());
 
   RefPtr<DXGITextureHostD3D11> textureHostD3D11 =
       new DXGITextureHostD3D11(flags, descD3D10);

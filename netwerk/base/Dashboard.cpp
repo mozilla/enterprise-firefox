@@ -514,7 +514,7 @@ Dashboard::RequestSockets(nsINetDashboardCallback* aCallback) {
                   socketData),
               NS_DISPATCH_NORMAL);
         },
-        [self](const mozilla::ipc::ResponseRejectReason) {});
+        [](const mozilla::ipc::ResponseRejectReason) {});
     return NS_OK;
   }
 
@@ -604,7 +604,7 @@ Dashboard::RequestHttpConnections(nsINetDashboardCallback* aCallback) {
                   &Dashboard::GetHttpConnections, httpData),
               NS_DISPATCH_NORMAL);
         },
-        [self](const mozilla::ipc::ResponseRejectReason) {});
+        [](const mozilla::ipc::ResponseRejectReason) {});
     return NS_OK;
   }
 
@@ -725,7 +725,7 @@ Dashboard::RequestHttp3ConnectionStats(nsINetDashboardCallback* aCallback) {
                   &Dashboard::GetHttp3ConnectionStats, data),
               NS_DISPATCH_NORMAL);
         },
-        [self](const mozilla::ipc::ResponseRejectReason) {});
+        [](const mozilla::ipc::ResponseRejectReason) {});
     return NS_OK;
   }
 
@@ -973,7 +973,7 @@ Dashboard::RequestDNSInfo(nsINetDashboardCallback* aCallback) {
                   &Dashboard::GetDNSCacheEntries, dnsData),
               NS_DISPATCH_NORMAL);
         },
-        [self](const mozilla::ipc::ResponseRejectReason) {});
+        [](const mozilla::ipc::ResponseRejectReason) {});
     return NS_OK;
   }
 

@@ -135,6 +135,10 @@ function assertVisibilityScalars(expected) {
     expected.push("menubar-items_pinned_menu-bar");
   }
 
+  if (AppConstants.MOZ_ENTERPRISE) {
+    expected.push("enterprise-badge-toolbar-button_pinned_nav-bar-end");
+  }
+
   // FIXME(bug 1883857): object metric type not available in artefact builds.
   const widgetPositions = Glean.browserUi.toolbarWidgets?.testGetValue();
   Services.fog.testResetFOG();

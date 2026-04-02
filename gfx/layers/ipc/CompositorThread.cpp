@@ -134,7 +134,9 @@ void CompositorThreadHolder::Shutdown() {
 
   ImageBridgeParent::Shutdown();
   gfx::VRManagerParent::Shutdown();
-  MediaSystemResourceService::Shutdown();
+  CompositorThread()->Dispatch(
+      NS_NewRunnableFunction("MediaSystemResourceService::Shutdown",
+                             []() { MediaSystemResourceService::Shutdown(); }));
   CompositorManagerParent::Shutdown();
   gfx::gfxGradientCache::Shutdown();
 

@@ -207,6 +207,10 @@ $calculated-max-width-twice-widest: $break-point-widest + 2 * $card-width;
     @include wallpaper-contrast-fix;
   }
 
+  .tile {
+    color-scheme: initial;
+  }
+
   &.active .context-menu-button {
     opacity: 1;
     background-color: var(--newtab-button-active-background);

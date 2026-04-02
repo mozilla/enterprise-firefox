@@ -956,8 +956,10 @@ export class BaseContent extends React.PureComponent {
               showSectionsMgmtPanel={this.state.showSectionsMgmtPanel}
               showWidgetsManagementPanel={this.state.showWidgetsManagementPanel}
               toggleWidgetsManagementPanel={this.toggleWidgetsManagementPanel}
+              widgetsEnabled={prefs["widgets.enabled"]}
             />
           </menu>
+          <ConfirmDialog />
         </div>
       );
     }

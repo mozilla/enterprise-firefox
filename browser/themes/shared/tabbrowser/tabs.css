@@ -35,6 +35,7 @@
   --tab-border-radius: var(--toolbarbutton-border-radius);
   --tab-overflow-clip-margin: 2px;
   --tab-close-button-padding: 6px;
+  --tab-note-icon-end-margin: 4px;
   --tab-block-margin: 4px;
   --tab-icon-end-margin: 5.5px;
   --tab-label-line-height: 1.7;
@@ -2667,23 +2668,21 @@ toolbar:not(#TabsToolbar) #firefox-view-button {
   width: calc(var(--icon-size-xsmall) + 8px);
   height: calc(var(--icon-size-xsmall) + 8px);
   padding: 4px;
-  margin-inline-end: calc(var(--tab-close-button-padding) / -2);
+  margin-inline-end: var(--tab-note-icon-end-margin);
 
   list-style-image: url("chrome://global/skin/icons/tab-notes-12.svg");
   -moz-context-properties: fill;
   fill: var(--icon-color);
 
+  /* Vertical expanded: reserve space so the note icon does not jump when the close shows.*/
   #tabbrowser-tabs[orient="vertical"][expanded] & {
-    /*
-     * Keep the tab note icon out of the way of the close button, even when
-     * the close button is not showing because the tab is not being hovered.
-     */
     .tabbrowser-tab:not(:hover) & {
       /* .tab-close-button is 24px wide with border-box sizing */
-      margin-inline-end: calc(24px - var(--tab-close-button-padding));
+      margin-inline-end: calc(var(--tab-note-icon-end-margin) + 24px - var(--tab-close-button-padding) / 2);
     }
+
     .tabbrowser-tab:is([visuallyselected], :hover) & {
-      margin-inline-end: calc(var(--tab-close-button-padding) / -2);
+      margin-inline-end: var(--tab-note-icon-end-margin);
     }
   }
 }

@@ -708,8 +708,8 @@ static bool IsSupportedCollation(JSContext* cx, LanguageId locale,
 }
 
 /**
- * Return `true` in |result| iff `string` is a supported collation "case first"
- * value. Otherwise set |result| to `false`.
+ * Return `true` iff `string` is a supported collation "case first" value.
+ * Otherwise return `false`.
  */
 template <typename CharT>
 static bool IsSupportedCollationCaseFirst(mozilla::Range<const CharT> string) {
@@ -737,8 +737,8 @@ static bool IsSupportedCollationCaseFirst(const JSLinearString* string) {
 }
 
 /**
- * Return `true` in |result| iff `string` is a supported collation "numeric"
- * value. Otherwise set |result| to `false`.
+ * Return `true` iff `string` is a supported collation "numeric" value.
+ * Otherwise return `false`.
  */
 template <typename CharT>
 static bool IsSupportedCollationNumeric(mozilla::Range<const CharT> string) {
@@ -765,8 +765,8 @@ static bool IsSupportedCollationNumeric(const JSLinearString* string) {
 }
 
 /**
- * Return `true` in |result| iff `string` is a supported hour cycle value.
- * Otherwise set |result| to `false`.
+ * Return `true` iff `string` is a supported hour cycle value. Otherwise return
+ * `false`.
  */
 template <typename CharT>
 static bool IsSupportedHourCycle(mozilla::Range<const CharT> string) {
@@ -802,8 +802,8 @@ static bool IsSupportedHourCycle(const JSLinearString* string) {
 }
 
 /**
- * Return `true` in |result| iff `string` is a supported numbering system.
- * Otherwise set |result| to `false`.
+ * Return `true` iff `string` is a supported numbering system. Otherwise return
+ * `false`.
  */
 template <typename CharT>
 static bool IsSupportedNumberingSystem(std::basic_string_view<CharT> string) {

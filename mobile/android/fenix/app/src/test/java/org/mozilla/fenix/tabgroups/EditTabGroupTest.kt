@@ -4,15 +4,19 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mozilla.fenix.tabstray.TabsTrayTestTag.BOTTOM_SHEET_COLOR_LIST
+import org.mozilla.fenix.tabstray.TabsTrayTestTag.GROUP_NAME
 import org.mozilla.fenix.tabstray.data.TabGroupTheme
 import org.mozilla.fenix.tabstray.redux.state.TabGroupFormState
 import org.mozilla.fenix.tabstray.redux.state.TabsTrayState
@@ -59,6 +63,121 @@ class EditTabGroupTest {
         }
     }
 
+    @Test
+    fun `WHEN group is created GIVEN blank name, unedited state, and nextGroupNumber 1 THEN name is default name Group 1`() {
+        val store = TabsTrayStore(
+            initialState = TabsTrayState(
+                tabGroupFormState = fakeFormState(nextGroupNumber = 1),
+            ),
+        )
+        composeTestRule.setContent {
+            ComposableUnderTest(store = store)
+        }
+
+        composeTestRule.onNodeWithTag(GROUP_NAME).assert(hasText("Group 1"))
+    }
+
+    @Test
+    fun `WHEN group is created GIVEN blank name, unedited state, and nextGroupNumber 99 THEN name is default name Group 99`() {
+        val store = TabsTrayStore(
+            initialState = TabsTrayState(
+                tabGroupFormState = fakeFormState(nextGroupNumber = 99),
+            ),
+        )
+        composeTestRule.setContent {
+            ComposableUnderTest(store = store)
+        }
+
+        composeTestRule.onNodeWithTag(GROUP_NAME).assert(hasText("Group 99"))
+    }
+
+    @Test
+    fun `WHEN group is created GIVEN blank name and edited state THEN name is not overridden with default`() {
+        val store = TabsTrayStore(
+            initialState = TabsTrayState(
+                tabGroupFormState = TabGroupFormState(
+                    tabGroupId = "123",
+                    name = "",
+                    nextTabGroupNumber = 1,
+                    theme = TabGroupTheme.Yellow,
+                    edited = true,
+                ),
+            ),
+        )
+        composeTestRule.setContent {
+            ComposableUnderTest(store = store)
+        }
+
+        composeTestRule.onNodeWithTag(GROUP_NAME).assert(hasText(""))
+    }
+
+    @Test
+    fun `WHEN group is created GIVEN non-blank name and edited state THEN name is not overridden with default`() {
+        val store = TabsTrayStore(
+            initialState = TabsTrayState(
+                tabGroupFormState = TabGroupFormState(
+                    tabGroupId = "123",
+                    name = "Test Group",
+                    nextTabGroupNumber = 1,
+                    theme = TabGroupTheme.Yellow,
+                    edited = true,
+                ),
+            ),
+        )
+        composeTestRule.setContent {
+            ComposableUnderTest(store = store)
+        }
+
+        composeTestRule.onNodeWithTag(GROUP_NAME).assert(hasText("Test Group"))
+    }
+
+    @Test
+    fun `WHEN group is created GIVEN non-blank name and unedited state THEN name is not overridden with default`() {
+        val store = TabsTrayStore(
+            initialState = TabsTrayState(
+                tabGroupFormState = TabGroupFormState(
+                    tabGroupId = "123",
+                    name = "Test Group",
+                    nextTabGroupNumber = 1,
+                    theme = TabGroupTheme.Yellow,
+                    edited = false,
+                ),
+            ),
+        )
+        composeTestRule.setContent {
+            ComposableUnderTest(store = store)
+        }
+
+        composeTestRule.onNodeWithTag(GROUP_NAME).assert(hasText("Test Group"))
+    }
+
+    @Test
+    fun `WHEN the store is in create mode THEN the default name is shown and saved in form state`() {
+        val expectedName = "Group 1"
+        val store = TabsTrayStore(
+            initialState = TabsTrayState(
+                tabGroupFormState = TabGroupFormState(
+                    tabGroupId = null,
+                    name = "",
+                    nextTabGroupNumber = 1,
+                    edited = false,
+                ),
+            ),
+        )
+
+        composeTestRule.setContent {
+            ComposableUnderTest(store = store)
+        }
+
+        composeTestRule
+            .onNodeWithText(expectedName)
+            .assertIsDisplayed()
+
+        composeTestRule.runOnIdle {
+            assertEquals(expectedName, store.state.tabGroupFormState?.name)
+        }
+    }
+
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     private fun ComposableUnderTest(
@@ -81,11 +200,11 @@ class EditTabGroupTest {
         }
     }
 
-    private fun fakeFormState(): TabGroupFormState {
+    private fun fakeFormState(nextGroupNumber: Int = 1): TabGroupFormState {
         return TabGroupFormState(
             tabGroupId = "123",
-            name = "Test Group",
-            nextTabGroupNumber = 1,
+            name = "",
+            nextTabGroupNumber = nextGroupNumber,
             theme = TabGroupTheme.Yellow,
             edited = false,
         )

@@ -167,8 +167,7 @@ class AppLinksUseCases(
                 it.addCategory(Intent.CATEGORY_BROWSABLE)
                 it.component = null
                 it.flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                it.selector?.addCategory(Intent.CATEGORY_BROWSABLE)
-                it.selector?.component = null
+                it.selector = null
                 it.putExtra(EXTRA_APPLICATION_ID, context.packageName)
             }
 

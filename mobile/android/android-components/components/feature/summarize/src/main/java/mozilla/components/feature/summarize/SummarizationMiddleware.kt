@@ -51,7 +51,7 @@ class SummarizationMiddleware(
                 settings.setHasConsentedToShake(true)
                 observeCloudLlmProvider(store, llmProvider)
             }
-            LlmProviderAction.ProviderUnavailable -> scope.launch {
+            LlmProviderAction.ProviderAvailable -> scope.launch {
                 llmProvider.prepare()
             }
             is LlmProviderAction.ProviderInitialized -> scope.launch {
@@ -60,6 +60,21 @@ class SummarizationMiddleware(
             is SummarizationFailed -> scope.launch {
                 errorReporter.report(action.exception)
             }
+            is ContentExtracted -> scope.launch {
+                val parser = Parser()
+                action.llm.prompt(Prompt("${action.instructions} ${action.content}"))
+                    // We want to accumulate and parse the values that we get from [ReplyPart]
+                    // So we emit them and dispatch any other value we get from the [Llm]
+                    .transform {
+                        when (it) {
+                            is Llm.Response.Success.ReplyPart -> emit(it.value)
+                            else -> store.dispatch(ReceivedLlmResponse(it))
+                        }
+                    }
+                    .scan("") { acc, i -> acc + i }
+                    .map { parser.parse(it) }
+                    .collect { store.dispatch(ReceivedParsedDocument(it)) }
+            }
         }
 
         next(action)
@@ -67,24 +82,18 @@ class SummarizationMiddleware(
 
     private suspend fun observePrompt(store: SummarizationStore, llm: Llm) = runCatching {
         val pageMetadata = pageMetadataExtractor.getPageMetadata()
-            .getOrDefault(PageMetadata(listOf(), "en"))
+            .getOrDefault(PageMetadata())
 
         val content = pageContentExtractor.getPageContent().getOrThrow()
 
-        val parser = Parser()
-
-        llm.prompt(Prompt("${pageMetadata.systemPrompt} $content"))
-            // We want to accumulate and parse the values that we get from [ReplyPart]
-            // So we emit them and dispatch any other value we get from the [Llm]
-            .transform {
-                when (it) {
-                    is Llm.Response.Success.ReplyPart -> emit(it.value)
-                    else -> store.dispatch(ReceivedLlmResponse(it))
-                }
-            }
-            .scan("") { acc, i -> acc + i }
-            .map { parser.parse(it) }
-            .collect { store.dispatch(ReceivedParsedDocument(it)) }
+        store.dispatch(
+            ContentExtracted(
+                instructions = pageMetadata.systemPrompt,
+                content = content,
+                pageMetadata = pageMetadata,
+                llm = llm,
+            ),
+        )
     }.onFailure {
         store.dispatch(
             SummarizationFailed(
@@ -100,7 +109,7 @@ class SummarizationMiddleware(
         store.dispatch(SummarizationRequested(llmProvider.info))
         llmProvider.state.map { state ->
             when (state) {
-                CloudLlmProvider.State.Available -> LlmProviderAction.ProviderUnavailable
+                CloudLlmProvider.State.Available -> LlmProviderAction.ProviderAvailable
                 is CloudLlmProvider.State.Unavailable -> LlmProviderAction.ProviderFailed(state.exception)
                 is CloudLlmProvider.State.Ready -> LlmProviderAction.ProviderInitialized(state.llm)
             }

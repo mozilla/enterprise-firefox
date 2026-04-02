@@ -106,4 +106,36 @@ internal class MarketingAttributionServiceTest {
             distributionIdManager.setDistribution(DistributionIdManager.Distribution.AURA_001)
             assertFalse(MarketingAttributionService.shouldShowMarketingOnboarding(null, distributionIdManager))
         }
+
+    @Test
+    fun `WHEN installReferrerResponse is null or blank or malformed THEN isMetaAttribution returns false`() {
+        assertFalse(MarketingAttributionService.isMetaAttribution(null))
+        assertFalse(MarketingAttributionService.isMetaAttribution(""))
+        assertFalse(MarketingAttributionService.isMetaAttribution(" "))
+
+        val malformedReferrer = """utm_content={"app":12345,"t":1234567890,"source":{"data":"DATA","nonce":"NONCE"}"""
+        assertFalse(MarketingAttributionService.isMetaAttribution(malformedReferrer))
+    }
+
+    @Test
+    fun `WHEN installReferrerResponse contains Meta utm_content params THEN isMetaAttribution returns true`() {
+        val metaReferrer = """utm_content={"app":12345,"t":1234567890,"source":{"data":"DATA","nonce":"NONCE"}}"""
+        assertTrue(MarketingAttributionService.isMetaAttribution(metaReferrer))
+    }
+
+    @Test
+    fun `WHEN installReferrerResponse missing Meta data or nonce THEN isMetaAttribution returns false`() {
+        var metaReferrer = """utm_content={"app":12345,"t":1234567890,"source":{"nonce":"NONCE"}}"""
+        assertFalse(MarketingAttributionService.isMetaAttribution(metaReferrer))
+
+        metaReferrer = """utm_content={"app":12345,"t":1234567890,"source":{"data":"DATA"}}"""
+        assertFalse(MarketingAttributionService.isMetaAttribution(metaReferrer))
+    }
+
+    @Test
+    fun `WHEN installReferrerResponse does not contain Meta params THEN isMetaAttribution returns false`() {
+        assertFalse(MarketingAttributionService.isMetaAttribution("utm_source=google&utm_medium=cpc"))
+        assertFalse(MarketingAttributionService.isMetaAttribution("gclid=12345"))
+        assertFalse(MarketingAttributionService.isMetaAttribution("adjust_reftag=test"))
+    }
 }

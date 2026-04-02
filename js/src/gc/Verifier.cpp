@@ -376,6 +376,7 @@ void gc::GCRuntime::endVerifyPreBarriers() {
 
     /* Start after the roots. */
     VerifyNode* node = NextNode(trc->root);
+    size_t found = 0;
     while ((char*)node < trc->edgeptr) {
       cetrc.node = node;
       JS::TraceChildren(&cetrc, node->thing);
@@ -392,13 +393,17 @@ void gc::GCRuntime::endVerifyPreBarriers() {
                 node->thing.asCell(), edge.label,
                 JS::GCTraceKindToAscii(edge.thing.kind()), edge.thing.asCell());
             MOZ_ReportAssertionFailure(msgbuf, __FILE__, __LINE__);
-            MOZ_CRASH();
+            found++;
           }
         }
       }
 
       node = NextNode(node);
     }
+    MOZ_RELEASE_ASSERT(
+        found == 0,
+        "barrier verifier found edges to unmarked objects that were reachable "
+        "when snapshot was taken (see above)");
   }
 
   marker().reset();

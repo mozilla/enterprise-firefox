@@ -1532,12 +1532,8 @@
   <string name="studies_remove">Wótwónoźeś</string>
   <!-- Title of the active section on the studies list -->
   <string name="studies_active">Aktiwny</string>
-  <!-- Description for studies -->
-  <string name="studies_description_3" moz:removedIn="148" tools:ignore="UnusedResources">Testujśo funkcije a ideje, nježli až se za wše wózjawjaju.</string>
   <!-- Description for studies. Note: The word "Firefox" should NOT be translated -->
   <string name="studies_description_4" tools:ignore="BrandUsage">Firefox wužywarje pśipadnje wuběra, aby funkcije testował, což kwalitu za kuždego pólěpšujo.</string>
-  <!-- Title of the Studies data preference -->
-  <string name="studies_title" moz:removedIn="148" tools:ignore="UnusedResources">Studije instalěrowaś a pśewjasć</string>
   <!-- Title of the Studies data preference -->
   <string name="studies_title_2">Funkciske studije dowóliś</string>
   <!-- Learn more link for studies, links to an article for more information about studies. -->
@@ -1704,6 +1700,14 @@
     <item quantity="few">%1$d rejtariki</item>
     <item quantity="other">%1$d rejtarikow</item>
   </plurals>
+  <!-- Title for the Delete tab group confirmation dialog. -->
+  <string name="delete_tab_group_confirmation_dialog_title">Kupku rejtarikow lašowaś?</string>
+  <!-- Text shown in the body of the Delete tab group confirmation dialog. -->
+  <string name="delete_tab_group_confirmation_dialog_body">To kupku na pśecej wulašujo.</string>
+  <!-- Text shown on the confirm button in the Delete tab group confirmation dialog. -->
+  <string name="delete_tab_group_confirmation_dialog_confirm">Kupku lašowaś</string>
+  <!-- Text shown on the cancel button in the Delete tab group confirmation dialog. -->
+  <string name="delete_tab_group_confirmation_dialog_cancel">Pśetergnuś</string>
   <!--
     History
 
@@ -2437,8 +2441,6 @@
   <string name="preference_accessibility_text_size_summary">Pówětšćo abo pómjeńšćo tekst na websedłach</string>
   <!-- Title for Accessibility Text Size Scaling Preference -->
   <string name="preference_accessibility_font_size_title">Pismowa wjelikosć</string>
-  <!-- %d is the percentage of the slide bar for setting the text font size and %% will be announced as "percent". -->
-  <string name="a11y_preference_accessibility_font_size_percentage" tools:ignore="UnusedResources" moz:removedIn="148">%d %%.</string>
   <!-- Title for Accessibility Text Automatic Size Scaling Preference -->
   <string name="preference_accessibility_auto_size_2">Awtomatiske pśiměrjenje pismoweje wjelikosći</string>
   <!-- Summary for Accessibility Text Automatic Size Scaling Preference -->

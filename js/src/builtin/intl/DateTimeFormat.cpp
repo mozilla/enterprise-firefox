@@ -3265,13 +3265,13 @@ static constexpr uint32_t DateTimeFormatFunction_DateTimeFormat = 0;
 /**
  * DateTime Format Functions
  */
-static bool DateTimeCompareFunction(JSContext* cx, unsigned argc, Value* vp) {
+static bool DateTimeFormatFunction(JSContext* cx, unsigned argc, Value* vp) {
   CallArgs args = CallArgsFromVp(argc, vp);
 
   // Steps 1-2.
-  auto* compare = &args.callee().as<JSFunction>();
+  auto* format = &args.callee().as<JSFunction>();
   auto dtfValue =
-      compare->getExtendedSlot(DateTimeFormatFunction_DateTimeFormat);
+      format->getExtendedSlot(DateTimeFormatFunction_DateTimeFormat);
   Rooted<DateTimeFormatObject*> dateTimeFormat(
       cx, &dtfValue.toObject().as<DateTimeFormatObject>());
 
@@ -3297,7 +3297,7 @@ static bool dateTimeFormat_format(JSContext* cx, const CallArgs& args) {
   if (!boundFormat) {
     Handle<PropertyName*> funName = cx->names().empty_;
     auto* fn =
-        NewNativeFunction(cx, DateTimeCompareFunction, 1, funName,
+        NewNativeFunction(cx, DateTimeFormatFunction, 1, funName,
                           gc::AllocKind::FUNCTION_EXTENDED, GenericObject);
     if (!fn) {
       return false;

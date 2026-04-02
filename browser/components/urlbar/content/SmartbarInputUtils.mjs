@@ -179,6 +179,15 @@ function setupMentionsPlugin(editorElement, panelList) {
   let mentionSearch = null;
   let latestMentionData = null;
 
+  document.l10n
+    .formatValue("smartbar-mention-typing-placeholder")
+    .then(text => {
+      editorElement.style.setProperty(
+        "--multiline-editor-mention-placeholder",
+        `" ${text}"`
+      );
+    });
+
   const handleMentionsChange = () => {
     if (!latestMentionData || !mentionSearch) {
       return;
@@ -228,6 +237,7 @@ function setupMentionsPlugin(editorElement, panelList) {
       panelList.groups = groups;
       panelList.setAttribute("data-triggered-by", "inline-mention");
       panelList.show();
+      editorElement.setAttribute("data-mention-placeholder", "");
 
       const { chat_id, message_seq } = smartbarInput.conversationTelemetryInfo;
       Glean.smartWindow.mentionStart.record({
@@ -240,6 +250,11 @@ function setupMentionsPlugin(editorElement, panelList) {
     onChange: mentionData => {
       latestMentionData = mentionData;
 
+      editorElement.toggleAttribute(
+        "data-mention-placeholder",
+        mentionData.text.length <= 1
+      );
+
       if (!mentionChangeTimer) {
         mentionChangeTimer = new lazy.SkippableTimer({
           name: "SmartbarMentionsChange",
@@ -251,6 +266,7 @@ function setupMentionsPlugin(editorElement, panelList) {
     onExit: () => {
       isHandlingMentions = false;
       panelList.hide();
+      editorElement.removeAttribute("data-mention-placeholder");
 
       // Cancel pending queries
       if (mentionChangeTimer) {

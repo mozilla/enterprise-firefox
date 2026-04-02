@@ -229,6 +229,18 @@ Maybe<int32_t> CbCrStrideFromBufferDescriptor(
   }
 }
 
+Maybe<gfx::ColorSpace2> ColorSpace2FromBufferDescriptor(
+    const BufferDescriptor& aDescriptor) {
+  switch (aDescriptor.type()) {
+    case BufferDescriptor::TRGBDescriptor:
+      return Some(aDescriptor.get_RGBDescriptor().colorSpace());
+    case BufferDescriptor::TYCbCrDescriptor:
+      return Nothing();
+    default:
+      MOZ_CRASH("GFX:  ColorSpace2FromBufferDescriptor");
+  }
+}
+
 Maybe<gfx::YUVColorSpace> YUVColorSpaceFromBufferDescriptor(
     const BufferDescriptor& aDescriptor) {
   switch (aDescriptor.type()) {
@@ -286,6 +298,18 @@ Maybe<gfx::ChromaSubsampling> ChromaSubsamplingFromBufferDescriptor(
       return Some(aDescriptor.get_YCbCrDescriptor().chromaSubsampling());
     default:
       MOZ_CRASH("GFX: ChromaSubsamplingFromBufferDescriptor");
+  }
+}
+
+Maybe<gfx::TransferFunction> TransferFunctionFromBufferDescriptor(
+    const BufferDescriptor& aDescriptor) {
+  switch (aDescriptor.type()) {
+    case BufferDescriptor::TRGBDescriptor:
+      return Some(aDescriptor.get_RGBDescriptor().transferFunction());
+    case BufferDescriptor::TYCbCrDescriptor:
+      return Some(aDescriptor.get_YCbCrDescriptor().transferFunction());
+    default:
+      MOZ_CRASH("GFX: TransferFunctionFromBufferDescriptor");
   }
 }
 

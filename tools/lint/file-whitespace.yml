@@ -156,6 +156,8 @@ file-whitespace:
         - .kt
         - .md
         - .mn
+        - .nsh
+        - .nsi
         - .properties
         - .py
         - .rs

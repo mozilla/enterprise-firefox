@@ -23,6 +23,8 @@ const { PlacesTestUtils } = ChromeUtils.importESModule(
   "resource://testing-common/PlacesTestUtils.sys.mjs"
 );
 
+const DEFAULT_CONTEXT = { telemetry: { location: "home" } };
+
 function getLastAssistantResponse(conversation) {
   return conversation.messages
     .filter(m => m.role == MESSAGE_ROLE.ASSISTANT)
@@ -52,7 +54,11 @@ add_task(async function test_chat_streams_end_to_end() {
       // withServer sets up the mock HTTP server, so use the real engine
       const engineInstance = await openAIEngine.build(MODEL_FEATURES.CHAT);
 
-      await Chat.fetchWithHistory(conversation, engineInstance);
+      await Chat.fetchWithHistory(
+        conversation,
+        engineInstance,
+        DEFAULT_CONTEXT
+      );
 
       Assert.equal(
         getLastAssistantResponse(conversation).content.body,
@@ -141,7 +147,11 @@ add_task(async function test_chat_tool_call_get_open_tabs() {
         conversation.addUserMessage("List tabs", "https://example.com", 0);
         conversation.addAssistantMessage("text", "");
 
-        await Chat.fetchWithHistory(conversation, engineInstance);
+        await Chat.fetchWithHistory(
+          conversation,
+          engineInstance,
+          DEFAULT_CONTEXT
+        );
 
         Assert.equal(
           getLastAssistantResponse(conversation).content.body,
@@ -207,7 +217,11 @@ add_task(async function test_chat_tool_call_search_browsing_history() {
 
         const engineInstance = await openAIEngine.build(MODEL_FEATURES.CHAT);
 
-        await Chat.fetchWithHistory(conversation, engineInstance);
+        await Chat.fetchWithHistory(
+          conversation,
+          engineInstance,
+          DEFAULT_CONTEXT
+        );
 
         Assert.equal(
           getLastAssistantResponse(conversation).content.body,
@@ -259,7 +273,11 @@ add_task(async function test_chat_tool_call_get_page_content() {
 
         const engineInstance = await openAIEngine.build(MODEL_FEATURES.CHAT);
 
-        await Chat.fetchWithHistory(conversation, engineInstance);
+        await Chat.fetchWithHistory(
+          conversation,
+          engineInstance,
+          DEFAULT_CONTEXT
+        );
 
         Assert.equal(
           getLastAssistantResponse(conversation).content.body,
@@ -342,7 +360,11 @@ add_task(async function test_chat_tool_call_get_user_memories() {
 
         const engineInstance = await openAIEngine.build(MODEL_FEATURES.CHAT);
 
-        await Chat.fetchWithHistory(conversation, engineInstance);
+        await Chat.fetchWithHistory(
+          conversation,
+          engineInstance,
+          DEFAULT_CONTEXT
+        );
 
         Assert.equal(
           getLastAssistantResponse(conversation).content.body,

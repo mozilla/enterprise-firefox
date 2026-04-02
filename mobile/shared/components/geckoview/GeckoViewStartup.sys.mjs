@@ -36,6 +36,12 @@ const JSPROCESSACTORS = {
       ],
     },
   },
+  GeckoViewPush: {
+    parent: {
+      esModuleURI: "resource:///actors/GeckoViewPushParent.sys.mjs",
+    },
+    includeParent: true,
+  },
 };
 
 const JSWINDOWACTORS = {
@@ -207,7 +213,7 @@ export class GeckoViewStartup {
           ged: [
             "GeckoView:AIFeature:ListFeatures",
             "GeckoView:AIFeature:SetEnabled",
-            "GeckoView:AIFeature:Reset",
+            "GeckoView:AIFeature:MakeAvailable",
           ],
         });
 

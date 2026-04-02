@@ -19,9 +19,11 @@ TimelineManager::TimelineManager(nsPresContext* aPresContext)
     : mPresContext(aPresContext) {}
 
 template <typename TimelineType>
-struct TimelineSourceMatches {
+struct TimelineTargetMatches {
   bool operator()(const TimelineType* aTimeline) {
-    return aTimeline->SourceMatches(mElement, mPseudoRequest);
+    const auto target = aTimeline->TimelineTarget();
+    return target.mElement == mElement &&
+           target.mPseudoRequest == mPseudoRequest;
   }
 
   const Element* mElement;
@@ -36,7 +38,7 @@ void TimelineManager::EnsureNoTimelineTarget(
     const PseudoStyleRequest& aPseudoRequest) {
   const auto duplicateIt = std::find_if(
       aStart, aEnd,
-      TimelineSourceMatches<TimelineType>{aElement, aPseudoRequest});
+      TimelineTargetMatches<TimelineType>{aElement, aPseudoRequest});
   // We should have one entry of the name for each target (See
   // `BuildTimelines`).
   MOZ_ASSERT(duplicateIt == aEnd, "Unexpected timeline target entry?");
@@ -50,7 +52,7 @@ auto TimelineManager::FindInTimelineTargets(
     -> TimelineTargetsIter<TimelineType> {
   return std::find_if(
       aTimelineTargets.cbegin(), aTimelineTargets.cend(),
-      TimelineSourceMatches<TimelineType>{aElement, aPseudoRequest});
+      TimelineTargetMatches<TimelineType>{aElement, aPseudoRequest});
 }
 
 template <typename TimelineType>
@@ -228,7 +230,7 @@ TimelineType* TimelineManager::DoGetScopedTimeline(
   TimelineType* result = nullptr;
   bool found = false;
   for (const auto& candidate : candidates.Data()) {
-    if (!ScopeIsValid(candidate->TimelineTargetElement(), aScopeElement)) {
+    if (!ScopeIsValid(candidate->TimelineTarget().mElement, aScopeElement)) {
       continue;
     }
     if (found) {

@@ -7,7 +7,11 @@
  */
 
 import { JSONFile } from "resource://gre/modules/JSONFile.sys.mjs";
-import { CATEGORY_TO_ID_PREFIX } from "moz-src:///browser/components/aiwindow/models/memories/MemoriesConstants.sys.mjs";
+import {
+  CATEGORY_TO_ID_PREFIX,
+  HISTORY,
+  CONVERSATION,
+} from "moz-src:///browser/components/aiwindow/models/memories/MemoriesConstants.sys.mjs";
 
 /**
  * MemoryStore
@@ -139,6 +143,7 @@ export const MemoryStore = {
    * @property {string} category - Category label for the memory.
    * @property {string} intent - Intent label associated with the memory.
    * @property {string} reasoning - Explanation of why this memory was created.
+   * @property {string} source - Where the memory originated (history or conversation).
    * @property {number} score - Numeric score representing the memory's relevance.
    * @property {number} updated_at - Last-updated time in milliseconds since Unix epoch.
    * @property {boolean} is_deleted - Whether the memory is marked as deleted.
@@ -150,6 +155,7 @@ export const MemoryStore = {
    * @property {string} [category] Optional category label; defaults to an empty string.
    * @property {string} [intent] Optional intent label; defaults to an empty string.
    * @property {string} [reasoning] Optional reasoning explanation; defaults to an empty string.
+   * @property {string} [source] Optional source label; defaults to "history".
    * @property {number} [score] Optional numeric score; non-finite values are ignored.
    * @property {number} [updated_at] Optional last-updated time in milliseconds since Unix epoch.
    * @property {boolean} [is_deleted] Optional deleted flag; defaults to false.
@@ -176,6 +182,7 @@ export const MemoryStore = {
         "category",
         "intent",
         "reasoning",
+        "source",
       ];
       for (const prop of simpleProperties) {
         if (prop in memoryPartial) {
@@ -198,6 +205,7 @@ export const MemoryStore = {
 
       gJSONFile?.saveSoon();
       Services.obs.notifyObservers(null, MEMORY_STORE_CHANGED);
+      updateMemoriesCountMetric();
       return memory;
     }
 
@@ -208,6 +216,7 @@ export const MemoryStore = {
       category: memoryPartial.category || "",
       intent: memoryPartial.intent || "",
       reasoning: memoryPartial.reasoning || "",
+      source: memoryPartial.source || HISTORY,
       score: Number.isFinite(memoryPartial.score) ? memoryPartial.score : 0,
       updated_at: memoryPartial.updated_at || now,
       is_deleted: memoryPartial.is_deleted ?? false,
@@ -216,6 +225,7 @@ export const MemoryStore = {
     gState.memories.push(memory);
     gJSONFile?.saveSoon();
     Services.obs.notifyObservers(null, MEMORY_STORE_CHANGED);
+    updateMemoriesCountMetric();
     return memory;
   },
 
@@ -275,6 +285,7 @@ export const MemoryStore = {
   async softDeleteMemory(id) {
     let memory = await this.updateMemory(id, { is_deleted: true });
     Services.obs.notifyObservers(null, MEMORY_STORE_CHANGED);
+    updateMemoriesCountMetric();
     return memory;
   },
 
@@ -298,6 +309,7 @@ export const MemoryStore = {
       trigger,
     });
     Services.obs.notifyObservers(null, MEMORY_STORE_CHANGED);
+    updateMemoriesCountMetric();
     return true;
   },
 
@@ -385,8 +397,42 @@ export const MemoryStore = {
     }
 
     gJSONFile?.saveSoon();
+    updateMemoriesLastUpdatedMetric();
   },
 };
+
+function updateMemoriesCountMetric() {
+  let historyCount = 0;
+  let conversationCount = 0;
+
+  for (const memory of gState.memories) {
+    if (memory.is_deleted) {
+      continue;
+    }
+    if (memory.source === CONVERSATION) {
+      conversationCount++;
+    } else if (memory.source === HISTORY) {
+      historyCount++;
+    }
+  }
+
+  Glean.smartWindow.memoriesCount.history.set(historyCount);
+  Glean.smartWindow.memoriesCount.conversation.set(conversationCount);
+
+  updateMemoriesLastUpdatedMetric();
+}
+
+function updateMemoriesLastUpdatedMetric() {
+  const lastUpdated =
+    Math.max(
+      gState.meta.last_history_memory_ts || 0,
+      gState.meta.last_chat_memory_ts || 0
+    ) || Date.now();
+  if (!lastUpdated || lastUpdated <= 0) {
+    return;
+  }
+  Glean.smartWindow.memoriesLastUpdated.set(new Date(lastUpdated));
+}
 
 /**
  * Simple deterministic hash of a string → 8-char hex.

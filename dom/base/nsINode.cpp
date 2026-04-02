@@ -1112,12 +1112,7 @@ void nsINode::Normalize() {
         node->GetCharacterDataBuffer();
     if (characterDataBuffer->GetLength()) {
       nsIContent* target = node->GetPreviousSibling();
-      NS_ASSERTION((target && target->NodeType() == TEXT_NODE) ||
-                       notifyDevToolsOfNodeRemovals,
-                   "Should always have a previous text sibling unless "
-                   "mutation events messed us up");
-      if (MOZ_LIKELY(!notifyDevToolsOfNodeRemovals) ||
-          (target && target->NodeType() == TEXT_NODE)) {
+      if (target && target->NodeType() == TEXT_NODE) {
         nsTextNode* t = static_cast<nsTextNode*>(target);
         if (characterDataBuffer->Is2b()) {
           t->AppendTextForNormalize(characterDataBuffer->Get2b(),

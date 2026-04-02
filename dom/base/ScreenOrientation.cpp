@@ -67,14 +67,21 @@ ScreenOrientation::ScreenOrientation(nsPIDOMWindowInner* aWindow,
     : DOMEventTargetHelper(aWindow), mScreen(aScreen) {
   MOZ_ASSERT(aWindow);
   MOZ_ASSERT(aScreen);
+}
 
-  mAngle = aScreen->GetOrientationAngle();
-  mType = InternalOrientationToType(aScreen->GetOrientationType());
+/* static */ already_AddRefed<ScreenOrientation> ScreenOrientation::Create(
+    nsPIDOMWindowInner* aWindow, nsScreen* aScreen) {
+  RefPtr screenOrientation = new ScreenOrientation(aWindow, aScreen);
 
-  Document* doc = GetResponsibleDocument();
+  screenOrientation->mAngle = aScreen->GetOrientationAngle();
+  screenOrientation->mType =
+      InternalOrientationToType(aScreen->GetOrientationType());
+
+  Document* doc = screenOrientation->GetResponsibleDocument();
   BrowsingContext* bc = doc ? doc->GetBrowsingContext() : nullptr;
   if (bc && !bc->IsDiscarded() && !bc->HasOrientationOverride()) {
-    MOZ_ALWAYS_SUCCEEDS(bc->SetCurrentOrientation(mType, mAngle));
+    MOZ_ALWAYS_SUCCEEDS(bc->SetCurrentOrientation(screenOrientation->mType,
+                                                  screenOrientation->mAngle));
   } else if (bc && !bc->IsTop() && bc->HasOrientationOverride()) {
     // Resync the override for newly created iframes.
     BrowsingContext* topBC = bc->Top();
@@ -82,6 +89,8 @@ ScreenOrientation::ScreenOrientation(nsPIDOMWindowInner* aWindow,
         bc->SetOrientationOverride(topBC->GetCurrentOrientationType(),
                                    topBC->GetCurrentOrientationAngle()));
   }
+
+  return screenOrientation.forget();
 }
 
 ScreenOrientation::~ScreenOrientation() {

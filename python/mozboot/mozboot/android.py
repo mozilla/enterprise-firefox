@@ -679,7 +679,7 @@ def ensure_android_packages(
         e = subprocess.CalledProcessError(retcode, cmd)
         raise e
     if list_packages:
-        subprocess.check_call([str(sdkmanager_tool), "--list"])
+        subprocess.check_call([str(sdkmanager_tool), "--list"], env=env)
 
     suggest_platform_tools_path(packages, sdk_path)
 

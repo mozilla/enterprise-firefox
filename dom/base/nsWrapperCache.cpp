@@ -44,6 +44,13 @@ void nsWrapperCache::SetWrapperJSObject(JSObject* aNewWrapper) {
   }
 }
 
+void nsWrapperCache::ClearWrapperOnWrapFailure() {
+  if (IsNurseryWrapper(mWrapper)) {
+    CycleCollectedJSRuntime::Get()->NurseryWrapperRemovedSlow(this);
+  }
+  ClearWrapper();
+}
+
 void nsWrapperCache::ReleaseWrapper(void* aScriptObjectHolder) {
   MOZ_ASSERT(aScriptObjectHolder);
   ReleaseWrapperAndMaybeDropHolder(aScriptObjectHolder);

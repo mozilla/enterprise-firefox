@@ -911,6 +911,18 @@ void CookiePersistentStorage::Activate() {
     }
   }
 
+  // Create the placeholder URI on the main thread before dispatching to the
+  // Cookie thread. NS_NewURI must not be called from background threads as it
+  // triggers XPCOM service initialization.
+  if (NS_FAILED(
+          NS_NewURI(getter_AddRefs(mPlaceholderURI), "https://example.com"))) {
+    MOZ_ASSERT_UNREACHABLE(
+        "Failed to create placeholder URI for cookie validation");
+    mInitializedDBConn = true;
+    mInitialized = true;
+    return;
+  }
+
   NS_ENSURE_SUCCESS_VOID(NS_NewNamedThread("Cookie", getter_AddRefs(mThread)));
 
   RefPtr<CookiePersistentStorage> self = this;
@@ -1925,6 +1937,7 @@ CookiePersistentStorage::OpenDBResult CookiePersistentStorage::Read() {
     mReadArray.Clear();
   }
   mReadArray.SetCapacity(kMaxNumberOfCookies);
+  mCleanupArray.Clear();
 
   nsCString baseDomain;
   nsCString name;
@@ -1959,9 +1972,26 @@ CookiePersistentStorage::OpenDBResult CookiePersistentStorage::Read() {
     // that we don't support
     (void)attrs.PopulateFromSuffix(suffix);
 
-    CookieKey key(baseDomain, attrs);
+    // Filter cookies with newly invalid hostnames (e.g. legacy DB values that
+    // no longer pass URL parsing).
+    nsCOMPtr<nsIURI> validatedUri;
+    if (NS_FAILED(NS_MutateURI(mPlaceholderURI)
+                      .SetHost(host)
+                      .Finalize(validatedUri))) {
+      COOKIE_LOGSTRING(
+          LogLevel::Debug,
+          ("Read(): Queueing cookie with newly invalid hostname '%s' for "
+           "removal from DB",
+           host.get()));
+      CookieDomainTuple* cleanupTuple = mCleanupArray.AppendElement();
+      cleanupTuple->key = CookieKey(baseDomain, attrs);
+      cleanupTuple->originAttributes = attrs;
+      cleanupTuple->cookie = GetCookieFromRow(stmt);
+      continue;
+    }
+
     CookieDomainTuple* tuple = mReadArray.AppendElement();
-    tuple->key = std::move(key);
+    tuple->key = CookieKey(baseDomain, attrs);
     tuple->originAttributes = attrs;
     tuple->cookie = GetCookieFromRow(stmt);
   }
@@ -2071,31 +2101,22 @@ void CookiePersistentStorage::InitDBConn() {
     return;
   }
 
-  nsCOMPtr<nsIURI> dummyUri;
-  nsresult rv = NS_NewURI(getter_AddRefs(dummyUri), "https://example.com");
-  MOZ_ASSERT(NS_SUCCEEDED(rv));
   nsTArray<RefPtr<Cookie>> cleanupCookies;
 
-  for (uint32_t i = 0; i < mReadArray.Length(); ++i) {
-    CookieDomainTuple& tuple = mReadArray[i];
+  // Cookies with newly invalid hostnames detected during Read() on the cookie
+  // thread need to be removed from DB now that the connection is ready.
+  for (auto& tuple : mCleanupArray) {
+    COOKIE_LOGSTRING(LogLevel::Debug,
+                     ("InitDBConn(): Removing cookie from db with "
+                      "newly invalid hostname: '%s'",
+                      tuple.cookie->host().get()));
+    cleanupCookies.AppendElement(
+        Cookie::Create(*tuple.cookie, tuple.originAttributes));
+  }
+  mCleanupArray.Clear();
+
+  for (auto& tuple : mReadArray) {
     MOZ_ASSERT(!tuple.cookie->isSession());
-
-    // filter invalid non-ipv4 host ending in number from old db values
-    nsCOMPtr<nsIURIMutator> outMut;
-    nsCOMPtr<nsIURIMutator> dummyMut;
-    rv = dummyUri->Mutate(getter_AddRefs(dummyMut));
-    MOZ_ASSERT(NS_SUCCEEDED(rv));
-    rv = dummyMut->SetHost(tuple.cookie->host(), getter_AddRefs(outMut));
-
-    if (NS_FAILED(rv)) {
-      COOKIE_LOGSTRING(LogLevel::Debug, ("Removing cookie from db with "
-                                         "newly invalid hostname: '%s'",
-                                         tuple.cookie->host().get()));
-      RefPtr<Cookie> cookie =
-          Cookie::Create(*tuple.cookie, tuple.originAttributes);
-      cleanupCookies.AppendElement(cookie);
-      continue;
-    }
 
     // CreateValidated fixes up the creation and lastAccessed times.
     // If the DB is corrupted and the timestaps are far away in the future

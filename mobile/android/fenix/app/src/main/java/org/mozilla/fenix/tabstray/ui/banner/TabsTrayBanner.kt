@@ -9,20 +9,18 @@ package org.mozilla.fenix.tabstray.ui.banner
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.PrimaryTabRow
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.Text
@@ -174,7 +172,6 @@ fun TabsTrayBanner(
                 privateTabCount = privateTabCount,
                 syncedTabCount = syncedTabCount,
                 statusBarHeight = statusBarHeight,
-                scrollBehavior = scrollBehavior,
                 onTabPageIndicatorClicked = onTabPageIndicatorClicked,
             )
         }
@@ -246,7 +243,6 @@ private fun BannerPadding(
  * @param privateTabCount The amount of open Private tabs.
  * @param syncedTabCount The amount of synced tabs.
  * @param statusBarHeight The height of the system status bar.
- * @param scrollBehavior Defines how the [TabPageBanner] should behave when the content under it is scrolled.
  * @param onTabPageIndicatorClicked Invoked when the user clicks on a tab page button. Passes along the
  * [Page] that was clicked.
  */
@@ -258,124 +254,106 @@ private fun TabPageBanner(
     privateTabCount: Int,
     syncedTabCount: Int,
     statusBarHeight: Dp,
-    scrollBehavior: TopAppBarScrollBehavior,
     onTabPageIndicatorClicked: (Page) -> Unit,
 ) {
     val inactiveColor = MaterialTheme.colorScheme.onSurfaceVariant
     val selectedTabIndex = Page.pageToPosition(selectedPage)
 
-    // We wrap the TabRow in a TopAppBar to reuse Material3's built-in scroll behavior.
-    // CenterAlignedTopAppBar provides the scroll-to-collapse behavior via `scrollBehavior`,
-    // which TabRow/PrimaryTabRow does not support on its own. Without this wrapper, we'd have
-    // to duplicate the app bar scroll behavior implementation here.
-    CenterAlignedTopAppBar(
-        title = {
-            Column(
-                // The TopAppBarTitleInset value is used here to offset the padding, making sure
-                // that the content of the TopAppBar is aligned correctly. This extra padding
-                // compensates for the inherent padding added by the CenterAlignedTopAppBar.
-                // Without this, the content of the TopAppBar becomes misaligned.
-                modifier = Modifier.padding(end = TopAppBarTitleInset),
+    Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh) {
+        Column(
+            modifier = Modifier.padding(end = TopAppBarTitleInset),
+        ) {
+            Spacer(
+                modifier = Modifier
+                    .height(statusBarHeight)
+                    .fillMaxWidth(),
+            )
+            PrimaryTabRow(
+                selectedTabIndex = selectedTabIndex,
+                modifier = Modifier.fillMaxWidth(),
+                contentColor = MaterialTheme.colorScheme.primary,
+                containerColor = Color.Transparent,
+                indicator = {
+                    TabRowDefaults.PrimaryIndicator(
+                        modifier = Modifier.tabIndicatorOffset(
+                            selectedTabIndex = selectedTabIndex,
+                            matchContentSize = true,
+                        ),
+                        width = Dp.Unspecified,
+                        shape = RoundedCornerShape(
+                            topStart = TabIndicatorRoundedCornerDp,
+                            topEnd = TabIndicatorRoundedCornerDp,
+                        ),
+                    )
+                },
+                divider = {},
             ) {
-                Spacer(
-                    modifier = Modifier
-                        .height(statusBarHeight)
-                        .fillMaxWidth(),
+                val privateTabDescription = stringResource(
+                    id = R.string.tabs_header_private_tabs_counter_title,
+                    privateTabCount.toString(),
                 )
-                PrimaryTabRow(
-                    selectedTabIndex = selectedTabIndex,
-                    modifier = Modifier.fillMaxWidth(),
-                    contentColor = MaterialTheme.colorScheme.primary,
-                    containerColor = Color.Transparent,
-                    indicator = {
-                        TabRowDefaults.PrimaryIndicator(
-                            modifier = Modifier.tabIndicatorOffset(
-                                selectedTabIndex = selectedTabIndex,
-                                matchContentSize = true,
-                            ),
-                            width = Dp.Unspecified,
-                            shape = RoundedCornerShape(
-                                topStart = TabIndicatorRoundedCornerDp,
-                                topEnd = TabIndicatorRoundedCornerDp,
-                            ),
-                        )
-                    },
-                    divider = {},
+                val normalTabDescription = stringResource(
+                    id = R.string.tabs_header_normal_tabs_counter_title,
+                    normalTabCount.toString(),
+                )
+                val syncedTabDescription = stringResource(
+                    id = R.string.tabs_header_synced_tabs_counter_title,
+                    syncedTabCount.toString(),
+                )
+
+                Tab(
+                    selected = selectedPage == Page.PrivateTabs,
+                    onClick = { onTabPageIndicatorClicked(Page.PrivateTabs) },
+                    modifier = Modifier
+                        .testTag(TabsTrayTestTag.PRIVATE_TABS_PAGE_BUTTON)
+                        .semantics {
+                            contentDescription = privateTabDescription
+                        }
+                        .height(RowHeight),
+                    unselectedContentColor = inactiveColor,
                 ) {
-                    val privateTabDescription = stringResource(
-                        id = R.string.tabs_header_private_tabs_counter_title,
-                        privateTabCount.toString(),
+                    Text(
+                        text = stringResource(id = R.string.tabs_header_private_tabs_title),
+                        style = FirefoxTheme.typography.button,
                     )
-                    val normalTabDescription = stringResource(
-                        id = R.string.tabs_header_normal_tabs_counter_title,
-                        normalTabCount.toString(),
+                }
+
+                Tab(
+                    selected = selectedPage == Page.NormalTabs,
+                    onClick = { onTabPageIndicatorClicked(Page.NormalTabs) },
+                    modifier = Modifier
+                        .testTag(TabsTrayTestTag.NORMAL_TABS_PAGE_BUTTON)
+                        .semantics {
+                            contentDescription = normalTabDescription
+                        }
+                        .height(RowHeight),
+                    unselectedContentColor = inactiveColor,
+                ) {
+                    Text(
+                        text = stringResource(R.string.tabs_header_normal_tabs_title),
+                        style = FirefoxTheme.typography.button,
                     )
-                    val syncedTabDescription = stringResource(
-                        id = R.string.tabs_header_synced_tabs_counter_title,
-                        syncedTabCount.toString(),
+                }
+
+                Tab(
+                    selected = selectedPage == Page.SyncedTabs,
+                    onClick = { onTabPageIndicatorClicked(Page.SyncedTabs) },
+                    modifier = Modifier
+                        .testTag(TabsTrayTestTag.SYNCED_TABS_PAGE_BUTTON)
+                        .semantics {
+                            contentDescription = syncedTabDescription
+                        }
+                        .height(RowHeight),
+                    unselectedContentColor = inactiveColor,
+                ) {
+                    Text(
+                        text = stringResource(id = R.string.tabs_header_synced_tabs_title),
+                        style = FirefoxTheme.typography.button,
                     )
-
-                    Tab(
-                        selected = selectedPage == Page.PrivateTabs,
-                        onClick = { onTabPageIndicatorClicked(Page.PrivateTabs) },
-                        modifier = Modifier
-                            .testTag(TabsTrayTestTag.PRIVATE_TABS_PAGE_BUTTON)
-                            .semantics {
-                                contentDescription = privateTabDescription
-                            }
-                            .height(RowHeight),
-                        unselectedContentColor = inactiveColor,
-                    ) {
-                        Text(
-                            text = stringResource(id = R.string.tabs_header_private_tabs_title),
-                            style = FirefoxTheme.typography.button,
-                        )
-                    }
-
-                    Tab(
-                        selected = selectedPage == Page.NormalTabs,
-                        onClick = { onTabPageIndicatorClicked(Page.NormalTabs) },
-                        modifier = Modifier
-                            .testTag(TabsTrayTestTag.NORMAL_TABS_PAGE_BUTTON)
-                            .semantics {
-                                contentDescription = normalTabDescription
-                            }
-                            .height(RowHeight),
-                        unselectedContentColor = inactiveColor,
-                    ) {
-                        Text(
-                            text = stringResource(R.string.tabs_header_normal_tabs_title),
-                            style = FirefoxTheme.typography.button,
-                        )
-                    }
-
-                    Tab(
-                        selected = selectedPage == Page.SyncedTabs,
-                        onClick = { onTabPageIndicatorClicked(Page.SyncedTabs) },
-                        modifier = Modifier
-                            .testTag(TabsTrayTestTag.SYNCED_TABS_PAGE_BUTTON)
-                            .semantics {
-                                contentDescription = syncedTabDescription
-                            }
-                            .height(RowHeight),
-                        unselectedContentColor = inactiveColor,
-                    ) {
-                        Text(
-                            text = stringResource(id = R.string.tabs_header_synced_tabs_title),
-                            style = FirefoxTheme.typography.button,
-                        )
-                    }
                 }
             }
-        },
-        expandedHeight = RowHeight + statusBarHeight,
-        colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-            scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-        ),
-        // Allow this TopAppBar to be drawn behind the status bar instead of stopping at it.
-        windowInsets = TopAppBarDefaults.windowInsets.only(WindowInsetsSides.Horizontal),
-        scrollBehavior = scrollBehavior,
-    )
+        }
+    }
 }
 
 /**

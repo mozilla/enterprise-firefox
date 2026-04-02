@@ -30,6 +30,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -99,25 +100,25 @@ fun NewGameScreen(
                 fontSize = 28.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color(0xffff5500),
-                text = "LONGFOX"
+                text = stringResource(R.string.longfox)
             )
             Text(
                 fontSize = 14.sp,
                 color = Color.Yellow,
-                text = "🍪 likes cookies 🍪"
+                text = stringResource(R.string.likes_cookies)
             )
             Text(
                 modifier = Modifier.padding(top = 8.dp),
                 fontSize = 16.sp,
                 fontStyle = FontStyle.Italic,
                 color = Color.Green,
-                text = "tap to play !"
+                text = stringResource(R.string.tap_to_play)
             )
             Text(
                 modifier = Modifier.padding(top = 36.dp, bottom = 36.dp),
                 fontSize = 22.sp,
                 color = Color.Cyan,
-                text = "HISCORE: $hiscore"
+                text = stringResource(R.string.hiscore, hiscore)
             )
             Text(
                 modifier = Modifier
@@ -126,7 +127,7 @@ fun NewGameScreen(
                     .clickable { coroutineScope.launch { longFoxDataStore.toggleSoundOn() } },
                 fontSize = 16.sp,
                 color = if (soundOn) Color.White else Color.Gray,
-                text = if (soundOn) "🔈 sound on" else "🔇 sound off"
+                text = if (soundOn) stringResource(R.string.sound_on) else stringResource(R.string.sound_off)
             )
         }
     }

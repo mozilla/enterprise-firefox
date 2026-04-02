@@ -359,6 +359,7 @@ export class OpenAIPipeline {
       const fxAccountToken = request.fxAccountToken
         ? request.fxAccountToken
         : null;
+      const chatId = request.chatId;
 
       const client = new OpenAIPipeline.OpenAILib.OpenAI({
         baseURL: baseURL ? baseURL : "http://localhost:11434/v1",
@@ -368,6 +369,7 @@ export class OpenAIPipeline {
           "service-type": serviceType || "ai",
           purpose: purpose || "chat",
           "x-engine-id": engineId,
+          "chat-id": chatId,
         },
       });
       const stream = request.streamOptions?.enabled || false;

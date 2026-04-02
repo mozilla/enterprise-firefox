@@ -1436,7 +1436,7 @@ bool js::InitRuntimeNumberState(JSRuntime* rt) {
   storage += decimalPointSize;
 
   js_memcpy(storage, grouping, groupingSize);
-  rt->numGrouping = grouping;
+  rt->numGrouping = storage;
 #endif /* !JS_HAS_INTL_API */
   return true;
 }

@@ -45,6 +45,7 @@ struct DeclarationTraits<InlineStyleDeclarations> {
     }
 
     if (!block->GetPropertyTypedValue(aPropertyId, value)) {
+      aRv.ThrowTypeError("Invalid property");
       return value;
     }
 
@@ -71,6 +72,7 @@ struct DeclarationTraits<ComputedStyleDeclarations> {
     }
 
     if (!style->GetPropertyTypedValue(aPropertyId, value)) {
+      aRv.ThrowTypeError("Invalid property");
       return value;
     }
 
@@ -89,8 +91,10 @@ struct DeclarationTraits<StyleRuleDeclarations> {
 
     auto value = StylePropertyTypedValue::None();
 
-    if (!aRule->GetDeclarationBlock().GetPropertyTypedValue(aPropertyId,
-                                                            value)) {
+    DeclarationBlock& block = aRule->GetDeclarationBlock();
+
+    if (!block.GetPropertyTypedValue(aPropertyId, value)) {
+      aRv.ThrowTypeError("Invalid property");
       return value;
     }
 

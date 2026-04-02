@@ -124,6 +124,7 @@ export class DiscoveryStreamAdminUI extends React.PureComponent {
       toggledStories: {},
       weatherQuery: "",
       pendingOverrides: {},
+      overridesTogglePressed: null,
     };
   }
 
@@ -222,13 +223,17 @@ export class DiscoveryStreamAdminUI extends React.PureComponent {
     const features = this.getDebugFeaturesList();
     const currentOverrides = this.getOverrideValues(features, true);
     if (!pressed) {
-      this.setState({ pendingOverrides: { ...currentOverrides } });
+      this.setState({
+        pendingOverrides: { ...currentOverrides },
+        overridesTogglePressed: false,
+      });
       this.setDebugOverrides(null);
       return;
     }
     const overrides = Object.keys(this.state.pendingOverrides).length
       ? { ...this.state.pendingOverrides }
       : currentOverrides;
+    this.setState({ overridesTogglePressed: true });
     this.setDebugOverrides(overrides);
   }
 
@@ -541,7 +546,11 @@ export class DiscoveryStreamAdminUI extends React.PureComponent {
       return null;
     }
     const overrides = this.getOverrideValues(features);
-    const overridesEnabled = Object.keys(overrides).length;
+    const storeOverridesEnabled = !!Object.keys(overrides).length;
+    const overridesEnabled =
+      this.state.overridesTogglePressed !== null
+        ? this.state.overridesTogglePressed
+        : storeOverridesEnabled;
     const hasAnyNonZeroOverride = Object.values(overrides).some(
       value => Number.isFinite(value) && value > 0
     );

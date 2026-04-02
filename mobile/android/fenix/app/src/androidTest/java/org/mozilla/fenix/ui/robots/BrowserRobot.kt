@@ -1485,6 +1485,8 @@ class BrowserRobot(private val composeTestRule: ComposeTestRule) {
                     mDevice.findObject(By.textContains(title)).click()
                     Log.i(TAG, "clickDownloadLink: Clicked the: $title download link")
                     assertUIObjectExists(itemWithResId("$packageName:id/parentPanel"))
+
+                    break
                 } catch (e: AssertionError) {
                     Log.i(TAG, "clickDownloadLink: AssertionError caught, executing fallback methods")
                     if (i == RETRY_COUNT) {

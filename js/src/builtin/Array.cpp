@@ -3542,14 +3542,7 @@ static bool array_toSpliced(JSContext* cx, unsigned argc, Value* vp) {
     return false;
   }
 
-  // Step 13. Let A be ? ArrayCreate(𝔽(newLen)).
-  Rooted<ArrayObject*> arr(cx,
-                           NewDensePartlyAllocatedArray(cx, uint32_t(newLen)));
-  if (!arr) {
-    return false;
-  }
-
-  // Steps 14-19 optimized for dense elements.
+  // Steps 13-19 optimized for dense elements.
   if (CanOptimizeForDenseStorage<ArrayAccess::Read>(obj, len)) {
     MOZ_ASSERT(len <= UINT32_MAX);
     MOZ_ASSERT(actualDeleteCount <= UINT32_MAX,
@@ -3647,6 +3640,13 @@ static bool array_toSpliced(JSContext* cx, unsigned argc, Value* vp) {
 
     args.rval().setObject(*arr);
     return true;
+  }
+
+  // Step 13. Let A be ? ArrayCreate(𝔽(newLen)).
+  Rooted<ArrayObject*> arr(cx,
+                           NewDensePartlyAllocatedArray(cx, uint32_t(newLen)));
+  if (!arr) {
+    return false;
   }
 
   // Copy everything before start

@@ -1337,7 +1337,7 @@ root{
                 H{"HH"}
                 Hm{"HH:mm"}
                 Hms{"HH:mm:ss"}
-                Hv{"HH'h' v"}
+                Hv{"HH v"}
                 M{"L"}
                 MEd{"MM-dd, E"}
                 MMM{"LLL"}
@@ -1896,7 +1896,7 @@ root{
                 H{"HH"}
                 Hm{"HH:mm"}
                 Hms{"HH:mm:ss"}
-                Hv{"HH'h' v"}
+                Hv{"HH v"}
                 M{"L"}
                 MEd{"MM-dd, E"}
                 MMM{"LLL"}
@@ -2186,7 +2186,7 @@ root{
                 Hms{"HH:mm:ss"}
                 Hmsv{"HH:mm:ss v"}
                 Hmv{"HH:mm v"}
-                Hv{"HH'h' v"}
+                Hv{"HH v"}
                 M{"L"}
                 MEd{"MM-dd, E"}
                 MMM{"LLL"}
@@ -3521,6 +3521,16 @@ root{
         UK{"UK"}
         US{"US"}
         metric{"Metric"}
+    }
+    nestedBracketReplacements{
+        "(",
+        "[",
+        "（",
+        "［",
+        ")",
+        "]",
+        "）",
+        "］",
     }
     parse{
         date{

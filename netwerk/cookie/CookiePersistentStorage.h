@@ -20,6 +20,7 @@ class mozIStorageAsyncStatement;
 class mozIStorageService;
 class nsICookieTransactionCallback;
 class nsIEffectiveTLDService;
+class nsIURI;
 
 namespace mozilla {
 namespace net {
@@ -126,6 +127,9 @@ class CookiePersistentStorage final : public CookieStorage,
   nsCOMPtr<nsIThread> mThread;
   nsCOMPtr<mozIStorageService> mStorageService;
   nsCOMPtr<nsIEffectiveTLDService> mTLDService;
+  // Created on the main thread in Activate(); used read-only in Read() on the
+  // Cookie thread for hostname validation via Mutate()->SetHost().
+  nsCOMPtr<nsIURI> mPlaceholderURI;
 
   // encapsulates a (key, Cookie) tuple for temporary storage purposes.
   struct CookieDomainTuple {
@@ -137,6 +141,10 @@ class CookiePersistentStorage final : public CookieStorage,
   // thread
   TimeStamp mEndInitDBConn;
   nsTArray<CookieDomainTuple> mReadArray;
+  // Cookies with invalid hostnames found during Read(), to be removed from DB
+  // on the main thread after InitDBConn() sets up the DB connection.
+  // Synchronized by the same mMonitor + mInitialized pattern as mReadArray.
+  nsTArray<CookieDomainTuple> mCleanupArray;
 
   Monitor mMonitor MOZ_UNANNOTATED;
 

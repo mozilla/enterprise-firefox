@@ -1032,7 +1032,7 @@ bool nsDocShell::MaybeHandleSubframeHistory(
         dom::ContentChild* contentChild = dom::ContentChild::GetSingleton();
         nsCOMPtr<nsILoadGroup> loadGroup;
         GetLoadGroup(getter_AddRefs(loadGroup));
-        if (contentChild && loadGroup && !mCheckingSessionHistory) {
+        if (contentChild && loadGroup && !GetIsAttemptingToNavigate()) {
           RefPtr<Document> parentDoc = parentDS->GetDocument();
           parentDoc->BlockOnload();
           RefPtr<BrowsingContext> browsingContext = mBrowsingContext;

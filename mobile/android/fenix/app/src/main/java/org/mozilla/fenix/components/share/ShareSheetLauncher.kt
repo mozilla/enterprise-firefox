@@ -4,6 +4,7 @@
 
 package org.mozilla.fenix.components.share
 
+import android.app.Activity
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
@@ -28,6 +29,38 @@ import mozilla.components.ui.icons.R as iconsR
 internal const val SAVE_PDF_ACTION = "org.mozilla.fenix.ACTION_SAVE_TO_PDF"
 internal const val PRINT_ACTION = "org.mozilla.fenix.ACTION_PRINT"
 internal const val TAB_ID_KEY = "tabID"
+internal const val SEND_TO_DEVICES_ACTION = "org.mozilla.fenix.ACTION_SEND_TO_DEVICES"
+
+/**
+ * Delegate interface to abstract away the share implementation, allowing for easier testing and
+ * separation of concerns.
+ */
+interface ShareDelegate {
+    /** Basic share function to invoke the native share sheet without any additional chooser actions.
+     * @param text The text to share, typically the URL of the page.
+     * @param subject The subject of the share, typically the title of the page.
+     */
+    fun share(text: String, subject: String)
+
+    /** Share function to invoke the native share sheet with additional chooser actions for API 34+.
+     * @param text The text to share, typically the URL of the page.
+     * @param subject The subject of the share, typically the title of the page.
+     * @param actions An array of [ChooserAction] that will be added to the share intent chooser.
+     */
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+    fun shareWithChooserActions(text: String, subject: String, actions: Array<ChooserAction>)
+}
+
+private class ContextShareDelegate(private val getContext: () -> Context) : ShareDelegate {
+    override fun share(text: String, subject: String) {
+        getContext().share(text = text, subject = subject)
+    }
+
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+    override fun shareWithChooserActions(text: String, subject: String, actions: Array<ChooserAction>) {
+        getContext().shareWithChooserActions(text = text, subject = subject, actions = actions)
+    }
+}
 
 /**
  * Interface for handling share events and launching the appropriate share sheet.
@@ -54,6 +87,7 @@ interface ShareSheetLauncher {
      * @param id The session id of the tab to share from.
      * @param url The url to share.
      * @param title The title of the page to share.
+     * @param isPrivate Whether the tab is in private browsing mode.
      * @param isCustomTab Whether the share is being initiated from a custom tab,
      * used to determine the correct destination to pop up to when navigating to the share fragment.
      */
@@ -61,6 +95,7 @@ interface ShareSheetLauncher {
         id: String?,
         url: String,
         title: String?,
+        isPrivate: Boolean = false,
         isCustomTab: Boolean = false,
     )
 }
@@ -73,12 +108,21 @@ interface ShareSheetLauncher {
  * the selected tab.
  * @param navController [NavController] used for navigation.
  * @param onDismiss Callback invoked to dismiss the menu dialog.
+ * @param homeActivityClass The [Class] of the activity used to handle the send-to-devices intent.
+ * @param shareDelegate [ShareDelegate] used to invoke share actions.
  */
 class ShareSheetLauncherImpl(
     private val browserStore: BrowserStore,
     private val navController: NavController,
     private val onDismiss: () -> Unit,
+    private val homeActivityClass: Class<out Activity>,
+    private val shareDelegate: ShareDelegate = ContextShareDelegate { navController.context },
 ) : ShareSheetLauncher {
+
+    companion object {
+        private const val PRINT_REQUEST_CODE_OFFSET = 1
+        private const val SEND_TO_DEVICES_REQUEST_CODE_OFFSET = 2
+    }
 
     /**
      * Show the custom share sheet for sharing resources within the app.
@@ -113,27 +157,30 @@ class ShareSheetLauncherImpl(
      * @param id The session id of the tab to share from.
      * @param url The url to share.
      * @param title The title of the page to share.
+     * @param isPrivate Whether the tab is in private browsing mode.
      * @param isCustomTab Whether the share is being initiated from a custom tab.
      */
     override fun showNativeShareSheet(
         id: String?,
         url: String,
         title: String?,
+        isPrivate: Boolean,
         isCustomTab: Boolean,
     ) {
         val context = navController.context
         dismissMenu(title, url, id, isCustomTab)
         if (id != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            context.shareWithChooserActions(
+            shareDelegate.shareWithChooserActions(
                 text = url,
                 subject = title ?: "",
                 actions = arrayOf(
                     savePDFChooserAction(context, id),
                     printAction(context, id),
+                    sendToDevicesAction(context, id, url, title, isPrivate),
                 ),
             )
         } else {
-            context.share(text = url, subject = title ?: "")
+            shareDelegate.share(text = url, subject = title ?: "")
         }
     }
 
@@ -168,6 +215,55 @@ class ShareSheetLauncherImpl(
     }
 
     /**
+     * Create a [ChooserAction] for sending the current tab to other devices.
+     *
+     * @param context The context used to create intents.
+     * @param id The session ID of the tab to send.
+     * @param url The URL of the tab to send.
+     * @param title The title of the tab to send.
+     * @param isPrivate Whether the tab is in private browsing mode.
+     * @return A [ChooserAction] that can be added to the share intent chooser.
+     */
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+    private fun sendToDevicesAction(
+        context: Context,
+        id: String,
+        url: String,
+        title: String?,
+        isPrivate: Boolean,
+    ): ChooserAction {
+        val icon = Icon.createWithResource(context, iconsR.drawable.mozac_ic_device_desktop_send_24)
+
+        val actionIntent = Intent(context, homeActivityClass).apply {
+            action = SEND_TO_DEVICES_ACTION
+            putExtra(SendToDevicesDialogFragment.EXTRA_URL, url)
+            putExtra(SendToDevicesDialogFragment.EXTRA_TITLE, title)
+            putExtra(
+                SendToDevicesDialogFragment.EXTRA_PRIVACY,
+                if (isPrivate) {
+                    SendToDevicesDialogFragment.PRIVACY_PRIVATE
+                } else {
+                    SendToDevicesDialogFragment.PRIVACY_NORMAL
+                },
+            )
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        }
+
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            id.hashCode() + SEND_TO_DEVICES_REQUEST_CODE_OFFSET,
+            actionIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+
+        return ChooserAction.Builder(
+            icon,
+            context.getString(R.string.share_device_subheader),
+            pendingIntent,
+        ).build()
+    }
+
+    /**
      * Create a [ChooserAction] for printing the current page.
      *
      * @param context The context used to create intents.
@@ -185,7 +281,7 @@ class ShareSheetLauncherImpl(
 
         val pendingIntent = PendingIntent.getBroadcast(
             context,
-            id.hashCode(),
+            id.hashCode() + PRINT_REQUEST_CODE_OFFSET,
             actionIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )

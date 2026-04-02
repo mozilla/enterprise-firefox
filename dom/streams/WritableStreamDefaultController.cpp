@@ -255,7 +255,10 @@ MOZ_CAN_RUN_SCRIPT static void WritableStreamDefaultControllerProcessClose(
 
   // Step 3. Perform ! DequeueValue(controller).
   JS::Rooted<JS::Value> value(aCx);
-  DequeueValue(aController, &value);
+  DequeueValue(aCx, aController, &value, aRv);
+  if (aRv.Failed()) {
+    return;
+  }
 
   // Step 4. Assert: controller.[[queue]] is empty.
   MOZ_ASSERT(aController->Queue().isEmpty());
@@ -333,7 +336,10 @@ MOZ_CAN_RUN_SCRIPT static void WritableStreamDefaultControllerProcessWrite(
 
             // Step 4.4. Perform ! DequeueValue(controller).
             JS::Rooted<JS::Value> value(aCx);
-            DequeueValue(aController, &value);
+            DequeueValue(aCx, aController, &value, aRv);
+            if (aRv.Failed()) {
+              return;
+            }
 
             // Step 4.5. If ! WritableStreamCloseQueuedOrInFlight(stream) is
             // false and state is "writable",
@@ -416,7 +422,10 @@ static void WritableStreamDefaultControllerAdvanceQueueIfNeeded(
 
   // Step 8. Let value be ! PeekQueueValue(controller).
   JS::Rooted<JS::Value> value(aCx);
-  PeekQueueValue(aController, &value);
+  PeekQueueValue(aCx, aController, &value, aRv);
+  if (aRv.Failed()) {
+    return;
+  }
 
   // Step 9. If value is the close sentinel, perform !
   // WritableStreamDefaultControllerProcessClose(controller).

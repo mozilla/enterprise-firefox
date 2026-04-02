@@ -307,5 +307,11 @@ if CONFIG["MOZ_PHC"]:
 
     UNIFIED_SOURCES += ["PHCManager.cpp"]
 
+with Files("nsCycleCollect*"):
+    BUG_COMPONENT = ("Core", "Cycle Collector")
+
+with Files("*CycleCollector*"):
+    BUG_COMPONENT = ("Core", "Cycle Collector")
+
 with Files("PHCManager.*"):
     BUG_COMPONENT = ("Core", "Memory Allocator")

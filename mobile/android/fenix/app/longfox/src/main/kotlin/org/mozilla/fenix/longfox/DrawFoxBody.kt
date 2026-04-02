@@ -16,34 +16,30 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
  * Each outer corner (where both orthogonal neighbours are absent from the body) is rounded;
  * inner corners and shared edges remain sharp so adjacent cells merge seamlessly.
  *
- * The first and last body cells are rounded at their free ends, connecting smoothly to
- * the head and tail images.
+ * The caller is responsible for pre-computing [cells] once per tick and providing a
+ * reusable [path] object; this function resets and refills it on every call.
  *
  * @receiver the draw scope for the game canvas
- * @param state the current game state
+ * @param cells pre-computed per-cell draw data
+ * @param cellSize size of one grid cell in pixels
  * @param brush the brush to fill the body with
+ * @param path reusable [Path] object — reset and rebuilt each call
  */
-fun DrawScope.drawBody(state: GameState, brush: Brush) {
-    val foxBody = state.fox.drop(1).dropLast(1)
-    if (foxBody.isEmpty()) return
-    val bodySet = foxBody.toHashSet()
-    val cornerRadius = state.cellSize / 2
-    val path = Path()
-    foxBody.forEach { cell ->
-        val hasLeft = GridPoint(cell.x - 1, cell.y) in bodySet
-        val hasRight = GridPoint(cell.x + 1, cell.y) in bodySet
-        val hasUp = GridPoint(cell.x, cell.y - 1) in bodySet
-        val hasDown = GridPoint(cell.x, cell.y + 1) in bodySet
+internal fun DrawScope.drawBody(cells: List<BodyCellDrawData>, cellSize: Float, brush: Brush, path: Path) {
+    if (cells.isEmpty()) return
+    path.reset()
+    val cornerRadius = cellSize / 2
+    cells.forEach { cell ->
         addRoundedCell(
             path = path,
-            left = cell.x * state.cellSize,
-            top = cell.y * state.cellSize,
-            cellSize = state.cellSize,
+            left = cell.left,
+            top = cell.top,
+            cellSize = cellSize,
             cornerRadius = cornerRadius,
-            roundTopLeft = !hasLeft && !hasUp,
-            roundTopRight = !hasRight && !hasUp,
-            roundBottomRight = !hasRight && !hasDown,
-            roundBottomLeft = !hasLeft && !hasDown,
+            roundTopLeft = cell.roundTopLeft,
+            roundTopRight = cell.roundTopRight,
+            roundBottomRight = cell.roundBottomRight,
+            roundBottomLeft = cell.roundBottomLeft,
         )
     }
     drawPath(path, brush)
@@ -99,3 +95,19 @@ private fun addRoundedCell(
 
     path.close()
 }
+
+/**
+ * Pre-computed draw data for a single body cell.
+ * Calculated once per game tick in [GameCanvas] and reused across draw frames.
+ *
+ * @param left pixel x of the cell's left edge
+ * @param top pixel y of the cell's top edge
+ */
+internal data class BodyCellDrawData(
+    val left: Float,
+    val top: Float,
+    val roundTopLeft: Boolean,
+    val roundTopRight: Boolean,
+    val roundBottomRight: Boolean,
+    val roundBottomLeft: Boolean,
+)

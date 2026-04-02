@@ -140,7 +140,7 @@ static void CloseLiveIteratorIon(JSContext* cx,
   RootedObject iterObject(cx, &v.toObject());
 
   if (isDestructuring) {
-    RootedValue doneValue(cx, si.read());
+    RootedValue doneValue(cx, si.maybeRead(recover));
     MOZ_RELEASE_ASSERT(!doneValue.isMagic());
     bool done = ToBoolean(doneValue);
     // Do not call IteratorClose if the destructuring iterator is already
@@ -2268,8 +2268,11 @@ void SnapshotIterator::storeInstructionResult(const Value& v) {
 }
 
 Value SnapshotIterator::fromInstructionResult(uint32_t index) const {
-  MOZ_ASSERT(!(*instructionResults_)[index].isMagic(JS_ION_BAILOUT));
-  return (*instructionResults_)[index];
+  MOZ_RELEASE_ASSERT(instructionResults_,
+                     "missing instruction results for recovered allocation");
+  Value v = (*instructionResults_)[index];
+  MOZ_RELEASE_ASSERT(!v.isMagic());
+  return v;
 }
 
 void SnapshotIterator::settleOnFrame() {

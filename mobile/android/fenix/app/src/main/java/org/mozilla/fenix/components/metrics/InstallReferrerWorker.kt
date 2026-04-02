@@ -48,7 +48,7 @@ class InstallReferrerWorker(
 
         return when (responseCode) {
             InstallReferrerClient.InstallReferrerResponse.OK -> {
-                handleSuccess(referrerResponse, responseCode)
+                handleSuccess(referrerResponse, responseCode, settings)
                 Result.success()
             }
 
@@ -70,12 +70,23 @@ class InstallReferrerWorker(
         }
     }
 
-    private fun handleSuccess(installReferrerResponse: String?, responseCode: Int) {
+    @VisibleForTesting
+    internal fun handleSuccess(
+        installReferrerResponse: String?,
+        responseCode: Int,
+        settings: Settings,
+    ) {
         if (!installReferrerResponse.isNullOrBlank()) {
             PlayStoreAttribution.installReferrerResponse.set(installReferrerResponse)
 
             val utmParams = UTMParams.parseUTMParameters(installReferrerResponse)
-            MetaParams.extractMetaAttribution(utmParams.content)?.recordMetaAttribution()
+            val metaParams = MetaParams.extractMetaAttribution(utmParams.content)
+            if (metaParams != null) {
+                settings.isUserMetaAttributed = true
+                metaParams.recordMetaAttribution()
+            } else {
+                settings.isUserMetaAttributed = false
+            }
 
             utmParams.recordInstallReferrer(settings)
         }

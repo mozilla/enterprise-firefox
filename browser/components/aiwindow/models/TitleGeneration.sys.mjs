@@ -38,13 +38,19 @@ function generateDefaultTitle(message) {
 }
 
 /**
- * Generate a chat title based on the user's message and current tab information.
+ * Generate a chat title based on the user's message, current tab information,
+ * and optionally the first assistant response.
  *
  * @param {string} message - The user's message
  * @param {object} current_tab - Object containing current tab information
+ * @param {string} [assistantResponse] - The first assistant response
  * @returns {Promise<string>} The generated chat title
  */
-export async function generateChatTitle(message, current_tab) {
+export async function generateChatTitle(
+  message,
+  current_tab,
+  assistantResponse
+) {
   try {
     // Build the OpenAI engine
     const engine = await openAIEngine.build(
@@ -68,6 +74,10 @@ export async function generateChatTitle(message, current_tab) {
       { role: "system", content: systemPrompt },
       { role: "user", content: message },
     ];
+
+    if (assistantResponse) {
+      messages.push({ role: "assistant", content: assistantResponse });
+    }
 
     // Get config for inference parameters if exists
     const config = engine.getConfig(engine.feature);

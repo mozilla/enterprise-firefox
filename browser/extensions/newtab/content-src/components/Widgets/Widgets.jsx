@@ -17,6 +17,7 @@ const CONTAINER_ACTION_TYPES = {
   FEEDBACK: "feedback",
 };
 
+const PREF_WIDGETS_ENABLED = "widgets.enabled";
 const PREF_WIDGETS_LISTS_ENABLED = "widgets.lists.enabled";
 const PREF_WIDGETS_SYSTEM_LISTS_ENABLED = "widgets.system.lists.enabled";
 const PREF_WIDGETS_TIMER_ENABLED = "widgets.focusTimer.enabled";
@@ -91,13 +92,17 @@ function Widgets() {
   const feedbackUrl =
     prefs.trainhopConfig?.widgets?.feedbackUrl ?? WIDGETS_FEEDBACK_URL;
 
+  const widgetsEnabled = prefs[PREF_WIDGETS_ENABLED];
+
   const listsEnabled =
+    widgetsEnabled &&
     (nimbusListsTrainhopEnabled ||
       nimbusListsEnabled ||
       prefs[PREF_WIDGETS_SYSTEM_LISTS_ENABLED]) &&
     prefs[PREF_WIDGETS_LISTS_ENABLED];
 
   const timerEnabled =
+    widgetsEnabled &&
     (nimbusTimerTrainhopEnabled ||
       nimbusTimerEnabled ||
       prefs[PREF_WIDGETS_SYSTEM_TIMER_ENABLED]) &&
@@ -123,6 +128,7 @@ function Widgets() {
     showWeather && (systemShowWeather || weatherExperimentEnabled);
 
   const weatherForecastEnabled =
+    widgetsEnabled &&
     weatherForecastSystemEnabled &&
     showDetailedView &&
     weatherData?.initialized &&

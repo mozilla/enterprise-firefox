@@ -6,6 +6,7 @@ package org.mozilla.fenix.components.metrics
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import androidx.work.testing.TestListenableWorkerBuilder
 import com.android.installreferrer.api.InstallReferrerClient
 import com.android.installreferrer.api.InstallReferrerStateListener
 import kotlinx.coroutines.CancellationException
@@ -303,6 +304,39 @@ class InstallReferrerWorkerTest {
         yield()
 
         assertTrue(fakeClient.connectionEnded)
+    }
+
+    @Test
+    fun `WHEN handleSuccess receives a Meta attribution referrer THEN isMetaAttribution is set to true`() {
+        val worker = TestListenableWorkerBuilder<InstallReferrerWorker>(context).build()
+        val settings = Settings(context)
+        val metaReferrer = """utm_content={"app":12345,"t":1234567890,"source":{"data":"DATA","nonce":"NONCE"}}"""
+
+        worker.handleSuccess(metaReferrer, InstallReferrerClient.InstallReferrerResponse.OK, settings)
+
+        assertTrue(settings.isUserMetaAttributed)
+    }
+
+    @Test
+    fun `WHEN handleSuccess receives a non-Meta referrer THEN isMetaAttribution is set to false`() {
+        val worker = TestListenableWorkerBuilder<InstallReferrerWorker>(context).build()
+        val settings = Settings(context)
+        settings.isUserMetaAttributed = true
+
+        worker.handleSuccess("utm_source=google&utm_medium=cpc", InstallReferrerClient.InstallReferrerResponse.OK, settings)
+
+        assertFalse(settings.isUserMetaAttributed)
+    }
+
+    @Test
+    fun `WHEN handleSuccess receives a null referrer THEN isMetaAttribution is not changed`() {
+        val worker = TestListenableWorkerBuilder<InstallReferrerWorker>(context).build()
+        val settings = Settings(context)
+        settings.isUserMetaAttributed = true
+
+        worker.handleSuccess(null, InstallReferrerClient.InstallReferrerResponse.OK, settings)
+
+        assertTrue(settings.isUserMetaAttributed)
     }
 }
 

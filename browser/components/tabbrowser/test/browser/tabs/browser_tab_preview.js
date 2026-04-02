@@ -646,8 +646,11 @@ add_task(async function tabNotesTests() {
   const [addedEvent] = Glean.tabNotes.added.testGetValue();
   Assert.deepEqual(
     addedEvent.extra,
-    { source: "hover_menu" },
-    "added event extra data should say the tab note was added from the tab hover preview menu"
+    {
+      source: "hover_menu",
+      note_length: noteText.length,
+    },
+    "added event extra data should include length and say the tab note was added from the tab hover preview menu"
   );
 
   await closeTabPreviews();

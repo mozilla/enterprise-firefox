@@ -7,6 +7,8 @@ import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 const lazy = XPCOMUtils.declareLazy({
   IPPExceptionsManager:
     "moz-src:///toolkit/components/ipprotection/IPPExceptionsManager.sys.mjs",
+  IPProtectionService:
+    "moz-src:///toolkit/components/ipprotection/IPProtectionService.sys.mjs",
   ProxyService: {
     service: "@mozilla.org/network/protocol-proxy-service;1",
     iid: Ci.nsIProtocolProxyService,
@@ -58,9 +60,6 @@ const TRACKING_FLAGS =
 
 const DEFAULT_EXCLUDED_URL_PREFS = [
   "browser.ipProtection.guardian.endpoint",
-  "identity.fxaccounts.remote.profile.uri",
-  "identity.fxaccounts.auth.uri",
-  "identity.fxaccounts.remote.profile.uri",
   "captivedetect.canonicalURL",
 ];
 
@@ -218,6 +217,13 @@ export class IPPChannelFilter {
     this.#inclusionSet = IPPChannelFilter.getInclusionList();
 
     DEFAULT_EXCLUDED_URL_PREFS.forEach(pref => {
+      const prefValue = Services.prefs.getStringPref(pref, "");
+      if (prefValue) {
+        this.addPageExclusion(prefValue);
+      }
+    });
+
+    lazy.IPProtectionService.authProvider.excludedUrlPrefs.forEach(pref => {
       const prefValue = Services.prefs.getStringPref(pref, "");
       if (prefValue) {
         this.addPageExclusion(prefValue);

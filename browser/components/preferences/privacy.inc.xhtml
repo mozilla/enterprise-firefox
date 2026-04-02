@@ -567,20 +567,22 @@
 <html:setting-group groupid="dataCollection" data-category="panePrivacy" hidden="true"
   class="subcategory"></html:setting-group>
 
-<vbox id="privacySegmentationSection" data-subcategory="privacy-segmentation" hidden="true">
-  <label>
-    <html:h2 data-l10n-id="privacy-segmentation-section-header"/>
-  </label>
-  <label data-l10n-id="privacy-segmentation-section-description"/>
-  <radiogroup id="privacyDataFeatureRecommendationRadioGroup" preference="browser.dataFeatureRecommendations.enabled">
-      <radio id="privacyDataFeatureRecommendationEnabled"
-              data-l10n-id="privacy-segmentation-radio-off"
-              value="true"/>
-      <radio id="privacyDataFeatureRecommendationDisabled"
-              data-l10n-id="privacy-segmentation-radio-on"
-              value="false"/>
-  </radiogroup>
-</vbox>
+<groupbox data-category="panePrivacy" hidden="true">
+  <vbox id="privacySegmentationSection" data-subcategory="privacy-segmentation" hidden="true">
+    <label>
+      <html:h2 data-l10n-id="privacy-segmentation-section-header"/>
+    </label>
+    <label data-l10n-id="privacy-segmentation-section-description"/>
+    <radiogroup id="privacyDataFeatureRecommendationRadioGroup" preference="browser.dataFeatureRecommendations.enabled">
+        <radio id="privacyDataFeatureRecommendationEnabled"
+                data-l10n-id="privacy-segmentation-radio-off"
+                value="true"/>
+        <radio id="privacyDataFeatureRecommendationDisabled"
+                data-l10n-id="privacy-segmentation-radio-on"
+                value="false"/>
+    </radiogroup>
+  </vbox>
+</groupbox>
 
 <hbox id="securityCategory"
       class="subcategory"

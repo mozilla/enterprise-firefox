@@ -70,7 +70,7 @@ class CookieStoreParent final : public PCookieStoreParent {
   mozilla::ipc::IPCResult RecvClose();
 
   void GetRequestOnMainThread(
-      const RefPtr<nsIURI> aCookieURI,
+      ThreadsafeContentParentHandle* aParent, const RefPtr<nsIURI> aCookieURI,
       const OriginAttributes& aOriginAttributes,
       const Maybe<OriginAttributes>& aPartitionedOriginAttributes,
       bool aThirdPartyContext, bool aPartitionForeign, bool aUsingStorageAccess,

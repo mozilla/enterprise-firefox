@@ -4,17 +4,19 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-const lazy = {};
+import { ExtensionCommon } from "resource://gre/modules/ExtensionCommon.sys.mjs";
+import { ExtensionUtils } from "resource://gre/modules/ExtensionUtils.sys.mjs";
+import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
-ChromeUtils.defineESModuleGetters(lazy, {
+const lazy = XPCOMUtils.declareLazy({
   CustomizableUI:
     "moz-src:///browser/components/customizableui/CustomizableUI.sys.mjs",
   ExtensionParent: "resource://gre/modules/ExtensionParent.sys.mjs",
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
-});
 
-import { ExtensionCommon } from "resource://gre/modules/ExtensionCommon.sys.mjs";
-import { ExtensionUtils } from "resource://gre/modules/ExtensionUtils.sys.mjs";
+  // Delay defaults to 500 ms via modules/libpref/init/all.js, for all builds:
+  delayBeforeEnablingButtons: { pref: "security.notification_enable_delay" },
+});
 
 var { DefaultWeakMap, promiseEvent } = ExtensionUtils;
 
@@ -36,6 +38,33 @@ function promisePopupShown(popup) {
       );
     }
   });
+}
+
+function addPanelHidingHandler(panel) {
+  function handleClick(event) {
+    if (
+      event.target.closest(
+        "panel:not(#unified-extensions-panel),#notifications-toolbar"
+      )
+    ) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      Services.console.logStringMessage(
+        "Ignored click shortly after extension popup was closed"
+      );
+    }
+  }
+  panel.addEventListener(
+    "popuphiding",
+    () => {
+      const window = panel.ownerGlobal;
+      window.addEventListener("click", handleClick, true);
+      window.setTimeout(() => {
+        window.removeEventListener("click", handleClick, true);
+      }, lazy.delayBeforeEnablingButtons);
+    },
+    { once: true, capture: true }
+  );
 }
 
 const REMOTE_PANEL_ID = "webextension-remote-preload-panel";
@@ -480,6 +509,7 @@ export class PanelPopup extends BasePopup {
       },
       { once: true }
     );
+    addPanelHidingHandler(panel);
 
     super(extension, panel, popupURL, browserStyle);
   }
@@ -588,6 +618,7 @@ export class ViewPopup extends BasePopup {
       once: true,
       capture: true,
     });
+    addPanelHidingHandler(this.panel);
     if (this.extension.remote) {
       this.panel.setAttribute("remote", "true");
     }

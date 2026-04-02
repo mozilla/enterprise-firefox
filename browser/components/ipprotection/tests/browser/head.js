@@ -22,11 +22,11 @@ const { IPProtectionAlertManager } = ChromeUtils.importESModule(
 );
 
 const { IPPSignInWatcher } = ChromeUtils.importESModule(
-  "moz-src:///toolkit/components/ipprotection/IPPSignInWatcher.sys.mjs"
+  "moz-src:///toolkit/components/ipprotection/fxa/IPPSignInWatcher.sys.mjs"
 );
 
 const { IPPEnrollAndEntitleManager } = ChromeUtils.importESModule(
-  "moz-src:///toolkit/components/ipprotection/IPPEnrollAndEntitleManager.sys.mjs"
+  "moz-src:///toolkit/components/ipprotection/fxa/IPPEnrollAndEntitleManager.sys.mjs"
 );
 
 const { HttpServer, HTTP_403 } = ChromeUtils.importESModule(
@@ -288,7 +288,7 @@ let STUBS = {
   isCheckingEntitlement: undefined,
   updateEntitlement: undefined,
   refetchEntitlement: undefined,
-  enroll: undefined,
+  enrollWithFxa: undefined,
   fetchUserInfo: undefined,
   fetchProxyPass: undefined,
   fetchProxyUsage: undefined,
@@ -401,17 +401,19 @@ function setupStubs(stubs = STUBS) {
     .resolves();
 
   const guardianStub = {
-    enroll: setupSandbox.stub(),
+    enrollWithFxa: setupSandbox.stub(),
     fetchUserInfo: setupSandbox.stub(),
     fetchProxyPass: setupSandbox.stub(),
     fetchProxyUsage: setupSandbox.stub(),
-    isLinkedToGuardian: setupSandbox.stub(),
   };
-  stubs.enroll = guardianStub.enroll;
+  stubs.enrollWithFxa = guardianStub.enrollWithFxa;
   stubs.fetchUserInfo = guardianStub.fetchUserInfo;
   stubs.fetchProxyPass = guardianStub.fetchProxyPass;
   stubs.fetchProxyUsage = guardianStub.fetchProxyUsage;
-  stubs.isLinkedToGuardian = guardianStub.isLinkedToGuardian;
+  stubs.isLinkedToGuardian = setupSandbox.stub(
+    IPPEnrollAndEntitleManager,
+    "isLinkedToGuardian"
+  );
   stubs.fxaSignInFlow = setupSandbox.stub(
     SpecialMessageActions,
     "fxaSignInFlow"
@@ -448,7 +450,7 @@ function setupService(
   }
 
   if (typeof canEnroll != "undefined") {
-    stubs.enroll.resolves({
+    stubs.enrollWithFxa.resolves({
       ok: canEnroll,
     });
   }

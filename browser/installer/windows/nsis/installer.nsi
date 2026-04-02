@@ -1059,7 +1059,7 @@ Function SendPing
   ${If} ${Errors}
     StrCpy $0 "-1" ; Assign -1 if an error occured during registry read
   ${EndIf}
-  
+
   nsJSON::Set /tree ping "Data" "windows_ubr" /value '$0'
 
   ${GetParameters} $0

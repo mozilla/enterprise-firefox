@@ -5,6 +5,8 @@
 #include "PreXULSkeletonUI.h"
 
 #include <algorithm>
+#include <cstdlib>
+#include <cstring>
 #include <dwmapi.h>
 #include <math.h>
 #include <limits.h>
@@ -34,6 +36,24 @@
 #include "mozilla/WindowsProcessMitigations.h"
 
 namespace mozilla {
+
+static bool ShouldLogSkeleton() {
+  static Maybe<bool> sEnabled;
+  if (sEnabled.isNothing()) {
+    // We can't use proper Gecko logging since we're in mozglue,
+    // but this is close enough.
+    const char* env = getenv("MOZ_LOG");
+    sEnabled = Some(env && strstr(env, "PreXULSkeletonUI"));
+  }
+  return sEnabled.value();
+}
+
+#define SKELETON_LOG(str, ...)                                     \
+  do {                                                             \
+    if (ShouldLogSkeleton()) [[unlikely]] {                        \
+      printf_stderr("PreXULSkeletonUI: " str "\n", ##__VA_ARGS__); \
+    }                                                              \
+  } while (0)
 
 // ColorRect defines an optionally-rounded, optionally-bordered rectangle of a
 // particular color that we will draw.
@@ -1375,19 +1395,23 @@ ThemeColors GetTheme(ThemeMode themeId) {
 Result<HKEY, PreXULSkeletonUIError> OpenPreXULSkeletonUIRegKey() {
   HKEY key;
   DWORD disposition;
+  SKELETON_LOG("Opening reg key");
   LSTATUS result =
       ::RegCreateKeyExW(HKEY_CURRENT_USER, kPreXULSkeletonUIKeyPath, 0, nullptr,
                         0, KEY_ALL_ACCESS, nullptr, &key, &disposition);
 
   if (result != ERROR_SUCCESS) {
+    SKELETON_LOG("Could not open reg key - result %ld", result);
     return Err(PreXULSkeletonUIError::FailedToOpenRegistryKey);
   }
 
   if (disposition == REG_CREATED_NEW_KEY ||
       disposition == REG_OPENED_EXISTING_KEY) {
+    SKELETON_LOG("Opened/created reg key (disposition %lu)", disposition);
     return key;
   }
 
+  SKELETON_LOG("Reg key does not exist (disposition %lu)", disposition);
   ::RegCloseKey(key);
   return Err(PreXULSkeletonUIError::FailedToOpenRegistryKey);
 }
@@ -1845,11 +1869,15 @@ static Result<Ok, PreXULSkeletonUIError> CreateAndStorePreXULSkeletonUIImpl(
   MOZ_TRY(ValidateCmdlineArguments(argc, argv, &explicitProfile));
   MOZ_TRY(ValidateEnvVars());
 
+  SKELETON_LOG("Reading enabled reg key");
   auto enabledResult =
       ReadRegBool(regKey, GetRegValueName(binPath.get(), sEnabledRegSuffix));
   if (enabledResult.isErr()) {
+    SKELETON_LOG("Enabled reg key does not exist");
     return Err(PreXULSkeletonUIError::EnabledKeyDoesNotExist);
   }
+  SKELETON_LOG("Enabled reg key exists, value is %d",
+               enabledResult.unwrap() ? 1 : 0);
   if (!enabledResult.unwrap()) {
     return Err(PreXULSkeletonUIError::Disabled);
   }
@@ -2179,6 +2207,9 @@ MFBT_API Result<Ok, PreXULSkeletonUIError> SetPreXULSkeletonUIEnabledIfAllowed(
   // across profiles. However, whatever ill effects we observe should be
   // correct themselves after one session.
   if (PreXULSkeletonUIDisallowed()) {
+    SKELETON_LOG(
+        "Can't set enabled reg key to %d because disallowed with error %d",
+        value ? 1 : 0, static_cast<int>(*sErrorReason));
     return Err(PreXULSkeletonUIError::Disabled);
   }
 
@@ -2186,8 +2217,10 @@ MFBT_API Result<Ok, PreXULSkeletonUIError> SetPreXULSkeletonUIEnabledIfAllowed(
   AutoCloseRegKey closeKey(regKey);
 
   UniquePtr<wchar_t[]> binPath = MOZ_TRY(GetBinaryPath());
+  SKELETON_LOG("Writing enabled reg key to %d", value ? 1 : 0);
   MOZ_TRY(WriteRegBool(
       regKey, GetRegValueName(binPath.get(), sEnabledRegSuffix), value));
+  SKELETON_LOG("Writing enabled reg key to %d succeeded", value ? 1 : 0);
 
   if (!sPreXULSkeletonUIEnabled && value) {
     // We specifically don't care if we fail to get this lock. We just want to
@@ -2247,4 +2280,5 @@ Result<Ok, PreXULSkeletonUIError> NotePreXULSkeletonUIRestarting() {
   return Ok();
 }
 
+#undef SKELETON_LOG
 }  // namespace mozilla

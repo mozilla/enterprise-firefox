@@ -312,6 +312,115 @@ add_task(async function test_prompt_selected_telemetry() {
   }
 });
 
+add_task(async function test_chat_storage_metric() {
+  const { ChatConversation } = ChromeUtils.importESModule(
+    "moz-src:///browser/components/aiwindow/ui/modules/ChatConversation.sys.mjs"
+  );
+  const { ChatStore } = ChromeUtils.importESModule(
+    "moz-src:///browser/components/aiwindow/ui/modules/ChatStore.sys.mjs"
+  );
+
+  Services.fog.testResetFOG();
+  let conversation;
+  try {
+    conversation = new ChatConversation({});
+    const largePayload = "x".repeat(12000);
+    conversation.addUserMessage(largePayload);
+    conversation.addAssistantMessage("text", largePayload);
+    await ChatStore.updateConversation(conversation);
+    const expectedSize = await ChatStore.getDatabaseSize();
+
+    await TestUtils.waitForCondition(
+      () => Glean.smartWindow.chatStorage.testGetValue() === expectedSize,
+      "chat storage metric should be recorded"
+    );
+  } finally {
+    if (conversation) {
+      await ChatStore.deleteConversationById(conversation.id);
+    }
+  }
+});
+
+add_task(async function test_memories_count_metric() {
+  Services.fog.testResetFOG();
+
+  const { MemoryStore } = ChromeUtils.importESModule(
+    "moz-src:///browser/components/aiwindow/services/MemoryStore.sys.mjs"
+  );
+  const existingMemories = await MemoryStore.getMemories({
+    includeSoftDeleted: true,
+  });
+  for (const memory of existingMemories) {
+    await MemoryStore.hardDeleteMemory(memory.id, "other");
+  }
+
+  const memories = [
+    {
+      id: "memory-history",
+      memory_summary: "User is vegan",
+      category: "preference",
+      intent: "profile",
+      reasoning: "Test memory",
+      score: 0.5,
+      updated_at: Date.now(),
+      is_deleted: false,
+      source: "history",
+    },
+    {
+      id: "memory-conversation",
+      memory_summary: "User has a cat",
+      category: "personal",
+      intent: "profile",
+      reasoning: "Test memory",
+      score: 0.5,
+      updated_at: Date.now(),
+      is_deleted: false,
+      source: "conversation",
+    },
+  ];
+  for (const memory of memories) {
+    await MemoryStore.addMemory(memory);
+  }
+
+  await TestUtils.waitForCondition(() => {
+    return (
+      Glean.smartWindow.memoriesCount.history.testGetValue() === 1 &&
+      Glean.smartWindow.memoriesCount.conversation.testGetValue() === 1
+    );
+  }, "memories_count should record history and conversation counts");
+
+  for (const memory of memories) {
+    await MemoryStore.hardDeleteMemory(memory.id, "other");
+  }
+});
+
+add_task(async function test_memories_last_updated_metric() {
+  Services.fog.testResetFOG();
+
+  const { MemoryStore } = ChromeUtils.importESModule(
+    "moz-src:///browser/components/aiwindow/services/MemoryStore.sys.mjs"
+  );
+
+  const memory = {
+    id: "memory-updated",
+    memory_summary: "User likes tea",
+    category: "preference",
+    intent: "profile",
+    reasoning: "Test memory",
+    score: 0.5,
+    updated_at: Date.now(),
+    is_deleted: false,
+    source: "history",
+  };
+
+  await MemoryStore.addMemory(memory);
+
+  const value = Glean.smartWindow.memoriesLastUpdated.testGetValue();
+  Assert.ok(value instanceof Date, "memories_last_updated records a datetime");
+
+  await MemoryStore.hardDeleteMemory(memory.id, "other");
+});
+
 add_task(async function test_get_page_content_telemetry() {
   const sb = this.sinon.createSandbox();
 
@@ -362,6 +471,125 @@ add_task(async function test_get_page_content_telemetry() {
     );
   } finally {
     sb.restore();
+  }
+});
+
+add_task(async function test_search_handoff_telemetry() {
+  const sb = this.sinon.createSandbox();
+  let win;
+
+  try {
+    Services.fog.testResetFOG();
+    const { SearchService } = ChromeUtils.importESModule(
+      "moz-src:///toolkit/components/search/SearchService.sys.mjs"
+    );
+    await SearchService.init();
+    const runSearchStub = sb
+      .stub(this.Chat.toolMap, "run_search")
+      .resolves("Mock search results");
+
+    await withServer(
+      {
+        toolCall: {
+          name: "run_search",
+          args: JSON.stringify({ query: "test search query" }),
+        },
+      },
+      async () => {
+        win = await openAIWindow();
+        const browser = win.gBrowser.selectedBrowser;
+
+        const conversationId = await getConversationId(browser);
+        await dispatchSmartbarCommit(
+          browser,
+          "search the web for something",
+          "chat"
+        );
+
+        await TestUtils.waitForCondition(
+          () => runSearchStub.calledOnce,
+          "run_search tool should be called"
+        );
+
+        await TestUtils.waitForCondition(
+          () => Glean.smartWindow.searchHandoff.testGetValue()?.length,
+          "search handoff telemetry should be recorded"
+        );
+
+        const events = Glean.smartWindow.searchHandoff.testGetValue();
+        Assert.equal(events?.length, 1, "One search handoff event recorded");
+        Assert.equal(
+          events[0].extra.chat_id,
+          conversationId,
+          "search handoff includes the conversation id"
+        );
+        Assert.ok(
+          events[0].extra.provider,
+          "search handoff includes the provider"
+        );
+      }
+    );
+  } finally {
+    if (win) {
+      await BrowserTestUtils.closeWindow(win);
+    }
+    sb.restore();
+  }
+});
+
+add_task(async function test_chat_retrieved_telemetry() {
+  Services.fog.testResetFOG();
+
+  const { ChatConversation } = ChromeUtils.importESModule(
+    "moz-src:///browser/components/aiwindow/ui/modules/ChatConversation.sys.mjs"
+  );
+  const { ChatStore } = ChromeUtils.importESModule(
+    "moz-src:///browser/components/aiwindow/ui/modules/ChatStore.sys.mjs"
+  );
+
+  const conversation = new ChatConversation({
+    updatedDate: Date.now() - 5 * 60 * 1000,
+  });
+  conversation.addUserMessage("Hello");
+  conversation.addAssistantMessage("text", "Hi");
+  await ChatStore.updateConversation(conversation);
+
+  const win = await openAIWindow();
+  try {
+    const browser = win.gBrowser.selectedBrowser;
+    browser.setAttribute("data-conversation-id", conversation.id);
+
+    BrowserTestUtils.startLoadingURIString(
+      browser,
+      "chrome://browser/content/aiwindow/aiWindow.html"
+    );
+    await BrowserTestUtils.browserLoaded(browser, {
+      wantLoad: "chrome://browser/content/aiwindow/aiWindow.html",
+    });
+
+    await TestUtils.waitForCondition(
+      () => Glean.smartWindow.chatRetrieved.testGetValue()?.length,
+      "chat retrieved telemetry should be recorded"
+    );
+
+    const events = Glean.smartWindow.chatRetrieved.testGetValue();
+    Assert.greater(
+      events?.length,
+      0,
+      "At least one chat retrieved event recorded"
+    );
+    Assert.equal(
+      events[0].extra.chat_id,
+      conversation.id,
+      "chat retrieved includes the conversation id"
+    );
+    Assert.equal(
+      events[0].extra.message_seq,
+      String(conversation.messageCount),
+      "chat retrieved includes the message count"
+    );
+  } finally {
+    await BrowserTestUtils.closeWindow(win);
   }
 });
 

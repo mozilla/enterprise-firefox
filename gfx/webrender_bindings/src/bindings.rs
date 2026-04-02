@@ -2756,12 +2756,11 @@ pub extern "C" fn wr_resource_updates_add_raw_font(
     txn.add_raw_font(key, bytes.flush_into_vec(), index);
 }
 
-fn generate_capture_path(path: *const c_char, moz_revision: *const c_char) -> Option<PathBuf> {
+fn generate_capture_path(moz_revision: *const c_char) -> Option<PathBuf> {
     use std::fs::{create_dir_all, File};
     use std::io::Write;
 
-    let cstr = unsafe { CStr::from_ptr(path) };
-    let local_dir = PathBuf::from(&*cstr.to_string_lossy());
+    let local_dir = PathBuf::from("wr-capture");
 
     // On Android we need to write into a particular folder on external
     // storage so that (a) it can be written without requiring permissions
@@ -2812,26 +2811,16 @@ fn generate_capture_path(path: *const c_char, moz_revision: *const c_char) -> Op
 }
 
 #[no_mangle]
-pub extern "C" fn wr_api_capture(
-    dh: &mut DocumentHandle,
-    path: *const c_char,
-    moz_revision: *const c_char,
-    bits_raw: u32,
-) {
-    if let Some(path) = generate_capture_path(path, moz_revision) {
+pub extern "C" fn wr_api_capture(dh: &mut DocumentHandle, moz_revision: *const c_char, bits_raw: u32) {
+    if let Some(path) = generate_capture_path(moz_revision) {
         let bits = CaptureBits::from_bits(bits_raw as _).unwrap();
         dh.api.save_capture(path, bits);
     }
 }
 
 #[no_mangle]
-pub extern "C" fn wr_api_start_capture_sequence(
-    dh: &mut DocumentHandle,
-    path: *const c_char,
-    moz_revision: *const c_char,
-    bits_raw: u32,
-) {
-    if let Some(path) = generate_capture_path(path, moz_revision) {
+pub extern "C" fn wr_api_start_capture_sequence(dh: &mut DocumentHandle, moz_revision: *const c_char, bits_raw: u32) {
+    if let Some(path) = generate_capture_path(moz_revision) {
         let bits = CaptureBits::from_bits(bits_raw as _).unwrap();
         dh.api.start_capture_sequence(path, bits);
     }
@@ -3192,8 +3181,10 @@ pub extern "C" fn wr_dp_push_stacking_context(
         result.id = wr_spatial_id.0;
         assert_ne!(wr_spatial_id.0, 0);
     } else if bounds.min != LayoutPoint::zero() {
-        assert!(sc_origin_key != SpatialTreeItemKey::default(),
-            "sc_origin_key must be set when stacking context has non-zero origin");
+        assert!(
+            sc_origin_key != SpatialTreeItemKey::default(),
+            "sc_origin_key must be set when stacking context has non-zero origin"
+        );
         wr_spatial_id = state.frame_builder.dl_builder.push_reference_frame(
             bounds.min,
             wr_spatial_id,

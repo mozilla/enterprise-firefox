@@ -39,7 +39,9 @@ else:
 
 DevToolsModules(
     "analyze-input-string.js",
+    "formatMessageParametersAndText.sys.mjs",
     "js-property-provider.js",
+    "l10n.js",
     "messages.js",
     "parser-helper.js",
 )

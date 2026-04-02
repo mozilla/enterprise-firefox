@@ -6986,7 +6986,7 @@ AttachDecision InlinableNativeIRGenerator::tryAttachDataViewGet(
   if (type == Scalar::Uint32) {
     bool isLittleEndian = argsLength() > 1 && arg(1).toBoolean();
     uint32_t res = dv->read<uint32_t>(offsetInt64, byteLength, isLittleEndian);
-    forceDoubleForUint32 = res >= INT32_MAX;
+    forceDoubleForUint32 = res > INT32_MAX;
   }
 
   // Initialize the input operand.
@@ -8725,7 +8725,7 @@ AttachDecision InlinableNativeIRGenerator::tryAttachStringToLocaleLowerCase() {
   return AttachDecision::Attach;
 #else
   // No inlining when Intl support is disabled.
-  return AttachDecision::Attach;
+  return AttachDecision::NoAction;
 #endif
 }
 
@@ -8775,7 +8775,7 @@ AttachDecision InlinableNativeIRGenerator::tryAttachStringToLocaleUpperCase() {
   return AttachDecision::Attach;
 #else
   // No inlining when Intl support is disabled.
-  return AttachDecision::Attach;
+  return AttachDecision::NoAction;
 #endif
 }
 

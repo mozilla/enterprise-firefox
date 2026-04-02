@@ -1028,7 +1028,8 @@ void Factory::CopyDataSourceSurface(DataSourceSurface* aSource,
 already_AddRefed<DataSourceSurface>
 Factory::CreateBGRA8DataSourceSurfaceForD3D11Texture(
     ID3D11Texture2D* aSrcTexture, uint32_t aArrayIndex,
-    gfx::ColorSpace2 aColorSpace, gfx::ColorRange aColorRange) {
+    gfx::ColorSpace2 aColorSpace, gfx::ColorRange aColorRange,
+    gfx::TransferFunction aTransferFunction) {
   D3D11_TEXTURE2D_DESC srcDesc = {0};
   aSrcTexture->GetDesc(&srcDesc);
 
@@ -1039,7 +1040,7 @@ Factory::CreateBGRA8DataSourceSurfaceForD3D11Texture(
     return nullptr;
   }
   if (!ReadbackTexture(destTexture, aSrcTexture, aArrayIndex, aColorSpace,
-                       aColorRange)) {
+                       aColorRange, aTransferFunction)) {
     return nullptr;
   }
   return destTexture.forget();
@@ -1074,11 +1075,10 @@ Factory::CreateBGRA8DataSourceSurfaceForD3D11Texture(
 }
 
 /* static */
-bool Factory::ConvertSourceAndRetryReadback(DataSourceSurface* aDestCpuTexture,
-                                            ID3D11Texture2D* aSrcTexture,
-                                            uint32_t aArrayIndex,
-                                            gfx::ColorSpace2 aColorSpace,
-                                            gfx::ColorRange aColorRange) {
+bool Factory::ConvertSourceAndRetryReadback(
+    DataSourceSurface* aDestCpuTexture, ID3D11Texture2D* aSrcTexture,
+    uint32_t aArrayIndex, gfx::ColorSpace2 aColorSpace,
+    gfx::ColorRange aColorRange, gfx::TransferFunction aTransferFunction) {
   MOZ_ASSERT(aDestCpuTexture);
   MOZ_ASSERT(aSrcTexture);
 
@@ -1123,15 +1123,15 @@ bool Factory::ConvertSourceAndRetryReadback(DataSourceSurface* aDestCpuTexture,
     return false;
   }
 
-  layers::VideoProcessorD3D11::InputTextureInfo info(aColorSpace, aColorRange,
-                                                     aArrayIndex, aSrcTexture);
+  layers::VideoProcessorD3D11::InputTextureInfo info(
+      aColorSpace, aColorRange, aTransferFunction, aArrayIndex, aSrcTexture);
   if (!videoProcessor->CallVideoProcessorBlt(info, newSrcTexture)) {
     gfxWarning() << "CallVideoProcessorBlt failed";
     return false;
   }
 
   return ReadbackTexture(aDestCpuTexture, newSrcTexture, 0, aColorSpace,
-                         aColorRange);
+                         aColorRange, aTransferFunction);
 }
 
 /* static */
@@ -1139,7 +1139,8 @@ bool Factory::ReadbackTexture(DataSourceSurface* aDestCpuTexture,
                               ID3D11Texture2D* aSrcTexture,
                               uint32_t aArrayIndex,
                               gfx::ColorSpace2 aColorSpace,
-                              gfx::ColorRange aColorRange) {
+                              gfx::ColorRange aColorRange,
+                              gfx::TransferFunction aTransferFunction) {
   D3D11_TEXTURE2D_DESC srcDesc = {0};
   aSrcTexture->GetDesc(&srcDesc);
 
@@ -1148,7 +1149,8 @@ bool Factory::ReadbackTexture(DataSourceSurface* aDestCpuTexture,
   if ((srcDesc.Format != DXGIFormat(aDestCpuTexture->GetFormat())) &&
       (aDestCpuTexture->GetFormat() == SurfaceFormat::B8G8R8A8)) {
     return ConvertSourceAndRetryReadback(aDestCpuTexture, aSrcTexture,
-                                         aArrayIndex, aColorSpace, aColorRange);
+                                         aArrayIndex, aColorSpace, aColorRange,
+                                         aTransferFunction);
   }
 
   if ((IntSize(srcDesc.Width, srcDesc.Height) != aDestCpuTexture->GetSize()) ||

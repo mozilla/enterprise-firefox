@@ -63,6 +63,7 @@ import mozilla.components.compose.base.theme.AcornTheme
 import mozilla.components.compose.base.theme.layout.AcornWindowSize.Companion.isLargeWindow
 import org.mozilla.fenix.R
 import org.mozilla.fenix.compose.BottomSheetHandle
+import org.mozilla.fenix.tabstray.TabsTrayTestTag
 import org.mozilla.fenix.tabstray.TabsTrayTestTag.BOTTOM_SHEET_COLOR_LIST
 import org.mozilla.fenix.tabstray.data.TabGroupTheme
 import org.mozilla.fenix.tabstray.redux.action.TabGroupAction
@@ -112,12 +113,9 @@ private fun EditTabGroupContent(
     onTabGroupThemeChange: (TabGroupTheme) -> Unit,
     onConfirmSave: () -> Unit,
 ) {
-    val title =
-        if (formState.inEditState) {
-            stringResource(R.string.edit_tab_group_title)
-        } else {
-            stringResource(R.string.create_tab_group_title)
-        }
+    val title = stringResource(
+        if (formState.inEditState) R.string.edit_tab_group_title else R.string.create_tab_group_title,
+    )
 
     val defaultName = stringResource(
         R.string.create_tab_group_form_default_name,
@@ -132,6 +130,14 @@ private fun EditTabGroupContent(
                 selection = TextRange(0, initialName.length),
             ),
         )
+    }
+
+    // In create mode, the visible default name is derived from a string resource.
+    // Align the tab group form with the same value.
+    LaunchedEffect(Unit) {
+        if (!formState.inEditState) {
+            onTabGroupNameChange(initialName)
+        }
     }
 
     Column(
@@ -180,6 +186,7 @@ private fun EditTabGroupContent(
                 },
                 modifier = Modifier
                     .fillMaxWidth()
+                    .testTag(TabsTrayTestTag.GROUP_NAME)
                     .padding(horizontal = 24.dp, vertical = 16.dp),
             )
         }

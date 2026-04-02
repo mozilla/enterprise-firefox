@@ -1,9 +1,7 @@
-commit ea346ffcbdc4cde776147d9456fd71121005e52f
-Author: Robin Leroy <egg.robin.leroy@gmail.com>
-Date:   Thu Dec 18 17:47:46 2025 +0100
+commit 238963317ce36a82827d6e1896035430e582fe63
+Author: github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>
+Date:   Tue Mar 3 20:50:33 2026 +0100
 
-    ICU-23296 Update tzdata to 2025c (#46)
+    ICU-23330 TZDB 2026a (#50)
     
-    * ICU-23296 Pick up CLDR changes since 2025b
-    
-    * ICU-23296 Add 2025c data
+    Co-authored-by: github-actions[bot] <github-actions[bot]@users.noreply.github.com>

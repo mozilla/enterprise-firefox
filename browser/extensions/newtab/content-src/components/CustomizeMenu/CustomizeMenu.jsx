@@ -144,6 +144,7 @@ export class _CustomizeMenu extends React.PureComponent {
                 showWidgetsManagementPanel={
                   this.props.showWidgetsManagementPanel
                 }
+                widgetsEnabled={this.props.widgetsEnabled}
               />
             </div>
           </div>

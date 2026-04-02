@@ -42,7 +42,7 @@ RemoteMediaDataEncoderParent::~RemoteMediaDataEncoderParent() = default;
 
 IPCResult RemoteMediaDataEncoderParent::RecvConstruct(
     ConstructResolver&& aResolver) {
-  if (mEncoder) {
+  if (mEncoder || mShutdown) {
     aResolver(MediaResult(NS_ERROR_ALREADY_INITIALIZED, __func__));
     return IPC_OK();
   }
@@ -62,7 +62,8 @@ IPCResult RemoteMediaDataEncoderParent::RecvConstruct(
                  return;
                }
 
-               if (self->mEncoder) {
+               if (self->mEncoder || self->mShutdown) {
+                 aValue.ResolveValue()->Shutdown();
                  resolver(MediaResult(NS_ERROR_ALREADY_INITIALIZED, __func__));
                  return;
                }
@@ -276,6 +277,7 @@ IPCResult RemoteMediaDataEncoderParent::RecvShutdown(
         resolver(aValue.IsResolve());
       });
   mEncoder = nullptr;
+  mShutdown = true;
   return IPC_OK();
 }
 

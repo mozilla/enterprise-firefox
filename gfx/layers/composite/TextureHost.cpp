@@ -179,8 +179,9 @@ already_AddRefed<TextureHost> CreateDummyBufferTextureHost(
   aFlags &= ~TextureFlags::DEALLOCATE_CLIENT;
   aFlags |= TextureFlags::DUMMY_TEXTURE;
   UniquePtr<TextureData> textureData(BufferTextureData::Create(
-      gfx::IntSize(1, 1), gfx::SurfaceFormat::B8G8R8A8, gfx::BackendType::SKIA,
-      aBackend, aFlags, TextureAllocationFlags::ALLOC_DEFAULT, nullptr));
+      gfx::IntSize(1, 1), gfx::SurfaceFormat::B8G8R8A8, gfx::ColorSpace2::SRGB,
+      gfx::TransferFunction::SRGB, gfx::BackendType::SKIA, aBackend, aFlags,
+      TextureAllocationFlags::ALLOC_DEFAULT, nullptr));
   SurfaceDescriptor surfDesc;
   textureData->Serialize(surfDesc);
   const SurfaceDescriptorBuffer& bufferDesc =
@@ -657,6 +658,14 @@ gfx::YUVColorSpace BufferTextureHost::GetYUVColorSpace() const {
     return desc.yUVColorSpace();
   }
   return gfx::YUVColorSpace::Identity;
+}
+
+gfx::TransferFunction BufferTextureHost::GetTransferFunction() const {
+  if (IsYCbCr()) {
+    const YCbCrDescriptor& desc = mDescriptor.get_YCbCrDescriptor();
+    return desc.transferFunction();
+  }
+  return gfx::TransferFunction::BT709;
 }
 
 gfx::ColorDepth BufferTextureHost::GetColorDepth() const {

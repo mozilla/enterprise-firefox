@@ -1025,6 +1025,9 @@ main section {
 .darkWallpaper .top-site-outer:not(:hover, :active, .active) {
   color-scheme: dark;
 }
+.top-site-outer .tile {
+  color-scheme: initial;
+}
 .top-site-outer.active .context-menu-button {
   opacity: 1;
   background-color: var(--newtab-button-active-background);
@@ -2109,17 +2112,23 @@ main section {
   height: var(--toggle-row-height);
 }
 .home-section .section .more-info-top-wrapper,
-.home-section .section .more-info-pocket-wrapper {
+.home-section .section .more-info-pocket-wrapper,
+.home-section .section .more-info-widgets-wrapper {
   margin-inline-start: calc(var(--space-xxsmall) * -1);
   overflow: hidden;
 }
 .home-section .section .more-info-top-wrapper .more-information,
-.home-section .section .more-info-pocket-wrapper .more-information {
+.home-section .section .more-info-pocket-wrapper .more-information,
+.home-section .section .more-info-widgets-wrapper .more-information {
   position: relative;
   transition: margin-block-start 250ms cubic-bezier(0.82, 0.085, 0.395, 0.895);
 }
-.home-section .section .more-info-pocket-wrapper .more-information {
+.home-section .section .more-info-pocket-wrapper .more-information,
+.home-section .section .more-info-widgets-wrapper .more-information {
   position: static;
+}
+.home-section .section .more-info-pocket-wrapper .more-information {
+  padding-block: var(--space-medium);
 }
 .home-section .section .more-info-pocket-wrapper .check-wrapper {
   margin-block-end: var(--space-small);
@@ -2349,7 +2358,7 @@ main section {
 }
 
 .widgets-mgmt-panel-container {
-  margin-block: var(--space-medium);
+  padding-block: var(--space-medium);
 }
 
 .nova-enabled #shortcuts-section {
@@ -7021,6 +7030,57 @@ hr {
   margin-block-end: var(--space-xlarge);
 }
 @container content-grid (inline-size < calc(8 * 75px + 7 * 0.75rem)) {
+  .nova-enabled .ds-section-grid.ds-card-grid .col-1-position-0 {
+    order: 0;
+  }
+  .nova-enabled .ds-section-grid.ds-card-grid .col-1-position-1 {
+    order: 1;
+  }
+  .nova-enabled .ds-section-grid.ds-card-grid .col-1-position-2 {
+    order: 2;
+  }
+  .nova-enabled .ds-section-grid.ds-card-grid .col-1-position-3 {
+    order: 3;
+  }
+  .nova-enabled .ds-section-grid.ds-card-grid .col-1-position-4 {
+    order: 4;
+  }
+  .nova-enabled .ds-section-grid.ds-card-grid .col-1-position-5 {
+    order: 5;
+  }
+  .nova-enabled .ds-section-grid.ds-card-grid .col-1-position-6 {
+    order: 6;
+  }
+  .nova-enabled .ds-section-grid.ds-card-grid .col-1-position-7 {
+    order: 7;
+  }
+  .nova-enabled .ds-section-grid.ds-card-grid .col-1-position-8 {
+    order: 8;
+  }
+  .nova-enabled .ds-section-grid.ds-card-grid .col-1-position-9 {
+    order: 9;
+  }
+  .nova-enabled .ds-section-grid.ds-card-grid .col-1-position-10 {
+    order: 10;
+  }
+  .nova-enabled .ds-section-grid.ds-card-grid .col-1-position-11 {
+    order: 11;
+  }
+  .nova-enabled .ds-section-grid.ds-card-grid .col-1-position-12 {
+    order: 12;
+  }
+  .nova-enabled .ds-section-grid.ds-card-grid .col-1-position-13 {
+    order: 13;
+  }
+  .nova-enabled .ds-section-grid.ds-card-grid .col-1-position-14 {
+    order: 14;
+  }
+  .nova-enabled .ds-section-grid.ds-card-grid .col-1-position-15 {
+    order: 15;
+  }
+  .nova-enabled .ds-section-grid.ds-card-grid .col-1-position-16 {
+    order: 16;
+  }
   .nova-enabled .ds-section-grid.ds-card-grid .col-1-small {
     grid-row: span 1;
     grid-column: span 1;
@@ -7279,6 +7339,57 @@ hr {
   }
 }
 @container content-grid ((inline-size >= calc(8 * 75px + 7 * 0.75rem)) and (inline-size < calc(12 * 75px + 11 * 0.75rem))) {
+  .nova-enabled .ds-section-grid.ds-card-grid .col-2-position-0 {
+    order: 0;
+  }
+  .nova-enabled .ds-section-grid.ds-card-grid .col-2-position-1 {
+    order: 1;
+  }
+  .nova-enabled .ds-section-grid.ds-card-grid .col-2-position-2 {
+    order: 2;
+  }
+  .nova-enabled .ds-section-grid.ds-card-grid .col-2-position-3 {
+    order: 3;
+  }
+  .nova-enabled .ds-section-grid.ds-card-grid .col-2-position-4 {
+    order: 4;
+  }
+  .nova-enabled .ds-section-grid.ds-card-grid .col-2-position-5 {
+    order: 5;
+  }
+  .nova-enabled .ds-section-grid.ds-card-grid .col-2-position-6 {
+    order: 6;
+  }
+  .nova-enabled .ds-section-grid.ds-card-grid .col-2-position-7 {
+    order: 7;
+  }
+  .nova-enabled .ds-section-grid.ds-card-grid .col-2-position-8 {
+    order: 8;
+  }
+  .nova-enabled .ds-section-grid.ds-card-grid .col-2-position-9 {
+    order: 9;
+  }
+  .nova-enabled .ds-section-grid.ds-card-grid .col-2-position-10 {
+    order: 10;
+  }
+  .nova-enabled .ds-section-grid.ds-card-grid .col-2-position-11 {
+    order: 11;
+  }
+  .nova-enabled .ds-section-grid.ds-card-grid .col-2-position-12 {
+    order: 12;
+  }
+  .nova-enabled .ds-section-grid.ds-card-grid .col-2-position-13 {
+    order: 13;
+  }
+  .nova-enabled .ds-section-grid.ds-card-grid .col-2-position-14 {
+    order: 14;
+  }
+  .nova-enabled .ds-section-grid.ds-card-grid .col-2-position-15 {
+    order: 15;
+  }
+  .nova-enabled .ds-section-grid.ds-card-grid .col-2-position-16 {
+    order: 16;
+  }
   .nova-enabled .ds-section-grid.ds-card-grid .col-2-small {
     grid-row: span 1;
     grid-column: span 1;
@@ -7541,6 +7652,57 @@ hr {
   }
 }
 @container content-grid ((inline-size >= calc(12 * 75px + 11 * 0.75rem)) and (inline-size < calc(16 * 75px + 15 * 0.75rem))) {
+  .nova-enabled .ds-section-grid.ds-card-grid .col-3-position-0 {
+    order: 0;
+  }
+  .nova-enabled .ds-section-grid.ds-card-grid .col-3-position-1 {
+    order: 1;
+  }
+  .nova-enabled .ds-section-grid.ds-card-grid .col-3-position-2 {
+    order: 2;
+  }
+  .nova-enabled .ds-section-grid.ds-card-grid .col-3-position-3 {
+    order: 3;
+  }
+  .nova-enabled .ds-section-grid.ds-card-grid .col-3-position-4 {
+    order: 4;
+  }
+  .nova-enabled .ds-section-grid.ds-card-grid .col-3-position-5 {
+    order: 5;
+  }
+  .nova-enabled .ds-section-grid.ds-card-grid .col-3-position-6 {
+    order: 6;
+  }
+  .nova-enabled .ds-section-grid.ds-card-grid .col-3-position-7 {
+    order: 7;
+  }
+  .nova-enabled .ds-section-grid.ds-card-grid .col-3-position-8 {
+    order: 8;
+  }
+  .nova-enabled .ds-section-grid.ds-card-grid .col-3-position-9 {
+    order: 9;
+  }
+  .nova-enabled .ds-section-grid.ds-card-grid .col-3-position-10 {
+    order: 10;
+  }
+  .nova-enabled .ds-section-grid.ds-card-grid .col-3-position-11 {
+    order: 11;
+  }
+  .nova-enabled .ds-section-grid.ds-card-grid .col-3-position-12 {
+    order: 12;
+  }
+  .nova-enabled .ds-section-grid.ds-card-grid .col-3-position-13 {
+    order: 13;
+  }
+  .nova-enabled .ds-section-grid.ds-card-grid .col-3-position-14 {
+    order: 14;
+  }
+  .nova-enabled .ds-section-grid.ds-card-grid .col-3-position-15 {
+    order: 15;
+  }
+  .nova-enabled .ds-section-grid.ds-card-grid .col-3-position-16 {
+    order: 16;
+  }
   .nova-enabled .ds-section-grid.ds-card-grid .col-3-small {
     grid-row: span 1;
     grid-column: span 1;
@@ -7803,6 +7965,57 @@ hr {
   }
 }
 @container content-grid (inline-size >= calc(16 * 75px + 15 * 0.75rem)) {
+  .nova-enabled .ds-section-grid.ds-card-grid .col-4-position-0 {
+    order: 0;
+  }
+  .nova-enabled .ds-section-grid.ds-card-grid .col-4-position-1 {
+    order: 1;
+  }
+  .nova-enabled .ds-section-grid.ds-card-grid .col-4-position-2 {
+    order: 2;
+  }
+  .nova-enabled .ds-section-grid.ds-card-grid .col-4-position-3 {
+    order: 3;
+  }
+  .nova-enabled .ds-section-grid.ds-card-grid .col-4-position-4 {
+    order: 4;
+  }
+  .nova-enabled .ds-section-grid.ds-card-grid .col-4-position-5 {
+    order: 5;
+  }
+  .nova-enabled .ds-section-grid.ds-card-grid .col-4-position-6 {
+    order: 6;
+  }
+  .nova-enabled .ds-section-grid.ds-card-grid .col-4-position-7 {
+    order: 7;
+  }
+  .nova-enabled .ds-section-grid.ds-card-grid .col-4-position-8 {
+    order: 8;
+  }
+  .nova-enabled .ds-section-grid.ds-card-grid .col-4-position-9 {
+    order: 9;
+  }
+  .nova-enabled .ds-section-grid.ds-card-grid .col-4-position-10 {
+    order: 10;
+  }
+  .nova-enabled .ds-section-grid.ds-card-grid .col-4-position-11 {
+    order: 11;
+  }
+  .nova-enabled .ds-section-grid.ds-card-grid .col-4-position-12 {
+    order: 12;
+  }
+  .nova-enabled .ds-section-grid.ds-card-grid .col-4-position-13 {
+    order: 13;
+  }
+  .nova-enabled .ds-section-grid.ds-card-grid .col-4-position-14 {
+    order: 14;
+  }
+  .nova-enabled .ds-section-grid.ds-card-grid .col-4-position-15 {
+    order: 15;
+  }
+  .nova-enabled .ds-section-grid.ds-card-grid .col-4-position-16 {
+    order: 16;
+  }
   .nova-enabled .ds-section-grid.ds-card-grid .col-4-small {
     grid-row: span 1;
     grid-column: span 1;

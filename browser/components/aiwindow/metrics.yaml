@@ -210,16 +210,12 @@ smart_window:
     extra_keys:
       location: *location
       chat_id: *chat_id
-      num_messages: &num_messages
-        type: quantity
-        unit: count
-        description: >
-          Number of messages in that chat.
+      message_seq: *message_seq
       time_delta:
         type: quantity
-        unit: minutes
+        unit: ms
         description: >
-          Elapsed time in minutes between chat session completion and retrieval
+          Elapsed time in milliseconds between last updated chat session completion and retrieval
 
   quick_prompt_displayed:
     type: event
@@ -417,6 +413,32 @@ smart_window:
         description: >
           Whether the memories feature is enabled or not. True for turning on and false for turning off
 
+  search_handoff:
+    type: event
+    description: |
+      A search toolcall is made due to assistant requiring more information to respond to a prompt
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2024869
+    data_reviews:
+      - https://phabricator.services.mozilla.com/D287975
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - npodgurski@mozilla.com
+    expires: never
+    extra_keys:
+      location: *location
+      chat_id: *chat_id
+      message_seq: *message_seq
+      provider:
+        type: string
+        description: >
+          The provider used for the search handoff, for example "google" or "bing"
+      model:
+        type: string
+        description: >
+          Model selected by the user
+
   model_request:
     type: event
     description: |
@@ -494,6 +516,52 @@ smart_window:
         description: >
           Error code if it's not a successful response
       model: *model
+
+  chat_storage:
+    type: quantity
+    unit: bytes
+    description: |
+      Size of the chat storage
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2024507
+    data_reviews:
+      - https://phabricator.services.mozilla.com/D288707
+    data_sensitivity:
+      - technical
+    notification_emails:
+      - npodgurski@mozilla.com
+    expires: never
+
+  memories_count:
+    type: labeled_quantity
+    description: |
+      Number of memories stored for a user, split by source
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2024507
+    data_reviews:
+      - https://phabricator.services.mozilla.com/D288707
+    data_sensitivity:
+      - technical
+    notification_emails:
+      - npodgurski@mozilla.com
+    expires: never
+    labels:
+      - history
+      - conversation
+
+  memories_last_updated:
+    type: datetime
+    description: |
+      Date when memories were last updated
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2024507
+    data_reviews:
+      - https://phabricator.services.mozilla.com/D288707
+    data_sensitivity:
+      - technical
+    notification_emails:
+      - npodgurski@mozilla.com
+    expires: never
 
   onboarding_screen_impression:
       type: event

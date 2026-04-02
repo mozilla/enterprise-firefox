@@ -7,6 +7,7 @@ support-files = [
   "test_process_flags_chrome.html",
   "helper_origin_attrs_testing.js",
   "file_about_srcdoc.html",
+  "file_reader_mode_article.html",
 ]
 prefs = [
   "browser.sessionstore.closedTabsFromAllWindows=true",
@@ -607,6 +608,9 @@ tags = "vertical-tabs"
 ["browser_tab_label_picture_in_picture.js"]
 tags = "vertical-tabs"
 
+["browser_tab_label_reader_mode.js"]
+tags = "vertical-tabs"
+
 ["browser_tab_manager_close.js"]
 tags = "vertical-tabs"
 
@@ -632,6 +636,9 @@ tags = "vertical-tabs"
 tags = "vertical-tabs"
 
 ["browser_tab_note_preview.js"]
+skip-if = [
+  "os == 'linux' && os_version == '24.04' && arch == 'x86_64' && display == 'x11' && opt && a11y_checks", # Bug 2020468
+]
 
 ["browser_tab_play.js"]
 tags = "vertical-tabs"

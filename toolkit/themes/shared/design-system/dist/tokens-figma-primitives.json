@@ -118,6 +118,8 @@
   "input/text/min/height": "{Primitives$button/min/height}",
   "link/focus/outline/offset": 1,
   "page/main/content/width": 664,
+  "badge/border/radius": "{Primitives$border/radius/small}",
+  "badge/border/width": 1,
   "toggle/border/radius": "{Primitives$border/radius/circle}",
   "toggle/border/width": "{Primitives$border/width}",
   "toggle/height": "{Primitives$size/item/small}",

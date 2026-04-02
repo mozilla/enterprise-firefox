@@ -1,11 +1,6 @@
 // ev, unordered, and runJSCacheTests are defined in head.js
 
 add_task(async function testMemoryCache_dirtyStateClassic() {
-  if (!AppConstants.NIGHTLY_BUILD) {
-    todo(false, "navigation cache is not yet enabled on non-nightly");
-    return;
-  }
-
   await SpecialPowers.pushPrefEnv({
     set: [
       ["dom.expose_test_interfaces", true],

@@ -211,6 +211,7 @@ class MenuNavigationMiddleware(
                                 id = session?.id,
                                 url = it,
                                 title = title,
+                                isPrivate = session?.content?.private ?: false,
                                 isCustomTab = customTab != null,
                             )
                         }

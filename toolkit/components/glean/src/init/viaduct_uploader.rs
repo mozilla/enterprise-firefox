@@ -127,6 +127,12 @@ fn viaduct_upload(upload_request: PingUploadRequest) -> Result<UploadResult, Via
 fn modify_for_enterprise(
     mut upload_request: PingUploadRequest,
 ) -> Result<PingUploadRequest, ViaductUploaderError> {
+    let localhost_port = static_prefs::pref!("telemetry.fog.test.localhost_port");
+    if localhost_port > 0 {
+        log::trace!("FOG modify_for_enterprise doing nothing on tests, localhost_port={}", localhost_port);
+        return Ok(upload_request);
+    }
+
     let console_url = felt::CONSOLE_URL
         .get()
         .ok_or(ViaductUploaderError::EnterpriseUrlNotSet)?;

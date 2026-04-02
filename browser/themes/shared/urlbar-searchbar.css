@@ -160,7 +160,7 @@ toolbar[inactive="true"] .urlbar,
   outline: none;
 }
 
-#urlbar .urlbar-input {
+#urlbar-input {
   mask-repeat: no-repeat;
   unicode-bidi: plaintext;
   text-align: match-parent;

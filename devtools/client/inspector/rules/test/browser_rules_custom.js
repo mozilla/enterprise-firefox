@@ -11,9 +11,9 @@ add_task(async function () {
   await addTab(TEST_URI);
   const { inspector, view } = await openRuleView();
 
-  await simpleCustomOverride(inspector, view);
   await importantCustomOverride(inspector, view);
   await disableCustomOverride(inspector, view);
+  await simpleCustomOverride(inspector, view);
 });
 
 async function simpleCustomOverride(inspector, view) {

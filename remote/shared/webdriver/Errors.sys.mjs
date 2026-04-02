@@ -25,6 +25,7 @@ const ERRORS = new Set([
   "JavaScriptError",
   "MoveTargetOutOfBoundsError",
   "NoSuchAlertError",
+  "NoSuchClientWindow",
   "NoSuchElementError",
   "NoSuchFrameError",
   "NoSuchHandleError",
@@ -541,6 +542,22 @@ class NoSuchAlertError extends WebDriverError {
 }
 
 /**
+ * The client window could not be found.
+ *
+ * @param {(string|Error)=} obj
+ *     Optional string describing error situation or Error instance
+ *     to propagate.
+ * @param {object=} data
+ *     Additional error data helpful in diagnosing the error.
+ */
+class NoSuchClientWindow extends WebDriverError {
+  constructor(obj, data = {}) {
+    super(obj, data);
+    this.status = "no such client window";
+  }
+}
+
+/**
  * An element could not be located on the page using the given
  * search parameters.
  *
@@ -995,6 +1012,7 @@ const STATUSES = new Map([
   ["javascript error", JavaScriptError],
   ["move target out of bounds", MoveTargetOutOfBoundsError],
   ["no such alert", NoSuchAlertError],
+  ["no such client window", NoSuchClientWindow],
   ["no such element", NoSuchElementError],
   ["no such frame", NoSuchFrameError],
   ["no such handle", NoSuchHandleError],

@@ -269,7 +269,9 @@ export class AIChatContent extends MozLitElement {
       ordinal,
     };
     this.requestUpdate();
-    this.#scrollUserMessageIntoView();
+    if (!isPreviousMessage) {
+      this.#scrollUserMessageIntoView();
+    }
   }
 
   retryUserMessageAfterError() {

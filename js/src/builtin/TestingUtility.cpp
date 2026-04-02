@@ -219,7 +219,7 @@ bool js::SetSourceOptions(JSContext* cx, FrontendContext* fc,
 
 JSObject* js::CreateScriptPrivate(JSContext* cx,
                                   JS::Handle<JSString*> path /* = nullptr */) {
-  JS::Rooted<JSObject*> info(cx, JS_NewPlainObject(cx));
+  JS::Rooted<JSObject*> info(cx, NewPlainObjectWithProto(cx, nullptr));
   if (!info) {
     return nullptr;
   }

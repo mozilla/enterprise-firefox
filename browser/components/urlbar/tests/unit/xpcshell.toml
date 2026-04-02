@@ -178,6 +178,8 @@ requesttimeoutfactor = 2  # Slow on Linux and Windows
 
 ["test_quickactions.js"]
 
+["test_quickaction_telemetry.js"]
+
 ["test_remote_tabs.js"]
 skip-if = [
   "!sync",

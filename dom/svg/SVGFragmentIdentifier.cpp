@@ -55,7 +55,7 @@ class MOZ_RAII AutoSVGViewHandler {
 
   void SetViewBox(const gfx::Rect& aRect) {
     SVGViewBox viewBox(aRect.x, aRect.y, aRect.width, aRect.height);
-    mSVGView->mViewBox.SetBaseValue(viewBox, mRoot, true);
+    mSVGView->mViewBox.SetBaseValue(viewBox, mRoot, false);
     mValid = true;
   }
 
@@ -105,7 +105,7 @@ class MOZ_RAII AutoSVGViewHandler {
   void SetValid() { mValid = true; }
 
  private:
-  SVGSVGElement* mRoot;
+  RefPtr<SVGSVGElement> mRoot;
   std::unique_ptr<SVGView> mSVGView;
   bool mValid;
   bool mWasOverridden;

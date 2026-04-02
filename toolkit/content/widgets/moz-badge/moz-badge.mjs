@@ -38,10 +38,10 @@ export default class MozBadge extends MozLitElement {
 
   get labelL10nId() {
     if (this.type == "beta") {
-      return "moz-badge-beta";
+      return "moz-badge-beta2";
     }
     if (this.type == "new") {
-      return "moz-badge-new";
+      return "moz-badge-new2";
     }
 
     return undefined;

@@ -569,10 +569,12 @@ export const tokensTable = {
     { value: "8px", name: "--border-radius-medium" },
     { value: "16px", name: "--border-radius-large" },
     { value: "var(--border-radius-medium)", name: "--button-border-radius" },
+    { value: "var(--border-radius-small)", name: "--badge-border-radius" },
     { value: "var(--border-radius-circle)", name: "--toggle-border-radius" },
   ],
   "border-width": [
     { value: "1px", name: "--border-width" },
+    { value: "1px", name: "--badge-border-width" },
     { value: "var(--border-width)", name: "--toggle-border-width" },
   ],
   "box-shadow": [
@@ -1279,7 +1281,10 @@ export const tokensTable = {
       name: "--link-color-visited",
     },
     {
-      value: { default: "var(--text-color)", forcedColors: "CanvasText" },
+      value: {
+        default: "var(--text-color-deemphasized)",
+        forcedColors: "CanvasText",
+      },
       name: "--badge-text-color",
     },
     {
@@ -2240,7 +2245,7 @@ export const variableLookupTable = {
     },
   },
   "badge-text-color": {
-    default: "var(--text-color)",
+    default: "var(--text-color-deemphasized)",
     forcedColors: "CanvasText",
   },
   "badge-text-color-filled": {
@@ -2263,6 +2268,8 @@ export const variableLookupTable = {
     forcedColors: "CanvasText",
     default: "light-dark(rgba(251, 251, 254, 0.4), rgba(21, 20, 26, 0.4))",
   },
+  "badge-border-radius": "var(--border-radius-small)",
+  "badge-border-width": "1px",
   "toggle-background-color": "var(--button-background-color)",
   "toggle-background-color-hover": "var(--button-background-color-hover)",
   "toggle-background-color-active": "var(--button-background-color-active)",

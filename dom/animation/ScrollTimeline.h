@@ -5,6 +5,7 @@
 #ifndef mozilla_dom_ScrollTimeline_h
 #define mozilla_dom_ScrollTimeline_h
 
+#include "mozilla/AnimationTarget.h"
 #include "mozilla/LinkedList.h"
 #include "mozilla/WritingModes.h"
 #include "mozilla/dom/AnimationTimeline.h"
@@ -20,7 +21,6 @@ enum class StyleOverflow : uint8_t;
 namespace mozilla {
 class ScrollContainerFrame;
 class ElementAnimationData;
-struct NonOwningAnimationTarget;
 namespace dom {
 class Document;
 class Element;
@@ -177,8 +177,9 @@ class ScrollTimeline : public AnimationTimeline,
     return mSource.mElement;
   }
 
-  virtual const Element* TimelineTargetElement() const {
-    return SourceElement();
+  virtual NonOwningAnimationTarget TimelineTarget() const {
+    MOZ_ASSERT(mSource);
+    return {mSource.mElement, PseudoStyleRequest{mSource.mPseudoType}};
   }
 
   bool SourceMatches(const Element* aElement,

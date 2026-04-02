@@ -110,6 +110,11 @@
     --tab-note-text-background: transparent;
     --tab-note-text-border-color: var(--card-border-color);
   }
+  @media (prefers-color-scheme: light) {
+    :root:not([lwtheme]) & {
+      --tab-note-text-background: var(--color-violet-0);
+    }
+  }
 }
 
 .tab-note-preview-container {

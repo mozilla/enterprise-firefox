@@ -16,6 +16,7 @@
 #include <stddef.h>  // size_t
 #include <stdint.h>  // char16_t, uint8_t, uint16_t, uint32_t
 
+#include "builtin/ModuleObject.h"       // ImportPhase
 #include "frontend/AbstractScopePtr.h"  // AbstractScopePtr, ScopeIndex
 #include "frontend/ObjLiteral.h"        // ObjLiteralStencil
 #include "frontend/ParserAtom.h"        // TaggedParserAtomIndex
@@ -555,6 +556,10 @@ class StencilModuleRequest {
       Vector<StencilModuleImportAttribute, 0, js::SystemAllocPolicy>;
   ImportAttributeVector attributes;
 
+#ifdef ENABLE_SOURCE_PHASE_IMPORTS
+  js::ImportPhase phase = ImportPhase::Evaluation;
+#endif
+
   // For XDR only.
   StencilModuleRequest() = default;
 
@@ -565,7 +570,12 @@ class StencilModuleRequest {
 
   StencilModuleRequest(const StencilModuleRequest& other)
       : specifier(other.specifier),
-        firstUnsupportedAttributeKey(other.firstUnsupportedAttributeKey) {
+        firstUnsupportedAttributeKey(other.firstUnsupportedAttributeKey)
+#ifdef ENABLE_SOURCE_PHASE_IMPORTS
+        ,
+        phase(other.phase)
+#endif
+  {
     AutoEnterOOMUnsafeRegion oomUnsafe;
     if (!attributes.appendAll(other.attributes)) {
       oomUnsafe.crash("StencilModuleRequest::StencilModuleRequest");
@@ -575,19 +585,21 @@ class StencilModuleRequest {
   StencilModuleRequest(StencilModuleRequest&& other) noexcept
       : specifier(other.specifier),
         firstUnsupportedAttributeKey(other.firstUnsupportedAttributeKey),
-        attributes(std::move(other.attributes)) {}
-
-  StencilModuleRequest& operator=(StencilModuleRequest& other) {
-    specifier = other.specifier;
-    firstUnsupportedAttributeKey = other.firstUnsupportedAttributeKey;
-    attributes = std::move(other.attributes);
-    return *this;
+        attributes(std::move(other.attributes))
+#ifdef ENABLE_SOURCE_PHASE_IMPORTS
+        ,
+        phase(other.phase)
+#endif
+  {
   }
 
   StencilModuleRequest& operator=(StencilModuleRequest&& other) noexcept {
     specifier = other.specifier;
     firstUnsupportedAttributeKey = other.firstUnsupportedAttributeKey;
     attributes = std::move(other.attributes);
+#ifdef ENABLE_SOURCE_PHASE_IMPORTS
+    phase = other.phase;
+#endif
     return *this;
   }
 
@@ -595,7 +607,11 @@ class StencilModuleRequest {
     size_t attrLen = attributes.length();
     if (specifier != other.specifier ||
         firstUnsupportedAttributeKey != other.firstUnsupportedAttributeKey ||
-        attrLen != other.attributes.length()) {
+        attrLen != other.attributes.length()
+#ifdef ENABLE_SOURCE_PHASE_IMPORTS
+        || phase != other.phase
+#endif
+    ) {
       return false;
     }
 
@@ -625,8 +641,12 @@ struct StencilModuleRequestHasher {
           hash, TaggedParserAtomIndexHasher::hash(l.attributes[i].key),
           TaggedParserAtomIndexHasher::hash(l.attributes[i].value));
     }
-    return mozilla::AddToHash(hash,
+    hash = mozilla::AddToHash(hash,
                               TaggedParserAtomIndexHasher::hash(l.specifier));
+#ifdef ENABLE_SOURCE_PHASE_IMPORTS
+    hash = mozilla::AddToHash(hash, l.phase);
+#endif
+    return hash;
   }
 
   static bool match(const Key& k, const Lookup& l) { return k == l; }
@@ -843,6 +863,7 @@ class StencilModuleMetadata
 
   size_t sizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf) const {
     return mallocSizeOf(this) +
+           moduleRequests.sizeOfExcludingThis(mallocSizeOf) +
            requestedModules.sizeOfExcludingThis(mallocSizeOf) +
            importEntries.sizeOfExcludingThis(mallocSizeOf) +
            localExportEntries.sizeOfExcludingThis(mallocSizeOf) +

@@ -636,6 +636,35 @@ async function getSmartbarContextChips(browser) {
 }
 
 /**
+ * Returns the chat messages currently displayed in the sidebar.
+ *
+ * @param {MozBrowser} sidebarBrowser - The sidebar browser element
+ * @returns {Promise<Array<{role: string, message: string}>>}
+ */
+async function getSidebarChatMessages(sidebarBrowser) {
+  const aiWindow = await TestUtils.waitForCondition(
+    () => sidebarBrowser.contentDocument?.querySelector("ai-window"),
+    "Wait for ai-window element"
+  );
+  const aichatBrowser = await TestUtils.waitForCondition(
+    () => aiWindow.shadowRoot?.querySelector("#aichat-browser"),
+    "Wait for #aichat-browser element"
+  );
+  return SpecialPowers.spawn(aichatBrowser, [], async () => {
+    const contentEl = await ContentTaskUtils.waitForCondition(
+      () => content.document.querySelector("ai-chat-content"),
+      "Wait for ai-chat-content element"
+    );
+    await contentEl.updateComplete;
+    const messageEls = contentEl.shadowRoot.querySelectorAll("ai-chat-message");
+    return Array.from(messageEls, el => ({
+      role: el.role,
+      message: el.message,
+    }));
+  });
+}
+
+/**
  * Mock OpenAI server helpers
  */
 
@@ -689,6 +718,7 @@ function readRequestBody(request) {
  */
 function startMockOpenAI({
   streamChunks = ["Hello from mock."],
+  streamChunkDelayMs = 0,
   toolCall = null,
   followupChunks = ["Tool complete."],
   onRequest,
@@ -812,24 +842,32 @@ function startMockOpenAI({
     if (wantsStream) {
       startSSE();
 
-      streamChunks.forEach((chunk, index) => {
-        sendSSE({
-          id: `chatcmpl-aiwindow-stream-${index}`,
-          object: "chat.completion.chunk",
-          created: timestamp,
-          model: "aiwindow-mock",
-          choices: [
-            {
-              index: 0,
-              delta: { content: chunk },
-              finish_reason: index === streamChunks.length - 1 ? "stop" : null,
-            },
-          ],
-        });
-      });
+      (async () => {
+        for (const [index, chunk] of streamChunks.entries()) {
+          if (streamChunkDelayMs) {
+            await new Promise(resolve =>
+              setTimeout(resolve, streamChunkDelayMs)
+            );
+          }
+          sendSSE({
+            id: `chatcmpl-aiwindow-stream-${index}`,
+            object: "chat.completion.chunk",
+            created: timestamp,
+            model: "aiwindow-mock",
+            choices: [
+              {
+                index: 0,
+                delta: { content: chunk },
+                finish_reason:
+                  index === streamChunks.length - 1 ? "stop" : null,
+              },
+            ],
+          });
+        }
 
-      response.write("data: [DONE]\n\n");
-      response.finish();
+        response.write("data: [DONE]\n\n");
+        response.finish();
+      })();
       return;
     }
 

@@ -68,6 +68,7 @@ smartbar-placeholder =
 
 ## Mentions
 
+smartbar-mention-typing-placeholder = Tag a tab or site
 smartbar-mentions-list-no-results-label = No results found
 smartbar-mentions-list-recent-tabs-label = Recent tabs
 
@@ -108,10 +109,10 @@ smartwindow-ask-button =
 ## Memories toggle button
 
 aiwindow-memories-on =
-    .tooltiptext = Memories on
+    .tooltiptext = Use memories in responses when helpful
     .aria-label = Memories on
 aiwindow-memories-off =
-    .tooltiptext = Memories off
+    .tooltiptext = Don’t use memories in responses
     .aria-label = Memories off
 
 ## New Chat Button

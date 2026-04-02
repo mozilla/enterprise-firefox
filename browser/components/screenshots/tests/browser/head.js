@@ -25,7 +25,7 @@ const RTL_TEST_PAGE = TEST_ROOT + "rtl-test-page.html";
 const SHADOWROOT_TEST_PAGE = TEST_ROOT + "test-page-shadowRoot.html";
 
 const { MAX_CAPTURE_DIMENSION, MAX_CAPTURE_AREA } = ChromeUtils.importESModule(
-  "resource:///modules/ScreenshotsUtils.sys.mjs"
+  "moz-src:///browser/components/screenshots/ScreenshotsUtils.sys.mjs"
 );
 
 const gScreenshotUISelectors = {

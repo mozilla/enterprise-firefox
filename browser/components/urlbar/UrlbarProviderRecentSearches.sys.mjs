@@ -134,7 +134,10 @@ export class UrlbarProviderRecentSearches extends UrlbarProvider {
     );
     results.sort((a, b) => b.lastUsed - a.lastUsed);
 
-    if (results.length > lazy.UrlbarPrefs.get("recentsearches.maxResults")) {
+    if (
+      queryContext.sapName != "searchbar" &&
+      results.length > lazy.UrlbarPrefs.get("recentsearches.maxResults")
+    ) {
       results.length = lazy.UrlbarPrefs.get("recentsearches.maxResults");
     }
 

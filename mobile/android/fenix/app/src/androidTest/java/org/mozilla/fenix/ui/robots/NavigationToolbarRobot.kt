@@ -11,11 +11,14 @@ import android.util.Log
 import android.view.KeyEvent
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertAny
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotDisplayed
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.ComposeTestRule
+import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -187,7 +190,7 @@ class NavigationToolbarRobot(private val composeTestRule: ComposeTestRule) {
 
     fun verifySearchBarPlaceholder(string: String) {
         Log.i(TAG, "verifySearchBarPlaceholder: Trying to verify that the search bar place holder is \"Search or enter address\"")
-        composeTestRule.onNodeWithTag(ADDRESSBAR_URL_BOX).assert(hasContentDescription("Search or enter address"))
+        composeTestRule.onAllNodesWithTag(ADDRESSBAR_URL_BOX).assertAny(hasContentDescription("Search or enter address"))
         Log.i(TAG, "verifySearchBarPlaceholder: Verified that the search bar place holder is \"Search or enter address\"")
     }
 
@@ -534,7 +537,7 @@ class NavigationToolbarRobot(private val composeTestRule: ComposeTestRule) {
             composeTestRule.waitUntilAtLeastOneExists(hasTestTag(ADDRESSBAR_URL_BOX), waitingTime)
             Log.i(TAG, "clickURLBar: Waited for $waitingTime until the URL bar to exist")
             Log.i(TAG, "clickURLBar: Trying to click navigation toolbar")
-            composeTestRule.onNodeWithTag(ADDRESSBAR_URL_BOX).performClick()
+            composeTestRule.onAllNodesWithTag(ADDRESSBAR_URL_BOX).onFirst().performClick()
             Log.i(TAG, "clickURLBar: Clicked navigation toolbar")
             composeTestRule.waitForIdle()
 

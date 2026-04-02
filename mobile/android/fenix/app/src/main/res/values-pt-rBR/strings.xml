@@ -1530,12 +1530,8 @@
   <string name="studies_remove">Remover</string>
   <!-- Title of the active section on the studies list -->
   <string name="studies_active">Ativado</string>
-  <!-- Description for studies -->
-  <string name="studies_description_3" moz:removedIn="148" tools:ignore="UnusedResources">Experimente recursos e ideias antes de ser liberados para todos.</string>
   <!-- Description for studies. Note: The word "Firefox" should NOT be translated -->
   <string name="studies_description_4" tools:ignore="BrandUsage">O Firefox seleciona usuários aleatoriamente para testar recursos, o que melhora a qualidade para todos.</string>
-  <!-- Title of the Studies data preference -->
-  <string name="studies_title" moz:removedIn="148" tools:ignore="UnusedResources">Instalar e executar estudos</string>
   <!-- Title of the Studies data preference -->
   <string name="studies_title_2">Permitir estudos de funcionalidades</string>
   <!-- Learn more link for studies, links to an article for more information about studies. -->
@@ -2433,8 +2429,6 @@
   <string name="preference_accessibility_text_size_summary">Aumentar ou diminuir o texto em sites</string>
   <!-- Title for Accessibility Text Size Scaling Preference -->
   <string name="preference_accessibility_font_size_title">Tamanho das fontes</string>
-  <!-- %d is the percentage of the slide bar for setting the text font size and %% will be announced as "percent". -->
-  <string name="a11y_preference_accessibility_font_size_percentage" tools:ignore="UnusedResources" moz:removedIn="148">%d %%.</string>
   <!-- Title for Accessibility Text Automatic Size Scaling Preference -->
   <string name="preference_accessibility_auto_size_2">Dimensionamento automático de fontes</string>
   <!-- Summary for Accessibility Text Automatic Size Scaling Preference -->
@@ -3472,6 +3466,8 @@
   <string name="translation_error_could_not_load_languages_warning_text">Não foi possível carregar idiomas. Verifique sua conexão com a internet e tente novamente.</string>
   <!-- The title of the warning card informs the user that a language is not supported. %1$s is the name of the language that is not supported. -->
   <string name="translation_error_language_not_supported_warning_text" tools:ignore="UnusedResources" moz:removedIn="150">Desculpe, ainda não há suporte para %1$s.</string>
+  <!-- The title of the warning card informs the user that translations from a language are not supported yet. %1$s is the name of the source language. -->
+  <string name="translation_error_language_not_supported_warning_text_2">Desculpe, ainda não oferecemos suporte a tradução de %1$s.</string>
   <!-- Snackbar title shown if the user closes the Translation Request dialogue and a translation is in progress. -->
   <string name="translation_in_progress_snackbar">Traduzindo…</string>
   <!--

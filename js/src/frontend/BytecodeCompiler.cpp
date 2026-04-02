@@ -352,21 +352,6 @@ template <typename Unit>
   return true;
 }
 
-template <typename Unit>
-static already_AddRefed<CompilationStencil>
-CompileGlobalScriptToStencilWithInputImpl(
-    JSContext* maybeCx, FrontendContext* fc, js::LifoAlloc& tempLifoAlloc,
-    CompilationInput& input, ScopeBindingCache* scopeCache,
-    JS::SourceText<Unit>& srcBuf, ScopeKind scopeKind) {
-  RefPtr<CompilationStencil> stencil;
-  if (!CompileGlobalScriptToStencilAndMaybeInstantiate(
-          maybeCx, fc, tempLifoAlloc, input, scopeCache, srcBuf, scopeKind,
-          NoExtraBindings, getter_AddRefs(stencil), NoGCOutput)) {
-    return nullptr;
-  }
-  return stencil.forget();
-}
-
 already_AddRefed<CompilationStencil>
 frontend::CompileGlobalScriptToStencilWithInput(
     JSContext* cx, FrontendContext* fc, js::LifoAlloc& tempLifoAlloc,

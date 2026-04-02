@@ -39,7 +39,7 @@
 
 .enterprise-badge {
   height: var(--size-item-large);
-  padding: var(--space-xxsmall) var(--space-xsmall);
+  padding: var(--space-xsmall) var(--space-small);
   align-items: center;
   gap: var(--space-small);
 
@@ -73,10 +73,52 @@
   }
 }
 
-#enterprise-user-icon {
-  width: var(--icon-size-medium);
-  height: var(--icon-size-medium);
+#enterprise-user-icon__wrapper {
+  width: var(--icon-size-small);
+  height: var(--icon-size-small);
   border-radius: var(--border-radius-circle);
+  overflow: hidden;
+}
+
+#enterprise-user-icon__picture,
+#enterprise-user-icon__initials,
+#enterprise-user-icon__avatar-wrapper {
+  width: 100%;
+  height: 100%;
+  display: none; /* Overridden by rule below for specific available user icon type */
+}
+
+#enterprise-user-icon__initials,
+#enterprise-user-icon__avatar-wrapper {
+  background: var(--button-background-color);
+  align-items: center;
+  justify-content: center;
+}
+
+#enterprise-user-icon__avatar {
+  width: var(--icon-size-xsmall);
+  height: var(--icon-size-xsmall);
+  -moz-context-properties: fill;
+  fill: var(--button-icon-fill);
+  list-style-image: url(chrome://browser/content/enterprise/user-avatar.svg);
+}
+
+#enterprise-user-icon__initials {
+  color: var(--button-text-color);
+  font-weight: var(--font-weight-semibold);
+  line-height: normal;
+}
+
+#enterprise-user-icon__wrapper[data-user-icon-type="picture"] > #enterprise-user-icon__picture {
+  display: block;
+}
+
+#enterprise-user-icon__wrapper[data-user-icon-type="initials"] > #enterprise-user-icon__initials {
+  display: flex;
+}
+
+#enterprise-user-icon__wrapper[data-user-icon-type="avatar"] > #enterprise-user-icon__avatar-wrapper {
+  display: flex;
 }
 
 .is-hidden {

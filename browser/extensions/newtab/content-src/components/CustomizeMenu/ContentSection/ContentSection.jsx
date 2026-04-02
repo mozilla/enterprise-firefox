@@ -18,6 +18,7 @@ export class ContentSection extends React.PureComponent {
     // Refs are necessary for dynamically measuring drawer heights for slide animations
     this.topSitesDrawerRef = React.createRef();
     this.pocketDrawerRef = React.createRef();
+    this.widgetsMgmtDrawerRef = React.createRef();
   }
 
   inputUserEvent(eventSource, eventValue) {
@@ -120,24 +121,30 @@ export class ContentSection extends React.PureComponent {
       `TOP_STORIES`,
       this.props.enabledSections.pocketEnabled
     );
+    this.setDrawerMargin(`WIDGETS`, this.props.widgetsEnabled);
   }
 
   setDrawerMargin(drawerID, isOpen) {
     let drawerRef;
 
-    if (drawerID === `TOP_SITES`) {
-      drawerRef = this.topSitesDrawerRef.current;
-    } else if (drawerID === `TOP_STORIES`) {
-      drawerRef = this.pocketDrawerRef.current;
-    } else {
-      return;
+    switch (drawerID) {
+      case `TOP_SITES`:
+        drawerRef = this.topSitesDrawerRef.current;
+        break;
+      case `TOP_STORIES`:
+        drawerRef = this.pocketDrawerRef.current;
+        break;
+      case `WIDGETS`:
+        drawerRef = this.widgetsMgmtDrawerRef.current;
+        break;
+      default:
+        return;
     }
 
     if (drawerRef) {
       // Use measured height if valid, otherwise use a large fallback
       // since overflow:hidden on the parent safely hides the drawer
-      let drawerHeight =
-        parseFloat(window.getComputedStyle(drawerRef)?.height) || 100;
+      let drawerHeight = drawerRef.offsetHeight || 100;
 
       if (isOpen) {
         // @nova-cleanup(remove-conditional): Remove novaEnabled check, keep the marginTop assignment
@@ -175,6 +182,7 @@ export class ContentSection extends React.PureComponent {
       novaEnabled,
       toggleWidgetsManagementPanel,
       showWidgetsManagementPanel,
+      widgetsEnabled,
     } = this.props;
     const {
       topSitesEnabled,
@@ -354,22 +362,44 @@ export class ContentSection extends React.PureComponent {
             )
           }
           {
-            // @nova-cleanup(remove-conditional): Remove novaEnabled check, keep WidgetsManagementPanel
+            // @nova-cleanup(remove-conditional): Remove novaEnabled check, keep toggle and WidgetsManagementPanel
             novaEnabled && mayHaveWidgets && (
-              <WidgetsManagementPanel
-                enabledSections={enabledSections}
-                enabledWidgets={enabledWidgets}
-                mayHaveWeather={mayHaveWeather}
-                mayHaveTimerWidget={mayHaveTimerWidget}
-                mayHaveListsWidget={mayHaveListsWidget}
-                mayHaveWeatherForecast={mayHaveWeatherForecast}
-                weatherDisplay={weatherDisplay}
-                setPref={setPref}
-                exitEventFired={exitEventFired}
-                onSubpanelToggle={onSubpanelToggle}
-                togglePanel={toggleWidgetsManagementPanel}
-                showPanel={showWidgetsManagementPanel}
-              />
+              <div id="widgets-section" className="section">
+                {/** @backward-compat { version 150 } React 16 (cached page) uses ontoggle; React 19 uses onToggle. Remove onToggle once Firefox 150 reaches Release. */}
+                <moz-toggle
+                  id="widgets-system-toggle"
+                  pressed={widgetsEnabled || null}
+                  ontoggle={this.onPreferenceSelect}
+                  onToggle={this.onPreferenceSelect}
+                  data-preference="widgets.enabled"
+                  data-event-source="WIDGETS_SYSTEM"
+                  data-l10n-id="newtab-custom-widget-section-toggle"
+                >
+                  <div slot="nested">
+                    <div className="more-info-widgets-wrapper">
+                      <div
+                        className="more-information"
+                        ref={this.widgetsMgmtDrawerRef}
+                      >
+                        <WidgetsManagementPanel
+                          enabledSections={enabledSections}
+                          enabledWidgets={enabledWidgets}
+                          mayHaveWeather={mayHaveWeather}
+                          mayHaveTimerWidget={mayHaveTimerWidget}
+                          mayHaveListsWidget={mayHaveListsWidget}
+                          mayHaveWeatherForecast={mayHaveWeatherForecast}
+                          weatherDisplay={weatherDisplay}
+                          setPref={setPref}
+                          exitEventFired={exitEventFired}
+                          onSubpanelToggle={onSubpanelToggle}
+                          togglePanel={toggleWidgetsManagementPanel}
+                          showPanel={showWidgetsManagementPanel}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </moz-toggle>
+              </div>
             )
           }
 

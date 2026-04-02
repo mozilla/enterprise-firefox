@@ -5,8 +5,6 @@
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
-  IPPEnrollAndEntitleManager:
-    "moz-src:///toolkit/components/ipprotection/IPPEnrollAndEntitleManager.sys.mjs",
   IPPChannelFilter:
     "moz-src:///toolkit/components/ipprotection/IPPChannelFilter.sys.mjs",
   IPPNetworkUtils:
@@ -353,15 +351,9 @@ class IPPProxyManagerSingleton extends EventTarget {
 
     await lazy.IPProtectionServerlist.maybeFetchList();
 
-    let enrollAndEntitleData;
-    if (lazy.IPPEnrollAndEntitleManager.isEnrolling) {
-      enrollAndEntitleData =
-        await lazy.IPPEnrollAndEntitleManager.waitForEnrollment();
-    }
-    // If the current account can not be enrolled or is not entitled,
-    // the starting the proxy should fail.
-    if (!lazy.IPPEnrollAndEntitleManager.isEnrolledAndEntitled) {
-      throw enrollAndEntitleData?.error || ERRORS.GENERIC;
+    const notReady = await lazy.IPProtectionService.authProvider.aboutToStart();
+    if (notReady) {
+      throw notReady.error || ERRORS.GENERIC;
     }
 
     // Check if we aborted before starting the channel filter.

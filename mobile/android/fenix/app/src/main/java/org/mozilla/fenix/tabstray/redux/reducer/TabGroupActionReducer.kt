@@ -26,20 +26,8 @@ object TabGroupActionReducer {
         action: TabGroupAction,
     ): TabsTrayState {
         return when (action) {
-            is TabGroupAction.CreateTabGroupClicked -> {
-                state.copy(
-                    tabGroupFormState = TabGroupFormState(
-                        tabGroupId = null,
-                        name = "",
-                        nextTabGroupNumber = state.tabGroups.size + 1,
-                        edited = false,
-                    ),
-                    backStack = state.backStack + TabManagerNavDestination.CreateTabGroup,
-                )
-            }
-
             is TabGroupAction.AddToTabGroup -> state.copy(
-                // Bug 2017777 will add logic to navigate to CreateTabGroup if no tab groups exist
+                // Bug 2017777 will add logic to navigate to EditTabGroup if no tab groups exist
                 backStack = state.backStack + TabManagerNavDestination.AddToTabGroup,
             )
 
@@ -51,7 +39,7 @@ object TabGroupActionReducer {
                         nextTabGroupNumber = state.tabGroups.size + 1,
                         edited = false,
                     ),
-                    backStack = state.backStack + TabManagerNavDestination.CreateTabGroup,
+                    backStack = state.backStack + TabManagerNavDestination.EditTabGroup,
                 )
             }
 
@@ -81,10 +69,13 @@ object TabGroupActionReducer {
 
             TabGroupAction.FormDismissed -> state.copy(
                 tabGroupFormState = null,
+                backStack = state.backStack.popTabGroupFlow(),
             )
 
-            TabGroupAction.SaveClicked,
-                 -> state.copy(tabGroupFormState = null)
+            is TabGroupAction.SaveClicked -> state.copy(
+                mode = TabsTrayState.Mode.Normal,
+                backStack = state.backStack.popTabGroupFlow(),
+            )
 
             is TabGroupAction.TabGroupClicked -> when (state.mode) {
                 is TabsTrayState.Mode.Normal -> state.copy(
@@ -94,5 +85,19 @@ object TabGroupActionReducer {
                 is TabsTrayState.Mode.Select -> state
             }
         }
+    }
+
+    private fun List<TabManagerNavDestination>.popTabGroupFlow(): List<TabManagerNavDestination> {
+        var stack = this
+
+        // Return the back stack to the destination that originally invoked the below destinations
+        while (stack.size > 1 && stack.last() in setOf(
+                TabManagerNavDestination.EditTabGroup,
+                TabManagerNavDestination.AddToTabGroup,
+            )
+        ) {
+            stack = stack.dropLast(1)
+        }
+        return stack
     }
 }

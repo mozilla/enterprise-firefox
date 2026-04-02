@@ -453,8 +453,8 @@ class MainMenuTest {
         }.openThreeDotMenu {
             clickTheMoreButton()
         }.clickSaveAsPDFButton {
-            verifyDownloadPrompt(testPage.title + ".pdf")
-        }.clickDownload {
+            verifyDownloadPrompt(composeTestRule, testPage.title + ".pdf")
+        }.clickDownload(composeTestRule) {
             clickSnackbarButton(composeTestRule = composeTestRule, "OPEN")
             assertExternalAppOpens(GOOGLE_DOCS)
         }

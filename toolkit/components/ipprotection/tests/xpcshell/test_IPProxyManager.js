@@ -4,9 +4,6 @@
 
 "use strict";
 
-const { IPPEnrollAndEntitleManager } = ChromeUtils.importESModule(
-  "moz-src:///toolkit/components/ipprotection/IPPEnrollAndEntitleManager.sys.mjs"
-);
 const { scheduleCallback } = ChromeUtils.importESModule(
   "moz-src:///toolkit/components/ipprotection/IPPProxyManager.sys.mjs"
 );
@@ -298,9 +295,7 @@ add_task(async function test_IPPProxyStates_error() {
 add_task(async function test_IPPProxyManager_activation_failure() {
   let sandbox = sinon.createSandbox();
   sandbox.stub(IPPSignInWatcher, "isSignedIn").get(() => true);
-  sandbox
-    .stub(IPProtectionService.guardian, "isLinkedToGuardian")
-    .resolves(true);
+  sandbox.stub(IPPEnrollAndEntitleManager, "isLinkedToGuardian").resolves(true);
   sandbox.stub(IPProtectionService.guardian, "fetchUserInfo").resolves({
     status: 200,
     error: undefined,
@@ -338,9 +333,7 @@ add_task(async function test_IPPProxyManager_quota_exceeded() {
   let sandbox = sinon.createSandbox();
 
   sandbox.stub(IPPSignInWatcher, "isSignedIn").get(() => true);
-  sandbox
-    .stub(IPProtectionService.guardian, "isLinkedToGuardian")
-    .resolves(true);
+  sandbox.stub(IPPEnrollAndEntitleManager, "isLinkedToGuardian").resolves(true);
   sandbox.stub(IPProtectionService.guardian, "fetchUserInfo").resolves({
     status: 200,
     error: undefined,
@@ -445,9 +438,7 @@ add_task(async function test_IPPProxyManager_quota_exceeded() {
 add_task(async function test_IPPProxytates_active() {
   let sandbox = sinon.createSandbox();
   sandbox.stub(IPPSignInWatcher, "isSignedIn").get(() => true);
-  sandbox
-    .stub(IPProtectionService.guardian, "isLinkedToGuardian")
-    .resolves(true);
+  sandbox.stub(IPPEnrollAndEntitleManager, "isLinkedToGuardian").resolves(true);
   sandbox.stub(IPProtectionService.guardian, "fetchUserInfo").resolves({
     status: 200,
     error: undefined,
@@ -524,9 +515,7 @@ add_task(async function test_IPPProxytates_active() {
 add_task(async function test_IPPProxytates_start_stop() {
   let sandbox = sinon.createSandbox();
   sandbox.stub(IPPSignInWatcher, "isSignedIn").get(() => true);
-  sandbox
-    .stub(IPProtectionService.guardian, "isLinkedToGuardian")
-    .resolves(true);
+  sandbox.stub(IPPEnrollAndEntitleManager, "isLinkedToGuardian").resolves(true);
   sandbox.stub(IPProtectionService.guardian, "fetchUserInfo").resolves({
     status: 200,
     error: undefined,

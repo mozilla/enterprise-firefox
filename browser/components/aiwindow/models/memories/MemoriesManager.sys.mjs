@@ -458,7 +458,10 @@ export class MemoriesManager {
 
     if (Array.isArray(generatedMemories)) {
       for (const memoryPartial of generatedMemories) {
-        const stored = await MemoryStore.addMemory(memoryPartial);
+        const stored = await MemoryStore.addMemory({
+          ...memoryPartial,
+          source,
+        });
         persistedMemories.push(stored);
       }
     }

@@ -667,6 +667,46 @@ static void CollectFontPrefValue(nsIPrefBranch* aPrefBranch,
   aModifiedMetric.Set(modifiedCount);
 }
 
+template <typename StringMetric, typename QuantityMetric>
+static void CollectFontIntPrefValue(nsIPrefBranch* aPrefBranch,
+                                    const nsACString& aDefaultLanguageGroup,
+                                    const char* aStartingAt,
+                                    StringMetric& aWesternMetric,
+                                    StringMetric& aDefaultGroupMetric,
+                                    QuantityMetric& aModifiedMetric) {
+  nsTArray<nsCString> prefNames;
+  if (NS_WARN_IF(
+          NS_FAILED(aPrefBranch->GetChildList(aStartingAt, prefNames)))) {
+    return;
+  }
+
+  nsCString westernPref(aStartingAt);
+  westernPref.Append("x-western");
+  nsCString defaultGroupPref(aStartingAt);
+  defaultGroupPref.Append(aDefaultLanguageGroup);
+
+  nsAutoCString westernPrefValue;
+  westernPrefValue.AppendInt(Preferences::GetInt(westernPref.get()));
+  aWesternMetric.Set(westernPrefValue);
+
+  nsAutoCString defaultGroupPrefValue;
+  if (!westernPref.Equals(defaultGroupPref)) {
+    defaultGroupPrefValue.AppendInt(
+        Preferences::GetInt(defaultGroupPref.get()));
+  }
+  aDefaultGroupMetric.Set(defaultGroupPrefValue);
+
+  uint32_t modifiedCount = 0;
+  for (const auto& prefName : prefNames) {
+    if (!prefName.Equals(westernPref) && !prefName.Equals(defaultGroupPref)) {
+      if (Preferences::HasUserValue(prefName.get())) {
+        modifiedCount++;
+      }
+    }
+  }
+  aModifiedMetric.Set(modifiedCount);
+}
+
 template <typename QuantityMetric>
 static void CollectFontPrefModified(nsIPrefBranch* aPrefBranch,
                                     const char* aStartingAt,
@@ -701,6 +741,12 @@ void PopulateFontPrefs() {
                        glean::characteristics::METRIC_NAME##_default_group, \
                        glean::characteristics::METRIC_NAME##_modified)
 
+#define FONT_INT_PREF(PREF_NAME, METRIC_NAME)                                  \
+  CollectFontIntPrefValue(prefRootBranch, fontLanguageGroup, PREF_NAME,        \
+                          glean::characteristics::METRIC_NAME##_western,       \
+                          glean::characteristics::METRIC_NAME##_default_group, \
+                          glean::characteristics::METRIC_NAME##_modified)
+
   // The following preferences can be modified using the advanced font options
   // on the about:preferences page. Every preference has a sub-branch per
   // script, so for example font.default.x-western or font.default.x-cyrillic
@@ -715,10 +761,11 @@ void PopulateFontPrefs() {
   FONT_PREF("font.name.serif.", font_name_serif);
   FONT_PREF("font.name.sans-serif.", font_name_sans_serif);
   FONT_PREF("font.name.monospace.", font_name_monospace);
-  FONT_PREF("font.size.variable.", font_size_variable);
-  FONT_PREF("font.size.monospace.", font_size_monospace);
-  FONT_PREF("font.minimum-size.", font_minimum_size);
+  FONT_INT_PREF("font.size.variable.", font_size_variable);
+  FONT_INT_PREF("font.size.monospace.", font_size_monospace);
+  FONT_INT_PREF("font.minimum-size.", font_minimum_size);
 
+#undef FONT_INT_PREF
 #undef FONT_PREF
 
   CollectFontPrefModified(
@@ -1121,7 +1168,7 @@ const RefPtr<PopulatePromise>& TimoutPromise(
 // metric is set, this variable should be incremented. It'll be a lot. It's
 // okay. We're going to need it to know (including during development) what is
 // the source of the data we are looking at.
-const int kSubmissionSchema = 37;
+const int kSubmissionSchema = 38;
 
 const auto* const kUUIDPref =
     "toolkit.telemetry.user_characteristics_ping.uuid";

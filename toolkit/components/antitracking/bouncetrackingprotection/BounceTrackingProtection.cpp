@@ -10,7 +10,6 @@
 #include "BounceTrackingRecord.h"
 #include "BounceTrackingMapEntry.h"
 #include "ClearDataCallback.h"
-#include "PromiseNativeWrapper.h"
 #include "ProfileAfterChangeGate.h"
 
 #include "BounceTrackingStateGlobal.h"
@@ -21,7 +20,8 @@
 #include "mozilla/Maybe.h"
 #include "mozilla/Services.h"
 #include "mozilla/StaticPrefs_privacy.h"
-#include "mozilla/dom/Promise.h"
+#include "mozilla/dom/Promise-inl.h"
+#include "mozilla/dom/PromiseNativeHandler.h"
 #include "nsDebug.h"
 #include "nsGlobalWindowInner.h"
 #include "nsHashPropertyBag.h"
@@ -905,8 +905,19 @@ BounceTrackingProtection::EnsureRemoteExceptionListService() {
 
   // Convert to MozPromise so it can be handled from C++ side. Also store the
   // promise so that subsequent calls to this method can wait for init too.
-  mRemoteExceptionListInitPromise =
-      PromiseNativeWrapper::ConvertJSPromiseToMozPromise(jsPromise);
+  RefPtr<GenericNonExclusivePromise::Private> resultPromise =
+      new GenericNonExclusivePromise::Private(__func__);
+  mRemoteExceptionListInitPromise = resultPromise;
+
+  jsPromise->AddCallbacksWithCycleCollectedArgs(
+      [resultPromise](JSContext*, JS::Handle<JS::Value>, ErrorResult&) {
+        resultPromise->Resolve(true, __func__);
+      },
+      [resultPromise](JSContext*, JS::Handle<JS::Value>, ErrorResult&) {
+        resultPromise->Reject(NS_ERROR_FAILURE, __func__);
+      });
+  jsPromise->AppendNativeHandler(
+      new dom::MozPromiseRejectOnDestruction{resultPromise, __func__});
 
   return mRemoteExceptionListInitPromise;
 }

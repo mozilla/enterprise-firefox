@@ -26,6 +26,8 @@ const { sinon } = ChromeUtils.importESModule(
   "resource://testing-common/Sinon.sys.mjs"
 );
 
+const DEFAULT_CONTEXT = { telemetry: { location: "home" } };
+
 // Prefs for aiwindow
 const PREF_API_KEY = "browser.smartwindow.apiKey";
 const PREF_ENDPOINT = "browser.smartwindow.endpoint";
@@ -176,7 +178,7 @@ add_task(async function test_Chat_fetchWithHistory_streams_and_forwards_args() {
     // Build engine
     const engineInstance = await openAIEngine.build(MODEL_FEATURES.CHAT);
 
-    await Chat.fetchWithHistory(conversation, engineInstance);
+    await Chat.fetchWithHistory(conversation, engineInstance, DEFAULT_CONTEXT);
 
     Assert.equal(
       getLastAssistantResponse(conversation).content.body,
@@ -253,7 +255,7 @@ add_task(async function test_Chat_fetchWithHistory_handles_tool_calls() {
 
     // Build engine
     const engineInstance = await openAIEngine.build(MODEL_FEATURES.CHAT);
-    await Chat.fetchWithHistory(conversation, engineInstance);
+    await Chat.fetchWithHistory(conversation, engineInstance, DEFAULT_CONTEXT);
 
     const toolCalls = conversation.messages.filter(
       message =>
@@ -319,7 +321,11 @@ add_task(
       // Build engine
       const engineInstance = await openAIEngine.build(MODEL_FEATURES.CHAT);
       const consume = async () => {
-        await Chat.fetchWithHistory(conversation, engineInstance);
+        await Chat.fetchWithHistory(
+          conversation,
+          engineInstance,
+          DEFAULT_CONTEXT
+        );
       };
 
       await Assert.rejects(
@@ -387,7 +393,11 @@ add_task(
       conversation.addAssistantMessage("text", "");
 
       const engineInstance = await openAIEngine.build(MODEL_FEATURES.CHAT);
-      await Chat.fetchWithHistory(conversation, engineInstance);
+      await Chat.fetchWithHistory(
+        conversation,
+        engineInstance,
+        DEFAULT_CONTEXT
+      );
 
       Assert.equal(
         getLastAssistantResponse(conversation).content.body,
@@ -458,7 +468,11 @@ add_task(
       conversation.addAssistantMessage("text", "");
 
       const engineInstance = await openAIEngine.build(MODEL_FEATURES.CHAT);
-      await Chat.fetchWithHistory(conversation, engineInstance);
+      await Chat.fetchWithHistory(
+        conversation,
+        engineInstance,
+        DEFAULT_CONTEXT
+      );
 
       // Find the assistant message with tool_calls
       const assistantToolCallMessage = conversation.messages.find(
@@ -594,7 +608,11 @@ add_task(
       conversation.addAssistantMessage("text", "");
 
       const engineInstance = await openAIEngine.build(MODEL_FEATURES.CHAT);
-      await Chat.fetchWithHistory(conversation, engineInstance);
+      await Chat.fetchWithHistory(
+        conversation,
+        engineInstance,
+        DEFAULT_CONTEXT
+      );
 
       Assert.strictEqual(
         conversation.securityProperties.untrustedInput,
@@ -682,7 +700,7 @@ add_task(async function test_Chat_fetchWithHistory_uses_modelId_from_pref() {
     conversation.addAssistantMessage("text", "");
 
     const engineInstance = await openAIEngine.build(MODEL_FEATURES.CHAT);
-    await Chat.fetchWithHistory(conversation, engineInstance);
+    await Chat.fetchWithHistory(conversation, engineInstance, DEFAULT_CONTEXT);
 
     Assert.ok(
       createEngineStub.calledOnce,
@@ -783,6 +801,7 @@ add_task(
 
       const context = {
         browsingContext: { embedderElement: mockBrowser },
+        telemetry: { location: "home" },
       };
 
       const engineInstance = await openAIEngine.build(MODEL_FEATURES.CHAT);
@@ -971,7 +990,11 @@ add_task(
       );
       conversation.addAssistantMessage("text", "");
 
-      await Chat.fetchWithHistory(conversation, engineInstance);
+      await Chat.fetchWithHistory(
+        conversation,
+        engineInstance,
+        DEFAULT_CONTEXT
+      );
 
       Assert.ok(
         getUserMemoriesStub.calledOnce,
@@ -1048,7 +1071,11 @@ add_task(
       );
       conversation.addAssistantMessage("text", "");
 
-      await Chat.fetchWithHistory(conversation, engineInstance);
+      await Chat.fetchWithHistory(
+        conversation,
+        engineInstance,
+        DEFAULT_CONTEXT
+      );
 
       Assert.ok(
         !getUserMemoriesStub.calledOnce,

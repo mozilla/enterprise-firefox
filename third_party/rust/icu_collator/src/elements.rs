@@ -476,6 +476,44 @@ impl CollationElement32 {
         }
     }
 
+    /// Extract only the first primary in the quick check after the identical
+    /// prefix. Unlike `to_primary_in_quick_check`, this method variant can
+    /// handle `Tag::Digit` if the numeric mode is not enabled. (The numeric
+    /// mode requires looking ahead.)
+    #[inline(always)]
+    pub fn to_primary_in_quick_check_numeric(
+        self,
+        data: &CollationData,
+        numeric: bool,
+    ) -> Option<u32> {
+        let mut ce32 = self;
+        loop {
+            let t = ce32.low_byte();
+            if t < SPECIAL_CE32_LOW_BYTE {
+                // Not special
+                return Some(ce32.0 & 0xFFFF0000);
+            }
+            if t == LONG_PRIMARY_CE32_LOW_BYTE {
+                return Some(ce32.0 - u32::from(t));
+            }
+            let tag = ce32.tag();
+            if tag == Tag::Expansion {
+                // Hiragana in `ja` tailoring
+                return Some(data.get_primary_from_ces(ce32.index()));
+            }
+            // Digit case for JetStream 3; see https://github.com/WebKit/JetStream/issues/294
+            if tag == Tag::Digit && !numeric {
+                ce32 = data.get_ce32(ce32.index());
+                continue;
+            }
+            return None;
+            // Note: If we start adding support for more tags,
+            // we should probably do early exits for contractions
+            // and potential Hangul syllables before checking
+            // for expansion.
+        }
+    }
+
     /// Expands to 64 bits if the expansion is to a single 64-bit collation
     /// element and is not a long-secondary expansion.
     #[inline(always)]
@@ -2189,22 +2227,32 @@ where
                                             digits.push(ce32.digit());
                                         }
                                     }
-                                    // Skip leading zeros
-                                    let mut zeros = 0;
-                                    while let Some(&digit) = digits.get(zeros) {
-                                        if digit != 0 {
-                                            break;
-                                        }
-                                        zeros += 1;
-                                    }
-                                    if zeros == digits.len() {
-                                        // All zeros, keep a zero
-                                        zeros = digits.len() - 1;
-                                    }
-                                    // Index in range by construction above
-                                    #[expect(clippy::indexing_slicing)]
-                                    let mut remaining = &digits[zeros..];
+                                    let mut remaining = digits.as_slice();
                                     while !remaining.is_empty() {
+                                        // Skip leading zeros
+
+                                        // If this isn't our initial loop round and we've truncated
+                                        // a chunk to 254 digits on a previous round, the eventual
+                                        // comparison result can be wrong, but that replicates an
+                                        // ICU4C bug. Let's fix both as a follow-up.
+                                        loop {
+                                            let Some((first, tail)) = remaining.split_first()
+                                            else {
+                                                // Keep one zero
+                                                // If we get here, we must have skipped a zero, since
+                                                // 1) the while loop condition above meant that we started
+                                                //    with a non-empty slice AND
+                                                // 2) this loop only skips zeros
+                                                // Instead of trying to recover the same zero that we already
+                                                // skipped, let's just fill in a static slice.
+                                                remaining = &[0];
+                                                break;
+                                            };
+                                            if *first != 0 {
+                                                break;
+                                            }
+                                            remaining = tail;
+                                        }
                                         // Numeric CEs are generated for segments of
                                         // up to 254 digits.
                                         let (head, tail) = remaining

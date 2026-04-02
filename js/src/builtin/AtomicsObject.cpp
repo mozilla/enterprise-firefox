@@ -998,9 +998,10 @@ FutexWaiterListHead::~FutexWaiterListHead() {
     // a thread is waiting, and that thread must have a reference to the shared
     // array buffer it's waiting on, so that buffer can't be freed.
 
+    FutexWaiterListNode* next = iter->next();
     AsyncFutexWaiter* removedWaiter =
         RemoveAsyncWaiter(iter->toWaiter()->asAsync(), lock);
-    iter = iter->next();
+    iter = next;
 
     if (removedWaiter->hasTimeout() &&
         !removedWaiter->timeoutTask()->cleared(lock)) {

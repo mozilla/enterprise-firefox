@@ -98,6 +98,8 @@ license:
         - .m
         - .mm
         - .mjs
+        - .nsh
+        - .nsi
         - .properties
         - .py
         - .rs

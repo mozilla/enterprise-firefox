@@ -3241,7 +3241,6 @@ const PREONBOARDING_MESSAGES = () => [
               paddingBlock: "4px",
               paddingInline: "16px",
             },
-            should_focus_button: true,
             action: {
               type: "MULTI_ACTION",
               collectSelect: true,

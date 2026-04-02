@@ -468,5 +468,49 @@ describe("ContentSection", () => {
       assert.isTrue(wrapper.find("WidgetsManagementPanel").exists());
       assert.isFalse(wrapper.find(".widgets-section").exists());
     });
+
+    describe("widgets system toggle", () => {
+      it("renders the widgets system toggle in ContentSection", () => {
+        wrapper = mount(
+          <WrapWithProvider>
+            <ContentSection
+              {...DEFAULT_PROPS}
+              {...NOVA_PROPS}
+              mayHaveWidgets={true}
+              widgetsEnabled={false}
+            />
+          </WrapWithProvider>
+        );
+        assert.isTrue(wrapper.find("#widgets-system-toggle").exists());
+      });
+
+      it("sets widgets-system-toggle pressed when widgetsEnabled is true", () => {
+        wrapper = mount(
+          <WrapWithProvider>
+            <ContentSection
+              {...DEFAULT_PROPS}
+              {...NOVA_PROPS}
+              mayHaveWidgets={true}
+              widgetsEnabled={true}
+            />
+          </WrapWithProvider>
+        );
+        assert.isTrue(wrapper.find("#widgets-system-toggle").prop("pressed"));
+      });
+
+      it("sets widgets-system-toggle unpressed when widgetsEnabled is false", () => {
+        wrapper = mount(
+          <WrapWithProvider>
+            <ContentSection
+              {...DEFAULT_PROPS}
+              {...NOVA_PROPS}
+              mayHaveWidgets={true}
+              widgetsEnabled={false}
+            />
+          </WrapWithProvider>
+        );
+        assert.isNotOk(wrapper.find("#widgets-system-toggle").prop("pressed"));
+      });
+    });
   });
 });

@@ -14,7 +14,9 @@
     --badge-background-color-filled: light-dark(var(--color-green-70), var(--color-green-40));
     --badge-border-color: var(--border-color);
     --badge-border-color-filled: light-dark(rgba(251, 251, 254, 0.4), rgba(21, 20, 26, 0.4));
-    --badge-text-color: var(--text-color);
+    --badge-border-radius: var(--border-radius-small);
+    --badge-border-width: 1px;
+    --badge-text-color: var(--text-color-deemphasized);
     --badge-text-color-filled: light-dark(var(--color-white), var(--color-gray-100));
   }
 }
@@ -39,7 +41,11 @@
   @layer tokens-foundation-nova {
     :root,
     :host {
+      --badge-background-color-filled: light-dark(var(--color-green-50), var(--color-green-20));
       --badge-border-color: light-dark(rgba(21, 20, 26, 0.4), rgba(251, 251, 254, 0.4));
+      --badge-border-radius: var(--border-radius-circle);
+      --badge-text-color: var(--text-color);
+      --badge-text-color-filled: var(--button-text-color-primary);
     }
   }
 
@@ -49,6 +55,7 @@
     @media (forced-colors) {
       :root,
       :host {
+        --badge-background-color-filled: AccentColor;
         --badge-border-color: CanvasText;
       }
     }

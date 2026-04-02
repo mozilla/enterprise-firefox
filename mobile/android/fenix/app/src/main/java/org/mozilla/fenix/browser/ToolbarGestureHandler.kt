@@ -53,6 +53,7 @@ class ToolbarGestureHandler(
     private val store: BrowserStore,
     private val selectTabUseCase: TabsUseCases.SelectTabUseCase,
     private val onSwipeStarted: () -> Unit,
+    private val onTabSwitched: (TabSessionState) -> Unit = { },
 ) : SwipeGestureListener {
 
     private enum class GestureDirection {
@@ -258,6 +259,7 @@ class ToolbarGestureHandler(
             doOnEnd {
                 contentLayout.translationX = 0f
                 selectTabUseCase(tab.id)
+                onTabSwitched.invoke(tab)
 
                 // Fade out the tab preview to prevent flickering
                 val shortAnimationDuration =

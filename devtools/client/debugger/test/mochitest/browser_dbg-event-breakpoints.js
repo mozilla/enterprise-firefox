@@ -255,6 +255,12 @@ add_task(async function () {
   await assertPausedAtSourceAndLine(dbg, eventBreakpointsSource.id, 82);
   await resume(dbg);
   await onReload;
+  // The reload function waits for the sources to be available, but it doesn't
+  // wait for the breakpoint checkboxes to be restored, and they're done
+  // asynchronously.
+  // Wait for the checkbox state, so that the next toggle unchecks it as a
+  // cleanup.
+  await waitForEventBreakpointChecked(dbg, "Load", "event.load.beforeunload");
   await toggleEventBreakpoint(dbg, "Load", "event.load.beforeunload");
 
   info(`Check that breakpoint can be set on "unload" event`);
@@ -264,6 +270,7 @@ add_task(async function () {
   await assertPausedAtSourceAndLine(dbg, eventBreakpointsSource.id, 87);
   await resume(dbg);
   await onReload;
+  await waitForEventBreakpointChecked(dbg, "Load", "event.load.unload");
   await toggleEventBreakpoint(dbg, "Load", "event.load.unload");
 });
 

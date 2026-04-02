@@ -386,7 +386,7 @@ export const AIWindowUI = {
       return;
     }
 
-    sidebarAiWindow.loadStarterPrompts(true);
+    sidebarAiWindow.loadStarterPrompts(true, win.gBrowser.selectedTab);
   },
 
   /**

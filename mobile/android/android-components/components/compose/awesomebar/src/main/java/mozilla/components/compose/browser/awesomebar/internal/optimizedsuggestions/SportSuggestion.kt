@@ -9,10 +9,15 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -23,6 +28,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -45,6 +52,7 @@ import mozilla.components.concept.awesomebar.optimizedsuggestions.SportSuggestio
 import mozilla.components.concept.awesomebar.optimizedsuggestions.SportSuggestionStatus
 import mozilla.components.concept.awesomebar.optimizedsuggestions.SportSuggestionStatusType
 import mozilla.components.concept.awesomebar.optimizedsuggestions.SportSuggestionTeam
+import mozilla.components.ui.icons.R as iconsR
 
 @Composable
 internal fun SportSuggestion(
@@ -62,7 +70,6 @@ internal fun SportSuggestion(
             homeTeam.score != null && awayTeam.score != null
         }
     }
-    val teamContentDescription = getTeamContentDescription(shouldDisplayScore, awayTeam, homeTeam)
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -76,64 +83,121 @@ internal fun SportSuggestion(
                     vertical = AcornTheme.layout.space.static300,
                 ),
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = buildString {
-                        append("$sport · ")
-                        status.stringResId?.let {
-                            append("${stringResource(it)} · ")
-                        }
-                        append(getSportsDate(date))
-                    },
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(end = 16.dp),
-                    overflow = TextOverflow.Ellipsis,
-                    maxLines = 1,
-                    style = AcornTheme.typography.body2,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-
-                if (statusType == SportSuggestionStatusType.LIVE) {
-                    LiveStatus()
-                }
-            }
+            SuggestionHeader(
+                sport = sport,
+                status = status,
+                statusType = statusType,
+                date = date,
+            )
 
             HorizontalDivider(
                 color = MaterialTheme.colorScheme.outlineVariant,
                 modifier = Modifier.padding(vertical = 8.dp),
             )
 
-            Row(
-                modifier = Modifier
-                    .padding(top = AcornTheme.layout.space.static150)
-                    .fillMaxWidth()
-                    .clearAndSetSemantics {
-                        this.contentDescription = teamContentDescription
-                    },
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Team(
-                    team = awayTeam,
-                    shouldDisplayScore = shouldDisplayScore,
-                    isAwayTeam = true,
-                    modifier = Modifier.weight(1f),
-                )
-
-                ScoreText(text = ":", modifier = Modifier.padding(horizontal = 16.dp))
-
-                Team(
-                    team = homeTeam,
-                    shouldDisplayScore = shouldDisplayScore,
-                    isAwayTeam = false,
-                    modifier = Modifier.weight(1f),
-                )
-            }
+            SuggestionTeams(
+                awayTeam = awayTeam,
+                homeTeam = homeTeam,
+                shouldDisplayScore = shouldDisplayScore,
+            )
         }
 
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     }
 }
+
+@Composable
+private fun SuggestionHeader(
+    sport: String,
+    status: SportSuggestionStatus,
+    statusType: SportSuggestionStatusType,
+    date: SportSuggestionDate,
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        getSportsIcon(sport)?.let {
+            Icon(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(color = MaterialTheme.colorScheme.surfaceContainerHighest)
+                    .padding(AcornTheme.layout.space.static50),
+                painter = it,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurface,
+            )
+        }
+
+        Spacer(modifier = Modifier.width(AcornTheme.layout.space.static100))
+
+        Text(
+            text = buildString {
+                append("$sport · ")
+                status.stringResId?.let {
+                    append("${stringResource(it)} · ")
+                }
+                append(getSportsDate(date))
+            },
+            modifier = Modifier
+                .weight(1f)
+                .padding(end = 16.dp),
+            overflow = TextOverflow.Ellipsis,
+            maxLines = 1,
+            style = AcornTheme.typography.body2,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+
+        if (statusType == SportSuggestionStatusType.LIVE) {
+            LiveStatus()
+        }
+    }
+}
+
+@Composable
+private fun SuggestionTeams(
+    awayTeam: SportSuggestionTeam,
+    homeTeam: SportSuggestionTeam,
+    shouldDisplayScore: Boolean,
+) {
+    val teamContentDescription = getTeamContentDescription(shouldDisplayScore, awayTeam, homeTeam)
+    Row(
+        modifier = Modifier
+            .padding(top = AcornTheme.layout.space.static150)
+            .fillMaxWidth()
+            .clearAndSetSemantics {
+                this.contentDescription = teamContentDescription
+            },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Team(
+            team = awayTeam,
+            shouldDisplayScore = shouldDisplayScore,
+            isAwayTeam = true,
+            modifier = Modifier.weight(1f),
+        )
+
+        ScoreText(text = ":", modifier = Modifier.padding(horizontal = 16.dp))
+
+        Team(
+            team = homeTeam,
+            shouldDisplayScore = shouldDisplayScore,
+            isAwayTeam = false,
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+@Composable
+private fun getSportsIcon(sport: String): Painter? =
+    when (sport) {
+        "NBA", "CBB" -> painterResource(iconsR.drawable.mozac_ic_sports_basketball_32)
+        "MLB" -> painterResource(iconsR.drawable.mozac_ic_sports_baseball_32)
+        "NHL" -> painterResource(iconsR.drawable.mozac_ic_sports_hockey_32)
+        "NFL", "CFB" -> painterResource(iconsR.drawable.mozac_ic_sports_american_football_32)
+        "PGA" -> painterResource(iconsR.drawable.mozac_ic_sports_golf_32)
+        "Bundesliga", "Ligue 1", "Serie A", "Champions League" ->
+            painterResource(iconsR.drawable.mozac_ic_sports_european_football_32)
+        else -> null
+    }
 
 @Composable
 private fun getSportsDate(sportSuggestionDate: SportSuggestionDate): String =

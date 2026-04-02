@@ -24,7 +24,7 @@ class PublicKeyCredential final : public Credential {
   explicit PublicKeyCredential(nsPIDOMWindowInner* aParent);
 
  protected:
-  ~PublicKeyCredential() override;
+  ~PublicKeyCredential() override = default;
 
  public:
   virtual JSObject* WrapObject(JSContext* aCx,
@@ -94,7 +94,6 @@ class PublicKeyCredential final : public Credential {
 
  private:
   nsTArray<uint8_t> mRawId;
-  JS::Heap<JSObject*> mRawIdCachedObj;
   Maybe<nsString> mAuthenticatorAttachment;
   RefPtr<AuthenticatorAttestationResponse> mAttestationResponse;
   RefPtr<AuthenticatorAssertionResponse> mAssertionResponse;

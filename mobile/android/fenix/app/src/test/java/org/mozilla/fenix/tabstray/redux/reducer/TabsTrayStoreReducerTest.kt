@@ -351,6 +351,81 @@ class TabsTrayStoreReducerTest {
     }
 
     @Test
+    fun `WHEN navigating back from create tab group in multiselect mode THEN only the sheet is dismissed`() {
+        val initialState = TabsTrayState(
+            mode = TabsTrayState.Mode.Select(selectedTabs = setOf(createTab("https://mozilla.org"))),
+            backStack = listOf(
+                TabManagerNavDestination.Root,
+                TabManagerNavDestination.AddToTabGroup,
+                TabManagerNavDestination.EditTabGroup,
+            ),
+        )
+
+        val resultState = TabsTrayReducer.reduce(
+            state = initialState,
+            action = TabsTrayAction.NavigateBackInvoked,
+        )
+
+        val expectedState = initialState.copy(
+            backStack = listOf(
+                TabManagerNavDestination.Root,
+                TabManagerNavDestination.AddToTabGroup,
+            ),
+        )
+
+        assertEquals(expectedState, resultState)
+    }
+
+    @Test
+    fun `WHEN navigating back from add to tab group in multiselect mode THEN only the sheet is dismissed`() {
+        val initialState = TabsTrayState(
+            mode = TabsTrayState.Mode.Select(selectedTabs = setOf(createTab("https://mozilla.org"))),
+            backStack = listOf(
+                TabManagerNavDestination.Root,
+                TabManagerNavDestination.AddToTabGroup,
+            ),
+        )
+
+        val resultState = TabsTrayReducer.reduce(
+            state = initialState,
+            action = TabsTrayAction.NavigateBackInvoked,
+        )
+
+        val expectedState = initialState.copy(
+            backStack = listOf(TabManagerNavDestination.Root),
+        )
+
+        assertEquals(expectedState, resultState)
+    }
+
+    @Test
+    fun `WHEN navigating back from expanded tab group THEN only the sheet is dismissed`() {
+        val group = createTabGroup()
+        val initialState = TabsTrayState(
+            mode = TabsTrayState.Mode.Normal,
+            backStack = listOf(
+                TabManagerNavDestination.Root,
+                TabManagerNavDestination.ExpandedTabGroup(group),
+                TabManagerNavDestination.EditTabGroup,
+            ),
+        )
+
+        val resultState = TabsTrayReducer.reduce(
+            state = initialState,
+            action = TabsTrayAction.NavigateBackInvoked,
+        )
+
+        val expectedState = initialState.copy(
+            backStack = listOf(
+                TabManagerNavDestination.Root,
+                TabManagerNavDestination.ExpandedTabGroup(group),
+            ),
+        )
+
+        assertEquals(expectedState, resultState)
+    }
+
+    @Test
     fun `WHEN UpdatePbmLockStatus THEN isPbmLocked is updated`() {
         val initialState = TabsTrayState(
             privateBrowsing = TabsTrayState.PrivateBrowsingState(

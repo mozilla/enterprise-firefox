@@ -3652,12 +3652,6 @@ bool GeneralParser<ParseHandler, Unit>::functionFormalParametersAndBody(
     }
 
     setFunctionEndFromCurrentToken(funbox);
-
-    if (kind == FunctionSyntaxKind::Statement) {
-      if (!matchOrInsertSemicolon()) {
-        return false;
-      }
-    }
   }
 
   if (IsMethodDefinitionKind(kind) && pc_->superScopeNeedsHomeObject()) {
@@ -5290,9 +5284,19 @@ GeneralParser<ParseHandler, Unit>::importDeclaration() {
 
           importSourceBinding = MOZ_TRY(newName(bindingAtom));
 
-          if (!noteDeclaredName(bindingAtom, DeclarationKind::Import, pos())) {
+          // We handle import source like namespace imports.
+          // It's not an indirect binding, but instead a lexical definition,
+          // that's treated like a const variable.
+          if (!noteDeclaredName(bindingAtom, DeclarationKind::Const, pos())) {
             return errorResult();
           }
+
+          // The source phase import name is currently required to live on the
+          // environment.
+          pc_->varScope()
+              .lookupDeclaredName(bindingAtom)
+              ->value()
+              ->setClosedOver();
         }
       }
       if (!isSourcePhaseImport)
@@ -5394,7 +5398,7 @@ GeneralParser<ParseHandler, Unit>::importDeclaration() {
   if (isSourcePhaseImport) {
     BinaryNodeType node = MOZ_TRY(handler_.newImportSourceDeclaration(
         importSourceBinding, moduleRequest, TokenPos(begin, pos().end)));
-    if (!processImportSource(node)) {
+    if (!processImport(node)) {
       return errorResult();
     }
 
@@ -5714,21 +5718,6 @@ inline bool PerHandlerParser<SyntaxParseHandler>::processImport(
   MOZ_ALWAYS_FALSE(abortIfSyntaxParser());
   return false;
 }
-
-#ifdef ENABLE_SOURCE_PHASE_IMPORTS
-template <>
-inline bool PerHandlerParser<FullParseHandler>::processImportSource(
-    BinaryNodeType node) {
-  return pc_->sc()->asModuleContext()->builder.processImportSource(node);
-}
-
-template <>
-inline bool PerHandlerParser<SyntaxParseHandler>::processImportSource(
-    BinaryNodeType node) {
-  MOZ_ALWAYS_FALSE(abortIfSyntaxParser());
-  return false;
-}
-#endif
 
 template <class ParseHandler, typename Unit>
 typename ParseHandler::BinaryNodeResult

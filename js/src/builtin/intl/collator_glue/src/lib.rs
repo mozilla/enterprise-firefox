@@ -20,6 +20,7 @@ use icu_locale_core::subtags::script;
 use icu_locale_core::subtags::Language;
 use icu_locale_core::DataLocale;
 use icu_locale_core::Locale;
+use tinystr::tinystr;
 use tinystr::TinyAsciiStr;
 use writeable::Writeable;
 
@@ -386,25 +387,8 @@ pub unsafe extern "C" fn mozilla_collator_glue_is_supported_collation(
     )
 }
 
-/// Checks if a given collation is supported for a given language.
-fn is_supported_collation(locale: &[u8], collation: &[u8]) -> bool {
-    let Ok(locale) = Locale::try_from_utf8(locale) else {
-        return false;
-    };
-    // We could be fancy and actually check if `eor` and `emoji`
-    // data was generated, but it's supposed to be generated,
-    // and tests will catch the actual behavior.
-    if collation == b"eor" || collation == b"emoji" {
-        return true;
-    }
-    // Currently all collation identifiers attach to language without
-    // region or script qualifiers.
-    let lang = locale.id.language;
-    let Ok(coll) = TinyCollationStr::try_from_utf8(collation) else {
-        return false;
-    };
-    let langcoll = LangColl::new(lang, coll);
-    let combinations = LANG_COLL_COMBINATIONS.get_or_init(|| {
+fn get_lang_coll_combinations() -> &'static [LangColl] {
+    LANG_COLL_COMBINATIONS.get_or_init(|| {
         let mut set: HashSet<LangColl> = HashSet::new();
         #[cfg(debug_assertions)]
         let mut eor_seen = false;
@@ -464,8 +448,28 @@ fn is_supported_collation(locale: &[u8], collation: &[u8]) -> bool {
             }
         });
         arr
-    });
-    combinations
+    })
+}
+
+/// Checks if a given collation is supported for a given language.
+fn is_supported_collation(locale: &[u8], collation: &[u8]) -> bool {
+    let Ok(locale) = Locale::try_from_utf8(locale) else {
+        return false;
+    };
+    // We could be fancy and actually check if `eor` and `emoji`
+    // data was generated, but it's supposed to be generated,
+    // and tests will catch the actual behavior.
+    if collation == b"eor" || collation == b"emoji" {
+        return true;
+    }
+    // Currently all collation identifiers attach to language without
+    // region or script qualifiers.
+    let lang = locale.id.language;
+    let Ok(coll) = TinyCollationStr::try_from_utf8(collation) else {
+        return false;
+    };
+    let langcoll = LangColl::new(lang, coll);
+    get_lang_coll_combinations()
         .iter()
         .any(|combination| combination == &langcoll)
 }
@@ -600,10 +604,15 @@ pub struct CollationList {
 /// List the supported collation identifiers excluding `standard` and `search`.
 fn list_collations() -> CollationList {
     let mut collations: HashSet<TinyCollationStr> = HashSet::new();
-    for (_, collation) in icu_collator::provider::list_locales() {
-        if !collation.is_empty() && collation.as_str() != "search" {
-            let _ = collations.insert(collation);
-        }
+
+    // We could be fancy and actually check if `eor` and `emoji` data was
+    // generated, but it's supposed to be generated, and tests will catch
+    // the actual behavior.
+    let _ = collations.insert(tinystr!(8, "emoji"));
+    let _ = collations.insert(tinystr!(8, "eor"));
+
+    for langcoll in get_lang_coll_combinations() {
+        let _ = collations.insert(langcoll.coll);
     }
     CollationList {
         vec: collations.iter().copied().collect(),

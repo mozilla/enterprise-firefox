@@ -334,6 +334,10 @@ class FinalizationRegistryCleanup {
   // pointer to its containing context here.
   CycleCollectedJSContext* mContext;
 
+  // Weak pointer to a previously dispatched runnable. The CleanupRunnable::Run
+  // method will null out this pointer.
+  CleanupRunnable* mPendingRunnable = nullptr;
+
   using CallbackVector = JS::GCVector<Callback, 0, JSInfallibleAllocPolicy>;
   JS::PersistentRooted<CallbackVector> mCallbacks;
 };

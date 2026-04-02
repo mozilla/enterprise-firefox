@@ -284,8 +284,11 @@ add_task(async function test_editTabNote() {
   const [editedMetric] = Glean.tabNotes.edited.testGetValue();
   Assert.deepEqual(
     editedMetric.extra,
-    { source: "context_menu" },
-    "edited event extra data should show that the tab note was edited from the context menu"
+    {
+      source: "context_menu",
+      note_length: initialNoteValue.length + updatedNoteValue.length,
+    },
+    "edited event extra data should include length and show that the tab note was edited from the context menu"
   );
 
   await TabNotes.delete(tab);

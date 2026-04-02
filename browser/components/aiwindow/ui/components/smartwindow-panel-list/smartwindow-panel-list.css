@@ -27,6 +27,14 @@ panel-list {
   white-space: normal;
 }
 
+panel-list[valign="bottom"] {
+  margin-block-start: var(--space-small);
+}
+
+panel-list[valign="top"] {
+  margin-block-start: calc(-1 * var(--space-small));
+}
+
 panel-item.panel-section-header::part(button) {
   color: var(--panel-section-header-color);
   font-size: var(--panel-section-header-font-size);

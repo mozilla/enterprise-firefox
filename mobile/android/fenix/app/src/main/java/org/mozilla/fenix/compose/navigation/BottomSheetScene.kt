@@ -9,6 +9,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.ModalBottomSheetProperties
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavEntry
@@ -41,14 +42,16 @@ internal class BottomSheetScene<T : Any>(
         ModalBottomSheet(
             onDismissRequest = onBack,
             properties = modalBottomSheetProperties,
-            dragHandle = {
-                BottomSheetHandle(
-                    onRequestDismiss = onBack,
-                    contentDescription = handleContentDescription,
-                    modifier = Modifier.padding(all = 16.dp),
-                )
-            },
+            dragHandle = null,
         ) {
+            BottomSheetHandle(
+                onRequestDismiss = onBack,
+                contentDescription = handleContentDescription,
+                modifier = Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .padding(all = 16.dp),
+            )
+
             entry.Content()
         }
     }

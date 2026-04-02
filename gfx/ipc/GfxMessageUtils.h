@@ -5,6 +5,7 @@
 #ifndef GFXMESSAGEUTILS_H_
 #define GFXMESSAGEUTILS_H_
 
+#include "DriverCrashGuard.h"
 #include "FilterSupport.h"
 #include "ImageTypes.h"
 #include "RegionBuilder.h"
@@ -200,6 +201,13 @@ struct ParamTraits<gfxRect> {
     aResult->SetRect(x, y, w, h);
     return retVal;
   }
+};
+
+template <>
+struct ParamTraits<mozilla::gfx::CrashGuardType>
+    : public ContiguousEnumSerializer<mozilla::gfx::CrashGuardType,
+                                      mozilla::gfx::CrashGuardType::D3D11Layers,
+                                      mozilla::gfx::CrashGuardType::NUM_TYPES> {
 };
 
 template <>

@@ -11,6 +11,7 @@ import { Lists } from "content-src/components/Widgets/Lists/Lists";
 import { actionTypes as at } from "common/Actions.mjs";
 import { FocusTimer } from "content-src/components/Widgets/FocusTimer/FocusTimer";
 
+const PREF_WIDGETS_ENABLED = "widgets.enabled";
 const PREF_WIDGETS_LISTS_ENABLED = "widgets.lists.enabled";
 const PREF_WIDGETS_SYSTEM_LISTS_ENABLED = "widgets.system.lists.enabled";
 const PREF_WIDGETS_TIMER_ENABLED = "widgets.focusTimer.enabled";
@@ -31,6 +32,7 @@ describe("<Widgets>", () => {
         ...INITIAL_STATE.Prefs,
         values: {
           ...INITIAL_STATE.Prefs.values,
+          [PREF_WIDGETS_ENABLED]: true,
           [PREF_WIDGETS_LISTS_ENABLED]: true,
           [PREF_WIDGETS_SYSTEM_LISTS_ENABLED]: true,
         },
@@ -53,6 +55,7 @@ describe("<Widgets>", () => {
         ...INITIAL_STATE.Prefs,
         values: {
           ...INITIAL_STATE.Prefs.values,
+          [PREF_WIDGETS_ENABLED]: true,
           [PREF_WIDGETS_TIMER_ENABLED]: true,
           [PREF_WIDGETS_SYSTEM_TIMER_ENABLED]: true,
         },
@@ -66,6 +69,31 @@ describe("<Widgets>", () => {
     assert.ok(wrapper.exists());
     assert.ok(wrapper.find(".widgets-container").exists());
     assert.ok(wrapper.find(FocusTimer).exists());
+  });
+
+  it("should render nothing when widgetsEnabled is false, even if individual widget prefs are on", () => {
+    const state = {
+      ...INITIAL_STATE,
+      Prefs: {
+        ...INITIAL_STATE.Prefs,
+        values: {
+          ...INITIAL_STATE.Prefs.values,
+          [PREF_WIDGETS_ENABLED]: false,
+          [PREF_WIDGETS_LISTS_ENABLED]: true,
+          [PREF_WIDGETS_SYSTEM_LISTS_ENABLED]: true,
+          [PREF_WIDGETS_TIMER_ENABLED]: true,
+          [PREF_WIDGETS_SYSTEM_TIMER_ENABLED]: true,
+        },
+      },
+    };
+    const wrapper = mount(
+      <WrapWithProvider state={state}>
+        <Widgets />
+      </WrapWithProvider>
+    );
+    assert.ok(!wrapper.find(".widgets-wrapper").exists());
+    assert.ok(!wrapper.find(Lists).exists());
+    assert.ok(!wrapper.find(FocusTimer).exists());
   });
 
   it("should not render FocusTimer when timer pref is disabled", () => {
@@ -147,6 +175,7 @@ describe("<Widgets>", () => {
           ...INITIAL_STATE.Prefs,
           values: {
             ...INITIAL_STATE.Prefs.values,
+            [PREF_WIDGETS_ENABLED]: true,
             [PREF_WIDGETS_LISTS_ENABLED]: true,
             [PREF_WIDGETS_SYSTEM_LISTS_ENABLED]: true,
             [PREF_WIDGETS_TIMER_ENABLED]: true,
@@ -564,6 +593,7 @@ describe("<Widgets>", () => {
           ...INITIAL_STATE.Prefs,
           values: {
             ...INITIAL_STATE.Prefs.values,
+            [PREF_WIDGETS_ENABLED]: true,
             [PREF_WIDGETS_LISTS_ENABLED]: true,
             [PREF_WIDGETS_SYSTEM_LISTS_ENABLED]: true,
           },
@@ -723,6 +753,7 @@ describe("<Widgets>", () => {
           ...INITIAL_STATE.Prefs,
           values: {
             ...INITIAL_STATE.Prefs.values,
+            [PREF_WIDGETS_ENABLED]: true,
             [PREF_WIDGETS_LISTS_ENABLED]: true,
             [PREF_WIDGETS_SYSTEM_LISTS_ENABLED]: true,
           },
@@ -872,6 +903,7 @@ describe("<Widgets>", () => {
           ...INITIAL_STATE.Prefs,
           values: {
             ...INITIAL_STATE.Prefs.values,
+            [PREF_WIDGETS_ENABLED]: true,
             [PREF_WIDGETS_LISTS_ENABLED]: true,
             [PREF_WIDGETS_SYSTEM_LISTS_ENABLED]: true,
             "widgets.maximized": false,
@@ -1013,6 +1045,7 @@ describe("<Widgets>", () => {
           ...INITIAL_STATE.Prefs,
           values: {
             ...INITIAL_STATE.Prefs.values,
+            [PREF_WIDGETS_ENABLED]: true,
             [PREF_WIDGETS_LISTS_ENABLED]: true,
             [PREF_WIDGETS_SYSTEM_LISTS_ENABLED]: true,
             "widgets.maximized": true,
@@ -1080,6 +1113,7 @@ describe("<Widgets>", () => {
           ...INITIAL_STATE.Prefs,
           values: {
             ...INITIAL_STATE.Prefs.values,
+            [PREF_WIDGETS_ENABLED]: true,
             [PREF_WIDGETS_LISTS_ENABLED]: true,
             [PREF_WIDGETS_SYSTEM_LISTS_ENABLED]: true,
             "widgets.maximized": true,

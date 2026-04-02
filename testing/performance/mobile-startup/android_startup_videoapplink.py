@@ -42,6 +42,13 @@ MAX_STARTUP_TIME = 25000  # 25000ms = 25 seconds
 PROD_CHRM = "chrome-m"
 PROD_FENIX = "fenix"
 
+# SHA-256 fingerprint of testing/raptor/browsertime/utils/http2-cert.pem,
+# used for cert_override.txt so Fenix trusts the local HTTPS server.
+SERVER_CERT_FINGERPRINT = (
+    "55:31:7E:DD:E2:BA:47:5B:E4:FF:93:19:F6:5B:EA:74:"
+    "97:BF:46:21:D0:2D:A5:64:8C:C8:3E:C3:3B:64:EC:E6"
+)
+
 
 class ImageAnalzer:
     def __init__(self, browser, test, test_url, profilers):
@@ -94,6 +101,39 @@ class ImageAnalzer:
         self.device.shell(f"am force-stop {self.package_name}")
         # Extra delay needed to avoid shutdown thread active during startup
         time.sleep(3)
+        if self.test_url.startswith("https"):
+            self._add_cert_override()
+
+    def _add_cert_override(self):
+        """Write cert_override.txt to the Fenix profile.
+
+        This makes Firefox accept the test server's TLS certificate
+        without needing enterprise_roots (which loads certs asynchronously
+        and can race with the first TLS connection).
+        """
+        if self.browser != PROD_FENIX:
+            return
+
+        data_dir = f"/data/data/{self.package_name}/files/mozilla"
+        try:
+            entries = self.device.shell_output(f"ls {data_dir}").strip().split()
+        except Exception:
+            print(f"Profile directory {data_dir} not found, skipping cert override")
+            return
+        profiles = [e for e in entries if ".default" in e]
+        if not profiles:
+            print(f"No .default profile under {data_dir}, skipping cert override")
+            return
+
+        profile_dir = f"{data_dir}/{profiles[0]}"
+        # cert_override.txt format: host:port, hash algorithm OID, fingerprint.
+        # OID.2.16.840.1.101.3.4.2.1 is SHA-256.
+        override_line = (
+            f"localhost:8000\tOID.2.16.840.1.101.3.4.2.1\t{SERVER_CERT_FINGERPRINT}\t"
+        )
+        self.device.shell_output(
+            f"echo '{override_line}' > {profile_dir}/cert_override.txt"
+        )
 
     def skip_onboarding(self):
         # Skip onboarding for chrome and fenix

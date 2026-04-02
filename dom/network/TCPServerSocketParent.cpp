@@ -23,6 +23,11 @@ NS_INTERFACE_MAP_END
 
 void TCPServerSocketParent::ReleaseIPDLReference() {
   MOZ_ASSERT(mIPCOpen);
+  NS_ASSERTION(mIPCOpen,
+               "ReleaseIPDLReference called without matching AddIPDLReference");
+  if (!mIPCOpen) {
+    return;
+  }
   mIPCOpen = false;
   this->Release();
 }
@@ -68,8 +73,9 @@ nsresult TCPServerSocketParent::SendCallbackAccept(TCPSocketParent* socket) {
 
   if (mNeckoParent) {
     if (mNeckoParent->SendPTCPSocketConstructor(socket, host, port)) {
-      // Call |AddIPDLReference| after the consructor message is sent
-      // successfully, otherwise |socket| could be leaked.
+      // Call |AddIPDLReference| only on success; on failure IPDL calls
+      // DeallocPTCPSocketParent which calls ReleaseIPDLReference, guarded
+      // against the unbalanced case.
       socket->AddIPDLReference();
 
       (void)PTCPServerSocketParent::SendCallbackAccept(WrapNotNull(socket));

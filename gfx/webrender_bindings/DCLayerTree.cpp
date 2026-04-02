@@ -1046,48 +1046,139 @@ DCSurface* DCExternalSurfaceWrapper::EnsureSurfaceForExternalImage(
         StaticPrefs::gfx_color_management_rec2020_gamma_as_rec709();
 
     auto cspaceDesc = color::ColorspaceDesc{};
+    const auto rangedCspace = texture->GetYUVColorSpace();
+    const auto info = FromYUVRangedColorSpace(rangedCspace);
+    const auto tf = info.transferFunction;
     switch (cspace) {
       case gfx::ColorSpace2::Display:
         return;  // No color management needed!
       case gfx::ColorSpace2::SRGB:
         cspaceDesc.chrom = color::Chromaticities::Srgb();
-        cspaceDesc.tf = color::PiecewiseGammaDesc::Srgb();
+        cspaceDesc.tf = color::TransferFunctionDesc::Srgb();
+        switch (tf) {
+          case gfx::TransferFunction::SRGB:
+            cspaceDesc.tf = color::TransferFunctionDesc::Srgb();
+            break;
+          case gfx::TransferFunction::BT709:
+            if (rec709GammaAsSrgb) {
+              cspaceDesc.tf = color::TransferFunctionDesc::Srgb();
+            } else {
+              cspaceDesc.tf = color::TransferFunctionDesc::Rec709();
+            }
+            break;
+          case gfx::TransferFunction::HLG:
+            cspaceDesc.tf = color::TransferFunctionDesc::Rec2100_HLG();
+            break;
+          case gfx::TransferFunction::PQ:
+            cspaceDesc.tf = color::TransferFunctionDesc::Rec2100_PQ();
+            break;
+          case gfx::TransferFunction::LINEAR:
+            cspaceDesc.tf = color::TransferFunctionDesc::Linear();
+            break;
+        }
         break;
-
       case gfx::ColorSpace2::DISPLAY_P3:
         cspaceDesc.chrom = color::Chromaticities::DisplayP3();
-        cspaceDesc.tf = color::PiecewiseGammaDesc::DisplayP3();
+        cspaceDesc.tf = color::TransferFunctionDesc::DisplayP3();
+        switch (tf) {
+          case gfx::TransferFunction::SRGB:
+            cspaceDesc.tf = color::TransferFunctionDesc::DisplayP3();
+            break;
+          case gfx::TransferFunction::BT709:
+            if (rec709GammaAsSrgb) {
+              cspaceDesc.tf = color::TransferFunctionDesc::Srgb();
+            } else {
+              cspaceDesc.tf = color::TransferFunctionDesc::Rec709();
+            }
+            break;
+          case gfx::TransferFunction::HLG:
+            cspaceDesc.tf = color::TransferFunctionDesc::Rec2100_HLG();
+            break;
+          case gfx::TransferFunction::PQ:
+            cspaceDesc.tf = color::TransferFunctionDesc::Rec2100_PQ();
+            break;
+          case gfx::TransferFunction::LINEAR:
+            cspaceDesc.tf = color::TransferFunctionDesc::Linear();
+            break;
+        }
         break;
-
-      case gfx::ColorSpace2::BT601_525:
+      case gfx::ColorSpace2::BT601_525:  // aka smpte170m NTSC
         cspaceDesc.chrom = color::Chromaticities::Rec601_525_Ntsc();
-        if (rec709GammaAsSrgb) {
-          cspaceDesc.tf = color::PiecewiseGammaDesc::Srgb();
-        } else {
-          cspaceDesc.tf = color::PiecewiseGammaDesc::Rec709();
+        cspaceDesc.tf = color::TransferFunctionDesc::Rec709();
+        switch (tf) {
+          case gfx::TransferFunction::SRGB:
+            cspaceDesc.tf = color::TransferFunctionDesc::Srgb();
+            break;
+          case gfx::TransferFunction::BT709:
+            if (rec709GammaAsSrgb) {
+              cspaceDesc.tf = color::TransferFunctionDesc::Srgb();
+            } else {
+              cspaceDesc.tf = color::TransferFunctionDesc::Rec709();
+            }
+            break;
+          case gfx::TransferFunction::HLG:
+            cspaceDesc.tf = color::TransferFunctionDesc::Rec2100_HLG();
+            break;
+          case gfx::TransferFunction::PQ:
+            cspaceDesc.tf = color::TransferFunctionDesc::Rec2100_PQ();
+            break;
+          case gfx::TransferFunction::LINEAR:
+            cspaceDesc.tf = color::TransferFunctionDesc::Linear();
+            break;
         }
         break;
-
-      case gfx::ColorSpace2::BT709:
+      case gfx::ColorSpace2::BT709:  // Same gamut as SRGB, but different gamma.
         cspaceDesc.chrom = color::Chromaticities::Rec709();
-        if (rec709GammaAsSrgb) {
-          cspaceDesc.tf = color::PiecewiseGammaDesc::Srgb();
-        } else {
-          cspaceDesc.tf = color::PiecewiseGammaDesc::Rec709();
+        cspaceDesc.tf = color::TransferFunctionDesc::Rec709();
+        switch (tf) {
+          case gfx::TransferFunction::SRGB:
+            cspaceDesc.tf = color::TransferFunctionDesc::Srgb();
+            break;
+          case gfx::TransferFunction::BT709:
+            if (rec709GammaAsSrgb) {
+              cspaceDesc.tf = color::TransferFunctionDesc::Srgb();
+            } else {
+              cspaceDesc.tf = color::TransferFunctionDesc::Rec709();
+            }
+            break;
+          case gfx::TransferFunction::HLG:
+            cspaceDesc.tf = color::TransferFunctionDesc::Rec2100_HLG();
+            break;
+          case gfx::TransferFunction::PQ:
+            cspaceDesc.tf = color::TransferFunctionDesc::Rec2100_PQ();
+            break;
+          case gfx::TransferFunction::LINEAR:
+            cspaceDesc.tf = color::TransferFunctionDesc::Linear();
+            break;
         }
         break;
-
       case gfx::ColorSpace2::BT2020:
         cspaceDesc.chrom = color::Chromaticities::Rec2020();
-        if (rec2020GammaAsRec709 && rec709GammaAsSrgb) {
-          cspaceDesc.tf = color::PiecewiseGammaDesc::Srgb();
-        } else if (rec2020GammaAsRec709) {
-          cspaceDesc.tf = color::PiecewiseGammaDesc::Rec709();
-        } else {
-          // Just Rec709 with slightly more precision.
-          cspaceDesc.tf = color::PiecewiseGammaDesc::Rec2020_12bit();
+        cspaceDesc.tf = color::TransferFunctionDesc::Rec2020_12bit();
+        switch (tf) {
+          case gfx::TransferFunction::SRGB:
+            cspaceDesc.tf = color::TransferFunctionDesc::Srgb();
+            break;
+          case gfx::TransferFunction::BT709:
+            // BT2020 uses a higher precision version of BT709/BT1886 values.
+            if (rec2020GammaAsRec709 && rec709GammaAsSrgb) {
+              cspaceDesc.tf = color::TransferFunctionDesc::Srgb();
+            } else if (rec2020GammaAsRec709) {
+              cspaceDesc.tf = color::TransferFunctionDesc::Rec709();
+            } else {
+              cspaceDesc.tf = color::TransferFunctionDesc::Rec2020_12bit();
+            }
+            break;
+          case gfx::TransferFunction::HLG:
+            cspaceDesc.tf = color::TransferFunctionDesc::Rec2100_HLG();
+            break;
+          case gfx::TransferFunction::PQ:
+            cspaceDesc.tf = color::TransferFunctionDesc::Rec2100_PQ();
+            break;
+          case gfx::TransferFunction::LINEAR:
+            cspaceDesc.tf = color::TransferFunctionDesc::Linear();
+            break;
         }
-        break;
     }
 
     const auto cprofileIn = color::ColorProfileDesc::From(cspaceDesc);
@@ -1096,7 +1187,7 @@ DCSurface* DCExternalSurfaceWrapper::EnsureSurfaceForExternalImage(
     if (pretendSrgb) {
       cprofileOut = color::ColorProfileDesc::From(color::ColorspaceDesc{
           .chrom = color::Chromaticities::Srgb(),
-          .tf = color::PiecewiseGammaDesc::Srgb(),
+          .tf = color::TransferFunctionDesc::Srgb(),
       });
     }
     const auto conversion = color::ColorProfileConversionDesc::From({
@@ -2093,12 +2184,16 @@ void DCLayerCompositionSurface::Bind(const wr::DeviceIntRect* aDirtyRects,
   }
 
   mFirstDraw = false;
+  LayoutDeviceIntRect rect = widget::WinUtils::ToIntRect(updateRect);
+  MOZ_ASSERT(!rect.IsEmpty());
 
   hr = mCompositionSurface->BeginDraw(&updateRect, __uuidof(ID3D11Texture2D),
                                       (void**)getter_AddRefs(backBuffer),
                                       &offset);
 
   if (FAILED(hr)) {
+    gfxCriticalNote << "DCLayerCompositionSurface::Bind failed: "
+                    << gfx::hexa(hr) << " " << rect;
     RenderThread::Get()->HandleWebRenderError(WebRenderError::BEGIN_DRAW);
     return;
   }
@@ -2662,62 +2757,137 @@ bool DCSurfaceVideo::CreateVideoSwapChain(DXGI_FORMAT aSwapChainFormat) {
   return true;
 }
 
-// TODO: Replace with YUVRangedColorSpace
 static Maybe<DXGI_COLOR_SPACE_TYPE> GetSourceDXGIColorSpace(
     const gfx::YUVColorSpace aYUVColorSpace, const gfx::ColorRange aColorRange,
-    const bool aContentIsHDR) {
-  if (aYUVColorSpace == gfx::YUVColorSpace::BT601) {
-    if (aColorRange == gfx::ColorRange::FULL) {
-      return Some(DXGI_COLOR_SPACE_YCBCR_FULL_G22_LEFT_P601);
-    } else {
-      return Some(DXGI_COLOR_SPACE_YCBCR_STUDIO_G22_LEFT_P601);
-    }
-  } else if (aYUVColorSpace == gfx::YUVColorSpace::BT709) {
-    if (aColorRange == gfx::ColorRange::FULL) {
-      return Some(DXGI_COLOR_SPACE_YCBCR_FULL_G22_LEFT_P709);
-    } else {
-      return Some(DXGI_COLOR_SPACE_YCBCR_STUDIO_G22_LEFT_P709);
-    }
-  } else if (aYUVColorSpace == gfx::YUVColorSpace::BT2020) {
-    // This is a probably-temporary internal workaround for the lack of access
-    // to mTransferFunction - BT2020 seems to always be used with PQ transfer
-    // function defined by BT2100 and STMPE 2084, we've/ been making this same
-    // assumption on macOS for quite some time, so if it was not universally
-    // true, hopefully bugs would have been filed.
-    //
-    // But ideally we'd plumb mTransferFunction through the various structs
-    // instead, which is a more delicate refactor.
-    if (StaticPrefs::gfx_color_management_hdr_video_assume_rec2020_uses_pq() &&
-        StaticPrefs::gfx_color_management_hdr_video()) {
-      return Some(DXGI_COLOR_SPACE_YCBCR_STUDIO_G2084_LEFT_P2020);
-    }
-    if (aColorRange == gfx::ColorRange::FULL) {
-      if (aContentIsHDR && StaticPrefs::gfx_color_management_hdr_video()) {
-        // DXGI doesn't have a full range PQ YCbCr format, hopefully we won't
-        // have to deal with this case.
+    const gfx::TransferFunction aTransferFunction) {
+  switch (aYUVColorSpace) {
+    case gfx::YUVColorSpace::BT601:
+      // https://en.wikipedia.org/wiki/Rec._601 - this is the NTSC and SECAM/PAL
+      // color spaces
+      if (aTransferFunction != gfx::TransferFunction::BT709) {
         gfxCriticalNoteOnce
-            << "GetSourceDXGIColorSpace: DXGI has no full range "
-               "BT2020 PQ YCbCr format, using studio range instead";
-        return Some(DXGI_COLOR_SPACE_YCBCR_STUDIO_G2084_LEFT_P2020);
-      } else {
-        return Some(DXGI_COLOR_SPACE_YCBCR_FULL_G22_LEFT_P2020);
+            << "GetSourceDXGIColorSpace: Unhandled transfer function "
+            << static_cast<int>(aTransferFunction)
+            << " for BT601, treating as BT709 transfer function";
       }
-    } else {
-      if (aContentIsHDR && StaticPrefs::gfx_color_management_hdr_video()) {
-        return Some(DXGI_COLOR_SPACE_YCBCR_STUDIO_G2084_LEFT_P2020);
-      } else {
-        return Some(DXGI_COLOR_SPACE_YCBCR_STUDIO_G22_LEFT_P2020);
+      switch (aColorRange) {
+        case gfx::ColorRange::FULL:
+          return Some(DXGI_COLOR_SPACE_YCBCR_FULL_G22_LEFT_P601);
+        case gfx::ColorRange::LIMITED:
+          return Some(DXGI_COLOR_SPACE_YCBCR_STUDIO_G22_LEFT_P601);
       }
-    }
+      gfxCriticalNoteOnce << "GetSourceDXGIColorSpace: Unhandled color range "
+                          << static_cast<int>(aColorRange) << " for BT601";
+      return Nothing();
+    case gfx::YUVColorSpace::Identity:
+      gfxCriticalNoteOnce
+          << "GetSourceDXGIColorSpace: Unhandled YUV color space "
+          << static_cast<int>(aYUVColorSpace)
+          << ", treating as BT709 color space";
+      FMT_FALLTHROUGH;
+    case gfx::YUVColorSpace::BT709:
+      // https://en.wikipedia.org/wiki/Rec._709 - this is the HDTV color space
+      if (aTransferFunction != gfx::TransferFunction::BT709) {
+        gfxCriticalNoteOnce
+            << "GetSourceDXGIColorSpace: Unhandled transfer function "
+            << static_cast<int>(aTransferFunction)
+            << " for BT709, treating as BT709 transfer function";
+      }
+      switch (aColorRange) {
+        case gfx::ColorRange::FULL:
+          return Some(DXGI_COLOR_SPACE_YCBCR_FULL_G22_LEFT_P709);
+        case gfx::ColorRange::LIMITED:
+          return Some(DXGI_COLOR_SPACE_YCBCR_STUDIO_G22_LEFT_P709);
+      }
+      gfxCriticalNoteOnce << "GetSourceDXGIColorSpace: Unhandled color range "
+                          << static_cast<int>(aColorRange) << " for BT709";
+      return Nothing();
+    case gfx::YUVColorSpace::BT2020:
+      // https://en.wikipedia.org/wiki/Rec._2020 - this is the UHDTV color space
+      if (!StaticPrefs::gfx_color_management_hdr_video()) {
+        // This pref being off mimics legacy behavior, it's wrong but it's
+        // precisely what we did before, looks washed out if it's PQ.
+        switch (aColorRange) {
+          case gfx::ColorRange::FULL:
+            return Some(DXGI_COLOR_SPACE_YCBCR_FULL_G22_LEFT_P2020);
+          case gfx::ColorRange::LIMITED:
+            return Some(DXGI_COLOR_SPACE_YCBCR_STUDIO_G22_LEFT_P2020);
+        }
+        gfxCriticalNoteOnce << "GetSourceDXGIColorSpace: Unhandled color range "
+                            << static_cast<int>(aColorRange) << " for BT2020";
+        return Nothing();
+      }
+      switch (aTransferFunction) {
+        case gfx::TransferFunction::SRGB:
+        case gfx::TransferFunction::LINEAR:
+          // Almost certainly never used, but cover all switch cases to support
+          // the compiler warning if any are added later.
+          gfxCriticalNoteOnce
+              << "GetSourceDXGIColorSpace: DXGI has no support for "
+              << static_cast<int>(aTransferFunction)
+              << " transfer function for YCBCR content, treating as BT2020 "
+                 "transfer function";
+          FMT_FALLTHROUGH;
+        case gfx::TransferFunction::BT709:
+          // BT2020 defines a transfer function that is almost identical to
+          // BT709 + BT1886, so this refers to BT2020 transfer function.
+          // https://en.wikipedia.org/wiki/Rec._2020
+          switch (aColorRange) {
+            case gfx::ColorRange::FULL:
+              return Some(DXGI_COLOR_SPACE_YCBCR_FULL_G22_LEFT_P2020);
+            case gfx::ColorRange::LIMITED:
+              return Some(DXGI_COLOR_SPACE_YCBCR_STUDIO_G22_LEFT_P2020);
+          }
+          gfxCriticalNoteOnce
+              << "GetSourceDXGIColorSpace: Unhandled color range "
+              << static_cast<int>(aColorRange) << " for BT2020";
+          return Nothing();
+        case gfx::TransferFunction::PQ:
+          // This is an HDR video transfer function, needs 10bit (HDR10) to
+          // avoid being lower quality than BT709 over the SDR range.
+          // https://en.wikipedia.org/wiki/Perceptual_quantizer
+          switch (aColorRange) {
+            case gfx::ColorRange::FULL:
+              gfxCriticalNoteOnce
+                  << "GetSourceDXGIColorSpace: DXGI has no support for PQ "
+                     "transfer function with full color range for BT2020 "
+                     "content, treating as studio range";
+              return Some(DXGI_COLOR_SPACE_YCBCR_STUDIO_G2084_LEFT_P2020);
+            case gfx::ColorRange::LIMITED:
+              return Some(DXGI_COLOR_SPACE_YCBCR_STUDIO_G2084_LEFT_P2020);
+          }
+          gfxCriticalNoteOnce
+              << "GetSourceDXGIColorSpace: Unhandled color range "
+              << static_cast<int>(aColorRange) << " for BT2020";
+          return Nothing();
+        case gfx::TransferFunction::HLG:
+          // This is an HDR video transfer function, does not strictly require
+          // 10bit but certainly benefits from it.
+          // https://en.wikipedia.org/wiki/Hybrid_log%E2%80%93gamma
+          switch (aColorRange) {
+            case gfx::ColorRange::FULL:
+              return Some(DXGI_COLOR_SPACE_YCBCR_FULL_GHLG_TOPLEFT_P2020);
+            case gfx::ColorRange::LIMITED:
+              return Some(DXGI_COLOR_SPACE_YCBCR_STUDIO_GHLG_TOPLEFT_P2020);
+          }
+          gfxCriticalNoteOnce
+              << "GetSourceDXGIColorSpace: Unhandled color range "
+              << static_cast<int>(aColorRange) << " for BT2020";
+          return Nothing();
+      }
+      gfxCriticalNoteOnce
+          << "GetSourceDXGIColorSpace: Unhandled transfer function "
+          << static_cast<int>(aTransferFunction) << " for BT2020";
+      return Nothing();
   }
 
   return Nothing();
 }
 
 static Maybe<DXGI_COLOR_SPACE_TYPE> GetSourceDXGIColorSpace(
-    const gfx::YUVRangedColorSpace aYUVColorSpace, const bool aContentIsHDR) {
+    const gfx::YUVRangedColorSpace aYUVColorSpace) {
   const auto info = FromYUVRangedColorSpace(aYUVColorSpace);
-  return GetSourceDXGIColorSpace(info.space, info.range, aContentIsHDR);
+  return GetSourceDXGIColorSpace(info.space, info.range, info.transferFunction);
 }
 
 static Maybe<DXGI_COLOR_SPACE_TYPE> GetOutputDXGIColorSpace(
@@ -2733,16 +2903,16 @@ static Maybe<DXGI_COLOR_SPACE_TYPE> GetOutputDXGIColorSpace(
     case DXGI_FORMAT_R16G16B16A16_FLOAT:
       return Some(DXGI_COLOR_SPACE_RGB_FULL_G10_NONE_P709);
     case DXGI_FORMAT_R10G10B10A2_UNORM:
-      if (aInputColorSpace == DXGI_COLOR_SPACE_YCBCR_STUDIO_G2084_LEFT_P2020) {
-        // YCbCr BT2100 PQ HDR video being converted to RGB10A2
-        return Some(DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020);
-      } else if (aInputColorSpace ==
-                     DXGI_COLOR_SPACE_YCBCR_FULL_G22_LEFT_P2020 ||
-                 aInputColorSpace ==
-                     DXGI_COLOR_SPACE_YCBCR_STUDIO_G22_LEFT_P2020) {
-        return Some(DXGI_COLOR_SPACE_RGB_FULL_G22_NONE_P2020);
+      switch (aInputColorSpace) {
+        case DXGI_COLOR_SPACE_YCBCR_STUDIO_G2084_LEFT_P2020:
+          return Some(DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020);
+        case DXGI_COLOR_SPACE_YCBCR_STUDIO_GHLG_TOPLEFT_P2020:
+          return Some(DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020);
+        case DXGI_COLOR_SPACE_YCBCR_FULL_GHLG_TOPLEFT_P2020:
+          return Some(DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020);
+        default:
+          return Some(DXGI_COLOR_SPACE_RGB_FULL_G22_NONE_P2020);
       }
-      return Some(DXGI_COLOR_SPACE_RGB_FULL_G22_NONE_P709);
     case DXGI_FORMAT_R8G8B8A8_UNORM:
     case DXGI_FORMAT_R8G8B8A8_UNORM_SRGB:
     case DXGI_FORMAT_B8G8R8A8_UNORM:
@@ -2770,7 +2940,7 @@ bool DCSurfaceVideo::CallVideoProcessorBlt() {
   const auto texture = mRenderTextureHost->AsRenderDXGITextureHost();
 
   Maybe<DXGI_COLOR_SPACE_TYPE> sourceColorSpace =
-      GetSourceDXGIColorSpace(texture->GetYUVColorSpace(), mContentIsHDR);
+      GetSourceDXGIColorSpace(texture->GetYUVColorSpace());
   if (sourceColorSpace.isNothing()) {
     gfxCriticalNote << "Unsupported color space";
     return false;
@@ -3233,7 +3403,7 @@ color::ColorProfileDesc QueryOutputColorProfile() {
     }
     const auto MISSING_PROFILE_DEFAULT_SPACE = color::ColorspaceDesc{
         color::Chromaticities::Srgb(),
-        color::PiecewiseGammaDesc::Srgb(),
+        color::TransferFunctionDesc::Srgb(),
     };
     return color::ColorProfileDesc::From(MISSING_PROFILE_DEFAULT_SPACE);
   }();

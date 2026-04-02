@@ -61,9 +61,11 @@
 #search-container {
   position: sticky;
   top: 0;
-  width: 100%;
-  /* Negative margin is used here to hide the borders of setting-controls on scroll */
-  margin-inline-start: -1px;
+  /* Bug 2026689 Negative margin is used here to hide the borders of setting-controls on scroll
+     as well as the shadow to the left of the searchbar */
+  margin-inline-start: -4px;
+  /* 4px of additional width to account for the -4px of margin defined above */
+  width: calc(100% + 4px);
   /* z-index = 2 so that the search-tooltips don't appear when the user scrolls
      up after searching. */
   z-index: 2;

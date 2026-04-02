@@ -4,7 +4,9 @@
 
 package org.mozilla.fenix.components.menu
 
+import android.app.Activity
 import android.content.Context
+import android.service.chooser.ChooserAction
 import androidx.navigation.NavController
 import androidx.navigation.NavDirections
 import androidx.navigation.NavOptions
@@ -33,8 +35,10 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mozilla.fenix.R
+import org.mozilla.fenix.components.share.ShareDelegate
 import org.mozilla.fenix.components.share.ShareSheetLauncherImpl
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
 class ShareSheetLauncherTest {
@@ -44,6 +48,10 @@ class ShareSheetLauncherTest {
         every { currentDestination?.id } returns R.id.menuDialogFragment
         every { navigate(any<NavDirections>(), any<NavOptions>()) } just runs
         every { context } returns mockContext
+    }
+    private val mockShareDelegate: ShareDelegate = mockk(relaxed = true) {
+        every { share(any(), any()) } just runs
+        every { shareWithChooserActions(any(), any(), any()) } just runs
     }
 
     private val contentTab = createTab(
@@ -58,6 +66,8 @@ class ShareSheetLauncherTest {
         browserStore = browserStore,
         navController = mockNavController,
         onDismiss = {},
+        homeActivityClass = Activity::class.java,
+        shareDelegate = mockShareDelegate,
     )
 
     @Test
@@ -86,15 +96,16 @@ class ShareSheetLauncherTest {
         }
     }
 
+    @Config(sdk = [33])
     @Test
-    fun `WHEN native share sheet triggered THEN activity triggered`() {
+    fun `WHEN native share sheet triggered on older API THEN share is invoked`() {
         launcher.showNativeShareSheet(
             id = "123",
             url = "https://www.mozilla.org",
             title = "Mozilla",
         )
         verify {
-            mockContext.startActivity(any())
+            mockShareDelegate.share(any(), any())
         }
     }
 
@@ -206,6 +217,74 @@ class ShareSheetLauncherTest {
                 ),
             )
         }
+    }
+
+    @Config(sdk = [33])
+    @Test
+    fun `GIVEN API level below 34 WHEN native share sheet triggered THEN basic share is used`() {
+        launcher.showNativeShareSheet(
+            id = "123",
+            url = "https://www.mozilla.org",
+            title = "Mozilla",
+        )
+
+        verify { mockShareDelegate.share(any(), any()) }
+        verify(exactly = 0) { mockShareDelegate.shareWithChooserActions(any(), any(), any()) }
+    }
+
+    @Config(sdk = [34])
+    @Test
+    fun `GIVEN API level 34 and valid tab id WHEN native share sheet triggered THEN chooser actions share is used`() {
+        launcher.showNativeShareSheet(
+            id = "123",
+            url = "https://www.mozilla.org",
+            title = "Mozilla",
+        )
+
+        verify { mockShareDelegate.shareWithChooserActions(any(), any(), any()) }
+        verify(exactly = 0) { mockShareDelegate.share(any(), any()) }
+    }
+
+    @Config(sdk = [34])
+    @Test
+    fun `GIVEN API level 34 and null tab id WHEN native share sheet triggered THEN basic share is used`() {
+        launcher.showNativeShareSheet(
+            id = null,
+            url = "https://www.mozilla.org",
+            title = "Mozilla",
+        )
+
+        verify { mockShareDelegate.share(any(), any()) }
+        verify(exactly = 0) { mockShareDelegate.shareWithChooserActions(any(), any(), any()) }
+    }
+
+    @Config(sdk = [34])
+    @Test
+    fun `GIVEN a private tab WHEN native share sheet triggered THEN chooser actions share is still used`() {
+        launcher.showNativeShareSheet(
+            id = "123",
+            url = "https://www.mozilla.org",
+            title = "Mozilla",
+            isPrivate = true,
+        )
+
+        verify { mockShareDelegate.shareWithChooserActions(any(), any(), any()) }
+        verify(exactly = 0) { mockShareDelegate.share(any(), any()) }
+    }
+
+    @Config(sdk = [34])
+    @Test
+    fun `GIVEN API 34 and valid id WHEN native share sheet triggered THEN three chooser actions are passed`() {
+        val actionsSlot = slot<Array<ChooserAction>>()
+        every { mockShareDelegate.shareWithChooserActions(any(), any(), capture(actionsSlot)) } just runs
+
+        launcher.showNativeShareSheet(
+            id = "123",
+            url = "https://www.mozilla.org",
+            title = "Mozilla",
+        )
+
+        assertEquals(3, actionsSlot.captured.size)
     }
 
     @Test

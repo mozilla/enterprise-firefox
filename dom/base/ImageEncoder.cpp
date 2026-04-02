@@ -342,15 +342,14 @@ nsresult ImageEncoder::ExtractDataInternal(
     if (!emptyCanvas->Map(DataSourceSurface::MapType::WRITE, &map)) {
       return NS_ERROR_INVALID_ARG;
     }
+    auto size = map.mStride * aSize.height;
     if (usePlaceholder) {
-      auto size = 4 * aSize.width * aSize.height;
       auto* data = map.mData;
       GeneratePlaceholderCanvasData(size, data);
     }
-    rv = aEncoder->InitFromData(map.mData, aSize.width * aSize.height * 4,
-                                aSize.width, aSize.height, aSize.width * 4,
-                                imgIEncoder::INPUT_FORMAT_HOSTARGB, aOptions,
-                                VoidCString());
+    rv = aEncoder->InitFromData(map.mData, size, aSize.width, aSize.height,
+                                map.mStride, imgIEncoder::INPUT_FORMAT_HOSTARGB,
+                                aOptions, VoidCString());
     emptyCanvas->Unmap();
     if (NS_SUCCEEDED(rv)) {
       imgStream = aEncoder;
@@ -391,8 +390,8 @@ nsresult ImageEncoder::ExtractDataInternal(
         return NS_ERROR_INVALID_ARG;
       }
       auto size = data->GetSize();
-      rv = aEncoder->InitFromData(map.mData, size.width * size.height * 4,
-                                  size.width, size.height, size.width * 4,
+      rv = aEncoder->InitFromData(map.mData, map.mStride * size.height,
+                                  size.width, size.height, map.mStride,
                                   imgIEncoder::INPUT_FORMAT_HOSTARGB, aOptions,
                                   VoidCString());
       data->Unmap();
@@ -430,9 +429,8 @@ nsresult ImageEncoder::ExtractDataInternal(
       }
 
       rv = aEncoder->InitFromData(
-          data.Elements(), aSize.width * aSize.height * 4, aSize.width,
-          aSize.height, aSize.width * 4, imgIEncoder::INPUT_FORMAT_HOSTARGB,
-          aOptions, VoidCString());
+          data.Elements(), length, aSize.width, aSize.height, stride.value(),
+          imgIEncoder::INPUT_FORMAT_HOSTARGB, aOptions, VoidCString());
     } else {
       if (BufferSizeFromDimensions(aSize.width, aSize.height, 4) == 0) {
         return NS_ERROR_INVALID_ARG;
@@ -447,8 +445,8 @@ nsresult ImageEncoder::ExtractDataInternal(
         return NS_ERROR_INVALID_ARG;
       }
       auto size = dataSurface->GetSize();
-      rv = aEncoder->InitFromData(map.mData, size.width * size.height * 4,
-                                  size.width, size.height, size.width * 4,
+      rv = aEncoder->InitFromData(map.mData, map.mStride * size.height,
+                                  size.width, size.height, map.mStride,
                                   imgIEncoder::INPUT_FORMAT_HOSTARGB, aOptions,
                                   VoidCString());
       dataSurface->Unmap();

@@ -62,6 +62,9 @@ class ModuleLoader {
                        HandleObject moduleRequest, HandleValue payload);
   JSObject* loadAndParse(JSContext* cx, HandleString path,
                          HandleObject moduleRequestArg);
+#ifdef ENABLE_SOURCE_PHASE_IMPORTS
+  JSObject* getOrCreateTest262ModuleSourceModule(JSContext* cx);
+#endif
   bool lookupModuleInRegistry(JSContext* cx, JS::ModuleType moduleType,
                               HandleString path, MutableHandleObject moduleOut);
   bool addModuleToRegistry(JSContext* cx, JS::ModuleType moduleType,

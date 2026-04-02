@@ -456,6 +456,11 @@ class Settings(
         default = "",
     )
 
+    var isUserMetaAttributed by booleanPreference(
+        appContext.getPreferenceKey(R.string.pref_key_is_user_meta_attributed),
+        default = false,
+    )
+
     var contileContextId by stringPreference(
         appContext.getPreferenceKey(R.string.pref_key_contile_context_id),
         default = { TopSites.contextId.generateAndSet().toString() },
@@ -1615,7 +1620,7 @@ class Settings(
     )
 
     val shouldShowOpenInAppCfr: Boolean
-        get() = canShowCfr && shouldShowOpenInAppBanner && inAppMessagesEnabled
+        get() = canShowCfr && shouldShowOpenInAppBanner
 
     var shouldShowAutoCloseTabsBanner by booleanPreference(
         appContext.getPreferenceKey(R.string.pref_key_should_show_auto_close_tabs_banner),

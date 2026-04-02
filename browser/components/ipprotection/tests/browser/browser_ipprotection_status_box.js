@@ -76,6 +76,7 @@ add_task(async function test_paused_content() {
   );
 
   await setPanelState();
+  IPProtection.getPanel(window).initiatedUpgrade = false;
   BrowserTestUtils.removeTab(newTab);
   cleanupService();
 });

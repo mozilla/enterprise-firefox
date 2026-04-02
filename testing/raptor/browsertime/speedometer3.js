@@ -130,10 +130,43 @@ module.exports = logTest(
       };
     `);
         context.log.info("Value of summarized benchmark data: ", data);
+        let subtestsSummary = await commands.js.run(`
+      const metrics = this.benchmarkClient.metrics || {};
+      const output = {};
+
+      for (const [metricName, metric] of Object.entries(metrics)) {
+        if (!metric) continue;
+        if (typeof metric.mean !== "number") continue;
+
+        // Skip inner iteration metrics, since we only want one summarized value
+        // per outer Speedometer3 cycle for each reported subtest.
+        if (metricName.startsWith("Iteration-")) continue;
+
+        // Skip the global geomean because we only report individual subtests here.
+        // The overall benchmark score is handled separately.
+        if (metricName === "Geomean") continue;
+
+        if (metricName === "Score") {
+          output["score-internal"] = metric.mean;
+          continue;
+        }
+
+        // Preserve previous naming scheme:
+        // Non-Async/Sync metrics get "/total" suffix
+        if (metricName.includes("/Sync") || metricName.includes("/Async")) {
+          output[metricName] = metric.mean;
+        } else {
+          output[metricName + "/total"] = metric.mean;
+        }
+      }
+
+      return output;
+    `);
 
         commands.measure.addObject({
           s3: data,
           s3_internal: internal_data,
+          s3_subtests_summary: subtestsSummary,
           ...(perfStatsResults !== undefined && {
             perfstats: perfStatsResults,
           }),

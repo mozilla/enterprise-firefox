@@ -54,6 +54,7 @@ void LockRequestChild::MaybeSetWorkerRef() {
 }
 
 void LockRequestChild::ActorDestroy(ActorDestroyReason aReason) {
+  Unfollow();
   CastedManager()->NotifyRequestDestroy();
 }
 
@@ -107,7 +108,6 @@ void LockRequestChild::RunAbortAlgorithm() {
     mRequest.mPromise->MaybeReject(reason);
   }
 
-  Unfollow();
   Send__delete__(this, true);
 }
 

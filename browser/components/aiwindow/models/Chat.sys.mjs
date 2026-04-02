@@ -7,7 +7,11 @@
 import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
 import { ToolRoleOpts } from "moz-src:///browser/components/aiwindow/ui/modules/ChatMessage.sys.mjs";
-import { openAIEngine } from "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs";
+import {
+  openAIEngine,
+  DEFAULT_MODEL,
+  MODEL_FEATURES,
+} from "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs";
 import {
   toolsConfig,
   getOpenTabs,
@@ -37,6 +41,7 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   AIWindow:
     "moz-src:///browser/components/aiwindow/ui/modules/AIWindow.sys.mjs",
+  SearchService: "moz-src:///toolkit/components/search/SearchService.sys.mjs",
 });
 
 ChromeUtils.defineLazyGetter(lazy, "console", () =>
@@ -59,8 +64,40 @@ XPCOMUtils.defineLazyPreferenceGetter(
   Chat,
   "modelId",
   "browser.smartwindow.model",
-  "qwen3-235b-a22b-instruct-2507-maas"
+  DEFAULT_MODEL[MODEL_FEATURES.CHAT]
 );
+
+/**
+ * Log chat stream traffic.
+ * Automatically formats the output and is controlled by the logLevel pref.
+ * Data is wrapped in an array to keep the console output flat and clickable.
+ *
+ * @param {number} turn
+ * @param {string} action
+ * @param {object | Array} [data]
+ * @param {string} [extraText]
+ */
+function logConversationStream(turn, action, data = null, extraText = "") {
+  try {
+    let prefix = `[Chat][Turn ${turn}][${action.padEnd(10)}]`;
+
+    if (extraText) {
+      prefix += ` ${extraText}`;
+    }
+
+    if (data) {
+      lazy.console.debug(prefix, [data]);
+    } else {
+      lazy.console.debug(prefix);
+    }
+  } catch (err) {
+    // Failsafe: If logging ever breaks, print a raw error but DO NOT crash the stream
+    lazy.console.error("[Chat] Debug logger failed to format:", err, {
+      turn,
+      action,
+    });
+  }
+}
 
 Object.assign(Chat, {
   toolMap: {
@@ -124,9 +161,13 @@ Object.assign(Chat, {
       );
       const compactedMessages = compactMessages(rawMessages);
 
+      // Debug logging: Record only the latest message being sent to the model
+      logConversationStream(currentTurn, "CHAT SEND", compactedMessages.at(-1));
+
       return engineInstance.runWithGenerator({
         streamOptions: { enabled: true },
         fxAccountToken,
+        chatId: conversation.id,
         tool_choice: "auto",
         tools: chatToolsConfig,
         args: compactedMessages,
@@ -146,6 +187,12 @@ Object.assign(Chat, {
         pendingToolCalls = response.pendingToolCalls;
         lazy.console.log("Response", { fullResponseText, pendingToolCalls });
 
+        // Debug logging: Record the raw text and requested tool calls from the model
+        logConversationStream(currentTurn, "CHAT RECV", {
+          text: fullResponseText,
+          toolCalls: pendingToolCalls,
+        });
+
         if (response.usage) {
           this.lastUsage = response.usage;
         }
@@ -155,6 +202,9 @@ Object.assign(Chat, {
       }
 
       if (!pendingToolCalls || pendingToolCalls.length === 0) {
+        // Debug logging: Mark the end of the streaming loop for this turn
+        logConversationStream(currentTurn, "STREAM END");
+
         this._validateCitations(fullResponseText, allAllowedUrls);
         return;
       }
@@ -275,6 +325,14 @@ Object.assign(Chat, {
             }
             searchHandoffBrowser = context.browsingContext.embedderElement;
             result = await toolFunc(params ?? {}, context, secProps);
+            const engine = await lazy.SearchService.getDefault();
+            Glean.smartWindow.searchHandoff.record({
+              location: context.telemetry.location,
+              chat_id: conversation.id,
+              message_seq: conversation.messageCount,
+              provider: engine.name ?? "unknown",
+              model: engineInstance?.model,
+            });
             conversation._searchExecutedTurn = currentTurn;
           } else if (toolName === GET_PAGE_CONTENT) {
             const startTime = new Date();
@@ -292,6 +350,14 @@ Object.assign(Chat, {
           } else {
             result = await toolFunc(params, secProps);
           }
+
+          // Debug logging: Record the data returned by the tool before feeding it to the model
+          logConversationStream(
+            currentTurn,
+            "TOOL EXEC",
+            { arguments: params, result },
+            toolName
+          );
 
           this._collectAllowedUrlsFromToolCall(
             toolName,

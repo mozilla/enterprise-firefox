@@ -24,7 +24,7 @@ class MediaSystemResourceService {
  public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(MediaSystemResourceService)
 
-  static MediaSystemResourceService* Get();
+  static already_AddRefed<MediaSystemResourceService> Get();
   static void Init();
   static void Shutdown();
 

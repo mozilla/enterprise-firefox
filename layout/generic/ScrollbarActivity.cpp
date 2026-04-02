@@ -36,6 +36,7 @@ void ScrollbarActivity::Destroy() {
 }
 
 void ScrollbarActivity::ActivityOccurred() {
+  nsAutoScriptBlocker scriptBlocker;
   ActivityStarted();
   ActivityStopped();
 }

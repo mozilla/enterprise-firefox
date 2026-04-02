@@ -15,6 +15,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -34,8 +35,7 @@ fun ScoreContainer(score: Int) {
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            //TODO: extract string resource for score - this will have to be landed separately
-            text = "Score: $score",
+            text = stringResource(R.string.score, score),
             color = Color.White,
             fontWeight = FontWeight.Bold,
             fontSize = 28.sp,

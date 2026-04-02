@@ -58,7 +58,6 @@
   "displaySecurityInfo",
   "gUIDensity",
   "DynamicShortcutTooltip",
-  "hrefAndLinkNodeForClickEvent",
   "contentAreaClick",
   "handleLinkClick",
   "middleMousePaste",

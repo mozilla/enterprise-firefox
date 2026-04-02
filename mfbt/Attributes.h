@@ -501,6 +501,23 @@
 #endif
 
 /**
+ * MOZ_NULL_AFTER_MOVE indicates that the associated type behaves as
+ * std::unique_ptr once being moved, i.e. it's considered empty/null, and only
+ * calls to opererator*(), operator-> and operator[]() are reported by static
+ * analysis as invalid use-after-move.
+ *
+ * See:
+ * https://clang.llvm.org/extra/clang-tidy/checks/bugprone/use-after-move.html#use
+ */
+#if defined(__clang__)
+#  define MOZ_NULL_AFTER_MOVE                                  \
+    [[clang::annotate("clang-tidy", "bugprone-use-after-move", \
+                      "null_after_move")]]
+#else
+#  define MOZ_NULL_AFTER_MOVE /* nothing */
+#endif
+
+/**
  * MOZ_STANDALONE_DEBUG causes complete debug information to be emitted
  * for a record type when clang would otherwise try to elide some of it.
  * This helps certain third party debugging tools introspect types.

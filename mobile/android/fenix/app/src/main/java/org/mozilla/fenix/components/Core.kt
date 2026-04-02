@@ -26,6 +26,7 @@ import mozilla.components.browser.session.storage.SessionStorage
 import mozilla.components.browser.state.engine.EngineMiddleware
 import mozilla.components.browser.state.engine.middleware.SessionPrioritizationMiddleware
 import mozilla.components.browser.state.engine.middleware.TranslationsMiddleware
+import mozilla.components.browser.state.selector.findTabOrCustomTab
 import mozilla.components.browser.state.state.BrowserState
 import mozilla.components.browser.state.store.BrowserStore
 import mozilla.components.browser.storage.sync.PlacesBookmarksStorage
@@ -280,7 +281,12 @@ class Core(
      * NB: This does not need to be lazy as it is initialized
      * with the engine on startup.
      */
-    val requestInterceptor = AppRequestInterceptor(context)
+    val requestInterceptor = AppRequestInterceptor(
+        context = context,
+        isPrivateForSession = { session ->
+            store.state.findTabOrCustomTab(session)?.content?.private ?: true
+        },
+    )
 
     /**
      * [Client] implementation to be used for code depending on `concept-fetch``

@@ -451,52 +451,56 @@ export var BrowserUtils = {
     if (!content?.HTMLAnchorElement) {
       return null;
     }
-    function isHTMLLink(aNode) {
-      // Be consistent with what nsContextMenu.js does.
-      return (
-        (content.HTMLAnchorElement.isInstance(aNode) && aNode.href) ||
-        (content.HTMLAreaElement.isInstance(aNode) && aNode.href) ||
-        content.HTMLLinkElement.isInstance(aNode)
-      );
+    // Be consistent with what ContextMenuChild.sys.mjs does.
+    function hrefAndLinkNodeForHTMLLink(aElement) {
+      if (
+        (content.HTMLAnchorElement.isInstance(aElement) && aElement.href) ||
+        (content.HTMLAreaElement.isInstance(aElement) && aElement.href) ||
+        content.HTMLLinkElement.isInstance(aElement)
+      ) {
+        let href = URL.parse(aElement.href)?.href ?? null;
+        if (href) {
+          return [href, aElement, aElement.ownerDocument.nodePrincipal];
+        }
+      }
+      return null;
+    }
+    function hrefAndLinkNodeForNonHTMLink(aElement) {
+      if (
+        aElement.localName == "a" ||
+        (content.MathMLElement.isInstance(aElement) &&
+          !Services.prefs.getBoolPref(
+            "mathml.href_link_on_non_anchor_element.disabled"
+          ))
+      ) {
+        let href =
+          aElement.getAttribute("href") ||
+          aElement.getAttributeNS("http://www.w3.org/1999/xlink", "href");
+        href =
+          URL.parse(href, aElement.ownerDocument.baseURIObject.spec)?.href ??
+          null;
+        if (href) {
+          // Don't return the aElement we got href from since callers expect
+          // <a>-like elements.
+          return [href, null, aElement.ownerDocument.nodePrincipal];
+        }
+      }
+      return null;
     }
 
     let node = event.composedTarget;
-    while (node && !isHTMLLink(node)) {
-      node = node.flattenedTreeParentNode;
-    }
-
-    if (node) {
-      return [node.href, node, node.ownerDocument.nodePrincipal];
-    }
-
-    // If there is no linkNode, try simple XLink.
-    let href, baseURI;
-    node = event.composedTarget;
-    while (node && !href) {
-      if (
-        node.nodeType == content.Node.ELEMENT_NODE &&
-        (node.localName == "a" ||
-          node.namespaceURI == "http://www.w3.org/1998/Math/MathML")
-      ) {
-        href =
-          node.getAttribute("href") ||
-          node.getAttributeNS("http://www.w3.org/1999/xlink", "href");
-        if (href) {
-          baseURI = node.ownerDocument.baseURIObject;
-          break;
+    while (node) {
+      if (node.nodeType == node.ELEMENT_NODE) {
+        let linkData =
+          hrefAndLinkNodeForHTMLLink(node) ||
+          hrefAndLinkNodeForNonHTMLink(node);
+        if (linkData) {
+          return linkData;
         }
       }
       node = node.flattenedTreeParentNode;
     }
-
-    // In case of XLink, we don't return the node we got href from since
-    // callers expect <a>-like elements.
-    // Note: makeURI() will throw if aUri is not a valid URI.
-    return [
-      href ? Services.io.newURI(href, null, baseURI).spec : null,
-      null,
-      node && node.ownerDocument.nodePrincipal,
-    ];
+    return [null, null, null];
   },
 
   /**

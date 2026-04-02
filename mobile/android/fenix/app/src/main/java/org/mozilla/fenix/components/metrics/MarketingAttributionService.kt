@@ -63,6 +63,8 @@ class MarketingAttributionService(private val context: Context) {
                                 val utmParams =
                                     UTMParams.parseUTMParameters(installReferrerResponse)
 
+                                context.settings().isUserMetaAttributed = isMetaAttribution(installReferrerResponse)
+
                                 distributionIdManager.updateDistributionIdFromUtmParams(utmParams)
                                 CoroutineScope(Dispatchers.IO).launch {
                                     distributionIdManager.startAdjustIfSkippingConsentScreen()
@@ -116,6 +118,16 @@ class MarketingAttributionService(private val context: Context) {
     companion object {
         private val marketingPrefixes = listOf(GCLID_PREFIX, ADJUST_REFTAG_PREFIX)
         var response: String? = null
+
+        @VisibleForTesting
+        internal fun isMetaAttribution(installReferrerResponse: String?): Boolean {
+            if (installReferrerResponse.isNullOrBlank()) {
+                return false
+            }
+
+            val utmParams = UTMParams.parseUTMParameters(installReferrerResponse)
+            return MetaParams.extractMetaAttribution(utmParams.content) != null
+        }
 
         @VisibleForTesting
         internal suspend fun shouldShowMarketingOnboarding(

@@ -2620,8 +2620,7 @@ Maybe<GdkWindowEdge> nsWindow::CheckResizerEdge(
 
 template <typename Event>
 static LayoutDeviceIntPoint GetRefPoint(nsWindow* aWindow, Event* aEvent) {
-  return aWindow->GdkEventCoordsToDevicePixels(aEvent->x_root, aEvent->y_root) -
-         aWindow->WidgetToScreenOffset();
+  return aWindow->GdkEventCoordsToDevicePixels(aEvent->x, aEvent->y);
 }
 
 void nsWindow::EmulateResizeDrag(GdkEventMotion* aEvent) {
@@ -4842,57 +4841,6 @@ void nsWindow::NativeMoveResize(bool aMoved, bool aResized) {
     if (aResized) {
       DispatchResized();
     }
-  }
-}
-
-void nsWindowX11::NativeShow(bool aAction) {
-  if (aAction) {
-    // unset our flag now that our window has been shown
-    mNeedsShow = true;
-    auto removeShow = MakeScopeExit([&] { mNeedsShow = false; });
-
-    LOG("nsWindowX11::NativeShow show\n");
-
-    // Set up usertime/startupID metadata for the created window.
-    // On X11 we use gtk_window_set_startup_id() so we need to call it
-    // before show.
-    SetUserTimeAndStartupTokenForActivatedWindow();
-    LOG("  calling gtk_widget_show(mShell)\n");
-    gtk_widget_show(mShell);
-
-    if (mX11HiddenPopupPositioned) {
-      LOG("  re-position hidden popup window [%d, %d]", mClientArea.x,
-          mClientArea.y);
-      gtk_window_move(GTK_WINDOW(mShell), mClientArea.x, mClientArea.y);
-      mX11HiddenPopupPositioned = false;
-    }
-  } else {
-    LOG("nsWindow::NativeShow hide\n");
-
-    // Workaround window freezes on GTK versions before 3.21.2 by
-    // ensuring that configure events get dispatched to windows before
-    // they are unmapped. See bug 1225044.
-    if (gtk_check_version(3, 21, 2) != nullptr && mPendingConfigures > 0) {
-      GtkAllocation allocation;
-      gtk_widget_get_allocation(GTK_WIDGET(mShell), &allocation);
-
-      GdkEventConfigure event;
-      PodZero(&event);
-      event.type = GDK_CONFIGURE;
-      event.window = mGdkWindow;
-      event.send_event = TRUE;
-      event.x = allocation.x;
-      event.y = allocation.y;
-      event.width = allocation.width;
-      event.height = allocation.height;
-
-      auto* shellClass = GTK_WIDGET_GET_CLASS(mShell);
-      for (unsigned int i = 0; i < mPendingConfigures; i++) {
-        (void)shellClass->configure_event(mShell, &event);
-      }
-      mPendingConfigures = 0;
-    }
-    gtk_widget_hide(mShell);
   }
 }
 

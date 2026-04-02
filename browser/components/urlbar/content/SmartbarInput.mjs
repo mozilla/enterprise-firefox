@@ -268,6 +268,7 @@ export class SmartbarInput extends HTMLElement {
    */
   #sapName;
   #smartbarAction = "";
+  #smartbarActionPending = false;
   #smartbarEditor = null;
   #smartbarInputController = null;
   _userTypedValue = "";
@@ -415,6 +416,7 @@ export class SmartbarInput extends HTMLElement {
     this._inputContainer = this.querySelector(".urlbar-input-container");
 
     this.controller = new lazy.UrlbarController({ input: this });
+    this.controller.addListener(this);
     this.view = new lazy.UrlbarView(this);
     this.searchModeSwitcher = new lazy.SearchModeSwitcher(this);
 
@@ -573,6 +575,8 @@ export class SmartbarInput extends HTMLElement {
     if (this.sapName == "searchbar") {
       this.parentNode.removeAttribute("overflows");
     }
+
+    this.controller.removeListener(this);
 
     if (this._copyCutController) {
       this.inputField.controllers.removeController(this._copyCutController);
@@ -2562,11 +2566,33 @@ export class SmartbarInput extends HTMLElement {
       this._setValue(this.userTypedValue);
     }
 
-    if (this.#isSmartbarMode) {
-      this.#updateSmartbarCTAButton(firstResult);
-    }
-
     return false;
+  }
+
+  /**
+   * Invoked by the controller when a query starts.
+   *
+   * @param {UrlbarQueryContext} _queryContext
+   */
+  onQueryStarted(_queryContext) {
+    this.#smartbarActionPending = true;
+  }
+
+  /**
+   * Invoked by the controller when query results are received.
+   *
+   * @param {UrlbarQueryContext} queryContext
+   */
+  onQueryResults(queryContext) {
+    if (
+      !this.#isSmartbarMode ||
+      queryContext.pendingHeuristicProviders.size ||
+      !this.#smartbarActionPending
+    ) {
+      return;
+    }
+    this.#smartbarActionPending = false;
+    this.#updateSmartbarCTAButton(queryContext.results[0]);
   }
 
   /**
@@ -5890,7 +5916,12 @@ export class SmartbarInput extends HTMLElement {
         this.window.gBrowser.selectedBrowser?.getAttribute("usercontextid") ?? 0
       );
       options.tabGroup = this.window.gBrowser.selectedTab.group?.id ?? null;
-      options.currentPage = this.window.gBrowser.currentURI?.spec ?? "";
+      const currentPageSpec = this.window.gBrowser.currentURI?.spec;
+      // currentURI can be transiently null during a docshell swap (tab drag);
+      // omit currentPage rather than passing "" which fails UrlbarQueryContext validation.
+      if (currentPageSpec) {
+        options.currentPage = currentPageSpec;
+      }
     }
 
     if (this.searchMode) {

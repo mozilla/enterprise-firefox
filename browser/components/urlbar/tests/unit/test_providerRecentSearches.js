@@ -99,6 +99,33 @@ add_task(async function test_most_recent_shown() {
   await UrlbarTestUtils.formHistory.clear();
 });
 
+add_task(async function test_most_recent_shown_searchbar() {
+  UrlbarPrefs.set(ENABLED_PREF, true);
+  UrlbarPrefs.set(SUGGESTS_PREF, true);
+
+  info(
+    "Check that browser.urlbar.recentsearches.maxResults doesn't affect the search bar"
+  );
+  await addSearches(Array.from(Array(12).keys()).map(i => `Search ${i}`));
+  let context = createContext("", { isPrivate: false, sapName: "searchbar" });
+  await check_results({
+    context,
+    matches: [
+      makeRecentSearchResult(context, defaultEngine, "Search 11"),
+      makeRecentSearchResult(context, defaultEngine, "Search 10"),
+      makeRecentSearchResult(context, defaultEngine, "Search 9"),
+      makeRecentSearchResult(context, defaultEngine, "Search 8"),
+      makeRecentSearchResult(context, defaultEngine, "Search 7"),
+      makeRecentSearchResult(context, defaultEngine, "Search 6"),
+      makeRecentSearchResult(context, defaultEngine, "Search 5"),
+      makeRecentSearchResult(context, defaultEngine, "Search 4"),
+      makeRecentSearchResult(context, defaultEngine, "Search 3"),
+      makeRecentSearchResult(context, defaultEngine, "Search 2"),
+    ],
+  });
+  await UrlbarTestUtils.formHistory.clear();
+});
+
 add_task(async function test_per_engine() {
   UrlbarPrefs.set(ENABLED_PREF, true);
   UrlbarPrefs.set(SUGGESTS_PREF, true);

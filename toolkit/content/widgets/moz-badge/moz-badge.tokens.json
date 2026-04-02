@@ -3,7 +3,7 @@
     "color": {
       "@base": {
         "value": {
-          "default": "{text.color.@base}",
+          "default": "{text.color.deemphasized}",
           "forcedColors": "CanvasText"
         }
       },
@@ -45,6 +45,12 @@
           "forcedColors": "CanvasText"
         }
       }
+    },
+    "radius": {
+      "value": "{border.radius.small}"
+    },
+    "width": {
+      "value": "1px"
     }
   }
 }

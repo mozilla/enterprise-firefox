@@ -1122,7 +1122,9 @@ impl Renderer {
 
             if let Some(ref mut _compositor) = self.compositor_config.layer_compositor() {
                 if let Some(PartialPresentMode::Single { dirty_rect }) = partial_present_mode {
-                    if dirty_rect.is_empty() {
+                    let device_rect = DeviceRect::from_size(device_size.to_f32());
+                    let clipped_dirty_rect = dirty_rect.intersection_unchecked(&device_rect);
+                    if clipped_dirty_rect.is_empty() {
                         continue;
                     }
                 }

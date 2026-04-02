@@ -1072,7 +1072,7 @@ void GCRuntime::finish() {
   // before we forcefully release any remaining GC memory.
   markTask.join();
   sweepTask.join();
-  markTask.join();
+  unmarkTask.join();
   freeTask.join();
   allocTask.cancelAndWait();
   decommitTask.cancelAndWait();

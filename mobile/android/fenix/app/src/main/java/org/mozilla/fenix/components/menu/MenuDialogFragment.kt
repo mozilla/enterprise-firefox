@@ -68,6 +68,7 @@ import mozilla.components.support.utils.ext.isLandscape
 import mozilla.components.support.utils.ext.top
 import mozilla.telemetry.glean.private.NoExtras
 import org.mozilla.fenix.GleanMetrics.Events
+import org.mozilla.fenix.HomeActivity
 import org.mozilla.fenix.R
 import org.mozilla.fenix.automotive.isAndroidAutomotiveAvailable
 import org.mozilla.fenix.components.appstate.SupportedMenuNotifications
@@ -364,6 +365,7 @@ class MenuDialogFragment : BottomSheetDialogFragment() {
                                             this@MenuDialogFragment.dismiss()
                                         }
                                     },
+                                    homeActivityClass = HomeActivity::class.java,
                                 ),
                             ),
                             MenuTelemetryMiddleware(

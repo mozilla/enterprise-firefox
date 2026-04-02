@@ -625,6 +625,21 @@ describe("MultiStageAboutWelcomeProton module", () => {
       assert.equal(wrapper.find(".steps").exists(), false);
     });
 
+    it("should render title with ref and tabIndex for screens with requireAction prop", () => {
+      const SCREEN_PROPS = {
+        content: {
+          title: "test title",
+        },
+        requireAction: true,
+      };
+      const wrapper = mount(<MultiStageProtonScreen {...SCREEN_PROPS} />);
+      assert.ok(wrapper.exists());
+
+      const title = wrapper.find("h1#mainContentHeader");
+      assert.ok(title.exists());
+      assert.equal(title.prop("tabIndex"), -1);
+    });
+
     it("should render a steps indicator above action buttons", () => {
       const SCREEN_PROPS = {
         content: {

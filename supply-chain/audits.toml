@@ -1129,6 +1129,11 @@ who = "Erich Gubler <erichdongubler@gmail.com>"
 criteria = "safe-to-deploy"
 delta = "0.8.0 -> 0.9.1"
 
+[[audits.bit-set]]
+who = "Erich Gubler <erichdongubler@gmail.com>"
+criteria = "safe-to-deploy"
+delta = "0.9.1 -> 0.10.0"
+
 [[audits.bit-vec]]
 who = "Aria Beingessner <a.beingessner@gmail.com>"
 criteria = "safe-to-deploy"
@@ -4571,7 +4576,7 @@ delta = "0.2.6 -> 0.2.9"
 [[audits.mtu]]
 who = "Oskar Mansfeld <git@omansfeld.net>"
 criteria = "safe-to-deploy"
-delta = "0.3.0 -> 0.3.0@git:5b4e8507abb992c39e3e8787d9bf415a065b21dd"
+delta = "0.3.0 -> 0.3.0@git:2fce249a5c03eef63a4a1a748c7a0c1dea497b9b"
 importable = false
 
 [[audits.naga]]

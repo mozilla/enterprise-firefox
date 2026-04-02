@@ -88,6 +88,11 @@ RemoteAudioDecoderParent::RemoteAudioDecoderParent(
 
 IPCResult RemoteAudioDecoderParent::RecvConstruct(
     ConstructResolver&& aResolver) {
+  if (mDecoder || mShutdown) {
+    aResolver(MediaResult(NS_ERROR_ALREADY_INITIALIZED, __func__));
+    return IPC_OK();
+  }
+
   auto params = CreateDecoderParams{
       mAudioInfo,     static_cast<PRemoteCDMActor*>(mCDM.get()),
       mOptions,       CreateDecoderParams::WrapperSet({/* No wrapper */}),
@@ -103,6 +108,11 @@ IPCResult RemoteAudioDecoderParent::RecvConstruct(
           return;
         }
         MOZ_ASSERT(aValue.ResolveValue());
+        if (self->mDecoder || self->mShutdown) {
+          aValue.ResolveValue()->Shutdown();
+          resolver(MediaResult(NS_ERROR_ALREADY_INITIALIZED, __func__));
+          return;
+        }
         self->mDecoder =
             new MediaDataDecoderProxy(aValue.ResolveValue().forget(),
                                       do_AddRef(self->mDecodeTaskQueue.get()));

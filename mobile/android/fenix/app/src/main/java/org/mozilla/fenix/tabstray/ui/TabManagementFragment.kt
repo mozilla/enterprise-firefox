@@ -5,6 +5,7 @@
 package org.mozilla.fenix.tabstray.ui
 
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.view.Gravity
 import android.view.LayoutInflater
@@ -240,6 +241,10 @@ class TabManagementFragment : DialogFragment() {
                 }
 
                 LaunchedEffect(state.selectedPage) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        dialog?.window?.isNavigationBarContrastEnforced = false
+                    }
+
                     dialog?.window?.setSystemBarsBackground(
                         statusBarColor = statusBarColor,
                         navigationBarColor = navBarColor,
@@ -414,7 +419,7 @@ class TabManagementFragment : DialogFragment() {
                                 )
                             }
 
-                            entry<TabManagerNavDestination.CreateTabGroup>(
+                            entry<TabManagerNavDestination.EditTabGroup>(
                                 metadata = BottomSheetSceneStrategy.bottomSheet(
                                     handleContentDescription = stringResource(
                                         id = R.string.edit_tab_group_bottom_sheet_close_content_description,

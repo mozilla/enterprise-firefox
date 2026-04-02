@@ -6,10 +6,7 @@
  * https://w3c.github.io/webrtc-encoded-transform
  */
 
-dictionary RTCEncodedAudioFrameMetadata {
-    unsigned long synchronizationSource;
-    octet payloadType;
-    sequence<unsigned long> contributingSources;
+dictionary RTCEncodedAudioFrameMetadata : RTCEncodedFrameMetadata{
     short sequenceNumber;
 };
 

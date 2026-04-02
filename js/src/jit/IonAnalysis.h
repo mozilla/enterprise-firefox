@@ -134,13 +134,8 @@ class LinearSum {
   // not be used.
   [[nodiscard]] bool multiply(int32_t scale);
   [[nodiscard]] bool add(const LinearSum& other, int32_t scale = 1);
-  [[nodiscard]] bool add(SimpleLinearSum other, int32_t scale = 1);
   [[nodiscard]] bool add(MDefinition* term, int32_t scale);
   [[nodiscard]] bool add(int32_t constant);
-
-  // Unlike the above function, on failure this leaves the sum unchanged and
-  // it can still be used.
-  [[nodiscard]] bool divide(uint32_t scale);
 
   int32_t constant() const { return constant_; }
   size_t numTerms() const { return terms_.length(); }
