@@ -11,6 +11,7 @@ const { E10SUtils } = ChromeUtils.importESModule(
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
+  AppConstants: "resource://gre/modules/AppConstants.sys.mjs",
   ConsoleClient: "resource:///modules/enterprise/ConsoleClient.sys.mjs",
   FeltCommon: "chrome://felt/content/FeltCommon.sys.mjs",
   FeltStorage: "resource:///modules/FeltStorage.sys.mjs",
@@ -490,9 +491,27 @@ function focusEmailOnLoginVisible() {
   }
 }
 
+/**
+ * Sets the displayed Firefox build version and date
+ */
+function setBuildVersion() {
+  const version = lazy.AppConstants.MOZ_APP_VERSION_DISPLAY;
+
+  const buildID = Services.appinfo.appBuildID;
+  const year = buildID.slice(0, 4);
+  const month = buildID.slice(4, 6);
+  const day = buildID.slice(6, 8);
+  const isodate = `${year}-${month}-${day}`;
+
+  const versionElement = document.querySelector(".felt-firefox-version");
+
+  document.l10n.setArgs(versionElement, { version, isodate });
+}
+
 window.addEventListener(
   "load",
   () => {
+    setBuildVersion();
     ErrorReport.init();
     lazy.Updates.init(document, ErrorReport);
     setupMarionetteEnvironment();
