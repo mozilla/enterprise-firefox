@@ -66,4 +66,6 @@ run-if = [
 
 ["test_felt_device_posture.py"]
 
+["test_felt_version.py"]
+
 ["test_firefox_start.py"]
