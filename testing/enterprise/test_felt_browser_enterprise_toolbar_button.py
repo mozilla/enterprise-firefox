@@ -31,7 +31,7 @@ class EnterpriseBadgeTests(FeltTests):
         badge = self.get_elem_child("#enterprise-badge-toolbar-button")
 
         self._logger.info("Checking user icon is updated in badge.")
-        user_icon = self.get_elem_child("#enterprise-user-icon")
+        user_icon = self.get_elem_child("#enterprise-user-icon__picture")
         picture_url = user_icon.value_of_css_property("list-style-image")
         assert picture_url == f'url("{user["picture"]}")', (
             "User's picture not correctly set on user icon"
