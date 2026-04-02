@@ -414,6 +414,11 @@ impl FeltXPCOM {
                             },
                             Ok(FeltMessage::Logout(logout_type)) => {
                                 trace!("FeltServerThread::felt_server::ipc_loop(): Logout {:?}", logout_type);
+                                if let Ok(ms_str) = env::var("FELT_TEST_LOGOUT_DELAY_MS") {
+                                    if let Ok(ms) = ms_str.parse::<u64>() {
+                                        std::thread::sleep(std::time::Duration::from_millis(ms));
+                                    }
+                                }
                                 crate::utils::notify_observers_with_payload("felt-firefox-logout".to_string(), Some(logout_type.as_str().to_string()));
                             },
                             Ok(FeltMessage::Tokens((access_token, refresh_token, expires_at))) => {
@@ -427,6 +432,7 @@ impl FeltXPCOM {
                             },
                             Err(ipc_channel::ipc::IpcError::Disconnected) => {
                                 trace!("FeltServerThread::felt_server::ipc_loop(): DISCONNECTED");
+                                crate::utils::notify_observers("felt-firefox-ipc-disconnected".to_string());
                                 break;
                             },
                             Err(ipc_channel::ipc::IpcError::Bincode(deserializeErr)) => {
@@ -442,6 +448,8 @@ impl FeltXPCOM {
                     }
                     trace!("FeltServerThread::felt_server::ipc_loop(): DONE");
                 }
+                // Fallback in case the loop was never entered (rx was None).
+                crate::utils::notify_observers("felt-firefox-ipc-disconnected".to_string());
                 trace!("FeltServerThread::felt_server::ipc_loop(): THREAD END");
             })
             .may_block(true)

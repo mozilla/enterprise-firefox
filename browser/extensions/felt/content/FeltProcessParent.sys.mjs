@@ -381,6 +381,21 @@ export class FeltProcessParent extends JSProcessActorParent {
     this.exitReported = false;
     this.firefoxReady = false;
     this.extensionReady = false;
+    // Resolves when the Rust ipc_loop signals IpcError::Disconnected, meaning
+    // all IPC messages (including FeltMessage::Logout) have been fully processed
+    // before we act on the Firefox process exit.
+    this._ipcDrainedPromise = new Promise(resolve => {
+      const observer = {
+        observe() {
+          Services.obs.removeObserver(
+            observer,
+            "felt-firefox-ipc-disconnected"
+          );
+          resolve();
+        },
+      };
+      Services.obs.addObserver(observer, "felt-firefox-ipc-disconnected");
+    });
     resetFeltFirefoxWindowReady();
     gFeltFirefoxReadyNotified = false;
 
@@ -427,6 +442,11 @@ export class FeltProcessParent extends JSProcessActorParent {
         );
 
         this.proc.exitPromise
+          // Wait for the Rust ipc_loop to signal IpcError::Disconnected before
+          // checking logoutReported. IPC ordering guarantees FeltMessage::Logout
+          // is always fully processed before Disconnected fires, so this eliminates
+          // the race between proc.exitPromise and logoutFirefox().
+          .then(ev => this._ipcDrainedPromise.then(() => ev))
           .then(ev => {
             lazy.ConsoleClient.isSessionRefreshBlocked = false;
             console.debug(`firefox exit: ev`, JSON.stringify(ev));
