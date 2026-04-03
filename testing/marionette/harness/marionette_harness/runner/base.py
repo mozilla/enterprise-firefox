@@ -8,6 +8,7 @@ import random
 import re
 import socket
 import sys
+import threading
 import time
 import traceback
 import unittest
@@ -1182,7 +1183,46 @@ class BaseMarionetteTestRunner:
                 group=group,
             )
 
+            finish_video = threading.Event()
+            video_recording_thread = None
+
+            video_recording_target = None
+            if sys.platform == "linux":
+                video_recording_target = self.do_gnome_video_recording
+            elif sys.platform == "darwin":
+                video_recording_target = self.do_macos_video_recording
+            elif sys.platform == "win32":
+                video_recording_target = self.do_windows_video_recording
+
+            if video_recording_target:
+                tc = next(iter(suite))
+                target_dir = os.environ.get("UPLOAD_DIR", "")
+                if not os.path.isdir(target_dir):
+                    os.makedirs(target_dir, exist_ok=True)
+                suite_filename = tc._testMethodName
+                video_recording_thread = threading.Thread(
+                    target=video_recording_target,
+                    args=(
+                        suite_filename,
+                        target_dir,
+                        finish_video,
+                    ),
+                )
+                self.logger.info(f"Starting recording thread {suite}")
+                video_recording_thread.start()
+            else:
+                self.logger.warning(
+                    "Screen recording not implemented for this platform"
+                )
+
             results = runner.run(suite)
+
+            if video_recording_thread:
+                self.logger.info(f"Stopping recording thread {suite}")
+                finish_video.set()
+                video_recording_thread.join()
+                self.logger.info(f"Stopped recording thread {suite}")
+
             self.results.append(results)
 
             self.failed += len(results.failures) + len(results.errors)
@@ -1212,6 +1252,97 @@ class BaseMarionetteTestRunner:
             for result in self.results:
                 result.result_modifiers = []
 
+    def do_gnome_video_recording(self, suite_name, upload_dir, ev):
+        import os
+
+        import dbus
+
+        target_file = os.path.join(
+            upload_dir,
+            f"video_{suite_name}.webm",
+        )
+
+        self.logger.info(f"Recording suite {suite_name} to {target_file}")
+
+        session_bus = dbus.SessionBus()
+        session_bus.call_blocking(
+            "org.gnome.Shell.Screencast",
+            "/org/gnome/Shell/Screencast",
+            "org.gnome.Shell.Screencast",
+            "Screencast",
+            signature="sa{sv}",
+            args=[
+                target_file,
+                {"draw-cursor": True, "framerate": 35},
+            ],
+        )
+
+        ev.wait()
+
+        self.logger.info(f"Ending recording suite {suite_name} to {target_file}")
+        session_bus.call_blocking(
+            "org.gnome.Shell.Screencast",
+            "/org/gnome/Shell/Screencast",
+            "org.gnome.Shell.Screencast",
+            "StopScreencast",
+            signature="",
+            args=[],
+            timeout=30,
+        )
+        self.logger.info(f"Completed recording suite {suite_name} to {target_file}")
+
+    def do_macos_video_recording(self, suite_name, upload_dir, ev):
+        import os
+        import subprocess
+
+        target_file = os.path.join(
+            upload_dir,
+            f"video_{suite_name}.mov",
+        )
+        self.logger.info(f"Recording suite {suite_name} to {target_file}")
+
+        process = subprocess.Popen(
+            ["/usr/sbin/screencapture", "-v", "-k", target_file],
+            stdin=subprocess.PIPE,
+        )
+        ev.wait()
+        self.logger.info(f"Ending recording suite {suite_name} to {target_file}")
+        process.stdin.write(b"p")
+        process.stdin.flush()
+        self.logger.info(f"Waiting process shutdown recording suite {suite_name} to {target_file}")
+        process.wait(timeout=30)
+        self.logger.info(f"Completed process shutdown recording suite {suite_name} to {target_file}")
+
+    def do_windows_video_recording(self, suite_name, upload_dir, ev):
+        import os
+        import subprocess
+
+        target_file = os.path.join(
+            upload_dir,
+            f"video_{suite_name}.mp4",
+        )
+        self.logger.info(f"Recording suite {suite_name} to {target_file}")
+
+        process = subprocess.Popen(
+            [
+                os.path.join(os.environ.get("MOZ_FETCHES_DIR", ""), "ffmpeg-n7.1-latest-win64-gpl-shared-7.1", "bin", "ffmpeg.exe"),
+                 "-f", "gdigrab",
+                 "-framerate", "30",
+                 "-i", "desktop",
+                 "-c:v","libx264",
+                 "-preset", "ultrafast",
+                 target_file,
+            ],
+            stdin=subprocess.PIPE,
+        )
+        ev.wait()
+        self.logger.info(f"Ending recording suite {suite_name} to {target_file}")
+        process.stdin.write(b"q")
+        process.stdin.flush()
+        self.logger.info(f"Waiting process shutdown recording suite {suite_name} to {target_file}")
+        process.wait(timeout=30)
+        self.logger.info(f"Completed process shutdown recording suite {suite_name} to {target_file}")
+
     def run_test_set(self, tests):
         if self.shuffle:
             random.seed(self.shuffle_seed)
@@ -1227,7 +1358,9 @@ class BaseMarionetteTestRunner:
                     self.logger.group_end(name=current_group)
                 current_group = group
                 self.logger.group_start(name=current_group)
+
             self.run_test(test["filepath"], test["expected"], group=group)
+
             if self.record_crash():
                 break
         if current_group is not None:
