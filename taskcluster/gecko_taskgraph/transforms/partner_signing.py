@@ -49,6 +49,7 @@ def define_upstream_artifacts(config, jobs):
             keep_locale_template=True,
             kind=config.kind,
         )
+
         task_type = "build"
         if "notarization" in dep_job.label or "mac-signing" in dep_job.label:
             task_type = "scriptworker"
