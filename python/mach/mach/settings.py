@@ -119,7 +119,7 @@ class MachSettings:
                     "try.pushremote",
                     "string",
                     "Remote name or url to push to.",
-                    "ssh://hg.mozilla.org/try",
+                    "git@github.com:mozilla/enterprise-firefox-try.git",
                 ),
             ]
 
