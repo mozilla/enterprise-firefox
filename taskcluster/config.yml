@@ -858,7 +858,7 @@ workers:
             os: windows
             worker-type: '{alias}'
         win11-64-25h2(|-gpu|-source|-large|-webgpu|-privileged):
-            provisioner: 'gecko-t'
+            provisioner: '{trust-domain}-t'
             implementation: generic-worker
             os: windows
             worker-type: '{alias}'
