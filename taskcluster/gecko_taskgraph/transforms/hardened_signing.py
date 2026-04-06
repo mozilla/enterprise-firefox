@@ -110,7 +110,10 @@ def add_provisioning_profile_config(config, jobs):
             elif config.params["project"] == "mozilla-central":
                 # Nightly
                 filename = PROVISIONING_PROFILE_FILENAMES["nightly"]
-            elif config.params["project"] == "enterprise-firefox":
+            elif config.params["project"] in (
+                "enterprise-firefox",
+                "enterprise-firefox-try",
+            ):
                 # Enterprise
                 filename = PROVISIONING_PROFILE_FILENAMES["enterprise"]
             else:

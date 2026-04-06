@@ -650,13 +650,13 @@ def make_enterprise_repack(platforms):
 
 
 def get_release_partners(parameters):
-    if parameters["project"] != "enterprise-firefox":
+    if parameters["project"] not in ("enterprise-firefox", "enterprise-firefox-try"):
         return []
     return get_enterprise_partner_subset(parameters)
 
 
 def get_release_partner_config(parameters):
-    if parameters["project"] != "enterprise-firefox":
+    if parameters["project"] not in ("enterprise-firefox", "enterprise-firefox-try"):
         return {}
     return get_enterprise_partner_configs(parameters)
 

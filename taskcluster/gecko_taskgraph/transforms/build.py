@@ -219,6 +219,7 @@ def enable_full_crashsymbols(config, jobs):
         "try",
         "try-comm-central",
         "enterprise-firefox",
+        "enterprise-firefox-try",
     }
     for job in jobs:
         enable_full_crashsymbols = job["attributes"].get("enable-full-crashsymbols")
