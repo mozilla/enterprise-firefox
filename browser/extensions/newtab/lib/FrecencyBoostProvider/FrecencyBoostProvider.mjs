@@ -2,6 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
+const { AppConstants } = ChromeUtils.importESModule(
+  "resource://gre/modules/AppConstants.sys.mjs"
+);
+
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -21,8 +25,9 @@ ChromeUtils.defineLazyGetter(lazy, "log", () => {
 });
 
 const CACHE_KEY = "frecency_boost_cache";
-const RS_FALLBACK_BASE_URL =
-  "https://firefox-settings-attachments.cdn.mozilla.net/";
+const RS_FALLBACK_BASE_URL = AppConstants.MOZ_ENTERPRISE
+  ? ""
+  : "https://firefox-settings-attachments.cdn.mozilla.net/";
 const SPONSORED_TILE_PARTNER_FREC_BOOST = "frec-boost";
 const DEFAULT_SOV_NUM_ITEMS = 200;
 

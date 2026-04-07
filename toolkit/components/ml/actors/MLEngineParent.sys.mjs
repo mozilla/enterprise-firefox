@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 import { MLTelemetry } from "chrome://global/content/ml/MLTelemetry.sys.mjs";
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
 
 /**
  * @import { MLEngineChild } from "./MLEngineChild.sys.mjs"
@@ -50,9 +51,10 @@ const RS_RUNTIME_COLLECTION = "ml-onnx-runtime";
 const RS_INFERENCE_OPTIONS_COLLECTION = "ml-inference-options";
 const RS_ALLOW_DENY_COLLECTION = "ml-model-allow-deny-list";
 const TERMINATE_TIMEOUT = 5000;
-const RS_FALLBACK_BASE_URL =
-  "https://firefox-settings-attachments.cdn.mozilla.net";
 
+const RS_FALLBACK_BASE_URL = AppConstants.MOZ_ENTERPRISE
+  ? ""
+  : "https://firefox-settings-attachments.cdn.mozilla.net/";
 const RUNTIME_ROOT_IN_OPFS = "mlRuntimeFiles";
 
 /**
