@@ -480,15 +480,19 @@ function focusEmailOnLoginVisible() {
   const loginPane = document.querySelector(".felt-login");
   const emailInput = document.getElementById("felt-form__email");
 
-  new MutationObserver(() => {
+  function maybeFocusEmail() {
     if (!loginPane.classList.contains("is-hidden")) {
       emailInput?.focus();
     }
-  }).observe(loginPane, { attributeFilter: ["class"] });
-
-  if (!loginPane.classList.contains("is-hidden")) {
-    emailInput?.focus();
   }
+
+  new MutationObserver(maybeFocusEmail).observe(loginPane, {
+    attributeFilter: ["class"],
+  });
+
+  window.addEventListener("focus", maybeFocusEmail);
+
+  maybeFocusEmail();
 }
 
 /**

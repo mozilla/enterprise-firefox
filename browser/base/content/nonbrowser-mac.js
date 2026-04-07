@@ -157,6 +157,11 @@ var NonBrowserWindow = {
       privateWindowItem.setAttribute("disabled", "true");
     }
 
+    // bug 2006564
+    // make sure that when application starts from dock it enforces windows'focus via activateApplication
+    // https://searchfox.org/enterprise-main/rev/4b4e7c59db50500302fa0e437ee07a84d92aa076/widget/nsIMacDockSupport.idl#36-45
+    this.dockSupport.activateApplication(true);
+
     waitForFeltFirefoxWindowReady().then(() => {
       if (newWindowItem) {
         newWindowItem.removeAttribute("disabled");
