@@ -155,7 +155,7 @@ def get_defaults(repo_root=None):
         "next_version": None,
         "optimize_strategies": None,
         "phabricator_diff": None,
-        "project": "mozilla-central",
+        "project": "enterprise-firefox",
         "release_enable_emefree": False,
         "release_enable_partner_repack": False,
         "release_enable_partner_attribution": False,
