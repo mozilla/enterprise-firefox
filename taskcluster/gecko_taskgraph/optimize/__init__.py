@@ -131,6 +131,12 @@ class project:
     }
     """Strategy overrides that apply to beta."""
 
+    pull_request = {
+        "upload-symbols": Alias("always"),
+        "reprocess-symbols": Alias("always"),
+    }
+    """Strategy overrides that apply to pull requests."""
+
 
 class experimental:
     """Experimental strategies either under development or used as benchmarks.
