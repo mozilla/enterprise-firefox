@@ -432,14 +432,14 @@ impl FeltXPCOM {
                                 }).to_string();
                                 crate::utils::notify_observers_with_payload("felt-firefox-tokens".to_string(), Some(payload));
                             },
-                            Err(ipc_channel::ipc::IpcError::Disconnected) => {
+                            Err(ipc_channel::IpcError::Disconnected) => {
                                 trace!("FeltServerThread::felt_server::ipc_loop(): DISCONNECTED");
                                 break;
                             },
-                            Err(ipc_channel::ipc::IpcError::Bincode(deserializeErr)) => {
+                            Err(ipc_channel::IpcError::SerializationError(deserializeErr)) => {
                                 trace!("FeltServerThread::felt_server::ipc_loop(): IPC DESERIALIZE ERROR {:?}", deserializeErr);
                             },
-                            Err(ipc_channel::ipc::IpcError::Io(ioErr)) => {
+                            Err(ipc_channel::IpcError::Io(ioErr)) => {
                                 trace!("FeltServerThread::felt_server::ipc_loop(): IPC I/O ERROR {:?}", ioErr);
                             },
                             Ok(msg) => {

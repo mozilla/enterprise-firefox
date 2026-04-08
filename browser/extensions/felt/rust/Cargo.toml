@@ -9,7 +9,7 @@ env_logger = { version = "0.10", default-features = false }
 xpcom = { path = "../../../../xpcom/rust/xpcom" }
 nserror = { path = "../../../../xpcom/rust/nserror" }
 cstr = "0.2"
-ipc-channel = "0.20.2"
+ipc-channel = "0.21.0"
 moz_task = { path = "../../../../xpcom/rust/moz_task" }
 nsstring = { path = "../../../../xpcom/rust/nsstring" }
 thin-vec = "0.2.12"

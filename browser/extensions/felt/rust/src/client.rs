@@ -422,22 +422,15 @@ impl FeltClientThread {
                                 Ok(msg) => {
                                     trace!("FeltClientThread::felt_client::ipc_loop(): UNEXPECTED MSG {:?}", msg);
                                 },
-                                Err(boxed_error) => {
-                                    match *boxed_error {
-                                        ipc_channel::ErrorKind::Io(err) => {
-                                            trace!("FeltClientThread::felt_client::ipc_loop(): MESSAGE I/O ERROR: {}", err);
-                                        },
-                                        err => {
-                                            trace!("FeltClientThread::felt_client::ipc_loop(): MESSAGE OTHER ERROR: {}", err);
-                                        },
-                                    }
-                                }
+                                Err(serde_error) => {
+				    trace!("FeltClientThread::felt_client::ipc_loop(): MESSAGE SERDE ERROR: {}", serde_error);
+                                },
                             }
                         },
 
                         ipc_channel::ipc::IpcSelectionResult::MessageReceived(id, data) if id == rx_thread_id => {
                             trace!("FeltClientThread::felt_client::ipc_loop(): MessageReceived THREAD id={} rx_client_id={} rx_thread_id={}...", id, rx_client_id, rx_thread_id);
-                            let msg: Result<bool, Box<ipc_channel::ErrorKind>> = data.to();
+                            let msg: Result<bool, ipc_channel::SerDeError> = data.to();
                             match msg {
                                 Ok(true) => {
                                     trace!("FeltClientThread::felt_client::ipc_loop(): TRUE on THREAD ... STOPPING");
