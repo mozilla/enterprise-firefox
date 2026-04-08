@@ -145,7 +145,4 @@ support-files = [
 
 ["browser_policy_websitefilter_telemetry.js"]
 # Only run in MOZ_ENTERPRISE builds
-skip-if = [
-  "buildapp != firefox",
-  "!enterprise",
-]
+run-if = ["enterprise"]
