@@ -2859,7 +2859,10 @@
       "examples": [true, false]
     },
     "XSLTEnabled": {
-      "type": "boolean"
+      "type": "boolean",
+      "x-category": "Content settings",
+      "description": "Enable or disable support for the XSLTProcessor JavaScript API and the XSLT processing instruction.",
+      "examples": [true, false]
     }
   }
 }
