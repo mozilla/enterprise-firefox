@@ -7,9 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use crate::ipc::{self, IpcMessage};
-use bincode;
-use fnv::FnvHasher;
+use crate::ipc::IpcMessage;
 use libc::{
     self, cmsghdr, linger, CMSG_DATA, CMSG_LEN, CMSG_SPACE, MAP_FAILED, MAP_SHARED, PROT_READ,
     PROT_WRITE, SOCK_SEQPACKET, SOL_SOCKET,
@@ -20,11 +18,11 @@ use libc::{sa_family_t, setsockopt, size_t, sockaddr, sockaddr_un, socketpair, s
 use libc::{EAGAIN, EWOULDBLOCK};
 use mio::unix::SourceFd;
 use mio::{Events, Interest, Poll, Token};
+use rustc_hash::FxHasher;
 use std::cell::Cell;
 use std::cmp;
 use std::collections::HashMap;
 use std::convert::TryInto;
-use std::error::Error as StdError;
 use std::ffi::{c_uint, CString};
 use std::fmt::{self, Debug, Formatter};
 use std::hash::BuildHasherDefault;
@@ -39,6 +37,7 @@ use std::sync::{Arc, LazyLock};
 use std::thread;
 use std::time::{Duration, UNIX_EPOCH};
 use tempfile::{Builder, TempDir};
+use thiserror::Error;
 
 const MAX_FDS_IN_CMSG: u32 = 64;
 
@@ -59,13 +58,21 @@ const RECVMSG_FLAGS: c_int = 0;
 
 #[cfg(target_env = "gnu")]
 type IovLen = usize;
-#[cfg(target_env = "gnu")]
-type MsgControlLen = size_t;
 
 #[cfg(not(target_env = "gnu"))]
 type IovLen = i32;
+#[cfg(target_env = "gnu")]
+type MsgControlLen = size_t;
 #[cfg(not(target_env = "gnu"))]
 type MsgControlLen = socklen_t;
+
+#[derive(Debug, Error)]
+pub enum OsTrySelectError {
+    #[error("Error in IO: {0}.")]
+    IoError(#[from] UnixError),
+    #[error("No messages were received and no disconnections occurred.")]
+    Empty,
+}
 
 unsafe fn new_sockaddr_un(path: *const c_char) -> (sockaddr_un, usize) {
     let mut sockaddr: sockaddr_un = mem::zeroed();
@@ -116,7 +123,7 @@ struct PollEntry {
     pub fd: RawFd,
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(Debug)]
 pub struct OsIpcReceiver {
     fd: Cell<c_int>,
 }
@@ -181,7 +188,7 @@ impl Drop for SharedFileDescriptor {
     }
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct OsIpcSender {
     fd: Arc<SharedFileDescriptor>,
 }
@@ -454,7 +461,7 @@ impl OsIpcSender {
     }
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(Debug)]
 pub enum OsIpcChannel {
     Sender(OsIpcSender),
     Receiver(OsIpcReceiver),
@@ -472,7 +479,7 @@ impl OsIpcChannel {
 pub struct OsIpcReceiverSet {
     incrementor: RangeFrom<u64>,
     poll: Poll,
-    pollfds: HashMap<Token, PollEntry, BuildHasherDefault<FnvHasher>>,
+    pollfds: HashMap<Token, PollEntry, BuildHasherDefault<FxHasher>>,
     events: Events,
 }
 
@@ -487,11 +494,11 @@ impl Drop for OsIpcReceiverSet {
 
 impl OsIpcReceiverSet {
     pub fn new() -> Result<OsIpcReceiverSet, UnixError> {
-        let fnv = BuildHasherDefault::<FnvHasher>::default();
+        let fx = BuildHasherDefault::<FxHasher>::default();
         Ok(OsIpcReceiverSet {
             incrementor: 0..,
             poll: Poll::new()?,
-            pollfds: HashMap::with_hasher(fnv),
+            pollfds: HashMap::with_hasher(fx),
             events: Events::with_capacity(10),
         })
     }
@@ -526,6 +533,41 @@ impl OsIpcReceiverSet {
             }
         }
 
+        match self.selection_results() {
+            Ok(v) => Ok(v),
+            Err(OsTrySelectError::Empty) => panic!("Blocking select cannot return Empty"),
+            Err(OsTrySelectError::IoError(e)) => Err(e),
+        }
+    }
+
+    pub fn try_select(&mut self) -> Result<Vec<OsIpcSelectionResult>, OsTrySelectError> {
+        // Non-blocking poll to receive zero or more events.
+        self.try_select_timeout(Duration::ZERO)
+    }
+
+    pub fn try_select_timeout(
+        &mut self,
+        duration: Duration,
+    ) -> Result<Vec<OsIpcSelectionResult>, OsTrySelectError> {
+        // Poll for the specified duration until we receive zero or more events.
+        match self.poll.poll(&mut self.events, Some(duration)) {
+            Ok(()) => (),
+            Err(ref error) => {
+                if error.kind() != io::ErrorKind::Interrupted {
+                    return Err(OsTrySelectError::IoError(UnixError::last()));
+                }
+            },
+        }
+
+        let v = self.selection_results()?;
+        if v.is_empty() {
+            Err(OsTrySelectError::Empty)
+        } else {
+            Ok(v)
+        }
+    }
+
+    fn selection_results(&mut self) -> Result<Vec<OsIpcSelectionResult>, OsTrySelectError> {
         let mut selection_results = Vec::new();
         for event in self.events.iter() {
             // We only register this `Poll` for readable events.
@@ -563,7 +605,7 @@ impl OsIpcReceiverSet {
                         // pending to read.
                         break;
                     },
-                    Err(err) => return Err(err),
+                    Err(e) => return Err(OsTrySelectError::IoError(e)),
                 }
             }
         }
@@ -588,7 +630,7 @@ impl OsIpcSelectionResult {
     }
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(Debug)]
 pub struct OsOpaqueIpcChannel {
     fd: c_int,
 }
@@ -855,11 +897,15 @@ impl OsIpcSharedMemory {
     /// # Safety
     ///
     /// This is safe if there is only one reader/writer on the data.
-    /// User can achieve this by not cloning [`IpcSharedMemory`]
+    /// User can achieve this by not cloning [crate::ipc::IpcSharedMemory]
     /// and serializing/deserializing only once.
     #[inline]
     pub unsafe fn deref_mut(&mut self) -> &mut [u8] {
         unsafe { slice::from_raw_parts_mut(self.ptr, self.length) }
+    }
+
+    pub fn take(self) -> Option<Vec<u8>> {
+        Some((*self).to_vec())
     }
 }
 
@@ -899,7 +945,7 @@ impl OsIpcSharedMemory {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum UnixError {
     Errno(c_int),
     ChannelClosed,
@@ -917,6 +963,15 @@ impl UnixError {
     }
 }
 
+impl From<UnixError> for crate::IpcError {
+    fn from(error: UnixError) -> Self {
+        match error {
+            UnixError::ChannelClosed => crate::IpcError::Disconnected,
+            e => crate::IpcError::Io(io::Error::from(e)),
+        }
+    }
+}
+
 impl fmt::Display for UnixError {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -926,14 +981,6 @@ impl fmt::Display for UnixError {
             UnixError::ChannelClosed => write!(fmt, "All senders for this socket closed"),
             UnixError::IoError(e) => write!(fmt, "{e}"),
         }
-    }
-}
-
-impl StdError for UnixError {}
-
-impl From<UnixError> for bincode::Error {
-    fn from(unix_error: UnixError) -> Self {
-        io::Error::from(unix_error).into()
     }
 }
 
@@ -947,23 +994,16 @@ impl From<UnixError> for io::Error {
     }
 }
 
-impl From<UnixError> for ipc::IpcError {
+impl From<UnixError> for crate::TryRecvError {
     fn from(error: UnixError) -> Self {
         match error {
-            UnixError::ChannelClosed => ipc::IpcError::Disconnected,
-            e => ipc::IpcError::Io(io::Error::from(e)),
-        }
-    }
-}
-
-impl From<UnixError> for ipc::TryRecvError {
-    fn from(error: UnixError) -> Self {
-        match error {
-            UnixError::ChannelClosed => ipc::TryRecvError::IpcError(ipc::IpcError::Disconnected),
-            UnixError::Errno(code) if code == EAGAIN || code == EWOULDBLOCK => {
-                ipc::TryRecvError::Empty
+            UnixError::ChannelClosed => {
+                crate::TryRecvError::IpcError(crate::IpcError::Disconnected)
             },
-            e => ipc::TryRecvError::IpcError(ipc::IpcError::Io(io::Error::from(e))),
+            UnixError::Errno(code) if code == EAGAIN || code == EWOULDBLOCK => {
+                crate::TryRecvError::Empty
+            },
+            e => crate::TryRecvError::IpcError(crate::IpcError::Io(io::Error::from(e))),
         }
     }
 }
@@ -1111,7 +1151,7 @@ fn new_msghdr(iovec: &mut [iovec], cmsg_buffer: *mut cmsghdr, cmsg_space: MsgCon
 
 fn create_shmem(name: CString, length: usize) -> c_int {
     unsafe {
-        let fd = libc::syscall(libc::SYS_memfd_create, name.as_ptr(), libc::MFD_CLOEXEC).try_into().unwrap();
+        let fd = libc::memfd_create(name.as_ptr(), libc::MFD_CLOEXEC);
         assert!(fd >= 0);
         assert_eq!(libc::ftruncate(fd, length as off_t), 0);
         fd

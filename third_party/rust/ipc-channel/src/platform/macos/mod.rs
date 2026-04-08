@@ -12,14 +12,12 @@ use self::mach_sys::{kern_return_t, mach_msg_body_t, mach_msg_header_t, mach_msg
 use self::mach_sys::{mach_msg_ool_descriptor_t, mach_msg_port_descriptor_t, mach_msg_type_name_t};
 use self::mach_sys::{mach_msg_timeout_t, mach_port_limits_t, mach_port_msgcount_t};
 use self::mach_sys::{mach_port_right_t, mach_port_t, mach_task_self_, vm_inherit_t};
-use crate::ipc::{self, IpcMessage};
+use crate::ipc::IpcMessage;
 
-use bincode;
 use libc::{self, c_char, c_uint, c_void, size_t};
 use rand::{self, Rng};
 use std::cell::Cell;
 use std::convert::TryInto;
-use std::error::Error as StdError;
 use std::ffi::CString;
 use std::fmt::{self, Debug, Formatter};
 use std::io;
@@ -27,8 +25,9 @@ use std::mem;
 use std::ops::Deref;
 use std::ptr;
 use std::slice;
-use std::sync::RwLock;
+use std::sync::{OnceLock, RwLock};
 use std::time::Duration;
+use thiserror::Error;
 
 mod mach_sys;
 
@@ -36,8 +35,14 @@ mod mach_sys;
 /// this, we retry and spill to the heap.
 const SMALL_MESSAGE_SIZE: usize = 4096;
 
+pub fn set_bootstrap_prefix(prefix: impl Into<String>) {
+    BOOTSTRAP_PREFIX
+        .set(prefix.into())
+        .expect("set_bootstrap_prefix can only be called once")
+}
+
 /// A string to prepend to our bootstrap ports.
-static BOOTSTRAP_PREFIX: &str = "org.rust-lang.ipc-channel.";
+pub(crate) static BOOTSTRAP_PREFIX: OnceLock<String> = OnceLock::new();
 
 const BOOTSTRAP_NAME_IN_USE: kern_return_t = 1101;
 const BOOTSTRAP_SUCCESS: kern_return_t = 0;
@@ -117,6 +122,14 @@ const VM_INHERIT_SHARE: vm_inherit_t = 0;
 #[allow(non_camel_case_types)]
 type name_t = *const c_char;
 
+#[derive(Debug, Error)]
+pub enum OsTrySelectError {
+    #[error("Error in IO: {0}.")]
+    IoError(#[from] MachError),
+    #[error("No messages were received and no disconnections occurred.")]
+    Empty,
+}
+
 pub fn channel() -> Result<(OsIpcSender, OsIpcReceiver), MachError> {
     let receiver = OsIpcReceiver::new()?;
     let sender = receiver.sender()?;
@@ -124,7 +137,7 @@ pub fn channel() -> Result<(OsIpcSender, OsIpcReceiver), MachError> {
     Ok((sender, receiver))
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(Debug)]
 pub struct OsIpcReceiver {
     port: Cell<mach_port_t>,
 }
@@ -265,7 +278,14 @@ impl OsIpcReceiver {
             let mut os_result;
             let mut name;
             loop {
-                name = format!("{}{}", BOOTSTRAP_PREFIX, rand::thread_rng().gen::<i64>());
+                name = format!(
+                    "{}{}",
+                    BOOTSTRAP_PREFIX
+                        .get()
+                        .map(AsRef::as_ref)
+                        .unwrap_or_else(|| "org.rust-lang.ipc-channel."),
+                    rand::thread_rng().gen::<i64>()
+                );
                 let c_name = CString::new(name.clone()).unwrap();
                 os_result = bootstrap_register2(bootstrap_port, c_name.as_ptr(), right, 0);
                 if os_result == BOOTSTRAP_NAME_IN_USE {
@@ -365,7 +385,7 @@ impl<'a> From<&'a [u8]> for SendData<'a> {
     }
 }
 
-impl<'a> SendData<'a> {
+impl SendData<'_> {
     fn take_shared_memory(&mut self) -> Option<OsIpcSharedMemory> {
         match *self {
             SendData::Inline(_) => None,
@@ -388,7 +408,7 @@ impl<'a> SendData<'a> {
     }
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(Debug)]
 pub struct OsIpcSender {
     port: mach_port_t,
 }
@@ -564,7 +584,7 @@ impl OsIpcChannel {
     }
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(Debug)]
 pub struct OsOpaqueIpcChannel {
     port: mach_port_t,
 }
@@ -614,7 +634,31 @@ impl OsIpcReceiverSet {
     }
 
     pub fn select(&mut self) -> Result<Vec<OsIpcSelectionResult>, MachError> {
-        let result = select(self.port, BlockingMode::Blocking);
+        self.selection_results(select(self.port, BlockingMode::Blocking))
+            .map_err(|e| {
+                if let OsTrySelectError::IoError(e) = e {
+                    e
+                } else {
+                    panic!("Blocking select produced RcvTimedOut")
+                }
+            })
+    }
+
+    pub fn try_select(&mut self) -> Result<Vec<OsIpcSelectionResult>, OsTrySelectError> {
+        self.selection_results(select(self.port, BlockingMode::Nonblocking))
+    }
+
+    pub fn try_select_timeout(
+        &mut self,
+        duration: Duration,
+    ) -> Result<Vec<OsIpcSelectionResult>, OsTrySelectError> {
+        self.selection_results(select(self.port, BlockingMode::Timeout(duration)))
+    }
+
+    fn selection_results(
+        &mut self,
+        result: Result<OsIpcSelectionResult, MachError>,
+    ) -> Result<Vec<OsIpcSelectionResult>, OsTrySelectError> {
         if let Ok(OsIpcSelectionResult::ChannelClosed(mach_port)) = result {
             let index = self
                 .ports
@@ -622,8 +666,12 @@ impl OsIpcReceiverSet {
                 .position(|port| port.extract_port() as u64 == mach_port)
                 .expect("Port must be present for error to occur");
             let _ = self.ports.swap_remove(index);
+        } else if let Err(MachError::RcvTimedOut) = result {
+            return Err(OsTrySelectError::Empty);
         }
-        result.map(|result| vec![result])
+        result
+            .map(|result| vec![result])
+            .map_err(OsTrySelectError::IoError)
     }
 }
 
@@ -899,6 +947,10 @@ impl OsIpcSharedMemory {
         }
         unsafe { slice::from_raw_parts_mut(self.ptr, self.length) }
     }
+
+    pub fn take(self) -> Option<Vec<u8>> {
+        Some((*self).to_vec())
+    }
 }
 
 impl OsIpcSharedMemory {
@@ -988,42 +1040,27 @@ impl Message {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, Error, PartialEq)]
 pub enum KernelError {
+    #[error("Success.")]
     Success,
+    #[error("No room in IPC name space for another right.")]
     NoSpace,
+    #[error("Name doesn't denote a right in the task.")]
     InvalidName,
+    #[error("Name denotes a right, but not an appropiate right.")]
     InvalidRight,
+    #[error("Blatant range error.")]
     InvalidValue,
+    #[error("The supplied (port) capability is improper.")]
     InvalidCapability,
+    #[error("Operation would overflow limit on user-references.")]
     UrefsOverflow,
+    #[error("Receive right is not a member of a port set.")]
     NotInSet,
+    #[error("Unkown kernel error. {0}.")]
     Unknown(kern_return_t),
 }
-
-impl fmt::Display for KernelError {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            KernelError::Success => write!(fmt, "Success."),
-            KernelError::NoSpace => write!(fmt, "No room in IPC name space for another right."),
-            KernelError::InvalidName => write!(fmt, "Name doesn't denote a right in the task."),
-            KernelError::InvalidRight => {
-                write!(fmt, "Name denotes a right, but not an appropriate right.")
-            },
-            KernelError::InvalidValue => write!(fmt, "Blatant range error."),
-            KernelError::InvalidCapability => {
-                write!(fmt, "The supplied (port) capability is improper.")
-            },
-            KernelError::UrefsOverflow => {
-                write!(fmt, "Operation would overflow limit on user-references.")
-            },
-            KernelError::NotInSet => write!(fmt, "Receive right is not a member of a port set."),
-            KernelError::Unknown(code) => write!(fmt, "Unknown kernel error: {:x}", code),
-        }
-    }
-}
-
-impl StdError for KernelError {}
 
 impl From<kern_return_t> for KernelError {
     fn from(code: kern_return_t) -> KernelError {
@@ -1041,10 +1078,10 @@ impl From<kern_return_t> for KernelError {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, Error, PartialEq)]
 pub enum MachError {
     Success,
-    Kernel(KernelError),
+    Kernel(#[from] KernelError),
     IpcSpace,
     VmSpace,
     IpcKernel,
@@ -1176,14 +1213,6 @@ impl fmt::Display for MachError {
     }
 }
 
-impl StdError for MachError {}
-
-impl From<MachError> for bincode::Error {
-    fn from(mach_error: MachError) -> Self {
-        io::Error::from(mach_error).into()
-    }
-}
-
 impl From<mach_msg_return_t> for MachError {
     fn from(code: mach_msg_return_t) -> MachError {
         match code {
@@ -1231,27 +1260,23 @@ impl From<mach_msg_return_t> for MachError {
     }
 }
 
-impl From<KernelError> for MachError {
-    fn from(kernel_error: KernelError) -> MachError {
-        MachError::Kernel(kernel_error)
-    }
-}
-
-impl From<MachError> for ipc::TryRecvError {
+impl From<MachError> for crate::TryRecvError {
     fn from(error: MachError) -> Self {
         match error {
-            MachError::NotifyNoSenders => ipc::TryRecvError::IpcError(ipc::IpcError::Disconnected),
-            MachError::RcvTimedOut => ipc::TryRecvError::Empty,
-            e => ipc::TryRecvError::IpcError(ipc::IpcError::Io(io::Error::from(e))),
+            MachError::NotifyNoSenders => {
+                crate::TryRecvError::IpcError(crate::IpcError::Disconnected)
+            },
+            MachError::RcvTimedOut => crate::TryRecvError::Empty,
+            e => crate::TryRecvError::IpcError(crate::IpcError::Io(io::Error::from(e))),
         }
     }
 }
 
-impl From<MachError> for ipc::IpcError {
+impl From<MachError> for crate::IpcError {
     fn from(error: MachError) -> Self {
         match error {
-            MachError::NotifyNoSenders => ipc::IpcError::Disconnected,
-            e => ipc::IpcError::Io(io::Error::from(e)),
+            MachError::NotifyNoSenders => crate::IpcError::Disconnected,
+            e => crate::IpcError::Io(io::Error::from(e)),
         }
     }
 }

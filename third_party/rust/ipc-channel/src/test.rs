@@ -42,7 +42,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use crate::ipc::IpcOneShotServer;
 #[cfg(not(any(feature = "force-inprocess", target_os = "android", target_os = "ios")))]
 use crate::ipc::IpcReceiver;
-use crate::ipc::{self, IpcReceiverSet, IpcSender, IpcSharedMemory};
+use crate::ipc::{self, IpcReceiverSet, IpcSelectionResult, IpcSender, IpcSharedMemory};
 use crate::router::{RouterProxy, ROUTER};
 
 #[cfg(not(any(
@@ -129,7 +129,22 @@ fn simple() {
     assert_eq!(person, received_person);
     drop(tx);
     match rx.recv().unwrap_err() {
-        ipc::IpcError::Disconnected => (),
+        crate::IpcError::Disconnected => (),
+        e => panic!("expected disconnected error, got {e:?}"),
+    }
+}
+
+#[test]
+// Messages sent before a channel is disconnected should be received before
+// recv returns the disconnected error.
+fn disconnect_non_empty_channel() {
+    let person = ("Patrick Walton".to_owned(), 29);
+    let (tx, rx) = ipc::channel().unwrap();
+    tx.send(person.clone()).unwrap();
+    drop(tx);
+    assert_eq!(rx.recv().unwrap(), person);
+    match rx.recv().unwrap_err() {
+        crate::IpcError::Disconnected => (),
         e => panic!("expected disconnected error, got {e:?}"),
     }
 }
@@ -215,6 +230,106 @@ fn select() {
     }
 }
 
+#[test]
+fn try_select() {
+    let (tx, rx) = ipc::channel().unwrap();
+    let mut rx_set = IpcReceiverSet::new().unwrap();
+    let rx_id = rx_set.add(rx).unwrap();
+
+    match rx_set.try_select() {
+        Err(crate::TrySelectError::Empty) => (),
+        v => panic!("Expected empty select err: {v:?}"),
+    }
+
+    let person = ("Jane Austen".to_owned(), 41);
+    tx.send(person.clone()).unwrap();
+    let (received_id, received_data) = rx_set
+        .try_select()
+        .unwrap()
+        .into_iter()
+        .next()
+        .unwrap()
+        .unwrap();
+    let received_person: Person = received_data.to().unwrap();
+    assert_eq!(received_id, rx_id);
+    assert_eq!(received_person, person);
+
+    match rx_set.try_select() {
+        Err(crate::TrySelectError::Empty) => (),
+        v => panic!("Expected empty select err: {v:?}"),
+    }
+
+    drop(tx);
+    let selection_result = rx_set.try_select().unwrap().into_iter().next().unwrap();
+    if let IpcSelectionResult::ChannelClosed(closed_id) = selection_result {
+        assert_eq!(closed_id, rx_id);
+    } else {
+        panic!("Expected channel closed event: {selection_result:?}");
+    }
+
+    match rx_set.try_select() {
+        Err(crate::TrySelectError::Empty) => (),
+        v => panic!("Expected empty select err: {v:?}"),
+    }
+}
+
+#[test]
+fn try_select_timeout() {
+    let (tx, rx) = ipc::channel().unwrap();
+    let mut rx_set = IpcReceiverSet::new().unwrap();
+    let rx_id = rx_set.add(rx).unwrap();
+
+    let timeout = Duration::from_millis(10);
+    let start_select = Instant::now();
+    match rx_set.try_select_timeout(timeout) {
+        Err(crate::TrySelectError::Empty) => {
+            assert!(start_select.elapsed() >= timeout)
+        },
+        v => panic!("Expected empty select err: {v:?}"),
+    }
+
+    let person = ("Jane Austen".to_owned(), 41);
+    tx.send(person.clone()).unwrap();
+    let start_select = Instant::now();
+    let (received_id, received_data) = rx_set
+        .try_select()
+        .unwrap()
+        .into_iter()
+        .next()
+        .unwrap()
+        .unwrap();
+    assert!(start_select.elapsed() < timeout);
+    let received_person: Person = received_data.to().unwrap();
+    assert_eq!(received_id, rx_id);
+    assert_eq!(received_person, person);
+
+    let start_select = Instant::now();
+    match rx_set.try_select_timeout(timeout) {
+        Err(crate::TrySelectError::Empty) => {
+            assert!(start_select.elapsed() >= timeout)
+        },
+        v => panic!("Expected empty select err: {v:?}"),
+    }
+
+    drop(tx);
+    let start_select = Instant::now();
+    let selection_result = rx_set.try_select().unwrap().into_iter().next().unwrap();
+    assert!(start_select.elapsed() < timeout);
+    if let IpcSelectionResult::ChannelClosed(closed_id) = selection_result {
+        assert_eq!(closed_id, rx_id);
+    } else {
+        panic!("Expected channel closed event: {selection_result:?}");
+    }
+
+    let start_select = Instant::now();
+    match rx_set.try_select_timeout(timeout) {
+        Err(crate::TrySelectError::Empty) => {
+            assert!(start_select.elapsed() >= timeout)
+        },
+        v => panic!("Expected empty select err: {v:?}"),
+    }
+}
+
 #[cfg(not(any(feature = "force-inprocess", target_os = "android", target_os = "ios")))]
 #[test]
 fn cross_process_embedded_senders_spawn() {
@@ -274,11 +389,10 @@ fn router_simple_global() {
     tx.send(person.clone()).unwrap();
 
     let (callback_fired_sender, callback_fired_receiver) = crossbeam_channel::unbounded::<Person>();
-    #[allow(deprecated)]
-    ROUTER.add_route(
-        rx.to_opaque(),
+    ROUTER.add_typed_route(
+        rx,
         Box::new(move |person| {
-            callback_fired_sender.send(person.to().unwrap()).unwrap();
+            callback_fired_sender.send(person.unwrap()).unwrap();
         }),
     );
     let received_person = callback_fired_receiver.recv().unwrap();
@@ -355,6 +469,29 @@ fn router_routing_to_new_crossbeam_receiver() {
     let crossbeam_receiver = router.route_ipc_receiver_to_new_crossbeam_receiver(rx);
     let received_person = crossbeam_receiver.recv().unwrap();
     assert_eq!(received_person, person);
+}
+
+#[test]
+fn router_once_handler() {
+    let person = ("Patrick Walton".to_owned(), 29);
+    let (tx, rx) = ipc::channel().unwrap();
+    let (tx2, rx2) = ipc::channel().unwrap();
+
+    let router = RouterProxy::new();
+    let mut once_tx2 = Some(tx2);
+    router.add_typed_one_shot_route(
+        rx,
+        Box::new(move |_msg| once_tx2.take().unwrap().send(()).unwrap()),
+    );
+
+    // Send one single event.
+    tx.send(person.clone()).unwrap();
+    // Wait for acknowledgement that the callback ran.
+    rx2.recv().unwrap();
+    // This send should succeed but no handler should run. If it does run,
+    // a panic will occur.
+    tx.send(person.clone()).unwrap();
+    assert!(rx2.recv().is_err());
 }
 
 #[test]
@@ -521,6 +658,24 @@ fn shared_memory_object_equality() {
 }
 
 #[test]
+fn shared_memory_take() {
+    let shared_memory = IpcSharedMemory::from_bytes(&[0xba; 1024 * 1024]);
+    let (tx, rx) = ipc::channel().unwrap();
+    tx.send(shared_memory).unwrap();
+    let received = rx.recv().unwrap();
+    assert_eq!(received.take(), Some([0xba; 1024 * 1024].to_vec()));
+}
+
+#[test]
+fn shared_memory_take_empty() {
+    let shared_memory = IpcSharedMemory::from_bytes(&[]);
+    let (tx, rx) = ipc::channel().unwrap();
+    tx.send(shared_memory).unwrap();
+    let received = rx.recv().unwrap();
+    assert_eq!(received.take(), Some([].to_vec()));
+}
+
+#[test]
 fn opaque_sender() {
     let person = ("Patrick Walton".to_owned(), 29);
     let (tx, rx) = ipc::channel().unwrap();
@@ -554,19 +709,19 @@ fn try_recv() {
     let person = ("Patrick Walton".to_owned(), 29);
     let (tx, rx) = ipc::channel().unwrap();
     match rx.try_recv() {
-        Err(ipc::TryRecvError::Empty) => (),
+        Err(crate::TryRecvError::Empty) => (),
         v => panic!("Expected empty channel err: {v:?}"),
     }
     tx.send(person.clone()).unwrap();
     let received_person = rx.try_recv().unwrap();
     assert_eq!(person, received_person);
     match rx.try_recv() {
-        Err(ipc::TryRecvError::Empty) => (),
+        Err(crate::TryRecvError::Empty) => (),
         v => panic!("Expected empty channel err: {v:?}"),
     }
     drop(tx);
     match rx.try_recv() {
-        Err(ipc::TryRecvError::IpcError(ipc::IpcError::Disconnected)) => (),
+        Err(crate::TryRecvError::IpcError(crate::IpcError::Disconnected)) => (),
         v => panic!("Expected disconnected err: {v:?}"),
     }
 }
@@ -578,7 +733,7 @@ fn try_recv_timeout() {
     let timeout = Duration::from_millis(1000);
     let start_recv = Instant::now();
     match rx.try_recv_timeout(timeout) {
-        Err(ipc::TryRecvError::Empty) => {
+        Err(crate::TryRecvError::Empty) => {
             assert!(start_recv.elapsed() >= Duration::from_millis(500))
         },
         v => panic!("Expected empty channel err: {v:?}"),
@@ -590,14 +745,14 @@ fn try_recv_timeout() {
     assert_eq!(person, received_person);
     let start_recv = Instant::now();
     match rx.try_recv_timeout(timeout) {
-        Err(ipc::TryRecvError::Empty) => {
+        Err(crate::TryRecvError::Empty) => {
             assert!(start_recv.elapsed() >= Duration::from_millis(500))
         },
         v => panic!("Expected empty channel err: {v:?}"),
     }
     drop(tx);
     match rx.try_recv_timeout(timeout) {
-        Err(ipc::TryRecvError::IpcError(ipc::IpcError::Disconnected)) => (),
+        Err(crate::TryRecvError::IpcError(crate::IpcError::Disconnected)) => (),
         v => panic!("Expected disconnected err: {v:?}"),
     }
 }

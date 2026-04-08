@@ -7,21 +7,27 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use crate::ipc::{self, IpcMessage};
-use bincode;
+use crate::ipc::IpcMessage;
 use crossbeam_channel::{self, Receiver, RecvTimeoutError, Select, Sender, TryRecvError};
 use std::cell::{Ref, RefCell};
 use std::cmp::PartialEq;
 use std::collections::hash_map::HashMap;
-use std::error::Error as StdError;
 use std::fmt::{self, Debug, Formatter};
 use std::io;
 use std::ops::{Deref, RangeFrom};
-use std::ptr::eq;
 use std::slice;
 use std::sync::{Arc, LazyLock, Mutex};
 use std::time::Duration;
+use thiserror::Error;
 use uuid::Uuid;
+
+#[derive(Debug, Error)]
+pub enum OsTrySelectError {
+    #[error("Error in IO: {0}.")]
+    IoError(#[from] ChannelError),
+    #[error("No messages were received and no disconnections occurred.")]
+    Empty,
+}
 
 #[derive(Clone)]
 struct ServerRecord {
@@ -65,13 +71,6 @@ pub fn channel() -> Result<(OsIpcSender, OsIpcReceiver), ChannelError> {
 #[derive(Debug)]
 pub struct OsIpcReceiver {
     receiver: RefCell<Option<crossbeam_channel::Receiver<ChannelMessage>>>,
-}
-
-impl PartialEq for OsIpcReceiver {
-    fn eq(&self, other: &OsIpcReceiver) -> bool {
-        self.receiver.borrow().as_ref().map(|rx| rx as *const _)
-            == other.receiver.borrow().as_ref().map(|rx| rx as *const _)
-    }
 }
 
 impl OsIpcReceiver {
@@ -124,13 +123,6 @@ impl OsIpcReceiver {
 #[derive(Clone, Debug)]
 pub struct OsIpcSender {
     sender: Sender<ChannelMessage>,
-}
-
-impl PartialEq for OsIpcSender {
-    fn eq(&self, other: &OsIpcSender) -> bool {
-        // FIXME: this implementation is wrong: https://github.com/servo/ipc-channel/issues/414
-        eq(&self.sender as *const _, &other.sender as *const _)
-    }
 }
 
 impl OsIpcSender {
@@ -219,6 +211,92 @@ impl OsIpcReceiverSet {
         self.receiver_ids.remove(r_index);
         Ok(vec![OsIpcSelectionResult::ChannelClosed(r_id)])
     }
+
+    pub fn try_select(&mut self) -> Result<Vec<OsIpcSelectionResult>, OsTrySelectError> {
+        if self.receivers.is_empty() {
+            return Err(OsTrySelectError::Empty);
+        }
+
+        struct Remove(usize, u64);
+
+        // FIXME: Remove early returns and explicitly drop `borrows` when lifetimes are non-lexical
+        let Remove(r_index, r_id) = {
+            let borrows: Vec<_> = self
+                .receivers
+                .iter()
+                .map(|r| Ref::map(r.receiver.borrow(), |o| o.as_ref().unwrap()))
+                .collect();
+
+            let mut select = Select::new();
+            for r in &borrows {
+                select.recv(r);
+            }
+            let res = select.try_select();
+            if res.is_err() {
+                return Err(OsTrySelectError::Empty);
+            }
+            let res = res.unwrap();
+            let receiver_index = res.index();
+            let receiver_id = self.receiver_ids[receiver_index];
+            if let Ok(ChannelMessage(ipc_message)) = res.recv(&borrows[receiver_index]) {
+                return Ok(vec![OsIpcSelectionResult::DataReceived(
+                    receiver_id,
+                    ipc_message,
+                )]);
+            } else {
+                Remove(receiver_index, receiver_id)
+            }
+        };
+        self.receivers.remove(r_index);
+        self.receiver_ids.remove(r_index);
+        Ok(vec![OsIpcSelectionResult::ChannelClosed(r_id)])
+    }
+
+    pub fn try_select_timeout(
+        &mut self,
+        duration: Duration,
+    ) -> Result<Vec<OsIpcSelectionResult>, OsTrySelectError> {
+        if self.receivers.is_empty() {
+            std::thread::sleep(duration);
+            // The set is still empty since the current method is &mut self amd receivers
+            // does not have interior mutability.
+            return Err(OsTrySelectError::Empty);
+        }
+
+        struct Remove(usize, u64);
+
+        // FIXME: Remove early returns and explicitly drop `borrows` when lifetimes are non-lexical
+        let Remove(r_index, r_id) = {
+            let borrows: Vec<_> = self
+                .receivers
+                .iter()
+                .map(|r| Ref::map(r.receiver.borrow(), |o| o.as_ref().unwrap()))
+                .collect();
+
+            let mut select = Select::new();
+            for r in &borrows {
+                select.recv(r);
+            }
+            let res = select.select_timeout(duration);
+            if res.is_err() {
+                return Err(OsTrySelectError::Empty);
+            }
+            let res = res.unwrap();
+            let receiver_index = res.index();
+            let receiver_id = self.receiver_ids[receiver_index];
+            if let Ok(ChannelMessage(ipc_message)) = res.recv(&borrows[receiver_index]) {
+                return Ok(vec![OsIpcSelectionResult::DataReceived(
+                    receiver_id,
+                    ipc_message,
+                )]);
+            } else {
+                Remove(receiver_index, receiver_id)
+            }
+        };
+        self.receivers.remove(r_index);
+        self.receiver_ids.remove(r_index);
+        Ok(vec![OsIpcSelectionResult::ChannelClosed(r_id)])
+    }
 }
 
 pub enum OsIpcSelectionResult {
@@ -275,13 +353,13 @@ impl OsIpcOneShotServer {
     }
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(Debug)]
 pub enum OsIpcChannel {
     Sender(OsIpcSender),
     Receiver(OsIpcReceiver),
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(Debug)]
 pub struct OsOpaqueIpcChannel {
     channel: RefCell<Option<OsIpcChannel>>,
 }
@@ -364,6 +442,10 @@ impl OsIpcSharedMemory {
         }
         unsafe { slice::from_raw_parts_mut(self.ptr, self.length) }
     }
+
+    pub fn take(self) -> Option<Vec<u8>> {
+        Arc::into_inner(self.data)
+    }
 }
 
 impl OsIpcSharedMemory {
@@ -386,11 +468,15 @@ impl OsIpcSharedMemory {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Error)]
 pub enum ChannelError {
+    #[error("Channel Closed.")]
     ChannelClosedError,
+    #[error("Broken Pipe.")]
     BrokenPipeError,
+    #[error("Channel Empty.")]
     ChannelEmpty,
+    #[error("Unknown Error.")]
     UnknownError,
 }
 
@@ -401,42 +487,23 @@ impl ChannelError {
     }
 }
 
-impl fmt::Display for ChannelError {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            ChannelError::ChannelClosedError => write!(fmt, "channel closed"),
-            ChannelError::BrokenPipeError => write!(fmt, "broken pipe"),
-            ChannelError::ChannelEmpty => write!(fmt, "channel empty"),
-            ChannelError::UnknownError => write!(fmt, "unknown error"),
-        }
-    }
-}
-
-impl StdError for ChannelError {}
-
-impl From<ChannelError> for bincode::Error {
-    fn from(crossbeam_error: ChannelError) -> Self {
-        io::Error::from(crossbeam_error).into()
-    }
-}
-
-impl From<ChannelError> for ipc::IpcError {
+impl From<ChannelError> for crate::IpcError {
     fn from(error: ChannelError) -> Self {
         match error {
-            ChannelError::ChannelClosedError => ipc::IpcError::Disconnected,
-            e => ipc::IpcError::Bincode(io::Error::from(e).into()),
+            ChannelError::ChannelClosedError => crate::IpcError::Disconnected,
+            e => crate::IpcError::Io(io::Error::from(e)),
         }
     }
 }
 
-impl From<ChannelError> for ipc::TryRecvError {
+impl From<ChannelError> for crate::TryRecvError {
     fn from(error: ChannelError) -> Self {
         match error {
             ChannelError::ChannelClosedError => {
-                ipc::TryRecvError::IpcError(ipc::IpcError::Disconnected)
+                crate::TryRecvError::IpcError(crate::IpcError::Disconnected)
             },
-            ChannelError::ChannelEmpty => ipc::TryRecvError::Empty,
-            e => ipc::TryRecvError::IpcError(ipc::IpcError::Bincode(io::Error::from(e).into())),
+            ChannelError::ChannelEmpty => crate::TryRecvError::Empty,
+            e => crate::TryRecvError::IpcError(crate::IpcError::Io(io::Error::from(e))),
         }
     }
 }

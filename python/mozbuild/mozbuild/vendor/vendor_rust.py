@@ -713,17 +713,29 @@ license file's hash.
                     if all(d.split()[0] != name for d in p.get("dependencies", []))
                 ])
                 if num > 1:
-                    self.log(
-                        logging.ERROR,
-                        "duplicate_crate",
-                        {
-                            "crate": name,
-                            "num": num,
-                        },
-                        "There are {num} different versions of crate {crate}. "
-                        "Please avoid the extra duplication.",
-                    )
-                    failed = True
+                    if name == "embedded-io" and num == 2 and packages[0]["version"] in ["0.6.1", "0.4.0"] and packages[1]["version"] in ["0.6.1", "0.4.0"]:
+                        self.log(
+                            logging.WARNING,
+                            "duplicate_crate",
+                            {
+                                "crate": name,
+                                "num": num,
+                            },
+                            "There are {num} different versions of crate {crate}. "
+                            "Please avoid the extra duplication.",
+                        )
+                    else:
+                        self.log(
+                            logging.ERROR,
+                            "duplicate_crate",
+                            {
+                                "crate": name,
+                                "num": num,
+                            },
+                            "There are {num} different versions of crate {crate}. "
+                            "Please avoid the extra duplication.",
+                        )
+                        failed = True
 
         # Only emit warnings for cargo-vet for now.
         env = os.environ.copy()

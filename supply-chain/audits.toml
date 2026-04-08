@@ -3817,7 +3817,13 @@ notes = "Crate update"
 [[audits.ipc-channel]]
 who = "Alexandre Lissy <lissyx+mozillians@lissyx.dyndns.org>"
 criteria = "safe-to-deploy"
-delta = "0.20.2 -> 0.20.2@git:f2b5aed36a60f07589579d31aaace2f90d2e5e9e"
+delta = "0.20.2 -> 0.21.0"
+notes = "New upstream release"
+
+[[audits.ipc-channel]]
+who = "Alexandre Lissy <lissyx+mozillians@lissyx.dyndns.org>"
+criteria = "safe-to-deploy"
+delta = "0.21.0 -> 0.21.0@git:153a436dc3861d6e42ab35480cb189f8f73b3d73"
 importable = false
 
 [[audits.itertools]]

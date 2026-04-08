@@ -7,6 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+use crate::error::SerDeError;
 use crate::ipc::{
     self, IpcMessage, IpcReceiver, IpcReceiverSet, IpcSelectionResult, IpcSender, OpaqueIpcReceiver,
 };
@@ -16,8 +17,7 @@ use futures_core::stream::FusedStream;
 use futures_core::task::Context;
 use futures_core::task::Poll;
 use futures_core::Stream;
-use serde::Deserialize;
-use serde::Serialize;
+use serde_core::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::pin::Pin;
@@ -96,7 +96,7 @@ impl<T> Stream for IpcStream<T>
 where
     T: for<'de> Deserialize<'de> + Serialize,
 {
-    type Item = Result<T, bincode::Error>;
+    type Item = Result<T, SerDeError>;
 
     fn poll_next(mut self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Option<Self::Item>> {
         let recv = Pin::new(&mut self.0);

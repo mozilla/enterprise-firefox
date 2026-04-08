@@ -7,20 +7,20 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+use crate::error::SerDeError;
 use crate::platform::{self, OsIpcChannel, OsIpcReceiver, OsIpcReceiverSet, OsIpcSender};
 use crate::platform::{
     OsIpcOneShotServer, OsIpcSelectionResult, OsIpcSharedMemory, OsOpaqueIpcChannel,
+    OsTrySelectError,
 };
+use crate::{IpcError, TryRecvError, TrySelectError};
 
-use bincode;
-use serde::{de::Error, Deserialize, Deserializer, Serialize, Serializer};
+use serde_core::{de::Error, Deserialize, Deserializer, Serialize, Serializer};
 use std::cell::RefCell;
 use std::cmp::min;
-use std::error::Error as StdError;
 use std::fmt::{self, Debug, Formatter};
 use std::io;
 use std::marker::PhantomData;
-use std::mem;
 use std::ops::Deref;
 use std::time::Duration;
 
@@ -35,57 +35,6 @@ thread_local! {
 
     static OS_IPC_SHARED_MEMORY_REGIONS_FOR_SERIALIZATION: RefCell<Vec<OsIpcSharedMemory>> =
         const { RefCell::new(Vec::new()) }
-}
-
-#[derive(Debug)]
-pub enum IpcError {
-    Bincode(bincode::Error),
-    Io(io::Error),
-    Disconnected,
-}
-
-impl fmt::Display for IpcError {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            IpcError::Bincode(ref err) => write!(fmt, "bincode error: {err}"),
-            IpcError::Io(ref err) => write!(fmt, "io error: {err}"),
-            IpcError::Disconnected => write!(fmt, "disconnected"),
-        }
-    }
-}
-
-impl StdError for IpcError {
-    fn source(&self) -> Option<&(dyn StdError + 'static)> {
-        match *self {
-            IpcError::Bincode(ref err) => Some(err),
-            IpcError::Io(ref err) => Some(err),
-            IpcError::Disconnected => None,
-        }
-    }
-}
-
-#[derive(Debug)]
-pub enum TryRecvError {
-    IpcError(IpcError),
-    Empty,
-}
-
-impl fmt::Display for TryRecvError {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            TryRecvError::IpcError(ref err) => write!(fmt, "ipc error: {err}"),
-            TryRecvError::Empty => write!(fmt, "empty"),
-        }
-    }
-}
-
-impl StdError for TryRecvError {
-    fn source(&self) -> Option<&(dyn StdError + 'static)> {
-        match *self {
-            TryRecvError::IpcError(ref err) => Some(err),
-            TryRecvError::Empty => None,
-        }
-    }
 }
 
 /// Create a connected [IpcSender] and [IpcReceiver] that
@@ -248,15 +197,18 @@ where
 {
     /// Blocking receive.
     pub fn recv(&self) -> Result<T, IpcError> {
-        self.os_receiver.recv()?.to().map_err(IpcError::Bincode)
+        self.os_receiver
+            .recv()?
+            .to()
+            .map_err(IpcError::SerializationError)
     }
 
-    /// Non-blocking receive
+    /// Non-blocking receive.
     pub fn try_recv(&self) -> Result<T, TryRecvError> {
         self.os_receiver
             .try_recv()?
             .to()
-            .map_err(IpcError::Bincode)
+            .map_err(IpcError::SerializationError)
             .map_err(TryRecvError::IpcError)
     }
 
@@ -270,7 +222,7 @@ where
         self.os_receiver
             .try_recv_timeout(duration)?
             .to()
-            .map_err(IpcError::Bincode)
+            .map_err(IpcError::SerializationError)
             .map_err(TryRecvError::IpcError)
     }
 
@@ -364,29 +316,14 @@ where
     }
 
     /// Send data across the channel to the receiver.
-    pub fn send(&self, data: T) -> Result<(), bincode::Error> {
-        let mut bytes = Vec::with_capacity(4096);
+    pub fn send(&self, data: T) -> Result<(), IpcError> {
         OS_IPC_CHANNELS_FOR_SERIALIZATION.with(|os_ipc_channels_for_serialization| {
             OS_IPC_SHARED_MEMORY_REGIONS_FOR_SERIALIZATION.with(
                 |os_ipc_shared_memory_regions_for_serialization| {
-                    let old_os_ipc_channels =
-                        mem::take(&mut *os_ipc_channels_for_serialization.borrow_mut());
-                    let old_os_ipc_shared_memory_regions = mem::take(
-                        &mut *os_ipc_shared_memory_regions_for_serialization.borrow_mut(),
-                    );
-                    let os_ipc_shared_memory_regions;
-                    let os_ipc_channels;
-                    {
-                        bincode::serialize_into(&mut bytes, &data)?;
-                        os_ipc_channels = mem::replace(
-                            &mut *os_ipc_channels_for_serialization.borrow_mut(),
-                            old_os_ipc_channels,
-                        );
-                        os_ipc_shared_memory_regions = mem::replace(
-                            &mut *os_ipc_shared_memory_regions_for_serialization.borrow_mut(),
-                            old_os_ipc_shared_memory_regions,
-                        );
-                    };
+                    let bytes = postcard::to_stdvec(&data).map_err(SerDeError)?;
+                    let os_ipc_channels = os_ipc_channels_for_serialization.take();
+                    let os_ipc_shared_memory_regions =
+                        os_ipc_shared_memory_regions_for_serialization.take();
                     Ok(self.os_sender.send(
                         &bytes[..],
                         os_ipc_channels,
@@ -511,6 +448,80 @@ impl IpcReceiverSet {
                 },
             })
             .collect())
+    }
+
+    /// Non-blocking attempt to receive IPC messages on any of the receivers in the set.
+    ///
+    /// If at least one message is received and/or a disconnection of at least one of the
+    /// receivers in the set occurs, these events are returned. An event is either a
+    /// message received or a channel closed event.
+    ///
+    /// If no messages are received and no disconnection of a receiver in the set occurs,
+    /// TrySelectError::Empty is returned.
+    pub fn try_select(&mut self) -> Result<Vec<IpcSelectionResult>, TrySelectError> {
+        let results: Vec<OsIpcSelectionResult> =
+            self.os_receiver_set.try_select().map_err(|e| match e {
+                OsTrySelectError::IoError(e) => TrySelectError::IoError(e.into()),
+                OsTrySelectError::Empty => TrySelectError::Empty,
+            })?;
+        let results = results
+            .into_iter()
+            .map(|result| match result {
+                OsIpcSelectionResult::DataReceived(os_receiver_id, ipc_message) => {
+                    IpcSelectionResult::MessageReceived(os_receiver_id, ipc_message)
+                },
+                OsIpcSelectionResult::ChannelClosed(os_receiver_id) => {
+                    IpcSelectionResult::ChannelClosed(os_receiver_id)
+                },
+            })
+            .collect::<Vec<IpcSelectionResult>>();
+        Ok(results)
+    }
+
+    /// Blocks for up to the specified duration attempting to receive IPC messages on any
+    /// of the receivers in the set.
+    ///
+    /// If, within the specified duration, at least one message is received and/or a
+    /// disconnection of at least one of the receivers in the set occurs, these events are
+    /// returned. An event is either a message received or a channel closed event.
+    ///
+    /// If, within the specified duration, no message are received and no disconnection of
+    /// a receiver in the set occurs, TrySelectError::Empty is returned.
+    ///
+    /// This may block for longer than the specified duration if any of the IPC channels in
+    /// the set are busy.
+    ///
+    /// If the specified duration exceeds the duration that your operating system can
+    /// represent in milliseconds, this may block forever. At the time of writing, the
+    /// smallest duration that may trigger this behavior is over 24 days.
+    pub fn try_select_timeout(
+        &mut self,
+        duration: Duration,
+    ) -> Result<Vec<IpcSelectionResult>, TrySelectError> {
+        let results = self
+            .os_receiver_set
+            .try_select_timeout(duration)
+            .map_err(|e| match e {
+                OsTrySelectError::IoError(e) => TrySelectError::IoError(e.into()),
+                OsTrySelectError::Empty => TrySelectError::Empty,
+            })?;
+
+        let results = results
+            .into_iter()
+            .map(|result| match result {
+                OsIpcSelectionResult::DataReceived(os_receiver_id, ipc_message) => {
+                    IpcSelectionResult::MessageReceived(os_receiver_id, ipc_message)
+                },
+                OsIpcSelectionResult::ChannelClosed(os_receiver_id) => {
+                    IpcSelectionResult::ChannelClosed(os_receiver_id)
+                },
+            })
+            .collect::<Vec<IpcSelectionResult>>();
+        if results.is_empty() {
+            Err(TrySelectError::Empty)
+        } else {
+            Ok(results)
+        }
     }
 }
 
@@ -644,11 +655,24 @@ impl IpcSharedMemory {
             }
         }
     }
+
+    /// Takes the bytes from the IpcSharedMemory consuming the IpcSharedMemory.
+    /// This does not make any guarantees what happens to the other IpcSharedMemory that share the same resources.
+    /// Depending on the implementation this might clone the data.
+    pub fn take(mut self) -> Option<Vec<u8>> {
+        if let Some(os_shared_memory) = self.os_shared_memory.take() {
+            os_shared_memory.take()
+        } else {
+            // an empty vector can be taken multiple times.
+            Some(vec![])
+        }
+    }
 }
 
 /// Result for readable events returned from [IpcReceiverSet::select].
 ///
 /// [IpcReceiverSet::select]: struct.IpcReceiverSet.html#method.select
+#[derive(Debug)]
 pub enum IpcSelectionResult {
     /// A message received from the [`IpcReceiver`] in the [`IpcMessage`] form,
     /// identified by the `u64` value.
@@ -684,7 +708,6 @@ impl IpcSelectionResult {
 /// Use the [to] method to deserialize the raw result into the requested type.
 ///
 /// [to]: #method.to
-#[derive(PartialEq)]
 pub struct IpcMessage {
     pub(crate) data: Vec<u8>,
     pub(crate) os_ipc_channels: Vec<OsOpaqueIpcChannel>,
@@ -726,31 +749,27 @@ impl IpcMessage {
     }
 
     /// Deserialize the raw data in the contained message into the inferred type.
-    pub fn to<T>(mut self) -> Result<T, bincode::Error>
+    pub fn to<T>(self) -> Result<T, SerDeError>
     where
         T: for<'de> Deserialize<'de> + Serialize,
     {
         OS_IPC_CHANNELS_FOR_DESERIALIZATION.with(|os_ipc_channels_for_deserialization| {
             OS_IPC_SHARED_MEMORY_REGIONS_FOR_DESERIALIZATION.with(
                 |os_ipc_shared_memory_regions_for_deserialization| {
-                    mem::swap(
-                        &mut *os_ipc_channels_for_deserialization.borrow_mut(),
-                        &mut self.os_ipc_channels,
-                    );
-                    let old_ipc_shared_memory_regions_for_deserialization = mem::replace(
-                        &mut *os_ipc_shared_memory_regions_for_deserialization.borrow_mut(),
-                        self.os_ipc_shared_memory_regions
-                            .into_iter()
-                            .map(Some)
-                            .collect(),
-                    );
-                    let result = bincode::deserialize(&self.data[..]);
-                    *os_ipc_shared_memory_regions_for_deserialization.borrow_mut() =
-                        old_ipc_shared_memory_regions_for_deserialization;
-                    mem::swap(
-                        &mut *os_ipc_channels_for_deserialization.borrow_mut(),
-                        &mut self.os_ipc_channels,
-                    );
+                    // Setup the thread local memory for deserialization to take it.
+                    *os_ipc_channels_for_deserialization.borrow_mut() = self.os_ipc_channels;
+                    *os_ipc_shared_memory_regions_for_deserialization.borrow_mut() = self
+                        .os_ipc_shared_memory_regions
+                        .into_iter()
+                        .map(Some)
+                        .collect();
+
+                    let result = postcard::from_bytes(&self.data).map_err(|e| e.into());
+
+                    // Clear the shared memory
+                    let _ = os_ipc_shared_memory_regions_for_deserialization.take();
+                    let _ = os_ipc_channels_for_deserialization.take();
+
                     /* Error check comes after doing cleanup,
                      * since we need the cleanup both in the success and the error cases. */
                     result
@@ -886,7 +905,7 @@ where
         ))
     }
 
-    pub fn accept(self) -> Result<(IpcReceiver<T>, T), bincode::Error> {
+    pub fn accept(self) -> Result<(IpcReceiver<T>, T), IpcError> {
         let (os_receiver, ipc_message) = self.os_server.accept()?;
         Ok((
             IpcReceiver {
