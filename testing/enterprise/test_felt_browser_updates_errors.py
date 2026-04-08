@@ -33,7 +33,7 @@ class FeltUpdatesErrorHandling(FeltTests):
             if (document.readyState === "complete") {
                 done();
             } else {
-                window.addEventListener("load", done, { once: true });
+                window.addEventListener("load", () => done(), { once: true });
             }
             """
         )
