@@ -3,6 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 browser.jar:
+% content felt %builtin-addons/felt/content/
     builtin-addons/felt/api.js (api.js)
     builtin-addons/felt/background.js (background.js)
     builtin-addons/felt/content/ (content/*)
