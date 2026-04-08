@@ -33,15 +33,16 @@ class EnterpriseTestsBase(MarionetteTestCase):
 
         super().setUp()
 
+        if hasattr(self, "_extra_prefs"):
+            self._saved_required_prefs = deepcopy(self.marionette.instance.required_prefs)
+            self.marionette.instance.required_prefs.update(self._extra_prefs)
+
         if hasattr(self, "_extra_cli_args"):
             self._saved_cli_args = deepcopy(self.marionette.instance.app_args)
             self.marionette.instance.app_args += self._extra_cli_args
 
         self.marionette.quit(in_app=False, clean=True)
         self.marionette.start_session(timeout=60)
-
-        if hasattr(self, "_extra_prefs"):
-            self.marionette.enforce_gecko_prefs(self._extra_prefs)
 
         self._driver = self.marionette
 
@@ -61,6 +62,10 @@ class EnterpriseTestsBase(MarionetteTestCase):
         if hasattr(self, "_saved_cli_args"):
             self.marionette.instance.app_args = deepcopy(self._saved_cli_args)
             del self._saved_cli_args
+
+        if hasattr(self, "_saved_required_prefs"):
+            self.marionette.instance.required_prefs = self._saved_required_prefs
+            del self._saved_required_prefs
 
         del os.environ["MOZ_DISABLE_NONLOCAL_CONNECTIONS"]
 
@@ -116,7 +121,8 @@ class EnterpriseTestsBase(MarionetteTestCase):
         while (not found_marionette_port) and (tries < max_try):
             tries += 1
             found_marionette_port = os.path.isfile(marionette_port_file)
-            time.sleep(0.5)
+            if not found_marionette_port:
+                time.sleep(0.5)
 
         marionette_port = 0
         with open(marionette_port_file) as infile:

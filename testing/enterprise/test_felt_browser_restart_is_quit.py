@@ -47,6 +47,8 @@ class BrowserRestartIsQuit(FeltTests):
             self._logger.info("Received expected UnknownException")
         except NoSuchWindowException:
             self._logger.info("Received expected NoSuchWindowException")
+        except OSError:
+            self._logger.info("Received expected OSError")
         finally:
             self._logger.info(
                 f"Issued restartecting quit underway, checking PID {self._browser_pid}"

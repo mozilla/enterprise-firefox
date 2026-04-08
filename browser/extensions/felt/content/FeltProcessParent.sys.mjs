@@ -135,7 +135,7 @@ export class FeltProcessParent extends JSProcessActorParent {
 
     this.browserObserver = {
       observe(aSubject, aTopic, aData) {
-        console.debug(`FeltExtension: ParentProcess: Received ${aTopic}`);
+        console.error(`FeltExtension: ParentProcess: Received ${aTopic}`);
         switch (aTopic) {
           case "felt-firefox-exiting": {
             gFeltProcessParentInstance.exitReported = true;
@@ -429,7 +429,7 @@ export class FeltProcessParent extends JSProcessActorParent {
         this.proc.exitPromise
           .then(ev => {
             lazy.ConsoleClient.isSessionRefreshBlocked = false;
-            console.debug(`firefox exit: ev`, JSON.stringify(ev));
+            console.error(`firefox exit: ev`, JSON.stringify(ev));
             console.debug(
               `firefox exit: PID:${this.proc.pid} exitCode:${JSON.stringify(this.proc.exitCode)}`
             );
@@ -679,7 +679,7 @@ export class FeltProcessParent extends JSProcessActorParent {
       throw new Error("Logout handling should only happen on FELT side.");
     }
 
-    console.debug(
+    console.error(
       `FeltExtension: Logout (${logoutType}), waiting on ${gFeltProcessParentInstance.proc.pid}`
     );
     gFeltProcessParentInstance.logoutReported = true;
@@ -688,6 +688,9 @@ export class FeltProcessParent extends JSProcessActorParent {
     // Ensure that things are cleared
     const ssoCollectedCookies = gFeltProcessParentInstance.getAllCookies();
     if (ssoCollectedCookies.length) {
+      console.error(
+        "FeltExtension: Logout with unexpected cookies still present."
+      );
       throw new Error("Too many cookies!!");
     }
 

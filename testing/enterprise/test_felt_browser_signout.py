@@ -12,6 +12,7 @@ sys.path.append(os.path.dirname(__file__))
 from base_test import Environment
 from felt_tests import FeltTests
 from marionette_driver.errors import (
+    NoAlertPresentException,
     UnexpectedAlertOpen,
 )
 
@@ -66,14 +67,17 @@ class BaseBrowserSignout(FeltTests):
             pass
 
         self._logger.info("Waiting for the signout dialog to open")
-        alert = self._child_driver.switch_to_alert()
-        # Wait(self._child_driver, 5).until(alert)
+        def wait_for_and_accept_alert(driver):
+            try:
+                driver.switch_to_alert().accept()
+                self._logger.info(
+                    "Signing out the user by clicking the Signout button in the dialog"
+                )
+                return True
+            except NoAlertPresentException:
+                return False
 
-        self._logger.info(
-            "Signing out the user by clicking the Signout button in the dialog"
-        )
-        # This target the primary action, which is clicking the Signout button
-        alert.accept()
+        self._waiter(self._child_driver).until(wait_for_and_accept_alert)
 
         self._child_driver.set_context("content")
 

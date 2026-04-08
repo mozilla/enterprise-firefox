@@ -22,6 +22,7 @@ from base_test import EnterpriseTestsBase
 from felt_consts import firefox_config
 from marionette_driver import expected
 from marionette_driver.by import By
+from marionette_driver.geckoinstance import DesktopInstance, GeckoInstance
 
 
 class SharedString:
@@ -688,6 +689,13 @@ class FeltTestsBase(EnterpriseTestsBase):
             name="enterprise-tests-browser"
         )
         self._logger.info(f"Using browser profile at {self._child_profile_path}")
+        self._write_child_profile_prefs(
+            self._child_profile_path,
+            extra_prefs={
+                "network.captive-portal-service.enabled": False,
+                "enterprise.is_testing": True,
+                },
+        )
 
         # Pref does not like passing '\' ?
         if sys.platform == "win32":
@@ -728,6 +736,27 @@ class FeltTestsBase(EnterpriseTestsBase):
         if hasattr(self, "_child_profile_path"):
             self._logger.info(f"Removing browser profile at {self._child_profile_path}")
             shutil.rmtree(self._child_profile_path, ignore_errors=True)
+
+    def _write_child_profile_prefs(self, profile_path, extra_prefs=None):
+        def pref_value_js(v):
+            if isinstance(v, bool):
+                return "true" if v else "false"
+            if isinstance(v, int):
+                return str(v)
+            return f'"{v}"'
+
+        prefs = {
+            k: v
+            for k, v in {**GeckoInstance.required_prefs, **DesktopInstance.desktop_prefs}.items()
+            if not isinstance(v, str) or "%" not in v
+        }
+        if extra_prefs:
+            prefs.update(extra_prefs)
+        lines = [
+            f'user_pref("{k}", {pref_value_js(v)});\n' for k, v in prefs.items()
+        ]
+        with open(os.path.join(profile_path, "user.js"), "w") as f:
+            f.writelines(lines)
 
     def set_string_pref(self, pref_name, pref_value):
         self._logger.info(f"Setting {pref_name} to {pref_value}")
