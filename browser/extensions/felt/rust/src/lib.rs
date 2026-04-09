@@ -77,6 +77,31 @@ pub extern "C" fn felt_init() {
     trace!("felt_init(): is_felt_safe_mode={}", is_felt_safe_mode);
     IS_FELT_SAFE_MODE.store(is_felt_safe_mode, Ordering::Relaxed);
 
+    // Allow tests to inject tokens via environment variables so they are
+    // available before any JS runs (e.g. before ConsoleClient tries to refresh).
+    if !self::is_felt_ui() && !self::is_felt_browser() {
+        if let (Ok(access), Ok(refresh)) = (
+            env::var("TEST_ENTERPRISE_ACCESS_TOKEN"),
+            env::var("TEST_ENTERPRISE_REFRESH_TOKEN"),
+        ) {
+            if !access.is_empty() && !refresh.is_empty() {
+                let expires_at = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs() as i64
+                    + 3600;
+                if let Ok(mut tokens) = TOKENS.write() {
+                    *tokens = utils::Tokens {
+                        access_token: access,
+                        refresh_token: refresh,
+                        expires_at,
+                    };
+                    trace!("felt_init(): injected mock tokens from environment");
+                }
+            }
+        }
+    }
+
     trace!("felt_init() done");
 }
 

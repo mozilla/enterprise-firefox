@@ -88,6 +88,11 @@ MOCHITEST_CHROME_MANIFESTS += [
 
 BROWSER_CHROME_MANIFESTS += ["baselinecoverage/browser_chrome/browser.toml"]
 
+if CONFIG["MOZ_ENTERPRISE"]:
+    TEST_HARNESS_FILES.testing.mochitest.enterprise += [
+        "/testing/enterprise/enterprise_server.py",
+    ]
+
 TEST_HARNESS_FILES.testing.mochitest += [
     "/build/pgo/server-locations.txt",
     "/build/valgrind/cross-architecture.sup",

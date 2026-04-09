@@ -3,9 +3,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-import ctypes
 import datetime
-import json
 import os
 import random
 import shutil
@@ -14,77 +12,19 @@ import tempfile
 import time
 import urllib.parse
 import uuid
-from http.server import BaseHTTPRequestHandler, HTTPServer
-from multiprocessing import Array, Process, Value
+from multiprocessing import Process, Value
 
 import requests
 from base_test import EnterpriseTestsBase
+from enterprise_server import (
+    EnterpriseConsoleServer,
+    LocalHttpRequestHandler,
+    SharedString,
+    serve,
+)
 from felt_consts import firefox_config
 from marionette_driver import expected
 from marionette_driver.by import By
-
-
-class SharedString:
-    """Process-safe string backed by shared memory.
-
-    Replaces Manager.Value(c_wchar_p, ...) to avoid the Manager IPC path, which
-    pickles data into a memoryview. Under GC pressure that memoryview can be
-    collected while still exported, triggering a CPython bug (bpo-77894 /
-    cpython#123898) that crashes the Manager's ServerProxy processes.
-    Using a shared memory Array avoids all IPC and memoryview allocation.
-    """
-
-    _MAX_SIZE = 128
-
-    def __init__(self, initial=""):
-        self._array = Array(ctypes.c_char, self._MAX_SIZE)
-        self.value = initial
-
-    @property
-    def value(self):
-        with self._array.get_lock():
-            return self._array._obj.value.decode("utf-8")
-
-    @value.setter
-    def value(self, s):
-        encoded = s.encode("utf-8")
-        assert len(encoded) < self._MAX_SIZE, (
-            f"SharedString value too long: {len(encoded)} >= {self._MAX_SIZE}"
-        )
-        with self._array.get_lock():
-            self._array._obj.value = encoded
-
-
-class LocalHttpRequestHandler(BaseHTTPRequestHandler):
-    def reply(self, payload, code=200, status="Success", contentType=None):
-        self.send_response(code, status)
-        if contentType:
-            self.send_header("Content-Type", contentType)
-        self.send_header("Content-Length", len(payload))
-        self.end_headers()
-        self.wfile.write(bytes(payload, "utf8"))
-
-    def do_POST(self):
-        print("POST", self.path)
-
-        if self.path == "/:shutdown":
-            print("Shutting down as requested")
-            self.reply("OK")
-            setattr(self.server, "_BaseServer__shutdown_request", True)
-            self.server.server_close()
-            return json.dumps({})
-
-        return None
-
-    def not_found(self, path=None):
-        self.send_response(404, "Not Found")
-        self.send_header("Content-Length", "0")
-        self.end_headers()
-
-    def forbidden(self, path=None):
-        self.send_response(403, "Forbidden")
-        self.send_header("Content-Length", "0")
-        self.end_headers()
 
 
 class SsoHttpHandler(LocalHttpRequestHandler):
@@ -133,400 +73,6 @@ class SsoHttpHandler(LocalHttpRequestHandler):
             self.reply(m, contentType="text/html")
         else:
             self.not_found(path)
-
-
-class ConsoleHttpHandler(LocalHttpRequestHandler):
-    def check_auth(self):
-        auth = self.headers.get("Authorization")
-        if not auth:
-            self.reply("", 401, "Authorization required")
-            return
-
-        bearer = auth.split(" ")
-        if len(bearer) != 2 or bearer[0].lower() != "bearer":
-            self.reply("", 401, "Authorization required")
-            return
-
-        if bearer[1] != self.server.policy_access_token.value:
-            self.reply("", 401, "Authorization required")
-            return
-
-    def do_GET(self):
-        print("GET", self.path)
-        m = None
-        contentType = None
-
-        parsed = urllib.parse.urlparse(self.path)
-        path = parsed.path
-        print("path: ", path)
-
-        if path == "/sso/login":
-            query = urllib.parse.parse_qs(parsed.query)
-            if (
-                not "devicePostureToken" in query.keys()
-                or not "deviceId" in query.keys()
-            ):
-                self.forbidden()
-                return
-
-            if query["devicePostureToken"][0] != self.server.device_posture_token:
-                print(
-                    f"Incorrect token. Expected '{self.server.device_posture_token}' received '{query['devicePostureToken'][0]}'"
-                )
-                self.forbidden()
-                return
-
-            location = f"http://localhost:{self.server.sso_port}/sso_url"
-            self.send_response(302, "Found")  # or 301/308 as needed
-            self.send_header("Location", location)
-            self.send_header("Content-Length", "0")
-            self.end_headers()
-            return
-
-        elif path == "/api/browser/config":
-            m = json.dumps({
-                "learn_more_url": firefox_config["learn_more_url"]["pref_value"],
-                "company_logo_url": "",
-                "policies": {"polling_frequency": 500},
-                "services": {
-                    "push_url": "",
-                    "remote_settings_url": "",
-                    "tokenserver_url": "",
-                },
-                "extra_prefs": [["marionette.port", 0]],
-            })
-
-        elif path == "/api/browser/policies":
-            self.check_auth()
-            if self.server.policies_fail_request.value:
-                self.reply("", 500, "Internal Server Error", "application/json")
-                return
-            policy_content = {}
-
-            # Reflect the states:
-            #  - "Unset" is -1, no value is pushed
-            #  - "False" is 0
-            #  - "True" is 1
-            if self.server.policy_block_about_config.value >= 0:
-                policy_content.update({
-                    "BlockAboutConfig": self.server.policy_block_about_config.value == 1
-                })
-
-            if self.server.policy_extensions.value == 1:
-                policy_content.update({
-                    "ExtensionSettings": {
-                        "treestyletab@piro.sakura.ne.jp": {
-                            "installation_mode": "force_installed",
-                            "install_url": f"http://localhost:{self.server.console_port}/downloads/tree_style_tab-4.2.7.xpi",
-                            "updates_disabled": True,
-                        }
-                    }
-                })
-
-            m = json.dumps({"policies": policy_content})
-            contentType = "application/json"
-
-        elif path == "/api/browser/whoami":
-            self.check_auth()
-
-            m = json.dumps({
-                "id": str(uuid.uuid4()),
-                "email": "nobody@mozilla.org",
-                "name": "moz user",
-                "picture": f"http://localhost:{self.server.console_port}/avatar/something",
-                "is_active": True,
-                "last_login_at": "2025-11-14T14:27:23.575030Z",
-                "created_at": "2025-10-31T15:11:50.735175Z",
-                "updated_at": "2025-11-14T14:27:23.602803Z",
-                "policy_roles_id": None,
-            })
-            contentType = "application/json"
-
-        elif path == "/api/browser/forced_updates_count":
-            """
-            This is a test only endpoint to verify how many updates were served
-            """
-
-            m = json.dumps({
-                "serve_forced_updates_count": self.server.serve_forced_updates_count
-            })
-            contentType = "application/json"
-
-        # /api/browser/updates/FirefoxEnterprise/149.0a1/20260218134117/Linux_x86_64-gcc3/en-US/default/Linux%25206.17.0-8-generic%2520(GTK%25203.24.50%252Clibpulse%252017.0.0)/ISET%3ASSE4_2%2CMEM%3A85823/default/default/update.xml?force=1"
-        elif path.startswith("/api/browser/updates"):
-            # Producing this requires:
-            # $ mach build && mach package
-            # then extract the tar somewhere, you have firefox/
-            # make a firefox.work/ next to firefox/ and copy what you want from firefox/ to firefox.work/
-            # then, e.g. to package only "application.ini"
-            # $ ~/.mozbuild/mar-tools/mar -V 149.0a1 -H enterprise-tests -C "./firefox.work/" -c output.mar "application.ini"
-            complete_mar = os.path.join(
-                os.path.dirname(__file__), os.path.basename("complete.mar")
-            )
-            if self.server.serve_updates and os.path.isfile(complete_mar):
-                # Versions are important, they need to be equal or higher than the
-                # current binary otherwise no update will be downloaded
-                display_version = self.server.serve_updates_version[
-                    "application_version"
-                ][0]
-                app_version = self.server.serve_updates_version["application_version"][
-                    0
-                ]
-                platform_version = self.server.serve_updates_version[
-                    "platform_version"
-                ][0]
-                # BuildID also needs to be different, fake it as newer
-                build_id = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-                # Hash is not verified client side? At least we can put what we want
-                hash_value = "ecee0f4b9f0af06cfa3a89c328e4cbb7dd075a0d411ef1b968a072a7995a0753dd96d3d541f0781ab95fdb61e3df7252a9379fc620f2b660ecaed582f2c5246d"
-
-                size = os.stat(complete_mar).st_size
-                m = f"""<?xml version="1.0"?>
-<updates>
-    <update type="minor" displayVersion="{display_version}" appVersion="{app_version}" platformVersion="{platform_version}" buildID="{build_id}">
-        <patch type="complete" URL="http://localhost:{self.server.console_port}/downloads/complete.mar" hashFunction="sha512" hashValue="{hash_value}" size="{size}"/>
-    </update>
-</updates>"""
-            else:
-                m = """<?xml version="1.0"?><updates></updates>"""
-
-            if "?force=1" in self.path:
-                self.server.serve_forced_updates_count += 1
-
-            contentType = "text/xml"
-
-        elif path == "/sso/callback":
-            self.server.policy_access_token.value = str(uuid.uuid4())
-            self.server.policy_refresh_token.value = str(uuid.uuid4())
-            policy_access_token = self.server.policy_access_token.value
-            policy_refresh_token = self.server.policy_refresh_token.value
-
-            """
-            TODO: Behavior is not yet clearly defined
-            with self.server.device_posture_reply_forbidden.get_lock():
-                if self.server.device_posture_reply_forbidden.value == 1:
-                    policy_access_token = ""
-                    policy_refresh_token = ""
-            """
-
-            obj = json.dumps({
-                "access_token": f"{policy_access_token}",
-                "token_type": "bearer",
-                "expires_in": 71999,
-                "refresh_token": f"{policy_refresh_token}",
-            })
-
-            m = f"""
-<html>
-<head>
-    <title>Callback!</title>
-    <script id="token_data" type="application/json">{obj}</script>
-</head>
-<body>
-    <h1>Welcome!</h1>
-</body>
-</html>
-            """
-            contentType = "text/html"
-
-        elif path == "/ping":
-            m = """
-<html>
-<head>
-    <title>Pong!</title>
-</head>
-<body>
-</body>
-</html>
-            """
-            contentType = "text/html"
-
-        # Not a real end point, just used for tests
-        elif path == "/sso/get_device_posture":
-            m = json.dumps(self.server.device_posture_payload)
-            contentType = "application/json"
-
-        elif path.startswith("/downloads/"):
-            filename = os.path.join(os.path.dirname(__file__), os.path.basename(path))
-            if os.path.isfile(filename):
-                with open(filename, mode="rb") as file:
-                    content = file.read()
-
-                self.send_response(200, "Success")
-                self.send_header("Content-Length", len(content))
-                if path.endswith(".xpi"):
-                    self.send_header("Content-Type", "application/x-xpinstall")
-                if path.endswith(".mar"):
-                    self.send_header("Content-Type", "application/octet-stream")
-                self.end_headers()
-
-                # Make MAR download slow so tests can have time to show progress
-                if path.endswith(".mar"):
-                    chunk_size = int(len(content) / 10)
-                    print(f"Total size {len(content)} => {chunk_size}")
-                    for i in range(0, len(content), chunk_size):
-                        print(f"Sending {chunk_size}")
-                        chunk = content[i : i + chunk_size]
-                        self.wfile.write(chunk)
-                        self.wfile.flush()
-                        time.sleep(1)
-                else:
-                    self.wfile.write(bytes(content))
-            return
-
-        if m is not None:
-            self.reply(m, contentType=contentType)
-        else:
-            self.not_found(path)
-
-    def do_POST(self):
-        print("POST", self.path)
-        m = super().do_POST()
-
-        parsed = urllib.parse.urlparse(self.path)
-        path = parsed.path
-        print("path: ", path)
-        if path == "/sso/token":
-            payload = self.rfile.read(int(self.headers.get("Content-Length"))).decode(
-                "utf-8"
-            )
-            parsed_payload = json.loads(payload)
-
-            if parsed_payload["grant_type"] != "refresh_token":
-                self.reply("", 401, "Authorization required")
-                return
-
-            if (
-                parsed_payload["refresh_token"]
-                != self.server.policy_refresh_token.value
-            ):
-                self.reply("", 401, "Authorization required")
-                return
-
-            self.server.policy_access_token.value = str(uuid.uuid4())
-            self.server.policy_refresh_token.value = str(uuid.uuid4())
-            print(
-                f"Refreshed tokens: ({self.server.policy_access_token.value}, {self.server.policy_refresh_token.value})"
-            )
-
-            # Sending back the same session
-            m = json.dumps({
-                "access_token": self.server.policy_access_token.value,
-                "token_type": "Bearer",
-                "expires_in": 71999,
-                "refresh_token": self.server.policy_refresh_token.value,
-            })
-
-        elif path == "/sso/device_posture":
-            self.server.device_posture_payload = json.loads(
-                self.rfile.read(int(self.headers.get("Content-Length")))
-            )
-            self.server.device_posture_token = str(uuid.uuid4())
-            m = json.dumps({"posture": self.server.device_posture_token})
-
-        elif path == "/sso/logout":
-            self.check_auth()
-            with self.server.signout_count.get_lock():
-                self.server.signout_count.value += 1
-            self.server.policy_access_token.value = ""
-            self.server.policy_refresh_token.value = ""
-            m = json.dumps(None)
-
-        elif path == "/api/browser/forced_updates_count":
-            """
-            This is a test only endpoint to reset how many updates were served
-            """
-
-            self.server.serve_forced_updates_count = 0
-            m = json.dumps(None)
-
-        elif path.startswith("/api/browser/updates"):
-            self.server.serve_updates = not self.server.serve_updates
-            payload = self.rfile.read(int(self.headers.get("Content-Length"))).decode(
-                "utf-8"
-            )
-            self.server.serve_updates_version = urllib.parse.parse_qs(payload)
-            print(
-                f"Server Updates: {self.server.serve_updates} => {self.server.serve_updates_version}"
-            )
-            # Reply something so that we get 200
-            m = json.dumps(None)
-
-        if m is not None:
-            self.reply(m, contentType="application/json")
-        else:
-            self.not_found(path)
-
-    def do_HEAD(self):
-        print("HEAD", self.path)
-
-        parsed = urllib.parse.urlparse(self.path)
-        path = parsed.path
-        if path.startswith("/downloads/"):
-            filename = os.path.join(os.path.dirname(__file__), os.path.basename(path))
-            if os.path.isfile(filename):
-                self.send_response(200, "Success")
-                self.send_header("Content-Length", os.stat(filename).st_size)
-                if path.endswith(".xpi"):
-                    self.send_header("Content-Type", "application/x-xpinstall")
-                if path.endswith(".mar"):
-                    self.send_header("Content-Type", "application/octet-stream")
-                self.end_headers()
-                return
-
-        self.not_found(path)
-
-
-def serve(
-    port,
-    classname,
-    sso_port,
-    console_port,
-    cookie_name=None,
-    cookie_value=None,
-    policy_block_about_config=None,
-    policy_extensions=None,
-    policy_access_token=None,
-    policy_refresh_token=None,
-    policies_fail_request=None,
-    signout_count=None,
-    # TODO: Behavior is not yet clearly defined
-    # device_posture_reply_forbidden=None,
-):
-    httpd = HTTPServer(("", port), classname)
-    httpd.sso_port = sso_port
-    httpd.console_port = console_port
-    if cookie_name is not None:
-        httpd.cookie_name = cookie_name
-    if cookie_value is not None:
-        httpd.cookie_value = cookie_value
-    if policy_block_about_config is not None:
-        httpd.policy_block_about_config = policy_block_about_config
-    if policy_extensions is not None:
-        httpd.policy_extensions = policy_extensions
-    if policy_access_token:
-        httpd.policy_access_token = policy_access_token
-    if policy_refresh_token:
-        httpd.policy_refresh_token = policy_refresh_token
-    httpd.policies_fail_request = (
-        policies_fail_request if policies_fail_request is not None else Value("B", 0)
-    )
-    httpd.signout_count = signout_count if signout_count is not None else Value("i", 0)
-    httpd.serve_updates = False
-    httpd.serve_updates_version = ""
-    httpd.serve_forced_updates_count = 0
-    """
-    TODO: Behavior is not yet clearly defined
-    if device_posture_reply_forbidden is not None:
-        httpd.device_posture_reply_forbidden = device_posture_reply_forbidden
-    """
-    print(
-        f"Serving localhost:{port} SSO={sso_port} CONSOLE={console_port} with {classname}"
-    )
-    httpd.serve_forever()
-    print(
-        f"Stopped serving localhost:{port} SSO={sso_port} CONSOLE={console_port} with {classname}"
-    )
 
 
 class FeltLogoutChecker:
@@ -628,23 +174,31 @@ class FeltTestsBase(EnterpriseTestsBase):
         self.policy_refresh_token = SharedString("")
         self.signout_count = Value("i", 0)
 
-        self.console_httpd = Process(
-            target=serve,
-            args=(self.console_port, ConsoleHttpHandler),
-            kwargs=dict(
-                sso_port=self.sso_port,
-                console_port=self.console_port,
-                policy_block_about_config=self.policy_block_about_config,
-                policy_extensions=self.policy_extensions,
-                policy_access_token=self.policy_access_token,
-                policy_refresh_token=self.policy_refresh_token,
-                policies_fail_request=self.policies_fail_request,
-                signout_count=self.signout_count,
-                # TODO: Behavior is not yet clearly defined
-                # device_posture_reply_forbidden=self.device_posture_reply_forbidden,
-            ),
+        browser_config = {
+            "learn_more_url": firefox_config["learn_more_url"]["pref_value"],
+            "company_logo_url": "",
+            "policies": {"polling_frequency": 500},
+            "services": {
+                "push_url": "",
+                "remote_settings_url": "",
+                "tokenserver_url": "",
+            },
+            "extra_prefs": [["marionette.port", 0]],
+        }
+        self.console_httpd = EnterpriseConsoleServer(
+            self.console_port,
+            sso_port=self.sso_port,
+            access_token=self.policy_access_token,
+            refresh_token=self.policy_refresh_token,
+            policy_block_about_config=self.policy_block_about_config,
+            policy_extensions=self.policy_extensions,
+            policies_fail_request=self.policies_fail_request,
+            signout_count=self.signout_count,
+            browser_config=browser_config,
+            # TODO: Behavior is not yet clearly defined
+            # device_posture_reply_forbidden=self.device_posture_reply_forbidden,
         )
-        self.console_httpd.start()
+        self.console_httpd.start(wait_for_ready=False)
 
         self.cookie_name = SharedString(str(uuid.uuid1()).split("-")[0])
         self.cookie_value = SharedString(str(uuid.uuid4()).split("-")[4])
@@ -671,18 +225,8 @@ class FeltTestsBase(EnterpriseTestsBase):
         self._logger.info(f"Starting SSO server: {self.sso_port}")
 
     def setup(self):
-        console_addr = f"http://localhost:{self.console_port}"
-
-        max_try = 0
-        while max_try < 20:
-            max_try += 1
-            try:
-                r = requests.get(f"{console_addr}/ping")
-                print("r", r)
-                break
-            except Exception as ex:
-                self._logger.info(f"Console not yet online at {console_addr}: {ex}")
-                time.sleep(0.5)
+        if not self.console_httpd.wait_until_ready():
+            raise Exception(f"Console server not ready on port {self.console_port}")
 
         self._child_profile_path = self.get_profile_path(
             name="enterprise-tests-browser"
@@ -715,11 +259,9 @@ class FeltTestsBase(EnterpriseTestsBase):
             self._logger.info("Browser was already manually closed.")
 
         self._logger.info("Shutting down console")
-        requests.post(f"http://localhost:{self.console_port}/:shutdown", timeout=2)
+        self.console_httpd.stop()
         self._logger.info("Shutting down SSO")
         requests.post(f"http://localhost:{self.sso_port}/:shutdown", timeout=2)
-        self._logger.info("Stopping process console")
-        self.console_httpd.join()
         self._logger.info("Stopping process SSO")
         self.sso_httpd.join()
         self._logger.info("All stopped")

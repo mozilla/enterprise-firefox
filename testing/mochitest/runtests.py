@@ -1534,6 +1534,35 @@ class MochitestDesktop:
 
         self.startMozHttp2Server(options)
 
+        self.enterpriseServer = None
+        if mozinfo.info.get("enterprise"):
+            self.startEnterpriseConsoleServer(options)
+
+    def startEnterpriseConsoleServer(self, options):
+        try:
+            # In CI, moz.build packages enterprise_server.py into
+            # testing/mochitest/enterprise/ (next to runtests.py). Locally it
+            # lives at testing/enterprise/, one directory above SCRIPT_DIR.
+            enterprise_path = os.path.join(SCRIPT_DIR, "enterprise")
+            if not os.path.isdir(enterprise_path):
+                enterprise_path = os.path.join(
+                    os.path.dirname(SCRIPT_DIR), "enterprise"
+                )
+            sys.path.insert(0, enterprise_path)
+            from enterprise_server import EnterpriseConsoleServer
+        except ImportError as e:
+            self.log.info(f"Enterprise server not available: {e}")
+            return
+
+        port = self.findFreePort(socket.SOCK_STREAM)
+        server = EnterpriseConsoleServer(port)
+        if not server.start():
+            self.log.error("Enterprise mock server failed to start")
+            return
+
+        self.enterpriseServer = server
+        self.log.info(f"Enterprise mock server started at http://localhost:{port}")
+
     def stopServers(self):
         """Servers are no longer needed, and perhaps more importantly, anything they
         might spew to console might confuse things."""
@@ -1585,6 +1614,12 @@ class MochitestDesktop:
                 self.mozHttp2Server.stop()
             except Exception:
                 self.log.critical("Exception stopping moz-http2 server")
+        if self.enterpriseServer is not None:
+            try:
+                self.log.info("Stopping enterprise mock server")
+                self.enterpriseServer.stop()
+            except Exception:
+                self.log.critical("Exception stopping enterprise mock server")
 
         if hasattr(self, "gstForV4l2loopbackProcess"):
             try:
@@ -3867,6 +3902,9 @@ toolbar#nav-bar {
             if self.mozHttp2Server is not None:
                 for key, value in self.mozHttp2Server.ports().items():
                     self.browserEnv[key] = value
+
+            if self.enterpriseServer is not None:
+                self.enterpriseServer.configure(self.profile, self.browserEnv)
 
             if options.jsconsole:
                 options.browserArgs.extend(["--jsconsole"])
