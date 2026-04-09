@@ -43,8 +43,8 @@ export class EnterpriseStorageManager {
     // unhandled exception when it is GCd - so add an empty .catch handler here
     // to prevent this.
     this.#getAccountDataPromise.catch(() => {});
-    this.#getAccountDataPromise = Services.felt.isFeltUI()
-      ? Promise.resolve(null) // Felt has no signed-in user on startup; avoid guaranteed 401 from FxA
+    this.#getAccountDataPromise = this.#allowSignoutUsers()
+      ? Promise.resolve(null)
       : lazy.ConsoleClient.getFxAccountData();
   }
 
@@ -62,6 +62,10 @@ export class EnterpriseStorageManager {
    */
   async getAccountData(fieldNames = null) {
     const data = await this.#getAccountDataPromise;
+
+    if (!data) {
+      return null;
+    }
 
     if (fieldNames) {
       if (!Array.isArray(fieldNames)) {
@@ -124,12 +128,22 @@ export class EnterpriseStorageManager {
   }
 
   /**
-   * Clear current account data. By replacing the cached promise with a
-   * rejected one we restore the initial uninitialized behavior.
+   * Clear current account data.
    */
   deleteAccountData() {
-    this.#getAccountDataPromise = Promise.reject(
-      "EnterpriseStorageManager: Initialize not called"
+    if (this.#allowSignoutUsers()) {
+      this.#getAccountDataPromise = Promise.resolve(null);
+    } else {
+      this.#getAccountDataPromise = Promise.reject(
+        "EnterpriseStorageManager: Initialize not called"
+      );
+    }
+  }
+
+  #allowSignoutUsers() {
+    return (
+      Services.felt.isFeltUI() ||
+      (!Services.felt.isFeltUI() && !Services.felt.isFeltBrowser())
     );
   }
 }
