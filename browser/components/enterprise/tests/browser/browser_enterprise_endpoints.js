@@ -36,7 +36,7 @@ add_task(async function test_endpoints_derived_from_console_address() {
   for (const pref of BASE_CONSOLE_URI_PREFS) {
     Assert.equal(
       Services.prefs.getStringPref(pref),
-      CONSOLE_ADDRESS_PREF_VALUE,
+      new URL(CONSOLE_ADDRESS_PREF_VALUE).href,
       `Expected ${pref} to be set to the console address`
     );
     Assert.ok(
