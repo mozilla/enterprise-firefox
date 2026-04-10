@@ -15,7 +15,7 @@ ChromeUtils.defineESModuleGetters(this, {
 
 PoliciesPrefTracker.start();
 
-async function setupPolicyEngineWithJson(json, customSchema, shutdown = false) {
+async function setupPolicyEngineWithJson(json, customSchema) {
   PoliciesPrefTracker.restoreDefaultValues();
   if (!Services.prefs.getBoolPref("browser.policies.testUseHttp", false)) {
     if (typeof json != "object") {
@@ -35,14 +35,11 @@ async function setupPolicyEngineWithJson(json, customSchema, shutdown = false) {
     );
   }
   if (JSON.stringify(json) === "{}") {
-    if (!shutdown) {
-      return EnterprisePolicyTesting.servePolicyWithJson(
-        { policies: {} },
-        {},
-        registerCleanupFunction
-      );
-    }
-    return EnterprisePolicyTesting.servePolicyWithJson({ policies: {} }, {});
+    return EnterprisePolicyTesting.servePolicyWithJson(
+      { policies: {} },
+      {},
+      registerCleanupFunction
+    );
   }
   return EnterprisePolicyTesting.servePolicyWithJson(
     json,
