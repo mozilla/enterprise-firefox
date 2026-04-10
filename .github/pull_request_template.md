@@ -6,7 +6,7 @@
 
 This helps reviewers quickly understand your changes.
 
-### Description
+### Description <!-- REQUIRED -->
 
 Bugzilla: Bug-<BUG_ID>
 
@@ -14,19 +14,19 @@ Bugzilla: Bug-<BUG_ID>
 
 ---
 
-### Dependencies / Related Issues
+### Dependencies / Related Issues <!-- OPTIONAL -->
 
 * Depends on:
 
 ---
 
-### Screenshots
+### Screenshots <!-- REQUIRED (if applicable) -->
 
 <!-- Please provide screenshots of UI changes (before/after if applicable). -->
 
 ---
 
-### Testing
+### Testing <!-- OPTIONAL -->
 
 * [ ] Added tests
 * [ ] Manual testing performed
