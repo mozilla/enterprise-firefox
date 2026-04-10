@@ -19,4 +19,4 @@ class BrowserSignoutVerify(BaseBrowserSignout):
             self.run_prefilled_email_submit()
             self.run_load_sso()
             self.run_perform_sso_auth()
-        self._manually_closed_child = True
+        self.run_perform_signout()

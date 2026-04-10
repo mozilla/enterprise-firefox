@@ -21,11 +21,15 @@ class FeltUpdatesApplyFromFelt(FeltTests):
         "app.update.log": True,
         "app.update.disabledForTesting": False,
         "app.update.BITS.enabled": False,
+        "enterprise.felt.max_consecutive_update_failure": 10,
         "enterprise.felt_tests.is_updates_testing": True,
         "enterprise.felt_tests.read_update_url_from_prefs": True,
     }
 
     def setup(self):
+        self._update_root = os.path.dirname(self.get_update_config_file_path())
+        self.run_updates_cleanup()
+
         self._logger.info("Enabling updates")
         version_info = mozversion.get_version(binary=self._driver.instance.binary)
         requests.post(
@@ -85,11 +89,11 @@ class FeltUpdatesApplyFromFelt(FeltTests):
         self._logger.info("Checking update UI ...")
         self._driver.set_context("chrome")
 
-        felt_login = self.find_elem(".felt-login")
-        assert not felt_login.is_displayed(), "Login exists but is not displayed"
-
         felt_updates = self.get_elem(".felt-updates")
         assert felt_updates, "Update checking in progress"
+
+        felt_login = self.find_elem(".felt-login")
+        assert not felt_login.is_displayed(), "Login should not be displayed"
 
         self._driver.set_context("content")
         self._logger.info("Checking update UI ... RUNNING")

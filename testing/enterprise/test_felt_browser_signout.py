@@ -12,6 +12,7 @@ sys.path.append(os.path.dirname(__file__))
 from base_test import Environment
 from felt_tests import FeltTests
 from marionette_driver.errors import (
+    NoAlertPresentException,
     UnexpectedAlertOpen,
 )
 
@@ -33,14 +34,7 @@ class BaseBrowserSignout(FeltTests):
         self._driver.set_context("content")
         return private_cookies
 
-    def run_perform_signout(self):
-        self.connect_child_browser(
-            capabilities={
-                # Do not auto-handle prompts.
-                "unhandledPromptBehavior": "ignore"
-            }
-        )
-
+    def _do_signout(self):
         self.assert_user_signed_in(env=Environment.FIREFOX)
         # Cache email for later use in prefilled email input field assertion
         user = self.get_logged_in_user_info(env=Environment.FIREFOX)
@@ -66,14 +60,18 @@ class BaseBrowserSignout(FeltTests):
             pass
 
         self._logger.info("Waiting for the signout dialog to open")
-        alert = self._child_driver.switch_to_alert()
-        # Wait(self._child_driver, 5).until(alert)
 
-        self._logger.info(
-            "Signing out the user by clicking the Signout button in the dialog"
-        )
-        # This target the primary action, which is clicking the Signout button
-        alert.accept()
+        def wait_for_and_accept_alert(driver):
+            try:
+                driver.switch_to_alert().accept()
+                self._logger.info(
+                    "Signing out the user by clicking the Signout button in the dialog"
+                )
+                return True
+            except NoAlertPresentException:
+                return False
+
+        self._waiter(self._child_driver).until(wait_for_and_accept_alert)
 
         self._child_driver.set_context("content")
 
@@ -96,6 +94,15 @@ class BaseBrowserSignout(FeltTests):
         # Verify no cookies from the previous sign in session
         cookies = self.get_private_cookies()
         assert len(cookies) == 0, f"No private cookies, found {len(cookies)}"
+
+    def run_perform_signout(self):
+        self.connect_child_browser(
+            capabilities={
+                # Do not auto-handle prompts.
+                "unhandledPromptBehavior": "ignore"
+            }
+        )
+        self._do_signout()
 
     def run_prefilled_email_submit(self):
         self._driver.set_context("chrome")

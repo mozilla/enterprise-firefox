@@ -25,25 +25,32 @@ class EnterpriseTestsBase(MarionetteTestCase):
     def setUp(self):
         os.environ.update({"MOZ_DISABLE_NONLOCAL_CONNECTIONS": "0"})
 
-        if hasattr(self, "EXTRA_ENV"):
+        if getattr(self, "EXTRA_ENV", None):
             self._saved_env = deepcopy(os.environ)
             os.environ.update(self.EXTRA_ENV)
 
         self._logger = self.logger
 
-        super().setUp()
+        marionette = self._marionette_weakref()
 
         if hasattr(self, "_extra_cli_args"):
-            self._saved_cli_args = deepcopy(self.marionette.instance.app_args)
-            self.marionette.instance.app_args += self._extra_cli_args
+            self._saved_cli_args = deepcopy(marionette.instance.app_args)
+            marionette.instance.app_args += self._extra_cli_args
 
-        self.marionette.quit(in_app=False, clean=True)
-        self.marionette.start_session(timeout=60)
+        # Env vars and CLI args require a fresh process to take effect.
+        # On the first test the harness has Firefox already running, so we stop
+        # it here. On subsequent tests tearDown already quit it, so this is a no-op.
+        if (getattr(self, "EXTRA_ENV", None) or hasattr(self, "_extra_cli_args")) and (
+            marionette.instance.runner and marionette.instance.runner.returncode is None
+        ):
+            marionette.instance.close(clean=True)
+
+        super().setUp()
+
+        self._driver = self.marionette
 
         if hasattr(self, "_extra_prefs"):
             self.marionette.enforce_gecko_prefs(self._extra_prefs)
-
-        self._driver = self.marionette
 
         if hasattr(self, "setup"):
             self.setup()
@@ -111,11 +118,9 @@ class EnterpriseTestsBase(MarionetteTestCase):
             self._child_profile_path, "MarionetteActivePort"
         )
 
-        found_marionette_port = False
-        tries = 0
-        while (not found_marionette_port) and (tries < max_try):
-            tries += 1
-            found_marionette_port = os.path.isfile(marionette_port_file)
+        for _ in range(max_try):
+            if os.path.isfile(marionette_port_file):
+                break
             time.sleep(0.5)
 
         marionette_port = 0

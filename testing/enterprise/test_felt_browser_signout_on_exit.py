@@ -50,5 +50,8 @@ class BrowserSignoutOnExit(FeltTests):
             Services.startup.quit(Ci.nsIAppStartup.eForceQuit);
             """,
         )
-        driver.set_context("content")
+        try:
+            driver.set_context("content")
+        except OSError:
+            pass
         self._manually_closed_child = True

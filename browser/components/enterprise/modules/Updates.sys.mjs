@@ -191,7 +191,9 @@ export const Updates = {
 
       case lazy.AppUpdater.STATUS.READY_FOR_RESTART:
         this.hideUpdateState();
-        this.automaticRestart();
+        if (!lazy.isUpdatesTesting()) {
+          this.automaticRestart();
+        }
         break;
 
       // Below are status codes that are handling error states or unexpected

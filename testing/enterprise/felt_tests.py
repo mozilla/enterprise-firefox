@@ -14,6 +14,7 @@ import tempfile
 import time
 import urllib.parse
 import uuid
+from copy import deepcopy
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from multiprocessing import Array, Process, Value
 
@@ -22,6 +23,8 @@ from base_test import EnterpriseTestsBase
 from felt_consts import firefox_config
 from marionette_driver import expected
 from marionette_driver.by import By
+from marionette_driver.geckoinstance import DesktopInstance, GeckoInstance
+from mozprofile.prefs import Preferences
 
 
 class SharedString:
@@ -616,13 +619,7 @@ class FeltTestsBase(EnterpriseTestsBase):
         self.device_posture_reply_forbidden = Value("B", 0)
         """
 
-        self._extra_prefs = {
-            "enterprise.console.address": f"http://localhost:{self.console_port}",
-            "enterprise.is_testing": True,
-        }  # + test_prefs
-
-        if hasattr(self, "EXTRA_PREFS"):
-            self._extra_prefs.update(self.EXTRA_PREFS)
+        self._apply_prefs_for_instance()
 
         self.policy_access_token = SharedString("")
         self.policy_refresh_token = SharedString("")
@@ -667,12 +664,35 @@ class FeltTestsBase(EnterpriseTestsBase):
 
         super().setUp()
 
-        self._logger.info(f"Starting console server: {self.console_port}")
-        self._logger.info(f"Starting SSO server: {self.sso_port}")
+    def _apply_prefs_for_instance(self):
+        self._extra_prefs = {
+            "enterprise.console.address": f"http://localhost:{self.console_port}",
+            "enterprise.is_testing": True,
+        }  # + test_prefs
 
-    def setup(self):
+        if hasattr(self, "EXTRA_PREFS"):
+            self._extra_prefs.update(self.EXTRA_PREFS)
+
+        # self.marionette is only set after super().setUp(), so we use the weak
+        # reference to access the instance here before the browser starts.
+        marionette = self._marionette_weakref()
+        self._saved_prefs = deepcopy(marionette.instance.prefs)
+        # Update instance.prefs so that any profile created from scratch (e.g. on the
+        # first test, when base_test.setUp() closes the harness Firefox and close()
+        # builds a fresh profile) includes our enterprise prefs.
+        marionette.instance.prefs = {
+            **(marionette.instance.prefs or {}),
+            **self._extra_prefs,
+        }
+        # On subsequent tests the profile already exists: tearDown's close() pre-created
+        # it after teardown() had restored prefs, so enterprise prefs are missing.
+        # instance.start() reuses the existing profile without re-reading instance.prefs,
+        # so patch user.js in-place instead.
+        if marionette.instance.profile is not None:
+            marionette.instance.profile.set_preferences(self._extra_prefs)
+
+    def wait_for_console(self):
         console_addr = f"http://localhost:{self.console_port}"
-
         max_try = 0
         while max_try < 20:
             max_try += 1
@@ -684,10 +704,13 @@ class FeltTestsBase(EnterpriseTestsBase):
                 self._logger.info(f"Console not yet online at {console_addr}: {ex}")
                 time.sleep(0.5)
 
+    def setup(self):
+        self.wait_for_console()
         self._child_profile_path = self.get_profile_path(
             name="enterprise-tests-browser"
         )
         self._logger.info(f"Using browser profile at {self._child_profile_path}")
+        self._apply_prefs_to_child_profile()
 
         # Pref does not like passing '\' ?
         if sys.platform == "win32":
@@ -704,6 +727,9 @@ class FeltTestsBase(EnterpriseTestsBase):
         assert windows == 1, "There should only be one Felt window"
 
     def teardown(self):
+        self.marionette.instance.prefs = self._saved_prefs
+        del self._saved_prefs
+
         if not self._manually_closed_child:
             self._logger.info("Closing browser")
             self._child_driver.set_context("chrome")
@@ -728,6 +754,25 @@ class FeltTestsBase(EnterpriseTestsBase):
         if hasattr(self, "_child_profile_path"):
             self._logger.info(f"Removing browser profile at {self._child_profile_path}")
             shutil.rmtree(self._child_profile_path, ignore_errors=True)
+
+    def _apply_prefs_to_child_profile(self):
+        prefs = {
+            k: v
+            for k, v in {
+                **GeckoInstance.required_prefs,
+                **DesktopInstance.desktop_prefs,
+            }.items()
+            # Drop prefs with %-style format placeholders (e.g. "%(server)s")
+            # as they require interpolation that isn't performed here.
+            if not isinstance(v, str) or "%" not in v
+        }
+        prefs.update({
+            "network.captive-portal-service.enabled": False,
+            "enterprise.is_testing": True,
+        })
+        if hasattr(self, "EXTRA_CHILD_PREFS"):
+            prefs.update(self.EXTRA_CHILD_PREFS)
+        Preferences.write(os.path.join(self._child_profile_path, "user.js"), prefs)
 
     def set_string_pref(self, pref_name, pref_value):
         self._logger.info(f"Setting {pref_name} to {pref_value}")
