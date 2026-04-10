@@ -6,14 +6,14 @@
 
 This information helps reviewers get a quick understanding of your changes. -->
 
-#### Description
+### Description
 Please include a quick summary of the changes and add the related Bugzilla item ID.
 
 Bugzilla: bug-<BUG_ID>
 
 ---
 
-#### Related Issues / Dependencies
+### Related Issues / Dependencies
 <!-- Link related PRs or issues -->
 
 - Depends on:
@@ -22,13 +22,13 @@ Bugzilla: bug-<BUG_ID>
 
 ---
 
-#### Screenshots (if applicable)
+### Screenshots (if applicable)
 <!-- Visuals if UI changes -->
 Please provide screenshots of UI changes (before/after if applicable.)
 
 ---
 
-#### Testing
+### Testing
 <!-- How was this tested? Steps to reproduce? -->
 - [ ] Added tests
 - [ ] Manual testing performed
