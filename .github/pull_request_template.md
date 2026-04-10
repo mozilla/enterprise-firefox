@@ -4,7 +4,7 @@
 - [ ] Ensure the linked Bugzilla item is up to date
 - [ ] Provide sufficient implementation details in commit messages when necessary
 
-This helps reviewers quickly understand your changes.
+This helps reviewers quickly understand your changes. -->
 
 ### Description <!-- REQUIRED -->
 
