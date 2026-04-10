@@ -9,7 +9,7 @@ This information helps reviewers get a quick understanding of your changes. -->
 ### Description
 Please include a quick summary of the changes and add the related Bugzilla item ID.
 
-Bugzilla: bug-<BUG_ID>
+Bugzilla: Bug-<BUG_ID>
 
 ---
 
