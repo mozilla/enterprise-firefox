@@ -260,7 +260,6 @@ export const EnterpriseHandler = {
     lazy.log.debug(`Setting learn more uri to ${validLearnMoreUrl.href}`);
     learnMoreLink.setAttribute("href", validLearnMoreUrl.href);
 
-    win._isEnterpriseLearnMoreLinkConfigured = true;
     learnMoreLink.addEventListener("click", e => {
       let where = lazy.BrowserUtils.whereToOpenLink(e, false, false);
       if (where == "current") {
@@ -281,8 +280,9 @@ export const EnterpriseHandler = {
     win.PanelUI.showSubView("panelUI-enterprise", element, event);
     const document = element.ownerDocument;
 
-    if (!win._isEnterpriseLearnMoreLinkConfigured) {
+    if (!element._isEnterpriseLearnMoreLinkConfigured) {
       this._setupLearnMoreLink(win);
+      element._isEnterpriseLearnMoreLinkConfigured = true;
     }
 
     const email = document.querySelector(".panelUI-enterprise__email");
