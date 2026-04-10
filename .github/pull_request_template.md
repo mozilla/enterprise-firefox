@@ -17,8 +17,6 @@ Bugzilla: Bug-<BUG_ID>
 <!-- Link related PRs or issues -->
 
 - Depends on:
-- Blocks:
-- Related:
 
 ---
 
