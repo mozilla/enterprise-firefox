@@ -4,6 +4,8 @@
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 
+import contextlib
+import faulthandler
 import os
 import tempfile
 import time
@@ -16,12 +18,43 @@ from marionette_driver.wait import Wait
 from marionette_harness import MarionetteTestCase
 
 
+@contextlib.contextmanager
+def _patched_gather_debug_child_screenshot(result):
+    # Wraps Marionette's gather_debug callback to also capture a screenshot from
+    # the child browser when it is running, replacing the default Felt UI screenshot.
+    if (not result
+            or not result.result_callbacks
+            or getattr(result.result_callbacks[-1], "__name__", None) != "gather_debug"):
+        yield
+        return
+    original = result.result_callbacks[-1]
+
+    def patched(test, status):
+        rv = original(test, status) or {}
+        child = getattr(test, "_child_driver", None)
+        if child and child.session:
+            try:
+                with child.using_context(child.CONTEXT_CHROME):
+                    rv["screenshot"] = child.screenshot()
+            except Exception as exc:
+                test._logger.warning(f"Failed to gather child browser debug: {exc}")
+        return rv
+
+    result.result_callbacks[-1] = patched
+    try:
+        yield
+    finally:
+        result.result_callbacks[-1] = original
+
+
 class Environment(Enum):
     FELT = "felt"
     FIREFOX = "Firefox"
 
 
 class EnterpriseTestsBase(MarionetteTestCase):
+    _check_child_crashes = True
+
     def setUp(self):
         os.environ.update({"MOZ_DISABLE_NONLOCAL_CONNECTIONS": "0"})
 
@@ -54,6 +87,14 @@ class EnterpriseTestsBase(MarionetteTestCase):
 
         if hasattr(self, "setup"):
             self.setup()
+
+    def run(self, result=None):
+        faulthandler.dump_traceback_later(100, repeat=True)
+        with _patched_gather_debug_child_screenshot(result):
+            try:
+                super().run(result)
+            finally:
+                faulthandler.cancel_dump_traceback_later()
 
     def tearDown(self):
         super().tearDown()
@@ -129,8 +170,8 @@ class EnterpriseTestsBase(MarionetteTestCase):
 
         return (marionette_port, marionette_port_file)
 
-    def connect_child_browser(self, capabilities=None):
-        (marionette_port, marionette_port_file) = self.get_marionette_port()
+    def connect_child_browser(self, capabilities=None, max_try=100):
+        (marionette_port, marionette_port_file) = self.get_marionette_port(max_try)
         assert marionette_port > 0, "Valid marionette port"
         self._logger.info(f"Marionette PORT: {marionette_port}")
 
@@ -147,7 +188,8 @@ class EnterpriseTestsBase(MarionetteTestCase):
         self._child_driver = Marionette(host="127.0.0.1", port=new_marionette_port)
         self._logger.info(f"New Marionette port={new_marionette_port} OK")
         self._child_driver.start_session(capabilities, timeout=60)
-        self._logger.info(f"New Marionette port={new_marionette_port} OK SESSION")
+        self._child_pid = self._child_driver.session_capabilities.get("moz:processID")
+        self._logger.info(f"New Marionette port={new_marionette_port} OK SESSION pid={self._child_pid}")
 
         port_file_copy = f"{marionette_port_file}.bak"
         self._logger.info(
@@ -159,7 +201,6 @@ class EnterpriseTestsBase(MarionetteTestCase):
         self._logger.info(
             f"New Marionette MOVED OUT {marionette_port_file} TO {port_file_copy}"
         )
-        self._child_driver.set_pref("enterprise.is_testing", True)
 
     def get_driver(self, env):
         return self._driver if env == Environment.FELT else self._child_driver

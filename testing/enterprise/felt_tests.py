@@ -8,6 +8,9 @@ import datetime
 import json
 import os
 import random
+import signal
+
+import psutil
 import shutil
 import sys
 import tempfile
@@ -609,7 +612,10 @@ class FeltTestsBase(EnterpriseTestsBase):
         # test_prefs = kwargs.get("test_prefs", [])
 
         self._manually_closed_child = False
-        self.console_port = random.randrange(10000, 14999)
+        port = random.randrange(10000, 14998)
+        self.console_port = port + (
+            port >= 10080
+        )  # Skip port 10080 (amanda) as it is blocked by Firefox
         self.sso_port = random.randrange(15000, 20000)
         self.policy_block_about_config = Value("b", 1)
         self.policy_extensions = Value("B", 0)
@@ -730,13 +736,16 @@ class FeltTestsBase(EnterpriseTestsBase):
         self.marionette.instance.prefs = self._saved_prefs
         del self._saved_prefs
 
-        if not self._manually_closed_child:
+        if not self._manually_closed_child and hasattr(self, "_child_driver"):
             self._logger.info("Closing browser")
             self._child_driver.set_context("chrome")
             self._child_driver.execute_script(
                 "Services.startup.quit(Ci.nsIAppStartup.eForceQuit);"
             )
             self._logger.info("Closed browser")
+            self.wait_process_exit(
+                self._child_driver.session_capabilities["moz:processID"]
+            )
         else:
             self._logger.info("Browser was already manually closed.")
 
@@ -746,14 +755,118 @@ class FeltTestsBase(EnterpriseTestsBase):
         requests.post(f"http://localhost:{self.sso_port}/:shutdown", timeout=2)
         self._logger.info("Stopping process console")
         self.console_httpd.join()
+        self.console_httpd.close()
         self._logger.info("Stopping process SSO")
         self.sso_httpd.join()
+        self.sso_httpd.close()
         self._logger.info("All stopped")
 
         # If the test never started a child browser, this would not exists
         if hasattr(self, "_child_profile_path"):
+            if self._check_child_crashes:
+                dump_dir = os.path.join(self._child_profile_path, "minidumps")
+                self.marionette.instance.runner.check_for_crashes(
+                    dump_directory=dump_dir,
+                    test_name=self._testMethodName,
+                )
+            if sys.platform == "win32":
+                try:
+                    self._log_profile_locks(self._child_profile_path)
+                except Exception as e:
+                    self._logger.warning(f"_log_profile_locks failed: {e}")
             self._logger.info(f"Removing browser profile at {self._child_profile_path}")
             shutil.rmtree(self._child_profile_path, ignore_errors=True)
+
+    def _log_profile_locks(self, profile_path):
+        import ctypes.wintypes as W
+        import subprocess
+
+        result = subprocess.run(
+            ["tasklist", "/FO", "CSV", "/NH"],
+            capture_output=True,
+            text=True,
+        )
+        mozilla_procs = [
+            line
+            for line in result.stdout.splitlines()
+            if any(
+                name in line.lower()
+                for name in ("firefox", "crashreporter", "crashhelper")
+            )
+        ]
+        if mozilla_procs:
+            self._logger.warning(
+                f"Mozilla processes still running before rmtree: {mozilla_procs}"
+            )
+
+        profile_files = [
+            f
+            for f in os.listdir(profile_path)
+            if os.path.isfile(os.path.join(profile_path, f))
+        ]
+
+        CCH_RM_MAX_APP_NAME = 255
+        CCH_RM_MAX_SVC_NAME = 63
+
+        class _RM_UNIQUE_PROCESS(ctypes.Structure):
+            _fields_ = [("dwProcessId", W.DWORD), ("ProcessStartTime", W.FILETIME)]
+
+        class _RM_PROCESS_INFO(ctypes.Structure):
+            _fields_ = [
+                ("Process", _RM_UNIQUE_PROCESS),
+                ("strAppName", ctypes.c_wchar * (CCH_RM_MAX_APP_NAME + 1)),
+                ("strServiceShortName", ctypes.c_wchar * (CCH_RM_MAX_SVC_NAME + 1)),
+                ("ApplicationType", ctypes.c_int),
+                ("AppStatus", W.ULONG),
+                ("TSSessionId", W.DWORD),
+                ("bRestartable", W.BOOL),
+            ]
+
+        rm = ctypes.windll.RstrtMgr
+        for fname in profile_files:
+            fpath = os.path.join(profile_path, fname)
+            if not os.path.exists(fpath):
+                continue
+            handle = W.DWORD()
+            key = ctypes.create_unicode_buffer(33)
+            if rm.RmStartSession(ctypes.byref(handle), 0, key) != 0:
+                continue
+            try:
+                paths = (ctypes.c_wchar_p * 1)(fpath)
+                if rm.RmRegisterResources(handle, 1, paths, 0, None, 0, None) != 0:
+                    continue
+                needed = W.DWORD(0)
+                got = W.DWORD(0)
+                reasons = W.DWORD(0)
+                rm.RmGetList(
+                    handle,
+                    ctypes.byref(needed),
+                    ctypes.byref(got),
+                    None,
+                    ctypes.byref(reasons),
+                )
+                if needed.value == 0:
+                    continue
+                info = (_RM_PROCESS_INFO * needed.value)()
+                got = W.DWORD(needed.value)
+                if (
+                    rm.RmGetList(
+                        handle,
+                        ctypes.byref(needed),
+                        ctypes.byref(got),
+                        info,
+                        ctypes.byref(reasons),
+                    )
+                    != 0
+                ):
+                    continue
+                procs = [
+                    (info[i].Process.dwProcessId, info[i].strAppName)
+                    for i in range(got.value)
+                ]
+                self._logger.warning(f"{fname} locked by: {procs}")
+            finally:
+                rm.RmEndSession(handle)
 
     def _apply_prefs_to_child_profile(self):
         prefs = {
@@ -838,8 +951,6 @@ class FeltTestsBase(EnterpriseTestsBase):
 
     def wait_process_exit(self, pid_to_check):
         self._logger.info(f"Checking PID {pid_to_check}")
-        import psutil
-
         # Wait for a process termination
         continue_checking = True
         iterations = 0
@@ -942,6 +1053,39 @@ class FeltTestsBase(EnterpriseTestsBase):
 
 
 class FeltTests(FeltTestsBase):
+    def reload_chrome_window(self):
+        # We set a marker before reloading so we can reliably detect when the
+        # new page is ready. A simple readyState == "complete" check is not
+        # sufficient because the old page may still report "complete" for a
+        # brief window after window.location.reload() is called, causing a
+        # false positive. The marker is absent on the new page, so we can
+        # unambiguously tell old page (marker matches), mid-reload (exception),
+        # and new page loading (marker gone, readyState != "complete") apart.
+        with self._driver.using_context(self._driver.CONTEXT_CHROME):
+            marker = self._driver.execute_script(
+                """
+                window.__felt_reload_marker = Math.random();
+                window.location.reload();
+                return window.__felt_reload_marker;
+                """
+            )
+
+            def new_page_loaded(_):
+                try:
+                    current = self._driver.execute_script(
+                        "return window.__felt_reload_marker;"
+                    )
+                    if current == marker:
+                        return False
+                    return (
+                        self._driver.execute_script("return document.readyState")
+                        == "complete"
+                    )
+                except Exception:
+                    return False
+
+            self._wait.until(new_page_loaded)
+
     def run_felt_chrome_on_email_submit(self):
         self.submit_email()
 

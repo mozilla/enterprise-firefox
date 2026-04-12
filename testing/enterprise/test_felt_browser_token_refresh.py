@@ -11,9 +11,15 @@ sys.path.append(os.path.dirname(__file__))
 from base_test import Environment
 from felt_tests import FeltLogoutChecker, FeltTests
 from marionette_driver.by import By
+from marionette_driver.errors import NoSuchWindowException
 
 
 class BrowserTokenRefresh(FeltTests):
+
+    EXTRA_CHILD_PREFS = {
+        "dom.require_user_interaction_for_beforeunload": False
+    }
+
     def setup(self):
         super().setup()
         self.felt_logout_checker = FeltLogoutChecker(self)
@@ -27,9 +33,7 @@ class BrowserTokenRefresh(FeltTests):
         )
         input_el = self._child_driver.find_element(By.TAG_NAME, "input")
         input_el.click()
-        input_el.send_keys("dirty")
-        new_handle = self._child_driver.open(type="tab")
-        self._child_driver.switch_to_window(new_handle["handle"])
+        self.open_tab_child("about:blank")
 
     def assert_browser_closes_on_401(self):
         old_access_token = self.policy_access_token.value
@@ -38,10 +42,15 @@ class BrowserTokenRefresh(FeltTests):
         self.policy_refresh_token.value = ""
 
         # Trigger an auth request with invalid tokens, expecting a forced logout.
+        # The browser may close before the async script callback is delivered,
+        # so NoSuchWindowException is an acceptable outcome here.
         with self.felt_logout_checker.assert_browser_logouts_with(
             "console-forced-logout"
         ):
-            self.get_logged_in_user_info(env=Environment.FIREFOX)
+            try:
+                self.get_logged_in_user_info(env=Environment.FIREFOX)
+            except (NoSuchWindowException, OSError):
+                pass
         self._manually_closed_child = True
         self.assert_child_browser_closed()
 
@@ -82,7 +91,6 @@ class BrowserTokenRefresh(FeltTests):
             "setTimeout(() => Services.startup.quit(Ci.nsIAppStartup.eAttemptQuit), 0);"
         )
         self._child_driver.set_context("content")
-
         self._child_wait.until(lambda d: d.switch_to_alert())
         self.assert_browser_closes_on_401()
         self._driver.set_context("chrome")

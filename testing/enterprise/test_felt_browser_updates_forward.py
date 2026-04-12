@@ -17,6 +17,7 @@ from marionette_driver.errors import (
 class FeltUpdatesForward(FeltTests):
     EXTRA_PREFS = {
         "enterprise.felt_tests.should_not_close_window": True,
+        "app.update.disabledForTesting": False,
     }
 
     def install_update_manager_mock(self, ready_update=None):

@@ -12,6 +12,8 @@ from felt_browser_starts import FeltStartsBrowser
 
 
 class BrowserShutdownCrash(FeltStartsBrowser):
+    _check_child_crashes = False
+
     def test_browser_shutdown_crash(self):
         super().run_felt_base()
         self.run_felt_browser_started()
@@ -55,7 +57,7 @@ class BrowserShutdownCrash(FeltStartsBrowser):
         self.wait_process_exit(browser_pid)
         try:
             self._logger.info("Trying to connect to new browser")
-            self.connect_child_browser()
+            self.connect_child_browser(max_try=20)
             new_browser_pid = self._child_driver.session_capabilities["moz:processID"]
             assert browser_pid != new_browser_pid, (
                 f"PID should not be the same: {browser_pid} != {new_browser_pid}"

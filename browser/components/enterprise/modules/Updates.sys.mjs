@@ -22,6 +22,14 @@ export const Updates = {
     this._document = doc;
     this._errorReporter = errorReporter;
 
+    const aus = Cc["@mozilla.org/updates/update-service;1"].getService(
+      Ci.nsIApplicationUpdateService
+    );
+    if (aus.disabled) {
+      this.displayLoginState();
+      return;
+    }
+
     this.maybeShowUpdateSuccess();
     // Check this early to avoid re-downloading updates when it would fail
     await this.updateCheckingAllowed();

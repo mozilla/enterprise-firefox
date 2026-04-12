@@ -15,16 +15,19 @@ class BrowserCrashes(FeltTests):
     EXTRA_ENV = {"MOZ_GDB_SLEEP": "1"}
     # Reduce the timeout for faster processing of the tests
     socket_timeout = 10
+    _check_child_crashes = False
 
     def crash_parent(self):
         self._browser_pid = self._child_driver.session_capabilities["moz:processID"]
+        self._child_pid = self._browser_pid
         self._logger.info(f"Crashing browser at {self._browser_pid}")
         saved_timeout = self._child_driver.client.socket_timeout
         self._child_driver.client.socket_timeout = self.socket_timeout
         try:
             # This is going to trigger exception for sure
             self._logger.info("Crashing main process")
-            self.open_tab_child("about:crashparent")
+            self._child_driver.set_context("content")
+            self._child_driver.navigate("about:crashparent")
         except Exception as ex:
             self._logger.info(f"Caught exception {ex}")
         finally:
@@ -45,10 +48,11 @@ class BrowserCrashes(FeltTests):
         self.connect_child_browser()
         self._browser_pid = self._child_driver.session_capabilities["moz:processID"]
         self._logger.info(f"Connected to {self._browser_pid}")
-        self.open_tab_child("about:support")
+        with self._child_driver.using_context("content"):
+            self._child_driver.navigate("about:buildconfig")
 
-        version_box = self.get_elem_child("#version-box")
-        self._child_wait.until(lambda d: len(version_box.text) > 0)
+        build_flags_box = self.get_elem_child("p:last-child")
+        self._child_wait.until(lambda d: len(build_flags_box.text) > 0)
 
     def run_felt_crash_parent_twice(self):
         self._manually_closed_child = True
