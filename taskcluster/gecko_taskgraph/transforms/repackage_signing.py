@@ -146,10 +146,12 @@ def make_repackage_signing_description(config, jobs):
                     "formats": SIGNING_FORMATS[basename],
                 }
                 if basename == "target.installer.msi":
-                    if msi_display_name := dep_job.attributes.get("msi_display_name"):
-                        artifact_entry["authenticode_comment"] = (
-                            f"{msi_display_name} Installer"
-                        )
+                    msi_display_name = dep_job.attributes.get(
+                        "msi_display_name", "Firefox"
+                    )
+                    artifact_entry["authenticode_comment"] = (
+                        f"{msi_display_name} Installer"
+                    )
                 upstream_artifacts.append(artifact_entry)
 
         task = {
