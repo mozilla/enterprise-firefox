@@ -7,13 +7,14 @@ import ctypes
 import datetime
 import json
 import os
-import random
 import shutil
+import socket
 import sys
 import tempfile
 import time
 import urllib.parse
 import uuid
+from contextlib import closing
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from multiprocessing import Array, Process, Value
 
@@ -599,6 +600,12 @@ class FeltLogoutChecker:
         return False
 
 
+def find_free_port():
+    with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
+
+
 class FeltTestsBase(EnterpriseTestsBase):
     EXTRA_ENV = {}
 
@@ -606,8 +613,8 @@ class FeltTestsBase(EnterpriseTestsBase):
         # test_prefs = kwargs.get("test_prefs", [])
 
         self._manually_closed_child = False
-        self.console_port = random.randrange(10000, 14999)
-        self.sso_port = random.randrange(15000, 20000)
+        self.console_port = find_free_port()
+        self.sso_port = find_free_port()
         self.policy_block_about_config = Value("b", 1)
         self.policy_extensions = Value("B", 0)
         self.policies_fail_request = Value("B", 0)

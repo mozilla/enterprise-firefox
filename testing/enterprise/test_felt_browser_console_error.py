@@ -8,7 +8,7 @@ import sys
 
 sys.path.append(os.path.dirname(__file__))
 
-from felt_tests import FeltTestsBase
+from felt_tests import FeltTestsBase, find_free_port
 
 
 class FeltConsoleError(FeltTestsBase):
@@ -76,7 +76,7 @@ class FeltConsoleError(FeltTestsBase):
 
     def test_felt_error_details_include_console_address(self):
         # connectionFailure with host substitution so the console address appears in details.
-        refused_port = self.console_port + 20000
+        refused_port = find_free_port()
         console_addr = f"http://localhost:{refused_port}"
         return self.check_error_bar_message(
             console_addr,
