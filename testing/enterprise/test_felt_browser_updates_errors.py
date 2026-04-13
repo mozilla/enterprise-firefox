@@ -17,28 +17,6 @@ class FeltUpdatesErrorHandling(FeltTests):
         "enterprise.felt_tests.read_update_url_from_prefs": True,
     }
 
-    def reload_chrome_window(self):
-        self._driver.set_context("chrome")
-        self._driver.execute_script(
-            """
-            window.location.reload();
-            """
-        )
-        # Ensure document is ready when we finish this. Making reload in the same
-        # script does not work well, document gets unloaded and Marionette is
-        # unhappy.
-        self._driver.execute_async_script(
-            """
-            let done = arguments[0];
-            if (document.readyState === "complete") {
-                done();
-            } else {
-                window.addEventListener("load", () => done(), { once: true });
-            }
-            """
-        )
-        self._driver.set_context("content")
-
     def trigger_appUpdater_error(self, error):
         self._driver.set_context("chrome")
         self._driver.execute_script(

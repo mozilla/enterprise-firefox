@@ -897,6 +897,43 @@ class FeltTestsBase(EnterpriseTestsBase):
 
 
 class FeltTests(FeltTestsBase):
+    def reload_chrome_window(self):
+        # We set a marker before reloading so we can reliably detect when the
+        # new page is ready. A simple readyState == "complete" check is not
+        # sufficient because the old page may still report "complete" for a
+        # brief window after window.location.reload() is called, causing a
+        # false positive. The marker is absent on the new page, so we can
+        # unambiguously tell old page (marker matches), mid-reload (exception),
+        # and new page loading (marker gone, readyState != "complete") apart.
+        marker = str(uuid.uuid4())
+        with self._driver.using_context(self._driver.CONTEXT_CHROME):
+            try:
+                self._driver.execute_script(
+                    """
+                    window.__felt_reload_marker = arguments[0];
+                    window.location.reload();
+                    """,
+                    [marker],
+                )
+            except Exception:
+                pass
+
+            def new_page_loaded(_):
+                try:
+                    current = self._driver.execute_script(
+                        "return window.__felt_reload_marker;"
+                    )
+                    if current == marker:
+                        return False
+                    return (
+                        self._driver.execute_script("return document.readyState")
+                        == "complete"
+                    )
+                except Exception:
+                    return False
+
+            self._wait.until(new_page_loaded)
+
     def run_felt_chrome_on_email_submit(self):
         self.submit_email()
 

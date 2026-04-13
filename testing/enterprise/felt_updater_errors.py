@@ -32,13 +32,14 @@ class FeltUpdaterErrorsBase(FeltTests):
             const callback = arguments[arguments.length - 1];
             const UM = Cc["@mozilla.org/updates/update-manager;1"].getService(Ci.nsIUpdateManager);
             UM.internal.reload(false).then(() => {
-              const { Updates } = ChromeUtils.importESModule("resource:///modules/enterprise/Updates.sys.mjs");
+              const { Updates } = ChromeUtils.importESModule("resource:///modules/enterprise/Updates.sys.mjs");
               Updates.uninit();
-              window.location.reload();
-            }).finally(() => callback());
+              callback();
+            });
             """
         )
         self._driver.set_context("content")
+        super().reload_chrome_window()
 
     def get_updates_served(self):
         return requests.get(

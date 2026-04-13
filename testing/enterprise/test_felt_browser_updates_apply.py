@@ -47,15 +47,6 @@ class FeltUpdatesApplyFromFelt(FeltTests):
         self._driver.set_context("content")
         return rv
 
-    def reload_chrome_window(self):
-        self._driver.set_context("chrome")
-        self._driver.execute_script(
-            """
-            window.location.reload();
-            """
-        )
-        self._driver.set_context("content")
-
     def test_felt_updates_apply_from_felt(self):
         self._update_root = os.path.dirname(self.get_update_config_file_path())
 
