@@ -33,6 +33,17 @@ class MozharnessSchema(Schema, forbid_unknown_fields=False, kw_only=True):
     use_caches: Optional[Union[bool, list[str]]] = None
 
 
+class MsiSchema(Schema, kw_only=True):
+    display_name: Optional[  # type: ignore
+        optionally_keyed_by(
+            "shipping-product",
+            "release-type",
+            str,
+            use_msgspec=True,
+        )
+    ] = None
+
+
 class MsixSchema(Schema, kw_only=True):
     channel: Optional[  # type: ignore
         optionally_keyed_by(
@@ -131,6 +142,7 @@ class PackagingDescriptionSchema(Schema, kw_only=True):
         list[str],
         use_msgspec=True,
     )
+    msi: Optional[MsiSchema] = None
     msix: Optional[MsixSchema] = None
     flatpak: Optional[FlatpakSchema] = None
     # All l10n jobs use mozharness
@@ -436,6 +448,7 @@ def handle_keyed_by(config, jobs):
     """
     fields = [
         "mozharness.config",
+        "msi.display-name",
         "package-formats",
         "worker.max-run-time",
         "flatpak.name",
@@ -452,6 +465,7 @@ def handle_keyed_by(config, jobs):
                 **{
                     "release-type": config.params["release_type"],
                     "level": config.params["level"],
+                    "shipping-product": job.get("shipping-product"),
                 },
             )
         yield job
@@ -588,6 +602,8 @@ def make_job_description(config, jobs):
                 treeherder["symbol"] = f"MSI-Ent({repack_id})"
             else:
                 treeherder["symbol"] = "MSI({})".format(locale or "N")
+                if display_name := job.get("msi", {}).get("display-name"):
+                    attributes["msi_display_name"] = display_name
 
         elif config.kind == "repackage-msix":
             assert not locale
