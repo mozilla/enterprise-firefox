@@ -42,6 +42,10 @@ add_task(async function () {
     getOSAuthEnabled() {
       return true; // Since enabled by default.
     },
+    // Simulate non-enterprise-managed browser
+    isEnterpriseManagedPrimaryPassword() {
+      return false;
+    },
   };
 
   let checkbox = doc.querySelector("#useMasterPassword");
@@ -171,6 +175,10 @@ add_task(async function () {
     },
     getOSAuthEnabled() {
       return true; // Since enabled by default.
+    },
+    // Simulate non-enterprise-managed browser
+    isEnterpriseManagedPrimaryPassword() {
+      return false;
     },
   };
 
