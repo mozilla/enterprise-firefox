@@ -25,13 +25,4 @@ class BrowserCrashRestart(BrowserCrashes):
         self.run_felt_proper_restart_again()
 
     def run_felt_proper_restart_again(self):
-        self._manually_closed_child = False
-        self.wait_process_exit(self._browser_pid)
-        self._logger.info("Connecting to new browser")
-        self.connect_child_browser()
-        self._browser_pid = self._child_driver.session_capabilities["moz:processID"]
-        self._logger.info(f"Connected to {self._browser_pid}")
-        self.open_tab_child("about:support")
-
-        version_box = self.get_elem_child("#version-box")
-        self._child_wait.until(lambda d: len(version_box.text) > 0)
+        self.run_felt_proper_restart()

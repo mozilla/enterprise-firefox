@@ -106,7 +106,7 @@ class EnterpriseTestsBase(MarionetteTestCase):
     def open_tab_child(self, url):
         return self._open_tab(url, self._child_driver)
 
-    def get_marionette_port(self, max_try=100):
+    def get_marionette_port(self, max_try):
         marionette_port_file = os.path.join(
             self._child_profile_path, "MarionetteActivePort"
         )
@@ -124,8 +124,10 @@ class EnterpriseTestsBase(MarionetteTestCase):
 
         return (marionette_port, marionette_port_file)
 
-    def connect_child_browser(self, capabilities=None):
-        (marionette_port, marionette_port_file) = self.get_marionette_port()
+    def connect_child_browser(self, capabilities=None, max_try=100):
+        (marionette_port, marionette_port_file) = self.get_marionette_port(
+            max_try=max_try
+        )
         assert marionette_port > 0, "Valid marionette port"
         self._logger.info(f"Marionette PORT: {marionette_port}")
 
