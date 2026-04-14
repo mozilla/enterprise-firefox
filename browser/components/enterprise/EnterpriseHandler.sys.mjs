@@ -15,7 +15,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
   BrowserUtils: "resource://gre/modules/BrowserUtils.sys.mjs",
   ConsoleClient: "resource:///modules/enterprise/ConsoleClient.sys.mjs",
   EnterpriseCommon: "resource:///modules/enterprise/EnterpriseCommon.sys.mjs",
-  isTesting: "resource:///modules/enterprise/EnterpriseCommon.sys.mjs",
 });
 
 ChromeUtils.defineLazyGetter(lazy, "log", () => {
@@ -57,11 +56,7 @@ function validateHttpsUrl(url) {
     return null;
   }
 
-  const isLocalTest =
-    lazy.isTesting() &&
-    (parsedUrl.hostname === "localhost" || parsedUrl.hostname === "127.0.0.1");
-
-  if (parsedUrl.protocol !== "https:" && !isLocalTest) {
+  if (parsedUrl.protocol !== "https:") {
     lazy.log.warn(`Expected HTTPS URL: ${url}`);
     return null;
   }

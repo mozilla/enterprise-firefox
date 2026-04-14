@@ -20,7 +20,7 @@ class FeltRapidNewTabsFromCli(FeltNewWindowFromCli):
         self.connect_child_browser()
 
         NUM_TABS = 5
-        base_url = f"http://localhost:{self.console_port}/ping"
+        base_url = f"https://localhost:{self.console_port}/ping"
 
         procs = []
         for i in range(NUM_TABS):

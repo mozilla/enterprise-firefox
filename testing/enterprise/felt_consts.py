@@ -6,7 +6,7 @@
 firefox_config = {
     "learn_more_url": {
         "pref_id": "enterprise.configs.learn_more_url",
-        "pref_value": "http://localhost:0/learnmore",
+        "pref_value": "https://localhost:0/learnmore",
     },
     "company_logo_url": {
         "pref_id": "enterprise.configs.company_logo_url",
@@ -28,3 +28,10 @@ firefox_config = {
     # it's pre-populated in marionette test environemtns:
     #  https://searchfox.org/firefox-main/rev/9a3317a65545e83f4e32b94fdf1f6860342423ef/remote/shared/RecommendedPreferences.sys.mjs#381-382
 }
+
+import os
+
+https_dir = os.path.join(os.path.dirname(__file__), "https")
+ca_pem = os.path.join(https_dir, "ca.pem")
+key_pem = os.path.join(https_dir, "localhost.key")
+cert_pem = os.path.join(https_dir, "localhost.pem")

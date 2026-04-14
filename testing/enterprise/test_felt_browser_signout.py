@@ -124,7 +124,7 @@ class BaseBrowserSignout(FeltTests):
         self.connect_child_browser()
 
     def run_new_browser_new_tab(self):
-        self.open_tab_child(f"http://localhost:{self.sso_port}/sso_page")
+        self.open_tab_child(f"https://localhost:{self.sso_port}/sso_page")
 
         expected_cookie = list(
             filter(

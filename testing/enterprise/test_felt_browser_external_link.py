@@ -16,7 +16,7 @@ from felt_tests import FeltTests
 class FeltStartsBrowserExternalLink(FeltTests):
     def test_browser_external_link(self):
         super().run_felt_base()
-        self._external_link = f"http://localhost:{self.console_port}/ping"
+        self._external_link = f"https://localhost:{self.console_port}/ping"
         self.run_felt_browser_started()
         self.run_felt_open_external_link()
 

@@ -51,7 +51,7 @@ class FeltUpdatesBasicChecks(FeltTests):
 
     def run_verify_felt_app_update_url(self):
         update_url = self.get_app_update_url(Environment.FELT)
-        expected_update_url = f"http://localhost:{self.console_port}/api/browser/updates/%PRODUCT%/%VERSION%/%BUILD_ID%/%BUILD_TARGET%/%LOCALE%/%CHANNEL%/%OS_VERSION%/%SYSTEM_CAPABILITIES%/%DISTRIBUTION%/%DISTRIBUTION_VERSION%/update.xml"
+        expected_update_url = f"https://localhost:{self.console_port}/api/browser/updates/%PRODUCT%/%VERSION%/%BUILD_ID%/%BUILD_TARGET%/%LOCALE%/%CHANNEL%/%OS_VERSION%/%SYSTEM_CAPABILITIES%/%DISTRIBUTION%/%DISTRIBUTION_VERSION%/update.xml"
         assert update_url == expected_update_url, (
             f"FELT has Console-based update URL: {update_url} == {expected_update_url}"
         )

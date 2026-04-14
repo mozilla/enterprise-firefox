@@ -113,7 +113,7 @@ class FeltNewWindowFromCli(FeltTests):
         self.run_felt_open_private_window_from_cli()
 
     def run_felt_open_new_window_from_cli(self):
-        url = f"http://localhost:{self.console_port}/ping"
+        url = f"https://localhost:{self.console_port}/ping"
         windows = self._get_child_windows()
         initial_count = len(windows)
         args = [
@@ -129,7 +129,7 @@ class FeltNewWindowFromCli(FeltTests):
         self._wait_for_window_with_url(url, is_private=False)
 
     def run_felt_open_private_window_from_cli(self):
-        url = f"http://localhost:{self.sso_port}/sso_url"
+        url = f"https://localhost:{self.sso_port}/sso_url"
         windows = self._get_child_windows()
         initial_count = len(windows)
         args = [

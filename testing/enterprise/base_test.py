@@ -38,7 +38,9 @@ class EnterpriseTestsBase(MarionetteTestCase):
             self.marionette.instance.app_args += self._extra_cli_args
 
         self.marionette.quit(in_app=False, clean=True)
-        self.marionette.start_session(timeout=60)
+        self.marionette.start_session(
+            capabilities={"acceptInsecureCerts": True}, timeout=60
+        )
 
         if hasattr(self, "_extra_prefs"):
             self.marionette.enforce_gecko_prefs(self._extra_prefs)

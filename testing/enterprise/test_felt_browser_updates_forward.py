@@ -74,7 +74,7 @@ class FeltUpdatesForward(FeltTests):
         self._logger.info(f"Waited on FELT {felt_pid} restart: done")
 
         # Verify the restarted process
-        self._driver.start_session()
+        self._driver.start_session({"acceptInsecureCerts": True})
         self._logger.info("Reconnected to FELT")
 
         new_felt_pid = self._driver.session_capabilities["moz:processID"]
@@ -87,7 +87,7 @@ class FeltUpdatesForward(FeltTests):
         email = self.get_elem("#felt-form__email")
         assert email, "Found an email field for login page"
 
-        mock_console = f"http://localhost:{self.console_port}"
+        mock_console = f"https://localhost:{self.console_port}"
         console_addr = self._driver.get_pref("enterprise.console.address")
         assert console_addr.startswith(mock_console), (
             f"Console in restarted FELT is mock: {mock_console}, found {console_addr}"

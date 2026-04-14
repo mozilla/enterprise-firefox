@@ -9,6 +9,7 @@ import json
 import os
 import random
 import shutil
+import ssl
 import sys
 import tempfile
 import time
@@ -19,7 +20,7 @@ from multiprocessing import Array, Process, Value
 
 import requests
 from base_test import EnterpriseTestsBase
-from felt_consts import firefox_config
+from felt_consts import ca_pem, cert_pem, firefox_config, https_dir, key_pem
 from marionette_driver import expected
 from marionette_driver.by import By
 
@@ -118,7 +119,7 @@ class SsoHttpHandler(LocalHttpRequestHandler):
         elif path == "/auth":
             expires = datetime.datetime.utcnow() + datetime.timedelta(hours=8)
             cookie_expiry = expires.strftime("%a, %d %b %Y %H:%M:%S GMT")
-            location = f"http://localhost:{self.server.console_port}/sso/callback?foo"
+            location = f"https://localhost:{self.server.console_port}/sso/callback?foo"
             self.send_response(302, "Found")
             self.send_header(
                 "Set-Cookie",
@@ -176,7 +177,7 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
                 self.forbidden()
                 return
 
-            location = f"http://localhost:{self.server.sso_port}/sso_url"
+            location = f"https://localhost:{self.server.sso_port}/sso_url"
             self.send_response(302, "Found")  # or 301/308 as needed
             self.send_header("Location", location)
             self.send_header("Content-Length", "0")
@@ -217,7 +218,7 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
                     "ExtensionSettings": {
                         "treestyletab@piro.sakura.ne.jp": {
                             "installation_mode": "force_installed",
-                            "install_url": f"http://localhost:{self.server.console_port}/downloads/tree_style_tab-4.2.7.xpi",
+                            "install_url": f"https://localhost:{self.server.console_port}/downloads/tree_style_tab-4.2.7.xpi",
                             "updates_disabled": True,
                         }
                     }
@@ -233,7 +234,7 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
                 "id": str(uuid.uuid4()),
                 "email": "nobody@mozilla.org",
                 "name": "moz user",
-                "picture": f"http://localhost:{self.server.console_port}/avatar/something",
+                "picture": f"https://localhost:{self.server.console_port}/avatar/something",
                 "is_active": True,
                 "last_login_at": "2025-11-14T14:27:23.575030Z",
                 "created_at": "2025-10-31T15:11:50.735175Z",
@@ -284,7 +285,7 @@ class ConsoleHttpHandler(LocalHttpRequestHandler):
                 m = f"""<?xml version="1.0"?>
 <updates>
     <update type="minor" displayVersion="{display_version}" appVersion="{app_version}" platformVersion="{platform_version}" buildID="{build_id}">
-        <patch type="complete" URL="http://localhost:{self.server.console_port}/downloads/complete.mar" hashFunction="sha512" hashValue="{hash_value}" size="{size}"/>
+        <patch type="complete" URL="https://localhost:{self.server.console_port}/downloads/complete.mar" hashFunction="sha512" hashValue="{hash_value}" size="{size}"/>
     </update>
 </updates>"""
             else:
@@ -523,6 +524,13 @@ def serve(
     print(
         f"Serving localhost:{port} SSO={sso_port} CONSOLE={console_port} with {classname}"
     )
+
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    context.load_verify_locations(cafile=ca_pem)
+    context.load_cert_chain(certfile=cert_pem, keyfile=key_pem)
+    context.check_hostname = False
+
+    httpd.socket = context.wrap_socket(httpd.socket, server_side=True)
     httpd.serve_forever()
     print(
         f"Stopped serving localhost:{port} SSO={sso_port} CONSOLE={console_port} with {classname}"
@@ -617,7 +625,7 @@ class FeltTestsBase(EnterpriseTestsBase):
         """
 
         self._extra_prefs = {
-            "enterprise.console.address": f"http://localhost:{self.console_port}",
+            "enterprise.console.address": f"https://localhost:{self.console_port}",
             "enterprise.is_testing": True,
         }  # + test_prefs
 
@@ -671,13 +679,13 @@ class FeltTestsBase(EnterpriseTestsBase):
         self._logger.info(f"Starting SSO server: {self.sso_port}")
 
     def setup(self):
-        console_addr = f"http://localhost:{self.console_port}"
+        console_addr = f"https://localhost:{self.console_port}"
 
         max_try = 0
         while max_try < 20:
             max_try += 1
             try:
-                r = requests.get(f"{console_addr}/ping")
+                r = requests.get(f"{console_addr}/ping", verify=ca_pem)
                 print("r", r)
                 break
             except Exception as ex:
@@ -688,6 +696,10 @@ class FeltTestsBase(EnterpriseTestsBase):
             name="enterprise-tests-browser"
         )
         self._logger.info(f"Using browser profile at {self._child_profile_path}")
+
+        shutil.copy(os.path.join(https_dir, "cert9.db"), self._child_profile_path)
+        shutil.copy(os.path.join(https_dir, "key4.db"), self._child_profile_path)
+        shutil.copy(os.path.join(https_dir, "pkcs11.txt"), self._child_profile_path)
 
         # Pref does not like passing '\' ?
         if sys.platform == "win32":
@@ -715,9 +727,15 @@ class FeltTestsBase(EnterpriseTestsBase):
             self._logger.info("Browser was already manually closed.")
 
         self._logger.info("Shutting down console")
-        requests.post(f"http://localhost:{self.console_port}/:shutdown", timeout=2)
+        requests.post(
+            f"https://localhost:{self.console_port}/:shutdown",
+            timeout=2,
+            verify=ca_pem,
+        )
         self._logger.info("Shutting down SSO")
-        requests.post(f"http://localhost:{self.sso_port}/:shutdown", timeout=2)
+        requests.post(
+            f"https://localhost:{self.sso_port}/:shutdown", timeout=2, verify=ca_pem
+        )
         self._logger.info("Stopping process console")
         self.console_httpd.join()
         self._logger.info("Stopping process SSO")

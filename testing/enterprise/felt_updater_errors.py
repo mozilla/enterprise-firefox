@@ -10,6 +10,7 @@ import requests
 
 sys.path.append(os.path.dirname(__file__))
 
+from felt_consts import ca_pem
 from felt_tests import FeltTests
 
 
@@ -43,7 +44,8 @@ class FeltUpdaterErrorsBase(FeltTests):
 
     def get_updates_served(self):
         return requests.get(
-            f"http://localhost:{self.console_port}/api/browser/forced_updates_count"
+            f"https://localhost:{self.console_port}/api/browser/forced_updates_count",
+            verify=ca_pem,
         ).json()["serve_forced_updates_count"]
 
     def assert_updates_served(self, amount):
@@ -91,13 +93,14 @@ class FeltUpdaterErrorsBase(FeltTests):
     def reset_updates_served(self):
         self._logger.info("Reset updates served")
         requests.post(
-            f"http://localhost:{self.console_port}/api/browser/forced_updates_count"
+            f"https://localhost:{self.console_port}/api/browser/forced_updates_count",
+            verify=ca_pem,
         )
 
     def one_xml(self, state):
         return f"""
-<update xmlns="http://www.mozilla.org/2005/app-update" appVersion="2000.0a1" buildID="22221010555555" channel="default" detailsURL="https://www.mozilla.org/en-US/firefox/notes" displayVersion="2000.0a1" platformVersion="2000.0a1" installDate="1773852795836" isCompleteUpdate="true" name="Firefox Enterprise 2000.0a1" previousAppVersion="150.0a1" promptWaitTime="691200" serviceURL="http://localhost:8000/api/browser/updates/FirefoxEnterprise/150.0a1/20260317000000/Darwin_aarch64-gcc3/en-US/default/Darwin%252025.3.0/ISET%3ANEON%2CMEM%3A24576/default/default/update.xml?force=1" type="major" statusText="Install Pending" foregroundDownload="true">
-  <patch size="83136062" type="complete" URL="http://localhost:8000/firefox-150.0a1.en-US.mac.complete.mar" errorCode="9" finalURL="http://localhost:8000/firefox-150.0a1.en-US.mac.complete.mar?backgroundTaskMode=0" selected="true" state="{state}" internalResult="0" numTotalInstallAttempts="1"/>
+<update xmlns="http://www.mozilla.org/2005/app-update" appVersion="2000.0a1" buildID="22221010555555" channel="default" detailsURL="https://www.mozilla.org/en-US/firefox/notes" displayVersion="2000.0a1" platformVersion="2000.0a1" installDate="1773852795836" isCompleteUpdate="true" name="Firefox Enterprise 2000.0a1" previousAppVersion="150.0a1" promptWaitTime="691200" serviceURL="https://localhost:8000/api/browser/updates/FirefoxEnterprise/150.0a1/20260317000000/Darwin_aarch64-gcc3/en-US/default/Darwin%252025.3.0/ISET%3ANEON%2CMEM%3A24576/default/default/update.xml?force=1" type="major" statusText="Install Pending" foregroundDownload="true">
+  <patch size="83136062" type="complete" URL="https://localhost:8000/firefox-150.0a1.en-US.mac.complete.mar" errorCode="9" finalURL="https://localhost:8000/firefox-150.0a1.en-US.mac.complete.mar?backgroundTaskMode=0" selected="true" state="{state}" internalResult="0" numTotalInstallAttempts="1"/>
 </update>
 """
 

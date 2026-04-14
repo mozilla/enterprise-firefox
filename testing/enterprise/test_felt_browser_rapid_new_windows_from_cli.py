@@ -22,7 +22,7 @@ class FeltRapidNewWindowsFromCli(FeltNewWindowFromCli):
         NUM_WINDOWS = 5
         windows = self._get_child_windows()
         initial_count = len(windows)
-        base_url = f"http://localhost:{self.console_port}/ping"
+        base_url = f"https://localhost:{self.console_port}/ping"
 
         procs = []
         for i in range(NUM_WINDOWS):

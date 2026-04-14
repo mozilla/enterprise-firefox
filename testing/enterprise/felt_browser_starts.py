@@ -24,7 +24,7 @@ class FeltStartsBrowser(FeltTests):
 
     def run_felt_browser_started(self):
         self.connect_child_browser()
-        self.open_tab_child(f"http://localhost:{self.sso_port}/sso_page")
+        self.open_tab_child(f"https://localhost:{self.sso_port}/sso_page")
 
         expected_cookie = list(
             filter(

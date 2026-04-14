@@ -56,24 +56,33 @@ class FeltStartsBrowserSafeMode(FeltStartsBrowser):
         )
 
     def run_felt_install_addon_classic(self):
-        self._child_driver.set_context("chrome")
-        addon = self._child_driver.execute_async_script(
-            f"""
-            const callback = arguments[arguments.length - 1];
-            async function installAddon() {{
-                let ublock = await AddonManager.getInstallForURL('http://localhost:{self.console_port}/downloads/ublock_origin-1.67.0.xpi');
-                return await ublock.install();
-            }};
+        with self._child_driver.using_prefs(
+            {
+                "extensions.update.requireBuiltInCerts": False,
+                "extensions.install.requireBuiltInCerts": False,
+            },
+            default_branch=True,
+        ):
+            self._child_driver.set_context("chrome")
+            addon = self._child_driver.execute_async_script(
+                f"""
+                const callback = arguments[arguments.length - 1];
+                async function installAddon() {{
+                    let ublock = await AddonManager.getInstallForURL('https://localhost:{self.console_port}/downloads/ublock_origin-1.67.0.xpi');
+                    return await ublock.install();
+                }};
 
-            installAddon().then(addon => {{
-              callback(addon);
-            }}).catch(err => {{
-              callback({{"err": err}});
-            }});
-            """
-        )
-        self._child_driver.set_context("content")
-        assert addon["id"] == "uBlock0@raymondhill.net", "uBlock Origin addon installed"
+                installAddon().then(addon => {{
+                  callback(addon);
+                }}).catch(err => {{
+                  callback({{"err": err}});
+                }});
+                """
+            )
+            self._child_driver.set_context("content")
+            assert addon["id"] == "uBlock0@raymondhill.net", (
+                "uBlock Origin addon installed"
+            )
 
     def run_felt_assert_addons(self):
         self._child_driver.set_context("chrome")

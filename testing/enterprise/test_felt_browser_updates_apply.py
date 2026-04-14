@@ -13,6 +13,7 @@ import requests
 
 sys.path.append(os.path.dirname(__file__))
 
+from felt_consts import ca_pem
 from felt_tests import FeltTests
 
 
@@ -29,8 +30,9 @@ class FeltUpdatesApplyFromFelt(FeltTests):
         self._logger.info("Enabling updates")
         version_info = mozversion.get_version(binary=self._driver.instance.binary)
         requests.post(
-            f"http://localhost:{self.console_port}/api/browser/updates",
+            f"https://localhost:{self.console_port}/api/browser/updates",
             data=version_info,
+            verify=ca_pem,
         )
         self._logger.info(f"Version: {version_info}")
         self._logger.info("Updates ready")
@@ -66,7 +68,10 @@ class FeltUpdatesApplyFromFelt(FeltTests):
         self.run_updates_cleanup()
 
         self._logger.info("Disabling updates")
-        requests.post(f"http://localhost:{self.console_port}/api/browser/updates")
+        requests.post(
+            f"https://localhost:{self.console_port}/api/browser/updates",
+            verify=ca_pem,
+        )
 
         # We are not going to start the browser so do not try to close it
         self._manually_closed_child = True

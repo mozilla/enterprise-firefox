@@ -69,7 +69,7 @@ class FeltConsoleError(FeltTestsBase):
 
     def test_felt_ssl_mismatch_shows_connection_error(self):
         return self.check_error_bar_message(
-            f"https://localhost:{self.console_port}",
+            "https://wrong.host.badssl.com",
             ".felt-browser-error-connection",
             "Unable to connect",
         )
@@ -77,7 +77,7 @@ class FeltConsoleError(FeltTestsBase):
     def test_felt_error_details_include_console_address(self):
         # connectionFailure with host substitution so the console address appears in details.
         refused_port = self.console_port + 20000
-        console_addr = f"http://localhost:{refused_port}"
+        console_addr = f"https://localhost:{refused_port}"
         return self.check_error_bar_message(
             console_addr,
             ".felt-browser-error-connection",

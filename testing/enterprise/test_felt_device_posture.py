@@ -12,6 +12,7 @@ import time
 sys.path.append(os.path.dirname(__file__))
 
 import requests
+from felt_consts import ca_pem
 from felt_tests import FeltTests
 
 
@@ -22,12 +23,14 @@ class FeltDevicePosture(FeltTests):
         self.run_access()
 
     def get_device_posture(self):
-        console_addr = f"http://localhost:{self.console_port}"
+        console_addr = f"https://localhost:{self.console_port}"
         max_try = 0
         while max_try < 20:
             max_try += 1
             try:
-                r = requests.get(f"{console_addr}/sso/get_device_posture")
+                r = requests.get(
+                    f"{console_addr}/sso/get_device_posture", verify=ca_pem
+                )
                 return r.json()
             except Exception as ex:
                 self._logger.info(f"Console not yet online at {console_addr}: {ex}")
