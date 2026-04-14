@@ -50,6 +50,7 @@ task-defaults:
                 # https://searchfox.org/mozilla-central/rev/ce9ff94ffed34dc17ec0bfa406156d489eaa8ee1/browser/config/mozconfigs/linux32/release#1    # noqa
                 esr.*: release
                 release-enterprise: release-enterprise
+                beta-enterprise: beta-enterprise
                 nightly-enterprise: nightly-enterprise
                 default: nightly
         # Note: These settings are only honored by nightly (i.e. shipping) builds
@@ -64,6 +65,7 @@ task-defaults:
                 nightly-pine: nightly-pine
                 nightly-cypress: nightly-cypress
                 release-enterprise: release-enterprise
+                beta-enterprise: beta-enterprise
                 nightly-enterprise: nightly-enterprise
                 beta:
                     by-shipping-product:
@@ -82,6 +84,7 @@ task-defaults:
                 nightly-oak: firefox-nightly-oak
                 nightly-pine: firefox-nightly-pine
                 release-enterprise: firefox-enterprise-release
+                beta-enterprise: firefox-enterprise-beta
                 nightly-enterprise: firefox-enterprise-nightly
                 beta:
                     by-shipping-product:
@@ -96,6 +99,7 @@ task-defaults:
                 nightly-oak: firefox-nightly-oak
                 nightly-pine: firefox-nightly-pine
                 release-enterprise: firefox-enterprise-release
+                beta-enterprise: firefox-enterprise-beta
                 nightly-enterprise: firefox-enterprise-nightly
                 beta:
                     by-shipping-product:

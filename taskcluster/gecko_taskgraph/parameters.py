@@ -135,6 +135,8 @@ def get_release_type(parameters):
 
     if parameters["head_ref"] == "refs/heads/enterprise-release":
         return "release-enterprise"
+    elif parameters["head_ref"] == "refs/heads/enterprise-beta":
+        return "beta-enterprise"
     else:
         return "nightly-enterprise"
 

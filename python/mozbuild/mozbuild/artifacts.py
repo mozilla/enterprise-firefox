@@ -118,7 +118,9 @@ class EnterpriseJobConfiguration:
     nightly_candidate_trees = [
         "enterprise-firefox.branch.enterprise-main",
     ]
-    beta_candidate_trees = []
+    beta_candidate_trees = [
+        "enterprise-firefox.branch.enterprise-beta",
+    ]
     # The list below list should be updated when we have new ESRs.
     esr_candidate_trees = []
     try_tree = "try"

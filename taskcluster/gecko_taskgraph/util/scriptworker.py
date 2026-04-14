@@ -76,6 +76,7 @@ SIGNING_SCOPE_ALIAS_TO_PROJECT = [
             "comm-esr115",
             "comm-esr128",
             "comm-esr140",
+            ("enterprise-firefox", "refs/heads/enterprise-beta"),
             ("enterprise-firefox", "refs/heads/enterprise-release"),
         },
     ],
