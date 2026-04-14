@@ -41,7 +41,16 @@ class BrowserTokenRefresh(FeltTests):
         with self.felt_logout_checker.assert_browser_logouts_with(
             "console-forced-logout"
         ):
-            self.get_logged_in_user_info(env=Environment.FIREFOX)
+            self._child_driver.set_context("chrome")
+            # Run synchronously without awaiting the promise — the only purpose is
+            # to trigger a 401/403 response which causes the browser to shut down.
+            self._child_driver.execute_script("""
+                const { ConsoleClient } = ChromeUtils.importESModule(
+                    "resource:///modules/enterprise/ConsoleClient.sys.mjs"
+                );
+                ConsoleClient.getLoggedInUserInfo();
+            """)
+
         self._manually_closed_child = True
         self.assert_child_browser_closed()
 
