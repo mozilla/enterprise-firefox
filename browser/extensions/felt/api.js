@@ -32,14 +32,12 @@ ChromeUtils.defineESModuleGetters(lazy, {
   isBlockingShutdown: "resource:///modules/enterprise/EnterpriseCommon.sys.mjs",
   shouldNotCloseWindow:
     "resource:///modules/enterprise/EnterpriseCommon.sys.mjs",
-  EnterpriseCommon: "resource:///modules/enterprise/EnterpriseCommon.sys.mjs",
+  createEnterpriseLogger:
+    "resource:///modules/enterprise/EnterpriseCommon.sys.mjs",
 });
 
 ChromeUtils.defineLazyGetter(lazy, "log", () => {
-  return console.createInstance({
-    prefix: "Felt",
-    maxLogLevelPref: lazy.EnterpriseCommon.ENTERPRISE_LOGLEVEL_PREF,
-  });
+  return lazy.createEnterpriseLogger("Felt");
 });
 
 this.felt = class extends ExtensionAPI {

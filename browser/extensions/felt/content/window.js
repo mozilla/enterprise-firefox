@@ -17,14 +17,12 @@ ChromeUtils.defineESModuleGetters(lazy, {
   FeltStorage: "resource:///modules/FeltStorage.sys.mjs",
   PopupNotifications: "resource://gre/modules/PopupNotifications.sys.mjs",
   Updates: "resource:///modules/enterprise/Updates.sys.mjs",
-  EnterpriseCommon: "resource:///modules/enterprise/EnterpriseCommon.sys.mjs",
+  createEnterpriseLogger:
+    "resource:///modules/enterprise/EnterpriseCommon.sys.mjs",
 });
 
 ChromeUtils.defineLazyGetter(lazy, "log", () => {
-  return console.createInstance({
-    prefix: "Felt",
-    maxLogLevelPref: lazy.EnterpriseCommon.ENTERPRISE_LOGLEVEL_PREF,
-  });
+  return lazy.createEnterpriseLogger("Felt");
 });
 
 // Will at least make move forward marionette

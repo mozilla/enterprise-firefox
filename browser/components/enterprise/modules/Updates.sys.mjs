@@ -7,16 +7,14 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   AppUpdater: "resource://gre/modules/AppUpdater.sys.mjs",
   isUpdatesTesting: "resource:///modules/enterprise/EnterpriseCommon.sys.mjs",
+  createEnterpriseLogger:
+    "resource:///modules/enterprise/EnterpriseCommon.sys.mjs",
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
   clearTimeout: "resource://gre/modules/Timer.sys.mjs",
-  EnterpriseCommon: "resource:///modules/enterprise/EnterpriseCommon.sys.mjs",
 });
 
 ChromeUtils.defineLazyGetter(lazy, "log", () => {
-  return console.createInstance({
-    prefix: "Updates",
-    maxLogLevelPref: lazy.EnterpriseCommon.ENTERPRISE_LOGLEVEL_PREF,
-  });
+  return lazy.createEnterpriseLogger("Updates");
 });
 
 const FELT_UPDATE_APPLY_PERCENT_INIT = 10;
