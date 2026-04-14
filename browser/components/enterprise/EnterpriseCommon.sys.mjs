@@ -23,7 +23,7 @@ export const shouldNotCloseWindow = () => {
   return Services.prefs.getBoolPref(SHOULD_NOT_CLOSE_WINDOW, false);
 };
 
-const ENTERPRISE_LOGLEVEL_PREF = "enterprise.loglevel";
+const ENTERPRISE_LOGLEVEL_PREF = "enterprise.logLevel";
 
 export const EnterpriseCommon = {
   ENTERPRISE_DEVICE_ID_PREF: "enterprise.sync.device_id",

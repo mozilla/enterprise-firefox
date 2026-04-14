@@ -157,6 +157,7 @@ class EnterpriseTestsBase(MarionetteTestCase):
             f"New Marionette MOVED OUT {marionette_port_file} TO {port_file_copy}"
         )
         self._child_driver.set_pref("enterprise.is_testing", True)
+        self._child_driver.set_pref("enterprise.logLevel", "Debug")
 
     def get_driver(self, env):
         return self._driver if env == Environment.FELT else self._child_driver

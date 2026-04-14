@@ -12,10 +12,6 @@ from felt_tests import FeltTests
 
 
 class BrowserFxAccount(FeltTests):
-    EXTRA_PREFS = {
-        "enterprise.loglevel": "Debug",
-    }
-
     def test_browser_fxa(self):
         super().run_felt_base()
         self.run_felt_no_fxa_toolbar_button()
